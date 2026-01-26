@@ -100,6 +100,10 @@ export class CreateContactDto {
   @IsString()
   @MaxLength(5000)
   notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isVip?: boolean;
 }
 
 /**

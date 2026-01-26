@@ -61,6 +61,7 @@ import { useFoldersStore } from '@/stores/folders-store';
 import { useToast } from '@/hooks/use-toast';
 import { FolderItem } from './FolderItem';
 import { SortableFolderItem, FolderItemDisplay } from './SortableFolderItem';
+import { DroppableFolderItem } from './DroppableFolderItem';
 import { LabelsSidebar } from './LabelsSidebar';
 import {
   FolderDialog,
@@ -470,40 +471,45 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                 const folderName = getFolderDisplayName(folder, getFolderLabel);
 
                                 return (
-                                  <Box
+                                  <DroppableFolderItem
                                     key={folder.id}
-                                    sx={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      '&:hover .folder-menu-btn': {
-                                        opacity: 1,
-                                      },
-                                    }}
+                                    folderId={folder.id}
+                                    providerId={provider.id}
                                   >
-                                    <SortableFolderItem
-                                      folder={folder}
-                                      icon={getFolderIcon(folder)}
-                                      label={folderName}
-                                      selected={filters.folderId === folder.id}
-                                      onClick={() => handleProviderFolderClick(provider.id, folder)}
-                                    />
-                                    {/* Show menu for custom folders only (not system folders) */}
-                                    {!folder.isSystem && (
-                                      <IconButton
-                                        size="small"
-                                        className="folder-menu-btn"
-                                        onClick={(e) => handleFolderMenu(e, folder)}
-                                        sx={{
-                                          p: 0.25,
-                                          opacity: 0,
-                                          transition: 'opacity 0.15s',
-                                          mr: 0.5,
-                                        }}
-                                      >
-                                        <MoreHorizontal size={14} />
-                                      </IconButton>
-                                    )}
-                                  </Box>
+                                    <Box
+                                      sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        '&:hover .folder-menu-btn': {
+                                          opacity: 1,
+                                        },
+                                      }}
+                                    >
+                                      <SortableFolderItem
+                                        folder={folder}
+                                        icon={getFolderIcon(folder)}
+                                        label={folderName}
+                                        selected={filters.folderId === folder.id}
+                                        onClick={() => handleProviderFolderClick(provider.id, folder)}
+                                      />
+                                      {/* Show menu for custom folders only (not system folders) */}
+                                      {!folder.isSystem && (
+                                        <IconButton
+                                          size="small"
+                                          className="folder-menu-btn"
+                                          onClick={(e) => handleFolderMenu(e, folder)}
+                                          sx={{
+                                            p: 0.25,
+                                            opacity: 0,
+                                            transition: 'opacity 0.15s',
+                                            mr: 0.5,
+                                          }}
+                                        >
+                                          <MoreHorizontal size={14} />
+                                        </IconButton>
+                                      )}
+                                    </Box>
+                                  </DroppableFolderItem>
                                 );
                               })}
                             </List>

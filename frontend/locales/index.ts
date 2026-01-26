@@ -1737,9 +1737,28 @@ export interface AppTranslations {
       security: string;
       ai: string;
       accounts: string;
+      signatures: string;
       account: string;
       notifications: string;
       billing: string;
+    };
+    signaturesPanel?: {
+      title: string;
+      description: string;
+      addSignature: string;
+      editSignature: string;
+      deleteSignature: string;
+      signatureName: string;
+      signatureNamePlaceholder: string;
+      signatureContent: string;
+      setAsDefault: string;
+      defaultBadge: string;
+      save: string;
+      cancel: string;
+      deleteConfirmTitle: string;
+      deleteConfirmMessage: string;
+      noSignatures: string;
+      previewTitle: string;
     };
     generalPanel: {
       title: string;

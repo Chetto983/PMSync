@@ -20,6 +20,7 @@ import {
   Sparkles,
   Shield,
   CreditCard,
+  FileSignature,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
@@ -55,9 +56,17 @@ import {
   AccountsSettings,
   AccountSettings,
 } from '@/components/settings';
+import { SignatureSettings } from '@/components/settings/SignatureSettings';
 import { BillingPanel } from '@/components/billing';
+import {
+  useSignatures,
+  useCreateSignature,
+  useUpdateSignature,
+  useDeleteSignature,
+  useSetDefaultSignature,
+} from '@/hooks/queries/use-signatures';
 
-type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'account' | 'billing';
+type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'account' | 'billing';
 
 export function Settings() {
   const router = useRouter();
@@ -116,12 +125,21 @@ export function Settings() {
   const logout = useAuthStore((state) => state.logout);
   const setUser = useAuthStore((state) => state.setUser);
 
+  // Signature hooks
+  const { data: signaturesData = [], isLoading: signaturesLoading } = useSignatures();
+  const createSignatureMutation = useCreateSignature();
+  const updateSignatureMutation = useUpdateSignature();
+  const deleteSignatureMutation = useDeleteSignature();
+  const setDefaultSignatureMutation = useSetDefaultSignature();
+  const [signatureError, setSignatureError] = useState('');
+
   const sections = useMemo(
     () => [
       { id: 'general', label: settingsCopy.sections.general, icon: <SettingsIcon size={18} /> },
       { id: 'security', label: settingsCopy.sections.security || 'Security', icon: <Shield size={18} /> },
       { id: 'ai', label: settingsCopy.sections.ai, icon: <Sparkles size={18} /> },
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
+      { id: 'signatures', label: settingsCopy.sections.signatures || 'Signatures', icon: <FileSignature size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
       { id: 'billing', label: settingsCopy.sections.billing || 'Billing', icon: <CreditCard size={18} /> },
     ],
@@ -487,6 +505,57 @@ export function Settings() {
     avatar: settingsCopy.accountPanel?.avatar,
   }), [settingsCopy]);
 
+  const signaturesCopy = useMemo(() => ({
+    title: settingsCopy.signaturesPanel?.title || 'Email Signatures',
+    description: settingsCopy.signaturesPanel?.description || 'Create and manage email signatures.',
+    addSignature: settingsCopy.signaturesPanel?.addSignature || 'Add Signature',
+    editSignature: settingsCopy.signaturesPanel?.editSignature || 'Edit Signature',
+    deleteSignature: settingsCopy.signaturesPanel?.deleteSignature || 'Delete',
+    signatureName: settingsCopy.signaturesPanel?.signatureName || 'Signature Name',
+    signatureNamePlaceholder: settingsCopy.signaturesPanel?.signatureNamePlaceholder || 'e.g., Work, Personal',
+    signatureContent: settingsCopy.signaturesPanel?.signatureContent || 'Signature Content',
+    setAsDefault: settingsCopy.signaturesPanel?.setAsDefault || 'Set as Default',
+    defaultBadge: settingsCopy.signaturesPanel?.defaultBadge || 'Default',
+    save: settingsCopy.signaturesPanel?.save || 'Save',
+    cancel: settingsCopy.signaturesPanel?.cancel || 'Cancel',
+    deleteConfirmTitle: settingsCopy.signaturesPanel?.deleteConfirmTitle || 'Delete Signature',
+    deleteConfirmMessage: settingsCopy.signaturesPanel?.deleteConfirmMessage || 'Are you sure you want to delete this signature?',
+    noSignatures: settingsCopy.signaturesPanel?.noSignatures || 'No signatures yet.',
+    previewTitle: settingsCopy.signaturesPanel?.previewTitle || 'Preview',
+  }), [settingsCopy]);
+
+  // Signature handlers
+  const handleSaveSignature = useCallback(async (signature: { id?: string; name: string; content: string; isDefault: boolean }) => {
+    try {
+      setSignatureError('');
+      if (signature.id) {
+        await updateSignatureMutation.mutateAsync({ id: signature.id, dto: { name: signature.name, content: signature.content, isDefault: signature.isDefault } });
+      } else {
+        await createSignatureMutation.mutateAsync({ name: signature.name, content: signature.content, isDefault: signature.isDefault });
+      }
+    } catch {
+      setSignatureError('Failed to save signature');
+    }
+  }, [createSignatureMutation, updateSignatureMutation]);
+
+  const handleDeleteSignature = useCallback(async (id: string) => {
+    try {
+      setSignatureError('');
+      await deleteSignatureMutation.mutateAsync(id);
+    } catch {
+      setSignatureError('Failed to delete signature');
+    }
+  }, [deleteSignatureMutation]);
+
+  const handleSetDefaultSignature = useCallback(async (id: string) => {
+    try {
+      setSignatureError('');
+      await setDefaultSignatureMutation.mutateAsync(id);
+    } catch {
+      setSignatureError('Failed to set default signature');
+    }
+  }, [setDefaultSignatureMutation]);
+
   if (!hydrated) {
     return (
       <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', p: 3 }}>
@@ -543,6 +612,18 @@ export function Settings() {
             )}
             {selectedSection === 'accounts' && (
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />
+            )}
+            {selectedSection === 'signatures' && (
+              <SignatureSettings
+                signatures={signaturesData.map(s => ({ id: s.id, name: s.name, content: s.content, isDefault: s.isDefault, createdAt: s.createdAt, updatedAt: s.updatedAt }))}
+                onSave={handleSaveSignature}
+                onDelete={handleDeleteSignature}
+                onSetDefault={handleSetDefaultSignature}
+                loading={signaturesLoading || createSignatureMutation.isPending || updateSignatureMutation.isPending || deleteSignatureMutation.isPending}
+                error={signatureError}
+                onClearError={() => setSignatureError('')}
+                copy={signaturesCopy}
+              />
             )}
             {selectedSection === 'account' && (
               <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarSave={handleAvatarSave} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />

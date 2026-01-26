@@ -2,9 +2,11 @@
  * Email Signatures Query Hooks
  *
  * TanStack Query hooks for signature CRUD operations
+ * NOTE: Gracefully handles 404 errors when endpoint not available
  */
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
-import { signaturesApi, CreateSignatureDto, UpdateSignatureDto } from '@/lib/api/signatures';
+import axios from 'axios';
+import { signaturesApi, CreateSignatureDto, UpdateSignatureDto, EmailSignature } from '@/lib/api/signatures';
 
 // Query key factory
 export const signatureKeys = {
@@ -14,26 +16,57 @@ export const signatureKeys = {
   default: (providerId?: string) => [...signatureKeys.all, 'default', providerId] as const,
 };
 
+// Helper to check if error is 404
+function is404Error(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404;
+}
+
 // Query options (for prefetching, SSR)
 export function signaturesListOptions(providerId?: string) {
   return queryOptions({
     queryKey: signatureKeys.list(providerId),
-    queryFn: async () => {
-      const response = await signaturesApi.list(providerId);
-      return response.data;
+    queryFn: async (): Promise<EmailSignature[]> => {
+      try {
+        const response = await signaturesApi.list(providerId);
+        return response.data;
+      } catch (error) {
+        // Return empty array if endpoint doesn't exist (404)
+        if (is404Error(error)) {
+          console.warn('[Signatures] Endpoint not available, returning empty list');
+          return [];
+        }
+        throw error;
+      }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      // Don't retry 404 errors
+      if (is404Error(error)) return false;
+      return failureCount < 3;
+    },
   });
 }
 
 export function signatureDefaultOptions(providerId?: string) {
   return queryOptions({
     queryKey: signatureKeys.default(providerId),
-    queryFn: async () => {
-      const response = await signaturesApi.getDefault(providerId);
-      return response.data;
+    queryFn: async (): Promise<EmailSignature | null> => {
+      try {
+        const response = await signaturesApi.getDefault(providerId);
+        return response.data;
+      } catch (error) {
+        // Return null if endpoint doesn't exist (404)
+        if (is404Error(error)) {
+          return null;
+        }
+        throw error;
+      }
     },
     staleTime: 5 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (is404Error(error)) return false;
+      return failureCount < 3;
+    },
   });
 }
 

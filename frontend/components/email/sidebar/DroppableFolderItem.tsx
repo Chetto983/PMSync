@@ -49,8 +49,9 @@ export function DroppableFolderItem({
     <Box
       ref={setNodeRef}
       sx={{
-        transition: 'all 200ms ease',
-        transform: isOver && isValidDrop ? 'scale(1.05)' : 'scale(1)',
+        transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isOver && isValidDrop ? 'scale(1.03)' : 'scale(1)',
+        transformOrigin: 'center left',
         bgcolor:
           isOver && isValidDrop
             ? (theme) => alpha(theme.palette.primary.main, 0.12)
@@ -59,11 +60,27 @@ export function DroppableFolderItem({
               : 'transparent',
         borderRadius: 1,
         cursor: isInvalidDrop && isOver ? 'not-allowed' : 'pointer',
+        // Add glow border on valid hover
+        border: '2px solid',
+        borderColor:
+          isOver && isValidDrop
+            ? 'primary.main'
+            : isInvalidDrop && isOver
+              ? 'error.main'
+              : 'transparent',
         // Add subtle shadow on valid hover
         boxShadow:
           isOver && isValidDrop
-            ? '0 2px 8px rgba(0, 0, 0, 0.1)'
-            : 'none',
+            ? (theme) => `0 4px 12px ${alpha(theme.palette.primary.main, 0.25)}`
+            : isInvalidDrop && isOver
+              ? (theme) => `0 2px 8px ${alpha(theme.palette.error.main, 0.15)}`
+              : 'none',
+        // Pulse animation for valid drop
+        animation: isOver && isValidDrop ? 'dropPulse 1s ease-in-out infinite' : 'none',
+        '@keyframes dropPulse': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.85 },
+        },
       }}
     >
       {children}

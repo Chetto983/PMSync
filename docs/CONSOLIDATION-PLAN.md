@@ -1,25 +1,62 @@
 # MailAgent Consolidation - REALISTIC Single-Dev Plan
 
+---
+
+## 🟢 AUDIT STATUS (2026-01-26)
+
+**Last Audit**: 2026-01-26 by Claude Code
+
+### ✅ FIXED (Verified in Codebase)
+
+| Issue | Status | Evidence |
+|-------|--------|----------|
+| `getLearningStats()` 404 | ✅ FIXED | Removed from `frontend/lib/api/ai.ts` line 721 |
+| Reset Learning button | ✅ FIXED | Removed from `frontend/components/settings/AiSettings.tsx` line 289 |
+| Hardcoded labels | ✅ FIXED | `getUserLabels()` in `email-insights.service.ts` lines 86-107 |
+| EmailSignature model | ✅ EXISTS | `schema.prisma` line 924 |
+| HITL → Learning feedback | ✅ WIRED | `recordFeedback` calls in `hitl.service.ts` lines 533, 616 |
+| Analytics fake data | ✅ FIXED | Real Prisma queries in `analytics.service.ts` lines 376-441 |
+| Auth session cache | ✅ IMPLEMENTED | Redis cache in `jwt.strategy.ts` lines 107-172, 5 min TTL |
+| Memory cleanup (expiresAt) | ✅ IMPLEMENTED | `data-cleanup.service.ts` cron at 3 AM, cleans 5 tables |
+
+### ⏳ REMAINING WORK
+
+| Issue | Status | Priority |
+|-------|--------|----------|
+| Email Signature UI wiring | ⏳ TODO | P2 |
+| `communicationStyle` → compose | ⏳ TODO | P3 |
+| Auto-triage event emission | ⏳ TODO | P4 |
+| Search backend integration | ⏳ TODO | P2 |
+| Follow-ups snooze button | ⏳ TODO | P3 |
+
+---
+
 ## 🔴 Reality Check (Cynical Assessment)
 
 **What Actually Works:**
+
 - Contacts management (not "CRM" - be honest)
 - Email sync (mostly)
 - VoltAgent chat (basic flow)
 - WritingStyle learning (stores profiles)
+- ✅ Auth session caching (Redis, 5 min TTL)
+- ✅ Memory cleanup (cron job at 3 AM)
+- ✅ Analytics with real data (email counts, trends)
 
 **What's Theater Code (Looks Good, Does Nothing):**
+
 - `Deal` model - EXISTS but ZERO API endpoints
-- Learning system - 482 lines of code, IN-MEMORY ONLY
+- ~~Learning system - 482 lines of code, IN-MEMORY ONLY~~ → HITL→Learning now wired
 - `communicationStyle` setting - stored, NEVER read by compose
 - `jobTitle/department` settings - stored, NEVER used
 - Auto-triage - code exists, NEVER triggered
-- `getLearningStats()` - frontend calls it, returns 404
-- **Analytics endpoint** - QUERIES real data then THROWS IT AWAY, returns HARDCODED fake numbers (even negative values!)
+- ~~`getLearningStats()` - frontend calls it, returns 404~~ → ✅ REMOVED
+- ~~**Analytics endpoint** - returns HARDCODED fake numbers~~ → ✅ FIXED (real data)
 - **Search** - Just local text filter on already-fetched emails, NO backend search
 - **Follow-ups widget** - Backend API complete, dashboard widget is READ-ONLY (no snooze button despite prop existing)
 
 **Brutal Math:**
+
 - Email Roadmap claims 5 phases, ~120 tasks remaining
 - One dev at 6h/day = ~3 weeks minimum
 - Reality: prioritize 2 phases (Compose + AI), skip polish
@@ -85,6 +122,7 @@
 
 | What | Action | Why |
 |------|--------|-----|
+
 | Reset Learning button | DELETE | No backend, never worked |
 | `emailDensity` in AI Settings | MOVE | It's UI, not AI. Move to Appearance |
 | Learning stats section in AI Settings | DELETE | 404 on load |
@@ -1323,6 +1361,7 @@ async validate(payload: any) {
 
 | Metric | Before | After |
 |--------|--------|-------|
+
 | Auth overhead per request | ~100ms | ~5ms (cache hit) |
 | OAuth token refresh | Blocks request | Background |
 | Session validation | 2 DB queries | 0 DB queries (cached) |
@@ -1333,6 +1372,7 @@ async validate(payload: any) {
 
 | Week | Focus | Hours | Deliverable |
 |------|-------|-------|-------------|
+
 | 1 | **Auth Cache** + Fix broken + Signatures | 17h | **Fast auth** + working signature |
 | 2 | Email Compose + AI + Subscription | 32h | Draft, attachments, smart-reply, pricing |
 | 3 | Dashboard + Search + Memory | 16h | Trend graphs, search command, memory cleanup |

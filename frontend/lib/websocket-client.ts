@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { logger } from '@/lib/logger';
+import { log } from 'node:console';
 
 /**
  * WebSocket Client per connessione realtime al backend
@@ -319,7 +320,17 @@ class WebSocketClient {
       this.isConnecting = true;
       this.token = token;
 
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      // CRITICAL: Only fallback to localhost in development mode
+      // In production, NEXT_PUBLIC_API_URL must be set
+      const backendUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : undefined);
+
+      if (!backendUrl) {
+        logger.error('[WebSocket] NEXT_PUBLIC_API_URL is not configured for production');
+        reject(new Error('WebSocket: API URL not configured'));
+        return;
+      }
 
       this.socket = io(`${backendUrl}/realtime`, {
         auth: {

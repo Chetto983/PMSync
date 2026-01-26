@@ -387,35 +387,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
   // NOTE: getLearningStats tests removed - endpoint doesn't exist
   // NOTE: getAggregateStats tests removed - endpoint doesn't exist on backend
-
-  describe('getFeedback', () => {
-    it('should call correct endpoint with default params', async () => {
-      const mockResponse = {
-        data: {
-          success: true,
-          feedback: [],
-          total: 0,
-        },
-      };
-      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
-
-      await voltAgentApi.getFeedback();
-
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/voltagent/feedback', {
-        params: undefined,
-      });
-    });
-
-    it('should pass pagination and filter params', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValue({ data: { success: true, feedback: [] } });
-
-      await voltAgentApi.getFeedback({ limit: 10, offset: 20, agentName: 'EmailAgent' });
-
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/voltagent/feedback', {
-        params: { limit: 10, offset: 20, agentName: 'EmailAgent' },
-      });
-    });
-  });
+  // NOTE: getFeedback tests removed - endpoint doesn't exist on backend
 
   describe('resetLearning', () => {
     it('should call correct endpoint without params', async () => {

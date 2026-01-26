@@ -25,6 +25,7 @@ import {
   DragOverlay,
   PointerSensor,
   KeyboardSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -124,6 +125,12 @@ export function ThreadList({
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8, // 8px movement before drag starts
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250, // Hold 250ms before drag starts on touch
+        tolerance: 5, // Allow 5px movement during delay for scrolling
       },
     }),
     useSensor(KeyboardSensor)

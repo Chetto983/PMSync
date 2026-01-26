@@ -331,6 +331,7 @@ export class ContactsService {
         company: data.company,
         jobTitle: data.jobTitle,
         notes: data.notes,
+        isVip: data.isVip ?? false,
       },
     });
 

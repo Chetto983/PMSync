@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Box, Typography, LinearProgress, Skeleton, alpha, useTheme, Chip, Tooltip } from '@mui/material';
-import { Brain, CheckCircle2, TrendingUp, Zap } from 'lucide-react';
+import { Brain, CheckCircle2, TrendingUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { voltAgentApi } from '@/lib/api/ai';
@@ -13,14 +13,12 @@ import { CollapsibleWidget } from './CollapsibleWidget';
  *
  * Displays:
  * - Overall approval rate (how often user approves AI suggestions)
- * - Overall success rate (how often approved actions succeed)
  * - Total interactions count
  * - Writing style calibration progress
  *
  * Uses EXISTING backend endpoints:
  * - /stats/action-counts - for APPROVED/REJECTED counts
  * - /stats/writing-style - for writing sample count
- * - /feedback - for success rate calculation
  */
 export function LearningWidget() {
   const theme = useTheme();
@@ -36,16 +34,6 @@ export function LearningWidget() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch feedback history for success rate calculation
-  const { data: feedbackData, isLoading: loadingFeedback } = useQuery({
-    queryKey: ['ai', 'feedback', { limit: 100 }],
-    queryFn: async () => {
-      const response = await voltAgentApi.getFeedback({ limit: 100 });
-      return response.data;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
   // Fetch writing style profile (secondary metric)
   const { data: writingStyleData, isLoading: loadingStyle } = useQuery({
     queryKey: ['ai', 'writingStyle'],
@@ -56,10 +44,10 @@ export function LearningWidget() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = loadingCounts || loadingFeedback || loadingStyle;
+  const isLoading = loadingCounts || loadingStyle;
 
   // Calculate metrics from existing data
-  const { totalAttempts, approvalRate, successRate } = useMemo(() => {
+  const { totalAttempts, approvalRate } = useMemo(() => {
     const approved = countsData?.APPROVED || 0;
     const rejected = countsData?.REJECTED || 0;
     const total = approved + rejected;
@@ -67,23 +55,17 @@ export function LearningWidget() {
     // Approval rate = approved / total decisions * 100
     const appRate = total > 0 ? (approved / total) * 100 : 0;
 
-    // Success rate from feedback history
-    const feedback = feedbackData?.feedback || [];
-    const successfulCount = feedback.filter(f => f.wasSuccessful).length;
-    const executedCount = feedback.filter(f => f.wasApproved).length;
-    const succRate = executedCount > 0 ? (successfulCount / executedCount) * 100 : 0;
-
-    return { totalAttempts: total, approvalRate: appRate, successRate: succRate };
-  }, [countsData, feedbackData]);
+    return { totalAttempts: total, approvalRate: appRate };
+  }, [countsData]);
 
   const writingSampleCount = writingStyleData?.sampleCount || 0;
 
   // Calculate overall learning score (weighted average)
-  // 50% approval rate + 30% success rate + 20% writing style calibration
+  // 70% approval rate + 30% writing style calibration
   const writingCalibration = Math.min(100, (writingSampleCount / 50) * 100);
   const learningScore = totalAttempts > 0
-    ? Math.round((approvalRate * 0.5) + (successRate * 0.3) + (writingCalibration * 0.2))
-    : Math.round(writingCalibration * 0.2); // Only writing style if no interactions
+    ? Math.round((approvalRate * 0.7) + (writingCalibration * 0.3))
+    : Math.round(writingCalibration * 0.3); // Only writing style if no interactions
 
   const getLearningMessage = () => {
     if (totalAttempts === 0) {
@@ -171,7 +153,7 @@ export function LearningWidget() {
 
         {/* Stats Grid */}
         {totalAttempts > 0 ? (
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5 }}>
             {/* Approval Rate */}
             <Tooltip title={t.ai?.learning?.approvalTooltip || 'How often you approve AI suggestions'}>
               <Box sx={{ textAlign: 'center' }}>
@@ -183,21 +165,6 @@ export function LearningWidget() {
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
                   {t.ai?.learning?.approved || 'Approved'}
-                </Typography>
-              </Box>
-            </Tooltip>
-
-            {/* Success Rate */}
-            <Tooltip title={t.ai?.learning?.successTooltip || 'How often approved actions succeed'}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mb: 0.5 }}>
-                  <Zap size={14} style={{ color: theme.palette.warning.main }} />
-                </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.2 }}>
-                  {Math.round(successRate)}%
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  {t.ai?.learning?.success || 'Success'}
                 </Typography>
               </Box>
             </Tooltip>
