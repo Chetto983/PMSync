@@ -11,7 +11,6 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  useEmails,
   useEmail,
   useFolders,
   useBulkMoveEmails,
@@ -27,6 +26,7 @@ import {
 import type { SenderContactMap } from '@/lib/api/contacts';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters } from '@/stores/email-ui-store';
+import { useEmailListStore } from '@/stores/email-list-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
 import { Pencil } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -95,13 +95,25 @@ export default function EmailPage() {
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [labelPickerEmailIds, setLabelPickerEmailIds] = useState<string[]>([]);
 
-  // Pagination state for infinite scroll (following Contacts pattern)
-  const [allEmails, setAllEmails] = useState<Email[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const paginationRef = useRef({ page: 1, total: 0 });
-  const isLoadingMoreRef = useRef(false); // Ref guard to prevent race conditions
+  // Store state (following Contacts pattern)
+  const {
+    emails: storeEmails,
+    setEmails: setStoreEmails,
+    appendEmails,
+    isLoading: loading,
+    setLoading,
+    isLoadingMore: loadingMore,
+    setLoadingMore,
+    pagination,
+    setPagination,
+    reset: resetStore,
+  } = useEmailListStore();
+
+  // TanStack Query client for imperative fetching
   const queryClient = useQueryClient();
+
+  // Refs for pagination (following Contacts pattern)
+  const paginationRef = useRef({ page: 1, pageSize: 50, hasMore: true, total: 0 });
 
   // Navigate to compose page
   const handleCompose = useCallback(() => {
@@ -171,70 +183,68 @@ export default function EmailPage() {
   // Create a stable filter key to detect filter changes
   const filterKey = useMemo(() => JSON.stringify(emailQueryParams), [emailQueryParams]);
 
-  // Reset pagination when filters change
+  // Sync refs with state (following Contacts pattern)
   useEffect(() => {
-    paginationRef.current = { page: 1, total: 0 };
-    isLoadingMoreRef.current = false;
-    setAllEmails([]);
-    setHasMore(true);
-  }, [filterKey]);
+    paginationRef.current = pagination;
+  }, [pagination]);
 
-  // Fetch ONLY first page via useEmails hook (for initial load + filter changes)
-  const { data: emailsData, isLoading, refetch } = useEmails({
-    ...emailQueryParams,
-    page: 1,
-  });
-
-  // Populate allEmails when first page loads
-  useEffect(() => {
-    if (emailsData?.emails && !isLoadingMore) {
-      setAllEmails(emailsData.emails);
-      const { pagination } = emailsData;
-      if (pagination) {
-        paginationRef.current = { page: 1, total: pagination.total };
-        setHasMore(pagination.page < pagination.totalPages);
-      }
-    }
-  }, [emailsData, isLoadingMore]);
-
-  // Load more emails (infinite scroll) - uses manual fetchQuery like Contacts
-  const handleLoadMore = useCallback(async () => {
-    // Use ref guard to prevent race conditions (state may not update in time)
-    if (!hasMore || isLoadingMoreRef.current || isLoading) return;
-
-    isLoadingMoreRef.current = true;
-    setIsLoadingMore(true);
-    const nextPage = paginationRef.current.page + 1;
-
+  // Load emails using TanStack Query (following Contacts pattern)
+  const loadEmails = useCallback(async (reset: boolean = true) => {
     try {
-      const response = await queryClient.fetchQuery(
-        emailsListOptions({ ...emailQueryParams, page: nextPage })
-      );
-
-      if (response?.emails) {
-        // Append new emails (dedupe by ID)
-        setAllEmails((prev) => {
-          const existingIds = new Set(prev.map((e) => e.id));
-          const newEmails = response.emails.filter((e: Email) => !existingIds.has(e.id));
-          return [...prev, ...newEmails];
-        });
-
-        // Update pagination state
-        const { pagination } = response;
-        if (pagination) {
-          paginationRef.current = { page: nextPage, total: pagination.total };
-          setHasMore(pagination.page < pagination.totalPages);
-        } else {
-          setHasMore(false);
-        }
+      if (reset) {
+        setLoading(true);
+        const newPagination = { page: 1, pageSize: 50, hasMore: true, total: 0 };
+        paginationRef.current = newPagination;
+        setPagination(newPagination);
+      } else {
+        setLoadingMore(true);
       }
+
+      const page = reset ? 1 : paginationRef.current.page + 1;
+      const response = await queryClient.fetchQuery(
+        emailsListOptions({ ...emailQueryParams, page })
+      );
+      const emailsData = response?.emails || [];
+
+      if (reset) {
+        setStoreEmails(emailsData);
+      } else {
+        // Append emails using store's getState for current data
+        const currentEmails = useEmailListStore.getState().emails;
+        const existingIds = new Set(currentEmails.map((e) => e.id));
+        const newEmails = emailsData.filter((e: Email) => !existingIds.has(e.id));
+        appendEmails(newEmails);
+      }
+
+      const responsePagination = response?.pagination;
+      const newPagination = {
+        page,
+        pageSize: 50,
+        hasMore: responsePagination ? responsePagination.page < responsePagination.totalPages : false,
+        total: responsePagination?.total || 0,
+      };
+      paginationRef.current = newPagination;
+      setPagination(newPagination);
     } catch {
-      // Failed to load more emails - silently fail, user can retry
+      // Failed to load emails - silently fail
     } finally {
-      isLoadingMoreRef.current = false;
-      setIsLoadingMore(false);
+      setLoading(false);
+      setLoadingMore(false);
     }
-  }, [emailQueryParams, hasMore, isLoading, queryClient]);
+  }, [emailQueryParams, setStoreEmails, appendEmails, setPagination, setLoading, setLoadingMore, queryClient]);
+
+  // Reset and reload when filters change
+  useEffect(() => {
+    resetStore();
+    loadEmails(true);
+  }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load more emails (infinite scroll)
+  const handleLoadMore = useCallback(() => {
+    if (!loadingMore && pagination.hasMore) {
+      loadEmails(false);
+    }
+  }, [loadEmails, loadingMore, pagination.hasMore]);
 
   // Fetch single email when selected (desktop 3-panel view)
   const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');
@@ -250,27 +260,27 @@ export default function EmailPage() {
   const { data: preferences } = useUserPreferences();
   const updatePreferences = useUpdatePreferences();
 
-  // Extract unique sender emails for photo lookup (from accumulated emails)
+  // Extract unique sender emails for photo lookup (from store emails)
   const senderEmails = useMemo(() => {
-    if (!allEmails.length) return [];
-    const emails = allEmails.map((e) => extractEmailAddress(e.from));
+    if (!storeEmails.length) return [];
+    const emails = storeEmails.map((e) => extractEmailAddress(e.from));
     return [...new Set(emails)];
-  }, [allEmails]);
+  }, [storeEmails]);
 
   // Fetch sender photos from contacts (batch lookup)
   const { data: senderPhotos } = useSenderPhotos(senderEmails);
 
-  // Format emails to thread list format with sender photos (from accumulated emails)
+  // Format emails to thread list format with sender photos (from store emails)
   const threads = useMemo(
-    () => allEmails.map((email) => formatEmailToThread(email, senderPhotos)),
-    [allEmails, senderPhotos]
+    () => storeEmails.map((email) => formatEmailToThread(email, senderPhotos)),
+    [storeEmails, senderPhotos]
   );
 
   // Email click - mark as read and show in reading pane (single email, not thread)
   const handleThreadClick = useCallback(
     async (id: string) => {
-      // Find the email from accumulated emails
-      const email = allEmails.find((e) => e.id === id);
+      // Find the email from store emails
+      const email = storeEmails.find((e) => e.id === id);
       if (!email) return;
 
       // Mark as read if unread
@@ -293,7 +303,7 @@ export default function EmailPage() {
         router.push(`/dashboard/email/thread/${id}`);
       }
     },
-    [router, allEmails, isDesktop, updateEmail]
+    [router, storeEmails, isDesktop, updateEmail]
   );
 
   // Close reading pane
@@ -308,7 +318,7 @@ export default function EmailPage() {
     onOpen: handleThreadClick,
     onEscape: handleCloseReadingPane,
     onCompose: handleCompose,
-    enabled: !isLoading && threads.length > 0,
+    enabled: !loading && threads.length > 0,
     isReadingPaneOpen: !!selectedThreadId && isDesktop,
   });
 
@@ -480,14 +490,10 @@ export default function EmailPage() {
     t.threadView?.loading,
   ]);
 
-  // Refresh emails - reset to page 1 and refetch
-  // Refresh emails - reset to page 1 and refetch
-  const handleRefresh = useCallback(async () => {
-    paginationRef.current = { page: 1, total: 0 };
-    setAllEmails([]);
-    setHasMore(true);
-    await refetch();
-  }, [refetch]);
+  // Refresh emails - reset and reload
+  const handleRefresh = useCallback(() => {
+    loadEmails(true);
+  }, [loadEmails]);
 
   // Bulk mark as read
   const handleBulkMarkAsRead = useCallback(
@@ -561,8 +567,8 @@ export default function EmailPage() {
         return extractLabelIds(selectedEmail.emailLabels);
       }
 
-      // Fall back to list data
-      const selectedEmails = emailsData?.emails?.filter((e) => ids.includes(e.id)) || [];
+      // Fall back to store data
+      const selectedEmails = storeEmails.filter((e) => ids.includes(e.id));
       if (selectedEmails.length === 0) return [];
 
       // Get label IDs from first email
@@ -584,7 +590,7 @@ export default function EmailPage() {
       }
       return Array.from(firstEmailLabels);
     },
-    [emailsData?.emails, selectedEmail]
+    [storeEmails, selectedEmail]
   );
 
   // Bulk label - show label picker dialog
@@ -718,8 +724,8 @@ export default function EmailPage() {
     [foldersData?.foldersByProvider, preferences?.folderOrders, updatePreferences]
   );
 
-  // Show loading state
-  if (isLoading) {
+  // Show loading state (only on initial load when no emails yet)
+  if (loading && storeEmails.length === 0) {
     return (
       <Layout>
         <EmailLayout>
@@ -752,9 +758,9 @@ export default function EmailPage() {
           <ThreadList
             threads={threads}
             emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
-            isLoading={isLoading}
-            isLoadingMore={isLoadingMore}
-            hasMore={hasMore}
+            isLoading={loading}
+            isLoadingMore={loadingMore}
+            hasMore={pagination.hasMore}
             focusedId={focusedId}
             onThreadClick={handleThreadClick}
             onRefresh={handleRefresh}

@@ -125,9 +125,16 @@ export default function ComposeDialog({
     [providers],
   );
 
+  // Get default provider ID (computed early for signature hook)
+  const computedProviderId = useMemo(() => {
+    if (initialProviderId) return initialProviderId;
+    const defaultProvider = emailProviders.find((p) => p.isDefault);
+    return defaultProvider?.id || emailProviders[0]?.id || '';
+  }, [initialProviderId, emailProviders]);
+
   // Get default signature for the selected provider
   // Note: We append signature in frontend so user can see/edit it, then pass signatureId: null to backend
-  const { data: defaultSignature } = useDefaultSignature(initialProviderId);
+  const { data: defaultSignature, isLoading: signatureLoading, isFetched: signatureFetched } = useDefaultSignature(computedProviderId);
 
   // Mutations
   const sendEmail = useSendEmail();
@@ -175,15 +182,8 @@ export default function ComposeDialog({
     return '';
   };
 
-  // Get default provider ID
-  const getDefaultProviderId = (): string => {
-    if (initialProviderId) return initialProviderId;
-    const defaultProvider = emailProviders.find((p) => p.isDefault);
-    return defaultProvider?.id || emailProviders[0]?.id || '';
-  };
-
-  // State
-  const [providerId, setProviderId] = useState<string>(getDefaultProviderId);
+  // State - use computedProviderId from above as initial value
+  const [providerId, setProviderId] = useState<string>('');
   const [to, setTo] = useState<Recipient[]>(computeInitialTo);
   const [cc, setCc] = useState<Recipient[]>(computeInitialCc);
   const [bcc, setBcc] = useState<Recipient[]>(initialBcc);
@@ -212,13 +212,12 @@ export default function ComposeDialog({
   const [debouncedBody] = useDebounce(body, AUTOSAVE_DELAY_MS);
   const [debouncedSubject] = useDebounce(subject, AUTOSAVE_DELAY_MS);
 
-  // Update provider when providers load
+  // Sync providerId state with computedProviderId when providers load
   useEffect(() => {
-    if (!providerId && emailProviders.length > 0) {
-      setProviderId(getDefaultProviderId());
+    if (computedProviderId && providerId !== computedProviderId) {
+      setProviderId(computedProviderId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emailProviders]);
+  }, [computedProviderId, providerId]);
 
   // Reset state when mode/originalEmail changes
   useEffect(() => {
@@ -231,10 +230,8 @@ export default function ComposeDialog({
     setDraftId(initialDraftId);
     setLastSavedAt(null);
     isDirtyRef.current = false;
-    // Reset signature flag when dialog closes or mode changes
-    if (!open) {
-      signatureAppendedRef.current = false;
-    }
+    // Always reset signature flag when body is reset, so signature can be re-appended
+    signatureAppendedRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, originalEmail?.id, open]);
 
@@ -242,6 +239,17 @@ export default function ComposeDialog({
   // Signature is shown in editor so user can see/edit it
   // We pass signatureId: null to backend to prevent double-append
   useEffect(() => {
+    // Debug: log signature data
+    console.log('[Signature Debug]', {
+      open,
+      computedProviderId,
+      signatureLoading,
+      signatureFetched,
+      defaultSignature,
+      signatureAppendedRef: signatureAppendedRef.current,
+    });
+    // Wait for signature to be fetched before deciding
+    if (!signatureFetched) return;
     if (open && defaultSignature?.content && !signatureAppendedRef.current) {
       // Append signature to body with a line break before it
       setBody((prevBody) => {
@@ -254,7 +262,7 @@ export default function ComposeDialog({
       });
       signatureAppendedRef.current = true;
     }
-  }, [open, defaultSignature]);
+  }, [open, defaultSignature, signatureFetched, computedProviderId, signatureLoading]);
 
   // Restore attachments from draft when editing an existing draft
   // Converts base64 data back to File objects for seamless UX

@@ -143,8 +143,6 @@ export interface ChatResult {
   fromCache?: boolean;
   /** Cache similarity score if from cache */
   cacheSimilarity?: number;
-  /** Whether conversation context was truncated due to token budget */
-  contextTruncated?: boolean;
   /** Conversation ID for session persistence */
   conversationId?: string;
 }
@@ -613,26 +611,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    // Build enhanced context: episodic lessons + long-term memory + conversation history
-    // Refactored 2026-01-22: Extracted to ChatContextBuilderService
+    // Build enhanced context: episodic lessons + long-term memory
+    // Conversation history is handled by VoltAgent's native memory (contextLimit: 20)
     let enhancedMessage = processedMessage;
-    let contextTruncated = false;
 
     if (this.chatContextBuilder) {
       const contextResult = await this.chatContextBuilder.build(processedMessage, {
         tenantId: options.tenantId,
         userId: options.userId,
-        sessionId,
-        tenantUserId,
-        memory: this.memory,
         logPrefix,
       });
       enhancedMessage = contextResult.enhancedMessage;
-      contextTruncated = contextResult.contextTruncated;
-      this.logger.debug(`${logPrefix} Context built via ChatContextBuilderService`);
-    } else {
-      // ChatContextBuilderService not available - log warning and proceed without context enrichment
-      this.logger.warn(`${logPrefix} ChatContextBuilderService not injected, proceeding without context enrichment`);
     }
 
     // Ensure conversation exists in VoltAgent memory for persistence
@@ -668,8 +657,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           userId: tenantUserId,
           // Session/conversation ID for message threading
           conversationId: sessionId,
-          // Disable VoltAgent memory context + input auto-save (we manage memory manually)
-          contextLimit: 0,
+          // VoltAgent retrieves conversation history from memory automatically
+          // 20 messages = good balance of context vs token usage
+          contextLimit: 20,
           // CRITICAL: Disable parallel tool calls to ensure sequential delegation
           // (ContactsAgent → EmailAgent flow requires one tool at a time)
           providerOptions: {
@@ -834,7 +824,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       pendingActions: pendingActions.length > 0 ? pendingActions : undefined,
       model: selectedModel,
       fromCache: false,
-      contextTruncated,
       conversationId: persistedConversationId,
     };
   }
@@ -918,24 +907,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
 
-    // Build enhanced context: episodic lessons + long-term memory + conversation history
-    // Refactored 2026-01-22: Extracted to ChatContextBuilderService
+    // Build enhanced context: episodic lessons + long-term memory
+    // Conversation history is handled by VoltAgent's native memory (contextLimit: 20)
     let enhancedMessage = processedMessage;
 
     if (this.chatContextBuilder) {
       const contextResult = await this.chatContextBuilder.build(processedMessage, {
         tenantId: options.tenantId,
         userId: options.userId,
-        sessionId,
-        tenantUserId,
-        memory: this.memory,
         logPrefix,
       });
       enhancedMessage = contextResult.enhancedMessage;
-      this.logger.debug(`${logPrefix} Context built via ChatContextBuilderService`);
-    } else {
-      // ChatContextBuilderService not available - log warning and proceed without context enrichment
-      this.logger.warn(`${logPrefix} ChatContextBuilderService not injected, proceeding without context enrichment`);
     }
 
     // Ensure conversation exists in VoltAgent memory for persistence
@@ -948,12 +930,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.logger.log(`${logPrefix} Context Injection took ${Date.now() - contextStart}ms`);
+    this.logger.debug(`${logPrefix} [Memory Debug] Conversation ensured=${conversationEnsured} for sessionId=${sessionId}`);
 
     const result = await agent.streamText(enhancedMessage, {
       userId: tenantUserId,
       conversationId: sessionId,
-      // Disable VoltAgent memory context + input auto-save (we manage memory manually)
-      contextLimit: 0,
+      // VoltAgent retrieves conversation history from memory automatically
+      // 20 messages = good balance of context vs token usage
+      contextLimit: 20,
       // CRITICAL: Disable parallel tool calls to ensure sequential delegation
       providerOptions: {
         mistral: {
@@ -970,9 +954,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       : [];
     const streamSanitizer = createStreamSanitizer(piiMappings);
 
-    let fullResponse = '';
+    let _fullResponse = '';
     for await (const chunk of result.textStream) {
-      fullResponse += chunk;
+      _fullResponse += chunk;
       const safeChunk = streamSanitizer.handleChunk(chunk);
       if (safeChunk) {
         yield safeChunk;

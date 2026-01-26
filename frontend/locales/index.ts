@@ -1759,6 +1759,8 @@ export interface AppTranslations {
       deleteConfirmMessage: string;
       noSignatures: string;
       previewTitle: string;
+      provider: string;
+      allProviders: string;
     };
     generalPanel: {
       title: string;

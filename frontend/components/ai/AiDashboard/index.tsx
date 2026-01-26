@@ -4,6 +4,9 @@
  * AI Dashboard - Modern 2025 Design
  * Clean, widget-based layout following main dashboard pattern
  * With conversation session management (PostgreSQL persistence)
+ *
+ * Uses Vercel AI SDK useChat hook - official VoltAgent pattern
+ * Based on: https://voltagent.dev/docs/ui/ai-sdk-integration/
  */
 
 import React, { Suspense, lazy, useState, useRef, useCallback } from 'react';
@@ -27,6 +30,8 @@ import { Sparkles, Send, Zap, PanelRightOpen, X, MessageSquare } from 'lucide-re
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
+import logger from '@/lib/logger';
+import { useVoltAgentChat } from './use-voltagent-chat';
 
 // Lazy loaded widgets
 const ChatMessages = lazy(() => import('./ChatMessages'));
@@ -35,7 +40,7 @@ const LearningWidget = lazy(() => import('./LearningWidget'));
 const ChatSessionList = lazy(() => import('./ChatSessionList'));
 const MentionInput = lazy(() => import('./MentionInput'));
 
-// Types
+// Types - Extended for our UI needs
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -44,6 +49,7 @@ export interface Message {
   intent?: string;
   pendingActionIds?: string[];
 }
+
 
 function WidgetSkeleton({ height = 200 }: { height?: number }) {
   const theme = useTheme();
@@ -76,11 +82,11 @@ export function AiDashboard() {
   const t = useTranslations();
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [prompt, setPrompt] = useState('');
-  const [sending, setSending] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [prompt, setPrompt] = useState('');
+
+  // Pending action IDs per message (keyed by message index)
+  const [pendingActionMap, setPendingActionMap] = useState<Map<number, string[]>>(new Map());
 
   const userName = user?.firstName || user?.email?.split('@')[0] || 'User';
 
@@ -88,12 +94,50 @@ export function AiDashboard() {
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [widgetsDrawerOpen, setWidgetsDrawerOpen] = useState(false);
 
+  // AI SDK useChat hook for streaming
+  const {
+    messages: chatMessages,
+    status,
+    sendMessage,
+    conversationId,
+    setConversationId,
+    setMessages: setChatMessages,
+  } = useVoltAgentChat({
+    locale: t.locale,
+    onError: (error) => {
+      logger.error('[AiDashboard] Chat error:', error);
+    },
+    onConversationIdChange: (newId) => {
+      // Auto-generate title after first exchange
+      if (newId && chatMessages.length === 0) {
+        import('@/lib/api/ai').then(({ voltAgentApi }) => {
+          voltAgentApi.generateConversationTitle(newId, t.locale).then(() => {
+            queryClient.invalidateQueries({ queryKey: ['ai', 'conversations'] });
+          }).catch(() => {
+            // Ignore title generation errors
+          });
+        });
+      }
+    },
+  });
+
+  const sending = status === 'submitted' || status === 'streaming';
+
+  // Map AI SDK messages to our Message type
+  const messages: Message[] = chatMessages.map((msg, index) => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+    timestamp: new Date(),
+    pendingActionIds: pendingActionMap.get(index),
+  }));
+
   // Start a new chat session
   const handleNewChat = useCallback(() => {
-    setMessages([]);
-    setConversationId(null);
+    setChatMessages([]);
+    setConversationId(`conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     setPrompt('');
-  }, []);
+    setPendingActionMap(new Map());
+  }, [setChatMessages, setConversationId]);
 
   // Load an existing conversation
   const handleSelectConversation = useCallback(async (id: string | null) => {
@@ -116,7 +160,6 @@ export function AiDashboard() {
         setConversationId(conv.id);
 
         // Filter pending actions for this conversation (by sessionId)
-        // Include actions with matching sessionId, or actions with undefined sessionId (legacy compat)
         const allPendingActions = pendingActionsRes.data?.actions || [];
         const conversationActions = allPendingActions.filter(
           (a) => a.sessionId === conv.id || (!a.sessionId && allPendingActions.length === 1)
@@ -127,7 +170,6 @@ export function AiDashboard() {
           .filter((m) => m.role === 'user' || m.role === 'assistant');
 
         // Match pending actions to assistant messages by timestamp
-        // For each action, find the assistant message with the closest timestamp (before the action)
         const messageActionMap = new Map<number, string[]>();
 
         for (const action of conversationActions) {
@@ -135,7 +177,6 @@ export function AiDashboard() {
           let bestMatchIndex = -1;
           let bestTimeDiff = Infinity;
 
-          // Find the assistant message closest to (and before) the action creation time
           for (let i = 0; i < filteredMessages.length; i++) {
             const msg = filteredMessages[i];
             if (msg.role !== 'assistant') continue;
@@ -143,14 +184,12 @@ export function AiDashboard() {
             const msgTime = new Date(msg.createdAt || 0).getTime();
             const timeDiff = actionTime - msgTime;
 
-            // Message must be before or very close to the action (within 30 seconds)
             if (timeDiff >= -30000 && timeDiff < bestTimeDiff) {
               bestTimeDiff = timeDiff;
               bestMatchIndex = i;
             }
           }
 
-          // Attach action to the best matching message (or last assistant if no match)
           if (bestMatchIndex >= 0) {
             const existing = messageActionMap.get(bestMatchIndex) || [];
             existing.push(action.id);
@@ -158,7 +197,7 @@ export function AiDashboard() {
           }
         }
 
-        // If we have unmatched actions, attach them to the last assistant message
+        // Attach unmatched actions to last assistant message
         if (conversationActions.length > 0 && messageActionMap.size === 0) {
           for (let i = filteredMessages.length - 1; i >= 0; i--) {
             if (filteredMessages[i].role === 'assistant') {
@@ -168,86 +207,53 @@ export function AiDashboard() {
           }
         }
 
-        setMessages(
-          filteredMessages.map((m, index) => ({
+        setPendingActionMap(messageActionMap);
+
+        // Dedupe and set messages for AI SDK hook (UIMessage format with parts)
+        const seenContent = new Set<string>();
+        const dedupedMessages = filteredMessages
+          .filter((m) => {
+            const key = `${m.role}:${m.content.slice(0, 200)}`;
+            if (seenContent.has(key)) {
+              logger.warn(`[AiDashboard] Duplicate message filtered: ${key.slice(0, 50)}`);
+              return false;
+            }
+            seenContent.add(key);
+            return true;
+          })
+          .map((m, idx) => ({
+            id: `msg-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
             role: m.role as 'user' | 'assistant',
-            content: m.content,
-            timestamp: new Date(m.createdAt || Date.now()),
-            pendingActionIds: messageActionMap.get(index),
-          }))
-        );
+            // AI SDK v6 UIMessage format requires parts array, not content
+            parts: [{ type: 'text' as const, text: m.content }],
+          }));
+
+        setChatMessages(dedupedMessages);
       }
     } catch {
-      // Ignore errors, just start fresh
       handleNewChat();
     }
-  }, [handleNewChat]);
+  }, [handleNewChat, setConversationId, setChatMessages]);
 
+  // Send message using AI SDK streaming
   const handleSendMessage = useCallback(async (customPrompt?: string) => {
     const text = customPrompt || prompt.trim();
     if (!text || sending) return;
 
-    const userMessage: Message = {
-      role: 'user',
-      content: text,
-      timestamp: new Date(),
-    };
-
-    const currentMessageCount = messages.length;
-    setMessages(prev => [...prev, userMessage]);
     setPrompt('');
-    setSending(true);
 
     try {
-      // Dynamic import to avoid circular deps
-      const { multiAgentApi, voltAgentApi } = await import('@/lib/api/ai');
-      const response = await multiAgentApi.processMessage({
-        message: text,
-        locale: t.locale,
-        conversationId: conversationId || undefined,
-      });
+      await sendMessage(text);
 
-      // If we got a new conversationId from the response, store it
-      if (response.conversationId && !conversationId) {
-        setConversationId(response.conversationId);
-      }
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response.messages?.join('\n') || response.text || t.ai?.chat?.error || 'No response',
-        timestamp: new Date(),
-        agentUsed: response.agentUsed,
-        intent: response.intent?.intent,
-        pendingActionIds: response.pendingActionIds || [],
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-      // Refresh pending actions if new actions were created
-      if (response.pendingActionIds?.length) {
-        queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
-      }
-
-      // Auto-generate title after first exchange (2 messages: user + assistant)
-      const newConvId = response.conversationId || conversationId;
-      if (newConvId && currentMessageCount === 0) {
-        try {
-          await voltAgentApi.generateConversationTitle(newConvId, t.locale);
-          queryClient.invalidateQueries({ queryKey: ['ai', 'conversations'] });
-        } catch {
-          // Ignore title generation errors
-        }
-      }
-    } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: t.ai?.chat?.error || 'Si è verificato un errore. Riprova.',
-        timestamp: new Date(),
-      }]);
+      // Refresh pending actions after message completes
+      queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
+      queryClient.invalidateQueries({ queryKey: ['ai', 'conversations'] });
+    } catch (error) {
+      logger.error(`[AiDashboard] Send error: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setSending(false);
       inputRef.current?.focus();
     }
-  }, [prompt, sending, t, conversationId, messages.length, queryClient]);
+  }, [prompt, sending, sendMessage, queryClient]);
 
   return (
     <Box

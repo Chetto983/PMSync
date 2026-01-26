@@ -1677,6 +1677,8 @@ export const it: AppTranslations = {
       deleteConfirmMessage: 'Sei sicuro di voler eliminare questa firma? Questa azione non può essere annullata.',
       noSignatures: 'Nessuna firma ancora. Creane una per iniziare.',
       previewTitle: 'Anteprima',
+      provider: 'Account',
+      allProviders: 'Tutti gli account',
     },
     generalPanel: {
       title: 'Impostazioni generali',

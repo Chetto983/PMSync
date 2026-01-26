@@ -200,7 +200,9 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:react-resizable-panels.vercel.app)"
+      "WebFetch(domain:react-resizable-panels.vercel.app)",
+      "WebFetch(domain:voltagent.dev)",
+      "WebFetch(domain:ai-sdk.dev)"
     ],
     "deny": []
   }

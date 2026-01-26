@@ -4,6 +4,7 @@ import React from 'react';
 import { Box, Typography, Paper, Chip, alpha, useTheme, Link } from '@mui/material';
 import { Bot, User, Sparkles, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useQuery } from '@tanstack/react-query';
 import type { Message } from './index';
 import { AgentProgressIndicator } from './AgentProgressIndicator';
@@ -147,6 +148,61 @@ const MarkdownComponents = {
   em: ({ children }: { children?: React.ReactNode }) => (
     <Box component="em">{children}</Box>
   ),
+  // Table components for markdown table rendering
+  table: ({ children }: { children?: React.ReactNode }) => (
+    <Box
+      component="table"
+      sx={{
+        width: '100%',
+        borderCollapse: 'collapse',
+        mb: 2,
+        fontSize: '0.85rem',
+        '& th, & td': {
+          border: '1px solid',
+          borderColor: 'divider',
+          px: 1.5,
+          py: 1,
+          textAlign: 'left',
+        },
+        '& th': {
+          bgcolor: 'action.hover',
+          fontWeight: 600,
+        },
+        '& tr:nth-of-type(even)': {
+          bgcolor: 'action.hover',
+        },
+      }}
+    >
+      {children}
+    </Box>
+  ),
+  thead: ({ children }: { children?: React.ReactNode }) => (
+    <Box component="thead">{children}</Box>
+  ),
+  tbody: ({ children }: { children?: React.ReactNode }) => (
+    <Box component="tbody">{children}</Box>
+  ),
+  tr: ({ children }: { children?: React.ReactNode }) => (
+    <Box component="tr">{children}</Box>
+  ),
+  th: ({ children }: { children?: React.ReactNode }) => (
+    <Box component="th">{children}</Box>
+  ),
+  td: ({ children }: { children?: React.ReactNode }) => (
+    <Box component="td">{children}</Box>
+  ),
+  // Horizontal rule
+  hr: () => (
+    <Box
+      component="hr"
+      sx={{
+        border: 'none',
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        my: 2,
+      }}
+    />
+  ),
 };
 
 export function ChatMessages({ messages, sending, conversationId }: ChatMessagesProps) {
@@ -246,7 +302,7 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
                 </Typography>
               ) : (
                 <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
-                  <ReactMarkdown components={MarkdownComponents}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
                     {message.content}
                   </ReactMarkdown>
                 </Box>

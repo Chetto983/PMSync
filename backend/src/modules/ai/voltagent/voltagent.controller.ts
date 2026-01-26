@@ -208,6 +208,87 @@ export class VoltAgentController {
     }
   }
 
+  /**
+   * Stream chat response using AI SDK v6 compatible format.
+   * This endpoint follows the Vercel AI SDK stream protocol for useChat integration.
+   * Protocol: text-start -> text-delta* -> text-end -> finish
+   */
+  @Post('chat/stream/v2')
+  @RequiresQuota('ai')
+  @ApiOperation({ summary: 'Stream chat response via AI SDK v6 format' })
+  @ApiBody({ type: ChatRequestDto })
+  async streamChatV2(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: ChatRequestDto,
+    @Res() res: Response,
+  ) {
+    // AI SDK v6 required headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('x-vercel-ai-ui-message-stream', 'v1');
+    res.flushHeaders();
+
+    const conversationId =
+      body.conversationId ||
+      body.sessionId ||
+      `${req.user.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const textId = `text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const options: ChatOptions = {
+      userId: req.user.userId,
+      tenantId: req.user.tenantId,
+      conversationId,
+      locale: body.locale,
+      model: body.model,
+    };
+
+    let isConnectionClosed = false;
+
+    (req as unknown as Request).on('close', () => {
+      isConnectionClosed = true;
+      this.logger.debug(`Client disconnected from v2 stream: ${options.userId}`);
+    });
+
+    try {
+      // AI SDK start event - strict protocol: only type and messageId
+      res.write(`data: ${JSON.stringify({ type: 'start', messageId })}\n\n`);
+
+      // Text part start
+      res.write(`data: ${JSON.stringify({ type: 'text-start', id: textId })}\n\n`);
+
+      for await (const chunk of this.voltAgentService.streamChat(body.message, options)) {
+        if (isConnectionClosed) {
+          this.logger.debug(`Stopping v2 stream - client disconnected`);
+          break;
+        }
+
+        // AI SDK text delta event
+        res.write(`data: ${JSON.stringify({ type: 'text-delta', id: textId, delta: chunk })}\n\n`);
+      }
+
+      if (!isConnectionClosed) {
+        // Text part end
+        res.write(`data: ${JSON.stringify({ type: 'text-end', id: textId })}\n\n`);
+
+        // AI SDK finish event - strict protocol: only type and finishReason
+        res.write(`data: ${JSON.stringify({ type: 'finish', finishReason: 'stop' })}\n\n`);
+      }
+    } catch (error) {
+      if (!isConnectionClosed) {
+        const errorText = error instanceof Error ? error.message : 'Stream error';
+        res.write(`data: ${JSON.stringify({ type: 'error', errorText })}\n\n`);
+      }
+    } finally {
+      if (!res.writableEnded) {
+        res.end();
+      }
+    }
+  }
+
   // ============ Action Approval Endpoints ============
 
   /**

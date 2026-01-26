@@ -105,6 +105,7 @@ export class ConversationManagementService {
 
   /**
    * Get a conversation with its messages.
+   * Includes deduplication to prevent duplicate messages from VoltAgent memory.
    */
   async getConversationWithMessages(
     memory: Memory | null,
@@ -125,19 +126,41 @@ export class ConversationManagementService {
         return null;
       }
 
-      const messages = await memory.getMessages(tenantUserId, conversationId, { limit: messageLimit });
+      const rawMessages = await memory.getMessages(tenantUserId, conversationId, { limit: messageLimit });
+
+      // Map to our format with sanitization
+      const mappedMessages = rawMessages.map((m: { role: string; parts?: Array<{ type: string; text?: string }>; createdAt?: Date }) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: sanitizeLlmResponse(this.extractMessageContent(m)),
+        createdAt: m.createdAt || new Date(),
+      }));
+
+      // Deduplicate messages by content hash (role + first 200 chars)
+      // This prevents duplicates from VoltAgent storing both original and enhanced messages
+      const seenContent = new Set<string>();
+      const dedupedMessages = mappedMessages.filter((m) => {
+        const key = `${m.role}:${m.content.slice(0, 200)}`;
+        if (seenContent.has(key)) {
+          this.logger.debug(`Duplicate message filtered in conversation ${conversationId}: ${key.slice(0, 50)}...`);
+          return false;
+        }
+        seenContent.add(key);
+        return true;
+      });
+
+      if (dedupedMessages.length < mappedMessages.length) {
+        this.logger.warn(
+          `Filtered ${mappedMessages.length - dedupedMessages.length} duplicate messages from conversation ${conversationId}`,
+        );
+      }
 
       return {
         id: conversationId,
         title: (conversation.metadata?.title as string) || null,
         lastActiveAt: new Date(),
-        messageCount: messages.length,
+        messageCount: dedupedMessages.length,
         createdAt: new Date(),
-        messages: messages.map((m: { role: string; parts?: Array<{ type: string; text?: string }>; createdAt?: Date }) => ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: sanitizeLlmResponse(this.extractMessageContent(m)),
-          createdAt: m.createdAt || new Date(),
-        })),
+        messages: dedupedMessages,
       };
     } catch (error) {
       this.logger.error('Failed to get conversation with messages', {

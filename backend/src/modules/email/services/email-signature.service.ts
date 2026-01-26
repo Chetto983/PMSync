@@ -67,6 +67,7 @@ export class EmailSignatureService {
 
   /**
    * Get the default signature for a provider (or global if no provider-specific default)
+   * Falls back to first available signature if no default is set
    */
   async findDefault(tenantId: string, userId: string, providerId?: string) {
     // First try provider-specific default
@@ -77,9 +78,23 @@ export class EmailSignatureService {
       if (providerDefault) return providerDefault;
     }
 
-    // Fall back to global default (providerId = null)
-    return this.prisma.emailSignature.findFirst({
+    // Try global default (providerId = null)
+    const globalDefault = await this.prisma.emailSignature.findFirst({
       where: { tenantId, userId, providerId: null, isDefault: true },
+    });
+    if (globalDefault) return globalDefault;
+
+    // Fall back to ANY default signature (in case user has one with isDefault=true but different providerId)
+    const anyDefault = await this.prisma.emailSignature.findFirst({
+      where: { tenantId, userId, isDefault: true },
+    });
+    if (anyDefault) return anyDefault;
+
+    // Ultimate fallback: return the first signature if no default is set
+    // This ensures signature shows even if user forgot to mark as default
+    return this.prisma.emailSignature.findFirst({
+      where: { tenantId, userId },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

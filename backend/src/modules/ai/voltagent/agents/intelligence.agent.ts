@@ -17,6 +17,7 @@ import { EmbeddingsService } from '../../services/embeddings.service';
 import { EmailInsightsService } from '../../services/email-insights.service';
 import { WritingStyleService } from '../services/writing-style.service';
 import { getAgentTranslations, getLocaleInstruction, type SupportedLocale } from '../locales';
+import { buildDynamicInstructions, type UserContext } from './supervisor.agent';
 import { createEmailTools } from '../tools/email.tools';
 import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
@@ -63,6 +64,8 @@ export interface IntelligenceAgentOptions {
   piiDetectionService?: PiiDetectionService;
   /** EmailInsightsService for unified email analysis with DB persistence */
   emailInsightsService?: EmailInsightsService | null;
+  /** User context for personalization and current date/time */
+  userContext?: UserContext;
 }
 
 /**
@@ -85,11 +88,13 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     memory,
     piiDetectionService,
     emailInsightsService,
+    userContext,
   } = options;
 
   // Always use English prompts - locale only affects response language
   const t = getAgentTranslations('en');
-  const localeInstruction = getLocaleInstruction(locale);
+  // Build instructions with current date/time for temporal queries
+  const dynamicInstructions = buildDynamicInstructions(t.intelligence.instructions, userContext, locale);
 
   // Create tools from factories
   // Pass RAG services for semantic search in search_emails
@@ -129,7 +134,7 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     purpose:
       'Search, read, and analyze: emails, contacts, calendar, folders. AI-powered analysis: summarization, sentiment, smart replies. For PEOPLE searches, use this agent - they are email correspondents!',
     model,
-    instructions: t.intelligence.instructions + localeInstruction,
+    instructions: dynamicInstructions,
     tools: readTools,
     hooks,
     memory,

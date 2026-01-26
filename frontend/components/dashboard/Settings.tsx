@@ -522,16 +522,19 @@ export function Settings() {
     deleteConfirmMessage: settingsCopy.signaturesPanel?.deleteConfirmMessage || 'Are you sure you want to delete this signature?',
     noSignatures: settingsCopy.signaturesPanel?.noSignatures || 'No signatures yet.',
     previewTitle: settingsCopy.signaturesPanel?.previewTitle || 'Preview',
+    provider: settingsCopy.signaturesPanel?.provider || 'Account',
+    allProviders: settingsCopy.signaturesPanel?.allProviders || 'All accounts',
   }), [settingsCopy]);
 
   // Signature handlers
-  const handleSaveSignature = useCallback(async (signature: { id?: string; name: string; content: string; isDefault: boolean }) => {
+  const handleSaveSignature = useCallback(async (signature: { id?: string; name: string; content: string; providerId: string | null; isDefault: boolean }) => {
     try {
       setSignatureError('');
+      const providerId = signature.providerId ?? undefined;
       if (signature.id) {
-        await updateSignatureMutation.mutateAsync({ id: signature.id, dto: { name: signature.name, content: signature.content, isDefault: signature.isDefault } });
+        await updateSignatureMutation.mutateAsync({ id: signature.id, dto: { name: signature.name, content: signature.content, providerId, isDefault: signature.isDefault } });
       } else {
-        await createSignatureMutation.mutateAsync({ name: signature.name, content: signature.content, isDefault: signature.isDefault });
+        await createSignatureMutation.mutateAsync({ name: signature.name, content: signature.content, providerId, isDefault: signature.isDefault });
       }
     } catch {
       setSignatureError('Failed to save signature');
@@ -615,7 +618,8 @@ export function Settings() {
             )}
             {selectedSection === 'signatures' && (
               <SignatureSettings
-                signatures={signaturesData.map(s => ({ id: s.id, name: s.name, content: s.content, isDefault: s.isDefault, createdAt: s.createdAt, updatedAt: s.updatedAt }))}
+                signatures={signaturesData.map(s => ({ id: s.id, name: s.name, content: s.content, providerId: s.providerId ?? null, isDefault: s.isDefault, createdAt: s.createdAt, updatedAt: s.updatedAt }))}
+                providers={providers.map(p => ({ id: p.id, email: p.email, providerType: p.providerType, isDefault: p.isDefault }))}
                 onSave={handleSaveSignature}
                 onDelete={handleDeleteSignature}
                 onSetDefault={handleSetDefaultSignature}

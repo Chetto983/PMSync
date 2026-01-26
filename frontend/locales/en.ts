@@ -1689,6 +1689,8 @@ export const en: AppTranslations = {
       deleteConfirmMessage: 'Are you sure you want to delete this signature? This action cannot be undone.',
       noSignatures: 'No signatures yet. Create one to get started.',
       previewTitle: 'Preview',
+      provider: 'Account',
+      allProviders: 'All accounts',
     },
     generalPanel: {
       title: 'General Settings',

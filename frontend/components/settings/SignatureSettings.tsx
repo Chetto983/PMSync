@@ -17,6 +17,10 @@ import {
   Alert,
   Divider,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { Edit2, Trash2, Plus, Star, Check } from 'lucide-react';
 import {
@@ -40,13 +44,22 @@ export interface EmailSignature {
   id: string;
   name: string;
   content: string; // HTML content
+  providerId: string | null;
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface EmailProvider {
+  id: string;
+  email: string;
+  providerType: string;
+  isDefault?: boolean;
+}
+
 export interface SignatureSettingsProps {
   signatures: EmailSignature[];
+  providers: EmailProvider[];
   onSave: (signature: Omit<EmailSignature, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => void;
   onDelete: (id: string) => void;
   onSetDefault: (id: string) => void;
@@ -70,6 +83,8 @@ export interface SignatureSettingsProps {
     deleteConfirmMessage: string;
     noSignatures: string;
     previewTitle: string;
+    provider?: string;
+    allProviders?: string;
   };
 }
 
@@ -116,6 +131,7 @@ function SignatureEditorControls() {
 
 export function SignatureSettings({
   signatures,
+  providers,
   onSave,
   onDelete,
   onSetDefault,
@@ -129,31 +145,43 @@ export function SignatureSettings({
   const [selectedSignature, setSelectedSignature] = useState<EmailSignature | null>(null);
   const [signatureName, setSignatureName] = useState('');
   const [signatureContent, setSignatureContent] = useState('');
+  const [providerId, setProviderId] = useState<string | null>(null);
   const [isDefault, setIsDefault] = useState(false);
 
   const extensions = useExtensions({ placeholder: '' });
   const rteRef = useRef<RichTextEditorRef>(null);
+
+  // Get provider email by ID for display
+  const getProviderEmail = useCallback((id: string | null) => {
+    if (!id) return copy.allProviders || 'All accounts';
+    const provider = providers.find((p) => p.id === id);
+    return provider?.email || id;
+  }, [providers, copy.allProviders]);
 
   const handleOpenEditor = useCallback((signature?: EmailSignature) => {
     if (signature) {
       setSelectedSignature(signature);
       setSignatureName(signature.name);
       setSignatureContent(signature.content);
+      setProviderId(signature.providerId);
       setIsDefault(signature.isDefault);
     } else {
       setSelectedSignature(null);
       setSignatureName('');
       setSignatureContent('');
+      // Default to first provider or null (all accounts)
+      setProviderId(providers.length > 0 ? providers[0].id : null);
       setIsDefault(signatures.length === 0); // First signature is default
     }
     setEditorOpen(true);
-  }, [signatures.length]);
+  }, [signatures.length, providers]);
 
   const handleCloseEditor = useCallback(() => {
     setEditorOpen(false);
     setSelectedSignature(null);
     setSignatureName('');
     setSignatureContent('');
+    setProviderId(null);
     setIsDefault(false);
   }, []);
 
@@ -166,11 +194,12 @@ export function SignatureSettings({
       id: selectedSignature?.id,
       name: signatureName.trim(),
       content,
+      providerId,
       isDefault,
     });
 
     handleCloseEditor();
-  }, [signatureName, signatureContent, isDefault, selectedSignature, onSave, handleCloseEditor]);
+  }, [signatureName, signatureContent, providerId, isDefault, selectedSignature, onSave, handleCloseEditor]);
 
   const handleOpenDeleteDialog = useCallback((signature: EmailSignature) => {
     setSelectedSignature(signature);
@@ -251,6 +280,11 @@ export function SignatureSettings({
                               icon={<Star size={12} />}
                             />
                           )}
+                          <Chip
+                            size="small"
+                            label={getProviderEmail(signature.providerId)}
+                            variant="outlined"
+                          />
                         </Box>
                       }
                       secondary={
@@ -328,6 +362,26 @@ export function SignatureSettings({
               size="small"
               autoFocus
             />
+
+            {providers.length > 0 && (
+              <FormControl fullWidth size="small">
+                <InputLabel>{copy.provider || 'Account'}</InputLabel>
+                <Select
+                  value={providerId || ''}
+                  label={copy.provider || 'Account'}
+                  onChange={(e) => setProviderId(e.target.value || null)}
+                >
+                  <MenuItem value="">
+                    <em>{copy.allProviders || 'All accounts'}</em>
+                  </MenuItem>
+                  {providers.map((provider) => (
+                    <MenuItem key={provider.id} value={provider.id}>
+                      {provider.email}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>

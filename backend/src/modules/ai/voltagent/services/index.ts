@@ -13,7 +13,6 @@ export * from './focus-time.service';
 export * from './meeting-prep.service';
 
 // Conversation & Memory
-export * from './conversation-compaction.service';
 export { ConversationManagementService } from './conversation-management.service';
 export type {
   ConversationSummary,
