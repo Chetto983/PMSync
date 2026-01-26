@@ -71,12 +71,8 @@ export default function AiComposeMenu({
         }
     }, [open]);
 
-    // Reset tone when menu closes
-    useEffect(() => {
-        if (!open) {
-            setSelectedTone(null);
-        }
-    }, [open]);
+    // Reset tone when menu closes - handled via onClose/TransitionProps instead of useEffect
+    // to avoid "setState in effect" lint error
 
     const handleQuickAction = (action: AiActionType, promptLabel: string) => {
         // Construct a specific prompt based on the action
@@ -151,6 +147,11 @@ export default function AiComposeMenu({
             transformOrigin={{
                 vertical: 'top',
                 horizontal: 'left',
+            }}
+            slotProps={{
+                transition: {
+                    onExited: () => setSelectedTone(null), // Reset tone when popover closes
+                },
             }}
             PaperProps={{
                 sx: {

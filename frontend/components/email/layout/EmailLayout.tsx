@@ -13,10 +13,11 @@
  * @see https://dndkit.com (dnd-kit best practices)
  */
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { Mail, Folder } from 'lucide-react';
-import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
+import { Allotment } from 'allotment';
+import 'allotment/dist/style.css';
 import {
   DndContext,
   DragOverlay,
@@ -175,63 +176,73 @@ export function EmailLayout({
     [activeId, activeType, activeData]
   );
 
-  // Panel layout persistence with localStorage
-  // Custom storage that validates data BEFORE returning (not after in useEffect)
-  const layoutStorage = React.useMemo(() => {
-    if (typeof window === 'undefined') {
-      return {
-        getItem: (_key: string): string | null => null,
-        setItem: (_key: string, _value: string): void => {},
-      };
-    }
+  // ==========================================================================
+  // Layout persistence with Allotment (simpler, more robust)
+  // ==========================================================================
+  const STORAGE_KEY_2PANEL = 'email-layout-2panel';
+  const STORAGE_KEY_3PANEL = 'email-layout-3panel';
+  // Default sizes in pixels (will be scaled proportionally)
+  const DEFAULT_2PANEL = [200, 800]; // sidebar, list
+  const DEFAULT_3PANEL = [200, 400, 600]; // sidebar, list, reading-pane
 
-    // Validate panel sizes before returning - prevents corrupted data from loading
-    const validateAndGetItem = (key: string): string | null => {
-      try {
-        const stored = localStorage.getItem(key);
-        if (!stored) return null;
+  // Track if user has interacted (to avoid saving initial render values)
+  const hasUserResized = useRef(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-        const sizes = JSON.parse(stored);
-        if (!Array.isArray(sizes)) {
-          localStorage.removeItem(key);
-          return null;
-        }
-
-        // Determine minimum sidebar size based on layout type
-        const minSidebarSize = key.includes('3panel') ? 8 : 10;
-
-        // If sidebar (first panel) is too narrow, discard corrupted data
-        if (sizes[0] < minSidebarSize) {
-          localStorage.removeItem(key);
-          return null;
-        }
-
-        return stored;
-      } catch {
+  // Load saved layout from localStorage
+  const loadLayout = useCallback((key: string, defaultSizes: number[]): number[] => {
+    if (typeof window === 'undefined') return defaultSizes;
+    try {
+      const stored = localStorage.getItem(key);
+      if (!stored) return defaultSizes;
+      const sizes = JSON.parse(stored) as number[];
+      // Validate: must be array with correct length and reasonable sidebar size
+      if (!Array.isArray(sizes) || sizes.length !== defaultSizes.length) {
         localStorage.removeItem(key);
-        return null;
+        return defaultSizes;
       }
-    };
-
-    return {
-      getItem: validateAndGetItem,
-      setItem: (key: string, value: string): void => {
-        localStorage.setItem(key, value);
-      },
-    };
+      // Validate sidebar is at least 100px
+      if (sizes[0] < 100) {
+        localStorage.removeItem(key);
+        return defaultSizes;
+      }
+      return sizes;
+    } catch {
+      return defaultSizes;
+    }
   }, []);
 
-  const twoPanelLayout = useDefaultLayout({
-    id: 'email-layout-2panel',
-    panelIds: ['email-sidebar', 'email-list'],
-    storage: layoutStorage,
-  });
+  // Save layout to localStorage (debounced)
+  const saveLayout = useCallback((key: string, sizes: number[]) => {
+    if (typeof window === 'undefined') return;
+    if (!hasUserResized.current) return;
+    // Validate sidebar is reasonable (at least 100px)
+    if (sizes[0] < 100) return;
+    // Debounce saves
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      localStorage.setItem(key, JSON.stringify(sizes));
+    }, 300);
+  }, []);
 
-  const threePanelLayout = useDefaultLayout({
-    id: 'email-layout-3panel',
-    panelIds: ['email-sidebar', 'email-list', 'email-reading-pane'],
-    storage: layoutStorage,
-  });
+  // Initial layouts from storage
+  const [twoPanelSizes] = useState<number[]>(() =>
+    loadLayout(STORAGE_KEY_2PANEL, DEFAULT_2PANEL)
+  );
+  const [threePanelSizes] = useState<number[]>(() =>
+    loadLayout(STORAGE_KEY_3PANEL, DEFAULT_3PANEL)
+  );
+
+  // Handle layout changes (called during resize)
+  const handleTwoPanelChange = useCallback((sizes: number[]) => {
+    hasUserResized.current = true;
+    saveLayout(STORAGE_KEY_2PANEL, sizes);
+  }, [saveLayout]);
+
+  const handleThreePanelChange = useCallback((sizes: number[]) => {
+    hasUserResized.current = true;
+    saveLayout(STORAGE_KEY_3PANEL, sizes);
+  }, [saveLayout]);
 
   // Mobile: bottom navigation bar + folder sheet
   if (isMobile) {
@@ -328,46 +339,25 @@ export function EmailLayout({
               backgroundColor: 'background.default',
             }}
           >
-            <Group
-              id="email-layout-2panel"
-              orientation="horizontal"
-              defaultLayout={twoPanelLayout.defaultLayout}
-              onLayoutChanged={twoPanelLayout.onLayoutChanged}
-              style={{ height: '100%' }}
+            <Allotment
+              defaultSizes={twoPanelSizes}
+              onChange={handleTwoPanelChange}
+              onDragEnd={() => { hasUserResized.current = true; }}
             >
-              {/* Sidebar Panel */}
-              <Panel
-                id="email-sidebar"
-                defaultSize={15}
-                minSize={12}
-                maxSize={25}
-                style={{ display: 'flex' }}
-              >
-                <FolderSidebar collapsed={false} />
-              </Panel>
+              {/* Sidebar Pane */}
+              <Allotment.Pane minSize={150} maxSize={350}>
+                <Box sx={{ height: '100%', display: 'flex' }}>
+                  <FolderSidebar collapsed={false} />
+                </Box>
+              </Allotment.Pane>
 
-              {/* Resize Handle */}
-              <Separator
-                style={{
-                  width: 4,
-                  backgroundColor: 'transparent',
-                  cursor: 'col-resize',
-                  position: 'relative',
-                  transition: 'background-color 0.15s',
-                }}
-                className="resize-handle"
-              />
-
-              {/* Email List Panel - Full width */}
-              <Panel
-                id="email-list"
-                defaultSize={85}
-                minSize={50}
-                style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}
-              >
-                {children}
-              </Panel>
-            </Group>
+              {/* Email List Pane */}
+              <Allotment.Pane minSize={300}>
+                <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  {children}
+                </Box>
+              </Allotment.Pane>
+            </Allotment>
 
             {/* Centralized DragOverlay - handles both email and folder drags */}
             <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
@@ -407,20 +397,13 @@ export function EmailLayout({
               ) : null}
             </DragOverlay>
 
-            {/* CSS for resize handle hover effect */}
+            {/* Allotment sash styling */}
             <style jsx global>{`
-              .resize-handle:hover,
-              .resize-handle:focus-visible,
-              .resize-handle:active {
-                background-color: ${theme.palette.primary.main} !important;
+              .split-view-view {
+                overflow: hidden !important;
               }
-              .resize-handle::after {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: -3px;
-                right: -3px;
-                bottom: 0;
+              [data-allotment-sash] {
+                --focus-border: ${theme.palette.primary.main};
               }
             `}</style>
           </Box>
@@ -449,70 +432,32 @@ export function EmailLayout({
         backgroundColor: 'background.default',
       }}
     >
-      <Group
-        id="email-layout-3panel"
-        orientation="horizontal"
-        defaultLayout={threePanelLayout.defaultLayout}
-        onLayoutChanged={threePanelLayout.onLayoutChanged}
-        style={{ height: '100%' }}
+      <Allotment
+        defaultSizes={threePanelSizes}
+        onChange={handleThreePanelChange}
+        onDragEnd={() => { hasUserResized.current = true; }}
       >
-        {/* Sidebar Panel */}
-        <Panel
-          id="email-sidebar"
-          defaultSize={15}
-          minSize={10}
-          maxSize={20}
-          style={{ display: 'flex' }}
-        >
-          <FolderSidebar collapsed={false} />
-        </Panel>
+        {/* Sidebar Pane */}
+        <Allotment.Pane minSize={150} maxSize={280}>
+          <Box sx={{ height: '100%', display: 'flex' }}>
+            <FolderSidebar collapsed={false} />
+          </Box>
+        </Allotment.Pane>
 
-        {/* Resize Handle */}
-        <Separator
-          style={{
-            width: 4,
-            backgroundColor: 'transparent',
-            cursor: 'col-resize',
-            position: 'relative',
-            transition: 'background-color 0.15s',
-          }}
-          className="resize-handle"
-        />
+        {/* Email List Pane */}
+        <Allotment.Pane minSize={250} maxSize={500}>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+            {children}
+          </Box>
+        </Allotment.Pane>
 
-        {/* Email List Panel */}
-        <Panel
-          id="email-list"
-          defaultSize={30}
-          minSize={25}
-          maxSize={45}
-          style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}
-        >
-          {children}
-        </Panel>
-
-        {/* Resize Handle */}
-        <Separator
-          style={{
-            width: 4,
-            backgroundColor: 'transparent',
-            cursor: 'col-resize',
-            position: 'relative',
-            transition: 'background-color 0.15s',
-          }}
-          className="resize-handle"
-        />
-
-        {/* Reading Pane Panel */}
-        <Panel
-          id="email-reading-pane"
-          defaultSize={55}
-          minSize={35}
-          maxSize={65}
-          style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}
-        >
-          {readingPane}
-        </Panel>
-      </Group>
+        {/* Reading Pane */}
+        <Allotment.Pane minSize={350}>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+            {readingPane}
+          </Box>
+        </Allotment.Pane>
+      </Allotment>
 
         {/* Centralized DragOverlay - handles both email and folder drags */}
         <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
@@ -552,20 +497,13 @@ export function EmailLayout({
           ) : null}
         </DragOverlay>
 
-        {/* CSS for resize handle hover effect */}
+        {/* Allotment sash styling */}
         <style jsx global>{`
-          .resize-handle:hover,
-          .resize-handle:focus-visible,
-          .resize-handle:active {
-            background-color: ${theme.palette.primary.main} !important;
+          .split-view-view {
+            overflow: hidden !important;
           }
-          .resize-handle::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -3px;
-            right: -3px;
-            bottom: 0;
+          [data-allotment-sash] {
+            --focus-border: ${theme.palette.primary.main};
           }
         `}</style>
         </Box>

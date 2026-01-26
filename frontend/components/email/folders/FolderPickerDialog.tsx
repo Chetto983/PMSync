@@ -37,6 +37,8 @@ interface FolderPickerDialogProps {
     onSuccess?: () => void;
     /** Current folder ID of the selected emails (optional) */
     currentFolderId?: string;
+    /** Provider ID to filter folders - only show folders from this provider */
+    providerId?: string;
 }
 
 export function FolderPickerDialog({
@@ -45,6 +47,7 @@ export function FolderPickerDialog({
     emailIds,
     onSuccess,
     currentFolderId,
+    providerId,
 }: FolderPickerDialogProps) {
     const t = useTranslations();
 
@@ -70,26 +73,45 @@ export function FolderPickerDialog({
         setError(null);
     }, []);
 
-    // Filter folders by search
+    // Filter folders by:
+    // 1. Provider ID (if specified) - only show folders from the same provider as selected emails
+    // 2. Search term
+    // 3. Exclude non-movable system folders:
+    //    - DRAFTS, SENT: For composing/sent emails only
+    //    - SPAM, JUNK: Use "Mark as spam" action instead
+    //    - TRASH, BIN: Use "Delete" action instead
+    //    - ALL: Virtual "All Mail" folder (read-only aggregate)
     const filteredFoldersByProvider = useMemo(() => {
+        const NON_MOVABLE_SPECIAL_USES = ['DRAFTS', 'SENT', 'SPAM', 'JUNK', 'TRASH', 'BIN', 'ALL'];
         if (!foldersByProvider) return {};
 
-        if (!search.trim()) return foldersByProvider;
-
-        const searchLower = search.toLowerCase();
+        const searchLower = search.trim().toLowerCase();
         const result: Record<string, IFolder[]> = {};
 
-        Object.entries(foldersByProvider).forEach(([providerId, folders]) => {
-            const filtered = folders.filter((folder) =>
-                folder.name.toLowerCase().includes(searchLower)
-            );
+        Object.entries(foldersByProvider).forEach(([provId, folders]) => {
+            // Filter by provider if specified (emails can only move within same provider)
+            if (providerId && provId !== providerId) {
+                return; // Skip folders from other providers
+            }
+
+            const filtered = folders.filter((folder) => {
+                // Exclude non-movable system folders
+                if (folder.specialUse && NON_MOVABLE_SPECIAL_USES.includes(folder.specialUse.toUpperCase())) {
+                    return false;
+                }
+                // Apply search filter if provided
+                if (searchLower && !folder.name.toLowerCase().includes(searchLower)) {
+                    return false;
+                }
+                return true;
+            });
             if (filtered.length > 0) {
-                result[providerId] = filtered;
+                result[provId] = filtered;
             }
         });
 
         return result;
-    }, [foldersByProvider, search]);
+    }, [foldersByProvider, search, providerId]);
 
     // Handle folder selection
     const handleSelect = useCallback((folderId: string) => {

@@ -196,7 +196,11 @@
       "Bash(LOG_LEVEL=warn npx ts-node:*)",
       "Bash(del \"C:\\\\Users\\\\Davide\\\\.claude\\\\plans\\\\sequential-plotting-frog.md\")",
       "Bash(tee:*)",
-      "mcp__claude-flow_alpha__memory_store"
+      "mcp__claude-flow_alpha__memory_store",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:react-resizable-panels.vercel.app)"
     ],
     "deny": []
   }

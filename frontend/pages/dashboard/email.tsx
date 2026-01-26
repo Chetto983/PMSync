@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -9,6 +9,7 @@ import { LabelPickerDialog } from '@/components/email/labels';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useEmails,
   useEmail,
@@ -21,6 +22,7 @@ import {
   useSenderPhotos,
   useUserPreferences,
   useUpdatePreferences,
+  emailsListOptions,
 } from '@/hooks/queries';
 import type { SenderContactMap } from '@/lib/api/contacts';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
@@ -93,6 +95,13 @@ export default function EmailPage() {
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [labelPickerEmailIds, setLabelPickerEmailIds] = useState<string[]>([]);
 
+  // Pagination state for infinite scroll (following Contacts pattern)
+  const [allEmails, setAllEmails] = useState<Email[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const paginationRef = useRef({ page: 1, total: 0 });
+  const queryClient = useQueryClient();
+
   // Navigate to compose page
   const handleCompose = useCallback(() => {
     router.push('/dashboard/email/compose');
@@ -131,31 +140,96 @@ export default function EmailPage() {
   });
 
   // Map special folder to API-supported values
-  const getApiSpecialUse = (
-    folder?: string
-  ): 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE' | undefined => {
-    const supported = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'ARCHIVE'];
-    if (folder && supported.includes(folder)) {
-      return folder as 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE';
-    }
-    return undefined;
-  };
+  const getApiSpecialUse = useCallback(
+    (folder?: string): 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE' | undefined => {
+      const supported = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'ARCHIVE'];
+      if (folder && supported.includes(folder)) {
+        return folder as 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE';
+      }
+      return undefined;
+    },
+    []
+  );
 
-  // Fetch email data from API based on current folder filters
-  const { data: emailsData, isLoading, refetch } = useEmails({
+  // Build query params for emails API
+  const emailQueryParams = useMemo(() => ({
     specialUse: filters.labelId || filters.folderId
       ? undefined
-      : getApiSpecialUse(filters.specialUse), // Avoid overriding folder/label filters
+      : getApiSpecialUse(filters.specialUse),
     providerId: filters.providerId,
     folder: selectedFolderPath,
     isRead: filters.isRead,
     isImportant: filters.isImportant,
     hasAttachments: filters.hasAttachments,
     search: filters.search,
-    labelIds: filters.labelId, // Filter by label ID
-    fromVip: filters.fromVip, // Filter emails from VIP contacts
+    labelIds: filters.labelId,
+    fromVip: filters.fromVip,
     limit: 50,
+  }), [filters, selectedFolderPath, getApiSpecialUse]);
+
+  // Create a stable filter key to detect filter changes
+  const filterKey = useMemo(() => JSON.stringify(emailQueryParams), [emailQueryParams]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    paginationRef.current = { page: 1, total: 0 };
+    setAllEmails([]);
+    setHasMore(true);
+  }, [filterKey]);
+
+  // Fetch ONLY first page via useEmails hook (for initial load + filter changes)
+  const { data: emailsData, isLoading, refetch } = useEmails({
+    ...emailQueryParams,
+    page: 1,
   });
+
+  // Populate allEmails when first page loads
+  useEffect(() => {
+    if (emailsData?.emails && !isLoadingMore) {
+      setAllEmails(emailsData.emails);
+      const { pagination } = emailsData;
+      if (pagination) {
+        paginationRef.current = { page: 1, total: pagination.total };
+        setHasMore(pagination.page < pagination.totalPages);
+      }
+    }
+  }, [emailsData, isLoadingMore]);
+
+  // Load more emails (infinite scroll) - uses manual fetchQuery like Contacts
+  const handleLoadMore = useCallback(async () => {
+    if (!hasMore || isLoadingMore || isLoading) return;
+
+    setIsLoadingMore(true);
+    const nextPage = paginationRef.current.page + 1;
+
+    try {
+      const response = await queryClient.fetchQuery(
+        emailsListOptions({ ...emailQueryParams, page: nextPage })
+      );
+
+      if (response?.emails) {
+        // Append new emails (dedupe by ID)
+        setAllEmails((prev) => {
+          const existingIds = new Set(prev.map((e) => e.id));
+          const newEmails = response.emails.filter((e: Email) => !existingIds.has(e.id));
+          return [...prev, ...newEmails];
+        });
+
+        // Update pagination state
+        const { pagination } = response;
+        if (pagination) {
+          paginationRef.current = { page: nextPage, total: pagination.total };
+          setHasMore(pagination.page < pagination.totalPages);
+        } else {
+          setHasMore(false);
+        }
+      }
+    } catch {
+      // Failed to load more emails - silently fail, user can retry
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [emailQueryParams, hasMore, isLoadingMore, isLoading, queryClient]);
 
   // Fetch single email when selected (desktop 3-panel view)
   const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');
@@ -171,27 +245,27 @@ export default function EmailPage() {
   const { data: preferences } = useUserPreferences();
   const updatePreferences = useUpdatePreferences();
 
-  // Extract unique sender emails for photo lookup
+  // Extract unique sender emails for photo lookup (from accumulated emails)
   const senderEmails = useMemo(() => {
-    if (!emailsData?.emails?.length) return [];
-    const emails = emailsData.emails.map((e) => extractEmailAddress(e.from));
+    if (!allEmails.length) return [];
+    const emails = allEmails.map((e) => extractEmailAddress(e.from));
     return [...new Set(emails)];
-  }, [emailsData?.emails]);
+  }, [allEmails]);
 
   // Fetch sender photos from contacts (batch lookup)
   const { data: senderPhotos } = useSenderPhotos(senderEmails);
 
-  // Format emails to thread list format with sender photos
+  // Format emails to thread list format with sender photos (from accumulated emails)
   const threads = useMemo(
-    () => emailsData?.emails?.map((email) => formatEmailToThread(email, senderPhotos)) ?? [],
-    [emailsData?.emails, senderPhotos]
+    () => allEmails.map((email) => formatEmailToThread(email, senderPhotos)),
+    [allEmails, senderPhotos]
   );
 
   // Email click - mark as read and show in reading pane (single email, not thread)
   const handleThreadClick = useCallback(
     async (id: string) => {
-      // Find the email
-      const email = emailsData?.emails?.find((e) => e.id === id);
+      // Find the email from accumulated emails
+      const email = allEmails.find((e) => e.id === id);
       if (!email) return;
 
       // Mark as read if unread
@@ -214,7 +288,7 @@ export default function EmailPage() {
         router.push(`/dashboard/email/thread/${id}`);
       }
     },
-    [router, emailsData?.emails, isDesktop, updateEmail]
+    [router, allEmails, isDesktop, updateEmail]
   );
 
   // Close reading pane
@@ -401,8 +475,12 @@ export default function EmailPage() {
     t.threadView?.loading,
   ]);
 
-  // Refresh emails
+  // Refresh emails - reset to page 1 and refetch
+  // Refresh emails - reset to page 1 and refetch
   const handleRefresh = useCallback(async () => {
+    paginationRef.current = { page: 1, total: 0 };
+    setAllEmails([]);
+    setHasMore(true);
     await refetch();
   }, [refetch]);
 
@@ -670,9 +748,12 @@ export default function EmailPage() {
             threads={threads}
             emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
             isLoading={isLoading}
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
             focusedId={focusedId}
             onThreadClick={handleThreadClick}
             onRefresh={handleRefresh}
+            onLoadMore={handleLoadMore}
             onBulkMarkAsRead={handleBulkMarkAsRead}
             onBulkMarkAsUnread={handleBulkMarkAsUnread}
             onBulkArchive={handleBulkArchive}

@@ -17,7 +17,7 @@
  * - <50KB bundle size
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 // DragOverlay is centralized in EmailLayout
@@ -199,6 +199,13 @@ export function ThreadList({
     setFolderPickerOpen(false);
     setMoveEmailId(null);
   }, []);
+
+  // Get providerId of the email being moved (for folder filtering)
+  const moveEmailProviderId = useMemo(() => {
+    if (!moveEmailId) return undefined;
+    const thread = threads.find((t) => t.id === moveEmailId);
+    return thread?.providerId;
+  }, [moveEmailId, threads]);
 
   // Note: Drag handlers and DragOverlay are now in EmailLayout's shared DndContext
 
@@ -397,6 +404,7 @@ export function ThreadList({
         onClose={handleCloseFolderPicker}
         emailIds={moveEmailId ? [moveEmailId] : []}
         onSuccess={handleCloseFolderPicker}
+        providerId={moveEmailProviderId}
       />
     </Box>
   );

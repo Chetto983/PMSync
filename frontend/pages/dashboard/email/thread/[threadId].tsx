@@ -93,6 +93,11 @@ export default function ThreadDetailPage() {
     return emails?.map((e) => e.id) || [];
   }, [emails]);
 
+  // Get providerId from thread (all emails in a thread belong to same provider)
+  const providerId = useMemo(() => {
+    return emails?.[0]?.providerId;
+  }, [emails]);
+
   // Navigate back to email list
   const handleBack = useCallback(() => {
     router.push('/dashboard/email');
@@ -361,6 +366,7 @@ export default function ThreadDetailPage() {
             open={folderPickerOpen}
             onClose={() => setFolderPickerOpen(false)}
             emailIds={emailIds}
+            providerId={providerId}
             onSuccess={() => {
               // Optional: redirect to list if moved out of current context (e.g. Inbox)
               // For now, we stay on thread but maybe show success toast (handled in dialog)
