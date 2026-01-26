@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FolderSidebar } from '../sidebar/FolderSidebar';
 import { MobileEmailNav } from './MobileEmailNav';
 
@@ -34,6 +34,26 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const layoutStorage = React.useMemo(() => {
+    if (typeof window === 'undefined') {
+      return {
+        getItem: (_key: string): string | null => null,
+        setItem: (_key: string, _value: string): void => {},
+      };
+    }
+
+    return window.localStorage;
+  }, []);
+  const twoPanelLayout = useDefaultLayout({
+    id: 'email-layout-2panel',
+    panelIds: ['email-sidebar', 'email-list'],
+    storage: layoutStorage,
+  });
+  const threePanelLayout = useDefaultLayout({
+    id: 'email-layout-3panel',
+    panelIds: ['email-sidebar', 'email-list', 'email-reading-pane'],
+    storage: layoutStorage,
+  });
 
   // Mobile: bottom navigation bar + folder sheet
   if (isMobile) {
@@ -120,13 +140,16 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
           backgroundColor: 'background.default',
         }}
       >
-        <PanelGroup
-          direction="horizontal"
-          autoSaveId="email-layout-2panel"
+        <Group
+          id="email-layout-2panel"
+          orientation="horizontal"
+          defaultLayout={twoPanelLayout.defaultLayout}
+          onLayoutChanged={twoPanelLayout.onLayoutChanged}
           style={{ height: '100%' }}
         >
           {/* Sidebar Panel */}
           <Panel
+            id="email-sidebar"
             defaultSize={15}
             minSize={12}
             maxSize={25}
@@ -136,7 +159,7 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
           </Panel>
 
           {/* Resize Handle */}
-          <PanelResizeHandle
+          <Separator
             style={{
               width: 4,
               backgroundColor: 'transparent',
@@ -149,18 +172,20 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
 
           {/* Email List Panel - Full width */}
           <Panel
+            id="email-list"
             defaultSize={85}
             minSize={50}
             style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}
           >
             {children}
           </Panel>
-        </PanelGroup>
+        </Group>
 
         {/* CSS for resize handle hover effect */}
         <style jsx global>{`
           .resize-handle:hover,
-          .resize-handle[data-resize-handle-active] {
+          .resize-handle:focus-visible,
+          .resize-handle:active {
             background-color: ${theme.palette.primary.main} !important;
           }
           .resize-handle::after {
@@ -188,13 +213,16 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
         backgroundColor: 'background.default',
       }}
     >
-      <PanelGroup
-        direction="horizontal"
-        autoSaveId="email-layout-3panel"
+      <Group
+        id="email-layout-3panel"
+        orientation="horizontal"
+        defaultLayout={threePanelLayout.defaultLayout}
+        onLayoutChanged={threePanelLayout.onLayoutChanged}
         style={{ height: '100%' }}
       >
         {/* Sidebar Panel */}
         <Panel
+          id="email-sidebar"
           defaultSize={15}
           minSize={10}
           maxSize={20}
@@ -204,7 +232,7 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
         </Panel>
 
         {/* Resize Handle */}
-        <PanelResizeHandle
+        <Separator
           style={{
             width: 4,
             backgroundColor: 'transparent',
@@ -217,6 +245,7 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
 
         {/* Email List Panel */}
         <Panel
+          id="email-list"
           defaultSize={30}
           minSize={25}
           maxSize={45}
@@ -226,7 +255,7 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
         </Panel>
 
         {/* Resize Handle */}
-        <PanelResizeHandle
+        <Separator
           style={{
             width: 4,
             backgroundColor: 'transparent',
@@ -239,6 +268,7 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
 
         {/* Reading Pane Panel */}
         <Panel
+          id="email-reading-pane"
           defaultSize={55}
           minSize={35}
           maxSize={65}
@@ -246,12 +276,13 @@ export function EmailLayout({ children, readingPane, onCloseReadingPane: _onClos
         >
           {readingPane}
         </Panel>
-      </PanelGroup>
+      </Group>
 
       {/* CSS for resize handle hover effect */}
       <style jsx global>{`
         .resize-handle:hover,
-        .resize-handle[data-resize-handle-active] {
+        .resize-handle:focus-visible,
+        .resize-handle:active {
           background-color: ${theme.palette.primary.main} !important;
         }
         .resize-handle::after {

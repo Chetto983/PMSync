@@ -7,6 +7,11 @@
 import { createMistral } from '@ai-sdk/mistral';
 import type { LanguageModel } from 'ai';
 
+// Type for the Mistral provider instance
+type MistralProviderInstance = ReturnType<typeof createMistral>;
+// Type for model returned by provider - using ReturnType to avoid portability issues
+type MistralModelInstance = ReturnType<MistralProviderInstance>;
+
 // Validate API key at module load time
 const apiKey = process.env.MISTRAL_API_KEY;
 if (!apiKey) {
@@ -34,15 +39,15 @@ function getMistralProvider() {
 }
 
 // Model instances for different use cases (lazy initialization)
-export function getMistralSmall() {
+export function getMistralSmall(): MistralModelInstance {
   return getMistralProvider()(MISTRAL_MODEL_SMALL);
 }
 
-export function getMistralMedium() {
+export function getMistralMedium(): MistralModelInstance {
   return getMistralProvider()(MISTRAL_MODEL_MEDIUM);
 }
 
-export function getMistralLarge() {
+export function getMistralLarge(): MistralModelInstance {
   return getMistralProvider()(MISTRAL_MODEL_LARGE);
 }
 
@@ -51,7 +56,11 @@ export function getMistralLarge() {
 // @see https://ai-sdk.dev/providers/ai-sdk-providers/mistral
 
 // Legacy exports for backward compatibility
-export const mistralProvider = {
+export const mistralProvider: {
+  readonly small: MistralModelInstance;
+  readonly medium: MistralModelInstance;
+  readonly large: MistralModelInstance;
+} = {
   get small() {
     return getMistralSmall();
   },

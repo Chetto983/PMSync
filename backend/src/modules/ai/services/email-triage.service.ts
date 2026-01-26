@@ -15,6 +15,8 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
 import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
+import { AttentionScoreService } from '../voltagent/services/attention-score.service';
+import type { SupportedLocale } from '../voltagent/locales';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 20; // Max emails to process per API call
@@ -36,6 +38,19 @@ interface TriageResult {
   error?: string;
   batchJobId?: string; // P11: Track batch job
   mode?: 'realtime' | 'batch'; // P11: Indicate processing mode
+
+  // Extended fields from unified analysis (2025-01 consolidation)
+  summary?: string;
+  sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed';
+  urgency?: 'critical' | 'high' | 'medium' | 'low';
+  keyTopics?: string[];
+  escalationRisk?: boolean;
+  hasDeadline?: boolean;
+  needsFollowUp?: boolean;
+
+  // Phase 4.1: Attention Score pre-filter fields
+  attentionScore?: number;
+  attentionDecision?: 'archive' | 'keep' | 'spam';
 }
 
 interface TriageOptions {
@@ -70,6 +85,7 @@ export class EmailTriageService {
     private readonly emailInsights: EmailInsightsService,
     @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
+    @Optional() private readonly attentionScore?: AttentionScoreService, // P4.1: Pre-filter
   ) {
     // P11 Phase 4: Load batch config (with fallback defaults)
     this.batchEnabled = this.configService?.get<boolean>('ai.batch.enabled') ?? true;
@@ -168,7 +184,15 @@ export class EmailTriageService {
   }
 
   /**
-   * Triage a single email - calculate priority and suggest labels
+   * Triage a single email - unified analysis with summary, priority, labels, sentiment
+   *
+   * CONSOLIDATED (2025-01): Now uses single LLM call via analyzeEmailUnified()
+   * instead of 2 separate calls (calculatePriority + categorizeEmail)
+   *
+   * PHASE 4.1 (2026-01): Added AttentionScore pre-filter to skip LLM for low-priority
+   * emails. Saves 30-50% of LLM API calls.
+   *
+   * Returns ALL insights: summary, sentiment, priority, labels, topics, escalationRisk
    */
   async triageEmail(
     emailId: string,
@@ -177,44 +201,44 @@ export class EmailTriageService {
     const { tenantId, locale } = options;
 
     try {
-      // Run priority calculation and categorization in parallel
-      const [priorityResult, labels] = await Promise.all([
-        this.emailInsights.calculatePriority(tenantId, emailId, locale),
-        this.emailInsights.categorizeEmail(tenantId, emailId, locale),
-      ]);
+      // PHASE 4.1: Attention Score Pre-filter
+      // Check if we should skip expensive LLM analysis for low-priority emails
+      if (this.attentionScore) {
+        const preFilterResult = await this.preFilterWithAttentionScore(emailId, tenantId, locale as SupportedLocale);
+        if (preFilterResult) {
+          this.logger.debug(
+            `Pre-filtered email ${emailId}: score=${preFilterResult.attentionScore}, decision=${preFilterResult.attentionDecision}`,
+          );
+          return preFilterResult;
+        }
+      }
 
-      // Map 1-10 score to 1-5 priority (1 = highest)
-      const aiPriority = Math.max(1, Math.min(5, Math.ceil((11 - priorityResult.score) / 2)));
-
-      // Build reason from factors
-      const aiPriorityReason = priorityResult.factors.length > 0
-        ? priorityResult.factors.join('; ')
-        : `${priorityResult.urgency} urgency - ${priorityResult.recommendation}`;
-
-      // Update email with AI triage data
-      await this.prisma.email.updateMany({
-        where: {
-          id: emailId,
-          tenantId, // Tenant isolation
-        },
-        data: {
-          aiPriority,
-          aiPriorityReason,
-          aiLabels: labels,
-          isAutoTriaged: true,
-          autoTriagedAt: new Date(),
-        },
-      });
+      // UNIFIED ANALYSIS: Single LLM call for all insights
+      // analyzeEmailUnified() also saves to EmailAnalysis + Email tables
+      const analysis = await this.emailInsights.analyzeEmailUnified(
+        tenantId,
+        emailId,
+        locale,
+        { includeSmartReplies: false }, // Skip smart replies for triage
+      );
 
       this.logger.debug(
-        `Triaged email ${emailId}: priority=${aiPriority}, labels=${labels.join(',')}`,
+        `Triaged email ${emailId}: priority=${analysis.priority}, labels=${analysis.labels.join(',')}, sentiment=${analysis.sentiment}`,
       );
 
       return {
         emailId,
         success: true,
-        aiPriority,
-        aiLabels: labels,
+        aiPriority: analysis.priority,
+        aiLabels: analysis.labels,
+        // Extended fields from unified analysis
+        summary: analysis.summary,
+        sentiment: analysis.sentiment,
+        urgency: analysis.urgency,
+        keyTopics: analysis.keyTopics,
+        escalationRisk: analysis.escalationRisk,
+        hasDeadline: analysis.hasDeadline,
+        needsFollowUp: analysis.needsFollowUp,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -225,6 +249,149 @@ export class EmailTriageService {
         success: false,
         error: errorMessage,
       };
+    }
+  }
+
+  /**
+   * PHASE 4.1: Pre-filter email using AttentionScore
+   * Returns TriageResult if email should skip LLM analysis, null otherwise
+   */
+  private async preFilterWithAttentionScore(
+    emailId: string,
+    tenantId: string,
+    locale?: SupportedLocale,
+  ): Promise<TriageResult | null> {
+    // Fetch email data for attention score calculation
+    const email = await this.prisma.email.findFirst({
+      where: { id: emailId, tenantId },
+      select: {
+        subject: true,
+        snippet: true,
+        bodyText: true,
+        from: true,
+        receivedAt: true,
+        threadId: true,
+        inReplyTo: true,
+      },
+    });
+
+    if (!email) return null;
+
+    // Parse sender from "Name <email@example.com>" format
+    const senderParts = this.parseSenderFromField(email.from);
+
+    // Get thread message count for context scoring
+    let threadMessageCount = 1;
+    if (email.threadId) {
+      threadMessageCount = await this.prisma.email.count({
+        where: { tenantId, threadId: email.threadId },
+      });
+    }
+
+    // Calculate attention score
+    const scoreResult = await this.attentionScore!.calculateScore({
+      subject: email.subject || '',
+      body: email.bodyText || email.snippet || '',
+      senderEmail: senderParts.email,
+      senderName: senderParts.name || undefined,
+      receivedAt: email.receivedAt || new Date(),
+      threadId: email.threadId || undefined,
+      threadMessageCount,
+      isReply: !!email.inReplyTo,
+      tenantId,
+      locale,
+    });
+
+    // If score is above threshold, proceed with full LLM analysis
+    if (!scoreResult.skipLlmAnalysis) {
+      return null;
+    }
+
+    // Auto-triage based on attention score (no LLM call needed)
+    const aiPriority = this.mapAutoTriageToDefaultPriority(scoreResult.autoTriageDecision);
+    const aiLabels = this.mapAutoTriageToLabels(scoreResult.autoTriageDecision);
+
+    // Persist the auto-triage result
+    await this.prisma.email.updateMany({
+      where: { id: emailId, tenantId },
+      data: {
+        aiPriority,
+        aiPriorityReason: `AttentionScore: ${scoreResult.reasoning}`,
+        aiLabels,
+        isAutoTriaged: true,
+        autoTriagedAt: new Date(),
+      },
+    });
+
+    return {
+      emailId,
+      success: true,
+      aiPriority,
+      aiLabels,
+      mode: 'realtime',
+      // Minimal analysis for pre-filtered emails
+      summary: undefined, // No summary for pre-filtered emails
+      sentiment: 'neutral',
+      urgency: 'low',
+      keyTopics: [],
+      escalationRisk: false,
+      hasDeadline: false,
+      needsFollowUp: false,
+      // Phase 4.1: Include attention score data
+      attentionScore: scoreResult.score,
+      attentionDecision: scoreResult.autoTriageDecision,
+    };
+  }
+
+  /**
+   * Parse sender email and name from "Name <email@example.com>" format
+   */
+  private parseSenderFromField(from: string): { email: string; name: string | null } {
+    if (!from) return { email: '', name: null };
+
+    // Try to match "Name <email@example.com>" format
+    const match = from.match(/^(.+?)\s*<([^>]+)>$/);
+    if (match) {
+      return {
+        name: match[1].trim().replace(/^["']|["']$/g, ''), // Remove quotes
+        email: match[2].trim().toLowerCase(),
+      };
+    }
+
+    // If no match, assume the whole string is an email
+    return {
+      email: from.trim().toLowerCase(),
+      name: null,
+    };
+  }
+
+  /**
+   * Map auto-triage decision to default priority
+   */
+  private mapAutoTriageToDefaultPriority(decision?: 'archive' | 'keep' | 'spam'): number {
+    switch (decision) {
+      case 'spam':
+        return 5; // Lowest priority
+      case 'archive':
+        return 4; // Low priority
+      case 'keep':
+      default:
+        return 3; // Medium priority (will get full analysis next time)
+    }
+  }
+
+  /**
+   * Map auto-triage decision to default labels
+   */
+  private mapAutoTriageToLabels(decision?: 'archive' | 'keep' | 'spam'): string[] {
+    switch (decision) {
+      case 'spam':
+        return ['promotional'];
+      case 'archive':
+        return ['low-priority'];
+      case 'keep':
+      default:
+        return [];
     }
   }
 

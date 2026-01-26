@@ -14,6 +14,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
+import { EmailInsightsService } from '../../services/email-insights.service';
 import { WritingStyleService } from '../services/writing-style.service';
 import { getAgentTranslations, getLocaleInstruction, type SupportedLocale } from '../locales';
 import { createEmailTools } from '../tools/email.tools';
@@ -60,6 +61,8 @@ export interface IntelligenceAgentOptions {
   memory?: Memory;
   /** Optional PII detection for LLM redaction */
   piiDetectionService?: PiiDetectionService;
+  /** EmailInsightsService for unified email analysis with DB persistence */
+  emailInsightsService?: EmailInsightsService | null;
 }
 
 /**
@@ -81,6 +84,7 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     hooks,
     memory,
     piiDetectionService,
+    emailInsightsService,
   } = options;
 
   // Always use English prompts - locale only affects response language
@@ -110,6 +114,7 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
         tenantId,
         userId,
         piiDetectionService,
+        emailInsightsService: emailInsightsService ?? undefined,
       })
     : [];
 

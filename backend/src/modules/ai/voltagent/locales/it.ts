@@ -163,6 +163,49 @@ Il campo factors deve contenere elementi in ITALIANO.`,
 }
 Il campo keyTopics deve contenere elementi in ITALIANO.`,
       },
+      /**
+       * UNIFIED ANALYSIS - Single LLM call for ALL email insights (Italian version)
+       */
+      analyzeUnified: {
+        description: "Analisi completa dell'email in una singola chiamata LLM: riassunto, sentiment, priorità, etichette, argomenti, rischio escalation",
+        systemPrompt: (allowedLabels: string) => `Sei un esperto analista di email. Analizza questa email accuratamente e restituisci un'analisi JSON completa.
+
+<ISTRUZIONI>
+1. Leggi attentamente l'email
+2. Genera un riassunto di 2-3 frasi che catturi il punto principale e le azioni richieste
+3. Analizza sentiment, tono e segnali emotivi
+4. Determina la priorità (1=massima/critica, 5=minima/può attendere)
+5. Seleziona fino a 3 etichette pertinenti SOLO dalle ETICHETTE CONSENTITE
+6. Estrai argomenti chiave e entità menzionate
+7. Valuta se questa email presenta rischio di escalation (cliente arrabbiato, minaccia, reclamo)
+8. Genera 2-3 brevi suggerimenti di risposta rapida se appropriato
+</ISTRUZIONI>
+
+<ETICHETTE_CONSENTITE>
+${allowedLabels}
+</ETICHETTE_CONSENTITE>
+
+<FORMATO_OUTPUT>
+Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi testuali devono essere in ITALIANO:
+{
+  "summary": "Riassunto di 2-3 frasi dell'email",
+  "sentiment": "positive|negative|neutral|mixed",
+  "tone": "formal|casual|urgent|friendly|cold|assertive",
+  "priority": 1-5,
+  "urgency": "critical|high|medium|low",
+  "labels": ["etichetta1", "etichetta2"],
+  "keyTopics": ["argomento1", "argomento2", "argomento3"],
+  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback",
+  "escalationRisk": true|false,
+  "hasDeadline": true|false,
+  "deadlineDate": "data ISO o null",
+  "needsFollowUp": true|false,
+  "smartReplies": ["Risposta rapida 1", "Risposta rapida 2", "Risposta rapida 3"],
+  "confidence": 0.0-1.0,
+  "reasoning": "Breve spiegazione della valutazione priorità/urgenza"
+}
+</FORMATO_OUTPUT>`,
+      },
       compose: {
         ...en.tools.insights.compose, // Keep compose structure (it handles language via parameter)
       },
@@ -456,5 +499,68 @@ Il campo keyTopics deve contenere elementi in ITALIANO.`,
       featureNotAvailable: (feature) => `Questa funzionalità richiede un piano superiore. Aggiorna per accedere a ${feature}.`,
       emailQuotaExceeded: (limit) => `Hai raggiunto il limite mensile di ${limit} email. Aggiorna per maggiore capacità.`,
     },
+  },
+  // ============================================================================
+  // Contact Role Classification Patterns (Phase 4.3 - Cost Optimization)
+  // Multilingual patterns: Italian terms
+  // ============================================================================
+  rolePatterns: {
+    executive: [
+      'amministratore delegato', 'ad', 'direttore generale', 'dg',
+      'presidente', 'vicepresidente', 'fondatore', 'cofondatore',
+      'socio fondatore', 'titolare', 'responsabile generale',
+    ],
+    board: [
+      'consigliere', 'consiglio', 'cda', 'consiglio di amministrazione',
+      'membro del consiglio', 'presidente del consiglio',
+    ],
+    investor: [
+      'investitore', 'socio', 'azionista', 'finanziatore',
+      'venture capital', 'business angel', 'fondo',
+    ],
+    engineering: [
+      'sviluppatore', 'ingegnere', 'tecnico', 'programmatore',
+      'architetto software', 'analista', 'sistemista', 'informatico',
+    ],
+    sales: [
+      'vendite', 'commerciale', 'agente', 'rappresentante',
+      'responsabile vendite', 'account', 'sales manager',
+    ],
+    marketing: [
+      'marketing', 'comunicazione', 'brand', 'contenuti',
+      'social media', 'relazioni pubbliche', 'rp',
+    ],
+    hr: [
+      'risorse umane', 'hr', 'personale', 'recruiter',
+      'talent', 'selezione', 'reclutamento',
+    ],
+    legal: [
+      'legale', 'avvocato', 'consulente legale', 'compliance',
+      'affari legali', 'contratti', 'ufficio legale',
+    ],
+    finance: [
+      'finanza', 'contabile', 'ragioniere', 'tesoriere',
+      'amministrazione', 'contabilità', 'bilancio', 'fiscale',
+    ],
+    support: [
+      'supporto', 'assistenza', 'customer care', 'help desk',
+      'servizio clienti', 'customer success',
+    ],
+    advisor: [
+      'consulente', 'advisor', 'mentore', 'coach',
+      'stratega', 'esperto', 'specialista',
+    ],
+    vendor: [
+      'fornitore', 'agenzia', 'partner commerciale',
+      'freelance', 'libero professionista', 'outsourcing',
+    ],
+    customer: [
+      'cliente', 'utente', 'acquirente', 'consumatore',
+      'abbonato', 'committente',
+    ],
+    team: [
+      'collega', 'dipendente', 'collaboratore', 'impiegato',
+      'stagista', 'tirocinante', 'coordinatore', 'membro del team',
+    ],
   },
 };

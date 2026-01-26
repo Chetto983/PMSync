@@ -1,5 +1,8 @@
 # VoltAgent 2.x Simplification Plan
 
+> **🔄 DEFERRED & ARCHIVED**: This document has been consolidated into [AI_ROADMAP_MASTER.md](./AI_ROADMAP_MASTER.md)
+> Sentinel migration is marked as OPTIONAL (Phase 5). Deferred to Q2 2026.
+
 **Created**: 2026-01-23
 **Based on**: VoltAgent 2.1.6 docs + @sentinelseed/voltagent + Mistral Guardrailing
 

@@ -21,6 +21,39 @@ import { PiiDetectionService } from '../guards';
 type LocaleKey = 'en' | 'it';
 type ToneKey = 'formal' | 'casual' | 'technical';
 
+/**
+ * UNIFIED EMAIL ANALYSIS RESULT
+ *
+ * Single LLM call returns all insights needed by:
+ * - Email triage (priority, labels)
+ * - Agent context (summary, sentiment, topics)
+ * - UI display (smartReplies, escalationRisk)
+ */
+export interface UnifiedEmailAnalysis {
+  // Core analysis
+  summary: string;
+  sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
+  tone: string;
+  priority: 1 | 2 | 3 | 4 | 5; // 1=highest/critical, 5=lowest
+  urgency: 'critical' | 'high' | 'medium' | 'low';
+  labels: string[]; // Max 3, from user's allowed labels
+  keyTopics: string[];
+  intent: string;
+
+  // Risk & action flags
+  escalationRisk: boolean;
+  hasDeadline: boolean;
+  deadlineDate: Date | null;
+  needsFollowUp: boolean;
+
+  // Optional features
+  smartReplies?: string[];
+
+  // Metadata
+  confidence: number;
+  reasoning: string;
+}
+
 interface EmailRecord {
   id: string;
   subject: string | null;
@@ -101,29 +134,252 @@ export class EmailInsightsService {
     }
   }
 
-  async summarizeEmail(tenantId: string, emailId: string, locale?: string) {
+  /**
+   * UNIFIED EMAIL ANALYSIS - Single LLM call for ALL insights
+   *
+   * Returns: summary, sentiment, tone, priority, urgency, labels, keyTopics,
+   * escalationRisk, hasDeadline, needsFollowUp, smartReplies
+   *
+   * This replaces: summarizeEmail, categorizeEmail, analyzeSentiment, calculatePriority, analyzeEmail
+   *
+   * CACHING: Results cached in EmailAnalysis table for 24 hours
+   */
+  async analyzeEmailUnified(
+    tenantId: string,
+    emailId: string,
+    locale?: string,
+    options?: { includeSmartReplies?: boolean },
+  ): Promise<UnifiedEmailAnalysis> {
+    const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+    // Check cache first
+    const cached = await this.prisma.emailAnalysis.findFirst({
+      where: {
+        emailId,
+        tenantId,
+        processedAt: { gt: new Date(Date.now() - CACHE_TTL_MS) },
+      },
+    });
+
+    if (cached?.summary) {
+      this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId}`);
+      return this.mapEmailAnalysisToUnified(cached);
+    }
+
+    // No cache - run LLM analysis
     const email = await this.getEmailOrThrow(tenantId, emailId);
-    const lang = this.resolveLocale(locale);
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
-    const systemPrompt = t.insights.summarize.systemPrompt;
+    const lang = this.resolveLocale(locale);
 
+    // Get user's allowed labels
+    const allowedLabels = await this.getUserLabels(tenantId);
+    const labelsString = allowedLabels.join(', ');
+
+    // Build unified prompt
+    const systemPrompt = t.insights.analyzeUnified.systemPrompt(labelsString);
     const userPrompt = this.buildEmailPrompt(email, lang);
 
     try {
-      const summary = await this.mistral.completePrompt({
+      const startTime = Date.now();
+      const raw = await this.mistral.completePrompt({
         systemPrompt,
         userPrompt,
-        temperature: 0.2,
-        maxTokens: 400,
-        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
+        temperature: 0.1,
+        maxTokens: 800,
+        validationContext: 'SYSTEM_INTERNAL',
       });
-      return this.stripMarkdown(summary.trim());
+      const latencyMs = Date.now() - startTime;
+
+      const parsed = this.parseJsonResponse(raw);
+
+      // Build result with validation
+      const result: UnifiedEmailAnalysis = {
+        summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+        sentiment: this.validateSentiment(parsed.sentiment),
+        tone: typeof parsed.tone === 'string' ? parsed.tone : 'neutral',
+        priority: Math.min(5, Math.max(1, Number(parsed.priority) || 3)) as 1 | 2 | 3 | 4 | 5,
+        urgency: this.validateUrgency(parsed.urgency),
+        labels: this.normalizeLabels(parsed.labels, allowedLabels),
+        keyTopics: Array.isArray(parsed.keyTopics) ? (parsed.keyTopics as string[]).slice(0, 5) : [],
+        intent: typeof parsed.intent === 'string' ? parsed.intent : 'fyi',
+        escalationRisk: Boolean(parsed.escalationRisk),
+        hasDeadline: Boolean(parsed.hasDeadline),
+        deadlineDate: parsed.deadlineDate ? new Date(parsed.deadlineDate as string) : null,
+        needsFollowUp: Boolean(parsed.needsFollowUp),
+        smartReplies: options?.includeSmartReplies && Array.isArray(parsed.smartReplies)
+          ? (parsed.smartReplies as string[]).slice(0, 3)
+          : undefined,
+        confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.7)),
+        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+      };
+
+      // Save to EmailAnalysis with proper fields
+      await this.prisma.emailAnalysis.upsert({
+        where: { emailId_tenantId: { emailId, tenantId } },
+        update: {
+          priority: this.mapPriorityToEnum(result.priority),
+          category: this.mapIntentToCategory(result.intent),
+          sentiment: this.mapSentimentToEnum(result.sentiment),
+          summary: result.summary,
+          keyPoints: result.keyTopics,
+          hasDeadline: result.hasDeadline,
+          deadlineDate: result.deadlineDate,
+          needsFollowUp: result.needsFollowUp,
+          suggestedActions: {
+            smartReplies: result.smartReplies,
+            intent: result.intent,
+            urgency: result.urgency,
+            tone: result.tone,
+            escalationRisk: result.escalationRisk,
+            reasoning: result.reasoning,
+            confidence: result.confidence,
+          },
+          processedAt: new Date(),
+          latencyMs,
+        },
+        create: {
+          emailId,
+          tenantId,
+          priority: this.mapPriorityToEnum(result.priority),
+          category: this.mapIntentToCategory(result.intent),
+          sentiment: this.mapSentimentToEnum(result.sentiment),
+          summary: result.summary,
+          keyPoints: result.keyTopics,
+          hasDeadline: result.hasDeadline,
+          deadlineDate: result.deadlineDate,
+          needsFollowUp: result.needsFollowUp,
+          suggestedActions: {
+            smartReplies: result.smartReplies,
+            intent: result.intent,
+            urgency: result.urgency,
+            tone: result.tone,
+            escalationRisk: result.escalationRisk,
+            reasoning: result.reasoning,
+            confidence: result.confidence,
+          },
+          processedAt: new Date(),
+          latencyMs,
+        },
+      });
+
+      // Update Email table with AI triage data
+      await this.prisma.email.updateMany({
+        where: { id: emailId, tenantId },
+        data: {
+          aiPriority: result.priority,
+          aiPriorityReason: result.reasoning,
+          aiLabels: result.labels,
+          isAutoTriaged: true,
+          autoTriagedAt: new Date(),
+        },
+      });
+
+      this.logger.debug(
+        `Unified analysis for ${emailId}: priority=${result.priority}, labels=${result.labels.join(',')}, latency=${latencyMs}ms`,
+      );
+
+      return result;
     } catch (error) {
-      this.logger.error(`Failed to summarize email ${emailId}: ${this.getErrorMessage(error)}`);
-      throw new BadRequestException('Unable to generate email summary');
+      this.logger.error(`Failed unified analysis for ${emailId}: ${this.getErrorMessage(error)}`);
+      throw new BadRequestException('Unable to analyze email');
     }
   }
+
+  /**
+   * Map EmailAnalysis record to UnifiedEmailAnalysis interface
+   */
+  private mapEmailAnalysisToUnified(analysis: {
+    priority: string;
+    category: string;
+    sentiment: string;
+    summary: string | null;
+    keyPoints: string[];
+    hasDeadline: boolean;
+    deadlineDate: Date | null;
+    needsFollowUp: boolean;
+    suggestedActions: unknown;
+  }): UnifiedEmailAnalysis {
+    const actions = (analysis.suggestedActions as Record<string, unknown>) || {};
+    return {
+      summary: analysis.summary || '',
+      sentiment: this.validateSentiment(analysis.sentiment),
+      tone: (actions.tone as string) || 'neutral',
+      priority: this.mapEnumToPriority(analysis.priority),
+      urgency: this.validateUrgency(actions.urgency),
+      labels: [], // Labels stored in Email.aiLabels, not here
+      keyTopics: analysis.keyPoints || [],
+      intent: (actions.intent as string) || 'fyi',
+      escalationRisk: Boolean(actions.escalationRisk),
+      hasDeadline: analysis.hasDeadline,
+      deadlineDate: analysis.deadlineDate,
+      needsFollowUp: analysis.needsFollowUp,
+      smartReplies: actions.smartReplies as string[] | undefined,
+      confidence: Number(actions.confidence) || 0.7,
+      reasoning: (actions.reasoning as string) || '',
+    };
+  }
+
+  private validateSentiment(value: unknown): 'positive' | 'negative' | 'neutral' | 'mixed' {
+    const valid = ['positive', 'negative', 'neutral', 'mixed'];
+    return valid.includes(String(value)) ? (value as 'positive' | 'negative' | 'neutral' | 'mixed') : 'neutral';
+  }
+
+  private validateUrgency(value: unknown): 'critical' | 'high' | 'medium' | 'low' {
+    const valid = ['critical', 'high', 'medium', 'low'];
+    return valid.includes(String(value)) ? (value as 'critical' | 'high' | 'medium' | 'low') : 'medium';
+  }
+
+  private normalizeLabels(labels: unknown, allowedLabels: string[]): string[] {
+    if (!Array.isArray(labels)) return [];
+    return labels
+      .slice(0, 3)
+      .map((l) => this.normaliseLabel(String(l), allowedLabels))
+      .filter((l) => allowedLabels.includes(l));
+  }
+
+  private mapPriorityToEnum(priority: number): 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW' {
+    if (priority <= 1) return 'URGENT';
+    if (priority <= 2) return 'HIGH';
+    if (priority <= 4) return 'NORMAL';
+    return 'LOW';
+  }
+
+  private mapEnumToPriority(enumValue: string): 1 | 2 | 3 | 4 | 5 {
+    switch (enumValue) {
+      case 'URGENT': return 1;
+      case 'HIGH': return 2;
+      case 'NORMAL': return 3;
+      case 'LOW': return 5;
+      default: return 3;
+    }
+  }
+
+  private mapIntentToCategory(intent: string): 'SALES_INQUIRY' | 'SUPPORT_REQUEST' | 'MEETING_REQUEST' | 'FOLLOW_UP' | 'PERSONAL' | 'OTHER' {
+    switch (intent) {
+      case 'action_required': return 'SUPPORT_REQUEST';
+      case 'meeting_request': return 'MEETING_REQUEST';
+      case 'follow_up': return 'FOLLOW_UP';
+      case 'question': return 'SUPPORT_REQUEST';
+      case 'feedback': return 'PERSONAL';
+      case 'escalation': return 'SUPPORT_REQUEST';
+      default: return 'OTHER';
+    }
+  }
+
+  private mapSentimentToEnum(sentiment: string): 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' {
+    switch (sentiment) {
+      case 'positive': return 'POSITIVE';
+      case 'negative': return 'NEGATIVE';
+      case 'mixed': return 'NEGATIVE'; // Treat mixed as negative for prioritization
+      default: return 'NEUTRAL';
+    }
+  }
+
+  // ============================================================================
+  // STANDALONE METHODS - Not part of unified analysis
+  // These are standalone features that make separate LLM calls when specifically requested
+  // ============================================================================
 
   async generateSmartReplies(
     tenantId: string,
@@ -247,270 +503,6 @@ export class EmailInsightsService {
     }
   }
 
-  async categorizeEmail(tenantId: string, emailId: string, locale?: string) {
-    const email = await this.getEmailOrThrow(tenantId, emailId);
-    const lang = this.resolveLocale(locale);
-    const supportedLocale = getLocale(locale);
-    const t = getToolTranslations(supportedLocale);
-
-    // Fetch user's custom labels from database
-    const allowedLabels = await this.getUserLabels(tenantId);
-    const labelsList = allowedLabels.join(', ');
-    const systemPrompt = t.insights.categorize.systemPrompt(labelsList);
-
-    const userPrompt = this.buildEmailPrompt(email, lang);
-
-    try {
-      const raw = await this.mistral.completePrompt({
-        systemPrompt,
-        userPrompt,
-        temperature: 0.1,
-        maxTokens: 300,
-        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
-      });
-
-      let labels = parseArrayFromAiPayload(raw, 'labels');
-      if (!labels.length) {
-        labels = this.guessLabelsFromText(raw, allowedLabels);
-      }
-
-      if (!labels.length) {
-        labels = ['Important'];
-      }
-
-      return Array.from(
-        new Set(
-          labels
-            .map((label) => this.normaliseLabel(label, allowedLabels))
-            .filter((label) => allowedLabels.includes(label)),
-        ),
-      ).slice(0, 3);
-    } catch (error) {
-      this.logger.error(
-        `Failed to categorize email ${emailId}: ${this.getErrorMessage(error)}`,
-      );
-      throw new BadRequestException('Unable to categorize email');
-    }
-  }
-
-  /**
-   * Analyze email sentiment using 2025 best practices:
-   * - Aspect-Based Sentiment Analysis (ABSA)
-   * - Emotion detection beyond polarity
-   * - Churn/escalation risk prediction
-   */
-  async analyzeSentiment(tenantId: string, emailId: string, locale?: string) {
-    const email = await this.getEmailOrThrow(tenantId, emailId);
-    const lang = this.resolveLocale(locale);
-    const supportedLocale = getLocale(locale);
-    const t = getToolTranslations(supportedLocale);
-
-    const systemPrompt = t.insights.sentimentDeep.systemPrompt;
-
-    const userPrompt = this.buildEmailPrompt(email, lang);
-
-    try {
-      const raw = await this.mistral.completePrompt({
-        systemPrompt,
-        userPrompt,
-        temperature: 0.1,
-        maxTokens: 500,
-        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
-      });
-
-      const parsed = this.parseJsonResponse(raw);
-
-      return {
-        sentiment: typeof parsed.sentiment === 'string' ? parsed.sentiment : 'neutral',
-        tone: typeof parsed.tone === 'string' ? parsed.tone : 'casual',
-        emotion: typeof parsed.emotion === 'string' ? parsed.emotion : 'neutral',
-        emotionalIntensity: Math.min(1, Math.max(0, Number(parsed.emotionalIntensity) || 0.5)),
-        churnRisk: Boolean(parsed.churnRisk),
-        aspects: (parsed.aspects as Record<string, string>) || {},
-        confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
-        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to analyze sentiment for email ${emailId}: ${this.getErrorMessage(error)}`,
-      );
-      throw new BadRequestException('Unable to analyze sentiment');
-    }
-  }
-
-  /**
-   * Calculate email priority with multi-factor scoring
-   */
-  async calculatePriority(
-    tenantId: string,
-    emailId: string,
-    locale?: string,
-    senderImportance: 'vip' | 'important' | 'normal' | 'low' = 'normal',
-  ) {
-    const email = await this.getEmailOrThrow(tenantId, emailId);
-    const lang = this.resolveLocale(locale);
-    const supportedLocale = getLocale(locale);
-    const t = getToolTranslations(supportedLocale);
-
-    const systemPrompt = t.insights.priority.systemPrompt;
-
-    const userPrompt = this.buildEmailPrompt(email, lang);
-
-    try {
-      const raw = await this.mistral.completePrompt({
-        systemPrompt,
-        userPrompt,
-        temperature: 0.1,
-        maxTokens: 400,
-        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
-      });
-
-      const parsed = this.parseJsonResponse(raw);
-
-      // Calculate weighted priority with sender importance boost
-      const senderBoost = { vip: 3, important: 2, normal: 0, low: -1 }[senderImportance] ?? 0;
-      const urgencyScore = Number(parsed.urgencyScore) || 5;
-      const importanceScore = Number(parsed.importanceScore) || 5;
-      const timeScore = Number(parsed.timeScore) || 5;
-      const sentimentImpact = Number(parsed.sentimentImpact) || 0;
-
-      const baseScore =
-        urgencyScore * 0.35 +
-        importanceScore * 0.35 +
-        timeScore * 0.2 +
-        sentimentImpact * 0.5;
-
-      const finalScore = Math.min(10, Math.max(1, Math.round(baseScore + senderBoost)));
-
-      return {
-        score: finalScore,
-        urgency: typeof parsed.urgency === 'string' ? parsed.urgency : 'medium',
-        recommendation: typeof parsed.recommendation === 'string' ? parsed.recommendation : 'handle_this_week',
-        factors: Array.isArray(parsed.factors) ? (parsed.factors as string[]) : [],
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to calculate priority for email ${emailId}: ${this.getErrorMessage(error)}`,
-      );
-      throw new BadRequestException('Unable to calculate priority');
-    }
-  }
-
-  /**
-   * Comprehensive email analysis combining sentiment, priority, and intent
-   *
-   * CACHING: Results are cached in EmailAnalysis table for 24 hours.
-   * This reduces LLM calls by ~90% for repeated analysis requests.
-   */
-  async analyzeEmail(tenantId: string, emailId: string, locale?: string) {
-    // Cache TTL: 24 hours
-    const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-
-    // Check cache first (tenant-isolated)
-    const cached = await this.prisma.emailAnalysis.findFirst({
-      where: {
-        emailId,
-        tenantId, // GDPR: tenant isolation
-        processedAt: { gt: new Date(Date.now() - CACHE_TTL_MS) },
-      },
-      select: {
-        suggestedActions: true,
-        processedAt: true,
-      },
-    });
-
-    // Return cached result if valid
-    if (cached?.suggestedActions) {
-      const rawResult = cached.suggestedActions as Record<string, unknown>;
-      // Check if this is a comprehensive analysis (has our signature fields)
-      if (rawResult._analysisType === 'comprehensive') {
-        this.logger.debug(`Cache hit for analyzeEmail: ${emailId}`);
-        return {
-          sentiment: rawResult.sentiment as string ?? 'neutral',
-          tone: rawResult.tone as string ?? 'casual',
-          urgency: rawResult.urgency as string ?? 'medium',
-          intent: rawResult.intent as string ?? 'fyi',
-          priority: rawResult.priority as number ?? 5,
-          escalationRisk: rawResult.escalationRisk as boolean ?? false,
-          keyTopics: rawResult.keyTopics as string[] ?? [],
-          suggestedResponse: rawResult.suggestedResponse as string ?? 'within_day',
-          confidence: rawResult.confidence as number ?? 0.5,
-        };
-      }
-    }
-
-    // No cache - run LLM analysis
-    const email = await this.getEmailOrThrow(tenantId, emailId);
-    const lang = this.resolveLocale(locale);
-    const supportedLocale = getLocale(locale);
-    const t = getToolTranslations(supportedLocale);
-
-    const systemPrompt = t.insights.analyzeComprehensive.systemPrompt;
-    const userPrompt = this.buildEmailPrompt(email, lang);
-
-    try {
-      const startTime = Date.now();
-      const raw = await this.mistral.completePrompt({
-        systemPrompt,
-        userPrompt,
-        temperature: 0.1,
-        maxTokens: 600,
-        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
-      });
-      const latencyMs = Date.now() - startTime;
-
-      const parsed = this.parseJsonResponse(raw);
-
-      const result = {
-        sentiment: typeof parsed.sentiment === 'string' ? parsed.sentiment : 'neutral',
-        tone: typeof parsed.tone === 'string' ? parsed.tone : 'casual',
-        urgency: typeof parsed.urgency === 'string' ? parsed.urgency : 'medium',
-        intent: typeof parsed.intent === 'string' ? parsed.intent : 'fyi',
-        priority: Math.min(10, Math.max(1, Number(parsed.priority) || 5)),
-        escalationRisk: Boolean(parsed.escalationRisk),
-        keyTopics: Array.isArray(parsed.keyTopics) ? (parsed.keyTopics as string[]) : [],
-        suggestedResponse: typeof parsed.suggestedResponse === 'string' ? parsed.suggestedResponse : 'within_day',
-        confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
-      };
-
-      // Store in cache (upsert to handle concurrent requests)
-      // Store with metadata to distinguish from other suggestedActions uses
-      await this.prisma.emailAnalysis.upsert({
-        where: { emailId_tenantId: { emailId, tenantId } },
-        update: {
-          tenantId, // GDPR: ensure tenant isolation
-          suggestedActions: {
-            ...result,
-            _analysisType: 'comprehensive',
-            _cachedAt: new Date().toISOString(),
-          },
-          processedAt: new Date(),
-          latencyMs,
-        },
-        create: {
-          emailId,
-          tenantId,
-          suggestedActions: {
-            ...result,
-            _analysisType: 'comprehensive',
-            _cachedAt: new Date().toISOString(),
-          },
-          processedAt: new Date(),
-          latencyMs,
-        },
-      });
-
-      this.logger.debug(`Cached analyzeEmail result: ${emailId} (${latencyMs}ms)`);
-
-      return result;
-    } catch (error) {
-      this.logger.error(
-        `Failed to analyze email ${emailId}: ${this.getErrorMessage(error)}`,
-      );
-      throw new BadRequestException('Unable to analyze email');
-    }
-  }
-
   /**
    * Parse JSON response from AI, handling markdown code blocks
    */
@@ -607,11 +599,6 @@ export class EmailInsightsService {
       .filter((line) => !/^```/.test(line))
       .filter((line) => !/^[\{\}\[\]]+$/.test(line))
       .filter((line) => !/^"?(replies|labels|subject|body|text|message|reply|content)"?\s*:/.test(line));
-  }
-
-  private guessLabelsFromText(payload: string, allowedLabels: string[]): string[] {
-    const lowered = payload.toLowerCase();
-    return allowedLabels.filter((label) => lowered.includes(label.toLowerCase()));
   }
 
   private normaliseLabel(label: string, allowedLabels: string[]): string {
@@ -890,10 +877,3 @@ export class EmailInsightsService {
     return normalized;
   }
 }
-
-
-
-
-
-
-

@@ -25,6 +25,7 @@ import { CacheService, CacheNamespace } from '../../../../common/services/cache.
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { WritingStyleService } from '../services/writing-style.service';
+import { EmailInsightsService, type UnifiedEmailAnalysis } from '../../services/email-insights.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import { PiiDetectionService, type PiiMatch } from '../../guards';
 
@@ -124,6 +125,12 @@ export interface InsightsToolOptions {
   tenantId: string;
   userId?: string;
   piiDetectionService?: PiiDetectionService;
+  /**
+   * EmailInsightsService for unified email analysis with DB persistence.
+   * When provided, analyze_email tool will save results to EmailAnalysis table.
+   * When not provided, falls back to inline LLM call without persistence.
+   */
+  emailInsightsService?: EmailInsightsService;
 }
 
 /**
@@ -319,6 +326,24 @@ function stripMarkdown(text: string): string {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+/**
+ * Map urgency level to suggested response timeframe
+ */
+function mapUrgencyToResponse(urgency: 'critical' | 'high' | 'medium' | 'low'): string {
+  switch (urgency) {
+    case 'critical':
+      return 'immediate';
+    case 'high':
+      return 'within_day';
+    case 'medium':
+      return 'within_week';
+    case 'low':
+      return 'optional';
+    default:
+      return 'within_day';
+  }
 }
 
 /**
@@ -840,12 +865,11 @@ export type EmailIntent = (typeof EMAIL_INTENTS)[number];
  * Reduces token usage by ~80% and latency by ~85%.
  */
 export function createAnalyzeEmailTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
-  const t = getToolTranslations(locale);
+  const { prisma, cacheService, locale, tenantId, emailInsightsService } = options;
 
   return createTool({
     name: 'analyze_email',
-    description: `Comprehensive email analysis in ONE call. Returns: summary, sentiment, tone, urgency, intent, priority (1-10), action items, suggested labels, key topics, and response recommendation. Use this instead of separate analysis tools.
+    description: `Comprehensive email analysis in ONE call. Returns: summary, sentiment, tone, urgency, intent, priority (1-5), action items, suggested labels, key topics, and response recommendation. Use this instead of separate analysis tools. Results are saved to database for 24h caching.
 
 Examples:
 - "analyze this email" → full analysis with summary, sentiment, priority, actions
@@ -853,142 +877,64 @@ Examples:
 - "should I respond to this" → intent, suggestedResponse, deadline`,
     parameters: z.object({
       emailId: z.string().describe('The ID of the email to analyze'),
-      includeActionItems: z.boolean().optional().describe('Include action item extraction (default true)'),
-      includeLabels: z.boolean().optional().describe('Include label suggestions (default true)'),
+      includeSmartReplies: z.boolean().optional().describe('Include smart reply suggestions (default false)'),
     }),
-    execute: async ({ emailId, includeActionItems = true, includeLabels = true }) => {
-      const email = await getEmail(prisma, tenantId, emailId, cacheService);
-      if (!email) {
-        return { error: t.email.notFound };
-      }
+    execute: async ({ emailId, includeSmartReplies = false }) => {
+      // Use EmailInsightsService when available (saves to DB, uses cache)
+      if (emailInsightsService) {
+        try {
+          const result: UnifiedEmailAnalysis = await emailInsightsService.analyzeEmailUnified(
+            tenantId,
+            emailId,
+            locale,
+            { includeSmartReplies },
+          );
 
-      // Fetch available labels from database for label suggestions
-      const availableLabels = includeLabels ? await getAvailableLabels(prisma, tenantId) : [];
-      const labelsListStr = availableLabels.length > 0 ? availableLabels.join(', ') : 'Important, Follow-up, Info';
+          // Get email metadata for response
+          const email = await getEmail(prisma, tenantId, emailId, cacheService);
 
-      const userPrompt = buildEmailPrompt(email, locale, t);
-
-      // Consolidated prompt that extracts ALL insights in one LLM call
-      const systemPrompt =
-        locale === 'it'
-          ? `Analizza l'email in modo COMPLETO. Rispondi SOLO in JSON valido:
-{
-  "summary": "Riassunto conciso in 2-3 frasi",
-  "sentiment": "positive|negative|neutral",
-  "tone": "formal|casual|urgent|friendly",
-  "urgency": "high|medium|low",
-  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback|introduction|thank_you|complaint",
-  "priority": 1-10,
-  "escalationRisk": true|false,
-  "keyTopics": ["topic1", "topic2"],
-  "suggestedResponse": "immediate|within_day|within_week|optional",
-  "deadline": "YYYY-MM-DD o null se non presente",
-  "actionItems": ${includeActionItems ? '["azione1", "azione2"]' : '[]'},
-  "suggestedLabels": ${includeLabels ? `["etichetta1"] (scegli da: ${labelsListStr})` : '[]'},
-  "confidence": 0.0-1.0,
-  "reasoning": "Breve spiegazione dell'analisi"
-}`
-          : `Analyze the email COMPREHENSIVELY. Reply ONLY in valid JSON:
-{
-  "summary": "Concise 2-3 sentence summary",
-  "sentiment": "positive|negative|neutral",
-  "tone": "formal|casual|urgent|friendly",
-  "urgency": "high|medium|low",
-  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback|introduction|thank_you|complaint",
-  "priority": 1-10,
-  "escalationRisk": true|false,
-  "keyTopics": ["topic1", "topic2"],
-  "suggestedResponse": "immediate|within_day|within_week|optional",
-  "deadline": "YYYY-MM-DD or null if none",
-  "actionItems": ${includeActionItems ? '["action1", "action2"]' : '[]'},
-  "suggestedLabels": ${includeLabels ? `["label1"] (choose from: ${labelsListStr})` : '[]'},
-  "confidence": 0.0-1.0,
-  "reasoning": "Brief explanation of analysis"
-}`;
-
-      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
-        systemPrompt,
-        userPrompt,
-        temperature: 0.1,
-        maxTokens: 800, // Increased for comprehensive output
-      });
-
-      try {
-        let cleaned = raw.trim();
-        if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
-        if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
-        if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-
-        const parsed = JSON.parse(cleaned);
-
-        // Normalize suggested labels against available labels from DB
-        let normalizedLabels: string[] = [];
-        if (includeLabels && parsed.suggestedLabels) {
-          normalizedLabels = (parsed.suggestedLabels as string[])
-            .map((label: string) => {
-              const trimmed = label.trim().toLowerCase();
-              return availableLabels.find(
-                (allowed) => allowed.toLowerCase() === trimmed || allowed.toLowerCase().includes(trimmed)
-              ) || '';
-            })
-            .filter(Boolean)
-            .slice(0, 3);
+          // Map UnifiedEmailAnalysis to tool output format
+          return {
+            emailId,
+            subject: email?.subject ?? null,
+            from: email?.from ?? '',
+            receivedAt: email?.receivedAt?.toISOString() ?? null,
+            // Core analysis (saved to DB)
+            summary: result.summary,
+            analysis: {
+              sentiment: result.sentiment,
+              tone: result.tone,
+              urgency: result.urgency,
+              intent: result.intent,
+              priority: result.priority, // 1-5 scale
+              escalationRisk: result.escalationRisk,
+              keyTopics: result.keyTopics,
+              suggestedResponse: mapUrgencyToResponse(result.urgency),
+              deadline: result.deadlineDate?.toISOString() ?? null,
+              confidence: result.confidence,
+              reasoning: result.reasoning,
+            },
+            // Action flags
+            hasDeadline: result.hasDeadline,
+            needsFollowUp: result.needsFollowUp,
+            // Labels (saved to Email.aiLabels)
+            suggestedLabels: result.labels,
+            // Smart replies (optional)
+            smartReplies: result.smartReplies ?? [],
+            // Metadata
+            persistedToDb: true,
+          };
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          return { error: `Analysis failed: ${errMsg}`, emailId };
         }
-
-        return {
-          emailId,
-          subject: email.subject,
-          from: email.from,
-          receivedAt: email.receivedAt?.toISOString() ?? null,
-          // Summary (consolidated from summarize_email)
-          summary: stripMarkdown(parsed.summary || ''),
-          // Analysis (consolidated from sentiment, intent, priority tools)
-          analysis: {
-            sentiment: parsed.sentiment || 'neutral',
-            tone: parsed.tone || 'casual',
-            urgency: parsed.urgency || 'medium',
-            intent: parsed.intent || 'fyi',
-            priority: Math.min(10, Math.max(1, parsed.priority || 5)),
-            escalationRisk: parsed.escalationRisk || false,
-            keyTopics: parsed.keyTopics || [],
-            suggestedResponse: parsed.suggestedResponse || 'within_day',
-            deadline: parsed.deadline || null,
-            confidence: parsed.confidence || 0.5,
-            reasoning: parsed.reasoning || '',
-          },
-          // Action items (consolidated from extract_action_items)
-          actionItems: includeActionItems ? (parsed.actionItems || []) : [],
-          hasActionItems: includeActionItems && (parsed.actionItems || []).length > 0,
-          // Labels (consolidated from categorize_email)
-          suggestedLabels: normalizedLabels,
-          availableLabels: includeLabels ? availableLabels : [],
-        };
-      } catch {
-        return {
-          emailId,
-          subject: email.subject,
-          from: email.from,
-          receivedAt: email.receivedAt?.toISOString() ?? null,
-          summary: '',
-          analysis: {
-            sentiment: 'neutral',
-            tone: 'casual',
-            urgency: 'medium',
-            intent: 'fyi',
-            priority: 5,
-            escalationRisk: false,
-            keyTopics: [],
-            suggestedResponse: 'within_day',
-            deadline: null,
-            confidence: 0.3,
-            reasoning: raw,
-          },
-          actionItems: [],
-          hasActionItems: false,
-          suggestedLabels: [],
-          availableLabels: includeLabels ? availableLabels : [],
-        };
       }
+
+      // Fallback: No service available - return error
+      return {
+        error: 'EmailInsightsService not configured. Analysis requires database persistence.',
+        emailId,
+      };
     },
   });
 }

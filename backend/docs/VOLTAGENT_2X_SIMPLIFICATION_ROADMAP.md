@@ -1,3 +1,6 @@
+> **✅ COMPLETED & ARCHIVED**: This document has been consolidated into [AI_ROADMAP_MASTER.md](./AI_ROADMAP_MASTER.md)
+> Phase 2 (VoltAgent Simplification) is COMPLETE. See master roadmap for current status.
+
 # VoltAgent 2.x Simplification Roadmap
 
 ## Executive Summary
@@ -106,17 +109,33 @@ function sanitizeContentForPostgres(content: string): string {
 
 ---
 
-## Phase 1: Fix HITL (Critical - Day 1)
+## Phase 1: Fix HITL (Critical - Day 1) ✅ COMPLETED
 
-### 1.1 Fix ActionQueue FK Constraint
-**File**: `backend/prisma/schema.prisma`
+### 1.1 Fix ActionQueue FK Constraint ✅ DONE (verified 2026-01-26)
+
+**Status**: Already implemented! Both fixes are in place:
+
+**Schema** (`prisma/schema.prisma` line 1162):
 ```prisma
-// Option A: Make userId optional
-userId String?
-user User? @relation(...)
-
-// Option B: Validate user in hitl.service.ts before insert
+userId String?  // Made optional for system actions and test scenarios
+user   User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 ```
+
+**Service** (`hitl.service.ts` lines 190-199):
+```typescript
+// Validate userId exists to avoid FK constraint violation
+// If user doesn't exist (e.g., test scenarios), set to undefined
+let validatedUserId: string | undefined = undefined;
+if (userId) {
+  const userExists = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  validatedUserId = userExists ? userId : undefined;
+}
+```
+
+**Verification**: `npx prisma migrate status` → "Database schema is up to date!"
 
 ### 1.2 Use VoltAgent Native `needsApproval`
 **Current** (manage_email.tool.ts):
@@ -315,7 +334,7 @@ export class ChatRequestProcessorService {
 
 | File | Lines | Status |
 |------|-------|--------|
-| `model-router.service.ts` | 554 | ⏳ PENDING |
+| `model-router.service.ts` | 554 | ✅ Already deleted |
 | `workflows/briefing.workflow.ts` | ~100 | ✅ Already deleted |
 | `workflows/follow-up.workflow.ts` | ~100 | ✅ Already deleted |
 | `locales/en.ts` dead prompts | ~190 | ✅ Already removed |
@@ -383,24 +402,30 @@ npx ts-node scripts/bruteforce-voltagent-test.ts
 
 ---
 
-## Timeline (Updated 2026-01-23)
+## Timeline (Updated 2026-01-26)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 1: Fix HITL FK | ⏳ PENDING | FK constraint still needs fix |
-| Phase 2: Remove model router | ⏳ PENDING | 554 LOC to remove |
+| Phase 1: Fix HITL FK | ✅ COMPLETED | Schema + service validation already in place |
+| Phase 2: Remove model router | ✅ COMPLETED | Already deleted (554 LOC removed) |
 | Phase 3: Simplify memory | ✅ COMPLETED | Duplicate persistence removed, cleanup added |
 | Phase 4: Delete dead workflows | ✅ COMPLETED | briefing/follow-up already deleted |
 | Phase 5: Simplify chat processor | ✅ COMPLETED | Already minimal at 217 LOC |
 | Phase 6: Prompt consolidation | ✅ COMPLETED | All prompts have few-shot, CoT, error recovery |
 
-**Remaining Work**:
+**🎉 ALL PHASES COMPLETED!**
 
-- Phase 1: Fix ActionQueue.userId FK constraint
-- Phase 2: Delete model-router.service.ts (554 LOC)
-- Tool HITL migration: Add `needsApproval: true` to write tools
+**Tool HITL Migration - NOT RECOMMENDED** (evaluated 2026-01-26):
 
-**Completed Savings**: ~400+ LOC removed + unified prompt architecture
+VoltAgent native `needsApproval: true` is INFERIOR to our custom pattern because:
+- Native: Binary suspend flag only, no metadata
+- Custom: Rich metadata (severity, actionType, payload, summary)
+- Custom integrates with LearningService for confidence adjustment
+- Custom enables conditional auto-approve based on severity
+
+**KEEP the current `requiresApproval: true` return pattern** - it's more powerful.
+
+**Total Savings**: ~950+ LOC removed + unified prompt architecture
 
 ---
 

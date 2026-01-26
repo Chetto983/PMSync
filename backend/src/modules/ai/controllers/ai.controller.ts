@@ -125,13 +125,14 @@ export class AiController {
 
   /**
    * Generate AI summary for an email
+   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
    */
   @Post('summarize/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Summarize email',
-    description: 'Generate an AI-powered summary of a specific email',
+    description: 'Generate an AI-powered summary of a specific email (uses unified analysis with 24h cache)',
   })
   @ApiParam({ name: 'emailId', description: 'Email ID to summarize' })
   @ApiResponse({ status: 200, description: 'Summary generated', type: SummaryResponseDto })
@@ -141,13 +142,13 @@ export class AiController {
     @Param('emailId') emailId: string,
     @Body() dto?: EmailAiDto,
   ): Promise<SummaryResponseDto> {
-    const summary = await this.emailInsightsService.summarizeEmail(
+    const analysis = await this.emailInsightsService.analyzeEmailUnified(
       req.user.tenantId,
       emailId,
       dto?.locale,
     );
 
-    return { success: true, summary };
+    return { success: true, summary: analysis.summary };
   }
 
   /**
@@ -180,13 +181,14 @@ export class AiController {
 
   /**
    * Suggest labels for an email
+   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
    */
   @Post('categorize/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Categorize email',
-    description: 'Generate AI-powered label suggestions for a specific email',
+    description: 'Generate AI-powered label suggestions for a specific email (uses unified analysis with 24h cache)',
   })
   @ApiParam({ name: 'emailId', description: 'Email ID to categorize' })
   @ApiResponse({ status: 200, description: 'Labels suggested', type: CategorizeResponseDto })
@@ -196,13 +198,13 @@ export class AiController {
     @Param('emailId') emailId: string,
     @Body() dto?: EmailAiDto,
   ): Promise<CategorizeResponseDto> {
-    const labels = await this.emailInsightsService.categorizeEmail(
+    const analysis = await this.emailInsightsService.analyzeEmailUnified(
       req.user.tenantId,
       emailId,
       dto?.locale,
     );
 
-    return { success: true, labels };
+    return { success: true, labels: analysis.labels };
   }
 
   /**
@@ -244,14 +246,14 @@ export class AiController {
 
   /**
    * Analyze email sentiment with aspect-based analysis
-   * Uses 2025 best practices: ABSA, emotion detection, churn risk
+   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
    */
   @Post('sentiment/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Analyze email sentiment',
-    description: 'Deep sentiment analysis with emotion detection, aspect-based analysis, and churn risk prediction',
+    description: 'Sentiment analysis with tone and escalation risk (uses unified analysis with 24h cache)',
   })
   @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
   @ApiResponse({ status: 200, description: 'Sentiment analysis complete', type: SentimentResponseDto })
@@ -261,7 +263,7 @@ export class AiController {
     @Param('emailId') emailId: string,
     @Body() dto?: EmailAiDto,
   ): Promise<SentimentResponseDto> {
-    const result = await this.emailInsightsService.analyzeSentiment(
+    const analysis = await this.emailInsightsService.analyzeEmailUnified(
       req.user.tenantId,
       emailId,
       dto?.locale,
@@ -269,26 +271,27 @@ export class AiController {
 
     return {
       success: true,
-      sentiment: result.sentiment as 'positive' | 'negative' | 'neutral' | 'mixed',
-      tone: result.tone,
-      emotion: result.emotion,
-      emotionalIntensity: result.emotionalIntensity,
-      churnRisk: result.churnRisk,
-      aspects: result.aspects,
-      confidence: result.confidence,
-      reasoning: result.reasoning,
+      sentiment: analysis.sentiment,
+      tone: analysis.tone,
+      emotion: analysis.sentiment, // Map sentiment as primary emotion
+      emotionalIntensity: analysis.confidence,
+      churnRisk: analysis.escalationRisk,
+      aspects: {}, // Unified analysis doesn't do aspect-based breakdown
+      confidence: analysis.confidence,
+      reasoning: analysis.reasoning,
     };
   }
 
   /**
    * Calculate email priority with multi-factor scoring
+   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
    */
   @Post('priority/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Calculate email priority',
-    description: 'Multi-factor priority scoring based on urgency, importance, and sender context',
+    description: 'Priority scoring based on urgency and importance (uses unified analysis with 24h cache)',
   })
   @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
   @ApiResponse({ status: 200, description: 'Priority calculated', type: PriorityResponseDto })
@@ -298,26 +301,40 @@ export class AiController {
     @Param('emailId') emailId: string,
     @Body() dto?: PriorityRequestDto,
   ): Promise<PriorityResponseDto> {
-    const result = await this.emailInsightsService.calculatePriority(
+    const analysis = await this.emailInsightsService.analyzeEmailUnified(
       req.user.tenantId,
       emailId,
       dto?.locale,
-      dto?.senderImportance,
     );
 
-    return { success: true, ...result };
+    // Map 1-5 priority to 1-10 score (inverse: 1=highest priority → score 10)
+    const score = 11 - (analysis.priority * 2);
+    const recommendationMap: Record<string, string> = {
+      critical: 'handle_immediately',
+      high: 'handle_today',
+      medium: 'handle_this_week',
+      low: 'handle_when_convenient',
+    };
+
+    return {
+      success: true,
+      score: Math.max(1, Math.min(10, score)),
+      urgency: analysis.urgency,
+      recommendation: recommendationMap[analysis.urgency] || 'handle_this_week',
+      factors: analysis.keyTopics.slice(0, 3),
+    };
   }
 
   /**
    * Comprehensive email analysis
-   * Combines sentiment, priority, intent, and urgency in one call
+   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
    */
   @Post('analyze/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Comprehensive email analysis',
-    description: 'Full analysis including sentiment, tone, urgency, intent, priority, and escalation risk',
+    description: 'Full analysis including sentiment, tone, urgency, intent, priority, and escalation risk (24h cache)',
   })
   @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
   @ApiResponse({ status: 200, description: 'Analysis complete', type: AnalyzeEmailResponseDto })
@@ -327,12 +344,31 @@ export class AiController {
     @Param('emailId') emailId: string,
     @Body() dto?: EmailAiDto,
   ): Promise<AnalyzeEmailResponseDto> {
-    const result = await this.emailInsightsService.analyzeEmail(
+    const analysis = await this.emailInsightsService.analyzeEmailUnified(
       req.user.tenantId,
       emailId,
       dto?.locale,
     );
 
-    return { success: true, ...result };
+    // Map urgency to suggested response timeframe
+    const suggestedResponseMap: Record<string, string> = {
+      critical: 'immediate',
+      high: 'within_day',
+      medium: 'within_week',
+      low: 'optional',
+    };
+
+    return {
+      success: true,
+      sentiment: analysis.sentiment,
+      tone: analysis.tone,
+      urgency: analysis.urgency,
+      intent: analysis.intent,
+      priority: analysis.priority,
+      escalationRisk: analysis.escalationRisk,
+      keyTopics: analysis.keyTopics,
+      suggestedResponse: suggestedResponseMap[analysis.urgency] || 'within_day',
+      confidence: analysis.confidence,
+    };
   }
 }

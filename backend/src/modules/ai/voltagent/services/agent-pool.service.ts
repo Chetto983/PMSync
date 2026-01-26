@@ -18,6 +18,7 @@ import { WritingStyleService } from './writing-style.service';
 import { DocumentLibraryService } from './document-library.service';
 import { FollowUpService } from './follow-up.service';
 import { PiiDetectionService } from '../../guards';
+import { EmailInsightsService } from '../../services/email-insights.service';
 import { createActionsAgent } from '../agents/actions.agent';
 import { createIntelligenceAgent } from '../agents/intelligence.agent';
 import { createSupervisorAgent, type UserContext } from '../agents/supervisor.agent';
@@ -69,6 +70,7 @@ export class AgentPoolService {
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
     @Optional() private readonly followUpService?: FollowUpService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
+    @Optional() private readonly emailInsightsService?: EmailInsightsService,
   ) {}
 
   /**
@@ -142,6 +144,7 @@ export class AgentPoolService {
             writingStyle: this.writingStyleService ?? null,
             memory: memory ?? undefined,
             piiDetectionService: this.piiDetectionService,
+            emailInsightsService: this.emailInsightsService ?? null,
           });
           break;
         case 'Supervisor':
@@ -158,6 +161,7 @@ export class AgentPoolService {
             documentLibraryService: this.documentLibraryService,
             followUpService: this.followUpService,
             piiDetectionService: this.piiDetectionService,
+            emailInsightsService: this.emailInsightsService,
           });
           break;
       }

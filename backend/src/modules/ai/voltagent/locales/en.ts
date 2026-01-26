@@ -185,6 +185,50 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
   "confidence": 0.0-1.0
 }`,
       },
+      /**
+       * UNIFIED ANALYSIS - Single LLM call for ALL email insights
+       * Used by triageEmail() and agents for complete email understanding
+       */
+      analyzeUnified: {
+        description: 'Complete email analysis in a single LLM call: summary, sentiment, priority, labels, topics, escalation risk',
+        systemPrompt: (allowedLabels: string) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
+
+<INSTRUCTIONS>
+1. Read the email carefully
+2. Generate a 2-3 sentence summary capturing the main point and any action items
+3. Analyze sentiment, tone, and emotional signals
+4. Determine priority (1=highest/critical, 5=lowest/can wait)
+5. Select up to 3 relevant labels from the ALLOWED LABELS only
+6. Extract key topics and entities mentioned
+7. Assess if this email poses escalation risk (angry customer, threat, complaint)
+8. Generate 2-3 short smart reply suggestions if appropriate
+</INSTRUCTIONS>
+
+<ALLOWED_LABELS>
+${allowedLabels}
+</ALLOWED_LABELS>
+
+<OUTPUT_FORMAT>
+Reply ONLY with valid JSON (no markdown, no explanation):
+{
+  "summary": "2-3 sentence summary of the email",
+  "sentiment": "positive|negative|neutral|mixed",
+  "tone": "formal|casual|urgent|friendly|cold|assertive",
+  "priority": 1-5,
+  "urgency": "critical|high|medium|low",
+  "labels": ["label1", "label2"],
+  "keyTopics": ["topic1", "topic2", "topic3"],
+  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback",
+  "escalationRisk": true|false,
+  "hasDeadline": true|false,
+  "deadlineDate": "ISO date string or null",
+  "needsFollowUp": true|false,
+  "smartReplies": ["Quick reply 1", "Quick reply 2", "Quick reply 3"],
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation of priority/urgency assessment"
+}
+</OUTPUT_FORMAT>`,
+      },
       compose: {
         description: "Compose an intelligent reply to an email based on context and user writing style",
         systemPrompt: (toneInstruction: string, language: string) => {
@@ -576,5 +620,72 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
       featureNotAvailable: (feature) => `This feature requires a higher plan. Please upgrade to access ${feature}.`,
       emailQuotaExceeded: (limit) => `You've reached your monthly email limit of ${limit}. Upgrade for more capacity.`,
     },
+  },
+  // ============================================================================
+  // Contact Role Classification Patterns (Phase 4.3 - Cost Optimization)
+  // Multilingual patterns: English terms
+  // ============================================================================
+  rolePatterns: {
+    executive: [
+      'ceo', 'cto', 'cfo', 'coo', 'cmo', 'cio', 'cpo', 'cro',
+      'president', 'vice president', 'vp', 'chief', 'founder', 'co-founder',
+      'managing director', 'general manager', 'principal', 'partner',
+    ],
+    board: [
+      'board', 'director', 'chairman', 'chairperson', 'chairwoman',
+      'trustee', 'non-executive', 'board member', 'advisory board',
+    ],
+    investor: [
+      'investor', 'investment', 'venture', 'vc', 'angel', 'seed',
+      'fund', 'capital', 'lp', 'gp', 'portfolio', 'private equity',
+      'shareholder', 'stakeholder',
+    ],
+    engineering: [
+      'engineer', 'developer', 'dev', 'programmer', 'architect',
+      'devops', 'sre', 'qa', 'tester', 'software', 'backend', 'frontend',
+      'fullstack', 'data scientist', 'ml engineer', 'tech lead',
+    ],
+    sales: [
+      'sales', 'account executive', 'ae', 'sdr', 'bdr',
+      'business development', 'sales manager', 'account manager',
+      'sales director', 'revenue',
+    ],
+    marketing: [
+      'marketing', 'growth', 'brand', 'content', 'seo',
+      'social media', 'pr', 'communications', 'demand gen',
+      'product marketing', 'campaign',
+    ],
+    hr: [
+      'hr', 'human resources', 'recruiter', 'talent', 'people ops',
+      'hiring', 'recruitment', 'people', 'culture', 'employee relations',
+    ],
+    legal: [
+      'legal', 'lawyer', 'attorney', 'counsel', 'compliance',
+      'paralegal', 'general counsel', 'legal counsel', 'contracts',
+    ],
+    finance: [
+      'finance', 'accountant', 'controller', 'treasurer', 'bookkeeper',
+      'auditor', 'financial', 'accounting', 'billing', 'payroll',
+    ],
+    support: [
+      'support', 'success', 'service', 'helpdesk', 'help desk',
+      'technical support', 'customer support', 'customer success',
+    ],
+    advisor: [
+      'advisor', 'adviser', 'consultant', 'coach', 'mentor',
+      'strategist', 'counselor', 'expert', 'specialist',
+    ],
+    vendor: [
+      'vendor', 'supplier', 'provider', 'contractor', 'freelancer',
+      'agency', 'outsourcing', 'partner',
+    ],
+    customer: [
+      'customer', 'client', 'user', 'subscriber', 'buyer',
+      'purchaser', 'patron', 'consumer',
+    ],
+    team: [
+      'team', 'colleague', 'coworker', 'employee', 'staff',
+      'intern', 'associate', 'member', 'coordinator',
+    ],
   },
 };

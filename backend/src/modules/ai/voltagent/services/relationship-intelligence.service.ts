@@ -11,6 +11,7 @@
  * - Contact relationship graph via recursive CTEs
  * - Last contacted tracking with direction awareness
  * - Reconnect reminders via BullMQ jobs
+ * - Smart role classification (Phase 4.3) with embedding fallback
  *
  * Design: Uses Prisma + raw SQL for recursive CTEs (production-compatible)
  * Reference: docs/plans/2025-12-15-crm-intelligence-design.md
@@ -18,6 +19,360 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { ContactInteractionType, Prisma } from '@prisma/client';
+import {
+  type SupportedLocale,
+  getRolePatterns,
+  buildRoleRegex,
+  type RolePatternsTranslations,
+} from '../locales';
+
+// ============================================================================
+// Smart Role Pattern Classification (Phase 4.3 - Cost Optimization)
+// Hybrid approach: Locale patterns (FREE) + Embedding fallback for uncertain
+// ============================================================================
+
+/**
+ * Role classification result with confidence scoring.
+ * Used to decide if embedding/LLM verification is needed.
+ */
+export interface RoleClassification {
+  role: string;
+  confidence: number; // 0.0-1.0
+  matchedPatterns: string[];
+  needsLlmVerification: boolean;
+  source: 'locale_regex' | 'email_domain' | 'embedding' | 'fallback';
+}
+
+/**
+ * Role confidence weights by priority.
+ * Higher priority roles get higher base confidence.
+ */
+const ROLE_WEIGHTS: Record<string, { weight: number; priority: number }> = {
+  executive: { weight: 0.95, priority: 1 },
+  board: { weight: 0.9, priority: 2 },
+  investor: { weight: 0.85, priority: 3 },
+  engineering: { weight: 0.85, priority: 4 },
+  sales: { weight: 0.8, priority: 5 },
+  marketing: { weight: 0.8, priority: 6 },
+  hr: { weight: 0.85, priority: 7 },
+  legal: { weight: 0.9, priority: 8 },
+  finance: { weight: 0.85, priority: 9 },
+  support: { weight: 0.75, priority: 10 },
+  advisor: { weight: 0.7, priority: 11 },
+  vendor: { weight: 0.65, priority: 12 },
+  customer: { weight: 0.6, priority: 13 },
+  team: { weight: 0.5, priority: 14 },
+};
+
+/**
+ * Email domain signals for team/company detection.
+ * Same domain as user → likely internal team member.
+ */
+const GENERIC_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com',
+  'icloud.com', 'me.com', 'aol.com', 'protonmail.com', 'mail.com',
+  'gmx.com', 'gmx.de', 'web.de', 'libero.it', 'virgilio.it', 'alice.it',
+  'orange.fr', 'free.fr', 'laposte.net', 'yahoo.fr', 'yahoo.it', 'yahoo.de',
+]);
+
+/** Confidence threshold below which embedding verification is recommended */
+const EMBEDDING_VERIFICATION_THRESHOLD = 0.6;
+
+/** Minimum confidence to return a role (below this → 'other') */
+const MIN_CONFIDENCE_THRESHOLD = 0.3;
+
+/** Cache for compiled regex patterns by locale */
+const roleRegexCache = new Map<SupportedLocale, Map<string, RegExp>>();
+
+/** Cache for role prototype embeddings (for embedding-based classification) */
+let roleEmbeddingsCache: Map<string, number[]> | null = null;
+
+/**
+ * Cosine similarity between two vectors.
+ * Range: -1 (opposite) to 1 (identical)
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/** Similarity threshold for embedding-based role classification */
+const EMBEDDING_SIMILARITY_THRESHOLD = 0.80;
+
+/**
+ * Role prototype descriptions for embedding comparison.
+ * These are embedded once and cached for similarity matching.
+ */
+const ROLE_PROTOTYPES: Record<string, string> = {
+  executive: 'CEO Chief Executive Officer CTO CFO COO President Vice President founder company leader',
+  board: 'Board Director Chairman Trustee Non-executive director advisory board member',
+  investor: 'Investor Venture Capitalist VC Angel Investor Fund Manager Capital Partner',
+  engineering: 'Software Engineer Developer Programmer Architect DevOps SRE Tech Lead Full Stack',
+  sales: 'Sales Representative Account Executive Business Development Sales Manager',
+  marketing: 'Marketing Manager Brand Manager Growth Hacker Digital Marketing Content Strategist',
+  hr: 'Human Resources HR Manager People Operations Recruiter Talent Acquisition',
+  legal: 'Lawyer Attorney Legal Counsel General Counsel Compliance Officer',
+  finance: 'Finance Manager Controller Accountant CFO Financial Analyst Treasurer',
+  support: 'Customer Support Help Desk Technical Support Customer Success Service Representative',
+  advisor: 'Advisor Consultant Mentor Coach Strategic Advisor External Consultant',
+  vendor: 'Vendor Supplier Partner Sales Contractor Service Provider',
+  customer: 'Customer Client Buyer User Consumer Account Holder',
+  team: 'Team Member Colleague Coworker Associate Staff Employee',
+};
+
+/**
+ * Initialize role prototype embeddings (call once on service init).
+ * Pre-computes embeddings for all role prototypes using BULK API (1 call = 14 roles).
+ *
+ * Cost: ~280 chars × 14 roles ≈ 70 tokens total = ~$0.000007 one-time cost
+ *
+ * @param bulkEmbeddingFn - Function to generate bulk embeddings (single API call)
+ */
+export async function initializeRoleEmbeddings(
+  bulkEmbeddingFn: (texts: string[]) => Promise<number[][]>,
+): Promise<void> {
+  if (roleEmbeddingsCache !== null) return; // Already initialized
+
+  const roles = Object.keys(ROLE_PROTOTYPES);
+  const prototypes = Object.values(ROLE_PROTOTYPES);
+
+  try {
+    // Single bulk API call for all 14 role prototypes
+    const embeddings = await bulkEmbeddingFn(prototypes);
+
+    const cache = new Map<string, number[]>();
+    for (let i = 0; i < roles.length; i++) {
+      if (embeddings[i]) {
+        cache.set(roles[i], embeddings[i]);
+      }
+    }
+    roleEmbeddingsCache = cache;
+  } catch {
+    // Embedding init failed - regex classification will be used as fallback
+    roleEmbeddingsCache = new Map(); // Empty cache signals embeddings unavailable
+  }
+}
+
+/**
+ * Embedding functions interface for role classification.
+ */
+export interface RoleEmbeddingFunctions {
+  /** Generate embedding for single text */
+  single: (text: string) => Promise<number[]>;
+  /** Generate embeddings for multiple texts in one API call */
+  bulk: (texts: string[]) => Promise<number[][]>;
+}
+
+/**
+ * Classify role using embedding similarity (async, uses API).
+ * Call this when regex classification has low confidence.
+ *
+ * @param text - Job title + company to classify
+ * @param embedFns - Embedding functions (single for query, bulk for init)
+ * @returns Best matching role with similarity score, or null if no good match
+ */
+export async function classifyRoleByEmbedding(
+  text: string,
+  embedFns: RoleEmbeddingFunctions,
+): Promise<{ role: string; similarity: number } | null> {
+  if (!text || text.trim().length < 3) return null;
+
+  // Ensure role prototypes are initialized (one-time bulk call)
+  if (roleEmbeddingsCache === null) {
+    await initializeRoleEmbeddings(embedFns.bulk);
+  }
+
+  if (!roleEmbeddingsCache || roleEmbeddingsCache.size === 0) {
+    return null; // Embeddings not available
+  }
+
+  // Generate embedding for input text (single call)
+  const textEmbedding = await embedFns.single(text);
+
+  // Find most similar role
+  let bestRole: string | null = null;
+  let bestSimilarity = 0;
+
+  for (const [role, roleEmbedding] of roleEmbeddingsCache.entries()) {
+    const similarity = cosineSimilarity(textEmbedding, roleEmbedding);
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity;
+      bestRole = role;
+    }
+  }
+
+  if (bestRole && bestSimilarity >= EMBEDDING_SIMILARITY_THRESHOLD) {
+    return { role: bestRole, similarity: bestSimilarity };
+  }
+
+  return null;
+}
+
+/**
+ * Get compiled regex patterns for a locale (cached).
+ * Merges patterns from locale files into regex for each role.
+ */
+function getCompiledRolePatterns(locale: SupportedLocale): Map<string, RegExp> {
+  if (!roleRegexCache.has(locale)) {
+    const patterns = getRolePatterns(locale);
+    const compiled = new Map<string, RegExp>();
+
+    for (const [role, terms] of Object.entries(patterns)) {
+      compiled.set(role, buildRoleRegex(terms));
+    }
+
+    roleRegexCache.set(locale, compiled);
+  }
+  return roleRegexCache.get(locale)!;
+}
+
+/**
+ * Smart role classification using locale-based patterns.
+ * Uses patterns from locale files (FREE), flags uncertain cases for embedding verification.
+ *
+ * @param jobTitle - Contact's job title
+ * @param company - Contact's company name
+ * @param contactEmail - Contact's email for domain analysis
+ * @param userDomain - User's email domain for team detection
+ * @param locale - User's locale for multilingual pattern matching
+ * @returns RoleClassification with confidence and verification recommendation
+ */
+export function classifyContactRoleSmart(
+  jobTitle?: string | null,
+  company?: string | null,
+  contactEmail?: string | null,
+  userDomain?: string | null,
+  locale: SupportedLocale = 'en',
+): RoleClassification {
+  // No data → fallback
+  if (!jobTitle && !company && !contactEmail) {
+    return {
+      role: 'other',
+      confidence: 0,
+      matchedPatterns: [],
+      needsLlmVerification: false,
+      source: 'fallback',
+    };
+  }
+
+  const text = `${jobTitle || ''} ${company || ''}`.toLowerCase();
+  const matchedRoles: Array<{ role: string; confidence: number; pattern: string }> = [];
+
+  // 1. Check email domain for team detection
+  if (contactEmail && userDomain) {
+    const contactDomain = contactEmail.split('@')[1]?.toLowerCase();
+    if (contactDomain && contactDomain === userDomain.toLowerCase() && !GENERIC_EMAIL_DOMAINS.has(contactDomain)) {
+      matchedRoles.push({
+        role: 'team',
+        confidence: 0.85,
+        pattern: 'same_company_domain',
+      });
+    }
+  }
+
+  // 2. Check locale-based regex patterns by priority order
+  const compiledPatterns = getCompiledRolePatterns(locale);
+  const sortedRoles = Object.entries(ROLE_WEIGHTS)
+    .sort(([, a], [, b]) => a.priority - b.priority);
+
+  for (const [role, weights] of sortedRoles) {
+    const regex = compiledPatterns.get(role);
+    if (regex && regex.test(text)) {
+      // Boost confidence if multiple signals (title + company match)
+      let confidence = weights.weight;
+      if (jobTitle && company && regex.test(jobTitle.toLowerCase()) && regex.test(company.toLowerCase())) {
+        confidence = Math.min(1.0, confidence + 0.1);
+      }
+      matchedRoles.push({ role, confidence, pattern: role });
+    }
+  }
+
+  // No matches → uncertain, recommend embedding if there's text to analyze
+  if (matchedRoles.length === 0) {
+    const hasContent = text.trim().length > 3;
+    return {
+      role: 'other',
+      confidence: 0,
+      matchedPatterns: [],
+      needsLlmVerification: hasContent, // Only if there's something to analyze
+      source: 'fallback',
+    };
+  }
+
+  // Sort by confidence (highest first)
+  matchedRoles.sort((a, b) => b.confidence - a.confidence);
+  const best = matchedRoles[0];
+
+  // Multiple conflicting roles → lower confidence
+  let finalConfidence = best.confidence;
+  if (matchedRoles.length > 1 && matchedRoles[1].confidence > 0.5) {
+    finalConfidence *= 0.85; // Reduce confidence due to ambiguity
+  }
+
+  return {
+    role: finalConfidence >= MIN_CONFIDENCE_THRESHOLD ? best.role : 'other',
+    confidence: finalConfidence,
+    matchedPatterns: matchedRoles.map(m => m.pattern),
+    needsLlmVerification: finalConfidence < EMBEDDING_VERIFICATION_THRESHOLD,
+    source: best.pattern === 'same_company_domain' ? 'email_domain' : 'locale_regex',
+  };
+}
+
+/**
+ * Simple role classification (backward compatible).
+ * Returns just the role string without confidence scoring.
+ *
+ * @deprecated Use classifyContactRoleSmart() for better accuracy
+ */
+export function classifyContactRole(jobTitle?: string | null, company?: string | null): string {
+  const result = classifyContactRoleSmart(jobTitle, company);
+  return result.role;
+}
+
+/**
+ * Get all matching roles for a contact with confidence scores.
+ * Useful for detailed role analysis.
+ *
+ * @param jobTitle - Contact's job title
+ * @param company - Contact's company name
+ * @param locale - User's locale for multilingual pattern matching
+ */
+export function getContactRolesWithConfidence(
+  jobTitle?: string | null,
+  company?: string | null,
+  locale: SupportedLocale = 'en',
+): Array<{ role: string; confidence: number }> {
+  if (!jobTitle && !company) return [];
+
+  const text = `${jobTitle || ''} ${company || ''}`.toLowerCase();
+  const matches: Array<{ role: string; confidence: number }> = [];
+  const compiledPatterns = getCompiledRolePatterns(locale);
+
+  for (const [role, weights] of Object.entries(ROLE_WEIGHTS)) {
+    const regex = compiledPatterns.get(role);
+    if (regex && regex.test(text)) {
+      matches.push({ role, confidence: weights.weight });
+    }
+  }
+
+  return matches.sort((a, b) => b.confidence - a.confidence);
+}
+
+/**
+ * Get all matching roles (backward compatible, without confidence).
+ */
+export function getContactRoles(jobTitle?: string | null, company?: string | null): string[] {
+  return getContactRolesWithConfidence(jobTitle, company).map(r => r.role);
+}
 
 // ============================================================================
 // Types and Interfaces

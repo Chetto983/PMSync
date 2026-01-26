@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { getRedisConnectionOptions } from '../../../config/configuration';
-import { authenticator } from 'otplib';
+import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
 import * as QRCode from 'qrcode';
 import * as crypto from 'crypto';
 
@@ -57,7 +57,6 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
   private readonly issuer: string;
   private readonly digits: number;
   private readonly period: number;
-  private readonly window: number;
 
   // Encryption key for secrets (derived from JWT_SECRET)
   private readonly encryptionKey: Buffer;
@@ -76,8 +75,6 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
     this.issuer = this.config.get<string>('TOTP_ISSUER') || 'PMSync';
     this.digits = parseInt(this.config.get<string>('TOTP_DIGITS') || '6', 10);
     this.period = parseInt(this.config.get<string>('TOTP_PERIOD') || '30', 10);
-    this.window = parseInt(this.config.get<string>('TOTP_WINDOW') || '1', 10);
-
     // Derive encryption key from JWT_SECRET
     const jwtSecret = this.config.get<string>('JWT_SECRET');
     if (!jwtSecret || jwtSecret === 'secret' || jwtSecret.length < 32) {
@@ -86,13 +83,7 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
     } else {
       this.encryptionKey = crypto.scryptSync(jwtSecret, 'totp-encryption', 32);
     }
-
-    // Configure authenticator options (SHA1 is standard for Google Authenticator compatibility)
-    authenticator.options = {
-      digits: this.digits,
-      step: this.period,
-      window: this.window,
-    };
+    // Note: otplib v13 uses functional API - no instance needed
   }
 
   async onModuleInit() {
@@ -130,10 +121,16 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
    */
   async generateSecret(tenantId: string, userId: string, email: string): Promise<TotpSetupResult> {
     // Generate random secret (Base32 encoded)
-    const secret = authenticator.generateSecret(20); // 160 bits
+    const secret = otpGenerateSecret(); // Generates a secure random secret
 
-    // Create otpauth URL for QR code
-    const otpauthUrl = authenticator.keyuri(email, this.issuer, secret);
+    // Create otpauth URL for QR code (TOTP is implied by period parameter)
+    const otpauthUrl = generateURI({
+      secret,
+      issuer: this.issuer,
+      label: email,
+      digits: this.digits as 6 | 8,
+      period: this.period,
+    });
 
     // Generate QR code as data URL
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, {
@@ -199,8 +196,13 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
     // Decrypt secret
     const secret = this.decryptSecret(mfaSecret.secret, mfaSecret.encryptionIv);
 
-    // Verify code with time window tolerance
-    const isValid = authenticator.verify({ token: code, secret });
+    // Verify code (otplib v13 handles time drift internally via period)
+    const isValid = otpVerify({
+      token: code,
+      secret,
+      digits: this.digits as 6 | 8,
+      period: this.period,
+    });
 
     if (!isValid) {
       this.logger.warn(
@@ -274,8 +276,13 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
     // Decrypt secret
     const secret = this.decryptSecret(mfaSecret.secret, mfaSecret.encryptionIv);
 
-    // Verify code with time window tolerance
-    const isValid = authenticator.verify({ token: code, secret });
+    // Verify code (otplib v13 handles time drift internally via period)
+    const isValid = otpVerify({
+      token: code,
+      secret,
+      digits: this.digits as 6 | 8,
+      period: this.period,
+    });
 
     if (!isValid) {
       this.logger.warn(

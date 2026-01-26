@@ -24,6 +24,7 @@ import { createDocumentLibraryAgent } from './document-library.agent';
 import { createAnalyticsAgent } from './analytics.agent';
 import type { FollowUpService } from '../services/follow-up.service';
 import { PiiDetectionService } from '../../guards';
+import { EmailInsightsService } from '../../services/email-insights.service';
 // Note: VoltAgent guardrails not used - Sentinel protection applied at service level
 // via PromptGuardService and PiiDetectionService in ChatRequestProcessor
 
@@ -54,6 +55,8 @@ export interface SupervisorAgentOptions {
   followUpService?: FollowUpService;
   /** Optional: PII detection for LLM redaction */
   piiDetectionService?: PiiDetectionService;
+  /** Optional: EmailInsightsService for unified email analysis with DB persistence */
+  emailInsightsService?: EmailInsightsService;
 }
 
 /**
@@ -302,6 +305,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     documentLibraryService,
     // followUpService, longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
     piiDetectionService,
+    emailInsightsService,
   } = options;
   // Always use English prompts, locale only affects response language
   const t = getAgentTranslations('en');
@@ -340,6 +344,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     hooks,
     memory,  // FIX Bug #2: Pass memory for conversation persistence
     piiDetectionService,
+    emailInsightsService: emailInsightsService ?? null,
   });
 
   // Start with core consolidated agents

@@ -139,6 +139,13 @@ export interface ToolTranslations {
       description: string;
       systemPrompt: string;
     };
+    /**
+     * UNIFIED ANALYSIS - Single LLM call for ALL email insights
+     */
+    analyzeUnified: {
+      description: string;
+      systemPrompt: (allowedLabels: string) => string;
+    };
     compose: {
       description: string;
       systemPrompt: (toneInstruction: string, language: string) => string;
@@ -466,6 +473,41 @@ export interface RouterPatternsTranslations {
 }
 
 /**
+ * Contact role classification patterns (Phase 4.3 - Cost Optimization)
+ * Multilingual patterns for smart role classification without LLM calls
+ */
+export interface RolePatternsTranslations {
+  /** Executive-level roles (CEO, CTO, etc.) */
+  executive: string[];
+  /** Board members */
+  board: string[];
+  /** Investors and VCs */
+  investor: string[];
+  /** Engineering and development */
+  engineering: string[];
+  /** Sales roles */
+  sales: string[];
+  /** Marketing roles */
+  marketing: string[];
+  /** HR and recruiting */
+  hr: string[];
+  /** Legal and compliance */
+  legal: string[];
+  /** Finance and accounting */
+  finance: string[];
+  /** Support and success */
+  support: string[];
+  /** Advisors and consultants */
+  advisor: string[];
+  /** Vendors and suppliers */
+  vendor: string[];
+  /** Customers and clients */
+  customer: string[];
+  /** Internal team members */
+  team: string[];
+}
+
+/**
  * Complete translation structure for VoltAgent
  */
 export interface VoltAgentTranslations {
@@ -479,6 +521,8 @@ export interface VoltAgentTranslations {
   briefing: BriefingTranslations;
   errors: ErrorTranslations;
   router: RouterPatternsTranslations;
+  /** Contact role classification patterns (Phase 4.3) */
+  rolePatterns: RolePatternsTranslations;
 }
 
 /**
@@ -587,6 +631,47 @@ export function getRouterPatterns(locale: SupportedLocale): RouterPatternsTransl
     complexityModerate: [...enPatterns.complexityModerate, ...localePatterns.complexityModerate],
     complexityComplex: [...enPatterns.complexityComplex, ...localePatterns.complexityComplex],
   };
+}
+
+/**
+ * Get contact role patterns for a specific locale (combined with English fallback)
+ * Returns merged patterns from both locale and English for comprehensive coverage
+ * Used by RelationshipIntelligenceService for smart role classification
+ */
+export function getRolePatterns(locale: SupportedLocale): RolePatternsTranslations {
+  const localePatterns = (locales[locale] || locales.en).rolePatterns;
+  const enPatterns = locales.en.rolePatterns;
+
+  // Merge locale-specific patterns with English for comprehensive coverage
+  if (locale === 'en') {
+    return localePatterns;
+  }
+
+  return {
+    executive: [...new Set([...enPatterns.executive, ...localePatterns.executive])],
+    board: [...new Set([...enPatterns.board, ...localePatterns.board])],
+    investor: [...new Set([...enPatterns.investor, ...localePatterns.investor])],
+    engineering: [...new Set([...enPatterns.engineering, ...localePatterns.engineering])],
+    sales: [...new Set([...enPatterns.sales, ...localePatterns.sales])],
+    marketing: [...new Set([...enPatterns.marketing, ...localePatterns.marketing])],
+    hr: [...new Set([...enPatterns.hr, ...localePatterns.hr])],
+    legal: [...new Set([...enPatterns.legal, ...localePatterns.legal])],
+    finance: [...new Set([...enPatterns.finance, ...localePatterns.finance])],
+    support: [...new Set([...enPatterns.support, ...localePatterns.support])],
+    advisor: [...new Set([...enPatterns.advisor, ...localePatterns.advisor])],
+    vendor: [...new Set([...enPatterns.vendor, ...localePatterns.vendor])],
+    customer: [...new Set([...enPatterns.customer, ...localePatterns.customer])],
+    team: [...new Set([...enPatterns.team, ...localePatterns.team])],
+  };
+}
+
+/**
+ * Build regex pattern from locale role patterns
+ * Combines all patterns for a role into a single RegExp
+ */
+export function buildRoleRegex(patterns: string[]): RegExp {
+  const escapedPatterns = patterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return new RegExp(`\\b(${escapedPatterns.join('|')})\\b`, 'i');
 }
 
 /**
