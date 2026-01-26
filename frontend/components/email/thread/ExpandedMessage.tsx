@@ -18,6 +18,7 @@ import {
   IconButton,
   Tooltip,
   Divider,
+  Button,
 } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ReplyIcon from '@mui/icons-material/Reply';
@@ -25,6 +26,9 @@ import ReplyAllIcon from '@mui/icons-material/ReplyAll';
 import ForwardIcon from '@mui/icons-material/Forward';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import LabelIcon from '@mui/icons-material/Label';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ArchiveIcon from '@mui/icons-material/Archive';
+import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { EmailHtmlContent } from './EmailHtmlContent';
@@ -46,6 +50,10 @@ interface ExpandedMessageProps {
     hasAttachments: boolean;
     attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
     avatarUrl?: string;
+    // AI Triage fields - show existing analysis (aiPriority: 1=highest, 5=lowest)
+    aiPriority?: number | null;
+    aiPriorityReason?: string | null;
+    aiLabels?: string[] | null;
   };
   onCollapse: () => void;
   onReply: (messageId: string) => void;
@@ -53,6 +61,12 @@ interface ExpandedMessageProps {
   onForward: (messageId: string) => void;
   onFlag: (messageId: string) => void;
   onLabels?: (messageId: string) => void;
+  /** Callback when delete is clicked */
+  onDelete?: (messageId: string) => void;
+  /** Callback when archive is clicked */
+  onArchive?: (messageId: string) => void;
+  /** Callback when move is clicked */
+  onMove?: (messageId: string) => void;
   /** Callback when attachment download is clicked */
   onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
 }
@@ -99,6 +113,9 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   onForward,
   onFlag,
   onLabels,
+  onDelete,
+  onArchive,
+  onMove,
   onDownloadAttachment,
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
@@ -270,6 +287,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
               {t.common?.showLess || 'Show less'}
             </Typography>
           )}
+
         </Box>
 
         {/* Right Side: Date + Actions */}
@@ -294,10 +312,28 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                   <ForwardIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
-              {onLabels && (
-                <Tooltip title={t.email?.labels?.addLabels || 'Labels'}>
-                  <IconButton size="small" onClick={() => onLabels(message.id)} sx={{ p: 0.5 }}>
-                    <LabelIcon sx={{ fontSize: 16 }} />
+              {onArchive && (
+                <Tooltip title={t.threadActions?.archiveThread || 'Archive'}>
+                  <IconButton size="small" onClick={() => onArchive(message.id)} sx={{ p: 0.5 }}>
+                    <ArchiveIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {onMove && (
+                <Tooltip title={t.threadActions?.moveThread || 'Move'}>
+                  <IconButton size="small" onClick={() => onMove(message.id)} sx={{ p: 0.5 }}>
+                    <DriveFileMoveIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {onDelete && (
+                <Tooltip title={t.threadActions?.deleteThread || 'Delete'}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onDelete(message.id)}
+                    sx={{ p: 0.5, color: 'error.main' }}
+                  >
+                    <DeleteIcon sx={{ fontSize: 16 }} />
                   </IconButton>
                 </Tooltip>
               )}
@@ -316,10 +352,11 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         </Box>
       </Box>
 
-      {/* AI Action Toolbar - Top Position */}
+      {/* Action Buttons Row - Labels, Move, AI */}
       <Box
         sx={{
           display: 'flex',
+          alignItems: 'center',
           gap: 1,
           px: 2,
           py: 1,
@@ -329,12 +366,51 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
         }}
       >
+        {/* Labels Button */}
+        {onLabels && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<LabelIcon sx={{ fontSize: 14 }} />}
+            onClick={() => onLabels(message.id)}
+            sx={{
+              textTransform: 'none',
+              fontSize: '0.75rem',
+              py: 0.5,
+              px: 1.5,
+            }}
+          >
+            {t.email?.labels?.addLabels || 'Add Labels'}
+          </Button>
+        )}
+
+        {/* Move Button */}
+        {onMove && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DriveFileMoveIcon sx={{ fontSize: 14 }} />}
+            onClick={() => onMove(message.id)}
+            sx={{
+              textTransform: 'none',
+              fontSize: '0.75rem',
+              py: 0.5,
+              px: 1.5,
+            }}
+          >
+            {t.threadActions?.moveThread || 'Move'}
+          </Button>
+        )}
+
+        {/* AI Action Buttons */}
         <AiActionButtons
           emailId={message.id}
           onSummaryGenerated={handleSummaryGenerated}
           showSummary={showSummary}
           onToggleSummary={() => setShowSummary(!showSummary)}
           hasSummary={!!summary}
+          existingPriority={message.aiPriority}
+          existingPriorityReason={message.aiPriorityReason}
         />
       </Box>
 

@@ -328,7 +328,8 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     locale,
     tenantId,
     hooks,
-    memory,  // FIX Bug #2: Pass memory for conversation persistence
+    memory,
+    userContext, // Pass userContext for current date/time awareness
   });
 
   // IntelligenceAgent - consolidated READ and ANALYSIS operations
@@ -342,9 +343,10 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     tenantId,
     userId,
     hooks,
-    memory,  // FIX Bug #2: Pass memory for conversation persistence
+    memory,
     piiDetectionService,
     emailInsightsService: emailInsightsService ?? null,
+    userContext, // Pass userContext for current date/time awareness
   });
 
   // Start with core consolidated agents
@@ -411,6 +413,11 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     memory,
     hooks,
     maxSteps: 5, // Reduced from 10 - faster responses, less LLM calls
+    // FIX: Prevent duplicate messages by excluding sub-agent interactions from memory
+    // VoltAgent stores both original message AND delegation task when includeAgentsMemory: true (default)
+    supervisorConfig: {
+      includeAgentsMemory: false,
+    },
     // Note: Guardrails applied at service level via Sentinel-powered
     // PromptGuardService and PiiDetectionService in ChatRequestProcessor
   });

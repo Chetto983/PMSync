@@ -13,7 +13,8 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
-import { getAgentTranslations, getLocaleInstruction, type SupportedLocale } from '../locales';
+import { getAgentTranslations, type SupportedLocale } from '../locales';
+import { buildDynamicInstructions, type UserContext } from './supervisor.agent';
 import { createEmailTools } from '../tools/email.tools';
 import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
@@ -57,6 +58,8 @@ export interface ActionsAgentOptions {
   hooks?: AgentHooks;
   /** VoltAgent memory for conversation persistence */
   memory?: Memory;
+  /** User context for personalization and current date/time */
+  userContext?: UserContext;
 }
 
 /**
@@ -75,11 +78,13 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
     tenantId,
     hooks,
     memory,
+    userContext,
   } = options;
 
   // Always use English prompts - locale only affects response language
   const t = getAgentTranslations('en');
-  const localeInstruction = getLocaleInstruction(locale);
+  // Build instructions with current date/time for temporal queries
+  const dynamicInstructions = buildDynamicInstructions(t.actions.instructions, userContext, locale);
 
   // Create tools from factories
   const emailTools = createEmailTools(prisma, emailSendService, locale, tenantId, cacheService);
@@ -98,7 +103,7 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
     purpose:
       'Execute WRITE operations: send/reply/forward/delete emails, manage folders, create/update/delete contacts and events. All destructive actions require user approval.',
     model,
-    instructions: t.actions.instructions + localeInstruction,
+    instructions: dynamicInstructions,
     tools: writeTools,
     hooks,
     // Use passed memory for conversation persistence (tenant isolation via userId format)

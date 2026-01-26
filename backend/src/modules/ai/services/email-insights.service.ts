@@ -275,6 +275,12 @@ export class EmailInsightsService {
         },
       });
 
+      // FIX: Create EmailLabel junction records for AI-assigned labels
+      // This links the Email to UserLabel records so labels appear in UI
+      if (result.labels.length > 0) {
+        await this.linkEmailToUserLabels(tenantId, emailId, result.labels);
+      }
+
       this.logger.debug(
         `Unified analysis for ${emailId}: priority=${result.priority}, labels=${result.labels.join(',')}, latency=${latencyMs}ms`,
       );
@@ -875,5 +881,63 @@ export class EmailInsightsService {
     });
 
     return normalized;
+  }
+
+  /**
+   * Link email to UserLabel records via EmailLabel junction table.
+   * Creates junction records for AI-assigned labels so they appear in UI.
+   *
+   * @param tenantId - Tenant ID for label lookup
+   * @param emailId - Email to link
+   * @param labelNames - Array of label names (e.g., ["Important", "Follow-up"])
+   */
+  private async linkEmailToUserLabels(
+    tenantId: string,
+    emailId: string,
+    labelNames: string[],
+  ): Promise<void> {
+    if (labelNames.length === 0) return;
+
+    try {
+      // Find UserLabel records matching the AI-assigned label names (case-insensitive)
+      const matchingLabels = await this.prisma.userLabel.findMany({
+        where: {
+          tenantId,
+          isArchived: false,
+          OR: labelNames.map((name) => ({
+            name: { equals: name, mode: 'insensitive' as const },
+          })),
+        },
+        select: { id: true, name: true },
+      });
+
+      if (matchingLabels.length === 0) {
+        this.logger.debug(
+          `[tenant:${tenantId}] No matching UserLabel records found for AI labels: ${labelNames.join(', ')}`,
+        );
+        return;
+      }
+
+      // Create EmailLabel junction records (skip duplicates)
+      const emailLabelData = matchingLabels.map((label) => ({
+        tenantId,
+        emailId,
+        labelId: label.id,
+      }));
+
+      const result = await this.prisma.emailLabel.createMany({
+        data: emailLabelData,
+        skipDuplicates: true,
+      });
+
+      this.logger.debug(
+        `[tenant:${tenantId}] Linked email ${emailId} to ${result.count} UserLabel(s): ${matchingLabels.map((l) => l.name).join(', ')}`,
+      );
+    } catch (error) {
+      // Don't fail triage if label linking fails - just log warning
+      this.logger.warn(
+        `[tenant:${tenantId}] Failed to link email ${emailId} to labels: ${this.getErrorMessage(error)}`,
+      );
+    }
   }
 }

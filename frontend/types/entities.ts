@@ -118,6 +118,12 @@ export interface Email {
   hasCalendarInvite?: boolean;
   calendarInviteStatus?: 'pending' | 'accepted' | 'declined' | 'tentative';
   calendarInviteData?: ParsedCalendarInvite | null;
+  // AI Triage fields (aiPriority: 1=highest, 5=lowest)
+  aiPriority?: number | null;
+  aiPriorityReason?: string | null;
+  aiLabels?: string[] | null;
+  isAutoTriaged?: boolean;
+  autoTriagedAt?: Date | null;
 }
 
 export interface EmailAttachment {

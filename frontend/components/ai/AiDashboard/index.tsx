@@ -146,6 +146,10 @@ export function AiDashboard() {
       return;
     }
 
+    // IMPORTANT: Set conversationId FIRST, then wait for React to process
+    // This ensures useChat hook reinitializes with the new ID before we load messages
+    setConversationId(id);
+
     try {
       const { voltAgentApi, multiAgentApi } = await import('@/lib/api/ai');
 
@@ -157,7 +161,6 @@ export function AiDashboard() {
 
       if (conversationRes.data?.conversation) {
         const conv = conversationRes.data.conversation;
-        setConversationId(conv.id);
 
         // Filter pending actions for this conversation (by sessionId)
         const allPendingActions = pendingActionsRes.data?.actions || [];
@@ -228,7 +231,11 @@ export function AiDashboard() {
             parts: [{ type: 'text' as const, text: m.content }],
           }));
 
-        setChatMessages(dedupedMessages);
+        // Use setTimeout(0) to ensure useChat hook has reinitialized with new conversationId
+        // This fixes the "click twice to load" issue - React needs a render cycle to reinitialize useChat
+        setTimeout(() => {
+          setChatMessages(dedupedMessages);
+        }, 0);
       }
     } catch {
       handleNewChat();

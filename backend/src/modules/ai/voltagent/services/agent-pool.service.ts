@@ -134,6 +134,7 @@ export class AgentPoolService {
             emailSendService: this.emailSendService ?? null,
             calendarService: this.calendarService ?? null,
             memory: memory ?? undefined,
+            userContext: userContext ?? undefined, // Pass userContext for current date/time awareness
           });
           break;
         case 'Intelligence':
@@ -145,6 +146,7 @@ export class AgentPoolService {
             memory: memory ?? undefined,
             piiDetectionService: this.piiDetectionService,
             emailInsightsService: this.emailInsightsService ?? null,
+            userContext: userContext ?? undefined, // Pass userContext for current date/time awareness
           });
           break;
         case 'Supervisor':

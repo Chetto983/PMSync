@@ -28,6 +28,10 @@ interface AiActionButtonsProps {
   onToggleSummary: () => void;
   /** Whether summary already exists */
   hasSummary: boolean;
+  /** Existing AI priority from triage (1=highest, 5=lowest) */
+  existingPriority?: number | null;
+  /** Existing AI priority reason from triage */
+  existingPriorityReason?: string | null;
 }
 
 // Helper to get priority color
@@ -56,12 +60,32 @@ export const AiActionButtons = memo(function AiActionButtons({
   showSummary,
   onToggleSummary,
   hasSummary,
+  existingPriority,
+  existingPriorityReason,
 }: AiActionButtonsProps) {
   const t = useTranslations();
   const { locale } = useLocale();
 
-  // Priority & Sentiment state
-  const [priority, setPriority] = useState<PriorityResult | null>(null);
+  // Map numeric priority (1-5) to urgency string
+  const mapPriorityToUrgency = (p: number): 'high' | 'medium' | 'low' => {
+    if (p <= 2) return 'high';
+    if (p <= 3) return 'medium';
+    return 'low';
+  };
+
+  // Priority & Sentiment state - initialize from existing data if available
+  const [priority, setPriority] = useState<PriorityResult | null>(() => {
+    if (existingPriority != null) {
+      const urgency = mapPriorityToUrgency(existingPriority);
+      return {
+        score: existingPriority,
+        urgency,
+        recommendation: 'handle_today',
+        factors: existingPriorityReason ? [existingPriorityReason] : [],
+      };
+    }
+    return null;
+  });
   const [sentiment, setSentiment] = useState<SentimentResult | null>(null);
   const [isAnalyzingPriority, setIsAnalyzingPriority] = useState(false);
   const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);

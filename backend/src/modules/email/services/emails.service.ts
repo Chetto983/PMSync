@@ -150,6 +150,12 @@ export class EmailsService {
           sentAt: true,
           receivedAt: true,
           size: true,
+          // AI Triage fields - show priority/labels if already triaged
+          aiPriority: true,
+          aiPriorityReason: true,
+          aiLabels: true,
+          isAutoTriaged: true,
+          autoTriagedAt: true,
           attachments: {
             select: {
               id: true,

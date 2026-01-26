@@ -348,6 +348,10 @@ export default function EmailPage() {
         contentId: att.contentId,
       })),
       avatarUrl: getAvatarUrl(senderEmail, senderInfo?.photoUrl, isKnownContact),
+      // AI Triage fields - show if already analyzed
+      aiPriority: selectedEmail.aiPriority ?? null,
+      aiPriorityReason: selectedEmail.aiPriorityReason ?? null,
+      aiLabels: selectedEmail.aiLabels ?? null,
     };
   }, [selectedEmail, senderPhotos]);
 
@@ -381,6 +385,35 @@ export default function EmailPage() {
     setLabelPickerEmailIds([messageId]);
     setLabelPickerOpen(true);
   }, []);
+
+  // Delete single message from reading pane
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await deleteEmail.mutateAsync(messageId);
+      toast.success(t.common.success ?? 'Deleted');
+      setSelectedThreadId(null); // Close reading pane
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [deleteEmail, toast, t]);
+
+  // Archive single message from reading pane
+  const handleArchiveMessage = useCallback(async (messageId: string) => {
+    try {
+      await moveEmails.mutateAsync({ emailIds: [messageId], targetFolder: 'ARCHIVE' });
+      toast.success(t.common.success ?? 'Archived');
+      setSelectedThreadId(null); // Close reading pane
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [moveEmails, toast, t]);
+
+  // Move single message from reading pane (opens folder picker)
+  const handleMoveMessage = useCallback((messageId: string) => {
+    // For now, use bulk move handler with single email
+    toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
+    void messageId; // Will be used when folder picker is implemented
+  }, [toast, t]);
 
   // Download attachment
   const handleDownloadAttachment = useCallback(async (_messageId: string, attachmentId: string) => {
@@ -472,6 +505,9 @@ export default function EmailPage() {
           onFlag={handleFlagMessage}
           onLabels={handleLabelsMessage}
           onDownloadAttachment={handleDownloadAttachment}
+          onDelete={handleDeleteMessage}
+          onArchive={handleArchiveMessage}
+          onMove={handleMoveMessage}
         />
       </Box>
     );
@@ -487,6 +523,9 @@ export default function EmailPage() {
     handleFlagMessage,
     handleLabelsMessage,
     handleDownloadAttachment,
+    handleDeleteMessage,
+    handleArchiveMessage,
+    handleMoveMessage,
     t.threadView?.loading,
   ]);
 
