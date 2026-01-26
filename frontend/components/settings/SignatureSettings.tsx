@@ -28,6 +28,9 @@ import {
   MenuDivider,
   MenuControlsContainer,
   MenuButtonEditLink,
+  MenuButtonImageUpload,
+  MenuButtonTextColor,
+  MenuButtonHorizontalRule,
   type RichTextEditorRef,
 } from 'mui-tiptap';
 import { SectionCard } from './SectionCard';
@@ -70,6 +73,18 @@ export interface SignatureSettingsProps {
   };
 }
 
+/**
+ * Convert file to base64 data URL for embedding in signature
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function SignatureEditorControls() {
   return (
     <MenuControlsContainer>
@@ -79,6 +94,22 @@ function SignatureEditorControls() {
       <MenuButtonStrikethrough />
       <MenuDivider />
       <MenuButtonEditLink />
+      <MenuDivider />
+      <MenuButtonTextColor />
+      <MenuDivider />
+      <MenuButtonImageUpload
+        onUploadFiles={async (files) => {
+          // Convert images to base64 for persistent embedding in signature
+          const results = await Promise.all(
+            files.map(async (file) => ({
+              src: await fileToBase64(file),
+              alt: file.name,
+            }))
+          );
+          return results;
+        }}
+      />
+      <MenuButtonHorizontalRule />
     </MenuControlsContainer>
   );
 }

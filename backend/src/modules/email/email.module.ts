@@ -75,7 +75,9 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
     // Template service
     EmailTemplateService,
   ],
-  controllers: [EmailsController, AttachmentsController, SignaturesController, TemplatesController],
+  // CRITICAL: SignaturesController and TemplatesController MUST be before EmailsController
+  // because EmailsController has @Get(':id') which would catch /emails/signatures as /emails/:id
+  controllers: [SignaturesController, TemplatesController, AttachmentsController, EmailsController],
   exports: [
     EmailService,
     EmailsService,

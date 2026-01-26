@@ -130,6 +130,7 @@ export const FolderItemDisplay = forwardRef<HTMLDivElement, FolderItemDisplayPro
 
 interface SortableFolderItemProps {
   folder: FolderType;
+  providerId: string;
   icon: React.ReactNode;
   label: string;
   selected: boolean;
@@ -143,6 +144,7 @@ interface SortableFolderItemProps {
  */
 export function SortableFolderItem({
   folder,
+  providerId,
   icon,
   label,
   selected,
@@ -158,6 +160,12 @@ export function SortableFolderItem({
   } = useSortable({
     id: folder.id,
     transition: ANIMATION_CONFIG,
+    data: {
+      type: 'sortable-folder',
+      folderId: folder.id,
+      providerId,
+      folderName: folder.name,
+    },
   });
 
   const style: React.CSSProperties = {

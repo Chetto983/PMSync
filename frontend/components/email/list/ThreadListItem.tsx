@@ -24,7 +24,7 @@ import {
   Fade,
   Tooltip,
 } from '@mui/material';
-import { Flag, Paperclip, Archive, Trash2 } from 'lucide-react';
+import { Flag, Paperclip, Archive, Trash2, FolderInput } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 
@@ -54,6 +54,8 @@ interface ThreadListItemProps {
   onFlag: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
+  /** Move to folder (mobile - opens folder picker) */
+  onMove?: (id: string) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }
@@ -74,6 +76,7 @@ export const ThreadListItem = memo(function ThreadListItem({
   onFlag,
   onArchive,
   onDelete,
+  onMove,
   onMouseEnter,
   onMouseLeave,
 }: ThreadListItemProps) {
@@ -101,6 +104,11 @@ export const ThreadListItem = memo(function ThreadListItem({
   const handleDelete = (e: MouseEvent) => {
     e.stopPropagation();
     onDelete(thread.id);
+  };
+
+  const handleMove = (e: MouseEvent) => {
+    e.stopPropagation();
+    onMove?.(thread.id);
   };
 
   // Get initials for avatar fallback
@@ -345,6 +353,18 @@ export const ThreadListItem = memo(function ThreadListItem({
           >
             <Archive size={18} strokeWidth={2} />
           </IconButton>
+
+          {/* Move to folder - mobile friendly alternative to drag */}
+          {onMove && (
+            <IconButton
+              size="small"
+              onClick={handleMove}
+              sx={{ p: 0.5 }}
+              aria-label={t.emailList?.moveToFolder || 'Move to folder'}
+            >
+              <FolderInput size={18} strokeWidth={2} />
+            </IconButton>
+          )}
 
           {/* Delete */}
           <IconButton

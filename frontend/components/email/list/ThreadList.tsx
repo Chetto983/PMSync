@@ -18,40 +18,17 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  KeyboardSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-} from '@dnd-kit/core';
+// DragOverlay is centralized in EmailLayout
 import { useTranslations } from '@/lib/hooks/use-translations';
+// DnD state is managed by EmailLayout - no need to access here
 import { ThreadListHeader } from './ThreadListHeader';
 import { ThreadListItem, ThreadListItemData } from './ThreadListItem';
 import { DraggableThreadListItem } from './DraggableThreadListItem';
 import { EmptyState, EmptyStateVariant } from './EmptyState';
 import { ThreadListSkeleton } from './ThreadListSkeleton';
-
-// Drag and drop data types
-interface EmailDragData {
-  type: 'email';
-  emailId: string;
-  providerId: string;
-  thread: ThreadListItemData;
-}
-
-interface FolderDragData {
-  type: 'folder';
-  folderId: string;
-  providerId: string;
-  folderName?: string;
-}
+import { FolderPickerDialog } from '../folders/FolderPickerDialog';
 
 interface ThreadListProps {
   /** Email threads to display */
@@ -79,8 +56,6 @@ interface ThreadListProps {
   onFlag?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
-  /** Drag and drop handler */
-  onEmailDrop?: (emailIds: string[], folderId: string, folderName: string) => void;
 }
 
 /**
@@ -108,33 +83,23 @@ export function ThreadList({
   onFlag,
   onArchive,
   onDelete,
-  onEmailDrop,
 }: ThreadListProps) {
   const t = useTranslations();
+  const theme = useTheme();
+  // Only enable drag on desktop (md breakpoint and up)
+  // Mobile uses touch scroll, and DndContext isn't available in mobile layouts anyway
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Drag and drop state
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Folder picker state (mobile move-to-folder action)
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [moveEmailId, setMoveEmailId] = useState<string | null>(null);
 
-  // Configure DnD sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // 8px movement before drag starts
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250, // Hold 250ms before drag starts on touch
-        tolerance: 5, // Allow 5px movement during delay for scrolling
-      },
-    }),
-    useSensor(KeyboardSensor)
-  );
+  // DnD state is managed by EmailLayout's DndContext
 
   // Virtual scrolling setup
   const parentRef = useRef<HTMLDivElement>(null);
@@ -224,45 +189,18 @@ export function ThreadList({
   const handleArchive = useCallback((id: string) => onArchive?.(id), [onArchive]);
   const handleDelete = useCallback((id: string) => onDelete?.(id), [onDelete]);
 
-  // Drag and drop handlers
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
+  // Move to folder handler - opens folder picker (mobile alternative to drag)
+  const handleMove = useCallback((id: string) => {
+    setMoveEmailId(id);
+    setFolderPickerOpen(true);
+  }, []);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  const handleCloseFolderPicker = useCallback(() => {
+    setFolderPickerOpen(false);
+    setMoveEmailId(null);
+  }, []);
 
-    setActiveId(null);
-
-    if (!over || !onEmailDrop) return;
-
-    const emailId = active.id as string;
-    const folderId = over.id as string;
-    const folderData = over.data.current as FolderDragData | undefined;
-    const folderName = folderData?.folderName || 'folder';
-
-    // Get provider IDs for validation
-    const emailData = active.data.current as EmailDragData | undefined;
-    const emailProviderId = emailData?.providerId;
-    const folderProviderId = folderData?.providerId;
-
-    // Provider guardrail: only allow drops within same provider
-    if (emailProviderId && folderProviderId && emailProviderId !== folderProviderId) {
-      // Toast error handled in email.tsx
-      return;
-    }
-
-    onEmailDrop([emailId], folderId, folderName);
-  };
-
-  // Get active thread for DragOverlay
-  const getActiveThread = (): (ThreadListItemData & { providerId: string }) | null => {
-    if (!activeId) return null;
-    const thread = threads.find((t) => t.id === activeId);
-    return thread && thread.providerId ? (thread as ThreadListItemData & { providerId: string }) : null;
-  };
-
-  const activeThread = getActiveThread();
+  // Note: Drag handlers and DragOverlay are now in EmailLayout's shared DndContext
 
   // CRITICAL FIX: Infinite scroll in useEffect (not during render!)
   const virtualItems = virtualizer.getVirtualItems();
@@ -332,20 +270,16 @@ export function ThreadList({
     );
   }
 
+  // DndContext is now in EmailLayout - wraps ThreadList and FolderSidebar
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+      }}
     >
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          overflow: 'hidden',
-        }}
-      >
         {/* Header with bulk actions */}
         <ThreadListHeader
         totalCount={threads.length}
@@ -402,7 +336,8 @@ export function ThreadList({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                {thread.providerId ? (
+                {/* Only use draggable on desktop - mobile needs touch scroll */}
+                {thread.providerId && isDesktop ? (
                   <DraggableThreadListItem
                     thread={thread as ThreadListItemData & { providerId: string }}
                     isSelected={isSelected}
@@ -427,6 +362,7 @@ export function ThreadList({
                     onFlag={handleFlag}
                     onArchive={handleArchive}
                     onDelete={handleDelete}
+                    onMove={handleMove}
                     onMouseEnter={() => handleMouseEnter(thread.id)}
                     onMouseLeave={handleMouseLeave}
                   />
@@ -453,35 +389,16 @@ export function ThreadList({
         )}
       </Box>
 
-      {/* DragOverlay for smooth drag animation (250ms ease) */}
-      <DragOverlay dropAnimation={{ duration: 250, easing: 'ease' }}>
-        {activeThread ? (
-          <Box
-            sx={{
-              opacity: 0.8,
-              transform: 'scale(1.02)',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-              borderRadius: 1,
-              bgcolor: 'background.paper',
-            }}
-          >
-            <ThreadListItem
-              thread={activeThread}
-              isSelected={false}
-              isHovered={false}
-              onSelect={() => {}}
-              onClick={() => {}}
-              onFlag={() => {}}
-              onArchive={() => {}}
-              onDelete={() => {}}
-              onMouseEnter={() => {}}
-              onMouseLeave={() => {}}
-            />
-          </Box>
-        ) : null}
-      </DragOverlay>
+      {/* DragOverlay is now centralized in EmailLayout */}
+
+      {/* Folder picker dialog - mobile alternative to drag-and-drop */}
+      <FolderPickerDialog
+        open={folderPickerOpen}
+        onClose={handleCloseFolderPicker}
+        emailIds={moveEmailId ? [moveEmailId] : []}
+        onSuccess={handleCloseFolderPicker}
+      />
     </Box>
-    </DndContext>
   );
 }
 

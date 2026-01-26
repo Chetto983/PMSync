@@ -19,6 +19,8 @@ import {
   useUpdateEmail,
   useDeleteEmail,
   useSenderPhotos,
+  useUserPreferences,
+  useUpdatePreferences,
 } from '@/hooks/queries';
 import type { SenderContactMap } from '@/lib/api/contacts';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
@@ -164,6 +166,10 @@ export default function EmailPage() {
   const bulkDelete = useBulkDeleteEmails();
   const updateEmail = useUpdateEmail();
   const deleteEmail = useDeleteEmail();
+
+  // Preferences for folder reordering
+  const { data: preferences } = useUserPreferences();
+  const updatePreferences = useUpdatePreferences();
 
   // Extract unique sender emails for photo lookup
   const senderEmails = useMemo(() => {
@@ -601,6 +607,34 @@ export default function EmailPage() {
     }
   };
 
+  // Folder reorder handler (for drag-drop folder sorting)
+  const handleFolderReorder = useCallback(
+    (providerId: string, activeId: string, overId: string) => {
+      // Get current folder order for this provider
+      const providerFolders = foldersData?.foldersByProvider?.[providerId] || [];
+      const currentOrder = preferences?.folderOrders?.[providerId] || providerFolders.map((f) => f.id);
+
+      const oldIndex = currentOrder.indexOf(activeId);
+      const newIndex = currentOrder.indexOf(overId);
+
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+      // Create new order using array move
+      const newOrder = [...currentOrder];
+      newOrder.splice(oldIndex, 1);
+      newOrder.splice(newIndex, 0, activeId);
+
+      // Persist the new order
+      updatePreferences.mutate({
+        folderOrders: {
+          ...(preferences?.folderOrders || {}),
+          [providerId]: newOrder,
+        },
+      });
+    },
+    [foldersData?.foldersByProvider, preferences?.folderOrders, updatePreferences]
+  );
+
   // Show loading state
   if (isLoading) {
     return (
@@ -631,7 +665,7 @@ export default function EmailPage() {
   return (
     <PageErrorBoundary pageName="Email">
       <Layout>
-        <EmailLayout readingPane={readingPane}>
+        <EmailLayout readingPane={readingPane} onEmailDrop={handleEmailDrop} onFolderReorder={handleFolderReorder}>
           <ThreadList
             threads={threads}
             emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
@@ -648,7 +682,6 @@ export default function EmailPage() {
             onFlag={handleFlag}
             onArchive={handleArchive}
             onDelete={handleDelete}
-            onEmailDrop={handleEmailDrop}
           />
           <toast.ToastContainer />
         </EmailLayout>

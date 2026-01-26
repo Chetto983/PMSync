@@ -1,6 +1,5 @@
 import { io, Socket } from 'socket.io-client';
 import { logger } from '@/lib/logger';
-import { log } from 'node:console';
 
 /**
  * WebSocket Client per connessione realtime al backend

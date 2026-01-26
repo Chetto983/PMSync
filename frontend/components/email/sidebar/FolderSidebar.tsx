@@ -10,7 +10,7 @@
  * @see https://docs.dndkit.com/presets/sortable
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   List,
@@ -25,23 +25,9 @@ import {
   ListItemText,
   alpha,
 } from '@mui/material';
-import {
-  DndContext,
-  closestCenter,
-  DragOverlay,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  arrayMove,
-} from '@dnd-kit/sortable';
+// DragOverlay is centralized in EmailLayout
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+// useEmailDnd not needed - DragOverlay is in EmailLayout
 import {
   RefreshCw,
   Flag,
@@ -55,12 +41,12 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useSyncProviderComplete } from '@/hooks/queries/use-folders';
-import { useUserPreferences, useUpdatePreferences } from '@/hooks/queries/use-settings';
+import { useUserPreferences } from '@/hooks/queries/use-settings';
 import { useEmailUIStore, useEmailSidebar, type SpecialFolder } from '@/stores/email-ui-store';
 import { useFoldersStore } from '@/stores/folders-store';
 import { useToast } from '@/hooks/use-toast';
 import { FolderItem } from './FolderItem';
-import { SortableFolderItem, FolderItemDisplay } from './SortableFolderItem';
+import { SortableFolderItem } from './SortableFolderItem';
 import { DroppableFolderItem } from './DroppableFolderItem';
 import { LabelsSidebar } from './LabelsSidebar';
 import {
@@ -84,7 +70,6 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const t = useTranslations();
   const { data, isLoading, refetch, isFetching } = useFolders();
   const { data: preferences } = useUserPreferences();
-  const updatePreferences = useUpdatePreferences();
   const syncComplete = useSyncProviderComplete();
   const toast = useToast();
   const { syncingProviders, setSyncing, setLastSync } = useFoldersStore();
@@ -96,9 +81,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
 
   const { collapsedProviders } = useEmailSidebar();
 
-  // Track active drag item for DragOverlay
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
+  // DnD state and DragOverlay are managed by EmailLayout's shared DndContext
 
   // Folder management (shared hook)
   const {
@@ -114,17 +97,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
     folderCounts,
   } = useFolderManagement();
 
-  // Configure DnD sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  // Note: DnD sensors are now in EmailLayout's shared DndContext
 
   // Handle aggregated folder selection (clears provider filter)
   const handleFolderClick = (folder: SpecialFolder) => {
@@ -181,46 +154,8 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   // Note: handleSyncAll is available via syncAllFolders hook but not currently used in UI
   // To add "Sync All" button, use: syncAllFolders.mutate() with similar pattern as handleSyncProvider
 
-  // Handle drag start
-  const handleDragStart = (event: DragStartEvent, providerId: string) => {
-    setActiveId(event.active.id as string);
-    setActiveProviderId(providerId);
-  };
+  // Note: Drag handlers and DragOverlay are now in EmailLayout's shared DndContext
 
-  // Handle drag end - reorder and persist
-  const handleDragEnd = (event: DragEndEvent, providerId: string, folders: FolderType[]) => {
-    const { active, over } = event;
-
-    setActiveId(null);
-    setActiveProviderId(null);
-
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = folders.findIndex((f) => f.id === active.id);
-    const newIndex = folders.findIndex((f) => f.id === over.id);
-
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reorderedFolders = arrayMove(folders, oldIndex, newIndex);
-    const newOrder = reorderedFolders.map((f) => f.id);
-
-    const currentFolderOrders = preferences?.folderOrders || {};
-    updatePreferences.mutate({
-      folderOrders: {
-        ...currentFolderOrders,
-        [providerId]: newOrder,
-      },
-    });
-  };
-
-  // Get active folder for DragOverlay
-  const getActiveFolder = (): FolderType | null => {
-    if (!activeId || !activeProviderId || !data?.foldersByProvider) return null;
-    const folders = data.foldersByProvider[activeProviderId];
-    return folders?.find((f) => f.id === activeId) || null;
-  };
-
-  const activeFolder = getActiveFolder();
   const sidebarWidth = width ?? (collapsed ? 64 : '100%');
 
   return (
@@ -454,79 +389,63 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                         )}
                       </ListItemButton>
 
-                      {/* Provider Folders - Sortable */}
+                      {/* Provider Folders - Sortable (uses shared DndContext from EmailLayout) */}
                       <Collapse in={!isProviderCollapsed} timeout="auto" unmountOnExit>
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          onDragStart={(e) => handleDragStart(e, provider.id)}
-                          onDragEnd={(e) => handleDragEnd(e, provider.id, sortedFolders)}
+                        <SortableContext
+                          items={sortedFolders.map((f) => f.id)}
+                          strategy={verticalListSortingStrategy}
                         >
-                          <SortableContext
-                            items={sortedFolders.map((f) => f.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <List disablePadding sx={{ pl: 2 }}>
-                              {sortedFolders.map((folder) => {
-                                const folderName = getFolderDisplayName(folder, getFolderLabel);
+                          <List disablePadding sx={{ pl: 2 }}>
+                            {sortedFolders.map((folder) => {
+                              const folderName = getFolderDisplayName(folder, getFolderLabel);
 
-                                return (
-                                  <DroppableFolderItem
-                                    key={folder.id}
-                                    folderId={folder.id}
-                                    providerId={provider.id}
+                              return (
+                                <DroppableFolderItem
+                                  key={folder.id}
+                                  folderId={folder.id}
+                                  providerId={provider.id}
+                                >
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      '&:hover .folder-menu-btn': {
+                                        opacity: 1,
+                                      },
+                                    }}
                                   >
-                                    <Box
-                                      sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        '&:hover .folder-menu-btn': {
-                                          opacity: 1,
-                                        },
-                                      }}
-                                    >
-                                      <SortableFolderItem
-                                        folder={folder}
-                                        icon={getFolderIcon(folder)}
-                                        label={folderName}
-                                        selected={filters.folderId === folder.id}
-                                        onClick={() => handleProviderFolderClick(provider.id, folder)}
-                                      />
-                                      {/* Show menu for custom folders only (not system folders) */}
-                                      {!folder.isSystem && (
-                                        <IconButton
-                                          size="small"
-                                          className="folder-menu-btn"
-                                          onClick={(e) => handleFolderMenu(e, folder)}
-                                          sx={{
-                                            p: 0.25,
-                                            opacity: 0,
-                                            transition: 'opacity 0.15s',
-                                            mr: 0.5,
-                                          }}
-                                        >
-                                          <MoreHorizontal size={14} />
-                                        </IconButton>
-                                      )}
-                                    </Box>
-                                  </DroppableFolderItem>
-                                );
-                              })}
-                            </List>
-                          </SortableContext>
+                                    <SortableFolderItem
+                                      folder={folder}
+                                      providerId={provider.id}
+                                      icon={getFolderIcon(folder)}
+                                      label={folderName}
+                                      selected={filters.folderId === folder.id}
+                                      onClick={() => handleProviderFolderClick(provider.id, folder)}
+                                    />
+                                    {/* Show menu for custom folders only (not system folders) */}
+                                    {!folder.isSystem && (
+                                      <IconButton
+                                        size="small"
+                                        className="folder-menu-btn"
+                                        onClick={(e) => handleFolderMenu(e, folder)}
+                                        sx={{
+                                          p: 0.25,
+                                          opacity: 0,
+                                          transition: 'opacity 0.15s',
+                                          mr: 0.5,
+                                        }}
+                                      >
+                                        <MoreHorizontal size={14} />
+                                      </IconButton>
+                                    )}
+                                  </Box>
+                                </DroppableFolderItem>
+                              );
+                            })}
+                          </List>
+                        </SortableContext>
 
-                          {/* DragOverlay for smooth dragging */}
-                          <DragOverlay>
-                            {activeFolder && activeProviderId === provider.id ? (
-                              <FolderItemDisplay
-                                folder={activeFolder}
-                                icon={getFolderIcon(activeFolder)}
-                                label={getFolderDisplayName(activeFolder, getFolderLabel)}
-                                isOverlay
-                              />
-                            ) : null}
-                          </DragOverlay>
-                        </DndContext>
+                        {/* DragOverlay is centralized in EmailLayout */}
                       </Collapse>
                     </Box>
                   );

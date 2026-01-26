@@ -492,7 +492,8 @@ export const emailsApi = {
   },
 
   async bulkMove(emailIds: string[], targetFolder: string): Promise<{ moved: number }> {
-    const response = await apiClient.patch('/emails/bulk/move', { emailIds, targetFolder });
+    // Backend expects 'folder' not 'targetFolder'
+    const response = await apiClient.patch('/emails/bulk/move', { emailIds, folder: targetFolder });
     return response.data;
   },
 

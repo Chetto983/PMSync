@@ -89,7 +89,7 @@ export function PredictiveInsightsWidget() {
           'These items require immediate attention',
         action: {
           label: t.common?.viewAll || 'View All',
-          href: '/dashboard/deadlines',
+          href: '/dashboard#deadlines',
         },
       });
     }
@@ -108,7 +108,7 @@ export function PredictiveInsightsWidget() {
           'Plan your day to complete these on time',
         action: {
           label: t.dashboard?.widgets?.deadlines?.viewAll || 'View Deadlines',
-          href: '/dashboard/deadlines',
+          href: '/dashboard#deadlines',
         },
       });
     }
@@ -127,7 +127,7 @@ export function PredictiveInsightsWidget() {
           'Consider sending a reminder or closing these',
         action: {
           label: t.dashboard?.widgets?.followUps?.viewAll || 'View Follow-ups',
-          href: '/dashboard/followups',
+          href: '/dashboard/ai/follow-ups',
         },
       });
     }
