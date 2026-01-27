@@ -251,16 +251,43 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
       let finalParts = originalParts;
 
       if (msg.role === 'assistant') {
-        // Combine all text parts to find suggestions/ask-user
+        // FIRST: Check toolInvocations for ask_user_clarification tool result
+        // This is the PRIMARY way the tool works (not text blocks)
+        const askUserToolResult = msg.toolInvocations?.find(
+          (t: { toolName: string; result?: unknown }) =>
+            t.toolName === 'ask_user_clarification' &&
+            t.result &&
+            typeof t.result === 'object' &&
+            (t.result as Record<string, unknown>).__askUser === true
+        );
+
+        if (askUserToolResult?.result) {
+          const r = askUserToolResult.result as {
+            question: string;
+            header: string;
+            options: AskUserOption[];
+            multiSelect?: boolean;
+          };
+          askUser = {
+            question: r.question,
+            header: r.header,
+            options: r.options,
+            multiSelect: r.multiSelect || false,
+          };
+        }
+
+        // Combine all text parts to find suggestions/ask-user (fallback for text blocks)
         const fullText = originalParts
           .filter((p: MessagePart) => p.type === 'text' && p.text)
           .map((p: MessagePart) => p.text)
           .join('');
 
-        // Extract ask-user first (so we can clean it from text)
-        const askUserResult = extractAskUser(fullText);
-        askUser = askUserResult.askUser;
-        let cleanedText = askUserResult.cleanText;
+        // Extract ask-user from text (fallback if not from tool)
+        if (!askUser) {
+          const askUserResult = extractAskUser(fullText);
+          askUser = askUserResult.askUser;
+        }
+        let cleanedText = askUser ? extractAskUser(fullText).cleanText : fullText;
 
         // Then extract suggestions
         const suggestionsResult = extractSuggestedQuestions(cleanedText);

@@ -1,15 +1,19 @@
 /**
- * Agent Pool Service - Manages VoltAgent lifecycle with TTL caching and LRU eviction.
- * MEMORY OPTIMIZATION: 1000 tenants share 5 agents = ~25MB instead of 500MB.
+ * Agent Pool Service - Manages VoltAgent lifecycle with Redis-backed caching.
+ *
+ * ARCHITECTURE (Redis-backed for horizontal scaling):
+ * - Agent metadata stored in Redis (tenant-scoped keys)
+ * - Agents recreated on demand (stateless)
+ * - GDPR-compliant: supports tenant/user-scoped invalidation
+ *
  * Created: 2026-01-22 (Refactored from VoltAgentService)
- * Updated: 2026-01-23 (Added mutex for thread-safe cache operations - Phase 8 race condition fix)
+ * Updated: 2026-01-27 (Migrated from in-memory Map to Redis for horizontal scaling + GDPR)
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { Mutex } from 'async-mutex';
 import { ConfigService } from '@nestjs/config';
 import type { Agent, Memory, AgentHooks } from '@voltagent/core';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { CacheService } from '../../../../common/services/cache.service';
+import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { MistralService } from '../../services/mistral.service';
@@ -26,11 +30,14 @@ import { getMistralModel, type MistralModel } from '../providers/mistral.provide
 import type { SupportedLocale } from '../locales';
 import type { AgentType } from '../types';
 
-/** Cached agent with creation timestamp for TTL-based expiration */
-export interface CachedAgent {
-  agent: Agent;
+/** Agent metadata stored in Redis (agents are stateless, only config is cached) */
+export interface CachedAgentMeta {
+  agentType: string;
+  locale: string;
+  modelType: string;
+  tenantId: string;
+  userId?: string;
   createdAt: number;
-  lastUsed: number; // For LRU eviction
 }
 
 export interface GetOrCreateAgentParams {
@@ -47,16 +54,12 @@ export interface GetOrCreateAgentParams {
 @Injectable()
 export class AgentPoolService {
   private readonly logger = new Logger(AgentPoolService.name);
-  private readonly agents: Map<string, CachedAgent> = new Map();
 
-  /** Mutex for thread-safe cache operations (Phase 8 race condition fix) */
-  private readonly cacheMutex = new Mutex();
-
-  /** TTL for cached agents (5 minutes) - balances memory vs code reload */
-  private readonly AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
-
-  /** Max agents (reduced from 100 to 5 for memory optimization) */
-  private readonly MAX_CACHED_AGENTS = 5;
+  /** TTL for cached agent metadata in seconds (default 5 minutes) */
+  private readonly AGENT_CACHE_TTL_SECONDS = parseInt(
+    process.env.AGENT_CACHE_TTL_SECONDS || '300',
+    10,
+  );
 
   constructor(
     private readonly prisma: PrismaService,
@@ -74,8 +77,39 @@ export class AgentPoolService {
   ) {}
 
   /**
-   * Get or create agent with TTL caching. RAG services included when available.
-   * Thread-safe via mutex to prevent race conditions on concurrent requests.
+   * Build tenant-isolated cache key for Redis
+   * Format: {tenantId}:{userId}:{locale}:{modelType}:{agentType}
+   */
+  private buildCacheKey(params: GetOrCreateAgentParams): string {
+    const userKey = params.userContext?.email ?? params.userId ?? 'anonymous';
+    return `${params.tenantId}:${userKey}:${params.locale}:${params.modelType || 'small'}:${params.agentType || 'Supervisor'}`;
+  }
+
+  /**
+   * Get cached agent metadata from Redis
+   */
+  private async getCachedMeta(cacheKey: string): Promise<CachedAgentMeta | null> {
+    if (!this.cacheService) return null;
+    return this.cacheService.get<CachedAgentMeta>(cacheKey, {
+      namespace: CacheNamespace.AGENT_POOL,
+    });
+  }
+
+  /**
+   * Cache agent metadata in Redis
+   */
+  private async cacheMeta(cacheKey: string, meta: CachedAgentMeta): Promise<void> {
+    if (!this.cacheService) return;
+    await this.cacheService.set(cacheKey, meta, {
+      namespace: CacheNamespace.AGENT_POOL,
+      ttl: this.AGENT_CACHE_TTL_SECONDS,
+    });
+  }
+
+  /**
+   * Get or create agent with Redis-backed metadata caching.
+   * Agents are stateless and recreated on demand for horizontal scaling.
+   * Metadata in Redis ensures consistent config across all instances.
    */
   async getOrCreateAgent(params: GetOrCreateAgentParams): Promise<Agent> {
     const {
@@ -89,131 +123,151 @@ export class AgentPoolService {
       hooks,
     } = params;
 
-    // Cache key includes userId if userContext is provided (personalized agents)
-    // Fall back to locale+model for anonymous/system calls
-    const userKey = userContext?.email ?? 'anonymous';
-    // Use agentType in cache key to separate Supervisors from specialized agents
-    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${agentType}`;
+    const cacheKey = this.buildCacheKey(params);
+    const now = Date.now();
 
-    // Thread-safe cache access via mutex (Phase 8 race condition fix)
-    return this.cacheMutex.runExclusive(() => {
-      const now = Date.now();
+    // Check Redis for cached metadata (validates this config exists)
+    const cached = await this.getCachedMeta(cacheKey);
+    if (cached) {
+      this.logger.debug(`Cache HIT for agent ${cacheKey}`);
+    }
 
-      // Check if cached agent exists and is not expired
-      const cached = this.agents.get(cacheKey);
-      if (cached && (now - cached.createdAt) < this.AGENT_CACHE_TTL_MS) {
-        // Update lastUsed for LRU tracking
-        cached.lastUsed = now;
-        return cached.agent;
-      }
+    // Create agent (stateless - always recreated for consistency)
+    const model = getMistralModel(modelType);
+    let agent: Agent;
 
-      // LRU eviction if at capacity
-      if (this.agents.size >= this.MAX_CACHED_AGENTS) {
-        this.evictLeastRecentlyUsedAgent();
-      }
+    const commonOptions = {
+      model,
+      prisma: this.prisma,
+      locale,
+      tenantId,
+      hooks: hooks ?? undefined,
+      userId,
+      cacheService: this.cacheService,
+    };
 
-      // Create new agent (or replace expired one)
-      const model = getMistralModel(modelType);
-      let agent: Agent;
+    // Phase 3: Agent Consolidation (10 -> 3)
+    switch (agentType) {
+      case 'Actions':
+        agent = createActionsAgent({
+          ...commonOptions,
+          emailSendService: this.emailSendService ?? null,
+          calendarService: this.calendarService ?? null,
+          memory: memory ?? undefined,
+          userContext: userContext ?? undefined,
+        });
+        break;
+      case 'Intelligence':
+        agent = createIntelligenceAgent({
+          ...commonOptions,
+          mistral: this.mistralService ?? null,
+          embeddingsService: this.embeddingsService ?? null,
+          writingStyle: this.writingStyleService ?? null,
+          memory: memory ?? undefined,
+          piiDetectionService: this.piiDetectionService,
+          emailInsightsService: this.emailInsightsService ?? null,
+          userContext: userContext ?? undefined,
+        });
+        break;
+      case 'Supervisor':
+      default:
+        agent = createSupervisorAgent({
+          ...commonOptions,
+          emailSendService: this.emailSendService ?? null,
+          calendarService: this.calendarService ?? null,
+          memory: memory ?? undefined,
+          mistralService: this.mistralService,
+          embeddingsService: this.embeddingsService,
+          userContext: userContext ?? undefined,
+          configService: this.configService,
+          documentLibraryService: this.documentLibraryService,
+          followUpService: this.followUpService,
+          piiDetectionService: this.piiDetectionService,
+          emailInsightsService: this.emailInsightsService,
+        });
+        break;
+    }
 
-      const commonOptions = {
-        model,
-        prisma: this.prisma,
+    // Cache metadata in Redis (not the agent instance)
+    if (!cached) {
+      await this.cacheMeta(cacheKey, {
+        agentType,
         locale,
+        modelType,
         tenantId,
-        hooks: hooks ?? undefined,
         userId,
-        cacheService: this.cacheService,
-      };
-
-      // Phase 3: Agent Consolidation (10 -> 3)
-      switch (agentType) {
-        case 'Actions':
-          agent = createActionsAgent({
-            ...commonOptions,
-            emailSendService: this.emailSendService ?? null,
-            calendarService: this.calendarService ?? null,
-            memory: memory ?? undefined,
-            userContext: userContext ?? undefined, // Pass userContext for current date/time awareness
-          });
-          break;
-        case 'Intelligence':
-          agent = createIntelligenceAgent({
-            ...commonOptions,
-            mistral: this.mistralService ?? null,
-            embeddingsService: this.embeddingsService ?? null,
-            writingStyle: this.writingStyleService ?? null,
-            memory: memory ?? undefined,
-            piiDetectionService: this.piiDetectionService,
-            emailInsightsService: this.emailInsightsService ?? null,
-            userContext: userContext ?? undefined, // Pass userContext for current date/time awareness
-          });
-          break;
-        case 'Supervisor':
-        default:
-          agent = createSupervisorAgent({
-            ...commonOptions,
-            emailSendService: this.emailSendService ?? null,
-            calendarService: this.calendarService ?? null,
-            memory: memory ?? undefined,
-            mistralService: this.mistralService,
-            embeddingsService: this.embeddingsService,
-            userContext: userContext ?? undefined,
-            configService: this.configService,
-            documentLibraryService: this.documentLibraryService,
-            followUpService: this.followUpService,
-            piiDetectionService: this.piiDetectionService,
-            emailInsightsService: this.emailInsightsService,
-          });
-          break;
-      }
-
-      // Cache with timestamps for TTL and LRU
-      this.agents.set(cacheKey, { agent, createdAt: now, lastUsed: now });
-
-      this.logger.debug(
-        `Created ${agentType} agent for ${cacheKey}, cache size: ${this.agents.size}/${this.MAX_CACHED_AGENTS}`,
-      );
-
-      return agent;
-    });
-  }
-
-  /** Evict the least recently used agent from cache */
-  private evictLeastRecentlyUsedAgent(): void {
-    let oldestKey: string | null = null;
-    let oldestTime = Infinity;
-
-    for (const [key, cached] of this.agents.entries()) {
-      if (cached.lastUsed < oldestTime) {
-        oldestTime = cached.lastUsed;
-        oldestKey = key;
-      }
+        createdAt: now,
+      });
+      this.logger.debug(`Created and cached agent metadata: ${cacheKey}`);
     }
 
-    if (oldestKey) {
-      this.agents.delete(oldestKey);
-      this.logger.debug(`Evicted LRU agent: ${oldestKey}`);
+    return agent;
+  }
+
+  /**
+   * Clear all agent cache (admin only)
+   * Invalidates entire AGENT_POOL namespace in Redis
+   */
+  async clearAgentCache(): Promise<number> {
+    if (!this.cacheService) {
+      this.logger.warn('CacheService not available, cannot clear agent cache');
+      return 0;
     }
+    const count = await this.cacheService.invalidateNamespace(CacheNamespace.AGENT_POOL);
+    this.logger.log(`Cleared all agent cache: ${count} keys`);
+    return count;
   }
 
-  /** Clear cached agents (useful for testing or config changes) */
-  clearAgentCache(): void {
-    this.agents.clear();
-    this.logger.debug('Cleared agent cache');
+  /**
+   * Clear agent cache for a specific tenant (GDPR-compliant)
+   * Uses SCAN for production safety (non-blocking)
+   *
+   * @param tenantId - Tenant ID to clear cache for
+   * @returns Number of keys deleted
+   */
+  async clearAgentCacheForTenant(tenantId: string): Promise<number> {
+    if (!this.cacheService) {
+      this.logger.warn('CacheService not available, cannot clear tenant cache');
+      return 0;
+    }
+    const count = await this.cacheService.invalidateTenantPattern(
+      tenantId,
+      CacheNamespace.AGENT_POOL,
+    );
+    this.logger.log(`[GDPR] Cleared agent cache for tenant ${tenantId}: ${count} keys`);
+    return count;
   }
 
-  /** Get current cache size (for monitoring/debugging) */
-  getCacheSize(): number {
-    return this.agents.size;
+  /**
+   * Clear agent cache for a specific user (GDPR Art. 17 - Right to Erasure)
+   * Uses SCAN for production safety (non-blocking)
+   *
+   * @param tenantId - Tenant ID
+   * @param userId - User ID (email) to clear cache for
+   * @returns Number of keys deleted
+   */
+  async clearAgentCacheForUser(tenantId: string, userId: string): Promise<number> {
+    if (!this.cacheService) {
+      this.logger.warn('CacheService not available, cannot clear user cache');
+      return 0;
+    }
+    const count = await this.cacheService.invalidateUserPattern(
+      tenantId,
+      userId,
+      CacheNamespace.AGENT_POOL,
+    );
+    this.logger.log(`[GDPR Art.17] Cleared agent cache for user ${userId} in tenant ${tenantId}: ${count} keys`);
+    return count;
   }
 
-  /** Get cache statistics (for monitoring/debugging) */
-  getCacheStats(): { size: number; maxSize: number; ttlMs: number } {
+  /**
+   * Get cache statistics (for monitoring/debugging)
+   * Note: With Redis-backed cache, we return config only (actual size requires SCAN)
+   */
+  getCacheStats(): { ttlSeconds: number; namespace: string } {
     return {
-      size: this.agents.size,
-      maxSize: this.MAX_CACHED_AGENTS,
-      ttlMs: this.AGENT_CACHE_TTL_MS,
+      ttlSeconds: this.AGENT_CACHE_TTL_SECONDS,
+      namespace: CacheNamespace.AGENT_POOL,
     };
   }
 }

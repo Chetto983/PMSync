@@ -206,7 +206,11 @@
       "mcp__claude-flow_alpha__memory_search",
       "Bash(cmd /c \"cd /d d:\\\\MailAgent\\\\frontend && npm run type-check\")",
       "Bash(cmd /c \"cd d:\\\\MailAgent\\\\frontend && npm run type-check\")",
-      "WebFetch(domain:kanmail.io)"
+      "WebFetch(domain:kanmail.io)",
+      "Bash(TEST_AUTH_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSWQiOiJVaVRWOFA4NzhQNEkwWjlNRnBXeDMiLCJ1c2VySWQiOiJjbWpneWx4cXAwMDAxNTR5aHlsNW11NnNzIiwidGVuYW50SWQiOiJjbWpneWx4a2cwMDAwNTR5aG5qcGttemQ5IiwiZW1haWwiOiJkdmRtYXJjaGV0dG9AZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY5NTMzNjcwLCJleHAiOjE3NzAxMzg0NzAsImF1ZCI6Im1haWxhZ2VudC1hcGkiLCJpc3MiOiJtYWlsYWdlbnQtYXV0aCJ9.PMncIFATwdSZ2oZreYkFOByK8O-Eibqmbl_YhdShxX0\" npx ts-node:*)",
+      "Bash($env:TEST_AUTH_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSWQiOiJVaVRWOFA4NzhQNEkwWjlNRnBXeDMiLCJ1c2VySWQiOiJjbWpneWx4cXAwMDAxNTR5aHlsNW11NnNzIiwidGVuYW50SWQiOiJjbWpneWx4a2cwMDAwNTR5aG5qcGttemQ5IiwiZW1haWwiOiJkdmRtYXJjaGV0dG9AZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzY5NTMzNjcwLCJleHAiOjE3NzAxMzg0NzAsImF1ZCI6Im1haWxhZ2VudC1hcGkiLCJpc3MiOiJtYWlsYWdlbnQtYXV0aCJ9.PMncIFATwdSZ2oZreYkFOByK8O-Eibqmbl_YhdShxX0\")",
+      "Bash(REDIS_PASSWORD=mailagent_dev_redis npx ts-node:*)",
+      "mcp__claude-flow_alpha__memory_stats"
     ],
     "deny": []
   }

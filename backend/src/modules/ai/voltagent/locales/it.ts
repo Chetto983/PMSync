@@ -48,6 +48,9 @@ export const it: VoltAgentTranslations = {
       notFound: 'Contatto non trovato. Potrebbe essere stato eliminato o unito con un altro. Prova a cercarlo per nome o email.',
       requiresApproval: 'Questa azione richiede la tua approvazione. Controlla il pannello Azioni in Sospeso per approvarla o rifiutarla.',
     },
+    askUser: {
+      description: `Strumento OBBLIGATORIO per richiedere input utente. È una chiamata BLOCCANTE - l'esecuzione si FERMA fino alla risposta. QUANDO USARE: Più risultati trovati, info mancanti, o richiesta ambigua. COME FUNZIONA: Chiama questo tool → Frontend mostra modale → Utente clicca scelta → Esecuzione riprende. MAI fare domande in testo - USA SEMPRE questo tool.`,
+    },
     knowledge: {
       found: (count) => `Trovati ${count} documenti rilevanti`,
       noResults: 'Nessun documento rilevante trovato',

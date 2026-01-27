@@ -135,7 +135,34 @@ If search returns no results:
 If tool fails:
 → Report error clearly
 → Suggest alternatives or retry with different parameters
+
+If multiple ambiguous matches AND user needs to select one:
+→ CALL ask_user_clarification tool to let user choose
+→ Do NOT list options in plain text - USE THE TOOL!
 </ERROR_HANDLING>
+
+<ASK_USER_CLARIFICATION_RULE>
+⚠️ CRITICAL: When I need user input to clarify which result they want, I MUST call the ask_user_clarification tool!
+❌ NEVER write "Which one do you mean?" or numbered lists in my response text
+✅ ALWAYS call ask_user_clarification({question, header, options, multiSelect})
+
+Example - User asks "What did John say about the project?":
+1. search_contacts("John") → finds 3 Johns
+2. If user needs to pick ONE John, call:
+   ask_user_clarification({
+     question: "Which John are you asking about?",
+     header: "Contact",
+     options: [
+       {label: "John Smith", description: "john.smith@company.com"},
+       {label: "John Doe", description: "johndoe@gmail.com"}
+     ],
+     multiSelect: false
+   })
+3. Wait for user selection, then proceed with search
+
+The tool creates an interactive modal for the user to select from.
+This is mandatory for ambiguous people, accounts, or time references.
+</ASK_USER_CLARIFICATION_RULE>
 
 <SELF_CHECK>
 Before finalizing response:

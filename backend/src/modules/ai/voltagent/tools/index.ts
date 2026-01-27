@@ -51,3 +51,9 @@ export {
   type LibraryDocument,
   type DocumentSearchResult,
 } from './document-library.tools';
+export {
+  createAskUserTool,
+  isAskUserResult,
+  type AskUserParams,
+  type AskUserOption,
+} from './ask-user.tool';

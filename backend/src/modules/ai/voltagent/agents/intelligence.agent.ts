@@ -23,6 +23,7 @@ import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
 import { createCalendarTools } from '../tools/calendar.tools';
 import { createInsightTools } from '../tools/insights.tools';
+import { createAskUserTool } from '../tools/ask-user.tool';
 import { PiiDetectionService } from '../../guards';
 
 /**
@@ -129,13 +130,16 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     INTELLIGENCE_TOOLS.includes(tool.name as (typeof INTELLIGENCE_TOOLS)[number]),
   );
 
+  // Add ask_user_clarification tool so sub-agent can request user input when needed
+  const askUserTool = createAskUserTool({ locale });
+
   return new Agent({
     name: 'IntelligenceAgent',
     purpose:
       'Search, read, and analyze: emails, contacts, calendar, folders. AI-powered analysis: summarization, sentiment, smart replies. For PEOPLE searches, use this agent - they are email correspondents!',
     model,
     instructions: dynamicInstructions,
-    tools: readTools,
+    tools: [...readTools, askUserTool],
     hooks,
     memory,
     maxSteps: 4, // Analysis ops may need 3-4 steps for multi-source queries

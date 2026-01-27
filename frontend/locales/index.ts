@@ -2134,6 +2134,11 @@ export interface AppTranslations {
       requiresApproval: string;
       stop: string;
     };
+    errors: {
+      chatFailed: string;
+      connectionLost: string;
+      rateLimit: string;
+    };
     suggestedQuestions: {
       title: string;
       tooltip: string;

@@ -38,6 +38,8 @@ export enum CacheNamespace {
   AI_ANALYTICS = 'ai:analytics',
   /** PII resolution mappings for agent tool execution (session-scoped) */
   PII_RESOLUTION = 'pii:resolution',
+  /** VoltAgent agent pool cache (tenant-scoped, for horizontal scaling) */
+  AGENT_POOL = 'agent:pool',
 }
 
 /**
@@ -292,6 +294,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Invalidate all keys in a namespace
+   * Note: Uses KEYS command - for small namespaces only
    */
   async invalidateNamespace(namespace: CacheNamespace): Promise<number> {
     if (!this.isConnected) {
@@ -315,6 +318,77 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       this.stats.errors++;
       return 0;
     }
+  }
+
+  /**
+   * Invalidate keys matching a pattern within a namespace
+   * Uses SCAN for production safety (non-blocking)
+   *
+   * @param pattern - The pattern to match (e.g., "tenant123:*" or "tenant123:user456:*")
+   * @param namespace - The cache namespace
+   * @returns Number of keys deleted
+   */
+  async invalidatePattern(pattern: string, namespace: CacheNamespace): Promise<number> {
+    if (!this.isConnected) {
+      return 0;
+    }
+
+    try {
+      const fullPattern = `${namespace}:${pattern}`;
+      let cursor = '0';
+      let totalDeleted = 0;
+
+      // Use SCAN for production safety (non-blocking, iterative)
+      do {
+        const result = await this.client.scan(cursor, {
+          MATCH: fullPattern,
+          COUNT: 100,
+        });
+        cursor = String(result.cursor);
+
+        if (result.keys.length > 0) {
+          await this.client.del(result.keys);
+          totalDeleted += result.keys.length;
+          this.stats.deletes += result.keys.length;
+        }
+      } while (cursor !== '0');
+
+      if (totalDeleted > 0) {
+        this.logger.log(`Invalidated ${totalDeleted} keys matching ${fullPattern}`);
+      }
+      return totalDeleted;
+    } catch (error) {
+      this.logger.error(`Pattern invalidation failed for ${namespace}:${pattern}:`, error);
+      this.stats.errors++;
+      return 0;
+    }
+  }
+
+  /**
+   * Invalidate all keys for a specific tenant within a namespace (GDPR-compliant)
+   *
+   * @param tenantId - The tenant ID to invalidate
+   * @param namespace - The cache namespace
+   * @returns Number of keys deleted
+   */
+  async invalidateTenantPattern(tenantId: string, namespace: CacheNamespace): Promise<number> {
+    return this.invalidatePattern(`${tenantId}:*`, namespace);
+  }
+
+  /**
+   * Invalidate all keys for a specific user within a tenant (GDPR Art. 17 - Right to Erasure)
+   *
+   * @param tenantId - The tenant ID
+   * @param userId - The user ID to invalidate
+   * @param namespace - The cache namespace
+   * @returns Number of keys deleted
+   */
+  async invalidateUserPattern(
+    tenantId: string,
+    userId: string,
+    namespace: CacheNamespace,
+  ): Promise<number> {
+    return this.invalidatePattern(`${tenantId}:${userId}:*`, namespace);
   }
 
   /**

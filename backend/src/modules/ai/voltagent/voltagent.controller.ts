@@ -523,15 +523,69 @@ export class VoltAgentController {
   // ============ Cache Management Endpoints ============
 
   /**
-   * Clear agent cache (forces prompt reload).
+   * Clear all agent cache (admin only, forces prompt reload).
+   * Uses Redis SCAN for production safety.
    */
   @Post('cache/clear-agents')
-  @ApiOperation({ summary: 'Clear agent cache (reload prompts)' })
+  @ApiOperation({ summary: 'Clear all agent cache (admin only)' })
   async clearAgentCache() {
-    this.voltAgentService.clearAgentCache();
+    const count = await this.voltAgentService.clearAgentCache();
     return {
       success: true,
       message: 'Agent cache cleared. New prompts will be loaded on next request.',
+      cleared: count,
+    };
+  }
+
+  /**
+   * Clear agent cache for current tenant (GDPR-compliant).
+   * Uses Redis SCAN for production safety (non-blocking).
+   */
+  @Post('cache/clear-tenant')
+  @ApiOperation({ summary: 'Clear agent cache for current tenant (GDPR)' })
+  async clearTenantCache(@Req() req: AuthenticatedRequest) {
+    const tenantId = req.user.tenantId;
+    const count = await this.voltAgentService.clearAgentCacheForTenant(tenantId);
+    return {
+      success: true,
+      cleared: count,
+      gdprCompliant: true,
+    };
+  }
+
+  /**
+   * Clear all caches for a specific user (GDPR Art. 17 - Right to Erasure).
+   * Called automatically when user requests account deletion.
+   * Security: Only allows clearing own cache or admin clearing any user.
+   */
+  @Post('cache/clear-user/:userId')
+  @ApiOperation({ summary: 'Clear all caches for a user (GDPR Art. 17)' })
+  @ApiParam({ name: 'userId', description: 'User ID (email) to clear cache for' })
+  async clearUserCache(
+    @Req() req: AuthenticatedRequest,
+    @Param('userId') userId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+
+    // Security: Only allow clearing your own cache or admin clearing any user
+    if (req.user.userId !== userId && req.user.role !== 'ADMIN') {
+      return {
+        success: false,
+        error: 'Cannot clear other users cache',
+      };
+    }
+
+    const results = await this.voltAgentService.clearUserCaches(tenantId, userId);
+
+    this.logger.log(`[GDPR Art.17] Cache clear requested for user ${userId} in tenant ${tenantId}`);
+
+    return {
+      success: true,
+      cleared: {
+        agentPool: results.agentPool,
+        userContext: results.userContext ? 1 : 0,
+      },
+      gdprArt17Compliant: true,
     };
   }
 

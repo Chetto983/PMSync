@@ -62,6 +62,9 @@ export interface ToolTranslations {
     notFound: string;
     requiresApproval: string;
   };
+  askUser?: {
+    description: string;
+  };
   knowledge: {
     found: (count: number) => string;
     noResults: string;

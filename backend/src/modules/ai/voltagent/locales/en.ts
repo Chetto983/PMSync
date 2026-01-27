@@ -57,6 +57,9 @@ export const en: VoltAgentTranslations = {
       notFound: 'Contact not found. It may have been deleted. Try searching for similar contacts.',
       requiresApproval: 'This contact action requires your approval. Check the Pending Actions panel to approve or reject it.',
     },
+    askUser: {
+      description: `MANDATORY tool for requesting user input. This is a BLOCKING call - execution PAUSES until user responds. WHEN TO USE: Multiple matches found, missing required info, or ambiguous request. HOW IT WORKS: Call this tool → Frontend shows modal → User clicks choice → Execution resumes. NEVER ask questions in plain text - ALWAYS use this tool.`,
+    },
     knowledge: {
       found: (count) => `Found ${count} relevant documents`,
       noResults: 'No relevant documents found',

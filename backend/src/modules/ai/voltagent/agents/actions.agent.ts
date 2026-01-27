@@ -19,6 +19,7 @@ import { createEmailTools } from '../tools/email.tools';
 import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
 import { createCalendarTools } from '../tools/calendar.tools';
+import { createAskUserTool } from '../tools/ask-user.tool';
 
 /**
  * Tool names that ActionsAgent uses (WRITE operations + supporting READ tools)
@@ -98,13 +99,16 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
     ACTIONS_TOOLS.includes(tool.name as (typeof ACTIONS_TOOLS)[number]),
   );
 
+  // Add ask_user_clarification tool so sub-agent can request user input when needed
+  const askUserTool = createAskUserTool({ locale });
+
   return new Agent({
     name: 'ActionsAgent',
     purpose:
       'Execute WRITE operations: send/reply/forward/delete emails, manage folders, create/update/delete contacts and events. All destructive actions require user approval.',
     model,
     instructions: dynamicInstructions,
-    tools: writeTools,
+    tools: [...writeTools, askUserTool],
     hooks,
     // Use passed memory for conversation persistence (tenant isolation via userId format)
     memory,

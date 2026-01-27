@@ -116,7 +116,8 @@ export type AiAgentType =
   | 'analytics'
   | 'unified-knowledge'
   | 'document-library'
-  | 'response';
+  | 'response'
+  | 'ask-user';
 
 /**
  * AI Agent Step Event - Real-time streaming of agent activity
@@ -130,7 +131,7 @@ export interface AiAgentStepEventPayload {
   /** Agent type */
   agentType: AiAgentType;
   /** Step status */
-  status: 'started' | 'processing' | 'tool_call' | 'completed' | 'error';
+  status: 'started' | 'processing' | 'tool_call' | 'completed' | 'error' | 'pending';
   /** Human-readable action description */
   action: string;
   /** Tool being called (if status is 'tool_call') */
@@ -142,6 +143,13 @@ export interface AiAgentStepEventPayload {
   /** Error message (if error) */
   error?: string;
   timestamp?: string;
+  /** Ask-user clarification data (if agentType is 'ask-user') */
+  askUser?: {
+    question: string;
+    header: string;
+    options: Array<{ label: string; description?: string }>;
+    multiSelect: boolean;
+  };
 }
 
 

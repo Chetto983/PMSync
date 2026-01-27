@@ -31,6 +31,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
 import logger from '@/lib/logger';
+import { useToast } from '@/hooks/use-toast';
 import { useVoltAgentChat, type AskUserData } from './use-voltagent-chat';
 
 // Lazy loaded widgets
@@ -102,6 +103,7 @@ export function AiDashboard() {
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState('');
+  const toast = useToast();
 
   // Pending action IDs per message (keyed by message index)
   const [pendingActionMap, setPendingActionMap] = useState<Map<number, string[]>>(new Map());
@@ -134,6 +136,7 @@ export function AiDashboard() {
     locale: t.locale,
     onError: (error) => {
       logger.error('[AiDashboard] Chat error:', error);
+      toast.error(t.ai?.errors?.chatFailed || 'Failed to send message. Please try again.');
     },
     onConversationIdChange: (newId) => {
       // Mark new conversations for title generation (will be done after first assistant response)
@@ -787,6 +790,9 @@ export function AiDashboard() {
           onClose={() => setAskUserModalOpen(false)}
         />
       </Suspense>
+
+      {/* Toast notifications */}
+      <toast.ToastContainer />
     </Box>
   );
 }

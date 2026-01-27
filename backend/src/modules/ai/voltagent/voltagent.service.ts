@@ -23,20 +23,18 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Optional, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Memory } from '@voltagent/core';
-import type { Agent } from '@voltagent/core';
 import { PostgreSQLMemoryAdapter } from '@voltagent/postgres';
 import { CacheService } from '../../../common/services/cache.service';
-import { CorrelationContext } from '../../../common/services/correlation-context.service';
-import { PrismaService } from '../../../prisma/prisma.service';
+// NOTE: CorrelationContext and Agent type moved to ChatPrepareService (2026-01-27)
+// NOTE: PrismaService removed - now used only by ChatPrepareService (2026-01-27)
 import { HitlService } from './services/hitl.service';
 // ModelRouterService removed - VoltAgent 2.x handles model routing natively
 // Phase 3: Consolidated agents (10 → 3) - now handled by AgentPoolService
-import { type UserContext } from './agents/supervisor.agent';
+// NOTE: UserContext, ConnectedProvider moved to ChatPrepareService (2026-01-27)
 import { AiQueueService } from './services/ai-queue.service';
 import { AiError, AiErrorCode } from '../errors';
 import { ActionSeverity } from './interfaces/agent-action.interface';
-import { type ConnectedProvider } from './agents';
-import { getLocale, getTranslations, getErrorTranslations } from './locales';
+import { getTranslations, getErrorTranslations, type SupportedLocale } from './locales';
 import { PiiResolutionService, type PiiMapping } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
@@ -149,44 +147,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private memory: Memory | null = null;
   private observabilityHooks: DisposableHooks | null = null;
 
-  private async ensureConversationExists(params: {
-    tenantUserId: string;
-    sessionId: string;
-    title: string;
-    tenantId: string;
-    logPrefix: string;
-  }): Promise<boolean> {
-    if (!this.memory) {
-      return false;
-    }
-
-    try {
-      await this.memory.createConversation({
-        id: params.sessionId,
-        userId: params.tenantUserId,
-        resourceId: `agent:${params.tenantId}`,
-        title: params.title,
-        metadata: { tenantId: params.tenantId, createdAt: new Date().toISOString() },
-      });
-      this.logger.debug(`${params.logPrefix} Created new conversation: ${params.sessionId}`);
-      return true;
-    } catch (error) {
-      const errorMsg = String(error).toLowerCase();
-      const isDuplicateError = errorMsg.includes('unique') ||
-        errorMsg.includes('duplicate') ||
-        errorMsg.includes('already exists') ||
-        errorMsg.includes('p2002');
-      if (isDuplicateError) {
-        this.logger.debug(`${params.logPrefix} Conversation already exists: ${params.sessionId}`);
-        return true;
-      }
-      this.logger.warn(`${params.logPrefix} Failed to ensure conversation exists: ${error}`);
-      return false;
-    }
-  }
+  // NOTE: ensureConversationExists() moved to ChatPrepareService (2026-01-27)
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly hitlService?: HitlService,
@@ -353,103 +316,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Cleanup agents on shutdown (delegated to AgentPoolService)
+    // Fire-and-forget cleanup - no need to await on shutdown
     this.agentPoolService?.clearAgentCache();
   }
 
 
-  // Tenant isolation is now handled by Prisma-based VoltAgentMemoryService
-
-  /**
-   * Fetch user context (profile + preferences) for personalized instructions.
-   * Uses Redis caching for tenant isolation and performance.
-   * Returns null if user not found.
-   */
-  private async getUserContext(userId: string, tenantId: string): Promise<UserContext | null> {
-    // Check Redis cache first (tenant-isolated key)
-    const cacheKey = `voltagent:user-context:${tenantId}:${userId}`;
-    if (this.cacheService) {
-      const cached = await this.cacheService.get<UserContext>(cacheKey);
-      if (cached) {
-        return cached;
-      }
-    }
-
-    try {
-      // Fetch user with preferences and connected providers in parallel
-      const [user, providers] = await Promise.all([
-        this.prisma.user.findFirst({
-          where: { id: userId, tenantId },
-          include: {
-            userPreferences: true,
-          },
-        }),
-        this.prisma.providerConfig.findMany({
-          where: {
-            tenantId,
-            userId,
-            isActive: true,
-          },
-          select: {
-            providerType: true,
-            email: true,
-            displayName: true,
-            scope: true,
-            supportsEmail: true,
-            supportsCalendar: true,
-            supportsContacts: true,
-            isDefault: true,
-          },
-          orderBy: [
-            { isDefault: 'desc' }, // Default provider first
-            { createdAt: 'asc' },
-          ],
-        }),
-      ]);
-
-      if (!user) {
-        return null;
-      }
-
-      // Map providers to ConnectedProvider format
-      const connectedProviders: ConnectedProvider[] = providers.map((p) => ({
-        providerType: p.providerType,
-        email: p.email,
-        displayName: p.displayName ?? undefined,
-        scope: p.scope ?? undefined,
-        supportsEmail: p.supportsEmail,
-        supportsCalendar: p.supportsCalendar,
-        supportsContacts: p.supportsContacts,
-        isDefault: p.isDefault,
-      }));
-
-      const userContext: UserContext = {
-        firstName: user.firstName ?? undefined,
-        lastName: user.lastName ?? undefined,
-        email: user.email,
-        role: user.role,
-        jobTitle: user.userPreferences?.jobTitle ?? undefined,
-        jobRole: user.userPreferences?.jobRole ?? undefined,
-        department: user.userPreferences?.department ?? undefined,
-        industry: user.userPreferences?.industry ?? undefined,
-        companySize: user.userPreferences?.companySize ?? undefined,
-        communicationStyle: user.userPreferences?.communicationStyle ?? undefined,
-        responseLength: user.userPreferences?.responseLength ?? undefined,
-        language: user.userPreferences?.language ?? undefined,
-        timezone: user.userPreferences?.timezone ?? undefined,
-        connectedProviders: connectedProviders.length > 0 ? connectedProviders : undefined,
-      };
-
-      // Cache for 5 minutes (user preferences don't change often)
-      if (this.cacheService) {
-        await this.cacheService.set(cacheKey, userContext, { ttl: 300 });
-      }
-
-      return userContext;
-    } catch (error) {
-      this.logger.warn(`Failed to fetch user context for ${userId}: ${error}`);
-      return null;
-    }
-  }
+  // NOTE: getUserContext() moved to ChatPrepareService (2026-01-27)
 
   /**
    * Emit agent step event via WebSocket for real-time UI feedback.
@@ -460,9 +332,19 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     sessionId: string,
     userId: string,
     agentType: AiAgentType,
-    status: 'started' | 'processing' | 'tool_call' | 'completed' | 'error',
+    status: 'started' | 'processing' | 'tool_call' | 'completed' | 'error' | 'pending',
     action: string,
-    options?: { toolName?: string; duration?: number; result?: string; error?: string },
+    options?: {
+      toolName?: string;
+      duration?: number;
+      result?: string;
+      error?: string;
+      // Ask-user clarification fields
+      question?: string;
+      header?: string;
+      options?: Array<{ label: string; description?: string }>;
+      multiSelect?: boolean;
+    },
   ): void {
     if (!this.realtimeEventsService) return;
 
@@ -479,6 +361,15 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       result: options?.result,
       error: options?.error,
       timestamp: new Date().toISOString(),
+      // Include ask-user data if present
+      ...(options?.question && {
+        askUser: {
+          question: options.question,
+          header: options.header || 'Question',
+          options: options.options || [],
+          multiSelect: options.multiSelect || false,
+        },
+      }),
     });
   }
 
@@ -493,153 +384,67 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    */
   async chat(message: string, options: ChatOptions): Promise<ChatResult> {
     const startTime = Date.now();
-    // Get or create correlation ID for this chat request
-    const correlationId = CorrelationContext.getCorrelationId();
-    const logPrefix = `[${correlationId}] [tenant:${options.tenantId}]`;
-    // Deterministic fallback sessionId for users without explicit conversationId
-    const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
-    const sessionId = options.conversationId || fallbackSessionId;
 
-    // Process request: validate input, redact PII, check rate limits, route model
-    // Refactored 2026-01-22: Extracted to ChatRequestProcessorService
-    let processedMessage = message;
-    let selectedModel = options.model;
-    let suggestedAgent: 'Supervisor' | 'Actions' | 'Intelligence' = 'Supervisor';
+    // Use ChatPrepareService for consolidated setup (refactored 2026-01-27)
+    if (!this.chatPrepareService) {
+      throw new AiError('ChatPrepareService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
+    }
 
-    if (this.chatRequestProcessor) {
-      try {
-        const processed = await this.chatRequestProcessor.process(message, {
-          tenantId: options.tenantId,
-          userId: options.userId,
-          sessionId,
-          model: options.model,
-          preferSpeed: options.preferSpeed,
-          preferQuality: options.preferQuality,
-        });
-        processedMessage = processed.processedMessage;
-        selectedModel = processed.selectedModel;
-        suggestedAgent = processed.suggestedAgent;
-
-        if (processed.hasPii) {
-          this.logger.log(`${logPrefix} PII detected and redacted`);
-        }
-        this.logger.debug(
-          `${logPrefix} Request processed: model=${selectedModel}, agent=${suggestedAgent}, tokens=${processed.estimatedTokens}`,
-        );
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        // Handle rate limit and validation errors gracefully
-        if (errorMsg.includes('Rate limit exceeded')) {
-          this.logger.warn(`${logPrefix} ${errorMsg}`);
-          return { text: errorMsg, fromCache: false };
-        }
-        if (errorMsg.includes('cannot process this request')) {
-          this.logger.warn(`${logPrefix} Prompt injection blocked`);
-          return { text: errorMsg, fromCache: false };
-        }
-        throw error;
+    let ctx;
+    try {
+      ctx = await this.chatPrepareService.prepare(message, options, this.memory, this.observabilityHooks);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      // Handle rate limit and validation errors gracefully
+      if (errorMsg.includes('Rate limit exceeded')) {
+        this.logger.warn(`[chat] ${errorMsg}`);
+        return { text: errorMsg, fromCache: false };
       }
-    } else {
-      // ChatRequestProcessorService not available - log warning and proceed with defaults
-      this.logger.warn(`${logPrefix} ChatRequestProcessorService not injected, using default processing`);
+      if (errorMsg.includes('cannot process this request')) {
+        this.logger.warn(`[chat] Prompt injection blocked`);
+        return { text: errorMsg, fromCache: false };
+      }
+      throw error;
     }
 
-    const locale = getLocale(options.locale);
+    // Destructure only what we need for local use (rest accessed via ctx.)
 
-    // Fetch user context for personalized agent instructions
-    const userContext = await this.getUserContext(options.userId, options.tenantId);
-
-    // OPTIMIZATION: Direct routing for specialized intents (skip supervisor overhead)
-    // Phase 3: Actions/Intelligence agents handle direct routing, Supervisor for complex queries
-    // This reduces latency by ~70-90% for single-domain queries
-    if (!this.agentPoolService) {
-      throw new AiError('AgentPoolService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
-    }
-    const agentParams = {
-      tenantId: options.tenantId,
-      locale,
-      modelType: selectedModel,
-      userContext,
-      userId: options.userId,
-      agentType: suggestedAgent,
-      memory: this.memory,
-      hooks: this.observabilityHooks?.hooks,
-    };
-    let agent: Agent;
-    if (suggestedAgent !== 'Supervisor') {
-      this.logger.debug(`${logPrefix} Direct routing to ${suggestedAgent}Agent (skipping supervisor)`);
-      agent = await this.agentPoolService.getOrCreateAgent(agentParams);
-    } else {
-      // Use supervisor for complex multi-agent coordination (cross-domain queries)
-      agent = await this.agentPoolService.getOrCreateAgent({ ...agentParams, agentType: 'Supervisor' });
-    }
-
-    // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
-    // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
-
-
-    // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
-    // Format: "tenantId:userId" allows hooks to extract both values
-    const tenantUserId = `${options.tenantId}:${options.userId}`;
-
-    // 3.5. Trigger Memory Intelligence (Async/Fire-and-forget)
-    // Extracts long-term memories from user message for future retrieval
+    // Trigger Memory Intelligence (Async/Fire-and-forget)
+    // Uses ORIGINAL message with real PII for long-term storage
     if (this.memoryIntelligenceService && options.userId) {
       this.memoryIntelligenceService.processMemoryFromMessage(
         options.tenantId,
         options.userId,
-        message, // Use original message with real PII for long-term storage
+        message, // Original message, not PII-redacted
       ).catch(err => {
-        this.logger.error(`${logPrefix} Memory extraction failed:`, err);
+        this.logger.error(`${ctx.logPrefix} Memory extraction failed:`, err);
       });
     }
 
-    // Build enhanced context: episodic lessons + long-term memory
-    // Conversation history is handled by VoltAgent's native memory (contextLimit: 20)
-    let enhancedMessage = processedMessage;
-
-    if (this.chatContextBuilder) {
-      const contextResult = await this.chatContextBuilder.build(processedMessage, {
-        tenantId: options.tenantId,
-        userId: options.userId,
-        logPrefix,
-      });
-      enhancedMessage = contextResult.enhancedMessage;
-    }
-
-    // Ensure conversation exists in VoltAgent memory for persistence
-    const conversationEnsured = await this.ensureConversationExists({
-      tenantUserId,
-      sessionId,
-      title: processedMessage.substring(0, 100),
-      tenantId: options.tenantId,
-      logPrefix,
-    });
-
-    this.logger.debug(`${logPrefix} [DEBUG] About to call agent.generateText`);
+    this.logger.debug(`${ctx.logPrefix} [DEBUG] About to call agent.generateText`);
 
     // Emit real-time agent step: Intent analysis started
-    this.emitAgentStep(options.tenantId, sessionId, options.userId, 'intent', 'started', 'Analyzing your request...');
+    this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'intent', 'started', 'Analyzing your request...');
 
     let result;
     const agentStartTime = Date.now();
     let attempts = 0;
     const MAX_RETRIES = 3;
-    let currentMessage = enhancedMessage;
+    let currentMessage = ctx.enhancedMessage;
 
     while (attempts < MAX_RETRIES) {
       try {
         attempts++;
         // Emit: Supervisor processing
-        this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'processing', `Coordinating agents (Attempt ${attempts})...`);
+        this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'supervisor', 'processing', `Coordinating agents (Attempt ${attempts})...`);
 
         // Pass userId and conversationId for proper context in hooks (HITL, metrics, etc.)
         // VoltAgent memory issue fixed in latest version
-        result = await agent.generateText(currentMessage, {
+        result = await ctx.agent.generateText(currentMessage, {
           // Tenant-isolated userId for multi-tenant data segregation
-          userId: tenantUserId,
+          userId: ctx.tenantUserId,
           // Session/conversation ID for message threading
-          conversationId: sessionId,
+          conversationId: ctx.sessionId,
           // VoltAgent retrieves conversation history from memory automatically
           // 20 messages = good balance of context vs token usage
           contextLimit: 20,
@@ -656,34 +461,34 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         });
 
         // Emit: Intent completed
-        this.emitAgentStep(options.tenantId, sessionId, options.userId, 'intent', 'completed', 'Request analyzed', {
+        this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'intent', 'completed', 'Request analyzed', {
           duration: Date.now() - agentStartTime,
         });
 
         // Emit: Supervisor completed (important for frontend to mark processing as done)
-        this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'completed', 'Agents coordinated', {
+        this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'supervisor', 'completed', 'Agents coordinated', {
           duration: Date.now() - agentStartTime,
         });
 
-        this.logger.debug(`${logPrefix} [DEBUG] agent.generateText completed successfully`);
+        this.logger.debug(`${ctx.logPrefix} [DEBUG] agent.generateText completed successfully`);
         break; // Success, exit loop
       } catch (genError) {
         const isLastAttempt = attempts >= MAX_RETRIES;
         const errorMessage = genError instanceof Error ? genError.message : String(genError);
 
-        this.logger.warn(`${logPrefix} [DEBUG] agent.generateText FAILED (Attempt ${attempts}/${MAX_RETRIES}): ${errorMessage}`);
+        this.logger.warn(`${ctx.logPrefix} [DEBUG] agent.generateText FAILED (Attempt ${attempts}/${MAX_RETRIES}): ${errorMessage}`);
 
         if (isLastAttempt) {
           // Emit: Error state
-          this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'error', 'Processing failed', {
+          this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'supervisor', 'error', 'Processing failed', {
             error: errorMessage,
           });
-          this.logger.error(`${logPrefix} [DEBUG] Stack: ${genError instanceof Error ? genError.stack : 'no stack'}`);
+          this.logger.error(`${ctx.logPrefix} [DEBUG] Stack: ${genError instanceof Error ? genError.stack : 'no stack'}`);
           throw genError;
         }
 
         // Prepare context for retry
-        const t = getTranslations(locale); // locale is already defined above
+        const t = getTranslations(ctx.locale as SupportedLocale);
         const retryPrompt = t.mistral.errors.retryPrompt(errorMessage);
 
         // Append error feedback to the message for the next attempt
@@ -703,31 +508,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // FIX: Return the sessionId to frontend so conversations persist across messages
     // The sessionId is either the provided conversationId or a newly generated one
     // Format includes tenantId for multi-tenant isolation
-    const persistedConversationId: string = sessionId;
+    const persistedConversationId: string = ctx.sessionId;
 
     // Sanitize response to remove any accidentally echoed internal context markers
     const sanitizedText = sanitizeLlmResponse(result.text);
 
-    // VoltAgent auto-persists messages when memory is configured on agents
-    // Manual persistence removed to avoid duplicates (2026-01-23)
-    // Only ensure conversation exists for proper scoping
-    if (this.memory && !conversationEnsured) {
-      await this.ensureConversationExists({
-        tenantUserId,
-        sessionId: persistedConversationId,
-        title: processedMessage.substring(0, 100),
-        tenantId: options.tenantId,
-        logPrefix,
-      }).catch((error) => {
-        this.logger.warn(`${logPrefix} Failed to ensure conversation exists: ${error}`);
-      });
-    }
+    // NOTE: Conversation exists check removed - ChatPrepareService.prepare() already ensures it
 
     // Extract pending actions from tool results + database (for delegated actions)
     // CRITICAL FIX 2026-01-22: When Supervisor delegates to ActionsAgent via delegate_task,
     // the sub-agent's tool results with requiresApproval are captured by onToolEnd hooks
     // and stored to database, but NOT visible in top-level result.steps. We must query both.
-    const effectiveSessionId = persistedConversationId || options.conversationId || sessionId;
+    const effectiveSessionId = persistedConversationId || options.conversationId || ctx.sessionId;
     let pendingActions: PendingAction[] = [];
 
     if (this.chatResponseProcessor) {
@@ -739,7 +531,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           userId: options.userId,
           sessionId: effectiveSessionId,
           requestStartTime: new Date(startTime),
-          logPrefix,
+          logPrefix: ctx.logPrefix,
         },
       );
       pendingActions = processed.pendingActions;
@@ -752,6 +544,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         if (toolResults) {
           for (const toolResult of toolResults) {
             const resultValue = toolResult.output as Record<string, unknown> | undefined;
+            // Handle ask_user_clarification tool results - emit as special event
+            if (resultValue?.__askUser === true) {
+              this.logger.debug(`${ctx.logPrefix} Detected ask_user tool result`);
+              // Emit ask-user event via WebSocket for frontend to show modal
+              this.emitAgentStep(options.tenantId, effectiveSessionId, options.userId, 'ask-user', 'pending', 'Waiting for user input', {
+                question: resultValue.question as string,
+                header: resultValue.header as string,
+                options: resultValue.options as Array<{ label: string; description?: string }>,
+                multiSelect: resultValue.multiSelect as boolean,
+              });
+            }
             if (resultValue?.requiresApproval) {
               const actionType = resultValue.actionType as string;
               const severity = resultValue.severity as 'LOW' | 'MEDIUM' | 'HIGH';
@@ -786,7 +589,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Emit final response event with the correct persistedConversationId
     // This ensures the frontend can match events even for new conversations
-    const finalSessionId = persistedConversationId || sessionId;
+    const finalSessionId = persistedConversationId || ctx.sessionId;
     this.emitAgentStep(options.tenantId, finalSessionId, options.userId, 'response', 'completed', 'Response ready', {
       duration: Date.now() - startTime,
       result: pendingActions.length > 0 ? 'Action requires approval' : 'Response generated',
@@ -795,17 +598,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // P10: Track successful AI call usage (after completion, before return)
     if (this.usageTrackingService) {
       await this.usageTrackingService.trackUsage(options.tenantId, 'ai-calls', 1).catch((err: Error) => {
-        this.logger.warn(`${logPrefix} Failed to track AI usage: ${err.message}`);
+        this.logger.warn(`${ctx.logPrefix} Failed to track AI usage: ${err.message}`);
       });
     }
 
-    const userVisibleText = await this.resolveUserVisibleText(options.tenantId, sessionId, sanitizedText);
+    const userVisibleText = await this.resolveUserVisibleText(options.tenantId, ctx.sessionId, sanitizedText);
 
     return {
       text: userVisibleText,
       requiresApproval: pendingActions.length > 0,
       pendingActions: pendingActions.length > 0 ? pendingActions : undefined,
-      model: selectedModel,
+      model: ctx.selectedModel,
       fromCache: false,
       conversationId: persistedConversationId,
     };
@@ -876,11 +679,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const sanitizer = createStreamSanitizer(piiMappings);
 
     // Capture context for closure in transform callbacks
-    const self = this;
     const streamStartTime = startTime;
     const streamTenantId = options.tenantId;
     const streamUserId = options.userId;
     const streamSessionId = ctx.sessionId;
+    const emitStep = this.emitAgentStep.bind(this);
 
     const piiTransform = new TransformStream<any, any>({
       transform(chunk, controller) {
@@ -901,11 +704,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         // Detect stream completion - emit agent step events
         if (chunk.type === 'finish' || chunk.type === 'step-finish') {
           // Emit: Supervisor completed
-          self.emitAgentStep(streamTenantId, streamSessionId, streamUserId, 'supervisor', 'completed', 'Response generated', {
+          emitStep(streamTenantId, streamSessionId, streamUserId, 'supervisor', 'completed', 'Response generated', {
             duration: Date.now() - streamStartTime,
           });
           // Emit: Response ready
-          self.emitAgentStep(streamTenantId, streamSessionId, streamUserId, 'response', 'completed', 'Response ready', {
+          emitStep(streamTenantId, streamSessionId, streamUserId, 'response', 'completed', 'Response ready', {
             duration: Date.now() - streamStartTime,
           });
         }
@@ -921,11 +724,46 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Clear cached agents (useful for testing or config changes).
-   * Delegated to AgentPoolService.
+   * Clear all cached agents (admin only).
+   * Delegated to AgentPoolService (Redis-backed).
    */
-  clearAgentCache(): void {
-    this.agentPoolService?.clearAgentCache();
+  async clearAgentCache(): Promise<number> {
+    return this.agentPoolService?.clearAgentCache() ?? 0;
+  }
+
+  /**
+   * Clear cached agents for a specific tenant (GDPR-compliant).
+   * Uses Redis SCAN for production safety (non-blocking).
+   *
+   * @param tenantId - Tenant ID to clear cache for
+   * @returns Number of keys deleted
+   */
+  async clearAgentCacheForTenant(tenantId: string): Promise<number> {
+    return this.agentPoolService?.clearAgentCacheForTenant(tenantId) ?? 0;
+  }
+
+  /**
+   * Clear all caches for a specific user (GDPR Art. 17 - Right to Erasure).
+   * Clears agent pool and user context caches.
+   *
+   * @param tenantId - Tenant ID
+   * @param userId - User ID (email) to clear cache for
+   * @returns Object with counts of deleted keys per cache type
+   */
+  async clearUserCaches(
+    tenantId: string,
+    userId: string,
+  ): Promise<{ agentPool: number; userContext: boolean }> {
+    const [agentPool, userContext] = await Promise.all([
+      this.agentPoolService?.clearAgentCacheForUser(tenantId, userId) ?? 0,
+      this.cacheService?.del(`voltagent:user-context:${tenantId}:${userId}`) ?? false,
+    ]);
+
+    this.logger.log(
+      `[GDPR Art.17] Cleared all caches for user ${userId} in tenant ${tenantId}: agentPool=${agentPool}, userContext=${userContext}`,
+    );
+
+    return { agentPool, userContext };
   }
 
   /**

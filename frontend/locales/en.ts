@@ -2037,6 +2037,11 @@ export const en: AppTranslations = {
       requiresApproval: 'Requires your approval',
       stop: 'Stop',
     },
+    errors: {
+      chatFailed: 'Failed to send message. Please try again.',
+      connectionLost: 'Connection lost. Reconnecting...',
+      rateLimit: 'Too many requests. Please wait a moment.',
+    },
     suggestedQuestions: {
       title: 'Suggested questions',
       tooltip: 'Click to ask this question',

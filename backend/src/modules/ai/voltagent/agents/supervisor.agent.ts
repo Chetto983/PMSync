@@ -25,6 +25,7 @@ import { createAnalyticsAgent } from './analytics.agent';
 import type { FollowUpService } from '../services/follow-up.service';
 import { PiiDetectionService } from '../../guards';
 import { EmailInsightsService } from '../../services/email-insights.service';
+import { createAskUserTool } from '../tools/ask-user.tool';
 // Note: VoltAgent guardrails not used - Sentinel protection applied at service level
 // via PromptGuardService and PiiDetectionService in ChatRequestProcessor
 
@@ -401,6 +402,10 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
   // Future: Re-implement using EmailAnalysis and ActionQueue models
   console.log('[UnifiedKnowledgeAgent] Disabled - AI refactor v2.0');
 
+  // Create ask_user_clarification tool for structured user input requests
+  // This is more reliable than JSON blocks in text for Mistral models
+  const askUserTool = createAskUserTool({ locale });
+
   // Create the supervisor agent with all sub-agents
   // Memory is shared - tenant isolation is handled via userId format: tenantId:userId
   // Instructions include user context for personalization when available
@@ -409,6 +414,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     purpose: 'Intelligent email assistant coordinator',
     model,
     instructions: dynamicInstructions,
+    tools: [askUserTool], // Supervisor-level tool for user clarification
     subAgents,
     memory,
     hooks,

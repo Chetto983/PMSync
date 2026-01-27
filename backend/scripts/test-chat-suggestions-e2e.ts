@@ -502,26 +502,27 @@ async function testPromptSections(): Promise<void> {
       error: hasSuggestions ? undefined : 'Section not found',
     });
 
-    // Check ASK_USER_CLARIFICATION section (backticks are escaped in source: \`\`\`)
-    const hasAskUser = content.includes('<ASK_USER_CLARIFICATION>') &&
-      (content.includes('```ask-user') || content.includes('\\`\\`\\`ask-user'));
+    // Check ASK_USER_CLARIFICATION section (uses TOOL, not text blocks)
+    // The workflow section documents the ask_user_clarification tool usage
+    const hasAskUser = content.includes('<ASK_USER_CLARIFICATION') &&
+      content.includes('ask_user_clarification');
     results.push({
       name: 'Prompt: ASK_USER_CLARIFICATION section',
       passed: hasAskUser,
       error: hasAskUser ? undefined : 'Section not found',
     });
 
-    // Check format examples
-    const hasJsonFormat = content.includes('"question"') && content.includes('"options"');
+    // Check format examples (YAML-style in prompt: question:, options:)
+    const hasJsonFormat = content.includes('question:') && content.includes('options:');
     results.push({
       name: 'Prompt: JSON format documented',
       passed: hasJsonFormat,
     });
 
-    // Check rules documented
+    // Check rules documented (suggestions rules + ask-user workflow)
     const hasRules =
       content.includes('under 50 characters') && // suggestions rule
-      content.includes('genuinely ambiguous'); // ask-user rule
+      (content.includes('ambiguous') || content.includes('multiple matches')); // ask-user rule
     results.push({
       name: 'Prompt: Usage rules documented',
       passed: hasRules,

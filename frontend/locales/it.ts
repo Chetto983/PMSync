@@ -2024,6 +2024,11 @@ export const it: AppTranslations = {
       requiresApproval: 'Richiede approvazione',
       stop: 'Ferma',
     },
+    errors: {
+      chatFailed: 'Impossibile inviare il messaggio. Riprova.',
+      connectionLost: 'Connessione persa. Riconnessione in corso...',
+      rateLimit: 'Troppe richieste. Attendi un momento.',
+    },
     suggestedQuestions: {
       title: 'Domande suggerite',
       tooltip: 'Clicca per fare questa domanda',
