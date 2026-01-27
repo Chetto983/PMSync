@@ -2134,6 +2134,16 @@ export interface AppTranslations {
       requiresApproval: string;
       stop: string;
     };
+    suggestedQuestions: {
+      title: string;
+      tooltip: string;
+    };
+    askUser: {
+      title: string;
+      other: string;
+      otherPlaceholder: string;
+      submit: string;
+    };
     memory: {
       title: string;
       subtitle: string;

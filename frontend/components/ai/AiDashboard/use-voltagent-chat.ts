@@ -10,7 +10,7 @@
  */
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { useCallback, useState, useMemo, useRef } from 'react';
+import { useCallback, useState, useMemo, useRef, useEffect } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -30,6 +30,19 @@ function getAuthToken(): string {
 
 function generateConversationId(): string {
   return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** AskUser data structure for clarifying questions */
+export interface AskUserOption {
+  label: string;
+  description?: string;
+}
+
+export interface AskUserData {
+  question: string;
+  header: string;
+  options: AskUserOption[];
+  multiSelect?: boolean;
 }
 
 /**
@@ -59,6 +72,42 @@ function extractSuggestedQuestions(text: string): {
   }
 
   return { cleanText: text, questions: undefined };
+}
+
+/**
+ * Extract ask-user clarification request from message text.
+ * Format: ```ask-user\n{...}\n```
+ */
+function extractAskUser(text: string): {
+  cleanText: string;
+  askUser: AskUserData | undefined;
+} {
+  const askUserRegex = /```ask-user\s*\n(\{[\s\S]*?\})\s*\n```/;
+  const match = text.match(askUserRegex);
+
+  if (!match) {
+    return { cleanText: text, askUser: undefined };
+  }
+
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (parsed.question && parsed.options) {
+      const cleanText = text.replace(askUserRegex, '').trim();
+      return {
+        cleanText,
+        askUser: {
+          question: parsed.question,
+          header: parsed.header || 'Clarification',
+          options: parsed.options,
+          multiSelect: parsed.multiSelect || false,
+        },
+      };
+    }
+  } catch {
+    // Invalid JSON - return original
+  }
+
+  return { cleanText: text, askUser: undefined };
 }
 
 export interface UseVoltAgentChatOptions {
@@ -95,6 +144,8 @@ export interface ChatMessageWithParts {
   toolInvocations?: ToolInvocation[];
   /** Suggested follow-up questions (parsed from assistant response) */
   suggestedQuestions?: string[];
+  /** Ask-user clarification request (Claude Code style) */
+  askUser?: AskUserData;
 }
 
 export interface UseVoltAgentChatReturn {
@@ -120,7 +171,11 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
   // Ref to prevent transport recreation during streaming
   // Transport uses ref.current which always has latest value
   const conversationIdRef = useRef(conversationId);
-  conversationIdRef.current = conversationId;
+
+  // Sync ref with state changes (must be in useEffect, not during render)
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
 
   const setConversationId = useCallback(
     (id: string) => {
@@ -133,6 +188,7 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
   // Create DefaultChatTransport for AI SDK v6 V3 endpoint
   // NOTE: Do NOT put body here - it becomes stale (GitHub Issue #7819)
   // Use prepareSendMessagesRequest instead - it's called fresh each time
+  /* eslint-disable react-hooks/refs -- ref accessed in callback (prepareSendMessagesRequest), not during render */
   const transport = useMemo(() => {
     return new DefaultChatTransport({
       api: `${API_BASE_URL}/api/v1/voltagent/chat/stream/v3`,
@@ -164,14 +220,16 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
       },
     });
   }, [locale]);
+  /* eslint-enable react-hooks/refs */
 
   // OFFICIAL FIX for "Maximum update depth exceeded"
   // Source: https://ai-sdk.dev/docs/troubleshooting/react-maximum-update-depth-exceeded
+  // See also: https://github.com/vercel/ai/issues/1610
   // "By default, the UI is re-rendered on every chunk. This can overload rendering."
   const chat = useChat({
     transport,
     id: conversationId,
-    experimental_throttle: 50, // Throttle UI updates to 50ms to prevent render cascade
+    experimental_throttle: 100, // Throttle UI updates to 100ms to prevent render cascade
     onError: (error) => {
       onError?.(error);
     },
@@ -187,27 +245,33 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
         text: p.text,
       }));
 
-      // For assistant messages, check for suggested questions
+      // For assistant messages, check for suggested questions and ask-user
       let suggestedQuestions: string[] | undefined;
+      let askUser: AskUserData | undefined;
       let finalParts = originalParts;
 
       if (msg.role === 'assistant') {
-        // Combine all text parts to find suggestions
+        // Combine all text parts to find suggestions/ask-user
         const fullText = originalParts
           .filter((p: MessagePart) => p.type === 'text' && p.text)
           .map((p: MessagePart) => p.text)
           .join('');
 
-        const { cleanText, questions } = extractSuggestedQuestions(fullText);
-        suggestedQuestions = questions;
+        // Extract ask-user first (so we can clean it from text)
+        const askUserResult = extractAskUser(fullText);
+        askUser = askUserResult.askUser;
+        let cleanedText = askUserResult.cleanText;
 
-        // If we found suggestions, update the text parts with cleaned text
-        if (questions && cleanText !== fullText) {
+        // Then extract suggestions
+        const suggestionsResult = extractSuggestedQuestions(cleanedText);
+        suggestedQuestions = suggestionsResult.questions;
+        cleanedText = suggestionsResult.cleanText;
+
+        // If we found anything to clean, update the text parts
+        if (cleanedText !== fullText) {
           finalParts = originalParts.map((p: MessagePart) => {
             if (p.type === 'text' && p.text) {
-              // For the first text part, use the clean text
-              // For subsequent text parts, clear them (suggestions were spread across parts)
-              return { ...p, text: cleanText };
+              return { ...p, text: cleanedText };
             }
             return p;
           });
@@ -238,6 +302,7 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
           state: 'result' in t ? 'complete' as const : 'calling' as const,
         })),
         suggestedQuestions,
+        askUser,
       };
     });
   }, [chat.messages]);

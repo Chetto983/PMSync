@@ -838,7 +838,20 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       throw new AiError('ChatPrepareService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
     }
 
+    // Deterministic sessionId for events (same logic as chat())
+    const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
+    const eventSessionId = options.conversationId || fallbackSessionId;
+
+    // Emit real-time agent step: Intent analysis started
+    this.emitAgentStep(options.tenantId, eventSessionId, options.userId, 'intent', 'started', 'Analyzing your request...');
+
     const ctx = await this.chatPrepareService.prepare(message, options, this.memory, this.observabilityHooks);
+
+    // Emit: Intent completed, Supervisor processing
+    this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'intent', 'completed', 'Request analyzed', {
+      duration: Date.now() - startTime,
+    });
+    this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'supervisor', 'processing', 'Generating response...');
 
     // Get raw VoltAgent streamText result - has toUIMessageStream()
     const streamResult = await ctx.agent.streamText(ctx.enhancedMessage, {
@@ -853,15 +866,21 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    // Create PII sanitization TransformStream (zero-buffering) with suggestions extraction
+    // Create PII sanitization TransformStream (zero-buffering)
+    // NOTE: Custom events (ask-user, suggested-questions) are NOT emitted here.
+    // The AI SDK's UIMessageStream protocol doesn't support custom event types.
+    // The frontend parses these blocks directly from the text content in use-voltagent-chat.ts.
     const piiMappings = this.piiResolutionService
       ? await this.piiResolutionService.getMappings(options.tenantId, ctx.sessionId)
       : [];
     const sanitizer = createStreamSanitizer(piiMappings);
 
-    // Accumulate text for suggestions extraction at end of stream
-    let accumulatedText = '';
-    const locale = options.locale || 'en';
+    // Capture context for closure in transform callbacks
+    const self = this;
+    const streamStartTime = startTime;
+    const streamTenantId = options.tenantId;
+    const streamUserId = options.userId;
+    const streamSessionId = ctx.sessionId;
 
     const piiTransform = new TransformStream<any, any>({
       transform(chunk, controller) {
@@ -870,37 +889,25 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           return;
         }
 
-        // Handle text-delta: sanitize, accumulate, and emit immediately
+        // Handle text-delta: sanitize and emit immediately
         if (chunk.type === 'text-delta' && chunk.delta) {
           const safeText = sanitizer.handleChunk(chunk.delta);
           if (safeText.length > 0) {
-            accumulatedText += safeText;
             controller.enqueue({ ...chunk, delta: safeText });
           }
           return;
         }
 
-        // On finish, extract suggestions and emit custom event
+        // Detect stream completion - emit agent step events
         if (chunk.type === 'finish' || chunk.type === 'step-finish') {
-          // Parse suggestions block: ```suggestions\n["Q1?", "Q2?"]\n```
-          const suggestionsMatch = accumulatedText.match(
-            /```suggestions\s*\n(\[[\s\S]*?\])\s*\n```/,
-          );
-          if (suggestionsMatch) {
-            try {
-              const suggestions = JSON.parse(suggestionsMatch[1]);
-              if (Array.isArray(suggestions) && suggestions.length > 0) {
-                // Emit custom suggested-questions event before finish
-                controller.enqueue({
-                  type: 'suggested-questions',
-                  questions: suggestions,
-                  locale,
-                });
-              }
-            } catch {
-              // Invalid JSON in suggestions block - ignore
-            }
-          }
+          // Emit: Supervisor completed
+          self.emitAgentStep(streamTenantId, streamSessionId, streamUserId, 'supervisor', 'completed', 'Response generated', {
+            duration: Date.now() - streamStartTime,
+          });
+          // Emit: Response ready
+          self.emitAgentStep(streamTenantId, streamSessionId, streamUserId, 'response', 'completed', 'Response ready', {
+            duration: Date.now() - streamStartTime,
+          });
         }
 
         // Pass through all other chunks unchanged

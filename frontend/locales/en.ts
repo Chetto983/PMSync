@@ -2037,6 +2037,19 @@ export const en: AppTranslations = {
       requiresApproval: 'Requires your approval',
       stop: 'Stop',
     },
+    suggestedQuestions: {
+      title: 'Suggested questions',
+      tooltip: 'Click to ask this question',
+    },
+    askUser: {
+      title: 'Clarification needed',
+      other: 'Other (type your answer)',
+      otherPlaceholder: 'Type your response...',
+      placeholder: 'Type your answer...',
+      submit: 'Submit',
+      cancel: 'Cancel',
+      continue: 'Continue',
+    },
     memory: {
       title: 'AI Memory',
       subtitle: 'What the AI remembers about you',

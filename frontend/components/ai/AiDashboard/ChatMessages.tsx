@@ -8,7 +8,7 @@ import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Message } from './index';
 //import type { ChatMessageWithParts } from './use-voltagent-chat';
-import { AgentProgressIndicator } from './AgentProgressIndicator';
+import { TypingIndicator } from './TypingIndicator';
 import { InlineActionCard, type PendingAction } from './InlineActionCard';
 import { ToolActivityCard } from './ToolActivityCard';
 import { SuggestedQuestions } from './SuggestedQuestions';
@@ -252,9 +252,7 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
       await navigator.clipboard.writeText(content);
       setCopiedMessageId(messageId);
       setTimeout(() => setCopiedMessageId(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
+    } catch  { }
   }, []);
 
   // Real-time agent activity streaming
@@ -288,10 +286,12 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
   // Auto-scroll to bottom ref
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom whenever messages or agent activity changes
+  // Scroll to bottom whenever messages count or agent activity changes
+  // FIX: Use messages.length instead of messages array to prevent infinite re-renders
+  // See: https://github.com/vercel/ai/issues/4741
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, sending, hasAgentActivity, agentSteps]);
+  }, [messages.length, sending, hasAgentActivity, agentSteps.length]);
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -479,11 +479,12 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
         <ConversationPendingActions conversationId={conversationId} />
       )}
 
-      {/* Agent Progress Indicator - Shows live agent chain with real-time streaming */}
-      <AgentProgressIndicator
-        isActive={sending || hasAgentActivity}
-        agentSteps={agentSteps.length > 0 ? agentSteps : undefined}
+      {/* Real-time agent activity indicator - shows actual agent action from WebSocket */}
+      <TypingIndicator
+        isActive={sending && messages.length > 0}
+        action={agentSteps.find(s => s.status === 'active')?.action}
       />
+
       <div ref={messagesEndRef} />
     </Box>
   );

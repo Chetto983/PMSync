@@ -31,7 +31,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
 import logger from '@/lib/logger';
-import { useVoltAgentChat } from './use-voltagent-chat';
+import { useVoltAgentChat, type AskUserData } from './use-voltagent-chat';
 
 // Lazy loaded widgets
 const ChatMessages = lazy(() => import('./ChatMessages'));
@@ -40,9 +40,11 @@ const LearningWidget = lazy(() => import('./LearningWidget'));
 const ChatSessionList = lazy(() => import('./ChatSessionList'));
 const MentionInput = lazy(() => import('./MentionInput'));
 const ChatCommandPalette = lazy(() => import('../ChatCommandPalette'));
+const AskUserModal = lazy(() => import('./AskUserModal'));
 
 // Re-export types from hook for ChatMessages
 export type { MessagePart, ToolInvocation } from './use-voltagent-chat';
+export type { AskUserData } from './use-voltagent-chat';
 
 // Types - Extended for our UI needs (AI SDK parts-based structure)
 export interface Message {
@@ -60,6 +62,10 @@ export interface Message {
   agentUsed?: string;
   intent?: string;
   pendingActionIds?: string[];
+  /** Suggested follow-up questions */
+  suggestedQuestions?: string[];
+  /** Ask-user clarification request (Claude Code style) */
+  askUser?: AskUserData;
 }
 
 
@@ -109,6 +115,9 @@ export function AiDashboard() {
   // Command palette state (triggered by "/" at start of input)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
+  // AskUser modal state (for Claude Code style clarifying questions)
+  const [askUserModalOpen, setAskUserModalOpen] = useState(false);
+
   // Track new conversations that need title generation (after first assistant response)
   const needsTitleGenRef = useRef<string | null>(null);
 
@@ -136,11 +145,12 @@ export function AiDashboard() {
   });
 
   // Auto-generate title AFTER first assistant message arrives (conversation now exists in DB)
+  // FIX: Use stable reference (length) instead of array to prevent infinite re-renders
+  // See: https://github.com/vercel/ai/issues/4741
+  const hasAssistantMessage = chatMessages.some(msg => msg.role === 'assistant');
   useEffect(() => {
     const convId = needsTitleGenRef.current;
     // Trigger when we have an assistant response and a pending title generation
-    const hasAssistantMessage = chatMessages.some(msg => msg.role === 'assistant');
-
     if (convId && hasAssistantMessage && conversationId === convId) {
       needsTitleGenRef.current = null; // Clear flag first to prevent duplicate calls
 
@@ -153,7 +163,7 @@ export function AiDashboard() {
         });
       });
     }
-  }, [chatMessages, conversationId, queryClient, t.locale]);
+  }, [hasAssistantMessage, conversationId, queryClient, t.locale]);
 
   const sending = status === 'submitted' || status === 'streaming';
 
@@ -164,7 +174,32 @@ export function AiDashboard() {
     toolInvocations: msg.toolInvocations,
     timestamp: new Date(),
     pendingActionIds: pendingActionMap.get(index),
+    suggestedQuestions: msg.suggestedQuestions,
+    askUser: msg.askUser,
   }));
+
+  // Get askUser data from the last assistant message (if any)
+  // FIX: Use chatMessages.length as stable dependency to prevent re-render cascade
+  const lastAskUser = React.useMemo(() => {
+    const lastAssistant = [...chatMessages].reverse().find((m) => m.role === 'assistant');
+    return lastAssistant?.askUser;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatMessages.length]);
+
+  // Auto-open modal when there's an askUser request and not sending
+  React.useEffect(() => {
+    if (lastAskUser && !sending) {
+      setAskUserModalOpen(true);
+    }
+  }, [lastAskUser, sending]);
+
+  // Handle askUser response - send it as a new message
+  const handleAskUserResponse = useCallback((response: string | string[]) => {
+    const responseText = Array.isArray(response) ? response.join(', ') : response;
+    setAskUserModalOpen(false);
+    // Send the user's choice as a follow-up message
+    sendMessage(responseText);
+  }, [sendMessage]);
 
   // Start a new chat session
   const handleNewChat = useCallback(() => {
@@ -462,7 +497,12 @@ export function AiDashboard() {
             ) : (
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Suspense fallback={<WidgetSkeleton height={300} />}>
-                  <ChatMessages messages={messages} sending={sending} conversationId={conversationId} />
+                  <ChatMessages
+                    messages={messages}
+                    sending={sending}
+                    conversationId={conversationId}
+                    onSuggestedQuestionSelect={handleSendMessage}
+                  />
                 </Suspense>
               </Box>
             )}
@@ -735,6 +775,16 @@ export function AiDashboard() {
           open={commandPaletteOpen}
           onClose={() => setCommandPaletteOpen(false)}
           onSelectCommand={handleCommandSelect}
+        />
+      </Suspense>
+
+      {/* AskUser Modal - Claude Code style clarifying questions */}
+      <Suspense fallback={null}>
+        <AskUserModal
+          open={askUserModalOpen}
+          data={lastAskUser || null}
+          onSubmit={handleAskUserResponse}
+          onClose={() => setAskUserModalOpen(false)}
         />
       </Suspense>
     </Box>

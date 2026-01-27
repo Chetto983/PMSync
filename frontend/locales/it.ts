@@ -2024,6 +2024,19 @@ export const it: AppTranslations = {
       requiresApproval: 'Richiede approvazione',
       stop: 'Ferma',
     },
+    suggestedQuestions: {
+      title: 'Domande suggerite',
+      tooltip: 'Clicca per fare questa domanda',
+    },
+    askUser: {
+      title: 'Chiarimento necessario',
+      other: 'Altro (scrivi la tua risposta)',
+      otherPlaceholder: 'Scrivi la tua risposta...',
+      placeholder: 'Scrivi la tua risposta...',
+      submit: 'Invia',
+      cancel: 'Annulla',
+      continue: 'Continua',
+    },
     memory: {
       title: 'Memoria AI',
       subtitle: 'Cosa ricorda di te',
