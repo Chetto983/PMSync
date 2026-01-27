@@ -64,6 +64,7 @@ import { LearningService } from './services/learning.service';
 import { ChatRequestProcessorService } from './services/chat-request-processor.service';
 import { ChatContextBuilderService } from './services/chat-context-builder.service';
 import { ChatResponseProcessorService } from './services/chat-response-processor.service';
+import { ChatPrepareService } from './services/chat-prepare.service';
 
 // Phase 6: Extracted Services (VoltAgentService refactoring)
 import { AgentPoolService } from './services/agent-pool.service';
@@ -131,6 +132,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     ChatRequestProcessorService,
     ChatContextBuilderService,
     ChatResponseProcessorService,
+    ChatPrepareService,
     // Phase 6: Extracted Services (VoltAgentService refactoring)
     AgentPoolService,
     AgentMetricsService,

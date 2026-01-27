@@ -2035,6 +2035,7 @@ export const en: AppTranslations = {
       createEvent: 'Create event',
       updateContact: 'Update contact',
       requiresApproval: 'Requires your approval',
+      stop: 'Stop',
     },
     memory: {
       title: 'AI Memory',

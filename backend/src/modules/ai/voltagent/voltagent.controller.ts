@@ -523,28 +523,6 @@ export class VoltAgentController {
   // ============ Cache Management Endpoints ============
 
   /**
-   * Invalidate semantic cache for current tenant.
-   */
-  @Post('cache/invalidate')
-  @ApiOperation({ summary: 'Invalidate semantic cache' })
-  async invalidateCache(
-    @Req() req: AuthenticatedRequest,
-    @Body() body: { pattern?: string },
-  ) {
-    const invalidated = await this.voltAgentService.invalidateCache(
-      req.user.tenantId,
-      body.pattern,
-    );
-    return {
-      success: true,
-      message: body.pattern
-        ? `Invalidated cache entries matching "${body.pattern}"`
-        : 'All cache entries invalidated',
-      entriesRemoved: invalidated,
-    };
-  }
-
-  /**
    * Clear agent cache (forces prompt reload).
    */
   @Post('cache/clear-agents')

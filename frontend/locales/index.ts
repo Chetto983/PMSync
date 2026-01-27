@@ -2132,6 +2132,7 @@ export interface AppTranslations {
       createEvent: string;
       updateContact: string;
       requiresApproval: string;
+      stop: string;
     };
     memory: {
       title: string;

@@ -56,6 +56,7 @@ import { ChatRequestProcessorService } from './services/chat-request-processor.s
 import { ChatContextBuilderService, sanitizeLlmResponse } from './services/chat-context-builder.service';
 import { AgentMetricsService } from './services/agent-metrics.service';
 import { AgentPoolService } from './services/agent-pool.service';
+import { ChatPrepareService } from './services/chat-prepare.service';
 
 /**
  * Streaming-safe sanitizer - ZERO BUFFERING.
@@ -201,6 +202,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly agentMetricsService?: AgentMetricsService,
     @Optional() private readonly approvalWorkflowService?: ApprovalWorkflowService,
     @Optional() private readonly agentPoolService?: AgentPoolService,
+    @Optional() private readonly chatPrepareService?: ChatPrepareService,
   ) { }
 
   async onModuleInit() {
@@ -827,76 +829,21 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     piiTransform: TransformStream<any, any>;
     sessionId: string;
   }> {
-    const correlationId = CorrelationContext.getCorrelationId();
-    const logPrefix = `[${correlationId}] [createStreamContext] [tenant:${options.tenantId}]`;
     const startTime = Date.now();
+    const logPrefix = `[createStreamContext] [tenant:${options.tenantId}]`;
     this.logger.log(`${logPrefix} START`);
 
-    const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
-    const sessionId = options.conversationId || fallbackSessionId;
-
-    // Process request: validate input, redact PII, route model
-    let processedMessage = message;
-    let selectedModel = options.model;
-    let suggestedAgent: 'Supervisor' | 'Actions' | 'Intelligence' = 'Supervisor';
-
-    if (this.chatRequestProcessor) {
-      const processed = await this.chatRequestProcessor.process(message, {
-        tenantId: options.tenantId,
-        userId: options.userId,
-        sessionId,
-        model: options.model,
-        preferSpeed: options.preferSpeed,
-        preferQuality: options.preferQuality,
-      });
-      processedMessage = processed.processedMessage;
-      selectedModel = processed.selectedModel;
-      suggestedAgent = processed.suggestedAgent;
+    // Use ChatPrepareService for consolidated setup
+    if (!this.chatPrepareService) {
+      throw new AiError('ChatPrepareService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
     }
 
-    const locale = getLocale(options.locale);
-    const userContext = await this.getUserContext(options.userId, options.tenantId);
-
-    if (!this.agentPoolService) {
-      throw new AiError('AgentPoolService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
-    }
-
-    const agent = await this.agentPoolService.getOrCreateAgent({
-      tenantId: options.tenantId,
-      locale,
-      modelType: selectedModel,
-      userContext,
-      userId: options.userId,
-      agentType: suggestedAgent,
-      memory: this.memory,
-      hooks: this.observabilityHooks?.hooks,
-    });
-
-    // Build enhanced context
-    let enhancedMessage = processedMessage;
-    if (this.chatContextBuilder) {
-      const contextResult = await this.chatContextBuilder.build(processedMessage, {
-        tenantId: options.tenantId,
-        userId: options.userId,
-        logPrefix,
-      });
-      enhancedMessage = contextResult.enhancedMessage;
-    }
-
-    // Ensure conversation exists
-    const tenantUserId = `${options.tenantId}:${options.userId}`;
-    await this.ensureConversationExists({
-      tenantUserId,
-      sessionId,
-      title: processedMessage.substring(0, 100),
-      tenantId: options.tenantId,
-      logPrefix,
-    });
+    const ctx = await this.chatPrepareService.prepare(message, options, this.memory, this.observabilityHooks);
 
     // Get raw VoltAgent streamText result - has toUIMessageStream()
-    const streamResult = await agent.streamText(enhancedMessage, {
-      userId: tenantUserId,
-      conversationId: sessionId,
+    const streamResult = await ctx.agent.streamText(ctx.enhancedMessage, {
+      userId: ctx.tenantUserId,
+      conversationId: ctx.sessionId,
       contextLimit: 20,
       providerOptions: {
         mistral: {
@@ -908,7 +855,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Create PII sanitization TransformStream (zero-buffering)
     const piiMappings = this.piiResolutionService
-      ? await this.piiResolutionService.getMappings(options.tenantId, sessionId)
+      ? await this.piiResolutionService.getMappings(options.tenantId, ctx.sessionId)
       : [];
     const sanitizer = createStreamSanitizer(piiMappings);
 
@@ -935,7 +882,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`${logPrefix} Context created in ${Date.now() - startTime}ms`);
 
-    return { streamResult, piiTransform, sessionId };
+    return { streamResult, piiTransform, sessionId: ctx.sessionId };
   }
 
   /**
@@ -1023,14 +970,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       },
       agentMetrics: await this.getMetricsStats(),
     };
-  }
-
-  /**
-   * Invalidate semantic cache for a tenant.
-   * @deprecated Semantic cache REMOVED due to cross-tenant security issues. Kept for API compatibility.
-   */
-  async invalidateCache(_tenantId: string, _pattern?: string): Promise<number> {
-    return 0;
   }
 
   // ========================================================================

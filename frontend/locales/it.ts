@@ -2022,6 +2022,7 @@ export const it: AppTranslations = {
       createEvent: 'Crea evento',
       updateContact: 'Aggiorna contatto',
       requiresApproval: 'Richiede approvazione',
+      stop: 'Ferma',
     },
     memory: {
       title: 'Memoria AI',

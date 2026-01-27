@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Box, Typography, Paper, Chip, alpha, useTheme, Link, IconButton, Tooltip, Snackbar } from '@mui/material';
+import { Box, Typography, Paper, Chip, alpha, useTheme, Link, IconButton, Tooltip } from '@mui/material';
 import { Bot, User, Sparkles, Clock, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -239,6 +239,20 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
   const theme = useTheme();
   const queryClient = useQueryClient();
 
+  // Copy to clipboard state
+  const [copiedMessageId, setCopiedMessageId] = React.useState<string | null>(null);
+
+  // Copy message content to clipboard
+  const handleCopy = React.useCallback(async (content: string, messageId: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, []);
+
   // Real-time agent activity streaming
   const { steps: agentSteps, isActive: hasAgentActivity } = useAgentActivityStream({
     sessionId: conversationId,
@@ -388,6 +402,28 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
                 <Clock size={10} />
                 {formatTime(message.timestamp)}
               </Typography>
+
+              {/* Copy button for assistant messages */}
+              {message.role === 'assistant' && (
+                <Tooltip title={copiedMessageId === `msg-${index}` ? 'Copied!' : 'Copy'}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleCopy(getTextContent(message.parts), `msg-${index}`)}
+                    sx={{
+                      width: 22,
+                      height: 22,
+                      color: copiedMessageId === `msg-${index}` ? 'success.main' : 'text.secondary',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        color: 'primary.main',
+                      },
+                    }}
+                  >
+                    {copiedMessageId === `msg-${index}` ? <Check size={12} /> : <Copy size={12} />}
+                  </IconButton>
+                </Tooltip>
+              )}
 
               {message.agentUsed && (
                 <Chip
