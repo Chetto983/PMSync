@@ -202,7 +202,9 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:react-resizable-panels.vercel.app)",
       "WebFetch(domain:voltagent.dev)",
-      "WebFetch(domain:ai-sdk.dev)"
+      "WebFetch(domain:ai-sdk.dev)",
+      "mcp__claude-flow_alpha__memory_search",
+      "Bash(cmd /c \"cd /d d:\\\\MailAgent\\\\frontend && npm run type-check\")"
     ],
     "deny": []
   }

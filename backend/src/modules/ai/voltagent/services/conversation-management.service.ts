@@ -47,13 +47,69 @@ export class ConversationManagementService {
   }
 
   /**
-   * Extract text content from VoltAgent's UIMessage parts (AI SDK format).
+   * Extract ONLY text content from VoltAgent's UIMessage parts (AI SDK format).
+   * VoltAgent stores multiple part types in a single message:
+   * - type: "tool-*" = tool call data (internal)
+   * - type: "step-start" = step markers (internal)
+   * - type: "text" or undefined = actual text content (user-visible)
+   *
+   * We ONLY extract parts with type "text" or no type (plain text).
    */
-  private extractMessageContent(message: { parts?: Array<{ type: string; text?: string }> }): string {
+  private extractMessageContent(message: { parts?: Array<{ type?: string; text?: string }> }): string {
+    if (!message.parts) return '';
+    // Only extract text from "text" type parts or parts without type
     return message.parts
-      ?.map((part) => part.text || '')
+      .filter((part) => !part.type || part.type === 'text')
+      .map((part) => part.text || '')
       .filter(Boolean)
-      .join(' ') || '';
+      .join(' ');
+  }
+
+  /**
+   * Check if message has NO user-visible text content.
+   * A message should be filtered if it has NO text-type parts (only tool/step parts).
+   */
+  private hasNoTextContent(parts?: Array<{ type?: string; text?: string }>): boolean {
+    if (!parts || parts.length === 0) return true;
+    // Check if there's at least one text-type part with actual content
+    const hasText = parts.some((part) =>
+      (!part.type || part.type === 'text') && part.text && part.text.trim().length > 0
+    );
+    return !hasText;
+  }
+
+  /**
+   * Check if a message looks like an internal delegation task (fallback content filter).
+   * These are supervisor-to-subagent messages that shouldn't appear in chat history.
+   *
+   * Patterns detected:
+   * - "Send email to X with subject 'Y' and body 'Z'"
+   * - "Update the email body to 'X' and send it to Y"
+   * - Messages that match exact tool call patterns
+   */
+  private isDelegationTaskMessage(content: string): boolean {
+    // Patterns that indicate internal delegation (case-insensitive)
+    const delegationPatterns = [
+      // Email delegation patterns
+      /^Send email to .+ with subject ['"].+['"] and body ['"].+['"]/i,
+      /^Update the email body to ['"].+['"] and send it to .+/i,
+      /^Forward email .+ to .+/i,
+      /^Reply to email .+ with ['"].+['"]/i,
+      // Calendar delegation patterns
+      /^Create event ['"].+['"] on .+/i,
+      /^Schedule meeting .+ with .+/i,
+      /^Delete event ['"].+['"]/i,
+      // Contact delegation patterns
+      /^Update contact .+ with .+/i,
+      /^Create contact .+/i,
+      /^Delete contact .+/i,
+      // Generic delegation patterns
+      /^Search .+ for .+/i,
+      /^Find .+ and .+/i,
+      /^Count .+ emails?/i,
+    ];
+
+    return delegationPatterns.some((pattern) => pattern.test(content.trim()));
   }
 
   /**
@@ -128,12 +184,52 @@ export class ConversationManagementService {
 
       const rawMessages = await memory.getMessages(tenantUserId, conversationId, { limit: messageLimit });
 
+      // FIX: Filter out internal delegation messages from VoltAgent subagent coordination
+      // PRIMARY: Check parts[].type - tool calls have type like "tool-delegate_task", "tool-manage_email"
+      // SECONDARY: Check metadata.subAgentId/subAgentName or content patterns as fallback
+      const userVisibleMessages = rawMessages.filter((m) => {
+        // Cast to access VoltAgent-specific properties
+        const msg = m as unknown as {
+          role: string;
+          parts?: Array<{ type?: string; text?: string }>;
+          metadata?: Record<string, unknown>;
+        };
+        // PRIMARY FILTER: Filter out messages with NO user-visible text
+        // VoltAgent stores multiple parts per message (tool-*, step-start, text)
+        // We keep messages that have at least one text-type part with content
+        if (this.hasNoTextContent(msg.parts)) {
+          this.logger.debug(`Filtered empty message in conversation ${conversationId} (no text parts)`);
+          return false;
+        }
+        // SECONDARY: Filter out messages with subAgentId or subAgentName (internal delegation)
+        const metadata = msg.metadata || {};
+        if (metadata.subAgentId || metadata.subAgentName) {
+          this.logger.debug(`Filtered internal delegation message in conversation ${conversationId}`);
+          return false;
+        }
+        // SECONDARY: Filter out explicitly internal messages
+        if (metadata.isInternal) {
+          return false;
+        }
+        // FALLBACK: Content-based filter for delegation task patterns
+        // These are supervisor-to-subagent messages that look like tool commands
+        const content = this.extractMessageContent(msg);
+        if (content && this.isDelegationTaskMessage(content)) {
+          this.logger.debug(`Filtered delegation task message in conversation ${conversationId}: ${content.slice(0, 50)}...`);
+          return false;
+        }
+        return true;
+      });
+
       // Map to our format with sanitization
-      const mappedMessages = rawMessages.map((m: { role: string; parts?: Array<{ type: string; text?: string }>; createdAt?: Date }) => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: sanitizeLlmResponse(this.extractMessageContent(m)),
-        createdAt: m.createdAt || new Date(),
-      }));
+      const mappedMessages = userVisibleMessages.map((m) => {
+        const msg = m as unknown as { role: string; parts?: Array<{ type?: string; text?: string }>; createdAt?: Date };
+        return {
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: sanitizeLlmResponse(this.extractMessageContent(msg)),
+          createdAt: msg.createdAt || new Date(),
+        };
+      });
 
       // Deduplicate messages by content hash (role + first 200 chars)
       // This prevents duplicates from VoltAgent storing both original and enhanced messages

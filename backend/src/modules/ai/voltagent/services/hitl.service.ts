@@ -182,6 +182,43 @@ export class HitlService {
           return { id: existing.id, isExisting: true };
         }
 
+        // FIX: Auto-cancel superseded actions of the same type in the same session
+        // When user modifies a request (e.g., "make it more formal"), the old pending action
+        // should be automatically cancelled to prevent duplicate cards in chat history
+        let supersededActions: Array<{ id: string; actionType: string; userId: string | null; confidence: number | null; actionPayload: unknown }> = [];
+        if (sessionId) {
+          // First, find superseded actions to get their IDs for WebSocket events
+          supersededActions = await this.prisma.actionQueue.findMany({
+            where: {
+              tenantId,
+              actionType: this.mapActionType(action.type),
+              status: ActionStatus.PENDING_APPROVAL,
+              actionPayload: {
+                path: ['sessionId'],
+                equals: sessionId,
+              },
+            },
+            select: { id: true, actionType: true, userId: true, confidence: true, actionPayload: true },
+          });
+
+          if (supersededActions.length > 0) {
+            // Update all superseded actions
+            await this.prisma.actionQueue.updateMany({
+              where: {
+                id: { in: supersededActions.map(a => a.id) },
+              },
+              data: {
+                status: ActionStatus.REJECTED,
+                rejectedReason: 'Superseded by modified request',
+              },
+            });
+
+            this.logger.debug(
+              `Auto-cancelled ${supersededActions.length} superseded ${action.type} action(s) in session ${sessionId}`,
+            );
+          }
+        }
+
         const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
         // Map action type string to ActionType enum
@@ -217,13 +254,31 @@ export class HitlService {
           },
         });
 
-        return { id: created.id, isExisting: false };
+        return { id: created.id, isExisting: false, supersededActions };
       },
     );
 
     // If it was an existing action, return early (no events needed)
     if (pendingAction.isExisting) {
       return pendingAction.id;
+    }
+
+    // Emit WebSocket events for superseded actions (outside the lock)
+    if (pendingAction.supersededActions && pendingAction.supersededActions.length > 0) {
+      for (const superseded of pendingAction.supersededActions) {
+        const meta = this.getPayloadMeta(superseded.actionPayload as Prisma.JsonValue);
+        this.realtimeEvents.emitAiActionRejected(tenantId, {
+          actionId: superseded.id,
+          userId: superseded.userId ?? 'system',
+          agentName: meta.agentName || 'SupervisorAgent',
+          actionType: superseded.actionType,
+          status: 'rejected',
+          confidence: superseded.confidence ?? undefined,
+          severity: meta.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
+          reason: 'Superseded by modified request',
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
 
     this.logger.log(

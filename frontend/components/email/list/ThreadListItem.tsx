@@ -24,7 +24,24 @@ import {
   Fade,
   Tooltip,
 } from '@mui/material';
-import { Flag, Paperclip, Archive, Trash2, FolderInput } from 'lucide-react';
+import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap } from 'lucide-react';
+
+// AI Priority configuration (1 = highest/critical, 5 = lowest/minimal)
+const AI_PRIORITY_CONFIG: Record<number, { color: 'error' | 'warning' | 'info' | 'success' | 'default' }> = {
+  1: { color: 'error' },
+  2: { color: 'warning' },
+  3: { color: 'info' },
+  4: { color: 'success' },
+  5: { color: 'default' },
+};
+
+// AI Sentiment to color mapping
+const AI_SENTIMENT_CONFIG: Record<string, 'error' | 'warning' | 'success' | 'default'> = {
+  urgent: 'error',
+  negative: 'warning',
+  positive: 'success',
+  neutral: 'default',
+};
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 
@@ -41,6 +58,10 @@ export interface ThreadListItemData {
   labels?: { id: string; name: string; color: string }[];
   avatarUrl?: string;
   providerId?: string; // For drag-and-drop provider validation
+  // AI Auto-Triage fields (populated when email has been analyzed)
+  aiPriority?: number | null; // 1-5 scale (1 = critical, 5 = minimal)
+  aiSentiment?: string | null; // 'positive' | 'negative' | 'neutral' | 'urgent'
+  aiLabels?: string[]; // AI-suggested labels like ['Follow-up', 'Important']
 }
 
 interface ThreadListItemProps {
@@ -218,7 +239,41 @@ export const ThreadListItem = memo(function ThreadListItem({
             </Typography>
           </Tooltip>
 
-          {/* Labels */}
+          {/* AI Priority Badge */}
+          {thread.aiPriority && thread.aiPriority <= 3 && (
+            <Tooltip title={t.emailList.aiPriority.replace('{priority}', String(thread.aiPriority))}>
+              <Chip
+                icon={<Zap size={12} />}
+                label={thread.aiPriority}
+                size="small"
+                color={AI_PRIORITY_CONFIG[thread.aiPriority]?.color || 'default'}
+                sx={{
+                  height: 18,
+                  fontSize: '0.625rem',
+                  fontWeight: 600,
+                  '& .MuiChip-label': { px: 0.5 },
+                  '& .MuiChip-icon': { ml: 0.5, mr: -0.5 },
+                }}
+              />
+            </Tooltip>
+          )}
+
+          {/* AI Sentiment Badge (only show if not neutral) */}
+          {thread.aiSentiment && thread.aiSentiment !== 'neutral' && (
+            <Chip
+              label={t.emailList.aiSentiment[thread.aiSentiment as keyof typeof t.emailList.aiSentiment] || thread.aiSentiment}
+              size="small"
+              color={AI_SENTIMENT_CONFIG[thread.aiSentiment] || 'default'}
+              variant="outlined"
+              sx={{
+                height: 16,
+                fontSize: '0.5625rem',
+                '& .MuiChip-label': { px: 0.5 },
+              }}
+            />
+          )}
+
+          {/* Labels (includes AI-suggested labels that user has accepted) */}
           {thread.labels && thread.labels.length > 0 && (
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
               {thread.labels.slice(0, 2).map((label) => (

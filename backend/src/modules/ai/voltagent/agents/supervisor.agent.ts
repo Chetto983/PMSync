@@ -413,10 +413,11 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     memory,
     hooks,
     maxSteps: 5, // Reduced from 10 - faster responses, less LLM calls
-    // FIX: Prevent duplicate messages by excluding sub-agent interactions from memory
-    // VoltAgent stores both original message AND delegation task when includeAgentsMemory: true (default)
+    // NOTE: includeAgentsMemory: true for better performance (faster context, less LLM calls)
+    // Internal messages (tool-delegate_task, tool-manage_email) are filtered by parts[].type
+    // in ConversationManagementService.hasToolTypeParts() before displaying to users
     supervisorConfig: {
-      includeAgentsMemory: false,
+      includeAgentsMemory: true,
     },
     // Note: Guardrails applied at service level via Sentinel-powered
     // PromptGuardService and PiiDetectionService in ChatRequestProcessor

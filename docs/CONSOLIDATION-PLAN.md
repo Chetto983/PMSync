@@ -2,6 +2,72 @@
 
 ---
 
+## 🟢 AUDIT STATUS (2026-01-27)
+
+### ✅ COMPLETED THIS SESSION (2026-01-27)
+
+| Task | Status | Details |
+|------|--------|---------|
+| **Zustand→TanStack Query Refactor** | ✅ DONE | `email.tsx` now uses `useEmails()` as single source of truth. DELETED `email-list-store.ts` |
+| **Realtime Thread Updates Fix** | ✅ DONE | Backend now sends `threadId` in all `emitEmailUpdate()` calls. Frontend invalidates correctly. |
+| **UI: ExpandedMessage Actions** | ✅ DONE | Converted text buttons to icon-only. Move uses dropdown menu (Inbox/Archive/Trash) |
+| **VoltAgent AI Audit** | ✅ DONE | All AI fields persist correctly. Identified gaps below. |
+| **Display AI Labels in Email List** | ✅ DONE | AI priority badge + sentiment chip displayed. Labels consolidated (see below). |
+| **AI Locale Enforcement** | ✅ DONE | Cache now checks locale - forces LLM to respond in user's language |
+
+### 🏛️ Architecture Decision: AI Labels Consolidation (2026-01-27)
+
+**Decision**: AI labels and user labels are stored in ONE place - the `labels` array.
+
+**Rationale**:
+- Users can modify/delete AI-suggested labels
+- No duplication in UI (was showing labels twice)
+- Single source of truth for all labels
+
+**Implementation**:
+- Backend: AI-suggested labels added to `labels` via `AILabelJunction` with `isAI=true` flag
+- Frontend: `ThreadListItem.tsx` displays ONLY `labels` array (no separate `aiLabels` display)
+- AI priority (1-5) and sentiment shown as separate badges (different data type)
+
+### 🔍 VoltAgent AI Audit Findings (2026-01-27)
+
+**What WORKS (Data IS Persisted):**
+- `aiPriority` (1-5 scale) → stored in `Email.aiPriority`
+- `aiPriorityReason` → stored in `Email.aiPriorityReason`
+- `aiSentiment` → stored in `Email.aiSentiment`
+- `aiLabels` → stored in `AILabelJunction` (full persist via `persistAILabels()`)
+- `EmailAnalysis` table → comprehensive analysis with 24h cache
+
+**What's BROKEN/MISSING:**
+| Gap | Status | Fix Needed |
+|-----|--------|------------|
+| AI labels NOT displayed in email list | ✅ FIXED | Added AI priority badge + sentiment + labels to `ThreadListItem.tsx` |
+| No auto-triage on email receipt | ❌ | Add `email.new` event → trigger `analyzeEmailUnified()` |
+| Follow-ups not auto-created | ❌ | Wire `EmailAnalysis.followUpNeeded` → create FollowUp record |
+| Deadlines not surfaced | ❌ | Wire `EmailAnalysis.suggestedDeadline` → create Deadline record |
+
+### 🏗️ Architecture Improvements (2026-01-27)
+
+**Before (Broken):**
+```
+email.tsx → useEmailListStore (Zustand) → TanStack Query
+                    ↓
+            WebSocket events invalidate TanStack Query
+                    ↓
+            Zustand store NEVER updates ❌
+```
+
+**After (Fixed):**
+```
+email.tsx → useEmails() (TanStack Query) → Single Source of Truth
+                    ↓
+            WebSocket events invalidate TanStack Query
+                    ↓
+            Component re-renders with fresh data ✅
+```
+
+---
+
 ## 🟢 AUDIT STATUS (2026-01-26)
 
 **Last Audit**: 2026-01-26 by Claude Code
@@ -28,6 +94,26 @@
 | Auto-triage event emission | ⏳ TODO | P4 |
 | Search backend integration | ⏳ TODO | P2 |
 | Follow-ups snooze button | ⏳ TODO | P3 |
+| **Display AI labels in email list** | ✅ DONE | P2 |
+| **Auto-create follow-ups from AI** | ⏳ TODO | P3 |
+| **Surface deadlines from AI analysis** | ⏳ TODO | P3 |
+
+### ✅ RECENTLY COMPLETED
+
+| Issue | Status | Date |
+|-------|--------|------|
+| Zustand→TanStack Query (email.tsx) | ✅ DONE | 2026-01-27 |
+| Realtime thread view updates | ✅ DONE | 2026-01-27 |
+| ExpandedMessage icon buttons + move dropdown | ✅ DONE | 2026-01-27 |
+| VoltAgent AI audit (data persistence verified) | ✅ DONE | 2026-01-27 |
+| Display AI labels in email list (ThreadListItem) | ✅ DONE | 2026-01-27 |
+| `getLearningStats()` 404 | ✅ FIXED | 2026-01-26 |
+| Reset Learning button | ✅ FIXED | 2026-01-26 |
+| Hardcoded labels | ✅ FIXED | 2026-01-26 |
+| HITL → Learning feedback | ✅ WIRED | 2026-01-26 |
+| Analytics fake data | ✅ FIXED | 2026-01-26 |
+| Auth session cache | ✅ IMPLEMENTED | 2026-01-26 |
+| Memory cleanup (expiresAt) | ✅ IMPLEMENTED | 2026-01-26 |
 
 ---
 
@@ -42,6 +128,9 @@
 - ✅ Auth session caching (Redis, 5 min TTL)
 - ✅ Memory cleanup (cron job at 3 AM)
 - ✅ Analytics with real data (email counts, trends)
+- ✅ Realtime email updates (TanStack Query single source of truth)
+- ✅ AI email analysis (priority, sentiment, labels persisted)
+- ✅ Thread view realtime updates (threadId in WebSocket events)
 
 **What's Theater Code (Looks Good, Does Nothing):**
 

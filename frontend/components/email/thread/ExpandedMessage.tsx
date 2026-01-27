@@ -18,7 +18,10 @@ import {
   IconButton,
   Tooltip,
   Divider,
-  Button,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ReplyIcon from '@mui/icons-material/Reply';
@@ -29,6 +32,7 @@ import LabelIcon from '@mui/icons-material/Label';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
+import InboxIcon from '@mui/icons-material/Inbox';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { EmailHtmlContent } from './EmailHtmlContent';
@@ -66,8 +70,10 @@ interface ExpandedMessageProps {
   onDelete?: (messageId: string) => void;
   /** Callback when archive is clicked */
   onArchive?: (messageId: string) => void;
-  /** Callback when move is clicked */
+  /** Callback when move is clicked (opens folder picker dialog) */
   onMove?: (messageId: string) => void;
+  /** Callback when moving to a specific folder directly (no dialog) */
+  onMoveToFolder?: (messageId: string, folder: string) => void;
   /** Callback when attachment download is clicked */
   onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
 }
@@ -117,12 +123,17 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   onDelete,
   onArchive,
   onMove,
+  onMoveToFolder,
   onDownloadAttachment,
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
   const t = useTranslations();
   const [showActions, setShowActions] = useState(false);
   const [showAllRecipients, setShowAllRecipients] = useState(false);
+
+  // Move menu state
+  const [moveMenuAnchor, setMoveMenuAnchor] = useState<HTMLElement | null>(null);
+  const moveMenuOpen = Boolean(moveMenuAnchor);
 
   // AI Features State (Phase 8) - Summary only
   const [showSummary, setShowSummary] = useState(false);
@@ -132,6 +143,25 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   const handleSummaryGenerated = (newSummary: string) => {
     setSummary(newSummary);
     setShowSummary(true);
+  };
+
+  // Move menu handlers
+  const handleMoveClick = (event: React.MouseEvent<HTMLElement>) => {
+    setMoveMenuAnchor(event.currentTarget);
+  };
+
+  const handleMoveClose = () => {
+    setMoveMenuAnchor(null);
+  };
+
+  const handleMoveToFolder = (folder: string) => {
+    handleMoveClose();
+    if (onMoveToFolder) {
+      onMoveToFolder(message.id, folder);
+    } else if (onMove) {
+      // Fallback to old behavior
+      onMove(message.id);
+    }
   };
 
   return (
@@ -353,12 +383,12 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         </Box>
       </Box>
 
-      {/* Action Buttons Row - Labels, Move, AI */}
+      {/* Action Buttons Row - Icon buttons (mobile-style) */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
+          gap: 0.5,
           px: 2,
           py: 1,
           pl: 7.5,
@@ -367,41 +397,91 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
         }}
       >
-        {/* Labels Button */}
+        {/* Labels Icon Button */}
         {onLabels && (
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<LabelIcon sx={{ fontSize: 14 }} />}
-            onClick={() => onLabels(message.id)}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.75rem',
-              py: 0.5,
-              px: 1.5,
-            }}
-          >
-            {t.email?.labels?.addLabels || 'Add Labels'}
-          </Button>
+          <Tooltip title={t.email?.labels?.addLabels || 'Add Labels'}>
+            <IconButton
+              size="small"
+              onClick={() => onLabels(message.id)}
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                '&:hover': { bgcolor: 'primary.dark' },
+              }}
+            >
+              <LabelIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
         )}
 
-        {/* Move Button */}
-        {onMove && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<DriveFileMoveIcon sx={{ fontSize: 14 }} />}
-            onClick={() => onMove(message.id)}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.75rem',
-              py: 0.5,
-              px: 1.5,
-            }}
-          >
-            {t.threadActions?.moveThread || 'Move'}
-          </Button>
+        {/* Move Icon Button with Dropdown */}
+        {(onMove || onMoveToFolder) && (
+          <>
+            <Tooltip title={t.threadActions?.moveThread || 'Move'}>
+              <IconButton
+                size="small"
+                onClick={handleMoveClick}
+                sx={{ color: 'text.secondary' }}
+              >
+                <DriveFileMoveIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={moveMenuAnchor}
+              open={moveMenuOpen}
+              onClose={handleMoveClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            >
+              <MenuItem onClick={() => handleMoveToFolder('INBOX')}>
+                <ListItemIcon>
+                  <InboxIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Inbox</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => handleMoveToFolder('ARCHIVE')}>
+                <ListItemIcon>
+                  <ArchiveIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Archive</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => handleMoveToFolder('TRASH')}>
+                <ListItemIcon>
+                  <DeleteIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Trash</ListItemText>
+              </MenuItem>
+            </Menu>
+          </>
         )}
+
+        {/* Archive Icon Button */}
+        {onArchive && (
+          <Tooltip title={t.threadActions?.archiveThread || 'Archive'}>
+            <IconButton
+              size="small"
+              onClick={() => onArchive(message.id)}
+              sx={{ color: 'text.secondary' }}
+            >
+              <ArchiveIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* Delete Icon Button */}
+        {onDelete && (
+          <Tooltip title={t.threadActions?.deleteThread || 'Delete'}>
+            <IconButton
+              size="small"
+              onClick={() => onDelete(message.id)}
+              sx={{ color: 'error.main' }}
+            >
+              <DeleteIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
         {/* AI Action Buttons */}
         <AiActionButtons

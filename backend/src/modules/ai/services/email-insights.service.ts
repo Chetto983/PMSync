@@ -152,7 +152,10 @@ export class EmailInsightsService {
   ): Promise<UnifiedEmailAnalysis> {
     const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-    // Check cache first
+    // Resolve locale early for cache check
+    const lang = this.resolveLocale(locale);
+
+    // Check cache first - BUT verify locale matches (fixes wrong-language responses)
     const cached = await this.prisma.emailAnalysis.findFirst({
       where: {
         emailId,
@@ -161,16 +164,22 @@ export class EmailInsightsService {
       },
     });
 
-    if (cached?.summary) {
-      this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId}`);
+    // Cache hit only if locale matches (stored in suggestedActions.locale)
+    const cachedLocale = (cached?.suggestedActions as Record<string, unknown>)?.locale as string | undefined;
+    if (cached?.summary && cachedLocale === lang) {
+      this.logger.debug(`Cache hit for analyzeEmailUnified: ${emailId} (locale: ${lang})`);
       return this.mapEmailAnalysisToUnified(cached);
     }
 
-    // No cache - run LLM analysis
+    if (cached?.summary && cachedLocale !== lang) {
+      this.logger.debug(`Cache miss - locale mismatch: cached=${cachedLocale}, requested=${lang}`);
+    }
+
+    // No cache (or locale mismatch) - run LLM analysis
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
-    const lang = this.resolveLocale(locale);
+    // lang already resolved above for cache check
 
     // Get user's allowed labels
     const allowedLabels = await this.getUserLabels(tenantId);
@@ -227,6 +236,7 @@ export class EmailInsightsService {
           deadlineDate: result.deadlineDate,
           needsFollowUp: result.needsFollowUp,
           suggestedActions: {
+            locale: lang, // Store locale for cache validation
             smartReplies: result.smartReplies,
             intent: result.intent,
             urgency: result.urgency,
@@ -250,6 +260,7 @@ export class EmailInsightsService {
           deadlineDate: result.deadlineDate,
           needsFollowUp: result.needsFollowUp,
           suggestedActions: {
+            locale: lang, // Store locale for cache validation
             smartReplies: result.smartReplies,
             intent: result.intent,
             urgency: result.urgency,

@@ -363,6 +363,7 @@ export class EmailsService {
       emailId: updated.id,
       providerId: updated.providerId,
       folder: targetFolder,
+      threadId: updated.threadId ?? undefined,
       updates: data,
       reason,
     });
@@ -874,6 +875,7 @@ export class EmailsService {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
+        threadId: email.threadId ?? undefined,
         email: email,
         reason: 'read-status-updated',
       });
@@ -1363,6 +1365,7 @@ export class EmailsService {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
+        threadId: email.threadId ?? undefined,
         email: email,
         reason: 'starred-updated',
       });
@@ -1438,6 +1441,7 @@ export class EmailsService {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
+        threadId: email.threadId ?? undefined,
         email: email,
         reason: 'flagged-updated',
       });
@@ -1529,6 +1533,7 @@ export class EmailsService {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
+        threadId: email.threadId ?? undefined,
         email: email,
         reason: 'folder-updated',
       });
@@ -1610,6 +1615,7 @@ export class EmailsService {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
+        threadId: email.threadId ?? undefined,
         email: email, // Send full email object
         reason: 'labels-updated',
       });
@@ -1664,6 +1670,7 @@ export class EmailsService {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
+        threadId: email.threadId ?? undefined,
         email: email, // Send full email object
         reason: 'labels-updated',
       });

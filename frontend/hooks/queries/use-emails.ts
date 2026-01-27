@@ -364,6 +364,7 @@ export function useBulkDeleteEmails() {
       });
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
   });
 }
@@ -381,6 +382,7 @@ export function useBulkMarkRead() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
   });
 }
@@ -399,6 +401,7 @@ export function useBulkMarkImportant() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
   });
 }
@@ -416,6 +419,7 @@ export function useBulkMoveEmails() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
   });
 }
@@ -432,6 +436,7 @@ export function useBulkAddLabels() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
   });
 }
@@ -448,6 +453,7 @@ export function useBulkRemoveLabels() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
   });
 }

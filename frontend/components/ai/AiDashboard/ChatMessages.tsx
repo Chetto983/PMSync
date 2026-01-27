@@ -1,16 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, Typography, Paper, Chip, alpha, useTheme, Link } from '@mui/material';
 import { Bot, User, Sparkles, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Message } from './index';
 import { AgentProgressIndicator } from './AgentProgressIndicator';
 import { InlineActionCard, type PendingAction } from './InlineActionCard';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAgentActivityStream } from '@/hooks/ai/use-agent-activity-stream';
+import { websocketClient } from '@/lib/websocket-client';
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -19,29 +20,49 @@ interface ChatMessagesProps {
   conversationId?: string | null;
 }
 
-// Hook to fetch pending actions for a message
-function usePendingActionsForMessage(actionIds: string[] | undefined) {
+/**
+ * Hook to fetch ALL pending actions for a conversation.
+ * Uses WebSocket subscription for real-time updates (see ChatMessages component).
+ * Filters by sessionId to only show actions for this conversation.
+ */
+function useConversationPendingActions(conversationId: string | null | undefined) {
   return useQuery({
-    queryKey: ["ai", "pendingActions", "inline", actionIds?.join(",") || ""],
+    queryKey: ['ai', 'pendingActions', 'conversation', conversationId || ''],
     queryFn: async () => {
-      if (!actionIds || actionIds.length === 0) return [];
+      if (!conversationId) return [];
       const response = await multiAgentApi.getPendingActions({ limit: 50 });
       const allActions = response.data?.actions || [];
-      return allActions.filter((a: PendingAction) => actionIds.includes(a.id));
+      // Filter by sessionId (conversationId) - only show actions for this conversation
+      return allActions.filter((a: PendingAction) =>
+        a.sessionId === conversationId ||
+        // Fallback: check if payload contains sessionId
+        (a.payload as Record<string, unknown>)?.sessionId === conversationId
+      );
     },
-    enabled: !!actionIds && actionIds.length > 0,
-    staleTime: 10 * 1000,
-    refetchInterval: 5 * 1000,
+    enabled: !!conversationId,
+    staleTime: 5 * 1000, // Short stale time for responsive HITL
+    gcTime: 60 * 1000,
   });
 }
 
-// Component to render inline actions for a message
-function MessageInlineActions({ actionIds }: { actionIds: string[] }) {
-  const { data: actions = [] } = usePendingActionsForMessage(actionIds);
-  if (!actions.length) return null;
+/**
+ * Component to render ALL pending actions for a conversation.
+ * Shows below the last assistant message for inline HITL approval.
+ * Follows AI SDK HITL pattern - actions appear in chat flow, not sidebar.
+ */
+function ConversationPendingActions({ conversationId }: { conversationId: string | null | undefined }) {
+  const { data: actions = [] } = useConversationPendingActions(conversationId);
+
+  // Only show PENDING actions (not approved/rejected)
+  const pendingActions = actions.filter((a: PendingAction) =>
+    !a.status || a.status === 'PENDING'
+  );
+
+  if (!pendingActions.length) return null;
+
   return (
     <Box sx={{ mt: 1 }}>
-      {actions.map((action: PendingAction) => (
+      {pendingActions.map((action: PendingAction) => (
         <InlineActionCard key={action.id} action={action} />
       ))}
     </Box>
@@ -207,11 +228,35 @@ const MarkdownComponents = {
 
 export function ChatMessages({ messages, sending, conversationId }: ChatMessagesProps) {
   const theme = useTheme();
+  const queryClient = useQueryClient();
 
   // Real-time agent activity streaming
   const { steps: agentSteps, isActive: hasAgentActivity } = useAgentActivityStream({
     sessionId: conversationId,
   });
+
+  // WebSocket subscription for real-time HITL updates
+  // Invalidates pending actions queries when actions are created/approved/rejected/executed
+  useEffect(() => {
+    const invalidateAllPendingActions = () => {
+      // Invalidate all pending actions queries to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
+    };
+
+    const unsubCreated = websocketClient.onAiActionCreated(invalidateAllPendingActions);
+    const unsubApproved = websocketClient.onAiActionApproved(invalidateAllPendingActions);
+    const unsubRejected = websocketClient.onAiActionRejected(invalidateAllPendingActions);
+    const unsubExecuted = websocketClient.onAiActionExecuted(invalidateAllPendingActions);
+    const unsubFailed = websocketClient.onAiActionFailed(invalidateAllPendingActions);
+
+    return () => {
+      unsubCreated();
+      unsubApproved();
+      unsubRejected();
+      unsubExecuted();
+      unsubFailed();
+    };
+  }, [queryClient]);
 
   // Auto-scroll to bottom ref
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
@@ -309,11 +354,6 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
               )}
             </Paper>
 
-            {/* Inline Action Cards - Show below assistant messages with pending actions */}
-            {message.role === 'assistant' && message.pendingActionIds && message.pendingActionIds.length > 0 && (
-              <MessageInlineActions actionIds={message.pendingActionIds} />
-            )}
-
             {/* Metadata */}
             <Box
               sx={{
@@ -358,6 +398,13 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
           </Box>
         </Box>
       ))}
+
+      {/* Conversation-wide Pending Actions - Shows ALL pending HITL actions for this conversation.
+          Uses WebSocket for real-time updates (subscribed above).
+          This catches any actions created during streaming that weren't mapped to specific messages. */}
+      {!sending && messages.length > 0 && (
+        <ConversationPendingActions conversationId={conversationId} />
+      )}
 
       {/* Agent Progress Indicator - Shows live agent chain with real-time streaming */}
       <AgentProgressIndicator

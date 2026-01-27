@@ -2525,6 +2525,56 @@ export interface AppTranslations {
       resolved: string;
       snoozed: string;
     };
+    // HITL Inline Action Card
+    inlineAction: {
+      actionTypes: {
+        SEND_EMAIL: string;
+        CREATE_EVENT: string;
+        UPDATE_CONTACT: string;
+        DELETE_EMAIL: string;
+        MOVE_EMAIL: string;
+        REPLY_EMAIL: string;
+        FORWARD_EMAIL: string;
+        SCHEDULE_MEETING: string;
+        CREATE_TASK: string;
+        ADD_LABEL: string;
+        ARCHIVE_EMAIL: string;
+        SNOOZE_EMAIL: string;
+        CREATE_CONTACT: string;
+        DELETE_CONTACT: string;
+      };
+      severity: {
+        LOW: string;
+        MEDIUM: string;
+        HIGH: string;
+      };
+      fields: {
+        to: string;
+        cc: string;
+        bcc: string;
+        subject: string;
+        body: string;
+        title: string;
+        location: string;
+        attendees: string;
+        startTime: string;
+        endTime: string;
+        notes: string;
+      };
+      reasoning: string;
+      actionDetails: string;
+      editPayload: string;
+      hideDetails: string;
+      approved: string;
+      rejected: string;
+      executed: string;
+      failed: string;
+      expired: string;
+      approving: string;
+      rejecting: string;
+      executionSuccess: string;
+      executionFailed: string;
+    };
   };
   commandPalette: {
     searchPlaceholder: string;
@@ -2715,6 +2765,14 @@ export interface AppTranslations {
     unflagged: string;
     hasAttachments: string;
     threadCount: string;
+    // AI indicators
+    aiPriority: string;
+    aiSentiment: {
+      urgent: string;
+      negative: string;
+      positive: string;
+      neutral: string;
+    };
     // Loading
     loading: string;
     loadingMore: string;

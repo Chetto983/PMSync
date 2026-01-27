@@ -73,8 +73,17 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         });
       }
 
-      // Invalidate thread if threadId is provided
-      if (event.threadId) {
+      // Invalidate thread queries
+      // CRITICAL: Frontend uses emailId for thread URL (not threadId field)
+      // So we must invalidate using emailId as the query key
+      if (event.emailId) {
+        queryClient.invalidateQueries({
+          queryKey: emailKeys.thread(event.emailId),
+          refetchType: 'all',
+        });
+      }
+      // Also invalidate by actual threadId if different (for future compatibility)
+      if (event.threadId && event.threadId !== event.emailId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.thread(event.threadId),
           refetchType: 'all',

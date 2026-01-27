@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -12,6 +12,7 @@ import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useEmail,
+  useEmails,
   useFolders,
   useBulkMoveEmails,
   useBulkMarkRead,
@@ -21,12 +22,12 @@ import {
   useSenderPhotos,
   useUserPreferences,
   useUpdatePreferences,
-  emailsListOptions,
+  emailKeys,
 } from '@/hooks/queries';
 import type { SenderContactMap } from '@/lib/api/contacts';
+import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters } from '@/stores/email-ui-store';
-import { useEmailListStore } from '@/stores/email-list-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
 import { Pencil } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -76,6 +77,10 @@ function formatEmailToThread(email: Email, senderPhotos?: SenderContactMap): Thr
       name: el.label?.name || 'Label',
       color: el.label?.color?.backgroundColor || '#9E9E9E',
     })).filter((l) => l.id),
+    // AI Auto-Triage fields (VoltAgent analysis results)
+    aiPriority: email.aiPriority,
+    aiSentiment: email.aiSentiment,
+    aiLabels: email.aiLabels,
   };
 }
 
@@ -95,25 +100,11 @@ export default function EmailPage() {
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [labelPickerEmailIds, setLabelPickerEmailIds] = useState<string[]>([]);
 
-  // Store state (following Contacts pattern)
-  const {
-    emails: storeEmails,
-    setEmails: setStoreEmails,
-    appendEmails,
-    isLoading: loading,
-    setLoading,
-    isLoadingMore: loadingMore,
-    setLoadingMore,
-    pagination,
-    setPagination,
-    reset: resetStore,
-  } = useEmailListStore();
+  // Pagination state (local, not in store)
+  const [page, setPage] = useState(1);
 
-  // TanStack Query client for imperative fetching
+  // TanStack Query client for optimistic updates
   const queryClient = useQueryClient();
-
-  // Refs for pagination (following Contacts pattern)
-  const paginationRef = useRef({ page: 1, pageSize: 50, hasMore: true, total: 0 });
 
   // Navigate to compose page
   const handleCompose = useCallback(() => {
@@ -165,7 +156,7 @@ export default function EmailPage() {
   );
 
   // Build query params for emails API
-  const emailQueryParams = useMemo(() => ({
+  const emailQueryParams: ListEmailsParams = useMemo(() => ({
     specialUse: filters.labelId || filters.folderId
       ? undefined
       : getApiSpecialUse(filters.specialUse),
@@ -178,73 +169,41 @@ export default function EmailPage() {
     labelIds: filters.labelId,
     fromVip: filters.fromVip,
     limit: 50,
-  }), [filters, selectedFolderPath, getApiSpecialUse]);
+    page,
+  }), [filters, selectedFolderPath, getApiSpecialUse, page]);
 
-  // Create a stable filter key to detect filter changes
-  const filterKey = useMemo(() => JSON.stringify(emailQueryParams), [emailQueryParams]);
+  // Reset page when filters change
+  const filterKey = useMemo(() => {
+    const { page: _, ...filtersWithoutPage } = emailQueryParams;
+    return JSON.stringify(filtersWithoutPage);
+  }, [emailQueryParams]);
 
-  // Sync refs with state (following Contacts pattern)
   useEffect(() => {
-    paginationRef.current = pagination;
-  }, [pagination]);
+    setPage(1);
+  }, [filterKey]);
 
-  // Load emails using TanStack Query (following Contacts pattern)
-  const loadEmails = useCallback(async (reset: boolean = true) => {
-    try {
-      if (reset) {
-        setLoading(true);
-        const newPagination = { page: 1, pageSize: 50, hasMore: true, total: 0 };
-        paginationRef.current = newPagination;
-        setPagination(newPagination);
-      } else {
-        setLoadingMore(true);
-      }
+  // ============================================================================
+  // TanStack Query - SINGLE SOURCE OF TRUTH (no Zustand store!)
+  // ============================================================================
+  const {
+    data: emailsResponse,
+    isLoading: loading,
+    isFetching,
+    refetch,
+  } = useEmails(emailQueryParams);
 
-      const page = reset ? 1 : paginationRef.current.page + 1;
-      const response = await queryClient.fetchQuery(
-        emailsListOptions({ ...emailQueryParams, page })
-      );
-      const emailsData = response?.emails || [];
-
-      if (reset) {
-        setStoreEmails(emailsData);
-      } else {
-        // Append emails using store's getState for current data
-        const currentEmails = useEmailListStore.getState().emails;
-        const existingIds = new Set(currentEmails.map((e) => e.id));
-        const newEmails = emailsData.filter((e: Email) => !existingIds.has(e.id));
-        appendEmails(newEmails);
-      }
-
-      const responsePagination = response?.pagination;
-      const newPagination = {
-        page,
-        pageSize: 50,
-        hasMore: responsePagination ? responsePagination.page < responsePagination.totalPages : false,
-        total: responsePagination?.total || 0,
-      };
-      paginationRef.current = newPagination;
-      setPagination(newPagination);
-    } catch {
-      // Failed to load emails - silently fail
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [emailQueryParams, setStoreEmails, appendEmails, setPagination, setLoading, setLoadingMore, queryClient]);
-
-  // Reset and reload when filters change
-  useEffect(() => {
-    resetStore();
-    loadEmails(true);
-  }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Derive emails and pagination from query response (memoized for stable reference)
+  const emails = useMemo(() => emailsResponse?.emails ?? [], [emailsResponse?.emails]);
+  const responsePagination = emailsResponse?.pagination;
+  const hasMore = responsePagination ? responsePagination.page < responsePagination.totalPages : false;
+  const loadingMore = isFetching && page > 1;
 
   // Load more emails (infinite scroll)
   const handleLoadMore = useCallback(() => {
-    if (!loadingMore && pagination.hasMore) {
-      loadEmails(false);
+    if (!isFetching && hasMore) {
+      setPage((p) => p + 1);
     }
-  }, [loadEmails, loadingMore, pagination.hasMore]);
+  }, [isFetching, hasMore]);
 
   // Fetch single email when selected (desktop 3-panel view)
   const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');
@@ -260,50 +219,91 @@ export default function EmailPage() {
   const { data: preferences } = useUserPreferences();
   const updatePreferences = useUpdatePreferences();
 
-  // Extract unique sender emails for photo lookup (from store emails)
+  // Extract unique sender emails for photo lookup
   const senderEmails = useMemo(() => {
-    if (!storeEmails.length) return [];
-    const emails = storeEmails.map((e) => extractEmailAddress(e.from));
-    return [...new Set(emails)];
-  }, [storeEmails]);
+    if (!emails.length) return [];
+    const emailAddresses = emails.map((e) => extractEmailAddress(e.from));
+    return [...new Set(emailAddresses)];
+  }, [emails]);
 
   // Fetch sender photos from contacts (batch lookup)
   const { data: senderPhotos } = useSenderPhotos(senderEmails);
 
-  // Format emails to thread list format with sender photos (from store emails)
+  // Format emails to thread list format with sender photos
   const threads = useMemo(
-    () => storeEmails.map((email) => formatEmailToThread(email, senderPhotos)),
-    [storeEmails, senderPhotos]
+    () => emails.map((email) => formatEmailToThread(email, senderPhotos)),
+    [emails, senderPhotos]
+  );
+
+  // ============================================================================
+  // Optimistic Update Helper - Updates TanStack Query cache directly
+  // ============================================================================
+  const optimisticUpdateEmail = useCallback(
+    (emailId: string, updates: Partial<Email>) => {
+      queryClient.setQueryData<ListEmailsResponse>(
+        emailKeys.listFiltered(emailQueryParams),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            emails: old.emails.map((e) =>
+              e.id === emailId ? { ...e, ...updates } : e
+            ),
+          };
+        }
+      );
+    },
+    [queryClient, emailQueryParams]
+  );
+
+  const optimisticRemoveEmail = useCallback(
+    (emailId: string) => {
+      queryClient.setQueryData<ListEmailsResponse>(
+        emailKeys.listFiltered(emailQueryParams),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            emails: old.emails.filter((e) => e.id !== emailId),
+          };
+        }
+      );
+    },
+    [queryClient, emailQueryParams]
   );
 
   // Email click - mark as read and show in reading pane (single email, not thread)
   const handleThreadClick = useCallback(
     async (id: string) => {
-      // Find the email from store emails
-      const email = storeEmails.find((e) => e.id === id);
+      const email = emails.find((e) => e.id === id);
       if (!email) return;
 
-      // Mark as read if unread
+      // Mark as read if unread - optimistic update first for instant UI feedback
       if (!email.isRead) {
-        try {
-          await updateEmail.mutateAsync({
-            emailId: id,
-            dto: { isRead: true },
-          });
-        } catch {
-          // Silent fail - don't block UI for read status
-        }
+        // Optimistically update cache (instant UI update)
+        optimisticUpdateEmail(id, { isRead: true });
+
+        // Then sync to backend (fire and forget)
+        updateEmail.mutate(
+          { emailId: id, dto: { isRead: true } },
+          {
+            onError: () => {
+              // Rollback on error
+              optimisticUpdateEmail(id, { isRead: false });
+            },
+          }
+        );
       }
 
       if (isDesktop) {
         // Desktop: show single email in reading pane (not thread view)
-        setSelectedThreadId(id); // Use email ID
+        setSelectedThreadId(id);
       } else {
         // Mobile/Tablet: navigate to thread detail page
         router.push(`/dashboard/email/thread/${id}`);
       }
     },
-    [router, storeEmails, isDesktop, updateEmail]
+    [router, emails, isDesktop, updateEmail, optimisticUpdateEmail]
   );
 
   // Close reading pane
@@ -387,27 +387,53 @@ export default function EmailPage() {
     setLabelPickerOpen(true);
   }, []);
 
-  // Delete single message from reading pane
+  // Delete single message from reading pane - optimistic update
   const handleDeleteMessage = useCallback(async (messageId: string) => {
+    // Store previous state for rollback
+    const previousEmail = emails.find((e) => e.id === messageId);
+
+    // Optimistic update: remove from cache
+    optimisticRemoveEmail(messageId);
+    setSelectedThreadId(null); // Close reading pane immediately
+
     try {
       await deleteEmail.mutateAsync(messageId);
       toast.success(t.common.success ?? 'Deleted');
-      setSelectedThreadId(null); // Close reading pane
     } catch {
+      // Rollback on error
+      if (previousEmail) {
+        queryClient.setQueryData<ListEmailsResponse>(
+          emailKeys.listFiltered(emailQueryParams),
+          (old) => old ? { ...old, emails: [...old.emails, previousEmail] } : old
+        );
+      }
       toast.error(t.common.genericError);
     }
-  }, [deleteEmail, toast, t]);
+  }, [deleteEmail, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams]);
 
-  // Archive single message from reading pane
+  // Archive single message from reading pane - optimistic update
   const handleArchiveMessage = useCallback(async (messageId: string) => {
+    // Store previous state for rollback
+    const previousEmail = emails.find((e) => e.id === messageId);
+
+    // Optimistic update: remove from cache (moving to Archive)
+    optimisticRemoveEmail(messageId);
+    setSelectedThreadId(null); // Close reading pane immediately
+
     try {
       await moveEmails.mutateAsync({ emailIds: [messageId], targetFolder: 'ARCHIVE' });
       toast.success(t.common.success ?? 'Archived');
-      setSelectedThreadId(null); // Close reading pane
     } catch {
+      // Rollback on error
+      if (previousEmail) {
+        queryClient.setQueryData<ListEmailsResponse>(
+          emailKeys.listFiltered(emailQueryParams),
+          (old) => old ? { ...old, emails: [...old.emails, previousEmail] } : old
+        );
+      }
       toast.error(t.common.genericError);
     }
-  }, [moveEmails, toast, t]);
+  }, [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams]);
 
   // Move single message from reading pane (opens folder picker)
   const handleMoveMessage = useCallback((messageId: string) => {
@@ -415,6 +441,30 @@ export default function EmailPage() {
     toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
     void messageId; // Will be used when folder picker is implemented
   }, [toast, t]);
+
+  // Move single message to specific folder directly (no dialog) - optimistic update
+  const handleMoveMessageToFolder = useCallback(async (messageId: string, targetFolder: string) => {
+    // Store previous state for rollback
+    const previousEmail = emails.find((e) => e.id === messageId);
+
+    // Optimistic update: remove from cache (moving to another folder)
+    optimisticRemoveEmail(messageId);
+    setSelectedThreadId(null); // Close reading pane immediately
+
+    try {
+      await moveEmails.mutateAsync({ emailIds: [messageId], targetFolder });
+      toast.success(t.common.success ?? 'Moved');
+    } catch {
+      // Rollback on error
+      if (previousEmail) {
+        queryClient.setQueryData<ListEmailsResponse>(
+          emailKeys.listFiltered(emailQueryParams),
+          (old) => old ? { ...old, emails: [...old.emails, previousEmail] } : old
+        );
+      }
+      toast.error(t.common.genericError);
+    }
+  }, [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams]);
 
   // Download attachment
   const handleDownloadAttachment = useCallback(async (_messageId: string, attachmentId: string) => {
@@ -509,6 +559,7 @@ export default function EmailPage() {
           onDelete={handleDeleteMessage}
           onArchive={handleArchiveMessage}
           onMove={handleMoveMessage}
+          onMoveToFolder={handleMoveMessageToFolder}
         />
       </Box>
     );
@@ -527,64 +578,98 @@ export default function EmailPage() {
     handleDeleteMessage,
     handleArchiveMessage,
     handleMoveMessage,
+    handleMoveMessageToFolder,
     t.threadView?.loading,
   ]);
 
-  // Refresh emails - reset and reload
+  // Refresh emails - refetch from server
   const handleRefresh = useCallback(() => {
-    loadEmails(true);
-  }, [loadEmails]);
+    setPage(1);
+    refetch();
+  }, [refetch]);
 
-  // Bulk mark as read
+  // Bulk mark as read - optimistic update for instant UI
   const handleBulkMarkAsRead = useCallback(
     async (ids: string[]) => {
+      // Optimistic update: mark all as read in cache
+      ids.forEach((id) => optimisticUpdateEmail(id, { isRead: true }));
+
       try {
         await markRead.mutateAsync({ emailIds: ids, isRead: true });
         toast.success(t.common.success ?? 'Done');
       } catch {
+        // Rollback on error
+        ids.forEach((id) => optimisticUpdateEmail(id, { isRead: false }));
         toast.error(t.common.genericError);
       }
     },
-    [markRead, toast, t]
+    [markRead, toast, t, optimisticUpdateEmail]
   );
 
-  // Bulk mark as unread
+  // Bulk mark as unread - optimistic update for instant UI
   const handleBulkMarkAsUnread = useCallback(
     async (ids: string[]) => {
+      // Optimistic update: mark all as unread in cache
+      ids.forEach((id) => optimisticUpdateEmail(id, { isRead: false }));
+
       try {
         await markRead.mutateAsync({ emailIds: ids, isRead: false });
         toast.success(t.common.success ?? 'Done');
       } catch {
+        // Rollback on error
+        ids.forEach((id) => optimisticUpdateEmail(id, { isRead: true }));
         toast.error(t.common.genericError);
       }
     },
-    [markRead, toast, t]
+    [markRead, toast, t, optimisticUpdateEmail]
   );
 
-  // Bulk archive - moves to Archive folder
+  // Bulk archive - optimistic update removes from current view
   const handleBulkArchive = useCallback(
     async (ids: string[]) => {
+      // Store previous state for rollback
+      const previousEmails = emails.filter((e) => ids.includes(e.id));
+
+      // Optimistic update: remove from cache (they're moving to Archive)
+      ids.forEach((id) => optimisticRemoveEmail(id));
+
       try {
         await moveEmails.mutateAsync({ emailIds: ids, targetFolder: 'ARCHIVE' });
         toast.success(t.common.success ?? 'Done');
       } catch {
+        // Rollback on error - restore emails by refetching
+        queryClient.setQueryData<ListEmailsResponse>(
+          emailKeys.listFiltered(emailQueryParams),
+          (old) => old ? { ...old, emails: [...old.emails, ...previousEmails] } : old
+        );
         toast.error(t.common.genericError);
       }
     },
-    [moveEmails, toast, t]
+    [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams]
   );
 
-  // Bulk delete
+  // Bulk delete - optimistic update removes from view
   const handleBulkDelete = useCallback(
     async (ids: string[]) => {
+      // Store previous state for rollback
+      const previousEmails = emails.filter((e) => ids.includes(e.id));
+
+      // Optimistic update: remove from cache
+      ids.forEach((id) => optimisticRemoveEmail(id));
+
       try {
         await bulkDelete.mutateAsync(ids);
         toast.success(t.common.success ?? 'Done');
       } catch {
+        // Rollback on error - restore emails
+        queryClient.setQueryData<ListEmailsResponse>(
+          emailKeys.listFiltered(emailQueryParams),
+          (old) => old ? { ...old, emails: [...old.emails, ...previousEmails] } : old
+        );
         toast.error(t.common.genericError);
       }
     },
-    [bulkDelete, toast, t]
+    [bulkDelete, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams]
   );
 
   // Bulk move - show folder picker (TODO: implement picker dialog)
@@ -607,8 +692,8 @@ export default function EmailPage() {
         return extractLabelIds(selectedEmail.emailLabels);
       }
 
-      // Fall back to store data
-      const selectedEmails = storeEmails.filter((e) => ids.includes(e.id));
+      // Fall back to query data
+      const selectedEmails = emails.filter((e) => ids.includes(e.id));
       if (selectedEmails.length === 0) return [];
 
       // Get label IDs from first email
@@ -630,7 +715,7 @@ export default function EmailPage() {
       }
       return Array.from(firstEmailLabels);
     },
-    [storeEmails, selectedEmail]
+    [emails, selectedEmail]
   );
 
   // Bulk label - show label picker dialog
@@ -765,7 +850,7 @@ export default function EmailPage() {
   );
 
   // Show loading state (only on initial load when no emails yet)
-  if (loading && storeEmails.length === 0) {
+  if (loading && emails.length === 0) {
     return (
       <Layout>
         <EmailLayout>
@@ -800,7 +885,7 @@ export default function EmailPage() {
             emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
             isLoading={loading}
             isLoadingMore={loadingMore}
-            hasMore={pagination.hasMore}
+            hasMore={hasMore}
             focusedId={focusedId}
             onThreadClick={handleThreadClick}
             onRefresh={handleRefresh}
