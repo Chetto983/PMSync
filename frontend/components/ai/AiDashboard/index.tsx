@@ -9,7 +9,7 @@
  * Based on: https://voltagent.dev/docs/ui/ai-sdk-integration/
  */
 
-import React, { Suspense, lazy, useState, useRef, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useRef, useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -109,6 +109,9 @@ export function AiDashboard() {
   // Command palette state (triggered by "/" at start of input)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
+  // Track new conversations that need title generation (after first assistant response)
+  const needsTitleGenRef = useRef<string | null>(null);
+
   // AI SDK useChat hook for streaming
   const {
     messages: chatMessages,
@@ -124,18 +127,33 @@ export function AiDashboard() {
       logger.error('[AiDashboard] Chat error:', error);
     },
     onConversationIdChange: (newId) => {
-      // Auto-generate title after first exchange
+      // Mark new conversations for title generation (will be done after first assistant response)
+      // Don't call API here - conversation doesn't exist in DB until first message exchange
       if (newId && chatMessages.length === 0) {
-        import('@/lib/api/ai').then(({ voltAgentApi }) => {
-          voltAgentApi.generateConversationTitle(newId, t.locale).then(() => {
-            queryClient.invalidateQueries({ queryKey: ['ai', 'conversations'] });
-          }).catch(() => {
-            // Ignore title generation errors
-          });
-        });
+        needsTitleGenRef.current = newId;
       }
     },
   });
+
+  // Auto-generate title AFTER first assistant message arrives (conversation now exists in DB)
+  useEffect(() => {
+    const convId = needsTitleGenRef.current;
+    // Trigger when we have an assistant response and a pending title generation
+    const hasAssistantMessage = chatMessages.some(msg => msg.role === 'assistant');
+
+    if (convId && hasAssistantMessage && conversationId === convId) {
+      needsTitleGenRef.current = null; // Clear flag first to prevent duplicate calls
+
+      import('@/lib/api/ai').then(({ voltAgentApi }) => {
+        voltAgentApi.generateConversationTitle(convId, t.locale).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['ai', 'conversations'] });
+        }).catch((err) => {
+          // Log but don't show to user - title generation is non-critical
+          logger.debug('[AiDashboard] Title generation failed:', err);
+        });
+      });
+    }
+  }, [chatMessages, conversationId, queryClient, t.locale]);
 
   const sending = status === 'submitted' || status === 'streaming';
 
