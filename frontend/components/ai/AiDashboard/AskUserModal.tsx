@@ -47,10 +47,10 @@ interface AskUserModalProps {
   open: boolean;
   data: AskUserData | null;
   onSubmit: (answer: string | string[]) => void;
-  onCancel: () => void;
+  onClose: () => void;
 }
 
-export function AskUserModal({ open, data, onSubmit, onCancel }: AskUserModalProps) {
+export function AskUserModal({ open, data, onSubmit, onClose }: AskUserModalProps) {
   const theme = useTheme();
   const t = useTranslations();
   const [selected, setSelected] = useState<string[]>([]);
@@ -101,7 +101,7 @@ export function AskUserModal({ open, data, onSubmit, onCancel }: AskUserModalPro
   return (
     <Dialog
       open={open}
-      onClose={onCancel}
+      onClose={onClose}
       maxWidth="sm"
       fullWidth
       PaperProps={{
@@ -250,7 +250,7 @@ export function AskUserModal({ open, data, onSubmit, onCancel }: AskUserModalPro
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Button onClick={onCancel} color="inherit">
+        <Button onClick={onClose} color="inherit">
           {t.ai?.askUser?.cancel || 'Cancel'}
         </Button>
         <Button

@@ -2142,7 +2142,10 @@ export interface AppTranslations {
       title: string;
       other: string;
       otherPlaceholder: string;
+      placeholder: string;
       submit: string;
+      cancel: string;
+      continue: string;
     };
     memory: {
       title: string;
