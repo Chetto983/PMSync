@@ -150,9 +150,10 @@ export class EmailsService {
           sentAt: true,
           receivedAt: true,
           size: true,
-          // AI Triage fields - show priority/labels if already triaged
+          // AI Triage fields - show priority/labels/sentiment if already triaged
           aiPriority: true,
           aiPriorityReason: true,
+          aiSentiment: true,
           aiLabels: true,
           isAutoTriaged: true,
           autoTriagedAt: true,
@@ -345,13 +346,25 @@ export class EmailsService {
 
     const targetFolder = data.folder ?? originalFolder;
 
-    // Emit realtime update event
+    // Emit realtime update event with appropriate reason
+    // FIX: Use specific reason so frontend can react appropriately
+    let reason: 'read-status-updated' | 'starred-updated' | 'flagged-updated' | 'folder-updated' | 'message-processed' = 'message-processed';
+    if (data.isRead !== undefined) {
+      reason = 'read-status-updated';
+    } else if (data.isStarred !== undefined) {
+      reason = 'starred-updated';
+    } else if (data.isFlagged !== undefined) {
+      reason = 'flagged-updated';
+    } else if (data.folder !== undefined) {
+      reason = 'folder-updated';
+    }
+
     this.realtimeEvents.emitEmailUpdate(tenantId, {
       emailId: updated.id,
       providerId: updated.providerId,
       folder: targetFolder,
       updates: data,
-      reason: 'message-processed',
+      reason,
     });
 
     // Update folder counts if isRead changed or folder changed

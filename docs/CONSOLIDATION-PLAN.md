@@ -106,11 +106,13 @@
 ## CRM: Stop Lying
 
 **Reality:**
+
 - You have CONTACTS MANAGEMENT, not CRM
 - `Deal` table exists but has NO API - it's vaporware
 - No DealsController, no DealsService, no frontend
 
 **Recommendation:**
+
 - Remove "CRM" branding until you build deals
 - Keep: Contacts, relationship scoring, stale alerts
 - Kill: Any deals UI mockups that don't work
@@ -167,6 +169,7 @@ Email Density (`comfortable`, `compact`, `spacious`) is a **UI preference**, not
 Currently `communicationStyle` (FORMAL, CASUAL, TECHNICAL, CREATIVE) is stored in UserPreferences but NOT used when composing emails.
 
 **Fix**: When calling `aiApi.composeEmail()`:
+
 1. Fetch user's `communicationStyle` preference
 2. Map to compose `tone` parameter:
    - FORMAL → 'formal'
@@ -175,6 +178,7 @@ Currently `communicationStyle` (FORMAL, CASUAL, TECHNICAL, CREATIVE) is stored i
    - CREATIVE → 'casual' (or add support)
 
 **Files to modify**:
+
 - `frontend/components/email/compose/ComposeEditor.tsx` - get preference and pass to API
 - OR `frontend/hooks/queries/use-preferences.ts` - create hook if not exists
 

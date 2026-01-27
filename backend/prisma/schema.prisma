@@ -370,6 +370,7 @@ model Email {
   // Auto-Triage fields (Superhuman-like feature)
   aiPriority           Int?                    // AI-calculated priority 1-5 (1=highest)
   aiPriorityReason     String?                 // Explanation for priority
+  aiSentiment          String?                 // AI sentiment: positive, negative, neutral, mixed
   aiLabels             String[]                @default([]) // AI-suggested labels
   isAutoTriaged        Boolean                 @default(false) // Flag if auto-triaged
   autoTriagedAt        DateTime?               // When auto-triage ran

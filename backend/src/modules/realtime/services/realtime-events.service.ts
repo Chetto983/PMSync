@@ -610,6 +610,10 @@ export class RealtimeEventsService implements OnModuleDestroy {
           this.emitEmailNew(tenantId, eventPayload);
           break;
         case 'labels-updated':
+        case 'read-status-updated':
+        case 'starred-updated':
+        case 'flagged-updated':
+        case 'folder-updated':
           this.emitEmailUpdate(tenantId, eventPayload);
           break;
         case 'message-deleted':
@@ -621,9 +625,10 @@ export class RealtimeEventsService implements OnModuleDestroy {
             status: 'completed',
           });
           break;
-        default:
-          // Fallback for any unknown reasons
+        case 'message-sent':
+          // Message sent events are also updates
           this.emitEmailUpdate(tenantId, eventPayload);
+          break;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

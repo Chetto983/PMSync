@@ -48,15 +48,10 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         return;
       }
 
-      // Invalidate list queries to show new email
-      queryClient.invalidateQueries({ queryKey: emailKeys.list() });
-
-      // Invalidate stats for updated counts
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-
-      // Invalidate folder list queries to update sidebar unread counts
-      // Use lists() not all - metadata is static and should not be refetched
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
+      queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
 
       // If we have the full email object, we could prefetch the detail
       if (event.emailId) {
@@ -70,33 +65,42 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for email update events (read, starred, flagged, etc.)
   const handleEmailUpdate = useCallback(
     (event: RealtimeEmailEvent) => {
-      if (folder && event.folder !== folder) {
-        return;
-      }
-
-      // Invalidate detail if we have the ID
+      // Always invalidate detail if we have the ID (read status, flags, etc.)
       if (event.emailId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.detail(event.emailId),
+          refetchType: 'all',
         });
       }
-
-      // Invalidate list for flag changes
-      queryClient.invalidateQueries({ queryKey: emailKeys.list() });
 
       // Invalidate thread if threadId is provided
       if (event.threadId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.thread(event.threadId),
+          refetchType: 'all',
         });
       }
 
-      // Stats and folder counts may change for read/unread updates
-      if (event.reason === 'read-status-updated') {
-        queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-        // Update sidebar folder unread counts (not metadata - it's static)
-        queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      // For read/starred/flagged updates, always invalidate list and stats
+      // These affect the current view regardless of folder
+      if (
+        event.reason === 'read-status-updated' ||
+        event.reason === 'starred-updated' ||
+        event.reason === 'flagged-updated'
+      ) {
+        // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
+        queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
+        queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
+        queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
+        return;
       }
+
+      // For other updates (labels, folder move), only invalidate if folder matches
+      if (folder && event.folder && event.folder !== folder) {
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
     },
     [queryClient, folder]
   );
@@ -111,20 +115,16 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         });
       }
 
-      // Invalidate list to remove deleted email
-      queryClient.invalidateQueries({ queryKey: emailKeys.list() });
-
-      // Invalidate stats for count update
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-
-      // Invalidate folder list queries to update sidebar unread counts
-      // Use lists() not all - metadata is static and should not be refetched
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
+      queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
 
       // Invalidate thread if provided
       if (event.threadId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.thread(event.threadId),
+          refetchType: 'all',
         });
       }
     },
@@ -135,13 +135,11 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   const handleBatchProcessed = useCallback(
     (event: { providerId: string; processed: number; created?: number; syncType?: string }) => {
       // Full sync completed - invalidate all email queries
-      queryClient.invalidateQueries({ queryKey: emailKeys.all });
-
-      // Invalidate folder list queries to update sidebar counts after sync
-      // Use lists() not all - metadata is static and should not be refetched
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
+      queryClient.invalidateQueries({ queryKey: emailKeys.all, refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
       if (event.providerId) {
-        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId) });
+        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId), refetchType: 'all' });
       }
 
       // Update sync status in store
@@ -158,15 +156,13 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for folder counts update
   const handleFolderCountsUpdate = useCallback(
     (event: RealtimeFolderCountsEvent) => {
-      // Invalidate email stats
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-
-      // Invalidate folder list queries to update sidebar counts (not metadata)
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
 
       // If watching specific folder, invalidate its list
       if (folder && event.folderName === folder) {
-        queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder) });
+        queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder), refetchType: 'all' });
       }
     },
     [queryClient, folder]
@@ -175,10 +171,12 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for thread update
   const handleThreadUpdate = useCallback(
     (event: { threadId: string; emailIds: string[] }) => {
+      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
       queryClient.invalidateQueries({
         queryKey: emailKeys.thread(event.threadId),
+        refetchType: 'all',
       });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations(), refetchType: 'all' });
     },
     [queryClient]
   );
@@ -186,19 +184,17 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for unread count update
   const handleUnreadCountUpdate = useCallback(
     (event: { folder: string; count: number; providerId: string }) => {
-      // Invalidate email stats
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-
-      // Invalidate folder list queries to update sidebar counts (not metadata)
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
 
       // Invalidate specific provider folders if provided
       if (event.providerId) {
-        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId) });
+        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId), refetchType: 'all' });
       }
 
       if (folder && event.folder === folder) {
-        queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder) });
+        queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder), refetchType: 'all' });
       }
     },
     [queryClient, folder]

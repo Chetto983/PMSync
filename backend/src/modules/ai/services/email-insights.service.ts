@@ -269,6 +269,7 @@ export class EmailInsightsService {
         data: {
           aiPriority: result.priority,
           aiPriorityReason: result.reasoning,
+          aiSentiment: result.sentiment,
           aiLabels: result.labels,
           isAutoTriaged: true,
           autoTriagedAt: new Date(),

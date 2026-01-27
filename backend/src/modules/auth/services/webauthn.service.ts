@@ -109,9 +109,13 @@ export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
   ) {
     // Configure Relying Party (RP) settings
+    // Derive from FRONTEND_URL if not explicitly set (avoids config duplication)
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const frontendDomain = new URL(frontendUrl).hostname;
+
     this.rpName = this.config.get<string>('WEBAUTHN_RP_NAME') || 'PMSync';
-    this.rpID = this.config.get<string>('WEBAUTHN_RP_ID') || 'localhost';
-    this.origin = this.config.get<string>('WEBAUTHN_ORIGIN') || 'http://localhost:3000';
+    this.rpID = this.config.get<string>('WEBAUTHN_RP_ID') || frontendDomain;
+    this.origin = this.config.get<string>('WEBAUTHN_ORIGIN') || frontendUrl;
   }
 
   async onModuleInit() {

@@ -351,6 +351,7 @@ export default function EmailPage() {
       // AI Triage fields - show if already analyzed
       aiPriority: selectedEmail.aiPriority ?? null,
       aiPriorityReason: selectedEmail.aiPriorityReason ?? null,
+      aiSentiment: selectedEmail.aiSentiment ?? null,
       aiLabels: selectedEmail.aiLabels ?? null,
     };
   }, [selectedEmail, senderPhotos]);

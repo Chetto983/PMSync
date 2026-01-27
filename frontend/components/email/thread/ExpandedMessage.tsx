@@ -53,6 +53,7 @@ interface ExpandedMessageProps {
     // AI Triage fields - show existing analysis (aiPriority: 1=highest, 5=lowest)
     aiPriority?: number | null;
     aiPriorityReason?: string | null;
+    aiSentiment?: string | null;
     aiLabels?: string[] | null;
   };
   onCollapse: () => void;
@@ -411,6 +412,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           hasSummary={!!summary}
           existingPriority={message.aiPriority}
           existingPriorityReason={message.aiPriorityReason}
+          existingSentiment={message.aiSentiment}
         />
       </Box>
 

@@ -32,6 +32,8 @@ interface AiActionButtonsProps {
   existingPriority?: number | null;
   /** Existing AI priority reason from triage */
   existingPriorityReason?: string | null;
+  /** Existing AI sentiment from triage */
+  existingSentiment?: string | null;
 }
 
 // Helper to get priority color
@@ -62,6 +64,7 @@ export const AiActionButtons = memo(function AiActionButtons({
   hasSummary,
   existingPriority,
   existingPriorityReason,
+  existingSentiment,
 }: AiActionButtonsProps) {
   const t = useTranslations();
   const { locale } = useLocale();
@@ -86,7 +89,19 @@ export const AiActionButtons = memo(function AiActionButtons({
     }
     return null;
   });
-  const [sentiment, setSentiment] = useState<SentimentResult | null>(null);
+  const [sentiment, setSentiment] = useState<SentimentResult | null>(() => {
+    if (existingSentiment) {
+      return {
+        sentiment: existingSentiment as 'positive' | 'negative' | 'neutral' | 'mixed',
+        tone: existingSentiment,
+        emotion: '',
+        emotionalIntensity: 0.5,
+        churnRisk: false,
+        confidence: 0.8,
+      };
+    }
+    return null;
+  });
   const [isAnalyzingPriority, setIsAnalyzingPriority] = useState(false);
   const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
 

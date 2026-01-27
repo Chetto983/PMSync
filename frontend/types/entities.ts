@@ -121,6 +121,7 @@ export interface Email {
   // AI Triage fields (aiPriority: 1=highest, 5=lowest)
   aiPriority?: number | null;
   aiPriorityReason?: string | null;
+  aiSentiment?: string | null;
   aiLabels?: string[] | null;
   isAutoTriaged?: boolean;
   autoTriagedAt?: Date | null;
