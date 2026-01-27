@@ -33,7 +33,7 @@ import { IsString, IsOptional, IsBoolean, IsNumber, IsIn, IsObject } from 'class
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
-import { VoltAgentService, type ChatOptions } from './voltagent.service';
+import { VoltAgentService, type ChatOptions} from './voltagent.service';
 import { HitlService } from './services/hitl.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
 import { WritingStyleService } from './services/writing-style.service';
@@ -244,48 +244,54 @@ export class VoltAgentController {
       conversationId,
       locale: body.locale,
       model: body.model,
+      includeToolEvents: true, // Enable AI SDK fullStream protocol
     };
 
     let isConnectionClosed = false;
-
     (req as unknown as Request).on('close', () => {
       isConnectionClosed = true;
-      this.logger.debug(`Client disconnected from v2 stream: ${options.userId}`);
     });
 
     try {
-      // AI SDK start event - strict protocol: only type and messageId
       res.write(`data: ${JSON.stringify({ type: 'start', messageId })}\n\n`);
-
-      // Text part start
       res.write(`data: ${JSON.stringify({ type: 'text-start', id: textId })}\n\n`);
 
-      for await (const chunk of this.voltAgentService.streamChat(body.message, options)) {
-        if (isConnectionClosed) {
-          this.logger.debug(`Stopping v2 stream - client disconnected`);
-          break;
-        }
+      for await (const event of this.voltAgentService.streamChat(body.message, options)) {
+        if (isConnectionClosed) break;
 
-        // AI SDK text delta event
-        res.write(`data: ${JSON.stringify({ type: 'text-delta', id: textId, delta: chunk })}\n\n`);
+        // Handle both string (legacy) and StreamEvent (new) responses
+        if (typeof event === 'string') {
+          res.write(`data: ${JSON.stringify({ type: 'text-delta', id: textId, delta: event })}\n\n`);
+        } else {
+          // StreamEvent object - emit AI SDK v6.0 UI Message Stream Protocol v1
+          switch (event.type) {
+            case 'text-delta':
+              res.write(`data: ${JSON.stringify({ type: 'text-delta', id: textId, delta: event.textDelta })}\n\n`);
+              break;
+            case 'tool-call':
+              // AI SDK v6.0 tool lifecycle: input-start → input-delta → input-available
+              res.write(`data: ${JSON.stringify({ type: 'tool-input-start', toolCallId: event.toolCallId, toolName: event.toolName })}\n\n`);
+              res.write(`data: ${JSON.stringify({ type: 'tool-input-delta', toolCallId: event.toolCallId, inputTextDelta: JSON.stringify(event.args) })}\n\n`);
+              res.write(`data: ${JSON.stringify({ type: 'tool-input-available', toolCallId: event.toolCallId, toolName: event.toolName, input: event.args })}\n\n`);
+              break;
+            case 'tool-result':
+              // AI SDK v6.0: tool-output-available with output as object (not string)
+              res.write(`data: ${JSON.stringify({ type: 'tool-output-available', toolCallId: event.toolCallId, output: event.result })}\n\n`);
+              break;
+          }
+        }
       }
 
       if (!isConnectionClosed) {
-        // Text part end
         res.write(`data: ${JSON.stringify({ type: 'text-end', id: textId })}\n\n`);
-
-        // AI SDK finish event - strict protocol: only type and finishReason
         res.write(`data: ${JSON.stringify({ type: 'finish', finishReason: 'stop' })}\n\n`);
       }
     } catch (error) {
       if (!isConnectionClosed) {
-        const errorText = error instanceof Error ? error.message : 'Stream error';
-        res.write(`data: ${JSON.stringify({ type: 'error', errorText })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'error', errorText: error instanceof Error ? error.message : 'Stream error' })}\n\n`);
       }
     } finally {
-      if (!res.writableEnded) {
-        res.end();
-      }
+      if (!res.writableEnded) res.end();
     }
   }
 

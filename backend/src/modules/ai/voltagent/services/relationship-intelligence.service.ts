@@ -23,7 +23,6 @@ import {
   type SupportedLocale,
   getRolePatterns,
   buildRoleRegex,
-  type RolePatternsTranslations,
 } from '../locales';
 
 // ============================================================================

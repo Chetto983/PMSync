@@ -2148,6 +2148,17 @@ export interface AppTranslations {
       title: string;
       subtitle: string;
     };
+    tools?: {
+      argsLabel?: string;
+      resultLabel?: string;
+      [key: string]: { calling?: string; complete?: string } | string | undefined;
+    };
+    commandPalette?: {
+      title?: string;
+      placeholder?: string;
+      noResults?: string;
+      hint?: string;
+    };
     capabilities: string;
     learningStats: string;
     feedback: string;

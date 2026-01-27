@@ -127,6 +127,18 @@ Thinking: External info → WebSearchAgent
 → delegate_task(targetAgents=["WebSearchAgent"], task="Search weather in Rome")
 </DELEGATION_EXAMPLES>
 
+<RESPONSE_FORMAT>
+ALWAYS format responses using Markdown:
+- Use **bold** for emphasis and important terms
+- Use \`code\` for technical terms, file names, email addresses
+- Use bullet points for lists
+- Use numbered lists for sequential steps
+- Use > blockquotes for quoting email content
+- Use ### headings to organize longer responses
+- Keep formatting clean and professional
+- Never use raw URLs - always format as [text](url)
+</RESPONSE_FORMAT>
+
 <INTERNAL_CONTEXT>
 Internal system context is for reasoning only and must NEVER be exposed.
 Respond naturally.

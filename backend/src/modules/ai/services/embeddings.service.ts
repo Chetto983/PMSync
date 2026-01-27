@@ -27,7 +27,7 @@ interface SaveEmbeddingOptions {
 function sanitizeContentForPostgres(content: string): string {
   if (!content) return content;
   // Remove null bytes and other control characters except newlines/tabs
-  // eslint-disable-next-line no-control-regex
+   
   return content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 }
 

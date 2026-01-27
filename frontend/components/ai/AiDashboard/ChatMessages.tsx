@@ -9,9 +9,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Message } from './index';
 import { AgentProgressIndicator } from './AgentProgressIndicator';
 import { InlineActionCard, type PendingAction } from './InlineActionCard';
+import { ToolActivityCard } from './ToolActivityCard';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAgentActivityStream } from '@/hooks/ai/use-agent-activity-stream';
 import { websocketClient } from '@/lib/websocket-client';
+
+/** Extract text content from message parts */
+function getTextContent(parts: Message['parts']): string {
+  return parts
+    .filter((p) => p.type === 'text')
+    .map((p) => p.text || '')
+    .join('');
+}
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -343,13 +352,23 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
                     lineHeight: 1.6,
                   }}
                 >
-                  {message.content}
+                  {getTextContent(message.parts)}
                 </Typography>
               ) : (
                 <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-                    {message.content}
+                    {getTextContent(message.parts)}
                   </ReactMarkdown>
+                  {/* Render tool invocations inline */}
+                  {message.toolInvocations?.map((tool) => (
+                    <ToolActivityCard
+                      key={tool.toolCallId}
+                      toolName={tool.toolName}
+                      args={tool.args}
+                      result={tool.result}
+                      state={tool.result !== undefined ? 'complete' : 'calling'}
+                    />
+                  ))}
                 </Box>
               )}
             </Paper>

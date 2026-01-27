@@ -131,6 +131,8 @@ export interface ChatOptions {
   preferSpeed?: boolean;
   /** Prefer higher quality (may use larger model) */
   preferQuality?: boolean;
+  /** Include tool events in stream (for AI SDK v6 fullStream protocol) */
+  includeToolEvents?: boolean;
 }
 
 export interface ChatResult {
@@ -154,6 +156,16 @@ export interface PendingAction {
   payload: Record<string, unknown>;
   summary: string;
 }
+
+/**
+ * Stream event types for AI SDK v6 protocol.
+ * Mapped from VoltAgent fullStream events to AI SDK format for frontend useChat.
+ */
+export type StreamEvent =
+  | { type: 'text-delta'; textDelta: string }
+  | { type: 'tool-call'; toolCallId: string; toolName: string; args: unknown }
+  | { type: 'tool-result'; toolCallId: string; result: unknown }
+  | { type: 'finish'; finishReason: string };
 
 /**
  * Re-export SuspendedWorkflow from ApprovalWorkflowService for API compatibility.
@@ -839,7 +851,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    * - OUTPUT: Streaming output is sanitized for internal markers and
    *   PII placeholders are rehydrated before sending to the client.
    */
-  async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
+  async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string | StreamEvent> {
     const correlationId = CorrelationContext.getCorrelationId();
     const logPrefix = `[${correlationId}] [stream] [tenant:${options.tenantId}]`;
     const startTimeResult = Date.now();
@@ -954,18 +966,54 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       : [];
     const streamSanitizer = createStreamSanitizer(piiMappings);
 
-    let _fullResponse = '';
-    for await (const chunk of result.textStream) {
-      _fullResponse += chunk;
-      const safeChunk = streamSanitizer.handleChunk(chunk);
-      if (safeChunk) {
-        yield safeChunk;
+    // Use fullStream when tool events are requested, otherwise textStream for backward compatibility
+    if (options.includeToolEvents) {
+      // VoltAgent fullStream - map to AI SDK v6 protocol for frontend
+      let toolCallCounter = 0;
+      for await (const event of result.fullStream) {
+        switch (event.type) {
+          case 'text-delta': {
+            const safeText = streamSanitizer.handleChunk(event.text);
+            if (safeText) {
+              yield { type: 'text-delta', textDelta: safeText };
+            }
+            break;
+          }
+          case 'tool-call': {
+            // VoltAgent uses `input` not `args`, generate toolCallId
+            const toolCallId = `call-${++toolCallCounter}`;
+            yield { type: 'tool-call', toolCallId, toolName: event.toolName, args: event.input };
+            break;
+          }
+          case 'tool-result': {
+            // VoltAgent uses `output` not `result`
+            const toolCallId = `call-${toolCallCounter}`;
+            yield { type: 'tool-result', toolCallId, result: event.output };
+            break;
+          }
+          case 'finish':
+            yield { type: 'finish', finishReason: event.finishReason };
+            break;
+          // Ignore: start, text-start, text-end, error, source, raw, file, abort
+        }
       }
-    }
-
-    const trailing = streamSanitizer.flush();
-    if (trailing) {
-      yield trailing;
+      // Flush any remaining sanitized text
+      const trailingText = streamSanitizer.flush();
+      if (trailingText) {
+        yield { type: 'text-delta', textDelta: trailingText };
+      }
+    } else {
+      // Legacy textStream mode - yields plain strings for V1 API compatibility
+      for await (const chunk of result.textStream) {
+        const safeChunk = streamSanitizer.handleChunk(chunk);
+        if (safeChunk) {
+          yield safeChunk;
+        }
+      }
+      const trailing = streamSanitizer.flush();
+      if (trailing) {
+        yield trailing;
+      }
     }
 
 

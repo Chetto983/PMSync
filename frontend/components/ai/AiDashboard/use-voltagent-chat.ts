@@ -1,16 +1,17 @@
 'use client';
 /**
- * VoltAgent Chat Hook - Vercel AI SDK 6.0 Integration
+ * VoltAgent Chat Hook - Custom SSE Integration
  *
- * Uses @ai-sdk/react useChat hook with custom transport for our backend.
- * This is the official VoltAgent pattern - no reinventing the wheel.
+ * Uses a custom SSE handler for our VoltAgent backend instead of
+ * DefaultChatTransport to avoid AI SDK v6.0 strict schema validation issues.
  *
- * Based on: https://voltagent.dev/docs/ui/ai-sdk-integration/
- * AI SDK 6.0 API: https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat
+ * Our backend emits:
+ * - text-start, text-delta, text-end (for text streaming)
+ * - tool-input-start, tool-input-delta, tool-output (for tool calls)
+ * - finish (completion)
+ * - error (errors)
  */
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useRef } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -28,7 +29,6 @@ function getAuthToken(): string {
   return '';
 }
 
-// Generate a conversation ID - called lazily to avoid React purity issues
 function generateConversationId(): string {
   return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -40,130 +40,264 @@ export interface UseVoltAgentChatOptions {
   onConversationIdChange?: (conversationId: string) => void;
 }
 
+/** Tool invocation from AI SDK */
+export interface ToolInvocation {
+  toolCallId: string;
+  toolName: string;
+  args: unknown;
+  result?: unknown;
+  state: 'calling' | 'complete' | 'error';
+}
+
+/** Message part from AI SDK */
+export interface MessagePart {
+  type: 'text' | 'tool-call' | 'tool-result';
+  text?: string;
+  toolCallId?: string;
+  toolName?: string;
+  args?: unknown;
+  result?: unknown;
+}
+
+/** Message with full AI SDK structure */
+export interface ChatMessageWithParts {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  parts: MessagePart[];
+  toolInvocations?: ToolInvocation[];
+}
+
 export interface UseVoltAgentChatReturn {
-  /** Current messages in the conversation */
-  messages: Array<{
-    id: string;
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-  }>;
-  /** Chat status: ready, submitted, streaming, error */
+  messages: ChatMessageWithParts[];
   status: 'ready' | 'submitted' | 'streaming' | 'error';
-  /** Error if any */
   error: Error | undefined;
-  /** Send a new message */
   sendMessage: (content: string) => Promise<void>;
-  /** Stop the current stream */
   stop: () => void;
-  /** Regenerate the last assistant message */
   regenerate: () => void;
-  /** Current conversation ID */
   conversationId: string;
-  /** Set conversation ID (for loading existing conversations) */
   setConversationId: (id: string) => void;
-  /** Set messages directly (for loading existing conversation) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setMessages: (messages: any[]) => void;
+  setMessages: (messages: ChatMessageWithParts[]) => void;
 }
 
 export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVoltAgentChatReturn {
-  const {
-    initialConversationId,
-    locale = 'en',
-    onError,
-    onConversationIdChange,
-  } = options;
+  const { initialConversationId, locale = 'en', onError, onConversationIdChange } = options;
 
-  // Use lazy initialization to avoid impure function calls during render
   const [conversationId, setConversationIdState] = useState(
     () => initialConversationId || generateConversationId()
   );
+  const [messages, setMessages] = useState<ChatMessageWithParts[]>([]);
+  const [status, setStatus] = useState<'ready' | 'submitted' | 'streaming' | 'error'>('ready');
+  const [error, setError] = useState<Error | undefined>(undefined);
 
-  const setConversationId = useCallback((id: string) => {
-    setConversationIdState(id);
-    onConversationIdChange?.(id);
-  }, [onConversationIdChange]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Create transport with AI SDK v6 compatible endpoint
-  const transport = useMemo(() => {
-    return new DefaultChatTransport({
-      api: `${API_BASE_URL}/api/v1/voltagent/chat/stream/v2`,
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`,
-      },
-      body: {
-        conversationId,
-        locale,
-      },
-      // Map AI SDK message format to our backend format
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      prepareSendMessagesRequest: ({ messages }: { messages: any[] }) => {
-        const lastMessage = messages[messages.length - 1];
-        // Extract text content from parts
-        let messageText = '';
-        if (lastMessage?.parts) {
-          messageText = lastMessage.parts
-            .filter((p: { type: string }) => p.type === 'text')
-            .map((p: { type: string; text?: string }) => p.text || '')
-            .join('');
-        }
-        return {
-          body: {
-            message: messageText,
+  const setConversationId = useCallback(
+    (id: string) => {
+      setConversationIdState(id);
+      onConversationIdChange?.(id);
+    },
+    [onConversationIdChange]
+  );
+
+  const stop = useCallback(() => {
+    abortControllerRef.current?.abort();
+    setStatus('ready');
+  }, []);
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
+
+      // Abort any existing request
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
+
+      // Add user message
+      const userMessage: ChatMessageWithParts = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        parts: [{ type: 'text', text: content }],
+      };
+
+      // Prepare assistant message placeholder
+      const assistantId = `assistant-${Date.now()}`;
+      const assistantMessage: ChatMessageWithParts = {
+        id: assistantId,
+        role: 'assistant',
+        parts: [],
+        toolInvocations: [],
+      };
+
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setStatus('submitted');
+      setError(undefined);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/voltagent/chat/stream/v2`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${getAuthToken()}`,
+          },
+          body: JSON.stringify({
+            message: content,
             conversationId,
             locale,
-          },
-        };
-      },
-    });
-  }, [conversationId, locale]);
+          }),
+          signal: abortControllerRef.current.signal,
+        });
 
-  const chat = useChat({
-    transport,
-    id: conversationId,
-    onError: (error) => {
-      console.error('[useVoltAgentChat] Error:', error);
-      onError?.(error);
-    },
-  });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-  // Convert UIMessage parts to simple content string
-  const messagesWithContent = useMemo(() => {
-    return chat.messages.map((msg) => {
-      let content = '';
-      if (msg.parts) {
-        content = msg.parts
-          .filter((p: { type: string }): p is { type: 'text'; text: string } => p.type === 'text')
-          .map((p: { type: 'text'; text: string }) => p.text)
-          .join('');
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No response body');
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let currentText = '';
+        const toolInvocations = new Map<string, ToolInvocation>();
+
+        setStatus('streaming');
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (!data || data === '[DONE]') continue;
+
+            try {
+              const event = JSON.parse(data);
+
+              switch (event.type) {
+                case 'text-delta':
+                  currentText += event.delta || '';
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantId
+                        ? { ...msg, parts: [{ type: 'text', text: currentText }] }
+                        : msg
+                    )
+                  );
+                  break;
+
+                case 'tool-input-start':
+                  toolInvocations.set(event.toolCallId, {
+                    toolCallId: event.toolCallId,
+                    toolName: event.toolName,
+                    args: {},
+                    state: 'calling',
+                  });
+                  updateToolInvocations();
+                  break;
+
+                case 'tool-input-delta':
+                  {
+                    const tool = toolInvocations.get(event.toolCallId);
+                    if (tool) {
+                      try {
+                        tool.args = JSON.parse(event.inputTextDelta);
+                      } catch {
+                        // Args might be streamed in parts - just store raw
+                        tool.args = event.inputTextDelta;
+                      }
+                      updateToolInvocations();
+                    }
+                  }
+                  break;
+
+                case 'tool-output':
+                  {
+                    const tool = toolInvocations.get(event.toolCallId);
+                    if (tool) {
+                      try {
+                        tool.result = JSON.parse(event.output);
+                      } catch {
+                        tool.result = event.output;
+                      }
+                      tool.state = 'complete';
+                      updateToolInvocations();
+                    }
+                  }
+                  break;
+
+                case 'error':
+                  setError(new Error(event.errorText || event.message || 'Stream error'));
+                  setStatus('error');
+                  break;
+              }
+            } catch {
+              // Ignore parse errors for partial data
+            }
+          }
+        }
+
+        setStatus('ready');
+
+        function updateToolInvocations() {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId
+                ? { ...msg, toolInvocations: Array.from(toolInvocations.values()) }
+                : msg
+            )
+          );
+        }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') {
+          setStatus('ready');
+          return;
+        }
+        const errorObj = err instanceof Error ? err : new Error(String(err));
+        setError(errorObj);
+        setStatus('error');
+        onError?.(errorObj);
       }
-      return {
-        id: msg.id,
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content,
-      };
-    });
-  }, [chat.messages]);
+    },
+    [conversationId, locale, onError]
+  );
 
-  // Wrapper for sendMessage that takes just a string
-  const sendMessage = useCallback(async (content: string) => {
-    // AI SDK 6.0 expects parts format
-    await chat.sendMessage({
-      role: 'user',
-      parts: [{ type: 'text' as const, text: content }],
-    });
-  }, [chat]);
+  const regenerate = useCallback(() => {
+    // Get the last user message and resend
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUserMsg) {
+      const textContent = lastUserMsg.parts
+        .filter((p) => p.type === 'text')
+        .map((p) => p.text || '')
+        .join('');
+      // Remove last assistant message
+      setMessages((prev) => {
+        const withoutLast = [...prev];
+        if (withoutLast[withoutLast.length - 1]?.role === 'assistant') {
+          withoutLast.pop();
+        }
+        if (withoutLast[withoutLast.length - 1]?.role === 'user') {
+          withoutLast.pop();
+        }
+        return withoutLast;
+      });
+      sendMessage(textContent);
+    }
+  }, [messages, sendMessage]);
 
   return {
-    messages: messagesWithContent,
-    status: chat.status,
-    error: chat.error,
+    messages,
+    status,
+    error,
     sendMessage,
-    stop: chat.stop,
-    regenerate: chat.regenerate,
+    stop,
+    regenerate,
     conversationId,
     setConversationId,
-    setMessages: chat.setMessages,
+    setMessages,
   };
 }
 

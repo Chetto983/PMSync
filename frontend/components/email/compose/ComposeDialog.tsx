@@ -240,14 +240,6 @@ export default function ComposeDialog({
   // We pass signatureId: null to backend to prevent double-append
   useEffect(() => {
     // Debug: log signature data
-    console.log('[Signature Debug]', {
-      open,
-      computedProviderId,
-      signatureLoading,
-      signatureFetched,
-      defaultSignature,
-      signatureAppendedRef: signatureAppendedRef.current,
-    });
     // Wait for signature to be fetched before deciding
     if (!signatureFetched) return;
     if (open && defaultSignature?.content && !signatureAppendedRef.current) {

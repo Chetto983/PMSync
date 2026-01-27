@@ -16,7 +16,7 @@ import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { EmailInsightsService } from '../../services/email-insights.service';
 import { WritingStyleService } from '../services/writing-style.service';
-import { getAgentTranslations, getLocaleInstruction, type SupportedLocale } from '../locales';
+import { getAgentTranslations, type SupportedLocale } from '../locales';
 import { buildDynamicInstructions, type UserContext } from './supervisor.agent';
 import { createEmailTools } from '../tools/email.tools';
 import { createFolderTools } from '../tools/folder.tools';

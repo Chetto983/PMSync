@@ -39,11 +39,23 @@ const QuickActions = lazy(() => import('./QuickActions'));
 const LearningWidget = lazy(() => import('./LearningWidget'));
 const ChatSessionList = lazy(() => import('./ChatSessionList'));
 const MentionInput = lazy(() => import('./MentionInput'));
+const CommandPalette = lazy(() => import('../CommandPalette'));
 
-// Types - Extended for our UI needs
+// Re-export types from hook for ChatMessages
+export type { MessagePart, ToolInvocation } from './use-voltagent-chat';
+
+// Types - Extended for our UI needs (AI SDK parts-based structure)
 export interface Message {
   role: 'user' | 'assistant';
-  content: string;
+  /** Message parts (text, tool-call, tool-result) from AI SDK */
+  parts: Array<{ type: string; text?: string }>;
+  /** Tool invocations for inline rendering */
+  toolInvocations?: Array<{
+    toolCallId: string;
+    toolName: string;
+    args: unknown;
+    result?: unknown;
+  }>;
   timestamp: Date;
   agentUsed?: string;
   intent?: string;
@@ -94,6 +106,9 @@ export function AiDashboard() {
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [widgetsDrawerOpen, setWidgetsDrawerOpen] = useState(false);
 
+  // Command palette state (triggered by "/" at start of input)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
   // AI SDK useChat hook for streaming
   const {
     messages: chatMessages,
@@ -123,10 +138,11 @@ export function AiDashboard() {
 
   const sending = status === 'submitted' || status === 'streaming';
 
-  // Map AI SDK messages to our Message type
+  // Map AI SDK messages to our Message type (preserving parts structure)
   const messages: Message[] = chatMessages.map((msg, index) => ({
     role: msg.role as 'user' | 'assistant',
-    content: msg.content,
+    parts: msg.parts,
+    toolInvocations: msg.toolInvocations,
     timestamp: new Date(),
     pendingActionIds: pendingActionMap.get(index),
   }));
@@ -261,6 +277,22 @@ export function AiDashboard() {
       inputRef.current?.focus();
     }
   }, [prompt, sending, sendMessage, queryClient]);
+
+  // Handle prompt changes - detect "/" to open command palette
+  const handlePromptChange = useCallback((value: string) => {
+    if (value === '/' && prompt === '') {
+      setCommandPaletteOpen(true);
+      return;
+    }
+    setPrompt(value);
+  }, [prompt]);
+
+  // Handle command selection from palette
+  const handleCommandSelect = useCallback((commandPrompt: string) => {
+    setPrompt(commandPrompt);
+    setCommandPaletteOpen(false);
+    inputRef.current?.focus();
+  }, []);
 
   return (
     <Box
@@ -460,10 +492,10 @@ export function AiDashboard() {
               <Suspense fallback={<Skeleton variant="rounded" height={56} sx={{ flex: 1, borderRadius: 3 }} />}>
                 <MentionInput
                   value={prompt}
-                  onChange={setPrompt}
+                  onChange={handlePromptChange}
                   onSubmit={() => handleSendMessage()}
                   disabled={sending}
-                  placeholder={t.ai?.mentions?.typeHint || t.ai?.inputPlaceholder || 'Type @ for contacts, # for accounts...'}
+                  placeholder={t.ai?.mentions?.typeHint || t.ai?.inputPlaceholder || 'Type / for commands, @ for contacts...'}
                   inputRef={inputRef}
                 />
               </Suspense>
@@ -654,6 +686,15 @@ export function AiDashboard() {
           </Suspense>
         </Box>
       </SwipeableDrawer>
+
+      {/* Command Palette - Quick commands via "/" */}
+      <Suspense fallback={null}>
+        <CommandPalette
+          open={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+          onSelectCommand={handleCommandSelect}
+        />
+      </Suspense>
     </Box>
   );
 }
