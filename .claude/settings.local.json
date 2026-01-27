@@ -205,7 +205,8 @@
       "WebFetch(domain:ai-sdk.dev)",
       "mcp__claude-flow_alpha__memory_search",
       "Bash(cmd /c \"cd /d d:\\\\MailAgent\\\\frontend && npm run type-check\")",
-      "Bash(cmd /c \"cd d:\\\\MailAgent\\\\frontend && npm run type-check\")"
+      "Bash(cmd /c \"cd d:\\\\MailAgent\\\\frontend && npm run type-check\")",
+      "WebFetch(domain:kanmail.io)"
     ],
     "deny": []
   }

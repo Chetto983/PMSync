@@ -853,11 +853,15 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    // Create PII sanitization TransformStream (zero-buffering)
+    // Create PII sanitization TransformStream (zero-buffering) with suggestions extraction
     const piiMappings = this.piiResolutionService
       ? await this.piiResolutionService.getMappings(options.tenantId, ctx.sessionId)
       : [];
     const sanitizer = createStreamSanitizer(piiMappings);
+
+    // Accumulate text for suggestions extraction at end of stream
+    let accumulatedText = '';
+    const locale = options.locale || 'en';
 
     const piiTransform = new TransformStream<any, any>({
       transform(chunk, controller) {
@@ -866,13 +870,37 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           return;
         }
 
-        // Handle text-delta: sanitize and emit immediately
+        // Handle text-delta: sanitize, accumulate, and emit immediately
         if (chunk.type === 'text-delta' && chunk.delta) {
           const safeText = sanitizer.handleChunk(chunk.delta);
           if (safeText.length > 0) {
+            accumulatedText += safeText;
             controller.enqueue({ ...chunk, delta: safeText });
           }
           return;
+        }
+
+        // On finish, extract suggestions and emit custom event
+        if (chunk.type === 'finish' || chunk.type === 'step-finish') {
+          // Parse suggestions block: ```suggestions\n["Q1?", "Q2?"]\n```
+          const suggestionsMatch = accumulatedText.match(
+            /```suggestions\s*\n(\[[\s\S]*?\])\s*\n```/,
+          );
+          if (suggestionsMatch) {
+            try {
+              const suggestions = JSON.parse(suggestionsMatch[1]);
+              if (Array.isArray(suggestions) && suggestions.length > 0) {
+                // Emit custom suggested-questions event before finish
+                controller.enqueue({
+                  type: 'suggested-questions',
+                  questions: suggestions,
+                  locale,
+                });
+              }
+            } catch {
+              // Invalid JSON in suggestions block - ignore
+            }
+          }
         }
 
         // Pass through all other chunks unchanged

@@ -32,6 +32,35 @@ function generateConversationId(): string {
   return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Extract suggested questions from message text and return cleaned text.
+ * Format: ```suggestions\n["Q1?", "Q2?"]\n```
+ */
+function extractSuggestedQuestions(text: string): {
+  cleanText: string;
+  questions: string[] | undefined;
+} {
+  const suggestionsRegex = /```suggestions\s*\n(\[[\s\S]*?\])\s*\n```/;
+  const match = text.match(suggestionsRegex);
+
+  if (!match) {
+    return { cleanText: text, questions: undefined };
+  }
+
+  try {
+    const questions = JSON.parse(match[1]);
+    if (Array.isArray(questions) && questions.length > 0) {
+      // Remove the suggestions block from text
+      const cleanText = text.replace(suggestionsRegex, '').trim();
+      return { cleanText, questions };
+    }
+  } catch {
+    // Invalid JSON - return original
+  }
+
+  return { cleanText: text, questions: undefined };
+}
+
 export interface UseVoltAgentChatOptions {
   initialConversationId?: string;
   locale?: string;
@@ -64,6 +93,8 @@ export interface ChatMessageWithParts {
   role: 'user' | 'assistant' | 'system';
   parts: MessagePart[];
   toolInvocations?: ToolInvocation[];
+  /** Suggested follow-up questions (parsed from assistant response) */
+  suggestedQuestions?: string[];
 }
 
 export interface UseVoltAgentChatReturn {
@@ -147,22 +178,68 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
   });
 
   // Map AI SDK messages to our interface (preserving full structure)
+  // Parse suggested questions from assistant messages
   const messagesWithParts = useMemo((): ChatMessageWithParts[] => {
-    return chat.messages.map((msg) => ({
-      id: msg.id,
-      role: msg.role as 'user' | 'assistant' | 'system',
-      parts: (msg.parts || []).map((p: { type: string; text?: string }) => ({
+    return chat.messages.map((msg) => {
+      // Extract text from parts
+      const originalParts = (msg.parts || []).map((p: { type: string; text?: string }) => ({
         type: p.type as MessagePart['type'],
         text: p.text,
-      })),
-      toolInvocations: msg.toolInvocations?.map((t: { toolCallId: string; toolName: string; args: unknown; result?: unknown }) => ({
-        toolCallId: t.toolCallId,
-        toolName: t.toolName,
-        args: t.args,
-        result: 'result' in t ? t.result : undefined,
-        state: 'result' in t ? 'complete' as const : 'calling' as const,
-      })),
-    }));
+      }));
+
+      // For assistant messages, check for suggested questions
+      let suggestedQuestions: string[] | undefined;
+      let finalParts = originalParts;
+
+      if (msg.role === 'assistant') {
+        // Combine all text parts to find suggestions
+        const fullText = originalParts
+          .filter((p: MessagePart) => p.type === 'text' && p.text)
+          .map((p: MessagePart) => p.text)
+          .join('');
+
+        const { cleanText, questions } = extractSuggestedQuestions(fullText);
+        suggestedQuestions = questions;
+
+        // If we found suggestions, update the text parts with cleaned text
+        if (questions && cleanText !== fullText) {
+          finalParts = originalParts.map((p: MessagePart) => {
+            if (p.type === 'text' && p.text) {
+              // For the first text part, use the clean text
+              // For subsequent text parts, clear them (suggestions were spread across parts)
+              return { ...p, text: cleanText };
+            }
+            return p;
+          });
+          // Keep only the first text part with content
+          let foundText = false;
+          finalParts = finalParts.filter((p: MessagePart) => {
+            if (p.type === 'text') {
+              if (!foundText && p.text) {
+                foundText = true;
+                return true;
+              }
+              return false;
+            }
+            return true;
+          });
+        }
+      }
+
+      return {
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant' | 'system',
+        parts: finalParts,
+        toolInvocations: msg.toolInvocations?.map((t: { toolCallId: string; toolName: string; args: unknown; result?: unknown }) => ({
+          toolCallId: t.toolCallId,
+          toolName: t.toolName,
+          args: t.args,
+          result: 'result' in t ? t.result : undefined,
+          state: 'result' in t ? 'complete' as const : 'calling' as const,
+        })),
+        suggestedQuestions,
+      };
+    });
   }, [chat.messages]);
 
   // Wrapper for sendMessage that takes just a string

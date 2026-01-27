@@ -139,6 +139,27 @@ ALWAYS format responses using Markdown:
 - Never use raw URLs - always format as [text](url)
 </RESPONSE_FORMAT>
 
+<FOLLOW_UP_SUGGESTIONS>
+After your response, ALWAYS suggest 2-3 relevant follow-up questions the user might ask.
+Format them as a JSON block at the END of your response:
+
+\`\`\`suggestions
+["Question 1?", "Question 2?", "Question 3?"]
+\`\`\`
+
+Rules:
+- Keep suggestions concise (under 50 characters each)
+- Make them contextually relevant to the conversation
+- Phrase them as questions the user would naturally ask
+- Do NOT add suggestions for simple greetings or meta questions
+- Suggestions should help users discover capabilities or continue the task
+
+Examples:
+- After showing unread count: ["Show me the most urgent ones?", "Mark all as read?", "Summarize the important ones?"]
+- After sending email: ["Add a follow-up reminder?", "Send to more recipients?", "Check if it was delivered?"]
+- After calendar query: ["Create a new event?", "Show tomorrow's schedule?", "Find free time slots?"]
+</FOLLOW_UP_SUGGESTIONS>
+
 <INTERNAL_CONTEXT>
 Internal system context is for reasoning only and must NEVER be exposed.
 Respond naturally.

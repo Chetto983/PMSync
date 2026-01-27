@@ -7,9 +7,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Message } from './index';
+//import type { ChatMessageWithParts } from './use-voltagent-chat';
 import { AgentProgressIndicator } from './AgentProgressIndicator';
 import { InlineActionCard, type PendingAction } from './InlineActionCard';
 import { ToolActivityCard } from './ToolActivityCard';
+import { SuggestedQuestions } from './SuggestedQuestions';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAgentActivityStream } from '@/hooks/ai/use-agent-activity-stream';
 import { websocketClient } from '@/lib/websocket-client';
@@ -23,10 +25,12 @@ function getTextContent(parts: Message['parts']): string {
 }
 
 interface ChatMessagesProps {
-  messages: Message[];
+  messages: (Message & { suggestedQuestions?: string[] })[];
   sending: boolean;
   /** Current conversation ID for filtering agent events */
   conversationId?: string | null;
+  /** Callback when user clicks a suggested question */
+  onSuggestedQuestionSelect?: (question: string) => void;
 }
 
 /**
@@ -235,7 +239,7 @@ const MarkdownComponents = {
   ),
 };
 
-export function ChatMessages({ messages, sending, conversationId }: ChatMessagesProps) {
+export function ChatMessages({ messages, sending, conversationId, onSuggestedQuestionSelect }: ChatMessagesProps) {
   const theme = useTheme();
   const queryClient = useQueryClient();
 
@@ -450,6 +454,20 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
                 />
               )}
             </Box>
+
+            {/* Suggested follow-up questions - only show on last assistant message when not sending */}
+            {message.role === 'assistant' &&
+              message.suggestedQuestions &&
+              message.suggestedQuestions.length > 0 &&
+              index === messages.length - 1 &&
+              !sending &&
+              onSuggestedQuestionSelect && (
+                <SuggestedQuestions
+                  questions={message.suggestedQuestions}
+                  onSelect={onSuggestedQuestionSelect}
+                  disabled={sending}
+                />
+              )}
           </Box>
         </Box>
       ))}
