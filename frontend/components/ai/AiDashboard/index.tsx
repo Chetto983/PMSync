@@ -26,7 +26,7 @@ import {
   Badge,
   useMediaQuery,
 } from '@mui/material';
-import { Sparkles, Send, Zap, PanelRightOpen, X, MessageSquare } from 'lucide-react';
+import { Sparkles, Send, Zap, PanelRightOpen, X, MessageSquare, StopCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -39,7 +39,7 @@ const QuickActions = lazy(() => import('./QuickActions'));
 const LearningWidget = lazy(() => import('./LearningWidget'));
 const ChatSessionList = lazy(() => import('./ChatSessionList'));
 const MentionInput = lazy(() => import('./MentionInput'));
-const CommandPalette = lazy(() => import('../CommandPalette'));
+const ChatCommandPalette = lazy(() => import('../ChatCommandPalette'));
 
 // Re-export types from hook for ChatMessages
 export type { MessagePart, ToolInvocation } from './use-voltagent-chat';
@@ -114,6 +114,7 @@ export function AiDashboard() {
     messages: chatMessages,
     status,
     sendMessage,
+    stop,
     conversationId,
     setConversationId,
     setMessages: setChatMessages,
@@ -499,6 +500,29 @@ export function AiDashboard() {
                   inputRef={inputRef}
                 />
               </Suspense>
+              {/* Stop Button - Only visible during streaming */}
+              {status === 'streaming' && (
+                <IconButton
+                  onClick={stop}
+                  title={t.ai?.actions?.stop || 'Stop'}
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 3,
+                    bgcolor: alpha(theme.palette.error.main, 0.1),
+                    border: '1px solid',
+                    borderColor: alpha(theme.palette.error.main, 0.3),
+                    color: 'error.main',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.error.main, 0.2),
+                      borderColor: 'error.main',
+                    },
+                  }}
+                >
+                  <StopCircle size={24} />
+                </IconButton>
+              )}
               {/* Glassmorphism Send Button */}
               <Button
                 variant="contained"
@@ -689,7 +713,7 @@ export function AiDashboard() {
 
       {/* Command Palette - Quick commands via "/" */}
       <Suspense fallback={null}>
-        <CommandPalette
+        <ChatCommandPalette
           open={commandPaletteOpen}
           onClose={() => setCommandPaletteOpen(false)}
           onSelectCommand={handleCommandSelect}

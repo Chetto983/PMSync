@@ -48,9 +48,9 @@ interface RateLimitBucket {
 }
 
 const DEFAULT_CONFIG: RateLimitConfig = {
-  tenantRequestsPerMinute: 30, // Fair sharing: 10,000 users → ~300 req/min total
-  tenantTokensPerHour: 50000, // ~14 tokens/sec average per tenant
-  globalRequestsPerMinute: 300, // 5 req/sec (Mistral limit is 6 req/sec)
+  tenantRequestsPerMinute: 60, // Doubled for 1000+ users (was 30)
+  tenantTokensPerHour: 200000, // 4x increase for power users (was 50000)
+  globalRequestsPerMinute: 10000, // ~166 req/sec for 1000+ users (was 300)
   enabled: true,
 };
 

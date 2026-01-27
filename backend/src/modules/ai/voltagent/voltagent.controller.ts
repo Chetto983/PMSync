@@ -29,7 +29,7 @@ import {
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsNumber, IsIn, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsNumber, IsIn, IsObject, IsNotEmpty } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
@@ -52,6 +52,7 @@ interface AuthenticatedRequest {
  */
 class ChatRequestDto {
   @IsString()
+  @IsNotEmpty({ message: 'Message cannot be empty' })
   message!: string;
 
   @IsOptional()
@@ -145,23 +146,20 @@ export class VoltAgentController {
   }
 
   /**
-   * Stream chat response using Server-Sent Events.
+   * Stream chat response using AI SDK v6 native protocol.
+   * Uses VoltAgent's toUIMessageStream() for proper protocol compliance.
+   * Frontend should use DefaultChatTransport from @ai-sdk/react.
    */
-  @Post('chat/stream')
+  @Post('chat/stream/v3')
+  @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
-  @ApiOperation({ summary: 'Stream chat response via SSE' })
+  @ApiOperation({ summary: 'Stream chat via AI SDK v6 native protocol' })
   @ApiBody({ type: ChatRequestDto })
-  async streamChat(
+  async streamChatV3(
     @Req() req: AuthenticatedRequest,
     @Body() body: ChatRequestDto,
     @Res() res: Response,
   ) {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders();
-
     const conversationId =
       body.conversationId ||
       body.sessionId ||
@@ -176,120 +174,57 @@ export class VoltAgentController {
     };
 
     let isConnectionClosed = false;
-
-    (req as unknown as Request).on('close', () => {
-      isConnectionClosed = true;
-      this.logger.debug(`Client disconnected from stream: ${options.userId}`);
-    });
-
-    try {
-      res.write(`data: ${JSON.stringify({ type: 'metadata', conversationId })}\n\n`);
-
-      for await (const chunk of this.voltAgentService.streamChat(body.message, options)) {
-        if (isConnectionClosed) {
-          this.logger.debug(`Stopping stream - client disconnected`);
-          break;
-        }
-        res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
-      }
-
-      if (!isConnectionClosed) {
-        res.write(`data: ${JSON.stringify({ type: 'done', conversationId })}\n\n`);
-      }
-    } catch (error) {
-      if (!isConnectionClosed) {
-        const message = error instanceof Error ? error.message : 'Stream error';
-        res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
-      }
-    } finally {
-      if (!res.writableEnded) {
-        res.end();
-      }
-    }
-  }
-
-  /**
-   * Stream chat response using AI SDK v6 compatible format.
-   * This endpoint follows the Vercel AI SDK stream protocol for useChat integration.
-   * Protocol: text-start -> text-delta* -> text-end -> finish
-   */
-  @Post('chat/stream/v2')
-  @RequiresQuota('ai')
-  @ApiOperation({ summary: 'Stream chat response via AI SDK v6 format' })
-  @ApiBody({ type: ChatRequestDto })
-  async streamChatV2(
-    @Req() req: AuthenticatedRequest,
-    @Body() body: ChatRequestDto,
-    @Res() res: Response,
-  ) {
-    // AI SDK v6 required headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.setHeader('x-vercel-ai-ui-message-stream', 'v1');
-    res.flushHeaders();
-
-    const conversationId =
-      body.conversationId ||
-      body.sessionId ||
-      `${req.user.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const textId = `text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    const options: ChatOptions = {
-      userId: req.user.userId,
-      tenantId: req.user.tenantId,
-      conversationId,
-      locale: body.locale,
-      model: body.model,
-      includeToolEvents: true, // Enable AI SDK fullStream protocol
-    };
-
-    let isConnectionClosed = false;
     (req as unknown as Request).on('close', () => {
       isConnectionClosed = true;
     });
 
     try {
-      res.write(`data: ${JSON.stringify({ type: 'start', messageId })}\n\n`);
-      res.write(`data: ${JSON.stringify({ type: 'text-start', id: textId })}\n\n`);
+      // Get raw VoltAgent result with PII transform
+      const { streamResult, piiTransform } = await this.voltAgentService.createStreamContext(
+        body.message,
+        options,
+      );
 
-      for await (const event of this.voltAgentService.streamChat(body.message, options)) {
-        if (isConnectionClosed) break;
+      // Use VoltAgent's native toUIMessageStream() for AI SDK v6 compliance
+      const uiStream = streamResult.toUIMessageStream({
+        sendReasoning: false,
+        sendSources: false,
+      });
 
-        // Handle both string (legacy) and StreamEvent (new) responses
-        if (typeof event === 'string') {
-          res.write(`data: ${JSON.stringify({ type: 'text-delta', id: textId, delta: event })}\n\n`);
-        } else {
-          // StreamEvent object - emit AI SDK v6.0 UI Message Stream Protocol v1
-          switch (event.type) {
-            case 'text-delta':
-              res.write(`data: ${JSON.stringify({ type: 'text-delta', id: textId, delta: event.textDelta })}\n\n`);
-              break;
-            case 'tool-call':
-              // AI SDK v6.0 tool lifecycle: input-start → input-delta → input-available
-              res.write(`data: ${JSON.stringify({ type: 'tool-input-start', toolCallId: event.toolCallId, toolName: event.toolName })}\n\n`);
-              res.write(`data: ${JSON.stringify({ type: 'tool-input-delta', toolCallId: event.toolCallId, inputTextDelta: JSON.stringify(event.args) })}\n\n`);
-              res.write(`data: ${JSON.stringify({ type: 'tool-input-available', toolCallId: event.toolCallId, toolName: event.toolName, input: event.args })}\n\n`);
-              break;
-            case 'tool-result':
-              // AI SDK v6.0: tool-output-available with output as object (not string)
-              res.write(`data: ${JSON.stringify({ type: 'tool-output-available', toolCallId: event.toolCallId, output: event.result })}\n\n`);
-              break;
-          }
-        }
+      // Apply PII sanitization transform
+      const sanitizedStream = uiStream.pipeThrough(piiTransform);
+
+      // Set AI SDK v6 required headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.setHeader('x-vercel-ai-ui-message-stream', 'v1');
+      res.flushHeaders();
+
+      // Stream chunks to response
+      const reader = sanitizedStream.getReader();
+      const encoder = new TextEncoder();
+
+      while (!isConnectionClosed) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // AI SDK streams UIMessageChunk objects - serialize to SSE format
+        const sseData = `data: ${JSON.stringify(value)}\n\n`;
+        res.write(encoder.encode(sseData));
       }
 
       if (!isConnectionClosed) {
-        res.write(`data: ${JSON.stringify({ type: 'text-end', id: textId })}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'finish', finishReason: 'stop' })}\n\n`);
+        res.write('data: [DONE]\n\n');
       }
     } catch (error) {
-      if (!isConnectionClosed) {
-        res.write(`data: ${JSON.stringify({ type: 'error', errorText: error instanceof Error ? error.message : 'Stream error' })}\n\n`);
+      this.logger.error(`[V3 Stream] Error: ${error instanceof Error ? error.message : String(error)}`);
+      if (!res.headersSent) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('x-vercel-ai-ui-message-stream', 'v1');
       }
+      res.write(`data: ${JSON.stringify({ type: 'error', errorText: error instanceof Error ? error.message : 'Stream error' })}\n\n`);
     } finally {
       if (!res.writableEnded) res.end();
     }

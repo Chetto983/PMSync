@@ -79,11 +79,11 @@ export default registerAs('ai', () => ({
   // ===========================================
   rateLimit: {
     /** Requests per minute per user */
-    requestsPerMinute: parseInt(process.env.AI_RATE_LIMIT_RPM || '30', 10),
+    requestsPerMinute: parseInt(process.env.AI_RATE_LIMIT_RPM || '60', 10),
     /** Requests per day per user */
-    requestsPerDay: parseInt(process.env.AI_RATE_LIMIT_RPD || '1000', 10),
-    /** Maximum concurrent AI requests */
-    concurrentRequests: parseInt(process.env.AI_CONCURRENT_LIMIT || '3', 10),
+    requestsPerDay: parseInt(process.env.AI_RATE_LIMIT_RPD || '2000', 10),
+    /** Maximum concurrent AI requests (scaled for 1000+ users) */
+    concurrentRequests: parseInt(process.env.AI_CONCURRENT_LIMIT || '10', 10),
   },
 
   // ===========================================

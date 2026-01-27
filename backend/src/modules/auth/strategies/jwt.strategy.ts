@@ -277,16 +277,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // 10. PERFORMANCE: Cache the validated session (5 min TTL)
     // This eliminates DB queries on subsequent requests
-    const sessionData = await this.prisma.session.findUnique({
-      where: { id: payload.sessionId },
-      select: { expiresAt: true },
-    });
+    let sessionExpiresAt: string | undefined;
+    if (payload.sessionId) {
+      const sessionData = await this.prisma.session.findUnique({
+        where: { id: payload.sessionId },
+        select: { expiresAt: true },
+      });
+      sessionExpiresAt = sessionData?.expiresAt?.toISOString();
+    }
 
     await this.cacheService.set(
       cacheKey,
       {
         ...validatedUser,
-        sessionExpiresAt: sessionData?.expiresAt?.toISOString(),
+        sessionExpiresAt,
       },
       {
         namespace: CacheNamespace.USER_SESSION,

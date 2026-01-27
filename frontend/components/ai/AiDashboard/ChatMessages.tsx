@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Box, Typography, Paper, Chip, alpha, useTheme, Link } from '@mui/material';
-import { Bot, User, Sparkles, Clock } from 'lucide-react';
+import { Box, Typography, Paper, Chip, alpha, useTheme, Link, IconButton, Tooltip, Snackbar } from '@mui/material';
+import { Bot, User, Sparkles, Clock, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

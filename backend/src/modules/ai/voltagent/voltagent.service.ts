@@ -57,65 +57,46 @@ import { ChatContextBuilderService, sanitizeLlmResponse } from './services/chat-
 import { AgentMetricsService } from './services/agent-metrics.service';
 import { AgentPoolService } from './services/agent-pool.service';
 
+/**
+ * Streaming-safe sanitizer - ZERO BUFFERING.
+ * Applies sanitization immediately to each chunk.
+ *
+ * Design rationale:
+ * - Internal markers ([Conversation History], etc.) only appear at start of LLM response
+ * - They're never split across chunks (LLM outputs complete tokens)
+ * - User markdown like [link] or **bold** must pass through intact
+ * - CRITICAL: AI SDK requires text-delta events BEFORE text-end/finish
+ */
 function createStreamSanitizer(mappings: PiiMapping[]): {
   handleChunk: (chunk: string) => string;
   flush: () => string;
 } {
-  let buffer = '';
-  let skipLearned = false;
-
-  const processLine = (line: string): string | null => {
-    const trimmed = line.trim();
-
-    if (skipLearned) {
-      if (trimmed.startsWith('## ') || trimmed.startsWith('[') || trimmed === '---') {
-        skipLearned = false;
-      } else {
-        return null;
-      }
-    }
-
-    if (/^##\s*Learned Constraints/i.test(trimmed)) {
-      skipLearned = true;
-      return null;
-    }
-
-    if (/^\[Conversation Summary/i.test(trimmed)) return null;
-    if (/^\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/i.test(trimmed)) return null;
-    if (trimmed === '---') return null;
-
-    const cleaned = line
-      .replace(/\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/gi, '')
-      .replace(/\[Conversation Summary[^\]]*\]/gi, '')
-      .replace(/##\s*Learned Constraints.*$/gi, '');
-
-    if (!cleaned.trim()) {
-      return null;
-    }
-
-    return applyPiiMappings(cleaned, mappings);
-  };
+  // Patterns that indicate leaked internal context
+  const INTERNAL_PATTERNS = [
+    /\[Conversation History\]/gi,
+    /\[Current Message\]/gi,
+    /\[Key Context\]/gi,
+    /\[Recent Messages\]/gi,
+    /\[User Memory\]/gi,
+    /\[Conversation Summary[^\]]*\]/gi,
+    /##\s*Learned Constraints[^\n]*/gi,
+  ];
 
   return {
     handleChunk: (chunk: string) => {
-      buffer += chunk;
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-      let output = '';
-      for (const line of lines) {
-        const cleaned = processLine(line);
-        if (cleaned !== null) {
-          output += `${cleaned}\n`;
-        }
+      let text = chunk;
+
+      // Apply internal pattern removal (immediate, no buffering)
+      for (const pattern of INTERNAL_PATTERNS) {
+        text = text.replace(pattern, '');
       }
-      return output;
+
+      // Apply PII mappings (immediate, no buffering)
+      text = applyPiiMappings(text, mappings);
+
+      return text;
     },
-    flush: () => {
-      if (!buffer) return '';
-      const cleaned = processLine(buffer);
-      buffer = '';
-      return cleaned ?? '';
-    },
+    flush: () => '', // Nothing to flush - no buffering!
   };
 }
 
@@ -131,8 +112,6 @@ export interface ChatOptions {
   preferSpeed?: boolean;
   /** Prefer higher quality (may use larger model) */
   preferQuality?: boolean;
-  /** Include tool events in stream (for AI SDK v6 fullStream protocol) */
-  includeToolEvents?: boolean;
 }
 
 export interface ChatResult {
@@ -156,16 +135,6 @@ export interface PendingAction {
   payload: Record<string, unknown>;
   summary: string;
 }
-
-/**
- * Stream event types for AI SDK v6 protocol.
- * Mapped from VoltAgent fullStream events to AI SDK format for frontend useChat.
- */
-export type StreamEvent =
-  | { type: 'text-delta'; textDelta: string }
-  | { type: 'tool-call'; toolCallId: string; toolName: string; args: unknown }
-  | { type: 'tool-result'; toolCallId: string; result: unknown }
-  | { type: 'finish'; finishReason: string };
 
 /**
  * Re-export SuspendedWorkflow from ApprovalWorkflowService for API compatibility.
@@ -841,68 +810,57 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Process a chat message with streaming response.
-   * Enhanced with rate limiting and semantic cache for production use.
-   * Persists messages to Prisma-based memory after streaming completes.
+   * Create streaming context for AI SDK v6 integration.
+   * Returns raw VoltAgent streamText result and PII sanitization transform.
+   * Use with result.toUIMessageStream() for proper AI SDK protocol compliance.
    *
-   * @security PII Handling:
-   * - INPUT: PII is detected and redacted before sending to LLM
-   * - CONTEXT: Conversation history and long-term memory are redacted before injection
-   * - OUTPUT: Streaming output is sanitized for internal markers and
-   *   PII placeholders are rehydrated before sending to the client.
+   * @example
+   * const { streamResult, piiTransform } = await service.createStreamContext(message, options);
+   * const uiStream = streamResult.toUIMessageStream();
+   * const sanitizedStream = uiStream.pipeThrough(piiTransform);
    */
-  async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string | StreamEvent> {
+  async createStreamContext(
+    message: string,
+    options: ChatOptions,
+  ): Promise<{
+    streamResult: any; // VoltAgent StreamTextResult - has toUIMessageStream()
+    piiTransform: TransformStream<any, any>;
+    sessionId: string;
+  }> {
     const correlationId = CorrelationContext.getCorrelationId();
-    const logPrefix = `[${correlationId}] [stream] [tenant:${options.tenantId}]`;
-    const startTimeResult = Date.now();
-    this.logger.log(`${logPrefix} START Request processing`);
-    // Deterministic fallback sessionId for users without explicit conversationId
+    const logPrefix = `[${correlationId}] [createStreamContext] [tenant:${options.tenantId}]`;
+    const startTime = Date.now();
+    this.logger.log(`${logPrefix} START`);
+
     const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
     const sessionId = options.conversationId || fallbackSessionId;
 
-    // Process request: validate input, redact PII, check rate limits, route model
-    // Refactored 2026-01-22: Extracted to ChatRequestProcessorService
+    // Process request: validate input, redact PII, route model
     let processedMessage = message;
     let selectedModel = options.model;
     let suggestedAgent: 'Supervisor' | 'Actions' | 'Intelligence' = 'Supervisor';
 
     if (this.chatRequestProcessor) {
-      try {
-        const processed = await this.chatRequestProcessor.process(message, {
-          tenantId: options.tenantId,
-          userId: options.userId,
-          sessionId,
-          model: options.model,
-          preferSpeed: options.preferSpeed,
-          preferQuality: options.preferQuality,
-        });
-        processedMessage = processed.processedMessage;
-        selectedModel = processed.selectedModel;
-        suggestedAgent = processed.suggestedAgent;
-        this.logger.log(`${logPrefix} Request processed: model=${selectedModel}, agent=${suggestedAgent}`);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`${logPrefix} Request processing failed: ${errorMsg}`);
-        yield errorMsg;
-        return;
-      }
-    } else {
-      // ChatRequestProcessorService not available - log warning and proceed with defaults
-      this.logger.warn(`${logPrefix} ChatRequestProcessorService not injected, using default processing`);
+      const processed = await this.chatRequestProcessor.process(message, {
+        tenantId: options.tenantId,
+        userId: options.userId,
+        sessionId,
+        model: options.model,
+        preferSpeed: options.preferSpeed,
+        preferQuality: options.preferQuality,
+      });
+      processedMessage = processed.processedMessage;
+      selectedModel = processed.selectedModel;
+      suggestedAgent = processed.suggestedAgent;
     }
-    this.logger.log(`${logPrefix} Routing took ${Date.now() - startTimeResult}ms. Selected: ${selectedModel}, Agent: ${suggestedAgent}`);
 
     const locale = getLocale(options.locale);
-
-    // Fetch user context for personalized agent instructions
-    const contextStart = Date.now();
     const userContext = await this.getUserContext(options.userId, options.tenantId);
-    this.logger.log(`${logPrefix} UserContext fetch took ${Date.now() - contextStart}ms`);
 
-    const agentStart = Date.now();
     if (!this.agentPoolService) {
       throw new AiError('AgentPoolService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
     }
+
     const agent = await this.agentPoolService.getOrCreateAgent({
       tenantId: options.tenantId,
       locale,
@@ -913,16 +871,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       memory: this.memory,
       hooks: this.observabilityHooks?.hooks,
     });
-    this.logger.log(`${logPrefix} Agent Creation took ${Date.now() - agentStart}ms`);
 
-
-    // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
-    const tenantUserId = `${options.tenantId}:${options.userId}`;
-
-    // Build enhanced context: episodic lessons + long-term memory
-    // Conversation history is handled by VoltAgent's native memory (contextLimit: 20)
+    // Build enhanced context
     let enhancedMessage = processedMessage;
-
     if (this.chatContextBuilder) {
       const contextResult = await this.chatContextBuilder.build(processedMessage, {
         tenantId: options.tenantId,
@@ -932,8 +883,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       enhancedMessage = contextResult.enhancedMessage;
     }
 
-    // Ensure conversation exists in VoltAgent memory for persistence
-    const conversationEnsured = await this.ensureConversationExists({
+    // Ensure conversation exists
+    const tenantUserId = `${options.tenantId}:${options.userId}`;
+    await this.ensureConversationExists({
       tenantUserId,
       sessionId,
       title: processedMessage.substring(0, 100),
@@ -941,16 +893,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       logPrefix,
     });
 
-    this.logger.log(`${logPrefix} Context Injection took ${Date.now() - contextStart}ms`);
-    this.logger.debug(`${logPrefix} [Memory Debug] Conversation ensured=${conversationEnsured} for sessionId=${sessionId}`);
-
-    const result = await agent.streamText(enhancedMessage, {
+    // Get raw VoltAgent streamText result - has toUIMessageStream()
+    const streamResult = await agent.streamText(enhancedMessage, {
       userId: tenantUserId,
       conversationId: sessionId,
-      // VoltAgent retrieves conversation history from memory automatically
-      // 20 messages = good balance of context vs token usage
       contextLimit: 20,
-      // CRITICAL: Disable parallel tool calls to ensure sequential delegation
       providerOptions: {
         mistral: {
           parallelToolCalls: false,
@@ -958,86 +905,37 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         },
       },
     });
-    this.logger.log(`${logPrefix} Stream Setup took ${Date.now() - startTimeResult}ms. Starting stream...`);
 
-    // Collect full response for memory persistence and caching
+    // Create PII sanitization TransformStream (zero-buffering)
     const piiMappings = this.piiResolutionService
       ? await this.piiResolutionService.getMappings(options.tenantId, sessionId)
       : [];
-    const streamSanitizer = createStreamSanitizer(piiMappings);
+    const sanitizer = createStreamSanitizer(piiMappings);
 
-    // Use fullStream when tool events are requested, otherwise textStream for backward compatibility
-    if (options.includeToolEvents) {
-      // VoltAgent fullStream - map to AI SDK v6 protocol for frontend
-      let toolCallCounter = 0;
-      for await (const event of result.fullStream) {
-        switch (event.type) {
-          case 'text-delta': {
-            const safeText = streamSanitizer.handleChunk(event.text);
-            if (safeText) {
-              yield { type: 'text-delta', textDelta: safeText };
-            }
-            break;
-          }
-          case 'tool-call': {
-            // VoltAgent uses `input` not `args`, generate toolCallId
-            const toolCallId = `call-${++toolCallCounter}`;
-            yield { type: 'tool-call', toolCallId, toolName: event.toolName, args: event.input };
-            break;
-          }
-          case 'tool-result': {
-            // VoltAgent uses `output` not `result`
-            const toolCallId = `call-${toolCallCounter}`;
-            yield { type: 'tool-result', toolCallId, result: event.output };
-            break;
-          }
-          case 'finish':
-            yield { type: 'finish', finishReason: event.finishReason };
-            break;
-          // Ignore: start, text-start, text-end, error, source, raw, file, abort
+    const piiTransform = new TransformStream<any, any>({
+      transform(chunk, controller) {
+        if (!chunk || typeof chunk !== 'object') {
+          controller.enqueue(chunk);
+          return;
         }
-      }
-      // Flush any remaining sanitized text
-      const trailingText = streamSanitizer.flush();
-      if (trailingText) {
-        yield { type: 'text-delta', textDelta: trailingText };
-      }
-    } else {
-      // Legacy textStream mode - yields plain strings for V1 API compatibility
-      for await (const chunk of result.textStream) {
-        const safeChunk = streamSanitizer.handleChunk(chunk);
-        if (safeChunk) {
-          yield safeChunk;
+
+        // Handle text-delta: sanitize and emit immediately
+        if (chunk.type === 'text-delta' && chunk.delta) {
+          const safeText = sanitizer.handleChunk(chunk.delta);
+          if (safeText.length > 0) {
+            controller.enqueue({ ...chunk, delta: safeText });
+          }
+          return;
         }
-      }
-      const trailing = streamSanitizer.flush();
-      if (trailing) {
-        yield trailing;
-      }
-    }
 
+        // Pass through all other chunks unchanged
+        controller.enqueue(chunk);
+      },
+    });
 
-    // VoltAgent auto-persists messages when memory is configured on agents
-    // Manual persistence removed to avoid duplicates (2026-01-23)
-    // Only ensure conversation exists for proper scoping
-    if (this.memory && !conversationEnsured) {
-      await this.ensureConversationExists({
-        tenantUserId,
-        sessionId,
-        title: processedMessage.substring(0, 100),
-        tenantId: options.tenantId,
-        logPrefix,
-      }).catch((error) => {
-        this.logger.warn(`${logPrefix} Failed to ensure conversation exists: ${error}`);
-      });
-    }
+    this.logger.log(`${logPrefix} Context created in ${Date.now() - startTime}ms`);
 
-    // P10: Track successful AI call usage (after stream completion)
-    if (this.usageTrackingService) {
-      await this.usageTrackingService.trackUsage(options.tenantId, 'ai-calls', 1).catch((err: Error) => {
-        this.logger.warn(`${logPrefix} Failed to track AI usage: ${err.message}`);
-      });
-    }
+    return { streamResult, piiTransform, sessionId };
   }
 
   /**
