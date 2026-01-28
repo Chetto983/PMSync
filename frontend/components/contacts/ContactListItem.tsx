@@ -11,7 +11,15 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Mail, Phone, Edit, Trash2, Building, Star } from 'lucide-react';
+import {
+  Email as MailIcon,
+  Phone as PhoneIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Business as BuildingIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+} from '@mui/icons-material';
 import type { Contact } from '@/lib/api/contacts';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -33,6 +41,11 @@ interface ContactListItemProps {
    * Whether this contact is multi-selected (checkbox)
    */
   multiSelected?: boolean;
+
+  /**
+   * Whether this contact row is hovered (controlled by parent)
+   */
+  isHovered?: boolean;
 
   /**
    * Callback to toggle selection
@@ -68,6 +81,16 @@ interface ContactListItemProps {
    * Callback to toggle VIP status
    */
   onToggleVip?: (id: string, isVip: boolean) => void;
+
+  /**
+   * Mouse enter callback for hover state
+   */
+  onMouseEnter?: () => void;
+
+  /**
+   * Mouse leave callback for hover state
+   */
+  onMouseLeave?: () => void;
 }
 
 /**
@@ -125,6 +148,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     contact,
     selected = false,
     multiSelected = false,
+    isHovered = false,
     onToggleSelect,
     onEdit,
     onDelete,
@@ -132,6 +156,8 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     onCall,
     onClick,
     onToggleVip,
+    onMouseEnter,
+    onMouseLeave,
   }) => {
     const theme = useTheme();
     const t = useTranslations();
@@ -182,16 +208,14 @@ export const ContactListItem = React.memo<ContactListItemProps>(
       onToggleVip?.(contact.id, !contact.isVip);
     };
 
+    const hasActionBar = onEdit || onDelete || onEmail || onCall || onToggleVip;
+
     return (
       <>
         <Box
-          sx={{
-            position: 'relative',
-            '&:hover .contact-action-bar': {
-              opacity: 1,
-              visibility: 'visible',
-            },
-          }}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          sx={{ position: 'relative' }}
         >
           <ListItemButton
             selected={selected}
@@ -247,8 +271,8 @@ export const ContactListItem = React.memo<ContactListItemProps>(
               {initials}
             </Avatar>
 
-            {/* Content */}
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+            {/* Content - no padding, let action bar overlap truncated text like email list */}
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25, overflow: 'hidden' }}>
               {/* Name */}
               <Typography
                 variant="body2"
@@ -276,7 +300,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                     gap: 0.5,
                   }}
                 >
-                  <Mail size={12} />
+                  <MailIcon sx={{ fontSize: 12 }} />
                   {primaryEmail}
                 </Typography>
               )}
@@ -295,7 +319,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                     gap: 0.5,
                   }}
                 >
-                  <Building size={12} />
+                  <BuildingIcon sx={{ fontSize: 12 }} />
                   {contact.company}
                   {contact.jobTitle && ` - ${contact.jobTitle}`}
                 </Typography>
@@ -303,9 +327,9 @@ export const ContactListItem = React.memo<ContactListItemProps>(
             </Box>
           </ListItemButton>
 
-          {/* Floating Action Bar - Glassmorphism */}
-          {/* Always visible on mobile (no hover), hover-reveal on desktop */}
-          {(onEdit || onDelete || onEmail || onCall || onToggleVip) && (
+          {/* Floating Action Bar - same pattern as email list */}
+          {/* Mobile: always visible, Desktop: hover reveal via isHovered prop */}
+          {hasActionBar && (
             <Box
               className="contact-action-bar"
               sx={{
@@ -313,19 +337,19 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 right: { xs: 8, md: 16 },
                 top: '50%',
                 transform: 'translateY(-50%)',
-                // Mobile: always visible, Desktop: hover reveal
-                opacity: { xs: 1, md: 0 },
-                visibility: { xs: 'visible', md: 'hidden' },
-                transition: 'opacity 0.2s ease, visibility 0.2s ease',
-                zIndex: 10,
                 display: 'flex',
                 gap: 0.5,
-                bgcolor: alpha(theme.palette.background.paper, 0.85),
-                backdropFilter: 'blur(12px)',
+                bgcolor: alpha(theme.palette.background.paper, 0.95),
+                backdropFilter: 'blur(8px)',
                 border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                borderRadius: 2,
-                boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.1)}`,
+                borderRadius: 1,
+                boxShadow: 1,
                 p: 0.5,
+                // Mobile: always visible, Desktop: controlled by isHovered
+                opacity: { xs: 1, md: isHovered ? 1 : 0 },
+                visibility: { xs: 'visible', md: isHovered ? 'visible' : 'hidden' },
+                transition: 'opacity 0.2s ease, visibility 0.2s ease',
+                zIndex: 10,
               }}
             >
               {onToggleVip && (
@@ -334,38 +358,39 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                     size="small"
                     onClick={handleToggleVip}
                     sx={{
+                      p: 0.5,
                       color: contact.isVip ? 'warning.main' : 'action.active',
                     }}
                   >
-                    <Star size={18} fill={contact.isVip ? 'currentColor' : 'none'} />
+                    {contact.isVip ? <StarIcon sx={{ fontSize: 18 }} /> : <StarBorderIcon sx={{ fontSize: 18 }} />}
                   </IconButton>
                 </Tooltip>
               )}
               {primaryEmail && onEmail && (
                 <Tooltip title={t.contacts?.actions?.sendEmail || 'Send email'}>
-                  <IconButton size="small" onClick={handleEmail}>
-                    <Mail size={18} />
+                  <IconButton size="small" onClick={handleEmail} sx={{ p: 0.5 }}>
+                    <MailIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
               )}
               {primaryPhone && onCall && (
                 <Tooltip title={t.contacts?.actions?.call || 'Call'}>
-                  <IconButton size="small" onClick={handleCall}>
-                    <Phone size={18} />
+                  <IconButton size="small" onClick={handleCall} sx={{ p: 0.5 }}>
+                    <PhoneIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
               )}
               {onEdit && (
                 <Tooltip title={t.common?.edit || 'Edit'}>
-                  <IconButton size="small" onClick={handleEdit}>
-                    <Edit size={18} />
+                  <IconButton size="small" onClick={handleEdit} sx={{ p: 0.5 }}>
+                    <EditIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
               )}
               {onDelete && (
                 <Tooltip title={t.common?.delete || 'Delete'}>
-                  <IconButton size="small" onClick={handleDelete} color="error">
-                    <Trash2 size={18} />
+                  <IconButton size="small" onClick={handleDelete} color="error" sx={{ p: 0.5 }}>
+                    <DeleteIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 </Tooltip>
               )}
@@ -387,7 +412,8 @@ export const ContactListItem = React.memo<ContactListItemProps>(
       prevProps.contact.photoUrl === nextProps.contact.photoUrl &&
       prevProps.contact.isVip === nextProps.contact.isVip &&
       prevProps.selected === nextProps.selected &&
-      prevProps.multiSelected === nextProps.multiSelected
+      prevProps.multiSelected === nextProps.multiSelected &&
+      prevProps.isHovered === nextProps.isHovered
     );
   }
 );

@@ -10,7 +10,7 @@ import {
   keyframes,
 } from '@mui/material';
 import { ArrowRight, Play, Mail, Calendar, Users, Zap, Shield, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 // Premium animations

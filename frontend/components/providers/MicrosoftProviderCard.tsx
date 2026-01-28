@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Stack, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -35,17 +35,8 @@ export function MicrosoftProviderCard({ onSuccess }: MicrosoftProviderCardProps)
   return (
     <Card>
       <CardHeader>
-        <CardTitle
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-          }}
-        >
-          <Box
-            component="span"
-            sx={{ width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-          >
+        <CardTitle className="flex items-center gap-1.5">
+          <span className="w-7 h-7 inline-flex items-center justify-center">
             <svg viewBox="0 0 23 23" width="100%" height="100%">
               <path fill="#f3f3f3" d="M0 0h23v23H0z" />
               <path fill="#f35325" d="M1 1h10v10H1z" />
@@ -53,18 +44,12 @@ export function MicrosoftProviderCard({ onSuccess }: MicrosoftProviderCardProps)
               <path fill="#05a6f0" d="M1 12h10v10H1z" />
               <path fill="#ffba08" d="M12 12h10v10H12z" />
             </svg>
-          </Box>
+          </span>
           Microsoft
         </CardTitle>
         <CardDescription>Connect Outlook and Microsoft 365</CardDescription>
       </CardHeader>
-      <CardContent
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-        }}
-      >
+      <CardContent className="flex flex-col gap-2">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -75,22 +60,11 @@ export function MicrosoftProviderCard({ onSuccess }: MicrosoftProviderCardProps)
           <Typography variant="body2" color="text.secondary">
             Connect your Microsoft account to sync emails and calendar events.
           </Typography>
-          <Box
-            component="ul"
-            sx={{
-              pl: 3,
-              m: 0,
-              listStyle: 'disc',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0.5,
-              color: 'text.secondary',
-            }}
-          >
+          <ul className="pl-6 m-0 list-disc flex flex-col gap-0.5 text-muted-foreground text-sm">
             <li>Read and send emails via Outlook</li>
             <li>Access Microsoft Calendar events</li>
             <li>Sync contacts (optional)</li>
-          </Box>
+          </ul>
         </Stack>
 
         <Button onClick={handleConnect} disabled={loading} className="w-full">

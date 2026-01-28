@@ -9,7 +9,7 @@ import {
   keyframes,
 } from '@mui/material';
 import { ArrowRight, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { pmSyncColors } from '@/theme/appTheme';
 

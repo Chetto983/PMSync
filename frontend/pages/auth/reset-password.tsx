@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Box, Container, Stack, Typography, IconButton, InputAdornment } from '@mui/material';
-import { Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import Image from 'next/image';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Box,
+  Container,
+  Stack,
+  Typography,
+  IconButton,
+  InputAdornment,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  CardHeader,
+  Alert,
+} from '@mui/material';
+import { Eye, EyeOff } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -98,14 +107,12 @@ export default function ResetPasswordPage() {
       >
         <Container maxWidth="sm">
           <Card>
-            <CardHeader>
-              <CardTitle>{copy.success?.title}</CardTitle>
-            </CardHeader>
+            <CardHeader title={copy.success?.title} />
             <CardContent>
-              <Alert sx={{ mb: 4 }}>
-                <AlertDescription>{copy.success?.description}</AlertDescription>
+              <Alert severity="success" sx={{ mb: 4 }}>
+                {copy.success?.description}
               </Alert>
-              <Button component={Link} href="/auth/login" fullWidth>
+              <Button component={Link} href="/auth/login" variant="contained" fullWidth>
                 {copy.success?.actionLabel}
               </Button>
             </CardContent>
@@ -136,25 +143,27 @@ export default function ResetPasswordPage() {
           />
         </Box>
         <Card>
-          <CardHeader>
-            <CardTitle>{copy.title}</CardTitle>
-            <CardDescription>{copy.subtitle}</CardDescription>
-          </CardHeader>
+          <CardHeader
+            title={copy.title}
+            subheader={copy.subtitle}
+          />
           <CardContent>
             {error && (
-              <Alert variant="destructive" sx={{ mb: 3 }}>
-                <AlertDescription>{error}</AlertDescription>
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
               </Alert>
             )}
 
             <Stack component="form" spacing={3} onSubmit={handleSubmit}>
-              <Input
+              <TextField
                 type={showPassword ? 'text' : 'password'}
                 label={copy.form.passwordLabel}
                 placeholder={translations.common.passwordPlaceholder}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                fullWidth
+                size="small"
                 slotProps={{
                   input: {
                     endAdornment: (
@@ -174,13 +183,15 @@ export default function ResetPasswordPage() {
                 }}
               />
 
-              <Input
+              <TextField
                 type={showConfirmPassword ? 'text' : 'password'}
                 label={copy.form.confirmPasswordLabel}
                 placeholder={translations.common.confirmPasswordPlaceholder}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                fullWidth
+                size="small"
                 slotProps={{
                   input: {
                     endAdornment: (
@@ -200,7 +211,7 @@ export default function ResetPasswordPage() {
                 }}
               />
 
-              <Button type="submit" disabled={loading} fullWidth>
+              <Button type="submit" variant="contained" disabled={loading} fullWidth>
                 {loading ? translations.common.loading : copy.form.submit}
               </Button>
             </Stack>

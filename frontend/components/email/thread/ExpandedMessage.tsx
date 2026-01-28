@@ -23,16 +23,18 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
-import ReplyIcon from '@mui/icons-material/Reply';
-import ReplyAllIcon from '@mui/icons-material/ReplyAll';
-import ForwardIcon from '@mui/icons-material/Forward';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import LabelIcon from '@mui/icons-material/Label';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ArchiveIcon from '@mui/icons-material/Archive';
-import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
-import InboxIcon from '@mui/icons-material/Inbox';
+import {
+  Reply,
+  ReplyAll,
+  Forward,
+  ChevronUp,
+  Tag,
+  Trash2,
+  Archive,
+  FolderInput,
+  Inbox,
+  Paperclip,
+} from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { EmailHtmlContent } from './EmailHtmlContent';
@@ -323,51 +325,26 @@ export const ExpandedMessage = memo(function ExpandedMessage({
 
         {/* Right Side: Date + Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-          {/* Action Icons (visible on hover) */}
+          {/* Action Icons (visible on hover) - Reply actions only, others in action bar below */}
           {showActions && (
             <Box sx={{ display: 'flex', gap: 0.25 }}>
               <Tooltip title={t.threadMessage?.reply || 'Reply'}>
                 <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
-                  <ReplyIcon sx={{ fontSize: 16 }} />
+                  <Reply size={16} />
                 </IconButton>
               </Tooltip>
               {onReplyAll && (
                 <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
                   <IconButton size="small" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
-                    <ReplyAllIcon sx={{ fontSize: 16 }} />
+                    <ReplyAll size={16} />
                   </IconButton>
                 </Tooltip>
               )}
               <Tooltip title={t.threadMessage?.forward || 'Forward'}>
                 <IconButton size="small" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
-                  <ForwardIcon sx={{ fontSize: 16 }} />
+                  <Forward size={16} />
                 </IconButton>
               </Tooltip>
-              {onArchive && (
-                <Tooltip title={t.threadActions?.archiveThread || 'Archive'}>
-                  <IconButton size="small" onClick={() => onArchive(message.id)} sx={{ p: 0.5 }}>
-                    <ArchiveIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-              {onMove && (
-                <Tooltip title={t.threadActions?.moveThread || 'Move'}>
-                  <IconButton size="small" onClick={() => onMove(message.id)} sx={{ p: 0.5 }}>
-                    <DriveFileMoveIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-              {onDelete && (
-                <Tooltip title={t.threadActions?.deleteThread || 'Delete'}>
-                  <IconButton
-                    size="small"
-                    onClick={() => onDelete(message.id)}
-                    sx={{ p: 0.5, color: 'error.main' }}
-                  >
-                    <DeleteIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
             </Box>
           )}
 
@@ -378,7 +355,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
 
           {/* Collapse button */}
           <IconButton size="small" onClick={onCollapse} sx={{ p: 0.5 }}>
-            <ExpandLessIcon sx={{ fontSize: 18 }} />
+            <ChevronUp size={18} />
           </IconButton>
         </Box>
       </Box>
@@ -409,7 +386,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                 '&:hover': { bgcolor: 'primary.dark' },
               }}
             >
-              <LabelIcon sx={{ fontSize: 18 }} />
+              <Tag size={18} />
             </IconButton>
           </Tooltip>
         )}
@@ -423,7 +400,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                 onClick={handleMoveClick}
                 sx={{ color: 'text.secondary' }}
               >
-                <DriveFileMoveIcon sx={{ fontSize: 18 }} />
+                <FolderInput size={18} />
               </IconButton>
             </Tooltip>
             <Menu
@@ -435,19 +412,19 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             >
               <MenuItem onClick={() => handleMoveToFolder('INBOX')}>
                 <ListItemIcon>
-                  <InboxIcon fontSize="small" />
+                  <Inbox size={18} />
                 </ListItemIcon>
                 <ListItemText>Inbox</ListItemText>
               </MenuItem>
               <MenuItem onClick={() => handleMoveToFolder('ARCHIVE')}>
                 <ListItemIcon>
-                  <ArchiveIcon fontSize="small" />
+                  <Archive size={18} />
                 </ListItemIcon>
                 <ListItemText>Archive</ListItemText>
               </MenuItem>
               <MenuItem onClick={() => handleMoveToFolder('TRASH')}>
                 <ListItemIcon>
-                  <DeleteIcon fontSize="small" />
+                  <Trash2 size={18} />
                 </ListItemIcon>
                 <ListItemText>Trash</ListItemText>
               </MenuItem>
@@ -463,7 +440,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
               onClick={() => onArchive(message.id)}
               sx={{ color: 'text.secondary' }}
             >
-              <ArchiveIcon sx={{ fontSize: 18 }} />
+              <Archive size={18} />
             </IconButton>
           </Tooltip>
         )}
@@ -476,7 +453,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
               onClick={() => onDelete(message.id)}
               sx={{ color: 'error.main' }}
             >
-              <DeleteIcon sx={{ fontSize: 18 }} />
+              <Trash2 size={18} />
             </IconButton>
           </Tooltip>
         )}
@@ -513,7 +490,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           <Divider sx={{ mb: 1.5 }} />
           {/* Attachment Header */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
-            <AttachFileIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Paperclip size={18} style={{ color: 'var(--mui-palette-text-secondary)' }} />
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
               {t.threadMessage?.attachments?.replace('{count}', String(message.attachments.length)) ||
                 `${message.attachments.length} Attachments`}

@@ -25,6 +25,7 @@ import { ConfigService } from '@nestjs/config';
 import { Memory } from '@voltagent/core';
 import { PostgreSQLMemoryAdapter } from '@voltagent/postgres';
 import { CacheService } from '../../../common/services/cache.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 // NOTE: CorrelationContext and Agent type moved to ChatPrepareService (2026-01-27)
 // NOTE: PrismaService removed - now used only by ChatPrepareService (2026-01-27)
 import { HitlService } from './services/hitl.service';
@@ -147,8 +148,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private memory: Memory | null = null;
   private observabilityHooks: DisposableHooks | null = null;
 
-  // NOTE: ensureConversationExists() moved to ChatPrepareService (2026-01-27)
-
   constructor(
     private readonly configService: ConfigService,
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
@@ -167,8 +166,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() @Inject(ApprovalWorkflowService) private readonly approvalWorkflowService?: ApprovalWorkflowService,
     @Optional() @Inject(AgentPoolService) private readonly agentPoolService?: AgentPoolService,
     @Optional() @Inject(ChatPrepareService) private readonly chatPrepareService?: ChatPrepareService,
+    @Optional() @Inject(RedisLockService) private readonly redisLockService?: RedisLockService,
   ) {
-    this.logger.log(`[INIT] VoltAgentService: cache=${!!this.cacheService}, hitl=${!!this.hitlService}, memory=${!!this.memoryIntelligenceService}`);
+    this.logger.log(`[INIT] VoltAgentService: cache=${!!this.cacheService}, hitl=${!!this.hitlService}, memory=${!!this.memoryIntelligenceService}, lock=${!!this.redisLockService}`);
   }
 
   async onModuleInit() {
@@ -527,15 +527,37 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Extract facts from ASSISTANT response (contact info, confirmations, etc.)
     // Combined with user message creates a conversational fact pair
+    // RC-1 FIX: Use Redis lock to prevent concurrent memory corruption
     if (this.memoryIntelligenceService && options.userId && sanitizedText) {
       const conversationPair = `User: ${message}\nAssistant: ${sanitizedText}`;
-      this.memoryIntelligenceService.processMemoryFromMessage(
-        options.tenantId,
-        options.userId,
-        conversationPair,
-      ).catch(err => {
-        this.logger.warn(`${ctx.logPrefix} Memory extraction (response) failed: ${err.message}`);
-      });
+      const memoryLockKey = `memory:user:${options.tenantId}:${options.userId}`;
+
+      // Use Redis lock if available, otherwise fallback to fire-and-forget
+      if (this.redisLockService) {
+        this.redisLockService.tryWithLock(
+          memoryLockKey,
+          10000, // 10s TTL - memory processing should complete within this
+          async () => {
+            await this.memoryIntelligenceService!.processMemoryFromMessage(
+              options.tenantId,
+              options.userId,
+              conversationPair,
+            );
+          },
+          { maxRetries: 2, baseDelayMs: 50 },
+        ).catch(err => {
+          this.logger.warn(`${ctx.logPrefix} Memory extraction (response) failed: ${err.message}`);
+        });
+      } else {
+        // Fallback: fire-and-forget (legacy behavior)
+        this.memoryIntelligenceService.processMemoryFromMessage(
+          options.tenantId,
+          options.userId,
+          conversationPair,
+        ).catch(err => {
+          this.logger.warn(`${ctx.logPrefix} Memory extraction (response) failed: ${err.message}`);
+        });
+      }
     }
 
     // NOTE: Conversation exists check removed - ChatPrepareService.prepare() already ensures it
@@ -621,14 +643,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       result: pendingActions.length > 0 ? 'Action requires approval' : 'Response generated',
     });
 
-    // P10: Track successful AI call usage (after completion, before return)
-    if (this.usageTrackingService) {
-      await this.usageTrackingService.trackUsage(options.tenantId, 'ai-calls', 1).catch((err: Error) => {
-        this.logger.warn(`${ctx.logPrefix} Failed to track AI usage: ${err.message}`);
-      });
-    }
-
-    const userVisibleText = await this.resolveUserVisibleText(options.tenantId, ctx.sessionId, sanitizedText);
+    // MS-1 FIX: Parallelize post-processing operations (saves 50-100ms)
+    // Run usage tracking and PII resolution concurrently
+    const [, userVisibleText] = await Promise.all([
+      // P10: Track successful AI call usage (fire-and-forget, but awaited for timing)
+      this.usageTrackingService
+        ? this.usageTrackingService.trackUsage(options.tenantId, 'ai-calls', 1).catch((err: Error) => {
+            this.logger.warn(`${ctx.logPrefix} Failed to track AI usage: ${err.message}`);
+          })
+        : Promise.resolve(),
+      // MS-3 FIX: PII resolution (was sequential, now parallel)
+      this.resolveUserVisibleText(options.tenantId, ctx.sessionId, sanitizedText),
+    ]);
     timings['4_post_process'] = Date.now() - postProcessStart;
     timings['total'] = Date.now() - startTime;
 

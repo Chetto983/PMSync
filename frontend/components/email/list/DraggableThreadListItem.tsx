@@ -27,6 +27,8 @@ interface DraggableThreadListItemProps {
   onFlag: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
+  /** Move to folder (opens folder picker) */
+  onMove?: (id: string) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }
@@ -44,6 +46,7 @@ export function DraggableThreadListItem({
   onFlag,
   onArchive,
   onDelete,
+  onMove,
   onMouseEnter,
   onMouseLeave,
 }: DraggableThreadListItemProps) {
@@ -84,6 +87,7 @@ export function DraggableThreadListItem({
         onFlag={onFlag}
         onArchive={onArchive}
         onDelete={onDelete}
+        onMove={onMove}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       />

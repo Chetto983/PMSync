@@ -2,12 +2,23 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { Box, Container, Stack, Typography, FormControlLabel, Checkbox, IconButton, InputAdornment } from '@mui/material';
+import {
+  Box,
+  Container,
+  Stack,
+  Typography,
+  FormControlLabel,
+  Checkbox,
+  IconButton,
+  InputAdornment,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  CardHeader,
+  Alert,
+} from '@mui/material';
 import { Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -156,40 +167,42 @@ export default function RegisterPage() {
           />
         </Box>
         <Card>
-          <CardHeader>
-            <CardTitle>{copy.title}</CardTitle>
-            <CardDescription>{copy.subtitle}</CardDescription>
-          </CardHeader>
+          <CardHeader
+            title={copy.title}
+            subheader={copy.subtitle}
+          />
           <CardContent>
             {error && (
-              <Alert variant="destructive" sx={{ mb: 3 }}>
-                <AlertDescription>{error}</AlertDescription>
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
               </Alert>
             )}
 
             <Stack component="form" spacing={3} onSubmit={handleSubmit}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Input
+                <TextField
                   type="text"
                   name="firstName"
                   label={copy.form.firstNameLabel}
                   placeholder="Alex"
                   value={formData.firstName}
                   onChange={handleChange}
-                  sx={{ flex: 1 }}
+                  fullWidth
+                  size="small"
                 />
-                <Input
+                <TextField
                   type="text"
                   name="lastName"
                   label={copy.form.lastNameLabel}
                   placeholder="Rossi"
                   value={formData.lastName}
                   onChange={handleChange}
-                  sx={{ flex: 1 }}
+                  fullWidth
+                  size="small"
                 />
               </Stack>
 
-              <Input
+              <TextField
                 type="email"
                 name="email"
                 label={copy.form.emailLabel}
@@ -197,9 +210,11 @@ export default function RegisterPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
+                fullWidth
+                size="small"
               />
 
-              <Input
+              <TextField
                 type={showPassword ? 'text' : 'password'}
                 name="password"
                 label={copy.form.passwordLabel}
@@ -207,6 +222,8 @@ export default function RegisterPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                fullWidth
+                size="small"
                 slotProps={{
                   input: {
                     endAdornment: (
@@ -226,7 +243,7 @@ export default function RegisterPage() {
                 }}
               />
 
-              <Input
+              <TextField
                 type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 label={copy.form.confirmPasswordLabel}
@@ -234,6 +251,8 @@ export default function RegisterPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
+                fullWidth
+                size="small"
                 slotProps={{
                   input: {
                     endAdornment: (
@@ -297,7 +316,7 @@ export default function RegisterPage() {
                 />
               </Stack>
 
-              <Button type="submit" disabled={loading || !agreedToTerms || !agreedToPrivacy} fullWidth>
+              <Button type="submit" variant="contained" disabled={loading || !agreedToTerms || !agreedToPrivacy} fullWidth>
                 {loading ? translations.common.loading : copy.form.submit}
               </Button>
             </Stack>

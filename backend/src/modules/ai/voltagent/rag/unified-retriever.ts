@@ -225,27 +225,47 @@ export class UnifiedRetriever extends BaseRetriever {
 
   /**
    * Multi-Source Retrieval: Search all relevant sources in parallel
+   *
+   * MS-4 FIX: Uses Promise.allSettled() to prevent cascading failures.
+   * If one source fails, others still return results.
    */
   async searchSources(query: string, sources: SearchSource[]): Promise<SourceResult[]> {
     const searchPromises: Promise<SourceResult>[] = [];
+    const sourceNames: SearchSource[] = [];
 
     if (sources.includes('emails')) {
       searchPromises.push(this.searchEmails(query));
+      sourceNames.push('emails');
     }
     if (sources.includes('contacts')) {
       searchPromises.push(this.searchContacts(query));
+      sourceNames.push('contacts');
     }
     if (sources.includes('deadlines')) {
       searchPromises.push(this.searchDeadlines(query));
+      sourceNames.push('deadlines');
     }
     if (sources.includes('followups')) {
       searchPromises.push(this.searchFollowUps(query));
+      sourceNames.push('followups');
     }
     if (sources.includes('actions')) {
       searchPromises.push(this.searchActionItems(query));
+      sourceNames.push('actions');
     }
 
-    return Promise.all(searchPromises);
+    // MS-4 FIX: Use allSettled to prevent cascading failures
+    const results = await Promise.allSettled(searchPromises);
+
+    return results
+      .map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        }
+        // Log error but return empty result instead of failing
+        this.logger.warn(`Search failed for source ${sourceNames[index]}: ${result.reason}`);
+        return { source: sourceNames[index], items: [], totalCount: 0 } as SourceResult;
+      });
   }
 
   /**

@@ -2,12 +2,24 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { Box, Container, Stack, Typography, IconButton, InputAdornment, Checkbox, FormControlLabel, Divider } from '@mui/material';
+import {
+  Box,
+  Container,
+  Stack,
+  Typography,
+  IconButton,
+  InputAdornment,
+  Checkbox,
+  FormControlLabel,
+  Divider,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  CardHeader,
+  Alert,
+} from '@mui/material';
 import { Eye, EyeOff, AlertTriangle, Smartphone, Mail, Fingerprint } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -294,34 +306,36 @@ export default function LoginPage() {
           />
         </Box>
         <Card>
-          <CardHeader>
-            <CardTitle>{copy.title}</CardTitle>
-            <CardDescription>{copy.subtitle}</CardDescription>
-          </CardHeader>
+          <CardHeader
+            title={copy.title}
+            subheader={copy.subtitle}
+          />
           <CardContent>
             {error && (
-              <Alert variant="destructive" sx={{ mb: 3 }}>
-                <AlertDescription>{error}</AlertDescription>
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
               </Alert>
             )}
             {fieldError && !error && (
-              <Alert variant="destructive" sx={{ mb: 3 }}>
-                <AlertDescription>{fieldError}</AlertDescription>
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {fieldError}
               </Alert>
             )}
 
             {step === 'login' ? (
               <Stack component="form" spacing={3} onSubmit={handleLogin}>
-                <Input
+                <TextField
                   type="email"
                   label={loginCopy.form.emailLabel}
                   placeholder={translations.common.emailPlaceholder}
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
+                  fullWidth
+                  size="small"
                 />
                 <Box sx={{ position: 'relative' }}>
-                  <Input
+                  <TextField
                     type={showPassword ? 'text' : 'password'}
                     label={loginCopy.form.passwordLabel}
                     placeholder={translations.common.passwordPlaceholder}
@@ -330,6 +344,8 @@ export default function LoginPage() {
                     onKeyDown={handleKeyDown}
                     onKeyUp={handleKeyUp}
                     required
+                    fullWidth
+                    size="small"
                     slotProps={{
                       input: {
                         endAdornment: (
@@ -366,7 +382,7 @@ export default function LoginPage() {
                     </Box>
                   )}
                 </Box>
-                <Button type="submit" disabled={loading} fullWidth>
+                <Button type="submit" variant="contained" disabled={loading} fullWidth>
                   {loading ? translations.common.loading : loginCopy.form.submit}
                 </Button>
 
@@ -403,7 +419,7 @@ export default function LoginPage() {
                   </Typography>
                 </Box>
 
-                <Input
+                <TextField
                   type="text"
                   label={
                     step === 'totp'
@@ -415,9 +431,11 @@ export default function LoginPage() {
                   placeholder={step === 'backup' ? 'XXXX-XXXX' : '000000'}
                   value={otp}
                   onChange={(event) => setOtp(event.target.value)}
-                  inputProps={{ maxLength: step === 'backup' ? 9 : 6 }}
+                  slotProps={{ htmlInput: { maxLength: step === 'backup' ? 9 : 6 } }}
                   required
                   autoFocus
+                  fullWidth
+                  size="small"
                 />
 
                 {/* Trust this device checkbox */}
@@ -436,7 +454,7 @@ export default function LoginPage() {
                   }
                 />
 
-                <Button type="submit" disabled={loading} fullWidth>
+                <Button type="submit" variant="contained" disabled={loading} fullWidth>
                   {loading ? translations.common.loading : translations.auth.mfa?.totp?.verify?.submit || 'Verify'}
                 </Button>
 

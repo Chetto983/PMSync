@@ -251,6 +251,13 @@ export function ThreadViewOutlook({
                 </IconButton>
               </Tooltip>
             )}
+            {onMoveThread && (
+              <Tooltip title={t.threadActions?.moveThread || 'Move to folder'}>
+                <IconButton size="small" onClick={onMoveThread}>
+                  <FolderInput size={18} />
+                </IconButton>
+              </Tooltip>
+            )}
             {onDeleteThread && (
               <Tooltip title={t.threadActions?.deleteThread || 'Delete'}>
                 <IconButton size="small" onClick={onDeleteThread} sx={{ color: 'error.main' }}>

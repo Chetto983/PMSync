@@ -6,6 +6,7 @@ import { EmailLayout } from '@/components/email';
 import { ThreadList, ThreadListItemData } from '@/components/email/list';
 import { ExpandedMessage } from '@/components/email/thread';
 import { LabelPickerDialog } from '@/components/email/labels';
+import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
@@ -99,6 +100,10 @@ export default function EmailPage() {
   // Label picker dialog state
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [labelPickerEmailIds, setLabelPickerEmailIds] = useState<string[]>([]);
+
+  // Folder picker dialog state (for move action)
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [folderPickerEmailId, setFolderPickerEmailId] = useState<string | null>(null);
 
   // Pagination state (local, not in store)
   const [page, setPage] = useState(1);
@@ -437,10 +442,9 @@ export default function EmailPage() {
 
   // Move single message from reading pane (opens folder picker)
   const handleMoveMessage = useCallback((messageId: string) => {
-    // For now, use bulk move handler with single email
-    toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
-    void messageId; // Will be used when folder picker is implemented
-  }, [toast, t]);
+    setFolderPickerEmailId(messageId);
+    setFolderPickerOpen(true);
+  }, []);
 
   // Move single message to specific folder directly (no dialog) - optimistic update
   const handleMoveMessageToFolder = useCallback(async (messageId: string, targetFolder: string) => {
@@ -910,6 +914,22 @@ export default function EmailPage() {
           emailIds={labelPickerEmailIds}
           currentLabelIds={getCurrentLabelIds(labelPickerEmailIds)}
           onSuccess={handleLabelPickerSuccess}
+        />
+
+        {/* Folder Picker Dialog (for move action) */}
+        <FolderPickerDialog
+          open={folderPickerOpen}
+          onClose={() => {
+            setFolderPickerOpen(false);
+            setFolderPickerEmailId(null);
+          }}
+          emailIds={folderPickerEmailId ? [folderPickerEmailId] : []}
+          providerId={folderPickerEmailId ? emails.find((e) => e.id === folderPickerEmailId)?.providerId : undefined}
+          onSuccess={() => {
+            setFolderPickerOpen(false);
+            setFolderPickerEmailId(null);
+            setSelectedThreadId(null); // Close reading pane after move
+          }}
         />
 
         {/* Compose FAB - Desktop only (mobile/tablet use MobileEmailNav FAB) */}

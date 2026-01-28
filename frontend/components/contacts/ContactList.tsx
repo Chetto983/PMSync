@@ -15,10 +15,10 @@
  * - <500ms initial render
  */
 
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
+import { People as UsersIcon } from '@mui/icons-material';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Users } from 'lucide-react';
 import { ContactListItem } from './ContactListItem';
 import type { Contact } from '@/lib/api/contacts';
 
@@ -134,6 +134,9 @@ export const ContactList: React.FC<ContactListProps> = ({
   emptyTitle = 'No contacts',
   emptySubtitle = 'Add contacts or sync from providers',
 }) => {
+  // Hover state for action bar visibility (like email list)
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   // Virtual scrolling setup
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -150,6 +153,15 @@ export const ContactList: React.FC<ContactListProps> = ({
     },
     [onContactClick]
   );
+
+  // CRITICAL: Memoized mouse event handlers to prevent re-renders (matches email pattern)
+  const handleMouseEnter = useCallback((id: string) => {
+    setHoveredId(id);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredId(null);
+  }, []);
 
   // Infinite scroll using virtualizer
   const virtualItems = virtualizer.getVirtualItems();
@@ -204,7 +216,7 @@ export const ContactList: React.FC<ContactListProps> = ({
           textAlign: 'center',
         }}
       >
-        <Users size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
+        <UsersIcon sx={{ fontSize: 48, opacity: 0.3, mb: 2 }} />
         <Typography variant="h6" color="text.secondary" gutterBottom>
           {emptyTitle}
         </Typography>
@@ -268,6 +280,7 @@ export const ContactList: React.FC<ContactListProps> = ({
                 contact={contact}
                 selected={selectedId === contact.id}
                 multiSelected={isMultiSelected}
+                isHovered={hoveredId === contact.id}
                 onToggleSelect={onToggleSelect}
                 onEdit={onEdit}
                 onDelete={onDelete}
@@ -275,6 +288,8 @@ export const ContactList: React.FC<ContactListProps> = ({
                 onCall={onCall}
                 onToggleVip={onToggleVip}
                 onClick={() => handleContactClick(contact)}
+                onMouseEnter={() => handleMouseEnter(contact.id)}
+                onMouseLeave={handleMouseLeave}
               />
             </Box>
           );

@@ -79,28 +79,45 @@ export function MentionInput({
   const [popperOpen, setPopperOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
 
+  // PERF FIX: Debounce search query to avoid API call on every keystroke
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update debounced query with 300ms delay
+  React.useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(mentionState?.query || '');
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [mentionState?.query]);
+
   // Callback ref to set anchor element
   const setAnchorRef = useCallback((node: HTMLDivElement | null) => {
     anchorRef.current = node;
     setAnchorEl(node);
   }, []);
 
-  // Contact search query - fetch larger set and filter locally
+  // Contact search query - DEBOUNCED to avoid API spam
+  // PERF FIX 2026-01-28: Uses debouncedQuery (300ms delay) instead of instant query
   const {
     data: contactsData,
     isLoading: contactsLoading,
   } = useQuery({
-    queryKey: ['contacts', 'mention-search', mentionState?.query || ''],
+    queryKey: ['contacts', 'mention-search', debouncedQuery],
     queryFn: async () => {
       if (mentionState?.type !== 'contact') return { contacts: [] };
-      // Fetch larger set, filter locally for better results
+      // Reduced limit from 100 to 20 for faster response
       return await contactsApi.listContacts({
-        search: mentionState.query || undefined,
-        limit: 100
+        search: debouncedQuery || undefined,
+        limit: 20
       });
     },
-    enabled: mentionState?.type === 'contact',
-    staleTime: 30 * 1000,
+    enabled: mentionState?.type === 'contact' && debouncedQuery.length >= 0,
+    staleTime: 60 * 1000, // Cache for 1 minute
+    gcTime: 5 * 60 * 1000, // Keep in cache 5 minutes
   });
 
   // Providers query

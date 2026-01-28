@@ -1,105 +1,111 @@
-import { forwardRef } from 'react';
-import Paper, { PaperProps } from '@mui/material/Paper';
-import Box, { BoxProps } from '@mui/material/Box';
-import Typography, { TypographyProps } from '@mui/material/Typography';
+import * as React from "react"
 
-export const Card = forwardRef<HTMLDivElement, PaperProps>(({ sx, ...props }, ref) => (
-  <Paper
+import { cn } from "@/lib/utils"
+
+// MUI sx prop to Tailwind conversion helper
+function sxToClassName(sx?: Record<string, unknown>): string {
+  if (!sx) return "";
+  const classes: string[] = [];
+
+  const spacingMap: Record<number, string> = {
+    1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 8: "8", 10: "10", 12: "12"
+  };
+
+  if (sx.mb !== undefined) classes.push(`mb-${spacingMap[sx.mb as number] || sx.mb}`);
+  if (sx.mt !== undefined) classes.push(`mt-${spacingMap[sx.mt as number] || sx.mt}`);
+  if (sx.ml !== undefined) classes.push(`ml-${spacingMap[sx.ml as number] || sx.ml}`);
+  if (sx.mr !== undefined) classes.push(`mr-${spacingMap[sx.mr as number] || sx.mr}`);
+  if (sx.p !== undefined) classes.push(`p-${spacingMap[sx.p as number] || sx.p}`);
+
+  return classes.join(" ");
+}
+
+interface CardBaseProps {
+  sx?: Record<string, unknown>
+}
+
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & CardBaseProps
+>(({ className, sx, ...props }, ref) => (
+  <div
     ref={ref}
-    elevation={1}
-    sx={{
-      borderRadius: 3,
-      border: '1px solid',
-      borderColor: 'divider',
-      bgcolor: 'background.paper',
-      overflow: 'hidden',
-      ...sx,
-    }}
+    className={cn(
+      "rounded-xl border bg-card text-card-foreground shadow",
+      sxToClassName(sx),
+      className
+    )}
     {...props}
   />
-));
-Card.displayName = 'Card';
+))
+Card.displayName = "Card"
 
-export const CardHeader = forwardRef<HTMLDivElement, BoxProps>(({ sx, ...props }, ref) => (
-  <Box
+const CardHeader = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & CardBaseProps
+>(({ className, sx, ...props }, ref) => (
+  <div
     ref={ref}
-    sx={{
-      px: { xs: 3, md: 4 },
-      pt: { xs: 3, md: 4 },
-      pb: 2,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 0.75,
-      ...sx,
-    }}
+    className={cn("flex flex-col space-y-1.5 p-6", sxToClassName(sx), className)}
     {...props}
   />
-));
-CardHeader.displayName = 'CardHeader';
+))
+CardHeader.displayName = "CardHeader"
 
-export const CardTitle = forwardRef<HTMLHeadingElement, TypographyProps<'h2'>>(
-  ({ sx, variant = 'h6', ...props }, ref) => (
-    <Typography
-      ref={ref}
-      variant={variant}
-      component="h2"
-      sx={{
-        fontWeight: 600,
-        lineHeight: 1.3,
-        ...sx,
-      }}
-      {...props}
-    />
-  ),
-);
-CardTitle.displayName = 'CardTitle';
-
-export const CardDescription = forwardRef<HTMLParagraphElement, TypographyProps<'p'>>(
-  ({ sx, variant = 'body2', ...props }, ref) => (
-    <Typography
-      ref={ref}
-      variant={variant}
-      component="p"
-      color="text.secondary"
-      sx={{ ...sx }}
-      {...props}
-    />
-  ),
-);
-CardDescription.displayName = 'CardDescription';
-
-export const CardContent = forwardRef<HTMLDivElement, BoxProps>(({ sx, ...props }, ref) => (
-  <Box
+const CardTitle = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & CardBaseProps
+>(({ className, sx, ...props }, ref) => (
+  <div
     ref={ref}
-    sx={{
-      px: { xs: 3, md: 4 },
-      pb: { xs: 3, md: 4 },
-      pt: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 2,
-      ...sx,
-    }}
+    className={cn("font-semibold leading-none tracking-tight", sxToClassName(sx), className)}
     {...props}
   />
-));
-CardContent.displayName = 'CardContent';
+))
+CardTitle.displayName = "CardTitle"
 
-export const CardFooter = forwardRef<HTMLDivElement, BoxProps>(({ sx, ...props }, ref) => (
-  <Box
+const CardDescription = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & CardBaseProps
+>(({ className, sx, ...props }, ref) => (
+  <div
     ref={ref}
-    sx={{
-      px: { xs: 3, md: 4 },
-      pb: { xs: 3, md: 4 },
-      pt: 0,
-      display: 'flex',
-      gap: 1,
-      alignItems: 'center',
-      ...sx,
-    }}
+    className={cn("text-sm text-muted-foreground", sxToClassName(sx), className)}
     {...props}
   />
-));
-CardFooter.displayName = 'CardFooter';
+))
+CardDescription.displayName = "CardDescription"
 
-export default Card;
+const CardContent = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & CardBaseProps
+>(({ className, sx, ...props }, ref) => (
+  <div ref={ref} className={cn("p-6 pt-0", sxToClassName(sx), className)} {...props} />
+))
+CardContent.displayName = "CardContent"
+
+const CardFooter = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & CardBaseProps
+>(({ className, sx, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex items-center p-6 pt-0", sxToClassName(sx), className)}
+    {...props}
+  />
+))
+CardFooter.displayName = "CardFooter"
+
+const CardAction = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & CardBaseProps
+>(({ className, sx, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex items-center justify-end gap-2", sxToClassName(sx), className)}
+    {...props}
+  />
+))
+CardAction.displayName = "CardAction"
+
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent, CardAction }

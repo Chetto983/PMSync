@@ -82,8 +82,6 @@ export interface ProcessedResponse {
   requiresApproval: boolean;
 }
 
-// PersistMessagesOptions removed - VoltAgent handles persistence automatically (2026-01-23)
-
 @Injectable()
 export class ChatResponseProcessorService {
   private readonly logger = new Logger(ChatResponseProcessorService.name);
@@ -200,29 +198,39 @@ export class ChatResponseProcessorService {
     },
   ): Promise<PendingAction[]> {
     const pendingActions: PendingAction[] = [];
-    //const { logPrefix } = options;
+    // MS-2 FIX: Remove excessive debug logging (saves 10-30ms in production)
+    const isDebug = process.env.NODE_ENV === 'development';
 
-    this.logger.debug(`[HITL DEBUG] result.steps count: ${steps?.length || 0}`);
+    if (isDebug) {
+      this.logger.debug(`[HITL DEBUG] result.steps count: ${steps?.length || 0}`);
+    }
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
 
-      this.logger.debug(`[HITL DEBUG] Step ${i} keys: ${Object.keys(step).join(', ')}`);
-      this.logger.debug(
-        `[HITL DEBUG] Step ${i} JSON (first 500 chars): ${JSON.stringify(step).substring(0, 500)}`,
-      );
+      // MS-2 FIX: Expensive JSON.stringify only in development
+      if (isDebug) {
+        this.logger.debug(`[HITL DEBUG] Step ${i} keys: ${Object.keys(step).join(', ')}`);
+        this.logger.debug(
+          `[HITL DEBUG] Step ${i} JSON (first 500 chars): ${JSON.stringify(step).substring(0, 500)}`,
+        );
+      }
 
       const toolResults = step.toolResults;
-      this.logger.debug(
-        `[HITL DEBUG] toolResults found: ${!!toolResults}, count: ${toolResults?.length || 0}`,
-      );
+      if (isDebug) {
+        this.logger.debug(
+          `[HITL DEBUG] toolResults found: ${!!toolResults}, count: ${toolResults?.length || 0}`,
+        );
+      }
 
       if (toolResults) {
         for (const toolResult of toolResults) {
           const resultValue = toolResult.output;
-          this.logger.debug(
-            `[HITL DEBUG] toolResult.output for ${toolResult.toolName}: ${JSON.stringify(resultValue)?.substring(0, 200)}`,
-          );
+          if (isDebug) {
+            this.logger.debug(
+              `[HITL DEBUG] toolResult.output for ${toolResult.toolName}: ${JSON.stringify(resultValue)?.substring(0, 200)}`,
+            );
+          }
 
           if (resultValue?.requiresApproval) {
             const actionType = resultValue.actionType as string;
@@ -292,6 +300,4 @@ export class ChatResponseProcessorService {
 
     return text;
   }
-
-  // persistMessages method removed - VoltAgent handles persistence automatically (2026-01-23)
 }

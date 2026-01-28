@@ -1,155 +1,55 @@
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import MuiTabs from '@mui/material/Tabs';
-import MuiTab from '@mui/material/Tab';
-import Box, { BoxProps } from '@mui/material/Box';
-import type { TabsProps as MuiTabsProps } from '@mui/material/Tabs';
-import type { TabProps as MuiTabProps } from '@mui/material/Tab';
+"use client"
 
-interface TabsContextValue {
-  value: string;
-  setValue: (value: string) => void;
-}
+import * as React from "react"
+import * as TabsPrimitive from "@radix-ui/react-tabs"
 
-const TabsContext = createContext<TabsContextValue | null>(null);
+import { cn } from "@/lib/utils"
 
-const useTabsContext = () => {
-  const context = useContext(TabsContext);
-  if (!context) {
-    throw new Error('Tabs components must be used within <Tabs>.');
-  }
-  return context;
-};
+const Tabs = TabsPrimitive.Root
 
-export interface TabsProps {
-  defaultValue: string;
-  value?: string;
-  onValueChange?: (value: string) => void;
-  children: ReactNode;
-  className?: string;
-  sx?: BoxProps['sx'];
-}
-
-export const Tabs = ({
-  defaultValue,
-  value: controlledValue,
-  onValueChange,
-  children,
-  className,
-  sx,
-}: TabsProps) => {
-  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
-  const isControlled = typeof controlledValue !== 'undefined';
-  const value = isControlled ? (controlledValue as string) : uncontrolledValue;
-
-  const contextValue = useMemo<TabsContextValue>(
-    () => ({
-      value,
-      setValue: (newValue: string) => {
-        if (!isControlled) {
-          setUncontrolledValue(newValue);
-        }
-        onValueChange?.(newValue);
-      },
-    }),
-    [isControlled, onValueChange, value],
-  );
-
-  return (
-    <TabsContext.Provider value={contextValue}>
-      <Box className={className} sx={sx}>
-        {children}
-      </Box>
-    </TabsContext.Provider>
-  );
-};
-
-export interface TabsListProps extends Omit<MuiTabsProps, 'value' | 'onChange'> {
-  children: ReactNode;
-}
-
-export const TabsList = ({ children, sx, ...props }: TabsListProps) => {
-  const { value, setValue } = useTabsContext();
-
-  return (
-    <MuiTabs
-      {...props}
-      value={value}
-      onChange={(_event, newValue) => setValue(newValue)}
-      variant="scrollable"
-      scrollButtons="auto"
-      TabIndicatorProps={{
-        sx: { borderRadius: 9999, height: 3 },
-      }}
-      sx={[
-        {
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          p: 0.5,
-          minHeight: 56,
-        },
-        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-      ]}
-    >
-      {children}
-    </MuiTabs>
-  );
-};
-
-export interface TabsTriggerProps extends Omit<MuiTabProps, 'value' | 'label'> {
-  value: string;
-  label: ReactNode;
-}
-
-export const TabsTrigger = ({ value, label, sx, ...props }: TabsTriggerProps) => (
-  <MuiTab
+const TabsList = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    className={cn(
+      "inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground",
+      className
+    )}
     {...props}
-    value={value}
-    disableRipple
-    label={label}
-    sx={[
-      {
-        textTransform: 'none',
-        fontWeight: 600,
-        borderRadius: 2,
-        minHeight: 48,
-        minWidth: 120,
-        '&.Mui-selected': {
-          bgcolor: 'action.selected',
-        },
-      },
-      ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-    ]}
   />
-);
+))
+TabsList.displayName = TabsPrimitive.List.displayName
 
-export interface TabsContentProps extends BoxProps {
-  value: string;
-  children: ReactNode;
-}
+const TabsTrigger = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow",
+      className
+    )}
+    {...props}
+  />
+))
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
-export const TabsContent = ({ value, children, sx, ...props }: TabsContentProps) => {
-  const context = useTabsContext();
-  if (context.value !== value) {
-    return null;
-  }
+const TabsContent = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Content
+    ref={ref}
+    className={cn(
+      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      className
+    )}
+    {...props}
+  />
+))
+TabsContent.displayName = TabsPrimitive.Content.displayName
 
-  return (
-    <Box
-      {...props}
-      sx={[
-        { mt: 3, width: '100%' },
-        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-      ]}
-    >
-      {children}
-    </Box>
-  );
-};
+export { Tabs, TabsList, TabsTrigger, TabsContent }

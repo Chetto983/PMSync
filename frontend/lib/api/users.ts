@@ -40,6 +40,7 @@ export interface UpdatePreferencesData {
   sidebarLabelsExpanded?: boolean;
   theme?: string;
   language?: string;
+  timezone?: string;
   emailDensity?: string;
   // AI Personalization
   jobTitle?: string;

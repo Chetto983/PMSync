@@ -355,6 +355,7 @@ export function ThreadList({
                     onFlag={handleFlag}
                     onArchive={handleArchive}
                     onDelete={handleDelete}
+                    onMove={handleMove}
                     onMouseEnter={() => handleMouseEnter(thread.id)}
                     onMouseLeave={handleMouseLeave}
                   />

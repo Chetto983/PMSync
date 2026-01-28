@@ -1,45 +1,38 @@
-import { forwardRef } from 'react';
-import Chip, { ChipProps } from '@mui/material/Chip';
-import type { SxProps, Theme } from '@mui/material/styles';
+import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
-type Variant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'info';
+import { cn } from "@/lib/utils"
 
-const variantMap: Record<Variant, { color: ChipProps['color']; variant: ChipProps['variant']; sx?: SxProps<Theme> }> =
+const badgeVariants = cva(
+  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
-    default: { color: 'default', variant: 'outlined' },
-    secondary: { color: 'primary', variant: 'outlined' },
-    destructive: { color: 'error', variant: 'outlined' },
-    outline: { color: 'default', variant: 'outlined' },
-    success: { color: 'success', variant: 'outlined' },
-    info: { color: 'info', variant: 'outlined' },
-  };
+    variants: {
+      variant: {
+        default:
+          "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
+        secondary:
+          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        destructive:
+          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
+        outline: "text-foreground",
+        info: "border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+        success: "border-transparent bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
 
-export interface BadgeProps extends Omit<ChipProps, 'variant' | 'color'> {
-  variant?: Variant;
+export interface BadgeProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof badgeVariants> {}
+
+function Badge({ className, variant, ...props }: BadgeProps) {
+  return (
+    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+  )
 }
 
-export const Badge = forwardRef<HTMLDivElement, BadgeProps>(({ variant = 'default', sx, ...props }, ref) => {
-  const data = variantMap[variant];
-
-  return (
-    <Chip
-      ref={ref}
-      variant={data.variant}
-      color={data.color}
-      size="small"
-      sx={[
-        {
-          borderRadius: 9999,
-          fontWeight: 600,
-          letterSpacing: '0.08em',
-        },
-        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-      ]}
-      {...props}
-    />
-  );
-});
-
-Badge.displayName = 'Badge';
-
-export default Badge;
+export { Badge, badgeVariants }

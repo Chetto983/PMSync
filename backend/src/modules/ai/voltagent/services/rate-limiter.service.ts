@@ -20,8 +20,53 @@
  * - 600 requests/minute global (10 req/sec < Mistral's 12 req/sec)
  * - 200,000 tokens/hour per tenant
  */
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
+import { Redis } from 'ioredis';
+import { getRedisConnectionOptions } from '../../../../config/configuration';
+
+/**
+ * RC-2 FIX: Atomic rate limit Lua script
+ * Performs INCR + EXPIRE + GET in a single atomic operation
+ * Prevents TOCTOU race condition in high-concurrency scenarios
+ * Returns [count, windowStart, ttl]
+ */
+const ATOMIC_RATE_LIMIT_LUA = `
+local key = KEYS[1]
+local windowMs = tonumber(ARGV[1])
+local now = tonumber(ARGV[2])
+local windowSeconds = math.ceil(windowMs / 1000)
+
+-- Get existing bucket or create new
+local bucket = redis.call('HGETALL', key)
+local count = 0
+local tokens = 0
+local windowStart = now
+
+if #bucket > 0 then
+  -- Parse existing bucket
+  for i = 1, #bucket, 2 do
+    if bucket[i] == 'count' then count = tonumber(bucket[i+1]) or 0
+    elseif bucket[i] == 'tokens' then tokens = tonumber(bucket[i+1]) or 0
+    elseif bucket[i] == 'windowStart' then windowStart = tonumber(bucket[i+1]) or now
+    end
+  end
+
+  -- Check if window expired
+  if now - windowStart >= windowMs then
+    count = 0
+    tokens = 0
+    windowStart = now
+  end
+end
+
+-- Atomic increment
+count = count + 1
+redis.call('HSET', key, 'count', count, 'tokens', tokens, 'windowStart', windowStart)
+redis.call('EXPIRE', key, windowSeconds + 10) -- Add buffer for safety
+
+return {count, windowStart, redis.call('TTL', key)}
+`;
 
 export interface RateLimitConfig {
   /** Requests per minute per tenant */
@@ -55,9 +100,10 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 };
 
 @Injectable()
-export class RateLimiterService {
+export class RateLimiterService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RateLimiterService.name);
   private readonly config: RateLimitConfig;
+  private redis: Redis | null = null;
 
   // In-memory fallback when Redis unavailable
   private readonly localBuckets = new Map<string, RateLimitBucket>();
@@ -88,6 +134,37 @@ export class RateLimiterService {
       `Rate limiter initialized: ${this.config.tenantRequestsPerMinute} req/min per tenant, ` +
         `${this.config.globalRequestsPerMinute} req/min global`,
     );
+  }
+
+  async onModuleInit() {
+    // RC-2 FIX: Initialize direct Redis connection for atomic operations
+    try {
+      const options = getRedisConnectionOptions();
+      this.redis = new Redis({
+        ...options,
+        connectionName: 'ai-rate-limiter',
+        lazyConnect: false,
+      });
+
+      this.redis.on('error', (err) => {
+        this.logger.warn(`Redis rate limiter error (will use fallback): ${err.message}`);
+      });
+
+      this.redis.on('connect', () => {
+        this.logger.log('Redis rate limiter connected (atomic operations enabled)');
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to initialize Redis for rate limiter: ${error}. Using CacheService fallback.`);
+      this.redis = null;
+    }
+  }
+
+  async onModuleDestroy() {
+    if (this.redis) {
+      await this.redis.quit().catch(() => {
+        // Ignore quit errors during shutdown
+      });
+    }
   }
 
   /**
@@ -200,6 +277,42 @@ export class RateLimiterService {
 
   private async checkTenantRequestLimit(tenantId: string, now: number): Promise<RateLimitResult> {
     const key = `rate:req:${tenantId}`;
+
+    // RC-2 FIX: Use atomic Lua script when Redis is available
+    if (this.redis) {
+      try {
+        const result = await this.redis.eval(
+          ATOMIC_RATE_LIMIT_LUA,
+          1,
+          key,
+          this.WINDOW_SIZE_MS.toString(),
+          now.toString(),
+        ) as [number, number, number];
+
+        const [count, windowStart, _ttl] = result;
+        const resetIn = Math.max(1, Math.ceil((this.WINDOW_SIZE_MS - (now - windowStart)) / 1000));
+
+        if (count > this.config.tenantRequestsPerMinute) {
+          return {
+            allowed: false,
+            remaining: 0,
+            resetInSeconds: resetIn,
+            reason: `Tenant rate limit exceeded (${this.config.tenantRequestsPerMinute}/min)`,
+          };
+        }
+
+        return {
+          allowed: true,
+          remaining: Math.max(0, this.config.tenantRequestsPerMinute - count),
+          resetInSeconds: resetIn,
+        };
+      } catch (error) {
+        this.logger.warn(`Atomic rate limit failed, using fallback: ${error}`);
+        // Fall through to CacheService fallback
+      }
+    }
+
+    // Fallback: CacheService (has TOCTOU but works for low concurrency)
     const bucket = await this.getBucket(key, now, this.WINDOW_SIZE_MS);
 
     if (bucket.count >= this.config.tenantRequestsPerMinute) {
@@ -254,6 +367,42 @@ export class RateLimiterService {
 
   private async checkGlobalLimit(now: number): Promise<RateLimitResult> {
     const key = 'rate:global';
+
+    // RC-2 FIX: Use atomic Lua script when Redis is available
+    if (this.redis) {
+      try {
+        const result = await this.redis.eval(
+          ATOMIC_RATE_LIMIT_LUA,
+          1,
+          key,
+          this.WINDOW_SIZE_MS.toString(),
+          now.toString(),
+        ) as [number, number, number];
+
+        const [count, windowStart, _ttl] = result;
+        const resetIn = Math.max(1, Math.ceil((this.WINDOW_SIZE_MS - (now - windowStart)) / 1000));
+
+        if (count > this.config.globalRequestsPerMinute) {
+          return {
+            allowed: false,
+            remaining: 0,
+            resetInSeconds: resetIn,
+            reason: `Global rate limit exceeded (${this.config.globalRequestsPerMinute}/min)`,
+          };
+        }
+
+        return {
+          allowed: true,
+          remaining: Math.max(0, this.config.globalRequestsPerMinute - count),
+          resetInSeconds: resetIn,
+        };
+      } catch (error) {
+        this.logger.warn(`Atomic global rate limit failed, using fallback: ${error}`);
+        // Fall through to CacheService fallback
+      }
+    }
+
+    // Fallback: CacheService
     const bucket = await this.getBucket(key, now, this.WINDOW_SIZE_MS);
 
     if (bucket.count >= this.config.globalRequestsPerMinute) {

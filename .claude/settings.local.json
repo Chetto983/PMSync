@@ -220,7 +220,8 @@
       "WebFetch(domain:www.atlassian.com)",
       "WebFetch(domain:api.github.com)",
       "Bash(D:)",
-      "Bash(DEBUG=*)"
+      "Bash(DEBUG=*)",
+      "mcp__claude-flow_alpha__agent_spawn"
     ],
     "deny": []
   }

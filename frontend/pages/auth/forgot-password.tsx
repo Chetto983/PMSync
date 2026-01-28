@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Box, Container, Stack, Typography } from '@mui/material';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import Image from 'next/image';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Box,
+  Container,
+  Stack,
+  Typography,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  CardHeader,
+  Alert,
+} from '@mui/material';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -72,14 +79,12 @@ export default function ForgotPasswordPage() {
             />
           </Box>
           <Card>
-            <CardHeader>
-              <CardTitle>{copy.success?.title}</CardTitle>
-            </CardHeader>
+            <CardHeader title={copy.success?.title} />
             <CardContent>
-              <Alert sx={{ mb: 4 }}>
-                <AlertDescription>{copy.success?.description}</AlertDescription>
+              <Alert severity="success" sx={{ mb: 4 }}>
+                {copy.success?.description}
               </Alert>
-              <Button component={Link} href="/auth/login" fullWidth>
+              <Button component={Link} href="/auth/login" variant="contained" fullWidth>
                 {copy.success?.actionLabel}
               </Button>
             </CardContent>
@@ -101,28 +106,30 @@ export default function ForgotPasswordPage() {
     >
       <Container maxWidth="sm">
         <Card>
-          <CardHeader>
-            <CardTitle>{copy.title}</CardTitle>
-            <CardDescription>{copy.subtitle}</CardDescription>
-          </CardHeader>
+          <CardHeader
+            title={copy.title}
+            subheader={copy.subtitle}
+          />
           <CardContent>
             {error && (
-              <Alert variant="destructive" sx={{ mb: 3 }}>
-                <AlertDescription>{error}</AlertDescription>
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
               </Alert>
             )}
 
             <Stack component="form" spacing={3} onSubmit={handleSubmit}>
-              <Input
+              <TextField
                 type="email"
                 label={copy.form.emailLabel}
                 placeholder={translations.common.emailPlaceholder}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                fullWidth
+                size="small"
               />
 
-              <Button type="submit" disabled={loading} fullWidth>
+              <Button type="submit" variant="contained" disabled={loading} fullWidth>
                 {loading ? translations.common.loading : copy.form.submit}
               </Button>
             </Stack>

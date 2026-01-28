@@ -165,7 +165,7 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
   if (providers.length === 0) {
     return (
       <Card>
-        <CardContent sx={{ pt: 6 }}>
+        <CardContent className="pt-6">
           <Typography variant="body2" color="text.secondary" align="center">
             {providersCopy.noProvidersMessage}
           </Typography>
@@ -183,20 +183,12 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
       )}
 
       {providers.map((provider) => (
-        <Card key={provider.id} sx={{ borderRadius: 3 }}>
-          <CardHeader
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', md: 'row' },
-              gap: 2,
-              alignItems: { xs: 'flex-start', md: 'center' },
-              justifyContent: 'space-between',
-            }}
-          >
+        <Card key={provider.id} className="rounded-xl">
+          <CardHeader className="flex flex-col md:flex-row gap-2 items-start md:items-center justify-between">
             <Stack direction="row" spacing={2} alignItems="center">
               {getProviderIcon(provider.providerType)}
               <Box>
-                <CardTitle variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                <CardTitle className="font-semibold mb-0.5 text-base">
                   {provider.email}
                 </CardTitle>
                 <CardDescription>
@@ -207,19 +199,17 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center">
               {provider.scope && (
-                <Badge variant="info" label={provider.scope} sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }} />
+                <Badge variant="info" className="text-[0.7rem] px-1.5 py-0.5">{provider.scope}</Badge>
               )}
               {provider.isDefault && (
-                <Badge variant="success" label={providersCopy.badges.default} sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }} />
+                <Badge variant="success" className="text-[0.7rem] px-1.5 py-0.5">{providersCopy.badges.default}</Badge>
               )}
               {provider.isActive ? (
-                <Badge variant="outline" label={providersCopy.badges.active} sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }} />
+                <Badge variant="outline" className="text-[0.7rem] px-1.5 py-0.5">{providersCopy.badges.active}</Badge>
               ) : (
-                <Badge
-                  variant="destructive"
-                  label={providersCopy.badges.inactive}
-                  sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }}
-                />
+                <Badge variant="destructive" className="text-[0.7rem] px-1.5 py-0.5">
+                  {providersCopy.badges.inactive}
+                </Badge>
               )}
               <Tooltip title={providersCopy.editTooltip}>
                 <IconButton size="small" onClick={() => openEditDialog(provider)}>
@@ -233,61 +223,49 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
             <Stack spacing={2}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {provider.supportsEmail && (
-                  <Badge
-                    variant="secondary"
-                    icon={
-                      <Box component="span" sx={{ display: 'inline-flex', mr: 0.5 }}>
-                        <svg width={14} height={14} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </Box>
-                    }
-                    label={providersCopy.badges.email}
-                    sx={{ fontSize: '0.72rem', px: 1.25, py: 0.25 }}
-                  />
+                  <Badge variant="secondary" className="text-[0.72rem] px-1 py-0.5">
+                    <span className="inline-flex mr-0.5">
+                      <svg width={14} height={14} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </span>
+                    {providersCopy.badges.email}
+                  </Badge>
                 )}
                 {provider.supportsCalendar && (
-                  <Badge
-                    variant="secondary"
-                    icon={
-                      <Box component="span" sx={{ display: 'inline-flex', mr: 0.5 }}>
-                        <svg width={14} height={14} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </Box>
-                    }
-                    label={providersCopy.badges.calendar}
-                    sx={{ fontSize: '0.72rem', px: 1.25, py: 0.25 }}
-                  />
+                  <Badge variant="secondary" className="text-[0.72rem] px-1 py-0.5">
+                    <span className="inline-flex mr-0.5">
+                      <svg width={14} height={14} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </span>
+                    {providersCopy.badges.calendar}
+                  </Badge>
                 )}
                 {provider.supportsContacts && (
-                  <Badge
-                    variant="secondary"
-                    icon={
-                      <Box component="span" sx={{ display: 'inline-flex', mr: 0.5 }}>
-                        <svg width={14} height={14} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                          />
-                        </svg>
-                      </Box>
-                    }
-                    label={providersCopy.badges.contacts}
-                    sx={{ fontSize: '0.72rem', px: 1.25, py: 0.25 }}
-                  />
+                  <Badge variant="secondary" className="text-[0.72rem] px-1 py-0.5">
+                    <span className="inline-flex mr-0.5">
+                      <svg width={14} height={14} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
+                      </svg>
+                    </span>
+                    {providersCopy.badges.contacts}
+                  </Badge>
                 )}
               </Stack>
 
@@ -295,17 +273,17 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
                 {providersCopy.lastSynced.replace('{date}', formatDate(provider.lastSyncedAt))}
               </Typography>
 
-              <Box>
+              <div>
                 <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive hover:bg-destructive/10"
                   onClick={() => openDeleteDialog(provider.id, provider.email)}
                   disabled={deletingId === provider.id}
                 >
                   {deletingId === provider.id ? providersCopy.disconnecting : providersCopy.disconnect}
                 </Button>
-              </Box>
+              </div>
             </Stack>
           </CardContent>
         </Card>
@@ -325,13 +303,12 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deletingId !== null}>
+          <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} disabled={deletingId !== null}>
             {translations.common.cancel}
           </Button>
           <Button
             onClick={handleDelete}
-            color="error"
-            variant="contained"
+            variant="destructive"
             disabled={deletingId !== null}
           >
             {deletingId !== null ? providersCopy.disconnecting : providersCopy.disconnect}
@@ -368,12 +345,11 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)} disabled={updatingId !== null}>
+          <Button variant="ghost" onClick={() => setEditDialogOpen(false)} disabled={updatingId !== null}>
             {translations.common.cancel}
           </Button>
           <Button
             onClick={handleUpdate}
-            variant="contained"
             disabled={updatingId !== null}
           >
             {updatingId !== null ? translations.common.saving : providersCopy.saveChanges}

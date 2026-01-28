@@ -36,6 +36,9 @@ export interface ContextBuildOptions {
 /**
  * Fast-path patterns that don't need memory lookup (saves ~500-1000ms per request).
  * These are simple queries where user context/preferences are not relevant.
+ *
+ * PERF FIX 2026-01-28: Added compose/write/draft patterns - creative writing
+ * doesn't benefit from episodic lessons or long-term memory.
  */
 const SKIP_MEMORY_PATTERNS = [
   // Greetings (EN/IT)
@@ -46,6 +49,10 @@ const SKIP_MEMORY_PATTERNS = [
   /^(help|aiuto|status|\?)[\s!?.]*$/i,
   // Very short messages (likely not needing context)
   /^.{1,10}$/,
+  // PERF FIX: Compose/write/draft requests - creative model doesn't need memory lookup
+  /\b(draft|compose|write|scrivi|componi|bozza)\b.*\b(email|message|messaggio|mail|reply|risposta)/i,
+  /\b(help\s*(me\s*)?(write|draft)|aiutami\s*(a\s*)?(scrivere|comporre))/i,
+  /\b(send|invia|reply|rispondi)\s*(an?\s*)?(email|message|mail)/i,
 ];
 
 export interface EnhancedContext {
