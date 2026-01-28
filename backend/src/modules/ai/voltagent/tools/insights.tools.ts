@@ -99,6 +99,7 @@ async function getAvailableLabels(prisma: PrismaService, tenantId: string): Prom
 
 /**
  * Email record from database
+ * NOTE: bodyHtml is optional - we don't load it to save tokens (80% reduction)
  */
 interface EmailRecord {
   id: string;
@@ -106,7 +107,7 @@ interface EmailRecord {
   from: string;
   to: string[];
   bodyText: string | null;
-  bodyHtml: string | null;
+  bodyHtml?: string | null; // Optional - NEVER load this, use bodyText or snippet
   snippet: string | null;
   receivedAt: Date;
 }
@@ -252,7 +253,7 @@ async function getEmail(
       from: true,
       to: true,
       bodyText: true,
-      bodyHtml: true,
+      // bodyHtml: NEVER load - use bodyText or snippet only (80% token savings)
       snippet: true,
       receivedAt: true,
     },
@@ -272,16 +273,16 @@ async function getEmail(
 function extractEmailContent(
   email: EmailRecord,
   t: ReturnType<typeof getToolTranslations>,
-  maxLength = 6000,
+  maxLength = 1500, // Reduced from 6000 - was causing 15K+ tokens for 10 emails!
 ): string {
   let content = '';
 
+  // CRITICAL: Use bodyText or snippet ONLY - NEVER bodyHtml!
+  // HTML emails can be 10-50KB of CSS/scripts/base64 - kills performance
   if (email.bodyText && email.bodyText.trim().length > 0) {
     content = email.bodyText.trim();
-  } else if (email.bodyHtml) {
-    content = email.bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   } else if (email.snippet) {
-    content = email.snippet.trim();
+    content = email.snippet.trim(); // Snippet fallback, NOT HTML!
   } else {
     return t.insights.contentUnavailable;
   }

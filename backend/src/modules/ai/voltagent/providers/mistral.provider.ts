@@ -24,6 +24,10 @@ if (!apiKey) {
 const MISTRAL_MODEL_SMALL = process.env.AI_MODEL_SIMPLE || 'mistral-small-latest';
 const MISTRAL_MODEL_MEDIUM = process.env.AI_MODEL_MEDIUM || 'mistral-medium-latest'; // Required for proper delegation
 const MISTRAL_MODEL_LARGE = process.env.AI_MODEL_COMPLEX || 'mistral-large-latest';
+// CREATIVE: Same price as SMALL ($0.1/M) but optimized for writing tasks (email composition, smart replies)
+const MISTRAL_MODEL_CREATIVE = process.env.AI_MODEL_CREATIVE || 'mistral-small-creative-25-12';
+// ROUTER: Ultra-cheap 3B model for intent classification (~$0.04/1M tokens)
+const MISTRAL_MODEL_ROUTER = process.env.AI_MODEL_ROUTER || 'ministral-3b-latest';
 
 // Create Mistral provider instance (lazy initialization to allow for missing API key)
 let _mistralProvider: ReturnType<typeof createMistral> | null = null;
@@ -49,6 +53,14 @@ export function getMistralMedium(): MistralModelInstance {
 
 export function getMistralLarge(): MistralModelInstance {
   return getMistralProvider()(MISTRAL_MODEL_LARGE);
+}
+
+export function getMistralCreative(): MistralModelInstance {
+  return getMistralProvider()(MISTRAL_MODEL_CREATIVE);
+}
+
+export function getMistralRouter(): MistralModelInstance {
+  return getMistralProvider()(MISTRAL_MODEL_ROUTER);
 }
 
 // NOTE: parallelToolCalls and structuredOutputs are now passed via
@@ -78,7 +90,7 @@ export const mistralMedium = { get: getMistralMedium };
 export const mistralLarge = { get: getMistralLarge };
 
 // Model selection helper
-export type MistralModel = 'small' | 'medium' | 'large';
+export type MistralModel = 'small' | 'medium' | 'large' | 'creative' | 'router';
 
 export function getMistralModel(model: MistralModel = 'small'): LanguageModel {
   // Type cast required: @ai-sdk/mistral returns LanguageModelV1 which is compatible
@@ -89,6 +101,10 @@ export function getMistralModel(model: MistralModel = 'small'): LanguageModel {
       return getMistralLarge() as unknown as LanguageModel;
     case 'medium':
       return getMistralMedium() as unknown as LanguageModel;
+    case 'creative':
+      return getMistralCreative() as unknown as LanguageModel;
+    case 'router':
+      return getMistralRouter() as unknown as LanguageModel;
     case 'small':
     default:
       return getMistralSmall() as unknown as LanguageModel;
@@ -106,6 +122,8 @@ export function getMistralModelConfig() {
     small: MISTRAL_MODEL_SMALL,
     medium: MISTRAL_MODEL_MEDIUM,
     large: MISTRAL_MODEL_LARGE,
+    creative: MISTRAL_MODEL_CREATIVE,
+    router: MISTRAL_MODEL_ROUTER,
     isConfigured: isMistralConfigured(),
   };
 }

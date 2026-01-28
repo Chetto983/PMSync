@@ -173,11 +173,15 @@ export class UnifiedRetriever extends BaseRetriever {
 
   /**
    * Memory-First: Get user's personal context
-   * NOTE: LongTermMemory removed in AI refactor v2.0 - returns empty context
+   *
+   * NOTE: This method returns empty context. User memory is now handled by:
+   * - VoltAgent Working Memory: Structured preferences (tone, language)
+   * - AIMemoryService via search_memory tool: Semantic search on user facts
+   *
+   * See tools/memory.tools.ts for the new implementation.
    */
   async getMemoryContext(_query: string): Promise<MemoryContext> {
-    // Memory retrieval disabled - LongTermMemoryService removed in AI refactor v2.0
-    // Future: use EmailAnalysis patterns for user preferences
+    // Memory is now handled via VoltAgent tools, not RAG retriever
     return {
       facts: [],
       preferences: [],

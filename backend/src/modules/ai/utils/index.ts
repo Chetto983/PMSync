@@ -51,9 +51,9 @@ export function getAiCircuitBreaker(
 
 /**
  * Rate limiter for embedding generation
- * Mistral Embedding API limit: typically 5-10 concurrent requests depending on tier
+ * Mistral Embedding API limit: 12 req/sec (updated 2026-01-28)
  */
 export const embeddingRateLimiter = new RateLimiter(
-    10, // 10 requests
+    12, // 12 requests (matches Mistral tier limit)
     1000, // per 1 second (burst protection)
 );

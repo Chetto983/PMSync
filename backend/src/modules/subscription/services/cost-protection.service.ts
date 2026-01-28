@@ -236,26 +236,4 @@ export class CostProtectionService {
   isEmbeddingsDisabled(): boolean {
     return this.config.get<string>('DISABLE_EMBEDDINGS') === 'true';
   }
-
-  /**
-   * Check if a specific feature is enabled
-   */
-  isFeatureEnabled(feature: 'smart_replies' | 'summarization' | 'scheduling' | 'contact_dedupe' | 'proactive'): boolean {
-    const envMap: Record<string, string> = {
-      smart_replies: 'AI_SMART_REPLIES',
-      summarization: 'AI_SUMMARIZATION',
-      scheduling: 'AI_SCHEDULING',
-      contact_dedupe: 'AI_CONTACT_DEDUPE',
-      proactive: 'AI_PROACTIVE',
-    };
-
-    const envVar = envMap[feature];
-    const value = this.config.get<string>(envVar);
-
-    // Most features are enabled by default (except proactive)
-    if (feature === 'proactive') {
-      return value === 'true';
-    }
-    return value !== 'false';
-  }
 }

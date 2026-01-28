@@ -33,6 +33,7 @@ export interface ToolTranslations {
     starred: (subject: string) => string;
     unstarred: (subject: string) => string;
     unreadCount: (count: number) => string;
+    rlmHint: string;
     moved: (subject: string, folder: string) => string;
     labeled: (subject: string, label: string) => string;
     unlabeled: (subject: string, label: string) => string;

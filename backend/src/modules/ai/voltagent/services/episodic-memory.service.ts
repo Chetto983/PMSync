@@ -25,6 +25,7 @@ export class EpisodicMemoryService {
         agentName?: string,
         limit: number = 5,
     ): Promise<AgentLesson[]> {
+        const startTime = Date.now();
         try {
             const whereClause: Prisma.ActionQueueWhereInput = {
                 tenantId,
@@ -55,6 +56,8 @@ export class EpisodicMemoryService {
                     updatedAt: true,
                 },
             });
+
+            this.logger.log(`[PERF] getRecentLessons: query=${Date.now() - startTime}ms | found=${rejections.length}`);
 
             return rejections.map((r: { actionType: string; rejectedReason: string | null; updatedAt: Date }) => ({
                 actionType: r.actionType,

@@ -183,7 +183,7 @@ Examples:
               where: { id: emailId, tenantId },
               select: {
                 id: true, subject: true, from: true, to: true, cc: true,
-                bodyText: true, bodyHtml: true, snippet: true,
+                bodyText: true, snippet: true, // NO bodyHtml - 80% token savings!
                 receivedAt: true, isRead: true, isStarred: true, folder: true,
               },
             });
@@ -194,7 +194,9 @@ Examples:
               where: { emailId, tenantId },
               select: { filename: true, size: true },
             });
-            const body = email.bodyText || email.bodyHtml || email.snippet || '';
+            // CRITICAL: Use bodyText or snippet ONLY - NEVER bodyHtml (10x smaller)
+            const rawBody = email.bodyText || email.snippet || '';
+            const body = rawBody.slice(0, 1500); // Limit to 1500 chars (~375 tokens)
             return {
               success: true,
               data: {

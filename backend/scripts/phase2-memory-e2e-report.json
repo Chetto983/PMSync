@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-01-28T11:20:27.190Z",
+  "phase": "Phase 2: Memory & RAG",
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "duration": 23042
+  },
+  "results": [
+    {
+      "name": "Memory controller removed (404)",
+      "passed": true,
+      "message": "PASS",
+      "duration": 14
+    },
+    {
+      "name": "Follow-up controller exists",
+      "passed": true,
+      "message": "PASS",
+      "duration": 16
+    },
+    {
+      "name": "Chat endpoint works",
+      "passed": true,
+      "message": "PASS",
+      "duration": 1187
+    },
+    {
+      "name": "Store memory via tool",
+      "passed": true,
+      "message": "PASS",
+      "duration": 1522
+    },
+    {
+      "name": "Search memory via tool",
+      "passed": true,
+      "message": "PASS",
+      "duration": 3509
+    },
+    {
+      "name": "Greeting uses correct model",
+      "passed": true,
+      "message": "PASS",
+      "duration": 697
+    },
+    {
+      "name": "Search uses correct model",
+      "passed": true,
+      "message": "PASS",
+      "duration": 7663
+    },
+    {
+      "name": "Compose uses correct model",
+      "passed": true,
+      "message": "PASS",
+      "duration": 8419
+    },
+    {
+      "name": "AIMemoryService available",
+      "passed": true,
+      "message": "PASS",
+      "duration": 15
+    }
+  ]
+}

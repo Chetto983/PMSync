@@ -52,13 +52,24 @@ export class ChatContextBuilderService {
    * Conversation history is handled by VoltAgent's native memory (contextLimit: 20).
    */
   async build(message: string, options: ContextBuildOptions): Promise<EnhancedContext> {
+    const buildStart = Date.now();
+    const timings: Record<string, number> = {};
     let enhancedMessage = message;
 
     // 1. Inject episodic learning (rejection lessons)
+    const episodicStart = Date.now();
     enhancedMessage = await this.injectEpisodicLessons(enhancedMessage, options);
+    timings['episodic'] = Date.now() - episodicStart;
 
     // 2. Inject long-term memory context (semantic search for user facts)
+    const memoryStart = Date.now();
     enhancedMessage = await this.injectLongTermMemory(enhancedMessage, message, options);
+    timings['memory'] = Date.now() - memoryStart;
+
+    timings['total'] = Date.now() - buildStart;
+    this.logger.log(
+      `${options.logPrefix} [PERF] context_build: episodic=${timings['episodic']}ms | memory=${timings['memory']}ms | total=${timings['total']}ms`
+    );
 
     return { enhancedMessage };
   }

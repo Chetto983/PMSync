@@ -23,6 +23,7 @@ import { DocumentLibraryService } from './document-library.service';
 import { FollowUpService } from './follow-up.service';
 import { PiiDetectionService } from '../../guards';
 import { EmailInsightsService } from '../../services/email-insights.service';
+import { AIMemoryService } from './ai-memory.service';
 import { createActionsAgent } from '../agents/actions.agent';
 import { createIntelligenceAgent } from '../agents/intelligence.agent';
 import { createSupervisorAgent, type UserContext } from '../agents/supervisor.agent';
@@ -49,6 +50,8 @@ export interface GetOrCreateAgentParams {
   agentType?: AgentType;
   memory?: Memory | null;
   hooks?: AgentHooks;
+  /** RLM: Detected intent for loading minimal prompt */
+  intent?: import('../services/task-complexity-classifier.service').TaskIntent;
 }
 
 @Injectable()
@@ -74,6 +77,7 @@ export class AgentPoolService {
     @Optional() private readonly followUpService?: FollowUpService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
     @Optional() private readonly emailInsightsService?: EmailInsightsService,
+    @Optional() private readonly aiMemoryService?: AIMemoryService,
   ) {}
 
   /**
@@ -155,6 +159,7 @@ export class AgentPoolService {
           calendarService: this.calendarService ?? null,
           memory: memory ?? undefined,
           userContext: userContext ?? undefined,
+          intent: params.intent, // RLM: Pass intent for minimal prompt loading
         });
         break;
       case 'Intelligence':
@@ -167,6 +172,8 @@ export class AgentPoolService {
           piiDetectionService: this.piiDetectionService,
           emailInsightsService: this.emailInsightsService ?? null,
           userContext: userContext ?? undefined,
+          aiMemoryService: this.aiMemoryService ?? null,
+          intent: params.intent, // RLM: Pass intent for minimal prompt loading
         });
         break;
       case 'Supervisor':
@@ -184,6 +191,7 @@ export class AgentPoolService {
           followUpService: this.followUpService,
           piiDetectionService: this.piiDetectionService,
           emailInsightsService: this.emailInsightsService,
+          aiMemoryService: this.aiMemoryService ?? null,
         });
         break;
     }

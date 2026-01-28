@@ -13,8 +13,10 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
-import { getAgentTranslations, type SupportedLocale } from '../locales';
+import type { SupportedLocale } from '../locales';
 import { buildDynamicInstructions, type UserContext } from './supervisor.agent';
+import { getActionsPrompt } from '../prompts/actions.prompt';
+import type { TaskIntent } from '../services/task-complexity-classifier.service';
 import { createEmailTools } from '../tools/email.tools';
 import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
@@ -61,6 +63,8 @@ export interface ActionsAgentOptions {
   memory?: Memory;
   /** User context for personalization and current date/time */
   userContext?: UserContext;
+  /** RLM: Detected intent for loading minimal prompt */
+  intent?: TaskIntent;
 }
 
 /**
@@ -80,12 +84,14 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
     hooks,
     memory,
     userContext,
+    intent,
   } = options;
 
-  // Always use English prompts - locale only affects response language
-  const t = getAgentTranslations('en');
+  // RLM Pattern: Load ONLY the relevant prompt based on detected intent
+  // This reduces tokens by 60-80% compared to loading everything
+  const basePrompt = getActionsPrompt(intent);
   // Build instructions with current date/time for temporal queries
-  const dynamicInstructions = buildDynamicInstructions(t.actions.instructions, userContext, locale);
+  const dynamicInstructions = buildDynamicInstructions(basePrompt, userContext, locale);
 
   // Create tools from factories
   const emailTools = createEmailTools(prisma, emailSendService, locale, tenantId, cacheService);

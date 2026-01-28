@@ -5,6 +5,7 @@
  */
 
 export { createEmailTools } from './email.tools';
+export { createEmailRLMTools } from './email-rlm.tools';
 export { createCalendarTools } from './calendar.tools';
 export { createContactsTools } from './contacts.tools';
 export { createFolderTools } from './folder.tools';
@@ -57,3 +58,9 @@ export {
   type AskUserParams,
   type AskUserOption,
 } from './ask-user.tool';
+export {
+  createMemorySearchTool,
+  createMemoryStoreTool,
+  createMemoryTools,
+  type MemoryToolsOptions,
+} from './memory.tools';

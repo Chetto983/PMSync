@@ -18,13 +18,18 @@ import { EmailInsightsService } from '../../services/email-insights.service';
 import { WritingStyleService } from '../services/writing-style.service';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
 import { buildDynamicInstructions, type UserContext } from './supervisor.agent';
+import { getIntelligencePrompt } from '../prompts/intelligence.prompt';
+import type { TaskIntent } from '../services/task-complexity-classifier.service';
 import { createEmailTools } from '../tools/email.tools';
+import { createEmailRLMTools } from '../tools/email-rlm.tools';
 import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
 import { createCalendarTools } from '../tools/calendar.tools';
 import { createInsightTools } from '../tools/insights.tools';
 import { createAskUserTool } from '../tools/ask-user.tool';
+import { createMemoryTools } from '../tools/memory.tools';
 import { PiiDetectionService } from '../../guards';
+import { AIMemoryService } from '../services/ai-memory.service';
 
 /**
  * Tool names that IntelligenceAgent uses (READ operations only)
@@ -34,6 +39,9 @@ const INTELLIGENCE_TOOLS = [
   'list_emails',
   'search_emails',
   'count_emails',
+  // RLM-style email tools (efficient two-step retrieval)
+  'list_email_index',
+  'get_email_content',
   // Folder read operations
   'list_folders',
   // Contact read operations (includes manage_contact for 'get' action)
@@ -67,6 +75,10 @@ export interface IntelligenceAgentOptions {
   emailInsightsService?: EmailInsightsService | null;
   /** User context for personalization and current date/time */
   userContext?: UserContext;
+  /** AI Memory service for semantic search on user memories */
+  aiMemoryService?: AIMemoryService | null;
+  /** RLM: Detected intent for loading minimal prompt */
+  intent?: TaskIntent;
 }
 
 /**
@@ -90,12 +102,15 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     piiDetectionService,
     emailInsightsService,
     userContext,
+    aiMemoryService,
+    intent,
   } = options;
 
-  // Always use English prompts - locale only affects response language
-  const t = getAgentTranslations('en');
-  // Build instructions with current date/time for temporal queries
-  const dynamicInstructions = buildDynamicInstructions(t.intelligence.instructions, userContext, locale);
+  // RLM Pattern: Load ONLY the relevant prompt based on detected intent
+  // This reduces tokens by 60-80% compared to loading everything
+  const basePrompt = getIntelligencePrompt(intent);
+  // Add user context (date/time) for temporal queries
+  const dynamicInstructions = buildDynamicInstructions(basePrompt, userContext, locale);
 
   // Create tools from factories
   // Pass RAG services for semantic search in search_emails
@@ -104,6 +119,8 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     mistralService: mistral ?? undefined,
     embeddingsService: embeddingsService ?? undefined,
   });
+  // RLM-style email tools for efficient two-step retrieval (see plan for details)
+  const emailRLMTools = createEmailRLMTools(prisma, locale, tenantId);
   const folderTools = createFolderTools(prisma, locale, tenantId, cacheService);
   const contactsTools = createContactsTools(prisma, locale, tenantId, cacheService);
   const calendarTools = createCalendarTools(prisma, null, locale, tenantId, cacheService);
@@ -125,7 +142,7 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     : [];
 
   // Combine all tools and filter to READ operations only
-  const allTools = [...emailTools, ...folderTools, ...contactsTools, ...calendarTools, ...insightTools];
+  const allTools = [...emailTools, ...emailRLMTools, ...folderTools, ...contactsTools, ...calendarTools, ...insightTools];
   const readTools = allTools.filter((tool) =>
     INTELLIGENCE_TOOLS.includes(tool.name as (typeof INTELLIGENCE_TOOLS)[number]),
   );
@@ -133,13 +150,18 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
   // Add ask_user_clarification tool so sub-agent can request user input when needed
   const askUserTool = createAskUserTool({ locale });
 
+  // Add memory tools for semantic search on user facts/notes
+  const memoryTools = aiMemoryService
+    ? createMemoryTools({ aiMemoryService, tenantId, userId })
+    : [];
+
   return new Agent({
     name: 'IntelligenceAgent',
     purpose:
       'Search, read, and analyze: emails, contacts, calendar, folders. AI-powered analysis: summarization, sentiment, smart replies. For PEOPLE searches, use this agent - they are email correspondents!',
     model,
     instructions: dynamicInstructions,
-    tools: [...readTools, askUserTool],
+    tools: [...readTools, ...memoryTools, askUserTool],
     hooks,
     memory,
     maxSteps: 4, // Analysis ops may need 3-4 steps for multi-source queries

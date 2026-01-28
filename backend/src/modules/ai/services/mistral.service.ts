@@ -28,7 +28,6 @@ type ConversationMessage = {
 @Injectable()
 export class MistralService {
   private logger = new Logger(MistralService.name);
-  private defaultModel: string;
   private readonly embeddingModel = 'mistral-embed';
 
   // Rate limiting for direct embedding calls (not through queue)
@@ -86,9 +85,20 @@ export class MistralService {
     return apiKey;
   }
 
-  private getModel(): string {
-    // Use AI_DEFAULT_MODEL (MISTRAL_MODEL was dead code and has been removed)
-    return this.configService.get<string>('AI_DEFAULT_MODEL') || this.defaultModel;
+  private getModel(tier: 'fast' | 'medium' | 'creative' | 'default' = 'default'): string {
+    // Model routing by tier (AI_DEFAULT_MODEL removed - use explicit tiers)
+    switch (tier) {
+      case 'fast':
+        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
+      case 'medium':
+        return this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-medium-latest';
+      case 'creative':
+        return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistral-small-creative';
+      case 'default':
+      default:
+        // Default to fast (small) for cost optimization
+        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
+    }
   }
 
   getEmbeddingModel(): string {
@@ -163,8 +173,8 @@ export class MistralService {
     timeoutMs?: number;
     /** Telemetry context for tracking */
     telemetryContext?: { tenantId: string; userId?: string; promptName?: string };
-    /** Model override: 'fast' for simple, 'medium' for extraction, 'default' for configured */
-    modelTier?: 'fast' | 'medium' | 'default';
+    /** Model override: 'fast' for simple, 'medium' for extraction, 'creative' for writing, 'default' for fast */
+    modelTier?: 'fast' | 'medium' | 'creative' | 'default';
     /** Enable JSON mode for guaranteed valid JSON output */
     jsonMode?: boolean;
     /**
@@ -187,13 +197,8 @@ export class MistralService {
       validationContext = 'USER_PROMPT',
     } = options;
 
-    // Model routing
-    let model = this.getModel();
-    if (modelTier === 'fast') {
-      model = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
-    } else if (modelTier === 'medium') {
-      model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
-    }
+    // Model routing via centralized getModel()
+    const model = this.getModel(modelTier);
 
     // Validate inputs before processing (includes context-aware security check)
     this.validatePromptInputs(userPrompt, systemPrompt, validationContext);
@@ -379,7 +384,7 @@ export class MistralService {
         .join('\n');
 
       const completion = await client.chat.complete({
-        model: this.getModel(),
+        model: this.getModel('fast'), // Title generation is a simple task
         temperature: 0.2,
         maxTokens: 32,
         safePrompt: true, // Mistral guardrailing
@@ -631,7 +636,7 @@ export class MistralService {
     options?: { conversationId?: string; locale?: string; timeoutMs?: number },
   ): Promise<string> {
     const apiKey = this.getApiKey();
-    const model = this.getModel();
+    const model = this.getModel('medium'); // RAG response needs reasoning capability
     const supportedLocale = getLocale(options?.locale);
     const t = getTranslations(supportedLocale);
     const timeoutMs = options?.timeoutMs ?? 60000; // Default 60s for RAG responses

@@ -11,14 +11,14 @@
  * - Redis-backed for multi-instance deployment
  * - Graceful degradation when Redis unavailable
  *
- * IMPORTANT: Provider-specific limits:
- * - Mistral API: 6 req/sec = 360 req/min (we use 300 for safety)
+ * IMPORTANT: Provider-specific limits (2026-01-28 update):
+ * - Mistral API: 12 req/sec = 720 req/min (we use 600 for safety buffer)
  * - Azure OpenAI: Higher limits via env vars (AI_RATE_LIMIT_GLOBAL_RPM)
  *
- * Default Limits (Mistral-safe):
- * - 30 requests/minute per tenant (fair sharing)
- * - 300 requests/minute global (5 req/sec < Mistral's 6 req/sec)
- * - 50,000 tokens/hour per tenant
+ * Default Limits (Mistral 12 req/sec tier):
+ * - 60 requests/minute per tenant (fair sharing)
+ * - 600 requests/minute global (10 req/sec < Mistral's 12 req/sec)
+ * - 200,000 tokens/hour per tenant
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';

@@ -136,7 +136,7 @@ export interface OAuthConfig {
 export interface AiConfig {
   mistral: {
     apiKey: string;
-    model: string;
+    // Model tiers configured via ai.config.ts (AI_MODEL_SIMPLE/MEDIUM/COMPLEX/CREATIVE)
   };
 }
 
@@ -405,7 +405,8 @@ export function loadConfiguration(): Configuration {
     ai: {
       mistral: {
         apiKey: process.env.MISTRAL_API_KEY || '',
-        model: process.env.AI_DEFAULT_MODEL || 'mistral-small-latest',
+        // Model tiers configured via AI_MODEL_SIMPLE/MEDIUM/COMPLEX/CREATIVE
+        // See: ai.config.ts and mistral.provider.ts
       },
     },
 

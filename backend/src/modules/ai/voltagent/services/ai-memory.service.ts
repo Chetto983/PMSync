@@ -508,6 +508,8 @@ export class AIMemoryService {
     limit = 10,
     maxDistance = 1.0,
   ): Promise<MemoryWithScore[]> {
+    const startTime = Date.now();
+
     if (!this.mistralService) {
       this.logger.warn('MistralService not available, falling back to text search');
       const textResults = await this.searchMemories(tenantId, userId, query, limit);
@@ -516,7 +518,9 @@ export class AIMemoryService {
 
     try {
       // Generate query embedding
+      const embedStart = Date.now();
       const queryEmbedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId });
+      const embedTime = Date.now() - embedStart;
 
       if (!queryEmbedding || queryEmbedding.length !== 1024) {
         this.logger.warn(`Invalid query embedding: expected 1024 dimensions, got ${queryEmbedding?.length}`);
@@ -527,6 +531,7 @@ export class AIMemoryService {
 
       // Semantic search with tenant + user isolation using CTE
       // Cosine distance: 0 = identical, 2 = opposite
+      const pgStart = Date.now();
       const results = await this.prisma.$queryRaw<
         Array<Memory & { distance: number }>
       >`
@@ -558,6 +563,12 @@ export class AIMemoryService {
         ORDER BY distance ASC
         LIMIT ${limit}
       `;
+      const pgTime = Date.now() - pgStart;
+
+      this.logger.log(
+        `[PERF] searchMemoriesSemantic: embed=${embedTime}ms | pgvector=${pgTime}ms | ` +
+        `found=${results.length} | total=${Date.now() - startTime}ms`
+      );
 
       // Convert distance to score (0-1, higher = more similar)
       return results.map((r) => ({

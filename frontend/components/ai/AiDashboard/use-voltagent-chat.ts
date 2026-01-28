@@ -229,16 +229,36 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
   const chat = useChat({
     transport,
     id: conversationId,
-    experimental_throttle: 100, // Throttle UI updates to 100ms to prevent render cascade
+    experimental_throttle: 500, // Increased to 500ms - aggressive throttle to prevent render cascade
     onError: (error) => {
       onError?.(error);
     },
   });
 
+  // Stable reference for messages - only update when count changes
+  // This prevents cascading updates during streaming
+  const messageCountRef = useRef(0);
+  const processedMessagesRef = useRef<ChatMessageWithParts[]>([]);
+
   // Map AI SDK messages to our interface (preserving full structure)
   // Parse suggested questions from assistant messages
+  // FIX: Use ref-based caching to prevent cascading updates during streaming
   const messagesWithParts = useMemo((): ChatMessageWithParts[] => {
-    return chat.messages.map((msg) => {
+    // Skip processing if message count hasn't changed (streaming updates same message)
+    // Only reprocess when a new message is added or removed
+    const currentCount = chat.messages.length;
+    const isStreaming = chat.status === 'streaming';
+
+    // During streaming, only update when the final message stops streaming
+    // This dramatically reduces re-renders
+    if (isStreaming && currentCount === messageCountRef.current && currentCount > 0) {
+      // Return cached version during streaming to prevent render cascade
+      return processedMessagesRef.current;
+    }
+
+    messageCountRef.current = currentCount;
+
+    const processed = chat.messages.map((msg) => {
       // Extract text from parts
       const originalParts = (msg.parts || []).map((p: { type: string; text?: string }) => ({
         type: p.type as MessagePart['type'],
@@ -332,7 +352,11 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
         askUser,
       };
     });
-  }, [chat.messages]);
+
+    // Cache the processed result
+    processedMessagesRef.current = processed;
+    return processed;
+  }, [chat.messages, chat.status]);
 
   // Wrapper for sendMessage that takes just a string
   const sendMessage = useCallback(

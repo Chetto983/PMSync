@@ -257,12 +257,14 @@ export class MemoryIntelligenceService {
             minScore?: number;
         } = {},
     ): Promise<string> {
+        const startTime = Date.now();
         // minScore 0.55 filters out weak matches (score = 1 - distance/2)
         // Score 0.5 = orthogonal/unrelated, 0.55+ = some semantic similarity
         const { limit = 10, useReranking = false, minScore = 0.55 } = options;
 
         try {
             // Use semantic search for better relevance
+            const searchStart = Date.now();
             const candidates = await this.memoryService.searchMemoriesSemantic(
                 tenantId,
                 userId,
@@ -270,9 +272,10 @@ export class MemoryIntelligenceService {
                 useReranking ? 20 : limit, // Fetch more if re-ranking
                 1.4, // Max distance (1.4 = score 0.3)
             );
+            const searchTime = Date.now() - searchStart;
 
             if (candidates.length === 0) {
-                this.logger.debug('No relevant memories found for context');
+                this.logger.log(`[PERF] getRelevantContext: search=${searchTime}ms | found=0 | total=${Date.now() - startTime}ms`);
                 return '';
             }
 
@@ -282,8 +285,11 @@ export class MemoryIntelligenceService {
             let relevant = candidates.filter((m) => m.score >= minScore);
 
             // Optional: Re-rank with LLM for better precision
+            let rerankTime = 0;
             if (useReranking && relevant.length > 3) {
+                const rerankStart = Date.now();
                 relevant = await this.rerankWithLLM(query, relevant, limit);
+                rerankTime = Date.now() - rerankStart;
             }
 
             // Take top results
@@ -297,7 +303,15 @@ export class MemoryIntelligenceService {
             }
 
             // Format for context injection with type labels
-            return this.formatMemoriesForContext(topMemories);
+            const result = this.formatMemoriesForContext(topMemories);
+
+            this.logger.log(
+                `[PERF] getRelevantContext: search=${searchTime}ms | ` +
+                `rerank=${rerankTime}ms | found=${topMemories.length} | ` +
+                `total=${Date.now() - startTime}ms`
+            );
+
+            return result;
         } catch (error) {
             this.logger.error(`Failed to get relevant context: ${error}`);
             return '';

@@ -95,19 +95,25 @@ export class ChatPrepareService {
     memory: Memory | null,
     hooks?: DisposableHooks | null,
   ): Promise<PreparedChatContext> {
+    const prepareStart = Date.now();
     const correlationId = CorrelationContext.getCorrelationId();
     const logPrefix = `[${correlationId}] [tenant:${options.tenantId}]`;
+
+    // TIMING: Track each step for performance analysis
+    const timings: Record<string, number> = {};
 
     // Calculate session ID with fallback
     const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
     const sessionId = options.conversationId || fallbackSessionId;
 
     // 1. Process request: validate input, redact PII, check rate limits, route model
+    const step1Start = Date.now();
     let processedMessage = message;
     let selectedModel = options.model;
     let suggestedAgent: 'Supervisor' | 'Actions' | 'Intelligence' = 'Supervisor';
     let hasPii = false;
     let estimatedTokens = 0;
+    let detectedIntent: import('./task-complexity-classifier.service').TaskIntent = 'unknown'; // RLM
 
     if (this.chatRequestProcessor) {
       try {
@@ -124,6 +130,7 @@ export class ChatPrepareService {
         suggestedAgent = processed.suggestedAgent;
         hasPii = processed.hasPii;
         estimatedTokens = processed.estimatedTokens;
+        detectedIntent = processed.intent; // RLM: Extract intent for minimal prompt
 
         if (hasPii) {
           this.logger.log(`${logPrefix} PII detected and redacted`);
@@ -142,14 +149,18 @@ export class ChatPrepareService {
     } else {
       this.logger.warn(`${logPrefix} ChatRequestProcessorService not injected, using default processing`);
     }
+    timings['1_request_process'] = Date.now() - step1Start;
 
     // 2. Resolve locale
     const locale = getLocale(options.locale);
 
     // 3. Fetch user context for personalized agent instructions
+    const step3Start = Date.now();
     const userContext = await this.getUserContext(options.userId, options.tenantId);
+    timings['3_user_context'] = Date.now() - step3Start;
 
     // 4. Get or create agent via AgentPoolService
+    const step4Start = Date.now();
     if (!this.agentPoolService) {
       throw new AiError('AgentPoolService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
     }
@@ -163,6 +174,7 @@ export class ChatPrepareService {
       agentType: suggestedAgent,
       memory,
       hooks: hooks?.hooks,
+      intent: detectedIntent, // RLM: Pass intent for minimal prompt loading
     };
 
     let agent: Agent;
@@ -172,8 +184,10 @@ export class ChatPrepareService {
     } else {
       agent = await this.agentPoolService.getOrCreateAgent({ ...agentParams, agentType: 'Supervisor' });
     }
+    timings['4_agent_create'] = Date.now() - step4Start;
 
     // 5. Build enhanced context: episodic lessons + long-term memory
+    const step5Start = Date.now();
     let enhancedMessage = processedMessage;
     if (this.chatContextBuilder) {
       const contextResult = await this.chatContextBuilder.build(processedMessage, {
@@ -183,8 +197,10 @@ export class ChatPrepareService {
       });
       enhancedMessage = contextResult.enhancedMessage;
     }
+    timings['5_context_build'] = Date.now() - step5Start;
 
     // 6. Ensure conversation exists in VoltAgent memory
+    const step6Start = Date.now();
     const tenantUserId = `${options.tenantId}:${options.userId}`;
     await this.ensureConversationExists({
       memory,
@@ -194,6 +210,13 @@ export class ChatPrepareService {
       tenantId: options.tenantId,
       logPrefix,
     });
+    timings['6_ensure_conv'] = Date.now() - step6Start;
+
+    // TIMING: Log total preparation time and breakdown
+    timings['total'] = Date.now() - prepareStart;
+    this.logger.log(
+      `${logPrefix} [PERF] prepare() timings: ${JSON.stringify(timings)}ms | agent=${suggestedAgent} model=${selectedModel}`,
+    );
 
     return {
       processedMessage,

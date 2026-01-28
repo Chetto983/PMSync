@@ -19,6 +19,7 @@ export const it: VoltAgentTranslations = {
       starred: (subject) => `Email "${subject}" contrassegnata`,
       unstarred: (subject) => `Rimossa stella da "${subject}"`,
       unreadCount: (count) => `${count} email non lette`,
+      rlmHint: 'Usa get_email_content(ids) per caricare il contenuto completo delle email specifiche.',
       moved: (subject, folder) => `Email "${subject}" spostata in ${folder}`,
       labeled: (subject, label) => `Etichetta "${label}" aggiunta a "${subject}"`,
       unlabeled: (subject, label) => `Etichetta "${label}" rimossa da "${subject}"`,

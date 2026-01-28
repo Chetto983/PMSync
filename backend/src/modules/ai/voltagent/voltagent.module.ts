@@ -14,7 +14,7 @@ import { SubscriptionModule } from '../../subscription/subscription.module';
 // Controllers
 import { VoltAgentController } from './voltagent.controller';
 import {
-  MemoryController,
+  // MemoryController removed - memory now via VoltAgent tools (search_memory, store_memory)
   FollowUpController,
   AnalyticsController,
   KnowledgeController,
@@ -65,6 +65,7 @@ import { ChatRequestProcessorService } from './services/chat-request-processor.s
 import { ChatContextBuilderService } from './services/chat-context-builder.service';
 import { ChatResponseProcessorService } from './services/chat-response-processor.service';
 import { ChatPrepareService } from './services/chat-prepare.service';
+import { TaskComplexityClassifierService } from './services/task-complexity-classifier.service';
 
 // Phase 6: Extracted Services (VoltAgentService refactoring)
 import { AgentPoolService } from './services/agent-pool.service';
@@ -84,7 +85,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
   ],
   controllers: [
     VoltAgentController,
-    MemoryController,
+    // MemoryController removed - memory now via VoltAgent tools
     FollowUpController,
     AnalyticsController,
     KnowledgeController,
@@ -133,6 +134,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     ChatContextBuilderService,
     ChatResponseProcessorService,
     ChatPrepareService,
+    TaskComplexityClassifierService,
     // Phase 6: Extracted Services (VoltAgentService refactoring)
     AgentPoolService,
     AgentMetricsService,

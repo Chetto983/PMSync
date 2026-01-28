@@ -422,6 +422,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.4,
         maxTokens: 500,
+        modelTier: 'creative', // Smart replies need creative writing capability
         validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
       });
 
@@ -499,6 +500,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.35,
         maxTokens: 900,
+        modelTier: 'creative', // Email composition needs creative writing capability
         jsonMode: true, // Enable JSON mode for guaranteed valid JSON output
         validationContext: 'SYSTEM_INTERNAL', // Email compose - skip jailbreak patterns
       });

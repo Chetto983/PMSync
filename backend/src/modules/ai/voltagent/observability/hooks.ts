@@ -279,11 +279,16 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
         opData.toolCalls++;
       }
 
-      logger?.debug('Tool execution started', {
+      // Store tool start time for duration calculation
+      const toolStartKey = `${operationId}:${tool.name}:${Date.now()}`;
+      (context as Record<string, unknown>).__toolStartTime = Date.now();
+      (context as Record<string, unknown>).__toolStartKey = toolStartKey;
+
+      // PERF: Log at info level to see tool names in production logs
+      logger?.info(`[PERF] Tool START: ${tool.name} | agent=${agent.name}`, {
         agentName: agent.name,
         toolName: tool.name,
         operationId,
-        // Sanitize args to avoid logging sensitive data
         argsKeys: args ? Object.keys(args as Record<string, unknown>) : [],
       });
     },
@@ -296,6 +301,19 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
      * that would otherwise be lost during delegate_task execution.
      */
     onToolEnd: async ({ agent, tool, output, error, context }) => {
+      // Calculate tool duration
+      const toolStartTime = (context as Record<string, unknown>).__toolStartTime as number | undefined;
+      const toolDuration = toolStartTime ? Date.now() - toolStartTime : 0;
+
+      // PERF: Log tool completion with duration
+      logger?.info(`[PERF] Tool END: ${tool.name} | duration=${toolDuration}ms | agent=${agent.name} | error=${!!error}`, {
+        agentName: agent.name,
+        toolName: tool.name,
+        duration: toolDuration,
+        hasOutput: output !== undefined,
+        hasError: !!error,
+      });
+
       // DEBUG: Always log tool completion for HITL debugging
       logger?.debug('[HITL DEBUG] onToolEnd called', {
         agentName: agent.name,
@@ -315,6 +333,7 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
             toolName: tool.name,
             operationId: context.operationId,
             error: error.message,
+            duration: toolDuration,
           });
         }
         return;

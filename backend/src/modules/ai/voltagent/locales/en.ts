@@ -28,6 +28,7 @@ export const en: VoltAgentTranslations = {
       starred: (subject) => `Email "${subject}" starred`,
       unstarred: (subject) => `Email "${subject}" unstarred`,
       unreadCount: (count) => `${count} unread emails`,
+      rlmHint: 'Use get_email_content(ids) to load full content for specific emails.',
       moved: (subject, folder) => `Email "${subject}" moved to ${folder}`,
       labeled: (subject, label) => `Label "${label}" added to "${subject}"`,
       unlabeled: (subject, label) => `Label "${label}" removed from "${subject}"`,

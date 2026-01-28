@@ -317,7 +317,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Cleanup agents on shutdown (delegated to AgentPoolService)
     // Fire-and-forget cleanup - no need to await on shutdown
-    this.agentPoolService?.clearAgentCache();
+    void this.agentPoolService?.clearAgentCache();
   }
 
 
@@ -384,6 +384,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    */
   async chat(message: string, options: ChatOptions): Promise<ChatResult> {
     const startTime = Date.now();
+    // PERF: Timing instrumentation for performance debugging
+    const timings: Record<string, number> = {};
 
     // Use ChatPrepareService for consolidated setup (refactored 2026-01-27)
     if (!this.chatPrepareService) {
@@ -391,9 +393,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     let ctx;
+    const prepareStart = Date.now();
     try {
       ctx = await this.chatPrepareService.prepare(message, options, this.memory, this.observabilityHooks);
+      timings['1_prepare'] = Date.now() - prepareStart;
     } catch (error) {
+      timings['1_prepare'] = Date.now() - prepareStart;
       const errorMsg = error instanceof Error ? error.message : String(error);
       // Handle rate limit and validation errors gracefully
       if (errorMsg.includes('Rate limit exceeded')) {
@@ -411,6 +416,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Trigger Memory Intelligence (Async/Fire-and-forget)
     // Uses ORIGINAL message with real PII for long-term storage
+    const memoryStart = Date.now();
     if (this.memoryIntelligenceService && options.userId) {
       this.memoryIntelligenceService.processMemoryFromMessage(
         options.tenantId,
@@ -420,8 +426,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         this.logger.error(`${ctx.logPrefix} Memory extraction failed:`, err);
       });
     }
+    timings['2_memory_trigger'] = Date.now() - memoryStart;
 
-    this.logger.debug(`${ctx.logPrefix} [DEBUG] About to call agent.generateText`);
+    this.logger.log(`${ctx.logPrefix} [PERF] Pre-LLM timings: prepare=${timings['1_prepare']}ms | agent=${ctx.suggestedAgent} model=${ctx.selectedModel}`);
 
     // Emit real-time agent step: Intent analysis started
     this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'intent', 'started', 'Analyzing your request...');
@@ -505,6 +512,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       throw new Error(errorT.ai.agentFailed);
     }
 
+    timings['3_llm_call'] = Date.now() - agentStartTime;
+
+    // Log tool execution details if any
+    if (result.steps?.length) {
+      const stepDetails = result.steps.map((step: unknown, i: number) => {
+        const s = step as { toolResults?: Array<{ toolName?: string }>; durationMs?: number };
+        const tools = s.toolResults?.map(t => t.toolName).filter(Boolean).join(',') || 'none';
+        return `step${i}:[${tools}]`;
+      }).join(' ');
+      this.logger.log(`${ctx.logPrefix} [PERF] LLM steps: ${stepDetails} | total=${timings['3_llm_call']}ms`);
+    }
+
     // FIX: Return the sessionId to frontend so conversations persist across messages
     // The sessionId is either the provided conversationId or a newly generated one
     // Format includes tenantId for multi-tenant isolation
@@ -522,6 +541,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const effectiveSessionId = persistedConversationId || options.conversationId || ctx.sessionId;
     let pendingActions: PendingAction[] = [];
 
+    const postProcessStart = Date.now();
     if (this.chatResponseProcessor) {
       // Use the new service that handles both extraction methods
       const processed = await this.chatResponseProcessor.process(
@@ -603,6 +623,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     const userVisibleText = await this.resolveUserVisibleText(options.tenantId, ctx.sessionId, sanitizedText);
+    timings['4_post_process'] = Date.now() - postProcessStart;
+    timings['total'] = Date.now() - startTime;
+
+    // PERF: Final timing summary
+    this.logger.log(
+      `${ctx.logPrefix} [PERF] chat() COMPLETE: ` +
+      `prepare=${timings['1_prepare']}ms | ` +
+      `llm=${timings['3_llm_call']}ms | ` +
+      `post=${timings['4_post_process']}ms | ` +
+      `TOTAL=${timings['total']}ms | ` +
+      `agent=${ctx.suggestedAgent} model=${ctx.selectedModel}`
+    );
 
     return {
       text: userVisibleText,
@@ -772,14 +804,16 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    */
   async submitActionForApproval(
     action: ApprovalInput['action'],
-    autoApproveThreshold = 0.9,
+    autoApproveThreshold?: number,
   ): Promise<ApprovalResult | SuspendedWorkflow> {
+    // Use provided threshold or fall back to config default (0.9)
+    const threshold = autoApproveThreshold ?? this.configService.get<number>('ai.hitl.defaultAutoApproveThreshold', 0.9);
     if (!this.approvalWorkflowService) {
       throw new AiError('Approval workflow not available', AiErrorCode.INTERNAL_ERROR, {
         retryable: false,
       });
     }
-    return this.approvalWorkflowService.submitActionForApproval(action, autoApproveThreshold);
+    return this.approvalWorkflowService.submitActionForApproval(action, threshold);
   }
 
   /**

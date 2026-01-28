@@ -1,9 +1,10 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
-import { AgentAction, ActionSeverity } from '../interfaces/agent-action.interface';
+import { AgentAction} from '../interfaces/agent-action.interface';
 import { Prisma, ActionStatus, ActionType } from '@prisma/client';
 import { LearningService } from './learning.service';
 
@@ -65,14 +66,19 @@ export interface ApprovalResult {
 export class HitlService {
   private readonly logger = new Logger(HitlService.name);
 
-  // Default expiration time for pending actions (24 hours)
-  private readonly DEFAULT_EXPIRATION_MINUTES = 24 * 60;
+  // Config keys (avoid magic strings)
+  private static readonly CONFIG_EXPIRATION_HOURS = 'ai.hitl.actionExpirationHours';
+  private static readonly CONFIG_MAX_PENDING = 'ai.hitl.maxPendingActionsPerUser';
+  // Defaults (fallback if config not available)
+  private static readonly DEFAULT_EXPIRATION_HOURS = 24;
+  private static readonly DEFAULT_MAX_PENDING_ACTIONS = 50;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly learningService: LearningService,
     private readonly redisLock: RedisLockService,
+    private readonly configService: ConfigService,
   ) { }
 
   /**
@@ -136,12 +142,40 @@ export class HitlService {
       sessionId,
       agentName,
       action,
-      expiresInMinutes = this.DEFAULT_EXPIRATION_MINUTES,
+      expiresInMinutes,
     } = options;
+
+    // Get expiration from config (hours → minutes) or use provided value
+    const expirationHours = this.configService.get<number>(
+      HitlService.CONFIG_EXPIRATION_HOURS,
+      HitlService.DEFAULT_EXPIRATION_HOURS,
+    );
+    const effectiveExpiresInMinutes = expiresInMinutes ?? expirationHours * 60;
 
     this.logger.debug(
       `Creating pending action for tenant ${tenantId}, agent ${agentName}, type ${action.type}`,
     );
+
+    // Enforce max pending actions per user (AI_MAX_PENDING_ACTIONS)
+    const maxPendingActions = this.configService.get<number>(
+      HitlService.CONFIG_MAX_PENDING,
+      HitlService.DEFAULT_MAX_PENDING_ACTIONS,
+    );
+    const currentPendingCount = await this.prisma.actionQueue.count({
+      where: {
+        tenantId,
+        userId,
+        status: ActionStatus.PENDING_APPROVAL,
+      },
+    });
+    if (currentPendingCount >= maxPendingActions) {
+      this.logger.warn(
+        `[tenant:${tenantId}] User ${userId} has ${currentPendingCount} pending actions (max: ${maxPendingActions})`,
+      );
+      throw new BadRequestException(
+        `Maximum pending actions limit reached (${maxPendingActions}). Please approve or reject existing actions first.`,
+      );
+    }
 
     // Compute idempotency hash
     const actionHash = this.computeActionHash(
@@ -219,7 +253,7 @@ export class HitlService {
           }
         }
 
-        const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+        const expiresAt = new Date(Date.now() + effectiveExpiresInMinutes * 60 * 1000);
 
         // Map action type string to ActionType enum
         const actionTypeEnum = this.mapActionType(action.type);
@@ -739,24 +773,8 @@ export class HitlService {
     }
   }
 
-  /**
-   * Check if an action should be auto-approved based on confidence
-   * and user preferences.
-   */
-  shouldAutoApprove(
-    action: AgentAction,
-    autoApproveThreshold: number,
-  ): boolean {
-    // Never auto-approve high severity actions
-    if (action.severity === ActionSeverity.HIGH) {
-      return false;
-    }
-
-    // Use adjusted confidence if available (from learning)
-    const confidence = action.adjustedConfidence ?? action.confidence;
-
-    return confidence >= autoApproveThreshold;
-  }
+  // NOTE: Auto-approval logic is in approval.workflow.ts (lines 110-129)
+  // It checks: HIGH severity → always suspend, else confidence >= threshold → auto-approve
 
   /**
    * Get counts of pending actions by status for a tenant.

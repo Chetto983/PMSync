@@ -25,7 +25,9 @@ import { createAnalyticsAgent } from './analytics.agent';
 import type { FollowUpService } from '../services/follow-up.service';
 import { PiiDetectionService } from '../../guards';
 import { EmailInsightsService } from '../../services/email-insights.service';
+import { AIMemoryService } from '../services/ai-memory.service';
 import { createAskUserTool } from '../tools/ask-user.tool';
+import { createMemoryTools } from '../tools/memory.tools';
 // Note: VoltAgent guardrails not used - Sentinel protection applied at service level
 // via PromptGuardService and PiiDetectionService in ChatRequestProcessor
 
@@ -58,6 +60,8 @@ export interface SupervisorAgentOptions {
   piiDetectionService?: PiiDetectionService;
   /** Optional: EmailInsightsService for unified email analysis with DB persistence */
   emailInsightsService?: EmailInsightsService;
+  /** Optional: AIMemoryService for semantic search on user memories */
+  aiMemoryService?: AIMemoryService | null;
 }
 
 /**
@@ -307,6 +311,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     // followUpService, longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
     piiDetectionService,
     emailInsightsService,
+    aiMemoryService,
   } = options;
   // Always use English prompts, locale only affects response language
   const t = getAgentTranslations('en');
@@ -348,6 +353,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     piiDetectionService,
     emailInsightsService: emailInsightsService ?? null,
     userContext, // Pass userContext for current date/time awareness
+    aiMemoryService: aiMemoryService ?? null, // Memory tools for semantic search on user facts
   });
 
   // Start with core consolidated agents
@@ -406,6 +412,11 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
   // This is more reliable than JSON blocks in text for Mistral models
   const askUserTool = createAskUserTool({ locale });
 
+  // Create memory tools for semantic search on user facts/notes
+  const memoryTools = aiMemoryService
+    ? createMemoryTools({ aiMemoryService, tenantId, userId })
+    : [];
+
   // Create the supervisor agent with all sub-agents
   // Memory is shared - tenant isolation is handled via userId format: tenantId:userId
   // Instructions include user context for personalization when available
@@ -414,7 +425,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     purpose: 'Intelligent email assistant coordinator',
     model,
     instructions: dynamicInstructions,
-    tools: [askUserTool], // Supervisor-level tool for user clarification
+    tools: [askUserTool, ...memoryTools], // Supervisor-level tools for user clarification and memory
     subAgents,
     memory,
     hooks,
