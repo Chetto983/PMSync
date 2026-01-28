@@ -414,19 +414,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Destructure only what we need for local use (rest accessed via ctx.)
 
-    // Trigger Memory Intelligence (Async/Fire-and-forget)
-    // Uses ORIGINAL message with real PII for long-term storage
-    const memoryStart = Date.now();
-    if (this.memoryIntelligenceService && options.userId) {
-      this.memoryIntelligenceService.processMemoryFromMessage(
-        options.tenantId,
-        options.userId,
-        message, // Original message, not PII-redacted
-      ).catch(err => {
-        this.logger.error(`${ctx.logPrefix} Memory extraction failed:`, err);
-      });
-    }
-    timings['2_memory_trigger'] = Date.now() - memoryStart;
+    // NOTE: Memory extraction moved to AFTER LLM response (line ~545)
+    // This allows capturing contact info from assistant responses too
+    timings['2_memory_trigger'] = 0; // Legacy timing slot (kept for metrics)
 
     this.logger.log(`${ctx.logPrefix} [PERF] Pre-LLM timings: prepare=${timings['1_prepare']}ms | agent=${ctx.suggestedAgent} model=${ctx.selectedModel}`);
 
@@ -531,6 +521,19 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Sanitize response to remove any accidentally echoed internal context markers
     const sanitizedText = sanitizeLlmResponse(result.text);
+
+    // Extract facts from ASSISTANT response (contact info, confirmations, etc.)
+    // Combined with user message creates a conversational fact pair
+    if (this.memoryIntelligenceService && options.userId && sanitizedText) {
+      const conversationPair = `User: ${message}\nAssistant: ${sanitizedText}`;
+      this.memoryIntelligenceService.processMemoryFromMessage(
+        options.tenantId,
+        options.userId,
+        conversationPair,
+      ).catch(err => {
+        this.logger.warn(`${ctx.logPrefix} Memory extraction (response) failed: ${err.message}`);
+      });
+    }
 
     // NOTE: Conversation exists check removed - ChatPrepareService.prepare() already ensures it
 

@@ -51,22 +51,27 @@ export class MemoryIntelligenceService {
         userId: string,
         message: string,
     ): Promise<void> {
+        const startTime = Date.now();
         try {
             const piiResult = this.piiDetectionService?.detect(message);
             const safeMessage = piiResult?.redactedText ?? message;
             const piiMatches = piiResult?.details ?? [];
 
-            // 1. Extract facts
+            // 1. Extract facts from conversation
             const facts = await this.extractFacts(safeMessage);
+            const extractTime = Date.now() - startTime;
+
             if (facts.length === 0) {
+                this.logger.debug(`[Memory] No facts extracted (${extractTime}ms) - message length: ${message.length}`);
                 return;
             }
-            this.logger.debug(`Extracted ${facts.length} facts from message`);
+            this.logger.log(`[Memory] Extracted ${facts.length} facts in ${extractTime}ms: ${facts.slice(0, 3).join('; ')}${facts.length > 3 ? '...' : ''}`);
 
             // 2. Process each fact against existing memory
             await this.processFacts(tenantId, userId, facts, piiMatches);
+            this.logger.log(`[Memory] Processed ${facts.length} facts in ${Date.now() - startTime}ms`);
         } catch (error) {
-            this.logger.error(`Failed to process memory from message: ${error}`);
+            this.logger.error(`[Memory] Failed to process memory: ${error}`);
         }
     }
 
@@ -192,12 +197,14 @@ export class MemoryIntelligenceService {
             try {
                 switch (action.action) {
                     case 'ADD':
+                        const memType = inferMemoryType(action.content) as MemoryType;
                         await this.memoryService.storeMemory(tenantId, userId, {
                             content: action.content,
-                            type: inferMemoryType(action.content) as MemoryType, // Use helper to guess type
+                            type: memType,
                             source: 'INFERRED',
                             confidence: 0.9,
                         });
+                        this.logger.log(`[Memory] STORED: type=${memType} content="${action.content.slice(0, 80)}..."`);
                         break;
 
                     case 'UPDATE':

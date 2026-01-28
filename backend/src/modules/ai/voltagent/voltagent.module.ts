@@ -14,7 +14,7 @@ import { SubscriptionModule } from '../../subscription/subscription.module';
 // Controllers
 import { VoltAgentController } from './voltagent.controller';
 import {
-  // MemoryController removed - memory now via VoltAgent tools (search_memory, store_memory)
+  MemoryController, // Restored for Frontend Memory UI
   FollowUpController,
   AnalyticsController,
   KnowledgeController,
@@ -85,7 +85,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
   ],
   controllers: [
     VoltAgentController,
-    // MemoryController removed - memory now via VoltAgent tools
+    MemoryController, // Restored for Frontend Memory UI
     FollowUpController,
     AnalyticsController,
     KnowledgeController,
