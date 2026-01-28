@@ -120,7 +120,16 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     embeddingsService: embeddingsService ?? undefined,
   });
   // RLM-style email tools for efficient two-step retrieval (see plan for details)
-  const emailRLMTools = createEmailRLMTools(prisma, locale, tenantId);
+  // Pass RAG services for semantic search in list_email_index(mode='search')
+  const emailRLMTools = createEmailRLMTools(
+    prisma,
+    locale,
+    tenantId,
+    // Only pass RAG options if all services are available
+    userId && mistral && embeddingsService
+      ? { userId, mistralService: mistral, embeddingsService }
+      : undefined,
+  );
   const folderTools = createFolderTools(prisma, locale, tenantId, cacheService);
   const contactsTools = createContactsTools(prisma, locale, tenantId, cacheService);
   const calendarTools = createCalendarTools(prisma, null, locale, tenantId, cacheService);

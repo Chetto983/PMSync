@@ -17,8 +17,20 @@ import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
+import type { MistralService } from '../../services/mistral.service';
+import type { EmbeddingsService } from '../../services/embeddings.service';
+import { UnifiedRetriever } from '../rag/unified-retriever';
 
 const logger = new Logger('EmailRLMTools');
+
+/**
+ * RAG options for semantic search
+ */
+export interface EmailRLMRagOptions {
+  userId: string;
+  mistralService: MistralService;
+  embeddingsService: EmbeddingsService;
+}
 
 /**
  * Creates RLM-style email tools for efficient context loading.
@@ -26,11 +38,13 @@ const logger = new Logger('EmailRLMTools');
  * @param prisma - Prisma service for database access
  * @param locale - User's locale for translations
  * @param tenantId - Tenant ID for data isolation
+ * @param ragOptions - Optional RAG services for semantic search
  */
 export function createEmailRLMTools(
   prisma: PrismaService,
   locale: SupportedLocale = 'en',
   tenantId: string,
+  ragOptions?: EmailRLMRagOptions,
 ) {
   const t = getToolTranslations(locale);
 
@@ -80,18 +94,88 @@ Does NOT return: full body content (use get_email_content for that)`,
           case 'starred':
             where = { ...where, isStarred: true };
             break;
-          case 'search':
-            if (query) {
-              where = {
-                ...where,
-                folder: EXCLUDE_JUNK_FOLDERS,
-                OR: [
-                  { subject: { contains: query, mode: 'insensitive' } },
-                  { from: { contains: query, mode: 'insensitive' } },
-                ],
-              };
+          case 'search': {
+            if (!query) {
+              return { success: false, error: 'query is required for mode="search"' };
             }
+
+            // Try RAG semantic search first if available
+            if (ragOptions?.userId && ragOptions.mistralService && ragOptions.embeddingsService) {
+              try {
+                logger.log(`[list_email_index] RAG search: "${query.substring(0, 40)}..."`);
+
+                const retriever = new UnifiedRetriever({
+                  tenantId,
+                  userId: ragOptions.userId,
+                  locale,
+                  prisma,
+                  mistralService: ragOptions.mistralService,
+                  embeddingsService: ragOptions.embeddingsService,
+                  emailLimit: Math.min(limit, 20) * 2, // Fetch extra for fusion
+                });
+
+                const results = await retriever.searchSources(query, ['emails']);
+                const emailResults = results.find((r) => r.source === 'emails');
+
+                if (emailResults && emailResults.items.length > 0) {
+                  const emailIds = emailResults.items.slice(0, Math.min(limit, 20)).map((item) => item.id);
+                  const emails = await prisma.email.findMany({
+                    where: { id: { in: emailIds }, tenantId },
+                    select: {
+                      id: true,
+                      from: true,
+                      subject: true,
+                      snippet: true,
+                      receivedAt: true,
+                      isRead: true,
+                      isStarred: true,
+                    },
+                  });
+
+                  // Preserve RAG ranking order
+                  const emailMap = new Map(emails.map((e) => [e.id, e]));
+                  const orderedEmails = emailIds
+                    .map((id) => emailMap.get(id))
+                    .filter((e): e is NonNullable<typeof e> => e !== undefined);
+
+                  const duration = Date.now() - startTime;
+                  logger.log(`[list_email_index] RAG found=${orderedEmails.length} duration=${duration}ms`);
+
+                  const index = orderedEmails.map((e, i) => ({
+                    idx: i + 1,
+                    id: e.id,
+                    from: e.from.length > 40 ? e.from.slice(0, 37) + '...' : e.from,
+                    subject: e.subject?.slice(0, 60) || '(no subject)',
+                    date: e.receivedAt?.toISOString().split('T')[0] || 'unknown',
+                    preview: e.snippet?.slice(0, 50) || '',
+                    unread: !e.isRead,
+                    starred: e.isStarred,
+                  }));
+
+                  return {
+                    success: true,
+                    count: index.length,
+                    index,
+                    searchType: 'semantic',
+                    hint: t.email.rlmHint || 'Use get_email_content(ids) to load full content for specific emails.',
+                  };
+                }
+              } catch (error) {
+                logger.warn(`RAG search failed, falling back to text: ${error instanceof Error ? error.message : String(error)}`);
+              }
+            }
+
+            // Fallback: text search
+            where = {
+              ...where,
+              folder: EXCLUDE_JUNK_FOLDERS,
+              OR: [
+                { subject: { contains: query, mode: 'insensitive' } },
+                { from: { contains: query, mode: 'insensitive' } },
+              ],
+            };
             break;
+          }
         }
 
         // Fetch ONLY minimal metadata - NO body content!
