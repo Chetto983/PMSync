@@ -72,14 +72,18 @@ export class ChatRequestProcessorService {
   private readonly logger = new Logger(ChatRequestProcessorService.name);
 
   constructor(
-    @Optional() private readonly promptGuardService: PromptGuardService | null,
-    @Optional() private readonly piiDetectionService: PiiDetectionService | null,
-    @Optional() private readonly piiResolutionService: PiiResolutionService | null,
-    @Optional() private readonly rateLimiterService: RateLimiterService | null,
-    // CRITICAL: Use @Inject() to force NestJS to resolve this dependency explicitly
+    // CRITICAL FIX: Use @Inject() alongside @Optional() to ensure NestJS resolves these dependencies
+    // Without @Inject(), @Optional() alone causes UNDEFINED instead of actual service instances
+    @Optional() @Inject(PromptGuardService) private readonly promptGuardService: PromptGuardService | null,
+    @Optional() @Inject(PiiDetectionService) private readonly piiDetectionService: PiiDetectionService | null,
+    @Optional() @Inject(PiiResolutionService) private readonly piiResolutionService: PiiResolutionService | null,
+    @Optional() @Inject(RateLimiterService) private readonly rateLimiterService: RateLimiterService | null,
     @Inject(TaskComplexityClassifierService) private readonly taskClassifier: TaskComplexityClassifierService,
   ) {
-    this.logger.log(`[INIT] TaskClassifier injected: ${!!this.taskClassifier}`);
+    // Log injection status for debugging
+    this.logger.log(
+      `[INIT] Security services: PromptGuard=${!!this.promptGuardService}, PiiDetection=${!!this.piiDetectionService}, PiiResolution=${!!this.piiResolutionService}`,
+    );
   }
 
   /**

@@ -1,7 +1,8 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { QueueService } from '../../email-sync/services/queue.service';
+import { CacheService } from '../../../common/services/cache.service';
 import { UpdatePreferencesDto } from '../dtos/update-preferences.dto';
 
 @Injectable()
@@ -12,6 +13,8 @@ export class UsersService {
     private prisma: PrismaService,
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private queueService: QueueService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CacheService) private cacheService?: CacheService,
   ) { }
 
   /**
@@ -192,15 +195,16 @@ export class UsersService {
       where: { userId },
     });
 
+    let result;
     if (existing) {
       // Update existing preferences
-      return this.prisma.userPreferences.update({
+      result = await this.prisma.userPreferences.update({
         where: { userId },
         data,
       });
     } else {
       // Create new preferences with provided data
-      return this.prisma.userPreferences.create({
+      result = await this.prisma.userPreferences.create({
         data: {
           tenantId,
           userId,
@@ -208,6 +212,17 @@ export class UsersService {
         },
       });
     }
+
+    // Invalidate cached user context so AI agent picks up new preferences immediately
+    if (this.cacheService) {
+      const cacheKey = `voltagent:user-context:${tenantId}:${userId}`;
+      await this.cacheService.del(cacheKey).catch((err) => {
+        this.logger.warn(`Failed to invalidate user context cache: ${err.message}`);
+      });
+      this.logger.debug(`Invalidated user context cache for ${userId}`);
+    }
+
+    return result;
   }
   /**
    * Get dashboard preferences

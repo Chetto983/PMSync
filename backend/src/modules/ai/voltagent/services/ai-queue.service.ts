@@ -18,7 +18,7 @@
  * - Progress tracking
  * - Metrics collection
  */
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, QueueEvents, Worker, Job, JobType } from 'bullmq';
 import { Redis } from 'ioredis';
@@ -102,7 +102,10 @@ export class AiQueueService implements OnModuleInit, OnModuleDestroy {
 
   private enabled = false;
 
-  constructor(@Optional() private readonly configService?: ConfigService) {}
+  constructor(
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
+  ) {}
 
   async onModuleInit() {
     // Use centralized Redis connection options (includes maxRetriesPerRequest: null for BullMQ)

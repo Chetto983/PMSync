@@ -44,15 +44,18 @@ export class ActionExecutorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly emailSendService: EmailSendService,
-    @Optional() private readonly emailSyncBackService: EmailSyncBackService,
-    @Optional() private readonly calendarService: CalendarService,
+    @Optional() @Inject(EmailSendService) private readonly emailSendService: EmailSendService | null,
+    @Optional() @Inject(EmailSyncBackService) private readonly emailSyncBackService: EmailSyncBackService | null,
+    @Optional() @Inject(CalendarService) private readonly calendarService: CalendarService | null,
     @Optional() @Inject(forwardRef(() => FolderSyncService))
-    private readonly folderSyncService: FolderSyncService,
-    @Optional() private readonly bulkOperationsQueue: BulkOperationsQueueService,
-    @Optional() private readonly cacheService?: CacheService,
-    @Optional() private readonly piiResolutionService?: PiiResolutionService,
-  ) { }
+    private readonly folderSyncService: FolderSyncService | null,
+    @Optional() @Inject(BulkOperationsQueueService) private readonly bulkOperationsQueue: BulkOperationsQueueService | null,
+    @Optional() @Inject(CacheService) private readonly cacheService: CacheService | null,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(PiiResolutionService) private readonly piiResolutionService: PiiResolutionService | null,
+  ) {
+    this.logger.log(`[INIT] PiiResolutionService injected: ${!!this.piiResolutionService}`);
+  }
 
   /**
    * Resolve provider ID - returns provided ID or finds default active provider.

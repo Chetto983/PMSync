@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { StorageService } from './storage.service';
 import { createHash } from 'crypto';
 import {
@@ -69,7 +69,8 @@ export class AttachmentStorageService {
 
   constructor(
     private readonly storage: StorageService,
-    @Optional() private readonly metrics?: AttachmentMetricsService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(AttachmentMetricsService) private readonly metrics?: AttachmentMetricsService,
   ) {}
 
   /**

@@ -14,7 +14,7 @@
  * @see backend/docs/P10-SUBSCRIPTION-BILLING-ROADMAP.md Part 6
  */
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../../../common/services/cache.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -44,7 +44,8 @@ export class BillingAlertService {
   constructor(
     private readonly config: ConfigService,
     private readonly cache: CacheService,
-    @Optional() private readonly prisma?: PrismaService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(PrismaService) private readonly prisma?: PrismaService,
   ) {
     this.adminEmail = this.config.get<string>('AI_COST_ALERT_EMAIL') || '';
   }

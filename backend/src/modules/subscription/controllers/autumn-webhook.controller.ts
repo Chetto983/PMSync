@@ -19,6 +19,7 @@ import {
   RawBodyRequest,
   Req,
   Optional,
+  Inject,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
@@ -55,7 +56,8 @@ export class AutumnWebhookController {
   constructor(
     private readonly config: ConfigService,
     private readonly subscriptionService: SubscriptionService,
-    @Optional() private readonly webhookRetryService?: WebhookRetryService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(WebhookRetryService) private readonly webhookRetryService?: WebhookRetryService,
   ) {
     this.webhookSecret = this.config.get<string>('AUTUMN_WEBHOOK_SECRET') || '';
   }

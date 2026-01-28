@@ -19,7 +19,7 @@
  * - Vector embedding generation
  * - Data labeling at scale
  */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Mistral } from '@mistralai/mistralai';
@@ -93,10 +93,11 @@ export class MistralBatchService {
   private readonly pendingJobs: Map<string, TrackedBatchJob> = new Map();
 
   constructor(
-    @Optional() private readonly configService?: ConfigService,
-    @Optional() private readonly cacheService?: CacheService,
-    @Optional() private readonly costProtectionService?: CostProtectionService,
-    @Optional() private readonly usageTrackingService?: UsageTrackingService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
+    @Optional() @Inject(CacheService) private readonly cacheService?: CacheService,
+    @Optional() @Inject(CostProtectionService) private readonly costProtectionService?: CostProtectionService,
+    @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
   ) {
     const apiKey = this.configService?.get<string>('MISTRAL_API_KEY') || process.env.MISTRAL_API_KEY;
     this.enabled = !!apiKey;

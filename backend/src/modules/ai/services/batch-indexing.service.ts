@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -44,8 +44,9 @@ export class BatchIndexingService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly embeddingsService: EmbeddingsService,
-    @Optional() private readonly costProtectionService?: CostProtectionService,
-    @Optional() private readonly usageTrackingService?: UsageTrackingService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CostProtectionService) private readonly costProtectionService?: CostProtectionService,
+    @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
   ) {
     const apiKey = this.config.get<string>('MISTRAL_API_KEY');
     this.batchProvider = new MistralBatchProvider(apiKey || '');

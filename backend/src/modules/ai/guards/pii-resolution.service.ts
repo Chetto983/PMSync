@@ -233,38 +233,37 @@ export class PiiResolutionService {
         return payload;
       }
 
-      const resolved = { ...payload } as Record<string, unknown>;
       let resolutionCount = 0;
 
-      for (const [field, value] of Object.entries(resolved)) {
+      // Recursive resolver for nested structures
+      const resolveValue = (value: unknown): unknown => {
         if (typeof value === 'string') {
-          let resolvedValue = value;
+          let resolved = value;
           for (const mapping of store.mappings) {
-            if (resolvedValue.includes(mapping.placeholder)) {
-              resolvedValue = resolvedValue.replaceAll(mapping.placeholder, mapping.originalValue);
+            if (resolved.includes(mapping.placeholder)) {
+              resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
               resolutionCount++;
             }
           }
-          resolved[field] = resolvedValue;
-        } else if (Array.isArray(value)) {
-          // Handle string arrays (e.g., email recipients)
-          resolved[field] = await Promise.all(
-            value.map(async (item) => {
-              if (typeof item === 'string') {
-                let resolvedItem = item;
-                for (const mapping of store.mappings) {
-                  if (resolvedItem.includes(mapping.placeholder)) {
-                    resolvedItem = resolvedItem.replaceAll(mapping.placeholder, mapping.originalValue);
-                    resolutionCount++;
-                  }
-                }
-                return resolvedItem;
-              }
-              return item;
-            }),
-          );
+          return resolved;
         }
-      }
+
+        if (Array.isArray(value)) {
+          return value.map((item) => resolveValue(item));
+        }
+
+        if (value && typeof value === 'object') {
+          const resolved: Record<string, unknown> = {};
+          for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+            resolved[key] = resolveValue(val);
+          }
+          return resolved;
+        }
+
+        return value;
+      };
+
+      const resolved = resolveValue(payload) as T;
 
       if (resolutionCount > 0) {
         this.logger.debug(
@@ -272,7 +271,7 @@ export class PiiResolutionService {
         );
       }
 
-      return resolved as T;
+      return resolved;
     } catch (error) {
       this.logger.error(`Failed to resolve PII in payload: ${error}`);
       return payload; // Return original on error

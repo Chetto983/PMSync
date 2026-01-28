@@ -234,7 +234,8 @@ export function Settings() {
       setSaveLoading(true);
       setGeneralError('');
       setGeneralSuccess('');
-      await usersApi.updatePreferences({ language });
+      // CRITICAL FIX: Send timezone to API (was only sending language!)
+      await usersApi.updatePreferences({ language, timezone, emailDensity });
       persistUserSettings({ language, timezone, emailNotifications });
       setGeneralSuccess(settingsCopy.generalPanel?.saveSuccess || 'Settings saved');
     } catch {

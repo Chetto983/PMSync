@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { QueryEmbeddingCacheService } from '../query-embedding-cache.service';
 import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../../utils';
@@ -52,8 +52,9 @@ export class EmbeddingProviderService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly queryEmbeddingCache: QueryEmbeddingCacheService,
-    @Optional() private readonly usageTrackingService?: UsageTrackingService,
-    @Optional() private readonly costProtectionService?: CostProtectionService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
+    @Optional() @Inject(CostProtectionService) private readonly costProtectionService?: CostProtectionService,
   ) {
     this.providerType = this.configService.get<EmbeddingProviderType>('AI_EMBEDDING_PROVIDER', 'mistral');
     this.embeddingModel = this.configService.get<string>('AI_EMBEDDING_MODEL', 'mistral-embed');

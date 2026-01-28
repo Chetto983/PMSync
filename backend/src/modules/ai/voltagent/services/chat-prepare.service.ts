@@ -14,7 +14,7 @@
  * @see VoltAgentService.chat()
  * @see VoltAgentService.createStreamContext()
  */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { Agent, Memory } from '@voltagent/core';
 import { AiError, AiErrorCode } from '../../errors';
 import { type UserContext } from '../agents/supervisor.agent';
@@ -73,11 +73,14 @@ export class ChatPrepareService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly cacheService?: CacheService,
-    @Optional() private readonly chatRequestProcessor?: ChatRequestProcessorService,
-    @Optional() private readonly chatContextBuilder?: ChatContextBuilderService,
-    @Optional() private readonly agentPoolService?: AgentPoolService,
-  ) {}
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CacheService) private readonly cacheService?: CacheService,
+    @Optional() @Inject(ChatRequestProcessorService) private readonly chatRequestProcessor?: ChatRequestProcessorService,
+    @Optional() @Inject(ChatContextBuilderService) private readonly chatContextBuilder?: ChatContextBuilderService,
+    @Optional() @Inject(AgentPoolService) private readonly agentPoolService?: AgentPoolService,
+  ) {
+    this.logger.log(`[INIT] ChatPrepareService: cache=${!!this.cacheService}, contextBuilder=${!!this.chatContextBuilder}`);
+  }
 
   /**
    * Prepare all context needed for chat or streaming.

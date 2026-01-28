@@ -216,7 +216,11 @@
       "WebFetch(domain:artificialanalysis.ai)",
       "WebFetch(domain:openrouter.ai)",
       "WebFetch(domain:arxiv.org)",
-      "WebFetch(domain:alexzhang13.github.io)"
+      "WebFetch(domain:alexzhang13.github.io)",
+      "WebFetch(domain:www.atlassian.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(D:)",
+      "Bash(DEBUG=*)"
     ],
     "deny": []
   }

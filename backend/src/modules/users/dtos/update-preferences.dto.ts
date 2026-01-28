@@ -48,6 +48,15 @@ export class UpdatePreferencesDto {
   language?: string;
 
   @ApiProperty({
+    description: 'Timezone (IANA format)',
+    example: 'Europe/Rome',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  timezone?: string;
+
+  @ApiProperty({
     description: 'Email list density',
     example: 'comfortable',
     required: false,

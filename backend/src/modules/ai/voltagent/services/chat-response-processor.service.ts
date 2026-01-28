@@ -10,7 +10,7 @@
  * Part of VoltAgentService refactoring (2302 → <500 lines)
  * Created: 2026-01-22
  */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { PiiResolutionService, type PiiMapping } from '../../guards';
 import { HitlService } from './hitl.service';
 import { type ActionSeverity, type AgentActionType } from '../interfaces/agent-action.interface';
@@ -89,9 +89,12 @@ export class ChatResponseProcessorService {
   private readonly logger = new Logger(ChatResponseProcessorService.name);
 
   constructor(
-    @Optional() private readonly hitlService: HitlService | null,
-    @Optional() private readonly piiResolutionService: PiiResolutionService | null,
-  ) {}
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(HitlService) private readonly hitlService: HitlService | null,
+    @Optional() @Inject(PiiResolutionService) private readonly piiResolutionService: PiiResolutionService | null,
+  ) {
+    this.logger.log(`[INIT] PiiResolutionService injected: ${!!this.piiResolutionService}`);
+  }
 
   /**
    * Process agent execution result - extract HITL actions and sanitize response.

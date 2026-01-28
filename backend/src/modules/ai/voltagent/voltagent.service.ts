@@ -20,7 +20,7 @@
  * - ApprovalWorkflowService: HITL workflow management
  * - ConversationManagementService: Chat session CRUD
  */
-import { Injectable, OnModuleInit, OnModuleDestroy, Optional, Logger } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, OnModuleDestroy, Optional, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Memory } from '@voltagent/core';
 import { PostgreSQLMemoryAdapter } from '@voltagent/postgres';
@@ -151,22 +151,25 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly configService: ConfigService,
-    @Optional() private readonly cacheService?: CacheService,
-    @Optional() private readonly hitlService?: HitlService,
-    @Optional() private readonly aiQueueService?: AiQueueService,
-    @Optional() private readonly piiResolutionService?: PiiResolutionService,
-    @Optional() private readonly realtimeEventsService?: RealtimeEventsService,
-    @Optional() private readonly conversationService?: ConversationManagementService,
-    @Optional() private readonly memoryIntelligenceService?: MemoryIntelligenceService,
-    @Optional() private readonly usageTrackingService?: UsageTrackingService,
-    @Optional() private readonly chatResponseProcessor?: ChatResponseProcessorService,
-    @Optional() private readonly chatRequestProcessor?: ChatRequestProcessorService,
-    @Optional() private readonly chatContextBuilder?: ChatContextBuilderService,
-    @Optional() private readonly agentMetricsService?: AgentMetricsService,
-    @Optional() private readonly approvalWorkflowService?: ApprovalWorkflowService,
-    @Optional() private readonly agentPoolService?: AgentPoolService,
-    @Optional() private readonly chatPrepareService?: ChatPrepareService,
-  ) { }
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CacheService) private readonly cacheService?: CacheService,
+    @Optional() @Inject(HitlService) private readonly hitlService?: HitlService,
+    @Optional() @Inject(AiQueueService) private readonly aiQueueService?: AiQueueService,
+    @Optional() @Inject(PiiResolutionService) private readonly piiResolutionService?: PiiResolutionService,
+    @Optional() @Inject(RealtimeEventsService) private readonly realtimeEventsService?: RealtimeEventsService,
+    @Optional() @Inject(ConversationManagementService) private readonly conversationService?: ConversationManagementService,
+    @Optional() @Inject(MemoryIntelligenceService) private readonly memoryIntelligenceService?: MemoryIntelligenceService,
+    @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
+    @Optional() @Inject(ChatResponseProcessorService) private readonly chatResponseProcessor?: ChatResponseProcessorService,
+    @Optional() @Inject(ChatRequestProcessorService) private readonly chatRequestProcessor?: ChatRequestProcessorService,
+    @Optional() @Inject(ChatContextBuilderService) private readonly chatContextBuilder?: ChatContextBuilderService,
+    @Optional() @Inject(AgentMetricsService) private readonly agentMetricsService?: AgentMetricsService,
+    @Optional() @Inject(ApprovalWorkflowService) private readonly approvalWorkflowService?: ApprovalWorkflowService,
+    @Optional() @Inject(AgentPoolService) private readonly agentPoolService?: AgentPoolService,
+    @Optional() @Inject(ChatPrepareService) private readonly chatPrepareService?: ChatPrepareService,
+  ) {
+    this.logger.log(`[INIT] VoltAgentService: cache=${!!this.cacheService}, hitl=${!!this.hitlService}, memory=${!!this.memoryIntelligenceService}`);
+  }
 
   async onModuleInit() {
     // Initialize VoltAgent PostgreSQL memory for scalable multi-tenant storage

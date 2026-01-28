@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -21,7 +21,8 @@ export class StorageService {
 
   constructor(
     private readonly config: ConfigService,
-    @Optional() private readonly redisLock?: RedisLockService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(RedisLockService) private readonly redisLock?: RedisLockService,
   ) {
     const endpoint = this.config.get<string>('S3_ENDPOINT');
     this.bucket = this.config.get<string>('S3_BUCKET', 'mailagent-attachments');

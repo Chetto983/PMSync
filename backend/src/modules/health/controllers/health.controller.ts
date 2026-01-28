@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Param, Optional } from '@nestjs/common';
+import { Controller, Get, Header, Inject, Param, Optional } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { HealthService } from '../services/health.service';
 import { QueueHealthService } from '../../../common/services/queue-health.service';
@@ -8,7 +8,8 @@ import { QueueHealthService } from '../../../common/services/queue-health.servic
 export class HealthController {
   constructor(
     private readonly healthService: HealthService,
-    @Optional() private readonly queueHealthService?: QueueHealthService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(QueueHealthService) private readonly queueHealthService?: QueueHealthService,
   ) {}
 
   /**

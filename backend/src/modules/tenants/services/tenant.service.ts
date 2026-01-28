@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { GdprService } from '../../compliance/services/gdpr.service';
 
@@ -8,7 +8,8 @@ export class TenantService {
 
   constructor(
     private prisma: PrismaService,
-    @Optional() private gdprService?: GdprService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(GdprService) private gdprService?: GdprService,
   ) {}
 
   /**

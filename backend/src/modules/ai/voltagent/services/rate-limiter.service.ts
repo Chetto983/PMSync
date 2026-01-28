@@ -20,7 +20,7 @@
  * - 600 requests/minute global (10 req/sec < Mistral's 12 req/sec)
  * - 200,000 tokens/hour per tenant
  */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 
 export interface RateLimitConfig {
@@ -64,7 +64,10 @@ export class RateLimiterService {
   private readonly WINDOW_SIZE_MS = 60000; // 1 minute sliding window
   private readonly TOKEN_WINDOW_MS = 3600000; // 1 hour for token limits
 
-  constructor(@Optional() private readonly cacheService?: CacheService) {
+  constructor(
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CacheService) private readonly cacheService?: CacheService,
+  ) {
     this.config = { ...DEFAULT_CONFIG };
 
     // Override from environment

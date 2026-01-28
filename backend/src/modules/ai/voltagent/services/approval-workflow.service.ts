@@ -3,7 +3,7 @@
  * Uses Redis for horizontal scaling and HitlService as source of truth.
  * Extracted from VoltAgentService (2026-01-22)
  */
-import { Injectable, OnModuleInit, Optional, Logger } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit, Optional, Logger } from '@nestjs/common';
 import { CacheService } from '../../../../common/services/cache.service';
 import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 import { HitlService, PendingActionStatus } from './hitl.service';
@@ -69,9 +69,10 @@ export class ApprovalWorkflowService implements OnModuleInit {
   private approvalWorkflow: ReturnType<typeof createApprovalWorkflow> | null = null;
 
   constructor(
-    @Optional() private readonly cacheService?: CacheService,
-    @Optional() private readonly hitlService?: HitlService,
-    @Optional() private readonly actionExecutorService?: ActionExecutorService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CacheService) private readonly cacheService?: CacheService,
+    @Optional() @Inject(HitlService) private readonly hitlService?: HitlService,
+    @Optional() @Inject(ActionExecutorService) private readonly actionExecutorService?: ActionExecutorService,
   ) {}
 
   async onModuleInit(): Promise<void> {

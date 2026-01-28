@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   DataSubjectRightDto,
@@ -36,7 +36,8 @@ export class GdprService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly mistralAgentCleanup?: MistralAgentCleanupService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(MistralAgentCleanupService) private readonly mistralAgentCleanup?: MistralAgentCleanupService,
   ) {}
 
   /**

@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -72,7 +72,8 @@ export class EmailCleanupService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly storage: StorageService,
     private readonly scheduledJobsQueue: ScheduledJobsQueueService,
-    @Optional() private readonly metrics?: AttachmentMetricsService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(AttachmentMetricsService) private readonly metrics?: AttachmentMetricsService,
   ) {
     this.jobsEnabled =
       (this.configService.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';

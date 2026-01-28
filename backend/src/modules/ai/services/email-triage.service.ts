@@ -10,7 +10,7 @@
  * Called on-demand via API or scheduled job, NOT during sync.
  */
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
@@ -83,9 +83,10 @@ export class EmailTriageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
-    @Optional() private readonly configService?: ConfigService,
-    @Optional() private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
-    @Optional() private readonly attentionScore?: AttentionScoreService, // P4.1: Pre-filter
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
+    @Optional() @Inject(MistralBatchService) private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
+    @Optional() @Inject(AttentionScoreService) private readonly attentionScore?: AttentionScoreService, // P4.1: Pre-filter
   ) {
     // P11 Phase 4: Load batch config (with fallback defaults)
     this.batchEnabled = this.configService?.get<boolean>('ai.batch.enabled') ?? true;

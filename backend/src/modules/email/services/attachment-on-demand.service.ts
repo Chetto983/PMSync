@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, Optional, PayloadTooLargeException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional, PayloadTooLargeException } from '@nestjs/common';
 import { google } from 'googleapis';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -37,7 +37,8 @@ export class AttachmentOnDemandService {
     private readonly crypto: CryptoService,
     // RACE CONDITION FIX RC-3: Add Redis lock for attachment download coordination
     private readonly redisLock: RedisLockService,
-    @Optional() private readonly metrics?: AttachmentMetricsService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(AttachmentMetricsService) private readonly metrics?: AttachmentMetricsService,
   ) { }
 
   /**

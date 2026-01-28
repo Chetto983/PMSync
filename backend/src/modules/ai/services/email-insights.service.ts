@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -111,7 +112,8 @@ export class EmailInsightsService {
     private readonly mistral: MistralService,
     private readonly writingStyle: WritingStyleService,
     // PersonalizationService removed - AI refactor v2.0
-    @Optional() private readonly piiDetection?: PiiDetectionService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(PiiDetectionService) private readonly piiDetection?: PiiDetectionService,
   ) {}
 
   /**

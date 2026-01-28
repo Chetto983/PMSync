@@ -10,7 +10,7 @@
  * - Per-agent keys for efficient querying
  * - Supports >1000 tenants with configurable buffer limits
  */
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { AgentMetrics } from '../observability';
 
@@ -41,7 +41,8 @@ export class AgentMetricsService implements OnModuleInit, OnModuleDestroy {
   private flushInterval: NodeJS.Timeout | null = null;
 
   constructor(
-    @Optional() private readonly cacheService?: CacheService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CacheService) private readonly cacheService?: CacheService,
   ) {}
 
   onModuleInit(): void {

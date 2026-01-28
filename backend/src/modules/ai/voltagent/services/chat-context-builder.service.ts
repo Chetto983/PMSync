@@ -9,7 +9,7 @@
  *
  * Simplified: 2026-01-26 - Removed duplicate conversation history injection
  */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { PiiDetectionService } from '../../guards';
 import { EpisodicMemoryService } from './episodic-memory.service';
 import { MemoryIntelligenceService } from './memory-intelligence.service';
@@ -33,6 +33,21 @@ export interface ContextBuildOptions {
   logPrefix: string;
 }
 
+/**
+ * Fast-path patterns that don't need memory lookup (saves ~500-1000ms per request).
+ * These are simple queries where user context/preferences are not relevant.
+ */
+const SKIP_MEMORY_PATTERNS = [
+  // Greetings (EN/IT)
+  /^(ciao|hello|hi|hey|buongiorno|buonasera|salve)[\s!?.]*$/i,
+  // Time queries (EN/IT)
+  /^(che ore?|what time|ora|orario|che giorno)[\s\S]{0,20}$/i,
+  // Simple help/status
+  /^(help|aiuto|status|\?)[\s!?.]*$/i,
+  // Very short messages (likely not needing context)
+  /^.{1,10}$/,
+];
+
 export interface EnhancedContext {
   enhancedMessage: string;
 }
@@ -42,10 +57,22 @@ export class ChatContextBuilderService {
   private readonly logger = new Logger(ChatContextBuilderService.name);
 
   constructor(
-    @Optional() private readonly piiDetectionService: PiiDetectionService | null,
-    @Optional() private readonly episodicMemoryService: EpisodicMemoryService | null,
-    @Optional() private readonly memoryIntelligenceService: MemoryIntelligenceService | null,
-  ) {}
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(PiiDetectionService) private readonly piiDetectionService: PiiDetectionService | null,
+    @Optional() @Inject(EpisodicMemoryService) private readonly episodicMemoryService: EpisodicMemoryService | null,
+    @Optional() @Inject(MemoryIntelligenceService) private readonly memoryIntelligenceService: MemoryIntelligenceService | null,
+  ) {
+    this.logger.log(`[INIT] Services injected: PII=${!!this.piiDetectionService}, Episodic=${!!this.episodicMemoryService}, Memory=${!!this.memoryIntelligenceService}`);
+  }
+
+  /**
+   * Check if message is a simple query that doesn't need memory lookup.
+   * This is a performance optimization to avoid expensive embedding generation.
+   */
+  private shouldSkipMemory(message: string): boolean {
+    const trimmed = message.trim();
+    return SKIP_MEMORY_PATTERNS.some((pattern) => pattern.test(trimmed));
+  }
 
   /**
    * Build enhanced message with episodic + long-term memory.
@@ -55,6 +82,13 @@ export class ChatContextBuilderService {
     const buildStart = Date.now();
     const timings: Record<string, number> = {};
     let enhancedMessage = message;
+
+    // Fast-path: Skip memory for simple queries (saves ~500-1000ms)
+    const skipMemory = this.shouldSkipMemory(message);
+    if (skipMemory) {
+      this.logger.debug(`${options.logPrefix} [FAST-PATH] Skipping memory for simple query`);
+      return { enhancedMessage };
+    }
 
     // 1. Inject episodic learning (rejection lessons)
     const episodicStart = Date.now();

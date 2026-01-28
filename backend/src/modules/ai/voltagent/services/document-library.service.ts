@@ -18,7 +18,7 @@
  *
  * @see https://docs.mistral.ai/agents/tools/built-in/document_library
  */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Mistral } from '@mistralai/mistralai';
 import { PrismaService } from '../../../../prisma/prisma.service';
@@ -105,7 +105,8 @@ export class DocumentLibraryService {
     private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
-    @Optional() private readonly storageService?: StorageService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(StorageService) private readonly storageService?: StorageService,
   ) { }
 
   /**

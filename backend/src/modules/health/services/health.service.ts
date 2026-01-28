@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { createClient } from 'redis';
 import { ConfigService } from '@nestjs/config';
@@ -18,8 +18,9 @@ export class HealthService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-    @Optional() private queueService?: QueueService,
-    @Optional() private syncScheduler?: SyncSchedulerService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(QueueService) private queueService?: QueueService,
+    @Optional() @Inject(SyncSchedulerService) private syncScheduler?: SyncSchedulerService,
   ) {
     this.redisClient.connect().catch(() => {
       this.logger.warn('Redis health check client failed to connect');

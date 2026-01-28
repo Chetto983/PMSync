@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Mistral } from '@mistralai/mistralai';
 import type { Messages as MistralChatMessage } from '@mistralai/mistralai/models/components/chatcompletionrequest.js';
@@ -38,9 +38,10 @@ export class MistralService {
     private configService: ConfigService,
     private embeddingsService: EmbeddingsService,
     private promptGuard: PromptGuardService,
-    @Optional() private queryEmbeddingCache?: QueryEmbeddingCacheService,
-    @Optional() private usageTrackingService?: UsageTrackingService,
-    @Optional() private costProtectionService?: CostProtectionService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(QueryEmbeddingCacheService) private queryEmbeddingCache?: QueryEmbeddingCacheService,
+    @Optional() @Inject(UsageTrackingService) private usageTrackingService?: UsageTrackingService,
+    @Optional() @Inject(CostProtectionService) private costProtectionService?: CostProtectionService,
   ) {
     // Configure rate limiting from env (defaults: 3 concurrent)
     this.maxConcurrentEmbeddings = parseInt(

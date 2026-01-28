@@ -9,7 +9,7 @@
  * Created: 2026-01-22 (Refactored from VoltAgentService)
  * Updated: 2026-01-27 (Migrated from in-memory Map to Redis for horizontal scaling + GDPR)
  */
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Agent, Memory, AgentHooks } from '@voltagent/core';
 import { PrismaService } from '../../../../prisma/prisma.service';
@@ -67,18 +67,21 @@ export class AgentPoolService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-    @Optional() private readonly cacheService?: CacheService,
-    @Optional() private readonly emailSendService?: EmailSendService,
-    @Optional() private readonly calendarService?: CalendarService,
-    @Optional() private readonly mistralService?: MistralService,
-    @Optional() private readonly embeddingsService?: EmbeddingsService,
-    @Optional() private readonly writingStyleService?: WritingStyleService,
-    @Optional() private readonly documentLibraryService?: DocumentLibraryService,
-    @Optional() private readonly followUpService?: FollowUpService,
-    @Optional() private readonly piiDetectionService?: PiiDetectionService,
-    @Optional() private readonly emailInsightsService?: EmailInsightsService,
-    @Optional() private readonly aiMemoryService?: AIMemoryService,
-  ) {}
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(CacheService) private readonly cacheService?: CacheService,
+    @Optional() @Inject(EmailSendService) private readonly emailSendService?: EmailSendService,
+    @Optional() @Inject(CalendarService) private readonly calendarService?: CalendarService,
+    @Optional() @Inject(MistralService) private readonly mistralService?: MistralService,
+    @Optional() @Inject(EmbeddingsService) private readonly embeddingsService?: EmbeddingsService,
+    @Optional() @Inject(WritingStyleService) private readonly writingStyleService?: WritingStyleService,
+    @Optional() @Inject(DocumentLibraryService) private readonly documentLibraryService?: DocumentLibraryService,
+    @Optional() @Inject(FollowUpService) private readonly followUpService?: FollowUpService,
+    @Optional() @Inject(PiiDetectionService) private readonly piiDetectionService?: PiiDetectionService,
+    @Optional() @Inject(EmailInsightsService) private readonly emailInsightsService?: EmailInsightsService,
+    @Optional() @Inject(AIMemoryService) private readonly aiMemoryService?: AIMemoryService,
+  ) {
+    this.logger.log(`[INIT] AgentPoolService: cache=${!!this.cacheService}, email=${!!this.emailSendService}, mistral=${!!this.mistralService}`);
+  }
 
   /**
    * Build tenant-isolated cache key for Redis

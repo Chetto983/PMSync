@@ -10,7 +10,7 @@
  * @see backend/docs/P10-SUBSCRIPTION-BILLING-ROADMAP.md Part 6
  */
 
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsageTrackingService, OPERATION_COSTS } from './usage-tracking.service';
 import { SubscriptionService } from './subscription.service';
@@ -49,7 +49,8 @@ export class CostProtectionService {
     private readonly config: ConfigService,
     private readonly usageTracking: UsageTrackingService,
     private readonly subscriptionService: SubscriptionService,
-    @Optional() private readonly billingAlertService?: BillingAlertService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(BillingAlertService) private readonly billingAlertService?: BillingAlertService,
   ) {
     // Load configuration
     this.alertThreshold = this.config.get<number>('AI_COST_ALERT_THRESHOLD') || 0.8;

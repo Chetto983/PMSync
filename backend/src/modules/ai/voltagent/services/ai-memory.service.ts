@@ -7,7 +7,7 @@
  *
  * @see https://docs.mem0.ai/overview
  */
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { MemoryType, Prisma } from '@prisma/client';
 import { MistralService } from '../../services/mistral.service';
@@ -111,7 +111,8 @@ export class AIMemoryService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly mistralService?: MistralService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(MistralService) private readonly mistralService?: MistralService,
   ) {}
 
   /**

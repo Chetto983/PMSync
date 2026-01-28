@@ -21,7 +21,7 @@
  * - Aggregated insights from all AI Secretary services
  */
 import { Job, Queue, Worker } from 'bullmq';
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
@@ -164,7 +164,8 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
     private readonly followUpService: FollowUpService,
     // DeadlineExtractorService removed - AI refactor v2.0
     // ActionItemService removed - AI refactor v2.0
-    @Optional() private readonly usageTrackingService?: UsageTrackingService,
+    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
+    @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
   ) {
     this.ENABLED =
       (this.configService.get<string>('DAILY_BRIEFING_ENABLED') || 'true').toLowerCase() !== 'false';
