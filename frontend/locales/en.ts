@@ -1713,6 +1713,15 @@ export const en: AppTranslations = {
       deleteFailed: 'Failed to delete provider',
       updateFailed: 'Failed to update provider',
     },
+    limits: {
+      title: 'Account Limit',
+      current: '{current} of {max} accounts',
+      unlimited: 'Unlimited accounts',
+      reachedTitle: 'Account Limit Reached',
+      reachedMessage: 'You have reached the maximum of {max} email account(s) on your {plan} plan.',
+      upgradePrompt: 'Upgrade your plan to add more email accounts.',
+      upgradeButton: 'Upgrade Plan',
+    },
   },
   settings: {
     pageTitle: 'Settings',
@@ -1896,12 +1905,15 @@ export const en: AppTranslations = {
       proactivityLabel: 'Proactivity',
       smartReplies: 'Smart replies',
       smartRepliesDescription: 'AI suggestions for quick responses.',
+      smartRepliesRequiresStarter: 'Requires Starter plan or higher',
       summarization: 'Email summarization',
       summarizationDescription: 'Automatic context for long threads.',
+      summarizationRequiresStarter: 'Requires Starter plan or higher',
       scheduling: 'Smart scheduling',
       schedulingDescription: 'Suggest meeting times automatically.',
       triage: 'Auto-Triage',
       triageDescription: 'Automatically prioritize and label incoming emails.',
+      triageRequiresPro: 'Requires Professional plan',
       save: 'Save changes',
       // Personalization
       personalization: {

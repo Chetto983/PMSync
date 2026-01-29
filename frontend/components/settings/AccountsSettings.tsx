@@ -8,8 +8,10 @@ import {
   Alert,
   Tooltip,
   IconButton,
+  Chip,
 } from '@mui/material';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
+import type { SubscriptionLimits } from '@/hooks/queries/use-subscription-limits';
 import { SectionCard } from './SectionCard';
 import { GoogleProviderCard } from '@/components/providers/GoogleProviderCard';
 import { MicrosoftProviderCard } from '@/components/providers/MicrosoftProviderCard';
@@ -30,6 +32,7 @@ export interface AccountsSettingsProps {
   onProviderInitiated: () => void;
   onProviderConnected: () => void;
   onProviderDeleted: () => void;
+  limits?: SubscriptionLimits;
   copy: {
     title: string;
     description: string;
@@ -39,6 +42,13 @@ export interface AccountsSettingsProps {
     syncing: string;
     addTitle: string;
     addDescription: string;
+    // Limit-related copy (optional for backward compat)
+    limitTitle?: string;
+    limitCurrent?: string;
+    limitReachedTitle?: string;
+    limitReachedMessage?: string;
+    limitUpgradePrompt?: string;
+    limitUpgradeButton?: string;
   };
 }
 
@@ -55,8 +65,11 @@ export function AccountsSettings({
   onProviderInitiated,
   onProviderConnected,
   onProviderDeleted,
+  limits,
   copy,
 }: AccountsSettingsProps) {
+  const canAddProvider = limits?.canAddProvider ?? true;
+  const isUnlimited = limits?.maxProviders === -1;
   return (
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -102,15 +115,51 @@ export function AccountsSettings({
         )}
       </SectionCard>
 
-      <SectionCard title={copy.addTitle} description={copy.addDescription}>
+      <SectionCard
+        title={copy.addTitle}
+        description={copy.addDescription}
+        action={
+          limits && !isUnlimited ? (
+            <Chip
+              size="small"
+              label={`${limits.currentProviders}/${limits.maxProviders}`}
+              color={canAddProvider ? 'default' : 'warning'}
+              variant="outlined"
+            />
+          ) : null
+        }
+      >
+        {!canAddProvider && (
+          <Alert
+            severity="warning"
+            icon={<AlertTriangle size={20} />}
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="warning"
+                size="small"
+                href="/dashboard/settings?section=billing"
+              >
+                {copy.limitUpgradeButton || 'Upgrade'}
+              </Button>
+            }
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {copy.limitReachedTitle || 'Account Limit Reached'}
+            </Typography>
+            <Typography variant="body2">
+              {copy.limitUpgradePrompt || 'Upgrade your plan to add more email accounts.'}
+            </Typography>
+          </Alert>
+        )}
         <Stack spacing={2} direction={{ xs: 'column', md: 'row' }}>
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ flex: 1, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
             <GoogleProviderCard onSuccess={onProviderInitiated} />
           </Box>
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ flex: 1, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
             <MicrosoftProviderCard onSuccess={onProviderInitiated} />
           </Box>
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ flex: 1, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
             <GenericProviderCard onSuccess={onProviderConnected} />
           </Box>
         </Stack>

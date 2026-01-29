@@ -40,6 +40,8 @@ import {
   useUpdatePreferences,
   useUpdateAiProfile,
   useSyncAllProviders,
+  useSubscriptionFeatures,
+  useSubscriptionLimits,
 } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { logger } from '@/lib/logger';
@@ -84,10 +86,17 @@ export function Settings() {
   const { data: providers = [], isLoading: providersLoading, refetch: refetchProviders } = useProviders();
   const { data: aiProfileData, isLoading: aiProfileLoading } = useAiProfile();
   const { data: userPrefsData } = useUserPreferences();
+  const { data: subscriptionFeatures } = useSubscriptionFeatures();
+  const { data: subscriptionLimits, refetch: refetchLimits } = useSubscriptionLimits();
   const updateAiProfileMutation = useUpdateAiProfile();
   const updatePreferencesMutation = useUpdatePreferences();
   const syncAllMutation = useSyncAllProviders();
   const aiSaveLoading = updateAiProfileMutation.isPending || updatePreferencesMutation.isPending;
+
+  // Feature flags based on subscription plan
+  const canUseSmartReplies = subscriptionFeatures?.smart_replies ?? false;
+  const canUseSummaries = subscriptionFeatures?.summaries ?? false;
+  const canUseTriage = subscriptionFeatures?.auto_triage ?? false;
 
   // UI state
   const [providerError, setProviderError] = useState('');
@@ -448,12 +457,15 @@ export function Settings() {
     featuresDescription: settingsCopy.aiPanel?.featuresDescription || '',
     smartRepliesTitle: settingsCopy.aiPanel?.smartRepliesTitle || 'Smart Replies',
     smartRepliesDescription: settingsCopy.aiPanel?.smartRepliesDescription || '',
+    smartRepliesRequiresStarter: settingsCopy.aiPanel?.smartRepliesRequiresStarter || 'Requires Starter plan or higher',
     summarizationTitle: settingsCopy.aiPanel?.summarizationTitle || 'Summarization',
     summarizationDescription: settingsCopy.aiPanel?.summarizationDescription || '',
+    summarizationRequiresStarter: settingsCopy.aiPanel?.summarizationRequiresStarter || 'Requires Starter plan or higher',
     schedulingTitle: settingsCopy.aiPanel?.schedulingTitle || 'Scheduling',
     schedulingDescription: settingsCopy.aiPanel?.schedulingDescription || '',
     triageTitle: settingsCopy.aiPanel?.triageTitle || 'Auto-Triage',
     triageDescription: settingsCopy.aiPanel?.triageDescription || 'Automatically prioritize and label incoming emails',
+    triageRequiresPro: settingsCopy.aiPanel?.triageRequiresPro || 'Requires Professional plan',
     personalizationTitle: settingsCopy.aiPanel?.personalizationTitle || 'Personalization',
     personalizationDescription: settingsCopy.aiPanel?.personalizationDescription || '',
     roleLabel: settingsCopy.aiPanel?.roleLabel || 'Role',
@@ -483,7 +495,14 @@ export function Settings() {
     syncing: settingsCopy.mailAccountsPanel?.syncing || 'Syncing...',
     addTitle: settingsCopy.mailAccountsPanel?.addTitle || 'Add',
     addDescription: settingsCopy.mailAccountsPanel?.addDescription || '',
-  }), [settingsCopy]);
+    // Provider limits
+    limitTitle: t.providers.limits?.title || 'Account Limit',
+    limitCurrent: t.providers.limits?.current || '{current} of {max} accounts',
+    limitReachedTitle: t.providers.limits?.reachedTitle || 'Account Limit Reached',
+    limitReachedMessage: t.providers.limits?.reachedMessage || 'You have reached the maximum email accounts on your plan.',
+    limitUpgradePrompt: t.providers.limits?.upgradePrompt || 'Upgrade your plan to add more email accounts.',
+    limitUpgradeButton: t.providers.limits?.upgradeButton || 'Upgrade Plan',
+  }), [settingsCopy, t.providers.limits]);
 
   const accountCopy = useMemo(() => ({
     title: settingsCopy.accountPanel?.title || 'Account',
@@ -612,10 +631,10 @@ export function Settings() {
             )}
             {selectedSection === 'security' && <MfaSettings />}
             {selectedSection === 'ai' && (
-              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} triageEnabled={triageEnabled} setTriageEnabled={setTriageEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
+              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} canUseSmartReplies={canUseSmartReplies} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} canUseSummaries={canUseSummaries} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} canUseTriage={canUseTriage} triageEnabled={triageEnabled} setTriageEnabled={setTriageEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
             )}
             {selectedSection === 'accounts' && (
-              <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />
+              <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={() => { handleProviderInitiated(); refetchLimits(); }} onProviderConnected={() => { handleProviderConnected(); refetchLimits(); }} onProviderDeleted={() => { handleProviderDeleted(); refetchLimits(); }} copy={accountsCopy} limits={subscriptionLimits} />
             )}
             {selectedSection === 'signatures' && (
               <SignatureSettings

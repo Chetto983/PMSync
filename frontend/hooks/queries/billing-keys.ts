@@ -16,6 +16,9 @@ export const billingKeys = {
   costBreakdown: () => [...billingKeys.all, 'cost-breakdown'] as const,
   featureUsage: () => [...billingKeys.all, 'feature-usage'] as const,
 
+  // Subscription limits
+  limits: () => [...billingKeys.all, 'limits'] as const,
+
   // Autumn/pricing queries
   pricingTable: () => [...billingKeys.all, 'pricing-table'] as const,
   pricingTableAuth: () => [...billingKeys.all, 'pricing-table-auth'] as const,

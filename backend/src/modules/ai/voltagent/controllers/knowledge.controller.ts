@@ -19,7 +19,7 @@ import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../auth/guards/tenant.guard';
-import { QuotaGuard } from '../../../subscription/guards/quota.guard';
+import { QuotaGuard, RequiresQuota } from '../../../subscription/guards/quota.guard';
 import { UnifiedKnowledgeService } from '../services/unified-knowledge.service';
 
 interface AuthenticatedRequest {
@@ -44,6 +44,7 @@ export class KnowledgeController {
    */
   @Post('knowledge/search')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Unified knowledge search',
     description: `Performs memory-first RAG search across all knowledge sources:
@@ -81,6 +82,7 @@ export class KnowledgeController {
    */
   @Post('knowledge/remember')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Remember information',
     description: `Store information in long-term memory for future retrieval.

@@ -24,7 +24,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
-import { SubscriptionService } from '../services/subscription.service';
+import { SubscriptionService, PLAN_LIMITS } from '../services/subscription.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../services/usage-tracking.service';
 import { CostProtectionService } from '../services/cost-protection.service';
 import {
@@ -43,6 +44,7 @@ export class SubscriptionController {
     private readonly subscriptionService: SubscriptionService,
     private readonly usageTracking: UsageTrackingService,
     private readonly costProtection: CostProtectionService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ==========================================================================
@@ -104,6 +106,47 @@ export class SubscriptionController {
     @Request() req: AuthenticatedRequest,
   ): Promise<CostProtectionStatusDto> {
     return this.costProtection.getStatus(req.user.tenantId);
+  }
+
+  @Get('limits')
+  @ApiOperation({ summary: 'Get subscription limits with current usage counts' })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription limits and current counts',
+  })
+  async getLimits(@Request() req: AuthenticatedRequest): Promise<{
+    limits: {
+      maxProviders: number;
+      currentProviders: number;
+      canAddProvider: boolean;
+      maxUsers: number;
+      currentUsers: number;
+      canAddUser: boolean;
+    };
+  }> {
+    const subscription = await this.subscriptionService.getOrCreateSubscription(
+      req.user.tenantId,
+    );
+    const planLimits = PLAN_LIMITS[subscription.plan];
+
+    const currentProviders = await this.prisma.providerConfig.count({
+      where: { tenantId: req.user.tenantId, isActive: true },
+    });
+
+    const currentUsers = await this.prisma.user.count({
+      where: { tenantId: req.user.tenantId },
+    });
+
+    return {
+      limits: {
+        maxProviders: planLimits.maxProviders,
+        currentProviders,
+        canAddProvider: planLimits.maxProviders === -1 || currentProviders < planLimits.maxProviders,
+        maxUsers: planLimits.maxUsers,
+        currentUsers,
+        canAddUser: planLimits.maxUsers === -1 || currentUsers < planLimits.maxUsers,
+      },
+    };
   }
 
   @Get('features')

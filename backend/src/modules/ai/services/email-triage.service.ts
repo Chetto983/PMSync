@@ -16,6 +16,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
 import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
 import { AttentionScoreService } from '../voltagent/services/attention-score.service';
+import { SubscriptionService } from '../../subscription/services/subscription.service';
 import type { SupportedLocale } from '../voltagent/locales';
 
 // Cost control constants
@@ -83,6 +84,7 @@ export class EmailTriageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
+    private readonly subscriptionService: SubscriptionService,
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
     @Optional() @Inject(MistralBatchService) private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
@@ -142,16 +144,32 @@ export class EmailTriageService {
 
   /**
    * Check if auto-triage is enabled for a user
+   * SECURITY: Checks both user preference AND subscription plan (PROFESSIONAL+ required)
    */
-  async isAutoTriageEnabled(userId: string): Promise<boolean> {
+  async isAutoTriageEnabled(userId: string, tenantId: string): Promise<boolean> {
     try {
+      // 1. Check user preference first (fast check)
       const prefs = await this.prisma.userPreferences.findUnique({
         where: { userId },
         select: { aiAutoTriageEnabled: true },
       });
-      return prefs?.aiAutoTriageEnabled ?? false;
+      if (!prefs?.aiAutoTriageEnabled) {
+        return false;
+      }
+
+      // 2. Check subscription has auto_triage feature (PROFESSIONAL+ plans only)
+      const subscription = await this.subscriptionService.getOrCreateSubscription(tenantId);
+      const hasFeature = this.subscriptionService.hasFeature(subscription.plan, 'auto_triage');
+
+      if (!hasFeature) {
+        this.logger.debug(
+          `Auto-triage blocked for tenant ${tenantId}: plan ${subscription.plan} lacks auto_triage feature`,
+        );
+      }
+
+      return hasFeature;
     } catch (error) {
-      this.logger.warn(`Failed to check auto-triage preference for user ${userId}: ${error}`);
+      this.logger.warn(`Failed to check auto-triage for user ${userId}: ${error}`);
       return false;
     }
   }
@@ -406,8 +424,8 @@ export class EmailTriageService {
    * - SCALE PROTECTION: Global concurrency limit (max 5 concurrent operations)
    */
   async processUntriagedEmails(options: TriageOptions): Promise<BatchTriageResult> {
-    // Check if auto-triage is enabled
-    const isEnabled = await this.isAutoTriageEnabled(options.userId);
+    // Check if auto-triage is enabled (includes subscription check)
+    const isEnabled = await this.isAutoTriageEnabled(options.userId, options.tenantId);
     if (!isEnabled) {
       return {
         processed: 0,
@@ -689,8 +707,8 @@ export class EmailTriageService {
     emailIds: string[],
     options: TriageOptions,
   ): Promise<BatchTriageResult> {
-    // Check if auto-triage is enabled
-    const isEnabled = await this.isAutoTriageEnabled(options.userId);
+    // Check if auto-triage is enabled (includes subscription check)
+    const isEnabled = await this.isAutoTriageEnabled(options.userId, options.tenantId);
     if (!isEnabled) {
       return {
         processed: 0,

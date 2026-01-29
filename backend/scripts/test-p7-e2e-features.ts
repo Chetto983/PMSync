@@ -348,7 +348,7 @@ async function main() {
   console.log('\x1b[36m════════════════════════════════════════════════════════════\x1b[0m\n');
 
   await runTest('Check Auto-Triage Enabled', async () => {
-    const enabled = await triageService.isAutoTriageEnabled(userId);
+    const enabled = await triageService.isAutoTriageEnabled(userId, tenantId);
 
     return {
       passed: typeof enabled === 'boolean',
@@ -381,10 +381,10 @@ async function main() {
       return { passed: true, skipped: true, details: 'No emails eligible for triage' };
     }
 
-    // Check if user has triage enabled
-    const enabled = await triageService.isAutoTriageEnabled(userId);
+    // Check if user has triage enabled (and subscription allows it)
+    const enabled = await triageService.isAutoTriageEnabled(userId, tenantId);
     if (!enabled) {
-      return { passed: true, skipped: true, details: 'Auto-triage disabled for user' };
+      return { passed: true, skipped: true, details: 'Auto-triage disabled for user or plan' };
     }
 
     try {

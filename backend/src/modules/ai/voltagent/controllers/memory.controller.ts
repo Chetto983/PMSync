@@ -19,6 +19,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../auth/guards/tenant.guard';
+import { QuotaGuard, RequiresQuota } from '../../../subscription/guards/quota.guard';
 import { AIMemoryService, type StoreMemoryInput } from '../services/ai-memory.service';
 import { MemoryType } from '@prisma/client';
 
@@ -32,7 +33,7 @@ interface AuthenticatedRequest {
 
 @ApiTags('VoltAgent Memory')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
 @Controller('api/v1/voltagent/memory')
 export class MemoryController {
   private readonly logger = new Logger(MemoryController.name);
@@ -71,6 +72,7 @@ export class MemoryController {
    * Search memories semantically
    */
   @Get('search')
+  @RequiresQuota('ai')
   @ApiOperation({ summary: 'Search memories by query' })
   async searchMemories(
     @Req() req: AuthenticatedRequest,
@@ -101,6 +103,7 @@ export class MemoryController {
    * Store a new memory
    */
   @Post()
+  @RequiresQuota('ai')
   @ApiOperation({ summary: 'Store a new memory' })
   async storeMemory(
     @Req() req: AuthenticatedRequest,

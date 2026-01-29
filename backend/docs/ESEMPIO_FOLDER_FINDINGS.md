@@ -166,8 +166,6 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 </self_check>
 ```
 
-**Applicability**: Already applied in Phase 6 prompt consolidation ✅
-
 ### 3.2 Cursor Agent Patterns
 
 **Key Techniques**:
@@ -351,6 +349,7 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 
 | Improvement | Source | Est. LOC | Files to Create/Modify |
 |-------------|--------|----------|------------------------|
+
 | Attention Score System | email-agent | ~200 | `attention-score.service.ts` (NEW) |
 | Bulk Operation Thresholds | Inbox Zero | ~50 | `actions.prompt.ts`, `hitl.service.ts` |
 | Self-Check Section in Prompts | All prompts | ~30 | `*.prompt.ts` |
@@ -360,6 +359,7 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 
 | Improvement | Source | Est. LOC | Files to Create/Modify |
 |-------------|--------|----------|------------------------|
+
 | Natural Language Search Builder | Inbox Zero | ~150 | `search-query-builder.service.ts` (NEW) |
 | Incremental Re-summarization | Inbox Zero | ~80 | `conversation-compaction.service.ts` |
 | Workflow Examples in Prompts | Inbox Zero | ~100 | `*.prompt.ts` |

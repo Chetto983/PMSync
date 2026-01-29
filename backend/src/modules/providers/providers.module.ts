@@ -6,6 +6,7 @@ import { EmailModule } from '../email/email.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { ContactsModule } from '../contacts/contacts.module';
 import { AiModule } from '../ai/ai.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 // Services
 import { GoogleOAuthService } from './services/google-oauth.service';
@@ -29,6 +30,7 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
     forwardRef(() => AiModule),
     forwardRef(() => CalendarModule),
     forwardRef(() => ContactsModule),
+    SubscriptionModule,
   ],
   providers: [
     // Common services

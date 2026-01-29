@@ -20,30 +20,35 @@ export const PLAN_LIMITS: Record<SubscriptionPlan, {
   monthlyEmailLimit: number;
   monthlyAICallLimit: number;
   maxUsers: number;
+  maxProviders: number;
   features: string[];
 }> = {
   FREE: {
     monthlyEmailLimit: 100,
     monthlyAICallLimit: 50,
     maxUsers: 1,
+    maxProviders: 1,
     features: ['basic_email'],
   },
   STARTER: {
     monthlyEmailLimit: 1000,
     monthlyAICallLimit: 500,
     maxUsers: 1,
+    maxProviders: 2,
     features: ['basic_email', 'smart_replies', 'summaries'],
   },
   PROFESSIONAL: {
     monthlyEmailLimit: 10000,
     monthlyAICallLimit: 5000,
     maxUsers: 5,
+    maxProviders: 5,
     features: ['basic_email', 'smart_replies', 'summaries', 'auto_triage', 'briefings', 'rag'],
   },
   ENTERPRISE: {
     monthlyEmailLimit: -1, // Unlimited
     monthlyAICallLimit: -1, // Unlimited
     maxUsers: -1, // Unlimited
+    maxProviders: -1, // Unlimited
     features: ['all'],
   },
 };

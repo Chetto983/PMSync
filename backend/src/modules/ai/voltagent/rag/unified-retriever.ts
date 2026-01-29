@@ -19,6 +19,16 @@ import type { EmbeddingsService } from '../../services/embeddings.service';
 import type { SupportedLocale } from '../locales';
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
+const EMAIL_ADDRESS_REGEX = /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i;
+const STOPWORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'but', 'by', 'for', 'from', 'how', 'if', 'in', 'is', 'it',
+  'me', 'my', 'of', 'on', 'or', 'our', 'that', 'the', 'their', 'then', 'there', 'this', 'to', 'was', 'we', 'were',
+  'what', 'when', 'where', 'which', 'who', 'why', 'with', 'you', 'your',
+  'che', 'chi', 'come', 'da', 'dei', 'degli', 'delle', 'del', 'della', 'di', 'e', 'gli', 'il', 'in', 'la', 'le',
+  'lo', 'ma', 'nel', 'nella', 'nelle', 'nello', 'no', 'non', 'o', 'per', 'perche', 'quando', 'questo', 'su', 'un',
+  'una', 'uno', 'si',
+]);
+
 export type SearchSource = 'emails' | 'contacts' | 'deadlines' | 'followups' | 'actions' | 'memories';
 
 /** Memory record returned from LongTermMemoryService (preserved for future use) */
@@ -48,6 +58,13 @@ export interface SourceResult {
   }>;
 }
 
+interface RankedResult {
+  source: SearchSource;
+  content: string;
+  score: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface UnifiedRetrieverOptions {
   tenantId: string;
   userId: string;
@@ -67,6 +84,9 @@ export interface UnifiedRetrieverOptions {
   finalLimit?: number;
   // Weights
   memoryBoost?: number;
+  diversityLambda?: number;
+  recencyBoost?: number;
+  recencyHalfLifeDays?: number;
 }
 
 /**
@@ -92,6 +112,9 @@ export class UnifiedRetriever extends BaseRetriever {
   private readonly actionLimit: number;
   private readonly finalLimit: number;
   private readonly memoryBoost: number;
+  private readonly diversityLambda: number;
+  private readonly recencyBoost: number;
+  private readonly recencyHalfLifeDays: number;
 
   constructor(options: UnifiedRetrieverOptions) {
     super();
@@ -112,6 +135,9 @@ export class UnifiedRetriever extends BaseRetriever {
     this.actionLimit = options.actionLimit ?? 5;
     this.finalLimit = options.finalLimit ?? 10;
     this.memoryBoost = options.memoryBoost ?? 0.2;
+    this.diversityLambda = options.diversityLambda ?? 0.7;
+    this.recencyBoost = options.recencyBoost ?? 0.15;
+    this.recencyHalfLifeDays = options.recencyHalfLifeDays ?? 30;
   }
 
   /**
@@ -195,7 +221,7 @@ export class UnifiedRetriever extends BaseRetriever {
    */
   analyzeQuerySources(query: string, _context?: MemoryContext): SearchSource[] {
     const sources: SearchSource[] = [];
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = this.normalizeQuery(query);
 
     // Always search emails (primary source)
     sources.push('emails');
@@ -217,6 +243,9 @@ export class UnifiedRetriever extends BaseRetriever {
 
     // Contact-related queries (en + it)
     if (/contact|person|who|from|sender|colleague|client|customer|contatto|persona|chi|da|mittente|collega|cliente/.test(lowerQuery)) {
+      sources.push('contacts');
+    }
+    if (EMAIL_ADDRESS_REGEX.test(query) && !sources.includes('contacts')) {
       sources.push('contacts');
     }
 
@@ -263,8 +292,8 @@ export class UnifiedRetriever extends BaseRetriever {
           return result.value;
         }
         // Log error but return empty result instead of failing
-        this.logger.warn(`Search failed for source ${sourceNames[index]}: ${result.reason}`);
-        return { source: sourceNames[index], items: [], totalCount: 0 } as SourceResult;
+        this.nestLogger.warn(`Search failed for source ${sourceNames[index]}: ${result.reason}`);
+        return { source: sourceNames[index], items: [] };
       });
   }
 
@@ -279,6 +308,7 @@ export class UnifiedRetriever extends BaseRetriever {
   private async searchEmails(query: string): Promise<SourceResult> {
     const RRF_K = 60; // Standard RRF constant
     const rrfScores = new Map<string, { score: number; content: string; metadata: Record<string, unknown> }>();
+    const keywords = this.extractKeywords(query);
 
     // Helper to add RRF score
     const addRrfScore = (
@@ -326,24 +356,33 @@ export class UnifiedRetriever extends BaseRetriever {
             .map((vr) => vr.emailId as string);
 
           // Batch fetch email content if needed (GDPR-compliant: content not stored in embeddings)
-          const emailContentMap = new Map<string, string>();
+          const emailContentMap = new Map<string, { content: string; receivedAt: Date | null; from: string | null; subject: string | null }>();
           if (emailIdsNeedingContent.length > 0) {
             const emails = await this.prisma.email.findMany({
               where: { id: { in: emailIdsNeedingContent }, tenantId: this.tenantId },
-              select: { id: true, subject: true, snippet: true, from: true },
+              select: { id: true, subject: true, snippet: true, from: true, receivedAt: true },
             });
             emails.forEach((e) => {
-              emailContentMap.set(e.id, `Email: ${e.subject || 'No subject'}\nFrom: ${e.from || 'Unknown'}\n${e.snippet || ''}`);
+              emailContentMap.set(e.id, {
+                content: `Email: ${e.subject || 'No subject'}\nFrom: ${e.from || 'Unknown'}\n${e.snippet || ''}`,
+                receivedAt: e.receivedAt ?? null,
+                from: e.from ?? null,
+                subject: e.subject ?? null,
+              });
             });
           }
 
           vectorResults.forEach((vr, idx) => {
             // FIX H2: Use emailId for email results, skip if no emailId (document embeddings)
-            const entityId = vr.emailId || vr.id;
             if (vr.emailId) {
               // Use embedding content if available, otherwise fetch from source table
-              const content = vr.content || emailContentMap.get(vr.emailId) || '';
-              addRrfScore(entityId, idx + 1, content, vr.metadata || {}, 'vector');
+              const emailMeta = emailContentMap.get(vr.emailId);
+              const content = vr.content || emailMeta?.content || '';
+              const metadata: Record<string, unknown> = { ...(vr.metadata || {}) };
+              if (emailMeta?.receivedAt) metadata.receivedAt = emailMeta.receivedAt;
+              if (emailMeta?.from) metadata.from = emailMeta.from;
+              if (emailMeta?.subject) metadata.subject = emailMeta.subject;
+              addRrfScore(vr.emailId, idx + 1, content, metadata, 'vector');
             }
           });
         }
@@ -355,11 +394,6 @@ export class UnifiedRetriever extends BaseRetriever {
     // 2. Keyword search for exact matches
     try {
       // Split query into keywords for better matching
-      const keywords = query
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((w) => w.length > 2);
-
       if (keywords.length > 0) {
         const keywordResults = await this.prisma.email.findMany({
           where: {
@@ -370,7 +404,11 @@ export class UnifiedRetriever extends BaseRetriever {
               { snippet: { contains: query, mode: 'insensitive' } },
               { from: { contains: query, mode: 'insensitive' } },
               // Also search for individual keywords
-              ...keywords.slice(0, 3).map((kw) => ({ subject: { contains: kw, mode: 'insensitive' as const } })),
+              ...keywords.slice(0, 3).flatMap((kw) => ([
+                { subject: { contains: kw, mode: 'insensitive' as const } },
+                { snippet: { contains: kw, mode: 'insensitive' as const } },
+                { from: { contains: kw, mode: 'insensitive' as const } },
+              ])),
             ],
           },
           take: this.emailLimit * 2,
@@ -423,6 +461,7 @@ export class UnifiedRetriever extends BaseRetriever {
   private async searchContacts(query: string): Promise<SourceResult> {
     const RRF_K = 60;
     const rrfScores = new Map<string, { score: number; content: string; metadata: Record<string, unknown> }>();
+    const keywords = this.extractKeywords(query);
 
     const addRrfScore = (
       id: string,
@@ -469,26 +508,29 @@ export class UnifiedRetriever extends BaseRetriever {
           // Collect contactIds that need content fetched from source table
           const contactIdsNeedingContent = contactEmbeddings
             .filter((vr) => !vr.content)
-            .map((vr) => vr.contactId || (vr.metadata as Record<string, unknown>)?.contactId as string)
-            .filter(Boolean) as string[];
+            .map((vr) => vr.contactId || (vr.metadata as Record<string, unknown>)?.contactId)
+            .filter((id): id is string => !!id);
 
           // Batch fetch contact content if needed (GDPR-compliant)
-          const contactContentMap = new Map<string, string>();
+          const contactContentMap = new Map<string, { content: string; updatedAt: Date | null }>();
           if (contactIdsNeedingContent.length > 0) {
             const contacts = await this.prisma.contact.findMany({
               where: { id: { in: contactIdsNeedingContent }, tenantId: this.tenantId },
-              select: { id: true, displayName: true, firstName: true, lastName: true, company: true, jobTitle: true, notes: true, emails: true },
+              select: { id: true, displayName: true, firstName: true, lastName: true, company: true, jobTitle: true, notes: true, emails: true, updatedAt: true },
             });
             contacts.forEach((c) => {
               const name = c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Unknown';
               const emailList = (c.emails as Array<{ value: string }> | null)?.map((e) => e.value).join(', ') || '';
-              contactContentMap.set(c.id, [
-                `Contact: ${name}`,
-                c.company && `Company: ${c.company}`,
-                c.jobTitle && `Role: ${c.jobTitle}`,
-                emailList && `Email: ${emailList}`,
-                c.notes && `Notes: ${c.notes}`,
-              ].filter(Boolean).join('\n'));
+              contactContentMap.set(c.id, {
+                content: [
+                  `Contact: ${name}`,
+                  c.company && `Company: ${c.company}`,
+                  c.jobTitle && `Role: ${c.jobTitle}`,
+                  emailList && `Email: ${emailList}`,
+                  c.notes && `Notes: ${c.notes}`,
+                ].filter(Boolean).join('\n'),
+                updatedAt: c.updatedAt ?? null,
+              });
             });
           }
 
@@ -496,14 +538,11 @@ export class UnifiedRetriever extends BaseRetriever {
             const vr = contactEmbeddings[idx];
             const contactId = vr.contactId || (vr.metadata as Record<string, unknown>)?.contactId as string | undefined;
             // Use embedding content if available, otherwise fetch from source table
-            const content = vr.content || (contactId && contactContentMap.get(contactId)) || '';
-            addRrfScore(
-              contactId || vr.id,
-              idx + 1,
-              content,
-              vr.metadata || {},
-              'vector'
-            );
+            const contactMeta = contactId ? contactContentMap.get(contactId) : undefined;
+            const content = vr.content || contactMeta?.content || '';
+            const metadata: Record<string, unknown> = { ...(vr.metadata || {}) };
+            if (contactMeta?.updatedAt) metadata.updatedAt = contactMeta.updatedAt;
+            addRrfScore(contactId || vr.id, idx + 1, content, metadata, 'vector');
           }
         }
       }
@@ -513,11 +552,6 @@ export class UnifiedRetriever extends BaseRetriever {
 
     // 2. Keyword search for exact matches on name, email, company
     try {
-      const keywords = query
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((w) => w.length > 2);
-
       if (keywords.length > 0) {
         const keywordResults = await this.prisma.contact.findMany({
           where: {
@@ -549,6 +583,7 @@ export class UnifiedRetriever extends BaseRetriever {
             notes: true,
             emails: true,
             phoneNumbers: true,
+            updatedAt: true,
           },
         });
 
@@ -569,6 +604,7 @@ export class UnifiedRetriever extends BaseRetriever {
             company: kr.company,
             jobTitle: kr.jobTitle,
             emails: kr.emails,
+            updatedAt: kr.updatedAt,
           }, 'keyword');
         });
       }
@@ -723,7 +759,7 @@ export class UnifiedRetriever extends BaseRetriever {
           id: a.id,
           content: `Action: ${a.actionType}\nConfidence: ${(a.confidence * 100).toFixed(0)}%\nStatus: ${a.status}\nEmail: ${a.email?.subject || 'N/A'}`,
           score: a.confidence,
-          metadata: { type: 'action', actionType: a.actionType, status: a.status },
+          metadata: { type: 'action', actionType: a.actionType, status: a.status, createdAt: a.createdAt },
         })),
       };
     } catch (error) {
@@ -750,16 +786,17 @@ export class UnifiedRetriever extends BaseRetriever {
     memoryContext: MemoryContext,
   ): Array<{ source: SearchSource; content: string; score: number }> {
     // Flatten all results
-    const allResults: Array<{ source: SearchSource; content: string; score: number }> = [];
+    const allResults: RankedResult[] = [];
 
     for (const result of results) {
       for (const item of result.items) {
         let score = item.score;
+        const contentLower = item.content.toLowerCase();
 
         // Apply memory context boost
         // Items related to known contacts get bonus
         for (const contact of memoryContext.contacts) {
-          if (item.content.toLowerCase().includes(contact.content.toLowerCase())) {
+          if (contentLower.includes(contact.content.toLowerCase())) {
             score *= 1 + this.memoryBoost;
             break;
           }
@@ -767,16 +804,19 @@ export class UnifiedRetriever extends BaseRetriever {
 
         // Items matching user preferences get bonus
         for (const pref of memoryContext.preferences) {
-          if (item.content.toLowerCase().includes(pref.content.toLowerCase())) {
+          if (contentLower.includes(pref.content.toLowerCase())) {
             score *= 1 + this.memoryBoost * 0.5;
             break;
           }
         }
 
+        score = this.applyRecencyBoost(score, item.metadata);
+
         allResults.push({
           source: result.source,
           content: item.content,
           score,
+          metadata: item.metadata,
         });
       }
     }
@@ -784,8 +824,139 @@ export class UnifiedRetriever extends BaseRetriever {
     // Sort by score descending
     allResults.sort((a, b) => b.score - a.score);
 
-    // Return top results
-    return allResults.slice(0, this.finalLimit);
+    // Apply diversity-aware re-ranking (MMR)
+    const diversified = this.applyDiversityRerank(allResults);
+
+    // Return top results (drop metadata)
+    return diversified.map((item) => ({
+      source: item.source,
+      content: item.content,
+      score: item.score,
+    }));
+  }
+
+  private normalizeQuery(query: string): string {
+    return query
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9@]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private extractKeywords(query: string): string[] {
+    const normalized = this.normalizeQuery(query);
+    if (!normalized) return [];
+    const tokens = normalized.split(' ').filter((token) => token.length > 2 && !STOPWORDS.has(token));
+    return Array.from(new Set(tokens));
+  }
+
+  private tokenizeForSimilarity(text: string): Set<string> {
+    const normalized = this.normalizeQuery(text);
+    if (!normalized) return new Set();
+    const tokens = normalized.split(' ').filter((token) => token.length > 2 && !STOPWORDS.has(token));
+    return new Set(tokens.slice(0, 80));
+  }
+
+  private jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+    if (a.size === 0 || b.size === 0) return 0;
+    let intersection = 0;
+    for (const token of a) {
+      if (b.has(token)) intersection++;
+    }
+    const union = a.size + b.size - intersection;
+    return union === 0 ? 0 : intersection / union;
+  }
+
+  private applyDiversityRerank(items: RankedResult[]): RankedResult[] {
+    if (items.length <= 1) return items.slice(0, this.finalLimit);
+    const lambda = Math.min(1, Math.max(0, this.diversityLambda));
+    if (lambda >= 0.99) return items.slice(0, this.finalLimit);
+
+    const maxScore = Math.max(...items.map((i) => i.score), 1);
+    const candidates = items.slice(0, this.finalLimit * 3);
+    const selected: RankedResult[] = [];
+    const tokenCache = new Map<RankedResult, Set<string>>();
+
+    const getTokens = (item: RankedResult): Set<string> => {
+      const cached = tokenCache.get(item);
+      if (cached) return cached;
+      const tokens = this.tokenizeForSimilarity(item.content);
+      tokenCache.set(item, tokens);
+      return tokens;
+    };
+
+    while (selected.length < this.finalLimit && candidates.length > 0) {
+      let bestIndex = 0;
+      let bestScore = -Infinity;
+
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        const relevance = candidate.score / maxScore;
+        let maxSim = 0;
+        for (const chosen of selected) {
+          const similarity = this.jaccardSimilarity(getTokens(candidate), getTokens(chosen));
+          if (similarity > maxSim) maxSim = similarity;
+        }
+        const mmrScore = lambda * relevance - (1 - lambda) * maxSim;
+        if (mmrScore > bestScore) {
+          bestScore = mmrScore;
+          bestIndex = i;
+        }
+      }
+
+      selected.push(candidates[bestIndex]);
+      candidates.splice(bestIndex, 1);
+    }
+
+    return selected;
+  }
+
+  private applyRecencyBoost(score: number, metadata?: Record<string, unknown>): number {
+    if (!metadata || this.recencyBoost <= 0 || this.recencyHalfLifeDays <= 0) {
+      return score;
+    }
+
+    const now = Date.now();
+    const halfLifeMs = this.recencyHalfLifeDays * 24 * 60 * 60 * 1000;
+    const boosts: number[] = [];
+
+    const addPastBoost = (value: unknown) => {
+      const date = this.parseDate(value);
+      if (!date) return;
+      const deltaMs = now - date.getTime();
+      if (deltaMs < 0) return;
+      boosts.push(Math.exp(-deltaMs / halfLifeMs));
+    };
+
+    const addFutureBoost = (value: unknown) => {
+      const date = this.parseDate(value);
+      if (!date) return;
+      const deltaMs = date.getTime() - now;
+      if (deltaMs < 0) return;
+      boosts.push(Math.exp(-deltaMs / halfLifeMs));
+    };
+
+    addPastBoost(metadata.receivedAt);
+    addPastBoost(metadata.updatedAt);
+    addPastBoost(metadata.createdAt);
+    addFutureBoost(metadata.dueDate);
+
+    if (boosts.length === 0) return score;
+
+    const bestBoost = Math.max(...boosts);
+    return score * (1 + this.recencyBoost * bestBoost);
+  }
+
+  private parseDate(value: unknown): Date | null {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === 'string' || typeof value === 'number') {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    return null;
   }
 
   /**

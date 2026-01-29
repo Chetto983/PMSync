@@ -28,12 +28,15 @@ export interface AiSettingsProps {
   onClearSuccess: () => void;
   onClearError: () => void;
   // AI Features
+  canUseSmartReplies: boolean;
   smartRepliesEnabled: boolean;
   setSmartRepliesEnabled: (v: boolean) => void;
+  canUseSummaries: boolean;
   summarizationEnabled: boolean;
   setSummarizationEnabled: (v: boolean) => void;
   schedulingEnabled: boolean;
   setSchedulingEnabled: (v: boolean) => void;
+  canUseTriage: boolean;
   triageEnabled: boolean;
   setTriageEnabled: (v: boolean) => void;
   // Personalization
@@ -59,12 +62,15 @@ export interface AiSettingsProps {
     featuresDescription: string;
     smartRepliesTitle: string;
     smartRepliesDescription: string;
+    smartRepliesRequiresStarter?: string;
     summarizationTitle: string;
     summarizationDescription: string;
+    summarizationRequiresStarter?: string;
     schedulingTitle: string;
     schedulingDescription: string;
     triageTitle: string;
     triageDescription: string;
+    triageRequiresPro?: string;
     personalizationTitle: string;
     personalizationDescription: string;
     roleLabel: string;
@@ -94,12 +100,15 @@ export function AiSettings({
   error,
   onClearSuccess,
   onClearError,
+  canUseSmartReplies,
   smartRepliesEnabled,
   setSmartRepliesEnabled,
+  canUseSummaries,
   summarizationEnabled,
   setSummarizationEnabled,
   schedulingEnabled,
   setSchedulingEnabled,
+  canUseTriage,
   triageEnabled,
   setTriageEnabled,
   jobRole,
@@ -146,16 +155,42 @@ export function AiSettings({
             <SettingRow
               icon={<MessageSquare size={18} />}
               title={copy.smartRepliesTitle || 'Smart Replies'}
-              description={copy.smartRepliesDescription || 'AI-generated response suggestions'}
+              description={
+                canUseSmartReplies
+                  ? (copy.smartRepliesDescription || 'AI-generated response suggestions')
+                  : (copy.smartRepliesRequiresStarter || 'Requires Starter plan or higher')
+              }
             >
-              <Switch checked={smartRepliesEnabled} onChange={(e) => setSmartRepliesEnabled(e.target.checked)} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Switch
+                  checked={smartRepliesEnabled}
+                  onChange={(e) => setSmartRepliesEnabled(e.target.checked)}
+                  disabled={!canUseSmartReplies}
+                />
+                {!canUseSmartReplies && (
+                  <Chip label="Starter" size="small" color="info" variant="outlined" />
+                )}
+              </Box>
             </SettingRow>
             <SettingRow
               icon={<FileText size={18} />}
               title={copy.summarizationTitle || 'Email Summarization'}
-              description={copy.summarizationDescription || 'Automatic summaries for long emails'}
+              description={
+                canUseSummaries
+                  ? (copy.summarizationDescription || 'Automatic summaries for long emails')
+                  : (copy.summarizationRequiresStarter || 'Requires Starter plan or higher')
+              }
             >
-              <Switch checked={summarizationEnabled} onChange={(e) => setSummarizationEnabled(e.target.checked)} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Switch
+                  checked={summarizationEnabled}
+                  onChange={(e) => setSummarizationEnabled(e.target.checked)}
+                  disabled={!canUseSummaries}
+                />
+                {!canUseSummaries && (
+                  <Chip label="Starter" size="small" color="info" variant="outlined" />
+                )}
+              </Box>
             </SettingRow>
             <SettingRow
               icon={<Calendar size={18} />}
@@ -167,10 +202,23 @@ export function AiSettings({
             <SettingRow
               icon={<ListFilter size={18} />}
               title={copy.triageTitle || 'Auto-Triage'}
-              description={copy.triageDescription || 'Automatically prioritize and label incoming emails'}
+              description={
+                canUseTriage
+                  ? (copy.triageDescription || 'Automatically prioritize and label incoming emails')
+                  : (copy.triageRequiresPro || 'Requires Professional plan')
+              }
               noBorder
             >
-              <Switch checked={triageEnabled} onChange={(e) => setTriageEnabled(e.target.checked)} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Switch
+                  checked={triageEnabled}
+                  onChange={(e) => setTriageEnabled(e.target.checked)}
+                  disabled={!canUseTriage}
+                />
+                {!canUseTriage && (
+                  <Chip label="Pro" size="small" color="primary" variant="outlined" />
+                )}
+              </Box>
             </SettingRow>
           </SectionCard>
 

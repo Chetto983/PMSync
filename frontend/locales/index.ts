@@ -1731,6 +1731,15 @@ export interface AppTranslations {
       deleteFailed: string;
       updateFailed: string;
     };
+    limits: {
+      title: string;
+      current: string;
+      unlimited: string;
+      reachedTitle: string;
+      reachedMessage: string;
+      upgradePrompt: string;
+      upgradeButton: string;
+    };
     genericCard: {
       title: string;
       description: string;
@@ -1961,12 +1970,15 @@ export interface AppTranslations {
       proactivityLabel: string;
       smartReplies: string;
       smartRepliesDescription: string;
+      smartRepliesRequiresStarter: string;
       summarization: string;
       summarizationDescription: string;
+      summarizationRequiresStarter: string;
       scheduling: string;
       schedulingDescription: string;
       triage: string;
       triageDescription: string;
+      triageRequiresPro: string;
       save: string;
       // Personalization
       personalization: {

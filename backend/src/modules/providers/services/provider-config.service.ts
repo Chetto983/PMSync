@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -25,6 +26,7 @@ import { MicrosoftCalendarWebhookService } from '../../calendar/services/microso
 import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
 import { ContactsService } from '../../contacts/services/contacts.service';
 import { StorageService } from '../../email/services/storage.service';
+import { SubscriptionService, PLAN_LIMITS } from '../../subscription/services/subscription.service';
 import type { ProviderConfig } from '@prisma/client';
 import {
   ConnectGoogleProviderDto,
@@ -69,7 +71,31 @@ export class ProviderConfigService {
     private readonly contactsService: ContactsService,
     @Inject(forwardRef(() => StorageService))
     private readonly storageService: StorageService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
+
+  /**
+   * Check if tenant can add more providers based on subscription plan.
+   * @throws ForbiddenException if provider limit exceeded
+   */
+  private async checkProviderLimit(tenantId: string): Promise<void> {
+    const currentCount = await this.prisma.providerConfig.count({
+      where: { tenantId, isActive: true },
+    });
+
+    const subscription = await this.subscriptionService.getOrCreateSubscription(tenantId);
+    const planLimits = PLAN_LIMITS[subscription.plan];
+
+    if (planLimits.maxProviders !== -1 && currentCount >= planLimits.maxProviders) {
+      this.logger.warn(
+        `Provider limit exceeded for tenant ${tenantId}: ${currentCount}/${planLimits.maxProviders} on ${subscription.plan} plan`,
+      );
+      throw new ForbiddenException(
+        `Maximum ${planLimits.maxProviders} email account(s) allowed on ${subscription.plan} plan. ` +
+        `Please upgrade to add more accounts.`,
+      );
+    }
+  }
 
   /**
    * Return aliases for a provider. Stub: currently returns the primary email as single alias.
@@ -140,6 +166,9 @@ export class ProviderConfigService {
     codeVerifier?: string,
   ) {
     try {
+      // Check provider limit before creating
+      await this.checkProviderLimit(tenantId);
+
       // Exchange authorization code for tokens (with PKCE code_verifier if provided)
       const tokenData = await this.googleOAuth.exchangeCodeForTokens(dto.authorizationCode, codeVerifier);
 
@@ -217,6 +246,9 @@ export class ProviderConfigService {
     codeVerifier?: string,
   ) {
     try {
+      // Check provider limit before creating
+      await this.checkProviderLimit(tenantId);
+
       // Exchange authorization code for tokens (with PKCE code_verifier if provided)
       const tokenData = await this.microsoftOAuth.exchangeCodeForTokens(dto.authorizationCode, codeVerifier);
 
@@ -292,6 +324,9 @@ export class ProviderConfigService {
     dto: ConnectGenericProviderDto,
   ) {
     try {
+      // Check provider limit before creating
+      await this.checkProviderLimit(tenantId);
+
       // Test IMAP connection first
       const imapConnected = await this.imap.testConnection({
         host: dto.imapHost,
