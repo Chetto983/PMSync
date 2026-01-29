@@ -24,9 +24,8 @@ import { FollowUpService } from './follow-up.service';
 import { PiiDetectionService } from '../../guards';
 import { EmailInsightsService } from '../../services/email-insights.service';
 import { AIMemoryService } from './ai-memory.service';
-import { createActionsAgent } from '../agents/actions.agent';
-import { createIntelligenceAgent } from '../agents/intelligence.agent';
-import { createSupervisorAgent, type UserContext } from '../agents/supervisor.agent';
+import { createUnifiedAgent } from '../agents/unified.agent';
+import { buildDynamicInstructions, type UserContext } from '../agents/supervisor.agent';
 import { getMistralModel, type MistralModel } from '../providers/mistral.provider';
 import type { SupportedLocale } from '../locales';
 import type { AgentType } from '../types';
@@ -157,51 +156,29 @@ export class AgentPoolService {
       cacheService: this.cacheService,
     };
 
-    // Phase 3: Agent Consolidation (10 -> 3)
-    switch (agentType) {
-      case 'Actions':
-        agent = createActionsAgent({
-          ...commonOptions,
-          emailSendService: this.emailSendService ?? null,
-          calendarService: this.calendarService ?? null,
-          memory: memory ?? undefined,
-          userContext: userContext ?? undefined,
-          intent: params.intent, // RLM: Pass intent for minimal prompt loading
-        });
-        break;
-      case 'Intelligence':
-        agent = createIntelligenceAgent({
-          ...commonOptions,
-          mistral: this.mistralService ?? null,
-          embeddingsService: this.embeddingsService ?? null,
-          writingStyle: this.writingStyleService ?? null,
-          memory: memory ?? undefined,
-          piiDetectionService: this.piiDetectionService,
-          emailInsightsService: this.emailInsightsService ?? null,
-          userContext: userContext ?? undefined,
-          aiMemoryService: this.aiMemoryService ?? null,
-          intent: params.intent, // RLM: Pass intent for minimal prompt loading
-        });
-        break;
-      case 'Supervisor':
-      default:
-        agent = createSupervisorAgent({
-          ...commonOptions,
-          emailSendService: this.emailSendService ?? null,
-          calendarService: this.calendarService ?? null,
-          memory: memory ?? undefined,
-          mistralService: this.mistralService,
-          embeddingsService: this.embeddingsService,
-          userContext: userContext ?? undefined,
-          configService: this.configService,
-          documentLibraryService: this.documentLibraryService,
-          followUpService: this.followUpService,
-          piiDetectionService: this.piiDetectionService,
-          emailInsightsService: this.emailInsightsService,
-          aiMemoryService: this.aiMemoryService ?? null,
-        });
-        break;
-    }
+    // VoltAgent Simplification 2026-01-29: Single UnifiedAgent with dynamic tool loading
+    // All agent types now use UnifiedAgent - intent-based tool selection
+    agent = createUnifiedAgent({
+      model,
+      prisma: this.prisma,
+      locale,
+      tenantId,
+      userId,
+      memory: memory ?? undefined,
+      hooks: hooks ?? undefined,
+      userContext: userContext ?? undefined,
+      cacheService: this.cacheService,
+      emailSendService: this.emailSendService ?? null,
+      calendarService: this.calendarService ?? null,
+      mistralService: this.mistralService ?? null,
+      embeddingsService: this.embeddingsService ?? null,
+      emailInsightsService: this.emailInsightsService ?? null,
+      documentLibraryService: this.documentLibraryService ?? null,
+      aiMemoryService: this.aiMemoryService ?? null,
+      piiDetectionService: this.piiDetectionService,
+      configService: this.configService,
+      intent: params.intent ?? 'unknown', // RLM: Intent for dynamic tool loading
+    });
 
     // Cache metadata in Redis (not the agent instance)
     if (!cached) {

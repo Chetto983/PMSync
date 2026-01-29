@@ -84,6 +84,7 @@
     "nestjs-pino": "^4.5.0",
     "node-fetch": "^3.3.2",
     "node-ical": "^0.23.1",
+    "node-nlp-typescript": "^1.0.3",
     "nodemailer": "^7.0.12",
     "otplib": "^13.2.1",
     "passport": "^0.7.0",

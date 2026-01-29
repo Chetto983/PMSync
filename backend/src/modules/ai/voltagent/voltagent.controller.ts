@@ -568,7 +568,8 @@ export class VoltAgentController {
     const tenantId = req.user.tenantId;
 
     // Security: Only allow clearing your own cache or admin clearing any user
-    if (req.user.userId !== userId && req.user.role !== 'ADMIN') {
+    // FIX (L8): Role values are lowercase ('admin', 'super-admin', 'user')
+    if (req.user.userId !== userId && req.user.role !== 'admin' && req.user.role !== 'super-admin') {
       return {
         success: false,
         error: 'Cannot clear other users cache',

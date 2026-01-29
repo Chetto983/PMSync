@@ -143,11 +143,13 @@ export class DocumentLibraryService {
    * Agents are cached for 1 hour (Redis + memory fallback).
    */
   private async getOrCreateAgent(
+    tenantId: string,
     libraryIds: string[],
     locale: string = 'en',
   ): Promise<string> {
     const libKey = libraryIds.sort().join(',');
-    const cacheKey = `${this.CACHE_PREFIX}:agent:${locale}:${libKey}`;
+    // SECURITY FIX (L5): Include tenantId in cache key to prevent cross-tenant agent sharing
+    const cacheKey = `${this.CACHE_PREFIX}:agent:${tenantId}:${locale}:${libKey}`;
     const now = Date.now();
 
     // Try Redis first
@@ -581,7 +583,7 @@ export class DocumentLibraryService {
     }
 
     // Check cache
-    const cacheKey = this.getQueryCacheKey(query, searchLibraryIds);
+    const cacheKey = this.getQueryCacheKey(tenantId, query, searchLibraryIds);
     const cached = await this.getCachedQuery(cacheKey);
     if (cached) {
       return { ...cached, fromCache: true };
@@ -612,7 +614,7 @@ export class DocumentLibraryService {
     }
 
     // Get or create agent with document library access
-    const agentId = await this.getOrCreateAgent(mistralLibraryIds, locale);
+    const agentId = await this.getOrCreateAgent(tenantId, mistralLibraryIds, locale);
 
     // Query using the agent
     const client = this.createMistralClient();
@@ -634,9 +636,10 @@ export class DocumentLibraryService {
   // Private Helpers
   // ===========================================================================
 
-  private getQueryCacheKey(query: string, libraryIds: string[]): string {
+  private getQueryCacheKey(tenantId: string, query: string, libraryIds: string[]): string {
     const libHash = libraryIds.sort().join(',');
-    return `${this.CACHE_PREFIX}:query:${query.toLowerCase().trim().slice(0, 100)}:${libHash}`;
+    // SECURITY FIX (L5): Include tenantId in cache key to prevent cross-tenant query result sharing
+    return `${this.CACHE_PREFIX}:query:${tenantId}:${query.toLowerCase().trim().slice(0, 100)}:${libHash}`;
   }
 
   private async getCachedQuery(cacheKey: string): Promise<DocumentQueryResult | null> {

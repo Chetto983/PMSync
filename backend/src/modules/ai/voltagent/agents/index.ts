@@ -1,25 +1,20 @@
 /**
  * VoltAgent Agents Export
  *
- * Phase 3 Agent Consolidation (10 → 3):
- * - ActionsAgent: ALL WRITE operations (email, calendar, contacts, folders)
- * - IntelligenceAgent: ALL READ and ANALYSIS operations
- * - Optional: WebSearchAgent, DocumentLibraryAgent, AnalyticsAgent (lazy-loaded)
+ * VoltAgent Simplification 2026-01-29:
+ * - UnifiedAgent: Single agent with dynamic tool groups (replaces 5 agents)
+ * - SupervisorAgent: Kept for backward compatibility (delegates to UnifiedAgent)
  */
 
-// Core consolidated agents
-export { createActionsAgent, type ActionsAgentOptions } from './actions.agent';
-export { createIntelligenceAgent, type IntelligenceAgentOptions } from './intelligence.agent';
-
-// Optional lazy-loaded agents
-export { createWebSearchAgent, type WebSearchAgentOptions } from './websearch.agent';
-export { createAnalyticsAgent, type AnalyticsAgentOptions } from './analytics.agent';
+// UnifiedAgent - single agent with dynamic tool groups (primary)
 export {
-  createDocumentLibraryAgent,
-  type DocumentLibraryAgentOptions,
-} from './document-library.agent';
+  createUnifiedAgent,
+  createUnifiedAgentForIntent,
+  getAvailableToolGroups,
+  type UnifiedAgentOptions,
+} from './unified.agent';
 
-// Supervisor agent (orchestrator)
+// Supervisor agent (backward compatibility - now delegates to UnifiedAgent)
 export {
   createSupervisorAgent,
   buildDynamicInstructions,

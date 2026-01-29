@@ -66,6 +66,7 @@ import { ChatContextBuilderService } from './services/chat-context-builder.servi
 import { ChatResponseProcessorService } from './services/chat-response-processor.service';
 import { ChatPrepareService } from './services/chat-prepare.service';
 import { TaskComplexityClassifierService } from './services/task-complexity-classifier.service';
+import { NlpIntentClassifierService } from './services/nlp-intent-classifier.service';
 
 // Phase 6: Extracted Services (VoltAgentService refactoring)
 import { AgentPoolService } from './services/agent-pool.service';
@@ -135,6 +136,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     ChatResponseProcessorService,
     ChatPrepareService,
     TaskComplexityClassifierService,
+    NlpIntentClassifierService, // Neural network intent classifier (2026-01-29)
     // Phase 6: Extracted Services (VoltAgentService refactoring)
     AgentPoolService,
     AgentMetricsService,

@@ -86,19 +86,26 @@ export class MistralService {
     return apiKey;
   }
 
-  private getModel(tier: 'fast' | 'medium' | 'creative' | 'default' = 'default'): string {
-    // Model routing by tier (AI_DEFAULT_MODEL removed - use explicit tiers)
+  private getModel(tier: 'fast' | 'medium' | 'creative' | 'router' | 'default' = 'default'): string {
+    // Model routing by tier (2026-01-29 audit: updated defaults)
+    // See: voltagent/providers/mistral.provider.ts for full pricing reference
     switch (tier) {
       case 'fast':
-        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
+        // Fast tasks with tool support - $0.03/$0.11 per M tokens
+        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-3-1-2503-latest';
       case 'medium':
-        return this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-medium-latest';
+        // DEPRECATED: Medium is slow! Maps to fast for tool orchestration
+        return this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-3-1-2503-latest';
       case 'creative':
-        return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistral-small-creative';
+        // Email composition, smart replies - $0.10/$0.30 (NO complex tool calls!)
+        return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistral-small-creative-25-12';
+      case 'router':
+        // Intent classification, triage - ultra-cheap $0.04/$0.04 per M tokens
+        return this.configService.get<string>('AI_MODEL_ROUTER') || 'ministral-3b-latest';
       case 'default':
       default:
         // Default to fast (small) for cost optimization
-        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
+        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-3-1-2503-latest';
     }
   }
 
@@ -174,8 +181,8 @@ export class MistralService {
     timeoutMs?: number;
     /** Telemetry context for tracking */
     telemetryContext?: { tenantId: string; userId?: string; promptName?: string };
-    /** Model override: 'fast' for simple, 'medium' for extraction, 'creative' for writing, 'default' for fast */
-    modelTier?: 'fast' | 'medium' | 'creative' | 'default';
+    /** Model override: 'fast' for tools, 'creative' for writing, 'router' for classification, 'default' for fast */
+    modelTier?: 'fast' | 'medium' | 'creative' | 'router' | 'default';
     /** Enable JSON mode for guaranteed valid JSON output */
     jsonMode?: boolean;
     /**

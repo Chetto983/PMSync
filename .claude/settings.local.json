@@ -225,7 +225,10 @@
       "WebFetch(domain:fullcalendar.io)",
       "WebFetch(domain:help.superhuman.com)",
       "WebFetch(domain:blog.superhuman.com)",
-      "WebFetch(domain:mistral.ai)"
+      "WebFetch(domain:mistral.ai)",
+      "WebFetch(domain:pricepertoken.com)",
+      "mcp__claude-flow_alpha__system_status",
+      "mcp__claude-flow_alpha__neural_patterns"
     ],
     "deny": []
   }
