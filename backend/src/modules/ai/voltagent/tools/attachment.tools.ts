@@ -37,7 +37,7 @@ export interface AttachmentToolsOptions {
  */
 export function createListAttachmentsTool(options: AttachmentToolsOptions) {
   const { prisma, tenantId, locale } = options;
-  const t = getToolTranslations(locale);
+  const t = getToolTranslations(locale || 'en');
 
   return createTool({
     name: 'list_email_attachments',
@@ -98,7 +98,7 @@ export function createListAttachmentsTool(options: AttachmentToolsOptions) {
  */
 export function createGetAttachmentContentTool(options: AttachmentToolsOptions) {
   const { prisma, mistralOcrService, tenantId, locale } = options;
-  const t = getToolTranslations(locale);
+  const t = getToolTranslations(locale || 'en');
 
   return createTool({
     name: 'get_attachment_content',

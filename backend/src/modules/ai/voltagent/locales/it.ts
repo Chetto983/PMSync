@@ -98,6 +98,19 @@ export const it: VoltAgentTranslations = {
       notFound: 'Cartella non trovata',
       requiresApproval: 'Questa azione richiede approvazione',
     },
+    attachments: {
+      list: {
+        description:
+          'Elenca tutti gli allegati di una email. Usalo per vedere quali file sono allegati prima di estrarne il contenuto.',
+      },
+      getContent: {
+        description:
+          "Estrai il contenuto testuale da un allegato email usando OCR. Supporta PDF, immagini e documenti Office. Usalo quando devi leggere il contenuto effettivo di un allegato.",
+      },
+      notFound: 'Allegato non trovato o accesso negato',
+      extractionFailed: "Impossibile estrarre il contenuto dall'allegato",
+      unsupportedType: 'Tipo di file non supportato per estrazione OCR',
+    },
     common: {
       success: 'Successo',
       error: 'Errore',

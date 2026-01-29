@@ -33,6 +33,29 @@ export class MistralOcrService {
   private readonly ocrModel = 'mistral-ocr-latest';
   private readonly maxFileSizeMb = 50; // Mistral OCR limit
 
+  /**
+   * Minimum file size for images to be worth OCR (in bytes)
+   * Smaller images are likely signatures, logos, icons, tracking pixels
+   */
+  private readonly minImageSizeKb = 15; // 15KB minimum for images
+
+  /**
+   * Common patterns for irrelevant images (signatures, logos, icons)
+   */
+  private readonly irrelevantImagePatterns = [
+    // Social media icons
+    /facebook|twitter|linkedin|instagram|youtube|tiktok/i,
+    // Email signature patterns
+    /signature|logo|icon|banner|footer|header/i,
+    // Tracking pixels
+    /pixel|tracking|beacon|spacer|1x1|transparent/i,
+    // Generic small image names
+    /button|arrow|bullet|divider|separator|line/i,
+    // CID images (often inline)
+    /^cid:/i,
+    /^image\d{3,}/i, // Generic "image001.png" patterns
+  ];
+
   constructor(
     private readonly configService: ConfigService,
     private readonly storageService: StorageService,
@@ -71,6 +94,12 @@ export class MistralOcrService {
       return null;
     }
 
+    // Smart filtering: Skip likely irrelevant images based on filename
+    if (this.isImage(mimeType) && this.isLikelyIrrelevantImage(filename)) {
+      this.logger.debug(`Skipping likely irrelevant image: ${filename}`);
+      return null;
+    }
+
     try {
       // 1. Download attachment from storage
       const signedUrl = await this.storageService.getSignedDownloadUrl(storagePath, 300);
@@ -83,10 +112,18 @@ export class MistralOcrService {
 
       const buffer = Buffer.from(await response.arrayBuffer());
 
-      // Check file size
+      // Check file size - too large
       const fileSizeMb = buffer.length / (1024 * 1024);
       if (fileSizeMb > this.maxFileSizeMb) {
         this.logger.warn(`Attachment too large for OCR: ${filename} (${fileSizeMb.toFixed(1)}MB > ${this.maxFileSizeMb}MB)`);
+        return null;
+      }
+
+      // Smart filtering: Skip small images (likely logos, icons, tracking pixels)
+      if (this.isImageTooSmallForOcr(mimeType, buffer.length)) {
+        this.logger.debug(
+          `Skipping small image (${(buffer.length / 1024).toFixed(1)}KB < ${this.minImageSizeKb}KB): ${filename}`,
+        );
         return null;
       }
 
@@ -264,5 +301,44 @@ export class MistralOcrService {
     }
 
     return 'document'; // Default
+  }
+
+  /**
+   * Check if MIME type is an image
+   */
+  private isImage(mimeType: string): boolean {
+    const normalizedMimeType = mimeType.split(';')[0].trim().toLowerCase();
+    return normalizedMimeType.startsWith('image/');
+  }
+
+  /**
+   * Smart filter: Check if an image is likely irrelevant (logo, icon, signature, etc.)
+   * This saves OCR costs by skipping small/decorative images.
+   */
+  private isLikelyIrrelevantImage(filename: string): boolean {
+    // Check against common irrelevant patterns
+    for (const pattern of this.irrelevantImagePatterns) {
+      if (pattern.test(filename)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Additional size-based filtering for images
+   * Called after downloading to check actual file size
+   */
+  private isImageTooSmallForOcr(mimeType: string, fileSizeBytes: number): boolean {
+    if (!this.isImage(mimeType)) {
+      return false; // Size check only for images, not PDFs/documents
+    }
+
+    const fileSizeKb = fileSizeBytes / 1024;
+    if (fileSizeKb < this.minImageSizeKb) {
+      return true; // Too small - likely icon/logo/tracking pixel
+    }
+
+    return false;
   }
 }

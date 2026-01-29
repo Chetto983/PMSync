@@ -6,7 +6,7 @@ import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
 import { EmailEmbeddingQueueService } from './email-embedding.queue';
 import { HtmlContentExtractor } from './html-content-extractor';
-import { AttachmentContentExtractorService } from './attachment-content-extractor.service';
+// AttachmentContentExtractorService removed - using on-demand Mistral OCR via agent tool
 import { AiError } from '../errors';
 
 interface BackfillResult {
@@ -39,6 +39,21 @@ interface CreateEmailEmbeddingOptions {
   bodyHtml?: string | null;
   from?: string | null;
   receivedAt?: Date | string | null;
+}
+
+/**
+ * Result from composing email content for embedding
+ * Includes attachment metadata for on-demand OCR (agent tool)
+ */
+interface EmailContentResult {
+  /** Email body content (without attachment content) */
+  content: string | null;
+  /** Whether the email has attachments */
+  hasAttachments: boolean;
+  /** Number of attachments */
+  attachmentCount: number;
+  /** Attachment IDs for on-demand extraction */
+  attachmentIds: string[];
 }
 
 interface KnowledgeBaseSearchOptions {
@@ -82,7 +97,7 @@ export class KnowledgeBaseService {
     private readonly embeddingsService: EmbeddingsService,
     @Inject(forwardRef(() => EmailEmbeddingQueueService))
     private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
-    private readonly attachmentContentExtractor: AttachmentContentExtractorService,
+    // AttachmentContentExtractorService removed - using on-demand Mistral OCR via agent tool
     private readonly configService: ConfigService,
   ) {
     this.maxCharsPerChunk = this.configService.get<number>('AI_EMBEDDING_CHUNK_SIZE', 6000);
@@ -179,6 +194,10 @@ export class KnowledgeBaseService {
       chunkIndex: number;
       chunkCount: number;
       content: string;
+      // Attachment metadata for on-demand OCR
+      hasAttachments: boolean;
+      attachmentCount: number;
+      attachmentIds: string[];
     }> = [];
 
     // First, compose content and chunk all emails
@@ -195,9 +214,8 @@ export class KnowledgeBaseService {
         continue;
       }
 
-      // 🆕 Use new async method that includes attachment content extraction
-      // (Only extract if we actually need to generate embeddings)
-      const content = await this.composeEmailEmbeddingContentWithAttachments(
+      // Compose email content with attachment metadata (no upfront extraction)
+      const contentResult = await this.composeEmailEmbeddingContentWithAttachments(
         {
           id: options.emailId,
           subject: options.subject,
@@ -208,7 +226,7 @@ export class KnowledgeBaseService {
         options.tenantId,
       );
 
-      if (!content) {
+      if (!contentResult.content) {
         this.logger.debug(
           `Skipping embedding for email ${options.emailId} (tenant ${options.tenantId}): empty content`,
         );
@@ -216,7 +234,7 @@ export class KnowledgeBaseService {
         continue;
       }
 
-      const chunks = this.chunkContentForEmbedding(content);
+      const chunks = this.chunkContentForEmbedding(contentResult.content);
       const receivedAtIso =
         options.receivedAt instanceof Date
           ? options.receivedAt.toISOString()
@@ -225,7 +243,7 @@ export class KnowledgeBaseService {
       // Delete existing embeddings for this email
       await this.deleteEmbeddingsForEmail(options.tenantId, options.emailId);
 
-      // Add chunks to the batch
+      // Add chunks to the batch (with attachment metadata for on-demand OCR)
       for (const chunk of chunks) {
         allChunksData.push({
           emailId: options.emailId,
@@ -236,6 +254,9 @@ export class KnowledgeBaseService {
           chunkIndex: chunk.index,
           chunkCount: chunks.length,
           content: chunk.content,
+          hasAttachments: contentResult.hasAttachments,
+          attachmentCount: contentResult.attachmentCount,
+          attachmentIds: contentResult.attachmentIds,
         });
       }
     }
@@ -271,6 +292,10 @@ export class KnowledgeBaseService {
               receivedAt: chunkData.receivedAt ?? null,
               chunkIndex: chunkData.chunkIndex,
               chunkCount: chunkData.chunkCount,
+              // Attachment metadata for on-demand OCR (agent tool)
+              hasAttachments: chunkData.hasAttachments,
+              attachmentCount: chunkData.attachmentCount,
+              attachmentIds: chunkData.attachmentIds,
             },
           });
         } catch (saveError) {
@@ -325,9 +350,8 @@ export class KnowledgeBaseService {
       return false;
     }
 
-    // 🆕 Use new async method that includes attachment content extraction
-    // (Only extract if we actually need to generate embeddings)
-    const content = await this.composeEmailEmbeddingContentWithAttachments(
+    // Compose email content with attachment metadata (no upfront extraction)
+    const contentResult = await this.composeEmailEmbeddingContentWithAttachments(
       {
         id: options.emailId,
         subject: options.subject,
@@ -338,7 +362,7 @@ export class KnowledgeBaseService {
       options.tenantId,
     );
 
-    if (!content) {
+    if (!contentResult.content) {
       this.logger.debug(
         `Skipping embedding for email ${options.emailId} (tenant ${options.tenantId}): empty content`,
       );
@@ -346,7 +370,7 @@ export class KnowledgeBaseService {
     }
 
     try {
-      const chunks = this.chunkContentForEmbedding(content);
+      const chunks = this.chunkContentForEmbedding(contentResult.content);
 
       if (chunks.length > 1) {
         this.logger.debug(
@@ -389,6 +413,10 @@ export class KnowledgeBaseService {
                 receivedAt: receivedAtIso ?? null,
                 chunkIndex: chunk.index,
                 chunkCount: chunks.length,
+                // Attachment metadata for on-demand OCR (agent tool)
+                hasAttachments: contentResult.hasAttachments,
+                attachmentCount: contentResult.attachmentCount,
+                attachmentIds: contentResult.attachmentIds,
               },
             });
 
@@ -426,6 +454,10 @@ export class KnowledgeBaseService {
                 receivedAt: receivedAtIso ?? null,
                 chunkIndex: chunk.index,
                 chunkCount: chunks.length,
+                // Attachment metadata for on-demand OCR (agent tool)
+                hasAttachments: contentResult.hasAttachments,
+                attachmentCount: contentResult.attachmentCount,
+                attachmentIds: contentResult.attachmentIds,
               },
             });
 
@@ -840,8 +872,14 @@ export class KnowledgeBaseService {
   }
 
   /**
-   * NEW: Compose email content INCLUDING attachment text extraction
-   * HIGH IMPACT: Enables searching across ALL email content including PDFs, text files, etc.
+   * Compose email content for embedding WITH attachment metadata (no upfront extraction)
+   *
+   * COST-SAVING APPROACH:
+   * - Only embeds email body (subject, body, snippet)
+   * - Stores attachment metadata (hasAttachments, attachmentCount, attachmentIds)
+   * - Agent uses on-demand Mistral OCR when it needs attachment content
+   *
+   * @returns EmailContentResult with content and attachment metadata
    */
   private async composeEmailEmbeddingContentWithAttachments(
     email: {
@@ -852,7 +890,7 @@ export class KnowledgeBaseService {
       bodyHtml: string | null;
     },
     tenantId: string,
-  ): Promise<string | null> {
+  ): Promise<EmailContentResult> {
     const pieces: string[] = [];
 
     if (email.subject) {
@@ -869,60 +907,46 @@ export class KnowledgeBaseService {
       pieces.push(email.snippet);
     }
 
-    // 🆕 ATTACHMENT CONTENT EXTRACTION
+    // Query attachment metadata (NO content extraction - on-demand via agent tool)
+    let hasAttachments = false;
+    let attachmentCount = 0;
+    let attachmentIds: string[] = [];
+
     try {
       const attachments = await this.prisma.emailAttachment.findMany({
         where: {
           emailId: email.id,
-          isInline: false, // Skip inline images (not searchable text)
+          isInline: false, // Skip inline images
           email: { tenantId },
         },
         select: {
           id: true,
-          filename: true,
-          mimeType: true,
-          storagePath: true,
         },
       });
 
-      if (attachments.length > 0) {
-        // Filter out attachments without storagePath (shouldn't happen, but handle gracefully)
-        const validAttachments = attachments.filter((att) => att.storagePath !== null) as Array<{
-          id: string;
-          filename: string;
-          mimeType: string;
-          storagePath: string;
-        }>;
+      attachmentCount = attachments.length;
+      hasAttachments = attachmentCount > 0;
+      attachmentIds = attachments.map((att) => att.id);
 
-        if (validAttachments.length > 0) {
-          const extractedContent =
-            await this.attachmentContentExtractor.extractFromAttachments(validAttachments);
-
-          if (extractedContent.length > 0) {
-            pieces.push('\n--- Allegati ---');
-            for (const content of extractedContent) {
-              pieces.push(`\nFile: ${content.filename}\n${content.extractedText}`);
-            }
-
-            this.logger.debug(
-              `Extracted content from ${extractedContent.length}/${validAttachments.length} attachments for email ${email.id} (tenant: ${tenantId})`,
-            );
-          } else {
-            this.logger.debug(
-              `No extractable content from ${validAttachments.length} attachments for email ${email.id}`,
-            );
-          }
-        }
+      if (hasAttachments) {
+        this.logger.debug(
+          `Email ${email.id} has ${attachmentCount} attachments (on-demand OCR available via agent tool)`,
+        );
       }
     } catch (error) {
       this.logger.warn(
-        `Failed to extract attachment content for email ${email.id}: ${AiError.fromError(error).message}`,
+        `Failed to query attachment metadata for email ${email.id}: ${AiError.fromError(error).message}`,
       );
-      // Continue without attachment content (graceful degradation)
+      // Continue without attachment metadata (graceful degradation)
     }
 
     const combined = pieces.join('\n\n').trim();
-    return combined.length > 0 ? combined : null;
+    return {
+      content: combined.length > 0 ? combined : null,
+      hasAttachments,
+      attachmentCount,
+      attachmentIds,
+    };
   }
 
   private chunkContentForEmbedding(content: string): Array<{ content: string; index: number }> {
