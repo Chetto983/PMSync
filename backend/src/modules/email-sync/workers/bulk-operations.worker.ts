@@ -86,6 +86,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
       labelId,
       chunkSize = this.DEFAULT_CHUNK_SIZE,
       syncToProvider = true,
+      permanent = false, // FIX L1: Extract permanent flag
     } = job.data;
 
     // Generate lock key per tenant+provider+operation to prevent concurrent bulk ops
@@ -131,7 +132,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
 
             try {
               // Process chunk in local database
-              await this.processChunk(tenantId, operation, chunk, { targetFolderId, labelId });
+              await this.processChunk(tenantId, operation, chunk, { targetFolderId, labelId, permanent });
               processed += chunk.length;
             } catch (chunkError) {
               const errorMsg = chunkError instanceof Error ? chunkError.message : String(chunkError);
@@ -156,6 +157,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
             await this.enqueueSyncBack(tenantId, providerId, providerType, operation, emailIds.slice(0, processed), {
               targetFolderId,
               labelId,
+              permanent, // FIX: Pass permanent flag to provider sync-back
             });
           }
 
@@ -202,16 +204,25 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
     tenantId: string,
     operation: BulkOperationJobData['operation'],
     emailIds: string[],
-    options: { targetFolderId?: string; labelId?: string },
+    options: { targetFolderId?: string; labelId?: string; permanent?: boolean },
   ): Promise<void> {
-    const { targetFolderId, labelId } = options;
+    const { targetFolderId, labelId, permanent } = options;
 
     switch (operation) {
       case 'delete':
-        await this.prisma.email.updateMany({
-          where: { id: { in: emailIds }, tenantId },
-          data: { isDeleted: true },
-        });
+        // FIX L1: Honor permanent flag for hard vs soft delete
+        if (permanent) {
+          // Hard delete - permanently remove from database
+          await this.prisma.email.deleteMany({
+            where: { id: { in: emailIds }, tenantId },
+          });
+        } else {
+          // Soft delete - mark as deleted (can be recovered from trash)
+          await this.prisma.email.updateMany({
+            where: { id: { in: emailIds }, tenantId },
+            data: { isDeleted: true },
+          });
+        }
         break;
 
       case 'archive':
@@ -313,7 +324,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
     providerType: 'google' | 'microsoft' | 'imap',
     operation: BulkOperationJobData['operation'],
     emailIds: string[],
-    options: { targetFolderId?: string; labelId?: string },
+    options: { targetFolderId?: string; labelId?: string; permanent?: boolean },
   ): Promise<void> {
     // Map bulk operation to sync-back action
     const actionMap: Record<string, string> = {
@@ -346,6 +357,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
       labelId: options.labelId,
       requestedAt: new Date().toISOString(),
       priority: 'normal', // Background priority for bulk sync-back
+      permanent: options.permanent, // FIX: Pass permanent flag for hard delete on provider
     });
 
     this.logger.debug(

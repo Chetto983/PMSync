@@ -3,7 +3,12 @@
  *
  * LEAN VERSION - Reduced from 9.4KB to ~2KB.
  * Tool descriptions have examples - no need to repeat.
+ *
+ * Updated 2026-01-29: Import shared modules to eliminate duplication
  */
+
+import type { TaskIntent } from '../services/task-complexity-classifier.service';
+import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE } from './shared.prompt';
 
 // BASE: Always included (~800 chars)
 const BASE = `<ROLE>SupervisorAgent (PMSync) - Task router. I coordinate, NOT execute.</ROLE>
@@ -22,32 +27,6 @@ People lookup → IntelligenceAgent (correspondents, not celebrities)
 - Keep responses minimal and action-focused
 - Use Markdown formatting
 </RULES>`;
-
-// CLARIFICATION MODULE - For ambiguous requests
-const CLARIFICATION_MODULE = `<CLARIFICATION>
-When multiple matches or ambiguity exists:
-1. MUST call ask_user_clarification tool
-2. NEVER write "Which one?" in text
-3. Tool shows interactive modal to user
-
-ask_user_clarification({
-  question: "Which X?",
-  header: "Selection",
-  options: [{label, description}],
-  multiSelect: false
-})
-</CLARIFICATION>`;
-
-// SUGGESTIONS MODULE - For generating follow-ups
-const SUGGESTIONS_MODULE = `<SUGGESTIONS>
-After response, add JSON block:
-\`\`\`suggestions
-["Follow-up 1?", "Follow-up 2?"]
-\`\`\`
-Keep under 50 chars, contextually relevant.
-</SUGGESTIONS>`;
-
-import type { TaskIntent } from '../services/task-complexity-classifier.service';
 
 /**
  * RLM: Get Supervisor prompt based on context.

@@ -57,6 +57,8 @@ export interface SyncBackJobData {
   priority?: 'high' | 'normal';
   /** Retry count for tracking */
   retryCount?: number;
+  /** Permanent delete flag - if true, permanently delete from provider (not just move to trash) */
+  permanent?: boolean;
 }
 
 /**

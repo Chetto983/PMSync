@@ -51,7 +51,8 @@ interface KnowledgeBaseSearchOptions {
 export interface KnowledgeBaseSearchHit {
   id: string;
   subject: string | null;
-  snippet: string;
+  /** Snippet may be null if embedding content was not stored (GDPR compliance) */
+  snippet: string | null;
   source: string | null;
   emailId: string | null;
   from: string | null;
@@ -258,7 +259,6 @@ export class KnowledgeBaseService {
         try {
           await this.embeddingsService.saveEmbedding({
             tenantId: chunkData.tenantId,
-            content: chunkData.content,
             embedding,
             model: this.mistralService.getEmbeddingModel(),
             documentName: chunkData.subject,
@@ -377,7 +377,6 @@ export class KnowledgeBaseService {
           try {
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
-              content: chunk.content,
               embedding,
               model: this.mistralService.getEmbeddingModel(),
               documentName: options.subject,
@@ -415,7 +414,6 @@ export class KnowledgeBaseService {
 
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
-              content: chunk.content,
               embedding,
               model: this.mistralService.getEmbeddingModel(),
               documentName: options.subject,
@@ -463,7 +461,6 @@ export class KnowledgeBaseService {
       select: {
         id: true,
         documentName: true,
-        content: true,
         metadata: true,
         createdAt: true,
       },
@@ -601,13 +598,18 @@ export class KnowledgeBaseService {
   }
 
 
+  /**
+   * GDPR-compliant: Hydrate knowledge hits by fetching content from source tables.
+   * Embeddings no longer store content - use emailId/contactId to JOIN.
+   */
   private async hydrateKnowledgeHits(
     matches: Array<{
       id: string;
-      content: string;
       documentName: string | null;
       metadata: any;
       distance?: number;
+      emailId?: string | null;
+      contactId?: string | null;
     }>,
     tenantId: string,
   ): Promise<KnowledgeBaseSearchHit[]> {
@@ -654,10 +656,15 @@ export class KnowledgeBaseService {
           ? null
           : Number((1 - Math.min(Math.max(distance, 0), 1)).toFixed(3));
 
+      // GDPR-compliant: Get snippet from source table (Email), not from embedding
+      const snippet = emailDetails?.snippet
+        ? this.truncateMemorySnippet(emailDetails.snippet)
+        : null;
+
       return {
         id: match.id,
         subject,
-        snippet: this.truncateMemorySnippet(match.content),
+        snippet,
         source,
         emailId,
         from,
@@ -669,10 +676,14 @@ export class KnowledgeBaseService {
     });
   }
 
+  /**
+   * GDPR-compliant: Fetch email details including snippet for hydration.
+   * Since embeddings no longer store content, we fetch it from the Email table.
+   */
   private async fetchEmailHydrationMap(
     tenantId: string,
     emailIds: string[],
-  ): Promise<Map<string, { subject: string | null; from: string | null; receivedAt: string | null }>> {
+  ): Promise<Map<string, { subject: string | null; from: string | null; receivedAt: string | null; snippet: string | null }>> {
     if (!emailIds.length) {
       return new Map();
     }
@@ -689,6 +700,7 @@ export class KnowledgeBaseService {
         subject: true,
         from: true,
         receivedAt: true,
+        snippet: true, // GDPR-compliant: Fetch content from source table
       },
     });
 
@@ -699,6 +711,7 @@ export class KnowledgeBaseService {
           subject: row.subject,
           from: row.from,
           receivedAt: row.receivedAt ? row.receivedAt.toISOString() : null,
+          snippet: row.snippet, // GDPR-compliant: Content from source table
         },
       ]),
     );
@@ -1152,7 +1165,6 @@ export class KnowledgeBaseService {
           try {
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
-              content: chunk.content,
               embedding,
               model: this.mistralService.getEmbeddingModel(),
               documentName: options.displayName || `Contact ${options.contactId}`,
@@ -1187,7 +1199,6 @@ export class KnowledgeBaseService {
 
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
-              content: chunk.content,
               embedding,
               model: this.mistralService.getEmbeddingModel(),
               documentName: options.displayName || `Contact ${options.contactId}`,

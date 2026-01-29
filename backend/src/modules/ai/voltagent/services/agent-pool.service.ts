@@ -86,9 +86,13 @@ export class AgentPoolService {
   /**
    * Build tenant-isolated cache key for Redis
    * Format: {tenantId}:{userId}:{locale}:{modelType}:{agentType}
+   *
+   * FIX M6: Use userId consistently (not email) to ensure cache invalidation works correctly.
+   * Email was previously used which caused GDPR deletion to miss cache entries.
    */
   private buildCacheKey(params: GetOrCreateAgentParams): string {
-    const userKey = params.userContext?.email ?? params.userId ?? 'anonymous';
+    // Use userId for consistency with clearAgentCacheForUser invalidation pattern
+    const userKey = params.userId ?? 'anonymous';
     return `${params.tenantId}:${userKey}:${params.locale}:${params.modelType || 'small'}:${params.agentType || 'Supervisor'}`;
   }
 

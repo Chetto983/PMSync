@@ -303,8 +303,9 @@ export class MemoryIntelligenceService {
             const topMemories = relevant.slice(0, limit);
 
             // Record usage for retrieved memories (async, fire-and-forget)
+            // FIX M5: Pass tenantId/userId for proper tenant scoping
             for (const memory of topMemories) {
-                this.memoryService.recordUsage(memory.id).catch(() => {
+                this.memoryService.recordUsage(tenantId, userId, memory.id).catch(() => {
                     // Ignore usage tracking errors
                 });
             }

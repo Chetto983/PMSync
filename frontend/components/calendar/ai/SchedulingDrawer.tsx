@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Drawer,
   Box,
@@ -33,8 +33,11 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { multiAgentApi } from '@/lib/api/ai';
-import { calendarApi, type CreateEventDto } from '@/lib/api/calendar';
-import { providersApi, type ProviderConfig } from '@/lib/api/providers';
+import { type CreateEventDto } from '@/lib/api/calendar';
+import { useCreateCalendarEvent, calendarEventsOptions } from '@/hooks/queries/use-calendar';
+import { useQueryClient } from '@tanstack/react-query';
+import { type ProviderConfig } from '@/lib/api/providers';
+import { useProviders } from '@/hooks/queries/use-providers';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { logger } from '@/lib/logger';
 
@@ -81,19 +84,34 @@ export function SchedulingDrawer({
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
 
-  // Load providers on mount
+  // Track if provider has been initialized to prevent infinite loop
+  const hasInitializedProvider = useRef(false);
+
+  // Load providers using TanStack Query hook
+  const { data: providersData } = useProviders();
+
+  // TanStack Query client for imperative fetching
+  const queryClient = useQueryClient();
+
+  // Use TanStack Query mutation for creating events
+  const createEventMutation = useCreateCalendarEvent();
+
+  // Initialize provider on mount - fixed infinite loop by using ref
   useEffect(() => {
-    if (open) {
-      providersApi.getProviders().then((data) => {
-        const calendarProviders = data.filter((p) => p.supportsCalendar);
-        setProviders(calendarProviders);
-        if (calendarProviders.length > 0 && !selectedProvider) {
-          const defaultProvider = calendarProviders.find((p) => p.isDefault) || calendarProviders[0];
-          setSelectedProvider(defaultProvider.id);
-        }
-      });
+    if (open && providersData && !hasInitializedProvider.current) {
+      const calendarProviders = providersData.filter((p) => p.supportsCalendar);
+      setProviders(calendarProviders);
+      if (calendarProviders.length > 0) {
+        const defaultProvider = calendarProviders.find((p) => p.isDefault) || calendarProviders[0];
+        setSelectedProvider(defaultProvider.id);
+        hasInitializedProvider.current = true;
+      }
     }
-  }, [open, selectedProvider]);
+    // Reset on close
+    if (!open) {
+      hasInitializedProvider.current = false;
+    }
+  }, [open, providersData]);
 
   // Translations from locale files
   const labels = t.ai.calendarAi.scheduling;
@@ -154,14 +172,16 @@ export function SchedulingDrawer({
       const minDate = new Date(Math.min(...startTimes.map(d => d.getTime())));
       const maxDate = new Date(Math.max(...endTimes.map(d => d.getTime())));
 
-      // Fetch existing events in this range
-      const response = await calendarApi.listEvents({
-        providerId: selectedProvider,
-        startTime: minDate.toISOString(),
-        endTime: maxDate.toISOString(),
-      });
+      // Fetch existing events using TanStack Query (imperative)
+      const eventsData = await queryClient.fetchQuery(
+        calendarEventsOptions({
+          providerId: selectedProvider,
+          startTime: minDate.toISOString(),
+          endTime: maxDate.toISOString(),
+        })
+      );
 
-      const events = response.data?.events || [];
+      const events = eventsData?.events || [];
 
       // Check each slot for conflicts
       return slots.map(slot => {
@@ -189,7 +209,7 @@ export function SchedulingDrawer({
       logger.error('Failed to check conflicts', { error: err });
       return slots;
     }
-  }, [selectedProvider]);
+  }, [selectedProvider, queryClient]);
 
   // Generate suggested time slots using multi-agent AI
   const handleGenerateSlots = useCallback(async () => {
@@ -239,7 +259,7 @@ export function SchedulingDrawer({
     }
   }, [prompt, locale, generateTimeSlots, checkConflicts, labels.errorGenerating]);
 
-  // Create event using calendar API
+  // Create event using TanStack Query mutation
   const handleCreateEvent = useCallback(async () => {
     if (!selectedSlot || !title.trim()) {
       setError(labels.selectSlot);
@@ -258,7 +278,7 @@ export function SchedulingDrawer({
     setError(null);
 
     try {
-      // Create event using calendar API
+      // Create event using TanStack Query mutation
       const eventData: CreateEventDto = {
         providerId: selectedProvider,
         title,
@@ -269,8 +289,7 @@ export function SchedulingDrawer({
         isAllDay: false,
       };
 
-      const response = await calendarApi.createEvent(eventData);
-      const createdEvent = response.data;
+      const createdEvent = await createEventMutation.mutateAsync(eventData);
 
       onEventCreated?.({
         id: createdEvent.id,
@@ -295,7 +314,7 @@ export function SchedulingDrawer({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSlot, title, location, notes, suggestedSlots, selectedProvider, onEventCreated, onClose, labels.selectSlot, labels.selectProvider, labels.errorCreating]);
+  }, [selectedSlot, title, location, notes, suggestedSlots, selectedProvider, onEventCreated, onClose, labels.selectSlot, labels.selectProvider, labels.errorCreating, createEventMutation]);
 
   // Format date/time for display
   const formatSlotTime = (isoString: string) => {

@@ -70,7 +70,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
 
   protected async processJob(job: Job<SyncBackJobData>): Promise<SyncBackJobResult> {
     const startTime = Date.now();
-    const { tenantId, providerId, providerType, action, emailIds, externalIds, targetFolder, labelId } =
+    const { tenantId, providerId, providerType, action, emailIds, externalIds, targetFolder, labelId, permanent } =
       job.data;
 
     // PHASE 6.1: Distributed lock to prevent concurrent sync-back on same provider+action
@@ -132,6 +132,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
                 // AUDIT FIX #2: Pass tenantId and providerId for IMAP tenant safety
                 tenantId,
                 providerId,
+                permanent, // FIX: Pass permanent flag for hard delete
               });
               syncedCount += batch.length;
 
@@ -202,7 +203,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
     accessToken: string,
     action: SyncBackJobData['action'],
     externalIds: string[],
-    options: { targetFolder?: string; labelId?: string; providerEmail?: string; tenantId?: string; providerId?: string },
+    options: { targetFolder?: string; labelId?: string; providerEmail?: string; tenantId?: string; providerId?: string; permanent?: boolean },
   ): Promise<void> {
     switch (providerType) {
       case 'google':
@@ -228,9 +229,15 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
     accessToken: string,
     action: SyncBackJobData['action'],
     externalIds: string[],
-    options: { labelId?: string },
+    options: { labelId?: string; permanent?: boolean },
   ): Promise<void> {
-    // Gmail batch modify endpoint
+    // FIX: Handle permanent delete separately - requires individual DELETE calls
+    if (action === 'delete' && options.permanent) {
+      await this.permanentDeleteGmail(accessToken, externalIds);
+      return;
+    }
+
+    // Gmail batch modify endpoint for non-permanent operations
     const url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify';
 
     let addLabelIds: string[] = [];
@@ -253,6 +260,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
         removeLabelIds = ['INBOX'];
         break;
       case 'delete':
+        // Soft delete - move to trash
         addLabelIds = ['TRASH'];
         break;
       case 'add-label':
@@ -284,11 +292,37 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
     }
   }
 
+  /**
+   * Permanently delete messages from Gmail (bypasses Trash)
+   * Uses Gmail batchDelete API for efficiency
+   * @see https://developers.google.com/gmail/api/reference/rest/v1/users.messages/batchDelete
+   */
+  private async permanentDeleteGmail(accessToken: string, externalIds: string[]): Promise<void> {
+    // Gmail batchDelete endpoint - permanently deletes messages
+    const url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/batchDelete';
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids: externalIds }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Gmail permanent delete failed: ${response.status} ${error}`);
+    }
+
+    this.logger.log(`Gmail permanent delete: ${externalIds.length} messages`);
+  }
+
   private async syncToMicrosoft(
     accessToken: string,
     action: SyncBackJobData['action'],
     externalIds: string[],
-    options: { targetFolder?: string },
+    options: { targetFolder?: string; permanent?: boolean },
   ): Promise<void> {
     // Microsoft Graph $batch endpoint - up to 20 requests per batch
     const MICROSOFT_BATCH_SIZE = 20;
@@ -332,7 +366,15 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
             body = { destinationId: 'archive' };
             break;
           case 'delete':
-            method = 'DELETE';
+            if (options.permanent) {
+              // Permanent delete - bypasses Deleted Items
+              method = 'DELETE';
+            } else {
+              // Soft delete - move to Deleted Items (recoverable)
+              url = `/me/messages/${messageId}/move`;
+              method = 'POST';
+              body = { destinationId: 'deleteditems' };
+            }
             break;
           case 'move':
             url = `/me/messages/${messageId}/move`;
@@ -433,7 +475,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
     providerEmail: string,
     action: SyncBackJobData['action'],
     externalIds: string[],
-    options: { targetFolder?: string; labelId?: string; tenantId?: string; providerId?: string },
+    options: { targetFolder?: string; labelId?: string; tenantId?: string; providerId?: string; permanent?: boolean },
   ): Promise<void> {
     // AUDIT FIX #2: Resolve provider by providerId AND tenantId for tenant safety
     let provider;
@@ -568,17 +610,30 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
               break;
 
             case 'delete':
-              // Move to Trash or mark as deleted
-              // Q-2 FIX: Added logging to catch blocks for debugging
-              try {
-                await client.messageMove(uids, 'Trash', { uid: true });
-              } catch (trashErr) {
-                this.logger.debug(`Trash folder not found, trying Gmail folder: ${trashErr instanceof Error ? trashErr.message : trashErr}`);
+              if (options.permanent) {
+                // Permanent delete - set \Deleted flag + EXPUNGE immediately
+                await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
+                // EXPUNGE removes messages marked as \Deleted from the server
                 try {
-                  await client.messageMove(uids, '[Gmail]/Trash', { uid: true });
-                } catch (gmailTrashErr) {
-                  this.logger.debug(`Gmail Trash folder not found, marking as deleted: ${gmailTrashErr instanceof Error ? gmailTrashErr.message : gmailTrashErr}`);
-                  await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
+                  await client.messageDelete(uids, { uid: true });
+                } catch {
+                  // Fallback: some servers may not support messageDelete
+                  this.logger.debug('messageDelete not available, messages flagged as \\Deleted');
+                }
+                this.logger.log(`IMAP permanent delete: ${uids.length} messages from ${mailbox}`);
+              } else {
+                // Soft delete - move to Trash (recoverable)
+                // Q-2 FIX: Added logging to catch blocks for debugging
+                try {
+                  await client.messageMove(uids, 'Trash', { uid: true });
+                } catch (trashErr) {
+                  this.logger.debug(`Trash folder not found, trying Gmail folder: ${trashErr instanceof Error ? trashErr.message : trashErr}`);
+                  try {
+                    await client.messageMove(uids, '[Gmail]/Trash', { uid: true });
+                  } catch (gmailTrashErr) {
+                    this.logger.debug(`Gmail Trash folder not found, marking as deleted: ${gmailTrashErr instanceof Error ? gmailTrashErr.message : gmailTrashErr}`);
+                    await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
+                  }
                 }
               }
               break;

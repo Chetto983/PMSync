@@ -221,7 +221,11 @@
       "WebFetch(domain:api.github.com)",
       "Bash(D:)",
       "Bash(DEBUG=*)",
-      "mcp__claude-flow_alpha__agent_spawn"
+      "mcp__claude-flow_alpha__agent_spawn",
+      "WebFetch(domain:fullcalendar.io)",
+      "WebFetch(domain:help.superhuman.com)",
+      "WebFetch(domain:blog.superhuman.com)",
+      "WebFetch(domain:mistral.ai)"
     ],
     "deny": []
   }

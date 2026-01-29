@@ -58,6 +58,8 @@ export interface BulkOperationJobData {
   userId?: string;
   /** Whether to sync back to provider */
   syncToProvider?: boolean;
+  /** FIX L1: Permanent delete flag - if true, hard delete from DB */
+  permanent?: boolean;
   /** Internal: cancellation flag */
   _cancelled?: boolean;
 }

@@ -113,6 +113,43 @@ export const MEMORY_SUMMARY_PROMPT = `Summarize user memories (max 200 words):
 Output: {"summary": "..."}`;
 
 /**
+ * RLM: Conditional Memory Loading
+ *
+ * Only loads memory prompts when conversation needs memory operations.
+ * Token savings: ~605 tokens for simple queries that don't need memory.
+ *
+ * @param hasMemoryContext - True if conversation requires memory operations
+ * @param includeSearch - True to include memory search prompt (additional ~100 tokens)
+ */
+export function getMemoryPrompts(hasMemoryContext: boolean, includeSearch = false): string {
+  if (!hasMemoryContext) return ''; // SKIP 605+ tokens for simple queries
+
+  const prompts = [FACT_RETRIEVAL_PROMPT, MEMORY_DEDUCTION_PROMPT];
+
+  if (includeSearch) {
+    prompts.push(MEMORY_SEARCH_PROMPT);
+  }
+
+  return prompts.join('\n\n');
+}
+
+/**
+ * RLM: Memory context detection
+ * Determines if a message likely requires memory operations.
+ */
+export function needsMemoryContext(message: string): boolean {
+  const lower = message.toLowerCase();
+
+  // Memory-related keywords
+  const memoryKeywords = /remember|recall|forget|noted|preference|contact|relationship|colleague|client|boss|ricorda|preferis|contatt/;
+
+  // Explicit memory commands
+  const memoryCommands = /save this|remember this|note that|my preference|salva|annota/;
+
+  return memoryKeywords.test(lower) || memoryCommands.test(lower);
+}
+
+/**
  * Infer memory type from content (based on mem0 categories)
  */
 export function inferMemoryType(content: string): 'PREFERENCE' | 'FACT' | 'PATTERN' | 'INTERACTION' | 'CONTACT_NOTE' {

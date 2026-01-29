@@ -612,11 +612,81 @@ export class MistralService {
   }
 
   /**
-   * Get similar embeddings from database for RAG context
+   * GDPR-compliant: Get similar embeddings and hydrate with content from source tables.
+   * Embeddings no longer store content - use emailId/contactId to JOIN.
    */
-  async searchSimilarContent(tenantId: string, embedding: number[], limit: number = 5) {
+  async searchSimilarContent(
+    tenantId: string,
+    embedding: number[],
+    limit: number = 5,
+  ): Promise<Array<{ documentName: string | null; content: string; distance?: number }>> {
     try {
-      return await this.embeddingsService.findSimilarContent(tenantId, embedding, limit);
+      const matches = await this.embeddingsService.findSimilarContent<{
+        id: string;
+        documentName: string | null;
+        metadata: any;
+        distance?: number;
+        emailId?: string | null;
+        contactId?: string | null;
+      }>(tenantId, embedding, limit);
+
+      if (!matches.length) {
+        return [];
+      }
+
+      // GDPR-compliant: Fetch content from source tables
+      const emailIds = matches
+        .filter((m) => m.emailId)
+        .map((m) => m.emailId as string);
+      const contactIds = matches
+        .filter((m) => m.contactId)
+        .map((m) => m.contactId as string);
+
+      // Batch fetch email content
+      const emailMap = new Map<string, string>();
+      if (emailIds.length > 0) {
+        const emails = await this.prisma.email.findMany({
+          where: { id: { in: emailIds }, tenantId },
+          select: { id: true, subject: true, snippet: true, from: true },
+        });
+        emails.forEach((e) => {
+          emailMap.set(e.id, `${e.subject || 'No subject'}\nFrom: ${e.from || 'Unknown'}\n${e.snippet || ''}`);
+        });
+      }
+
+      // Batch fetch contact content
+      const contactMap = new Map<string, string>();
+      if (contactIds.length > 0) {
+        const contacts = await this.prisma.contact.findMany({
+          where: { id: { in: contactIds }, tenantId },
+          select: { id: true, displayName: true, company: true, notes: true },
+        });
+        contacts.forEach((c) => {
+          contactMap.set(c.id, `Contact: ${c.displayName || 'Unknown'}\nCompany: ${c.company || ''}\n${c.notes || ''}`);
+        });
+      }
+
+      // Hydrate results with content from source tables
+      return matches
+        .map((match) => {
+          let content: string | null = null;
+          if (match.emailId) {
+            content = emailMap.get(match.emailId) || null;
+          } else if (match.contactId) {
+            content = contactMap.get(match.contactId) || null;
+          }
+
+          if (!content) {
+            return null; // Skip if no content found
+          }
+
+          return {
+            documentName: match.documentName,
+            content,
+            distance: match.distance,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const corrId = CorrelationContext.getCorrelationId();
@@ -674,11 +744,12 @@ export class MistralService {
             // Note: generateEmbedding handles its own rate limiting and circuit breaking
             const userEmbedding = await this.generateEmbedding(userPrompt, mistralClient, { tenantId, userId });
 
+            // GDPR-compliant: No content stored for user prompts (ephemeral)
             await this.embeddingsService.saveEmbedding({
               tenantId,
-              content: userPrompt,
               embedding: userEmbedding,
               model: this.embeddingModel,
+              documentName: 'user_prompt',
               metadata: {
                 source: 'user_prompt',
                 createdBy: userId,

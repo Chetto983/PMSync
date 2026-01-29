@@ -588,9 +588,11 @@ export class DocumentLibraryService {
     }
 
     // Get Mistral library IDs for the local library IDs
+    // SECURITY FIX (C1): Add tenantId filter to prevent cross-tenant data exposure
     const libraries = await this.prisma.documentLibrary.findMany({
       where: {
         id: { in: searchLibraryIds },
+        tenantId, // Ensures only tenant's own libraries are queried
         isDeleted: false,
       },
       select: { mistralLibraryId: true },

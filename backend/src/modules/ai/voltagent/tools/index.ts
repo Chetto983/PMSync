@@ -64,3 +64,9 @@ export {
   createMemoryTools,
   type MemoryToolsOptions,
 } from './memory.tools';
+export {
+  createListAttachmentsTool,
+  createGetAttachmentContentTool,
+  createAttachmentTools,
+  type AttachmentToolsOptions,
+} from './attachment.tools';

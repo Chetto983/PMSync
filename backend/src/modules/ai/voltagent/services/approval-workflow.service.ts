@@ -41,6 +41,8 @@ export interface SerializableSuspendedWorkflow {
   action: ApprovalInput['action'];
   suspendReason: string;
   suspendedAt: string;
+  /** ActionQueue ID from hitlService - used for approve/reject (C2 fix) */
+  actionQueueId?: string;
 }
 
 /** Extract properties from ActionQueue.actionPayload JSON field */
@@ -113,8 +115,10 @@ export class ApprovalWorkflowService implements OnModuleInit {
         );
       }
 
+      // FIX C2: Capture ActionQueue ID from createPendingAction for approve/reject
+      let actionQueueId: string | undefined;
       if (this.hitlService) {
-        await this.hitlService.createPendingAction({
+        actionQueueId = await this.hitlService.createPendingAction({
           tenantId: action.tenantId,
           userId: action.userId,
           sessionId: executionId,
@@ -127,6 +131,16 @@ export class ApprovalWorkflowService implements OnModuleInit {
             reasoningSteps: action.summary,
           },
         });
+        // Store actionQueueId in serializable for later use in resumeApproval
+        serializable.actionQueueId = actionQueueId;
+        // Update cache with actionQueueId
+        if (this.cacheService) {
+          await this.cacheService.set(
+            `${this.SUSPENDED_WORKFLOW_PREFIX}${action.tenantId}:${executionId}`,
+            serializable,
+            { ttl: this.SUSPENDED_WORKFLOW_TTL },
+          );
+        }
       }
 
       this.logger.log(`[${corrId}] [tenant:${action.tenantId}] Action suspended: ${executionId}`);
@@ -158,12 +172,14 @@ export class ApprovalWorkflowService implements OnModuleInit {
       await this.cacheService.del(`${this.SUSPENDED_WORKFLOW_PREFIX}${suspended.tenantId}:${executionId}`);
     }
 
-    // Update database
+    // Update database using ActionQueue ID (C2 fix: use actionQueueId, not executionId)
     if (this.hitlService) {
+      // Use actionQueueId if available, fallback to executionId for backward compatibility
+      const actionId = suspended.actionQueueId || executionId;
       if (decision.approved) {
-        await this.hitlService.approveAction(suspended.tenantId, executionId, decision.approvedBy);
+        await this.hitlService.approveAction(suspended.tenantId, actionId, decision.approvedBy);
       } else {
-        await this.hitlService.rejectAction(suspended.tenantId, executionId, decision.approvedBy, undefined, decision.rejectionReason);
+        await this.hitlService.rejectAction(suspended.tenantId, actionId, decision.approvedBy, undefined, decision.rejectionReason);
       }
     }
 

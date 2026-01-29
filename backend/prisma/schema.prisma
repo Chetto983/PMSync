@@ -564,11 +564,12 @@ model EmailCrossProviderLink {
 }
 
 /// Citus distributed table - composite PK for horizontal sharding
+/// GDPR-compliant: No content stored - use emailId/contactId to fetch from source tables
+/// Vectors are NOT reversible, so they're safe to store
 model Embedding {
   id             String                 @default(cuid())
   tenantId       String
   documentName   String?
-  content        String
   /// Mistral-embed produces 1024-dimensional vectors
   vector         Unsupported("vector")?
   embeddingModel String                 @default("mistral-embed")

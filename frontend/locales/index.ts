@@ -1326,6 +1326,10 @@ export interface AppTranslations {
     failedToUpdateColor: string;
     eventUpdated: string;
     failedToUpdateEvent: string;
+    eventMoved: string;
+    failedToMoveEvent: string;
+    eventResized: string;
+    failedToResizeEvent: string;
     eventDeleted: string;
     failedToDeleteEvent: string;
     failedToLoadEventDetails: string;
@@ -1335,6 +1339,76 @@ export interface AppTranslations {
       endRequired: string;
       endAfterStart: string;
       duplicateEvent: string;
+    };
+    rsvp: {
+      accept: string;
+      decline: string;
+      maybe: string;
+      accepted: string;
+      declined: string;
+      tentative: string;
+      respondToInvite: string;
+      changeResponse: string;
+    };
+    attendeesPicker: {
+      label: string;
+      placeholder: string;
+      organizer: string;
+      you: string;
+      invalidEmail: string;
+      duplicateAttendee: string;
+      maxAttendeesReached: string;
+      accepted: string;
+      declined: string;
+      tentative: string;
+      needsAction: string;
+    };
+    reminders: {
+      label: string;
+      addReminder: string;
+      noReminders: string;
+      atTime: string;
+      fiveMinutes: string;
+      tenMinutes: string;
+      fifteenMinutes: string;
+      thirtyMinutes: string;
+      oneHour: string;
+      twoHours: string;
+      oneDay: string;
+      twoDays: string;
+      oneWeek: string;
+      methodPopup: string;
+      methodEmail: string;
+      minutesUnit: string;
+      hourUnit: string;
+      hoursUnit: string;
+      dayUnit: string;
+      daysUnit: string;
+    };
+    recurrence: {
+      label: string;
+      none: string;
+      daily: string;
+      dailyDescription: string;
+      weekly: string;
+      weeklyOn: string;
+      weeklyDescription: string;
+      monthly: string;
+      monthlyOn: string;
+      monthlyDescription: string;
+      yearly: string;
+      yearlyDescription: string;
+      weekdays: string;
+      weekdaysDescription: string;
+      custom: string;
+      customDescription: string;
+      ordinals: {
+        first: string;
+        second: string;
+        third: string;
+        fourth: string;
+        fifth: string;
+      };
     };
     colorPicker: {
       title: string;

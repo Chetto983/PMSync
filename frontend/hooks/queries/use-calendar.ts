@@ -21,6 +21,9 @@ import {
   type UpdateCalendarPreferencesDto,
 } from '@/lib/api/calendar';
 import { calendarKeys } from './calendar-keys';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('use-calendar');
 
 // ============================================================================
 // Query Options (for sharing between hooks and prefetching)
@@ -223,6 +226,13 @@ export function useCreateCalendarEvent() {
       // Invalidate all event queries to refresh lists
       queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
     },
+    onError: (error, variables) => {
+      logger.error('Failed to create calendar event', {
+        error: error instanceof Error ? error.message : String(error),
+        title: variables.title,
+        providerId: variables.providerId,
+      });
+    },
   });
 }
 
@@ -251,6 +261,12 @@ export function useUpdateCalendarEvent() {
       queryClient.invalidateQueries({ queryKey: calendarKeys.eventDetail(id) });
       queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
     },
+    onError: (error, variables) => {
+      logger.error('Failed to update calendar event', {
+        error: error instanceof Error ? error.message : String(error),
+        eventId: variables.id,
+      });
+    },
   });
 }
 
@@ -276,6 +292,12 @@ export function useDeleteCalendarEvent() {
       queryClient.removeQueries({ queryKey: calendarKeys.eventDetail(id) });
       queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
     },
+    onError: (error, eventId) => {
+      logger.error('Failed to delete calendar event', {
+        error: error instanceof Error ? error.message : String(error),
+        eventId,
+      });
+    },
   });
 }
 
@@ -294,11 +316,28 @@ export function useSyncCalendarProvider() {
   return useMutation({
     mutationFn: async (providerId: string) => {
       const response = await calendarApi.syncProvider(providerId);
-      return response.data;
+      // Return both response data and providerId for targeted invalidation
+      return { ...response.data, providerId };
     },
-    onSuccess: () => {
-      // Invalidate all calendar data after sync
-      queryClient.invalidateQueries({ queryKey: calendarKeys.all });
+    onSuccess: (data) => {
+      // Only invalidate events for this specific provider + calendars list
+      // Much more targeted than invalidating ALL calendar data
+      queryClient.invalidateQueries({
+        queryKey: calendarKeys.events(),
+        predicate: (query) => {
+          // Invalidate events that match this provider or have no provider filter
+          const params = query.queryKey[2] as CalendarEventListParams | undefined;
+          return !params?.providerId || params.providerId === data.providerId;
+        },
+      });
+      // Also refresh the calendars list (might have new calendars from sync)
+      queryClient.invalidateQueries({ queryKey: calendarKeys.calendars() });
+    },
+    onError: (error, providerId) => {
+      logger.error('Failed to sync calendar provider', {
+        error: error instanceof Error ? error.message : String(error),
+        providerId,
+      });
     },
   });
 }
@@ -326,6 +365,13 @@ export function useCreateCalendar() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: calendarKeys.calendars() });
+    },
+    onError: (error, variables) => {
+      logger.error('Failed to create calendar', {
+        error: error instanceof Error ? error.message : String(error),
+        name: variables.name,
+        providerId: variables.providerId,
+      });
     },
   });
 }
@@ -361,6 +407,13 @@ export function useUpdateCalendarPreferences() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: calendarKeys.calendars() });
+    },
+    onError: (error, variables) => {
+      logger.error('Failed to update calendar preferences', {
+        error: error instanceof Error ? error.message : String(error),
+        providerId: variables.providerId,
+        calendarId: variables.calendarId,
+      });
     },
   });
 }

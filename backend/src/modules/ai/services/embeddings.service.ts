@@ -3,9 +3,13 @@ import { Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import { PrismaService } from '../../../prisma/prisma.service';
 
+/**
+ * GDPR-compliant embedding storage.
+ * Content is NOT stored - use emailId/contactId to fetch from source tables.
+ * Vectors are NOT reversible, so they're safe to store.
+ */
 interface SaveEmbeddingOptions {
   tenantId: string;
-  content: string;
   embedding: number[];
   model: string;
   documentName?: string | null;
@@ -14,21 +18,6 @@ interface SaveEmbeddingOptions {
   emailId?: string | null;
   /** Direct indexed field - DO NOT store only in metadata */
   contactId?: string | null;
-}
-
-/**
- * Sanitize content for PostgreSQL UTF8 encoding.
- * Removes null bytes (0x00) and other invalid UTF8 sequences that cause:
- * "invalid byte sequence for encoding UTF8: 0x00"
- *
- * @param content - Raw content string
- * @returns Sanitized content safe for PostgreSQL
- */
-function sanitizeContentForPostgres(content: string): string {
-  if (!content) return content;
-  // Remove null bytes and other control characters except newlines/tabs
-   
-  return content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 }
 
 /**
@@ -71,12 +60,12 @@ export class EmbeddingsService {
   /**
    * Persist an embedding vector into the knowledge base.
    *
+   * GDPR-compliant: NO content stored. Use emailId/contactId to fetch from source.
    * SECURITY: Validates embedding vector to prevent SQL injection via Prisma.raw()
    */
   async saveEmbedding(options: SaveEmbeddingOptions): Promise<void> {
     const {
       tenantId,
-      content: rawContent,
       embedding,
       model,
       documentName = null,
@@ -84,10 +73,6 @@ export class EmbeddingsService {
       emailId = null,
       contactId = null,
     } = options;
-
-    // SECURITY: Sanitize content to prevent PostgreSQL UTF8 encoding errors
-    // Removes null bytes (0x00) and other control characters
-    const content = sanitizeContentForPostgres(rawContent);
 
     // SECURITY: Validate embedding vector before using in raw SQL
     let validatedEmbedding: number[];
@@ -106,15 +91,14 @@ export class EmbeddingsService {
       : Prisma.sql`NULL::jsonb`;
 
     try {
-      // ✅ FIXED: Include emailId and contactId as direct indexed columns
-      // These fields have @@index in schema for O(log n) lookups
-      // DO NOT rely only on metadata JSONB - it's O(n) full table scan!
+      // GDPR-compliant: No content column - just vector + entity IDs
+      // Use emailId/contactId to fetch content from source tables when needed
       await this.prisma.$executeRaw(
         Prisma.sql`
           INSERT INTO "embeddings"
-            ("id", "tenantId", "documentName", "content", "vector", "embeddingModel", "metadata", "createdAt", "emailId", "contactId")
+            ("id", "tenantId", "documentName", "vector", "embeddingModel", "metadata", "createdAt", "emailId", "contactId")
           VALUES
-            (${nanoid()}, ${tenantId}, ${documentName}, ${content}, ${vectorLiteral}, ${model}, ${metadataFragment}, NOW(), ${emailId}, ${contactId});
+            (${nanoid()}, ${tenantId}, ${documentName}, ${vectorLiteral}, ${model}, ${metadataFragment}, NOW(), ${emailId}, ${contactId});
         `,
       );
     } catch (error) {
@@ -133,7 +117,7 @@ export class EmbeddingsService {
    * SECURITY: Validates embedding vector to prevent SQL injection via Prisma.raw()
    */
   async findSimilarContent<
-    T extends { id: string; content: string; documentName: string | null; metadata: any; distance?: number }
+    T extends { id: string; documentName: string | null; metadata: any; distance?: number; emailId?: string | null; contactId?: string | null }
   >(
     tenantId: string,
     embedding: number[],
@@ -160,21 +144,26 @@ export class EmbeddingsService {
     const vectorLiteral = Prisma.raw(`'[${validatedEmbedding.join(',')}]'::vector`);
 
     try {
+      // OPTIMIZATION: Set ef_search for better recall in production RAG
+      // Higher values = more accurate but slower (default: 40, recommended: 100 for RAG)
+      // Uses SET LOCAL to only affect this transaction
+      await this.prisma.$executeRaw`SET LOCAL hnsw.ef_search = 100`;
+
       // Use CTE to force PostgreSQL to filter by tenantId FIRST
       // This ensures tenant isolation and prevents scanning vectors from other tenants
       const maxDistance = options?.maxDistance;
 
-      // Build query with optional distance threshold
-      // Note: Using HAVING instead of WHERE on distance alias since it's a calculated column
+      // GDPR-compliant: No content column - just vector + entity IDs
+      // FIX H2: Include emailId and contactId for proper entity lookup (not embedding ID)
       const results = maxDistance !== undefined
         ? await this.prisma.$queryRaw<T[]>(
             Prisma.sql`
               WITH tenant_embeddings AS (
-                SELECT "id", "content", "documentName", "metadata", "vector"
+                SELECT "id", "documentName", "metadata", "vector", "emailId", "contactId"
                 FROM "embeddings"
                 WHERE "tenantId" = ${tenantId}
               )
-              SELECT "id", "content", "documentName", "metadata", ("vector" <-> ${vectorLiteral}) AS "distance"
+              SELECT "id", "documentName", "metadata", "emailId", "contactId", ("vector" <-> ${vectorLiteral}) AS "distance"
               FROM tenant_embeddings
               WHERE ("vector" <-> ${vectorLiteral}) <= ${maxDistance}
               ORDER BY "vector" <-> ${vectorLiteral}
@@ -184,11 +173,11 @@ export class EmbeddingsService {
         : await this.prisma.$queryRaw<T[]>(
             Prisma.sql`
               WITH tenant_embeddings AS (
-                SELECT "id", "content", "documentName", "metadata", "vector"
+                SELECT "id", "documentName", "metadata", "vector", "emailId", "contactId"
                 FROM "embeddings"
                 WHERE "tenantId" = ${tenantId}
               )
-              SELECT "id", "content", "documentName", "metadata", ("vector" <-> ${vectorLiteral}) AS "distance"
+              SELECT "id", "documentName", "metadata", "emailId", "contactId", ("vector" <-> ${vectorLiteral}) AS "distance"
               FROM tenant_embeddings
               ORDER BY "vector" <-> ${vectorLiteral}
               LIMIT ${limit};

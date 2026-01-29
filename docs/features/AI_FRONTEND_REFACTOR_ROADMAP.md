@@ -28,6 +28,7 @@
 
 | Component | Lines | Issues |
 |-----------|-------|--------|
+
 | `MentionInput.tsx` | 540 | API spam on keystrokes, laggy |
 | `ChatMessages.tsx` | 490 | Rendering issues, complex state |
 | `use-voltagent-chat.ts` | 390 | Custom transport, state bugs |
@@ -41,6 +42,7 @@
 
 | Component | Source | Lines |
 |-----------|--------|-------|
+
 | `Conversation` | AI Elements | ~50 (wrapper) |
 | `Message` | AI Elements | ~30 (wrapper) |
 | `PromptInput` | AI Elements | ~50 (wrapper) |
@@ -94,7 +96,6 @@ module.exports = {
 
 ### 2.1 New File Structure
 
-```
 frontend/components/ai/
 ├── AiChat/
 │   ├── index.tsx           # Main chat component (NEW)
@@ -104,7 +105,6 @@ frontend/components/ai/
 │   └── HitlActionCard.tsx  # HITL approval (KEEP)
 ├── AiDashboard/            # OLD - deprecate after migration
 │   └── ... (keep for reference)
-```
 
 ### 2.2 Main Chat Component
 
@@ -646,6 +646,7 @@ After 1 week of testing, delete:
 ## Checklist
 
 ### Phase 1: Setup
+
 - [ ] Install AI Elements CLI
 - [ ] Add conversation component
 - [ ] Add message component
@@ -655,6 +656,7 @@ After 1 week of testing, delete:
 - [ ] Verify Tailwind config
 
 ### Phase 2: Core Components
+
 - [ ] Create AiChat/index.tsx
 - [ ] Create AiChatMessages.tsx
 - [ ] Create AiChatInput.tsx
@@ -662,6 +664,7 @@ After 1 week of testing, delete:
 - [ ] Test basic chat flow
 
 ### Phase 3: Mentions
+
 - [ ] Create MentionPopover.tsx
 - [ ] Add contact search (debounced)
 - [ ] Add provider list
@@ -669,11 +672,13 @@ After 1 week of testing, delete:
 - [ ] Test @ and # triggers
 
 ### Phase 4: HITL
+
 - [ ] Create HitlActionCard.tsx
 - [ ] Wire up pending actions query
 - [ ] Test approve/reject flow
 
 ### Phase 5: Migration
+
 - [ ] Update AI page
 - [ ] Test all flows
 - [ ] Move old components
@@ -686,6 +691,7 @@ After 1 week of testing, delete:
 
 | Metric | Before | After |
 |--------|--------|-------|
+
 | Input latency | 200-500ms | <50ms |
 | Streaming smoothness | Choppy | Smooth |
 | Code lines | ~1770 | ~400 |

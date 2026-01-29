@@ -220,8 +220,9 @@ export class AIMemoryService {
     // Determine new expiry if type is changing
     const newType = input.type || existing.memoryType;
 
+    // FIX M5: Add tenantId/userId to where clause for defense-in-depth
     const updated = await this.prisma.aIMemory.update({
-      where: { id: memoryId },
+      where: { id: memoryId, tenantId, userId },
       data: {
         ...(input.content !== undefined && { content: input.content }),
         ...(input.type !== undefined && { memoryType: input.type }),
@@ -267,8 +268,9 @@ export class AIMemoryService {
     // Record history before deletion
     await this.recordHistory(tenantId, memoryId, 'DELETE', existing.content, null);
 
+    // FIX M5: Add tenantId/userId to where clause for defense-in-depth
     await this.prisma.aIMemory.delete({
-      where: { id: memoryId },
+      where: { id: memoryId, tenantId, userId },
     });
 
     this.logger.log(`Deleted memory ${memoryId}`);
@@ -387,21 +389,28 @@ export class AIMemoryService {
   /**
    * Increment usage count for a memory (call when memory is used in context)
    * Also refreshes expiry to keep frequently-used memories alive longer
+   *
+   * FIX M5: Added tenantId/userId for proper tenant scoping
    */
-  async recordUsage(memoryId: string): Promise<void> {
-    // Get memory type to calculate new expiry
+  async recordUsage(tenantId: string, userId: string, memoryId: string): Promise<void> {
+    // Get memory type to calculate new expiry - with tenant scoping
     const memory = await this.prisma.aIMemory.findUnique({
-      where: { id: memoryId },
+      where: { id: memoryId, tenantId, userId },
       select: { memoryType: true },
     });
 
+    if (!memory) {
+      this.logger.warn(`recordUsage: Memory ${memoryId} not found for tenant ${tenantId}`);
+      return;
+    }
+
     await this.prisma.aIMemory.update({
-      where: { id: memoryId },
+      where: { id: memoryId, tenantId, userId },
       data: {
         usageCount: { increment: 1 },
         lastUsedAt: new Date(),
         // Refresh expiry on usage (extends lifetime for active memories)
-        expiresAt: memory ? calculateExpiryDate(memory.memoryType) : undefined,
+        expiresAt: calculateExpiryDate(memory.memoryType),
       },
     });
   }

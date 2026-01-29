@@ -201,7 +201,6 @@ export class BatchIndexingService implements OnModuleInit {
 
           await this.embeddingsService.saveEmbedding({
             tenantId: job.tenantId,
-            content: `Email: ${email?.subject || result.customId}`,
             embedding: result.embedding,
             model: 'mistral-embed',
             documentName: email?.subject || undefined,

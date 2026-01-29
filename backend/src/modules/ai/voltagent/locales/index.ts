@@ -207,6 +207,17 @@ export interface ToolTranslations {
     from: string;
     to: string;
   };
+  attachments?: {
+    list?: {
+      description: string;
+    };
+    getContent?: {
+      description: string;
+    };
+    notFound: string;
+    extractionFailed: string;
+    unsupportedType: string;
+  };
 }
 
 /**

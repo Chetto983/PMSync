@@ -44,6 +44,8 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CalendarEvent as ApiCalendarEvent, CalendarEventAttachment } from '@/lib/api/calendar';
+import { AttendeesPicker, type Attendee } from './AttendeesPicker';
+import { RSVPButtons, type RSVPResponse } from './RSVPButtons';
 
 // ============================================================================
 // INTERFACES
@@ -96,6 +98,10 @@ interface CalendarEventDetailProps {
   loadingAttachments: boolean;
   /** Handler for downloading attachment */
   onDownloadAttachment: (attachment: CalendarEventAttachment) => void;
+  /** Current user email (for RSVP) */
+  currentUserEmail?: string;
+  /** Handler for RSVP response */
+  onRSVPRespond?: (eventId: string, response: RSVPResponse) => Promise<void>;
 }
 
 // ============================================================================
@@ -138,6 +144,8 @@ export function CalendarEventDetail({
   attachments,
   loadingAttachments,
   onDownloadAttachment,
+  currentUserEmail,
+  onRSVPRespond,
 }: CalendarEventDetailProps) {
   const theme = useTheme();
   const t = useTranslations();
@@ -338,6 +346,49 @@ export function CalendarEventDetail({
                   {calendarCopy.calendarLabel}: {selectedEvent.calendarName}
                 </Typography>
               )}
+
+              {/* Attendees section */}
+              {selectedEvent.attendees && selectedEvent.attendees.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <AttendeesPicker
+                    attendees={selectedEvent.attendees.map((a) => ({
+                      email: a.email,
+                      name: a.name,
+                      responseStatus: a.responseStatus as Attendee['responseStatus'],
+                    }))}
+                    onChange={() => {}}
+                    readOnly
+                  />
+                </Box>
+              )}
+
+              {/* RSVP section - show if user is an attendee */}
+              {onRSVPRespond &&
+                currentUserEmail &&
+                selectedEvent.attendees?.some(
+                  (a) => a.email.toLowerCase() === currentUserEmail.toLowerCase()
+                ) && (
+                  <Box
+                    sx={{
+                      mt: 2,
+                      p: 2,
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.primary.main, 0.04),
+                      border: '1px solid',
+                      borderColor: alpha(theme.palette.primary.main, 0.12),
+                    }}
+                  >
+                    <RSVPButtons
+                      eventId={selectedEvent.id}
+                      currentStatus={
+                        selectedEvent.attendees?.find(
+                          (a) => a.email.toLowerCase() === currentUserEmail.toLowerCase()
+                        )?.responseStatus as RSVPResponse | 'needsAction' | undefined
+                      }
+                      onRespond={onRSVPRespond}
+                    />
+                  </Box>
+                )}
 
               {/* Attachments section */}
               {(attachments.length > 0 || loadingAttachments) && (

@@ -26,6 +26,7 @@ import { EmbeddingProviderService } from './services/embedding';
 import { BatchIndexingService } from './services/batch-indexing.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.service';
+import { MistralOcrService } from './services/mistral-ocr.service';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.ser
     BatchIndexingService, // Batch API for large-scale email indexing (1000+ emails)
     CachePrewarmingService, // Pre-warm query cache for common searches
     MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
+    MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -71,6 +73,7 @@ import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.ser
     EmbeddingProviderService, // Unified embedding with caching + rate limiting
     BatchIndexingService, // Batch API for large-scale email indexing
     MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
+    MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     // VoltAgent module (re-exports PersonalizationService, WritingStyleService, etc.)
     VoltAgentModule,
   ],

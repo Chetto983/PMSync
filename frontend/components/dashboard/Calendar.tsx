@@ -35,7 +35,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import type { EventInput, DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/core';
+import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import { useRouter } from 'next/router';
 import { logger } from '@/lib/logger';
 import {
@@ -57,6 +58,7 @@ import {
   calendarEventDetailOptions,
   calendarEventAttachmentsOptions,
 } from '@/hooks/queries/use-calendar';
+import { calendarKeys } from '@/hooks/queries/calendar-keys';
 import type { ProviderConfig } from '@/lib/api/providers';
 import { useProviders } from '@/hooks/queries/use-providers';
 import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
@@ -358,14 +360,20 @@ export function Calendar() {
     }
   }, [providersData]);
 
+  // Ref to avoid stale closure in loadData callback
+  const providersRef = useRef(providers);
+  useEffect(() => {
+    providersRef.current = providers;
+  }, [providers]);
+
   // Load events (providers come from useProviders hook)
   const loadData = useCallback(
     async (triggerSync = false) => {
       try {
         setLoading(true);
 
-        // Get providers from state (populated by useProviders hook)
-        const loadedProviders = providers;
+        // Get providers from ref to avoid stale closure
+        const loadedProviders = providersRef.current;
 
         // Trigger sync for all calendar providers if requested using TanStack Query mutation
         if (triggerSync && loadedProviders.length > 0) {
@@ -432,7 +440,7 @@ export function Calendar() {
         setLoading(false);
       }
     },
-    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient, calendarCopy.failedToLoadEvents, providers]
+    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient, calendarCopy.failedToLoadEvents]
   );
 
   // Initial data load - load events without triggering sync (faster UX)
@@ -447,7 +455,7 @@ export function Calendar() {
     updateCalendarHeader();
   }, [updateCalendarHeader]);
 
-  // WebSocket event handlers
+  // WebSocket event handlers - now also invalidates TanStack Query cache
   useEffect(() => {
     if (!websocketClient) return;
 
@@ -456,6 +464,8 @@ export function Calendar() {
       logger.debug('[Calendar] WebSocket new event received', { reason: event.reason });
       if (event.event) {
         addStoreEvent(event.event as CalendarEvent);
+        // Also invalidate TanStack Query cache to keep it in sync
+        void queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
       }
     });
 
@@ -464,6 +474,9 @@ export function Calendar() {
       logger.debug('[Calendar] WebSocket update event received', { reason: event.reason });
       if (event.event && event.eventId) {
         updateStoreEvent(event.eventId, event.event as CalendarEvent);
+        // Invalidate both event detail and events list
+        void queryClient.invalidateQueries({ queryKey: calendarKeys.eventDetail(event.eventId) });
+        void queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
       }
     });
 
@@ -472,6 +485,9 @@ export function Calendar() {
       logger.debug('[Calendar] WebSocket delete event received', { reason: event.reason });
       if (event.eventId) {
         deleteStoreEvent(event.eventId);
+        // Remove from cache and invalidate lists
+        queryClient.removeQueries({ queryKey: calendarKeys.eventDetail(event.eventId) });
+        void queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
       }
     });
 
@@ -489,7 +505,7 @@ export function Calendar() {
       unsubscribeDelete();
       unsubscribeSyncStatus();
     };
-  }, [addStoreEvent, updateStoreEvent, deleteStoreEvent, loadData]);
+  }, [addStoreEvent, updateStoreEvent, deleteStoreEvent, loadData, queryClient]);
 
   // Handle view change
   useEffect(() => {
@@ -653,6 +669,68 @@ export function Calendar() {
     [queryClient, calendarCopy.failedToLoadEventDetails]
   );
 
+  // Handle event drag and drop
+  const handleEventDrop = useCallback(
+    async (info: EventDropArg) => {
+      const { event, revert } = info;
+      try {
+        await updateEventMutation.mutateAsync({
+          id: event.id,
+          data: {
+            startTime: event.start?.toISOString(),
+            endTime: event.end?.toISOString(),
+          },
+        });
+        setSnackbar({
+          open: true,
+          message: calendarCopy.eventMoved || 'Event moved',
+          severity: 'success',
+        });
+        void loadData(false);
+      } catch (error) {
+        logger.error('Failed to move event', { error });
+        revert();
+        setSnackbar({
+          open: true,
+          message: calendarCopy.failedToMoveEvent || 'Failed to move event',
+          severity: 'error',
+        });
+      }
+    },
+    [updateEventMutation, calendarCopy, loadData]
+  );
+
+  // Handle event resize
+  const handleEventResize = useCallback(
+    async (info: EventResizeDoneArg) => {
+      const { event, revert } = info;
+      try {
+        await updateEventMutation.mutateAsync({
+          id: event.id,
+          data: {
+            startTime: event.start?.toISOString(),
+            endTime: event.end?.toISOString(),
+          },
+        });
+        setSnackbar({
+          open: true,
+          message: calendarCopy.eventResized || 'Event resized',
+          severity: 'success',
+        });
+        void loadData(false);
+      } catch (error) {
+        logger.error('Failed to resize event', { error });
+        revert();
+        setSnackbar({
+          open: true,
+          message: calendarCopy.failedToResizeEvent || 'Failed to resize event',
+          severity: 'error',
+        });
+      }
+    },
+    [updateEventMutation, calendarCopy, loadData]
+  );
+
   // Create event handler
   const handleCreateEvent = useCallback(async () => {
     // Validation
@@ -693,6 +771,16 @@ export function Calendar() {
         endTime: new Date(newEvent.end).toISOString(),
         description: newEvent.description,
         calendarId: newEvent.calendar,
+        // Include recurrence if set
+        ...(newEvent.recurrence &&
+          newEvent.recurrence.length > 0 && { recurrence: newEvent.recurrence }),
+        // Include reminders if set
+        ...(newEvent.reminders && { reminders: newEvent.reminders }),
+        // Include attendees if set
+        ...(newEvent.attendees &&
+          newEvent.attendees.length > 0 && {
+            attendees: newEvent.attendees.map((a) => ({ email: a.email, name: a.name })),
+          }),
       };
 
       await createEventMutation.mutateAsync(createDto);
@@ -703,7 +791,16 @@ export function Calendar() {
       });
       setEventDialogOpen(false);
       setFormErrors({});
-      setNewEvent({ title: '', start: '', end: '', calendar: 'primary', description: '' });
+      setNewEvent({
+        title: '',
+        start: '',
+        end: '',
+        calendar: 'primary',
+        description: '',
+        recurrence: undefined,
+        reminders: undefined,
+        attendees: undefined,
+      });
 
       // Reload events
       void loadData(false);
@@ -978,6 +1075,8 @@ export function Calendar() {
               events={filteredEvents}
               select={handleDateSelect}
               eventClick={handleEventClick}
+              eventDrop={handleEventDrop}
+              eventResize={handleEventResize}
               height="100%"
               eventDisplay="block"
               eventTimeFormat={{

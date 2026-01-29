@@ -85,15 +85,17 @@ export class BulkEmailExecutor {
     const providerType = await BulkEmailExecutor.getProviderType(deps.prisma, context.tenantId, firstEmail.providerId);
 
     // Queue the bulk operation
+    // FIX L1: Pass permanent flag to bulk operation (was ignored before)
     const jobId = await deps.bulkOperationsQueue.enqueueBulkOperation({
       tenantId: context.tenantId,
       providerId: firstEmail.providerId,
       providerType,
-      operation: permanent ? 'delete' : 'delete',
+      operation: 'delete',
       emailIds,
       requestedAt: new Date().toISOString(),
       userId: context.userId,
       syncToProvider: true,
+      permanent: !!permanent, // FIX L1: Pass permanent flag for hard vs soft delete
     });
 
     const emailCount = count || emailIds.length;

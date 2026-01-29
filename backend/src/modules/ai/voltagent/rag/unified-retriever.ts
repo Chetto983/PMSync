@@ -304,20 +304,47 @@ export class UnifiedRetriever extends BaseRetriever {
     };
 
     // 1. Vector search for semantic similarity
+    // FIX H2: Use emailId from embedding, not embedding.id
+    // GDPR FIX: Fetch content from Email table if embedding content is null
     try {
       if (this.mistralService && this.embeddingsService) {
         const embedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId: this.tenantId });
         if (embedding && embedding.length > 0) {
           const vectorResults = await this.embeddingsService.findSimilarContent<{
             id: string;
-            content: string;
+            emailId: string | null;
+            contactId: string | null;
+            content: string | null;
             documentName: string | null;
             metadata: Record<string, unknown> | null;
             distance?: number;
           }>(this.tenantId, embedding, this.emailLimit * 2); // Fetch more for fusion
 
+          // Collect emailIds that need content fetched from source table
+          const emailIdsNeedingContent = vectorResults
+            .filter((vr) => vr.emailId && !vr.content)
+            .map((vr) => vr.emailId as string);
+
+          // Batch fetch email content if needed (GDPR-compliant: content not stored in embeddings)
+          const emailContentMap = new Map<string, string>();
+          if (emailIdsNeedingContent.length > 0) {
+            const emails = await this.prisma.email.findMany({
+              where: { id: { in: emailIdsNeedingContent }, tenantId: this.tenantId },
+              select: { id: true, subject: true, snippet: true, from: true },
+            });
+            emails.forEach((e) => {
+              emailContentMap.set(e.id, `Email: ${e.subject || 'No subject'}\nFrom: ${e.from || 'Unknown'}\n${e.snippet || ''}`);
+            });
+          }
+
           vectorResults.forEach((vr, idx) => {
-            addRrfScore(vr.id, idx + 1, vr.content, vr.metadata || {}, 'vector');
+            // FIX H2: Use emailId for email results, skip if no emailId (document embeddings)
+            const entityId = vr.emailId || vr.id;
+            if (vr.emailId) {
+              // Use embedding content if available, otherwise fetch from source table
+              const content = vr.content || emailContentMap.get(vr.emailId) || '';
+              addRrfScore(entityId, idx + 1, content, vr.metadata || {}, 'vector');
+            }
           });
         }
       }
@@ -419,6 +446,7 @@ export class UnifiedRetriever extends BaseRetriever {
     };
 
     // 1. Vector search for semantic similarity (uses contactId indexed field)
+    // GDPR FIX: Fetch content from Contact table if embedding content is null
     try {
       if (this.mistralService && this.embeddingsService) {
         const embedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId: this.tenantId });
@@ -426,24 +454,53 @@ export class UnifiedRetriever extends BaseRetriever {
           // Query embeddings where contactId is not null (contact embeddings only)
           const vectorResults = await this.embeddingsService.findSimilarContent<{
             id: string;
-            content: string;
+            content: string | null;
             documentName: string | null;
             metadata: Record<string, unknown> | null;
             distance?: number;
+            contactId?: string | null;
           }>(this.tenantId, embedding, this.contactLimit * 2, { maxDistance: 0.5 });
 
-          // Filter to only contact embeddings and fetch contact details
+          // Filter to only contact embeddings
           const contactEmbeddings = vectorResults.filter(
-            (vr) => vr.metadata?.source === 'contact'
+            (vr) => vr.metadata?.source === 'contact' || vr.contactId
           );
+
+          // Collect contactIds that need content fetched from source table
+          const contactIdsNeedingContent = contactEmbeddings
+            .filter((vr) => !vr.content)
+            .map((vr) => vr.contactId || (vr.metadata as Record<string, unknown>)?.contactId as string)
+            .filter(Boolean) as string[];
+
+          // Batch fetch contact content if needed (GDPR-compliant)
+          const contactContentMap = new Map<string, string>();
+          if (contactIdsNeedingContent.length > 0) {
+            const contacts = await this.prisma.contact.findMany({
+              where: { id: { in: contactIdsNeedingContent }, tenantId: this.tenantId },
+              select: { id: true, displayName: true, firstName: true, lastName: true, company: true, jobTitle: true, notes: true, emails: true },
+            });
+            contacts.forEach((c) => {
+              const name = c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Unknown';
+              const emailList = (c.emails as Array<{ value: string }> | null)?.map((e) => e.value).join(', ') || '';
+              contactContentMap.set(c.id, [
+                `Contact: ${name}`,
+                c.company && `Company: ${c.company}`,
+                c.jobTitle && `Role: ${c.jobTitle}`,
+                emailList && `Email: ${emailList}`,
+                c.notes && `Notes: ${c.notes}`,
+              ].filter(Boolean).join('\n'));
+            });
+          }
 
           for (let idx = 0; idx < contactEmbeddings.length; idx++) {
             const vr = contactEmbeddings[idx];
-            const contactId = (vr.metadata as Record<string, unknown>)?.contactId as string | undefined;
+            const contactId = vr.contactId || (vr.metadata as Record<string, unknown>)?.contactId as string | undefined;
+            // Use embedding content if available, otherwise fetch from source table
+            const content = vr.content || (contactId && contactContentMap.get(contactId)) || '';
             addRrfScore(
               contactId || vr.id,
               idx + 1,
-              vr.content,
+              content,
               vr.metadata || {},
               'vector'
             );

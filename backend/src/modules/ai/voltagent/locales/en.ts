@@ -58,6 +58,17 @@ export const en: VoltAgentTranslations = {
       notFound: 'Contact not found. It may have been deleted. Try searching for similar contacts.',
       requiresApproval: 'This contact action requires your approval. Check the Pending Actions panel to approve or reject it.',
     },
+    attachments: {
+      list: {
+        description: 'List all attachments for an email. Use this to see what files are attached before extracting content.',
+      },
+      getContent: {
+        description: 'Extract text content from an email attachment using OCR. Supports PDFs, images, and Office documents.',
+      },
+      notFound: 'Attachment not found',
+      extractionFailed: 'Failed to extract content from attachment',
+      unsupportedType: 'Unsupported attachment type for extraction',
+    },
     askUser: {
       description: `MANDATORY tool for requesting user input. This is a BLOCKING call - execution PAUSES until user responds. WHEN TO USE: Multiple matches found, missing required info, or ambiguous request. HOW IT WORKS: Call this tool → Frontend shows modal → User clicks choice → Execution resumes. NEVER ask questions in plain text - ALWAYS use this tool.`,
     },

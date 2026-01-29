@@ -5,12 +5,15 @@
  * - Form validation with error display
  * - Calendar selector with color indicators
  * - Date/time pickers with proper formatting
+ * - Recurrence pattern selection (RRULE)
+ * - Multiple reminders support
+ * - Attendees with contact autocomplete
  * - Matches dashboard UI/UX patterns
  *
  * @see https://fullcalendar.io/docs
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -25,9 +28,13 @@ import {
   MenuItem,
   alpha,
   useTheme,
+  Divider,
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CalendarPreference } from './CalendarSidebar';
+import { RecurrencePicker } from './RecurrencePicker';
+import { RemindersPicker, type RemindersData } from './RemindersPicker';
+import { AttendeesPicker, type Attendee } from './AttendeesPicker';
 
 // ============================================================================
 // INTERFACES
@@ -39,6 +46,9 @@ export interface NewEventData {
   end: string;
   calendar: string;
   description: string;
+  recurrence?: string[];
+  reminders?: RemindersData;
+  attendees?: Attendee[];
 }
 
 export interface EventFormErrors {
@@ -84,6 +94,13 @@ export function CalendarEventDialog({
   const theme = useTheme();
   const t = useTranslations();
   const calendarCopy = t.calendar;
+
+  // Parse start date for RecurrencePicker (to show "Weekly on Tuesday" etc.)
+  const startDate = useMemo(() => {
+    if (!newEvent.start) return undefined;
+    const date = new Date(newEvent.start);
+    return isNaN(date.getTime()) ? undefined : date;
+  }, [newEvent.start]);
 
   // Handle close with error cleanup
   const handleClose = () => {
@@ -220,6 +237,27 @@ export function CalendarEventDialog({
                 borderRadius: 2,
               },
             }}
+          />
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* Recurrence Picker */}
+          <RecurrencePicker
+            recurrence={newEvent.recurrence}
+            onChange={(recurrence) => onEventChange({ ...newEvent, recurrence })}
+            startDate={startDate}
+          />
+
+          {/* Reminders Picker */}
+          <RemindersPicker
+            reminders={newEvent.reminders}
+            onChange={(reminders) => onEventChange({ ...newEvent, reminders })}
+          />
+
+          {/* Attendees Picker */}
+          <AttendeesPicker
+            attendees={newEvent.attendees || []}
+            onChange={(attendees) => onEventChange({ ...newEvent, attendees })}
           />
         </Box>
       </DialogContent>

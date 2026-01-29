@@ -3,37 +3,20 @@
  *
  * Loads ONLY the relevant prompt section based on detected intent.
  * Reduces tokens by 60-80% compared to monolithic prompt.
+ *
+ * Updated 2026-01-29: Import shared modules to eliminate duplication
  */
 
 import type { TaskIntent } from '../services/task-complexity-classifier.service';
+import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE } from './shared.prompt';
 
 // BASE: Always included
 const BASE = `<ROLE>IntelligenceAgent - READ/ANALYSIS. Non-destructive.</ROLE>
 <RULE>User's language. Markdown format.</RULE>`;
 
-// CLARIFICATION: When to use modal
-const CLARIFICATION = `<CLARIFICATION>
-When ambiguous or need user input:
-- MUST call ask_user_clarification tool
-- NEVER write "Which one?" in text
-- Tool shows interactive modal
-
-ask_user_clarification({
-  question: "Which X?",
-  header: "Selection",
-  options: [{label, description}],
-  multiSelect: false
-})
-</CLARIFICATION>`;
-
-// SUGGESTIONS: Always append after response
-const SUGGESTIONS = `<SUGGESTIONS>
-After response, add JSON block:
-\`\`\`suggestions
-["Follow-up 1?", "Follow-up 2?"]
-\`\`\`
-Keep under 50 chars, contextually relevant.
-</SUGGESTIONS>`;
+// Use shared modules (renamed for backward compat in this file)
+const CLARIFICATION = CLARIFICATION_MODULE;
+const SUGGESTIONS = SUGGESTIONS_MODULE;
 
 // INTENT-SPECIFIC MODULES
 const MODULES: Record<string, string> = {
