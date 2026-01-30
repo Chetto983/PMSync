@@ -2600,6 +2600,38 @@ export const en: AppTranslations = {
         confidence: 'Confidence',
         emailType: 'Email type',
       },
+      // Kanban board (2026-01-30)
+      kanban: {
+        subtitle: 'Drag and drop to change status',
+        columns: {
+          pending: 'Pending',
+          reminded: 'Reminded',
+          resolved: 'Resolved',
+          expired: 'Expired',
+        },
+        empty: {
+          dropHere: 'Drop here',
+          noItems: 'No items',
+          noPending: 'No pending follow-ups',
+          noReminded: 'All reminders sent',
+          noResolved: 'Nothing resolved yet',
+          noExpired: 'No expired items',
+        },
+        keyboard: {
+          title: 'Keyboard Shortcuts',
+          navigation: 'Navigation',
+          actions: 'Actions',
+          moveDown: 'Move down',
+          moveUp: 'Move up',
+          prevColumn: 'Previous column',
+          nextColumn: 'Next column',
+          openEmail: 'Open email',
+          resolve: 'Resolve',
+          snooze: 'Snooze',
+          showHelp: 'Show help',
+          clearSelection: 'Clear selection',
+        },
+      },
     },
     // HITL Inline Action Card translations
     inlineAction: {

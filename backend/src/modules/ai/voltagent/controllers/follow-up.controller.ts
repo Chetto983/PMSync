@@ -8,6 +8,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   Param,
   Query,
@@ -16,8 +17,10 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { FollowUpStatus } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../auth/guards/tenant.guard';
@@ -244,6 +247,36 @@ export class FollowUpController {
       req.user.userId,
       id,
       new Date(body.dueDate),
+    );
+
+    return {
+      success: true,
+      followUp,
+    };
+  }
+
+  /**
+   * Update follow-up status (for Kanban drag-drop).
+   */
+  @Patch('follow-ups/:id/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update follow-up status' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  async updateFollowUpStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { status: string },
+  ) {
+    const validStatuses: FollowUpStatus[] = ['PENDING', 'REMINDED', 'RESOLVED', 'EXPIRED'];
+    if (!validStatuses.includes(body.status as FollowUpStatus)) {
+      throw new BadRequestException(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    const followUp = await this.followUpService.updateStatus(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+      body.status as FollowUpStatus,
     );
 
     return {

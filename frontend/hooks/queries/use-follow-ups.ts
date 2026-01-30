@@ -309,3 +309,20 @@ export function useSnoozeFollowUp() {
     },
   });
 }
+
+/**
+ * Hook for updating follow-up status (Kanban drag-drop)
+ */
+export function useUpdateFollowUpStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: EmailFollowUpStatus }) => {
+      const response = await voltAgentApi.updateFollowUpStatus(id, status);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: followUpKeys.all });
+    },
+  });
+}

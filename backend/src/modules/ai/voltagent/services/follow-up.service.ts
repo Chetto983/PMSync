@@ -738,6 +738,63 @@ Return JSON ONLY (no markdown):
   }
 
   /**
+   * Update follow-up status (for Kanban drag-drop).
+   * Use resolveFollowUp() for RESOLVED status with proper tracking.
+   */
+  async updateStatus(
+    tenantId: string,
+    userId: string,
+    id: string,
+    status: FollowUpStatus,
+  ): Promise<EmailFollowUp> {
+    // Use existing resolveFollowUp for RESOLVED status
+    if (status === 'RESOLVED') {
+      return this.resolveFollowUp(tenantId, userId, id, 'MANUAL');
+    }
+
+    const followUp = await this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
+    });
+
+    if (!followUp) {
+      throw new Error('Follow-up not found');
+    }
+
+    // Update status
+    await this.prisma.emailFollowUp.updateMany({
+      where: { id, tenantId, userId },
+      data: { status },
+    });
+
+    // Handle queue based on new status
+    if (status === 'EXPIRED') {
+      await this.queueService.cancelReminder(id);
+    } else if (status === 'PENDING' && followUp.status !== 'PENDING') {
+      // Re-enable reminder if moving back to PENDING
+      await this.queueService.scheduleReminder(
+        id,
+        followUp.dueDate,
+        tenantId,
+        userId,
+      );
+    }
+
+    await this.invalidateCache(tenantId, userId);
+
+    this.logger.log(`Updated follow-up ${id} status to ${status}`);
+
+    const updated = await this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
+    });
+
+    if (!updated) {
+      throw new Error('Follow-up not found after update');
+    }
+
+    return updated;
+  }
+
+  /**
    * Check if a reply was received for a follow-up email
    */
   async checkForReplyByEmailId(tenantId: string, userId: string, originalEmailId: string): Promise<boolean> {

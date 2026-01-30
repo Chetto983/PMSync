@@ -23,9 +23,16 @@ import { SubscriptionService } from '../../subscription/services/subscription.se
 import { type SupportedLocale } from '../voltagent/locales';
 
 // Cost control constants
-const MAX_TRIAGE_PER_BATCH = 20; // Max emails to process per API call
+const MAX_TRIAGE_PER_BATCH = 50; // Max emails to process per API call
 const TRIAGE_MAX_AGE_HOURS = 24; // Only triage emails from last 24h
-const SKIP_FOLDERS = ['spam', 'junk', 'trash', '[gmail]/spam', '[gmail]/trash'];
+// Skip folders for auto-triage (based on actual DB values - all UPPERCASE)
+const SKIP_FOLDERS = [
+  'SPAM',       // Spam folder
+  'TRASH',      // Trash folder
+  'SENT',       // Sent emails - no point labeling outgoing
+  'DRAFTS',     // Draft emails
+  'ARCHIVE',    // Archived emails
+];
 
 // SCALE PROTECTION: Global concurrency limit for LLM API calls
 // Prevents 1000 users syncing = 20000 LLM calls storm
@@ -324,8 +331,9 @@ export class EmailTriageService {
       locale,
     });
 
-    // If score is above threshold, proceed with full LLM analysis
-    if (!scoreResult.skipLlmAnalysis) {
+    // If score is above threshold OR decision is 'keep', proceed with full LLM analysis
+    // Only skip LLM for clear spam/archive decisions - 'keep' needs proper labels
+    if (!scoreResult.skipLlmAnalysis || scoreResult.autoTriageDecision === 'keep') {
       return null;
     }
 

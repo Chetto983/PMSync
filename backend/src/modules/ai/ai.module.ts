@@ -15,6 +15,7 @@ import { EmailTriageService } from './services/email-triage.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
 import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill-scheduler.service';
+import { TriageBackfillSchedulerService } from './services/triage-backfill-scheduler.service';
 import { FeedbackQueueService } from './services/feedback-queue.service';
 import { EmailModule } from '../email/email.module';
 import { AlertingService } from '../../common/services/alerting.service';
@@ -49,6 +50,7 @@ import { IntentClassifierService, EmbeddingIntentClassifierService } from './nlp
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
+    TriageBackfillSchedulerService, // Recovers missed auto-triage emails
     FeedbackQueueService,
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
     EmbeddingProviderService, // Unified embedding with caching + rate limiting
@@ -72,6 +74,7 @@ import { IntentClassifierService, EmbeddingIntentClassifierService } from './nlp
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
+    TriageBackfillSchedulerService, // Recovers missed auto-triage emails
     FeedbackQueueService,
     EmbeddingProviderService, // Unified embedding with caching + rate limiting
     BatchIndexingService, // Batch API for large-scale email indexing

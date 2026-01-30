@@ -1,7 +1,7 @@
 /**
  * NLP Intent Classifier Service
  *
- * Neural network-based intent classification using node-nlp-typescript.
+ * Neural network-based intent classification using node-nlp.
  * Replaces regex patterns with semantic understanding.
  *
  * Features:
@@ -15,7 +15,7 @@
  * Created: 2026-01-29 (VoltAgent Model Audit)
  */
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { NlpManager } from 'node-nlp-typescript';
+import { NlpManager } from 'node-nlp';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { MistralModel } from '../providers/mistral.provider';

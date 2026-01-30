@@ -430,4 +430,7 @@ export const QUEUE_NAMES = {
   SYNC_SCHEDULER: 'sync-scheduler',
   WEBHOOK_LIFECYCLE: 'webhook-lifecycle',
   LOG_ROTATION: 'log-rotation',
+
+  // AI triage backfill (recovers missed auto-triage)
+  TRIAGE_BACKFILL: 'triage-backfill',
 } as const;

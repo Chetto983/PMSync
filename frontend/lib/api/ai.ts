@@ -1035,6 +1035,13 @@ export const voltAgentApi = {
     );
   },
 
+  updateFollowUpStatus(id: string, status: string) {
+    return apiClient.patch<{ success: boolean; followUp: Record<string, unknown> }>(
+      `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}/status`,
+      { status },
+    );
+  },
+
   // ============ Action Items ============
 
   listActionItems(params?: { status?: string; sourceType?: string; limit?: number; offset?: number }) {

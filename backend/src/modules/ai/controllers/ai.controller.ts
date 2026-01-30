@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   UseGuards,
   Request,
@@ -25,6 +26,8 @@ import { MistralService } from '../services/mistral.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { EmailInsightsService } from '../services/email-insights.service';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
+import { EmailTriageService } from '../services/email-triage.service';
+import { TriageBackfillSchedulerService } from '../services/triage-backfill-scheduler.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
 import {
   ChatDto,
@@ -67,6 +70,8 @@ export class AiController {
     private readonly mistralService: MistralService,
     private readonly emailInsightsService: EmailInsightsService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly emailTriageService: EmailTriageService,
+    private readonly triageBackfillService: TriageBackfillSchedulerService,
   ) {}
 
   /**
@@ -369,6 +374,68 @@ export class AiController {
       keyTopics: analysis.keyTopics,
       suggestedResponse: suggestedResponseMap[analysis.urgency] || 'within_day',
       confidence: analysis.confidence,
+    };
+  }
+
+  /**
+   * Trigger auto-triage for untriaged emails
+   */
+  @Post('triage')
+  @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
+  @ApiOperation({
+    summary: 'Trigger auto-triage',
+    description: 'Process untriaged emails from the last 24 hours with AI classification',
+  })
+  @ApiResponse({ status: 200, description: 'Triage complete' })
+  async triggerTriage(@Request() req: AuthenticatedRequest) {
+    this.logger.log(`Manual triage triggered for tenant ${req.user.tenantId}`);
+    const result = await this.emailTriageService.processUntriagedEmails({
+      tenantId: req.user.tenantId,
+      userId: req.user.id,
+    });
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  /**
+   * Get triage backfill status
+   */
+  @Get('triage/backfill/status')
+  @ApiOperation({
+    summary: 'Get triage backfill status',
+    description: 'Check how many emails are pending triage and queue status',
+  })
+  @ApiResponse({ status: 200, description: 'Backfill status' })
+  async getTriageBackfillStatus() {
+    const status = await this.triageBackfillService.getStatus();
+    return {
+      success: true,
+      ...status,
+    };
+  }
+
+  /**
+   * Manually trigger triage backfill
+   */
+  @Post('triage/backfill')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Trigger triage backfill',
+    description: 'Manually trigger processing of all untriaged emails across tenants',
+  })
+  @ApiResponse({ status: 200, description: 'Backfill job queued' })
+  async triggerTriageBackfill(@Request() req: AuthenticatedRequest) {
+    this.logger.log(`Manual triage backfill triggered by user ${req.user.id}`);
+    const result = await this.triageBackfillService.triggerManualBackfill(
+      req.user.tenantId,
+      req.user.id,
+    );
+    return {
+      success: true,
+      ...result,
     };
   }
 }

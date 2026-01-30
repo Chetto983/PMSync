@@ -19,7 +19,7 @@ Ongoing refactoring to simplify VoltAgent from 5 agents to 1 UnifiedAgent with d
 - `backend/src/modules/ai/services/mistral.service.ts`
 
 ### 2. NLP Intent Classifier ✅
-Replaced regex-based intent classification with neural network using `node-nlp-typescript`.
+Replaced regex-based intent classification with neural network using `node-nlp`.
 
 **Features:**
 - EN + IT bilingual support (100+ trained utterances)

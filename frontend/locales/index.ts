@@ -2647,6 +2647,37 @@ export interface AppTranslations {
         confidence: string;
         emailType: string;
       };
+      kanban?: {
+        subtitle: string;
+        columns: {
+          pending: string;
+          reminded: string;
+          resolved: string;
+          expired: string;
+        };
+        empty: {
+          dropHere: string;
+          noItems: string;
+          noPending: string;
+          noReminded: string;
+          noResolved: string;
+          noExpired: string;
+        };
+        keyboard: {
+          title: string;
+          navigation: string;
+          actions: string;
+          moveDown: string;
+          moveUp: string;
+          prevColumn: string;
+          nextColumn: string;
+          openEmail: string;
+          resolve: string;
+          snooze: string;
+          showHelp: string;
+          clearSelection: string;
+        };
+      };
     };
     // HITL Inline Action Card
     inlineAction: {

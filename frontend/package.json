@@ -129,6 +129,7 @@
     "react-dom": "^19.2.3",
     "react-dropzone": "^14.3.8",
     "react-grid-layout": "^2.2.2",
+    "react-hotkeys-hook": "^5.2.3",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.5.2",
     "react-select": "^5.10.2",

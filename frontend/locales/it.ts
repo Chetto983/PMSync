@@ -2580,6 +2580,38 @@ export const it: AppTranslations = {
         confidence: 'Affidabilità',
         emailType: 'Tipo email',
       },
+      // Kanban board (2026-01-30)
+      kanban: {
+        subtitle: 'Trascina per cambiare stato',
+        columns: {
+          pending: 'In sospeso',
+          reminded: 'Promemoria inviato',
+          resolved: 'Risolto',
+          expired: 'Scaduto',
+        },
+        empty: {
+          dropHere: 'Rilascia qui',
+          noItems: 'Nessun elemento',
+          noPending: 'Nessun follow-up in sospeso',
+          noReminded: 'Tutti i promemoria inviati',
+          noResolved: 'Niente ancora risolto',
+          noExpired: 'Nessun elemento scaduto',
+        },
+        keyboard: {
+          title: 'Scorciatoie da Tastiera',
+          navigation: 'Navigazione',
+          actions: 'Azioni',
+          moveDown: 'Vai giù',
+          moveUp: 'Vai su',
+          prevColumn: 'Colonna precedente',
+          nextColumn: 'Colonna successiva',
+          openEmail: 'Apri email',
+          resolve: 'Risolvi',
+          snooze: 'Posticipa',
+          showHelp: 'Mostra aiuto',
+          clearSelection: 'Deseleziona',
+        },
+      },
     },
     // HITL Inline Action Card
     inlineAction: {

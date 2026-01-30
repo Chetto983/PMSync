@@ -1,10 +1,10 @@
 import React from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
-import { Box, Container } from '@mui/material';
+import { Box } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common';
-import { FollowUpTracker } from '@/components/ai/FollowUpTracker';
+import { FollowupsKanbanBoard } from '@/components/productivity/KanbanBoard';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -26,10 +26,8 @@ export default function FollowUpsPage() {
         <title>{t.ai.followUpTracker.title} | PMSync</title>
       </Head>
       <PageErrorBoundary pageName="Follow-up Tracker">
-        <Box sx={{ py: 3, px: { xs: 2, md: 3 } }}>
-          <Container maxWidth="lg" disableGutters>
-            <FollowUpTracker />
-          </Container>
+        <Box sx={{ height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+          <FollowupsKanbanBoard />
         </Box>
       </PageErrorBoundary>
     </Layout>

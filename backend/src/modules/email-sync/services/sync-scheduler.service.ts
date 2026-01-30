@@ -364,16 +364,35 @@ export class SyncSchedulerService implements OnModuleInit {
 
   /**
    * Determine if sync should be full or incremental
+   *
+   * FIX (2026-01-30): Check for sync token existence, not just time elapsed.
+   * Having a sync token means incremental sync is possible regardless of time.
+   * This fixes auto-triage not running (requires syncType === 'incremental').
    */
   private determineSyncType(provider: any): 'full' | 'incremental' {
     if (!provider.lastSyncedAt) {
       return 'full'; // First sync is always full
     }
 
+    // Check if provider has a sync token (supports incremental sync)
+    const metadata = provider.metadata as Record<string, unknown> | null;
+    const hasSyncToken = !!(
+      metadata?.lastSyncToken ||
+      metadata?.historyId ||
+      metadata?.syncToken ||
+      // Microsoft uses per-folder delta tokens
+      (metadata?.INBOX && typeof metadata.INBOX === 'string' && metadata.INBOX.includes('delta'))
+    );
+
+    // If provider has sync token, always use incremental
+    if (hasSyncToken) {
+      return 'incremental';
+    }
+
+    // Fallback to time-based logic for providers without token tracking
     const hoursSinceLastSync =
       (Date.now() - provider.lastSyncedAt.getTime()) / (1000 * 60 * 60);
 
-    // If last sync was within threshold, use incremental
     if (hoursSinceLastSync < this.INCREMENTAL_THRESHOLD_HOURS) {
       return 'incremental';
     }
