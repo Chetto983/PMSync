@@ -115,9 +115,8 @@ export class ChatResponseProcessorService {
       logPrefix,
     });
 
-    // 3. Fetch hook-captured actions from database (for nested delegate_task results)
-    // CRITICAL FIX 2026-01-22: When Supervisor delegates to ActionsAgent via delegate_task,
-    // the sub-agent's tool results with requiresApproval are captured by onToolEnd hooks
+    // 3. Fetch hook-captured actions from database (for nested tool results)
+    // CRITICAL FIX 2026-01-22: Tool results with requiresApproval are captured by onToolEnd hooks
     // and stored to DB, but NOT visible in top-level result.steps. We must query both.
     const hookCapturedActions = await this.fetchHookCapturedActions(
       options.tenantId,
@@ -249,7 +248,7 @@ export class ChatResponseProcessorService {
                 tenantId: options.tenantId,
                 userId: options.userId,
                 sessionId: options.sessionId,
-                agentName: 'SupervisorAgent',
+                agentName: 'UnifiedAgent',
                 action: {
                   type: actionType as AgentActionType,
                   payload,

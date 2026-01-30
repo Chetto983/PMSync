@@ -448,8 +448,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           // VoltAgent retrieves conversation history from memory automatically
           // 5 messages = good balance of context vs token usage
           contextLimit: 5,
-          // CRITICAL: Disable parallel tool calls to ensure sequential delegation
-          // (ContactsAgent → EmailAgent flow requires one tool at a time)
+          // CRITICAL: Disable parallel tool calls for sequential tool execution
+          // (multi-step workflows require one tool at a time)
           providerOptions: {
             mistral: {
               parallelToolCalls: false,
@@ -564,8 +564,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // NOTE: Conversation exists check removed - ChatPrepareService.prepare() already ensures it
 
     // Extract pending actions from tool results + database (for delegated actions)
-    // CRITICAL FIX 2026-01-22: When Supervisor delegates to ActionsAgent via delegate_task,
-    // the sub-agent's tool results with requiresApproval are captured by onToolEnd hooks
+    // CRITICAL FIX 2026-01-22: When UnifiedAgent executes tools,
+    // tool results with requiresApproval are captured by onToolEnd hooks
     // and stored to database, but NOT visible in top-level result.steps. We must query both.
     const effectiveSessionId = persistedConversationId || options.conversationId || ctx.sessionId;
     let pendingActions: PendingAction[] = [];
@@ -616,7 +616,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
                   tenantId: options.tenantId,
                   userId: options.userId,
                   sessionId: effectiveSessionId,
-                  agentName: 'SupervisorAgent',
+                  agentName: 'UnifiedAgent',
                   action: {
                     type: actionType as unknown as import('./interfaces/agent-action.interface').AgentActionType,
                     payload,

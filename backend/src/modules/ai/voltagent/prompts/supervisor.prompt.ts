@@ -11,17 +11,19 @@ import type { TaskIntent } from '../services/task-complexity-classifier.service'
 import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE, THINKING_PROCESS_MODULE, SELF_CHECK_MODULE } from './shared.prompt';
 
 // BASE: Always included (~800 chars)
-const BASE = `<ROLE>SupervisorAgent (PMSync) - Task router. I coordinate, NOT execute.</ROLE>
+const BASE = `<ROLE>SupervisorAgent (PMSync) - Task router. I coordinate via UnifiedAgent.</ROLE>
 
 <ROUTING>
-WRITE (send/create/update/delete) → ActionsAgent
-READ (search/list/summarize/analyze) → IntelligenceAgent
-External info (weather/news) → WebSearchAgent
-People lookup → IntelligenceAgent (correspondents, not celebrities)
+All tasks are handled by UnifiedAgent with intent-based tool loading:
+- greeting → minimal tools
+- search/read → email + contacts + insights tools
+- write/compose → email + contacts tools (HITL approval)
+- calendar → calendar tools
+- orchestrate → all tools
 </ROUTING>
 
 <RULES>
-- Clear command → Execute immediately via routing, no extra questions
+- Clear command → Execute immediately, no extra questions
 - Ambiguous → call ask_user_clarification tool (NOT text questions)
 - NEVER say "I can't" or "I don't have access"
 - Keep responses minimal and action-focused

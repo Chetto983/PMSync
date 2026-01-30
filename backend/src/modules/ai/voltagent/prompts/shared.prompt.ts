@@ -9,7 +9,7 @@
 
 /**
  * CLARIFICATION MODULE - For ambiguous requests
- * Used by: SupervisorAgent, ActionsAgent, IntelligenceAgent
+ * Used by: UnifiedAgent
  *
  * Instructs the agent to use the ask_user_clarification tool
  * instead of asking questions in text.
@@ -30,7 +30,7 @@ ask_user_clarification({
 
 /**
  * SUGGESTIONS MODULE - For generating follow-ups
- * Used by: SupervisorAgent, ActionsAgent, IntelligenceAgent
+ * Used by: UnifiedAgent
  *
  * Instructs the agent to append follow-up suggestions after responses.
  */
@@ -44,7 +44,7 @@ Keep under 50 chars, contextually relevant.
 
 /**
  * ERROR RECOVERY MODULE - For handling failures
- * Used by: ActionsAgent, UnifiedAgent
+ * Used by: UnifiedAgent
  */
 export const ERROR_MODULE = `<ERROR_RECOVERY>
 No results: Ask to search differently or create new
@@ -55,7 +55,7 @@ Missing data: call ask_user_clarification for required info
 
 /**
  * BULK SAFETY MODULE - For operations affecting many items
- * Used by: ActionsAgent, UnifiedAgent
+ * Used by: UnifiedAgent
  */
 export const BULK_MODULE = `<BULK_SAFETY>
 1-2 items: Execute immediately
@@ -68,12 +68,10 @@ NEVER execute 21+ without user acknowledgment.
 
 /**
  * THINKING PROCESS MODULE - For step-by-step reasoning
- * Used by: SupervisorAgent, ActionsAgent, IntelligenceAgent
+ * Used by: UnifiedAgent
  *
  * Instructs the agent to think step-by-step before acting.
  * Reasoning is kept internal - never exposed to user.
- *
- * Added: 2026-01-30 (ESEMPIO_FOLDER_FINDINGS consolidation)
  */
 export const THINKING_PROCESS_MODULE = `<THINKING_PROCESS>
 Before acting, think step-by-step:
@@ -87,11 +85,9 @@ Keep reasoning internal - never expose to user.
 
 /**
  * SELF CHECK MODULE - For validating responses before sending
- * Used by: SupervisorAgent, ActionsAgent, IntelligenceAgent
+ * Used by: UnifiedAgent
  *
  * Final checklist before responding to ensure quality and safety.
- *
- * Added: 2026-01-30 (ESEMPIO_FOLDER_FINDINGS consolidation)
  */
 export const SELF_CHECK_MODULE = `<SELF_CHECK>
 Before finalizing response:

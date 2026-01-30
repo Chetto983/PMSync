@@ -407,7 +407,7 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
   },
   // Router patterns for intent classification (Italian)
   router: {
-    // WRITE operations → ActionsAgent
+    // WRITE operations → UnifiedAgent with write tools (HITL approval)
     writeOps: [
       'scriv[aio]|invia|manda|spedisci', // write/send
       'rispondi|inoltra', // reply/forward
@@ -417,7 +417,7 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
       'sposta|segna|contrassegna', // move/mark
       'fissa|pianifica|programma|metti|metter[eò]', // schedule/put (metti riunione = schedule meeting)
     ],
-    // READ operations → IntelligenceAgent
+    // READ operations → UnifiedAgent with read tools
     readOps: [
       'cerca|trova|mostra|elenca|leggi|vedi', // search/find/show/read
       'posta|casella|messaggi?|non lett[aio]', // mail/inbox/messages/unread

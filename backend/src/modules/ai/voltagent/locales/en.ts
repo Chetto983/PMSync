@@ -7,11 +7,10 @@ import type { VoltAgentTranslations } from './index';
 import {
   SUPERVISOR_PROMPT,
   SUPERVISOR_MESSAGES,
-  ACTIONS_PROMPT,
-  INTELLIGENCE_PROMPT,
   WEBSEARCH_PROMPT,
   ANALYTICS_PROMPT,
   DOCUMENT_LIBRARY_PROMPT,
+  getUnifiedPrompt,
 } from '../prompts';
 
 export const en: VoltAgentTranslations = {
@@ -309,14 +308,18 @@ Reply ONLY with valid JSON (no markdown, no explanation):
       to: 'To',
     },
   },
+  // ===========================================================================
+  // AGENT PROMPTS (English only - getLocaleInstruction() handles response language)
+  // Other locales inherit this via: agents: en.agents
+  // ===========================================================================
   agents: {
     supervisor: {
       instructions: SUPERVISOR_PROMPT,
       ...SUPERVISOR_MESSAGES,
     },
-    // NOTE: email, calendar, contacts, knowledge, general agents were consolidated
-    // into ActionsAgent and IntelligenceAgent (Phase 3: Agent Consolidation 10 → 3)
-    // Their prompts are now in ACTIONS_PROMPT and INTELLIGENCE_PROMPT
+    unified: {
+      instructions: getUnifiedPrompt('unknown'),
+    },
     webSearch: {
       instructions: WEBSEARCH_PROMPT,
     },
@@ -325,15 +328,6 @@ Reply ONLY with valid JSON (no markdown, no explanation):
     },
     documentLibrary: {
       instructions: DOCUMENT_LIBRARY_PROMPT,
-    },
-    // ========================================================================
-    // CONSOLIDATED AGENTS (Phase 3: Agent Consolidation 10 → 3)
-    // ========================================================================
-    actions: {
-      instructions: ACTIONS_PROMPT,
-    },
-    intelligence: {
-      instructions: INTELLIGENCE_PROMPT,
     },
   },
   // Action response message templates (ActionSummaryTranslations)
@@ -527,7 +521,7 @@ Reply ONLY with valid JSON (no markdown, no explanation):
   },
   // Router patterns for intent classification (English)
   router: {
-    // WRITE operations → ActionsAgent
+    // WRITE operations → UnifiedAgent with write tools (HITL approval)
     writeOps: [
       'send|reply|forward|compose|draft',
       'delete|remove|trash|archive',
@@ -535,7 +529,7 @@ Reply ONLY with valid JSON (no markdown, no explanation):
       'update|edit|modify|change|rename',
       'move|star|unstar|mark as',
     ],
-    // READ operations → IntelligenceAgent
+    // READ operations → UnifiedAgent with read tools
     readOps: [
       'search|find|look|show|list|get',
       'email|inbox|mail|message|unread',

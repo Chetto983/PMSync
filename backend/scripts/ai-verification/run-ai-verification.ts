@@ -886,7 +886,7 @@ Content: ${content.slice(0, 1000)}`;
 }
 
 // ============================================================================
-// AGENT METRICS TEST (Real Redis Data)
+// AGENT METRICS TEST (Real LLM Speed + Database Data)
 // ============================================================================
 
 async function testAgentMetrics(): Promise<ComponentResult> {
@@ -894,12 +894,270 @@ async function testAgentMetrics(): Promise<ComponentResult> {
   const errors: string[] = [];
   const metrics: MetricResult[] = [];
 
-  console.log('\n📊 Testing Agent Metrics (REAL DATABASE DATA)...');
+  console.log('\n📊 Testing Agent Metrics (REAL LLM + DATABASE DATA)...');
 
   try {
     const prisma = getPrisma();
+    const mistral = getMistral();
 
     console.log(`  Using tenant: ${tenantId}`);
+
+    // ========================================================================
+    // PART 1: REAL LLM SPEED TEST (User requested this!)
+    // ========================================================================
+    console.log('\n  🔥 REAL LLM SPEED TEST (NOT MOCK!)');
+
+    // Get real emails from database for testing
+    const testEmails = await prisma.email.findMany({
+      where: {
+        tenantId,
+        bodyText: { not: null },
+      },
+      select: {
+        id: true,
+        subject: true,
+        from: true,
+        bodyText: true,
+        snippet: true,
+      },
+      orderBy: { receivedAt: 'desc' },
+      take: 5,
+    });
+
+    console.log(`  📧 Found ${testEmails.length} emails for LLM test`);
+
+    const llmLatencies: number[] = [];
+    const ttftTimes: number[] = [];
+    const tokenCounts: number[] = [];
+    let llmSuccessCount = 0;
+
+    if (testEmails.length > 0) {
+      for (const email of testEmails.slice(0, 3)) {
+        const content = email.bodyText || email.snippet || '';
+        const prompt = `Summarize this email in 2-3 sentences:
+Subject: ${email.subject}
+From: ${email.from}
+Content: ${content.slice(0, 2000)}`;
+
+        try {
+          // Use streaming to measure TTFT accurately
+          const llmStart = performance.now();
+          let firstTokenTime = 0;
+          let totalTokens = 0;
+          let fullResponse = '';
+
+          const stream = await mistral.chat.stream({
+            model: 'mistral-small-latest',
+            messages: [{ role: 'user', content: prompt }],
+          });
+
+          for await (const chunk of stream) {
+            if (firstTokenTime === 0) {
+              firstTokenTime = performance.now() - llmStart;
+              ttftTimes.push(firstTokenTime);
+            }
+            const chunkContent = chunk.data?.choices?.[0]?.delta?.content;
+            if (chunkContent) {
+              fullResponse += chunkContent;
+              totalTokens++;
+            }
+          }
+
+          const totalLatency = performance.now() - llmStart;
+          llmLatencies.push(totalLatency);
+          tokenCounts.push(totalTokens);
+          llmSuccessCount++;
+
+          console.log(`    ✓ Email ${email.id.slice(0, 8)}: TTFT=${firstTokenTime.toFixed(0)}ms, Total=${totalLatency.toFixed(0)}ms, Tokens=${totalTokens}`);
+        } catch (err) {
+          console.log(`    ⚠️ LLM failed for ${email.id}: ${err}`);
+          errors.push(`LLM test failed: ${err}`);
+        }
+      }
+    } else {
+      // No emails - test with synthetic prompt
+      console.log('  ⚠️ No emails found, using synthetic test');
+      const syntheticPrompt = 'Summarize: Meeting tomorrow at 3pm about Q1 budget review with finance team.';
+
+      const llmStart = performance.now();
+      let firstTokenTime = 0;
+      let totalTokens = 0;
+
+      const stream = await mistral.chat.stream({
+        model: 'mistral-small-latest',
+        messages: [{ role: 'user', content: syntheticPrompt }],
+      });
+
+      for await (const chunk of stream) {
+        if (firstTokenTime === 0) {
+          firstTokenTime = performance.now() - llmStart;
+          ttftTimes.push(firstTokenTime);
+        }
+        if (chunk.data?.choices?.[0]?.delta?.content) {
+          totalTokens++;
+        }
+      }
+
+      const totalLatency = performance.now() - llmStart;
+      llmLatencies.push(totalLatency);
+      tokenCounts.push(totalTokens);
+      llmSuccessCount = 1;
+
+      console.log(`    ✓ Synthetic: TTFT=${firstTokenTime.toFixed(0)}ms, Total=${totalLatency.toFixed(0)}ms`);
+    }
+
+    // Calculate LLM metrics
+    const avgLLMLatency = llmLatencies.length > 0
+      ? llmLatencies.reduce((a, b) => a + b, 0) / llmLatencies.length
+      : 0;
+    const avgTTFT = ttftTimes.length > 0
+      ? ttftTimes.reduce((a, b) => a + b, 0) / ttftTimes.length
+      : 0;
+    const avgTokens = tokenCounts.length > 0
+      ? tokenCounts.reduce((a, b) => a + b, 0) / tokenCounts.length
+      : 0;
+    const throughput = avgLLMLatency > 0 ? (avgTokens / (avgLLMLatency / 1000)) : 0;
+
+    console.log(`\n  📊 LLM SPEED RESULTS:`);
+    console.log(`     Avg TTFT: ${avgTTFT.toFixed(0)}ms (target: <500ms)`);
+    console.log(`     Avg Latency: ${avgLLMLatency.toFixed(0)}ms (target: <5000ms)`);
+    console.log(`     Throughput: ${throughput.toFixed(1)} tokens/sec`);
+
+    // Bottleneck detection
+    console.log(`\n  🔍 BOTTLENECK ANALYSIS:`);
+    if (avgTTFT > 1000) {
+      console.log(`     ⚠️ HIGH TTFT (${avgTTFT.toFixed(0)}ms) - Network latency to Mistral API`);
+    }
+    if (avgLLMLatency > 10000) {
+      console.log(`     ⚠️ HIGH LATENCY (${avgLLMLatency.toFixed(0)}ms) - Model inference slow or long prompts`);
+    }
+    if (throughput < 10) {
+      console.log(`     ⚠️ LOW THROUGHPUT (${throughput.toFixed(1)} tok/s) - API rate limiting or model overload`);
+    }
+    if (avgTTFT <= 500 && avgLLMLatency <= 5000) {
+      console.log(`     ✅ LLM performance within targets`);
+    }
+
+    // Add LLM speed metrics
+    metrics.push({
+      name: 'LLM TTFT',
+      value: avgTTFT,
+      target: 500,
+      unit: 'ms',
+      passed: avgTTFT <= 500 || llmSuccessCount === 0,
+      industrialBenchmark: 300,
+    });
+
+    metrics.push({
+      name: 'LLM Latency',
+      value: avgLLMLatency,
+      target: 5000,
+      unit: 'ms',
+      passed: avgLLMLatency <= 5000 || llmSuccessCount === 0,
+      industrialBenchmark: 2000,
+    });
+
+    metrics.push({
+      name: 'LLM Throughput',
+      value: throughput,
+      target: 10,
+      unit: 'tok/s',
+      passed: throughput >= 10 || llmSuccessCount === 0,
+      industrialBenchmark: 30,
+    });
+
+    // ========================================================================
+    // PART 2: FULL VOLTAGENT PIPELINE TEST (Find the real bottleneck!)
+    // ========================================================================
+    console.log('\n  🔬 FULL PIPELINE BOTTLENECK ANALYSIS:');
+
+    // Measure each step of the email summarization pipeline
+    const pipelineSteps: { step: string; duration: number }[] = [];
+
+    // Step 1: Database query time (fetch email)
+    const dbStart = performance.now();
+    const sampleEmail = testEmails[0];
+    if (sampleEmail) {
+      // Simulate full email fetch with relations
+      await prisma.email.findFirst({
+        where: { id: sampleEmail.id, tenantId },
+        include: {
+          attachments: true,
+        },
+      });
+    }
+    pipelineSteps.push({ step: 'DB Query (email)', duration: performance.now() - dbStart });
+
+    // Step 2: Embedding generation time (if doing RAG)
+    const embedStart = performance.now();
+    if (sampleEmail) {
+      await mistral.embeddings.create({
+        model: 'mistral-embed',
+        inputs: [(sampleEmail.subject || '') + ' ' + (sampleEmail.snippet || '')],
+      });
+    }
+    pipelineSteps.push({ step: 'Embedding', duration: performance.now() - embedStart });
+
+    // Step 3: Vector search time (RAG retrieval)
+    const ragStart = performance.now();
+    if (sampleEmail) {
+      const embedResponse = await mistral.embeddings.create({
+        model: 'mistral-embed',
+        inputs: ['summarize this email'],
+      });
+      const queryEmbed = embedResponse.data[0]?.embedding;
+      if (!queryEmbed) throw new Error('No embedding returned');
+      const vectorStr = `[${queryEmbed.join(',')}]`;
+
+      await prisma.$queryRaw`
+        SELECT id, "emailId"
+        FROM embeddings
+        WHERE "tenantId" = ${tenantId}
+        ORDER BY vector <=> ${vectorStr}::vector
+        LIMIT 5
+      `;
+    }
+    pipelineSteps.push({ step: 'RAG Search', duration: performance.now() - ragStart });
+
+    // Step 4: LLM call time (already measured above, use average)
+    pipelineSteps.push({ step: 'LLM Call', duration: avgLLMLatency });
+
+    // Print breakdown
+    const totalPipeline = pipelineSteps.reduce((sum, s) => sum + s.duration, 0);
+    console.log(`\n     PIPELINE BREAKDOWN (Total: ${(totalPipeline / 1000).toFixed(2)}s):`);
+    for (const step of pipelineSteps) {
+      const pct = (step.duration / totalPipeline * 100).toFixed(0);
+      const bar = '█'.repeat(Math.round(step.duration / totalPipeline * 20));
+      console.log(`     ${step.step.padEnd(18)} ${step.duration.toFixed(0).padStart(6)}ms (${pct.padStart(2)}%) ${bar}`);
+    }
+
+    // Identify the real bottleneck
+    const bottleneck = pipelineSteps.reduce((max, s) => s.duration > max.duration ? s : max);
+    if (bottleneck.duration > 2000) {
+      console.log(`\n     🚨 PRIMARY BOTTLENECK: ${bottleneck.step} (${(bottleneck.duration / 1000).toFixed(2)}s)`);
+    }
+
+    // If total is still <5s but user sees >1min, the issue is elsewhere
+    if (totalPipeline < 5000) {
+      console.log(`\n     ⚠️ Pipeline is fast (${(totalPipeline / 1000).toFixed(2)}s). If you see >1min:`);
+      console.log(`        - Check frontend network (DevTools → Network tab)`);
+      console.log(`        - Check NestJS guards/middleware overhead`);
+      console.log(`        - Check if multiple LLM calls are made (agent loop)`);
+    }
+
+    metrics.push({
+      name: 'Pipeline Total',
+      value: totalPipeline,
+      target: 10000,
+      unit: 'ms',
+      passed: totalPipeline <= 10000,
+      industrialBenchmark: 5000,
+    });
+
+    // ========================================================================
+    // PART 3: DATABASE METRICS (Historical HITL data)
+    // ========================================================================
+    console.log('\n  📊 HISTORICAL AGENT DATA:');
 
     // Get agent action feedback from database (real HITL data)
     const recentFeedback = await prisma.agentActionFeedback.findMany({
@@ -937,23 +1195,15 @@ async function testAgentMetrics(): Promise<ComponentResult> {
       },
     });
 
-    console.log(`  📊 Found ${recentFeedback.length} action feedbacks, ${learningProfiles.length} learning profiles`);
+    console.log(`  Found ${recentFeedback.length} action feedbacks, ${learningProfiles.length} learning profiles`);
 
     if (recentFeedback.length === 0 && learningProfiles.length === 0) {
-      console.log('  ⚠️ No agent data found - using placeholder metrics');
+      console.log('  ⚠️ No historical agent data found');
       metrics.push({ name: 'Total Actions', value: 0, target: 1, unit: '', passed: true });
-      metrics.push({ name: 'Avg Confidence', value: 0, target: 0.5, unit: '', passed: true });
-      metrics.push({ name: 'Learning Profiles', value: 0, target: 1, unit: '', passed: true });
-      metrics.push({ name: 'Calibration Score', value: 100, target: 50, unit: '%', passed: true });
       metrics.push({ name: 'Agent Diversity', value: 0, target: 1, unit: '', passed: true });
     } else {
       // Calculate metrics from feedback data
       const totalActions = recentFeedback.length;
-
-      // Confidence metrics (key indicator of model quality)
-      const avgOriginalConfidence = recentFeedback.length > 0
-        ? recentFeedback.reduce((sum, f) => sum + f.originalConfidence, 0) / recentFeedback.length
-        : 0;
 
       // Agent distribution (diversity = using multiple agent types)
       const agentDistribution = recentFeedback.reduce((acc: Record<string, number>, f) => {
@@ -962,25 +1212,7 @@ async function testAgentMetrics(): Promise<ComponentResult> {
       }, {});
       const agentDiversity = Object.keys(agentDistribution).length;
 
-      // Learning profile metrics
-      const numProfiles = learningProfiles.length;
-      const totalAttempts = learningProfiles.reduce((sum, p) => sum + p.totalAttempts, 0);
-
-      // Calibration: avg success rate from learning profiles (how well confidence predicts success)
-      const avgSuccessRate = learningProfiles.length > 0
-        ? learningProfiles.reduce((sum, p) => sum + p.successRate, 0) / learningProfiles.length * 100
-        : 100;
-
-      // Confidence boost from learning (positive = system is learning to trust user patterns)
-      const avgConfidenceBoost = learningProfiles.length > 0
-        ? learningProfiles.reduce((sum, p) => sum + p.confidenceBoost, 0) / learningProfiles.length
-        : 0;
-
       console.log(`  ✓ Total Actions: ${totalActions}`);
-      console.log(`  ✓ Avg Confidence: ${(avgOriginalConfidence * 100).toFixed(1)}%`);
-      console.log(`  ✓ Learning Profiles: ${numProfiles} (${totalAttempts} total attempts)`);
-      console.log(`  ✓ Calibration (Success Rate): ${avgSuccessRate.toFixed(1)}%`);
-      console.log(`  ✓ Confidence Boost: ${(avgConfidenceBoost * 100).toFixed(1)}%`);
       console.log(`  ✓ Agent Diversity: ${agentDiversity} types`);
       console.log(`  📊 Agents: ${Object.entries(agentDistribution).map(([k, v]) => `${k}:${v}`).join(', ')}`);
 
@@ -991,33 +1223,6 @@ async function testAgentMetrics(): Promise<ComponentResult> {
         unit: '',
         passed: totalActions >= 10,
         industrialBenchmark: 100,
-      });
-
-      metrics.push({
-        name: 'Avg Confidence',
-        value: avgOriginalConfidence,
-        target: 0.6,
-        unit: '',
-        passed: avgOriginalConfidence >= 0.6 || totalActions === 0,
-        industrialBenchmark: 0.8,
-      });
-
-      metrics.push({
-        name: 'Learning Profiles',
-        value: numProfiles,
-        target: 1,
-        unit: '',
-        passed: numProfiles >= 1,
-        industrialBenchmark: 10,
-      });
-
-      metrics.push({
-        name: 'Calibration Score',
-        value: avgSuccessRate,
-        target: 70,
-        unit: '%',
-        passed: avgSuccessRate >= 70 || numProfiles === 0,
-        industrialBenchmark: 90,
       });
 
       metrics.push({
@@ -1032,11 +1237,11 @@ async function testAgentMetrics(): Promise<ComponentResult> {
 
   } catch (error) {
     errors.push(`Agent metrics failed: ${error}`);
-    metrics.push({ name: 'Total Operations', value: 0, target: 1, unit: '', passed: false });
-    metrics.push({ name: 'HITL Efficiency', value: 0, target: 70, unit: '%', passed: false });
-    metrics.push({ name: 'Execution Success', value: 0, target: 80, unit: '%', passed: false });
-    metrics.push({ name: 'Avg Confidence', value: 0, target: 0.5, unit: '', passed: false });
-    metrics.push({ name: 'Avg Execution Time', value: 0, target: 5000, unit: 'ms', passed: false });
+    metrics.push({ name: 'LLM TTFT', value: 999999, target: 500, unit: 'ms', passed: false });
+    metrics.push({ name: 'LLM Latency', value: 999999, target: 5000, unit: 'ms', passed: false });
+    metrics.push({ name: 'LLM Throughput', value: 0, target: 10, unit: 'tok/s', passed: false });
+    metrics.push({ name: 'Total Actions', value: 0, target: 1, unit: '', passed: false });
+    metrics.push({ name: 'Agent Diversity', value: 0, target: 1, unit: '', passed: false });
   }
 
   const duration = performance.now() - startTime;

@@ -223,18 +223,19 @@ export interface ToolTranslations {
 /**
  * Translation structure for agents
  *
- * Phase 3: Agent Consolidation (10 → 3)
- * - Supervisor: Orchestrates and delegates
- * - ActionsAgent: All WRITE operations (email/calendar/contacts)
- * - IntelligenceAgent: All READ operations (search/knowledge/analytics)
+ * Architecture (2026-01-29):
+ * - Supervisor: Wrapper that delegates to UnifiedAgent
+ * - UnifiedAgent: Single agent with dynamic tool loading
  */
 export interface AgentTranslations {
   supervisor: {
     instructions: string;
-    // Delegation messages for consolidated agents
     delegateActions: string;
     delegateIntelligence: string;
     delegateWebSearch: string;
+  };
+  unified: {
+    instructions: string;
   };
   webSearch: {
     instructions: string;
@@ -243,13 +244,6 @@ export interface AgentTranslations {
     instructions: string;
   };
   documentLibrary: {
-    instructions: string;
-  };
-  // Phase 3: Consolidated agents (10 → 3)
-  actions: {
-    instructions: string;
-  };
-  intelligence: {
     instructions: string;
   };
 }
@@ -473,11 +467,11 @@ export interface ErrorTranslations {
  * Patterns are strings that will be converted to RegExp at runtime
  */
 export interface RouterPatternsTranslations {
-  /** WRITE operations → ActionsAgent (destructive/mutating operations requiring HITL) */
+  /** WRITE operations → UnifiedAgent with write tools (HITL approval required) */
   writeOps: string[];
-  /** READ operations → IntelligenceAgent (search, list, analyze - non-destructive) */
+  /** READ operations → UnifiedAgent with read tools (non-destructive) */
   readOps: string[];
-  /** Simple queries → handled directly by Supervisor (greetings, basic questions) */
+  /** Simple queries → handled directly (greetings, basic questions) */
   simple: string[];
   /** Complexity: simple patterns */
   complexitySimple: string[];
