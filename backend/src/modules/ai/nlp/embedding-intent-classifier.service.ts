@@ -16,7 +16,7 @@
  */
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { EmbeddingsService } from '../services/embeddings.service';
+import { MistralService } from '../services/mistral.service';
 import { INTENT_TAXONOMY, type PrimaryIntent, PRIMARY_INTENTS } from './intent-taxonomy';
 
 interface IntentEmbedding {
@@ -41,7 +41,7 @@ export class EmbeddingIntentClassifierService implements OnModuleInit {
   private initialized = false;
   private readonly topK = 5; // Number of neighbors for voting
 
-  constructor(private readonly embeddingsService: EmbeddingsService) {}
+  constructor(private readonly mistralService: MistralService) {}
 
   async onModuleInit(): Promise<void> {
     // Initialize asynchronously to not block startup
@@ -93,7 +93,7 @@ export class EmbeddingIntentClassifierService implements OnModuleInit {
       const texts = batch.map((ex) => ex.text);
 
       try {
-        const embeddings = await this.embeddingsService.embedBatch(texts);
+        const embeddings = await this.mistralService.generateBulkEmbeddings(texts);
 
         for (let j = 0; j < batch.length; j++) {
           if (embeddings[j]) {
@@ -133,7 +133,7 @@ export class EmbeddingIntentClassifierService implements OnModuleInit {
     }
 
     // Embed the query
-    const queryEmbedding = await this.embeddingsService.embed(text);
+    const queryEmbedding = await this.mistralService.generateEmbedding(text);
 
     // Find top-K nearest neighbors
     const similarities = this.intentEmbeddings.map((ie) => ({

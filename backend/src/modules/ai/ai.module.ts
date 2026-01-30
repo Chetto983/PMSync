@@ -27,7 +27,7 @@ import { BatchIndexingService } from './services/batch-indexing.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
-import { IntentClassifierService } from './nlp';
+import { IntentClassifierService, EmbeddingIntentClassifierService } from './nlp';
 
 @Module({
   imports: [
@@ -57,6 +57,7 @@ import { IntentClassifierService } from './nlp';
     MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
+    EmbeddingIntentClassifierService, // Embedding-based multilingual intent fallback
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -77,6 +78,7 @@ import { IntentClassifierService } from './nlp';
     MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
+    EmbeddingIntentClassifierService, // Embedding-based multilingual intent fallback
     // VoltAgent module (re-exports PersonalizationService, WritingStyleService, etc.)
     VoltAgentModule,
   ],
