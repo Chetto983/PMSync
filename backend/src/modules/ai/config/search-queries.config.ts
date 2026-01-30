@@ -59,6 +59,60 @@ export const SEARCH_QUERY_CATEGORIES: SearchQueryCategory[] = [
       it: ['da me', 'a me', 'cc me', 'non letti', 'letti'],
     },
   },
+  {
+    name: 'common_queries',
+    queries: {
+      en: [
+        'show my emails',
+        'what emails do I have',
+        'any new messages',
+        'emails from today',
+        'recent emails',
+        'show unread',
+        'check inbox',
+        'my calendar',
+        'schedule today',
+        'upcoming meetings',
+      ],
+      it: [
+        'mostra le mie email',
+        'quali email ho',
+        'nuovi messaggi',
+        'email di oggi',
+        'email recenti',
+        'mostra non letti',
+        'controlla posta',
+        'il mio calendario',
+        'programma oggi',
+        'prossime riunioni',
+      ],
+    },
+  },
+  {
+    name: 'action_queries',
+    queries: {
+      en: [
+        'send email',
+        'compose email',
+        'reply to',
+        'forward email',
+        'delete email',
+        'archive email',
+        'create event',
+        'schedule meeting',
+      ],
+      it: [
+        'invia email',
+        'scrivi email',
+        'rispondi a',
+        'inoltra email',
+        'elimina email',
+        'archivia email',
+        'crea evento',
+        'pianifica riunione',
+      ],
+    },
+  },
 ];
 
 /**

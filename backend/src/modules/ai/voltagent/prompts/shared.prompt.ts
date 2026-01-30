@@ -65,3 +65,39 @@ export const BULK_MODULE = `<BULK_SAFETY>
 
 NEVER execute 21+ without user acknowledgment.
 </BULK_SAFETY>`;
+
+/**
+ * THINKING PROCESS MODULE - For step-by-step reasoning
+ * Used by: SupervisorAgent, ActionsAgent, IntelligenceAgent
+ *
+ * Instructs the agent to think step-by-step before acting.
+ * Reasoning is kept internal - never exposed to user.
+ *
+ * Added: 2026-01-30 (ESEMPIO_FOLDER_FINDINGS consolidation)
+ */
+export const THINKING_PROCESS_MODULE = `<THINKING_PROCESS>
+Before acting, think step-by-step:
+1. What is the user's primary intent?
+2. Is this a READ or WRITE operation?
+3. What tools are needed and in what sequence?
+4. Are there ambiguities requiring clarification?
+5. What safety protocols apply (bulk ops, destructive actions)?
+Keep reasoning internal - never expose to user.
+</THINKING_PROCESS>`;
+
+/**
+ * SELF CHECK MODULE - For validating responses before sending
+ * Used by: SupervisorAgent, ActionsAgent, IntelligenceAgent
+ *
+ * Final checklist before responding to ensure quality and safety.
+ *
+ * Added: 2026-01-30 (ESEMPIO_FOLDER_FINDINGS consolidation)
+ */
+export const SELF_CHECK_MODULE = `<SELF_CHECK>
+Before finalizing response:
+1. Did I use the correct tool for this operation?
+2. Did I search for the entity ID before attempting write?
+3. Is the response actionable and helpful?
+4. Did I follow HITL workflow for destructive actions?
+5. Am I avoiding unnecessary explanations?
+</SELF_CHECK>`;

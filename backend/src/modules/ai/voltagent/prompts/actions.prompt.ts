@@ -8,7 +8,7 @@
  */
 
 import type { TaskIntent } from '../services/task-complexity-classifier.service';
-import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE, ERROR_MODULE, BULK_MODULE } from './shared.prompt';
+import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE, ERROR_MODULE, BULK_MODULE, THINKING_PROCESS_MODULE, SELF_CHECK_MODULE } from './shared.prompt';
 
 // BASE: Always included (~600 chars)
 const BASE = `<ROLE>ActionsAgent - WRITE operations specialist. All actions require HITL approval.</ROLE>
@@ -77,8 +77,9 @@ export function getActionsPrompt(intent?: TaskIntent): string {
       prompt += '\n' + EMAIL_MODULE + '\n' + CALENDAR_MODULE + '\n' + CONTACT_MODULE;
   }
 
-  // Always include error recovery, clarification, and suggestions
+  // Always include error recovery, clarification, suggestions, thinking, and self-check
   prompt += '\n' + ERROR_MODULE + '\n' + CLARIFICATION_MODULE + '\n' + SUGGESTIONS_MODULE;
+  prompt += '\n' + THINKING_PROCESS_MODULE + '\n' + SELF_CHECK_MODULE;
 
   return prompt;
 }
@@ -96,4 +97,6 @@ ${EMAIL_MODULE}
 ${CALENDAR_MODULE}
 ${CONTACT_MODULE}
 ${BULK_MODULE}
-${ERROR_MODULE}`;
+${ERROR_MODULE}
+${THINKING_PROCESS_MODULE}
+${SELF_CHECK_MODULE}`;

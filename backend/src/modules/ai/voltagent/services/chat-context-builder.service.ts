@@ -68,6 +68,16 @@ const SKIP_MEMORY_PATTERNS = [
   /^(inbox|unread|summary|overview|briefing|status)/i,
   // Count queries
   /^(how many|quant[ie]|count)/i,
+  // Delete/archive/move - action queries don't need memory
+  /\b(delete|archive|move|mark|flag|sposta|elimina|archivia|segna)\b/i,
+  // Simple acknowledgments
+  /^(ok|okay|yes|no|sì|si|no|va bene|perfetto|grazie|thanks|got it|understood)\b/i,
+  // Command-style requests - stateless
+  /^(open|close|refresh|reload|apri|chiudi|aggiorna)/i,
+  // Attachment queries - data-driven
+  /\b(attachment|allegat|download|scarica)\b/i,
+  // Folder operations
+  /\b(folder|cartella|label|etichetta)\b.*\b(create|delete|rename|crea|elimina|rinomina)\b/i,
 ];
 
 export interface EnhancedContext {

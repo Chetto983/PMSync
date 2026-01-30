@@ -8,7 +8,7 @@
  */
 
 import type { TaskIntent } from '../services/task-complexity-classifier.service';
-import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE } from './shared.prompt';
+import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE, THINKING_PROCESS_MODULE, SELF_CHECK_MODULE } from './shared.prompt';
 
 // BASE: Always included
 const BASE = `<ROLE>IntelligenceAgent - READ/ANALYSIS. Non-destructive.</ROLE>
@@ -49,8 +49,8 @@ const MODULES: Record<string, string> = {
  */
 export function getIntelligencePrompt(intent?: TaskIntent): string {
   const module = MODULES[intent || 'unknown'] || MODULES.unknown;
-  return `${BASE}\n${module}\n${CLARIFICATION}\n${SUGGESTIONS}`;
+  return `${BASE}\n${module}\n${CLARIFICATION}\n${SUGGESTIONS}\n${THINKING_PROCESS_MODULE}\n${SELF_CHECK_MODULE}`;
 }
 
 // Legacy export (uses full fallback)
-export const INTELLIGENCE_PROMPT = `${BASE}\n${MODULES.unknown}`;
+export const INTELLIGENCE_PROMPT = `${BASE}\n${MODULES.unknown}\n${THINKING_PROCESS_MODULE}\n${SELF_CHECK_MODULE}`;

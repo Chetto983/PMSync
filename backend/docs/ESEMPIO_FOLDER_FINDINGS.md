@@ -16,8 +16,10 @@ The `esempio` folder contains 3 high-quality reference projects:
 3. **Inbox Zero (Zero-staging)** - Open-source AI email client
 
 **Key Actionable Insights**:
+
 | Category | Pattern | Priority | Impact |
 |----------|---------|----------|--------|
+
 | Email Triage | Multi-factor attention scoring | HIGH | Better inbox prioritization |
 | Contact CRM | Relationship intelligence with role classification | HIGH | Enhanced CRM insights |
 | Search | Natural language → Gmail query conversion | MEDIUM | Smarter email search |
@@ -46,9 +48,10 @@ weights = {
 ```
 
 **Applicability to MailAgent**:
-- [ ] Create `AttentionScoreService` in `voltagent/services/`
-- [ ] Integrate with `email-insights.service.ts` for prioritization
-- [ ] Add to IntelligenceAgent tool selection logic
+
+- [x] Create `AttentionScoreService` in `voltagent/services/` ✅ **IMPLEMENTED** (Phase 4.1 - 2026-01-27)
+- [x] Integrate with `email-insights.service.ts` for prioritization ✅ **IMPLEMENTED**
+- [x] Add to IntelligenceAgent tool selection logic ✅ **IMPLEMENTED**
 
 ### 1.2 Triage Decisions
 
@@ -191,8 +194,8 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 | Few-shot examples | All | ✅ Implemented |
 | Chain-of-thought thinking | Claude Code, Cursor | ✅ Implemented |
 | Tool usage rules | All | ✅ Implemented |
-| Safety protocols | Claude Code, Inbox Zero | ⚠️ Partial |
-| Self-check section | Claude Code, Cursor | ❌ Add to prompts |
+| Safety protocols | Claude Code, Inbox Zero | ✅ Implemented |
+| Self-check section | Claude Code, Cursor | ✅ Implemented (2026-01-30) |
 
 ---
 
@@ -239,9 +242,10 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 </style_adaptation>
 ```
 
-**Applicability**: Already have `WritingStyleService` - could enhance with:
-- More granular metrics (currently basic)
-- Style matching for smart-reply
+**Applicability**: Already have `WritingStyleService` with **21 metrics** (NOT 52):
+- ⚠️ Note: Inbox Zero uses 52 metrics, MailAgent uses 21 metrics
+- Current metrics include: avgSentenceLength, formalityScore, sentimentPolarity, etc.
+- Enhancement: Could add 31 more metrics to match Inbox Zero (LOW priority)
 
 ### 4.3 AI Chat Assistant (Fred)
 
@@ -288,9 +292,9 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 ```
 
 **Applicability**:
-- [ ] Add `<thinking_process>` to SupervisorAgent prompt
-- [ ] Add bulk operation thresholds to ActionsAgent HITL logic
-- [ ] Add workflow examples for common multi-tool operations
+- [x] Add `<thinking_process>` to SupervisorAgent prompt ✅ **IMPLEMENTED** (2026-01-30)
+- [x] Add bulk operation thresholds to ActionsAgent HITL logic ✅ **IMPLEMENTED** (2026-01-30)
+- [x] Add workflow examples for common multi-tool operations ✅ **IMPLEMENTED** (already in actions.prompt.ts)
 
 ### 4.4 Thread Summarization Prompts
 
@@ -350,10 +354,10 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 | Improvement | Source | Est. LOC | Files to Create/Modify |
 |-------------|--------|----------|------------------------|
 
-| Attention Score System | email-agent | ~200 | `attention-score.service.ts` (NEW) |
-| Bulk Operation Thresholds | Inbox Zero | ~50 | `actions.prompt.ts`, `hitl.service.ts` |
-| Self-Check Section in Prompts | All prompts | ~30 | `*.prompt.ts` |
-| Role Pattern Classification | email-agent | ~100 | `relationship-intelligence.service.ts` |
+| ~~Attention Score System~~ | email-agent | ~200 | ✅ DONE: `attention-score.service.ts` |
+| ~~Bulk Operation Thresholds~~ | Inbox Zero | ~50 | ✅ DONE: `hitl.service.ts` (2026-01-30) |
+| ~~Self-Check Section in Prompts~~ | All prompts | ~30 | ✅ DONE: `shared.prompt.ts` (2026-01-30) |
+| ~~Role Pattern Classification~~ | email-agent | ~100 | ✅ DONE: `relationship-intelligence.service.ts` |
 
 ### Priority 2: MEDIUM Impact
 
@@ -362,8 +366,8 @@ async def get_company_context(self, email_domain: str) -> CompanyContext:
 
 | Natural Language Search Builder | Inbox Zero | ~150 | `search-query-builder.service.ts` (NEW) |
 | Incremental Re-summarization | Inbox Zero | ~80 | `conversation-compaction.service.ts` |
-| Workflow Examples in Prompts | Inbox Zero | ~100 | `*.prompt.ts` |
-| Thinking Process Section | Inbox Zero | ~30 | `supervisor.prompt.ts` |
+| ~~Workflow Examples in Prompts~~ | Inbox Zero | ~100 | ✅ DONE: `actions.prompt.ts` |
+| ~~Thinking Process Section~~ | Inbox Zero | ~30 | ✅ DONE: `shared.prompt.ts` (2026-01-30) |
 
 ### Priority 3: LOW Impact (Nice to Have)
 

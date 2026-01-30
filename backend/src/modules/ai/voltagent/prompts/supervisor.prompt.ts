@@ -8,7 +8,7 @@
  */
 
 import type { TaskIntent } from '../services/task-complexity-classifier.service';
-import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE } from './shared.prompt';
+import { CLARIFICATION_MODULE, SUGGESTIONS_MODULE, THINKING_PROCESS_MODULE, SELF_CHECK_MODULE } from './shared.prompt';
 
 // BASE: Always included (~800 chars)
 const BASE = `<ROLE>SupervisorAgent (PMSync) - Task router. I coordinate, NOT execute.</ROLE>
@@ -46,11 +46,14 @@ export function getSupervisorPrompt(options?: {
     prompt += '\n' + SUGGESTIONS_MODULE;
   }
 
+  // Always include thinking process and self-check for quality
+  prompt += '\n' + THINKING_PROCESS_MODULE + '\n' + SELF_CHECK_MODULE;
+
   return prompt;
 }
 
 // Legacy export (full prompt for backward compatibility)
-export const SUPERVISOR_PROMPT = `${BASE}\n${CLARIFICATION_MODULE}\n${SUGGESTIONS_MODULE}`;
+export const SUPERVISOR_PROMPT = `${BASE}\n${CLARIFICATION_MODULE}\n${SUGGESTIONS_MODULE}\n${THINKING_PROCESS_MODULE}\n${SELF_CHECK_MODULE}`;
 
 export const SUPERVISOR_MESSAGES = {
   delegateActions: 'Delegating to Actions Agent for write operations',

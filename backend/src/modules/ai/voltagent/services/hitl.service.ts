@@ -73,6 +73,17 @@ export class HitlService {
   private static readonly DEFAULT_EXPIRATION_HOURS = 24;
   private static readonly DEFAULT_MAX_PENDING_ACTIONS = 50;
 
+  /**
+   * Bulk operation thresholds (ESEMPIO_FOLDER_FINDINGS consolidation - 2026-01-30)
+   * Enforces safety limits for operations affecting multiple items.
+   */
+  private static readonly BULK_THRESHOLDS = {
+    IMMEDIATE: 2,   // 1-2 items: execute immediately
+    PREVIEW: 5,     // 3-5 items: preview samples first
+    CONFIRM: 20,    // 6-20 items: require confirmation
+    // 21+ items: suggest staged/batched processing
+  } as const;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
@@ -852,6 +863,47 @@ export class HitlService {
     });
 
     this.logger.log(`Deleted agent data for user ${userId}`);
+  }
+
+  /**
+   * Get approval level for bulk operations based on item count.
+   * Implements safety thresholds from ESEMPIO_FOLDER_FINDINGS.
+   *
+   * @param itemCount - Number of items affected by the operation
+   * @returns Approval level indicating required user interaction
+   *
+   * Added: 2026-01-30 (ESEMPIO_FOLDER_FINDINGS consolidation)
+   */
+  getBulkApprovalLevel(itemCount: number): 'immediate' | 'preview' | 'confirm' | 'staged' {
+    if (itemCount <= HitlService.BULK_THRESHOLDS.IMMEDIATE) {
+      return 'immediate';
+    }
+    if (itemCount <= HitlService.BULK_THRESHOLDS.PREVIEW) {
+      return 'preview';
+    }
+    if (itemCount <= HitlService.BULK_THRESHOLDS.CONFIRM) {
+      return 'confirm';
+    }
+    return 'staged';
+  }
+
+  /**
+   * Check if a bulk operation requires special handling.
+   * Returns true if the operation needs preview, confirmation, or staging.
+   *
+   * @param itemCount - Number of items affected
+   * @returns True if the operation should not auto-execute
+   */
+  requiresBulkApproval(itemCount: number): boolean {
+    return itemCount > HitlService.BULK_THRESHOLDS.IMMEDIATE;
+  }
+
+  /**
+   * Get the recommended batch size for staged operations.
+   * For operations with 21+ items, suggests batches of 20.
+   */
+  getRecommendedBatchSize(): number {
+    return HitlService.BULK_THRESHOLDS.CONFIRM; // 20 items per batch
   }
 
   /**
