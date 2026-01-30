@@ -67,7 +67,8 @@ async function trainModel(options: TrainingOptions): Promise<void> {
 
   const classifier = new Classifier();
 
-  // Train the model
+  // Train the model (cast to any to handle fasttext.js type strictness)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await classifier.train('supervised', {
     input: options.trainFile,
     output: options.outputModel,
@@ -78,7 +79,7 @@ async function trainModel(options: TrainingOptions): Promise<void> {
     dim: options.dim,
     bucket: options.bucket,
     loss: options.loss,
-  });
+  } as any);
 
   const trainTime = Date.now() - startTime;
   console.log(`Training completed in ${(trainTime / 1000).toFixed(1)}s`);

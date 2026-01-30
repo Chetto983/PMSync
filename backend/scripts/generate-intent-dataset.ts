@@ -19,6 +19,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { INTENT_TAXONOMY, SLOT_FILLERS, type SlotType, type PrimaryIntent } from '../src/modules/ai/nlp/intent-taxonomy';
+import {
+  generateItalianParaphrases,
+  getAugmentationStats,
+} from '../src/modules/ai/nlp/intent-augmentation';
 
 interface GeneratorOptions {
   outputPath: string;
@@ -240,12 +244,27 @@ function generateDataset(options: GeneratorOptions): void {
   const priorityWeights = { high: 3, medium: 2, low: 1 };
   const totalWeight = INTENT_TAXONOMY.reduce((sum, def) => sum + priorityWeights[def.priority], 0);
 
+  // Log augmentation stats
+  const augStats = getAugmentationStats();
+  console.log(`\n=== Italian Augmentation Stats ===`);
+  console.log(`  Original IT examples: ${augStats.originalCount}`);
+  console.log(`  Augmented IT examples: ${augStats.augmentedCount}`);
+  console.log(`  Multiplier: ${augStats.multiplier.toFixed(2)}x\n`);
+
   for (const intentDef of INTENT_TAXONOMY) {
     const weight = priorityWeights[intentDef.priority];
     const targetCount = Math.floor((weight / totalWeight) * options.totalExamples);
 
-    // Generate from templates
-    for (let i = 0; i < targetCount; i++) {
+    // Generate Italian augmented examples (20% of target count)
+    const italianAugmented = generateItalianParaphrases(intentDef, 2);
+    for (const augText of italianAugmented.slice(0, Math.floor(targetCount * 0.2))) {
+      const text = augment(augText, 'it', rng, options.includeTypos);
+      examples.push({ intent: intentDef.intent, text });
+    }
+
+    // Generate from templates (remaining 80%)
+    const remainingCount = targetCount - Math.min(italianAugmented.length, Math.floor(targetCount * 0.2));
+    for (let i = 0; i < remainingCount; i++) {
       // Alternate between languages (50/50 split)
       const lang: 'en' | 'it' = rng.next() < 0.5 ? 'en' : 'it';
       const templates = intentDef.examples[lang];
