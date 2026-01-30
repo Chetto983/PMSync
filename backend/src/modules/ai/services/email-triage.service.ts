@@ -8,6 +8,9 @@
  * - Only runs on incremental syncs (not initial full sync)
  *
  * Called on-demand via API or scheduled job, NOT during sync.
+ *
+ * NOTE: Thread Summary functionality has been extracted to ThreadSummaryService
+ * (thread-summary.service.ts) to maintain Single Responsibility Principle.
  */
 
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
@@ -17,7 +20,7 @@ import { EmailInsightsService } from './email-insights.service';
 import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
 import { AttentionScoreService } from '../voltagent/services/attention-score.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
-import type { SupportedLocale } from '../voltagent/locales';
+import { type SupportedLocale } from '../voltagent/locales';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 20; // Max emails to process per API call

@@ -36,6 +36,7 @@ export * from './document-library.service';
 export * from './episodic-memory.service';
 export * from './mistral-batch.service';
 export * from './memory-intelligence.service';
+export * from './attention-score.service';
 
 // Chat Processing (Refactored from VoltAgentService 2026-01-22)
 export * from './chat-request-processor.service';

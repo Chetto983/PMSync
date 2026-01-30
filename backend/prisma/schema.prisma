@@ -7,49 +7,49 @@ datasource db {
 }
 
 model Tenant {
-  id                   String                 @id @default(cuid())
-  name                 String
-  slug                 String                 @unique
-  description          String?
-  isActive             Boolean                @default(true)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  deletedAt            DateTime?
-  actionQueue          ActionQueue[]
-  actionFeedback       AgentActionFeedback[]
-  learningProfiles     AgentLearningProfile[]
-  auditLogs            AuditLog[]
-  calendarEvents       CalendarEvent[]
-  deals                Deal[]
-  emailAnalyses        EmailAnalysis[]
-  emailSignatures      EmailSignature[]
-  emailTemplates       EmailTemplate[]
-  emails               Email[]
-  embeddings           Embedding[]
-  folders              Folder[]
-  providerConfigs      ProviderConfig[]
-  providerContacts     ProviderContact[]      @relation("ProviderContactToTenant")
-  scheduledEmails      ScheduledEmail[]
-  subscription         Subscription?
-  contacts             Contact[]              @relation("ContactToTenant")
-  userLabels                 UserLabel[]
-  users                      User[]
-  webhookSubscriptions       WebhookSubscription[]
-  userPreferences            UserPreferences[]            @relation("UserPreferencesToTenant")
-  dashboardPreferences       DashboardPreference[]        @relation("DashboardPreferenceToTenant")
-  mfaSecrets                 MfaSecret[]                  @relation("MfaSecretToTenant")
-  mfaBackupCodes             MfaBackupCode[]              @relation("MfaBackupCodeToTenant")
-  emailLabels                EmailLabel[]                 @relation("EmailLabelToTenant")
-  emailAttachments           EmailAttachment[]            @relation("EmailAttachmentToTenant")
-  calendarEventAttachments   CalendarEventAttachment[]    @relation("CalendarEventAttachmentToTenant")
-  calendarSyncStates         CalendarSyncState[]          @relation("CalendarSyncStateToTenant")
-  sessions                   Session[]
-  trustedDevices             TrustedDevice[]
-  webauthnCredentials        WebAuthnCredential[]
-  aiMemoryHistory            AIMemoryHistory[]
-  libraryDocuments           LibraryDocument[]
-  dealActivities             DealActivity[]
-  mistralAgents              MistralAgent[]
+  id                       String                    @id @default(cuid())
+  name                     String
+  slug                     String                    @unique
+  description              String?
+  isActive                 Boolean                   @default(true)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  deletedAt                DateTime?
+  actionQueue              ActionQueue[]
+  actionFeedback           AgentActionFeedback[]
+  learningProfiles         AgentLearningProfile[]
+  auditLogs                AuditLog[]
+  calendarEvents           CalendarEvent[]
+  deals                    Deal[]
+  emailAnalyses            EmailAnalysis[]
+  emailSignatures          EmailSignature[]
+  emailTemplates           EmailTemplate[]
+  emails                   Email[]
+  embeddings               Embedding[]
+  folders                  Folder[]
+  providerConfigs          ProviderConfig[]
+  providerContacts         ProviderContact[]         @relation("ProviderContactToTenant")
+  scheduledEmails          ScheduledEmail[]
+  subscription             Subscription?
+  contacts                 Contact[]                 @relation("ContactToTenant")
+  userLabels               UserLabel[]
+  users                    User[]
+  webhookSubscriptions     WebhookSubscription[]
+  userPreferences          UserPreferences[]         @relation("UserPreferencesToTenant")
+  dashboardPreferences     DashboardPreference[]     @relation("DashboardPreferenceToTenant")
+  mfaSecrets               MfaSecret[]               @relation("MfaSecretToTenant")
+  mfaBackupCodes           MfaBackupCode[]           @relation("MfaBackupCodeToTenant")
+  emailLabels              EmailLabel[]              @relation("EmailLabelToTenant")
+  emailAttachments         EmailAttachment[]         @relation("EmailAttachmentToTenant")
+  calendarEventAttachments CalendarEventAttachment[] @relation("CalendarEventAttachmentToTenant")
+  calendarSyncStates       CalendarSyncState[]       @relation("CalendarSyncStateToTenant")
+  sessions                 Session[]
+  trustedDevices           TrustedDevice[]
+  webauthnCredentials      WebAuthnCredential[]
+  aiMemoryHistory          AIMemoryHistory[]
+  libraryDocuments         LibraryDocument[]
+  dealActivities           DealActivity[]
+  mistralAgents            MistralAgent[]
 
   @@map("tenants")
 }
@@ -368,12 +368,12 @@ model Email {
   version              Int                     @default(1)
   isBodyFetched        Boolean                 @default(false)
   // Auto-Triage fields (Superhuman-like feature)
-  aiPriority           Int?                    // AI-calculated priority 1-5 (1=highest)
-  aiPriorityReason     String?                 // Explanation for priority
-  aiSentiment          String?                 // AI sentiment: positive, negative, neutral, mixed
+  aiPriority           Int? // AI-calculated priority 1-5 (1=highest)
+  aiPriorityReason     String? // Explanation for priority
+  aiSentiment          String? // AI sentiment: positive, negative, neutral, mixed
   aiLabels             String[]                @default([]) // AI-suggested labels
   isAutoTriaged        Boolean                 @default(false) // Flag if auto-triaged
-  autoTriagedAt        DateTime?               // When auto-triage ran
+  autoTriagedAt        DateTime? // When auto-triage ran
   actionQueue          ActionQueue[]
   analysis             EmailAnalysis?
   attachments          EmailAttachment[]
@@ -384,6 +384,7 @@ model Email {
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   embeddings           Embedding[]
 
+  @@id([id, tenantId])
   @@unique([tenantId, messageId, folder])
   @@unique([providerId, externalId])
   @@index([tenantId, folder, receivedAt])
@@ -402,7 +403,6 @@ model Email {
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([providerId, folder, isRead, isDeleted])
-  @@id([id, tenantId])
   @@map("emails")
 }
 
@@ -464,6 +464,7 @@ model Folder {
   provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@id([id, tenantId])
   @@unique([providerId, path])
   @@index([providerId, externalId])
   @@index([tenantId, providerId])
@@ -471,7 +472,6 @@ model Folder {
   @@index([tenantId, isSystem])
   @@index([providerId, parentId])
   @@index([lastSyncedAt])
-  @@id([id, tenantId])
   @@map("folders")
 }
 
@@ -581,10 +581,10 @@ model Embedding {
   contact        Contact?               @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
   tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@id([id, tenantId])
   @@index([tenantId])
   @@index([emailId])
   @@index([contactId])
-  @@id([id, tenantId])
   @@map("embeddings")
 }
 
@@ -623,6 +623,7 @@ model CalendarEvent {
   provider         ProviderConfig            @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@id([id, tenantId])
   @@unique([providerId, externalId])
   @@index([tenantId, startTime])
   @@index([tenantId, calendarId, startTime])
@@ -630,7 +631,6 @@ model CalendarEvent {
   @@index([iCalUID])
   @@index([tenantId, title])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
-  @@id([id, tenantId])
   @@map("calendar_events")
 }
 
@@ -749,6 +749,7 @@ model Contact {
   embeddings          Embedding[]
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@id([id, tenantId])
   @@index([tenantId, displayName])
   @@index([tenantId, lastName, firstName])
   @@index([tenantId, company])
@@ -757,7 +758,6 @@ model Contact {
   @@index([tenantId, relationshipScore])
   @@index([tenantId, isVip])
   @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin)
-  @@id([id, tenantId])
   @@map("unified_contacts")
 }
 
@@ -1016,10 +1016,10 @@ model AIMemoryHistory {
 model MistralAgent {
   id        String   @id @default(cuid())
   tenantId  String
-  agentType String   // 'web-search' | 'analytics'
-  locale    String   // 'en' | 'it'
-  agentId   String   // Mistral's agent UUID
-  model     String?  // Model used (e.g., 'mistral-small-latest')
+  agentType String // 'web-search' | 'analytics'
+  locale    String // 'en' | 'it'
+  agentId   String // Mistral's agent UUID
+  model     String? // Model used (e.g., 'mistral-small-latest')
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1161,7 +1161,7 @@ model EmailAnalysis {
 model ActionQueue {
   id              String       @id @default(cuid())
   tenantId        String
-  userId          String?      // Made optional for system actions and test scenarios
+  userId          String? // Made optional for system actions and test scenarios
   emailId         String?
   actionType      ActionType
   actionPayload   Json
@@ -1451,6 +1451,7 @@ enum Sentiment {
   POSITIVE
   NEUTRAL
   NEGATIVE
+  MIXED
   URGENT
 }
 

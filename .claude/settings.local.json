@@ -231,7 +231,8 @@
       "mcp__claude-flow_alpha__neural_patterns",
       "Bash(pip install:*)",
       "Bash(kaggle datasets download:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "WebFetch(domain:medium.com)"
     ],
     "deny": []
   }

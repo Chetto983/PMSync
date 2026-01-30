@@ -52,21 +52,7 @@
 
 ---
 
-## Phase 1: Installation & Setup (Day 1 Morning)
-
-### 1.1 Install AI Elements
-
-```bash
-cd frontend
-
-# Initialize shadcn/ui if not done
-npx shadcn@latest init
-
-# Install AI Elements components
-npx ai-elements@latest add conversation message prompt-input response tool
-```
-
-### 1.2 Verify Dependencies
+### 1.1 Verify Dependencies
 
 ```json
 // package.json - ensure these are present
@@ -104,7 +90,7 @@ frontend/components/ai/
 │   ├── MentionPopover.tsx  # @ and # mentions (EXTRACTED)
 │   └── HitlActionCard.tsx  # HITL approval (KEEP)
 ├── AiDashboard/            # OLD - deprecate after migration
-│   └── ... (keep for reference)
+│   └── ... delete old code!
 
 ### 2.2 Main Chat Component
 
