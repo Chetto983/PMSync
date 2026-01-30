@@ -2640,6 +2640,13 @@ export interface AppTranslations {
       retry: string;
       resolved: string;
       snoozed: string;
+      extraction: {
+        waitingFor: string;
+        commitments: string;
+        actionItems: string;
+        confidence: string;
+        emailType: string;
+      };
     };
     // HITL Inline Action Card
     inlineAction: {

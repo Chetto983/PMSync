@@ -21,10 +21,18 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
-import { FollowUpStatus, EmailFollowUp } from '@prisma/client';
+import { getErrorMessage } from '../../../../common/utils';
+import { FollowUpStatus, EmailFollowUp, Prisma } from '@prisma/client';
 import { MistralService } from '../../services/mistral.service';
 import { FollowUpQueueService } from './follow-up-queue.service';
 import { FollowUpScannerService, FollowUpScanResult, FollowUpScanOptions } from './follow-up-scanner.service';
+import {
+  FollowUpExtractionService,
+  EmailExtractionResult,
+  ExtractedCommitment,
+  ExtractedWaitingFor,
+  ExtractedActionItem,
+} from './follow-up-extraction.service';
 
 /**
  * Patterns that indicate an email needs follow-up (English + Italian)
@@ -99,6 +107,53 @@ const NO_FOLLOW_UP_PATTERNS = [
 ];
 
 /**
+ * LLM analysis result with confidence score
+ */
+export interface LlmAnalysisResult {
+  needsFollowUp: boolean;
+  confidence: number;
+  reason: string | null;
+  priority: 'HIGH' | 'NORMAL' | 'LOW';
+  dueDate: Date | null;
+}
+
+/**
+ * VIP domains/patterns that boost follow-up confidence
+ * Emails to/from these contacts are more likely to need follow-up
+ */
+const VIP_CONTACT_PATTERNS = [
+  /board\./i,
+  /investor/i,
+  /ceo@/i,
+  /cto@/i,
+  /cfo@/i,
+  /coo@/i,
+  /partner/i,
+  /legal/i,
+  /compliance/i,
+  /executive/i,
+  /director/i,
+  /vp@|vice\.?president/i,
+];
+
+/**
+ * Check if email involves VIP contact
+ */
+function isVipContact(email: string): boolean {
+  if (!email) return false;
+  return VIP_CONTACT_PATTERNS.some((pattern) => pattern.test(email));
+}
+
+/**
+ * Calculate confidence boost based on relationship (VIP contacts)
+ */
+function getRelationshipBoost(fromEmail: string, toEmails: string[]): number {
+  const allEmails = [fromEmail, ...toEmails].filter(Boolean);
+  const hasVip = allEmails.some((e) => isVipContact(e));
+  return hasVip ? 0.15 : 0;
+}
+
+/**
  * Input for creating a follow-up
  */
 export interface CreateFollowUpInput {
@@ -107,6 +162,12 @@ export interface CreateFollowUpInput {
   emailId: string;
   reason?: string;
   dueDate?: Date;
+  // Extraction data (uses types from follow-up-extraction.service)
+  commitments?: ExtractedCommitment[];
+  waitingFor?: ExtractedWaitingFor[];
+  actionItems?: ExtractedActionItem[];
+  emailType?: string;
+  confidence?: number;
 }
 
 /**
@@ -150,6 +211,7 @@ export class FollowUpService implements OnModuleInit {
     private readonly mistralService: MistralService,
     private readonly queueService: FollowUpQueueService,
     private readonly scannerService: FollowUpScannerService,
+    private readonly extractionService: FollowUpExtractionService,
   ) {
     this.enabled = this.configService.get<string>('AI_FOLLOW_UP_ENABLED', 'true') === 'true';
     this.defaultDueDays = this.configService.get<number>('AI_FOLLOW_UP_DUE_DAYS', 3);
@@ -223,13 +285,14 @@ export class FollowUpService implements OnModuleInit {
 
   /**
    * Analyze email with LLM for robust detection
+   * Returns confidence score (0.0-1.0) for integration with RAG scanner
    */
   async analyzeWithLlm(
     tenantId: string,
     userId: string,
     body: string,
     subject?: string,
-  ): Promise<{ needsFollowUp: boolean; reason: string | null; dueDate: Date | null }> {
+  ): Promise<{ needsFollowUp: boolean; confidence: number; reason: string | null; dueDate: Date | null }> {
     try {
       const prompt = `
 You are an expert Executive Assistant. Analyze this SENT email to determine if I need to track it for a follow-up.
@@ -245,15 +308,24 @@ Instructions:
 1. Ignore "FYI" emails, newsletters, or emails where the conversation is finished.
 2. Look for questions, requests, deadlines, or phrases like "let me know", "looking forward to", "waiting for".
 3. If follow-up is needed, determine the urgency and a specific reason.
-4. Extract a due date if mentioned. If not mentioned, estimate based on urgency (High=2 days, Normal=4 days, Low=7 days).
-5. Current Date: ${new Date().toISOString().split('T')[0]}
+4. Rate your confidence from 0.0 to 1.0 based on signal strength:
+   - 0.9-1.0: Explicit question or deadline mentioned
+   - 0.7-0.9: Clear request or "waiting for" phrase
+   - 0.5-0.7: Implicit expectation of response
+   - 0.3-0.5: Ambiguous, might need response
+   - 0.0-0.3: Probably doesn't need follow-up
+5. Extract a due date if mentioned. If not mentioned, estimate based on urgency (High=2 days, Normal=4 days, Low=7 days).
+6. IMPORTANT for urgency: Mark as "urgent" ONLY if there's an explicit deadline today/tomorrow, security alert, or explicit ASAP. Routine emails are NOT urgent.
+7. Current Date: ${new Date().toISOString().split('T')[0]}
 
-Return JSON ONLY:
+Return JSON ONLY (no markdown):
 {
   "needsFollowUp": boolean,
+  "confidence": number (0.0-1.0),
   "reason": "Concise human-readable reason (max 10 words)",
   "priority": "HIGH" | "NORMAL" | "LOW",
-  "suggestedDueInDays": number
+  "suggestedDueInDays": number,
+  "extractedDeadline": "YYYY-MM-DD" | null
 }
       `.trim();
 
@@ -269,22 +341,48 @@ Return JSON ONLY:
       const jsonStr = jsonMatch ? jsonMatch[0] : response;
       const result = JSON.parse(jsonStr);
 
-      if (!result.needsFollowUp) {
-        return { needsFollowUp: false, reason: null, dueDate: null };
+      // Extract confidence with fallback based on priority
+      let confidence = typeof result.confidence === 'number' ? result.confidence : 0.5;
+      if (confidence === 0.5 && result.priority) {
+        // Fallback: map priority to confidence if LLM didn't provide explicit confidence
+        const priorityConfidenceMap: Record<string, number> = {
+          'HIGH': 0.85,
+          'NORMAL': 0.65,
+          'LOW': 0.45,
+        };
+        confidence = priorityConfidenceMap[result.priority] ?? 0.5;
       }
 
-      const days = typeof result.suggestedDueInDays === 'number' ? result.suggestedDueInDays : this.defaultDueDays;
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + days);
+      if (!result.needsFollowUp) {
+        return { needsFollowUp: false, confidence, reason: null, dueDate: null };
+      }
+
+      // Calculate due date from extracted deadline or suggested days
+      let dueDate: Date;
+      if (result.extractedDeadline) {
+        const parsed = new Date(result.extractedDeadline);
+        if (!isNaN(parsed.getTime())) {
+          dueDate = parsed;
+        } else {
+          const days = typeof result.suggestedDueInDays === 'number' ? result.suggestedDueInDays : this.defaultDueDays;
+          dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + days);
+        }
+      } else {
+        const days = typeof result.suggestedDueInDays === 'number' ? result.suggestedDueInDays : this.defaultDueDays;
+        dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + days);
+      }
 
       return {
         needsFollowUp: true,
+        confidence,
         reason: result.reason || 'Follow-up detected by AI',
         dueDate
       };
     } catch (error) {
-      this.logger.warn(`LLM analysis failed: ${(error as Error).message}`);
-      return { needsFollowUp: false, reason: null, dueDate: null };
+      this.logger.warn(`LLM analysis failed: ${getErrorMessage(error)}`);
+      return { needsFollowUp: false, confidence: 0, reason: null, dueDate: null };
     }
   }
 
@@ -296,7 +394,18 @@ Return JSON ONLY:
    * Create a follow-up for an email
    */
   async createFollowUp(input: CreateFollowUpInput): Promise<EmailFollowUp> {
-    const { tenantId, userId, emailId, reason, dueDate } = input;
+    const {
+      tenantId,
+      userId,
+      emailId,
+      reason,
+      dueDate,
+      commitments,
+      waitingFor,
+      actionItems,
+      emailType,
+      confidence,
+    } = input;
 
     const existing = await this.prisma.emailFollowUp.findFirst({
       where: {
@@ -322,6 +431,12 @@ Return JSON ONLY:
         reason: reason ?? null,
         dueDate: finalDueDate,
         status: 'PENDING',
+        // Extraction data (persisted for VoltAgent access)
+        commitments: commitments?.length ? (commitments as unknown as Prisma.InputJsonValue) : undefined,
+        waitingFor: waitingFor?.length ? (waitingFor as unknown as Prisma.InputJsonValue) : undefined,
+        actionItems: actionItems?.length ? (actionItems as unknown as Prisma.InputJsonValue) : undefined,
+        emailType: emailType ?? undefined,
+        confidence: confidence ?? undefined,
       },
     });
 
@@ -336,7 +451,13 @@ Return JSON ONLY:
   }
 
   /**
-   * Analyze a sent email and create follow-up if needed
+   * Analyze a sent email and create follow-up if needed.
+   * Uses LLM confidence scoring with VIP relationship boost.
+   * Also extracts commitments, waiting-for items via FollowUpExtractionService.
+   *
+   * @param fromEmail - Optional sender email for VIP boost calculation
+   * @param toEmails - Optional recipient emails for VIP boost calculation
+   * @param isSentByUser - Whether email was sent by user (affects extraction perspective)
    */
   async analyzeAndCreateFollowUp(
     tenantId: string,
@@ -344,7 +465,10 @@ Return JSON ONLY:
     emailId: string,
     body: string,
     subject?: string,
-  ): Promise<EmailFollowUp | null> {
+    fromEmail?: string,
+    toEmails?: string[],
+    isSentByUser = true,
+  ): Promise<{ followUp: EmailFollowUp | null; extraction: EmailExtractionResult | null }> {
     // Fast filter: reject obvious junk
     let isObviousJunk = false;
     for (const pattern of NO_FOLLOW_UP_PATTERNS) {
@@ -355,23 +479,66 @@ Return JSON ONLY:
     }
 
     if (isObviousJunk) {
-      return null;
+      return { followUp: null, extraction: null };
     }
 
-    // Smart: LLM analysis
-    const llmResult = await this.analyzeWithLlm(tenantId, userId, body, subject);
+    // Run LLM analysis and extraction in parallel for efficiency
+    const [llmResult, extraction] = await Promise.all([
+      this.analyzeWithLlm(tenantId, userId, body, subject),
+      this.extractionService.extractFromEmail(tenantId, userId, subject || '', body, isSentByUser),
+    ]);
 
-    if (llmResult.needsFollowUp) {
-      return this.createFollowUp({
+    // Log extraction results for debugging
+    if (extraction.commitments.length > 0 || extraction.waitingFor.length > 0) {
+      this.logger.debug(
+        `Extraction for email ${emailId}: ${extraction.commitments.length} commitments, ${extraction.waitingFor.length} waiting-for`,
+      );
+    }
+
+    // Apply VIP relationship boost if email addresses provided
+    const relationshipBoost = fromEmail
+      ? getRelationshipBoost(fromEmail, toEmails || [])
+      : 0;
+    const adjustedConfidence = Math.min(1.0, (llmResult.confidence || 0.5) + relationshipBoost);
+
+    // Boost confidence if extraction found waiting-for items
+    const extractionBoost = extraction.waitingFor.length > 0 ? 0.1 : 0;
+    const finalConfidence = Math.min(1.0, adjustedConfidence + extractionBoost);
+
+    // Confidence threshold: 0.6 minimum to create follow-up
+    const CONFIDENCE_THRESHOLD = 0.6;
+
+    // Also create follow-up if extraction indicates response needed
+    const needsFollowUp = llmResult.needsFollowUp || extraction.needsResponse;
+
+    if (needsFollowUp && finalConfidence >= CONFIDENCE_THRESHOLD) {
+      // Build reason from LLM + extraction
+      let reason = llmResult.reason || 'Follow-up needed';
+      if (extraction.waitingFor.length > 0) {
+        reason = `Waiting for: ${extraction.waitingFor[0].waitingFor}`;
+      }
+      if (relationshipBoost > 0) {
+        reason = `${reason} (VIP contact)`;
+      }
+
+      const followUp = await this.createFollowUp({
         tenantId,
         userId,
         emailId,
-        reason: llmResult.reason ?? undefined,
+        reason,
         dueDate: llmResult.dueDate ?? undefined,
+        // Persist extraction data for VoltAgent access
+        commitments: extraction.commitments,
+        waitingFor: extraction.waitingFor,
+        actionItems: extraction.actionItems,
+        emailType: extraction.emailType,
+        confidence: finalConfidence,
       });
+
+      return { followUp, extraction };
     }
 
-    return null;
+    return { followUp: null, extraction };
   }
 
   /**

@@ -24,6 +24,10 @@ import {
   AlertTriangle,
   Calendar,
   Bell,
+  Target,
+  Hourglass,
+  ListTodo,
+  Gauge,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailFollowUp, EmailFollowUpStatus } from '@/hooks/queries';
@@ -231,6 +235,105 @@ export function FollowUpCard({
         >
           {followUp.reason || t.ai.followUpTracker.noReason}
         </Typography>
+
+        {/* Extraction Data: Waiting For */}
+        {followUp.waitingFor && followUp.waitingFor.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 1,
+              mb: 1,
+              p: 1,
+              bgcolor: alpha(theme.palette.warning.main, 0.08),
+              borderRadius: 1.5,
+            }}
+          >
+            <Hourglass size={14} color={theme.palette.warning.main} style={{ marginTop: 2 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'warning.dark' }}>
+                {t.ai.followUpTracker.extraction?.waitingFor || 'Waiting for'}
+              </Typography>
+              {followUp.waitingFor.slice(0, 2).map((item, idx) => (
+                <Typography key={idx} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                  • {item.waitingFor}{item.fromWhom ? ` (from ${item.fromWhom})` : ''}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        {/* Extraction Data: Commitments */}
+        {followUp.commitments && followUp.commitments.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 1,
+              mb: 1,
+              p: 1,
+              bgcolor: alpha(theme.palette.info.main, 0.08),
+              borderRadius: 1.5,
+            }}
+          >
+            <Target size={14} color={theme.palette.info.main} style={{ marginTop: 2 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark' }}>
+                {t.ai.followUpTracker.extraction?.commitments || 'You committed to'}
+              </Typography>
+              {followUp.commitments.slice(0, 2).map((item, idx) => (
+                <Typography key={idx} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                  • {item.commitment}{item.deadline ? ` (by ${item.deadline})` : ''}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        {/* Extraction Data: Action Items */}
+        {followUp.actionItems && followUp.actionItems.length > 0 && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 1,
+              mb: 1,
+              p: 1,
+              bgcolor: alpha(theme.palette.success.main, 0.08),
+              borderRadius: 1.5,
+            }}
+          >
+            <ListTodo size={14} color={theme.palette.success.main} style={{ marginTop: 2 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'success.dark' }}>
+                {t.ai.followUpTracker.extraction?.actionItems || 'Action items'}
+              </Typography>
+              {followUp.actionItems.slice(0, 2).map((item, idx) => (
+                <Typography key={idx} variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                  • {item.action}
+                  {item.priority === 'high' && (
+                    <Chip
+                      size="small"
+                      label="!"
+                      color="error"
+                      sx={{ ml: 0.5, height: 14, fontSize: '0.65rem', '& .MuiChip-label': { px: 0.5 } }}
+                    />
+                  )}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        {/* Confidence Score */}
+        {followUp.confidence !== undefined && followUp.confidence > 0 && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+            <Gauge size={12} color={theme.palette.text.secondary} />
+            <Typography variant="caption" color="text.secondary">
+              {t.ai.followUpTracker.extraction?.confidence || 'Confidence'}: {Math.round(followUp.confidence * 100)}%
+            </Typography>
+          </Box>
+        )}
 
         {/* Footer */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>

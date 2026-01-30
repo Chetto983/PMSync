@@ -32,6 +32,7 @@ export * from './daily-briefing.service';
 export * from './follow-up.service';
 export * from './follow-up-queue.service';
 export * from './follow-up-scanner.service';
+export * from './follow-up-extraction.service';
 export * from './writing-style.service';
 export * from './unified-knowledge.service';
 export * from './document-library.service';

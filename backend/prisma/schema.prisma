@@ -1043,6 +1043,12 @@ model EmailFollowUp {
   lastRemindedAt DateTime?
   resolvedAt     DateTime?
   resolvedBy     String?
+  // Extraction data (2026-01-30)
+  commitments    Json?          // Array of ExtractedCommitment
+  waitingFor     Json?          // Array of ExtractedWaitingFor
+  actionItems    Json?          // Array of ExtractedActionItem
+  emailType      String?        // receipt|notification|request|conversation|newsletter|alert
+  confidence     Float?         // LLM confidence score (0.0-1.0)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   email          Email          @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)

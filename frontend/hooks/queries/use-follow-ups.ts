@@ -20,6 +20,28 @@ import { voltAgentApi } from '@/lib/api/ai';
 
 export type EmailFollowUpStatus = 'PENDING' | 'REMINDED' | 'RESOLVED' | 'EXPIRED';
 
+// Extraction data types
+export interface ExtractedCommitment {
+  commitment: string;
+  deadline: string | null;
+  recipient: string | null;
+}
+
+export interface ExtractedWaitingFor {
+  waitingFor: string;
+  fromWhom: string | null;
+  deadline: string | null;
+}
+
+export interface ExtractedActionItem {
+  action: string;
+  deadline: string | null;
+  priority: 'high' | 'medium' | 'low';
+  category: 'respond' | 'schedule' | 'review' | 'follow_up' | 'other';
+}
+
+export type EmailType = 'receipt' | 'notification' | 'request' | 'conversation' | 'newsletter' | 'alert';
+
 export interface EmailFollowUp {
   id: string;
   tenantId: string;
@@ -33,6 +55,12 @@ export interface EmailFollowUp {
   resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
+  // Extraction data (2026-01-30)
+  commitments?: ExtractedCommitment[];
+  waitingFor?: ExtractedWaitingFor[];
+  actionItems?: ExtractedActionItem[];
+  emailType?: EmailType;
+  confidence?: number;
   email?: {
     id: string;
     subject?: string;

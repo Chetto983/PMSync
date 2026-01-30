@@ -933,6 +933,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         // TRIGGER FOLLOW-UP ANALYSIS (only for recent emails to avoid storm on full sync)
         // FIX (2025-01-05): Added recency check - old emails during full sync don't need AI analysis
         if (userId && !isJunkFolder(result.folder) && isRecentEmailHelper(result.receivedAt)) {
+          const isSentByUser = result.folder === 'SENT';
+          const toEmails = Array.isArray(result.to) ? result.to : [];
           this.followUpService
             .analyzeAndCreateFollowUp(
               tenantId,
@@ -940,6 +942,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
               result.id,
               result.bodyText || '',
               result.subject,
+              result.from || undefined,
+              toEmails,
+              isSentByUser,
             )
             .catch((err) => {
               // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures
@@ -1202,6 +1207,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         // TRIGGER FOLLOW-UP ANALYSIS (only for recent emails to avoid storm on full sync)
         // FIX (2025-01-05): Added recency check - old emails during full sync don't need AI analysis
         if (userId && !isJunkFolder(result.folder) && isRecentEmailHelper(result.receivedAt)) {
+          const isSentByUser = result.folder === 'SENT';
+          const toEmails = Array.isArray(result.to) ? result.to : [];
           this.followUpService
             .analyzeAndCreateFollowUp(
               tenantId,
@@ -1209,6 +1216,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
               result.id,
               result.bodyText || '',
               result.subject,
+              result.from || undefined,
+              toEmails,
+              isSentByUser,
             )
             .catch((err) => {
               // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures

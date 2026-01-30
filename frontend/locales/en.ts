@@ -2592,6 +2592,14 @@ export const en: AppTranslations = {
       retry: 'Retry',
       resolved: 'Follow-up resolved',
       snoozed: 'Follow-up snoozed',
+      // Extraction data (2026-01-30)
+      extraction: {
+        waitingFor: 'Waiting for',
+        commitments: 'You committed to',
+        actionItems: 'Action items',
+        confidence: 'Confidence',
+        emailType: 'Email type',
+      },
     },
     // HITL Inline Action Card translations
     inlineAction: {

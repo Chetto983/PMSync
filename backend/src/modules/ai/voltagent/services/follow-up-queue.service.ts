@@ -22,6 +22,7 @@ import {
   getDefaultJobOptions,
   getWorkerOptions,
 } from '../../../../common/config/queue.config';
+import { getErrorMessage } from '../../../../common/utils';
 
 /**
  * Queue name for follow-up reminders
@@ -123,7 +124,7 @@ export class FollowUpQueueService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log('Follow-up queue service initialized');
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = getErrorMessage(error);
       this.logger.error(`Failed to initialize follow-up queue: ${msg}`);
     }
   }
@@ -167,7 +168,7 @@ export class FollowUpQueueService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.debug(`Scheduled reminder for follow-up ${followUpId} at ${reminderDate.toISOString()}`);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = getErrorMessage(error);
       this.logger.error(`Failed to schedule reminder for ${followUpId}: ${msg}`);
     }
   }
@@ -185,7 +186,7 @@ export class FollowUpQueueService implements OnModuleInit, OnModuleDestroy {
         this.logger.debug(`Cancelled reminder for follow-up ${followUpId}`);
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = getErrorMessage(error);
       this.logger.warn(`Failed to cancel reminder for ${followUpId}: ${msg}`);
     }
   }
@@ -245,11 +246,14 @@ export class FollowUpQueueService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Check all due follow-ups (called by scheduled job)
+   * Uses parallel batch processing for efficiency
    */
   private async checkDueFollowUps(): Promise<void> {
     this.logger.debug('Checking due follow-ups...');
 
     const now = new Date();
+    const BATCH_SIZE = 100;
+    const CONCURRENCY = 10; // Process 10 at a time
 
     // Find all pending follow-ups that are due
     const dueFollowUps = await this.prisma.emailFollowUp.findMany({
@@ -262,25 +266,92 @@ export class FollowUpQueueService implements OnModuleInit, OnModuleDestroy {
         tenantId: true,
         userId: true,
       },
-      take: 100, // Process in batches
+      take: BATCH_SIZE,
     });
 
-    this.logger.debug(`Found ${dueFollowUps.length} due follow-ups`);
+    if (dueFollowUps.length === 0) {
+      this.logger.debug('No due follow-ups found');
+      return;
+    }
 
-    for (const followUp of dueFollowUps) {
-      try {
-        await this.processReminderJob({
-          data: {
-            followUpId: followUp.id,
-            tenantId: followUp.tenantId,
-            userId: followUp.userId,
-          },
-        } as Job<FollowUpReminderJobData>);
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Failed to process follow-up ${followUp.id}: ${msg}`);
+    this.logger.debug(`Found ${dueFollowUps.length} due follow-ups, processing in parallel`);
+
+    // Process in parallel batches for efficiency
+    let processed = 0;
+    let failed = 0;
+
+    for (let i = 0; i < dueFollowUps.length; i += CONCURRENCY) {
+      const batch = dueFollowUps.slice(i, i + CONCURRENCY);
+
+      const results = await Promise.allSettled(
+        batch.map((followUp) =>
+          this.processReminderJob({
+            data: {
+              followUpId: followUp.id,
+              tenantId: followUp.tenantId,
+              userId: followUp.userId,
+            },
+          } as Job<FollowUpReminderJobData>),
+        ),
+      );
+
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j];
+        if (result.status === 'fulfilled') {
+          processed++;
+        } else {
+          failed++;
+          this.logger.error(
+            `Failed to process follow-up ${batch[j].id}: ${getErrorMessage(result.reason)}`,
+          );
+        }
       }
     }
+
+    this.logger.log(`Due follow-ups check complete: ${processed} processed, ${failed} failed`);
+  }
+
+  /**
+   * Get queue statistics for monitoring
+   */
+  async getStats(): Promise<{
+    enabled: boolean;
+    ready: boolean;
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+  }> {
+    if (!this.queue) {
+      return {
+        enabled: this.enabled,
+        ready: false,
+        waiting: 0,
+        active: 0,
+        completed: 0,
+        failed: 0,
+        delayed: 0,
+      };
+    }
+
+    const [waiting, active, completed, failed, delayed] = await Promise.all([
+      this.queue.getWaitingCount(),
+      this.queue.getActiveCount(),
+      this.queue.getCompletedCount(),
+      this.queue.getFailedCount(),
+      this.queue.getDelayedCount(),
+    ]);
+
+    return {
+      enabled: this.enabled,
+      ready: true,
+      waiting,
+      active,
+      completed,
+      failed,
+      delayed,
+    };
   }
 
   /**

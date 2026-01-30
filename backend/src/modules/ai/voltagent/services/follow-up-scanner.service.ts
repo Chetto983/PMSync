@@ -17,6 +17,7 @@ import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { UnifiedRetriever } from '../rag/unified-retriever';
 import { getLocale, getTranslations } from '../locales';
+import { getErrorMessage } from '../../../../common/utils';
 
 /**
  * Result of a follow-up scan
@@ -267,7 +268,7 @@ export class FollowUpScannerService {
           }
         } catch (error) {
           stats.errors++;
-          const msg = error instanceof Error ? error.message : String(error);
+          const msg = getErrorMessage(error);
           this.logger.warn(`Failed to process follow-up candidate ${emailId}: ${msg}`);
         }
       }
@@ -278,10 +279,118 @@ export class FollowUpScannerService {
 
       return stats;
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = getErrorMessage(error);
       this.logger.error(`Follow-up RAG scan failed: ${msg}`);
       throw error;
     }
+  }
+
+  /**
+   * Detect stalled threads that may need follow-up.
+   * A thread is "stalled" if:
+   * - User sent last message
+   * - No reply received in N+ days (default: 7)
+   * - No existing follow-up for that email
+   *
+   * @param tenantId - Tenant ID for isolation
+   * @param userId - User ID
+   * @param staleDays - Days without reply to consider stalled (default: 7)
+   * @returns Array of stalled thread info
+   */
+  async detectStalledThreads(
+    tenantId: string,
+    userId: string,
+    staleDays = 7,
+  ): Promise<Array<{ emailId: string; threadId: string; daysSinceLastMessage: number; subject: string | null }>> {
+    if (!this.enabled) {
+      return [];
+    }
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - staleDays);
+
+    // Get user's email addresses
+    const userProviders = await this.prisma.providerConfig.findMany({
+      where: { tenantId, userId },
+      select: { email: true },
+    });
+    const userEmails = userProviders
+      .map((p) => p.email?.toLowerCase())
+      .filter((e): e is string => Boolean(e));
+
+    if (!userEmails.length) {
+      this.logger.debug('No user email addresses found for stall detection');
+      return [];
+    }
+
+    const stalledThreads: Array<{
+      emailId: string;
+      threadId: string;
+      daysSinceLastMessage: number;
+      subject: string | null;
+    }> = [];
+
+    // Find user's sent emails older than cutoff with thread context
+    const userSentEmails = await this.prisma.email.findMany({
+      where: {
+        tenantId,
+        sentAt: { lt: cutoffDate },
+        threadId: { not: null },
+        // Check if from contains any of user's emails
+        OR: userEmails.map((email) => ({
+          from: { contains: email, mode: 'insensitive' as const },
+        })),
+      },
+      select: { id: true, threadId: true, sentAt: true, subject: true, from: true },
+      orderBy: { sentAt: 'desc' },
+      take: 100, // Process in batches
+    });
+
+    for (const email of userSentEmails) {
+      if (!email.threadId || !email.sentAt) continue;
+
+      // Check if there's a newer message in thread from someone else
+      const newerReply = await this.prisma.email.findFirst({
+        where: {
+          tenantId,
+          threadId: email.threadId,
+          sentAt: { gt: email.sentAt },
+          // Not from any of the user's emails
+          NOT: {
+            OR: userEmails.map((userEmail) => ({
+              from: { contains: userEmail, mode: 'insensitive' as const },
+            })),
+          },
+        },
+      });
+
+      if (!newerReply) {
+        // Check if follow-up already exists
+        const existingFollowUp = await this.prisma.emailFollowUp.findFirst({
+          where: {
+            tenantId,
+            userId,
+            emailId: email.id,
+            status: { in: ['PENDING', 'REMINDED'] },
+          },
+        });
+
+        if (!existingFollowUp) {
+          const daysSince = Math.floor(
+            (Date.now() - email.sentAt.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          stalledThreads.push({
+            emailId: email.id,
+            threadId: email.threadId,
+            daysSinceLastMessage: daysSince,
+            subject: email.subject,
+          });
+        }
+      }
+    }
+
+    this.logger.log(`Detected ${stalledThreads.length} stalled threads (${staleDays}+ days)`);
+    return stalledThreads;
   }
 
   /**

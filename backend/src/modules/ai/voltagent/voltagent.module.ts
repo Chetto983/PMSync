@@ -41,6 +41,7 @@ import { DailyBriefingService } from './services/daily-briefing.service';
 import { FollowUpService } from './services/follow-up.service';
 import { FollowUpQueueService } from './services/follow-up-queue.service';
 import { FollowUpScannerService } from './services/follow-up-scanner.service';
+import { FollowUpExtractionService } from './services/follow-up-extraction.service';
 import { AnalyticsService } from './services/analytics.service';
 import { UnifiedKnowledgeService } from './services/unified-knowledge.service';
 import { DocumentLibraryService } from './services/document-library.service';
@@ -115,6 +116,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     FollowUpQueueService,
     FollowUpScannerService,
     FollowUpService,
+    FollowUpExtractionService,
     AnalyticsService,
     UnifiedKnowledgeService,
     DocumentLibraryService,
