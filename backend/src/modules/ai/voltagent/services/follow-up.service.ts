@@ -8,31 +8,27 @@
  * - Pattern detection for emails needing follow-up (questions, requests)
  * - Automatic follow-up creation for sent emails
  * - Reply detection to auto-resolve follow-ups
- * - Reminder scheduling via BullMQ
- * - Redis caching for fast retrieval (designed for >1000 users)
  *
- * Architecture:
- * - PostgreSQL (Prisma) for persistent storage
- * - BullMQ for scheduled reminder jobs
- * - Redis for upcoming follow-ups cache
+ * Architecture (SRP Refactored):
+ * - FollowUpService: Core CRUD + detection logic (this file)
+ * - FollowUpQueueService: BullMQ scheduler + reminders
+ * - FollowUpScannerService: RAG-based batch scanning
  *
  * Reference:
  * - docs/AI_SECRETARY_IMPLEMENTATION_PLAN.md Phase 1
  */
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
-import { Queue, Worker, Job } from 'bullmq';
 import { FollowUpStatus, EmailFollowUp } from '@prisma/client';
 import { MistralService } from '../../services/mistral.service';
-import { EmbeddingsService } from '../../services/embeddings.service';
-import { UnifiedRetriever } from '../rag/unified-retriever';
-import { getLocale, getTranslations } from '../locales';
-//import { CorrelationContext } from '../../../../common/services/correlation-context.service';
+import { FollowUpQueueService } from './follow-up-queue.service';
+import { FollowUpScannerService, FollowUpScanResult, FollowUpScanOptions } from './follow-up-scanner.service';
 
 /**
  * Patterns that indicate an email needs follow-up (English + Italian)
+ * Used as fast pre-filter before LLM analysis
  */
 const FOLLOW_UP_PATTERNS = [
   // Questions (universal)
@@ -56,7 +52,6 @@ const FOLLOW_UP_PATTERNS = [
   /circle\s+back/i,
 
   // === ITALIAN ===
-  // Requests
   /per\s+favore\s+(fammi\s+sapere|rispondi|conferma|invia|mandami)/i,
   /potresti\s+(per\s+favore\s+)?(confermare|inviarmi|mandarmi|farmi\s+sapere)/i,
   /puoi\s+(per\s+favore\s+)?(confermare|inviarmi|mandarmi|controllare)/i,
@@ -68,12 +63,10 @@ const FOLLOW_UP_PATTERNS = [
   /attendo\s+(una\s+)?(tua\s+)?(risposta|conferma|riscontro)/i,
   /in\s+attesa\s+di\s+(un\s+)?(tuo\s+)?(riscontro|feedback|risposta)/i,
   /aspetto\s+(una\s+)?(tua\s+)?(risposta|conferma)/i,
-  // Deadlines
   /entro\s+(venerd[ìi]|luned[ìi]|marted[ìi]|mercoled[ìi]|gioved[ìi]|fine\s+(settimana|mese|giornata))/i,
   /prima\s+(di|del|della)\s+(venerd[ìi]|luned[ìi]|riunione|meeting)/i,
   /ho\s+bisogno\s+(di\s+una\s+risposta\s+)?entro/i,
   /mi\s+serve\s+entro/i,
-  // Follow-up indicators
   /ti\s+ricontatto/i,
   /ci\s+sentiamo/i,
   /ci\s+aggiorniamo/i,
@@ -140,26 +133,13 @@ export interface FollowUpStats {
   overdue: number;
 }
 
-/**
- * BullMQ job data for follow-up reminders
- */
-interface FollowUpReminderJobData {
-  followUpId: string;
-  tenantId: string;
-  userId: string;
-}
-
 @Injectable()
-export class FollowUpService implements OnModuleInit, OnModuleDestroy {
+export class FollowUpService implements OnModuleInit {
   private readonly logger = new Logger(FollowUpService.name);
   private readonly enabled: boolean;
-  private queue: Queue<FollowUpReminderJobData> | null = null;
-  private worker: Worker<FollowUpReminderJobData> | null = null;
 
   // Configuration
   private readonly defaultDueDays: number;
-  private readonly maxReminders: number;
-  private readonly reminderIntervalDays: number;
   private readonly cacheKeyPrefix = 'follow-up';
   private readonly cacheTtl = 300; // 5 minutes
 
@@ -168,12 +148,11 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     private readonly mistralService: MistralService,
-    private readonly embeddingsService: EmbeddingsService,
+    private readonly queueService: FollowUpQueueService,
+    private readonly scannerService: FollowUpScannerService,
   ) {
     this.enabled = this.configService.get<string>('AI_FOLLOW_UP_ENABLED', 'true') === 'true';
     this.defaultDueDays = this.configService.get<number>('AI_FOLLOW_UP_DUE_DAYS', 3);
-    this.maxReminders = this.configService.get<number>('AI_FOLLOW_UP_MAX_REMINDERS', 3);
-    this.reminderIntervalDays = this.configService.get<number>('AI_FOLLOW_UP_REMINDER_INTERVAL', 2);
   }
 
   async onModuleInit(): Promise<void> {
@@ -182,63 +161,17 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    try {
-      const redisHost = this.configService.get<string>('REDIS_HOST', 'localhost');
-      const redisPort = this.configService.get<number>('REDIS_PORT', 6379);
-      const redisPassword = this.configService.get<string>('REDIS_PASSWORD');
+    // Wire up callbacks for queue and scanner services
+    this.queueService.setReminderProcessor(
+      this.processReminder.bind(this),
+    );
 
-      const connection = {
-        host: redisHost,
-        port: redisPort,
-        password: redisPassword || undefined,
-      };
+    this.scannerService.setCallbacks(
+      this.createFollowUpFromScan.bind(this),
+      this.analyzeWithLlm.bind(this),
+    );
 
-      // Initialize BullMQ queue for follow-up reminders
-      this.queue = new Queue<FollowUpReminderJobData>('ai-follow-up-reminders', {
-        connection,
-        defaultJobOptions: {
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
-          removeOnComplete: { count: 1000 },
-          removeOnFail: { count: 500 },
-        },
-      });
-
-      // Initialize worker to process reminder jobs
-      this.worker = new Worker<FollowUpReminderJobData>(
-        'ai-follow-up-reminders',
-        async (job: Job<FollowUpReminderJobData>) => this.processReminderJob(job),
-        { connection, concurrency: 5 },
-      );
-
-      this.worker.on('completed', (job) => {
-        this.logger.debug(`Follow-up reminder job ${job.id} completed`);
-      });
-
-      this.worker.on('failed', (job, err) => {
-        this.logger.error(`Follow-up reminder job ${job?.id} failed: ${err.message}`);
-      });
-
-      // Schedule recurring check for due follow-ups (every 6 hours)
-      await this.queue.upsertJobScheduler(
-        'check-due-follow-ups',
-        { pattern: '0 */6 * * *' }, // Every 6 hours
-        {
-          name: 'check-due-follow-ups',
-          data: { followUpId: '', tenantId: '', userId: '' }, // Placeholder - actual job handles all tenants
-        },
-      );
-
-      this.logger.log('Follow-up tracking service initialized');
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to initialize follow-up service: ${msg}`);
-    }
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.worker?.close();
-    await this.queue?.close();
+    this.logger.log('Follow-up tracking service initialized');
   }
 
   // ==========================================================================
@@ -246,7 +179,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
   // ==========================================================================
 
   /**
-   * Analyze email body to detect if follow-up is needed
+   * Analyze email body to detect if follow-up is needed (fast regex filter)
    */
   analyzeForFollowUp(body: string, subject?: string): { needsFollowUp: boolean; reason: string | null } {
     // Check if it's an informational email first
@@ -291,14 +224,13 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
   /**
    * Analyze email with LLM for robust detection
    */
-  private async analyzeWithLlm(
+  async analyzeWithLlm(
     tenantId: string,
     userId: string,
     body: string,
     subject?: string,
   ): Promise<{ needsFollowUp: boolean; reason: string | null; dueDate: Date | null }> {
     try {
-      // Prompt construction
       const prompt = `
 You are an expert Executive Assistant. Analyze this SENT email to determine if I need to track it for a follow-up.
 I only need to track emails where I am expecting a reply, action, or confirmation from the recipient.
@@ -313,7 +245,7 @@ Instructions:
 1. Ignore "FYI" emails, newsletters, or emails where the conversation is finished.
 2. Look for questions, requests, deadlines, or phrases like "let me know", "looking forward to", "waiting for".
 3. If follow-up is needed, determine the urgency and a specific reason.
-4. Extract a due date if mentioned (e.g., "by Friday" -> date of next Friday). If not mentioned, estimate based on urgency (High=2 days, Normal=4 days, Low=7 days).
+4. Extract a due date if mentioned. If not mentioned, estimate based on urgency (High=2 days, Normal=4 days, Low=7 days).
 5. Current Date: ${new Date().toISOString().split('T')[0]}
 
 Return JSON ONLY:
@@ -333,7 +265,6 @@ Return JSON ONLY:
         { timeoutMs: 15000, conversationId: `follow-up-${Date.now()}` }
       );
 
-      // Parse JSON from response (handle potential markdown blocks)
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       const jsonStr = jsonMatch ? jsonMatch[0] : response;
       const result = JSON.parse(jsonStr);
@@ -342,7 +273,6 @@ Return JSON ONLY:
         return { needsFollowUp: false, reason: null, dueDate: null };
       }
 
-      // Calculate due date
       const days = typeof result.suggestedDueInDays === 'number' ? result.suggestedDueInDays : this.defaultDueDays;
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + days);
@@ -352,12 +282,8 @@ Return JSON ONLY:
         reason: result.reason || 'Follow-up detected by AI',
         dueDate
       };
-
     } catch (error) {
-      this.logger.warn(`LLM analysis failed, falling back to regex: ${(error as Error).message}`);
-      // Fallback: If LLM fails, we don't know, so return false (or true based on regex? Caller handles regex first)
-      // Actually, let's treat LLM error as "no opinion" -> let caller decide or fail open.
-      // For now, return false to avoid blocking, but let caller use regex result if this fails.
+      this.logger.warn(`LLM analysis failed: ${(error as Error).message}`);
       return { needsFollowUp: false, reason: null, dueDate: null };
     }
   }
@@ -372,7 +298,6 @@ Return JSON ONLY:
   async createFollowUp(input: CreateFollowUpInput): Promise<EmailFollowUp> {
     const { tenantId, userId, emailId, reason, dueDate } = input;
 
-    // Check if follow-up already exists for this email
     const existing = await this.prisma.emailFollowUp.findFirst({
       where: {
         tenantId,
@@ -387,22 +312,22 @@ Return JSON ONLY:
       return existing;
     }
 
-    // Create follow-up
+    const finalDueDate = dueDate || this.getDefaultDueDate();
+
     const followUp = await this.prisma.emailFollowUp.create({
       data: {
         tenantId,
         userId,
         emailId,
         reason: reason ?? null,
-        dueDate: dueDate || this.getDefaultDueDate(),
+        dueDate: finalDueDate,
         status: 'PENDING',
       },
     });
 
-    // Schedule reminder job
-    await this.scheduleReminder(followUp.id, followUp.dueDate, tenantId, userId);
+    // Schedule reminder via queue service
+    await this.queueService.scheduleReminder(followUp.id, finalDueDate, tenantId, userId);
 
-    // Invalidate cache
     await this.invalidateCache(tenantId, userId);
 
     this.logger.log(`Created follow-up ${followUp.id} for email ${emailId}`);
@@ -420,12 +345,7 @@ Return JSON ONLY:
     body: string,
     subject?: string,
   ): Promise<EmailFollowUp | null> {
-
-    // 1. FAST: Regex Filter (Reject obvious noise)
-    // If it matches "NO_FOLLOW_UP_PATTERNS", we skip it immediately to save LLM cost.
-    const { needsFollowUp: _isJunk } = this.analyzeForFollowUp(body, subject); // Wait, analyzeForFollowUp returns needsFollowUp: false for junk.
-    // Let's check specifically for NEGATIVE patterns first. (analyzeForFollowUp combines logic)
-
+    // Fast filter: reject obvious junk
     let isObviousJunk = false;
     for (const pattern of NO_FOLLOW_UP_PATTERNS) {
       if (pattern.test(body) || (subject && pattern.test(subject))) {
@@ -438,55 +358,26 @@ Return JSON ONLY:
       return null;
     }
 
-    // 2. SMART: LLM Analysis
-    // We send non-junk emails to LLM for robust detection and reason extraction.
+    // Smart: LLM analysis
     const llmResult = await this.analyzeWithLlm(tenantId, userId, body, subject);
 
-    // 3. FALLBACK: Regex Pattern Match
-    // If LLM failed (exception) or wasn't sure, we *could* fallback to regex.
-    // But currently analyzeWithLlm swallows errors and returns false.
-    // Let's rely on LLM if it returned a result. 
-    // If LLM said specific "false", we trust it. 
-    // If LLM crashed (logged warn), we might want to check regex.
-
-    // Simplification: Trust LLM primarily. If LLM says TRUE, create it.
-    // If LLM says FALSE, check if Regex was SUPER confident? No, that defeats "don't be stupid".
-    // If LLM is unavailable (error caught), we should fallback to regex.
-
-    const finalDecision = llmResult;
-
-    // If LLM returned false/null BUT it was an error case (implicit in our implementation catch block?) 
-    // Our implementation returns { needsFollowUp: false } on error.
-    // Let's refine analyzeWithLlm to return *undefined* on error to distinguish.
-    // For now, let's just stick to "LLM overrides Regex" unless LLM crashes.
-    // To detect crash, we can check if reason is null but we suspect...
-    // Actually, simpler:
-    // If LLM found something, use it.
-    // If not, use Regex as backup? No, Regex is "stupid".
-    // Let's trust LLM result if it's positive.
-
-    if (finalDecision.needsFollowUp) {
+    if (llmResult.needsFollowUp) {
       return this.createFollowUp({
         tenantId,
         userId,
         emailId,
-        reason: finalDecision.reason ?? undefined,
-        dueDate: finalDecision.dueDate ?? undefined,
+        reason: llmResult.reason ?? undefined,
+        dueDate: llmResult.dueDate ?? undefined,
       });
     }
 
-    // 4. (Optimal) If LLM said NO, we trust it.
     return null;
   }
 
   /**
    * Get a specific follow-up
    */
-  async getFollowUp(
-    tenantId: string,
-    userId: string,
-    id: string,
-  ): Promise<EmailFollowUp | null> {
+  async getFollowUp(tenantId: string, userId: string, id: string): Promise<EmailFollowUp | null> {
     return this.prisma.emailFollowUp.findFirst({
       where: { id, tenantId, userId },
       include: {
@@ -513,16 +404,9 @@ Return JSON ONLY:
     userId: string,
     options: ListFollowUpsOptions = {},
   ): Promise<EmailFollowUp[]> {
-    const {
-      status,
-      limit = 50,
-      offset = 0,
-      orderBy = 'dueDate',
-      orderDir = 'asc',
-    } = options;
+    const { status, limit = 50, offset = 0, orderBy = 'dueDate', orderDir = 'asc' } = options;
 
     const where: Record<string, unknown> = { tenantId, userId };
-
     if (status) {
       where.status = Array.isArray(status) ? { in: status } : status;
     }
@@ -560,17 +444,16 @@ Return JSON ONLY:
         return cached.slice(0, limit);
       }
     } catch {
-      // Cache miss, continue to database
+      // Cache miss
     }
 
     const followUps = await this.listFollowUps(tenantId, userId, {
       status: ['PENDING', 'REMINDED'],
-      limit: Math.max(limit, 50), // Cache more than requested
+      limit: Math.max(limit, 50),
       orderBy: 'dueDate',
       orderDir: 'asc',
     });
 
-    // Cache results
     try {
       await this.cacheService.set(cacheKey, followUps, { ttl: this.cacheTtl });
     } catch {
@@ -584,14 +467,12 @@ Return JSON ONLY:
    * Get overdue follow-ups
    */
   async getOverdueFollowUps(tenantId: string, userId: string, limit = 20): Promise<EmailFollowUp[]> {
-    const now = new Date();
-
     return this.prisma.emailFollowUp.findMany({
       where: {
         tenantId,
         userId,
         status: { in: ['PENDING', 'REMINDED'] },
-        dueDate: { lt: now },
+        dueDate: { lt: new Date() },
       },
       orderBy: { dueDate: 'asc' },
       take: limit,
@@ -626,16 +507,14 @@ Return JSON ONLY:
       this.prisma.emailFollowUp.count({ where: { tenantId, userId, status: 'EXPIRED' } }),
       this.prisma.emailFollowUp.count({
         where: {
-          tenantId,
-          userId,
+          tenantId, userId,
           status: { in: ['PENDING', 'REMINDED'] },
           dueDate: { gte: startOfToday, lt: endOfToday },
         },
       }),
       this.prisma.emailFollowUp.count({
         where: {
-          tenantId,
-          userId,
+          tenantId, userId,
           status: { in: ['PENDING', 'REMINDED'] },
           dueDate: { lt: now },
         },
@@ -666,20 +545,16 @@ Return JSON ONLY:
       throw new Error('Follow-up not found');
     }
 
-    const resolvedAt = new Date();
     await this.prisma.emailFollowUp.updateMany({
       where: { id, tenantId, userId },
       data: {
         status: 'RESOLVED',
-        resolvedAt,
+        resolvedAt: new Date(),
         resolvedBy,
       },
     });
 
-    // Remove scheduled reminder
-    await this.removeScheduledReminder(id);
-
-    // Invalidate cache
+    await this.queueService.cancelReminder(id);
     await this.invalidateCache(tenantId, userId);
 
     this.logger.log(`Resolved follow-up ${id} by ${resolvedBy}`);
@@ -697,10 +572,8 @@ Return JSON ONLY:
 
   /**
    * Check if a reply was received for a follow-up email
-   * Called when new emails arrive to auto-resolve follow-ups
    */
   async checkForReplyByEmailId(tenantId: string, userId: string, originalEmailId: string): Promise<boolean> {
-    // Find follow-up for the original email
     const followUp = await this.prisma.emailFollowUp.findFirst({
       where: {
         tenantId,
@@ -721,12 +594,7 @@ Return JSON ONLY:
   /**
    * Snooze a follow-up (extend due date)
    */
-  async snoozeFollowUp(
-    tenantId: string,
-    userId: string,
-    id: string,
-    newDueDate: Date,
-  ): Promise<EmailFollowUp> {
+  async snoozeFollowUp(tenantId: string, userId: string, id: string, newDueDate: Date): Promise<EmailFollowUp> {
     const followUp = await this.prisma.emailFollowUp.findFirst({
       where: { id, tenantId, userId },
     });
@@ -739,16 +607,13 @@ Return JSON ONLY:
       where: { id, tenantId, userId },
       data: {
         dueDate: newDueDate,
-        status: 'PENDING', // Reset to pending
-        remindCount: 0, // Reset reminder count
+        status: 'PENDING',
+        remindCount: 0,
       },
     });
 
-    // Reschedule reminder
-    await this.removeScheduledReminder(id);
-    await this.scheduleReminder(id, newDueDate, tenantId, userId);
-
-    // Invalidate cache
+    await this.queueService.cancelReminder(id);
+    await this.queueService.scheduleReminder(id, newDueDate, tenantId, userId);
     await this.invalidateCache(tenantId, userId);
 
     this.logger.log(`Snoozed follow-up ${id} to ${newDueDate.toISOString()}`);
@@ -767,11 +632,7 @@ Return JSON ONLY:
   /**
    * Delete a follow-up
    */
-  async deleteFollowUp(
-    tenantId: string,
-    userId: string,
-    id: string,
-  ): Promise<void> {
+  async deleteFollowUp(tenantId: string, userId: string, id: string): Promise<void> {
     const followUp = await this.prisma.emailFollowUp.findFirst({
       where: { id, tenantId, userId },
     });
@@ -784,74 +645,47 @@ Return JSON ONLY:
       where: { id, tenantId, userId },
     });
 
-    await this.removeScheduledReminder(id);
+    await this.queueService.cancelReminder(id);
     await this.invalidateCache(tenantId, userId);
 
     this.logger.log(`Deleted follow-up ${id}`);
   }
 
   // ==========================================================================
-  // SCHEDULING & REMINDERS
+  // RAG SCANNING (Delegated to FollowUpScannerService)
   // ==========================================================================
 
   /**
-   * Schedule a reminder job for a follow-up
+   * Scan emails for follow-up candidates using RAG semantic search.
+   * Delegates to FollowUpScannerService.
    */
-  private async scheduleReminder(
-    followUpId: string,
-    dueDate: Date,
+  async scanEmailsForFollowUps(
     tenantId: string,
     userId: string,
-  ): Promise<void> {
-    if (!this.queue) return;
-
-    const delay = Math.max(0, dueDate.getTime() - Date.now());
-
-    await this.queue.add(
-      'follow-up-reminder',
-      { followUpId, tenantId, userId },
-      {
-        jobId: `follow-up-${followUpId}`,
-        delay,
-      },
-    );
+    options: FollowUpScanOptions = {},
+  ): Promise<FollowUpScanResult> {
+    return this.scannerService.scanEmailsForFollowUps(tenantId, userId, options);
   }
 
-  /**
-   * Remove a scheduled reminder
-   */
-  private async removeScheduledReminder(followUpId: string): Promise<void> {
-    if (!this.queue) return;
-
-    const job = await this.queue.getJob(`follow-up-${followUpId}`);
-    if (job) {
-      await job.remove();
-    }
-  }
+  // ==========================================================================
+  // CALLBACKS (for Queue/Scanner services)
+  // ==========================================================================
 
   /**
-   * Process a reminder job
+   * Process a reminder (callback for FollowUpQueueService)
    */
-  private async processReminderJob(job: Job<FollowUpReminderJobData>): Promise<void> {
-    // Handle recurring check for all due follow-ups
-    if (job.name === 'check-due-follow-ups') {
-      await this.checkAllDueFollowUps();
-      return;
-    }
-
-    const { followUpId, tenantId, userId } = job.data;
-
-    // Get follow-up
+  private async processReminder(followUpId: string, tenantId: string, userId: string): Promise<void> {
     const followUp = await this.prisma.emailFollowUp.findFirst({
       where: { id: followUpId, tenantId, userId },
     });
 
     if (!followUp || followUp.status === 'RESOLVED' || followUp.status === 'EXPIRED') {
-      return; // Already resolved or expired
+      return;
     }
 
-    // Check if max reminders reached
-    if (followUp.remindCount >= this.maxReminders) {
+    const maxReminders = this.configService.get<number>('AI_FOLLOW_UP_MAX_REMINDERS', 3);
+
+    if ((followUp.remindCount ?? 0) >= maxReminders) {
       await this.prisma.emailFollowUp.updateMany({
         where: { id: followUpId, tenantId, userId },
         data: { status: 'EXPIRED', resolvedBy: 'AUTO_EXPIRED', resolvedAt: new Date() },
@@ -860,7 +694,6 @@ Return JSON ONLY:
       return;
     }
 
-    // Update reminder count and status
     await this.prisma.emailFollowUp.updateMany({
       where: { id: followUpId, tenantId, userId },
       data: {
@@ -870,250 +703,27 @@ Return JSON ONLY:
       },
     });
 
-    // Invalidate cache
     await this.invalidateCache(tenantId, userId);
-
-    // Schedule next reminder
-    const nextDueDate = new Date(Date.now() + this.reminderIntervalDays * 24 * 60 * 60 * 1000);
-    await this.scheduleReminder(followUpId, nextDueDate, tenantId, userId);
-
     this.logger.log(`Sent reminder for follow-up ${followUpId}`);
   }
 
   /**
-   * Check all due follow-ups across all tenants
-   * Called by recurring job
+   * Create follow-up from scanner (callback for FollowUpScannerService)
    */
-  private async checkAllDueFollowUps(): Promise<void> {
-    const now = new Date();
-
-    const dueFollowUps = await this.prisma.emailFollowUp.findMany({
-      where: {
-        status: 'PENDING',
-        dueDate: { lte: now },
-      },
-      take: 1000, // Process in batches
-    });
-
-    this.logger.log(`Found ${dueFollowUps.length} due follow-ups to process`);
-
-    for (const followUp of dueFollowUps) {
-      try {
-        await this.processReminderJob({
-          data: {
-            followUpId: followUp.id,
-            tenantId: followUp.tenantId,
-            userId: followUp.userId,
-          },
-        } as Job<FollowUpReminderJobData>);
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Failed to process follow-up ${followUp.id}: ${msg}`);
-      }
-    }
-  }
-
-  // ==========================================================================
-  // RAG-BASED FOLLOW-UP SCANNING
-  // ==========================================================================
-
-  /**
-   * Scan emails for follow-up candidates using RAG semantic search.
-   *
-   * This method uses vector similarity search to find emails semantically
-   * related to follow-up patterns, then applies confidence thresholds:
-   * - High confidence (score > 0.8): Create follow-up directly
-   * - Medium confidence (0.6-0.8): Verify with LLM
-   * - Low confidence (< 0.6): Skip
-   *
-   * Benefits over regex-based approach:
-   * - Semantic understanding of follow-up intent
-   * - Reduced LLM calls (only medium confidence needs verification)
-   * - Better accuracy for complex follow-up patterns
-   *
-   * @param tenantId - Tenant ID for isolation
-   * @param userId - User ID
-   * @param options - Optional configuration
-   */
-  async scanEmailsForFollowUps(
+  private async createFollowUpFromScan(
     tenantId: string,
     userId: string,
-    options: {
-      locale?: string;
-      maxCandidates?: number;
-      highConfidenceThreshold?: number;
-      mediumConfidenceThreshold?: number;
-    } = {},
-  ): Promise<{ created: number; skipped: number; errors: number }> {
-    if (!this.enabled) {
-      return { created: 0, skipped: 0, errors: 0 };
-    }
-
-    const {
-      locale = 'en',
-      maxCandidates = 50,
-      highConfidenceThreshold = 0.8,
-      mediumConfidenceThreshold = 0.6,
-    } = options;
-
-    const stats = { created: 0, skipped: 0, errors: 0 };
-
-    try {
-      // Create UnifiedRetriever for RAG-based search
-      const retriever = new UnifiedRetriever({
-        tenantId,
-        userId,
-        locale: getLocale(locale),
-        prisma: this.prisma,
-        mistralService: this.mistralService,
-        embeddingsService: this.embeddingsService,
-        emailLimit: maxCandidates,
-      });
-
-      // Semantic query for follow-up patterns (locale-aware)
-      const resolvedLocale = getLocale(locale);
-      const t = getTranslations(resolvedLocale);
-      const followUpQuery = t.followUp.ragQuery;
-
-      // Search for candidate emails using RAG
-      const results = await retriever.searchSources(followUpQuery, ['emails']);
-
-      // Find email source results
-      const emailSource = results.find((r) => r.source === 'emails');
-      if (!emailSource || !emailSource.items.length) {
-        this.logger.debug('No follow-up candidates found via RAG');
-        return stats;
-      }
-
-      // Get user's sent email addresses to filter for sent emails
-      const userProviders = await this.prisma.providerConfig.findMany({
-        where: { tenantId, userId },
-        select: { email: true },
-      });
-      const userEmails = new Set(userProviders.map((p) => p.email?.toLowerCase()).filter(Boolean));
-
-      // Process candidates
-      for (const item of emailSource.items) {
-        const emailId = item.metadata?.emailId as string;
-        if (!emailId) continue;
-
-        // Fetch full email to check if sent and has reply
-        const email = await this.prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: {
-            id: true,
-            from: true,
-            bodyText: true,
-            subject: true,
-            threadId: true,
-          },
-        });
-
-        if (!email) {
-          stats.skipped++;
-          continue;
-        }
-
-        // Check if this is a sent email (from user)
-        const fromLower = email.from?.toLowerCase() || '';
-        const isSentByUser = Array.from(userEmails).some((userEmail) =>
-          fromLower.includes(userEmail),
-        );
-
-        if (!isSentByUser) {
-          stats.skipped++;
-          continue;
-        }
-
-        // Check if already has follow-up
-        const existingFollowUp = await this.prisma.emailFollowUp.findFirst({
-          where: {
-            tenantId,
-            userId,
-            emailId,
-            status: { in: ['PENDING', 'REMINDED'] },
-          },
-        });
-
-        if (existingFollowUp) {
-          stats.skipped++;
-          continue;
-        }
-
-        // Check if thread has received a reply
-        if (email.threadId) {
-          const replyCount = await this.prisma.email.count({
-            where: {
-              tenantId,
-              threadId: email.threadId,
-              id: { not: emailId },
-              from: { not: { contains: fromLower.split('@')[0] } },
-            },
-          });
-
-          if (replyCount > 0) {
-            stats.skipped++;
-            continue;
-          }
-        }
-
-        // Apply confidence thresholds
-        const score = item.score ?? 0;
-
-        try {
-          if (score >= highConfidenceThreshold) {
-            // High confidence: create directly
-            await this.createFollowUp({
-              tenantId,
-              userId,
-              emailId,
-              reason: 'Detected via semantic search (high confidence)',
-            });
-            stats.created++;
-            this.logger.debug(`Created follow-up for email ${emailId} (score: ${score.toFixed(2)})`);
-          } else if (score >= mediumConfidenceThreshold) {
-            // Medium confidence: verify with LLM
-            const llmResult = await this.analyzeWithLlm(
-              tenantId,
-              userId,
-              email.bodyText || '',
-              email.subject || undefined,
-            );
-
-            if (llmResult.needsFollowUp) {
-              await this.createFollowUp({
-                tenantId,
-                userId,
-                emailId,
-                reason: llmResult.reason || 'Verified by AI analysis',
-                dueDate: llmResult.dueDate || undefined,
-              });
-              stats.created++;
-              this.logger.debug(`Created follow-up for email ${emailId} (LLM verified, score: ${score.toFixed(2)})`);
-            } else {
-              stats.skipped++;
-            }
-          } else {
-            // Low confidence: skip
-            stats.skipped++;
-          }
-        } catch (error) {
-          stats.errors++;
-          const msg = error instanceof Error ? error.message : String(error);
-          this.logger.warn(`Failed to process follow-up candidate ${emailId}: ${msg}`);
-        }
-      }
-
-      this.logger.log(
-        `Follow-up RAG scan complete: ${stats.created} created, ${stats.skipped} skipped, ${stats.errors} errors`,
-      );
-
-      return stats;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Follow-up RAG scan failed: ${msg}`);
-      throw error;
-    }
+    emailId: string,
+    reason: string,
+    dueDate?: Date,
+  ): Promise<void> {
+    await this.createFollowUp({
+      tenantId,
+      userId,
+      emailId,
+      reason,
+      dueDate,
+    });
   }
 
   // ==========================================================================
@@ -1121,7 +731,7 @@ Return JSON ONLY:
   // ==========================================================================
 
   /**
-   * Get default due date (3 days from now)
+   * Get default due date (configurable days from now)
    */
   private getDefaultDueDate(): Date {
     return new Date(Date.now() + this.defaultDueDays * 24 * 60 * 60 * 1000);
@@ -1136,5 +746,12 @@ Return JSON ONLY:
     } catch {
       // Ignore cache errors
     }
+  }
+
+  /**
+   * Check if service is enabled
+   */
+  isEnabled(): boolean {
+    return this.enabled;
   }
 }
