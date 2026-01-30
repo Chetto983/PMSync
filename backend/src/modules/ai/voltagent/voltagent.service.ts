@@ -52,7 +52,7 @@ import { MemoryIntelligenceService } from './services/memory-intelligence.servic
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { ChatResponseProcessorService, applyPiiMappings } from './services/chat-response-processor.service';
 import { ChatRequestProcessorService } from './services/chat-request-processor.service';
-import { ChatContextBuilderService, sanitizeLlmResponse } from './services/chat-context-builder.service';
+import { ChatContextBuilderService, sanitizeLlmResponse, needsMemoryContext } from './services/chat-context-builder.service';
 import { AgentMetricsService } from './services/agent-metrics.service';
 import { AgentPoolService } from './services/agent-pool.service';
 import { ChatPrepareService } from './services/chat-prepare.service';
@@ -446,8 +446,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           // Session/conversation ID for message threading
           conversationId: ctx.sessionId,
           // VoltAgent retrieves conversation history from memory automatically
-          // 20 messages = good balance of context vs token usage
-          contextLimit: 20,
+          // 5 messages = good balance of context vs token usage
+          contextLimit: 5,
           // CRITICAL: Disable parallel tool calls to ensure sequential delegation
           // (ContactsAgent → EmailAgent flow requires one tool at a time)
           providerOptions: {
@@ -528,7 +528,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Extract facts from ASSISTANT response (contact info, confirmations, etc.)
     // Combined with user message creates a conversational fact pair
     // RC-1 FIX: Use Redis lock to prevent concurrent memory corruption
-    if (this.memoryIntelligenceService && options.userId && sanitizedText) {
+    // P2.2 (Part 17): Gate extraction - only process messages likely to contain memories
+    if (this.memoryIntelligenceService && options.userId && sanitizedText && needsMemoryContext(message)) {
       const conversationPair = `User: ${message}\nAssistant: ${sanitizedText}`;
       const memoryLockKey = `memory:user:${options.tenantId}:${options.userId}`;
 

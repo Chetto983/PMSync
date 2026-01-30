@@ -265,9 +265,11 @@ export class MemoryIntelligenceService {
         } = {},
     ): Promise<string> {
         const startTime = Date.now();
-        // minScore 0.55 filters out weak matches (score = 1 - distance/2)
-        // Score 0.5 = orthogonal/unrelated, 0.55+ = some semantic similarity
-        const { limit = 10, useReranking = false, minScore = 0.55 } = options;
+        // minScore 0.70 filters weak matches more aggressively (Part 17 Memory Optimization)
+        // VoltAgent Best Practice: Semantic threshold 0.7+ for quality context
+        // Score 0.5 = orthogonal, 0.70+ = meaningful semantic similarity
+        // @see https://voltagent.dev/docs/agents/memory/overview/
+        const { limit = 10, useReranking = false, minScore = 0.70 } = options;
 
         try {
             // Use semantic search for better relevance

@@ -228,7 +228,10 @@
       "WebFetch(domain:mistral.ai)",
       "WebFetch(domain:pricepertoken.com)",
       "mcp__claude-flow_alpha__system_status",
-      "mcp__claude-flow_alpha__neural_patterns"
+      "mcp__claude-flow_alpha__neural_patterns",
+      "Bash(pip install:*)",
+      "Bash(kaggle datasets download:*)",
+      "Bash(head:*)"
     ],
     "deny": []
   }

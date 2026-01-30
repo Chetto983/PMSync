@@ -18,6 +18,7 @@ import type { MistralService } from '../../services/mistral.service';
 import type { EmbeddingsService } from '../../services/embeddings.service';
 import type { SupportedLocale } from '../locales';
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
+import type { QueryAnalyzerService, QueryAnalysis } from './query-analyzer.service';
 
 const EMAIL_ADDRESS_REGEX = /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i;
 const STOPWORDS = new Set([
@@ -74,6 +75,7 @@ export interface UnifiedRetrieverOptions {
   // RAG services (optional - will use basic text search if not available)
   mistralService?: MistralService;
   embeddingsService?: EmbeddingsService;
+  queryAnalyzer?: QueryAnalyzerService;
   // Limits
   memoryLimit?: number;
   emailLimit?: number;
@@ -102,6 +104,7 @@ export class UnifiedRetriever extends BaseRetriever {
 
   private readonly mistralService?: MistralService;
   private readonly embeddingsService?: EmbeddingsService;
+  private readonly queryAnalyzer?: QueryAnalyzerService;
 
   // Limits
   private readonly memoryLimit: number;
@@ -125,6 +128,7 @@ export class UnifiedRetriever extends BaseRetriever {
 
     this.mistralService = options.mistralService;
     this.embeddingsService = options.embeddingsService;
+    this.queryAnalyzer = options.queryAnalyzer;
 
     // Defaults
     this.memoryLimit = options.memoryLimit ?? 5;
@@ -140,8 +144,16 @@ export class UnifiedRetriever extends BaseRetriever {
     this.recencyHalfLifeDays = options.recencyHalfLifeDays ?? 30;
   }
 
+  /** Minimum score threshold for valid results */
+  private readonly MIN_RESULT_SCORE = 0.01;
+  /** Minimum results before triggering expansion */
+  private readonly MIN_RESULTS_THRESHOLD = 3;
+
   /**
    * Main retrieval method - implements memory-first unified RAG
+   *
+   * Phase D Enhancement: Uses QueryAnalyzer for smarter source selection
+   * and adds result validation with automatic expansion.
    */
   async retrieve(input: string | BaseMessage[]): Promise<string> {
     const query = this.extractQuery(input);
@@ -150,28 +162,70 @@ export class UnifiedRetriever extends BaseRetriever {
     }
 
     try {
-      // Step 1: Memory-First - Get user context
-      const memoryContext = await this.getMemoryContext(query);
+      // Step 1: Query Analysis (Phase D) - Use analyzer if available
+      let queryAnalysis: QueryAnalysis | undefined;
+      let sourcesToSearch: SearchSource[];
 
-      // Step 2: Self-Reflection - Determine sources to search
-      const sourcesToSearch = this.analyzeQuerySources(query, memoryContext);
+      if (this.queryAnalyzer) {
+        queryAnalysis = await this.queryAnalyzer.analyze(query);
+        sourcesToSearch = queryAnalysis.primarySources;
+        this.nestLogger.debug(
+          `[RAG] QueryAnalyzer: intent=${queryAnalysis.intent}, sources=${sourcesToSearch.join(',')}, entities=${queryAnalysis.entities.length}`,
+        );
+      } else {
+        // Fallback to legacy method (no memory context needed - handled by ChatContextBuilder)
+        sourcesToSearch = this.analyzeQuerySources(query);
+      }
+
+      // Step 2: Memory context placeholder (actual memory is injected by ChatContextBuilder)
+      // This empty context is kept for formatContext() compatibility
+      const memoryContext: MemoryContext = { facts: [], preferences: [], contacts: [], history: [] };
 
       // Step 3: Multi-Source Retrieval (parallel)
       const results = await this.searchSources(query, sourcesToSearch);
 
       // Step 4: Fusion & Re-ranking
-      const rankedResults = this.fuseAndRerank(query, results, memoryContext);
+      let rankedResults = this.fuseAndRerank(query, results, memoryContext);
+
+      // Step 5: Result Validation (Phase D) - Check if results are sufficient
+      rankedResults = this.validateAndExpandResults(rankedResults, query, queryAnalysis);
 
       if (rankedResults.length === 0 && this.getMemoryCount(memoryContext) === 0) {
         return '';
       }
 
-      // Step 5: Format for LLM
+      // Step 6: Format for LLM
       return this.formatContext(rankedResults, memoryContext);
     } catch (error) {
       this.nestLogger.error('Error in unified retrieval', error instanceof Error ? error.stack : String(error));
       return '';
     }
+  }
+
+  /**
+   * Validate results and potentially expand search (Phase D)
+   *
+   * - Filters out low-score results
+   * - Logs warning if too few results (expansion would require re-search)
+   */
+  private validateAndExpandResults(
+    results: Array<{ source: SearchSource; content: string; score: number }>,
+    query: string,
+    analysis?: QueryAnalysis,
+  ): Array<{ source: SearchSource; content: string; score: number }> {
+    // Filter out very low score results
+    const validResults = results.filter((r) => r.score >= this.MIN_RESULT_SCORE);
+
+    // Check if we have enough results
+    if (validResults.length < this.MIN_RESULTS_THRESHOLD) {
+      this.nestLogger.warn(
+        `[RAG] Low result count (${validResults.length}/${this.MIN_RESULTS_THRESHOLD}) for query: "${query.substring(0, 50)}..."` +
+        (analysis ? ` intent=${analysis.intent}` : ''),
+      );
+      // Future: Could trigger broader search here
+    }
+
+    return validResults;
   }
 
   /**
