@@ -13,7 +13,7 @@ This roadmap transforms a working but fragile email sync system into a maintaina
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Extract shared utilities, remove dead code, prevent circular dependencies
-- [ ] **Phase 2: Race Condition Fixes** - Add distributed locks and monitoring to folder operations
+- [x] **Phase 2: Race Condition Fixes** - Add distributed locks and monitoring to folder operations
 - [ ] **Phase 3: IMAP Driver Split** - Prove vertical slice pattern on largest file (2,249 lines)
 - [ ] **Phase 4: Service Splits** - Split folder-sync and emails.service by provider/responsibility
 - [ ] **Phase 5: Google & Microsoft Drivers** - Replicate IMAP pattern to remaining drivers
@@ -54,10 +54,10 @@ Plans:
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — Add folder sync duration monitoring with 4-min alert (RACE-01)
-- [ ] 02-02-PLAN.md — Add LLM timeout fallback with circuit breaker (RACE-04)
-- [ ] 02-03-PLAN.md — Wrap conversation state in compensating transaction (RACE-03)
-- [ ] 02-04-PLAN.md — Create race condition stress tests (TEST-01, TEST-02, TEST-03)
+- [x] 02-01-PLAN.md — Add folder sync duration monitoring with 4-min alert (RACE-01)
+- [x] 02-02-PLAN.md — Add LLM timeout fallback with circuit breaker (RACE-04)
+- [x] 02-03-PLAN.md — Wrap conversation state in compensating transaction (RACE-03)
+- [x] 02-04-PLAN.md — Create race condition stress tests (TEST-01, TEST-02, TEST-03)
 
 ### Phase 3: IMAP Driver Split
 **Goal**: IMAP driver (2,249 lines) split into focused modules (<500 lines each) with backward-compatible facade
@@ -178,7 +178,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | ✅ Complete | 2026-01-31 |
-| 2. Race Condition Fixes | 0/4 | Ready to execute | - |
+| 2. Race Condition Fixes | 4/4 | ✅ Complete | 2026-01-31 |
 | 3. IMAP Driver Split | 0/6 | Not started | - |
 | 4. Service Splits | 0/4 | Not started | - |
 | 5. Google & Microsoft Drivers | 0/4 | Not started | - |
