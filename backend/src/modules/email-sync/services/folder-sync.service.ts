@@ -8,6 +8,7 @@ import { RealtimeEventsService } from '../../realtime/services/realtime-events.s
 import { ProviderTokenService } from './provider-token.service';
 import { GmailFolderService } from './gmail/gmail-folder.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { AlertingService } from '../../../common/services/alerting.service';
 import { folderNameToCanonical, isSystemFolder, CORE_SYSTEM_FOLDERS } from '../drivers/interfaces/canonical.types';
 
 export interface FolderInfo {
@@ -51,6 +52,7 @@ export class FolderSyncService {
     private readonly providerTokenService: ProviderTokenService,
     private readonly gmailFolderService: GmailFolderService,
     private readonly redisLock: RedisLockService,
+    private readonly alertingService: AlertingService,
   ) { }
 
   /**
@@ -64,22 +66,44 @@ export class FolderSyncService {
     const lockTtl = 300000; // 5 minutes - safe margin for large mailboxes
 
     await this.redisLock.withLock(lockKey, lockTtl, async () => {
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
+      const syncStartTime = Date.now();
+      let alertFired = false;
+      const alertThresholdMs = 240000; // 4 minutes
 
-      if (!provider) {
-        throw new Error(`Provider ${providerId} not found`);
-      }
+      // RC-A1: Monitor lock duration, fire alert at 4 minutes
+      const monitorInterval = setInterval(() => {
+        const durationMs = Date.now() - syncStartTime;
+        if (!alertFired) {
+          const alert = this.alertingService.checkLockDuration(lockKey, durationMs, alertThresholdMs);
+          if (alert) {
+            alertFired = true;
+            this.logger.warn(
+              `[RC-A1] ${alert.message} for provider ${providerId}`,
+            );
+          }
+        }
+      }, 30000); // Check every 30 seconds
 
-      if (provider.providerType === 'imap') {
-        await this.syncImapFolders(tenantId, providerId);
-      } else if (provider.providerType === 'google') {
-        await this.syncGmailFolders(tenantId, providerId);
-      } else if (provider.providerType === 'microsoft') {
-        await this.syncMicrosoftFolders(tenantId, providerId);
-      } else {
-        throw new Error(`Unsupported provider type: ${provider.providerType}`);
+      try {
+        const provider = await this.prisma.providerConfig.findUnique({
+          where: { id: providerId },
+        });
+
+        if (!provider) {
+          throw new Error(`Provider ${providerId} not found`);
+        }
+
+        if (provider.providerType === 'imap') {
+          await this.syncImapFolders(tenantId, providerId);
+        } else if (provider.providerType === 'google') {
+          await this.syncGmailFolders(tenantId, providerId);
+        } else if (provider.providerType === 'microsoft') {
+          await this.syncMicrosoftFolders(tenantId, providerId);
+        } else {
+          throw new Error(`Unsupported provider type: ${provider.providerType}`);
+        }
+      } finally {
+        clearInterval(monitorInterval);
       }
     });
   }
