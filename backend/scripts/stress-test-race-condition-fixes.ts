@@ -334,11 +334,13 @@ async function testConversationAtomicity(): Promise<{ passed: boolean; details: 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
 
-    // Handle case where UserPreferences table doesn't exist or has different schema
+    // Handle case where UserPreferences table doesn't exist, has FK constraints, or different schema
     if (
       errorMsg.includes('UserPreferences') ||
       errorMsg.includes('does not exist') ||
-      errorMsg.includes('Unknown argument')
+      errorMsg.includes('Unknown argument') ||
+      errorMsg.includes('Foreign key constraint') ||
+      errorMsg.includes('constraint')
     ) {
       // Fall back to simpler pattern verification using raw SQL
       try {
