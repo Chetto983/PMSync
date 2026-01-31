@@ -115,15 +115,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEST-02 | Phase 2 | Pending |
 | TEST-03 | Phase 2 | Pending |
 | TEST-04 | Phase 8 | Pending |
-| TEST-05 | Phase 3-7 | Pending |
+| TEST-05 | Phase 3, 4, 5, 6, 7 | Pending |
 | TEST-06 | Phase 8 | Pending |
 | TEST-07 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
 - Mapped to phases: 26
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-31*
-*Last updated: 2026-01-31 after initial definition*
+*Last updated: 2026-01-31 after roadmap creation*
