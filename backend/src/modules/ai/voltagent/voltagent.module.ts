@@ -62,6 +62,7 @@ import { ConversationManagementService } from './services/conversation-managemen
 import { MemoryIntelligenceService } from './services/memory-intelligence.service';
 import { AlertingService } from '../../../common/services/alerting.service';
 import { LearningService } from './services/learning.service';
+import { ConversationAtomicityService } from './services/conversation-atomicity.service';
 
 // Chat Processing (Refactored from VoltAgentService 2026-01-22)
 import { ChatRequestProcessorService } from './services/chat-request-processor.service';
@@ -138,6 +139,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     MemoryIntelligenceService,
     AlertingService,
     LearningService,
+    ConversationAtomicityService, // RACE-03: Compensating transaction for VoltAgent
     // Chat Processing (Refactored from VoltAgentService)
     ChatRequestProcessorService,
     ChatContextBuilderService,
@@ -178,6 +180,7 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     ConversationManagementService,
     MemoryIntelligenceService,
     LearningService,
+    ConversationAtomicityService, // RACE-03: Compensating transaction for VoltAgent
     // Phase 6: Extracted Services
     AgentPoolService,
     AgentMetricsService,
