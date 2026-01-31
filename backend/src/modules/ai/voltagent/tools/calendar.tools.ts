@@ -304,13 +304,5 @@ Create/update/delete require user approval (HITL). Check_availability is read-on
         }
       },
     }),
-
-    // ========================================================================
-    // DEPRECATED TOOLS - Now consolidated into manage_event
-    // ========================================================================
-    // - create_event → manage_event(action='create')
-    // - update_event → manage_event(action='update')
-    // - delete_event → manage_event(action='delete')
-    // - check_availability → manage_event(action='check_availability')
   ];
 }

@@ -261,9 +261,9 @@ export class ChatRequestProcessorService {
         }
       }
       if (options.preferQuality) {
-        // For quality, upgrade creative → medium, small → medium
+        // For quality, upgrade to large (medium removed - was slow and expensive)
         if (recommendedModel === 'small' || recommendedModel === 'creative') {
-          recommendedModel = 'medium';
+          recommendedModel = 'large';
         }
       }
 
@@ -275,10 +275,10 @@ export class ChatRequestProcessorService {
       };
     }
 
-    // Fallback: default to medium for safety (supervisor compatibility)
-    this.logger.warn(`[ModelRouting] FALLBACK: taskClassifier not injected, using Supervisor/medium`);
+    // Fallback: default to small (fast) for safety
+    this.logger.warn(`[ModelRouting] FALLBACK: taskClassifier not injected, using Supervisor/small`);
     return {
-      recommendedModel: 'medium',
+      recommendedModel: 'small',
       suggestedAgent: 'Supervisor',
       estimatedTokens: this.estimateTokens(message),
       intent: 'unknown', // RLM: Unknown intent when fallback

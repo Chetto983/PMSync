@@ -227,26 +227,6 @@ Use "query" to find information in uploaded documents, PDFs, and text files.`,
   });
 }
 
-// ============================================================================
-// DEPRECATED: Individual tool creators (kept for backwards compatibility)
-// Now consolidated into manage_document_library
-// ============================================================================
-// - query_documents → manage_document_library(action='query')
-// - list_document_libraries → manage_document_library(action='list')
-// - create_document_library → manage_document_library(action='create')
-
-/** @deprecated Use createDocumentLibraryTool instead */
-export const createDocumentQueryTool = (options: DocumentLibraryToolOptions) =>
-  createDocumentLibraryTool(options);
-
-/** @deprecated Use createDocumentLibraryTool instead */
-export const createListLibrariesTool = (options: DocumentLibraryToolOptions) =>
-  createDocumentLibraryTool(options);
-
-/** @deprecated Use createDocumentLibraryTool instead */
-export const createCreateLibraryTool = (options: DocumentLibraryToolOptions) =>
-  createDocumentLibraryTool(options);
-
 /**
  * Create all document library tools (now returns single consolidated tool)
  */

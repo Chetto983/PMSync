@@ -68,8 +68,8 @@ class ChatRequestDto {
   locale?: string;
 
   @IsOptional()
-  @IsIn(['small', 'medium', 'large'])
-  model?: 'small' | 'medium' | 'large';
+  @IsIn(['small', 'large', 'creative', 'router', 'reasoning'])
+  model?: 'small' | 'large' | 'creative' | 'router' | 'reasoning';
 }
 
 /**

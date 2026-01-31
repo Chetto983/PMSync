@@ -12,7 +12,7 @@ This roadmap transforms a working but fragile email sync system into a maintaina
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Extract shared utilities, remove dead code, prevent circular dependencies
+- [x] **Phase 1: Foundation** - Extract shared utilities, remove dead code, prevent circular dependencies
 - [ ] **Phase 2: Race Condition Fixes** - Add distributed locks and monitoring to folder operations
 - [ ] **Phase 3: IMAP Driver Split** - Prove vertical slice pattern on largest file (2,249 lines)
 - [ ] **Phase 4: Service Splits** - Split folder-sync and emails.service by provider/responsibility
@@ -36,10 +36,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 01-01-PLAN.md - Consolidate sanitization utilities + verify PrismaRetryService
-- [ ] 01-02-PLAN.md - Remove deprecated Mistral MEDIUM model references
-- [ ] 01-03-PLAN.md - Remove deprecated tool blocks and exports
-- [ ] 01-04-PLAN.md - Add deprecation prevention hook
+- [x] 01-01-PLAN.md - Consolidate sanitization utilities + verify PrismaRetryService
+- [x] 01-02-PLAN.md - Remove deprecated Mistral MEDIUM model references
+- [x] 01-03-PLAN.md - Remove deprecated tool blocks and exports
+- [x] 01-04-PLAN.md - Add deprecation prevention hook
 
 ### Phase 2: Race Condition Fixes
 **Goal**: Folder operations are atomic and cannot corrupt data under concurrent load
@@ -178,8 +178,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Planned | - |
-| 2. Race Condition Fixes | 0/5 | Not started | - |
+| 1. Foundation | 4/4 | ✅ Complete | 2026-01-31 |
+| 2. Race Condition Fixes | 0/5 | Ready to plan | - |
 | 3. IMAP Driver Split | 0/6 | Not started | - |
 | 4. Service Splits | 0/4 | Not started | - |
 | 5. Google & Microsoft Drivers | 0/4 | Not started | - |

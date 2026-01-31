@@ -307,13 +307,5 @@ All actions require user approval (HITL).`,
         }
       },
     }),
-
-    // ========================================================================
-    // DEPRECATED TOOLS - Now consolidated into manage_folder
-    // ========================================================================
-    // - create_folder → manage_folder(action='create')
-    // - rename_folder → manage_folder(action='rename')
-    // - delete_folder → manage_folder(action='delete')
-    // - move_email_to_folder → manage_folder(action='move_email')
   ];
 }

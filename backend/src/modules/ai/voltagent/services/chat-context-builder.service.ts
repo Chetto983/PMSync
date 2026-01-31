@@ -13,19 +13,10 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { PiiDetectionService } from '../../guards';
 import { EpisodicMemoryService } from './episodic-memory.service';
 import { MemoryIntelligenceService } from './memory-intelligence.service';
+import { sanitizeLlmResponse } from '../utils/sanitize.utils';
 
-/**
- * Sanitize LLM response to remove accidentally echoed internal context markers.
- */
-export function sanitizeLlmResponse(text: string): string {
-  if (!text) return text;
-
-  return text
-    .replace(/\[User Memory\][\s\S]*?---\s*/gi, '')
-    .replace(/## Learned Constraints[\s\S]*?(?=\n\n## |$)/gi, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+// Re-export for backward compatibility with existing importers
+export { sanitizeLlmResponse } from '../utils/sanitize.utils';
 
 export interface ContextBuildOptions {
   tenantId: string;

@@ -336,8 +336,8 @@ async function getOrCreateAnalyticsAgent(
   logger.log(`Creating new analytics agent for locale: ${locale}, tenant: ${tenantId}`);
   const startTime = Date.now();
 
-  // Get model from env (AI_MODEL_MEDIUM for analytics tasks)
-  const model = configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
+  // Use fast model for analytics tasks (mistral-small-3-1)
+  const model = configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
 
   const agent = await client.beta.agents.create({
     model,

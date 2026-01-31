@@ -86,16 +86,13 @@ export class MistralService {
     return apiKey;
   }
 
-  private getModel(tier: 'fast' | 'medium' | 'creative' | 'router' | 'default' = 'default'): string {
+  private getModel(tier: 'fast' | 'creative' | 'router' | 'default' = 'default'): string {
     // Model routing by tier (2026-01-29 audit: updated defaults)
     // See: voltagent/providers/mistral.provider.ts for full pricing reference
     switch (tier) {
       case 'fast':
         // Fast tasks with tool support - $0.03/$0.11 per M tokens
         return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-3-1-2503-latest';
-      case 'medium':
-        // DEPRECATED: Medium is slow! Maps to fast for tool orchestration
-        return this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-3-1-2503-latest';
       case 'creative':
         // Email composition, smart replies - $0.10/$0.30 (NO complex tool calls!)
         return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistral-small-creative-25-12';
@@ -182,7 +179,7 @@ export class MistralService {
     /** Telemetry context for tracking */
     telemetryContext?: { tenantId: string; userId?: string; promptName?: string };
     /** Model override: 'fast' for tools, 'creative' for writing, 'router' for classification, 'default' for fast */
-    modelTier?: 'fast' | 'medium' | 'creative' | 'router' | 'default';
+    modelTier?: 'fast' | 'creative' | 'router' | 'default';
     /** Enable JSON mode for guaranteed valid JSON output */
     jsonMode?: boolean;
     /**
@@ -212,7 +209,7 @@ export class MistralService {
     this.validatePromptInputs(userPrompt, systemPrompt, validationContext);
 
     // P10: Quota enforcement via QuotaGuard at controller level
-    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // Note: checkQuota() is a no-op (always returns true) - Remove by 2026-04-01
     // CostProtectionService.canProceed() below handles subscription-aware quota enforcement
     const tenantId = _telemetryContext?.tenantId;
 
@@ -714,7 +711,7 @@ export class MistralService {
     options?: { conversationId?: string; locale?: string; timeoutMs?: number },
   ): Promise<string> {
     const apiKey = this.getApiKey();
-    const model = this.getModel('medium'); // RAG response needs reasoning capability
+    const model = this.getModel('fast'); // RAG response with fast model (mistral-small-3-1)
     const supportedLocale = getLocale(options?.locale);
     const t = getTranslations(supportedLocale);
     const timeoutMs = options?.timeoutMs ?? 60000; // Default 60s for RAG responses
@@ -726,7 +723,7 @@ export class MistralService {
     }
 
     // P10: Quota enforcement via QuotaGuard at controller level
-    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // Note: checkQuota() is a no-op (always returns true) - Remove by 2026-04-01
     // CostProtectionService.canProceed() below handles subscription-aware quota enforcement
 
     // P10: Check cost cap BEFORE making RAG + LLM call (prevents spending before validation)

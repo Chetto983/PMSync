@@ -213,7 +213,6 @@ export class TaskComplexityClassifierService {
       case 'large':
       case 'reasoning':
         return 'complex';
-      case 'medium':
       default:
         return 'medium';
     }

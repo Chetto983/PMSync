@@ -147,7 +147,8 @@ export class AnalyticsService {
     const startTime = Date.now();
     const client = this.createMistralClient();
 
-    const model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
+    // Use fast model for analytics (mistral-small-3-1)
+    const model = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
 
     const agent = await client.beta.agents.create({
       model,

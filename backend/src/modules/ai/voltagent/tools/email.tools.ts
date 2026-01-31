@@ -595,20 +595,6 @@ Examples:
       },
     }),
 
-    // ========================================================================
-    // DEPRECATED TOOLS - Now consolidated into manage_email and list_emails
-    // Kept as comments for reference during migration
-    // ========================================================================
-    // - delete_email → manage_email(action='delete')
-    // - archive_email → manage_email(action='archive')
-    // - mark_read → manage_email(action='mark_read')
-    // - mark_unread → manage_email(action='mark_unread')
-    // - star_email → manage_email(action='star')
-    // - unstar_email → manage_email(action='unstar')
-    // - get_unread_emails → list_emails(mode='unread')
-    // - get_email_content → list_emails(mode='content')
-    // - list_email_accounts → list_emails(mode='accounts')
-
     // ========== COUNT EMAILS ==========
     createTool({
       name: 'count_emails',
@@ -978,13 +964,5 @@ All actions require user approval (HITL).`,
         }
       },
     }),
-
-    // ========================================================================
-    // DEPRECATED BULK TOOLS - Now consolidated into bulk_email_actions
-    // ========================================================================
-    // - bulk_delete_emails → bulk_email_actions(action='delete')
-    // - empty_folder → bulk_email_actions(action='empty_folder')
-    // - bulk_archive_emails → bulk_email_actions(action='archive')
-    // - bulk_mark_read → bulk_email_actions(action='mark_read')
   ];
 }

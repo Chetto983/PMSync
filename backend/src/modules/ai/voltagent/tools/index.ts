@@ -33,9 +33,7 @@ export {
   type AnalyticsResult,
 } from './analytics.tools';
 export {
-  createDocumentQueryTool,
-  createListLibrariesTool,
-  createCreateLibraryTool,
+  createDocumentLibraryTool,
   createDocumentLibraryTools,
   clearDocumentLibraryCache,
   clearDocumentLibraryAgentPool,

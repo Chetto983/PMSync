@@ -309,13 +309,5 @@ Create/update/delete require user approval (HITL).`,
         }
       },
     }),
-
-    // ========================================================================
-    // DEPRECATED TOOLS - Now consolidated into manage_contact
-    // ========================================================================
-    // - get_contact → manage_contact(action='get')
-    // - create_contact → manage_contact(action='create')
-    // - update_contact → manage_contact(action='update')
-    // - delete_contact → manage_contact(action='delete')
   ];
 }

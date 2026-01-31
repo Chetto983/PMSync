@@ -1,0 +1,8 @@
+#!/bin/sh
+# Pre-commit hook for MailAgent
+
+# Run deprecation check on staged TypeScript files
+./backend/scripts/check-deprecated.sh
+
+# Run type-check to ensure no TypeScript errors
+cd backend && npm run type-check

@@ -60,11 +60,11 @@ async function completePromptWithRedaction(
     temperature?: number;
     jsonMode?: boolean;
     maxTokens?: number;
-    modelTier?: 'fast' | 'medium' | 'high' | 'default';
+    modelTier?: 'fast' | 'creative' | 'router' | 'high' | 'default';
   },
 ): Promise<string> {
   const { safeText, matches } = redactForLlm(params.userPrompt, piiDetectionService);
-  const normalizedModelTier: 'fast' | 'medium' | 'default' | undefined =
+  const normalizedModelTier: 'fast' | 'creative' | 'router' | 'default' | undefined =
     params.modelTier === 'high' ? 'default' : params.modelTier;
   const raw = await mistral.completePrompt({
     ...params,

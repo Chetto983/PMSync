@@ -300,7 +300,8 @@ async function getOrCreateWebSearchAgent(
   logger.log(`Creating new web search agent for locale: ${locale}, tenant: ${tenantId}`);
   const startTime = Date.now();
 
-  const model = configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
+  // Use fast model for web search (mistral-small-3-1)
+  const model = configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
 
   const agent = await client.beta.agents.create({
     model,

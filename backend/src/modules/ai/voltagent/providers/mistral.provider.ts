@@ -13,7 +13,6 @@
  * | CREATIVE  | mistral-small-creative     | $0.10     | $0.30      | ⚡ Fast | Email composition (NO tools) |
  * | LARGE     | mistral-large-3-2512       | $0.50     | $1.50      | Medium  | Complex reasoning       |
  * | REASONING | magistral-small-2509       | $0.50     | $1.50      | Medium  | Extended thinking [THINK] |
- * | MEDIUM    | ⚠️ DEPRECATED - use SMALL  | $0.40     | $2.00      | 🐢 SLOW | Legacy only             |
  *
  * ⚠️ IMPORTANT: mistral-medium is SLOW and EXPENSIVE!
  * Use mistral-small-3-1 for orchestration (13x cheaper, faster, supports tools)
@@ -43,9 +42,6 @@ if (!apiKey) {
 //
 // Model defaults (override via .env):
 const MISTRAL_MODEL_SMALL = process.env.AI_MODEL_SIMPLE || 'mistral-small-3-1-2503-latest';
-// DEPRECATED: Medium is slow and expensive. Use SMALL for orchestration instead.
-// Keeping for backward compatibility, but defaults to same as SMALL.
-const MISTRAL_MODEL_MEDIUM = process.env.AI_MODEL_MEDIUM || 'mistral-small-3-1-2503-latest';
 const MISTRAL_MODEL_LARGE = process.env.AI_MODEL_COMPLEX || 'mistral-large-3-2512-latest';
 // CREATIVE: Optimized for writing tasks (email composition, smart replies)
 // ⚠️ Use ONLY for pure text generation - may not work well with complex tool calls
@@ -76,10 +72,6 @@ export function getMistralSmall(): MistralModelInstance {
   return getMistralProvider()(MISTRAL_MODEL_SMALL);
 }
 
-export function getMistralMedium(): MistralModelInstance {
-  return getMistralProvider()(MISTRAL_MODEL_MEDIUM);
-}
-
 export function getMistralLarge(): MistralModelInstance {
   return getMistralProvider()(MISTRAL_MODEL_LARGE);
 }
@@ -108,28 +100,23 @@ export function getMistralReasoning(): MistralModelInstance {
 // Legacy exports for backward compatibility
 export const mistralProvider: {
   readonly small: MistralModelInstance;
-  readonly medium: MistralModelInstance;
   readonly large: MistralModelInstance;
 } = {
   get small() {
     return getMistralSmall();
-  },
-  get medium() {
-    return getMistralMedium();
   },
   get large() {
     return getMistralLarge();
   },
 };
 
-// Lazy-loaded model instances (deprecated - use getMistralModel instead)
+// Lazy-loaded model instances - prefer getMistralModel() - Remove by 2026-04-01
 export const mistralSmall = { get: getMistralSmall };
-export const mistralMedium = { get: getMistralMedium };
 export const mistralLarge = { get: getMistralLarge };
 
 // Model selection helper
 // NOTE: 'reasoning' uses Magistral with extended thinking (outputs [THINK]...[/THINK] traces)
-export type MistralModel = 'small' | 'medium' | 'large' | 'creative' | 'router' | 'reasoning';
+export type MistralModel = 'small' | 'large' | 'creative' | 'router' | 'reasoning';
 
 export function getMistralModel(model: MistralModel = 'small'): LanguageModel {
   // Type cast required: @ai-sdk/mistral returns LanguageModelV1 which is compatible
@@ -138,8 +125,6 @@ export function getMistralModel(model: MistralModel = 'small'): LanguageModel {
   switch (model) {
     case 'large':
       return getMistralLarge() as unknown as LanguageModel;
-    case 'medium':
-      return getMistralMedium() as unknown as LanguageModel;
     case 'creative':
       return getMistralCreative() as unknown as LanguageModel;
     case 'router':
@@ -161,7 +146,6 @@ export function isMistralConfigured(): boolean {
 export function getMistralModelConfig() {
   return {
     small: MISTRAL_MODEL_SMALL,
-    medium: MISTRAL_MODEL_MEDIUM,
     large: MISTRAL_MODEL_LARGE,
     creative: MISTRAL_MODEL_CREATIVE,
     router: MISTRAL_MODEL_ROUTER,
@@ -182,9 +166,9 @@ export function getMistralModelConfig() {
  * | mistral-large-3     | $0.50     | $1.50      | Medium  | ✅ Yes     | Complex reasoning      |
  * | magistral-small     | $0.50     | $1.50      | Medium  | ✅ Yes     | Extended thinking      |
  *
- * ⚠️ DEPRECATED (too slow/expensive):
- * | mistral-medium      | $0.40     | $2.00      | 🐢 SLOW | ✅ Yes     | Use mistral-small-3-1! |
- * | mistral-large (old) | $2.00     | $6.00      | Slow    | ✅ Yes     | Use mistral-large-3!   |
+ * ⚠️ REMOVED MODELS (too slow/expensive - deleted 2026-01-31):
+ * | mistral-medium      | $0.40     | $2.00      | 🐢 SLOW | ✅ Yes     | REMOVED - use mistral-small-3-1! |
+ * | mistral-large (old) | $2.00     | $6.00      | Slow    | ✅ Yes     | Use mistral-large-3!             |
  *
  * MODEL SELECTION GUIDE:
  * - Intent/triage: ministral-3b (cheapest, fastest)

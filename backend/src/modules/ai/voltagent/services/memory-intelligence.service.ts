@@ -86,7 +86,7 @@ export class MemoryIntelligenceService {
                 userPrompt: prompt,
                 temperature: 0,
                 jsonMode: true,
-                modelTier: 'medium',
+                modelTier: 'fast',
                 validationContext: 'SYSTEM_INTERNAL', // Internal fact extraction - skip jailbreak patterns
             });
 
@@ -173,7 +173,7 @@ export class MemoryIntelligenceService {
                 userPrompt: prompt,
                 temperature: 0,
                 jsonMode: true,
-                modelTier: 'medium',
+                modelTier: 'fast',
                 validationContext: 'SYSTEM_INTERNAL', // Internal memory deduction - skip jailbreak patterns
             });
 

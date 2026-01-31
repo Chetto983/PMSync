@@ -6,6 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "prepare": "cd .. && husky install .husky",
     "prebuild": "prisma generate && rimraf dist",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -128,6 +129,7 @@
     "chalk": "^5.6.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
     "jest": "^30.2.0",
     "prettier": "^3.8.1",
     "prisma": "^7.3.0",
