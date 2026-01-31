@@ -10,8 +10,7 @@
 
 export { TypingIndicator } from './TypingIndicator';
 export { StreamingMessage } from './StreamingMessage';
-export { ChatPanel } from './ChatPanel';
 
-// Re-export hook for convenience
-export { useAiStreamChat } from '@/hooks/use-ai-stream-chat';
-export type { StreamChatMessage, ChatStatus } from '@/hooks/use-ai-stream-chat';
+// Re-export the modern AI SDK v6 hook
+export { useVoltAgentChat, getMessageMetadata, getMessageText } from '@/hooks/use-voltagent-chat';
+export type { UseVoltAgentChatReturn, MessageMetadata, AskUserData } from '@/hooks/use-voltagent-chat';

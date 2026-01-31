@@ -186,9 +186,19 @@ export class VoltAgentController {
       );
 
       // Use VoltAgent's native toUIMessageStream() for AI SDK v6 compliance
+      // Send metadata to frontend via messageMetadata callback
       const uiStream = streamResult.toUIMessageStream({
         sendReasoning: false,
         sendSources: false,
+        messageMetadata: ({ part }: { part: { type: string; usage?: { totalTokens?: number } } }) => {
+          // Only send metadata on finish part
+          if (part.type === 'finish' && part.usage) {
+            return {
+              totalTokens: part.usage.totalTokens,
+            };
+          }
+          return undefined;
+        },
       });
 
       // Apply PII sanitization transform

@@ -9,8 +9,16 @@
  * - Proper TypeScript types
  */
 
-// Chat hooks
-export { useAiChat, useAiStreamChat, type StreamChatMessage, type ChatStatus } from './use-ai-chat';
+// Chat hooks (AI SDK v6 native)
+export {
+  useAiChat,
+  useVoltAgentChat,
+  getMessageMetadata,
+  getMessageText,
+  type UseVoltAgentChatReturn,
+  type MessageMetadata,
+  type AskUserData,
+} from './use-ai-chat';
 
 // Compose hooks
 export { useAiCompose, type ComposeOptions, type ComposeResult } from './use-ai-compose';

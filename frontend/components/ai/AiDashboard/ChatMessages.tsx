@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { Box, Typography, Paper, alpha, useTheme, IconButton, Tooltip } from '@mui/material';
 import { Bot, User, Copy, Check } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type UIMessage, getMessageMetadata, getMessageText } from './use-voltagent-chat';
+import { type UIMessage, getMessageMetadata, getMessageText } from '@/hooks/use-voltagent-chat';
 import { TypingIndicator } from './TypingIndicator';
 import { InlineActionCard, type PendingAction } from './InlineActionCard';
 import { multiAgentApi } from '@/lib/api/ai';

@@ -32,7 +32,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
 import logger from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
-import { useVoltAgentChat, getMessageMetadata } from './use-voltagent-chat';
+import { useVoltAgentChat, getMessageMetadata } from '@/hooks/use-voltagent-chat';
 
 // Lazy loaded widgets
 const ChatMessages = lazy(() => import('./ChatMessages'));
@@ -44,8 +44,8 @@ const ChatCommandPalette = lazy(() => import('../ChatCommandPalette'));
 const AskUserModal = lazy(() => import('./AskUserModal'));
 
 // Re-export types from hook for ChatMessages
-export type { AskUserData, UIMessage, MessageMetadata } from './use-voltagent-chat';
-export { getMessageMetadata, getMessageText } from './use-voltagent-chat';
+export type { AskUserData, UIMessage, MessageMetadata } from '@/hooks/use-voltagent-chat';
+export { getMessageMetadata, getMessageText } from '@/hooks/use-voltagent-chat';
 
 
 function WidgetSkeleton({ height = 200 }: { height?: number }) {

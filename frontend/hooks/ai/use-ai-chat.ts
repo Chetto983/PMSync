@@ -1,23 +1,24 @@
 /**
  * useAiChat Hook
  *
- * Re-exports the useAiStreamChat hook with additional convenience features.
- * Based on Vercel AI SDK patterns (2025 best practices).
+ * Re-exports the useVoltAgentChat hook for backward compatibility.
+ * Based on AI SDK v6 patterns (2025 best practices).
  *
  * Features:
- * - Token-by-token SSE streaming
- * - AbortController for stop functionality
- * - Auto-scroll support
- * - Error handling with retry
- * - Message history management
- * - React Query integration ready
+ * - Native AI SDK v6 streaming via DefaultChatTransport
+ * - useChat() with proper message parts structure
+ * - Metadata extraction for askUser and suggestedQuestions
+ * - Conversation management
  */
 export {
-  useAiStreamChat as useAiChat,
-  useAiStreamChat,
-  type StreamChatMessage,
-  type ChatStatus,
-} from '../use-ai-stream-chat';
+  useVoltAgentChat as useAiChat,
+  useVoltAgentChat,
+  getMessageMetadata,
+  getMessageText,
+  type UseVoltAgentChatReturn,
+  type MessageMetadata,
+  type AskUserData,
+} from '@/hooks/use-voltagent-chat';
 
-// Re-export default
-export { default } from '../use-ai-stream-chat';
+// Default export
+export { default } from '@/hooks/use-voltagent-chat';
