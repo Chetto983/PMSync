@@ -18,6 +18,7 @@ export interface AlertThresholds {
     queueUtilizationCritical: number;
     providerErrorThreshold: number;
     authErrorThreshold: number;
+    lockDurationThreshold: number;
 }
 
 export interface AlertCheckResult {
@@ -37,6 +38,7 @@ export class AlertingService {
         queueUtilizationCritical: 95,
         providerErrorThreshold: 3,
         authErrorThreshold: 1,
+        lockDurationThreshold: 240000,
     };
 
     /**
@@ -140,6 +142,32 @@ export class AlertingService {
     checkRedisConnectivity(isConnected: boolean): Alert | null {
         if (!isConnected) {
             return this.createAlert('critical', 'redis_disconnected', 'Redis connection lost');
+        }
+        return null;
+    }
+
+    /**
+     * Check lock duration against threshold (RC-A1 enhancement)
+     * Used to monitor folder sync operations that exceed expected duration.
+     *
+     * @param lockKey - Redis lock key identifier
+     * @param durationMs - How long the lock has been held
+     * @param thresholdMs - Alert threshold (default 240000ms = 4 minutes)
+     * @returns Alert if threshold exceeded, null otherwise
+     */
+    checkLockDuration(
+        lockKey: string,
+        durationMs: number,
+        thresholdMs: number = this.thresholds.lockDurationThreshold,
+    ): Alert | null {
+        if (durationMs >= thresholdMs) {
+            return this.createAlert(
+                'warning',
+                'lock_duration_exceeded',
+                `Lock ${lockKey} held for ${Math.floor(durationMs / 1000)}s (threshold: ${Math.floor(thresholdMs / 1000)}s)`,
+                durationMs,
+                thresholdMs,
+            );
         }
         return null;
     }
