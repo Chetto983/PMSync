@@ -54,11 +54,10 @@ Plans:
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 02-01: Add folder sync duration monitoring (RC-A1)
-- [ ] 02-02: Add distributed locks to folder CRUD (RC-A8)
-- [ ] 02-03: Wrap conversation state in transaction (atomicity)
-- [ ] 02-04: Add LLM API timeout with fallback
-- [ ] 02-05: Create race condition stress tests
+- [ ] 02-01-PLAN.md — Add folder sync duration monitoring with 4-min alert (RACE-01)
+- [ ] 02-02-PLAN.md — Add LLM timeout fallback with circuit breaker (RACE-04)
+- [ ] 02-03-PLAN.md — Wrap conversation state in compensating transaction (RACE-03)
+- [ ] 02-04-PLAN.md — Create race condition stress tests (TEST-01, TEST-02, TEST-03)
 
 ### Phase 3: IMAP Driver Split
 **Goal**: IMAP driver (2,249 lines) split into focused modules (<500 lines each) with backward-compatible facade
@@ -179,7 +178,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | ✅ Complete | 2026-01-31 |
-| 2. Race Condition Fixes | 0/5 | Ready to plan | - |
+| 2. Race Condition Fixes | 0/4 | Ready to execute | - |
 | 3. IMAP Driver Split | 0/6 | Not started | - |
 | 4. Service Splits | 0/4 | Not started | - |
 | 5. Google & Microsoft Drivers | 0/4 | Not started | - |
