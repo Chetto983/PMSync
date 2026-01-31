@@ -11,10 +11,16 @@
 > **Note:** AI Elements requires shadcn/ui which conflicts with MUI. Using AI SDK
 > patterns directly with MUI components instead.
 
-## Progress Tracking (2026-01-28)
+## Progress Tracking (Updated 2026-01-31)
 
 - [x] Memory stored: `ai-frontend-refactor-roadmap` in `mailagent` namespace
 - [x] Agent spawned: `agent-1769632564066-18e4p7` (coder/sonnet)
+- [x] **Audit completed**: Line counts verified, dependencies updated
+- [x] **Phase 0: Split InlineActionCard.tsx** (447 lines → 4 files) ✓ 2026-01-31
+  - [x] Created `useHitlMutations.ts` hook (63 lines)
+  - [x] Created `HitlPayloadEditor.tsx` component (104 lines)
+  - [x] Created `HitlStatusBadge.tsx` component (52 lines)
+  - [x] Refactored `InlineActionCard.tsx` (348 lines - reduced from 447)
 - [ ] Phase 1: Create AiChat with MUI + AI SDK
 - [ ] Phase 2: Create AiChatMessages with streaming
 - [ ] Phase 3: Create AiChatInput optimized
@@ -28,13 +34,15 @@
 
 | Component | Lines | Issues |
 |-----------|-------|--------|
+| `MentionInput.tsx` | 557 | API spam on keystrokes, laggy |
+| `ChatMessages.tsx` | 493 | Rendering issues, complex state |
+| `use-voltagent-chat.ts` | 392 | Custom transport, state bugs |
+| `ToolActivityCard.tsx` | 156 | Manual tool rendering |
+| `InlineActionCard.tsx` | 447 | HITL card (needs split) |
+| **Total** | **~2045** | **Unmaintainable** |
 
-| `MentionInput.tsx` | 540 | API spam on keystrokes, laggy |
-| `ChatMessages.tsx` | 490 | Rendering issues, complex state |
-| `use-voltagent-chat.ts` | 390 | Custom transport, state bugs |
-| `ToolActivityCard.tsx` | ~200 | Manual tool rendering |
-| `InlineActionCard.tsx` | ~150 | HITL card (keep) |
-| **Total** | **~1770** | **Unmaintainable** |
+> **Audit Note (2026-01-31):** Line counts verified. InlineActionCard is 3x larger than
+> originally documented and should be split before refactor.
 
 ---
 
@@ -55,11 +63,12 @@
 ### 1.1 Verify Dependencies
 
 ```json
-// package.json - ensure these are present
+// package.json - verified 2026-01-31
 {
   "dependencies": {
-    "@ai-sdk/react": "^1.x",
-    "ai": "^4.x"
+    "@ai-sdk/react": "^3.0.52",
+    "ai": "^6.0.58",
+    "ai-elements": "^1.8.1"
   }
 }
 ```

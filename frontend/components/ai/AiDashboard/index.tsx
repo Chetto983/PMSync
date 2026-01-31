@@ -32,7 +32,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
 import logger from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
-import { useVoltAgentChat, type AskUserData } from './use-voltagent-chat';
+import { useVoltAgentChat, getMessageMetadata } from './use-voltagent-chat';
 
 // Lazy loaded widgets
 const ChatMessages = lazy(() => import('./ChatMessages'));
@@ -44,30 +44,8 @@ const ChatCommandPalette = lazy(() => import('../ChatCommandPalette'));
 const AskUserModal = lazy(() => import('./AskUserModal'));
 
 // Re-export types from hook for ChatMessages
-export type { MessagePart, ToolInvocation } from './use-voltagent-chat';
-export type { AskUserData } from './use-voltagent-chat';
-
-// Types - Extended for our UI needs (AI SDK parts-based structure)
-export interface Message {
-  role: 'user' | 'assistant';
-  /** Message parts (text, tool-call, tool-result) from AI SDK */
-  parts: Array<{ type: string; text?: string }>;
-  /** Tool invocations for inline rendering */
-  toolInvocations?: Array<{
-    toolCallId: string;
-    toolName: string;
-    args: unknown;
-    result?: unknown;
-  }>;
-  timestamp: Date;
-  agentUsed?: string;
-  intent?: string;
-  pendingActionIds?: string[];
-  /** Suggested follow-up questions */
-  suggestedQuestions?: string[];
-  /** Ask-user clarification request (Claude Code style) */
-  askUser?: AskUserData;
-}
+export type { AskUserData, UIMessage, MessageMetadata } from './use-voltagent-chat';
+export { getMessageMetadata, getMessageText } from './use-voltagent-chat';
 
 
 function WidgetSkeleton({ height = 200 }: { height?: number }) {
@@ -106,7 +84,6 @@ export function AiDashboard() {
   const toast = useToast();
 
   // Pending action IDs per message (keyed by message index)
-  const [pendingActionMap, setPendingActionMap] = useState<Map<number, string[]>>(new Map());
 
   const userName = user?.firstName || user?.email?.split('@')[0] || 'User';
 
@@ -170,24 +147,12 @@ export function AiDashboard() {
 
   const sending = status === 'submitted' || status === 'streaming';
 
-  // Map AI SDK messages to our Message type (preserving parts structure)
-  const messages: Message[] = chatMessages.map((msg, index) => ({
-    role: msg.role as 'user' | 'assistant',
-    parts: msg.parts,
-    toolInvocations: msg.toolInvocations,
-    timestamp: new Date(),
-    pendingActionIds: pendingActionMap.get(index),
-    suggestedQuestions: msg.suggestedQuestions,
-    askUser: msg.askUser,
-  }));
-
   // Get askUser data from the last assistant message (if any)
-  // FIX: Use chatMessages.length as stable dependency to prevent re-render cascade
   const lastAskUser = React.useMemo(() => {
     const lastAssistant = [...chatMessages].reverse().find((m) => m.role === 'assistant');
-    return lastAssistant?.askUser;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatMessages.length]);
+    if (!lastAssistant) return undefined;
+    return getMessageMetadata(lastAssistant).askUser;
+  }, [chatMessages]);
 
   // Auto-open modal when there's an askUser request and not sending
   React.useEffect(() => {
@@ -209,7 +174,6 @@ export function AiDashboard() {
     setChatMessages([]);
     setConversationId(`conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     setPrompt('');
-    setPendingActionMap(new Map());
   }, [setChatMessages, setConversationId]);
 
   // Load an existing conversation
@@ -224,66 +188,15 @@ export function AiDashboard() {
     setConversationId(id);
 
     try {
-      const { voltAgentApi, multiAgentApi } = await import('@/lib/api/ai');
-
-      // Fetch conversation and pending actions in parallel
-      const [conversationRes, pendingActionsRes] = await Promise.all([
-        voltAgentApi.getConversation(id),
-        multiAgentApi.getPendingActions({ limit: 50 }),
-      ]);
+      const { voltAgentApi } = await import('@/lib/api/ai');
+      const conversationRes = await voltAgentApi.getConversation(id);
 
       if (conversationRes.data?.conversation) {
         const conv = conversationRes.data.conversation;
 
-        // Filter pending actions for this conversation (by sessionId)
-        const allPendingActions = pendingActionsRes.data?.actions || [];
-        const conversationActions = allPendingActions.filter(
-          (a) => a.sessionId === conv.id || (!a.sessionId && allPendingActions.length === 1)
-        );
-
         // Map messages
         const filteredMessages = conv.messages
           .filter((m) => m.role === 'user' || m.role === 'assistant');
-
-        // Match pending actions to assistant messages by timestamp
-        const messageActionMap = new Map<number, string[]>();
-
-        for (const action of conversationActions) {
-          const actionTime = new Date(action.suspendedAt).getTime();
-          let bestMatchIndex = -1;
-          let bestTimeDiff = Infinity;
-
-          for (let i = 0; i < filteredMessages.length; i++) {
-            const msg = filteredMessages[i];
-            if (msg.role !== 'assistant') continue;
-
-            const msgTime = new Date(msg.createdAt || 0).getTime();
-            const timeDiff = actionTime - msgTime;
-
-            if (timeDiff >= -30000 && timeDiff < bestTimeDiff) {
-              bestTimeDiff = timeDiff;
-              bestMatchIndex = i;
-            }
-          }
-
-          if (bestMatchIndex >= 0) {
-            const existing = messageActionMap.get(bestMatchIndex) || [];
-            existing.push(action.id);
-            messageActionMap.set(bestMatchIndex, existing);
-          }
-        }
-
-        // Attach unmatched actions to last assistant message
-        if (conversationActions.length > 0 && messageActionMap.size === 0) {
-          for (let i = filteredMessages.length - 1; i >= 0; i--) {
-            if (filteredMessages[i].role === 'assistant') {
-              messageActionMap.set(i, conversationActions.map(a => a.id));
-              break;
-            }
-          }
-        }
-
-        setPendingActionMap(messageActionMap);
 
         // Dedupe and set messages for AI SDK hook (UIMessage format with parts)
         const seenContent = new Set<string>();
@@ -425,10 +338,10 @@ export function AiDashboard() {
                 }}
               >
                 <Badge
-                  badgeContent={messages.length > 0 ? undefined : 0}
+                  badgeContent={chatMessages.length > 0 ? undefined : 0}
                   color="primary"
                   variant="dot"
-                  invisible={messages.length === 0}
+                  invisible={chatMessages.length === 0}
                 >
                   <PanelRightOpen size={20} />
                 </Badge>
@@ -493,7 +406,7 @@ export function AiDashboard() {
               },
             }}
           >
-            {messages.length === 0 ? (
+            {chatMessages.length === 0 ? (
               <Suspense fallback={<WidgetSkeleton height={300} />}>
                 <QuickActions onSelectQuery={handleSendMessage} userName={userName} />
               </Suspense>
@@ -501,7 +414,7 @@ export function AiDashboard() {
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Suspense fallback={<WidgetSkeleton height={300} />}>
                   <ChatMessages
-                    messages={messages}
+                    messages={chatMessages}
                     sending={sending}
                     conversationId={conversationId}
                     onSuggestedQuestionSelect={handleSendMessage}
@@ -523,7 +436,7 @@ export function AiDashboard() {
               WebkitBackdropFilter: 'blur(12px)',
             }}
           >
-            {messages.length > 0 && !sending && (
+            {chatMessages.length > 0 && !sending && (
               <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
                 {[
                   { label: t.ai?.quickActions?.summarizeInbox || 'Riepiloga', prompt: 'Riepiloga le mie email non lette' },

@@ -1,31 +1,23 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Box, Typography, Paper, Chip, alpha, useTheme, Link, IconButton, Tooltip } from '@mui/material';
-import { Bot, User, Sparkles, Clock, Copy, Check } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { Box, Typography, Paper, alpha, useTheme, IconButton, Tooltip } from '@mui/material';
+import { Bot, User, Copy, Check } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Message } from './index';
-//import type { ChatMessageWithParts } from './use-voltagent-chat';
+import { type UIMessage, getMessageMetadata, getMessageText } from './use-voltagent-chat';
 import { TypingIndicator } from './TypingIndicator';
 import { InlineActionCard, type PendingAction } from './InlineActionCard';
-import { ToolActivityCard } from './ToolActivityCard';
-import { SuggestedQuestions } from './SuggestedQuestions';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAgentActivityStream } from '@/hooks/ai/use-agent-activity-stream';
 import { websocketClient } from '@/lib/websocket-client';
-
-/** Extract text content from message parts */
-function getTextContent(parts: Message['parts']): string {
-  return parts
-    .filter((p) => p.type === 'text')
-    .map((p) => p.text || '')
-    .join('');
-}
+// ai-elements components (shadcn-based) - located in src/components/ai-elements
+import { MessageResponse } from '@/src/components/ai-elements/message';
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/src/components/ai-elements/tool';
+import type { ToolPart } from '@/src/components/ai-elements/tool';
+import { Suggestions, Suggestion } from '@/src/components/ai-elements/suggestion';
 
 interface ChatMessagesProps {
-  messages: (Message & { suggestedQuestions?: string[] })[];
+  messages: UIMessage[];
   sending: boolean;
   /** Current conversation ID for filtering agent events */
   conversationId?: string | null;
@@ -82,163 +74,6 @@ function ConversationPendingActions({ conversationId }: { conversationId: string
   );
 }
 
-// Markdown components for styled rendering
-const MarkdownComponents = {
-  p: ({ children }: { children?: React.ReactNode }) => (
-    <Typography variant="body2" sx={{ mb: 1, lineHeight: 1.7, '&:last-child': { mb: 0 } }}>
-      {children}
-    </Typography>
-  ),
-  h1: ({ children }: { children?: React.ReactNode }) => (
-    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5, mt: 2, '&:first-of-type': { mt: 0 } }}>
-      {children}
-    </Typography>
-  ),
-  h2: ({ children }: { children?: React.ReactNode }) => (
-    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1, mt: 1.5, '&:first-of-type': { mt: 0 } }}>
-      {children}
-    </Typography>
-  ),
-  h3: ({ children }: { children?: React.ReactNode }) => (
-    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, mt: 1, '&:first-of-type': { mt: 0 } }}>
-      {children}
-    </Typography>
-  ),
-  ul: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="ul" sx={{ pl: 2.5, mb: 1.5, '& li': { mb: 0.5 } }}>
-      {children}
-    </Box>
-  ),
-  ol: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="ol" sx={{ pl: 2.5, mb: 1.5, '& li': { mb: 0.5 } }}>
-      {children}
-    </Box>
-  ),
-  li: ({ children }: { children?: React.ReactNode }) => (
-    <Typography component="li" variant="body2" sx={{ lineHeight: 1.6 }}>
-      {children}
-    </Typography>
-  ),
-  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-    <Link href={href} target="_blank" rel="noopener noreferrer" sx={{ fontWeight: 500 }}>
-      {children}
-    </Link>
-  ),
-  code: ({ children, className }: { children?: React.ReactNode; className?: string }) => {
-    const isInline = !className;
-    return isInline ? (
-      <Box
-        component="code"
-        sx={{
-          bgcolor: 'action.hover',
-          px: 0.75,
-          py: 0.25,
-          borderRadius: 1,
-          fontSize: '0.85em',
-          fontFamily: 'monospace',
-        }}
-      >
-        {children}
-      </Box>
-    ) : (
-      <Box
-        component="pre"
-        sx={{
-          bgcolor: 'background.default',
-          p: 1.5,
-          borderRadius: 2,
-          overflow: 'auto',
-          fontSize: '0.85rem',
-          fontFamily: 'monospace',
-          mb: 1.5,
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <code>{children}</code>
-      </Box>
-    );
-  },
-  blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <Box
-      sx={{
-        borderLeft: '3px solid',
-        borderColor: 'primary.main',
-        pl: 2,
-        py: 0.5,
-        my: 1.5,
-        bgcolor: 'action.hover',
-        borderRadius: '0 8px 8px 0',
-      }}
-    >
-      {children}
-    </Box>
-  ),
-  strong: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="strong" sx={{ fontWeight: 600 }}>
-      {children}
-    </Box>
-  ),
-  em: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="em">{children}</Box>
-  ),
-  // Table components for markdown table rendering
-  table: ({ children }: { children?: React.ReactNode }) => (
-    <Box
-      component="table"
-      sx={{
-        width: '100%',
-        borderCollapse: 'collapse',
-        mb: 2,
-        fontSize: '0.85rem',
-        '& th, & td': {
-          border: '1px solid',
-          borderColor: 'divider',
-          px: 1.5,
-          py: 1,
-          textAlign: 'left',
-        },
-        '& th': {
-          bgcolor: 'action.hover',
-          fontWeight: 600,
-        },
-        '& tr:nth-of-type(even)': {
-          bgcolor: 'action.hover',
-        },
-      }}
-    >
-      {children}
-    </Box>
-  ),
-  thead: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="thead">{children}</Box>
-  ),
-  tbody: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="tbody">{children}</Box>
-  ),
-  tr: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="tr">{children}</Box>
-  ),
-  th: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="th">{children}</Box>
-  ),
-  td: ({ children }: { children?: React.ReactNode }) => (
-    <Box component="td">{children}</Box>
-  ),
-  // Horizontal rule
-  hr: () => (
-    <Box
-      component="hr"
-      sx={{
-        border: 'none',
-        borderTop: '1px solid',
-        borderColor: 'divider',
-        my: 2,
-      }}
-    />
-  ),
-};
-
 export function ChatMessages({ messages, sending, conversationId, onSuggestedQuestionSelect }: ChatMessagesProps) {
   const theme = useTheme();
   const queryClient = useQueryClient();
@@ -292,10 +127,6 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length, sending, hasAgentActivity, agentSteps.length]);
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  };
 
   return (
     <Box
@@ -370,23 +201,39 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                     lineHeight: 1.6,
                   }}
                 >
-                  {getTextContent(message.parts)}
+                  {getMessageText(message)}
                 </Typography>
               ) : (
                 <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-                    {getTextContent(message.parts)}
-                  </ReactMarkdown>
-                  {/* Render tool invocations inline */}
-                  {message.toolInvocations?.map((tool) => (
-                    <ToolActivityCard
-                      key={tool.toolCallId}
-                      toolName={tool.toolName}
-                      args={tool.args}
-                      result={tool.result}
-                      state={tool.result !== undefined ? 'complete' : 'calling'}
-                    />
-                  ))}
+                  {/* AI Elements MessageResponse - uses Streamdown for markdown */}
+                  <MessageResponse>{getMessageText(message)}</MessageResponse>
+                  {/* Render tool invocations using ai-elements Tool component */}
+                  {message.parts
+                    .filter((p) => p.type.startsWith('tool-') || p.type === 'dynamic-tool')
+                    .map((part) => {
+                      const toolPart = part as ToolPart;
+                      const isDynamic = toolPart.type === 'dynamic-tool';
+                      return (
+                        <Tool key={toolPart.toolCallId} defaultOpen={false}>
+                          {isDynamic ? (
+                            <ToolHeader
+                              type="dynamic-tool"
+                              state={toolPart.state}
+                              toolName={(toolPart as { toolName: string }).toolName}
+                            />
+                          ) : (
+                            <ToolHeader
+                              type={toolPart.type as `tool-${string}`}
+                              state={toolPart.state}
+                            />
+                          )}
+                          <ToolContent>
+                            <ToolInput input={toolPart.input} />
+                            <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
+                          </ToolContent>
+                        </Tool>
+                      );
+                    })}
                 </Box>
               )}
             </Paper>
@@ -402,17 +249,12 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                 flexDirection: message.role === 'user' ? 'row-reverse' : 'row',
               }}
             >
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Clock size={10} />
-                {formatTime(message.timestamp)}
-              </Typography>
-
               {/* Copy button for assistant messages */}
               {message.role === 'assistant' && (
                 <Tooltip title={copiedMessageId === `msg-${index}` ? 'Copied!' : 'Copy'}>
                   <IconButton
                     size="small"
-                    onClick={() => handleCopy(getTextContent(message.parts), `msg-${index}`)}
+                    onClick={() => handleCopy(getMessageText(message), `msg-${index}`)}
                     sx={{
                       width: 22,
                       height: 22,
@@ -428,46 +270,33 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                   </IconButton>
                 </Tooltip>
               )}
-
-              {message.agentUsed && (
-                <Chip
-                  icon={<Sparkles size={10} />}
-                  label={message.agentUsed}
-                  size="small"
-                  sx={{
-                    height: 18,
-                    fontSize: '0.65rem',
-                    '& .MuiChip-icon': { fontSize: 10 },
-                  }}
-                />
-              )}
-
-              {message.intent && (
-                <Chip
-                  label={message.intent}
-                  size="small"
-                  variant="outlined"
-                  sx={{
-                    height: 18,
-                    fontSize: '0.65rem',
-                  }}
-                />
-              )}
             </Box>
 
-            {/* Suggested follow-up questions - only show on last assistant message when not sending */}
-            {message.role === 'assistant' &&
-              message.suggestedQuestions &&
-              message.suggestedQuestions.length > 0 &&
-              index === messages.length - 1 &&
-              !sending &&
-              onSuggestedQuestionSelect && (
-                <SuggestedQuestions
-                  questions={message.suggestedQuestions}
-                  onSelect={onSuggestedQuestionSelect}
-                  disabled={sending}
-                />
-              )}
+            {/* Suggested follow-up questions using ai-elements Suggestions */}
+            {(() => {
+              const metadata = getMessageMetadata(message);
+              const isLastAssistant = message.role === 'assistant' && index === messages.length - 1;
+              return (
+                isLastAssistant &&
+                metadata.suggestedQuestions &&
+                metadata.suggestedQuestions.length > 0 &&
+                !sending &&
+                onSuggestedQuestionSelect && (
+                  <Box sx={{ mt: 2 }}>
+                    <Suggestions>
+                      {metadata.suggestedQuestions.map((q) => (
+                        <Suggestion
+                          key={q}
+                          suggestion={q}
+                          onClick={onSuggestedQuestionSelect}
+                          disabled={sending}
+                        />
+                      ))}
+                    </Suggestions>
+                  </Box>
+                )
+              );
+            })()}
           </Box>
         </Box>
       ))}

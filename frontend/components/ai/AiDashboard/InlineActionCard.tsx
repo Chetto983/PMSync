@@ -10,6 +10,8 @@
  * - Expandable details to view/edit payload
  * - Independent confirmation (user must explicitly approve)
  *
+ * Refactored 2026-01-31: Extracted hooks and sub-components.
+ *
  * @see https://www.permit.io/blog/human-in-the-loop-for-ai-agents-best-practices
  * @see https://developers.openai.com/apps-sdk/concepts/ui-guidelines/
  */
@@ -20,7 +22,6 @@ import {
   Typography,
   Button,
   Collapse,
-  TextField,
   IconButton,
   Chip,
   CircularProgress,
@@ -42,9 +43,11 @@ import {
   Edit3,
   Bot,
 } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { multiAgentApi, type PendingAction, type ApprovalResponse } from '@/lib/api/ai';
+import { type PendingAction, type ApprovalResponse } from '@/lib/api/ai';
+import { useHitlMutations } from './useHitlMutations';
+import { HitlPayloadEditor } from './HitlPayloadEditor';
+import { HitlStatusBadge } from './HitlStatusBadge';
 
 // Re-export for ChatMessages
 export type { PendingAction };
@@ -73,12 +76,10 @@ const SEVERITY_COLORS = {
 export function InlineActionCard({ action, onStatusChange }: InlineActionCardProps) {
   const theme = useTheme();
   const t = useTranslations();
-  const queryClient = useQueryClient();
 
   const [expanded, setExpanded] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedPayload, setEditedPayload] = useState(action.payload);
-  // Execution result feedback
   const [executionFeedback, setExecutionFeedback] = useState<{
     success: boolean;
     message: string;
@@ -101,24 +102,16 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
 
   const Icon = ACTION_ICONS[action.actionType] || Mail;
   const severityColor = SEVERITY_COLORS[action.severity];
-  // Default to PENDING if status is undefined
   const isPending = !action.status || action.status === 'PENDING';
 
-  // Approve mutation - now returns execution result for user feedback
-  const approveMutation = useMutation({
-    mutationFn: async () => {
-      // Send the edited payload instead of the original one
-      const response = await multiAgentApi.approveAction(action.id, editedPayload);
-      return response.data;
-    },
-    onSuccess: (result: ApprovalResponse) => {
-      queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
-
-      // Show execution feedback to user
+  // Use extracted mutations hook
+  const { approveMutation, rejectMutation, isLoading } = useHitlMutations({
+    actionId: action.id,
+    editedPayload,
+    onApproveSuccess: (result) => {
       if (result.executionResult) {
         const execResult = result.executionResult;
         if (execResult.success) {
-          // Format success message from summary
           const summary = Array.isArray(execResult.summary)
             ? execResult.summary.join(', ')
             : execResult.summary || ((inlineT?.executionSuccess as string) || 'Action completed successfully');
@@ -130,115 +123,12 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
           });
         }
       }
-
       onStatusChange?.('APPROVED', result.executionResult);
     },
-  });
-
-  // Reject mutation
-  const rejectMutation = useMutation({
-    mutationFn: async () => {
-      const response = await multiAgentApi.rejectAction(action.id);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
+    onRejectSuccess: () => {
       onStatusChange?.('REJECTED');
     },
   });
-
-  const isLoading = approveMutation.isPending || rejectMutation.isPending;
-
-  // Render payload fields
-  const renderPayloadFields = () => {
-    const editableFields = ['to', 'cc', 'bcc', 'subject', 'body', 'title', 'location'];
-
-    return Object.entries(editedPayload)
-      .filter(([key]) => editableFields.includes(key) || key === 'attendees')
-      .map(([key, value]) => {
-        if (value === undefined || value === null) return null;
-
-        const displayValue = Array.isArray(value)
-          ? value.join(', ')
-          : typeof value === 'object'
-            ? JSON.stringify(value)
-            : String(value);
-
-        const isMultiline = key === 'body';
-
-        return (
-          <Box key={key} sx={{ mb: 1.5 }}>
-            <Typography
-              variant="caption"
-              sx={{ color: 'text.secondary', fontWeight: 500, textTransform: 'uppercase', fontSize: '0.65rem' }}
-            >
-              {getFieldLabel(key)}
-            </Typography>
-            {editMode ? (
-              <TextField
-                fullWidth
-                size="small"
-                multiline={isMultiline}
-                rows={isMultiline ? 3 : 1}
-                value={displayValue}
-                onChange={(e) => {
-                  setEditedPayload(prev => ({
-                    ...prev,
-                    [key]: key === 'to' || key === 'cc' || key === 'bcc' || key === 'attendees'
-                      ? e.target.value.split(',').map(s => s.trim())
-                      : e.target.value,
-                  }));
-                }}
-                sx={{
-                  mt: 0.5,
-                  '& .MuiOutlinedInput-root': {
-                    fontSize: '0.85rem',
-                    bgcolor: alpha(theme.palette.background.paper, 0.5),
-                  },
-                }}
-              />
-            ) : (
-              <Typography
-                variant="body2"
-                sx={{
-                  mt: 0.25,
-                  color: 'text.primary',
-                  wordBreak: 'break-word',
-                  whiteSpace: isMultiline ? 'pre-wrap' : 'normal',
-                }}
-              >
-                {displayValue || '-'}
-              </Typography>
-            )}
-          </Box>
-        );
-      });
-  };
-
-  // Status indicator for non-pending states
-  const renderStatusBadge = () => {
-    if (isPending) return null;
-
-    const statusConfig = {
-      APPROVED: { color: 'success', label: (inlineT?.approved as string) || 'Approved' },
-      REJECTED: { color: 'error', label: (inlineT?.rejected as string) || 'Rejected' },
-      EXECUTED: { color: 'success', label: (inlineT?.executed as string) || 'Executed' },
-      FAILED: { color: 'error', label: (inlineT?.failed as string) || 'Failed' },
-      EXPIRED: { color: 'warning', label: (inlineT?.expired as string) || 'Expired' },
-    };
-
-    const config = statusConfig[action.status as keyof typeof statusConfig];
-    if (!config) return null;
-
-    return (
-      <Chip
-        size="small"
-        label={config.label}
-        color={config.color as 'success' | 'error' | 'warning'}
-        sx={{ fontWeight: 600, fontSize: '0.7rem' }}
-      />
-    );
-  };
 
   return (
     <Box
@@ -311,7 +201,16 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
               variant="outlined"
               sx={{ height: 20, fontSize: '0.65rem', '& .MuiChip-icon': { fontSize: 10 } }}
             />
-            {renderStatusBadge()}
+            <HitlStatusBadge
+              status={action.status}
+              translations={{
+                approved: inlineT?.approved as string,
+                rejected: inlineT?.rejected as string,
+                executed: inlineT?.executed as string,
+                failed: inlineT?.failed as string,
+                expired: inlineT?.expired as string,
+              }}
+            />
           </Box>
           {action.summary && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
@@ -321,10 +220,7 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
         </Box>
 
         {/* Expand/Collapse */}
-        <IconButton
-          size="small"
-          sx={{ color: 'text.secondary' }}
-        >
+        <IconButton size="small" sx={{ color: 'text.secondary' }}>
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </IconButton>
       </Box>
@@ -347,14 +243,19 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
             </Box>
           )}
 
-          {/* Payload Fields */}
+          {/* Payload Fields - Using extracted component */}
           <Typography
             variant="caption"
             sx={{ mb: 1.5, display: 'block', color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}
           >
             {(inlineT?.actionDetails as string) || 'Action Details'}
           </Typography>
-          {renderPayloadFields()}
+          <HitlPayloadEditor
+            payload={editedPayload}
+            editMode={editMode}
+            onChange={setEditedPayload}
+            getFieldLabel={getFieldLabel}
+          />
 
           {/* Edit toggle */}
           {isPending && (
@@ -372,7 +273,7 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
         </Box>
       </Collapse>
 
-      {/* Execution Feedback - Show after approval/rejection */}
+      {/* Execution Feedback */}
       {executionFeedback && (
         <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: alpha(theme.palette.divider, 0.1) }}>
           <Alert
@@ -387,7 +288,7 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
         </Box>
       )}
 
-      {/* Action Buttons - Only show for PENDING (and no feedback yet) */}
+      {/* Action Buttons */}
       {isPending && !executionFeedback && (
         <Box
           sx={{
