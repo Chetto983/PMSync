@@ -56,6 +56,7 @@ import { ChatContextBuilderService, sanitizeLlmResponse, needsMemoryContext } fr
 import { AgentMetricsService } from './services/agent-metrics.service';
 import { AgentPoolService } from './services/agent-pool.service';
 import { ChatPrepareService } from './services/chat-prepare.service';
+import { MistralService } from '../services/mistral.service';
 
 /**
  * Streaming-safe sanitizer - ZERO BUFFERING.
@@ -167,6 +168,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() @Inject(AgentPoolService) private readonly agentPoolService?: AgentPoolService,
     @Optional() @Inject(ChatPrepareService) private readonly chatPrepareService?: ChatPrepareService,
     @Optional() @Inject(RedisLockService) private readonly redisLockService?: RedisLockService,
+    @Optional() @Inject(MistralService) private readonly mistralService?: MistralService,
   ) {
     this.logger.log(`[INIT] VoltAgentService: cache=${!!this.cacheService}, hitl=${!!this.hitlService}, memory=${!!this.memoryIntelligenceService}, lock=${!!this.redisLockService}`);
   }
@@ -470,6 +472,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           duration: Date.now() - agentStartTime,
         });
 
+        // RACE-04: Record success in circuit breaker
+        if (this.mistralService) {
+          this.mistralService.recordLlmSuccess();
+        }
+
         this.logger.debug(`${ctx.logPrefix} [DEBUG] agent.generateText completed successfully`);
         break; // Success, exit loop
       } catch (genError) {
@@ -477,6 +484,35 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         const errorMessage = genError instanceof Error ? genError.message : String(genError);
 
         this.logger.warn(`${ctx.logPrefix} [DEBUG] agent.generateText FAILED (Attempt ${attempts}/${MAX_RETRIES}): ${errorMessage}`);
+
+        // RACE-04: Handle LLM timeout gracefully - return fallback instead of throwing
+        const aiError = genError instanceof AiError ? genError : AiError.fromError(genError);
+        if (aiError.code === AiErrorCode.PROVIDER_TIMEOUT) {
+          this.logger.warn(`${ctx.logPrefix} [RACE-04] LLM timeout for user ${options.userId}, returning fallback`);
+
+          // Record timeout in circuit breaker
+          if (this.mistralService) {
+            this.mistralService.recordLlmFailure();
+          }
+
+          // Emit: Timeout state (not error, as we're handling gracefully)
+          this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'supervisor', 'completed', 'Request timed out (fallback)', {
+            duration: Date.now() - agentStartTime,
+          });
+
+          // Return graceful fallback instead of throwing
+          const fallbackMessage = this.mistralService
+            ? this.mistralService.getGracefulTimeoutResponse(message, options.locale || 'en')
+            : "I'm having trouble completing your request right now. Please try again in a moment.";
+
+          return {
+            text: fallbackMessage,
+            requiresApproval: false,
+            model: ctx.selectedModel,
+            fromCache: false,
+            conversationId: ctx.sessionId,
+          } satisfies ChatResult;
+        }
 
         if (isLastAttempt) {
           // Emit: Error state
