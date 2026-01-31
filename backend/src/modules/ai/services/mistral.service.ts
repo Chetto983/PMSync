@@ -20,6 +20,44 @@ import { AiError, AiErrorCode } from '../errors';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { CostProtectionService } from '../../subscription/services/cost-protection.service';
 
+/**
+ * Simple circuit breaker for LLM API calls (RACE-04)
+ * Opens after 3 consecutive failures, half-opens after 60s
+ */
+class LlmCircuitBreaker {
+  private failures = 0;
+  private lastFailure = 0;
+  private isOpen = false;
+  private readonly failureThreshold = 3;
+  private readonly resetTimeMs = 60000; // 1 minute
+
+  shouldAllowRequest(): boolean {
+    if (!this.isOpen) return true;
+    // Half-open: allow one request after reset time
+    if (Date.now() - this.lastFailure >= this.resetTimeMs) {
+      return true;
+    }
+    return false;
+  }
+
+  recordSuccess(): void {
+    this.failures = 0;
+    this.isOpen = false;
+  }
+
+  recordFailure(): void {
+    this.failures++;
+    this.lastFailure = Date.now();
+    if (this.failures >= this.failureThreshold) {
+      this.isOpen = true;
+    }
+  }
+
+  isCircuitOpen(): boolean {
+    return this.isOpen && Date.now() - this.lastFailure < this.resetTimeMs;
+  }
+}
+
 type ConversationMessage = {
   role: 'assistant' | 'user';
   content: string;
@@ -29,6 +67,7 @@ type ConversationMessage = {
 export class MistralService {
   private logger = new Logger(MistralService.name);
   private readonly embeddingModel = 'mistral-embed';
+  private readonly llmCircuitBreaker = new LlmCircuitBreaker();
 
   // Rate limiting for direct embedding calls (not through queue)
   private readonly maxConcurrentEmbeddings: number;
@@ -863,6 +902,75 @@ export class MistralService {
       lastFailure: stats.lastFailureAt,
       lastSuccess: stats.lastSuccessAt,
     };
+  }
+
+  /**
+   * Generate graceful fallback response when LLM times out (RACE-04)
+   * Provides user-friendly message instead of hard failure
+   */
+  getGracefulTimeoutResponse(message: string, locale: string = 'en'): string {
+    // Detect intent for contextual fallback
+    const lowerMessage = message.toLowerCase();
+
+    const responses: Record<string, Record<string, string>> = {
+      en: {
+        email: "I'm processing your email request, but it's taking longer than expected. Please try again in a moment, or try a simpler question.",
+        calendar: "I'm working on your calendar request. This is taking a bit longer than usual. Please try again shortly.",
+        search: "Your search is taking longer than expected. Please try again with a more specific query.",
+        default: "I'm having trouble completing your request right now. Please try again in a moment.",
+      },
+      it: {
+        email: "Sto elaborando la tua richiesta email, ma sta richiedendo più tempo del previsto. Riprova tra poco, o prova una domanda più semplice.",
+        calendar: "Sto lavorando sulla tua richiesta calendario. Sta richiedendo più tempo del solito. Riprova tra poco.",
+        search: "La tua ricerca sta richiedendo più tempo del previsto. Riprova con una query più specifica.",
+        default: "Ho difficoltà a completare la tua richiesta. Riprova tra poco.",
+      },
+    };
+
+    const localeResponses = responses[locale] || responses.en;
+
+    if (lowerMessage.includes('email') || lowerMessage.includes('mail')) {
+      return localeResponses.email;
+    }
+    if (lowerMessage.includes('calendar') || lowerMessage.includes('evento') || lowerMessage.includes('event')) {
+      return localeResponses.calendar;
+    }
+    if (lowerMessage.includes('search') || lowerMessage.includes('cerca') || lowerMessage.includes('find')) {
+      return localeResponses.search;
+    }
+    return localeResponses.default;
+  }
+
+  /**
+   * Check if the LLM timeout circuit breaker is open (RACE-04)
+   * Used by VoltAgentService to check before making LLM calls
+   */
+  isLlmCircuitOpen(): boolean {
+    return this.llmCircuitBreaker.isCircuitOpen();
+  }
+
+  /**
+   * Check if a request should be allowed (RACE-04)
+   * Returns false if circuit is open and not in half-open state
+   */
+  shouldAllowLlmRequest(): boolean {
+    return this.llmCircuitBreaker.shouldAllowRequest();
+  }
+
+  /**
+   * Record LLM success (RACE-04)
+   * Resets the circuit breaker failure count
+   */
+  recordLlmSuccess(): void {
+    this.llmCircuitBreaker.recordSuccess();
+  }
+
+  /**
+   * Record LLM failure/timeout (RACE-04)
+   * Increments failure count, may open circuit
+   */
+  recordLlmFailure(): void {
+    this.llmCircuitBreaker.recordFailure();
   }
 
   // ============================================================================
