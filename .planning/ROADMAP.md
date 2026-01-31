@@ -33,13 +33,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. No deprecated Mistral MEDIUM model references exist in codebase (grep returns 0 matches)
   4. All DEPRECATED tool blocks removed from voltagent tools files (email, folder, calendar, document-library, contacts)
   5. Pre-commit hook rejects any file containing `DEPRECATED` without an associated removal date
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 01-01: Consolidate sanitization utilities
-- [ ] 01-02: Enhance PrismaRetryService with P2034 handling
-- [ ] 01-03: Remove dead code and deprecated features
-- [ ] 01-04: Add deprecation prevention hook
+- [ ] 01-01-PLAN.md - Consolidate sanitization utilities + verify PrismaRetryService
+- [ ] 01-02-PLAN.md - Remove deprecated Mistral MEDIUM model references
+- [ ] 01-03-PLAN.md - Remove deprecated tool blocks and exports
+- [ ] 01-04-PLAN.md - Add deprecation prevention hook
 
 ### Phase 2: Race Condition Fixes
 **Goal**: Folder operations are atomic and cannot corrupt data under concurrent load
@@ -51,7 +51,7 @@ Plans:
   3. Stress test with 10 concurrent folder syncs completes without data corruption or duplicate folders
   4. VoltAgent conversation + context updates rollback together on partial failure (atomicity proven by test)
   5. LLM API calls timeout at 60 seconds with graceful partial response fallback
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
 - [ ] 02-01: Add folder sync duration monitoring (RC-A1)
@@ -70,7 +70,7 @@ Plans:
   3. All existing IMAP sync tests pass without modification (facade preserves interface)
   4. New unit tests exist for each extracted service with >80% coverage
   5. Connection pool tested under concurrent load (10 simultaneous connections)
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
 - [ ] 03-01: Analyze IMAP driver dependency graph
@@ -90,7 +90,7 @@ Plans:
   3. `emails.service.ts` split into CRUD, bulk, cleanup services each under 500 lines
   4. All existing folder and email tests pass without modification (facades preserve interfaces)
   5. New unit tests exist for each split service
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
 - [ ] 04-01: Split folder-sync by provider
@@ -108,7 +108,7 @@ Plans:
   3. Both driver facades under 250 lines each
   4. All existing Gmail and Microsoft sync tests pass without modification
   5. New unit tests exist for each extracted service
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
 - [ ] 05-01: Split google.driver.ts into focused modules
@@ -126,7 +126,7 @@ Plans:
   3. Abstract class only depends on injected services (no circular dependencies)
   4. All existing sync tests pass without modification
   5. Token refresh logic tested in isolation
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
 - [ ] 06-01: Analyze base-sync dependency graph
@@ -144,7 +144,7 @@ Plans:
   3. Vector search queries verified to use pgvector index (EXPLAIN shows index scan)
   4. All existing RAG tests pass without modification
   5. Embedding CRUD operations tested with multi-tenant isolation verification
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
 - [ ] 07-01: Analyze knowledge-base dependency graph
@@ -163,7 +163,7 @@ Plans:
   4. Redis lock contention test (20 workers competing) completes without timeout
   5. Large batch operation test (1000+ emails) completes within performance baseline
   6. Token expiry mid-sync test proves OAuth refresh without data loss
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
 - [ ] 08-01: Create multi-tenant isolation stress tests
@@ -178,7 +178,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Not started | - |
+| 1. Foundation | 0/4 | Planned | - |
 | 2. Race Condition Fixes | 0/5 | Not started | - |
 | 3. IMAP Driver Split | 0/6 | Not started | - |
 | 4. Service Splits | 0/4 | Not started | - |
