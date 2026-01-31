@@ -2625,6 +2625,8 @@ export interface AppTranslations {
       };
       snooze: {
         title: string;
+        oneHour: string;
+        fourHours: string;
         tomorrow: string;
         nextWeek: string;
         custom: string;
@@ -2651,7 +2653,7 @@ export interface AppTranslations {
         subtitle: string;
         columns: {
           pending: string;
-          reminded: string;
+          overdue: string;
           resolved: string;
           expired: string;
         };
@@ -2659,7 +2661,7 @@ export interface AppTranslations {
           dropHere: string;
           noItems: string;
           noPending: string;
-          noReminded: string;
+          noOverdue: string;
           noResolved: string;
           noExpired: string;
         };

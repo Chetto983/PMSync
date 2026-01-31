@@ -2577,6 +2577,8 @@ export const en: AppTranslations = {
       },
       snooze: {
         title: 'Snooze Follow-up',
+        oneHour: '1 hour',
+        fourHours: '4 hours',
         tomorrow: 'Tomorrow',
         nextWeek: 'Next Week',
         custom: 'Custom Date',
@@ -2605,7 +2607,7 @@ export const en: AppTranslations = {
         subtitle: 'Drag and drop to change status',
         columns: {
           pending: 'Pending',
-          reminded: 'Reminded',
+          overdue: 'Overdue',
           resolved: 'Resolved',
           expired: 'Expired',
         },
@@ -2613,7 +2615,7 @@ export const en: AppTranslations = {
           dropHere: 'Drop here',
           noItems: 'No items',
           noPending: 'No pending follow-ups',
-          noReminded: 'All reminders sent',
+          noOverdue: 'Nothing overdue',
           noResolved: 'Nothing resolved yet',
           noExpired: 'No expired items',
         },

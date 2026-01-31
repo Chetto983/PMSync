@@ -17,6 +17,7 @@ import {
   ListItemText,
   alpha,
   useTheme,
+  useMediaQuery,
   IconButton,
   Tooltip,
   Divider,
@@ -42,20 +43,22 @@ import {
   useFollowUpStats,
   useSnoozeFollowUp,
   useUpdateFollowUpStatus,
+  useDeleteFollowUp,
   type EmailFollowUp,
-  type EmailFollowUpStatus,
 } from '@/hooks/queries';
 import type { Theme } from '@mui/material';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanSkeleton } from './KanbanSkeleton';
 import { FollowUpCard } from '@/components/ai/FollowUpTracker/FollowUpCard';
 
-// Column configuration matching Prisma enum
-const COLUMNS: { id: EmailFollowUpStatus; title: string; titleKey: string; color: string }[] = [
+// Column configuration - actionable view (not strictly matching Prisma enum)
+// "overdue" is a virtual column for items past due date
+type KanbanColumnId = 'PENDING' | 'OVERDUE' | 'RESOLVED' | 'EXPIRED';
+const COLUMNS: { id: KanbanColumnId; title: string; titleKey: string; color: string }[] = [
   { id: 'PENDING', title: 'Pending', titleKey: 'pending', color: 'warning.main' },
-  { id: 'REMINDED', title: 'Reminded', titleKey: 'reminded', color: 'info.main' },
+  { id: 'OVERDUE', title: 'Overdue', titleKey: 'overdue', color: 'error.main' },
   { id: 'RESOLVED', title: 'Resolved', titleKey: 'resolved', color: 'success.main' },
-  { id: 'EXPIRED', title: 'Expired', titleKey: 'expired', color: 'error.main' },
+  { id: 'EXPIRED', title: 'Expired', titleKey: 'expired', color: 'grey.500' },
 ];
 
 // Date helper functions
@@ -77,6 +80,7 @@ export function FollowupsKanbanBoard() {
   const theme = useTheme();
   const t = useTranslations();
   const router = useRouter();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +101,7 @@ export function FollowupsKanbanBoard() {
   // Mutations
   const updateStatus = useUpdateFollowUpStatus();
   const snoozeFollowUp = useSnoozeFollowUp();
+  const deleteFollowUp = useDeleteFollowUp();
 
   // Sensors for pointer (mouse/touch) and keyboard
   const sensors = useSensors(
@@ -108,17 +113,19 @@ export function FollowupsKanbanBoard() {
     }),
   );
 
-  // Filter and group follow-ups
+  // Filter and group follow-ups into actionable columns
+  // OVERDUE is a virtual column for items past due date (regardless of PENDING/REMINDED status)
   const columns = useMemo(() => {
-    const grouped: Record<EmailFollowUpStatus, EmailFollowUp[]> = {
+    const grouped: Record<KanbanColumnId, EmailFollowUp[]> = {
       PENDING: [],
-      REMINDED: [],
+      OVERDUE: [],
       RESOLVED: [],
       EXPIRED: [],
     };
 
     const followUps = data?.followUps || [];
     const query = searchQuery.toLowerCase();
+    const now = new Date();
 
     followUps.forEach((f) => {
       // Apply search filter
@@ -130,8 +137,20 @@ export function FollowupsKanbanBoard() {
         if (!matchesSearch) return;
       }
 
-      if (grouped[f.status]) {
-        grouped[f.status].push(f);
+      // Group by actionable status
+      if (f.status === 'RESOLVED') {
+        grouped.RESOLVED.push(f);
+      } else if (f.status === 'EXPIRED') {
+        grouped.EXPIRED.push(f);
+      } else {
+        // PENDING or REMINDED - check if overdue
+        const dueDate = f.dueDate ? new Date(f.dueDate) : null;
+        const isOverdue = dueDate && dueDate < now;
+        if (isOverdue) {
+          grouped.OVERDUE.push(f);
+        } else {
+          grouped.PENDING.push(f);
+        }
       }
     });
 
@@ -145,7 +164,7 @@ export function FollowupsKanbanBoard() {
   }, [activeId, data?.followUps]);
 
   // Column order for keyboard navigation
-  const columnOrder: EmailFollowUpStatus[] = ['PENDING', 'REMINDED', 'RESOLVED', 'EXPIRED'];
+  const columnOrder: KanbanColumnId[] = ['PENDING', 'OVERDUE', 'RESOLVED', 'EXPIRED'];
 
   // Get selected item
   const selectedItem = useMemo(() => {
@@ -243,20 +262,75 @@ export function FollowupsKanbanBoard() {
     if (!over || !data?.followUps) return;
 
     const followUpId = active.id as string;
-    const targetStatus = over.id as EmailFollowUpStatus;
-
-    // Find current item to check if status changed
     const item = data.followUps.find((f) => f.id === followUpId);
-    if (!item || item.status === targetStatus) return;
+    if (!item) return;
 
-    // Update status via API
+    // Determine target column (either column ID or card's column)
+    const validColumns: KanbanColumnId[] = ['PENDING', 'OVERDUE', 'RESOLVED', 'EXPIRED'];
+    let targetColumn: KanbanColumnId;
+
+    if (validColumns.includes(over.id as KanbanColumnId)) {
+      targetColumn = over.id as KanbanColumnId;
+    } else {
+      // Dropped on a card - find which column that card is in
+      const targetCard = data.followUps.find((f) => f.id === over.id);
+      if (!targetCard) return;
+      // Determine target card's virtual column
+      const now = new Date();
+      const targetDueDate = targetCard.dueDate ? new Date(targetCard.dueDate) : null;
+      const targetIsOverdue = targetDueDate && targetDueDate < now;
+      if (targetCard.status === 'RESOLVED') {
+        targetColumn = 'RESOLVED';
+      } else if (targetCard.status === 'EXPIRED') {
+        targetColumn = 'EXPIRED';
+      } else if (targetIsOverdue) {
+        targetColumn = 'OVERDUE';
+      } else {
+        targetColumn = 'PENDING';
+      }
+    }
+
+    // Determine current item's virtual column
+    const now = new Date();
+    const itemDueDate = item.dueDate ? new Date(item.dueDate) : null;
+    const itemIsOverdue = itemDueDate && itemDueDate < now;
+    let currentColumn: KanbanColumnId;
+    if (item.status === 'RESOLVED') {
+      currentColumn = 'RESOLVED';
+    } else if (item.status === 'EXPIRED') {
+      currentColumn = 'EXPIRED';
+    } else if (itemIsOverdue) {
+      currentColumn = 'OVERDUE';
+    } else {
+      currentColumn = 'PENDING';
+    }
+
+    // No change if same column
+    if (currentColumn === targetColumn) return;
+
     setResolvingId(followUpId);
     try {
-      await updateStatus.mutateAsync({ id: followUpId, status: targetStatus });
+      // Handle special cases
+      if (targetColumn === 'OVERDUE') {
+        // Can't manually move to OVERDUE - it's date-based
+        // Just ignore this drop
+        return;
+      } else if (targetColumn === 'PENDING' && currentColumn === 'OVERDUE') {
+        // Moving from OVERDUE to PENDING = snooze (extend due date)
+        const newDueDate = addDays(new Date(), 3); // Default snooze 3 days
+        await snoozeFollowUp.mutateAsync({ id: followUpId, dueDate: newDueDate.toISOString() });
+      } else if (targetColumn === 'RESOLVED') {
+        await updateStatus.mutateAsync({ id: followUpId, status: 'RESOLVED' });
+      } else if (targetColumn === 'EXPIRED') {
+        await updateStatus.mutateAsync({ id: followUpId, status: 'EXPIRED' });
+      } else if (targetColumn === 'PENDING') {
+        // Moving to PENDING from RESOLVED/EXPIRED - reactivate
+        await updateStatus.mutateAsync({ id: followUpId, status: 'PENDING' });
+      }
     } finally {
       setResolvingId(null);
     }
-  }, [data?.followUps, updateStatus]);
+  }, [data?.followUps, updateStatus, snoozeFollowUp]);
 
   const handleResolve = useCallback(async (id: string) => {
     setResolvingId(id);
@@ -266,6 +340,14 @@ export function FollowupsKanbanBoard() {
       setResolvingId(null);
     }
   }, [updateStatus]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      await deleteFollowUp.mutateAsync(id);
+    } catch {
+      // Error handled by mutation
+    }
+  }, [deleteFollowUp]);
 
   const handleOpenSnooze = useCallback((id: string) => {
     setSnoozeTargetId(id);
@@ -341,10 +423,18 @@ export function FollowupsKanbanBoard() {
           sx={{
             flex: 1,
             display: 'flex',
-            gap: 2,
+            gap: isMobile ? 1.5 : 2,
             overflowX: 'auto',
-            p: 2,
-            minHeight: 500,
+            p: isMobile ? 1 : 2,
+            minHeight: isMobile ? 400 : 500,
+            // Mobile: snap scrolling for columns
+            scrollSnapType: isMobile ? 'x mandatory' : 'none',
+            '& > *': {
+              scrollSnapAlign: isMobile ? 'start' : 'none',
+              // Mobile: narrower columns
+              minWidth: isMobile ? 260 : 300,
+              maxWidth: isMobile ? 260 : 300,
+            },
           }}
         >
           {COLUMNS.map((col, idx) => (
@@ -357,6 +447,7 @@ export function FollowupsKanbanBoard() {
               onResolve={handleResolve}
               onSnooze={handleOpenSnooze}
               onViewEmail={handleViewEmail}
+              onDelete={handleDelete}
               resolvingId={resolvingId}
               selectedId={selectedColumnIdx === idx ? selectedId : null}
             />

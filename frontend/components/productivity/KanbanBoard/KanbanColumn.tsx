@@ -5,18 +5,22 @@ import { Box, Typography, Chip, alpha, useTheme } from '@mui/material';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Inbox } from 'lucide-react';
-import type { EmailFollowUp, EmailFollowUpStatus } from '@/hooks/queries';
+import type { EmailFollowUp } from '@/hooks/queries';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { KanbanCard } from './KanbanCard';
 
+// Virtual column type - OVERDUE is not a real status but a date-based grouping
+type KanbanColumnId = 'PENDING' | 'OVERDUE' | 'RESOLVED' | 'EXPIRED';
+
 interface KanbanColumnProps {
-  id: EmailFollowUpStatus;
+  id: KanbanColumnId;
   title: string;
   color: string;
   items: EmailFollowUp[];
   onResolve?: (id: string) => void;
   onSnooze?: (id: string) => void;
   onViewEmail?: (emailId: string) => void;
+  onDelete?: (id: string) => void;
   resolvingId?: string | null;
   selectedId?: string | null;
 }
@@ -29,6 +33,7 @@ export function KanbanColumn({
   onResolve,
   onSnooze,
   onViewEmail,
+  onDelete,
   resolvingId,
   selectedId,
 }: KanbanColumnProps) {
@@ -42,8 +47,8 @@ export function KanbanColumn({
     switch (id) {
       case 'PENDING':
         return empty?.noPending || 'No pending follow-ups';
-      case 'REMINDED':
-        return empty?.noReminded || 'All reminders sent';
+      case 'OVERDUE':
+        return empty?.noOverdue || 'Nothing overdue';
       case 'RESOLVED':
         return empty?.noResolved || 'Nothing resolved yet';
       case 'EXPIRED':
@@ -140,6 +145,7 @@ export function KanbanColumn({
               onResolve={onResolve}
               onSnooze={onSnooze}
               onViewEmail={onViewEmail}
+              onDelete={onDelete}
               isResolving={resolvingId === followUp.id}
               isSelected={selectedId === followUp.id}
             />

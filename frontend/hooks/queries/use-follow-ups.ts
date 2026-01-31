@@ -326,3 +326,20 @@ export function useUpdateFollowUpStatus() {
     },
   });
 }
+
+/**
+ * Hook for deleting a follow-up
+ */
+export function useDeleteFollowUp() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await voltAgentApi.deleteFollowUp(id);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: followUpKeys.all });
+    },
+  });
+}

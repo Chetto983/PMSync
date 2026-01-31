@@ -816,6 +816,57 @@ Return JSON ONLY (no markdown):
   }
 
   /**
+   * Check if incoming email is a reply to an email with a pending follow-up.
+   * Uses RFC 5322 In-Reply-To/References headers to find the original email.
+   * If found and has a pending follow-up, auto-resolves it.
+   *
+   * @param tenantId - Tenant ID
+   * @param userId - User ID
+   * @param inReplyTo - Message-ID of the original email (from In-Reply-To header)
+   * @param references - Reference chain (from References header, optional)
+   * @returns true if a follow-up was resolved
+   */
+  async checkAndResolveReplyFollowUp(
+    tenantId: string,
+    userId: string,
+    inReplyTo: string | null,
+    references: string | null,
+  ): Promise<boolean> {
+    if (!inReplyTo && !references) {
+      return false;
+    }
+
+    // Extract all message-ids to check (In-Reply-To has priority, then References)
+    const messageIds: string[] = [];
+    if (inReplyTo) {
+      // In-Reply-To typically contains a single message-id
+      messageIds.push(inReplyTo.trim());
+    }
+    if (references) {
+      // References is space-separated list of message-ids
+      const refs = references.split(/\s+/).filter((r) => r.trim());
+      messageIds.push(...refs);
+    }
+
+    // Find original email by messageId
+    const originalEmail = await this.prisma.email.findFirst({
+      where: {
+        tenantId,
+        messageId: { in: messageIds },
+        folder: 'SENT', // Only check sent emails for follow-ups
+      },
+      select: { id: true },
+    });
+
+    if (!originalEmail) {
+      return false;
+    }
+
+    // Check if this email has a pending follow-up
+    return this.checkForReplyByEmailId(tenantId, userId, originalEmail.id);
+  }
+
+  /**
    * Snooze a follow-up (extend due date)
    */
   async snoozeFollowUp(tenantId: string, userId: string, id: string, newDueDate: Date): Promise<EmailFollowUp> {

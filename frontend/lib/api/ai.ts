@@ -1042,6 +1042,12 @@ export const voltAgentApi = {
     );
   },
 
+  deleteFollowUp(id: string) {
+    return apiClient.delete<{ success: boolean; message: string }>(
+      `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}`,
+    );
+  },
+
   // ============ Action Items ============
 
   listActionItems(params?: { status?: string; sourceType?: string; limit?: number; offset?: number }) {

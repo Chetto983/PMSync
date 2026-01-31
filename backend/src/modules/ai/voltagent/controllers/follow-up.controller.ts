@@ -9,6 +9,7 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -282,6 +283,29 @@ export class FollowUpController {
     return {
       success: true,
       followUp,
+    };
+  }
+
+  /**
+   * Delete a follow-up.
+   */
+  @Delete('follow-ups/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a follow-up' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  async deleteFollowUp(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    await this.followUpService.deleteFollowUp(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+    );
+
+    return {
+      success: true,
+      message: 'Follow-up deleted',
     };
   }
 }

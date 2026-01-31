@@ -12,6 +12,7 @@ interface KanbanCardProps {
   onResolve?: (id: string) => void;
   onSnooze?: (id: string) => void;
   onViewEmail?: (emailId: string) => void;
+  onDelete?: (id: string) => void;
   isResolving?: boolean;
   isDragging?: boolean;
   isSelected?: boolean;
@@ -22,6 +23,7 @@ export function KanbanCard({
   onResolve,
   onSnooze,
   onViewEmail,
+  onDelete,
   isResolving,
   isDragging: isDraggingProp,
   isSelected,
@@ -66,6 +68,7 @@ export function KanbanCard({
         onResolve={onResolve}
         onSnooze={onSnooze}
         onViewEmail={onViewEmail}
+        onDelete={onDelete}
         isResolving={isResolving}
       />
     </Box>

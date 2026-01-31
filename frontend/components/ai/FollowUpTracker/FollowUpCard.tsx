@@ -28,6 +28,7 @@ import {
   Hourglass,
   ListTodo,
   Gauge,
+  Trash2,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailFollowUp, EmailFollowUpStatus } from '@/hooks/queries';
@@ -37,6 +38,7 @@ interface FollowUpCardProps {
   onResolve?: (id: string) => void;
   onSnooze?: (id: string) => void;
   onViewEmail?: (emailId: string) => void;
+  onDelete?: (id: string) => void;
   isResolving?: boolean;
 }
 
@@ -52,6 +54,7 @@ export function FollowUpCard({
   onResolve,
   onSnooze,
   onViewEmail,
+  onDelete,
   isResolving,
 }: FollowUpCardProps) {
   const theme = useTheme();
@@ -84,6 +87,13 @@ export function FollowUpCard({
     handleMenuClose();
     if (onViewEmail && followUp.emailId) {
       onViewEmail(followUp.emailId);
+    }
+  };
+
+  const handleDelete = () => {
+    handleMenuClose();
+    if (onDelete) {
+      onDelete(followUp.id);
     }
   };
 
@@ -382,6 +392,12 @@ export function FollowUpCard({
               <Mail size={16} />
             </ListItemIcon>
             <ListItemText>{t.ai.followUpTracker.actions.view}</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+            <ListItemIcon sx={{ color: 'inherit' }}>
+              <Trash2 size={16} />
+            </ListItemIcon>
+            <ListItemText>{t.ai.followUpTracker.actions.delete}</ListItemText>
           </MenuItem>
         </Menu>
       </CardContent>

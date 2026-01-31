@@ -2533,7 +2533,7 @@ export const it: AppTranslations = {
       tabs: {
         all: 'Tutti',
         pending: 'In sospeso',
-        overdue: 'Scaduti',
+        overdue: 'In ritardo',
         resolved: 'Risolti',
       },
       status: {
@@ -2545,7 +2545,7 @@ export const it: AppTranslations = {
       stats: {
         total: 'Totale',
         pending: 'In sospeso',
-        overdue: 'Scaduti',
+        overdue: 'In ritardo',
         dueToday: 'Scadenza oggi',
         resolved: 'Risolti',
       },
@@ -2557,6 +2557,8 @@ export const it: AppTranslations = {
       },
       snooze: {
         title: 'Posticipa Follow-up',
+        oneHour: '1 ora',
+        fourHours: '4 ore',
         tomorrow: 'Domani',
         nextWeek: 'Settimana prossima',
         custom: 'Data personalizzata',
@@ -2565,7 +2567,7 @@ export const it: AppTranslations = {
       reason: 'Motivo',
       noReason: 'Follow-up rilevato automaticamente',
       reminderCount: 'Promemoria inviati',
-      overdueWarning: 'Scaduto',
+      overdueWarning: 'In ritardo',
       dueTodayWarning: 'Scade oggi',
       loading: 'Caricamento follow-up...',
       error: 'Impossibile caricare i follow-up',
@@ -2585,7 +2587,7 @@ export const it: AppTranslations = {
         subtitle: 'Trascina per cambiare stato',
         columns: {
           pending: 'In sospeso',
-          reminded: 'Promemoria inviato',
+          overdue: 'In ritardo',
           resolved: 'Risolto',
           expired: 'Scaduto',
         },
@@ -2593,7 +2595,7 @@ export const it: AppTranslations = {
           dropHere: 'Rilascia qui',
           noItems: 'Nessun elemento',
           noPending: 'Nessun follow-up in sospeso',
-          noReminded: 'Tutti i promemoria inviati',
+          noOverdue: 'Nessun elemento in ritardo',
           noResolved: 'Niente ancora risolto',
           noExpired: 'Nessun elemento scaduto',
         },

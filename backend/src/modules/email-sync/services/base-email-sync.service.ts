@@ -956,6 +956,28 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
               // Note: Fire-and-forget is intentional - AI features shouldn't block sync
               // TODO: Consider adding retry queue for failed AI analyses
             });
+
+          // AUTO-RESOLVE FOLLOW-UPS: Check if incoming email is a reply to a sent email with follow-up
+          // Only for incoming emails (not SENT) that are replies
+          if (!isSentByUser && (canonicalMsg.inReplyTo || canonicalMsg.references)) {
+            this.followUpService
+              .checkAndResolveReplyFollowUp(
+                tenantId,
+                userId,
+                canonicalMsg.inReplyTo || null,
+                canonicalMsg.references || null,
+              )
+              .then((resolved) => {
+                if (resolved) {
+                  this.logger.debug(`Auto-resolved follow-up from reply email ${result.id}`);
+                }
+              })
+              .catch((err) => {
+                this.logger.warn(
+                  `Failed to check reply follow-up for email ${result.id}: ${err.message}`,
+                );
+              });
+          }
         }
       }
 

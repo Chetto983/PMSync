@@ -71,6 +71,8 @@ export function FollowUpWidget() {
   const wt = t.dashboard.widgets.followUps;
   const snoozeText = t.ai?.followUpTracker?.snooze || {
     title: 'Snooze',
+    oneHour: '1 hour',
+    fourHours: '4 hours',
     tomorrow: 'Tomorrow morning',
     nextWeek: 'Next week',
   };
@@ -150,11 +152,11 @@ export function FollowUpWidget() {
       >
         <MenuItem onClick={() => handleSnooze(1)}>
           <ListItemIcon><Clock size={16} /></ListItemIcon>
-          1 hour
+          {snoozeText.oneHour || '1 hour'}
         </MenuItem>
         <MenuItem onClick={() => handleSnooze(4)}>
           <ListItemIcon><Clock size={16} /></ListItemIcon>
-          4 hours
+          {snoozeText.fourHours || '4 hours'}
         </MenuItem>
         <MenuItem onClick={() => handleSnooze('tomorrow')}>
           <ListItemIcon><Bell size={16} /></ListItemIcon>
