@@ -205,12 +205,14 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                 </Typography>
               ) : (
                 <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
-                  {/* AI Elements MessageResponse - uses Streamdown for markdown */}
-                  <MessageResponse>{getMessageText(message)}</MessageResponse>
-                  {/* Render tool invocations using ai-elements Tool component */}
-                  {message.parts
-                    .filter((p) => p.type.startsWith('tool-') || p.type === 'dynamic-tool')
-                    .map((part) => {
+                  {/* Native AI SDK pattern: iterate through message.parts */}
+                  {message.parts.map((part, partIndex) => {
+                    // Text parts -> MessageResponse (uses Streamdown)
+                    if (part.type === 'text') {
+                      return <MessageResponse key={partIndex}>{part.text}</MessageResponse>;
+                    }
+                    // Tool parts (tool-{name} or dynamic-tool)
+                    if (part.type.startsWith('tool-') || part.type === 'dynamic-tool') {
                       const toolPart = part as ToolPart;
                       const isDynamic = toolPart.type === 'dynamic-tool';
                       return (
@@ -233,7 +235,10 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                           </ToolContent>
                         </Tool>
                       );
-                    })}
+                    }
+                    // Other part types (reasoning, sources, etc.) - skip for now
+                    return null;
+                  })}
                 </Box>
               )}
             </Paper>
