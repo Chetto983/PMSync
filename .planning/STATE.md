@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: 5 of 8 (Google & Microsoft Drivers)
-Plan: 1 of 4 complete (Wave 1 - Message Services)
+Plan: 2 of 4 complete (Wave 2 - Send Services)
 Status: In Progress
-Last activity: 2026-02-01 - Completed 05-01-PLAN.md (message service extraction)
+Last activity: 2026-02-01 - Completed 05-02-PLAN.md (send service extraction)
 
-Progress: [████████████████░░░░] 52% (4.25/8 phases)
+Progress: [████████████████░░░░] 53% (4.5/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23 (18 prior + 4 Phase 4 gap closures + 05-01)
+- Total plans completed: 24 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02)
 - Average duration: ~9 min/plan
-- Total execution time: ~3h 24min
+- Total execution time: ~3h 28min
 
 **By Phase:**
 
@@ -31,7 +31,7 @@ Progress: [████████████████░░░░] 52% (4.
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
 | 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
-| 5. Gmail/Microsoft Drivers | 1 | ~10 min | ~10 min (message services) |
+| 5. Gmail/Microsoft Drivers | 2 | ~14 min | ~7 min (message+send services) |
 
 **Recent Trend:**
 - Last 5 plans: 04-06, 04-07, 04-08, 05-01
@@ -81,6 +81,9 @@ Recent decisions affecting current work:
 - Jest factory mock pattern with var hoisting for googleapis module (04-06)
 - GmailMessageService (702 lines) and MicrosoftMessageService (625 lines) exceed 500-line target - cohesion over arbitrary limits (05-01)
 - DI ordering: message services registered before driver facades for proper injection (05-01)
+- GmailSendService (310 lines) and MicrosoftSendService (324 lines) under 350-line target (05-02)
+- Callback pattern used in MicrosoftSendService for folder resolution (avoids circular deps) (05-02)
+- Services extracted but not yet wired to drivers (deferred to Plan 05-04) (05-02)
 
 ### Pending Todos
 
@@ -97,7 +100,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 05-01-PLAN.md (message service extraction)
+Stopped at: Completed 05-02-PLAN.md (send service extraction)
 Resume file: None
 
 **Phase 5 Progress:**
@@ -105,11 +108,14 @@ Resume file: None
   - GmailMessageService: 702 lines, 15+ operations
   - MicrosoftMessageService: 625 lines, 15+ operations
   - Both registered in DriversModule
-- 05-02: Folder Service Extraction (Wave 2) - PENDING
-- 05-03: Send Service Extraction (Wave 3) - PENDING
+- 05-02: Send Service Extraction (Wave 2) - COMPLETE (03d30ec, fd81dd0, e5dd042)
+  - GmailSendService: 310 lines, 8+ operations
+  - MicrosoftSendService: 324 lines, 8+ operations
+  - Both registered in DriversModule
+- 05-03: Sync Service Extraction (Wave 3) - PENDING
 - 05-04: Facade Refactor (Wave 4) - PENDING
 
-**Next:** Plan 05-02 - Extract GmailFolderService and MicrosoftFolderService
+**Next:** Plan 05-03 - Extract sync services (folder sync, delta sync, webhook handlers)
 
 ## Phase 4 Final Results
 
@@ -134,11 +140,18 @@ Resume file: None
 **Wave 1 Complete:** Message Services Extracted
 - GmailMessageService: 702 lines (list, get, batch, flags, labels, attachments)
 - MicrosoftMessageService: 625 lines (list, get, batch, flags, categories, attachments)
-- Both registered in DriversModule with proper DI ordering
-- Type check passes, existing tests pass
-- Not yet wired to drivers (deferred to Wave 4 - Plan 05-04)
 
-**Next:** Wave 2 - Folder Services Extraction
+**Wave 2 Complete:** Send Services Extracted
+- GmailSendService: 310 lines (send, draft, move, delete, batch operations)
+- MicrosoftSendService: 324 lines (send, draft, move, delete, batch operations)
+- Callback pattern used for cross-service dependencies (Microsoft folder resolution)
+
+**Status:**
+- All 4 sub-services registered in DriversModule with proper DI ordering
+- Type check passes, existing tests pass
+- Services extracted but not yet wired to drivers (deferred to Wave 4 - Plan 05-04)
+
+**Next:** Wave 3 - Sync Services Extraction (folder sync, delta sync, webhook handlers)
 
 ---
 *State initialized: 2026-01-31*
