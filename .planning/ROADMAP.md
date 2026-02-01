@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Extract shared utilities, remove dead code, prevent circular dependencies
 - [x] **Phase 2: Race Condition Fixes** - Add distributed locks and monitoring to folder operations
-- [ ] **Phase 3: IMAP Driver Split** - Prove vertical slice pattern on largest file (2,249 lines)
+- [x] **Phase 3: IMAP Driver Split** - Prove vertical slice pattern on largest file (2,249 lines)
 - [ ] **Phase 4: Service Splits** - Split folder-sync and emails.service by provider/responsibility
 - [ ] **Phase 5: Google & Microsoft Drivers** - Replicate IMAP pattern to remaining drivers
 - [ ] **Phase 6: Base Sync Extraction** - Extract sync orchestration components
@@ -76,8 +76,8 @@ Plans:
 - [x] 03-02: Extract imap-connection-pool.service.ts (service + tests created)
 - [x] 03-03: Extract imap-folder.service.ts (service + tests created)
 - [x] 03-04: Extract imap-message.service.ts (service + tests created)
-- [ ] 03-05: Extract imap-idle.service.ts and imap-send.service.ts
-- [ ] 03-06: Create IMAP facade and migrate consumers
+- [x] 03-05: Extract imap-idle.service.ts and imap-send.service.ts
+- [x] 03-06: Create IMAP facade and migrate consumers
 
 ### Phase 4: Service Splits
 **Goal**: folder-sync.service (1,629 lines) and emails.service (1,705 lines) split by provider/responsibility
@@ -179,7 +179,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | ✅ Complete | 2026-01-31 |
 | 2. Race Condition Fixes | 4/4 | ✅ Complete | 2026-01-31 |
-| 3. IMAP Driver Split | 3/6 | In progress (partial) | - |
+| 3. IMAP Driver Split | 6/6 | ✅ Complete | 2026-02-01 |
 | 4. Service Splits | 0/4 | Not started | - |
 | 5. Google & Microsoft Drivers | 0/4 | Not started | - |
 | 6. Base Sync Extraction | 0/4 | Not started | - |
