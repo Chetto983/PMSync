@@ -72,10 +72,10 @@ Plans:
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 03-01: Analyze IMAP driver dependency graph
-- [ ] 03-02: Extract imap-connection-pool.service.ts
-- [ ] 03-03: Extract imap-folder.service.ts
-- [ ] 03-04: Extract imap-message.service.ts
+- [~] 03-01: Analyze IMAP driver dependency graph (skipped - research covered this)
+- [x] 03-02: Extract imap-connection-pool.service.ts (service + tests created)
+- [x] 03-03: Extract imap-folder.service.ts (service + tests created)
+- [x] 03-04: Extract imap-message.service.ts (service + tests created)
 - [ ] 03-05: Extract imap-idle.service.ts and imap-send.service.ts
 - [ ] 03-06: Create IMAP facade and migrate consumers
 
@@ -179,7 +179,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | ✅ Complete | 2026-01-31 |
 | 2. Race Condition Fixes | 4/4 | ✅ Complete | 2026-01-31 |
-| 3. IMAP Driver Split | 0/6 | Not started | - |
+| 3. IMAP Driver Split | 3/6 | In progress (partial) | - |
 | 4. Service Splits | 0/4 | Not started | - |
 | 5. Google & Microsoft Drivers | 0/4 | Not started | - |
 | 6. Base Sync Extraction | 0/4 | Not started | - |
