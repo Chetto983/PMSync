@@ -38,6 +38,7 @@ import { MicrosoftFolderService } from './services/microsoft/microsoft-folder.se
 
 // IMAP-specific services (pluggable adapters)
 import { ImapAttachmentHandler } from './services/imap/imap-attachment-handler';
+import { ImapFolderSyncService } from './services/imap-folder-sync.service';
 
 import { IcsParserService } from '../calendar/services/ics-parser.service';
 
@@ -107,6 +108,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
 
     // IMAP-specific services (pluggable adapters)
     ImapAttachmentHandler,
+    ImapFolderSyncService,
 
     IcsParserService,
 
@@ -144,7 +146,8 @@ import { FoldersController } from '../email/controllers/folders.controller';
     // Attachment handlers (for on-demand download in EmailModule)
     GmailAttachmentHandler,
     MicrosoftAttachmentHandler,
-    // Provider folder services (existing)
+    // Provider folder services (Phase 4)
+    ImapFolderSyncService,
     GmailFolderService,
     MicrosoftFolderService,
     // Email Drivers (Phase 2) - re-exported from DriversModule
