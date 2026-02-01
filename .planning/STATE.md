@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 4 - Service Splits (COMPLETE)
+**Current focus:** Phase 5 - Google & Microsoft Driver Splits (IN PROGRESS)
 
 ## Current Position
 
-Phase: 4 of 8 (Service Splits) - COMPLETE
-Plan: 8 of 8 complete (4 core + 4 gap closures)
-Status: Ready for Phase 5
-Last activity: 2026-02-01 - Phase 4 verification passed, gap closures complete
+Phase: 5 of 8 (Google & Microsoft Drivers)
+Plan: 1 of 4 complete (Wave 1 - Message Services)
+Status: In Progress
+Last activity: 2026-02-01 - Completed 05-01-PLAN.md (message service extraction)
 
-Progress: [████████████████░░░░] 50% (4/8 phases)
+Progress: [████████████████░░░░] 52% (4.25/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22 (18 prior + 04-05, 04-06, 04-07, 04-08)
+- Total plans completed: 23 (18 prior + 4 Phase 4 gap closures + 05-01)
 - Average duration: ~9 min/plan
-- Total execution time: ~3h 15min
+- Total execution time: ~3h 24min
 
 **By Phase:**
 
@@ -30,11 +30,12 @@ Progress: [████████████████░░░░] 50% (4/
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
-| 4. Service Splits | 7 | ~62 min | ~9 min (includes 3 gap closures) |
+| 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
+| 5. Gmail/Microsoft Drivers | 1 | ~10 min | ~10 min (message services) |
 
 **Recent Trend:**
-- Last 5 plans: 04-04, 04-05, 04-06, 04-07, 04-08
-- Trend: Service extraction with facade pattern + test gap closures
+- Last 5 plans: 04-06, 04-07, 04-08, 05-01
+- Trend: Service extraction + comprehensive test coverage
 
 *Updated after each plan completion*
 
@@ -78,6 +79,8 @@ Recent decisions affecting current work:
 - Private route* methods for provider dispatch in facade (04-04)
 - Mock axios globally with jest.mock for Graph API tests (04-07)
 - Jest factory mock pattern with var hoisting for googleapis module (04-06)
+- GmailMessageService (702 lines) and MicrosoftMessageService (625 lines) exceed 500-line target - cohesion over arbitrary limits (05-01)
+- DI ordering: message services registered before driver facades for proper injection (05-01)
 
 ### Pending Todos
 
@@ -94,20 +97,19 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 04-08-PLAN.md (EmailSearchService tests)
-Resume file: None - Phase 4 complete
+Stopped at: Completed 05-01-PLAN.md (message service extraction)
+Resume file: None
 
-**Phase 4 Progress:**
-- 04-01: FolderSyncQueryService - COMPLETE (eb08298)
-- 04-02: Provider Folder Services (Gmail/Microsoft) - COMPLETE
-- 04-03: Email Service Splits (CRUD/Bulk/Search) - COMPLETE (ecb0f52)
-- 04-04: Facades (FolderSync + Emails) - COMPLETE (c3f5d41, 2b0f62c)
-- 04-05: FolderSyncQueryService tests - COMPLETE (gap closure)
-- 04-06: GmailFolderService tests - COMPLETE (6e8ded9)
-- 04-07: MicrosoftFolderService tests - COMPLETE (0cddd5b)
-- 04-08: EmailSearchService tests - COMPLETE (0cddd5b)
+**Phase 5 Progress:**
+- 05-01: Message Service Extraction (Wave 1) - COMPLETE (3806d14, 4e2c25b, fdd9373b)
+  - GmailMessageService: 702 lines, 15+ operations
+  - MicrosoftMessageService: 625 lines, 15+ operations
+  - Both registered in DriversModule
+- 05-02: Folder Service Extraction (Wave 2) - PENDING
+- 05-03: Send Service Extraction (Wave 3) - PENDING
+- 05-04: Facade Refactor (Wave 4) - PENDING
 
-**Next:** Phase 5 - Google & Microsoft Drivers
+**Next:** Plan 05-02 - Extract GmailFolderService and MicrosoftFolderService
 
 ## Phase 4 Final Results
 
@@ -127,9 +129,21 @@ Resume file: None - Phase 4 complete
 
 **All 248+ tests pass (195 existing + 53 new GmailFolderService tests).**
 
+## Phase 5 Current Status
+
+**Wave 1 Complete:** Message Services Extracted
+- GmailMessageService: 702 lines (list, get, batch, flags, labels, attachments)
+- MicrosoftMessageService: 625 lines (list, get, batch, flags, categories, attachments)
+- Both registered in DriversModule with proper DI ordering
+- Type check passes, existing tests pass
+- Not yet wired to drivers (deferred to Wave 4 - Plan 05-04)
+
+**Next:** Wave 2 - Folder Services Extraction
+
 ---
 *State initialized: 2026-01-31*
 *Phase 1 completed: 2026-01-31*
 *Phase 2 completed: 2026-01-31*
 *Phase 3 completed: 2026-02-01*
 *Phase 4 completed: 2026-02-01*
+*Phase 5 started: 2026-02-01*
