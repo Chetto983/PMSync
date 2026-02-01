@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: 4 of 8 (Service Splits)
-Plan: 4 of 4 complete (all plans done)
-Status: Phase 4 COMPLETE
-Last activity: 2026-02-01 - Completed 04-04-SUMMARY.md
+Plan: 7 of 7 complete (4 core + 3 gap closure)
+Status: Phase 4 COMPLETE (including gap closures)
+Last activity: 2026-02-01 - Completed 04-07-SUMMARY.md (TEST-05 gap closure)
 
 Progress: [=================   ] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18 (14 prior + 04-01 + 04-02 + 04-03 + 04-04)
+- Total plans completed: 19 (18 prior + 04-07)
 - Average duration: ~10 min/plan
 - Total execution time: ~3h
 
@@ -30,11 +30,11 @@ Progress: [=================   ] 80%
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
-| 4. Service Splits | 4 | ~49 min | ~12 min |
+| 4. Service Splits | 7 | ~54 min | ~8 min (includes 3 gap closures) |
 
 **Recent Trend:**
-- Last 5 plans: 03-06, 04-01, 04-02, 04-03, 04-04
-- Trend: Service extraction with facade pattern
+- Last 5 plans: 04-01, 04-02, 04-03, 04-04, 04-07
+- Trend: Service extraction with facade pattern + test gap closures
 
 *Updated after each plan completion*
 
@@ -76,6 +76,7 @@ Recent decisions affecting current work:
 - DI ordering: sub-services before facade in providers array (04-03)
 - cleanupOrphanedFolders made optional param for backward compatibility (04-04)
 - Private route* methods for provider dispatch in facade (04-04)
+- Mock axios globally with jest.mock for Graph API tests (04-07)
 
 ### Pending Todos
 
@@ -92,7 +93,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed Phase 4 Service Splits
+Stopped at: Completed 04-07-PLAN.md (TEST-05 gap closure)
 Resume file: None - Phase 4 complete
 
 **Phase 4 Progress:**
@@ -100,6 +101,9 @@ Resume file: None - Phase 4 complete
 - 04-02: Provider Folder Services (Gmail/Microsoft) - COMPLETE
 - 04-03: Email Service Splits (CRUD/Bulk/Search) - COMPLETE (ecb0f52)
 - 04-04: Facades (FolderSync + Emails) - COMPLETE (c3f5d41, 2b0f62c)
+- 04-05: GmailFolderService tests - gap closure
+- 04-06: ImapFolderSyncService tests - gap closure
+- 04-07: MicrosoftFolderService tests - COMPLETE (0cddd5b)
 
 **Next:** Phase 5 - Production Hardening
 
@@ -119,7 +123,7 @@ Resume file: None - Phase 4 complete
 - EmailBulkService (594 lines)
 - EmailSearchService (387 lines)
 
-**All 195 tests pass without modification.**
+**All 195+ tests pass without modification.**
 
 ---
 *State initialized: 2026-01-31*
