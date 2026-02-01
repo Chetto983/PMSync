@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 3 - IMAP Driver Split
+**Current focus:** Phase 3 - IMAP Driver Split (COMPLETE)
 
 ## Current Position
 
-Phase: 3 of 8 (IMAP Driver Split)
-Plan: 5 of 6 complete (03-02, 03-03, 03-04, 03-05)
-Status: In progress - IDLE and Send services created, 03-06 facade wiring in progress
-Last activity: 2026-02-01 - Completed 03-05-PLAN.md (IDLE + Send services)
+Phase: 3 of 8 (IMAP Driver Split) - COMPLETE
+Plan: 6 of 6 complete
+Status: Phase 3 complete - ready for Phase 4 (Google Driver Split)
+Last activity: 2026-02-01 - Completed 03-06-SUMMARY.md
 
-Progress: [============        ] 54%
+Progress: [============        ] 58%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12 (8 prior + 03-02 + 03-03 + 03-04 + 03-05)
-- Average duration: ~10 min/plan
-- Total execution time: ~2h 01min
+- Total plans completed: 14 (8 prior + 03-02 + 03-03 + 03-04 + 03-05 + 03-06)
+- Average duration: ~9 min/plan
+- Total execution time: ~2h 15min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [============        ] 54%
 |-------|-------|-------|----------|
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
-| 3. IMAP Driver Split | 4 | ~27 min | ~7 min |
+| 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (skipped), 03-02, 03-03, 03-04, 03-05
-- Trend: Execution speed stable
+- Last 5 plans: 03-02, 03-03, 03-04, 03-05, 03-06
+- Trend: Faster execution with extracted services
 
 *Updated after each plan completion*
 
@@ -67,6 +67,7 @@ Recent decisions affecting current work:
 - IDLE uses dedicated ImapFlow connection, not from pool (IDLE blocks connection) (03-05)
 - sendDraft uses callbacks for getMessage/deleteMessage to avoid circular deps (03-05)
 - RFC 2047 uses Base64 encoding (more reliable than Q-encoding for Unicode) (03-05)
+- IMAPDriver facade uses DI-injected instance in factory instead of new (03-06)
 
 ### Pending Todos
 
@@ -78,23 +79,26 @@ Recent decisions affecting current work:
 - Phase 2 must complete before Phase 4 (fix races before splitting exposes them) - DONE
 - All phases require real Redis/PostgreSQL tests, not mocks
 - Every service extraction requires dependency graph analysis before splitting
-- Facade pattern required for backward compatibility (existing tests must pass)
+- Facade pattern required for backward compatibility (existing tests must pass) - VERIFIED
 
 ## Session Continuity
 
-Last session: 2026-02-01 10:43
-Stopped at: Completed 03-05-PLAN.md (IDLE + Send services)
-Resume file: None
+Last session: 2026-02-01
+Stopped at: Completed Phase 3 - IMAP Driver Split
+Resume file: None - ready for Phase 4
 
-**Note:** Plans 03-02 through 03-04 were executed during planning (unexpected agent behavior).
-All five extracted services now complete: pool, folder, message, idle, send.
-03-06 (facade wiring) appears partially complete from prior execution. Next: verify/complete 03-06.
+**Phase 3 Complete:**
+- 03-01: Research (skipped - covered by 03-RESEARCH.md)
+- 03-02: ImapConnectionPoolService - VERIFIED
+- 03-03: ImapFolderService - VERIFIED
+- 03-04: ImapMessageService - VERIFIED
+- 03-05: ImapIdleService + ImapSendService - COMPLETE
+- 03-06: Facade and wiring - COMPLETE
+
+**Next:** Execute Phase 4 (Google Driver Split)
 
 ---
 *State initialized: 2026-01-31*
 *Phase 1 completed: 2026-01-31*
 *Phase 2 completed: 2026-01-31*
-*03-02 verified: 2026-02-01*
-*03-03 verified: 2026-02-01*
-*03-04 verified: 2026-02-01*
-*03-05 completed: 2026-02-01*
+*Phase 3 completed: 2026-02-01*
