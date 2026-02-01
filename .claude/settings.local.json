@@ -68,7 +68,8 @@
       "Bash(git -C D:/MailAgent check-ignore:*)",
       "Bash(git -C D:/MailAgent ls-files:*)",
       "Bash(git -C D:/MailAgent diff backend/src/modules/email-sync/drivers/imap/__tests__/imap-connection-pool.spec.ts)",
-      "SlashCommand(/gsd:execute-phase:*)"
+      "SlashCommand(/gsd:execute-phase:*)",
+      "Bash(npm ls:*)"
     ],
     "deny": [],
     "ask": []

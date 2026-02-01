@@ -52,7 +52,8 @@ completed: 2026-02-01
 
 # Phase 3 Plan 5: IDLE and Send Services Summary
 
-**ImapIdleService and ImapSendService extraction with 29 passing unit tests covering IDLE subscriptions, SMTP sending, and draft operations**
+**ImapIdleService and ImapSendService extraction with 29 passing unit tests 
+covering IDLE subscriptions, SMTP sending, and draft operations**
 
 ## Performance
 
@@ -77,11 +78,13 @@ completed: 2026-02-01
 ## Files Created/Modified
 
 ### Created
+
 - `backend/src/modules/email-sync/drivers/imap/services/imap-idle.service.ts` (408 lines)
 - `backend/src/modules/email-sync/drivers/imap/__tests__/imap-idle.spec.ts` (219 lines)
 - `backend/src/modules/email-sync/drivers/imap/__tests__/imap-send.spec.ts` (277 lines)
 
 ### Modified
+
 - `backend/src/modules/email-sync/drivers/imap/services/imap-send.service.ts` (242 lines)
   - Changed from ImapDriverContext to SmtpConfig + userEmail
   - Added ImapFolderService dependency for folder resolution
@@ -90,6 +93,7 @@ completed: 2026-02-01
 ## ImapIdleService Methods
 
 **IDLE Subscription:**
+
 - `initialize(config)` - Initialize with IMAP configuration
 - `isInitialized()` - Check if service is ready
 - `subscribeToChanges(callback, folder)` - Start IDLE monitoring
@@ -98,6 +102,7 @@ completed: 2026-02-01
 - `getIdleState()` - Get current state for monitoring/debugging
 
 **Internal:**
+
 - `startIdleConnection()` - Create dedicated IDLE connection
 - `cleanupIdleConnection()` - Remove listeners and close connection
 - `scheduleIdleReconnect(reason, error?)` - Exponential backoff reconnection
@@ -107,6 +112,7 @@ completed: 2026-02-01
 ## ImapSendService Methods
 
 **Sending:**
+
 - `initialize(smtpConfig, userEmail)` - Initialize with SMTP configuration
 - `isInitialized()` - Check if service is ready
 - `getUserEmail()` - Get user email address
@@ -114,10 +120,12 @@ completed: 2026-02-01
 - `sendMessage(message)` - Send via SMTP and save to Sent folder
 
 **Drafts:**
+
 - `saveDraft(message, existingDraftId?, deleteMessage?)` - Save/update draft
 - `sendDraft(draftId, getMessage, deleteMessage)` - Send draft and delete
 
 **Internal:**
+
 - `saveSentMessage(message)` - Save to Sent folder via IMAP APPEND
 - `buildRfc822Message(message)` - Build MIME message via MimeBuilder
 - `encodeRfc2047(text)` - Encode non-ASCII to Base64
@@ -147,6 +155,7 @@ None - plan executed exactly as written.
 ## Test Coverage
 
 ### ImapIdleService Tests (13)
+
 - initialize: 2 tests (with config, before init)
 - subscribeToChanges: 3 tests (fail before init, return subscription, resolve folder)
 - isActive: 2 tests (when not subscribed, when subscribed)
@@ -156,6 +165,7 @@ None - plan executed exactly as written.
 - reconnection constants: 1 test
 
 ### ImapSendService Tests (16)
+
 - initialize: 2 tests
 - clearConfig: 1 test
 - sendMessage: 5 tests (fail without config, send via SMTP, user email, from email, save to sent)
