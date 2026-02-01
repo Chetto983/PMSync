@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: 3 of 8 (IMAP Driver Split)
-Plan: 4 of 6 complete (03-02, 03-03, 03-04 verified)
-Status: In progress - all extracted services verified, ready for facade (03-05)
-Last activity: 2026-02-01 - Completed 03-04-SUMMARY.md
+Plan: 5 of 6 complete (03-02, 03-03, 03-04, 03-05)
+Status: In progress - IDLE and Send services created, 03-06 facade wiring in progress
+Last activity: 2026-02-01 - Completed 03-05-PLAN.md (IDLE + Send services)
 
-Progress: [==========          ] 46%
+Progress: [============        ] 54%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11 (8 prior + 03-02 + 03-03 + 03-04)
+- Total plans completed: 12 (8 prior + 03-02 + 03-03 + 03-04 + 03-05)
 - Average duration: ~10 min/plan
-- Total execution time: ~1h 52min
+- Total execution time: ~2h 01min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [==========          ] 46%
 |-------|-------|-------|----------|
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
-| 3. IMAP Driver Split | 3 | ~18 min | ~6 min (verification) |
+| 3. IMAP Driver Split | 4 | ~27 min | ~7 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-04, 03-01 (skipped), 03-02, 03-03, 03-04
+- Last 5 plans: 03-01 (skipped), 03-02, 03-03, 03-04, 03-05
 - Trend: Execution speed stable
 
 *Updated after each plan completion*
@@ -64,6 +64,9 @@ Recent decisions affecting current work:
 - ImapMessageService exceeds 500 line target (811 lines) - splitting would harm cohesion (03-04)
 - getAttachment uses direct connection acquisition because stream needs connection open (03-04)
 - Legacy single-number sync tokens interpreted as INBOX modseq for backward compat (03-04)
+- IDLE uses dedicated ImapFlow connection, not from pool (IDLE blocks connection) (03-05)
+- sendDraft uses callbacks for getMessage/deleteMessage to avoid circular deps (03-05)
+- RFC 2047 uses Base64 encoding (more reliable than Q-encoding for Unicode) (03-05)
 
 ### Pending Todos
 
@@ -79,12 +82,13 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-01
-Stopped at: Completed 03-04-SUMMARY.md, ready for 03-05 facade creation
-Resume file: .planning/phases/03-imap-driver-split/.continue-here.md
+Last session: 2026-02-01 10:43
+Stopped at: Completed 03-05-PLAN.md (IDLE + Send services)
+Resume file: None
 
 **Note:** Plans 03-02 through 03-04 were executed during planning (unexpected agent behavior).
-All three extracted services verified: pool, folder, message. Next: execute 03-05 (facade) and 03-06 (wiring).
+All five extracted services now complete: pool, folder, message, idle, send.
+03-06 (facade wiring) appears partially complete from prior execution. Next: verify/complete 03-06.
 
 ---
 *State initialized: 2026-01-31*
@@ -93,3 +97,4 @@ All three extracted services verified: pool, folder, message. Next: execute 03-0
 *03-02 verified: 2026-02-01*
 *03-03 verified: 2026-02-01*
 *03-04 verified: 2026-02-01*
+*03-05 completed: 2026-02-01*
