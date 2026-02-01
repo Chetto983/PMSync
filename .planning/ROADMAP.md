@@ -92,10 +92,10 @@ Plans:
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 04-01: Split folder-sync by provider
-- [ ] 04-02: Create folder-db shared service
-- [ ] 04-03: Split emails.service into CRUD/bulk/cleanup
-- [ ] 04-04: Create service facades and migrate consumers
+- [ ] 04-01: Extract FolderSyncQueryService (shared folder DB operations)
+- [ ] 04-02: Create provider folder sync services (IMAP, extend Gmail/Microsoft)
+- [ ] 04-03: Extract EmailCrudService, EmailBulkService, EmailSearchService
+- [ ] 04-04: Convert facades and verify backward compatibility
 
 ### Phase 5: Google & Microsoft Drivers
 **Goal**: Remaining drivers split following proven IMAP pattern
