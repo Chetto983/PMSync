@@ -28,8 +28,12 @@ export class EmailDriverFactory {
    * Create a new driver instance for the given provider type.
    * Note: The driver is NOT connected - call connect() manually.
    *
+   * For IMAP, we return the DI-injected instance since it requires
+   * sub-services (connection pool, folder, message, idle, send).
+   * For Google/Microsoft, we create new instances for isolation.
+   *
    * @param providerType Provider type (google, microsoft, imap)
-   * @returns New driver instance
+   * @returns Driver instance
    */
   createDriver(providerType: ProviderType): IEmailDriver {
     switch (providerType) {
@@ -41,7 +45,9 @@ export class EmailDriverFactory {
         return new MicrosoftDriver();
 
       case 'imap':
-        return new IMAPDriver();
+        // IMAP driver is a facade requiring DI-injected sub-services
+        // Return the injected instance - state is managed per-connection
+        return this.imapDriver;
 
       default:
         throw new Error(`Unknown provider type: ${providerType}`);
