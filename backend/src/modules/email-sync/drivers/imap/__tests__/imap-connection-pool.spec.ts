@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ImapConnectionPoolService } from '../services/imap-connection-pool.service';
 import { ImapConfig, POOL_CONFIG } from '../interfaces/imap-internal.interface';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 // Mock ImapFlow
 jest.mock('imapflow', () => ({
