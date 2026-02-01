@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { gmail_v1 } from 'googleapis';
+import { Injectable, Logger, ConflictException } from '@nestjs/common';
+import { gmail_v1, google } from 'googleapis';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
+import { ProviderTokenService } from '../provider-token.service';
 import { isSystemFolder } from '../../drivers/interfaces/canonical.types';
 
 /**
@@ -20,6 +21,7 @@ export class GmailFolderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
+    private readonly providerTokenService: ProviderTokenService,
   ) {}
 
   getFolderPathForLabel(labelId: string, labelName: string): string {
@@ -302,5 +304,126 @@ export class GmailFolderService {
     };
 
     return labelMap[labelId];
+  }
+
+  // ========== UNIFIED FACADE METHODS ==========
+
+  /**
+   * Unified sync method for facade pattern
+   * Creates Gmail client internally and delegates to syncGmailFolders
+   *
+   * @param tenantId - Tenant ID
+   * @param providerId - Provider config ID
+   */
+  async syncFolders(tenantId: string, providerId: string): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    // Create OAuth2 client with access token
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    await this.syncGmailFolders(gmail, tenantId, providerId);
+  }
+
+  // ========== GMAIL LABEL CRUD OPERATIONS ==========
+
+  /**
+   * Create a new Gmail label
+   * FIX 1.2: Validates that label name doesn't conflict with reserved system folder names
+   */
+  async createGmailFolder(
+    providerId: string,
+    name: string,
+  ): Promise<{ externalId: string; path: string }> {
+    // FIX 1.2: Validate that label name doesn't conflict with reserved system folder names
+    const RESERVED_NAMES = [
+      'INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'JUNK',
+      'ARCHIVE', 'ALL', 'FLAGGED', 'IMPORTANT',
+    ];
+    const normalizedName = name.toUpperCase().trim();
+
+    if (RESERVED_NAMES.includes(normalizedName)) {
+      throw new ConflictException(
+        `Cannot create label with reserved system folder name: "${name}". Please choose a different name.`,
+      );
+    }
+
+    // Also check for CATEGORY_ prefix (Gmail internal categories)
+    if (normalizedName.startsWith('CATEGORY_')) {
+      throw new ConflictException(
+        `Cannot create label with CATEGORY_ prefix: "${name}". This prefix is reserved for Gmail categories.`,
+      );
+    }
+
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    try {
+      const response = await gmail.users.labels.create({
+        userId: 'me',
+        requestBody: {
+          name,
+          labelListVisibility: 'labelShow',
+          messageListVisibility: 'show',
+        },
+      });
+
+      const labelId = response.data.id!;
+      this.logger.log(`Created Gmail label "${name}" with ID: ${labelId}`);
+      return { externalId: labelId, path: labelId };
+    } catch (error: any) {
+      const status = error?.code || error?.response?.status;
+      if (status === 409) {
+        // Gmail returns 409 for duplicate label names
+        throw new ConflictException('A label with this name already exists on Gmail');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Rename a Gmail label
+   */
+  async renameGmailFolder(
+    providerId: string,
+    labelId: string,
+    newName: string,
+  ): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    await gmail.users.labels.update({
+      userId: 'me',
+      id: labelId,
+      requestBody: { name: newName },
+    });
+
+    this.logger.log(`Renamed Gmail label ${labelId} to "${newName}"`);
+  }
+
+  /**
+   * Delete a Gmail label
+   */
+  async deleteGmailFolder(providerId: string, labelId: string): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    await gmail.users.labels.delete({
+      userId: 'me',
+      id: labelId,
+    });
+
+    this.logger.log(`Deleted Gmail label ${labelId}`);
   }
 }
