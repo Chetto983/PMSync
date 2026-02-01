@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 5 - Google & Microsoft Driver Splits (IN PROGRESS)
+**Current focus:** Phase 5 - Google & Microsoft Driver Splits (COMPLETE)
 
 ## Current Position
 
-Phase: 5 of 8 (Google & Microsoft Drivers)
-Plan: 3 of 4 complete (Wave 3 - Sync Services)
-Status: In Progress
-Last activity: 2026-02-01 - Completed 05-03-PLAN.md (sync service extraction)
+Phase: 5 of 8 (Google & Microsoft Drivers) - COMPLETE
+Plan: 4 of 4 complete (Wave 4 - Facade Refactor)
+Status: Complete
+Last activity: 2026-02-01 - Completed 05-04-PLAN.md (facade refactor)
 
-Progress: [████████████████░░░░] 56% (4.75/8 phases)
+Progress: [████████████████████] 63% (5/8 phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03)
+- Total plans completed: 26 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04)
 - Average duration: ~9 min/plan
-- Total execution time: ~3h 35min
+- Total execution time: ~3h 43min
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [████████████████░░░░] 56% (4.
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
 | 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
-| 5. Gmail/Microsoft Drivers | 3 | ~21 min | ~7 min (message+send+sync services) |
+| 5. Gmail/Microsoft Drivers | 4 | ~29 min | ~7 min (message+send+sync+facade) |
 
 **Recent Trend:**
-- Last 5 plans: 04-07, 04-08, 05-01, 05-02, 05-03
-- Trend: Service extraction with error handling preservation
+- Last 5 plans: 05-01, 05-02, 05-03, 05-04
+- Trend: Driver facade pattern replication complete
 
 *Updated after each plan completion*
 
@@ -86,6 +86,9 @@ Recent decisions affecting current work:
 - GmailSyncService (261 lines) and MicrosoftSyncService (233 lines) both under 300-line target (05-03)
 - All error handling preserved exactly during sync extraction (404/403/429/5xx, multi-folder tokens) (05-03)
 - Services extracted but not yet wired to drivers (deferred to Plan 05-04) (05-02, 05-03)
+- GoogleDriver refactored to facade: 1,364 → 397 lines (71% reduction) (05-04)
+- MicrosoftDriver refactored to facade: 1,429 → 575 lines (60% reduction) (05-04)
+- All 329 tests pass after facade wiring (05-04)
 
 ### Pending Todos
 
@@ -102,26 +105,25 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 05-03-PLAN.md (sync service extraction)
+Stopped at: Completed Phase 5 (Google & Microsoft Drivers)
 Resume file: None
 
-**Phase 5 Progress:**
+**Phase 5 Complete:**
 - 05-01: Message Service Extraction (Wave 1) - COMPLETE (3806d14, 4e2c25b, fdd9373b)
   - GmailMessageService: 702 lines, 15+ operations
   - MicrosoftMessageService: 625 lines, 15+ operations
-  - Both registered in DriversModule
 - 05-02: Send Service Extraction (Wave 2) - COMPLETE (03d30ec, fd81dd0, e5dd042)
   - GmailSendService: 310 lines, 8+ operations
   - MicrosoftSendService: 324 lines, 8+ operations
-  - Both registered in DriversModule
 - 05-03: Sync Service Extraction (Wave 3) - COMPLETE (5e568d5e, 03f45903, 7ce59e1b)
   - GmailSyncService: 261 lines, History API delta sync
   - MicrosoftSyncService: 233 lines, Delta query multi-folder sync
-  - Both registered in DriversModule
-  - All error handling preserved (404/403/429/5xx, 410 Gone, multi-folder tokens)
-- 05-04: Facade Refactor (Wave 4) - PENDING
+- 05-04: Facade Refactor (Wave 4) - COMPLETE (02830c2d, 613629ca, 06122661)
+  - GoogleDriver: 1,364 → 397 lines (71% reduction)
+  - MicrosoftDriver: 1,429 → 575 lines (60% reduction)
+  - All 329 tests pass
 
-**Next:** Plan 05-04 - Wire sub-services to driver facades, remove duplicated code
+**Next:** Phase 6 - Base Sync Extraction
 
 ## Phase 4 Final Results
 
@@ -141,29 +143,23 @@ Resume file: None
 
 **All 248+ tests pass (195 existing + 53 new GmailFolderService tests).**
 
-## Phase 5 Current Status
+## Phase 5 Final Results
 
-**Wave 1 Complete:** Message Services Extracted
-- GmailMessageService: 702 lines (list, get, batch, flags, labels, attachments)
-- MicrosoftMessageService: 625 lines (list, get, batch, flags, categories, attachments)
+| Driver | Lines Before | Lines After | Reduction |
+|--------|--------------|-------------|-----------|
+| GoogleDriver | 1,364 | 397 | 71% |
+| MicrosoftDriver | 1,429 | 575 | 60% |
+| **Combined** | **2,793** | **972** | **65%** |
 
-**Wave 2 Complete:** Send Services Extracted
-- GmailSendService: 310 lines (send, draft, move, delete, batch operations)
-- MicrosoftSendService: 324 lines (send, draft, move, delete, batch operations)
-- Callback pattern used for cross-service dependencies (Microsoft folder resolution)
+**Extracted Services (6 total):**
+- GmailMessageService (702 lines)
+- GmailSendService (310 lines)
+- GmailSyncService (261 lines)
+- MicrosoftMessageService (625 lines)
+- MicrosoftSendService (324 lines)
+- MicrosoftSyncService (233 lines)
 
-**Wave 3 Complete:** Sync Services Extracted
-- GmailSyncService: 261 lines (History API delta sync, comprehensive error handling)
-- MicrosoftSyncService: 233 lines (Delta query multi-folder sync, token management)
-- All error handling preserved: 404/403/429/5xx (Gmail), 410 Gone (Microsoft)
-- Memory limits preserved: MAX_CHANGES=10000, MAX_PAGES=25/50
-
-**Status:**
-- All 6 sub-services registered in DriversModule with proper DI ordering
-- Type check passes, existing tests pass (240 tests)
-- Services extracted but not yet wired to drivers (deferred to Wave 4 - Plan 05-04)
-
-**Next:** Wave 4 - Facade Refactor (wire sub-services to drivers, remove duplicated code)
+**All 329 tests pass. Full backward compatibility maintained.**
 
 ---
 *State initialized: 2026-01-31*
@@ -171,4 +167,4 @@ Resume file: None
 *Phase 2 completed: 2026-01-31*
 *Phase 3 completed: 2026-02-01*
 *Phase 4 completed: 2026-02-01*
-*Phase 5 started: 2026-02-01*
+*Phase 5 completed: 2026-02-01*

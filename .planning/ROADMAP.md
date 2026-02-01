@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Race Condition Fixes** - Add distributed locks and monitoring to folder operations
 - [x] **Phase 3: IMAP Driver Split** - Prove vertical slice pattern on largest file (2,249 lines)
 - [x] **Phase 4: Service Splits** - Split folder-sync and emails.service by provider/responsibility
-- [ ] **Phase 5: Google & Microsoft Drivers** - Replicate IMAP pattern to remaining drivers
+- [x] **Phase 5: Google & Microsoft Drivers** - Replicate IMAP pattern to remaining drivers
 - [ ] **Phase 6: Base Sync Extraction** - Extract sync orchestration components
 - [ ] **Phase 7: AI/RAG Services** - Split knowledge-base into focused RAG services
 - [ ] **Phase 8: Testing & Validation** - Comprehensive stress tests proving production stability
@@ -115,10 +115,10 @@ Plans:
 **Plans**: 4 plans in 4 waves
 
 Plans:
-- [ ] 05-01: Extract GmailMessageService + MicrosoftMessageService (Wave 1, parallel)
-- [ ] 05-02: Extract GmailSendService + MicrosoftSendService (Wave 2)
-- [ ] 05-03: Extract GmailSyncService + MicrosoftSyncService (Wave 3 - HIGH RISK)
-- [ ] 05-04: Refactor GoogleDriver + MicrosoftDriver to facades (Wave 4)
+- [x] 05-01: Extract GmailMessageService + MicrosoftMessageService (Wave 1, parallel)
+- [x] 05-02: Extract GmailSendService + MicrosoftSendService (Wave 2)
+- [x] 05-03: Extract GmailSyncService + MicrosoftSyncService (Wave 3 - HIGH RISK)
+- [x] 05-04: Refactor GoogleDriver + MicrosoftDriver to facades (Wave 4)
 
 ### Phase 6: Base Sync Extraction
 **Goal**: base-email-sync.service (1,382 lines) split into sync orchestration components
@@ -186,7 +186,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 2. Race Condition Fixes | 4/4 | ✅ Complete | 2026-01-31 |
 | 3. IMAP Driver Split | 6/6 | ✅ Complete | 2026-02-01 |
 | 4. Service Splits | 8/8 | ✅ Complete | 2026-02-01 |
-| 5. Google & Microsoft Drivers | 0/4 | Not started | - |
+| 5. Google & Microsoft Drivers | 4/4 | ✅ Complete | 2026-02-01 |
 | 6. Base Sync Extraction | 0/4 | Not started | - |
 | 7. AI/RAG Services | 0/4 | Not started | - |
 | 8. Testing & Validation | 0/4 | Not started | - |
