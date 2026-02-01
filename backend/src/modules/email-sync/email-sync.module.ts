@@ -25,6 +25,7 @@ import { GoogleSyncService } from './services/gmail/google-sync.service';
 import { MicrosoftSyncService } from './services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from './services/imap/imap-sync.service';
 import { FolderSyncService } from './services/folder-sync.service';
+import { FolderSyncQueryService } from './services/folder-sync-query.service';
 import { EmailEmbeddingCleanupService } from './services/email-embedding-cleanup.service';
 
 // Gmail-specific services (pluggable adapters)
@@ -92,6 +93,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     GoogleSyncService,
     MicrosoftSyncService,
     ImapSyncService,
+    FolderSyncQueryService, // Must be before FolderSyncService for DI ordering
     FolderSyncService,
     EmailEmbeddingCleanupService,
 
@@ -132,6 +134,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     ProviderSyncBackQueueService,
     BulkOperationsQueueService,
     SyncSchedulerService,
+    FolderSyncQueryService, // Shared folder DB operations
     FolderSyncService,
     GmailWebhookService,
     MicrosoftWebhookService,
@@ -141,6 +144,9 @@ import { FoldersController } from '../email/controllers/folders.controller';
     // Attachment handlers (for on-demand download in EmailModule)
     GmailAttachmentHandler,
     MicrosoftAttachmentHandler,
+    // Provider folder services (existing)
+    GmailFolderService,
+    MicrosoftFolderService,
     // Email Drivers (Phase 2) - re-exported from DriversModule
     DriversModule,
   ],
