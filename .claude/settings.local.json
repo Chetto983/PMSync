@@ -70,7 +70,10 @@
       "Bash(git -C D:/MailAgent diff backend/src/modules/email-sync/drivers/imap/__tests__/imap-connection-pool.spec.ts)",
       "SlashCommand(/gsd:execute-phase:*)",
       "Bash(npm ls:*)",
-      "Bash(npm run)"
+      "Bash(npm run)",
+      "Bash(git restore:*)",
+      "Bash(git show:*)",
+      "Bash(if not exist \"D:\\MailAgent\\.planning\\phases\\05-google-microsoft-drivers\" mkdir \"D:\\MailAgent\\.planning\\phases\\05-google-microsoft-drivers\")"
     ],
     "deny": [],
     "ask": []

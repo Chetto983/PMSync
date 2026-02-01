@@ -106,11 +106,12 @@ Plans:
 **Depends on**: Phase 4 (folder-sync split complete, pattern refined)
 **Requirements**: DRIV-02, DRIV-03, DRIV-04 (facade pattern), TEST-05 (unit tests)
 **Success Criteria** (what must be TRUE):
-  1. `google.driver.ts` (1,364 lines) split into message, send, sync services (<500 lines each)
-  2. `microsoft.driver.ts` (1,429 lines) split into message, send, sync services (<500 lines each)
-  3. Both driver facades under 250 lines each
-  4. All existing Gmail and Microsoft sync tests pass without modification
-  5. New unit tests exist for each extracted service
+  1. `google.driver.ts` (1,364 lines) message/send/sync extracted to services (<500 lines each)
+  2. `microsoft.driver.ts` (1,429 lines) message/send/sync extracted to services (<500 lines each)
+  3. Google driver facade <350 lines (folder ops remain, 76% reduction from 1,364)
+  4. Microsoft driver facade <450 lines (folder ops remain, 69% reduction from 1,429)
+  5. All existing Gmail and Microsoft sync tests pass without modification
+  6. New unit tests exist for each extracted service
 **Plans**: 4 plans in 4 waves
 
 Plans:
