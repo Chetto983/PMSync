@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 4 - Service Splits (In Progress)
+**Current focus:** Phase 4 - Service Splits (COMPLETE)
 
 ## Current Position
 
 Phase: 4 of 8 (Service Splits)
-Plan: 2 of 4 complete (wave 1 parallel execution completing)
-Status: Executing Wave 1 (04-01 done, 04-02 parallel, 04-03 done)
-Last activity: 2026-02-01 - Completed 04-03-SUMMARY.md
+Plan: 4 of 4 complete (all plans done)
+Status: Phase 4 COMPLETE
+Last activity: 2026-02-01 - Completed 04-04-SUMMARY.md
 
-Progress: [=============       ] 65%
+Progress: [=================   ] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16 (14 prior + 04-01 + 04-03)
+- Total plans completed: 18 (14 prior + 04-01 + 04-02 + 04-03 + 04-04)
 - Average duration: ~10 min/plan
-- Total execution time: ~2h 42min
+- Total execution time: ~3h
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [=============       ] 65%
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
-| 4. Service Splits | 2 (in progress) | ~24 min | ~12 min |
+| 4. Service Splits | 4 | ~49 min | ~12 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-05, 03-06, 04-01, 04-02 (parallel), 04-03
-- Trend: Parallel wave execution for independent plans
+- Last 5 plans: 03-06, 04-01, 04-02, 04-03, 04-04
+- Trend: Service extraction with facade pattern
 
 *Updated after each plan completion*
 
@@ -74,6 +74,8 @@ Recent decisions affecting current work:
 - getFolderKeys is public for provider services custom counting needs (04-01)
 - EmailCrudService/EmailBulkService exceed line targets (720/594 vs 450/500) - cohesion over limits (04-03)
 - DI ordering: sub-services before facade in providers array (04-03)
+- cleanupOrphanedFolders made optional param for backward compatibility (04-04)
+- Private route* methods for provider dispatch in facade (04-04)
 
 ### Pending Todos
 
@@ -90,21 +92,38 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 04-03-PLAN.md
-Resume file: None - wave 1 parallel execution in progress
+Stopped at: Completed Phase 4 Service Splits
+Resume file: None - Phase 4 complete
 
 **Phase 4 Progress:**
 - 04-01: FolderSyncQueryService - COMPLETE (eb08298)
-- 04-02: Provider Folder Services (Gmail/Microsoft) - IN PROGRESS (parallel)
+- 04-02: Provider Folder Services (Gmail/Microsoft) - COMPLETE
 - 04-03: Email Service Splits (CRUD/Bulk/Search) - COMPLETE (ecb0f52)
-- 04-04: Facades (FolderSync + Emails) - Depends on 04-01, 04-02, 04-03
+- 04-04: Facades (FolderSync + Emails) - COMPLETE (c3f5d41, 2b0f62c)
 
-**Next:** Complete 04-02 (parallel), then 04-04 (facades)
+**Next:** Phase 5 - Production Hardening
+
+## Phase 4 Final Results
+
+| Original Service | Lines Before | Lines After | Reduction |
+|-----------------|--------------|-------------|-----------|
+| FolderSyncService | 1,653 | 145 (facade) | 91% |
+| EmailsService | 1,705 | 145 (facade) | 91% |
+
+**Extracted Services:**
+- FolderSyncQueryService (387 lines)
+- ImapFolderSyncService (375 lines)
+- GmailFolderService (429 lines)
+- MicrosoftFolderService (447 lines)
+- EmailCrudService (720 lines)
+- EmailBulkService (594 lines)
+- EmailSearchService (387 lines)
+
+**All 195 tests pass without modification.**
 
 ---
 *State initialized: 2026-01-31*
 *Phase 1 completed: 2026-01-31*
 *Phase 2 completed: 2026-01-31*
 *Phase 3 completed: 2026-02-01*
-*Phase 4 plan 01 completed: 2026-02-01*
-*Phase 4 plan 03 completed: 2026-02-01*
+*Phase 4 completed: 2026-02-01*
