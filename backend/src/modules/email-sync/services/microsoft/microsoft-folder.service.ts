@@ -1,18 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ConflictException } from '@nestjs/common';
 import axios from 'axios';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
+import { ProviderTokenService } from '../provider-token.service';
 import { isSystemFolder } from '../../drivers/interfaces/canonical.types';
 
-/**
- * Microsoft-specific folder service
- * Handles all Microsoft Graph API folder operations
- *
- * Architectural pattern: Pluggable adapter (inspired by Mail-0/Zero)
- * - Provider-specific implementation for Microsoft folder management
- * - Clear separation from core sync logic
- * - Injectable dependencies for testability
- */
+/** Microsoft-specific folder service - handles Graph API folder operations */
 @Injectable()
 export class MicrosoftFolderService {
   private readonly logger = new Logger(MicrosoftFolderService.name);
@@ -21,21 +14,10 @@ export class MicrosoftFolderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
+    private readonly providerTokenService: ProviderTokenService,
   ) {}
 
-  /**
-   * Determine CANONICAL folder type from Microsoft folder ID
-   * Returns canonical folder types (INBOX, SENT, TRASH, etc.) for multi-provider compatibility
-   *
-   * CANONICAL FOLDER ARCHITECTURE:
-   * All emails across providers use canonical folder names (INBOX, SENT, TRASH, SPAM, etc.)
-   * This enables simple queries without complex JOINs or specialUse lookups.
-   *
-   * @param parentFolderId - Microsoft folder ID
-   * @param providerId - Provider config ID
-   * @param isDraft - Whether the message is a draft
-   * @returns Canonical folder type (INBOX, SENT, TRASH, SPAM, DRAFTS, ARCHIVE, or custom name)
-   */
+  /** Determine canonical folder type from Microsoft folder ID */
   async determineFolderFromParentId(
     parentFolderId: string | undefined,
     providerId: string,
@@ -117,9 +99,6 @@ export class MicrosoftFolderService {
     }
   }
 
-  /**
-   * Convert RFC 6154 specialUse attribute to canonical folder type
-   */
   private specialUseToCanonical(specialUse: string): string {
     const mapping: Record<string, string> = {
       'INBOX': 'INBOX',
@@ -135,10 +114,6 @@ export class MicrosoftFolderService {
     return mapping[specialUse.toUpperCase()] || specialUse.toUpperCase();
   }
 
-  /**
-   * Convert Microsoft display name to canonical folder type
-   * Used as fallback when specialUse is not available
-   */
   private displayNameToCanonical(displayName: string): string {
     const lowerName = displayName.toLowerCase().trim();
 
@@ -206,12 +181,7 @@ export class MicrosoftFolderService {
     return displayName;
   }
 
-  /**
-   * Sync Microsoft folders from Microsoft Graph API
-   *
-   * @param tenantId - Tenant ID
-   * @param providerId - Provider config ID
-   */
+  /** Sync Microsoft folders from Microsoft Graph API */
   async syncMicrosoftFolders(tenantId: string, providerId: string): Promise<void> {
     this.logger.log(`Starting Microsoft folder sync for provider ${providerId}`);
 
@@ -329,14 +299,6 @@ export class MicrosoftFolderService {
     }
   }
 
-  /**
-   * Determine folder type from Microsoft folder name
-   * Based on Zero/Mail-0 systemFolderNames pattern
-   *
-   * @see https://github.com/elie222/inbox-zero (Zero reference)
-   * @param folderName - Microsoft folder display name
-   * @returns Standard folder type or undefined for custom folders
-   */
   private determineMicrosoftFolderType(folderName: string): string | undefined {
     const lowerName = folderName.toLowerCase().trim();
 
@@ -385,5 +347,101 @@ export class MicrosoftFolderService {
     };
 
     return systemFolderMap[lowerName];
+  }
+
+  /** Unified sync method for facade pattern */
+  async syncFolders(tenantId: string, providerId: string): Promise<void> {
+    await this.syncMicrosoftFolders(tenantId, providerId);
+  }
+
+  /** Fetch Microsoft folders with pagination (delta query) */
+  async fetchMicrosoftFolders(
+    accessToken: string,
+  ): Promise<{ folders: any[]; deltaLink?: string }> {
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    let url = `${this.GRAPH_API_BASE}/me/mailFolders/delta`;
+    const folders: any[] = [];
+    let deltaLink: string | undefined;
+
+    while (url) {
+      const response = await axios.get(url, { headers });
+      const value = response.data.value || [];
+      folders.push(...value);
+      deltaLink = response.data['@odata.deltaLink'] || deltaLink;
+      url = response.data['@odata.nextLink'] || '';
+    }
+
+    return { folders, deltaLink };
+  }
+
+  /** Create a new Microsoft folder via Graph API */
+  async createMicrosoftFolder(
+    providerId: string,
+    name: string,
+    parentFolderId?: string,
+  ): Promise<{ externalId: string; path: string }> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const url = parentFolderId
+      ? `${this.GRAPH_API_BASE}/me/mailFolders/${parentFolderId}/childFolders`
+      : `${this.GRAPH_API_BASE}/me/mailFolders`;
+
+    try {
+      const response = await axios.post(
+        url,
+        { displayName: name },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      const folderId = response.data.id;
+      this.logger.log(`Created Microsoft folder "${name}" with ID: ${folderId}`);
+      return { externalId: folderId, path: folderId };
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        // Microsoft Graph returns 409 on name conflicts
+        throw new ConflictException(
+          'A folder with this name already exists on Microsoft 365',
+        );
+      }
+      throw error;
+    }
+  }
+
+  /** Rename a Microsoft folder via Graph API */
+  async renameMicrosoftFolder(
+    providerId: string,
+    folderId: string,
+    newName: string,
+  ): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    await axios.patch(
+      `${this.GRAPH_API_BASE}/me/mailFolders/${folderId}`,
+      { displayName: newName },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    this.logger.log(`Renamed Microsoft folder ${folderId} to "${newName}"`);
+  }
+
+  /** Delete a Microsoft folder via Graph API */
+  async deleteMicrosoftFolder(providerId: string, folderId: string): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    await axios.delete(`${this.GRAPH_API_BASE}/me/mailFolders/${folderId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    this.logger.log(`Deleted Microsoft folder ${folderId}`);
   }
 }

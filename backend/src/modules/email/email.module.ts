@@ -1,6 +1,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { EmailService } from './services/email.service';
 import { EmailsService } from './services/emails.service';
+import { EmailCrudService } from './services/email-crud.service';
+import { EmailBulkService } from './services/email-bulk.service';
+import { EmailSearchService } from './services/email-search.service';
 import { EmailFetchService } from './services/email-fetch.service';
 import { EmailRetentionService } from './services/email-retention.service';
 import { EmailSendService } from './services/email-send.service';
@@ -53,6 +56,11 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
   providers: [
     // Core services
     EmailService,
+    // Sub-services (must be registered BEFORE facade for DI ordering)
+    EmailCrudService,
+    EmailBulkService,
+    EmailSearchService,
+    // EmailsService is the facade, depends on sub-services
     EmailsService,
     EmailRetentionService,
     EmailFetchService,
@@ -81,6 +89,10 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
   exports: [
     EmailService,
     EmailsService,
+    // Sub-services exported for direct use and testing
+    EmailCrudService,
+    EmailBulkService,
+    EmailSearchService,
     EmailRetentionService,
     EmailFetchService,
     EmailSendService,
