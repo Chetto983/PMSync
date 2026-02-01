@@ -53,9 +53,13 @@ describe('ImapMessageService', () => {
       source: Buffer.from('From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Single Message\r\n\r\nBody text'),
     }),
     download: jest.fn().mockResolvedValue({
-      content: (async function* () {
-        yield Buffer.from('Raw message content');
-      })(),
+      content: {
+        on: jest.fn().mockReturnThis(),
+        destroy: jest.fn(),
+        [Symbol.asyncIterator]: async function* () {
+          yield Buffer.from('Raw message content');
+        },
+      },
       meta: { contentType: 'message/rfc822', expectedSize: 100 },
     }),
     messageMove: jest.fn().mockResolvedValue(true),
@@ -392,7 +396,7 @@ describe('ImapMessageService', () => {
     it('should move to trash when permanent=false', async () => {
       await service.batchDeleteMessages(['INBOX:1', 'INBOX:2'], false);
 
-      expect(mockFolderService.resolveFolder).toHaveBeenCalledWith('ARCHIVE');
+      expect(mockFolderService.resolveFolder).toHaveBeenCalledWith('TRASH');
     });
 
     it('should permanently delete when permanent=true', async () => {
