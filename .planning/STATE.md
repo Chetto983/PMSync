@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: 4 of 8 (Service Splits)
-Plan: 1 of 4 complete (wave 1 parallel execution in progress)
-Status: Executing Wave 1 (04-01, 04-02, 04-03 in parallel)
-Last activity: 2026-02-01 - Completed 04-01-SUMMARY.md
+Plan: 2 of 4 complete (wave 1 parallel execution completing)
+Status: Executing Wave 1 (04-01 done, 04-02 parallel, 04-03 done)
+Last activity: 2026-02-01 - Completed 04-03-SUMMARY.md
 
-Progress: [============        ] 60%
+Progress: [=============       ] 65%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15 (14 prior + 04-01)
-- Average duration: ~9 min/plan
-- Total execution time: ~2h 30min
+- Total plans completed: 16 (14 prior + 04-01 + 04-03)
+- Average duration: ~10 min/plan
+- Total execution time: ~2h 42min
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [============        ] 60%
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
-| 4. Service Splits | 1 (in progress) | ~12 min | ~12 min |
+| 4. Service Splits | 2 (in progress) | ~24 min | ~12 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-04, 03-05, 03-06, 04-01, (04-02, 04-03 parallel)
+- Last 5 plans: 03-05, 03-06, 04-01, 04-02 (parallel), 04-03
 - Trend: Parallel wave execution for independent plans
 
 *Updated after each plan completion*
@@ -72,6 +72,8 @@ Recent decisions affecting current work:
 - auditFolderSyncFromPaths takes pre-fetched paths - keeps provider logic in provider services (04-01)
 - cleanupOrphanedFolders takes explicit path list - separation of concerns (04-01)
 - getFolderKeys is public for provider services custom counting needs (04-01)
+- EmailCrudService/EmailBulkService exceed line targets (720/594 vs 450/500) - cohesion over limits (04-03)
+- DI ordering: sub-services before facade in providers array (04-03)
 
 ### Pending Todos
 
@@ -88,16 +90,16 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 04-01-PLAN.md
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None - wave 1 parallel execution in progress
 
 **Phase 4 Progress:**
 - 04-01: FolderSyncQueryService - COMPLETE (eb08298)
-- 04-02: ImapFolderSyncService - IN PROGRESS (parallel)
-- 04-03: GmailFolderSyncService - IN PROGRESS (parallel)
-- 04-04: FolderSyncService Facade - Depends on 04-01, 04-02, 04-03
+- 04-02: Provider Folder Services (Gmail/Microsoft) - IN PROGRESS (parallel)
+- 04-03: Email Service Splits (CRUD/Bulk/Search) - COMPLETE (ecb0f52)
+- 04-04: Facades (FolderSync + Emails) - Depends on 04-01, 04-02, 04-03
 
-**Next:** Complete 04-02, 04-03 (parallel), then 04-04 (facade)
+**Next:** Complete 04-02 (parallel), then 04-04 (facades)
 
 ---
 *State initialized: 2026-01-31*
@@ -105,3 +107,4 @@ Resume file: None - wave 1 parallel execution in progress
 *Phase 2 completed: 2026-01-31*
 *Phase 3 completed: 2026-02-01*
 *Phase 4 plan 01 completed: 2026-02-01*
+*Phase 4 plan 03 completed: 2026-02-01*
