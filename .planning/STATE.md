@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: 3 of 8 (IMAP Driver Split)
-Plan: 3 of 6 complete (03-02, 03-03 verified, 03-04 pending verification)
-Status: In progress - pool and folder services verified, continue to message service
-Last activity: 2026-02-01 - Completed 03-03-SUMMARY.md
+Plan: 4 of 6 complete (03-02, 03-03, 03-04 verified)
+Status: In progress - all extracted services verified, ready for facade (03-05)
+Last activity: 2026-02-01 - Completed 03-04-SUMMARY.md
 
-Progress: [=========           ] 42%
+Progress: [==========          ] 46%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (8 prior + 03-02 + 03-03)
+- Total plans completed: 11 (8 prior + 03-02 + 03-03 + 03-04)
 - Average duration: ~10 min/plan
-- Total execution time: ~1h 44min
+- Total execution time: ~1h 52min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [=========           ] 42%
 |-------|-------|-------|----------|
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
-| 3. IMAP Driver Split | 2 | ~10 min | ~5 min (verification) |
+| 3. IMAP Driver Split | 3 | ~18 min | ~6 min (verification) |
 
 **Recent Trend:**
-- Last 5 plans: 02-03, 02-04, 03-01 (skipped), 03-02, 03-03
+- Last 5 plans: 02-04, 03-01 (skipped), 03-02, 03-03, 03-04
 - Trend: Execution speed stable
 
 *Updated after each plan completion*
@@ -61,6 +61,9 @@ Recent decisions affecting current work:
 - _semaphoreRelease stored on PooledConnection for proper cleanup (03-02)
 - 5-minute cache TTL balances folder freshness with IMAP server load (03-03)
 - resolveFolder returns path as-is if it contains separator or is not uppercase (03-03)
+- ImapMessageService exceeds 500 line target (811 lines) - splitting would harm cohesion (03-04)
+- getAttachment uses direct connection acquisition because stream needs connection open (03-04)
+- Legacy single-number sync tokens interpreted as INBOX modseq for backward compat (03-04)
 
 ### Pending Todos
 
@@ -77,11 +80,11 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 03-03-SUMMARY.md, ready for 03-04 verification
+Stopped at: Completed 03-04-SUMMARY.md, ready for 03-05 facade creation
 Resume file: .planning/phases/03-imap-driver-split/.continue-here.md
 
 **Note:** Plans 03-02 through 03-04 were executed during planning (unexpected agent behavior).
-Services and tests exist. 03-02 and 03-03 SUMMARY complete. Next: verify 03-04, then execute 03-05 and 03-06.
+All three extracted services verified: pool, folder, message. Next: execute 03-05 (facade) and 03-06 (wiring).
 
 ---
 *State initialized: 2026-01-31*
@@ -89,3 +92,4 @@ Services and tests exist. 03-02 and 03-03 SUMMARY complete. Next: verify 03-04, 
 *Phase 2 completed: 2026-01-31*
 *03-02 verified: 2026-02-01*
 *03-03 verified: 2026-02-01*
+*03-04 verified: 2026-02-01*
