@@ -102,22 +102,22 @@ Plans:
 - [x] 04-08: Unit tests for EmailSearchService (gap closure)
 
 ### Phase 5: Google & Microsoft Drivers
-**Goal**: Remaining drivers split following proven IMAP pattern
+**Goal**: Remaining drivers split following proven IMAP pattern (message/send/sync services)
 **Depends on**: Phase 4 (folder-sync split complete, pattern refined)
 **Requirements**: DRIV-02, DRIV-03, DRIV-04 (facade pattern), TEST-05 (unit tests)
 **Success Criteria** (what must be TRUE):
-  1. `google.driver.ts` (1,364 lines) split into folder, message, send, sync services (<500 lines each)
-  2. `microsoft.driver.ts` (1,429 lines) split into folder, message, send, sync services (<500 lines each)
+  1. `google.driver.ts` (1,364 lines) split into message, send, sync services (<500 lines each)
+  2. `microsoft.driver.ts` (1,429 lines) split into message, send, sync services (<500 lines each)
   3. Both driver facades under 250 lines each
   4. All existing Gmail and Microsoft sync tests pass without modification
   5. New unit tests exist for each extracted service
-**Plans**: 4 plans in 2 waves
+**Plans**: 4 plans in 4 waves
 
 Plans:
-- [ ] 05-01: Split google.driver.ts into focused modules
-- [ ] 05-02: Create Google driver facade
-- [ ] 05-03: Split microsoft.driver.ts into focused modules
-- [ ] 05-04: Create Microsoft driver facade
+- [ ] 05-01: Extract GmailMessageService + MicrosoftMessageService (Wave 1, parallel)
+- [ ] 05-02: Extract GmailSendService + MicrosoftSendService (Wave 2)
+- [ ] 05-03: Extract GmailSyncService + MicrosoftSyncService (Wave 3 - HIGH RISK)
+- [ ] 05-04: Refactor GoogleDriver + MicrosoftDriver to facades (Wave 4)
 
 ### Phase 6: Base Sync Extraction
 **Goal**: base-email-sync.service (1,382 lines) split into sync orchestration components
