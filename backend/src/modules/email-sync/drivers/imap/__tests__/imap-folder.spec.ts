@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ImapFolderService } from '../services/imap-folder.service';
 import { ImapConnectionPoolService } from '../services/imap-connection-pool.service';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 describe('ImapFolderService', () => {
   let service: ImapFolderService;

@@ -63,7 +63,12 @@
       "Bash(git -C D:/MailAgent commit -m \"$(cat <<''EOF''\ndocs(02-03): complete ConversationAtomicityService plan\n\nTasks completed: 2/2\n- Create ConversationAtomicityService with compensating transaction pattern\n- Register service in VoltAgentModule\n\nSUMMARY: .planning/phases/02-race-condition-fixes/02-03-SUMMARY.md\nEOF\n)\")",
       "Bash(npx ts-node:*)",
       "Bash(npx jest:*)",
-      "SlashCommand(/gsd:pause-work)"
+      "SlashCommand(/gsd:pause-work)",
+      "Bash(git -C D:/MailAgent commit:*)",
+      "Bash(git -C D:/MailAgent check-ignore:*)",
+      "Bash(git -C D:/MailAgent ls-files:*)",
+      "Bash(git -C D:/MailAgent diff backend/src/modules/email-sync/drivers/imap/__tests__/imap-connection-pool.spec.ts)",
+      "SlashCommand(/gsd:execute-phase:*)"
     ],
     "deny": [],
     "ask": []

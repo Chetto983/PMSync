@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ImapMessageService } from '../services/imap-message.service';
 import { ImapConnectionPoolService } from '../services/imap-connection-pool.service';
 import { ImapFolderService } from '../services/imap-folder.service';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 describe('ImapMessageService', () => {
   let service: ImapMessageService;
