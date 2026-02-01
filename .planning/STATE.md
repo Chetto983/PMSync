@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 3 - IMAP Driver Split (COMPLETE)
+**Current focus:** Phase 4 - Service Splits (In Progress)
 
 ## Current Position
 
-Phase: 3 of 8 (IMAP Driver Split) - COMPLETE
-Plan: 6 of 6 complete
-Status: Phase 3 complete - ready for Phase 4 (Google Driver Split)
-Last activity: 2026-02-01 - Completed 03-06-SUMMARY.md
+Phase: 4 of 8 (Service Splits)
+Plan: 1 of 4 complete (wave 1 parallel execution in progress)
+Status: Executing Wave 1 (04-01, 04-02, 04-03 in parallel)
+Last activity: 2026-02-01 - Completed 04-01-SUMMARY.md
 
-Progress: [============        ] 58%
+Progress: [============        ] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14 (8 prior + 03-02 + 03-03 + 03-04 + 03-05 + 03-06)
+- Total plans completed: 15 (14 prior + 04-01)
 - Average duration: ~9 min/plan
-- Total execution time: ~2h 15min
+- Total execution time: ~2h 30min
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [============        ] 58%
 | 1. Foundation | 4 | ~1 hour | ~15 min |
 | 2. Race Condition Fixes | 4 | ~34 min | ~9 min |
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
+| 4. Service Splits | 1 (in progress) | ~12 min | ~12 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02, 03-03, 03-04, 03-05, 03-06
-- Trend: Faster execution with extracted services
+- Last 5 plans: 03-04, 03-05, 03-06, 04-01, (04-02, 04-03 parallel)
+- Trend: Parallel wave execution for independent plans
 
 *Updated after each plan completion*
 
@@ -68,6 +69,9 @@ Recent decisions affecting current work:
 - sendDraft uses callbacks for getMessage/deleteMessage to avoid circular deps (03-05)
 - RFC 2047 uses Base64 encoding (more reliable than Q-encoding for Unicode) (03-05)
 - IMAPDriver facade uses DI-injected instance in factory instead of new (03-06)
+- auditFolderSyncFromPaths takes pre-fetched paths - keeps provider logic in provider services (04-01)
+- cleanupOrphanedFolders takes explicit path list - separation of concerns (04-01)
+- getFolderKeys is public for provider services custom counting needs (04-01)
 
 ### Pending Todos
 
@@ -84,21 +88,20 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed Phase 3 - IMAP Driver Split
-Resume file: None - ready for Phase 4
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None - wave 1 parallel execution in progress
 
-**Phase 3 Complete:**
-- 03-01: Research (skipped - covered by 03-RESEARCH.md)
-- 03-02: ImapConnectionPoolService - VERIFIED
-- 03-03: ImapFolderService - VERIFIED
-- 03-04: ImapMessageService - VERIFIED
-- 03-05: ImapIdleService + ImapSendService - COMPLETE
-- 03-06: Facade and wiring - COMPLETE
+**Phase 4 Progress:**
+- 04-01: FolderSyncQueryService - COMPLETE (eb08298)
+- 04-02: ImapFolderSyncService - IN PROGRESS (parallel)
+- 04-03: GmailFolderSyncService - IN PROGRESS (parallel)
+- 04-04: FolderSyncService Facade - Depends on 04-01, 04-02, 04-03
 
-**Next:** Execute Phase 4 (Google Driver Split)
+**Next:** Complete 04-02, 04-03 (parallel), then 04-04 (facade)
 
 ---
 *State initialized: 2026-01-31*
 *Phase 1 completed: 2026-01-31*
 *Phase 2 completed: 2026-01-31*
 *Phase 3 completed: 2026-02-01*
+*Phase 4 plan 01 completed: 2026-02-01*
