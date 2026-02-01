@@ -4,6 +4,12 @@ import { MicrosoftDriver } from './microsoft/microsoft.driver';
 import { IMAPDriver } from './imap/imap.driver';
 import { EmailDriverFactory } from './driver.factory';
 
+// Gmail sub-services (Phase 5 Wave 1)
+import { GmailMessageService } from './google/services/gmail-message.service';
+
+// Microsoft sub-services (Phase 5 Wave 1)
+import { MicrosoftMessageService } from './microsoft/services/microsoft-message.service';
+
 // IMAP sub-services (required for facade DI)
 import { ImapConnectionPoolService } from './imap/services/imap-connection-pool.service';
 import { ImapFolderService } from './imap/services/imap-folder.service';
@@ -19,9 +25,13 @@ import { ImapSendService } from './imap/services/imap-send.service';
  *
  * Exports:
  * - EmailDriverFactory: Factory to create/get driver instances
- * - GoogleDriver: Gmail API driver
- * - MicrosoftDriver: Microsoft Graph API driver
+ * - GoogleDriver: Gmail API driver (facade pattern - will use sub-services in Phase 5 Plan 04)
+ * - MicrosoftDriver: Microsoft Graph API driver (facade pattern - will use sub-services in Phase 5 Plan 04)
  * - IMAPDriver: Generic IMAP/SMTP driver (facade over sub-services)
+ *
+ * Sub-services (Phase 5 Wave 1 - extracted, not yet wired to drivers):
+ * - GmailMessageService: Gmail message operations
+ * - MicrosoftMessageService: Microsoft Graph message operations
  *
  * Note: Rate limiting and circuit breaker are handled by:
  * - RedisCircuitBreakerService (common/services)
@@ -29,6 +39,12 @@ import { ImapSendService } from './imap/services/imap-send.service';
  */
 @Module({
   providers: [
+    // Gmail sub-services (Phase 5 Wave 1 - must be registered before GoogleDriver)
+    GmailMessageService,
+
+    // Microsoft sub-services (Phase 5 Wave 1 - must be registered before MicrosoftDriver)
+    MicrosoftMessageService,
+
     // IMAP sub-services (must be registered before IMAPDriver)
     ImapConnectionPoolService,
     ImapFolderService,
@@ -48,6 +64,8 @@ import { ImapSendService } from './imap/services/imap-send.service';
     MicrosoftDriver,
     IMAPDriver,
     // Export sub-services for testing
+    GmailMessageService,
+    MicrosoftMessageService,
     ImapConnectionPoolService,
     ImapFolderService,
     ImapMessageService,
