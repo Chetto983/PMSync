@@ -89,13 +89,17 @@ Plans:
   3. `emails.service.ts` split into CRUD, bulk, cleanup services each under 500 lines
   4. All existing folder and email tests pass without modification (facades preserve interfaces)
   5. New unit tests exist for each split service
-**Plans**: 4 plans in 2 waves
+**Plans**: 8 plans in 2 waves
 
 Plans:
-- [ ] 04-01: Extract FolderSyncQueryService (shared folder DB operations)
-- [ ] 04-02: Create provider folder sync services (IMAP, extend Gmail/Microsoft)
-- [ ] 04-03: Extract EmailCrudService, EmailBulkService, EmailSearchService
-- [ ] 04-04: Convert facades and verify backward compatibility
+- [x] 04-01: Extract FolderSyncQueryService (shared folder DB operations)
+- [x] 04-02: Create provider folder sync services (IMAP, extend Gmail/Microsoft)
+- [x] 04-03: Extract EmailCrudService, EmailBulkService, EmailSearchService
+- [x] 04-04: Convert facades and verify backward compatibility
+- [ ] 04-05: Unit tests for ImapFolderSyncService (gap closure)
+- [ ] 04-06: Unit tests for GmailFolderService (gap closure)
+- [ ] 04-07: Unit tests for MicrosoftFolderService (gap closure)
+- [ ] 04-08: Unit tests for EmailSearchService (gap closure)
 
 ### Phase 5: Google & Microsoft Drivers
 **Goal**: Remaining drivers split following proven IMAP pattern
@@ -180,7 +184,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 1. Foundation | 4/4 | ✅ Complete | 2026-01-31 |
 | 2. Race Condition Fixes | 4/4 | ✅ Complete | 2026-01-31 |
 | 3. IMAP Driver Split | 6/6 | ✅ Complete | 2026-02-01 |
-| 4. Service Splits | 0/4 | Not started | - |
+| 4. Service Splits | 4/8 | In Progress (gap closure) | - |
 | 5. Google & Microsoft Drivers | 0/4 | Not started | - |
 | 6. Base Sync Extraction | 0/4 | Not started | - |
 | 7. AI/RAG Services | 0/4 | Not started | - |
