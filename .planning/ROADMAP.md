@@ -126,17 +126,17 @@ Plans:
 **Requirements**: SERV-02, SERV-05 (facade pattern), TEST-05 (unit tests)
 **Success Criteria** (what must be TRUE):
   1. `base-email-sync.service.ts` is under 350 lines (abstract base with public API)
-  2. Extracted services: sync-incremental (~400), sync-full (~300), sync-token (~200)
+  2. Extracted services: SyncMessageProcessorService (~450), SyncOrchestrationService (~250), SyncTokenService (~100)
   3. Abstract class only depends on injected services (no circular dependencies)
   4. All existing sync tests pass without modification
   5. Token refresh logic tested in isolation
-**Plans**: 4 plans in 2 waves
+**Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 06-01: Analyze base-sync dependency graph
-- [ ] 06-02: Extract sync-incremental and sync-full services
-- [ ] 06-03: Extract sync-token service
-- [ ] 06-04: Refactor abstract base and migrate consumers
+- [ ] 06-01-PLAN.md — Extract SyncMessageProcessorService (message upsert, batch, deletion with RC fixes)
+- [ ] 06-02-PLAN.md — Extract SyncOrchestrationService + SyncTokenService (full/incremental sync + token lifecycle)
+- [ ] 06-03-PLAN.md — Refactor BaseEmailSyncService to delegate to extracted services
+- [ ] 06-04-PLAN.md — Create unit tests for extracted services
 
 ### Phase 7: AI/RAG Services
 **Goal**: knowledge-base.service (1,371 lines) split into focused RAG services
