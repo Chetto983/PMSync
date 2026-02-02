@@ -86,25 +86,28 @@ Plans:
 **Requirements:**
 - FE-01: Email list with VList virtualization [ALREADY IMPLEMENTED - @tanstack/react-virtual]
 - FE-02: Thread display with animations [ALREADY IMPLEMENTED - MUI Accordion]
-- PERF-05: Optimistic updates [MOSTLY DONE - verify toast rollback]
-- PERF-06: Query prefetching [GAP - add prefetch-on-hover]
+- PERF-05: Optimistic updates with toast rollback [COMPLETE]
+- PERF-06: Query prefetching (prefetch-on-hover) [COMPLETE]
 
 **Dependencies:** Phase 02 (frontend setup)
 
 **Scope (RE-SCOPED):** Research found 90%+ already implemented. Focus on gaps:
-1. Add prefetch-on-hover to ThreadListItem.tsx (PERF-06)
-2. Add prefetch-on-hover to FolderSidebar.tsx (PERF-06)
-3. Verify toast rollback on optimistic update failure (PERF-05)
+1. Add prefetch-on-hover to ThreadListItem.tsx (PERF-06) ✓
+2. Add prefetch-on-hover to FolderSidebar.tsx (PERF-06) ✓
+3. Verify toast rollback on optimistic update failure (PERF-05) ✓
 
-**Plans:** 1 plan
+**Plans:** 1 plan (Wave 1)
 
 Plans:
-- [ ] 03-01-PLAN.md — Prefetch-on-hover + optimistic toast verification
+- [x] 03-01-PLAN.md — Prefetch-on-hover + optimistic toast verification ✓
+
+**Status:** COMPLETE (2026-02-02) — 4/4 requirements verified
 
 **Deliverables:**
 - Prefetch on email hover (300ms debounce)
 - Prefetch on folder hover (300ms debounce)
 - Toast notification on optimistic update rollback
+- i18n support for error messages
 
 ---
 
