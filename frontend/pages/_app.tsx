@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { QueryProvider } from '@/lib/query-client';
 import { AuthProvider } from '@/lib/context/auth-context';
+import { ToastProvider } from '@/lib/context/toast-context';
 import { lightTheme, darkTheme } from '@/theme/appTheme';
 import { useAuth } from '@/lib/hooks/use-auth';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
@@ -166,15 +167,17 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
       </Head>
       <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <MaterialThemeWrapper>
-          <AuthProvider>
-            {skipAuth ? (
-              <Component {...pageProps} />
-            ) : (
-              <RouteGuard>
+          <ToastProvider>
+            <AuthProvider>
+              {skipAuth ? (
                 <Component {...pageProps} />
-              </RouteGuard>
-            )}
-          </AuthProvider>
+              ) : (
+                <RouteGuard>
+                  <Component {...pageProps} />
+                </RouteGuard>
+              )}
+            </AuthProvider>
+          </ToastProvider>
           <SpeedInsights />
         </MaterialThemeWrapper>
       </NextThemeProvider>

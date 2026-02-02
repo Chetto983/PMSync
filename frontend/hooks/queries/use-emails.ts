@@ -25,6 +25,7 @@ import {
   type RespondToInviteDto,
 } from '@/lib/api/emails';
 import { emailKeys } from './email-keys';
+import { getGlobalToast } from '@/lib/context/toast-context';
 
 // =============================================================================
 // Query Options (for sharing between hooks and prefetching)
@@ -248,6 +249,9 @@ export function useSendEmail() {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.drafts() });
     },
+    onError: () => {
+      getGlobalToast().error('Failed to send email.');
+    },
   });
 }
 
@@ -266,6 +270,9 @@ export function useReplyToEmail() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
     },
+    onError: () => {
+      getGlobalToast().error('Failed to send reply.');
+    },
   });
 }
 
@@ -282,6 +289,9 @@ export function useForwardEmail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.byFolder('SENT') });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+    },
+    onError: () => {
+      getGlobalToast().error('Failed to forward email.');
     },
   });
 }
@@ -316,6 +326,7 @@ export function useUpdateEmail() {
       if (context?.previousEmail) {
         queryClient.setQueryData(emailKeys.detail(emailId), context.previousEmail);
       }
+      getGlobalToast().error('Failed to update email. Changes reverted.');
     },
     onSettled: (_, __, { emailId }) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
@@ -340,6 +351,9 @@ export function useDeleteEmail() {
       queryClient.removeQueries({ queryKey: emailKeys.detail(emailId) });
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+    },
+    onError: () => {
+      getGlobalToast().error('Failed to delete email.');
     },
   });
 }
@@ -366,6 +380,9 @@ export function useBulkDeleteEmails() {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
+    onError: () => {
+      getGlobalToast().error('Failed to delete emails.');
+    },
   });
 }
 
@@ -383,6 +400,9 @@ export function useBulkMarkRead() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+    },
+    onError: () => {
+      getGlobalToast().error('Failed to update read status.');
     },
   });
 }
@@ -403,6 +423,9 @@ export function useBulkMarkImportant() {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
+    onError: () => {
+      getGlobalToast().error('Failed to mark emails.');
+    },
   });
 }
 
@@ -421,6 +444,9 @@ export function useBulkMoveEmails() {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
+    onError: () => {
+      getGlobalToast().error('Failed to move emails.');
+    },
   });
 }
 
@@ -438,6 +464,9 @@ export function useBulkAddLabels() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
+    onError: () => {
+      getGlobalToast().error('Failed to add labels.');
+    },
   });
 }
 
@@ -454,6 +483,9 @@ export function useBulkRemoveLabels() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+    },
+    onError: () => {
+      getGlobalToast().error('Failed to remove labels.');
     },
   });
 }
@@ -477,6 +509,9 @@ export function useSaveDraft() {
       queryClient.invalidateQueries({ queryKey: emailKeys.drafts() });
       queryClient.invalidateQueries({ queryKey: emailKeys.byFolder('DRAFTS') });
     },
+    onError: () => {
+      getGlobalToast().error('Failed to save draft.');
+    },
   });
 }
 
@@ -495,6 +530,9 @@ export function useDeleteDraft() {
       queryClient.removeQueries({ queryKey: emailKeys.draft(draftId) });
       queryClient.invalidateQueries({ queryKey: emailKeys.drafts() });
       queryClient.invalidateQueries({ queryKey: emailKeys.byFolder('DRAFTS') });
+    },
+    onError: () => {
+      getGlobalToast().error('Failed to delete draft.');
     },
   });
 }
@@ -516,6 +554,9 @@ export function useRespondToCalendarInvite() {
     onSuccess: (_, { emailId }) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
       queryClient.invalidateQueries({ queryKey: emailKeys.calendarInvite(emailId) });
+    },
+    onError: () => {
+      getGlobalToast().error('Failed to respond to calendar invite.');
     },
   });
 }
