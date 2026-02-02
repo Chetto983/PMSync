@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: 6 of 8 (Base Sync Extraction) - IN PROGRESS
-Plan: 1 of 4 complete (Wave 1 - Message Processor Extraction)
+Plan: 2 of 4 complete (Wave 1 - Orchestration + Token Extraction)
 Status: In progress
-Last activity: 2026-02-02 - Completed 06-01-PLAN.md (message processor extraction)
+Last activity: 2026-02-02 - Completed 06-02-PLAN.md (orchestration/token extraction)
 
-Progress: [████████████████████░░░░] 69% (6/8 phases in progress)
+Progress: [████████████████████░░░░] 72% (6/8 phases in progress)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01)
+- Total plans completed: 28 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01)
 - Average duration: ~9 min/plan
-- Total execution time: ~3h 50min
+- Total execution time: ~3h 56min
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Progress: [████████████████████░░░
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
 | 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
 | 5. Gmail/Microsoft Drivers | 4 | ~29 min | ~7 min (message+send+sync+facade) |
-| 6. Base Sync Extraction | 1 | ~7 min | ~7 min (message processor) |
+| 6. Base Sync Extraction | 2 | ~13 min | ~7 min (message processor + orchestration) |
 
 **Recent Trend:**
-- Last 5 plans: 05-02, 05-03, 05-04, 06-01
-- Trend: Base sync extraction started
+- Last 5 plans: 05-03, 05-04, 06-01, 06-02
+- Trend: Base sync extraction in progress
 
 *Updated after each plan completion*
 
@@ -109,7 +109,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 06-01-PLAN.md (Message Processor Extraction)
+Stopped at: Completed 06-02-PLAN.md (Orchestration + Token Extraction)
 Resume file: None
 
 **Phase 6 In Progress:**
@@ -118,8 +118,12 @@ Resume file: None
   - MessageProcessorContext: callback pattern for abstract methods
   - All RC-1/RC-2/RC-6/RC-9 race condition fixes preserved
   - P11 batch indexing logic preserved
+- 06-02: Orchestration + Token Extraction (Wave 1) - COMPLETE (b9c2c6aa, a94f8e8e)
+  - SyncTokenService: 119 lines, CRIT-3 token refresh logic
+  - SyncOrchestrationService: 327 lines, full/incremental sync orchestration
+  - All FOLDER-FIX/DEDUP-FIX/CRIT-3 comments preserved
 
-**Next:** 06-02 (Sync Orchestration Extraction)
+**Next:** 06-03 (Hook Extraction)
 
 **Phase 5 Complete:**
 - 05-01: Message Service Extraction (Wave 1) - COMPLETE (3806d14, 4e2c25b, fdd9373b)
