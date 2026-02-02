@@ -301,6 +301,8 @@ export class UsageTrackingService {
 
   /**
    * @deprecated Use CostProtectionService.canProceed() instead for subscription-aware checks.
+   * Remove by 2026-06-30 - After v2.0 release when CostProtectionService is fully validated
+   * @see CostProtectionService.canProceed for replacement
    *
    * This method previously used hardcoded FREE tier limits as a safety net,
    * but this incorrectly blocked ENTERPRISE users with unlimited plans.
@@ -314,8 +316,6 @@ export class UsageTrackingService {
    * @returns Always true - actual enforcement via CostProtectionService
    */
   async checkQuota(_tenantId: string, _featureType: 'ai-calls' | 'email-processing'): Promise<boolean> {
-    // DEPRECATED: Always return true - proper enforcement via CostProtectionService.canProceed()
-    // which correctly handles ENTERPRISE plans with unlimited quota (dailyCap = null)
     return true;
   }
 
