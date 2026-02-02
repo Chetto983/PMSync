@@ -29,6 +29,11 @@ import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
 import { IntentClassifierService, EmbeddingIntentClassifierService } from './nlp';
+// Phase 7: Extracted RAG sub-services (registered BEFORE KnowledgeBaseService facade)
+import { EmbeddingComposerService } from './services/embedding-composer.service';
+import { EmbeddingCrudService } from './services/embedding-crud.service';
+import { EmbeddingSearchService } from './services/embedding-search.service';
+import { EmbeddingBackfillService } from './services/embedding-backfill.service';
 
 @Module({
   imports: [
@@ -42,7 +47,12 @@ import { IntentClassifierService, EmbeddingIntentClassifierService } from './nlp
     // Core AI services (not in VoltAgent)
     MistralService,
     EmbeddingsService,
-    KnowledgeBaseService,
+    // Phase 7: Extracted RAG sub-services (must be before KnowledgeBaseService facade)
+    EmbeddingComposerService,
+    EmbeddingCrudService,
+    EmbeddingSearchService,
+    EmbeddingBackfillService,
+    KnowledgeBaseService, // Facade - delegates to sub-services above
     EmailEmbeddingQueueService,
     ContactEmbeddingQueueService,
     EmailInsightsService,
