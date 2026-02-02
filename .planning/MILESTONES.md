@@ -1,5 +1,22 @@
 # Project Milestones: MailAgent
 
+## v2.0 Professional Email Client (In Progress)
+
+**Goal:** Build the best professional AI mail client — fast, intelligent, and secure.
+
+**Scope:**
+- Frontend Email Client: VList virtualization, TipTap composer, kanban view, keyboard navigation
+- Performance: pgvector HNSW index, N+1 fixes, query optimization
+- Security: S3 encryption, OAuth revocation, log redaction
+
+**UI Vision:** Hybrid list/kanban combining Outlook enterprise feel + Superhuman speed + Apple Mail clean design
+
+**Requirements:** 24 total (FE: 10, PERF: 6, SEC: 5, DEBT: 3)
+
+**Started:** 2026-02-02
+
+---
+
 ## v1 Stability & Code Quality Refactor (Shipped: 2026-02-02)
 
 **Delivered:** Comprehensive refactoring of email sync and AI modules - 77% reduction in large service file sizes with zero regressions and full production stress testing.
@@ -24,8 +41,6 @@
 
 **Git range:** `feat(01-01)` → `docs(08)`
 
-**What's next:** v2 milestone candidates include performance optimizations (pgvector HNSW index, N+1 query fixes), security hardening (S3 encryption, OAuth revocation), and monitoring infrastructure (Prometheus metrics, DLQ alerting).
-
 ---
 
-*Milestones log created: 2026-02-02*
+*Milestones log updated: 2026-02-02*

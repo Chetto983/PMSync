@@ -76,7 +76,15 @@
       "Bash(if not exist \"D:\\MailAgent\\.planning\\phases\\05-google-microsoft-drivers\" mkdir \"D:\\MailAgent\\.planning\\phases\\05-google-microsoft-drivers\")",
       "Bash(if not exist \"D:\\MailAgent\\.planning\\phases\\06-base-sync-extraction\" mkdir \"D:\\MailAgent\\.planning\\phases\\06-base-sync-extraction\")",
       "Bash(mkdir:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(for i in 1 2 3)",
+      "Bash(do echo \"=== Run $i ===\")",
+      "SlashCommand(/gsd:complete-milestone:*)",
+      "Bash(git -C D:/MailAgent diff --stat 7d62b81..HEAD)",
+      "SlashCommand(/gsd:plan-milestone-gaps)",
+      "Bash(git -C D:/MailAgent tag -a v1 -m \"$(cat <<''EOF''\nv1 Stability & Code Quality Refactor\n\nDelivered: Comprehensive refactoring of email sync and AI modules - 77% reduction in large service file sizes with zero regressions and full production stress testing.\n\nKey accomplishments:\n- 77% reduction in large service files (11,129 → 2,512 lines)\n- Race condition protection (Redis locks + 4-min alerting)\n- Vertical slice architecture for all email drivers\n- 500+ tests passing, zero regressions\n- 6/6 production stress test criteria met\n- LLM circuit breaker with graceful fallback\n\nSee .planning/MILESTONES.md for full details.\nEOF\n)\")",
+      "Bash(git -C D:/MailAgent tag:*)",
+      "WebFetch(domain:kanmail.io)"
     ],
     "deny": [],
     "ask": []
