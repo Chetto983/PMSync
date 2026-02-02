@@ -277,10 +277,12 @@ Frontend can use this to avoid duplicating folder type logic.`,
       },
     });
 
-    // Refresh counts before returning folders
-    for (const provider of providers) {
-      await this.folderSyncService.updateAllFolderCounts(provider.id);
-    }
+    // Refresh counts before returning folders (PERF-02: parallel execution)
+    await Promise.all(
+      providers.map((provider) =>
+        this.folderSyncService.updateAllFolderCounts(provider.id),
+      ),
+    );
 
     // Get folders for all providers
     const foldersByProvider: Record<string, any[]> = {};
