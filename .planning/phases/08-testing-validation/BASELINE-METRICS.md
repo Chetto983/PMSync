@@ -1,7 +1,7 @@
 # Phase 8 Performance Baseline Metrics
 
 **Measured:** 2026-02-02
-**Timestamp:** 2026-02-02T14:01:23.458Z
+**Timestamp:** 2026-02-02T14:02:27.715Z
 **Environment:** Development (localhost PostgreSQL + Redis)
 
 ## Success Criteria Results
@@ -12,7 +12,7 @@
 | 2 | Folder rename during sync | Zero orphaned references | 0 orphans | PASS |
 | 3 | P2034 deadlock recovery | Retry succeeds | Proven | PASS |
 | 4 | Redis lock contention (20 workers) | 80%+ success rate | 100.0% | PASS |
-| 5 | Large batch (1000+ emails) | < 60 seconds | 6951ms total | PASS |
+| 5 | Large batch (1000+ emails) | < 60 seconds | 7064ms total | PASS |
 | 6 | Token expiry mid-sync | Zero data loss | 1 refresh(es) | PASS |
 
 ## Performance Baselines
@@ -21,7 +21,7 @@
 - **Concurrent tenants:** 10
 - **Emails per tenant:** 10
 - **Total emails:** 100
-- **Completion time:** 5114ms
+- **Completion time:** 5729ms
 - **Cross-tenant leaks:** 0
 
 ### Concurrent Operations (Criteria 2, 4, 5)
@@ -29,8 +29,8 @@
 - **Lock contention success rate:** 100.0% (target: 80%)
 - **Workers competing:** 20
 - **Large batch size:** 1000 emails
-- **Large batch duration:** 6951ms (target: < 60,000ms)
-- **Throughput:** 1111 emails/sec
+- **Large batch duration:** 7064ms (target: < 60,000ms)
+- **Throughput:** 1214 emails/sec
 
 ### Failure Recovery (Criteria 3, 6)
 - **Deadlock recovery:** Proven
@@ -45,10 +45,10 @@ npx ts-node -r dotenv/config backend/scripts/run-phase8-validation.ts
 ```
 
 ### Individual Test Durations
-- **Multi-tenant isolation:** 5114ms
-- **Concurrent operations:** 6951ms
-- **Failure recovery:** 6707ms
-- **Total:** 18772ms (18.8s)
+- **Multi-tenant isolation:** 5729ms
+- **Concurrent operations:** 7064ms
+- **Failure recovery:** 6823ms
+- **Total:** 19616ms (19.6s)
 
 ## Infrastructure Requirements
 
