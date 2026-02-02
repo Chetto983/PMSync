@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 5 - Google & Microsoft Driver Splits (COMPLETE)
+**Current focus:** Phase 6 - Base Sync Extraction (IN PROGRESS)
 
 ## Current Position
 
-Phase: 5 of 8 (Google & Microsoft Drivers) - COMPLETE
-Plan: 4 of 4 complete (Wave 4 - Facade Refactor)
-Status: Complete
-Last activity: 2026-02-01 - Completed 05-04-PLAN.md (facade refactor)
+Phase: 6 of 8 (Base Sync Extraction) - IN PROGRESS
+Plan: 1 of 4 complete (Wave 1 - Message Processor Extraction)
+Status: In progress
+Last activity: 2026-02-02 - Completed 06-01-PLAN.md (message processor extraction)
 
-Progress: [████████████████████] 63% (5/8 phases)
+Progress: [████████████████████░░░░] 69% (6/8 phases in progress)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04)
+- Total plans completed: 27 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01)
 - Average duration: ~9 min/plan
-- Total execution time: ~3h 43min
+- Total execution time: ~3h 50min
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: [████████████████████] 63% (5/
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
 | 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
 | 5. Gmail/Microsoft Drivers | 4 | ~29 min | ~7 min (message+send+sync+facade) |
+| 6. Base Sync Extraction | 1 | ~7 min | ~7 min (message processor) |
 
 **Recent Trend:**
-- Last 5 plans: 05-01, 05-02, 05-03, 05-04
-- Trend: Driver facade pattern replication complete
+- Last 5 plans: 05-02, 05-03, 05-04, 06-01
+- Trend: Base sync extraction started
 
 *Updated after each plan completion*
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - GoogleDriver refactored to facade: 1,364 → 397 lines (71% reduction) (05-04)
 - MicrosoftDriver refactored to facade: 1,429 → 575 lines (60% reduction) (05-04)
 - All 329 tests pass after facade wiring (05-04)
+- SyncMessageProcessorService exceeds 500-line target (794 lines) - cohesion over arbitrary limits (06-01)
+- Callback pattern for abstract method delegation via MessageProcessorContext (06-01)
+- Deferred RedisLockService injection via setter method (matches base class pattern) (06-01)
 
 ### Pending Todos
 
@@ -104,9 +108,18 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-01
-Stopped at: Completed Phase 5 (Google & Microsoft Drivers)
+Last session: 2026-02-02
+Stopped at: Completed 06-01-PLAN.md (Message Processor Extraction)
 Resume file: None
+
+**Phase 6 In Progress:**
+- 06-01: Message Processor Extraction (Wave 1) - COMPLETE (4dd6c0a0)
+  - SyncMessageProcessorService: 794 lines
+  - MessageProcessorContext: callback pattern for abstract methods
+  - All RC-1/RC-2/RC-6/RC-9 race condition fixes preserved
+  - P11 batch indexing logic preserved
+
+**Next:** 06-02 (Sync Orchestration Extraction)
 
 **Phase 5 Complete:**
 - 05-01: Message Service Extraction (Wave 1) - COMPLETE (3806d14, 4e2c25b, fdd9373b)
