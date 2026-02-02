@@ -56,25 +56,26 @@ Plans:
 
 ## Phase 02: Frontend Core Setup
 
-**Goal:** Establish frontend architecture for email views
+**Goal:** Document existing frontend architecture and verify pattern consistency
 
-**Tasks:**
-- Install shadcn/ui and Tailwind CSS alongside MUI
-- Create `/email` route structure
-- Set up component folder hierarchy
-- Configure TanStack Query for email endpoints
-- Add virtua (VList) dependency
-- Add TipTap editor dependency
-- Add motion (framer-motion) dependency
-- Create base layout with resizable panels
+**Scope (RE-SCOPED):** Research revealed 95% of roadmap items already implemented. Phase 02 focuses on:
+- Architecture documentation for onboarding
+- Pattern audit (i18n, data fetching consistency)
+- Integration verification (dependencies work together)
 
-**Why second:** Foundation for all frontend phases.
+**Why second:** Foundation documentation before building new features in Phase 03+.
+
+**Plans:** 2 plans (Wave 1 - parallel)
+
+Plans:
+- [ ] 02-01-PLAN.md — Create frontend ARCHITECTURE.md documentation
+- [ ] 02-02-PLAN.md — Pattern audit + integration verification
 
 **Deliverables:**
-- `/email` routes working
-- Component structure documented
-- Dependencies installed and configured
-- Base three-panel layout rendering
+- `frontend/ARCHITECTURE.md` (component strategy, data patterns, file organization)
+- Pattern audit report (i18n, TanStack Query compliance)
+- Verified dependencies work together
+- Confidence for Phase 03 execution
 
 ---
 
