@@ -2812,6 +2812,21 @@ export interface AppTranslations {
     // Email errors
     missingProviderInfo: string;
     moveFailed: string;
+    // Email mutation errors (used by TanStack Query onError callbacks)
+    sendEmailFailed: string;
+    replyFailed: string;
+    forwardFailed: string;
+    updateEmailFailed: string;
+    deleteEmailFailed: string;
+    deleteEmailsFailed: string;
+    updateReadStatusFailed: string;
+    markEmailsFailed: string;
+    moveEmailsFailed: string;
+    addLabelsFailed: string;
+    removeLabelsFailed: string;
+    saveDraftFailed: string;
+    deleteDraftFailed: string;
+    calendarInviteFailed: string;
   };
   buttons: {
     tryAgain: string;

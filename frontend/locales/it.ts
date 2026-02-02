@@ -2747,6 +2747,21 @@ export const it: AppTranslations = {
     // Email errors
     missingProviderInfo: 'Informazioni provider email mancanti',
     moveFailed: 'Impossibile spostare le email. Riprova.',
+    // Email mutation errors (used by TanStack Query onError callbacks)
+    sendEmailFailed: 'Impossibile inviare l\'email.',
+    replyFailed: 'Impossibile inviare la risposta.',
+    forwardFailed: 'Impossibile inoltrare l\'email.',
+    updateEmailFailed: 'Impossibile aggiornare l\'email. Modifiche annullate.',
+    deleteEmailFailed: 'Impossibile eliminare l\'email.',
+    deleteEmailsFailed: 'Impossibile eliminare le email.',
+    updateReadStatusFailed: 'Impossibile aggiornare lo stato di lettura.',
+    markEmailsFailed: 'Impossibile contrassegnare le email.',
+    moveEmailsFailed: 'Impossibile spostare le email.',
+    addLabelsFailed: 'Impossibile aggiungere le etichette.',
+    removeLabelsFailed: 'Impossibile rimuovere le etichette.',
+    saveDraftFailed: 'Impossibile salvare la bozza.',
+    deleteDraftFailed: 'Impossibile eliminare la bozza.',
+    calendarInviteFailed: 'Impossibile rispondere all\'invito del calendario.',
   },
   buttons: {
     tryAgain: 'Riprova',

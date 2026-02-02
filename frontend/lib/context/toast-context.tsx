@@ -13,14 +13,15 @@
  *   toast.success('Saved!');
  *
  * Usage in TanStack Query onError:
- *   import { getGlobalToast } from '@/lib/context/toast-context';
- *   onError: () => { getGlobalToast().error('Failed to save'); }
+ *   import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
+ *   onError: () => { getGlobalToast().error(getGlobalTranslations().errors.sendEmailFailed); }
  */
 
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { Snackbar, Alert, AlertColor } from '@mui/material';
+import { getTranslations, type AppTranslations } from '@/locales';
 
 interface ToastContextType {
   success: (message: string) => void;
@@ -100,4 +101,23 @@ const noOpToast: ToastContextType = {
  */
 export function getGlobalToast(): ToastContextType {
   return globalToastRef.current ?? noOpToast;
+}
+
+// Locale storage key (must match use-locale.ts)
+const LOCALE_STORAGE_KEY = 'mailagent:locale';
+
+/**
+ * Get translations for use in non-React contexts (TanStack Query callbacks, etc.)
+ * Reads current locale from localStorage and returns appropriate translations.
+ *
+ * Usage:
+ *   import { getGlobalTranslations } from '@/lib/context/toast-context';
+ *   onError: () => { getGlobalToast().error(getGlobalTranslations().errors.sendEmailFailed); }
+ */
+export function getGlobalTranslations(): AppTranslations {
+  if (typeof window === 'undefined') {
+    return getTranslations('en');
+  }
+  const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+  return getTranslations(stored);
 }

@@ -2768,6 +2768,21 @@ export const en: AppTranslations = {
     // Email errors
     missingProviderInfo: 'Email provider information is missing',
     moveFailed: 'Failed to move email(s). Please try again.',
+    // Email mutation errors (used by TanStack Query onError callbacks)
+    sendEmailFailed: 'Failed to send email.',
+    replyFailed: 'Failed to send reply.',
+    forwardFailed: 'Failed to forward email.',
+    updateEmailFailed: 'Failed to update email. Changes reverted.',
+    deleteEmailFailed: 'Failed to delete email.',
+    deleteEmailsFailed: 'Failed to delete emails.',
+    updateReadStatusFailed: 'Failed to update read status.',
+    markEmailsFailed: 'Failed to mark emails.',
+    moveEmailsFailed: 'Failed to move emails.',
+    addLabelsFailed: 'Failed to add labels.',
+    removeLabelsFailed: 'Failed to remove labels.',
+    saveDraftFailed: 'Failed to save draft.',
+    deleteDraftFailed: 'Failed to delete draft.',
+    calendarInviteFailed: 'Failed to respond to calendar invite.',
   },
   buttons: {
     tryAgain: 'Try Again',
