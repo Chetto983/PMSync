@@ -13,7 +13,7 @@
  * - Optimized with React.memo
  */
 
-import { memo, MouseEvent } from 'react';
+import { memo, MouseEvent, useRef, useCallback } from 'react';
 import {
   Box,
   Checkbox,
@@ -24,7 +24,9 @@ import {
   Fade,
   Tooltip,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap } from 'lucide-react';
+import { emailThreadOptions } from '@/hooks/queries/use-emails';
 
 // AI Priority configuration (1 = highest/critical, 5 = lowest/minimal)
 const AI_PRIORITY_CONFIG: Record<number, { color: 'error' | 'warning' | 'info' | 'success' | 'default' }> = {
@@ -102,6 +104,29 @@ export const ThreadListItem = memo(function ThreadListItem({
   onMouseLeave,
 }: ThreadListItemProps) {
   const t = useTranslations();
+  const queryClient = useQueryClient();
+  const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced prefetch handler - 300ms delay to avoid prefetch spam
+  const handleMouseEnter = useCallback(() => {
+    onMouseEnter();
+    // Debounce prefetch to avoid spam on quick mouse movements
+    prefetchTimeoutRef.current = setTimeout(async () => {
+      await queryClient.prefetchQuery({
+        ...emailThreadOptions(thread.id),
+        staleTime: 30 * 1000, // Only prefetch if data older than 30s
+      });
+    }, 300);
+  }, [onMouseEnter, thread.id, queryClient]);
+
+  const handleMouseLeave = useCallback(() => {
+    onMouseLeave();
+    // Cancel pending prefetch if mouse leaves quickly
+    if (prefetchTimeoutRef.current) {
+      clearTimeout(prefetchTimeoutRef.current);
+      prefetchTimeoutRef.current = null;
+    }
+  }, [onMouseLeave]);
 
   const handleCheckboxChange = (e: MouseEvent) => {
     e.stopPropagation();
@@ -155,8 +180,8 @@ export const ThreadListItem = memo(function ThreadListItem({
       data-testid="thread-list-item"
       data-focused={isFocused ? 'true' : undefined}
       onClick={handleRowClick}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       sx={{
         display: 'flex',
         alignItems: 'center',
