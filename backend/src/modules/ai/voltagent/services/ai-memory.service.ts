@@ -5,6 +5,18 @@
  * Provides CRUD operations for user memories with history tracking.
  * Supports semantic vector search using mistral-embed (1024 dimensions).
  *
+ * ## Atomicity Note (DEBT-01)
+ * This service uses ONLY Prisma for storage (AIMemory table).
+ * ConversationAtomicityService is NOT applicable here because:
+ * - No VoltAgent Memory API calls (external service)
+ * - All operations are pure Prisma (local DB) with ACID guarantees
+ * - Prisma transactions handle atomicity natively
+ *
+ * ConversationAtomicityService is designed for hybrid scenarios where
+ * Prisma writes must be coordinated with VoltAgent Memory API calls
+ * (saga pattern with compensating transactions).
+ *
+ * @see ConversationAtomicityService for hybrid Prisma+VoltAgent operations
  * @see https://docs.mem0.ai/overview
  */
 import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';

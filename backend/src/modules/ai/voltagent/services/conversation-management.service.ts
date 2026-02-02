@@ -4,7 +4,19 @@
  * Handles chat conversation CRUD operations using VoltAgent Memory API.
  * Extracted from VoltAgentService to maintain single responsibility principle.
  *
- * Based on: https://voltagent.dev/docs/agents/memory/overview/
+ * ## Atomicity Note (DEBT-01)
+ * This service uses ONLY VoltAgent Memory API for storage.
+ * ConversationAtomicityService is NOT applicable here because:
+ * - No Prisma writes in this service
+ * - VoltAgent Memory API is the sole data store
+ * - Memory object is passed in from VoltAgentService (external dependency)
+ *
+ * ConversationAtomicityService is designed for hybrid scenarios where
+ * Prisma writes must be coordinated with VoltAgent Memory API calls
+ * (saga pattern with compensating transactions).
+ *
+ * @see ConversationAtomicityService for hybrid Prisma+VoltAgent operations
+ * @see https://voltagent.dev/docs/agents/memory/overview/
  */
 import { Injectable, Logger } from '@nestjs/common';
 import type { Memory } from '@voltagent/core';
