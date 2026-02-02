@@ -39,6 +39,8 @@ interface FolderItemDisplayProps {
   isDragging?: boolean;
   isOverlay?: boolean;
   onClick?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   dragProps?: React.HTMLAttributes<HTMLDivElement>;
   style?: React.CSSProperties;
 }
@@ -50,7 +52,7 @@ interface FolderItemDisplayProps {
  */
 export const FolderItemDisplay = forwardRef<HTMLDivElement, FolderItemDisplayProps>(
   function FolderItemDisplay(
-    { folder, icon, label, selected, isDragging, isOverlay, onClick, dragProps, style },
+    { folder, icon, label, selected, isDragging, isOverlay, onClick, onMouseEnter, onMouseLeave, dragProps, style },
     ref
   ) {
     return (
@@ -58,6 +60,8 @@ export const FolderItemDisplay = forwardRef<HTMLDivElement, FolderItemDisplayPro
         ref={ref}
         component="div"
         onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         selected={selected}
         style={style}
         {...dragProps}
@@ -135,6 +139,10 @@ interface SortableFolderItemProps {
   label: string;
   selected: boolean;
   onClick: () => void;
+  /** Optional prefetch handler on hover */
+  onMouseEnter?: () => void;
+  /** Optional cleanup handler on mouse leave */
+  onMouseLeave?: () => void;
 }
 
 /**
@@ -149,6 +157,8 @@ export function SortableFolderItem({
   label,
   selected,
   onClick,
+  onMouseEnter,
+  onMouseLeave,
 }: SortableFolderItemProps) {
   const {
     attributes,
@@ -190,6 +200,8 @@ export function SortableFolderItem({
       selected={selected}
       isDragging={isDragging}
       onClick={handleClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       dragProps={{ ...attributes, ...listeners }}
       style={style}
     />

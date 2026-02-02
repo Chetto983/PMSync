@@ -10,7 +10,7 @@
  * @see https://docs.dndkit.com/presets/sortable
  */
 
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import {
   Box,
   List,
@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 // DragOverlay is centralized in EmailLayout
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useQueryClient } from '@tanstack/react-query';
 // useEmailDnd not needed - DragOverlay is in EmailLayout
 import {
   RefreshCw,
@@ -42,6 +43,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useSyncProviderComplete } from '@/hooks/queries/use-folders';
 import { useUserPreferences } from '@/hooks/queries/use-settings';
+import { emailsListOptions } from '@/hooks/queries/use-emails';
 import { useEmailUIStore, useEmailSidebar, type SpecialFolder } from '@/stores/email-ui-store';
 import { useFoldersStore } from '@/stores/folders-store';
 import { useToast } from '@/hooks/use-toast';
@@ -68,11 +70,15 @@ interface FolderSidebarProps {
 
 export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) {
   const t = useTranslations();
+  const queryClient = useQueryClient();
   const { data, isLoading, refetch, isFetching } = useFolders();
   const { data: preferences } = useUserPreferences();
   const syncComplete = useSyncProviderComplete();
   const toast = useToast();
   const { syncingProviders, setSyncing, setLastSync } = useFoldersStore();
+
+  // Prefetch timeout refs for debouncing
+  const prefetchTimeoutRef = useRef<Record<string, NodeJS.Timeout | null>>({});
 
   const filters = useEmailUIStore((state) => state.filters);
   const setFolder = useEmailUIStore((state) => state.setFolder);
@@ -98,6 +104,52 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   } = useFolderManagement();
 
   // Note: DnD sensors are now in EmailLayout's shared DndContext
+
+  // Prefetch handlers for folder hover (300ms debounce)
+  // Note: specialUse API only accepts a subset of SpecialFolder values
+  const handleFolderMouseEnter = useCallback((folder: SpecialFolder) => {
+    const key = `special-${folder}`;
+    // Map JUNK to SPAM for API compatibility
+    const apiSpecialUse = folder === 'JUNK' ? 'SPAM' : folder;
+    // Only prefetch for folders the API supports
+    const validSpecialUse = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'ARCHIVE'] as const;
+    if (!validSpecialUse.includes(apiSpecialUse as typeof validSpecialUse[number])) {
+      return; // Skip prefetch for unsupported folder types
+    }
+    prefetchTimeoutRef.current[key] = setTimeout(async () => {
+      await queryClient.prefetchQuery({
+        ...emailsListOptions({ specialUse: apiSpecialUse as typeof validSpecialUse[number], limit: 50 }),
+        staleTime: 30 * 1000, // Only prefetch if data older than 30s
+      });
+    }, 300);
+  }, [queryClient]);
+
+  const handleFolderMouseLeave = useCallback((folder: SpecialFolder) => {
+    const key = `special-${folder}`;
+    if (prefetchTimeoutRef.current[key]) {
+      clearTimeout(prefetchTimeoutRef.current[key]);
+      prefetchTimeoutRef.current[key] = null;
+    }
+  }, []);
+
+  const handleProviderFolderMouseEnter = useCallback((folderId: string, providerId: string) => {
+    const key = `folder-${folderId}`;
+    prefetchTimeoutRef.current[key] = setTimeout(async () => {
+      await queryClient.prefetchQuery({
+        // API uses 'folder' not 'folderId' for folder filtering
+        ...emailsListOptions({ folder: folderId, providerId, limit: 50 }),
+        staleTime: 30 * 1000,
+      });
+    }, 300);
+  }, [queryClient]);
+
+  const handleProviderFolderMouseLeave = useCallback((folderId: string) => {
+    const key = `folder-${folderId}`;
+    if (prefetchTimeoutRef.current[key]) {
+      clearTimeout(prefetchTimeoutRef.current[key]);
+      prefetchTimeoutRef.current[key] = null;
+    }
+  }, []);
 
   // Handle aggregated folder selection (clears provider filter)
   const handleFolderClick = (folder: SpecialFolder) => {
@@ -236,6 +288,8 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                   selected={filters.specialUse === folder && !filters.providerId}
                   collapsed={collapsed}
                   onClick={() => handleFolderClick(folder)}
+                  onMouseEnter={() => handleFolderMouseEnter(folder)}
+                  onMouseLeave={() => handleFolderMouseLeave(folder)}
                 />
               ))}
             </List>
@@ -421,6 +475,8 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                       label={folderName}
                                       selected={filters.folderId === folder.id}
                                       onClick={() => handleProviderFolderClick(provider.id, folder)}
+                                      onMouseEnter={() => handleProviderFolderMouseEnter(folder.id, provider.id)}
+                                      onMouseLeave={() => handleProviderFolderMouseLeave(folder.id)}
                                     />
                                     {/* Show menu for custom folders only (not system folders) */}
                                     {!folder.isSystem && (

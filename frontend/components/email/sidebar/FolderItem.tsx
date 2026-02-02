@@ -25,6 +25,10 @@ interface FolderItemProps {
   selected?: boolean;
   collapsed?: boolean;
   onClick: () => void;
+  /** Optional prefetch handler on hover */
+  onMouseEnter?: () => void;
+  /** Optional cleanup handler on mouse leave */
+  onMouseLeave?: () => void;
 }
 
 export function FolderItem({
@@ -34,6 +38,8 @@ export function FolderItem({
   selected = false,
   collapsed = false,
   onClick,
+  onMouseEnter,
+  onMouseLeave,
 }: FolderItemProps) {
   const theme = useTheme();
 
@@ -42,6 +48,8 @@ export function FolderItem({
       <ListItemButton
         selected={selected}
         onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         sx={{
           borderRadius: 1.5,
           py: 0.75,
