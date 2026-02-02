@@ -170,10 +170,10 @@ Plans:
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 08-01: Create multi-tenant isolation stress tests
-- [ ] 08-02: Create concurrent operation stress tests
-- [ ] 08-03: Create failure recovery tests (deadlock, token expiry)
-- [ ] 08-04: Document test infrastructure and baseline metrics
+- [ ] 08-01-PLAN.md — Multi-tenant isolation stress test (10 tenants, zero cross-tenant leaks) [Wave 1]
+- [ ] 08-02-PLAN.md — Concurrent operation stress tests (folder rename, lock contention, large batch) [Wave 1]
+- [ ] 08-03-PLAN.md — Failure recovery tests (P2034 deadlock, token expiry mid-sync) [Wave 2]
+- [ ] 08-04-PLAN.md — Unified test runner and baseline metrics documentation [Wave 2]
 
 ## Progress
 
@@ -188,8 +188,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 4. Service Splits | 8/8 | ✅ Complete | 2026-02-01 |
 | 5. Google & Microsoft Drivers | 4/4 | ✅ Complete | 2026-02-01 |
 | 6. Base Sync Extraction | 5/5 | ✅ Complete | 2026-02-02 |
-| 7. AI/RAG Services | 0/4 | Not started | - |
-| 8. Testing & Validation | 0/4 | Not started | - |
+| 7. AI/RAG Services | 3/3 | ✅ Complete | 2026-02-02 |
+| 8. Testing & Validation | 0/4 | 📋 Planned | - |
 
 ---
 *Roadmap created: 2026-01-31*
