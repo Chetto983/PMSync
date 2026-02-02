@@ -1,3 +1,13 @@
+# Requirements Archive: v1 Stability & Code Quality Refactor
+
+**Archived:** 2026-02-02
+**Status:** ✅ SHIPPED
+
+This is the archived requirements specification for v1.
+For current requirements, see `.planning/REQUIREMENTS.md` (created for next milestone).
+
+---
+
 # Requirements: MailAgent Stability & Code Quality Refactor
 
 **Defined:** 2026-01-31
@@ -27,31 +37,31 @@ Requirements for this refactoring milestone. Each maps to roadmap phases.
 ### Driver Splits
 
 - [x] **DRIV-01**: Split `imap.driver.ts` (2,249 lines) into connection, folder-sync, message-sync, IDLE, send modules (<500 lines each)
-- [ ] **DRIV-02**: Split `google.driver.ts` (1,364 lines) into focused Gmail API modules (<500 lines each)
-- [ ] **DRIV-03**: Split `microsoft.driver.ts` (1,429 lines) into focused Microsoft Graph modules (<500 lines each)
-- [~] **DRIV-04**: Maintain backward-compatible facade pattern for all driver splits (IMAP complete, Gmail/Microsoft pending)
+- [x] **DRIV-02**: Split `google.driver.ts` (1,364 lines) into focused Gmail API modules (<500 lines each)
+- [x] **DRIV-03**: Split `microsoft.driver.ts` (1,429 lines) into focused Microsoft Graph modules (<500 lines each)
+- [x] **DRIV-04**: Maintain backward-compatible facade pattern for all driver splits
 
 ### Service Splits
 
 - [x] **SERV-01**: Split `folder-sync.service.ts` (1,629 lines) by provider: IMAP, Gmail, Microsoft sync services
-- [ ] **SERV-02**: Split `base-email-sync.service.ts` (1,382 lines) into orchestration components
+- [x] **SERV-02**: Split `base-email-sync.service.ts` (1,382 lines) into orchestration components
 - [x] **SERV-03**: Split `emails.service.ts` (1,705 lines) into CRUD, bulk operations, cleanup services
-- [ ] **SERV-04**: Split `knowledge-base.service.ts` (1,371 lines) into composer, CRUD, search, backfill services
-- [~] **SERV-05**: Maintain backward-compatible facade pattern for all service splits (Phase 4 complete, Phase 6/7 pending)
+- [x] **SERV-04**: Split `knowledge-base.service.ts` (1,371 lines) into composer, CRUD, search, backfill services
+- [x] **SERV-05**: Maintain backward-compatible facade pattern for all service splits
 
 ### Testing
 
 - [x] **TEST-01**: Create stress tests proving RC-A1 monitoring triggers correctly under load
 - [x] **TEST-02**: Create stress tests proving RC-A8 locks prevent concurrent folder corruption
 - [x] **TEST-03**: Create test proving conversation atomicity rollback works on context failure
-- [ ] **TEST-04**: Create multi-tenant isolation tests verifying cross-tenant data access prevention
-- [~] **TEST-05**: Create unit tests for each new split module (target: 80%+ coverage) (Phase 3/4 complete, Phase 5/6/7 pending)
-- [ ] **TEST-06**: Create integration tests with real Redis/PostgreSQL for sync workflows
-- [ ] **TEST-07**: Use existing real-data test scripts from `backend/scripts/` for validation
+- [x] **TEST-04**: Create multi-tenant isolation tests verifying cross-tenant data access prevention
+- [x] **TEST-05**: Create unit tests for each new split module (target: 80%+ coverage)
+- [x] **TEST-06**: Create integration tests with real Redis/PostgreSQL for sync workflows
+- [x] **TEST-07**: Use existing real-data test scripts from `backend/scripts/` for validation
 
-## v2 Requirements
+## v2 Requirements (Deferred)
 
-Deferred to future milestone. Tracked but not in current roadmap.
+Tracked but not in v1 roadmap.
 
 ### Performance
 
@@ -87,8 +97,6 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FOUND-01 | Phase 1 | ✅ Complete |
@@ -103,27 +111,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RACE-03 | Phase 2 | ✅ Complete |
 | RACE-04 | Phase 2 | ✅ Complete |
 | DRIV-01 | Phase 3 | ✅ Complete |
-| DRIV-02 | Phase 5 | Pending |
-| DRIV-03 | Phase 5 | Pending |
-| DRIV-04 | Phase 3, 5 | 🔄 In Progress (IMAP done) |
+| DRIV-02 | Phase 5 | ✅ Complete |
+| DRIV-03 | Phase 5 | ✅ Complete |
+| DRIV-04 | Phase 3, 5 | ✅ Complete |
 | SERV-01 | Phase 4 | ✅ Complete |
-| SERV-02 | Phase 6 | Pending |
+| SERV-02 | Phase 6 | ✅ Complete |
 | SERV-03 | Phase 4 | ✅ Complete |
-| SERV-04 | Phase 7 | Pending |
-| SERV-05 | Phase 4, 6, 7 | 🔄 In Progress (Phase 4 done) |
-| TEST-01 | Phase 2 | ✅ Complete |
-| TEST-02 | Phase 2 | ✅ Complete |
-| TEST-03 | Phase 2 | ✅ Complete |
-| TEST-04 | Phase 8 | Pending |
-| TEST-05 | Phase 3, 4, 5, 6, 7 | 🔄 In Progress (Phase 3/4 done) |
-| TEST-06 | Phase 8 | Pending |
-| TEST-07 | Phase 8 | Pending |
+| SERV-04 | Phase 7 | ✅ Complete |
+| SERV-05 | Phase 4, 6, 7 | ✅ Complete |
+| TEST-01 | Phase 2, 8 | ✅ Complete |
+| TEST-02 | Phase 2, 8 | ✅ Complete |
+| TEST-03 | Phase 2, 8 | ✅ Complete |
+| TEST-04 | Phase 8 | ✅ Complete |
+| TEST-05 | Phase 3, 4, 5, 6, 7 | ✅ Complete |
+| TEST-06 | Phase 8 | ✅ Complete |
+| TEST-07 | Phase 8 | ✅ Complete |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 26
+- Shipped: 26 (100%)
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-01-31*
-*Last updated: 2026-02-01 after Phase 4 completion*
+
+## Milestone Summary
+
+**Shipped:** 26 of 26 v1 requirements
+**Adjusted:** None (all requirements implemented as specified)
+**Dropped:** None
+
+---
+*Archived: 2026-02-02 as part of v1 milestone completion*
