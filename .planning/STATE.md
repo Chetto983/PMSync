@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: 6 of 8 (Base Sync Extraction) - IN PROGRESS
-Plan: 3 of 4 complete (Wave 2 - Unit Tests)
+Plan: 3 of 4 complete (Wave 2 - Facade Refactor)
 Status: In progress
-Last activity: 2026-02-02 - Completed 06-04-PLAN.md (unit tests for extracted services)
+Last activity: 2026-02-02 - Completed 06-03-PLAN.md (facade refactor)
 
-Progress: [████████████████████░░░░] 75% (6/8 phases in progress)
+Progress: [████████████████████░░░░] 78% (6/8 phases in progress)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01 + 06-02 + 06-04)
+- Total plans completed: 31 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01 + 06-02 + 06-03)
 - Average duration: ~8 min/plan
-- Total execution time: ~4h 10min
+- Total execution time: ~4h 18min
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Progress: [████████████████████░░░
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
 | 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
 | 5. Gmail/Microsoft Drivers | 4 | ~29 min | ~7 min (message+send+sync+facade) |
-| 6. Base Sync Extraction | 3 | ~18 min | ~6 min (message processor + orchestration + tests) |
+| 6. Base Sync Extraction | 3 | ~21 min | ~7 min (message processor + orchestration + facade) |
 
 **Recent Trend:**
-- Last 5 plans: 05-04, 06-01, 06-02, 06-04
-- Trend: Base sync extraction tests complete, facade pending
+- Last 5 plans: 05-04, 06-01, 06-02, 06-03
+- Trend: Base sync extraction facade complete, tests next
 
 *Updated after each plan completion*
 
@@ -87,13 +87,13 @@ Recent decisions affecting current work:
 - GmailSyncService (261 lines) and MicrosoftSyncService (233 lines) both under 300-line target (05-03)
 - All error handling preserved exactly during sync extraction (404/403/429/5xx, multi-folder tokens) (05-03)
 - Services extracted but not yet wired to drivers (deferred to Plan 05-04) (05-02, 05-03)
-- GoogleDriver refactored to facade: 1,364 → 397 lines (71% reduction) (05-04)
-- MicrosoftDriver refactored to facade: 1,429 → 575 lines (60% reduction) (05-04)
+- GoogleDriver refactored to facade: 1,364 -> 397 lines (71% reduction) (05-04)
+- MicrosoftDriver refactored to facade: 1,429 -> 575 lines (60% reduction) (05-04)
 - All 329 tests pass after facade wiring (05-04)
 - SyncMessageProcessorService exceeds 500-line target (794 lines) - cohesion over arbitrary limits (06-01)
 - Callback pattern for abstract method delegation via MessageProcessorContext (06-01)
 - Deferred RedisLockService injection via setter method (matches base class pattern) (06-01)
-- Accept 65% coverage for message processor (critical paths 100% tested, upsert raw SQL hard to mock) (06-04)
+- BaseEmailSyncService exceeds 350-line target (511 lines) - syncProvider must stay, 63% reduction acceptable (06-03)
 
 ### Pending Todos
 
@@ -110,7 +110,7 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 06-04-PLAN.md (Unit Tests for Extracted Services)
+Stopped at: Completed 06-03-PLAN.md (Facade Refactor)
 Resume file: None
 
 **Phase 6 In Progress:**
@@ -123,12 +123,12 @@ Resume file: None
   - SyncTokenService: 119 lines, CRIT-3 token refresh logic
   - SyncOrchestrationService: 327 lines, full/incremental sync orchestration
   - All FOLDER-FIX/DEDUP-FIX/CRIT-3 comments preserved
-- 06-04: Unit Tests (Wave 2) - COMPLETE (2b3925aa, c07965c2)
-  - sync-token.service.spec.ts: 306 lines, 19 tests, 100% coverage
-  - sync-message-processor.service.spec.ts: 746 lines, 31 tests
+- 06-03: Facade Refactor (Wave 2) - COMPLETE (d63c94bc)
+  - BaseEmailSyncService: 1,382 -> 511 lines (63% reduction)
+  - Child classes updated: GoogleSyncService, MicrosoftSyncService, ImapSyncService
   - All 290 email-sync tests pass
 
-**Next:** 06-03 (Facade Refactor)
+**Next:** 06-04 (Unit Tests for Extracted Services)
 
 **Phase 5 Complete:**
 - 05-01: Message Service Extraction (Wave 1) - COMPLETE (3806d14, 4e2c25b, fdd9373b)
@@ -141,11 +141,9 @@ Resume file: None
   - GmailSyncService: 261 lines, History API delta sync
   - MicrosoftSyncService: 233 lines, Delta query multi-folder sync
 - 05-04: Facade Refactor (Wave 4) - COMPLETE (02830c2d, 613629ca, 06122661)
-  - GoogleDriver: 1,364 → 397 lines (71% reduction)
-  - MicrosoftDriver: 1,429 → 575 lines (60% reduction)
+  - GoogleDriver: 1,364 -> 397 lines (71% reduction)
+  - MicrosoftDriver: 1,429 -> 575 lines (60% reduction)
   - All 329 tests pass
-
-**Next:** Phase 6 - Base Sync Extraction
 
 ## Phase 4 Final Results
 
@@ -182,6 +180,19 @@ Resume file: None
 - MicrosoftSyncService (233 lines)
 
 **All 329 tests pass. Full backward compatibility maintained.**
+
+## Phase 6 Current Results
+
+| Original Service | Lines Before | Lines After | Reduction |
+|-----------------|--------------|-------------|-----------|
+| BaseEmailSyncService | 1,382 | 511 | 63% |
+
+**Extracted Services (3 total):**
+- SyncMessageProcessorService (794 lines)
+- SyncOrchestrationService (327 lines)
+- SyncTokenService (119 lines)
+
+**All 290 email-sync tests pass. Child classes updated with DI.**
 
 ---
 *State initialized: 2026-01-31*
