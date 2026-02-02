@@ -144,7 +144,7 @@ Plans:
 **Depends on**: Phase 6 (sync services stable, AI depends on email sync)
 **Requirements**: SERV-04, SERV-05 (facade pattern), TEST-05 (unit tests)
 **Success Criteria** (what must be TRUE):
-  1. `knowledge-base.service.ts` is under 500 lines (facade with creation orchestration)
+  1. `knowledge-base.service.ts` is under 500 lines (facade retains creation methods as orchestration - coordinates composer → crud → mistral → embeddingsService; precedent: Phase 5-6 accepted services exceeding target when cohesion warranted)
   2. Extracted: embedding-composer (~200), embedding-crud (~200), embedding-search (~250), embedding-backfill (~250)
   3. Vector search queries verified to use pgvector index (via EmbeddingsService delegation)
   4. All existing RAG tests pass without modification
