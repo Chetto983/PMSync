@@ -22,11 +22,10 @@
 -- NOTE: Prisma doesn't support partial indexes in schema.prisma, so this is
 -- managed via raw SQL migration only. Do not modify schema.prisma for this index.
 
--- Use CONCURRENTLY to avoid locking the table during index creation
--- NOTE: CONCURRENTLY cannot run inside a transaction, so this migration
--- should be applied with --skip-transactions flag in production:
---   prisma migrate deploy --skip-transactions
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "emails_unread_by_date_idx"
+-- NOTE: For production with large tables, run manually with CONCURRENTLY
+-- outside Prisma: CREATE INDEX CONCURRENTLY ...
+-- For dev/small tables, regular CREATE INDEX is fine within transaction.
+CREATE INDEX IF NOT EXISTS "emails_unread_by_date_idx"
   ON "emails" ("tenantId", "receivedAt" DESC)
   WHERE "isRead" = false;
 
