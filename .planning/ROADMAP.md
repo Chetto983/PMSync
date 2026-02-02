@@ -65,37 +65,46 @@ Plans:
 
 **Why second:** Foundation documentation before building new features in Phase 03+.
 
-**Plans:** 2 plans (Wave 1 - parallel)
+**Approach:** 30-minute verification sprint (Option B from research)
 
 Plans:
-- [ ] 02-01-PLAN.md — Create frontend ARCHITECTURE.md documentation
-- [ ] 02-02-PLAN.md — Pattern audit + integration verification
+- [x] 02-SUMMARY.md — Verification sprint complete ✓
+
+**Status:** COMPLETE (2026-02-02) — Research found 95% already implemented, verification confirmed patterns
 
 **Deliverables:**
-- `frontend/ARCHITECTURE.md` (component strategy, data patterns, file organization)
-- Pattern audit report (i18n, TanStack Query compliance)
-- Verified dependencies work together
-- Confidence for Phase 03 execution
+- Pattern audit: ✓ 0 API violations, 74 translation usages verified
+- Integration verification: ✓ Type-check passes
+- Confidence for Phase 03: HIGH
 
 ---
 
 ## Phase 03: Email List & Thread Display
 
-**Goal:** Build core email reading experience
+**Goal:** Complete query prefetching and verify optimistic updates (90% already implemented)
 
 **Requirements:**
-- FE-01: Email list with VList virtualization
-- FE-02: Thread display with animations
-- PERF-05: Optimistic updates
-- PERF-06: Query prefetching
+- FE-01: Email list with VList virtualization [ALREADY IMPLEMENTED - @tanstack/react-virtual]
+- FE-02: Thread display with animations [ALREADY IMPLEMENTED - MUI Accordion]
+- PERF-05: Optimistic updates [MOSTLY DONE - verify toast rollback]
+- PERF-06: Query prefetching [GAP - add prefetch-on-hover]
 
 **Dependencies:** Phase 02 (frontend setup)
 
+**Scope (RE-SCOPED):** Research found 90%+ already implemented. Focus on gaps:
+1. Add prefetch-on-hover to ThreadListItem.tsx (PERF-06)
+2. Add prefetch-on-hover to FolderSidebar.tsx (PERF-06)
+3. Verify toast rollback on optimistic update failure (PERF-05)
+
+**Plans:** 1 plan
+
+Plans:
+- [ ] 03-01-PLAN.md — Prefetch-on-hover + optimistic toast verification
+
 **Deliverables:**
-- Virtualized email list component
-- Thread display component
-- Optimistic state management hooks
-- Prefetch on hover behavior
+- Prefetch on email hover (300ms debounce)
+- Prefetch on folder hover (300ms debounce)
+- Toast notification on optimistic update rollback
 
 ---
 
