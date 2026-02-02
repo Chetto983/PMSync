@@ -254,7 +254,11 @@ function generateBaselineMetrics(
 
   // Failure recovery metrics
   const deadlockRecovery = failureOutput.includes('PROVEN') || failureOutput.includes('[PASS]') ? 'Proven' : 'Failed';
-  const tokenRefreshCount = extractMetric(failureOutput, [/token refresh.*?(\d+)/, /refreshed (\d+) time/]);
+  const tokenRefreshCount = extractMetric(failureOutput, [
+    /Token refresh count:\s*(\d+)/i,
+    /token refreshed\s*(\d+)\s*time/i,
+    /after\s*(\d+)\s*token refresh/i,
+  ]);
 
   // Build status table
   const getStatus = (criterionNum: number): string => {
