@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Folder } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaRetryService } from '../../../common/services/prisma-retry.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { folderNameToCanonical, isSystemFolder } from '../drivers/interfaces/canonical.types';
 
@@ -37,7 +38,6 @@ function chunk<T>(array: T[], size: number): T[][] {
 }
 
 const PARALLEL_FOLDER_BATCH_SIZE = 10;
-const MAX_UPSERT_RETRIES = 3;
 const TRANSACTION_BATCH_SIZE = 50;
 
 /**
@@ -46,6 +46,8 @@ const TRANSACTION_BATCH_SIZE = 50;
  * Extracted from folder-sync.service.ts (Phase 4: Service Splits).
  * Provider-agnostic DB operations: syncFoldersToDatabase, updateFolderCounts,
  * updateAllFolderCounts, getFolderKeys, audit, cleanup.
+ *
+ * DEBT-02: Uses PrismaRetryService for P2002/P2034 retry handling.
  */
 @Injectable()
 export class FolderSyncQueryService {
@@ -53,10 +55,11 @@ export class FolderSyncQueryService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly prismaRetry: PrismaRetryService,
     private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
-  /** Sync folders to database with P2002/P2034 retry logic. */
+  /** Sync folders to database with P2002/P2034 retry via PrismaRetryService. */
   async syncFoldersToDatabase(
     tenantId: string,
     providerId: string,
@@ -88,55 +91,44 @@ export class FolderSyncQueryService {
           (attr) => attr === '\\Noselect' || attr === '\\NonExistent' || attr.toLowerCase() === '\\noselect',
         );
 
-        let retryCount = 0;
-        while (true) {
-          try {
-            const folder = await this.prisma.folder.upsert({
-              where: { providerId_path: { providerId, path: folderInfo.path } },
-              create: {
-                tenantId,
-                providerId,
-                externalId: folderInfo.externalId,
-                path: folderInfo.path,
-                name: folderInfo.name,
-                delimiter: folderInfo.delimiter,
-                attributes: folderInfo.attributes,
-                specialUse: folderInfo.specialUse,
-                isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
-                level,
-                isSelectable,
-                syncToken: folderInfo.syncToken,
-                uidNext: folderInfo.uidNext,
-                uidValidity: folderInfo.uidValidity,
-              },
-              update: {
-                name: folderInfo.name,
-                delimiter: folderInfo.delimiter,
-                attributes: folderInfo.attributes,
-                specialUse: folderInfo.specialUse,
-                isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
-                externalId: folderInfo.externalId,
-                level,
-                isSelectable,
-                syncToken: folderInfo.syncToken ?? undefined,
-                uidNext: folderInfo.uidNext ?? undefined,
-                uidValidity: folderInfo.uidValidity ?? undefined,
-                lastSyncedAt: new Date(),
-              },
-            });
-            return { folderInfo, folder };
-          } catch (error: unknown) {
-            const isPrismaError = error && typeof error === 'object' && 'code' in error;
-            const errorCode = isPrismaError ? (error as { code: string }).code : null;
-            if ((errorCode === 'P2002' || errorCode === 'P2034') && retryCount < MAX_UPSERT_RETRIES) {
-              retryCount++;
-              this.logger.warn(`${errorCode} on folder ${folderInfo.path} (attempt ${retryCount}/${MAX_UPSERT_RETRIES}), retrying...`);
-              await new Promise(resolve => setTimeout(resolve, 50 * retryCount));
-              continue;
-            }
-            throw error;
-          }
-        }
+        // DEBT-02: Replace inline retry with PrismaRetryService
+        const folder = await this.prismaRetry.withRetry(
+          () => this.prisma.folder.upsert({
+            where: { providerId_path: { providerId, path: folderInfo.path } },
+            create: {
+              tenantId,
+              providerId,
+              externalId: folderInfo.externalId,
+              path: folderInfo.path,
+              name: folderInfo.name,
+              delimiter: folderInfo.delimiter,
+              attributes: folderInfo.attributes,
+              specialUse: folderInfo.specialUse,
+              isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
+              level,
+              isSelectable,
+              syncToken: folderInfo.syncToken,
+              uidNext: folderInfo.uidNext,
+              uidValidity: folderInfo.uidValidity,
+            },
+            update: {
+              name: folderInfo.name,
+              delimiter: folderInfo.delimiter,
+              attributes: folderInfo.attributes,
+              specialUse: folderInfo.specialUse,
+              isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
+              externalId: folderInfo.externalId,
+              level,
+              isSelectable,
+              syncToken: folderInfo.syncToken ?? undefined,
+              uidNext: folderInfo.uidNext ?? undefined,
+              uidValidity: folderInfo.uidValidity ?? undefined,
+              lastSyncedAt: new Date(),
+            },
+          }),
+          { loggerName: 'FolderSync' },
+        );
+        return { folderInfo, folder };
       });
 
       const results = await Promise.all(upsertPromises);
@@ -155,25 +147,14 @@ export class FolderSyncQueryService {
         const parentId = pathToIdMap.get(folderInfo.parent!);
         const folderId = pathToIdMap.get(folderInfo.path);
         if (folderId && parentId) {
-          let retryCount = 0;
-          while (retryCount < MAX_UPSERT_RETRIES) {
-            try {
-              await this.prisma.folder.update({
-                where: { id_tenantId: { id: folderId, tenantId } },
-                data: { parentId },
-              });
-              break;
-            } catch (error: unknown) {
-              const isPrismaError = error && typeof error === 'object' && 'code' in error;
-              const errorCode = isPrismaError ? (error as { code: string }).code : null;
-              if ((errorCode === 'P2002' || errorCode === 'P2034') && retryCount < MAX_UPSERT_RETRIES - 1) {
-                retryCount++;
-                await new Promise(resolve => setTimeout(resolve, 50 * retryCount));
-                continue;
-              }
-              throw error;
-            }
-          }
+          // DEBT-02: Replace inline retry with PrismaRetryService
+          await this.prismaRetry.withRetry(
+            () => this.prisma.folder.update({
+              where: { id_tenantId: { id: folderId, tenantId } },
+              data: { parentId },
+            }),
+            { loggerName: 'FolderSync' },
+          );
         }
       });
       await Promise.all(updatePromises);

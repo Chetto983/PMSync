@@ -10,6 +10,7 @@ import { RetryService } from '../../common/services/retry.service';
 import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
 import { AlertingService } from '../../common/services/alerting.service';
+import { PrismaRetryService } from '../../common/services/prisma-retry.service';
 
 // Email Drivers (Phase 2 Driver Abstraction)
 import { DriversModule } from './drivers/drivers.module';
@@ -129,6 +130,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     SyncAuthService,
     ProviderTokenService,
     RetryService,
+    PrismaRetryService, // DEBT-02: Centralized P2002/P2034 retry handling
     RedisRateLimiterService, // Phase 8: RC-NEW-3 fix for distributed rate limiting
     AlertingService, // Phase 5.2: Centralized alerting thresholds
 
