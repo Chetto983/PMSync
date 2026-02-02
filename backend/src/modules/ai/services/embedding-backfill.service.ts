@@ -57,7 +57,7 @@ export interface EmbeddingStats {
 /**
  * Email data for backfill processing
  */
-interface EmailForBackfill {
+export interface EmailForBackfill {
   id: string;
   providerId: string;
   subject: string;

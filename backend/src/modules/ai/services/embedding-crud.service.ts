@@ -2,13 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 // ============================================================================
-// INTERFACES (Internal to service - not exported)
+// INTERFACES
 // ============================================================================
 
 /**
  * Parameters for listing embeddings
  */
-interface ListEmbeddingsParams {
+export interface ListEmbeddingsParams {
   limit?: number;
   offset?: number;
 }
@@ -16,7 +16,7 @@ interface ListEmbeddingsParams {
 /**
  * Result from listing embeddings
  */
-interface ListEmbeddingsResult<T> {
+export interface ListEmbeddingsResult<T> {
   items: T[];
   total: number;
   limit: number;
