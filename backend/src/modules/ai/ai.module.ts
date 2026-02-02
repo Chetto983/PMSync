@@ -34,6 +34,8 @@ import { EmbeddingComposerService } from './services/embedding-composer.service'
 import { EmbeddingCrudService } from './services/embedding-crud.service';
 import { EmbeddingSearchService } from './services/embedding-search.service';
 import { EmbeddingBackfillService } from './services/embedding-backfill.service';
+// PERF-03: Orphan embedding cleanup (null emailId AND null contactId)
+import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-cleanup.service';
 
 @Module({
   imports: [
@@ -70,6 +72,7 @@ import { EmbeddingBackfillService } from './services/embedding-backfill.service'
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     EmbeddingIntentClassifierService, // Embedding-based multilingual intent fallback
+    OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -92,6 +95,7 @@ import { EmbeddingBackfillService } from './services/embedding-backfill.service'
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     EmbeddingIntentClassifierService, // Embedding-based multilingual intent fallback
+    OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     // VoltAgent module (re-exports PersonalizationService, WritingStyleService, etc.)
     VoltAgentModule,
   ],
