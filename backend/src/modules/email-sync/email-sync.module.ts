@@ -40,6 +40,11 @@ import { MicrosoftFolderService } from './services/microsoft/microsoft-folder.se
 import { ImapAttachmentHandler } from './services/imap/imap-attachment-handler';
 import { ImapFolderSyncService } from './services/imap-folder-sync.service';
 
+// Base sync extracted services (Phase 6)
+import { SyncMessageProcessorService } from './services/sync-message-processor.service';
+import { SyncOrchestrationService } from './services/sync-orchestration.service';
+import { SyncTokenService } from './services/sync-token.service';
+
 import { IcsParserService } from '../calendar/services/ics-parser.service';
 
 // Webhook Services (Strategy 2: Real-time Sync)
@@ -89,6 +94,11 @@ import { FoldersController } from '../email/controllers/folders.controller';
 
     // Scheduler
     SyncSchedulerService,
+
+    // Base sync extracted services (Phase 6) - must be before sync services for DI ordering
+    SyncTokenService,
+    SyncMessageProcessorService,
+    SyncOrchestrationService,
 
     // Sync services
     GoogleSyncService,
@@ -152,6 +162,10 @@ import { FoldersController } from '../email/controllers/folders.controller';
     MicrosoftFolderService,
     // Email Drivers (Phase 2) - re-exported from DriversModule
     DriversModule,
+    // Base sync extracted services (Phase 6)
+    SyncMessageProcessorService,
+    SyncOrchestrationService,
+    SyncTokenService,
   ],
 })
 export class EmailSyncModule { }

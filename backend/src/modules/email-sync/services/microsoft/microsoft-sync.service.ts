@@ -14,6 +14,9 @@ import { MicrosoftAttachmentHandler } from './microsoft-attachment-handler';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
 import { FollowUpService } from '../../../ai/voltagent/services/follow-up.service';
 import { WritingStyleService } from '../../../ai/voltagent/services/writing-style.service';
+import { SyncOrchestrationService } from '../sync-orchestration.service';
+import { SyncMessageProcessorService } from '../sync-message-processor.service';
+import { SyncTokenService } from '../sync-token.service';
 
 /**
  * MicrosoftSyncService - Driver-based implementation
@@ -47,8 +50,21 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     private redisLockService: RedisLockService,
     followUpService: FollowUpService,
     writingStyleService: WritingStyleService,
+    // Phase 6: Extracted services
+    syncOrchestration: SyncOrchestrationService,
+    messageProcessor: SyncMessageProcessorService,
+    tokenService: SyncTokenService,
   ) {
-    super(prisma, realtimeEvents, config, followUpService, writingStyleService);
+    super(
+      prisma,
+      realtimeEvents,
+      config,
+      followUpService,
+      writingStyleService,
+      syncOrchestration,
+      messageProcessor,
+      tokenService,
+    );
     // Inject Redis lock service into base class for email upsert locking
     this.setRedisLockService(redisLockService);
     // Inject Redis lock service into attachment handler for attachment processing locking
