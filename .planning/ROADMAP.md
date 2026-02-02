@@ -37,6 +37,13 @@
 
 **Why first:** Frontend will hammer these APIs — optimize before load increases.
 
+**Plans:** 3 plans (Wave 1 - all parallel)
+
+Plans:
+- [ ] 01-01-PLAN.md — HNSW verification/benchmark + composite index migration
+- [ ] 01-02-PLAN.md — Parallelize folder counts + orphan embedding cleanup job
+- [ ] 01-03-PLAN.md — Atomicity wiring + PrismaRetry refactor + DEPRECATED annotations
+
 **Deliverables:**
 - Database migrations for indexes
 - BullMQ cleanup job
