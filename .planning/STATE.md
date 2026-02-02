@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 01 of 6 (Performance Foundation)
-Plan: 01 of 3 in phase
-Status: Plan 01-01 complete
-Last activity: 2026-02-02 — Completed 01-01-PLAN.md (HNSW benchmark + partial index)
+Plan: 02 of 3 in phase
+Status: Plan 01-02 complete
+Last activity: 2026-02-02 — Completed 01-02-PLAN.md (N+1 fix + orphan cleanup)
 
-Progress: 2/24 requirements (PERF-01, PERF-04 satisfied)
+Progress: 4/24 requirements (PERF-01, PERF-02, PERF-03, PERF-04 satisfied)
 ```
-[##......................] 8%
+[####....................] 17%
 ```
 
 ## Session Continuity
 
-Last session: 2026-02-02T19:25:58Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-02-02T19:30:00Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -32,12 +32,15 @@ Resume file: None
 | Standalone Prisma in benchmarks | 01-01 | CI/CD portability without NestJS startup |
 | Partial indexes for filtered queries | 01-01 | 80% index size reduction for common patterns |
 | CONCURRENTLY index creation | 01-01 | Avoid table locks in production |
+| Promise.all for folder counts | 01-02 | Each provider independent, no cross-provider state |
+| Weekly orphan cleanup at 2 AM Sunday | 01-02 | Avoid peak usage, batch processing with limits |
+| Use indexed fields for embedding queries | 01-02 | O(log n) vs O(n) JSONB scans |
 
 ## Blockers & Concerns
 
 | Issue | Severity | Phase | Notes |
 |-------|----------|-------|-------|
-| Pre-existing type error in orphan-embedding-cleanup.service.ts | Low | Pre-existing | Handler return type mismatch |
+| (none) | - | - | All pre-existing issues resolved |
 
 ## Milestones
 
@@ -69,8 +72,8 @@ See: .planning/MILESTONES.md
 
 **Performance (6 requirements):**
 - PERF-01: pgvector HNSW index [DONE - 01-01]
-- PERF-02: N+1 query fix for folder counts
-- PERF-03: Orphaned embedding cleanup
+- PERF-02: N+1 query fix for folder counts [DONE - 01-02]
+- PERF-03: Orphaned embedding cleanup [DONE - 01-02]
 - PERF-04: Composite indexes [DONE - 01-01]
 - PERF-05: Optimistic updates
 - PERF-06: Query prefetching
@@ -102,8 +105,8 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. Continue Phase 01 with 01-02-PLAN.md (N+1 query fix, orphan cleanup)
+1. Continue Phase 01 with 01-03-PLAN.md (optimistic updates, prefetching)
 2. Execute phases sequentially with `/gsd:execute-phase`
 
 ---
-*State updated: 2026-02-02 — Completed 01-01-PLAN.md*
+*State updated: 2026-02-02 — Completed 01-02-PLAN.md*
