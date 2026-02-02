@@ -130,13 +130,14 @@ Plans:
   3. Abstract class only depends on injected services (no circular dependencies)
   4. All existing sync tests pass without modification
   5. Token refresh logic tested in isolation
-**Plans**: 4 plans in 3 waves
+**Plans**: 5 plans in 3 waves
 
 Plans:
-- [ ] 06-01-PLAN.md — Extract SyncMessageProcessorService (message upsert, batch, deletion with RC fixes)
-- [ ] 06-02-PLAN.md — Extract SyncOrchestrationService + SyncTokenService (full/incremental sync + token lifecycle)
-- [ ] 06-03-PLAN.md — Refactor BaseEmailSyncService to delegate to extracted services
-- [ ] 06-04-PLAN.md — Create unit tests for extracted services
+- [ ] 06-01-PLAN.md — Extract SyncMessageProcessorService (message upsert, batch, deletion with RC fixes) [Wave 1]
+- [ ] 06-02-PLAN.md — Extract SyncOrchestrationService + SyncTokenService (full/incremental sync + token lifecycle) [Wave 1]
+- [ ] 06-03-PLAN.md — Refactor BaseEmailSyncService to delegate to extracted services [Wave 2]
+- [ ] 06-04-PLAN.md — Create unit tests for extracted services [Wave 2]
+- [ ] 06-05-PLAN.md — Run full integration test suite and verify phase completion [Wave 3]
 
 ### Phase 7: AI/RAG Services
 **Goal**: knowledge-base.service (1,371 lines) split into focused RAG services
@@ -187,7 +188,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 3. IMAP Driver Split | 6/6 | ✅ Complete | 2026-02-01 |
 | 4. Service Splits | 8/8 | ✅ Complete | 2026-02-01 |
 | 5. Google & Microsoft Drivers | 4/4 | ✅ Complete | 2026-02-01 |
-| 6. Base Sync Extraction | 0/4 | Not started | - |
+| 6. Base Sync Extraction | 0/5 | Not started | - |
 | 7. AI/RAG Services | 0/4 | Not started | - |
 | 8. Testing & Validation | 0/4 | Not started | - |
 

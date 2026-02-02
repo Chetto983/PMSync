@@ -74,7 +74,9 @@
       "Bash(git restore:*)",
       "Bash(git show:*)",
       "Bash(if not exist \"D:\\MailAgent\\.planning\\phases\\05-google-microsoft-drivers\" mkdir \"D:\\MailAgent\\.planning\\phases\\05-google-microsoft-drivers\")",
-      "Bash(if not exist \"D:\\MailAgent\\.planning\\phases\\06-base-sync-extraction\" mkdir \"D:\\MailAgent\\.planning\\phases\\06-base-sync-extraction\")"
+      "Bash(if not exist \"D:\\MailAgent\\.planning\\phases\\06-base-sync-extraction\" mkdir \"D:\\MailAgent\\.planning\\phases\\06-base-sync-extraction\")",
+      "Bash(mkdir:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
