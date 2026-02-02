@@ -113,19 +113,33 @@ Plans:
 
 ## Phase 04: Email Composer
 
-**Goal:** Build core email writing experience
+**Goal:** Complete 3 gaps in email composer (90% already implemented)
 
 **Requirements:**
-- FE-03: Email composer with TipTap
-- FE-10: AI compose
+- FE-03: Email composer with TipTap [90% IMPLEMENTED]
+- FE-10: AI compose [90% IMPLEMENTED]
 
 **Dependencies:** Phase 02 (frontend setup), Phase 03 (for reply context)
 
+**Scope (RE-SCOPED):** Research found 90% already implemented. Focus on 3 gaps:
+1. AI keyboard shortcut (Cmd+J / Ctrl+J to trigger AI menu)
+2. Mobile responsive toolbar (collapse to 5 buttons + More overflow)
+3. Mobile fullscreen compose (fullscreen dialog on < 768px)
+
+**Plans:** 3 plans (Wave 1 - all parallel)
+
+Plans:
+- [ ] 04-01-PLAN.md — AI keyboard shortcut (Cmd+J / Ctrl+J)
+- [ ] 04-02-PLAN.md — Mobile responsive toolbar with overflow menu
+- [ ] 04-03-PLAN.md — Mobile fullscreen compose dialog
+
+**Status:** PLANNED
+
 **Deliverables:**
-- TipTap-based composer component
-- Draft auto-save functionality
-- AI compose integration with VoltAgent
-- Attachment upload handling
+- TipTap extension for Cmd+J AI shortcut
+- Responsive toolbar (5 buttons + More on mobile)
+- Fullscreen compose on mobile with sticky header
+- iOS safe area handling
 
 ---
 
