@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 7 - AI/RAG Services (NEXT)
+**Current focus:** Phase 8 - Testing & Validation (NEXT)
 
 ## Current Position
 
-Phase: 7 of 8 (AI/RAG Services) - NOT STARTED
+Phase: 8 of 8 (Testing & Validation) - NOT STARTED
 Plan: 0 of 4 complete
 Status: Ready to plan
-Last activity: 2026-02-02 - Completed Phase 6 (Base Sync Extraction)
+Last activity: 2026-02-02 - Completed Phase 7 (AI/RAG Services)
 
-Progress: [█████████████████████░░░] 87% (6/8 phases complete)
+Progress: [███████████████████████░] 93% (7/8 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 33 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01 + 06-02 + 06-03 + 06-04 + 06-05)
+- Total plans completed: 36 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01 + 06-02 + 06-03 + 06-04 + 06-05 + 07-01 + 07-02 + 07-03)
 - Average duration: ~8 min/plan
-- Total execution time: ~4h 34min
+- Total execution time: ~4h 58min
 
 **By Phase:**
 
@@ -33,10 +33,11 @@ Progress: [█████████████████████░░
 | 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
 | 5. Gmail/Microsoft Drivers | 4 | ~29 min | ~7 min (message+send+sync+facade) |
 | 6. Base Sync Extraction | 5 | ~28 min | ~6 min (message processor + orchestration + facade + tests + validation) |
+| 7. AI/RAG Services | 3 | ~24 min | ~8 min (extract services + facade + tests) |
 
 **Recent Trend:**
-- Last 5 plans: 06-01, 06-02, 06-03, 06-04, 06-05
-- Trend: Phase 6 complete, moving to AI/RAG Services
+- Last 5 plans: 06-04, 06-05, 07-01, 07-02, 07-03
+- Trend: Phase 7 complete, moving to Testing & Validation
 
 *Updated after each plan completion*
 
@@ -94,6 +95,12 @@ Recent decisions affecting current work:
 - Callback pattern for abstract method delegation via MessageProcessorContext (06-01)
 - Deferred RedisLockService injection via setter method (matches base class pattern) (06-01)
 - BaseEmailSyncService exceeds 350-line target (511 lines) - syncProvider must stay, 63% reduction acceptable (06-03)
+- KnowledgeBaseService refactored to 495-line facade (64% reduction from 1,371) (07-03)
+- EmbeddingSearchService uses metadata.emailId for hydration, not match.emailId directly (07-03)
+- Service does NOT filter deleted emails - returns null values for missing hydration data (07-03)
+- `export type` required for re-exporting interfaces with isolatedModules (07-03)
+- Default pagination limit in EmbeddingCrudService is 25, not 20 (07-03)
+- EmbeddingsService.findSimilarContent takes 3 args (tenantId, embedding, limit), not object (07-03)
 
 ### Pending Todos
 

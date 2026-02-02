@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Service Splits** - Split folder-sync and emails.service by provider/responsibility
 - [x] **Phase 5: Google & Microsoft Drivers** - Replicate IMAP pattern to remaining drivers
 - [x] **Phase 6: Base Sync Extraction** - Extract sync orchestration components
-- [ ] **Phase 7: AI/RAG Services** - Split knowledge-base into focused RAG services
+- [x] **Phase 7: AI/RAG Services** - Split knowledge-base into focused RAG services
 - [ ] **Phase 8: Testing & Validation** - Comprehensive stress tests proving production stability
 
 ## Phase Details
@@ -152,9 +152,9 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 07-01-PLAN.md — Extract EmbeddingComposerService + EmbeddingCrudService [Wave 1]
-- [ ] 07-02-PLAN.md — Extract EmbeddingSearchService + EmbeddingBackfillService [Wave 1]
-- [ ] 07-03-PLAN.md — Refactor facade + unit tests + validation [Wave 2]
+- [x] 07-01-PLAN.md — Extract EmbeddingComposerService + EmbeddingCrudService [Wave 1]
+- [x] 07-02-PLAN.md — Extract EmbeddingSearchService + EmbeddingBackfillService [Wave 1]
+- [x] 07-03-PLAN.md — Refactor facade + unit tests + validation [Wave 2]
 
 ### Phase 8: Testing & Validation
 **Goal**: Comprehensive stress tests prove refactored codebase is stable under production scenarios
