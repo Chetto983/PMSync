@@ -40,9 +40,11 @@
 **Plans:** 3 plans (Wave 1 - all parallel)
 
 Plans:
-- [ ] 01-01-PLAN.md — HNSW verification/benchmark + composite index migration
-- [ ] 01-02-PLAN.md — Parallelize folder counts + orphan embedding cleanup job
-- [ ] 01-03-PLAN.md — Atomicity wiring + PrismaRetry refactor + DEPRECATED annotations
+- [x] 01-01-PLAN.md — HNSW verification/benchmark + composite index migration ✓
+- [x] 01-02-PLAN.md — Parallelize folder counts + orphan embedding cleanup job ✓
+- [x] 01-03-PLAN.md — Atomicity wiring + PrismaRetry refactor + DEPRECATED annotations ✓
+
+**Status:** COMPLETE (2026-02-02) — 7/7 requirements verified
 
 **Deliverables:**
 - Database migrations for indexes
