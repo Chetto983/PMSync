@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load
-**Current focus:** Phase 6 - Base Sync Extraction (IN PROGRESS)
+**Current focus:** Phase 7 - AI/RAG Services (NEXT)
 
 ## Current Position
 
-Phase: 6 of 8 (Base Sync Extraction) - IN PROGRESS
-Plan: 3 of 4 complete (Wave 2 - Facade Refactor)
-Status: In progress
-Last activity: 2026-02-02 - Completed 06-03-PLAN.md (facade refactor)
+Phase: 7 of 8 (AI/RAG Services) - NOT STARTED
+Plan: 0 of 4 complete
+Status: Ready to plan
+Last activity: 2026-02-02 - Completed Phase 6 (Base Sync Extraction)
 
-Progress: [████████████████████░░░░] 78% (6/8 phases in progress)
+Progress: [█████████████████████░░░] 87% (6/8 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 31 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01 + 06-02 + 06-03)
+- Total plans completed: 33 (18 prior + 4 Phase 4 gap closures + 05-01 + 05-02 + 05-03 + 05-04 + 06-01 + 06-02 + 06-03 + 06-04 + 06-05)
 - Average duration: ~8 min/plan
-- Total execution time: ~4h 18min
+- Total execution time: ~4h 34min
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Progress: [████████████████████░░░
 | 3. IMAP Driver Split | 6 | ~27 min | ~5 min (verification+facade) |
 | 4. Service Splits | 8 | ~62 min | ~8 min (includes 4 gap closures) |
 | 5. Gmail/Microsoft Drivers | 4 | ~29 min | ~7 min (message+send+sync+facade) |
-| 6. Base Sync Extraction | 3 | ~21 min | ~7 min (message processor + orchestration + facade) |
+| 6. Base Sync Extraction | 5 | ~28 min | ~6 min (message processor + orchestration + facade + tests + validation) |
 
 **Recent Trend:**
-- Last 5 plans: 05-04, 06-01, 06-02, 06-03
-- Trend: Base sync extraction facade complete, tests next
+- Last 5 plans: 06-01, 06-02, 06-03, 06-04, 06-05
+- Trend: Phase 6 complete, moving to AI/RAG Services
 
 *Updated after each plan completion*
 
@@ -110,25 +110,17 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 06-03-PLAN.md (Facade Refactor)
+Stopped at: Phase 6 complete
 Resume file: None
 
-**Phase 6 In Progress:**
-- 06-01: Message Processor Extraction (Wave 1) - COMPLETE (4dd6c0a0)
-  - SyncMessageProcessorService: 794 lines
-  - MessageProcessorContext: callback pattern for abstract methods
-  - All RC-1/RC-2/RC-6/RC-9 race condition fixes preserved
-  - P11 batch indexing logic preserved
-- 06-02: Orchestration + Token Extraction (Wave 1) - COMPLETE (b9c2c6aa, a94f8e8e)
-  - SyncTokenService: 119 lines, CRIT-3 token refresh logic
-  - SyncOrchestrationService: 327 lines, full/incremental sync orchestration
-  - All FOLDER-FIX/DEDUP-FIX/CRIT-3 comments preserved
-- 06-03: Facade Refactor (Wave 2) - COMPLETE (d63c94bc)
-  - BaseEmailSyncService: 1,382 -> 511 lines (63% reduction)
-  - Child classes updated: GoogleSyncService, MicrosoftSyncService, ImapSyncService
-  - All 290 email-sync tests pass
+**Phase 6 Complete:**
+- 06-01: Message Processor Extraction (Wave 1) - COMPLETE
+- 06-02: Orchestration + Token Extraction (Wave 1) - COMPLETE
+- 06-03: Facade Refactor (Wave 2) - COMPLETE
+- 06-04: Unit Tests for Extracted Services (Wave 2) - COMPLETE
+- 06-05: Integration Test Validation (Wave 3) - COMPLETE
 
-**Next:** 06-04 (Unit Tests for Extracted Services)
+**Next:** Phase 7 (AI/RAG Services - knowledge-base split)
 
 **Phase 5 Complete:**
 - 05-01: Message Service Extraction (Wave 1) - COMPLETE (3806d14, 4e2c25b, fdd9373b)
@@ -181,7 +173,7 @@ Resume file: None
 
 **All 329 tests pass. Full backward compatibility maintained.**
 
-## Phase 6 Current Results
+## Phase 6 Final Results
 
 | Original Service | Lines Before | Lines After | Reduction |
 |-----------------|--------------|-------------|-----------|
@@ -192,7 +184,11 @@ Resume file: None
 - SyncOrchestrationService (327 lines)
 - SyncTokenService (119 lines)
 
-**All 290 email-sync tests pass. Child classes updated with DI.**
+**New Unit Tests:**
+- sync-token.service.spec.ts (306 lines, 19 tests)
+- sync-message-processor.service.spec.ts (746 lines, 31 tests)
+
+**All 290 email-sync tests pass. 50 new tests added. Full validation complete.**
 
 ---
 *State initialized: 2026-01-31*
@@ -201,3 +197,4 @@ Resume file: None
 *Phase 3 completed: 2026-02-01*
 *Phase 4 completed: 2026-02-01*
 *Phase 5 completed: 2026-02-01*
+*Phase 6 completed: 2026-02-02*
