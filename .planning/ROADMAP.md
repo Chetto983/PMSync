@@ -144,18 +144,17 @@ Plans:
 **Depends on**: Phase 6 (sync services stable, AI depends on email sync)
 **Requirements**: SERV-04, SERV-05 (facade pattern), TEST-05 (unit tests)
 **Success Criteria** (what must be TRUE):
-  1. `knowledge-base.service.ts` is under 250 lines (facade delegating to sub-services)
-  2. Extracted: embedding-composer (~300), embedding-crud (~250), embedding-search (~350), embedding-backfill (~200)
-  3. Vector search queries verified to use pgvector index (EXPLAIN shows index scan)
+  1. `knowledge-base.service.ts` is under 500 lines (facade with creation orchestration)
+  2. Extracted: embedding-composer (~200), embedding-crud (~200), embedding-search (~250), embedding-backfill (~250)
+  3. Vector search queries verified to use pgvector index (via EmbeddingsService delegation)
   4. All existing RAG tests pass without modification
   5. Embedding CRUD operations tested with multi-tenant isolation verification
-**Plans**: 4 plans in 2 waves
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 07-01: Analyze knowledge-base dependency graph
-- [ ] 07-02: Extract embedding-composer and embedding-crud
-- [ ] 07-03: Extract embedding-search and embedding-backfill
-- [ ] 07-04: Create knowledge-base facade and migrate consumers
+- [ ] 07-01-PLAN.md — Extract EmbeddingComposerService + EmbeddingCrudService [Wave 1]
+- [ ] 07-02-PLAN.md — Extract EmbeddingSearchService + EmbeddingBackfillService [Wave 1]
+- [ ] 07-03-PLAN.md — Refactor facade + unit tests + validation [Wave 2]
 
 ### Phase 8: Testing & Validation
 **Goal**: Comprehensive stress tests prove refactored codebase is stable under production scenarios
