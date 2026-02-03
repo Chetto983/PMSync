@@ -1278,6 +1278,27 @@ export interface AppTranslations {
       secondsRemaining: string;
       sendingIn: string;
     };
+    // Keyboard Shortcuts Help (Phase 05-02)
+    keyboardShortcuts: {
+      title: string;
+      navigation: string;
+      moveDown: string;
+      moveUp: string;
+      open: string;
+      close: string;
+      actions: string;
+      archive: string;
+      delete: string;
+      reply: string;
+      replyAll: string;
+      forward: string;
+      toggleSelect: string;
+      other: string;
+      compose: string;
+      search: string;
+      showHelp: string;
+      commandPalette: string;
+    };
   };
   calendar: {
     title: string;

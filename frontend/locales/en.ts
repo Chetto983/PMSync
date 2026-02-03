@@ -1380,6 +1380,27 @@ export const en: AppTranslations = {
       secondsRemaining: '{seconds}s',
       sendingIn: 'Sending in {seconds}s',
     },
+    // Keyboard Shortcuts Help (Phase 05-02)
+    keyboardShortcuts: {
+      title: 'Keyboard Shortcuts',
+      navigation: 'Navigation',
+      moveDown: 'Next email',
+      moveUp: 'Previous email',
+      open: 'Open email',
+      close: 'Close / Deselect',
+      actions: 'Actions',
+      archive: 'Archive',
+      delete: 'Delete',
+      reply: 'Reply',
+      replyAll: 'Reply all',
+      forward: 'Forward',
+      toggleSelect: 'Toggle selection',
+      other: 'Other',
+      compose: 'Compose new email',
+      search: 'Focus search',
+      showHelp: 'Show this help',
+      commandPalette: 'Command palette',
+    },
 
   },
   calendar: {
