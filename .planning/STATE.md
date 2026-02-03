@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 05 of 8 (Folders & Navigation) — COMPLETE
-Plan: 03 of 3 - ALL COMPLETE
-Status: Phase 05 complete (05-01 multi-select, 05-02 keyboard shortcuts, 05-03 nested folders)
-Last activity: 2026-02-03 — Completed 05-02-PLAN.md (keyboard shortcuts)
+Phase: 06 of 8 (Advanced Features)
+Plan: 01 of 3
+Status: In progress (06-01 dark mode complete)
+Last activity: 2026-02-03 — Completed 06-01-PLAN.md (dark mode toggle)
 
-Progress: 16/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01 through FE-04, FE-06, FE-07, FE-10 satisfied)
+Progress: 17/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01 through FE-04, FE-06, FE-07, FE-09, FE-10 satisfied)
 ```
-[################........] 67%
+[#################.......] 71%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 05-02-PLAN.md
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -54,6 +54,7 @@ Resume file: None
 | MouseEvent modifier key detection | 05-01 | Native browser event has shiftKey/ctrlKey/metaKey |
 | Chip components for keyboard keys | 05-02 | Consistent MUI visual style in help dialog |
 | Shortcuts grouped by category | 05-02 | Navigation, Actions, Other for scanability |
+| Reuse existing theme translations | 06-01 | settings.generalPanel.themeOptions already has light/dark/system |
 
 ## Blockers & Concerns
 
@@ -87,7 +88,7 @@ See: .planning/MILESTONES.md
 - FE-06: Keyboard navigation [DONE - 05-02]
 - FE-07: Multi-select with bulk actions [DONE - 05-01]
 - FE-08: Search with filters
-- FE-09: Dark mode
+- FE-09: Dark mode [DONE - 06-01]
 - FE-10: AI compose [DONE - 04]
 
 **Performance (6 requirements):**
@@ -125,9 +126,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 05 COMPLETE** — All requirements verified (FE-04, FE-06, FE-07)
-2. Ready for Phase 06 (Advanced Features) — FE-05, FE-08, FE-09
-3. Or Phase 07 (Security) can run in parallel
+1. **Phase 06-01 COMPLETE** — Dark mode toggle with three-way selection (FE-09 satisfied)
+2. Continue with 06-02 (Search with filters - FE-08)
+3. Then 06-03 (Kanban toggle view - FE-05)
 
 ---
-*State updated: 2026-02-03 — Phase 05 verification passed*
+*State updated: 2026-02-03 — Completed 06-01-PLAN.md (dark mode toggle)*
