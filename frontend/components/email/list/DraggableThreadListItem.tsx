@@ -22,7 +22,7 @@ interface DraggableThreadListItemProps {
   isHovered: boolean;
   /** Keyboard navigation focus state */
   isFocused?: boolean;
-  onSelect: (id: string, checked: boolean) => void;
+  onSelect: (id: string, checked: boolean, event?: React.MouseEvent) => void;
   onClick: (id: string) => void;
   onFlag: (id: string) => void;
   onArchive: (id: string) => void;

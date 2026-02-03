@@ -22,6 +22,7 @@ import { Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui
 import { useVirtualizer } from '@tanstack/react-virtual';
 // DragOverlay is centralized in EmailLayout
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useEmailUIStore } from '@/stores/email-ui-store';
 // DnD state is managed by EmailLayout - no need to access here
 import { ThreadListHeader } from './ThreadListHeader';
 import { ThreadListItem, ThreadListItemData } from './ThreadListItem';
@@ -90,8 +91,18 @@ export function ThreadList({
   // Mobile uses touch scroll, and DndContext isn't available in mobile layouts anyway
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
-  // Selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Selection state from Zustand store (replaces local useState)
+  const {
+    selectedIds,
+    lastSelectedId,
+    selectEmail,
+    toggleSelection,
+    selectRange,
+    selectAll,
+    clearSelection,
+  } = useEmailUIStore();
+
+  // Local UI state (hover, refreshing, folder picker)
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -115,24 +126,35 @@ export function ThreadList({
   const someSelected = selectedIds.size > 0 && !allSelected;
 
   const handleSelectAll = useCallback(() => {
-    setSelectedIds(new Set(threads.map((t) => t.id)));
-  }, [threads]);
+    selectAll(threads.map((t) => t.id));
+  }, [threads, selectAll]);
 
   const handleDeselectAll = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
+    clearSelection();
+  }, [clearSelection]);
 
-  const handleSelect = useCallback((id: string, checked: boolean) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (checked) {
-        next.add(id);
+  // Handle select with modifier key detection for Shift+click range selection
+  const handleSelect = useCallback(
+    (id: string, checked: boolean, event?: React.MouseEvent) => {
+      const threadIds = threads.map((t) => t.id);
+
+      if (event?.shiftKey && lastSelectedId) {
+        // Shift+click: range selection from last selected to clicked
+        selectRange(lastSelectedId, id, threadIds);
+      } else if (event?.ctrlKey || event?.metaKey) {
+        // Ctrl/Cmd+click: toggle single selection
+        toggleSelection(id);
       } else {
-        next.delete(id);
+        // Normal click: single select (replaces selection)
+        if (checked) {
+          selectEmail(id);
+        } else {
+          toggleSelection(id);
+        }
       }
-      return next;
-    });
-  }, []);
+    },
+    [threads, lastSelectedId, selectRange, toggleSelection, selectEmail]
+  );
 
   // CRITICAL FIX: Memoized mouse event handlers to prevent re-renders
   const handleMouseEnter = useCallback((id: string) => {
@@ -153,25 +175,21 @@ export function ThreadList({
     }
   }, [onRefresh]);
 
-  // Bulk action handlers - FIXED: All memoized
+  // Bulk action handlers - use store selection, parent handles clearing via callback
   const handleBulkMarkAsRead = useCallback(() => {
     onBulkMarkAsRead?.(Array.from(selectedIds));
-    setSelectedIds(new Set());
   }, [onBulkMarkAsRead, selectedIds]);
 
   const handleBulkMarkAsUnread = useCallback(() => {
     onBulkMarkAsUnread?.(Array.from(selectedIds));
-    setSelectedIds(new Set());
   }, [onBulkMarkAsUnread, selectedIds]);
 
   const handleBulkArchive = useCallback(() => {
     onBulkArchive?.(Array.from(selectedIds));
-    setSelectedIds(new Set());
   }, [onBulkArchive, selectedIds]);
 
   const handleBulkDelete = useCallback(() => {
     onBulkDelete?.(Array.from(selectedIds));
-    setSelectedIds(new Set());
   }, [onBulkDelete, selectedIds]);
 
   const handleBulkMove = useCallback(() => {

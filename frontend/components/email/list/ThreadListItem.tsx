@@ -72,7 +72,7 @@ interface ThreadListItemProps {
   isHovered: boolean;
   /** Keyboard navigation focus state */
   isFocused?: boolean;
-  onSelect: (id: string, checked: boolean) => void;
+  onSelect: (id: string, checked: boolean, event?: React.MouseEvent) => void;
   onClick: (id: string) => void;
   onFlag: (id: string) => void;
   onArchive: (id: string) => void;
@@ -130,7 +130,7 @@ export const ThreadListItem = memo(function ThreadListItem({
 
   const handleCheckboxChange = (e: MouseEvent) => {
     e.stopPropagation();
-    onSelect(thread.id, !isSelected);
+    onSelect(thread.id, !isSelected, e);
   };
 
   const handleRowClick = () => {
