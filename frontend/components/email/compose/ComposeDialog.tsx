@@ -17,6 +17,10 @@ import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 import Collapse from '@mui/material/Collapse';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -115,6 +119,10 @@ export default function ComposeDialog({
 }: ComposeDialogProps) {
   const t = useTranslations();
   const composer = t.email.composer;
+
+  // Mobile detection for responsive fullscreen
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // < 768px
 
   // Providers hook
   const { data: providers = [], isLoading: providersLoading } = useProviders();
@@ -544,18 +552,28 @@ export default function ComposeDialog({
       <Dialog
         open={open}
         onClose={onClose}
-        maxWidth={isFullscreen ? false : 'md'}
+        maxWidth={isMobile || isFullscreen ? false : 'md'}
         fullWidth
-        fullScreen={isFullscreen}
+        fullScreen={isMobile || isFullscreen}
         PaperProps={{
-          sx: isFullscreen
-            ? { display: 'flex', flexDirection: 'column' }
-            : {
-              height: '80vh',
-              maxHeight: 800,
-              display: 'flex',
-              flexDirection: 'column',
-            },
+          sx: {
+            // iOS safe area handling for mobile fullscreen
+            ...(isMobile && {
+              paddingTop: 'env(safe-area-inset-top)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+              paddingLeft: 'env(safe-area-inset-left)',
+              paddingRight: 'env(safe-area-inset-right)',
+            }),
+            // Fullscreen or mobile styles
+            ...(isMobile || isFullscreen
+              ? { display: 'flex', flexDirection: 'column' }
+              : {
+                  height: '80vh',
+                  maxHeight: 800,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }),
+          },
         }}
       >
         {/* Hidden file input for toolbar attach button */}
@@ -569,32 +587,71 @@ export default function ComposeDialog({
           hidden
         />
 
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            py: 1.5,
-          }}
-        >
-          {getTitle()}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Save Status */}
-            {getSaveStatus() && (
-              <Typography variant="caption" color="text.secondary">
-                {getSaveStatus()}
-              </Typography>
-            )}
-            <Tooltip title={isFullscreen ? t.common.exitFullscreen : t.common.fullscreen}>
-              <IconButton onClick={toggleFullscreen} size="small">
-                {isFullscreen ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+        {isMobile ? (
+          // Mobile: AppBar with sticky header for thumb reach
+          <AppBar
+            position="sticky"
+            color="default"
+            elevation={0}
+            sx={{
+              borderBottom: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Toolbar sx={{ minHeight: 56 }}>
+              <IconButton edge="start" onClick={onClose} aria-label={t.common.close}>
+                <CloseIcon />
               </IconButton>
-            </Tooltip>
-            <IconButton onClick={onClose} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
+              <Typography variant="h6" sx={{ flex: 1, ml: 1 }}>
+                {getTitle()}
+              </Typography>
+              {/* Save status on mobile */}
+              {getSaveStatus() && (
+                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                  {getSaveStatus()}
+                </Typography>
+              )}
+              {/* Send button in header for thumb reach */}
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => handleSend()}
+                disabled={!canSend || isSending || isPendingSend}
+                startIcon={isSending || isPendingSend ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
+              >
+                {isSending || isPendingSend ? composer.sending : t.common.send}
+              </Button>
+            </Toolbar>
+          </AppBar>
+        ) : (
+          // Desktop: existing DialogTitle
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              py: 1.5,
+            }}
+          >
+            {getTitle()}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Save Status */}
+              {getSaveStatus() && (
+                <Typography variant="caption" color="text.secondary">
+                  {getSaveStatus()}
+                </Typography>
+              )}
+              <Tooltip title={isFullscreen ? t.common.exitFullscreen : t.common.fullscreen}>
+                <IconButton onClick={toggleFullscreen} size="small">
+                  {isFullscreen ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
+                </IconButton>
+              </Tooltip>
+              <IconButton onClick={onClose} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+        )}
 
         <Divider />
 
@@ -753,32 +810,34 @@ export default function ComposeDialog({
           </>
         )}
 
-        {/* Footer Actions */}
-        <DialogActions sx={{ px: 2, py: 1.5 }}>
-          <Box sx={{ flex: 1 }} />
+        {/* Footer Actions - only on desktop (mobile has Send in header) */}
+        {!isMobile && (
+          <DialogActions sx={{ px: 2, py: 1.5 }}>
+            <Box sx={{ flex: 1 }} />
 
-          {/* Schedule Send Button - only for new emails */}
-          {mode === 'new' && (
+            {/* Schedule Send Button - only for new emails */}
+            {mode === 'new' && (
+              <Button
+                variant="outlined"
+                startIcon={<ScheduleIcon />}
+                onClick={() => setShowScheduleDialog(true)}
+                disabled={!canSend || isSending || isPendingSend}
+              >
+                {t.email.scheduleSend?.schedule || 'Schedule'}
+              </Button>
+            )}
+
+            {/* Send Button */}
             <Button
-              variant="outlined"
-              startIcon={<ScheduleIcon />}
-              onClick={() => setShowScheduleDialog(true)}
+              variant="contained"
+              startIcon={isSending || isPendingSend ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
+              onClick={() => handleSend()}
               disabled={!canSend || isSending || isPendingSend}
             >
-              {t.email.scheduleSend?.schedule || 'Schedule'}
+              {isSending || isPendingSend ? composer.sending : t.common.send}
             </Button>
-          )}
-
-          {/* Send Button */}
-          <Button
-            variant="contained"
-            startIcon={isSending || isPendingSend ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-            onClick={() => handleSend()}
-            disabled={!canSend || isSending || isPendingSend}
-          >
-            {isSending || isPendingSend ? composer.sending : t.common.send}
-          </Button>
-        </DialogActions>
+          </DialogActions>
+        )}
       </Dialog>
 
       {/* Schedule Send Dialog */}
