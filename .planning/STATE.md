@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 06 of 8 (Advanced Features)
-Plan: 01 of 3
-Status: In progress (06-01 dark mode complete)
-Last activity: 2026-02-03 — Completed 06-01-PLAN.md (dark mode toggle)
+Plan: 03 of 3 - ALL COMPLETE
+Status: Phase 06 complete (06-01 dark mode, 06-02 kanban, 06-03 search filters)
+Last activity: 2026-02-03 — Completed 06-03-PLAN.md (search with filter parsing)
 
-Progress: 17/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01 through FE-04, FE-06, FE-07, FE-09, FE-10 satisfied)
+Progress: 19/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01 through FE-04, FE-05, FE-06, FE-07, FE-08, FE-09, FE-10 satisfied)
 ```
-[#################.......] 71%
+[###################.....] 79%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 06-01-PLAN.md
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -55,6 +55,9 @@ Resume file: None
 | Chip components for keyboard keys | 05-02 | Consistent MUI visual style in help dialog |
 | Shortcuts grouped by category | 05-02 | Navigation, Actions, Other for scanability |
 | Reuse existing theme translations | 06-01 | settings.generalPanel.themeOptions already has light/dark/system |
+| Regex tokenization for search filters | 06-03 | Handles quoted strings and space-separated tokens |
+| useMemo for parsedFilters | 06-03 | Avoids reparsing on every render |
+| Immediate chip removal (no debounce) | 06-03 | Instant UX feedback when removing filter chips |
 
 ## Blockers & Concerns
 
@@ -62,6 +65,7 @@ Resume file: None
 |-------|----------|-------|-------|
 | viewport-fit=cover missing | Low | 04-03 | Required for iOS safe area env() to work fully |
 | Backend API for folder nesting | Medium | 05-03 | Frontend ready, needs PATCH /folders/:id { parentId } |
+| EmailKanbanBoard type errors | Medium | 06-02 | Pre-existing issues with useEmailsInfinite export |
 
 ## Milestones
 
@@ -84,10 +88,10 @@ See: .planning/MILESTONES.md
 - FE-02: Thread display with animations
 - FE-03: Email composer with TipTap [DONE - 04]
 - FE-04: Folder sidebar with drag-drop [DONE - 05-03]
-- FE-05: Kanban toggle view
+- FE-05: Kanban toggle view [DONE - 06-02]
 - FE-06: Keyboard navigation [DONE - 05-02]
 - FE-07: Multi-select with bulk actions [DONE - 05-01]
-- FE-08: Search with filters
+- FE-08: Search with filters [DONE - 06-03]
 - FE-09: Dark mode [DONE - 06-01]
 - FE-10: AI compose [DONE - 04]
 
@@ -126,9 +130,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 06-01 COMPLETE** — Dark mode toggle with three-way selection (FE-09 satisfied)
-2. Continue with 06-02 (Search with filters - FE-08)
-3. Then 06-03 (Kanban toggle view - FE-05)
+1. **Phase 06 COMPLETE** — All 3 plans finished (dark mode, kanban, search filters)
+2. Ready for Phase 07 (Security) — SEC-01 through SEC-05
+3. Note: EmailKanbanBoard has type errors that should be fixed before merge
 
 ---
-*State updated: 2026-02-03 — Completed 06-01-PLAN.md (dark mode toggle)*
+*State updated: 2026-02-03 — Phase 06 complete (Advanced Features)*

@@ -8,6 +8,7 @@ import { ExpandedMessage } from '@/components/email/thread';
 import { LabelPickerDialog } from '@/components/email/labels';
 import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
 import { KeyboardShortcutsDialog } from '@/components/email/keyboard';
+import { EmailKanbanBoard } from '@/components/email/kanban';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
@@ -29,7 +30,7 @@ import {
 import type { SenderContactMap } from '@/lib/api/contacts';
 import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
-import { useEmailFilters, useEmailUIStore } from '@/stores/email-ui-store';
+import { useEmailFilters, useEmailUIStore, useEmailView } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
 import { Pencil } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -135,6 +136,10 @@ export default function EmailPage() {
 
   // Get folder filters from store (sidebar sets these)
   const filters = useEmailFilters();
+
+  // Get view mode from store (list or kanban)
+  const { viewMode } = useEmailView();
+  const isKanbanView = viewMode === 'kanban';
 
   // Get clearSelection from store for bulk action completion
   const { clearSelection } = useEmailUIStore();
@@ -899,27 +904,31 @@ export default function EmailPage() {
   return (
     <PageErrorBoundary pageName="Email">
       <Layout>
-        <EmailLayout readingPane={readingPane} onEmailDrop={handleEmailDrop} onFolderReorder={handleFolderReorder}>
-          <ThreadList
-            threads={threads}
-            emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
-            isLoading={loading}
-            isLoadingMore={loadingMore}
-            hasMore={hasMore}
-            focusedId={focusedId}
-            onThreadClick={handleThreadClick}
-            onRefresh={handleRefresh}
-            onLoadMore={handleLoadMore}
-            onBulkMarkAsRead={handleBulkMarkAsRead}
-            onBulkMarkAsUnread={handleBulkMarkAsUnread}
-            onBulkArchive={handleBulkArchive}
-            onBulkDelete={handleBulkDelete}
-            onBulkMove={handleBulkMove}
-            onBulkLabel={handleBulkLabel}
-            onFlag={handleFlag}
-            onArchive={handleArchive}
-            onDelete={handleDelete}
-          />
+        <EmailLayout readingPane={isKanbanView ? undefined : readingPane} onEmailDrop={handleEmailDrop} onFolderReorder={handleFolderReorder}>
+          {isKanbanView ? (
+            <EmailKanbanBoard onEmailClick={handleThreadClick} />
+          ) : (
+            <ThreadList
+              threads={threads}
+              emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
+              isLoading={loading}
+              isLoadingMore={loadingMore}
+              hasMore={hasMore}
+              focusedId={focusedId}
+              onThreadClick={handleThreadClick}
+              onRefresh={handleRefresh}
+              onLoadMore={handleLoadMore}
+              onBulkMarkAsRead={handleBulkMarkAsRead}
+              onBulkMarkAsUnread={handleBulkMarkAsUnread}
+              onBulkArchive={handleBulkArchive}
+              onBulkDelete={handleBulkDelete}
+              onBulkMove={handleBulkMove}
+              onBulkLabel={handleBulkLabel}
+              onFlag={handleFlag}
+              onArchive={handleArchive}
+              onDelete={handleDelete}
+            />
+          )}
           <toast.ToastContainer />
         </EmailLayout>
 

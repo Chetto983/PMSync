@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EmailSearchBar } from './EmailSearchBar';
+import { ViewModeToggle } from '../layout/ViewModeToggle';
 
 interface ThreadListHeaderProps {
   /** Total number of emails in list */
@@ -184,6 +185,9 @@ export function ThreadListHeader({
 
       {/* Spacer - only when no search (selection mode) */}
       {hasSelection && <Box sx={{ flex: 1 }} />}
+
+      {/* View mode toggle - list/kanban */}
+      <ViewModeToggle />
 
       {/* Refresh button - always visible */}
       <Tooltip title={t.emailList.refresh}>
