@@ -7,7 +7,14 @@
  *
  * Design: Clean TailAdmin-inspired sidebar with icons
  * DnD: @dnd-kit with DragOverlay for smooth animations
+ * Nested folders: Level-based indentation (16px per level)
+ *
  * @see https://docs.dndkit.com/presets/sortable
+ *
+ * TODO: Backend API update required for nested folders drag-into-folder
+ * Current API: POST /folders { name, providerId, parentPath } - create only
+ * Needed: PATCH /folders/:id { parentId } - move folder to new parent
+ * Frontend level-based indentation works. Drag-into-folder needs backend endpoint.
  */
 
 import React, { useRef, useCallback } from 'react';
@@ -452,6 +459,8 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                           <List disablePadding sx={{ pl: 2 }}>
                             {sortedFolders.map((folder) => {
                               const folderName = getFolderDisplayName(folder, getFolderLabel);
+                              // Use folder.level from API data (0 = root, 1 = first nested level, etc.)
+                              const folderLevel = folder.level ?? 0;
 
                               return (
                                 <DroppableFolderItem
@@ -477,6 +486,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                       onClick={() => handleProviderFolderClick(provider.id, folder)}
                                       onMouseEnter={() => handleProviderFolderMouseEnter(folder.id, provider.id)}
                                       onMouseLeave={() => handleProviderFolderMouseLeave(folder.id)}
+                                      level={folderLevel}
                                     />
                                     {/* Show menu for custom folders only (not system folders) */}
                                     {!folder.isSystem && (
