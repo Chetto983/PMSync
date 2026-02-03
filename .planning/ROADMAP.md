@@ -188,15 +188,17 @@ Plans:
 **Plans:** 3 plans (Wave 1 - all parallel)
 
 Plans:
-- [ ] 06-01-PLAN.md — Dark mode toggle with light/dark/system options
-- [ ] 06-02-PLAN.md — Kanban toggle view with drag-drop columns
-- [ ] 06-03-PLAN.md — Search with filter parsing (from:, to:, has:attachment)
+- [x] 06-01-PLAN.md — Dark mode toggle with light/dark/system options ✓
+- [x] 06-02-PLAN.md — Kanban toggle view with drag-drop columns ✓
+- [x] 06-03-PLAN.md — Search with filter parsing (from:, to:, has:attachment) ✓
+
+**Status:** COMPLETE (2026-02-03) — 3/3 requirements verified (FE-05, FE-08, FE-09)
 
 **Deliverables:**
 - ThemeToggle component with menu (light/dark/system)
-- EmailKanbanBoard with four columns
+- EmailKanbanBoard with four columns (DndKit drag-drop)
 - Enhanced EmailSearchBar with filter chips
-- View preference persistence
+- View preference persistence via Zustand
 
 ---
 
