@@ -31,6 +31,9 @@ const ANIMATION_CONFIG = {
   easing: 'cubic-bezier(0.25, 1, 0.5, 1)', // ease-out-quart
 };
 
+// Indentation per nesting level (in pixels)
+const INDENT_PER_LEVEL = 16;
+
 interface FolderItemDisplayProps {
   folder: FolderType;
   icon: React.ReactNode;
@@ -43,6 +46,10 @@ interface FolderItemDisplayProps {
   onMouseLeave?: () => void;
   dragProps?: React.HTMLAttributes<HTMLDivElement>;
   style?: React.CSSProperties;
+  /** Nesting depth (0 = root). Used for visual indentation. */
+  level?: number;
+  /** Whether this folder is currently a drop target for another folder */
+  isDropTarget?: boolean;
 }
 
 /**
@@ -52,9 +59,13 @@ interface FolderItemDisplayProps {
  */
 export const FolderItemDisplay = forwardRef<HTMLDivElement, FolderItemDisplayProps>(
   function FolderItemDisplay(
-    { folder, icon, label, selected, isDragging, isOverlay, onClick, onMouseEnter, onMouseLeave, dragProps, style },
+    { folder, icon, label, selected, isDragging, isOverlay, onClick, onMouseEnter, onMouseLeave, dragProps, style, level = 0, isDropTarget = false },
     ref
   ) {
+    // Calculate indentation based on nesting level
+    // MUI spacing unit is 8px, so we divide by 8 to convert pixels to spacing units
+    const indentPadding = level * INDENT_PER_LEVEL / 8;
+
     return (
       <ListItemButton
         ref={ref}
@@ -68,6 +79,7 @@ export const FolderItemDisplay = forwardRef<HTMLDivElement, FolderItemDisplayPro
         sx={{
           py: 0.25,
           px: 1,
+          pl: 1 + indentPadding, // Base padding + level indentation
           minHeight: 32,
           borderRadius: 1,
           mx: 0.5,
@@ -75,8 +87,16 @@ export const FolderItemDisplay = forwardRef<HTMLDivElement, FolderItemDisplayPro
           opacity: isDragging ? 0.4 : 1,
           backgroundColor: isOverlay
             ? (theme) => alpha(theme.palette.background.paper, 0.95)
-            : undefined,
+            : isDropTarget
+              ? (theme) => alpha(theme.palette.primary.main, 0.08)
+              : undefined,
           boxShadow: isOverlay ? '0 4px 12px rgba(0,0,0,0.15)' : undefined,
+          // Drop target visual indicator
+          ...(isDropTarget && {
+            outline: '2px dashed',
+            outlineColor: 'primary.main',
+            outlineOffset: -2,
+          }),
           cursor: isOverlay ? 'grabbing' : 'grab',
           touchAction: 'none', // Required for mobile drag support
           userSelect: 'none',
@@ -143,6 +163,10 @@ interface SortableFolderItemProps {
   onMouseEnter?: () => void;
   /** Optional cleanup handler on mouse leave */
   onMouseLeave?: () => void;
+  /** Nesting depth (0 = root). Used for visual indentation. */
+  level?: number;
+  /** Whether this folder is currently a drop target for another folder */
+  isDropTarget?: boolean;
 }
 
 /**
@@ -159,6 +183,8 @@ export function SortableFolderItem({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  level = 0,
+  isDropTarget = false,
 }: SortableFolderItemProps) {
   const {
     attributes,
@@ -175,6 +201,7 @@ export function SortableFolderItem({
       folderId: folder.id,
       providerId,
       folderName: folder.name,
+      folder, // Pass full folder data for drop handling
     },
   });
 
@@ -204,6 +231,8 @@ export function SortableFolderItem({
       onMouseLeave={onMouseLeave}
       dragProps={{ ...attributes, ...listeners }}
       style={style}
+      level={level}
+      isDropTarget={isDropTarget}
     />
   );
 }
