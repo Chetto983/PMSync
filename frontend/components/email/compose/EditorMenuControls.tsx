@@ -46,7 +46,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export type EditorMenuControlsProps = {
-  onAiCompose?: (event: React.MouseEvent<HTMLElement>) => void;
+  onAiCompose?: (event?: React.MouseEvent<HTMLElement>, fromKeyboard?: boolean) => void;
   onAttach?: () => void;
   aiButtonRef?: React.RefObject<HTMLButtonElement | null>;
 };
