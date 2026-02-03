@@ -7,6 +7,7 @@ import { ThreadList, ThreadListItemData } from '@/components/email/list';
 import { ExpandedMessage } from '@/components/email/thread';
 import { LabelPickerDialog } from '@/components/email/labels';
 import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
+import { KeyboardShortcutsDialog } from '@/components/email/keyboard';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
@@ -28,7 +29,7 @@ import {
 import type { SenderContactMap } from '@/lib/api/contacts';
 import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
-import { useEmailFilters } from '@/stores/email-ui-store';
+import { useEmailFilters, useEmailUIStore } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
 import { Pencil } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -104,6 +105,8 @@ export default function EmailPage() {
   // Folder picker dialog state (for move action)
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [folderPickerEmailId, setFolderPickerEmailId] = useState<string | null>(null);
+  // Keyboard shortcuts help dialog state
+  const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
 
   // Pagination state (local, not in store)
   const [page, setPage] = useState(1);
@@ -132,6 +135,9 @@ export default function EmailPage() {
 
   // Get folder filters from store (sidebar sets these)
   const filters = useEmailFilters();
+
+  // Get clearSelection from store for bulk action completion
+  const { clearSelection } = useEmailUIStore();
 
   const { data: foldersData } = useFolders();
 
@@ -323,6 +329,12 @@ export default function EmailPage() {
     onOpen: handleThreadClick,
     onEscape: handleCloseReadingPane,
     onCompose: handleCompose,
+    onArchive: (id) => handleArchive(id),
+    onDelete: (id) => handleDelete(id),
+    onReply: (id) => handleReply(id),
+    onReplyAll: (id) => handleReplyAll(id),
+    onForward: (id) => handleForward(id),
+    onShowHelp: () => setKeyboardShortcutsOpen(true),
     enabled: !loading && threads.length > 0,
     isReadingPaneOpen: !!selectedThreadId && isDesktop,
   });
@@ -600,6 +612,7 @@ export default function EmailPage() {
 
       try {
         await markRead.mutateAsync({ emailIds: ids, isRead: true });
+        clearSelection(); // Clear selection after successful bulk action
         toast.success(t.common.success ?? 'Done');
       } catch {
         // Rollback on error
@@ -607,7 +620,7 @@ export default function EmailPage() {
         toast.error(t.common.genericError);
       }
     },
-    [markRead, toast, t, optimisticUpdateEmail]
+    [markRead, toast, t, optimisticUpdateEmail, clearSelection]
   );
 
   // Bulk mark as unread - optimistic update for instant UI
@@ -618,6 +631,7 @@ export default function EmailPage() {
 
       try {
         await markRead.mutateAsync({ emailIds: ids, isRead: false });
+        clearSelection(); // Clear selection after successful bulk action
         toast.success(t.common.success ?? 'Done');
       } catch {
         // Rollback on error
@@ -625,7 +639,7 @@ export default function EmailPage() {
         toast.error(t.common.genericError);
       }
     },
-    [markRead, toast, t, optimisticUpdateEmail]
+    [markRead, toast, t, optimisticUpdateEmail, clearSelection]
   );
 
   // Bulk archive - optimistic update removes from current view
@@ -639,6 +653,7 @@ export default function EmailPage() {
 
       try {
         await moveEmails.mutateAsync({ emailIds: ids, targetFolder: 'ARCHIVE' });
+        clearSelection(); // Clear selection after successful bulk action
         toast.success(t.common.success ?? 'Done');
       } catch {
         // Rollback on error - restore emails by refetching
@@ -649,7 +664,7 @@ export default function EmailPage() {
         toast.error(t.common.genericError);
       }
     },
-    [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams]
+    [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, clearSelection]
   );
 
   // Bulk delete - optimistic update removes from view
@@ -663,6 +678,7 @@ export default function EmailPage() {
 
       try {
         await bulkDelete.mutateAsync(ids);
+        clearSelection(); // Clear selection after successful bulk action
         toast.success(t.common.success ?? 'Done');
       } catch {
         // Rollback on error - restore emails
@@ -673,7 +689,7 @@ export default function EmailPage() {
         toast.error(t.common.genericError);
       }
     },
-    [bulkDelete, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams]
+    [bulkDelete, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, clearSelection]
   );
 
   // Bulk move - show folder picker (TODO: implement picker dialog)
@@ -930,6 +946,12 @@ export default function EmailPage() {
             setFolderPickerEmailId(null);
             setSelectedThreadId(null); // Close reading pane after move
           }}
+        />
+
+        {/* Keyboard Shortcuts Help Dialog (? key) */}
+        <KeyboardShortcutsDialog
+          open={keyboardShortcutsOpen}
+          onClose={() => setKeyboardShortcutsOpen(false)}
         />
 
         {/* Compose FAB - Desktop only (mobile/tablet use MobileEmailNav FAB) */}
