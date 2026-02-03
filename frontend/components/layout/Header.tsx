@@ -25,8 +25,6 @@ import {
 import {
   Search,
   Bell,
-  Moon,
-  Sun,
   User,
   LogOut,
   Settings,
@@ -48,6 +46,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { multiAgentApi, type PendingAction } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { ThemeToggle } from './ThemeToggle';
 interface HeaderNotification {
   id: string;
   subject: string;
@@ -57,14 +56,14 @@ interface HeaderNotification {
 
 export interface PmSyncHeaderProps {
   onMenuClick?: () => void;
+  /** @deprecated Use ThemeToggle component directly - kept for backwards compat */
   onThemeToggle?: () => void;
+  /** @deprecated Use ThemeToggle component directly - kept for backwards compat */
   isDarkMode?: boolean;
 }
 
 export function Header({
   onMenuClick,
-  onThemeToggle,
-  isDarkMode = true,
 }: PmSyncHeaderProps) {
   const router = useRouter();
   const theme = useTheme();
@@ -462,14 +461,8 @@ export function Header({
             </Tooltip>
           )}
 
-          {/* Theme Toggle */}
-          {!isMobile && (
-            <Tooltip title={isDarkMode ? t.nav.lightMode : t.nav.darkMode}>
-              <IconButton onClick={onThemeToggle} color="inherit">
-                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </IconButton>
-            </Tooltip>
-          )}
+          {/* Theme Toggle - Three-way selector (light/dark/system) */}
+          {!isMobile && <ThemeToggle />}
 
           {/* Notifications */}
           <Tooltip title={t.nav.notifications}>
@@ -590,13 +583,11 @@ export function Header({
               </ListItemText>
             </MenuItem>
           )}
+          {/* Mobile Theme Toggle - Three-way selector (light/dark/system) */}
           {isMobile && (
-            <MenuItem onClick={onThemeToggle} sx={{ py: 1.25 }}>
-              <ListItemIcon>
-                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-              </ListItemIcon>
-              <ListItemText>{isDarkMode ? t.nav.lightMode : t.nav.darkMode}</ListItemText>
-            </MenuItem>
+            <Box sx={{ px: 2, py: 1 }}>
+              <ThemeToggle />
+            </Box>
           )}
 
           <Divider />
