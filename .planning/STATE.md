@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 03 of 8 (Email List & Thread Display) — COMPLETE
-Plan: 01 of 1 - COMPLETE
-Status: Phase 03 COMPLETE, verified
-Last activity: 2026-02-02 — Phase 03 verification passed
+Phase: 04 of 8 (Email Composer)
+Plan: 03 of 5
+Status: Plan 04-03 COMPLETE
+Last activity: 2026-02-03 — Completed 04-03-PLAN.md (mobile fullscreen compose)
 
 Progress: 11/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01, FE-02 satisfied)
 ```
@@ -21,8 +21,8 @@ Progress: 11/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, 
 
 ## Session Continuity
 
-Last session: 2026-02-02
-Stopped at: Phase 03 COMPLETE
+Last session: 2026-02-03
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -42,12 +42,13 @@ Resume file: None
 | staleTime 30s for prefetch guard | 03-01 | Prevents redundant prefetch of recent data |
 | Global toast via useEffect | 03-01 | Satisfies React hooks lint rules for singleton |
 | Map JUNK to SPAM for API | 03-01 | API specialUse only accepts specific values |
+| Mobile header with Send, no Schedule | 04-03 | Simplify mobile UX; schedule send available on desktop |
 
 ## Blockers & Concerns
 
 | Issue | Severity | Phase | Notes |
 |-------|----------|-------|-------|
-| (none) | - | - | All pre-existing issues resolved |
+| viewport-fit=cover missing | Low | 04-03 | Required for iOS safe area env() to work fully |
 
 ## Milestones
 
@@ -112,9 +113,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 03 COMPLETE** — All requirements verified
-2. Ready for Phase 04 (Email Composer) — FE-03, FE-10
-3. Or Phase 07 (Security) can run in parallel
+1. **Phase 04 Plan 03 COMPLETE** — Mobile fullscreen compose dialog
+2. Continue with Phase 04 plans (04-04, 04-05) for Email Composer
+3. Phase 07 (Security) can run in parallel
 
 ---
-*State updated: 2026-02-02 — Phase 03 verification passed*
+*State updated: 2026-02-03 — Completed 04-03-PLAN.md*
