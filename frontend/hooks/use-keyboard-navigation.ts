@@ -8,6 +8,13 @@
  * - Escape: Close/deselect
  * - x: Toggle selection
  * - c: Compose new
+ * - e: Archive
+ * - #: Delete (Shift+3)
+ * - r: Reply
+ * - a: Reply all
+ * - f: Forward
+ * - /: Focus search
+ * - ?: Show help (Shift+/)
  *
  * Phase 9: Advanced UX Feature
  */
@@ -27,6 +34,20 @@ interface KeyboardNavigationOptions<T> {
   onCompose?: () => void;
   /** Callback when selection is toggled (x key) */
   onToggleSelect?: (id: string) => void;
+  /** Callback when archive is triggered (e key) */
+  onArchive?: (id: string) => void;
+  /** Callback when delete is triggered (# key, Shift+3) */
+  onDelete?: (id: string) => void;
+  /** Callback when reply is triggered (r key) */
+  onReply?: (id: string) => void;
+  /** Callback when reply all is triggered (a key) */
+  onReplyAll?: (id: string) => void;
+  /** Callback when forward is triggered (f key) */
+  onForward?: (id: string) => void;
+  /** Callback when search focus is triggered (/ key) */
+  onFocusSearch?: () => void;
+  /** Callback when help is triggered (? key, Shift+/) */
+  onShowHelp?: () => void;
   /** Whether keyboard navigation is enabled */
   enabled?: boolean;
   /** Whether reading pane is open (affects Escape behavior) */
@@ -69,6 +90,13 @@ export function useKeyboardNavigation<T>({
   onEscape,
   onCompose,
   onToggleSelect,
+  onArchive,
+  onDelete,
+  onReply,
+  onReplyAll,
+  onForward,
+  onFocusSearch,
+  onShowHelp,
   enabled = true,
   isReadingPaneOpen = false,
 }: KeyboardNavigationOptions<T>): KeyboardNavigationReturn {
@@ -194,6 +222,62 @@ export function useKeyboardNavigation<T>({
           }
           break;
 
+        case 'e':
+          // Archive focused item
+          if (focusedId && onArchive && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            onArchive(focusedId);
+          }
+          break;
+
+        case '#':
+          // Delete focused item (Shift+3)
+          if (focusedId && onDelete && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            onDelete(focusedId);
+          }
+          break;
+
+        case 'r':
+          // Reply to focused item
+          if (focusedId && onReply && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            onReply(focusedId);
+          }
+          break;
+
+        case 'a':
+          // Reply all (only if not Ctrl+A for select all)
+          if (focusedId && onReplyAll && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            onReplyAll(focusedId);
+          }
+          break;
+
+        case 'f':
+          // Forward focused item
+          if (focusedId && onForward && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            onForward(focusedId);
+          }
+          break;
+
+        case '/':
+          // Focus search (only if not Shift+/ for help)
+          if (onFocusSearch && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            onFocusSearch();
+          }
+          break;
+
+        case '?':
+          // Show help (Shift+/)
+          if (onShowHelp && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            onShowHelp();
+          }
+          break;
+
         case 'ArrowDown':
           // Alternative down navigation
           if (!e.ctrlKey && !e.metaKey) {
@@ -226,6 +310,13 @@ export function useKeyboardNavigation<T>({
     onEscape,
     onCompose,
     onToggleSelect,
+    onArchive,
+    onDelete,
+    onReply,
+    onReplyAll,
+    onForward,
+    onFocusSearch,
+    onShowHelp,
   ]);
 
   return {
