@@ -34,27 +34,32 @@
 
 **Completed:** Phase 02 research verified MUI Accordion with animations already implemented
 
-### FE-03: Email Composer with TipTap
+### FE-03: Email Composer with TipTap ✓ COMPLETE
 
 **What:** Rich text email editor with TipTap
 **Why:** Core email creation experience
 **Acceptance:**
-- [ ] TipTap editor with formatting toolbar
-- [ ] To/Cc/Bcc fields with contact autocomplete
-- [ ] Attachment upload with drag-drop
-- [ ] Image paste and inline display
-- [ ] Draft auto-save (3-second debounce)
+- [x] TipTap editor with formatting toolbar
+- [x] To/Cc/Bcc fields with contact autocomplete
+- [x] Attachment upload with drag-drop
+- [x] Image paste and inline display
+- [x] Draft auto-save (3-second debounce)
 
-### FE-04: Folder Sidebar with Drag-Drop
+**Completed:** Phase 04 — AI keyboard shortcut (Cmd+J), responsive toolbar, mobile fullscreen
+
+### FE-04: Folder Sidebar with Drag-Drop ✓ COMPLETE
 
 **What:** Folder navigation with drag-drop organization
 **Why:** Email organization and navigation
 **Acceptance:**
-- [ ] Folder tree with expand/collapse
-- [ ] Unread counts per folder
-- [ ] Drag email to folder
-- [ ] Drag folder to reorder
-- [ ] Create/rename/delete folder modals
+- [x] Folder tree with expand/collapse
+- [x] Unread counts per folder
+- [x] Drag email to folder
+- [x] Drag folder to reorder
+- [x] Create/rename/delete folder modals
+- [x] Level-based indentation (16px per level)
+
+**Completed:** Phase 05 — Nested folder indentation, drop target visual. API gap: drag-into-folder awaits backend `PATCH /folders/:id { parentId }`
 
 ### FE-05: Kanban Toggle View
 
@@ -67,28 +72,32 @@
 - [ ] Column counts and collapse
 - [ ] Persist view preference
 
-### FE-06: Keyboard Navigation
+### FE-06: Keyboard Navigation ✓ COMPLETE
 
 **What:** Superhuman-style keyboard shortcuts
 **Why:** Power user productivity
 **Acceptance:**
-- [ ] j/k for up/down navigation
-- [ ] Enter to open thread
-- [ ] e for archive, # for delete
-- [ ] r for reply, f for forward
-- [ ] / for search focus
-- [ ] ? for shortcut help modal
+- [x] j/k for up/down navigation
+- [x] Enter to open thread
+- [x] e for archive, # for delete
+- [x] r for reply, a for reply-all, f for forward
+- [x] / for search focus
+- [x] ? for shortcut help modal
 
-### FE-07: Multi-Select with Bulk Actions
+**Completed:** Phase 05 — KeyboardShortcutsDialog (140 lines), full i18n EN/IT
+
+### FE-07: Multi-Select with Bulk Actions ✓ COMPLETE
 
 **What:** Select multiple emails for batch operations
 **Why:** Efficient inbox management
 **Acceptance:**
-- [ ] Checkbox selection (click, Ctrl+click, Shift+click)
-- [ ] Select all in view
-- [ ] Bulk archive, delete, move, mark read/unread
-- [ ] Selection count indicator
-- [ ] Clear selection on action complete
+- [x] Checkbox selection (click, Ctrl+click, Shift+click)
+- [x] Select all in view
+- [x] Bulk archive, delete, move, mark read/unread
+- [x] Selection count indicator
+- [x] Clear selection on action complete
+
+**Completed:** Phase 05 — ThreadList wired to Zustand store, Shift+click range selection
 
 ### FE-08: Search with Filters
 
@@ -112,16 +121,18 @@
 - [ ] Persist preference
 - [ ] Smooth transition animation
 
-### FE-10: AI Compose
+### FE-10: AI Compose ✓ COMPLETE
 
 **What:** AI-powered email composition assistance
 **Why:** Productivity and writing quality
 **Acceptance:**
-- [ ] AI subject line generation
-- [ ] AI smart reply suggestions
-- [ ] AI compose from prompt
-- [ ] AI tone adjustment (formal, casual)
-- [ ] Loading states and error handling
+- [x] AI subject line generation
+- [x] AI smart reply suggestions
+- [x] AI compose from prompt
+- [x] AI tone adjustment (formal, casual)
+- [x] Loading states and error handling
+
+**Completed:** Phase 04 — AI keyboard shortcut (Cmd+J / Ctrl+J) triggers AI menu
 
 ## Performance & Optimization (PERF-01 to PERF-06)
 
