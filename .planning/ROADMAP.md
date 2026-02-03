@@ -176,7 +176,7 @@ Plans:
 
 ## Phase 06: Advanced Features
 
-**Goal:** Add differentiating features
+**Goal:** Add differentiating features (dark mode, kanban view, search filters)
 
 **Requirements:**
 - FE-05: Kanban toggle view
@@ -185,10 +185,17 @@ Plans:
 
 **Dependencies:** Phase 03-05 (core email features)
 
+**Plans:** 3 plans (Wave 1 - all parallel)
+
+Plans:
+- [ ] 06-01-PLAN.md — Dark mode toggle with light/dark/system options
+- [ ] 06-02-PLAN.md — Kanban toggle view with drag-drop columns
+- [ ] 06-03-PLAN.md — Search with filter parsing (from:, to:, has:attachment)
+
 **Deliverables:**
-- Kanban view component
-- Search bar with filter parsing
-- Dark mode theme and toggle
+- ThemeToggle component with menu (light/dark/system)
+- EmailKanbanBoard with four columns
+- Enhanced EmailSearchBar with filter chips
 - View preference persistence
 
 ---
