@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 05 of 8 (Folders & Navigation) — IN PROGRESS
-Plan: 01, 03 of 3 - COMPLETE
-Status: 05-01 (Multi-select) and 05-03 (Nested folders) COMPLETE, 05-02 pending
-Last activity: 2026-02-03 — Completed 05-03-PLAN.md (nested folder support)
+Phase: 05 of 8 (Folders & Navigation) — COMPLETE
+Plan: 03 of 3 - ALL COMPLETE
+Status: Phase 05 complete (05-01 multi-select, 05-02 keyboard shortcuts, 05-03 nested folders)
+Last activity: 2026-02-03 — Completed 05-02-PLAN.md (keyboard shortcuts)
 
-Progress: 14/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01, FE-02, FE-03, FE-07, FE-10 satisfied)
+Progress: 15/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01, FE-02, FE-03, FE-06, FE-07, FE-10 satisfied)
 ```
-[#############...........] 58%
+[###############.........] 62%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 05-03-PLAN.md
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -52,6 +52,8 @@ Resume file: None
 | API gap for folder nesting | 05-03 | Backend needs PATCH /folders/:id { parentId } |
 | Zustand store for selection state | 05-01 | Persists across re-renders, shared with bulk actions |
 | MouseEvent modifier key detection | 05-01 | Native browser event has shiftKey/ctrlKey/metaKey |
+| Chip components for keyboard keys | 05-02 | Consistent MUI visual style in help dialog |
+| Shortcuts grouped by category | 05-02 | Navigation, Actions, Other for scanability |
 
 ## Blockers & Concerns
 
@@ -82,7 +84,7 @@ See: .planning/MILESTONES.md
 - FE-03: Email composer with TipTap [DONE - 04]
 - FE-04: Folder sidebar with drag-drop [PROGRESS - 05-03]
 - FE-05: Kanban toggle view
-- FE-06: Keyboard navigation
+- FE-06: Keyboard navigation [DONE - 05-02]
 - FE-07: Multi-select with bulk actions [DONE - 05-01]
 - FE-08: Search with filters
 - FE-09: Dark mode
@@ -123,9 +125,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **05-01 (Multi-select) and 05-03 (Nested folders) COMPLETE, 05-02 pending** — Nested folder level indentation
+1. **Phase 05 COMPLETE** — All keyboard, multi-select, and nested folder features — Nested folder level indentation
 2. Continue Phase 05 if more plans exist (05-01, 05-02)
 3. Or Phase 07 (Security) can run in parallel
 
 ---
-*State updated: 2026-02-03 — Completed 05-03-PLAN.md*
+*State updated: 2026-02-03 — Completed 05-02-PLAN.md*
