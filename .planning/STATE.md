@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 
 ## Current Position
 
-Phase: 04 of 8 (Email Composer) — COMPLETE
-Plan: 03 of 3 - COMPLETE
-Status: Phase 04 COMPLETE, verified
-Last activity: 2026-02-03 — Phase 04 verification passed
+Phase: 05 of 8 (Folders & Navigation) — IN PROGRESS
+Plan: 01, 03 of 3 - COMPLETE
+Status: 05-01 (Multi-select) and 05-03 (Nested folders) COMPLETE, 05-02 pending
+Last activity: 2026-02-03 — Completed 05-03-PLAN.md (nested folder support)
 
-Progress: 13/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01, FE-02, FE-03, FE-10 satisfied)
+Progress: 14/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01, FE-02, FE-03, FE-07, FE-10 satisfied)
 ```
-[#############...........] 54%
+[#############...........] 58%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Phase 04 COMPLETE
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -48,12 +48,17 @@ Resume file: None
 | 44px touch targets | 04-02 | Apple HIG compliance for thumb accessibility |
 | Mod-j shortcut for AI | 04-01 | TipTap handles Mac/Windows automatically |
 | Ref-based Popover anchor | 04-01 | Keyboard trigger has no MouseEvent for anchor |
+| 16px indentation per nesting level | 05-03 | Clean visual hierarchy with MUI spacing |
+| API gap for folder nesting | 05-03 | Backend needs PATCH /folders/:id { parentId } |
+| Zustand store for selection state | 05-01 | Persists across re-renders, shared with bulk actions |
+| MouseEvent modifier key detection | 05-01 | Native browser event has shiftKey/ctrlKey/metaKey |
 
 ## Blockers & Concerns
 
 | Issue | Severity | Phase | Notes |
 |-------|----------|-------|-------|
 | viewport-fit=cover missing | Low | 04-03 | Required for iOS safe area env() to work fully |
+| Backend API for folder nesting | Medium | 05-03 | Frontend ready, needs PATCH /folders/:id { parentId } |
 
 ## Milestones
 
@@ -75,10 +80,10 @@ See: .planning/MILESTONES.md
 - FE-01: Email list with VList virtualization
 - FE-02: Thread display with animations
 - FE-03: Email composer with TipTap [DONE - 04]
-- FE-04: Folder sidebar with drag-drop
+- FE-04: Folder sidebar with drag-drop [PROGRESS - 05-03]
 - FE-05: Kanban toggle view
 - FE-06: Keyboard navigation
-- FE-07: Multi-select with bulk actions
+- FE-07: Multi-select with bulk actions [DONE - 05-01]
 - FE-08: Search with filters
 - FE-09: Dark mode
 - FE-10: AI compose [DONE - 04]
@@ -118,9 +123,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 04 COMPLETE** — All requirements verified (FE-03, FE-10)
-2. Ready for Phase 05 (Folders & Navigation) — FE-04, FE-06, FE-07
+1. **05-01 (Multi-select) and 05-03 (Nested folders) COMPLETE, 05-02 pending** — Nested folder level indentation
+2. Continue Phase 05 if more plans exist (05-01, 05-02)
 3. Or Phase 07 (Security) can run in parallel
 
 ---
-*State updated: 2026-02-03 — Phase 04 verification passed*
+*State updated: 2026-02-03 — Completed 05-03-PLAN.md*
