@@ -58,6 +58,8 @@ Resume file: None
 | Regex tokenization for search filters | 06-03 | Handles quoted strings and space-separated tokens |
 | useMemo for parsedFilters | 06-03 | Avoids reparsing on every render |
 | Immediate chip removal (no debounce) | 06-03 | Instant UX feedback when removing filter chips |
+| Kanban columns LOCAL ONLY | 06-02 | Backend API out of scope; localStorage via Zustand persist |
+| Separate DndContext for Kanban | 06-02 | Avoid conflicts with existing folder drag-drop system |
 
 ## Blockers & Concerns
 
@@ -65,7 +67,7 @@ Resume file: None
 |-------|----------|-------|-------|
 | viewport-fit=cover missing | Low | 04-03 | Required for iOS safe area env() to work fully |
 | Backend API for folder nesting | Medium | 05-03 | Frontend ready, needs PATCH /folders/:id { parentId } |
-| EmailKanbanBoard type errors | Medium | 06-02 | Pre-existing issues with useEmailsInfinite export |
+| Backend API for kanban persistence | Low | 06-02 | Column assignments are localStorage-only; backend API needed for cross-device sync |
 
 ## Milestones
 
@@ -132,7 +134,6 @@ See: .planning/MILESTONES.md
 
 1. **Phase 06 COMPLETE** — All 3 plans finished (dark mode, kanban, search filters)
 2. Ready for Phase 07 (Security) — SEC-01 through SEC-05
-3. Note: EmailKanbanBoard has type errors that should be fixed before merge
 
 ---
 *State updated: 2026-02-03 — Phase 06 complete (Advanced Features)*
