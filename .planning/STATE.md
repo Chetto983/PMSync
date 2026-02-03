@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 04 of 8 (Email Composer)
-Plan: 02, 03 of 5 COMPLETE
-Status: Plans 04-02, 04-03 COMPLETE
-Last activity: 2026-02-03 — Completed 04-02-PLAN.md (responsive toolbar)
+Plan: 01, 02, 03 of 5 COMPLETE
+Status: Plans 04-01, 04-02, 04-03 COMPLETE
+Last activity: 2026-02-03 — Completed 04-01-PLAN.md (AI keyboard shortcut)
 
 Progress: 11/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01, FE-02 satisfied)
 ```
@@ -22,7 +22,7 @@ Progress: 11/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 04-02-PLAN.md
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -46,6 +46,8 @@ Resume file: None
 | 5 primary actions on mobile toolbar | 04-02 | AI, Bold, Italic, Link, Attach - most used, fits thumb zone |
 | Popover for overflow menu | 04-02 | Avoids z-index issues with TipTap editor |
 | 44px touch targets | 04-02 | Apple HIG compliance for thumb accessibility |
+| Mod-j shortcut for AI | 04-01 | TipTap handles Mac/Windows automatically |
+| Ref-based Popover anchor | 04-01 | Keyboard trigger has no MouseEvent for anchor |
 
 ## Blockers & Concerns
 
@@ -116,9 +118,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 04 Plans 02, 03 COMPLETE** — Responsive toolbar + Mobile fullscreen
-2. Continue with Phase 04 plans (04-01, 04-04, 04-05) for Email Composer
+1. **Phase 04 Plans 01, 02, 03 COMPLETE** — AI shortcut + Responsive toolbar + Mobile fullscreen
+2. Continue with Phase 04 plans (04-04, 04-05) for Email Composer
 3. Phase 07 (Security) can run in parallel
 
 ---
-*State updated: 2026-02-03 — Completed 04-02-PLAN.md*
+*State updated: 2026-02-03 — Completed 04-01-PLAN.md*
