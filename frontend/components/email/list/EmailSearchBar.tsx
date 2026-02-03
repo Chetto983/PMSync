@@ -2,6 +2,7 @@
  * Email Search Bar Component
  *
  * Phase 6.1: Inline search input with debounce
+ * Phase 6.3: Gmail-style filter parsing (from:, to:, subject:, has:attachment, after:, before:)
  * Integrates with email-ui-store for filter state
  *
  * Features:
@@ -9,14 +10,21 @@
  * - Clear button
  * - Keyboard shortcuts (Escape to clear, Ctrl+K to focus)
  * - Compact inline design
+ * - Filter parsing with visual chips
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Box, TextField, InputAdornment, IconButton, Tooltip } from '@mui/material';
 import { Search, X } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import { useDebouncedCallback } from 'use-debounce';
+import {
+  parseSearchQuery,
+  filtersToSearchString,
+  type ParsedFilters,
+} from '@/lib/utils/search-parser';
+import { SearchFilterChips } from './SearchFilterChips';
 
 interface EmailSearchBarProps {
   /** Compact mode for inline toolbar use */
@@ -32,13 +40,25 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
   // Get current search from store
   const currentSearch = useEmailUIStore((state) => state.filters.search);
   const setSearch = useEmailUIStore((state) => state.setSearch);
+  const setFilters = useEmailUIStore((state) => state.setFilters);
 
   // Local state for immediate feedback
   const [inputValue, setInputValue] = useState(currentSearch || '');
 
+  // Parse filters from current input value
+  const parsedFilters = useMemo(() => parseSearchQuery(inputValue), [inputValue]);
+
   // Debounced store update (300ms)
-  const debouncedSetSearch = useDebouncedCallback((value: string) => {
+  const debouncedUpdateStore = useDebouncedCallback((value: string) => {
+    const parsed = parseSearchQuery(value);
+    // Update search string in store
     setSearch(value);
+    // Also update structured filters for backend API
+    setFilters({
+      hasAttachments: parsed.hasAttachment,
+      startDate: parsed.startDate,
+      endDate: parsed.endDate,
+    });
   }, 300);
 
   // Sync local state with store when it changes externally
@@ -56,17 +76,40 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setInputValue(value);
-      debouncedSetSearch(value);
+      debouncedUpdateStore(value);
     },
-    [debouncedSetSearch]
+    [debouncedUpdateStore]
+  );
+
+  // Handle filter removal from chip
+  const handleRemoveFilter = useCallback(
+    (key: keyof ParsedFilters) => {
+      const newFilters = { ...parsedFilters, [key]: undefined };
+      const newSearchString = filtersToSearchString(newFilters);
+      setInputValue(newSearchString);
+      // Immediately update store (no debounce for chip removal)
+      setSearch(newSearchString);
+      setFilters({
+        hasAttachments: newFilters.hasAttachment,
+        startDate: newFilters.startDate,
+        endDate: newFilters.endDate,
+      });
+      inputRef.current?.focus();
+    },
+    [parsedFilters, setSearch, setFilters]
   );
 
   // Clear search
   const handleClear = useCallback(() => {
     setInputValue('');
     setSearch('');
+    setFilters({
+      hasAttachments: undefined,
+      startDate: undefined,
+      endDate: undefined,
+    });
     inputRef.current?.focus();
-  }, [setSearch]);
+  }, [setSearch, setFilters]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -94,7 +137,9 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
     [inputValue, handleClear]
   );
 
-  const placeholderText = placeholder || t.email?.searchPlaceholder || 'Search emails...';
+  // Use enhanced placeholder with filter hint
+  const placeholderText =
+    placeholder || t.email?.search?.placeholder || 'Search... (try from:john has:attachment)';
 
   return (
     <Box sx={{ flex: compact ? '0 1 280px' : '1 1 auto', minWidth: compact ? 180 : 200 }}>
@@ -153,6 +198,8 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
           },
         }}
       />
+      {/* Display active filter chips below search input */}
+      <SearchFilterChips filters={parsedFilters} onRemoveFilter={handleRemoveFilter} />
     </Box>
   );
 }
