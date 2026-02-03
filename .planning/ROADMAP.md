@@ -145,20 +145,29 @@ Plans:
 
 ## Phase 05: Folders & Navigation
 
-**Goal:** Build email organization and power user features
+**Goal:** Complete email organization and power user keyboard workflow
 
 **Requirements:**
-- FE-04: Folder sidebar with drag-drop
-- FE-06: Keyboard navigation
-- FE-07: Multi-select with bulk actions
+- FE-04: Folder sidebar with drag-drop [85% IMPLEMENTED - needs nested folders]
+- FE-06: Keyboard navigation [80% IMPLEMENTED - needs action shortcuts + help dialog]
+- FE-07: Multi-select with bulk actions [60% IMPLEMENTED - needs store wiring + Shift+click]
 
 **Dependencies:** Phase 03 (email list for context)
 
+**Plans:** 3 plans (Wave 1 - all parallel)
+
+Plans:
+- [ ] 05-01-PLAN.md — Multi-select store wiring + Shift+click range selection
+- [ ] 05-02-PLAN.md — Keyboard shortcuts completion + help dialog
+- [ ] 05-03-PLAN.md — Nested folder support (drag folder into folder)
+
 **Deliverables:**
-- Folder sidebar component
-- Keyboard shortcut system
-- Multi-select state management
-- Bulk action handlers
+- ThreadList wired to Zustand store for selection
+- Shift+click range selection
+- Bulk action handlers wired to API
+- Extended keyboard shortcuts (e/#/r/a/f// /?)
+- KeyboardShortcutsDialog component
+- Nested folder indentation and drag-into-folder
 
 ---
 
