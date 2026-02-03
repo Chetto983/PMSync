@@ -12,14 +12,27 @@
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
+
+// =============================================================================
+// Kanban Types
+// =============================================================================
+
+export type KanbanColumnId = 'inbox' | 'to-reply' | 'following-up' | 'done';
+
+/**
+ * Kanban column assignments - LOCAL ONLY state
+ * Maps emailId -> columnId
+ * NOTE: Backend persistence for kanban status is out of scope for this phase
+ */
+export type KanbanColumnAssignments = Record<string, KanbanColumnId>;
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export type EmailViewMode = 'list' | 'thread';
+export type EmailViewMode = 'list' | 'thread' | 'kanban';
 export type EmailDensity = 'compact' | 'comfortable' | 'spacious';
 
 /**
@@ -64,6 +77,8 @@ export interface EmailFilters {
   endDate?: string;
   /** Filter emails from VIP contacts only */
   fromVip?: boolean;
+  /** Kanban column status filter (local state only) */
+  kanbanStatus?: 'inbox' | 'to-reply' | 'following-up' | 'done';
 }
 
 // Sidebar configuration
@@ -108,6 +123,9 @@ interface EmailUIState {
   // Loading states (for optimistic UI)
   pendingActions: Set<string>; // emailIds with pending actions
 
+  // Kanban state (LOCAL ONLY - not persisted to backend)
+  kanbanAssignments: KanbanColumnAssignments;
+
   // Actions - Selection
   selectEmail: (id: string) => void;
   selectMultiple: (ids: string[]) => void;
@@ -147,6 +165,12 @@ interface EmailUIState {
   toggleProviderCollapse: (providerId: string) => void;
   setProviderCollapsed: (providerId: string, collapsed: boolean) => void;
 
+  // Actions - Kanban
+  setEmailKanbanColumn: (emailId: string, columnId: KanbanColumnId) => void;
+  moveEmailToColumn: (emailId: string, columnId: KanbanColumnId) => void;
+  getEmailColumn: (emailId: string) => KanbanColumnId;
+  clearKanbanAssignments: () => void;
+
   // Reset
   reset: () => void;
 }
@@ -177,19 +201,21 @@ const initialSidebar: SidebarConfig = {
 
 export const useEmailUIStore = create<EmailUIState>()(
   devtools(
-    (set, get) => ({
-      // Initial state
-      selectedIds: new Set<string>(),
-      lastSelectedId: null,
-      viewMode: 'list',
-      density: 'comfortable',
-      previewPanelOpen: true,
-      activeEmailId: null,
-      activeThreadId: null,
-      sidebar: initialSidebar,
-      filters: initialFilters,
-      compose: initialComposeState,
-      pendingActions: new Set<string>(),
+    persist(
+      (set, get) => ({
+        // Initial state
+        selectedIds: new Set<string>(),
+        lastSelectedId: null,
+        viewMode: 'list',
+        density: 'comfortable',
+        previewPanelOpen: true,
+        activeEmailId: null,
+        activeThreadId: null,
+        sidebar: initialSidebar,
+        filters: initialFilters,
+        compose: initialComposeState,
+        pendingActions: new Set<string>(),
+        kanbanAssignments: {},
 
       // Selection actions
       selectEmail: (id) =>
@@ -394,6 +420,25 @@ export const useEmailUIStore = create<EmailUIState>()(
           };
         }),
 
+      // Kanban actions
+      setEmailKanbanColumn: (emailId, columnId) =>
+        set((state) => ({
+          kanbanAssignments: { ...state.kanbanAssignments, [emailId]: columnId },
+        })),
+
+      moveEmailToColumn: (emailId, columnId) =>
+        set((state) => ({
+          kanbanAssignments: { ...state.kanbanAssignments, [emailId]: columnId },
+        })),
+
+      getEmailColumn: (emailId) => {
+        const assignments = get().kanbanAssignments;
+        return assignments[emailId] || 'inbox';
+      },
+
+      clearKanbanAssignments: () =>
+        set({ kanbanAssignments: {} }),
+
       // Reset
       reset: () =>
         set({
@@ -408,8 +453,19 @@ export const useEmailUIStore = create<EmailUIState>()(
           filters: initialFilters,
           compose: initialComposeState,
           pendingActions: new Set<string>(),
+          kanbanAssignments: {},
         }),
-    }),
+      }),
+      {
+        name: 'email-ui-storage',
+        storage: createJSONStorage(() => localStorage),
+        // Only persist viewMode and kanbanAssignments
+        partialize: (state) => ({
+          viewMode: state.viewMode,
+          kanbanAssignments: state.kanbanAssignments,
+        }),
+      }
+    ),
     { name: 'email-ui-store' }
   )
 );
@@ -451,5 +507,16 @@ export const useEmailSidebar = () =>
       minWidth: state.sidebar.minWidth,
       maxWidth: state.sidebar.maxWidth,
       collapsedProviders: state.sidebar.collapsedProviders,
+    }))
+  );
+
+export const useEmailKanban = () =>
+  useEmailUIStore(
+    useShallow((state) => ({
+      kanbanAssignments: state.kanbanAssignments,
+      setEmailKanbanColumn: state.setEmailKanbanColumn,
+      moveEmailToColumn: state.moveEmailToColumn,
+      getEmailColumn: state.getEmailColumn,
+      clearKanbanAssignments: state.clearKanbanAssignments,
     }))
   );

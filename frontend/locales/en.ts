@@ -680,6 +680,18 @@ export const en: AppTranslations = {
     title: 'Inbox control center',
     descriptionTemplate: '{count} unread conversations — stay focused on the work that matters.',
     searchPlaceholder: 'Search threads, senders, or labels',
+    search: {
+      placeholder: 'Search... (try from:john has:attachment)',
+      filters: {
+        from: 'From',
+        to: 'To',
+        subject: 'Subject',
+        hasAttachment: 'Has attachment',
+        after: 'After',
+        before: 'Before',
+      },
+      clearFilter: 'Remove filter',
+    },
     noProviders: 'Connect a mail provider to send and receive email.',
     selectEmail: 'Select a conversation to start collaborating.',
     allAccountsLabel: 'All accounts',
@@ -1400,6 +1412,19 @@ export const en: AppTranslations = {
       search: 'Focus search',
       showHelp: 'Show this help',
       commandPalette: 'Command palette',
+    },
+    // Kanban View (Phase 06-02)
+    kanban: {
+      inbox: 'Inbox',
+      toReply: 'To Reply',
+      followingUp: 'Following Up',
+      done: 'Done',
+      emptyColumn: 'No emails',
+      dragHint: 'Drag emails here',
+    },
+    viewMode: {
+      list: 'List view',
+      kanban: 'Kanban view',
     },
 
   },

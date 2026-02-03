@@ -1391,6 +1391,19 @@ export const it: AppTranslations = {
       showHelp: 'Mostra questa guida',
       commandPalette: 'Palette comandi',
     },
+    // Kanban View (Phase 06-02)
+    kanban: {
+      inbox: 'Posta in arrivo',
+      toReply: 'Da rispondere',
+      followingUp: 'In attesa',
+      done: 'Completate',
+      emptyColumn: 'Nessuna email',
+      dragHint: 'Trascina qui',
+    },
+    viewMode: {
+      list: 'Vista lista',
+      kanban: 'Vista kanban',
+    },
   },
   calendar: {
     title: 'Calendario',
