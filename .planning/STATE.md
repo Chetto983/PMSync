@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 04 of 8 (Email Composer)
-Plan: 03 of 5
-Status: Plan 04-03 COMPLETE
-Last activity: 2026-02-03 — Completed 04-03-PLAN.md (mobile fullscreen compose)
+Plan: 02, 03 of 5 COMPLETE
+Status: Plans 04-02, 04-03 COMPLETE
+Last activity: 2026-02-03 — Completed 04-02-PLAN.md (responsive toolbar)
 
 Progress: 11/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01, FE-02 satisfied)
 ```
@@ -22,7 +22,7 @@ Progress: 11/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, 
 ## Session Continuity
 
 Last session: 2026-02-03
-Stopped at: Completed 04-03-PLAN.md
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -43,6 +43,9 @@ Resume file: None
 | Global toast via useEffect | 03-01 | Satisfies React hooks lint rules for singleton |
 | Map JUNK to SPAM for API | 03-01 | API specialUse only accepts specific values |
 | Mobile header with Send, no Schedule | 04-03 | Simplify mobile UX; schedule send available on desktop |
+| 5 primary actions on mobile toolbar | 04-02 | AI, Bold, Italic, Link, Attach - most used, fits thumb zone |
+| Popover for overflow menu | 04-02 | Avoids z-index issues with TipTap editor |
+| 44px touch targets | 04-02 | Apple HIG compliance for thumb accessibility |
 
 ## Blockers & Concerns
 
@@ -113,9 +116,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 04 Plan 03 COMPLETE** — Mobile fullscreen compose dialog
-2. Continue with Phase 04 plans (04-04, 04-05) for Email Composer
+1. **Phase 04 Plans 02, 03 COMPLETE** — Responsive toolbar + Mobile fullscreen
+2. Continue with Phase 04 plans (04-01, 04-04, 04-05) for Email Composer
 3. Phase 07 (Security) can run in parallel
 
 ---
-*State updated: 2026-02-03 — Completed 04-03-PLAN.md*
+*State updated: 2026-02-03 — Completed 04-02-PLAN.md*

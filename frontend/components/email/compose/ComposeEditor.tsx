@@ -80,9 +80,8 @@ export default function ComposeEditor({
   // Use provided placeholder or fallback to translation
   const editorPlaceholder = placeholder || composer.bodyPlaceholder;
 
-  const extensions = useExtensions({
-    placeholder: editorPlaceholder,
-  });
+  // Ref for AI button to anchor keyboard-triggered popover
+  const aiButtonRef = useRef<HTMLButtonElement>(null);
   const rteRef = useRef<RichTextEditorRef>(null);
   // Inline AI state
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -179,18 +178,37 @@ export default function ComposeEditor({
 
   const [aiMenuAnchor, setAiMenuAnchor] = useState<HTMLElement | null>(null);
 
-  // Open AI Menu
-  const handleOpenAiMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
+  // Open AI Menu - supports both click and keyboard trigger
+  const handleOpenAiMenu = useCallback((event?: React.MouseEvent<HTMLElement>, fromKeyboard = false) => {
     const selection = getSelectedHtml();
     const hasSelection = selection && selection.length > 0;
 
     setSelectedText(selection);
     setIsModifyMode(hasSelection || false);
-    setAiMenuAnchor(event.currentTarget);
+
+    // Use ref for keyboard trigger, event.currentTarget for click
+    if (fromKeyboard && aiButtonRef.current) {
+      setAiMenuAnchor(aiButtonRef.current);
+    } else if (event) {
+      setAiMenuAnchor(event.currentTarget);
+    }
   }, [getSelectedHtml]);
+
+  // Keyboard shortcut handler for AI menu
+  const handleOpenAiMenuFromKeyboard = useCallback(() => {
+    handleOpenAiMenu(undefined, true);
+  }, [handleOpenAiMenu]);
+
+  // Configure extensions with AI shortcut
+  const extensions = useExtensions({
+    placeholder: editorPlaceholder,
+    onTriggerAi: handleOpenAiMenuFromKeyboard,
+  });
 
   const handleCloseAiMenu = useCallback(() => {
     setAiMenuAnchor(null);
+    // Return focus to editor after closing AI menu
+    rteRef.current?.editor?.commands.focus();
   }, []);
 
   // Handle AI Composition from Menu
@@ -307,7 +325,11 @@ export default function ComposeEditor({
           }
         }}
         renderControls={() => (
-          <EditorMenuControls onAiCompose={handleOpenAiMenu} onAttach={onAttach} />
+          <EditorMenuControls
+            onAiCompose={handleOpenAiMenu}
+            onAttach={onAttach}
+            aiButtonRef={aiButtonRef}
+          />
         )}
         RichTextFieldProps={{
           variant: 'outlined',

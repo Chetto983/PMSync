@@ -39,9 +39,11 @@ import {
   ResizableImage,
   TableImproved,
 } from 'mui-tiptap';
+import { AiShortcutExtension } from './aiShortcutExtension';
 
 export type UseExtensionsOptions = {
   placeholder?: string;
+  onTriggerAi?: () => void;
 };
 
 // Don't treat the end cursor as "inclusive" of the Link mark
@@ -63,6 +65,7 @@ const CustomSuperscript = Superscript.extend({
  */
 export default function useExtensions({
   placeholder,
+  onTriggerAi,
 }: UseExtensionsOptions = {}): EditorOptions['extensions'] {
   return useMemo(() => {
     return [
@@ -126,6 +129,11 @@ export default function useExtensions({
       }),
 
       History,
+
+      // AI keyboard shortcut (Cmd+J / Ctrl+J)
+      ...(onTriggerAi
+        ? [AiShortcutExtension.configure({ onTriggerAi })]
+        : []),
     ];
-  }, [placeholder]);
+  }, [placeholder, onTriggerAi]);
 }
