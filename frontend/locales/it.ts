@@ -673,6 +673,18 @@ export const it: AppTranslations = {
     title: 'Centro di controllo posta',
     descriptionTemplate: '{count} conversazioni non lette — resta concentrato sul lavoro che conta.',
     searchPlaceholder: 'Cerca thread, mittenti o etichette',
+    search: {
+      placeholder: 'Cerca... (prova from:mario has:attachment)',
+      filters: {
+        from: 'Da',
+        to: 'A',
+        subject: 'Oggetto',
+        hasAttachment: 'Con allegato',
+        after: 'Dopo',
+        before: 'Prima',
+      },
+      clearFilter: 'Rimuovi filtro',
+    },
     noProviders: 'Collega un provider di posta per inviare e ricevere email.',
     selectEmail: 'Seleziona una conversazione per iniziare a collaborare.',
     allAccountsLabel: 'Tutti gli account',

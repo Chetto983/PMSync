@@ -611,6 +611,18 @@ export interface AppTranslations {
     title: string;
     descriptionTemplate: string;
     searchPlaceholder: string;
+    search: {
+      placeholder: string;
+      filters: {
+        from: string;
+        to: string;
+        subject: string;
+        hasAttachment: string;
+        after: string;
+        before: string;
+      };
+      clearFilter: string;
+    };
     noProviders: string;
     selectEmail: string;
     allAccountsLabel: string;
