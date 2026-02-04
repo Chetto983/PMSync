@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 08 of 8 (Testing & Polish)
-Plan: 02 of 05 complete
+Plan: 04 of 05 complete
 Status: In progress
-Last activity: 2026-02-04 - Completed 08-02-PLAN.md (Core Email Flow E2E Tests)
+Last activity: 2026-02-04 - Completed 08-04-PLAN.md (Performance Monitoring Setup)
 
-Progress: 2/5 Phase 08 plans complete
+Progress: 4/5 Phase 08 plans complete
 ```
-[####################....] 40%
+[########################] 80%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: Completed 08-02-PLAN.md (Core Email Flow E2E Tests)
+Stopped at: Completed 08-04-PLAN.md (Performance Monitoring Setup)
 Resume file: None
 
 ## Accumulated Decisions
@@ -74,6 +74,9 @@ Resume file: None
 | storageState pattern for auth | 08-01 | Reusable auth state across all browser projects |
 | Graceful test skip on auth redirect | 08-02 | Allows partial test execution during auth infrastructure fix |
 | Test-specific fixtures from fixtures.ts | 08-02 | Consistent mock data, custom auth handling per test file |
+| Core Web Vitals 2025 thresholds | 08-04 | LCP <= 2.5s, CLS <= 0.1, TTI <= 3.5s budgets |
+| Temporary public storage for Lighthouse | 08-04 | No external service needed for CI uploads |
+| Bundle analyzer opt-in via ANALYZE=true | 08-04 | Zero impact on normal builds |
 
 ## Blockers & Concerns
 
@@ -83,6 +86,8 @@ Resume file: None
 | Backend API for folder nesting | Medium | 05-03 | Frontend ready, needs PATCH /folders/:id { parentId } |
 | Backend API for kanban persistence | Low | 06-02 | Column assignments are localStorage-only; backend API needed for cross-device sync |
 | E2E auth infrastructure mismatch | High | 08-02 | auth.setup.ts uses 'auth-token' but app uses 'auth-storage' zustand persist key |
+| LCP exceeds budget (4.12s vs 2.5s) | Medium | 08-04 | Tech debt - optimize root page load time |
+| TTI exceeds budget (4.13s vs 3.5s) | Medium | 08-04 | Tech debt - related to LCP, needs code splitting |
 
 ## Milestones
 
@@ -147,10 +152,10 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 08 IN PROGRESS** — Core Email Flow E2E Tests complete (08-02)
+1. **Phase 08 IN PROGRESS** — Performance Monitoring Setup complete (08-04)
 2. **BLOCKER:** Fix E2E auth infrastructure (auth.setup.ts uses wrong localStorage key)
-3. Next: Performance Audit (08-03)
-4. Remaining: UI Polish (08-04), Error Handling (08-05)
+3. **TECH DEBT:** LCP/TTI optimization needed (baseline 4.12s/4.13s vs budgets 2.5s/3.5s)
+4. Next: Plan 05 (CI Integration) - final phase 08 plan
 
 ---
-*State updated: 2026-02-04 — Completed 08-02-PLAN.md (Core Email Flow E2E Tests)*
+*State updated: 2026-02-04 — Completed 08-04-PLAN.md (Performance Monitoring Setup)*
