@@ -49,11 +49,15 @@ test.describe('Email List', () => {
   test('shows flag icon for flagged emails', async ({ authedPage }) => {
     await authedPage.waitForSelector('[data-testid="thread-list-item"]');
 
-    // Second email is flagged
+    // Second email is flagged - flag icon is in hover actions, need to hover
     const secondEmail = authedPage.locator('[data-testid="thread-list-item"]').nth(1);
-    const flagIcon = secondEmail.locator('[data-testid="flag-icon"]');
+    await secondEmail.hover();
 
-    await expect(flagIcon).toBeVisible();
+    // Wait for hover state to reveal actions
+    await authedPage.waitForTimeout(300);
+
+    const flagIcon = secondEmail.locator('[data-testid="flag-icon"]');
+    await expect(flagIcon).toBeVisible({ timeout: 5000 });
   });
 
   test('shows attachment indicator for emails with attachments', async ({ authedPage }) => {
@@ -130,7 +134,7 @@ test.describe('Email List', () => {
 
     // Track API calls
     let apiCalled = false;
-    await authedPage.route('**/api/v1/email?**', (route) => {
+    await authedPage.route('**/localhost:3000/emails?**', (route) => {
       apiCalled = true;
       route.fulfill({
         status: 200,
@@ -155,7 +159,14 @@ test.describe('Email List', () => {
 test.describe('Email List - Empty States', () => {
   test('shows empty inbox message when no emails', async ({ page }) => {
     // Mock empty response
-    await page.route('**/api/v1/email?**', (route) => {
+    await page.route('**/localhost:3000/emails?**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ emails: [], total: 0 }),
+      });
+    });
+    await page.route('**/localhost:3000/emails', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -163,25 +174,37 @@ test.describe('Email List - Empty States', () => {
       });
     });
 
-    // Mock auth
+    // Mock auth - use Zustand persist format
     await page.addInitScript(() => {
-      localStorage.setItem('auth-token', 'test-token');
+      localStorage.setItem(
+        'auth-storage',
+        JSON.stringify({
+          state: { token: 'test-jwt-token' },
+          version: 0,
+        })
+      );
+      document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
+      // Pre-accept cookie consent to avoid modal blocking UI
+      localStorage.setItem(
+        'mailagent:cookie-consent',
+        JSON.stringify({ necessary: true, analytics: false, marketing: false })
+      );
     });
-    await page.route('**/api/v1/auth/me', (route) => {
+    await page.route('**/localhost:3000/auth/me', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 'user-1', email: 'test@test.com' }),
+        body: JSON.stringify({ id: 'user-1', email: 'test@test.com', role: 'admin', tenantId: 'tenant-1' }),
       });
     });
-    await page.route('**/api/v1/email/folders**', (route) => {
+    await page.route('**/localhost:3000/email/folders**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ foldersByProvider: {} }),
       });
     });
-    await page.route('**/api/v1/labels**', (route) => {
+    await page.route('**/localhost:3000/labels**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -198,10 +221,35 @@ test.describe('Email List - Empty States', () => {
 });
 
 test.describe('Email List - Loading States', () => {
-  test('shows skeleton while loading', async ({ page }) => {
-    // Delay API response
-    await page.route('**/api/v1/email?**', async (route) => {
-      await new Promise((r) => setTimeout(r, 2000));
+  test('shows loading indicator while fetching emails', async ({ page }) => {
+    // Mock auth FIRST - before setting up routes, so addInitScript runs before navigation
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'auth-storage',
+        JSON.stringify({
+          state: { token: 'test-jwt-token' },
+          version: 0,
+        })
+      );
+      document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
+      // Pre-accept cookie consent to avoid modal blocking UI
+      localStorage.setItem(
+        'mailagent:cookie-consent',
+        JSON.stringify({ necessary: true, analytics: false, marketing: false })
+      );
+    });
+
+    // Delay API response significantly to catch loading state
+    await page.route('**/localhost:3000/emails?**', async (route) => {
+      await new Promise((r) => setTimeout(r, 3000));
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ emails: mockEmails, total: mockEmails.length }),
+      });
+    });
+    await page.route('**/localhost:3000/emails', async (route) => {
+      await new Promise((r) => setTimeout(r, 3000));
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -209,25 +257,21 @@ test.describe('Email List - Loading States', () => {
       });
     });
 
-    // Mock auth
-    await page.addInitScript(() => {
-      localStorage.setItem('auth-token', 'test-token');
-    });
-    await page.route('**/api/v1/auth/me', (route) => {
+    await page.route('**/localhost:3000/auth/me', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 'user-1' }),
+        body: JSON.stringify({ id: 'user-1', role: 'admin', tenantId: 'tenant-1' }),
       });
     });
-    await page.route('**/api/v1/email/folders**', (route) => {
+    await page.route('**/localhost:3000/email/folders**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ foldersByProvider: {} }),
       });
     });
-    await page.route('**/api/v1/labels**', (route) => {
+    await page.route('**/localhost:3000/labels**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -237,11 +281,16 @@ test.describe('Email List - Loading States', () => {
 
     await page.goto('/dashboard/email');
 
-    // Should show skeleton immediately
-    const skeleton = page.locator('[data-testid="thread-list-skeleton"]');
-    await expect(skeleton).toBeVisible({ timeout: 1000 });
+    // Page shows CircularProgress + "Loading emails..." text while waiting for API
+    // (This is page-level loading, not ThreadListSkeleton which is for refresh)
+    const loadingText = page.getByText('Loading emails...');
+    await expect(loadingText).toBeVisible({ timeout: 2000 });
 
-    // After loading, skeleton should disappear
-    await expect(skeleton).not.toBeVisible({ timeout: 5000 });
+    // After loading completes (3s delay), loading state should disappear and emails show
+    await expect(loadingText).not.toBeVisible({ timeout: 6000 });
+
+    // Emails should now be visible
+    const emailItems = page.locator('[data-testid="thread-list-item"]');
+    await expect(emailItems.first()).toBeVisible({ timeout: 2000 });
   });
 });

@@ -23,17 +23,26 @@ setup('authenticate', async ({ page }) => {
     );
     // Also set auth-token cookie for API routes that read from cookie
     document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
+    // Pre-accept cookie consent to avoid modal blocking UI
+    localStorage.setItem(
+      'mailagent:cookie-consent',
+      JSON.stringify({ necessary: true, analytics: false, marketing: false })
+    );
   });
 
-  // Mock essential API endpoints for auth
-  await page.route('**/api/v1/auth/me', (route) => {
+  // Mock essential API endpoints for auth (matches User interface in auth-store.ts)
+  // Path matches apiClient baseURL (localhost:3000) - use specific host to avoid matching frontend page routes
+  await page.route('**/localhost:3000/auth/me', (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         id: 'user-1',
         email: 'user@test.com',
-        name: 'Test User',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'admin',
+        tenantId: 'tenant-1',
       }),
     });
   });

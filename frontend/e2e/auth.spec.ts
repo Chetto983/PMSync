@@ -15,8 +15,9 @@ base.use({ storageState: { cookies: [], origins: [] } });
 // Extend base test with login page fixture (unauthenticated)
 const loginTest = base.extend<{ loginPage: Page }>({
   loginPage: async ({ page }, use) => {
-    // Mock login API endpoint
-    await page.route('**/api/v1/auth/login', async (route) => {
+    // Mock login API endpoint - paths match apiClient baseURL (localhost:3000)
+    // Use specific host to avoid matching frontend page routes
+    await page.route('**/localhost:3000/auth/login', async (route) => {
       const request = route.request();
       const postData = request.postDataJSON();
 
@@ -40,7 +41,7 @@ const loginTest = base.extend<{ loginPage: Page }>({
     });
 
     // Mock auth/me for dashboard redirect check
-    await page.route('**/api/v1/auth/me', (route) => {
+    await page.route('**/localhost:3000/auth/me', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -49,7 +50,7 @@ const loginTest = base.extend<{ loginPage: Page }>({
     });
 
     // Mock email endpoints for dashboard
-    await page.route('**/api/v1/email?**', (route) => {
+    await page.route('**/localhost:3000/emails?**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -57,7 +58,15 @@ const loginTest = base.extend<{ loginPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/email/folders**', (route) => {
+    await page.route('**/localhost:3000/emails', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ emails: mockEmails, total: mockEmails.length }),
+      });
+    });
+
+    await page.route('**/localhost:3000/email/folders**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -65,7 +74,7 @@ const loginTest = base.extend<{ loginPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/labels**', (route) => {
+    await page.route('**/localhost:3000/labels**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -73,7 +82,7 @@ const loginTest = base.extend<{ loginPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/voltagent/**', (route) => {
+    await page.route('**/localhost:3000/voltagent/**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -81,7 +90,7 @@ const loginTest = base.extend<{ loginPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/contacts/sender-photos**', (route) => {
+    await page.route('**/localhost:3000/contacts/sender-photos**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',

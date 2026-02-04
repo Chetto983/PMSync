@@ -57,21 +57,29 @@ const searchMockEmails = [
 // Search test fixture
 const test = base.extend<{ searchPage: Page }>({
   searchPage: async ({ page }, use) => {
-    // Mock authentication
+    // Mock authentication - use Zustand persist format for auth-storage
+    // The app uses zustand persist middleware with name: 'auth-storage'
     await page.addInitScript(() => {
-      localStorage.setItem('auth-token', 'test-jwt-token');
+      // Zustand persist format: { state: { token, ... }, version: 0 }
       localStorage.setItem(
-        'user',
+        'auth-storage',
         JSON.stringify({
-          id: 'user-1',
-          email: 'user@test.com',
-          name: 'Test User',
+          state: { token: 'test-jwt-token' },
+          version: 0,
         })
+      );
+      // Also set auth-token cookie for API routes that read from cookie
+      document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
+      // Pre-accept cookie consent to avoid modal blocking UI
+      localStorage.setItem(
+        'mailagent:cookie-consent',
+        JSON.stringify({ necessary: true, analytics: false, marketing: false })
       );
     });
 
-    // Mock essential API endpoints
-    await page.route('**/api/v1/auth/me', (route) => {
+    // Mock essential API endpoints - paths match apiClient baseURL (localhost:3000)
+    // Use specific host to avoid matching frontend page routes
+    await page.route('**/localhost:3000/auth/me', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -80,7 +88,7 @@ const test = base.extend<{ searchPage: Page }>({
     });
 
     // Mock email endpoint with search filtering
-    await page.route('**/api/v1/email?**', (route) => {
+    await page.route('**/localhost:3000/emails?**', (route) => {
       const url = new URL(route.request().url());
       const query = url.searchParams.get('query') || url.searchParams.get('search') || '';
 
@@ -126,7 +134,21 @@ const test = base.extend<{ searchPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/email/folders**', (route) => {
+    // Also mock /emails without query params
+    await page.route('**/localhost:3000/emails', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          emails: searchMockEmails,
+          total: searchMockEmails.length,
+          page: 1,
+          limit: 50,
+        }),
+      });
+    });
+
+    await page.route('**/localhost:3000/email/folders**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -134,7 +156,7 @@ const test = base.extend<{ searchPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/contacts/sender-photos**', (route) => {
+    await page.route('**/localhost:3000/contacts/sender-photos**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -142,7 +164,7 @@ const test = base.extend<{ searchPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/labels**', (route) => {
+    await page.route('**/localhost:3000/labels**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -150,7 +172,7 @@ const test = base.extend<{ searchPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/voltagent/**', (route) => {
+    await page.route('**/localhost:3000/voltagent/**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -184,10 +206,12 @@ test.describe('Email Search - Basic Search', () => {
   test('search input accepts text input', async ({ searchPage }) => {
     await searchPage.goto('/dashboard/email');
 
-    const searchInput = searchPage.getByTestId('email-search');
-    const isSearchVisible = await searchInput.isVisible().catch(() => false);
+    const searchField = searchPage.getByTestId('email-search');
+    const isSearchVisible = await searchField.isVisible().catch(() => false);
 
     if (isSearchVisible) {
+      // Get the actual input element inside the MUI TextField
+      const searchInput = searchField.locator('input');
       await searchInput.click();
       await searchInput.fill('test query');
       await expect(searchInput).toHaveValue('test query');
@@ -202,10 +226,12 @@ test.describe('Email Search - Filter Chips', () => {
   test('from: filter creates chip when typed', async ({ searchPage }) => {
     await searchPage.goto('/dashboard/email');
 
-    const searchInput = searchPage.getByTestId('email-search');
-    const isSearchVisible = await searchInput.isVisible().catch(() => false);
+    const searchField = searchPage.getByTestId('email-search');
+    const isSearchVisible = await searchField.isVisible().catch(() => false);
 
     if (isSearchVisible) {
+      // Get the actual input element inside the MUI TextField
+      const searchInput = searchField.locator('input');
       // Type filter query
       await searchInput.fill('from:alice@example.com');
 
@@ -223,10 +249,12 @@ test.describe('Email Search - Filter Chips', () => {
   test('has:attachment filter creates chip', async ({ searchPage }) => {
     await searchPage.goto('/dashboard/email');
 
-    const searchInput = searchPage.getByTestId('email-search');
-    const isSearchVisible = await searchInput.isVisible().catch(() => false);
+    const searchField = searchPage.getByTestId('email-search');
+    const isSearchVisible = await searchField.isVisible().catch(() => false);
 
     if (isSearchVisible) {
+      // Get the actual input element inside the MUI TextField
+      const searchInput = searchField.locator('input');
       await searchInput.fill('has:attachment');
       await searchPage.waitForTimeout(500);
 
@@ -241,10 +269,12 @@ test.describe('Email Search - Filter Chips', () => {
   test('multiple filters create multiple chips', async ({ searchPage }) => {
     await searchPage.goto('/dashboard/email');
 
-    const searchInput = searchPage.getByTestId('email-search');
-    const isSearchVisible = await searchInput.isVisible().catch(() => false);
+    const searchField = searchPage.getByTestId('email-search');
+    const isSearchVisible = await searchField.isVisible().catch(() => false);
 
     if (isSearchVisible) {
+      // Get the actual input element inside the MUI TextField
+      const searchInput = searchField.locator('input');
       await searchInput.fill('from:bob has:attachment');
       await searchPage.waitForTimeout(500);
 
@@ -262,16 +292,18 @@ test.describe('Email Search - Filter Chips', () => {
   test('clear button removes search text', async ({ searchPage }) => {
     await searchPage.goto('/dashboard/email');
 
-    const searchInput = searchPage.getByTestId('email-search');
-    const isSearchVisible = await searchInput.isVisible().catch(() => false);
+    const searchField = searchPage.getByTestId('email-search');
+    const isSearchVisible = await searchField.isVisible().catch(() => false);
 
     if (isSearchVisible) {
+      // Get the actual input element inside the MUI TextField
+      const searchInput = searchField.locator('input');
       // Type something
       await searchInput.fill('test search');
       await expect(searchInput).toHaveValue('test search');
 
       // Click clear button (X icon)
-      const clearButton = searchPage.locator('[data-testid="email-search"]').locator('button');
+      const clearButton = searchField.locator('button');
       if (await clearButton.isVisible()) {
         await clearButton.click();
         await expect(searchInput).toHaveValue('');
@@ -284,10 +316,12 @@ test.describe('Email Search - Filter Chips', () => {
   test('escape key clears search', async ({ searchPage }) => {
     await searchPage.goto('/dashboard/email');
 
-    const searchInput = searchPage.getByTestId('email-search');
-    const isSearchVisible = await searchInput.isVisible().catch(() => false);
+    const searchField = searchPage.getByTestId('email-search');
+    const isSearchVisible = await searchField.isVisible().catch(() => false);
 
     if (isSearchVisible) {
+      // Get the actual input element inside the MUI TextField
+      const searchInput = searchField.locator('input');
       await searchInput.fill('test');
       await expect(searchInput).toHaveValue('test');
 

@@ -73,11 +73,14 @@ export const mockFolders = {
   },
 };
 
-// Mock user data
+// Mock user data (matches User interface in auth-store.ts)
 export const mockUser = {
   id: 'user-1',
   email: 'user@test.com',
-  name: 'Test User',
+  firstName: 'Test',
+  lastName: 'User',
+  role: 'admin',
+  tenantId: 'tenant-1',
 };
 
 // Extend base test with authenticated page
@@ -96,10 +99,16 @@ export const test = base.extend<{ authedPage: Page }>({
       );
       // Also set auth-token cookie for API routes that read from cookie
       document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
+      // Pre-accept cookie consent to avoid modal blocking UI
+      localStorage.setItem(
+        'mailagent:cookie-consent',
+        JSON.stringify({ necessary: true, analytics: false, marketing: false })
+      );
     });
 
-    // Mock API endpoints
-    await page.route('**/api/v1/auth/me', (route) => {
+    // Mock API endpoints - paths match apiClient baseURL (localhost:3000)
+    // Use specific host to avoid matching frontend page routes
+    await page.route('**/localhost:3000/auth/me', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -107,7 +116,7 @@ export const test = base.extend<{ authedPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/email?**', (route) => {
+    await page.route('**/localhost:3000/emails?**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -120,7 +129,21 @@ export const test = base.extend<{ authedPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/email/folders**', (route) => {
+    // Also mock /emails without query params
+    await page.route('**/localhost:3000/emails', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          emails: mockEmails,
+          total: mockEmails.length,
+          page: 1,
+          limit: 50,
+        }),
+      });
+    });
+
+    await page.route('**/localhost:3000/email/folders**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -128,7 +151,7 @@ export const test = base.extend<{ authedPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/email/*', (route) => {
+    await page.route('**/localhost:3000/emails/*', (route) => {
       const url = route.request().url();
       const emailId = url.split('/').pop()?.split('?')[0];
       const email = mockEmails.find((e) => e.id === emailId);
@@ -144,7 +167,7 @@ export const test = base.extend<{ authedPage: Page }>({
       }
     });
 
-    await page.route('**/api/v1/contacts/sender-photos**', (route) => {
+    await page.route('**/localhost:3000/contacts/sender-photos**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -152,7 +175,7 @@ export const test = base.extend<{ authedPage: Page }>({
       });
     });
 
-    await page.route('**/api/v1/labels**', (route) => {
+    await page.route('**/localhost:3000/labels**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
