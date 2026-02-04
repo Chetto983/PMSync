@@ -10,17 +10,19 @@ import { test as setup, expect } from '@playwright/test';
 const authFile = 'playwright/.auth/user.json';
 
 setup('authenticate', async ({ page }) => {
-  // Mock authentication - mirror the pattern from fixtures.ts
+  // Mock authentication - use Zustand persist format for auth-storage
+  // The app uses zustand persist middleware with name: 'auth-storage'
   await page.addInitScript(() => {
-    localStorage.setItem('auth-token', 'test-jwt-token');
+    // Zustand persist format: { state: { token, ... }, version: 0 }
     localStorage.setItem(
-      'user',
+      'auth-storage',
       JSON.stringify({
-        id: 'user-1',
-        email: 'user@test.com',
-        name: 'Test User',
+        state: { token: 'test-jwt-token' },
+        version: 0,
       })
     );
+    // Also set auth-token cookie for API routes that read from cookie
+    document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
   });
 
   // Mock essential API endpoints for auth
@@ -39,9 +41,9 @@ setup('authenticate', async ({ page }) => {
   // Navigate to trigger localStorage population
   await page.goto('/');
 
-  // Verify auth was set
-  const token = await page.evaluate(() => localStorage.getItem('auth-token'));
-  expect(token).toBe('test-jwt-token');
+  // Verify auth was set (check zustand persist format)
+  const authStorage = await page.evaluate(() => localStorage.getItem('auth-storage'));
+  expect(authStorage).toContain('test-jwt-token');
 
   // Save auth state for other tests
   await page.context().storageState({ path: authFile });
