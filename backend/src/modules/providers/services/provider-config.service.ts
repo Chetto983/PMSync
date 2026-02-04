@@ -563,6 +563,9 @@ export class ProviderConfigService {
       throw new NotFoundException('Provider config not found');
     }
 
+    // SEC-02: Revoke OAuth tokens before deleting provider
+    await this.revokeProviderTokens(provider);
+
     await this.queueService.removeJobsForProvider(provider.id).catch((error) => {
       this.logger.warn(
         `Failed to remove queued jobs for provider ${provider.id}: ${
@@ -703,6 +706,38 @@ export class ProviderConfigService {
     }
 
     this.logger.log(`Provider config ${configId} deleted`);
+  }
+
+  /**
+   * Revoke OAuth tokens for a provider (SEC-02)
+   * Best-effort: failures are logged but do not block deletion.
+   * - Google: Calls official revocation endpoint
+   * - Microsoft: Attempts session revocation (best-effort, may not be permitted)
+   * - IMAP/generic: No OAuth tokens to revoke
+   */
+  private async revokeProviderTokens(provider: ProviderConfig): Promise<void> {
+    try {
+      if (provider.providerType === 'google' && provider.refreshToken && provider.refreshTokenEncryptionIv) {
+        const refreshToken = this.crypto.decrypt(
+          provider.refreshToken,
+          provider.refreshTokenEncryptionIv,
+        );
+        await this.googleOAuth.revokeToken(refreshToken);
+      } else if (provider.providerType === 'microsoft' && provider.accessToken && provider.tokenEncryptionIv) {
+        // Microsoft needs valid access token for session revocation
+        const accessToken = this.crypto.decrypt(
+          provider.accessToken,
+          provider.tokenEncryptionIv,
+        );
+        await this.microsoftOAuth.revokeSession(accessToken);
+      }
+      // IMAP/generic providers: no OAuth revocation needed
+    } catch (error) {
+      // Never fail disconnect due to revocation failure
+      this.logger.warn(
+        `Token revocation failed for provider ${provider.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
