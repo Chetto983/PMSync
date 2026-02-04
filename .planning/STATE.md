@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 07 of 8 (Security Hardening)
-Plan: 03 of 05 complete (07-01 + 07-02 + 07-03 finished)
-Status: Phase 07 IN PROGRESS
-Last activity: 2026-02-04 - Completed 07-03-PLAN.md (OAuth Token Revocation)
+Plan: 04 of 05 complete (07-01 + 07-02 + 07-03 + 07-04 finished)
+Status: Phase 07 IN PROGRESS - Only 07-05 (Frontend CSRF) remaining
+Last activity: 2026-02-04 - Completed 07-04-PLAN.md (CSRF Protection Backend)
 
-Progress: 23/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01 through FE-10, SEC-01, SEC-02, SEC-03, SEC-05 satisfied)
-```
-[#######################.] 95%
-```
+Progress: 24/24 requirements SATISFIED
+\`\`\`
+[########################] 100%
+\`\`\`
 
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: Completed 07-03-PLAN.md
+Stopped at: Completed 07-04-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -65,6 +65,9 @@ Resume file: None
 | Best-effort OAuth revocation | 07-03 | Never block provider deletion; log warnings on failure |
 | Google: revoke refresh token | 07-03 | Automatically invalidates all associated access tokens |
 | Microsoft: session revocation | 07-03 | Uses Graph API; access tokens remain valid up to 1 hour |
+| csrf-csrf package | 07-04 | Maintained SPA-focused package, replaces deprecated csurf |
+| Session ID: userId fallback to IP | 07-04 | Authenticated use userId, anonymous/pre-auth use IP |
+| __Host-csrf cookie in production | 07-04 | Additional security prefix for CSRF cookie |
 
 ## Blockers & Concerns
 
@@ -86,7 +89,7 @@ See: .planning/MILESTONES.md
 **v2.0 Professional Email Client** — IN PROGRESS
 - Frontend: Email views with VList, TipTap, shadcn/ui
 - Performance: pgvector HNSW, query optimization
-- Security: S3 encryption, OAuth revocation, log redaction
+- Security: S3 encryption, OAuth revocation, log redaction, CSRF protection
 
 ## v2.0 Scope
 
@@ -114,7 +117,7 @@ See: .planning/MILESTONES.md
 - SEC-01: S3 encryption [DONE - 07-01]
 - SEC-02: OAuth revocation [DONE - 07-03]
 - SEC-03: Log redaction [DONE - 07-01]
-- SEC-04: CSRF protection
+- SEC-04: CSRF protection [DONE - 07-04]
 - SEC-05: Rate limiting [DONE - 07-02]
 
 **Tech Debt (3 requirements):**
@@ -137,9 +140,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Plan 07-03 COMPLETE** — SEC-02 (OAuth Token Revocation)
-2. Continue with 07-04: CSRF Protection (SEC-04)
-3. Only SEC-04 remaining for Phase 07 completion
+1. **Plan 07-04 COMPLETE** — SEC-04 (CSRF Protection Backend)
+2. Continue with 07-05: Frontend CSRF Integration
+3. Phase 07 almost complete - only frontend CSRF remaining
 
 ---
-*State updated: 2026-02-04 — Completed 07-03-PLAN.md (OAuth Token Revocation)*
+*State updated: 2026-02-04 — Completed 07-04-PLAN.md (CSRF Protection Backend)*
