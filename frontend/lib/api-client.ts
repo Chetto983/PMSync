@@ -1,6 +1,13 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth-store';
 
+// =============================================================================
+// CSRF Token Management (SEC-04)
+// =============================================================================
+// Stored in memory, not localStorage, to prevent XSS token theft
+let csrfToken: string | null = null;
+let csrfTokenPromise: Promise<string> | null = null;
+
 const apiBaseURL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : undefined);
@@ -24,6 +31,44 @@ export const apiClient = axios.create({
   // Increased to 90s to support RAG/AI operations
   timeout: 90000, // 90 seconds default
 });
+
+/**
+ * Fetch CSRF token from backend (SEC-04)
+ * Uses promise caching to prevent concurrent token fetches
+ */
+async function getCsrfToken(): Promise<string> {
+  if (csrfToken) {
+    return csrfToken;
+  }
+
+  // Prevent concurrent token fetches
+  if (csrfTokenPromise) {
+    return csrfTokenPromise;
+  }
+
+  csrfTokenPromise = axios
+    .get(`${apiBaseURL}/api/v1/auth/csrf-token`, { withCredentials: true })
+    .then((res) => {
+      csrfToken = res.data.csrfToken;
+      csrfTokenPromise = null;
+      return csrfToken!;
+    })
+    .catch((err) => {
+      csrfTokenPromise = null;
+      console.warn('Failed to fetch CSRF token:', err);
+      return '';
+    });
+
+  return csrfTokenPromise;
+}
+
+/**
+ * Clear cached CSRF token (SEC-04)
+ * Call on logout or 403 response to trigger re-fetch on next request
+ */
+export function clearCsrfToken(): void {
+  csrfToken = null;
+}
 
 /**
  * Helper to extract user-friendly error message from API errors
@@ -59,10 +104,10 @@ export function getApiErrorMessage(error: unknown): string {
   return 'An unexpected error occurred';
 }
 
-// Add token to requests
-apiClient.interceptors.request.use((config) => {
+// Add token and CSRF header to requests
+apiClient.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
-    // Read token from Zustand persist storage (auth-storage)
+    // Read auth token from Zustand persist storage (auth-storage)
     // Format: {"state":{"token":"..."},"version":0}
     const stored = localStorage.getItem('auth-storage');
     if (stored) {
@@ -76,11 +121,20 @@ apiClient.interceptors.request.use((config) => {
         // Invalid JSON, skip
       }
     }
+
+    // CSRF token for mutations (SEC-04)
+    const method = config.method?.toUpperCase();
+    if (method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+      const csrf = await getCsrfToken();
+      if (csrf) {
+        config.headers['X-CSRF-Token'] = csrf;
+      }
+    }
   }
   return config;
 });
 
-// Handle token expiration
+// Handle token expiration and CSRF errors
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -90,6 +144,10 @@ apiClient.interceptors.response.use(
         // Don't redirect here - let the RouteGuard in _app.tsx handle it
         // This preserves the 'next' parameter for OAuth callbacks
       }
+    }
+    // Clear CSRF token on 403 (might be expired/invalid) (SEC-04)
+    if (error.response?.status === 403) {
+      clearCsrfToken();
     }
     return Promise.reject(error);
   },
