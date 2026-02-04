@@ -146,3 +146,4 @@ backend/test/*
 data/*
 frontend/test-results/*
 frontend/.lighthouseci/
+*playwright*
