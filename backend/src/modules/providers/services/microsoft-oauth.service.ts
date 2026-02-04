@@ -42,6 +42,45 @@ export class MicrosoftOAuthService {
   }
 
   /**
+   * Revoke Microsoft sign-in sessions (SEC-02 - best effort)
+   * Note: Microsoft does NOT have a true token revocation API.
+   * This invalidates refresh tokens but access tokens remain valid up to 1 hour.
+   * @param accessToken - Valid access token to call Graph API
+   */
+  async revokeSession(accessToken: string): Promise<void> {
+    try {
+      const response = await fetch(
+        'https://graph.microsoft.com/v1.0/me/revokeSignInSessions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (response.ok) {
+        this.logger.log('Microsoft sign-in sessions revoked');
+      } else if (response.status === 403) {
+        // Permission not granted - expected for many OAuth apps
+        this.logger.debug(
+          'Microsoft session revocation not permitted (missing User.RevokeSessions.All)',
+        );
+      } else {
+        this.logger.warn(
+          `Microsoft session revocation returned ${response.status}: ${await response.text()}`,
+        );
+      }
+    } catch (error) {
+      // Best effort - don't fail disconnect
+      this.logger.warn(
+        `Microsoft session revocation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
    * Generate Microsoft OAuth2 authorization URL
    * Supports PKCE (Proof Key for Code Exchange) for enhanced security
    */
