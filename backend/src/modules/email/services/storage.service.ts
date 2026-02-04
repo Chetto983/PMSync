@@ -55,6 +55,7 @@ export class StorageService {
       Key: key,
       Body: body,
       ContentType: contentType,
+      ServerSideEncryption: 'AES256', // SEC-01: SSE-S3 encryption at rest
     });
     await this.client.send(command);
   }
@@ -112,6 +113,28 @@ export class StorageService {
         return false;
       }
       this.logger.warn(`HeadObject failed for ${key}: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
+  }
+
+  /**
+   * Verify that an object was stored with server-side encryption (SEC-01 audit)
+   */
+  async verifyEncryption(key: string): Promise<boolean> {
+    try {
+      const response = await this.client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        }),
+      );
+      const encrypted = response.ServerSideEncryption === 'AES256';
+      if (!encrypted) {
+        this.logger.warn(`S3 object ${key} is NOT encrypted with AES256`);
+      }
+      return encrypted;
+    } catch (err) {
+      this.logger.error(`Failed to verify encryption for ${key}: ${err instanceof Error ? err.message : String(err)}`);
       return false;
     }
   }
