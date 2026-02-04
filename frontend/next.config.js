@@ -1,3 +1,9 @@
+const bundleAnalyzer = require('@next/bundle-analyzer');
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -28,4 +34,9 @@ const nextConfig = {
   serverExternalPackages: ['dompurify'],
 };
 
-module.exports = nextConfig;
+// Wrap with bundle analyzer (enabled via ANALYZE=true)
+// Usage:
+//   Unix/Mac: ANALYZE=true npm run build
+//   Windows PowerShell: $env:ANALYZE="true"; npm run build
+//   Windows CMD: set ANALYZE=true && npm run build
+module.exports = withBundleAnalyzer(nextConfig);
