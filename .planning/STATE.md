@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 07 of 8 (Security Hardening)
-Plan: 01 of 05 complete (07-01-PLAN.md finished)
+Plan: 03 of 05 complete (07-01 + 07-02 + 07-03 finished)
 Status: Phase 07 IN PROGRESS
-Last activity: 2026-02-04 - Completed 07-01-PLAN.md (Log Redaction + S3 Encryption)
+Last activity: 2026-02-04 - Completed 07-03-PLAN.md (OAuth Token Revocation)
 
-Progress: 21/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01 through FE-10, SEC-01, SEC-03 satisfied)
+Progress: 23/24 requirements (PERF-01 through PERF-06, DEBT-01 through DEBT-03, FE-01 through FE-10, SEC-01, SEC-02, SEC-03, SEC-05 satisfied)
 ```
-[#####################...] 87%
+[#######################.] 95%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: Completed 07-01-PLAN.md
+Stopped at: Completed 07-03-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -62,6 +62,9 @@ Resume file: None
 | Separate DndContext for Kanban | 06-02 | Avoid conflicts with existing folder drag-drop system |
 | remove: false for log redaction | 07-01 | Keep keys visible for debugging while censoring values |
 | AES256 (SSE-S3) over SSE-KMS | 07-01 | Simpler, cheaper, sufficient for attachments |
+| Best-effort OAuth revocation | 07-03 | Never block provider deletion; log warnings on failure |
+| Google: revoke refresh token | 07-03 | Automatically invalidates all associated access tokens |
+| Microsoft: session revocation | 07-03 | Uses Graph API; access tokens remain valid up to 1 hour |
 
 ## Blockers & Concerns
 
@@ -109,10 +112,10 @@ See: .planning/MILESTONES.md
 
 **Security (5 requirements):**
 - SEC-01: S3 encryption [DONE - 07-01]
-- SEC-02: OAuth revocation
+- SEC-02: OAuth revocation [DONE - 07-03]
 - SEC-03: Log redaction [DONE - 07-01]
 - SEC-04: CSRF protection
-- SEC-05: Rate limiting
+- SEC-05: Rate limiting [DONE - 07-02]
 
 **Tech Debt (3 requirements):**
 - DEBT-01: ConversationAtomicityService wiring [DONE - 01-03]
@@ -134,9 +137,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Plan 07-01 COMPLETE** — SEC-01 (S3 encryption) and SEC-03 (log redaction)
-2. Continue with 07-02: OAuth Token Revocation (SEC-02)
-3. Remaining: 07-03 (Enhanced Encryption), 07-04 (CSRF), 07-05 (Rate Limiting)
+1. **Plan 07-03 COMPLETE** — SEC-02 (OAuth Token Revocation)
+2. Continue with 07-04: CSRF Protection (SEC-04)
+3. Only SEC-04 remaining for Phase 07 completion
 
 ---
-*State updated: 2026-02-04 — Completed 07-01-PLAN.md (Log Redaction + S3 Encryption)*
+*State updated: 2026-02-04 — Completed 07-03-PLAN.md (OAuth Token Revocation)*
