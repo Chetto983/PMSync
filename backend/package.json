@@ -69,6 +69,7 @@
     "class-validator": "^0.14.3",
     "cloudflare": "^5.2.0",
     "cookie-parser": "^1.4.7",
+    "csrf-csrf": "^4.0.3",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "google-auth-library": "^10.5.0",
