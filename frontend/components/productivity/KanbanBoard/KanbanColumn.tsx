@@ -124,7 +124,7 @@ export function KanbanColumn({
         />
       </Box>
 
-      {/* Cards container */}
+      {/* Cards container - scrollable */}
       <SortableContext
         items={items.map((item) => item.id)}
         strategy={verticalListSortingStrategy}
@@ -133,9 +133,26 @@ export function KanbanColumn({
           sx={{
             flex: 1,
             minHeight: 200,
+            maxHeight: 'calc(100vh - 280px)', // Header + stats + search = ~280px
+            overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
             gap: 1.5,
+            pr: 0.5, // Padding for scrollbar
+            // Custom scrollbar styling
+            '&::-webkit-scrollbar': {
+              width: 6,
+            },
+            '&::-webkit-scrollbar-track': {
+              bgcolor: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              bgcolor: 'action.hover',
+              borderRadius: 3,
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              bgcolor: 'action.selected',
+            },
           }}
         >
           {items.map((followUp) => (

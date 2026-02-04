@@ -1413,20 +1413,6 @@ export const en: AppTranslations = {
       showHelp: 'Show this help',
       commandPalette: 'Command palette',
     },
-    // Kanban View (Phase 06-02)
-    kanban: {
-      inbox: 'Inbox',
-      toReply: 'To Reply',
-      followingUp: 'Following Up',
-      done: 'Done',
-      emptyColumn: 'No emails',
-      dragHint: 'Drag emails here',
-    },
-    viewMode: {
-      list: 'List view',
-      kanban: 'Kanban view',
-    },
-
   },
   calendar: {
     title: 'Calendar',

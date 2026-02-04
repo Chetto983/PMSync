@@ -1311,19 +1311,6 @@ export interface AppTranslations {
       showHelp: string;
       commandPalette: string;
     };
-    // Kanban View (Phase 06-02)
-    kanban?: {
-      inbox: string;
-      toReply: string;
-      followingUp: string;
-      done: string;
-      emptyColumn: string;
-      dragHint: string;
-    };
-    viewMode?: {
-      list: string;
-      kanban: string;
-    };
   };
   calendar: {
     title: string;
