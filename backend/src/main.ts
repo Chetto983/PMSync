@@ -9,6 +9,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { getConfiguration } from './config/configuration';
+import { csrfMiddleware } from './common/middleware/csrf.middleware';
 
 /**
  * Bootstraps and starts the NestJS HTTP server with configured middleware, docs, legacy-route handling, and graceful shutdown.
@@ -90,10 +91,14 @@ async function bootstrap() {
       'X-Requested-With',
       'ngrok-skip-browser-warning',
       'x-webhook-token',
+      'X-CSRF-Token', // SEC-04: CSRF protection header
     ],
     optionsSuccessStatus: 204,
     preflightContinue: false,
   });
+
+  // CSRF Protection (SEC-04) - must be after cookieParser
+  app.use(csrfMiddleware);
 
   // Global pipes
   app.useGlobalPipes(
