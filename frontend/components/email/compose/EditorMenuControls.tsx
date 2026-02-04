@@ -78,8 +78,8 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
     minHeight: 44,
   };
 
-  // Secondary buttons (shown in More popover on mobile)
-  const SecondaryButtons = () => (
+  // Secondary buttons JSX (shown in More popover on mobile)
+  const secondaryButtonsContent = (
     <>
       <MenuSelectFontFamily
         options={[
@@ -279,7 +279,7 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
               alignItems: 'center',
             }}
           >
-            <SecondaryButtons />
+            {secondaryButtonsContent}
           </Box>
         </Popover>
       </MenuControlsContainer>
