@@ -40,9 +40,9 @@
 **Plans:** 3 plans (Wave 1 - all parallel)
 
 Plans:
-- [x] 01-01-PLAN.md — HNSW verification/benchmark + composite index migration ✓
-- [x] 01-02-PLAN.md — Parallelize folder counts + orphan embedding cleanup job ✓
-- [x] 01-03-PLAN.md — Atomicity wiring + PrismaRetry refactor + DEPRECATED annotations ✓
+- [x] 01-01-PLAN.md — HNSW verification/benchmark + composite index migration
+- [x] 01-02-PLAN.md — Parallelize folder counts + orphan embedding cleanup job
+- [x] 01-03-PLAN.md — Atomicity wiring + PrismaRetry refactor + DEPRECATED annotations
 
 **Status:** COMPLETE (2026-02-02) — 7/7 requirements verified
 
@@ -68,13 +68,13 @@ Plans:
 **Approach:** 30-minute verification sprint (Option B from research)
 
 Plans:
-- [x] 02-SUMMARY.md — Verification sprint complete ✓
+- [x] 02-SUMMARY.md — Verification sprint complete
 
 **Status:** COMPLETE (2026-02-02) — Research found 95% already implemented, verification confirmed patterns
 
 **Deliverables:**
-- Pattern audit: ✓ 0 API violations, 74 translation usages verified
-- Integration verification: ✓ Type-check passes
+- Pattern audit: 0 API violations, 74 translation usages verified
+- Integration verification: Type-check passes
 - Confidence for Phase 03: HIGH
 
 ---
@@ -92,14 +92,14 @@ Plans:
 **Dependencies:** Phase 02 (frontend setup)
 
 **Scope (RE-SCOPED):** Research found 90%+ already implemented. Focus on gaps:
-1. Add prefetch-on-hover to ThreadListItem.tsx (PERF-06) ✓
-2. Add prefetch-on-hover to FolderSidebar.tsx (PERF-06) ✓
-3. Verify toast rollback on optimistic update failure (PERF-05) ✓
+1. Add prefetch-on-hover to ThreadListItem.tsx (PERF-06)
+2. Add prefetch-on-hover to FolderSidebar.tsx (PERF-06)
+3. Verify toast rollback on optimistic update failure (PERF-05)
 
 **Plans:** 1 plan (Wave 1)
 
 Plans:
-- [x] 03-01-PLAN.md — Prefetch-on-hover + optimistic toast verification ✓
+- [x] 03-01-PLAN.md — Prefetch-on-hover + optimistic toast verification
 
 **Status:** COMPLETE (2026-02-02) — 4/4 requirements verified
 
@@ -129,9 +129,9 @@ Plans:
 **Plans:** 3 plans (Wave 1 - all parallel)
 
 Plans:
-- [x] 04-01-PLAN.md — AI keyboard shortcut (Cmd+J / Ctrl+J) ✓
-- [x] 04-02-PLAN.md — Mobile responsive toolbar with overflow menu ✓
-- [x] 04-03-PLAN.md — Mobile fullscreen compose dialog ✓
+- [x] 04-01-PLAN.md — AI keyboard shortcut (Cmd+J / Ctrl+J)
+- [x] 04-02-PLAN.md — Mobile responsive toolbar with overflow menu
+- [x] 04-03-PLAN.md — Mobile fullscreen compose dialog
 
 **Status:** COMPLETE (2026-02-03) — 2/2 requirements verified (FE-03, FE-10)
 
@@ -157,9 +157,9 @@ Plans:
 **Plans:** 3 plans (Wave 1 - all parallel)
 
 Plans:
-- [x] 05-01-PLAN.md — Multi-select store wiring + Shift+click range selection ✓
-- [x] 05-02-PLAN.md — Keyboard shortcuts completion + help dialog ✓
-- [x] 05-03-PLAN.md — Nested folder support (drag folder into folder) ✓
+- [x] 05-01-PLAN.md — Multi-select store wiring + Shift+click range selection
+- [x] 05-02-PLAN.md — Keyboard shortcuts completion + help dialog
+- [x] 05-03-PLAN.md — Nested folder support (drag folder into folder)
 
 **Status:** COMPLETE (2026-02-03) — 3/3 requirements verified (FE-04, FE-06, FE-07)
 
@@ -188,9 +188,9 @@ Plans:
 **Plans:** 3 plans (Wave 1 - all parallel)
 
 Plans:
-- [x] 06-01-PLAN.md — Dark mode toggle with light/dark/system options ✓
-- [x] 06-02-PLAN.md — Kanban toggle view with drag-drop columns ✓
-- [x] 06-03-PLAN.md — Search with filter parsing (from:, to:, has:attachment) ✓
+- [x] 06-01-PLAN.md — Dark mode toggle with light/dark/system options
+- [x] 06-02-PLAN.md — Kanban toggle view with drag-drop columns
+- [x] 06-03-PLAN.md — Search with filter parsing (from:, to:, has:attachment)
 
 **Status:** COMPLETE (2026-02-03) — 3/3 requirements verified (FE-05, FE-08, FE-09)
 
@@ -215,6 +215,17 @@ Plans:
 
 **Dependencies:** None (can run parallel with frontend phases)
 
+**Plans:** 5 plans
+
+Plans:
+- [x] 07-01-PLAN.md — S3 encryption + log redaction
+- [x] 07-02-PLAN.md — Rate limiting configuration
+- [x] 07-03-PLAN.md — OAuth token revocation
+- [x] 07-04-PLAN.md — CSRF protection backend
+- [x] 07-05-PLAN.md — CSRF frontend integration
+
+**Status:** COMPLETE (2026-02-04) — 5/5 requirements verified
+
 **Deliverables:**
 - S3 bucket encryption enabled
 - OAuth revocation on disconnect
@@ -226,24 +237,31 @@ Plans:
 
 ## Phase 08: Testing & Polish
 
-**Goal:** Ensure production readiness
-
-**Tasks:**
-- E2E tests for email flows (Playwright)
-- Performance audit (Lighthouse, manual)
-- Accessibility audit (axe-core)
-- Cross-browser testing
-- Mobile responsiveness check
-- Error handling review
-- Loading state review
+**Goal:** Ensure production readiness with comprehensive E2E tests, performance auditing, and accessibility compliance
 
 **Dependencies:** All previous phases
 
+**Plans:** 5 plans (Wave 1-3)
+
+Plans:
+- [ ] 08-01-PLAN.md — E2E infrastructure (Playwright config, auth setup, packages)
+- [ ] 08-02-PLAN.md — E2E core flow tests (auth, compose, search)
+- [ ] 08-03-PLAN.md — Accessibility testing (axe-core integration)
+- [ ] 08-04-PLAN.md — Performance & bundle analysis (Lighthouse CI)
+- [ ] 08-05-PLAN.md — CI workflow & final verification
+
+**Wave Structure:**
+- Wave 1: 08-01, 08-02 (parallel - infra and tests)
+- Wave 2: 08-03, 08-04 (parallel - a11y and perf, need infra)
+- Wave 3: 08-05 (CI workflow, needs all tests)
+
 **Deliverables:**
-- E2E test suite passing
-- Performance metrics documented
-- Accessibility issues fixed
-- Browser compatibility verified
+- E2E test suite for critical flows (auth, compose, search)
+- Cross-browser testing (Chromium, Firefox, Safari)
+- Mobile device testing (Pixel 7, iPhone 14)
+- Accessibility compliance (WCAG 2.1 AA via axe-core)
+- Performance baselines (Lighthouse CI)
+- GitHub Actions CI workflow
 
 ---
 
@@ -278,3 +296,4 @@ All phases complete ────────────────────
 
 ---
 *Roadmap created: 2026-02-02*
+*Phase 08 planned: 2026-02-04*
