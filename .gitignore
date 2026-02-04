@@ -138,6 +138,7 @@ frontend/screenshots/*
 .gitignore
 frontend/scripts/screenshot-dashboard.mjs
 frontend/playwright-report/index.html
+frontend/playwright/.auth/
 frontend/screenshots/*
 
 free-nextjs-admin-dashboard-main/*
