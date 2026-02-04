@@ -6,11 +6,12 @@ import {
   UseGuards,
   Request,
   Req,
+  Res,
   GoneException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from '../services/auth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -22,7 +23,8 @@ import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { SendOtpDto } from '../dtos/send-otp.dto';
 import { MfaChallengeDto, MfaChallengeResponseDto, WebAuthnLoginOptionsDto, WebAuthnLoginVerifyDto } from '../dtos/mfa.dto';
-import { Request as ExpressRequest } from 'express';
+import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import { generateCsrfToken } from '../../../common/middleware/csrf.middleware';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -175,6 +177,24 @@ export class AuthController {
   async resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body.token, body.newPassword);
   }
+
+  // ==================== CSRF TOKEN (SEC-04) ====================
+
+  /**
+   * Get CSRF token for form submissions (SEC-04)
+   * GET /auth/csrf-token
+   * Frontend should call this on page load and include token in X-CSRF-Token header
+   */
+  @Get('csrf-token')
+  @SkipThrottle() // Don't rate limit token fetches
+  @ApiOperation({ summary: 'Get CSRF token for form submissions' })
+  @ApiResponse({ status: 200, description: 'CSRF token for X-CSRF-Token header' })
+  getCsrfToken(@Req() req: ExpressRequest, @Res() res: ExpressResponse) {
+    const token = generateCsrfToken(req, res);
+    return res.json({ csrfToken: token });
+  }
+
+  // ==================== USER PROFILE ====================
 
   /**
    * Get current logged-in user with full profile

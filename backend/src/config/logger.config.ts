@@ -106,21 +106,44 @@ export const pinoLoggerConfig: Params = {
       err: pino.stdSerializers.err,
     },
 
-    // Redact sensitive info
+    // Redact sensitive info (SEC-03: OWASP-compliant credential protection)
     redact: {
       paths: [
+        // HTTP headers
         'req.headers.authorization',
         'req.headers.cookie',
+        'req.headers.x-api-key',
+        // Request body fields
         'req.body.password',
         'req.body.token',
         'req.body.secret',
+        'req.body.accessToken',
+        'req.body.refreshToken',
+        'req.body.apiKey',
+        'req.body.api_key',
+        'req.body.cvv',
+        'req.body.ssn',
+        'req.body.creditCard',
+        // Nested object patterns (catch-all for any depth)
         '*.password',
         '*.token',
         '*.secret',
         '*.accessToken',
         '*.refreshToken',
+        '*.access_token',
+        '*.refresh_token',
+        '*.apiKey',
+        '*.api_key',
+        '*.encryptionIv',
+        '*.tokenEncryptionIv',
+        '*.refreshTokenEncryptionIv',
+        '*.cvv',
+        '*.ssn',
+        '*.creditCard',
+        '*.credit_card',
       ],
-      remove: true,
+      censor: '[REDACTED]',
+      remove: false, // Keep key visible for debugging, only censor value
     },
 
     // Auto logging per HTTP requests

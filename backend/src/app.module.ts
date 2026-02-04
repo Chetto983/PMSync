@@ -3,8 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { getConfiguration } from './config/configuration';
+import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
+import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 import { validate } from './config/env.validation';
 import aiConfig from './config/ai.config';
 import { pinoLoggerConfig } from './config/logger.config';
@@ -31,8 +31,6 @@ import { LabelsModule } from './modules/labels/labels.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
-const config = getConfiguration();
-
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -45,13 +43,21 @@ const config = getConfiguration();
     LoggerModule.forRoot(pinoLoggerConfig),
     // Schedule Module - Per cron job di rotazione log
     ScheduleModule.forRoot(),
-    // Rate limiting: configurable defaults to keep protection but avoid false positives
-    ThrottlerModule.forRoot([
-      {
-        ttl: config.rateLimit.ttlMs,
-        limit: config.rateLimit.limit,
-      },
-    ]),
+    // Rate limiting: dual tiers for read (100/min) and write (30/min) operations (SEC-05)
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'short',
+          ttl: 60000, // 1 minute
+          limit: 100, // 100 req/min for read operations (default)
+        },
+        {
+          name: 'write',
+          ttl: 60000, // 1 minute
+          limit: 30, // 30 req/min for write operations
+        },
+      ],
+    }),
     CacheModule, // Redis-based caching for horizontal scaling
     ScheduledJobsModule, // BullMQ-based scheduled jobs for horizontal scaling
     PrismaModule,
@@ -81,6 +87,11 @@ const config = getConfiguration();
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseTimeInterceptor,
+    },
+    // Custom 429 response format with Retry-After header (SEC-05)
+    {
+      provide: APP_FILTER,
+      useClass: ThrottlerExceptionFilter,
     },
     // Log rotation service - gestione FIFO 2 giorni
     LogRotationService,
