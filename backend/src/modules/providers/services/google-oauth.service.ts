@@ -31,6 +31,39 @@ export class GoogleOAuthService {
   }
 
   /**
+   * Revoke a Google OAuth token (SEC-02)
+   * Revoking refresh token also invalidates associated access tokens.
+   * @param token - Refresh token or access token to revoke
+   */
+  async revokeToken(token: string): Promise<void> {
+    try {
+      const response = await fetch('https://oauth2.googleapis.com/revoke', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `token=${encodeURIComponent(token)}`,
+      });
+
+      if (response.ok) {
+        this.logger.log('Google OAuth token revoked successfully');
+      } else if (response.status === 400) {
+        // 400 = token already invalid/expired - not an error for us
+        this.logger.debug('Google token already invalid (ignoring 400)');
+      } else {
+        this.logger.warn(
+          `Google token revocation returned ${response.status}: ${await response.text()}`,
+        );
+      }
+    } catch (error) {
+      // Best effort - don't fail disconnect if revocation fails
+      this.logger.warn(
+        `Google token revocation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
    * Generate Google OAuth2 authorization URL
    * Supports PKCE (Proof Key for Code Exchange) for enhanced security
    */
