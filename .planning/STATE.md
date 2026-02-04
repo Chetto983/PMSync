@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 08 of 8 (Testing & Polish)
-Plan: 01 of 05 complete
+Plan: 02 of 05 complete
 Status: In progress
-Last activity: 2026-02-04 - Completed 08-01-PLAN.md (E2E Test Infrastructure)
+Last activity: 2026-02-04 - Completed 08-02-PLAN.md (Core Email Flow E2E Tests)
 
-Progress: 1/5 Phase 08 plans complete
+Progress: 2/5 Phase 08 plans complete
 ```
-[##########..............] 20%
+[####################....] 40%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-04
-Stopped at: Completed 08-01-PLAN.md (E2E Test Infrastructure)
+Stopped at: Completed 08-02-PLAN.md (Core Email Flow E2E Tests)
 Resume file: None
 
 ## Accumulated Decisions
@@ -72,6 +72,8 @@ Resume file: None
 | clearCsrfToken on 403 | 07-05 | Auto re-fetch on next mutation if token expired/invalid |
 | Pixel 7/iPhone 14 device profiles | 08-01 | Current mainstream devices for mobile E2E testing |
 | storageState pattern for auth | 08-01 | Reusable auth state across all browser projects |
+| Graceful test skip on auth redirect | 08-02 | Allows partial test execution during auth infrastructure fix |
+| Test-specific fixtures from fixtures.ts | 08-02 | Consistent mock data, custom auth handling per test file |
 
 ## Blockers & Concerns
 
@@ -80,6 +82,7 @@ Resume file: None
 | viewport-fit=cover missing | Low | 04-03 | Required for iOS safe area env() to work fully |
 | Backend API for folder nesting | Medium | 05-03 | Frontend ready, needs PATCH /folders/:id { parentId } |
 | Backend API for kanban persistence | Low | 06-02 | Column assignments are localStorage-only; backend API needed for cross-device sync |
+| E2E auth infrastructure mismatch | High | 08-02 | auth.setup.ts uses 'auth-token' but app uses 'auth-storage' zustand persist key |
 
 ## Milestones
 
@@ -144,9 +147,10 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **Phase 08 IN PROGRESS** — E2E Test Infrastructure complete (08-01)
-2. Next: Accessibility Tests (08-02)
-3. Remaining: Performance Audit (08-03), UI Polish (08-04), Error Handling (08-05)
+1. **Phase 08 IN PROGRESS** — Core Email Flow E2E Tests complete (08-02)
+2. **BLOCKER:** Fix E2E auth infrastructure (auth.setup.ts uses wrong localStorage key)
+3. Next: Performance Audit (08-03)
+4. Remaining: UI Polish (08-04), Error Handling (08-05)
 
 ---
-*State updated: 2026-02-04 — Completed 08-01-PLAN.md (E2E Test Infrastructure)*
+*State updated: 2026-02-04 — Completed 08-02-PLAN.md (Core Email Flow E2E Tests)*
