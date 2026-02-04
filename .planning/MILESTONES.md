@@ -1,19 +1,47 @@
 # Project Milestones: MailAgent
 
-## v2.0 Professional Email Client (In Progress)
+## v2.1 Optimization & Polish (In Progress)
 
-**Goal:** Build the best professional AI mail client — fast, intelligent, and secure.
+**Goal:** Performance optimization and polish items deferred from v2.0.
 
 **Scope:**
-- Frontend Email Client: VList virtualization, TipTap composer, kanban view, keyboard navigation
-- Performance: pgvector HNSW index, N+1 fixes, query optimization
-- Security: S3 encryption, OAuth revocation, log redaction
+- Performance: Code splitting for LCP/TTI budgets
+- Polish: iOS viewport-fit, search test completion
+- Backend: Folder nesting API
 
-**UI Vision:** Hybrid list/kanban combining Outlook enterprise feel + Superhuman speed + Apple Mail clean design
+**Requirements:** 5 total (PERF: 2, POLISH: 2, API: 1)
 
-**Requirements:** 24 total (FE: 10, PERF: 6, SEC: 5, DEBT: 3)
+**Started:** 2026-02-04
 
-**Started:** 2026-02-02
+---
+
+## v2.0 Professional Email Client (Shipped: 2026-02-04)
+
+**Delivered:** Best-in-class AI email client with enterprise polish and modern speed.
+
+**Phases completed:** 1-8 (21 plans total)
+
+**Key accomplishments:**
+
+- 24/24 requirements satisfied (FE: 10, PERF: 6, SEC: 5, DEBT: 3)
+- VList virtualization for 1000+ emails with 60fps scroll
+- TipTap rich composer with AI integration (Cmd+J shortcut)
+- Kanban toggle view with DnD columns
+- Keyboard navigation (Superhuman-style j/k/e/#/r/f//)
+- Multi-select with Shift+click range selection
+- Search with filter parsing (from:, to:, has:attachment)
+- Dark mode with system preference detection
+- pgvector HNSW index (<50ms similarity search)
+- S3 AES256 encryption + OAuth revocation + CSRF protection
+- 200 E2E tests across 5 browsers (Chromium, Firefox, WebKit, mobile)
+- 92/100 integration score
+
+**Stats:**
+
+- 8 phases, 21 plans
+- 2 days from start to ship (2026-02-02 → 2026-02-04)
+
+**Git tag:** `v2.0`
 
 ---
 
@@ -39,8 +67,8 @@
 - 8 phases, 40 plans, ~8 min average per plan
 - 3 days from start to ship (2026-01-31 → 2026-02-02)
 
-**Git range:** `feat(01-01)` → `docs(08)`
+**Git tag:** `v1`
 
 ---
 
-*Milestones log updated: 2026-02-02*
+*Milestones log updated: 2026-02-04*

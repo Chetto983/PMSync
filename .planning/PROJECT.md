@@ -10,9 +10,9 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ## Current State
 
-**Version:** v2.0 in progress
-**Status:** Milestone started (2026-02-02)
-**Base:** v1 backend stable (77% reduction in service file sizes)
+**Version:** v2.1 in progress
+**Status:** Milestone started (2026-02-04)
+**Base:** v2.0 shipped (24/24 requirements, 200 E2E tests)
 
 **Tech Stack:**
 - Backend: NestJS, PostgreSQL, Redis, BullMQ
@@ -26,6 +26,12 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 ### Validated
 
 <!-- Shipped and working -->
+
+**v2.0 - Professional Email Client (shipped 2026-02-04):**
+- ✓ FE-01 through FE-10: Complete frontend (VList, TipTap, kanban, keyboard nav, search, dark mode)
+- ✓ PERF-01 through PERF-06: Performance (HNSW, N+1 fix, prefetch, optimistic updates)
+- ✓ SEC-01 through SEC-05: Security (S3 encryption, OAuth revocation, CSRF, rate limiting)
+- ✓ DEBT-01 through DEBT-03: Tech debt cleanup (atomicity, retry, deprecation markers)
 
 **v1 - Stability & Code Quality Refactor (shipped 2026-02-02):**
 - ✓ FOUND-01 through FOUND-07: Foundation cleanup (sanitization, dead code, deprecation hook)
@@ -45,39 +51,18 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ### Active
 
-<!-- v2.0 scope -->
+<!-- v2.1 scope -->
 
-**Frontend Email Client:**
-- [ ] FE-01: Email list view with VList virtualization (1000+ emails smooth)
-- [ ] FE-02: Thread display with collapsible messages and animations
-- [ ] FE-03: Email composer with TipTap rich text editor
-- [ ] FE-04: Folder sidebar with drag-drop and folder management
-- [ ] FE-05: Kanban toggle view for workflow-based email management
-- [ ] FE-06: Keyboard navigation (Superhuman-style shortcuts)
-- [ ] FE-07: Multi-select with bulk actions (archive, delete, move, labels)
-- [ ] FE-08: Search with filters (from, to, date, has:attachment)
-- [ ] FE-09: Dark mode with system preference detection
-- [ ] FE-10: AI compose with subject generation and smart reply
+**Performance Optimization:**
+- [ ] OPT-01: Code splitting for LCP (target: 2.5s, current: 4.12s)
+- [ ] OPT-02: Code splitting for TTI (target: 3.5s, current: 4.13s)
 
-**Performance & Optimization:**
-- [ ] PERF-01: Add pgvector HNSW index for embedding similarity search
-- [ ] PERF-02: Fix N+1 query pattern for folder counts using groupBy
-- [ ] PERF-03: Add orphaned embedding cleanup job
-- [ ] PERF-04: Add composite indexes to Email table for common queries
-- [ ] PERF-05: Optimistic updates for instant UI feedback
-- [ ] PERF-06: Query prefetching for predictable navigation
+**Polish:**
+- [ ] POLISH-01: iOS viewport-fit=cover meta tag for safe areas
+- [ ] POLISH-02: Complete 7 skipped search filter E2E tests
 
-**Security Hardening:**
-- [ ] SEC-01: Enable S3 server-side encryption for attachments
-- [ ] SEC-02: Implement OAuth token revocation on provider disconnect
-- [ ] SEC-03: Add automatic log redaction for auth payloads
-- [ ] SEC-04: CSRF protection for all mutations
-- [ ] SEC-05: Rate limiting on frontend API routes
-
-**Tech Debt (carried from v1):**
-- [ ] DEBT-01: Wire ConversationAtomicityService to VoltAgent operations
-- [ ] DEBT-02: Integrate PrismaRetryService (replace inline retry logic)
-- [ ] DEBT-03: Add removal dates to ~15 legacy DEPRECATED markers
+**Backend API:**
+- [ ] API-01: PATCH /folders/:id { parentId } for folder nesting
 
 ### Out of Scope
 
@@ -146,4 +131,4 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | TipTap for rich compose | Best-in-class React editor, AI-friendly | v2.0 |
 
 ---
-*Last updated: 2026-02-02 — v2.0 milestone started*
+*Last updated: 2026-02-04 — v2.1 milestone started*
