@@ -193,9 +193,9 @@ test.describe('Search Filters', () => {
     );
     expect(response.ok()).toBe(true);
 
-    // Verify chip renders with "From" label
+    // Verify chip renders with "From" label (use aria-label for specificity)
     await expect(
-      page.getByRole('button', { name: /from.*alice/i })
+      page.getByRole('button', { name: /Remove filter:.*from.*alice/i })
     ).toBeVisible({ timeout: 10000 });
 
     // Verify filtered results (should show 2 emails from alice)
@@ -213,9 +213,9 @@ test.describe('Search Filters', () => {
       { timeout: 15000 }
     );
 
-    // Verify chip renders
+    // Verify chip renders (use aria-label for specificity)
     await expect(
-      page.getByRole('button', { name: /attachment/i })
+      page.getByRole('button', { name: /Remove filter:.*attachment/i })
     ).toBeVisible({ timeout: 10000 });
 
     // Verify filtered results (should show 2 emails with attachments)
@@ -237,9 +237,9 @@ test.describe('Search Filters', () => {
       { timeout: 15000 }
     );
 
-    // Verify chip renders with "Subject" label
+    // Verify chip renders with "Subject" label (use aria-label for specificity)
     await expect(
-      page.getByRole('button', { name: /subject.*meeting/i })
+      page.getByRole('button', { name: /Remove filter:.*subject.*meeting/i })
     ).toBeVisible({ timeout: 10000 });
 
     // Verify filtered results (should show 2 emails with "meeting" in subject)
@@ -257,12 +257,12 @@ test.describe('Search Filters', () => {
       { timeout: 15000 }
     );
 
-    // Both chips should render
+    // Both chips should render (use aria-label for specificity)
     await expect(
-      page.getByRole('button', { name: /from.*alice/i })
+      page.getByRole('button', { name: /Remove filter:.*from.*alice/i })
     ).toBeVisible({ timeout: 10000 });
     await expect(
-      page.getByRole('button', { name: /subject.*test/i })
+      page.getByRole('button', { name: /Remove filter:.*subject.*test/i })
     ).toBeVisible({ timeout: 10000 });
 
     // Verify combined filter results (alice + "test" in subject = 1 email)
@@ -280,13 +280,17 @@ test.describe('Search Filters', () => {
       { timeout: 15000 }
     );
 
-    // Find chip
-    const chip = page.getByRole('button', { name: /from.*alice/i });
+    // Find chip (use aria-label for specificity)
+    const chip = page.getByRole('button', { name: /Remove filter:.*from.*alice/i });
     await expect(chip).toBeVisible({ timeout: 10000 });
 
-    // Click delete icon on chip (MUI Chip has onDelete which renders delete icon)
-    const deleteIcon = chip.locator('svg').last();
-    await deleteIcon.click();
+    // Click the delete icon within the chip using Playwright's native locator
+    // MUI Chip delete icon has class .MuiChip-deleteIcon
+    const deleteIcon = chip.locator('.MuiChip-deleteIcon');
+    await deleteIcon.click({ force: true });
+
+    // Wait for state update and URL sync
+    await page.waitForTimeout(500);
 
     // Chip should disappear
     await expect(chip).not.toBeVisible({ timeout: 5000 });
@@ -305,16 +309,14 @@ test.describe('Search Filters', () => {
       { timeout: 15000 }
     );
 
-    // Verify both chips are visible
-    const fromChip = page.getByRole('button', { name: /from.*alice/i });
-    const attachmentChip = page.getByRole('button', { name: /attachment/i });
+    // Verify both chips are visible (use aria-label for specificity)
+    const fromChip = page.getByRole('button', { name: /Remove filter:.*from.*alice/i });
+    const attachmentChip = page.getByRole('button', { name: /Remove filter:.*attachment/i });
     await expect(fromChip).toBeVisible({ timeout: 10000 });
     await expect(attachmentChip).toBeVisible({ timeout: 10000 });
 
-    // Find and click clear button in search field
-    const searchField = page.getByTestId('email-search');
-    const clearButton = searchField.locator('button').first();
-
+    // Find and click clear button by aria-label (inside search field's endAdornment)
+    const clearButton = page.getByRole('button', { name: /clear/i });
     await expect(clearButton).toBeVisible({ timeout: 5000 });
     await clearButton.click();
 
