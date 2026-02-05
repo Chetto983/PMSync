@@ -163,6 +163,11 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
     <QueryProvider>
       <Head>
         <title>PMSync</title>
+        {/* iOS safe area support - must be in _app, not _document */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
       </Head>
       <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
