@@ -2,21 +2,21 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-04)
+See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** The best professional AI mail client — fast, intelligent, and secure
-**Current focus:** Ready for next milestone (v2.2 or v3.0)
+**Current focus:** v3.0 AI Intelligence & Scalability
 
 ## Current Position
 
-Phase: N/A (milestone complete)
-Plan: N/A
-Status: v2.1 shipped, ready for next milestone
-Last activity: 2026-02-05 - v2.1 milestone shipped
+Phase: Not started (defining requirements)
+Plan: —
+Status: Researching v3.0 scope
+Last activity: 2026-02-05 — Milestone v3.0 started
 
-Progress: v2.1 COMPLETE
+Progress: v3.0 STARTING
 ```
-[##############################] 100% SHIPPED
+[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% Researching
 ```
 
 ## Session Continuity
@@ -84,28 +84,33 @@ See: .planning/MILESTONES.md
 - 3 phases, 5 plans
 - 5 requirements (OPT-01/02, POLISH-01/02, API-01)
 
-## v2.1 Scope — SHIPPED
+## v3.0 Scope — IN PROGRESS
 
-**Performance (2 requirements):**
-- OPT-01: Code splitting for LCP [COMPLETE - infrastructure in place]
-- OPT-02: Code splitting for TTI [COMPLETE - Lighthouse CI monitoring]
+**AI Infrastructure:**
+- [ ] VoltAgent audit (align with official patterns)
+- [ ] Runtime agent spawning exploration
+- [ ] Vercel AI SDK evaluation/adoption
+- [ ] Tool consolidation
+- [ ] Chat fixes (slow, lost messages, context)
+- [ ] Scalability improvements
 
-**Polish (2 requirements):**
-- POLISH-01: iOS viewport-fit meta tag [COMPLETE]
-- POLISH-02: Search filter E2E tests [COMPLETE - structure, blocked by pre-existing bug]
+**UX/UI:**
+- [ ] AI interface UX/UI audit
+- [ ] Follow-ups UI refactor
+- [ ] Nested labels (backend + frontend)
 
-**Backend API (1 requirement):**
-- API-01: Folder nesting endpoint [COMPLETE - 12 unit tests]
+**Features:**
+- [ ] Auto-triage: priority scoring
+- [ ] Auto-triage: category assignment
+- [ ] Auto-triage: action suggestions
 
 ## Next Steps
 
-**v2.1 SHIPPED** — 3 phases, 5 plans, 1 day
-
-Use `/gsd:new-milestone` to start next milestone.
+**Currently:** Researching v3.0 scope
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-05 — v2.1 milestone shipped*
+*State updated: 2026-02-05 — v3.0 milestone started*

@@ -8,11 +8,23 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
+## Current Milestone: v3.0 AI Intelligence & Scalability
+
+**Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management.
+
+**Target features:**
+- VoltAgent alignment with official patterns + runtime agent spawning
+- Vercel AI SDK for modern chat UI (streaming, useChat)
+- Auto-triage with priority scoring, category assignment, action suggestions
+- Nested labels with tree hierarchy
+- Follow-ups UI refactor
+- Tool consolidation and UX/UI audit
+
 ## Current State
 
-**Version:** v2.1 shipped (2026-02-05)
-**Status:** Ready for next milestone
-**Base:** v2.1 shipped (5/5 requirements infrastructure complete)
+**Version:** v3.0 in progress
+**Status:** Defining requirements
+**Base:** v2.1 shipped (2026-02-05)
 
 **Tech Stack:**
 - Backend: NestJS, PostgreSQL, Redis, BullMQ
@@ -58,9 +70,25 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ### Active
 
-<!-- Next milestone scope - to be defined -->
+<!-- v3.0 AI Intelligence & Scalability -->
 
-*No active requirements. Use `/gsd:new-milestone` to define next milestone.*
+**AI Infrastructure:**
+- [ ] Audit VoltAgent integration against official patterns
+- [ ] Explore runtime agent spawning for parallel processing
+- [ ] Evaluate/adopt Vercel AI SDK for chat UI
+- [ ] Consolidate all AI tools (remove duplicates)
+- [ ] Fix chat interface (slow, lost messages, context issues)
+- [ ] Improve AI scalability for concurrent requests
+
+**UX/UI Improvements:**
+- [ ] Audit AI interface UX/UI design
+- [ ] Major refactor of follow-ups UI
+- [ ] Nested labels (backend + frontend tree hierarchy)
+
+**New Features:**
+- [ ] Auto-triage: priority scoring
+- [ ] Auto-triage: category assignment
+- [ ] Auto-triage: action suggestions
 
 ### Out of Scope
 
@@ -129,4 +157,4 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | TipTap for rich compose | Best-in-class React editor, AI-friendly | v2.0 |
 
 ---
-*Last updated: 2026-02-05 — v2.1 milestone shipped*
+*Last updated: 2026-02-05 — v3.0 milestone started*
