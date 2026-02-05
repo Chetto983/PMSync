@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 ## Current Position
 
 Phase: 01 of 3 (Performance Code Splitting)
-Plan: 00 of 02 (not started)
-Status: PLANNING
-Last activity: 2026-02-04 - v2.1 milestone created
+Plan: 01 of 02 (complete)
+Status: In progress
+Last activity: 2026-02-05 - Completed 01-01-PLAN.md (code splitting)
 
-Progress: 0/5 v2.1 requirements complete
+Progress: 1/5 v2.1 requirements complete
 ```
-[                              ] 0%
+[######                        ] 20%
 ```
 
 ## Session Continuity
 
-Last session: 2026-02-04
-Stopped at: v2.1 milestone setup complete
+Last session: 2026-02-05
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -44,6 +44,9 @@ Resume file: None
 | csrf-csrf package | v2.0-07-04 | Maintained SPA-focused package, replaces deprecated csurf |
 | Pixel 7/iPhone 14 device profiles | v2.0-08-01 | Current mainstream devices for mobile E2E testing |
 | fail-fast: false in CI matrix | v2.0-08-05 | Complete browser coverage even if one fails |
+| ssr: false for TipTap dynamic import | v2.1-01-01 | TipTap uses browser APIs (window, document) |
+| ssr: false for @dnd-kit dynamic import | v2.1-01-01 | @dnd-kit uses browser APIs (window, document) |
+| Reuse KanbanSkeleton for lazy load | v2.1-01-01 | Already exists with configurable columns/cards |
 
 ## Blockers & Concerns
 
@@ -87,9 +90,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **PLAN:** `/gsd:plan-phase 1` — Code splitting analysis + implementation
-2. **PARALLEL:** All 3 phases can run concurrently (no dependencies)
-3. **VERIFY:** Lighthouse CI for performance, E2E for search tests
+1. **EXECUTE:** 01-02-PLAN.md — Additional performance optimizations
+2. **PARALLEL:** Phases 02 and 03 can run concurrently
+3. **VERIFY:** Run Lighthouse after code splitting to measure LCP/TTI improvement
 
 ---
-*State updated: 2026-02-04 — v2.1 milestone setup complete*
+*State updated: 2026-02-05 — Completed 01-01-PLAN.md (code splitting)*
