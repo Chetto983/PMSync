@@ -37,8 +37,10 @@
 **Plans:** 2 plans (Wave 1 + Wave 2)
 
 Plans:
-- [ ] 01-01-PLAN.md — Bundle analysis + React.lazy implementation (Wave 1)
-- [ ] 01-02-PLAN.md — Route-based splitting + Lighthouse verification (Wave 2, depends on 01-01)
+- [x] 01-01-PLAN.md — Bundle analysis + React.lazy implementation (Wave 1) ✓
+- [x] 01-02-PLAN.md — Route-based splitting + Lighthouse verification (Wave 2) ✓
+
+**Status:** COMPLETE (2026-02-05) — 8/8 must-haves verified
 
 **Deliverables:**
 - Lazy-loaded non-critical widgets
