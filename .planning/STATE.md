@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 
 ## Current Position
 
-Phase: 01 of 3 (Performance Code Splitting)
-Plan: 01 of 02 (complete)
-Status: In progress
-Last activity: 2026-02-05 - Completed 01-01-PLAN.md (code splitting)
+Phase: 01 of 3 (Performance Code Splitting) - COMPLETE
+Plan: 02 of 02 (complete)
+Status: Phase complete
+Last activity: 2026-02-05 - Completed 01-02-PLAN.md (Lighthouse CI integration)
 
-Progress: 1/5 v2.1 requirements complete
+Progress: 2/5 v2.1 plans complete
 ```
-[######                        ] 20%
+[############                  ] 40%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 01-01-PLAN.md
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -47,6 +47,9 @@ Resume file: None
 | ssr: false for TipTap dynamic import | v2.1-01-01 | TipTap uses browser APIs (window, document) |
 | ssr: false for @dnd-kit dynamic import | v2.1-01-01 | @dnd-kit uses browser APIs (window, document) |
 | Reuse KanbanSkeleton for lazy load | v2.1-01-01 | Already exists with configurable columns/cards |
+| continue-on-error: true for Lighthouse CI | v2.1-01-02 | Don't block PRs until budgets verified achievable |
+| Separate lighthouse job in CI | v2.1-01-02 | Clearer separation, parallel execution, easy toggle |
+| 3 URLs tested by Lighthouse | v2.1-01-02 | Email, compose, follow-ups - key performance pages |
 
 ## Blockers & Concerns
 
@@ -90,9 +93,9 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-1. **EXECUTE:** 01-02-PLAN.md — Additional performance optimizations
-2. **PARALLEL:** Phases 02 and 03 can run concurrently
-3. **VERIFY:** Run Lighthouse after code splitting to measure LCP/TTI improvement
+1. **COMPLETE:** Phase 01 done (code splitting + Lighthouse CI)
+2. **PARALLEL:** Phases 02 (Polish) and 03 (API) can run concurrently
+3. **NOTE:** Lighthouse CI now runs on every PR; remove continue-on-error flag once targets verified
 
 ---
 *State updated: 2026-02-05 — Completed 01-01-PLAN.md (code splitting)*
