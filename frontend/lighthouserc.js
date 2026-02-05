@@ -14,6 +14,7 @@ module.exports = {
       url: [
         'http://localhost:3001/dashboard/email',
         'http://localhost:3001/dashboard/email/compose',
+        'http://localhost:3001/dashboard/ai/follow-ups',
       ],
       // Run 3 times for stability
       numberOfRuns: 3,
