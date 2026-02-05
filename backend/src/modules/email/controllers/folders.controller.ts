@@ -52,6 +52,12 @@ export class RenameFolderDto {
   newName: string;
 }
 
+export class MoveFolderDto {
+  @IsOptional()
+  @IsString()
+  parentId?: string | null;
+}
+
 export class FolderResponseDto {
   id: string;
   path: string;
@@ -611,18 +617,28 @@ Frontend can use this to avoid duplicating folder type logic.`,
 
   @Patch(':folderId')
   @Throttle({ default: { ttl: 60000, limit: 10 } }) // SEC-4: 10 requests per minute
-  @ApiOperation({ summary: 'Rename a folder' })
-  @ApiBody({ type: RenameFolderDto })
-  @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
-  @ApiResponse({ status: 200, description: 'Folder renamed successfully' })
+  @ApiOperation({ summary: 'Rename or move a folder' })
+  @ApiBody({
+    description: 'Rename folder (newName) or move folder (parentId) or both',
+    schema: {
+      type: 'object',
+      properties: {
+        newName: { type: 'string', minLength: 1, maxLength: 100, description: 'New name for the folder' },
+        parentId: { type: 'string', nullable: true, description: 'New parent folder ID (null = move to root)' },
+      },
+    },
+  })
+  @ApiQuery({ name: 'wait', required: false, description: 'Wait for rename operation to complete (default: true)' })
+  @ApiResponse({ status: 200, description: 'Folder updated successfully' })
   @ApiResponse({ status: 202, description: 'Folder rename job queued' })
   @ApiResponse({ status: 404, description: 'Folder not found' })
-  async renameFolder(
+  @ApiResponse({ status: 409, description: 'Cannot move system folder or circular reference' })
+  async updateFolder(
     @Request() req: AuthenticatedRequest,
     @Param('folderId') folderId: string,
-    @Body() dto: RenameFolderDto,
+    @Body() dto: RenameFolderDto & MoveFolderDto,
     @Query('wait') wait?: string,
-  ): Promise<FolderResponseDto | { jobId: string; status: string }> {
+  ): Promise<FolderResponseDto | { jobId: string; status: string } | { message: string }> {
     const tenantId = req.user.tenantId;
     const shouldWait = wait !== 'false'; // Default to waiting
 
@@ -641,52 +657,64 @@ Frontend can use this to avoid duplicating folder type logic.`,
       throw new NotFoundException('Folder not found');
     }
 
-    // Prevent renaming system folders
-    if (folder.specialUse && isSystemFolder(folder.specialUse)) {
-      throw new BadRequestException(`Cannot rename system folder: ${folder.specialUse}`);
+    // Handle move operation first (synchronous, no provider API call)
+    if (dto.parentId !== undefined) {
+      // Move operation validates system folders internally
+      await this.folderSyncService.moveFolder(folderId, dto.parentId, tenantId);
     }
 
-    // Validate new name
-    if (!dto.newName || dto.newName.trim().length === 0) {
-      throw new BadRequestException('New folder name is required');
+    // Handle rename operation (requires provider API call, uses queue)
+    if (dto.newName && dto.newName.trim().length > 0) {
+      // Prevent renaming system folders
+      if (folder.specialUse && isSystemFolder(folder.specialUse)) {
+        throw new BadRequestException(`Cannot rename system folder: ${folder.specialUse}`);
+      }
+
+      try {
+        // Add job to queue
+        const jobId = await this.folderQueue.addRenameFolderJob(
+          tenantId,
+          folder.providerId,
+          folder.provider.providerType as 'google' | 'microsoft' | 'generic',
+          folder.provider.email,
+          folder.path,
+          dto.newName.trim(),
+        );
+
+        // If not waiting, return job ID immediately
+        if (!shouldWait) {
+          return { jobId, status: 'queued' };
+        }
+
+        // Wait for job to complete (max 30 seconds)
+        const result = await this.folderQueue.waitForJob(jobId, 30000);
+
+        if (!result) {
+          throw new BadRequestException('Failed to rename folder: job not found');
+        }
+
+        if (!result.success) {
+          throw new BadRequestException(result.error || 'Failed to rename folder');
+        }
+
+        return {
+          id: result.folderId || folderId,
+          path: result.folderPath || folder.path,
+          name: result.folderName || dto.newName.trim(),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to rename folder';
+        throw new BadRequestException(message);
+      }
     }
 
-    try {
-      // Add job to queue
-      const jobId = await this.folderQueue.addRenameFolderJob(
-        tenantId,
-        folder.providerId,
-        folder.provider.providerType as 'google' | 'microsoft' | 'generic',
-        folder.provider.email,
-        folder.path,
-        dto.newName.trim(),
-      );
-
-      // If not waiting, return job ID immediately
-      if (!shouldWait) {
-        return { jobId, status: 'queued' };
-      }
-
-      // Wait for job to complete (max 30 seconds)
-      const result = await this.folderQueue.waitForJob(jobId, 30000);
-
-      if (!result) {
-        throw new BadRequestException('Failed to rename folder: job not found');
-      }
-
-      if (!result.success) {
-        throw new BadRequestException(result.error || 'Failed to rename folder');
-      }
-
-      return {
-        id: result.folderId || folderId,
-        path: result.folderPath || folder.path,
-        name: result.folderName || dto.newName.trim(),
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to rename folder';
-      throw new BadRequestException(message);
+    // If only move was performed (no rename)
+    if (dto.parentId !== undefined) {
+      return { message: 'Folder moved successfully' };
     }
+
+    // No operation specified
+    throw new BadRequestException('No operation specified (newName or parentId required)');
   }
 
   @Delete(':folderId')

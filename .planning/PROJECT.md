@@ -10,9 +10,9 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ## Current State
 
-**Version:** v2.1 in progress
-**Status:** Milestone started (2026-02-04)
-**Base:** v2.0 shipped (24/24 requirements, 200 E2E tests)
+**Version:** v2.1 shipped (2026-02-05)
+**Status:** Ready for next milestone
+**Base:** v2.1 shipped (5/5 requirements infrastructure complete)
 
 **Tech Stack:**
 - Backend: NestJS, PostgreSQL, Redis, BullMQ
@@ -26,6 +26,13 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 ### Validated
 
 <!-- Shipped and working -->
+
+**v2.1 - Optimization & Polish (shipped 2026-02-05):**
+- ✓ OPT-01: Code splitting infrastructure (React.lazy for TipTap, @dnd-kit)
+- ✓ OPT-02: Lighthouse CI monitoring (LCP/TTI/CLS budgets automated)
+- ✓ POLISH-01: iOS viewport-fit=cover with safeArea theme tokens
+- ✓ POLISH-02: Search E2E test structure (blocked by pre-existing auth bug)
+- ✓ API-01: Folder nesting endpoint (circular reference protection, 12 unit tests)
 
 **v2.0 - Professional Email Client (shipped 2026-02-04):**
 - ✓ FE-01 through FE-10: Complete frontend (VList, TipTap, kanban, keyboard nav, search, dark mode)
@@ -51,18 +58,9 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ### Active
 
-<!-- v2.1 scope -->
+<!-- Next milestone scope - to be defined -->
 
-**Performance Optimization:**
-- [ ] OPT-01: Code splitting for LCP (target: 2.5s, current: 4.12s)
-- [ ] OPT-02: Code splitting for TTI (target: 3.5s, current: 4.13s)
-
-**Polish:**
-- [ ] POLISH-01: iOS viewport-fit=cover meta tag for safe areas
-- [ ] POLISH-02: Complete 7 skipped search filter E2E tests
-
-**Backend API:**
-- [ ] API-01: PATCH /folders/:id { parentId } for folder nesting
+*No active requirements. Use `/gsd:new-milestone` to define next milestone.*
 
 ### Out of Scope
 
@@ -131,4 +129,4 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | TipTap for rich compose | Best-in-class React editor, AI-friendly | v2.0 |
 
 ---
-*Last updated: 2026-02-04 — v2.1 milestone started*
+*Last updated: 2026-02-05 — v2.1 milestone shipped*

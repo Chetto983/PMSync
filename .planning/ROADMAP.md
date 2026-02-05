@@ -83,13 +83,15 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 03-01-PLAN.md — Folder nesting endpoint with validation
+- [x] 03-01-PLAN.md — Folder nesting endpoint with validation ✓
+
+**Status:** COMPLETE (2026-02-05) — 12 unit tests passing
 
 **Deliverables:**
 - PATCH /api/folders/:id endpoint
 - Circular reference prevention
 - Tenant isolation validation
-- Unit tests
+- Unit tests (12 test cases)
 
 ---
 

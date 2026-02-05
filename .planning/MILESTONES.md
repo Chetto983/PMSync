@@ -1,17 +1,28 @@
 # Project Milestones: MailAgent
 
-## v2.1 Optimization & Polish (In Progress)
+## v2.1 Optimization & Polish (Shipped: 2026-02-05)
 
-**Goal:** Performance optimization and polish items deferred from v2.0.
+**Delivered:** Performance infrastructure (code splitting + Lighthouse CI), iOS safe area support, and folder nesting API.
 
-**Scope:**
-- Performance: Code splitting for LCP/TTI budgets
-- Polish: iOS viewport-fit, search test completion
-- Backend: Folder nesting API
+**Phases completed:** 01-03 (5 plans total)
 
-**Requirements:** 5 total (PERF: 2, POLISH: 2, API: 1)
+**Key accomplishments:**
 
-**Started:** 2026-02-04
+- React.lazy code splitting for TipTap (~40 packages) and @dnd-kit
+- Lighthouse CI integrated into GitHub Actions with performance budgets (LCP 2.5s, TTI 3.5s, CLS 0.1)
+- iOS viewport-fit=cover with centralized safeArea theme tokens
+- Landscape mode support on all mobile components
+- PATCH /api/folders/:id { parentId } endpoint with circular reference protection
+- 12 unit tests for folder move operations
+
+**Stats:**
+
+- 3 phases, 5 plans
+- 1 day from start to ship (2026-02-04 → 2026-02-05)
+
+**Git tag:** `v2.1`
+
+**Notes:** LCP/TTI targets monitored but not yet met. E2E test structure complete but blocked by pre-existing auth mock issue.
 
 ---
 

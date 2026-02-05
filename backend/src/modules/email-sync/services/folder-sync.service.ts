@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Folder } from '@prisma/client';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
@@ -141,5 +141,126 @@ export class FolderSyncService {
     else if (type === 'google') await this.gmailFolderService.deleteGmailFolder(providerId, externalId || folderPath);
     else if (type === 'microsoft') await this.microsoftFolderService.deleteMicrosoftFolder(providerId, externalId || folderPath);
     else throw new Error(`Unsupported provider type: ${type}`);
+  }
+
+  // ========== FOLDER MOVE OPERATIONS (API-01) ==========
+
+  /**
+   * Move a folder to a new parent or to root level.
+   * Updates folder hierarchy (parentId, level) and recursively updates children levels.
+   * This is a DB-only operation (no provider sync needed).
+   *
+   * @param folderId - The folder to move
+   * @param parentId - New parent ID (null = move to root)
+   * @param tenantId - Tenant ID for isolation
+   * @throws NotFoundException if folder or parent not found
+   * @throws ConflictException if circular reference or system folder
+   */
+  async moveFolder(folderId: string, parentId: string | null, tenantId: string): Promise<void> {
+    // 1. Validate folder exists and belongs to tenant
+    const folder = await this.prisma.folder.findFirst({
+      where: { id: folderId, tenantId },
+    });
+
+    if (!folder) {
+      throw new NotFoundException('Folder not found');
+    }
+
+    // 2. Protect system folders
+    if (folder.isSystem) {
+      throw new ConflictException('Cannot move system folders');
+    }
+
+    // 3. Handle move to root
+    if (parentId === null) {
+      await this.prisma.folder.update({
+        where: { id_tenantId: { id: folderId, tenantId } },
+        data: { parentId: null, level: 0 },
+      });
+      await this.updateChildrenLevels(folderId, 0, tenantId);
+      this.logger.log(`Moved folder ${folderId} to root`);
+      return;
+    }
+
+    // 4. Validate new parent exists and belongs to tenant
+    const parent = await this.prisma.folder.findFirst({
+      where: { id: parentId, tenantId },
+    });
+
+    if (!parent) {
+      throw new NotFoundException('Parent folder not found');
+    }
+
+    // 5. Check circular reference
+    if (await this.wouldCreateCircularReference(folderId, parentId, tenantId)) {
+      throw new ConflictException('Cannot create circular folder hierarchy');
+    }
+
+    // 6. Update folder parent and level
+    const newLevel = parent.level + 1;
+    await this.prisma.folder.update({
+      where: { id_tenantId: { id: folderId, tenantId } },
+      data: { parentId, level: newLevel },
+    });
+
+    // 7. Recursively update children levels
+    await this.updateChildrenLevels(folderId, newLevel, tenantId);
+    this.logger.log(`Moved folder ${folderId} to parent ${parentId} (level ${newLevel})`);
+  }
+
+  /**
+   * Check if moving a folder to a new parent would create a circular reference.
+   * Walks up the parent chain from newParentId to ensure folderId is not an ancestor.
+   */
+  private async wouldCreateCircularReference(
+    folderId: string,
+    newParentId: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    // Self-reference is circular
+    if (folderId === newParentId) {
+      return true;
+    }
+
+    // Walk up parent chain from newParentId
+    let currentParentId: string | null | undefined = newParentId;
+    while (currentParentId) {
+      if (currentParentId === folderId) {
+        return true; // Found folderId in ancestor chain
+      }
+
+      const parent: { parentId: string | null } | null = await this.prisma.folder.findFirst({
+        where: { id: currentParentId, tenantId },
+        select: { parentId: true },
+      });
+
+      currentParentId = parent?.parentId;
+    }
+
+    return false;
+  }
+
+  /**
+   * Recursively update levels of all descendant folders.
+   */
+  private async updateChildrenLevels(
+    parentFolderId: string,
+    parentLevel: number,
+    tenantId: string,
+  ): Promise<void> {
+    const children = await this.prisma.folder.findMany({
+      where: { parentId: parentFolderId, tenantId },
+      select: { id: true },
+    });
+
+    for (const child of children) {
+      const childLevel = parentLevel + 1;
+      await this.prisma.folder.update({
+        where: { id_tenantId: { id: child.id, tenantId } },
+        data: { level: childLevel },
+      });
+      // Recursively update grandchildren
+      await this.updateChildrenLevels(child.id, childLevel, tenantId);
+    }
   }
 }
