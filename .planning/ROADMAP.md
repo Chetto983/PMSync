@@ -66,7 +66,7 @@ Plans:
 - [ ] 02-02-PLAN.md — Search filter E2E test completion
 
 **Deliverables:**
-- viewport-fit=cover in _document.tsx
+- viewport-fit=cover in _app.tsx (per Next.js docs)
 - All 47 E2E tests passing (0 skipped)
 
 ---
