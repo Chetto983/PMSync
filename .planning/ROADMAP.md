@@ -34,11 +34,11 @@
 4. Add skeleton fallbacks
 5. Verify with Lighthouse CI
 
-**Plans:** 2 plans (Wave 1 - parallel)
+**Plans:** 2 plans (Wave 1 + Wave 2)
 
 Plans:
-- [ ] 01-01-PLAN.md — Bundle analysis + React.lazy implementation
-- [ ] 01-02-PLAN.md — Route-based splitting + Lighthouse verification
+- [ ] 01-01-PLAN.md — Bundle analysis + React.lazy implementation (Wave 1)
+- [ ] 01-02-PLAN.md — Route-based splitting + Lighthouse verification (Wave 2, depends on 01-01)
 
 **Deliverables:**
 - Lazy-loaded non-critical widgets
