@@ -31,6 +31,7 @@ import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters, useEmailUIStore } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
+import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import type { Email } from '@/lib/api/emails';
@@ -964,7 +965,7 @@ export default function EmailPage() {
               display: { xs: 'none', md: 'flex' }, // Hidden on mobile/tablet
               position: 'fixed',
               bottom: 24,
-              right: 24,
+              right: `calc(24px + ${safeArea.right})`, // Add safe area for landscape mode
               zIndex: 1200,
             }}
           >

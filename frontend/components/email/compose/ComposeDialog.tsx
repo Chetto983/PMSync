@@ -23,6 +23,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import { useTheme } from '@mui/material/styles';
+import { safeArea } from '@/theme/appTheme';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -575,10 +576,10 @@ export default function ComposeDialog({
           sx: {
             // iOS safe area handling for mobile fullscreen
             ...(isMobile && {
-              paddingTop: 'env(safe-area-inset-top)',
-              paddingBottom: 'env(safe-area-inset-bottom)',
-              paddingLeft: 'env(safe-area-inset-left)',
-              paddingRight: 'env(safe-area-inset-right)',
+              paddingTop: safeArea.top,
+              paddingBottom: safeArea.bottom,
+              paddingLeft: safeArea.left,
+              paddingRight: safeArea.right,
             }),
             // Fullscreen or mobile styles
             ...(isMobile || isFullscreen

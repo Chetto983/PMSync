@@ -24,6 +24,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
+import { safeArea } from '@/theme/appTheme';
 import {
   Flag,
   User,
@@ -132,8 +133,10 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
           maxHeight: '85vh',
-          // Safe area for notched phones
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          // Safe area for notched phones (bottom + landscape sides)
+          paddingBottom: safeArea.bottom,
+          paddingLeft: safeArea.left,
+          paddingRight: safeArea.right,
         },
       }}
     >

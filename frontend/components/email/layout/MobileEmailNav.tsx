@@ -20,6 +20,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
+import { safeArea } from '@/theme/appTheme';
 import {
   Inbox,
   PenSquare,
@@ -81,8 +82,10 @@ export function MobileEmailNav() {
           borderTop: 1,
           borderColor: 'divider',
           backgroundColor: 'background.paper',
-          // Safe area for notched phones
-          paddingBottom: 'env(safe-area-inset-bottom)',
+          // Safe area for notched phones (bottom + landscape sides)
+          paddingBottom: safeArea.bottom,
+          paddingLeft: safeArea.left,
+          paddingRight: safeArea.right,
         }}
       >
         <Box

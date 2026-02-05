@@ -440,6 +440,18 @@ export const breakpoints = {
   '2xl': 1536,
 } as const;
 
+// =============================================================================
+// SAFE AREA INSETS (iOS notch support)
+// =============================================================================
+
+export const safeArea = {
+  // Individual insets with 0px fallback for non-iOS
+  top: 'env(safe-area-inset-top, 0px)',
+  right: 'env(safe-area-inset-right, 0px)',
+  bottom: 'env(safe-area-inset-bottom, 0px)',
+  left: 'env(safe-area-inset-left, 0px)',
+} as const;
+
 // Export all tokens as default
 const tokens = {
   brand,
@@ -457,6 +469,7 @@ const tokens = {
   layout,
   zIndex,
   breakpoints,
+  safeArea,
 } as const;
 
 export default tokens;
