@@ -105,7 +105,7 @@ Phase 03 (Backend) ────────────────────�
 
 **Notes:**
 - All 3 phases can run in parallel (no dependencies)
-- Estimate: 3-5 plans total, ~1 day execution
+- Estimate: 5 plans total (2 + 2 + 1)
 - Small focused milestone for tech debt cleanup
 
 ---
@@ -121,3 +121,4 @@ Phase 03 (Backend) ────────────────────�
 
 ---
 *Roadmap created: 2026-02-04*
+*Roadmap updated: 2026-02-05 — Phase 03 planned*
