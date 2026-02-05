@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -17,6 +18,7 @@ import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
 import Collapse from '@mui/material/Collapse';
+import Skeleton from '@mui/material/Skeleton';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -41,8 +43,22 @@ import {
   useEmailDraft,
 } from '@/hooks/queries/use-emails';
 import { fileToBase64, type DraftAttachmentDto } from '@/lib/api/emails';
-import ComposeEditor from './ComposeEditor';
 import ComposeRecipients, { type Recipient } from './ComposeRecipients';
+
+// Lazy load ComposeEditor - contains heavy TipTap dependencies (~40 packages)
+// TipTap uses browser APIs (window, document) so SSR must be disabled
+const ComposeEditor = dynamic(
+  () => import('./ComposeEditor'),
+  {
+    loading: () => (
+      <Box sx={{ p: 2, minHeight: 300 }}>
+        <Skeleton variant="rectangular" height={40} sx={{ mb: 1, borderRadius: 1 }} />
+        <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 1 }} />
+      </Box>
+    ),
+    ssr: false,
+  }
+);
 import ComposeAttachments, { type Attachment } from './ComposeAttachments';
 import ScheduleSendDialog from './ScheduleSendDialog';
 import logger from '@/lib/logger';
