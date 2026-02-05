@@ -1,48 +1,206 @@
 /**
- * Email Search E2E Tests - Real API
+ * Email Search E2E Tests
  *
- * Tests for search filter functionality with real API calls:
+ * Tests for search filter functionality:
  * - Filter chip parsing (from:, to:, has:attachment, subject:)
  * - Filter chip removal (X button, clear all)
  * - Combined filters
  * - Invalid filter handling
  *
  * Prerequisites:
- * - Test user must have emails matching filter criteria (see docs/E2E_TEST_DATA.md)
  * - Auth state from setup project (playwright/.auth/user.json)
+ * - API mocks for email endpoints (included in test)
  *
- * These tests use real API calls - no mocks for email endpoints.
  * Tests run sequentially to avoid tenant data race conditions.
+ * Tests use URL navigation for filter state.
  */
 
 import { test, expect } from '@playwright/test';
 
-test.describe('Search Filters - Real API', () => {
-  // Sequential execution for shared tenant data safety
+// Test data for search filtering
+const searchMockEmails = [
+  {
+    id: 'email-1',
+    from: 'alice@example.com',
+    to: ['user@test.com'],
+    subject: 'Test Project Update',
+    snippet: 'This is a test email from Alice',
+    bodyText: 'This is a test email from Alice for testing',
+    bodyHtml: '<p>This is a test email from Alice for testing</p>',
+    receivedAt: new Date().toISOString(),
+    isRead: false,
+    isFlagged: false,
+    isStarred: false,
+    providerId: 'provider-1',
+    attachments: [],
+    emailLabels: [],
+  },
+  {
+    id: 'email-2',
+    from: 'bob@example.com',
+    to: ['user@test.com'],
+    subject: 'Meeting Tomorrow',
+    snippet: 'Can we meet tomorrow?',
+    bodyText: 'Can we meet tomorrow?',
+    bodyHtml: '<p>Can we meet tomorrow?</p>',
+    receivedAt: new Date(Date.now() - 1800000).toISOString(),
+    isRead: true,
+    isFlagged: false,
+    isStarred: false,
+    providerId: 'provider-1',
+    attachments: [{ id: 'att-1', filename: 'agenda.pdf', size: 50000 }],
+    emailLabels: [],
+  },
+  {
+    id: 'email-3',
+    from: 'alice@example.com',
+    to: ['user@test.com'],
+    subject: 'Weekly Meeting Notes',
+    snippet: 'Here are the meeting notes',
+    bodyText: 'Here are the meeting notes',
+    bodyHtml: '<p>Here are the meeting notes</p>',
+    receivedAt: new Date(Date.now() - 3600000).toISOString(),
+    isRead: true,
+    isFlagged: true,
+    isStarred: false,
+    providerId: 'provider-1',
+    attachments: [{ id: 'att-2', filename: 'notes.docx', size: 25000 }],
+    emailLabels: [],
+  },
+];
+
+/**
+ * Setup mocks for a page - includes auth and email endpoints
+ */
+async function setupMocks(page: import('@playwright/test').Page) {
+  // Mock auth endpoint - use **/* pattern to ensure match
+  await page.route('**/auth/me', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'user-1',
+        email: 'user@test.com',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'admin',
+        tenantId: 'tenant-1',
+      }),
+    });
+  });
+
+  // Mock email endpoint with search filtering
+  await page.route('**/emails**', (route) => {
+    const url = new URL(route.request().url());
+    const search = url.searchParams.get('search') || url.searchParams.get('query') || '';
+
+    let filteredEmails = [...searchMockEmails];
+
+    // Filter by "from:" prefix
+    const fromMatch = search.match(/from:(\S+)/i);
+    if (fromMatch) {
+      const fromFilter = fromMatch[1].toLowerCase();
+      filteredEmails = filteredEmails.filter((e) =>
+        e.from.toLowerCase().includes(fromFilter)
+      );
+    }
+
+    // Filter by "subject:" prefix
+    const subjectMatch = search.match(/subject:(\S+)/i);
+    if (subjectMatch) {
+      const subjectFilter = subjectMatch[1].toLowerCase();
+      filteredEmails = filteredEmails.filter((e) =>
+        e.subject.toLowerCase().includes(subjectFilter)
+      );
+    }
+
+    // Filter by "has:attachment"
+    if (search.toLowerCase().includes('has:attachment')) {
+      filteredEmails = filteredEmails.filter((e) => e.attachments.length > 0);
+    }
+
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        emails: filteredEmails,
+        total: filteredEmails.length,
+        page: 1,
+        limit: 50,
+      }),
+    });
+  });
+
+  // Mock folders endpoint
+  await page.route('**/email/folders**', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        foldersByProvider: {
+          'provider-1': [
+            { id: 'folder-inbox', name: 'INBOX', path: 'INBOX', type: 'INBOX' },
+          ],
+        },
+      }),
+    });
+  });
+
+  // Mock other required endpoints
+  await page.route('**/contacts/sender-photos**', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({}),
+    });
+  });
+
+  await page.route('**/labels**', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ labels: [] }),
+    });
+  });
+
+  await page.route('**/voltagent/**', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ actions: [], total: 0 }),
+    });
+  });
+}
+
+test.describe('Search Filters', () => {
+  // Sequential execution for shared state
   test.describe.configure({ mode: 'serial' });
 
+  // Set up mocks before each test
+  test.beforeEach(async ({ page }) => {
+    await setupMocks(page);
+  });
+
   test('from: filter shows filtered results', async ({ page }) => {
-    // Navigate with search param - triggers real API call with filter
+
+    // Navigate with search param - URL-based filter state
     await page.goto('/dashboard/email?search=from:alice');
 
-    // Wait for API response (real backend call)
-    await page.waitForResponse(
+    // Wait for API response
+    const response = await page.waitForResponse(
       (res) => res.url().includes('/emails') && res.status() === 200,
       { timeout: 15000 }
     );
+    expect(response.ok()).toBe(true);
 
     // Verify chip renders with "From" label
     await expect(
       page.getByRole('button', { name: /from.*alice/i })
     ).toBeVisible({ timeout: 10000 });
 
-    // Verify email list shows results (at least search field works)
+    // Verify filtered results (should show 2 emails from alice)
     const emailList = page.locator('[data-testid="thread-list-item"]');
-    // If there are results, verify they're visible. If no results, that's OK too.
-    const count = await emailList.count();
-    if (count > 0) {
-      await expect(emailList.first()).toBeVisible();
-    }
+    await expect(emailList).toHaveCount(2, { timeout: 10000 });
   });
 
   test('has:attachment filter shows only emails with attachments', async ({ page }) => {
@@ -55,20 +213,18 @@ test.describe('Search Filters - Real API', () => {
       { timeout: 15000 }
     );
 
-    // Verify chip renders - "Has attachment" or contains "attachment"
+    // Verify chip renders
     await expect(
       page.getByRole('button', { name: /attachment/i })
     ).toBeVisible({ timeout: 10000 });
 
-    // If there are results, verify attachment indicator is visible
+    // Verify filtered results (should show 2 emails with attachments)
     const emailItems = page.locator('[data-testid="thread-list-item"]');
-    const count = await emailItems.count();
-    if (count > 0) {
-      // At least one result should have attachment icon
-      await expect(
-        page.locator('[data-testid="attachment-icon"]').first()
-      ).toBeVisible({ timeout: 5000 });
-    }
+    await expect(emailItems).toHaveCount(2, { timeout: 10000 });
+
+    // Each result should have attachment icon
+    const attachmentIcons = page.locator('[data-testid="attachment-icon"]');
+    await expect(attachmentIcons).toHaveCount(2, { timeout: 5000 });
   });
 
   test('subject: filter shows filtered results', async ({ page }) => {
@@ -85,6 +241,10 @@ test.describe('Search Filters - Real API', () => {
     await expect(
       page.getByRole('button', { name: /subject.*meeting/i })
     ).toBeVisible({ timeout: 10000 });
+
+    // Verify filtered results (should show 2 emails with "meeting" in subject)
+    const emailList = page.locator('[data-testid="thread-list-item"]');
+    await expect(emailList).toHaveCount(2, { timeout: 10000 });
   });
 
   test('combined filters (from: AND subject:) work together', async ({ page }) => {
@@ -104,6 +264,10 @@ test.describe('Search Filters - Real API', () => {
     await expect(
       page.getByRole('button', { name: /subject.*test/i })
     ).toBeVisible({ timeout: 10000 });
+
+    // Verify combined filter results (alice + "test" in subject = 1 email)
+    const emailList = page.locator('[data-testid="thread-list-item"]');
+    await expect(emailList).toHaveCount(1, { timeout: 10000 });
   });
 
   test('chip X button removes filter', async ({ page }) => {
@@ -116,24 +280,18 @@ test.describe('Search Filters - Real API', () => {
       { timeout: 15000 }
     );
 
-    // Find chip and click its delete button (the X icon via MUI Chip's onDelete)
+    // Find chip
     const chip = page.getByRole('button', { name: /from.*alice/i });
     await expect(chip).toBeVisible({ timeout: 10000 });
 
-    // MUI Chip has a delete icon (SVG) that triggers onDelete
-    // Click the SVG delete icon within the chip
-    const deleteIcon = chip.locator('svg.MuiChip-deleteIcon, [data-testid="CancelIcon"]');
-    if (await deleteIcon.isVisible()) {
-      await deleteIcon.click();
-    } else {
-      // Fallback: find any SVG in the chip area (MUI uses different structures)
-      await chip.locator('svg').last().click();
-    }
+    // Click delete icon on chip (MUI Chip has onDelete which renders delete icon)
+    const deleteIcon = chip.locator('svg').last();
+    await deleteIcon.click();
 
     // Chip should disappear
     await expect(chip).not.toBeVisible({ timeout: 5000 });
 
-    // URL should update (no search param or empty)
+    // URL should update (no search param)
     await expect(page).not.toHaveURL(/search=from/);
   });
 
@@ -153,30 +311,26 @@ test.describe('Search Filters - Real API', () => {
     await expect(fromChip).toBeVisible({ timeout: 10000 });
     await expect(attachmentChip).toBeVisible({ timeout: 10000 });
 
-    // Find and click clear button in search field (X icon in the TextField)
+    // Find and click clear button in search field
     const searchField = page.getByTestId('email-search');
     const clearButton = searchField.locator('button').first();
 
-    if (await clearButton.isVisible()) {
-      await clearButton.click();
+    await expect(clearButton).toBeVisible({ timeout: 5000 });
+    await clearButton.click();
 
-      // Wait a moment for state to update
-      await page.waitForTimeout(500);
+    // Wait for state update
+    await page.waitForTimeout(500);
 
-      // All chips should disappear
-      await expect(fromChip).not.toBeVisible({ timeout: 5000 });
-      await expect(attachmentChip).not.toBeVisible({ timeout: 5000 });
-    } else {
-      // If no clear button visible, the test passes (might be due to empty state)
-      expect(true).toBe(true);
-    }
+    // All chips should disappear
+    await expect(fromChip).not.toBeVisible({ timeout: 5000 });
+    await expect(attachmentChip).not.toBeVisible({ timeout: 5000 });
   });
 
   test('invalid filter shows input without chip', async ({ page }) => {
     // Navigate with incomplete filter (no value after colon)
     await page.goto('/dashboard/email?search=from:');
 
-    // Wait for API response (might be empty results)
+    // Wait for API response
     await page.waitForResponse(
       (res) => res.url().includes('/emails'),
       { timeout: 15000 }
@@ -191,7 +345,6 @@ test.describe('Search Filters - Real API', () => {
     await expect(searchInput).toHaveValue('from:');
 
     // No chip should render for incomplete filter
-    // Check that there's no chip with just "From:" (incomplete)
     const incompleteChip = page.getByRole('button', { name: /^from:$/i });
     await expect(incompleteChip).not.toBeVisible({ timeout: 2000 });
   });

@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-04)
 
 ## Current Position
 
-Phase: 01 of 3 (Performance Code Splitting) - COMPLETE
-Plan: 02 of 02 (complete)
-Status: Phase complete
-Last activity: 2026-02-05 - Completed 01-02-PLAN.md (Lighthouse CI integration)
+Phase: 02 of 3 (Polish & Completion)
+Plan: 01 of 02 (complete)
+Status: In progress
+Last activity: 2026-02-05 - Completed 02-01-PLAN.md (iOS Safe Area)
 
-Progress: 2/5 v2.1 plans complete
+Progress: 3/5 v2.1 plans complete
 ```
-[############                  ] 40%
+[##################            ] 60%
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 01-02-PLAN.md
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -50,6 +50,9 @@ Resume file: None
 | continue-on-error: true for Lighthouse CI | v2.1-01-02 | Don't block PRs until budgets verified achievable |
 | Separate lighthouse job in CI | v2.1-01-02 | Clearer separation, parallel execution, easy toggle |
 | 3 URLs tested by Lighthouse | v2.1-01-02 | Email, compose, follow-ups - key performance pages |
+| 0px fallback for safe area insets | v2.1-02-01 | Non-iOS devices automatically get 0px |
+| Landscape safe area (left/right) | v2.1-02-01 | Support iPhone landscape mode on all mobile components |
+| calc() for Desktop FAB safe area | v2.1-02-01 | Preserve 24px base spacing while adding safe area |
 
 ## Blockers & Concerns
 
@@ -58,14 +61,13 @@ Resume file: None
 | LCP exceeds budget (4.12s vs 2.5s) | High | v2.1-01 | Primary v2.1 target |
 | TTI exceeds budget (4.13s vs 3.5s) | High | v2.1-01 | Primary v2.1 target |
 | 7 search filter tests skipped | Medium | v2.1-02 | POLISH-02 target |
-| viewport-fit=cover missing | Low | v2.1-02 | POLISH-01 target |
 | Backend API for folder nesting | Low | v2.1-03 | API-01 target |
 
 ## Milestones
 
 See: .planning/MILESTONES.md
 
-**v2.0 Professional Email Client** — SHIPPED 2026-02-04 🎉
+**v2.0 Professional Email Client** — SHIPPED 2026-02-04
 - 8 phases, 21 plans
 - 24/24 requirements satisfied
 - 200 E2E tests across 5 browsers
@@ -85,7 +87,7 @@ See: .planning/MILESTONES.md
 - OPT-02: Code splitting for TTI [target]
 
 **Polish (2 requirements):**
-- POLISH-01: iOS viewport-fit meta tag [target]
+- POLISH-01: iOS viewport-fit meta tag [COMPLETE]
 - POLISH-02: Search filter E2E tests [target]
 
 **Backend API (1 requirement):**
@@ -94,8 +96,9 @@ See: .planning/MILESTONES.md
 ## Next Steps
 
 1. **COMPLETE:** Phase 01 done (code splitting + Lighthouse CI)
-2. **PARALLEL:** Phases 02 (Polish) and 03 (API) can run concurrently
-3. **NOTE:** Lighthouse CI now runs on every PR; remove continue-on-error flag once targets verified
+2. **COMPLETE:** Plan 02-01 done (iOS safe area)
+3. **NEXT:** Plan 02-02 (Search Filter E2E Tests)
+4. **PARALLEL:** Phase 03 (API) can run concurrently with 02-02
 
 ---
-*State updated: 2026-02-05 — Completed 01-01-PLAN.md (code splitting)*
+*State updated: 2026-02-05 — Completed 02-01-PLAN.md (iOS Safe Area)*
