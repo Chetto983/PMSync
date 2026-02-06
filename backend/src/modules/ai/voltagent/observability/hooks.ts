@@ -29,6 +29,16 @@ export interface HitlPendingAction {
   confidence?: number;
 }
 
+/**
+ * Tool metrics data for Prometheus instrumentation
+ */
+export interface ToolMetrics {
+  toolName: string;
+  durationSeconds: number;
+  status: 'success' | 'error';
+  agentName: string;
+}
+
 export interface ObservabilityOptions {
   /** Logger instance for observability events */
   logger?: {
@@ -49,6 +59,11 @@ export interface ObservabilityOptions {
    * This captures sub-agent tool results that would otherwise be lost during delegation.
    */
   onPendingAction?: (action: HitlPendingAction) => Promise<void>;
+  /**
+   * VOLT-04: Callback for tool execution metrics (Prometheus).
+   * Called on every tool completion with duration and status.
+   */
+  onToolMetrics?: (metrics: ToolMetrics) => void;
 }
 
 export interface AgentMetrics {
@@ -113,7 +128,7 @@ interface OperationTracking {
 }
 
 export function createObservabilityHooks(options: ObservabilityOptions = {}): DisposableHooks {
-  const { logger, logToolCalls = true, trackUsage = true, onMetrics, onPendingAction } = options;
+  const { logger, logToolCalls = true, trackUsage = true, onMetrics, onPendingAction, onToolMetrics } = options;
 
   // Track operations with TTL cleanup for >1000 tenants
   const operations = new Map<string, OperationTracking>();
@@ -299,11 +314,24 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
      *
      * CRITICAL: This hook captures requiresApproval tool results from sub-agents
      * that would otherwise be lost during delegate_task execution.
+     *
+     * VOLT-04: Records tool metrics for Prometheus instrumentation.
      */
     onToolEnd: async ({ agent, tool, output, error, context }) => {
       // Calculate tool duration
       const toolStartTime = (context as Record<string, unknown>).__toolStartTime as number | undefined;
       const toolDuration = toolStartTime ? Date.now() - toolStartTime : 0;
+      const toolDurationSeconds = toolDuration / 1000;
+
+      // VOLT-04: Record tool metrics via callback (for Prometheus)
+      if (onToolMetrics) {
+        onToolMetrics({
+          toolName: tool.name,
+          durationSeconds: toolDurationSeconds,
+          status: error ? 'error' : 'success',
+          agentName: agent.name,
+        });
+      }
 
       // PERF: Log tool completion with duration
       logger?.info(`[PERF] Tool END: ${tool.name} | duration=${toolDuration}ms | agent=${agent.name} | error=${!!error}`, {

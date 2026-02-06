@@ -234,6 +234,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       trackUsage: true,
       // Delegate metrics collection to AgentMetricsService (extracted 2026-01-22)
       onMetrics: (metrics) => this.agentMetricsService?.collectMetrics(metrics),
+      // VOLT-04: Record tool execution metrics to Prometheus (2026-02-06)
+      onToolMetrics: (toolMetrics) => {
+        this.agentMetricsService?.recordToolDuration(
+          toolMetrics.toolName,
+          toolMetrics.status,
+          toolMetrics.durationSeconds,
+        );
+      },
       // Capture HITL pending actions from tool results (including sub-agents)
       onPendingAction: async (action) => {
         if (!this.hitlService) {
@@ -386,11 +394,24 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    * Performance Optimizations:
    * - Semantic caching: Returns cached response if similar query exists
    * - Model routing: Selects optimal model based on task complexity
+   *
+   * VOLT-04: Prometheus metrics instrumentation (2026-02-06)
+   * - Records chat duration via ai_chat_response_duration_seconds histogram
+   * - Records errors via ai_errors_total counter
+   * - Records token usage via ai_tokens_total counter
    */
   async chat(message: string, options: ChatOptions): Promise<ChatResult> {
     const startTime = Date.now();
     // PERF: Timing instrumentation for performance debugging
     const timings: Record<string, number> = {};
+
+    // VOLT-04: Start Prometheus timer for chat duration
+    // Note: intent defaults to 'unknown' until ChatPrepareService detects it
+    // Use imported MetricTimer type instead of typeof with optional chain
+    let prometheusTimer: import('./services/agent-metrics.service').MetricTimer | undefined;
+    let detectedIntent = 'unknown';
+    let detectedModel = options.model || 'unknown';
+    let detectedAgent = 'Supervisor';
 
     // Use ChatPrepareService for consolidated setup (refactored 2026-01-27)
     if (!this.chatPrepareService) {
@@ -402,18 +423,30 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     try {
       ctx = await this.chatPrepareService.prepare(message, options, this.memory, this.observabilityHooks);
       timings['1_prepare'] = Date.now() - prepareStart;
+
+      // VOLT-04: Update Prometheus labels with detected values
+      detectedAgent = ctx.suggestedAgent || 'Supervisor';
+      detectedModel = ctx.selectedModel || options.model || 'unknown';
+      // Start timer after we know the labels
+      prometheusTimer = this.agentMetricsService?.startChatTimer(detectedAgent, detectedModel, detectedIntent);
     } catch (error) {
       timings['1_prepare'] = Date.now() - prepareStart;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      // Handle rate limit and validation errors gracefully
+
+      // VOLT-04: Record error metrics
       if (errorMsg.includes('Rate limit exceeded')) {
+        this.agentMetricsService?.recordRateLimitHit(options.tenantId, detectedModel);
         this.logger.warn(`[chat] ${errorMsg}`);
         return { text: errorMsg, fromCache: false };
       }
       if (errorMsg.includes('cannot process this request')) {
+        this.agentMetricsService?.recordError('chat', 'validation');
         this.logger.warn(`[chat] Prompt injection blocked`);
         return { text: errorMsg, fromCache: false };
       }
+
+      // VOLT-04: Record internal error
+      this.agentMetricsService?.recordError('chat', 'internal');
       throw error;
     }
 
@@ -495,6 +528,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
             this.mistralService.recordLlmFailure();
           }
 
+          // VOLT-04: Record timeout error in Prometheus
+          this.agentMetricsService?.recordError('chat', 'timeout');
+          prometheusTimer?.end('error');
+
           // Emit: Timeout state (not error, as we're handling gracefully)
           this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'supervisor', 'completed', 'Request timed out (fallback)', {
             duration: Date.now() - agentStartTime,
@@ -515,6 +552,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         }
 
         if (isLastAttempt) {
+          // VOLT-04: Record API error in Prometheus
+          this.agentMetricsService?.recordError('chat', 'api_error');
+          prometheusTimer?.end('error');
+
           // Emit: Error state
           this.emitAgentStep(options.tenantId, ctx.sessionId, options.userId, 'supervisor', 'error', 'Processing failed', {
             error: errorMessage,
@@ -537,6 +578,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!result) {
+      // VOLT-04: Record error in Prometheus
+      this.agentMetricsService?.recordError('chat', 'internal');
+      prometheusTimer?.end('error');
+
       const errorT = getErrorTranslations('en');
       throw new Error(errorT.ai.agentFailed);
     }
@@ -704,6 +749,20 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       `TOTAL=${timings['total']}ms | ` +
       `agent=${ctx.suggestedAgent} model=${ctx.selectedModel}`
     );
+
+    // VOLT-04: Record success in Prometheus
+    prometheusTimer?.end('success');
+
+    // VOLT-04: Record token usage if available
+    const usage = (result as { usage?: { promptTokens?: number; completionTokens?: number } }).usage;
+    if (usage) {
+      this.agentMetricsService?.recordTokens(
+        options.tenantId,
+        detectedModel,
+        usage.promptTokens || 0,
+        usage.completionTokens || 0,
+      );
+    }
 
     return {
       text: userVisibleText,
