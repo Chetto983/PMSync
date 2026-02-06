@@ -409,7 +409,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Note: intent defaults to 'unknown' until ChatPrepareService detects it
     // Use imported MetricTimer type instead of typeof with optional chain
     let prometheusTimer: import('./services/agent-metrics.service').MetricTimer | undefined;
-    let detectedIntent = 'unknown';
+    const detectedIntent = 'unknown';
     let detectedModel = options.model || 'unknown';
     let detectedAgent = 'Supervisor';
 

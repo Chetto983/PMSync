@@ -150,7 +150,7 @@ export class EmbeddingIntentClassifierService implements OnModuleInit {
     // Vote by intent
     const votes: Record<string, { count: number; totalSim: number }> = {};
     let dominantLang: 'en' | 'it' = 'en';
-    let langCount = { en: 0, it: 0 };
+    const langCount = { en: 0, it: 0 };
 
     for (const match of topK) {
       if (!votes[match.intent]) {

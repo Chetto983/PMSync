@@ -19,7 +19,7 @@ const {
   doubleCsrfProtection,
   invalidCsrfTokenError,
 } = doubleCsrf({
-  getSecret: () => CSRF_SECRET!,
+  getSecret: () => CSRF_SECRET,
   // Session identifier from JWT user ID or IP as fallback for anonymous requests
   getSessionIdentifier: (req: Request) => {
     // For authenticated requests, use user ID from JWT (if available on request)

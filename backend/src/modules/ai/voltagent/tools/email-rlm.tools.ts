@@ -81,7 +81,7 @@ Does NOT return: full body content (use get_email_content for that)`,
         const startTime = Date.now();
 
         // Build where clause based on mode
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         let where: any = { tenantId };
 
         switch (mode) {

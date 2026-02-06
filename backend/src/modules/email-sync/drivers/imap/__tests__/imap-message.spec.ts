@@ -358,7 +358,7 @@ describe('ImapMessageService', () => {
 
   describe('batchSetReadStatus', () => {
     it('should group updates by folder', async () => {
-      let foldersProcessed: string[] = [];
+      const foldersProcessed: string[] = [];
 
       mockPool.withConnection.mockImplementationOnce(async (fn) => {
         const client = createMockClient({
