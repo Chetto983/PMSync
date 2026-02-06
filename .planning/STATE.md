@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 1 of 5 — AI Infrastructure Cleanup
-Plan: 1 of 3 in phase (01-01-PLAN.md complete)
-Status: Plan 01-01 complete, ready for 01-02
-Last activity: 2026-02-06 — Completed 01-01-PLAN.md (VoltAgent audit)
+Plan: 3 of 3 in phase (01-03-PLAN.md complete)
+Status: Phase 01 complete
+Last activity: 2026-02-06 — Completed 01-03-PLAN.md (Prometheus metrics)
 
 Progress: v3.0 Phase 01
 ```
-[█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 8% (1/13 plans)
+[███████░░░░░░░░░░░░░░░░░░░░░░░] 23% (3/13 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 01-01-PLAN.md
+Stopped at: Completed 01-03-PLAN.md (Prometheus metrics infrastructure)
 Resume file: None
 
 ## Accumulated Decisions
@@ -60,6 +60,9 @@ Resume file: None
 | aria-label chip selectors | v2.1-02-02 | Use /Remove filter:.*/ pattern to avoid matching email list items |
 | Prioritize Redis locks and retry first | v3.0-01-01 | Small effort, high impact on reliability (VOLT-02, VOLT-03) |
 | No tool consolidation needed | v3.0-01-01 | Tools already well-consolidated, no duplicates found |
+| @willsoto/nestjs-prometheus for metrics | v3.0-01-03 | NestJS-native integration with makeHistogramProvider helpers |
+| Optional @InjectMetric for graceful degradation | v3.0-01-03 | Services work without PrometheusModule loaded |
+| onToolMetrics callback for hooks | v3.0-01-03 | Avoids injecting services into pure function factory |
 
 ## Blockers & Concerns
 
@@ -68,7 +71,6 @@ Resume file: None
 | LCP exceeds budget (4.12s vs 2.5s) | High | v2.1-01 | Primary v2.1 target |
 | TTI exceeds budget (4.13s vs 3.5s) | High | v2.1-01 | Primary v2.1 target |
 | E2E chip interaction tests | Medium | v2.1-02 | 5/7 search tests pass; chip removal click needs debugging |
-| VOLT-02: Missing Redis locks | High | v3.0-01 | Causes lost messages in concurrent scenarios |
 | VOLT-01: No circuit breaker for LLM | High | v3.0-01 | Risk of cascade failures during API outages |
 
 ## Milestones
@@ -92,9 +94,9 @@ See: .planning/MILESTONES.md
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | Plan 01-01 COMPLETE |
-| 02 | AI Chat Overhaul | CHAT-01/02/03 | Blocked by 01 |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | Blocked by 01 |
+| 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | COMPLETE (3/3 plans) |
+| 02 | AI Chat Overhaul | CHAT-01/02/03 | Ready to plan |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
 | 05 | Nested Labels Frontend | LABELS-01 | Ready to plan |
 
@@ -102,11 +104,17 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Ready to execute Plan 01-02 (Quick fixes - Redis locks, retry logic)
+**Currently:** Phase 01 complete. Ready for Phase 02 (AI Chat Overhaul).
+
+**Phase 01 accomplishments:**
+- 01-01: VoltAgent audit completed, identified VOLT-01 through VOLT-07 issues
+- 01-02: Redis locks and retry logic added (VOLT-02/03)
+- 01-03: Prometheus metrics infrastructure (VOLT-04)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
+- VOLT-01 (circuit breaker) deferred to Phase 02
 
 ---
-*State updated: 2026-02-06 — Completed 01-01-PLAN.md (VoltAgent audit)*
+*State updated: 2026-02-06 — Completed 01-03-PLAN.md (Prometheus metrics)*
