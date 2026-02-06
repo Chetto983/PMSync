@@ -9,14 +9,14 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 1 of 5 — AI Infrastructure Cleanup
 Plan: —
-Status: Researching v3.0 scope
-Last activity: 2026-02-05 — Milestone v3.0 started
+Status: Ready to plan Phase 01
+Last activity: 2026-02-06 — Roadmap created
 
-Progress: v3.0 STARTING
+Progress: v3.0 ROADMAP COMPLETE
 ```
-[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% Researching
+[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% Ready to plan
 ```
 
 ## Session Continuity
@@ -84,33 +84,25 @@ See: .planning/MILESTONES.md
 - 3 phases, 5 plans
 - 5 requirements (OPT-01/02, POLISH-01/02, API-01)
 
-## v3.0 Scope — IN PROGRESS
+## v3.0 Roadmap — 5 Phases, 13 Plans
 
-**AI Infrastructure:**
-- [ ] VoltAgent audit (align with official patterns)
-- [ ] Runtime agent spawning exploration
-- [ ] Vercel AI SDK evaluation/adoption
-- [ ] Tool consolidation
-- [ ] Chat fixes (slow, lost messages, context)
-- [ ] Scalability improvements
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | Ready to plan |
+| 02 | AI Chat Overhaul | CHAT-01/02/03 | Blocked by 01 |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | Blocked by 01 |
+| 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
+| 05 | Nested Labels Frontend | LABELS-01 | Ready to plan |
 
-**UX/UI:**
-- [ ] AI interface UX/UI audit
-- [ ] Follow-ups UI refactor
-- [ ] Nested labels (backend + frontend)
-
-**Features:**
-- [ ] Auto-triage: priority scoring
-- [ ] Auto-triage: category assignment
-- [ ] Auto-triage: action suggestions
+**Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Researching v3.0 scope
+**Currently:** Ready to plan Phase 01 (AI Infrastructure Cleanup)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-05 — v3.0 milestone started*
+*State updated: 2026-02-06 — v3.0 roadmap created (5 phases, 13 plans)*
