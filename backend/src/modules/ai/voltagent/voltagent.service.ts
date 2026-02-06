@@ -796,6 +796,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const logPrefix = `[createStreamContext] [tenant:${options.tenantId}]`;
     this.logger.log(`${logPrefix} START`);
 
+    // VOLT-01: Check circuit breaker before proceeding (added 2026-02-06)
+    // Prevents cascade failures when Mistral API has issues
+    if (this.mistralService?.isLlmCircuitOpen()) {
+      this.logger.warn(`${logPrefix} Circuit breaker OPEN - returning graceful fallback`);
+      throw new AiError(
+        'AI service temporarily unavailable. Please try again in a moment.',
+        AiErrorCode.CIRCUIT_BREAKER_OPEN,
+        { retryable: true },
+      );
+    }
+
     // Use ChatPrepareService for consolidated setup
     if (!this.chatPrepareService) {
       throw new AiError('ChatPrepareService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
