@@ -9,7 +9,7 @@
  * Based on: https://voltagent.dev/docs/ui/ai-sdk-integration/
  */
 
-import React, { Suspense, lazy, useState, useRef, useCallback, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -32,7 +32,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
 import logger from '@/lib/logger';
 import { useToast } from '@/hooks/use-toast';
-import { useVoltAgentChat, getMessageMetadata } from '@/hooks/use-voltagent-chat';
+import { useVoltAgentChat, getMessageMetadata, type ViewContext } from '@/hooks/use-voltagent-chat';
 
 // Lazy loaded widgets
 const ChatMessages = lazy(() => import('./ChatMessages'));
@@ -100,6 +100,12 @@ export function AiDashboard() {
   // Track new conversations that need title generation (after first assistant response)
   const needsTitleGenRef = useRef<string | null>(null);
 
+  // ViewContext for context-aware prompts (CHAT-02)
+  // Currently hardcoded to 'ai' view; will detect from URL/router when chat is embedded elsewhere
+  const viewContext: ViewContext = useMemo(() => ({
+    currentView: 'ai',
+  }), []);
+
   // AI SDK useChat hook for streaming
   const {
     messages: chatMessages,
@@ -111,6 +117,7 @@ export function AiDashboard() {
     setMessages: setChatMessages,
   } = useVoltAgentChat({
     locale: t.locale,
+    viewContext,
     onError: (error) => {
       logger.error('[AiDashboard] Chat error:', error);
       toast.error(t.ai?.errors?.chatFailed || 'Failed to send message. Please try again.');
@@ -408,7 +415,7 @@ export function AiDashboard() {
           >
             {chatMessages.length === 0 ? (
               <Suspense fallback={<WidgetSkeleton height={300} />}>
-                <QuickActions onSelectQuery={handleSendMessage} userName={userName} />
+                <QuickActions onSelectQuery={handleSendMessage} userName={userName} viewContext={viewContext} />
               </Suspense>
             ) : (
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

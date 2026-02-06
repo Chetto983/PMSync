@@ -2,19 +2,70 @@
 
 import React from 'react';
 import { Box, Typography, Paper, alpha, useTheme } from '@mui/material';
-import { Mail, Calendar, Users, FileText, Sparkles, TrendingUp } from 'lucide-react';
+import {
+  Mail,
+  Calendar,
+  Users,
+  FileText,
+  Sparkles,
+  TrendingUp,
+  AlertCircle,
+  Reply,
+  PenLine,
+  CheckSquare,
+  Clock,
+  AlertTriangle,
+  Bell,
+  Minimize2,
+  Check,
+} from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import type { ViewContext } from '@/hooks/use-voltagent-chat';
+
+/**
+ * Prompt suggestion from backend or static fallback.
+ */
+interface PromptSuggestion {
+  label: string;
+  prompt: string;
+  icon: string;
+}
 
 interface QuickActionsProps {
   onSelectQuery: (query: string) => void;
   userName: string;
+  viewContext?: ViewContext;
+  customPrompts?: PromptSuggestion[];
 }
 
-export function QuickActions({ onSelectQuery, userName }: QuickActionsProps) {
+/**
+ * Icon mapping for dynamic prompts from backend.
+ * Maps icon name string to lucide-react component.
+ */
+const iconMap: Record<string, React.ElementType> = {
+  Mail,
+  Calendar,
+  Users,
+  FileText,
+  Sparkles,
+  TrendingUp,
+  AlertCircle,
+  Reply,
+  PenLine,
+  CheckSquare,
+  Clock,
+  AlertTriangle,
+  Bell,
+  Minimize2,
+  Check,
+};
+
+export function QuickActions({ onSelectQuery, userName, viewContext: _viewContext, customPrompts }: QuickActionsProps) {
   const theme = useTheme();
   const t = useTranslations();
 
-  const quickActions = [
+  // Static default prompts (used when no customPrompts provided)
+  const staticQuickActions = [
     {
       icon: Mail,
       label: t.ai?.quickActions?.summarizeInbox || 'Summarize inbox',
@@ -52,6 +103,16 @@ export function QuickActions({ onSelectQuery, userName }: QuickActionsProps) {
       color: '#ec4899',
     },
   ];
+
+  // Use customPrompts from backend when available, otherwise use static prompts
+  const quickActions = customPrompts?.length
+    ? customPrompts.map((p) => ({
+        icon: iconMap[p.icon] || Sparkles,
+        label: p.label,
+        prompt: p.prompt,
+        color: theme.palette.primary.main,
+      }))
+    : staticQuickActions;
 
   return (
     <Box sx={{ py: 4 }}>
