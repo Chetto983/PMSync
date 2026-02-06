@@ -261,3 +261,184 @@ When user searches within a parent label, **automatically include child labels**
 **Backend Protection (already implemented in v2.1):**
 API-01 shipped with circular reference detection (12 unit tests). Frontend must call `PUT /labels/:id/parent` with validation.
 
+
+---
+
+## Competitor Analysis
+
+| Feature | Superhuman | Shortwave | Linear | Inbox Zero | MailAgent Target |
+|---------|------------|-----------|--------|-----------|------------------|
+| **Auto-Triage** | ✅ Split Inbox, VIP lists, AI learns from actions | ✅ Smart Bundles, Importance feature | ❌ (not email) | ✅ Auto-labels, pre-drafted replies | ✅ Priority scoring + category assignment + action suggestions |
+| **AI Chat** | ❌ No conversational AI (command-based) | ✅ Natural language search, AI filters | ✅ Workbench pattern (functional UI + AI) | ✅ Chat for email management | ✅ Hybrid: chat for exploration, structured UI for actions (Linear pattern) |
+| **Streaming Responses** | N/A | ❌ Not documented | ❌ Not documented | ✅ Real-time AI | ✅ Vercel AI SDK streaming |
+| **Follow-Ups** | ✅ Keyboard shortcut (H), reminder count badge | ✅ Built into Shortwave Method workflow | ✅ Natural language snooze ("tomorrow morning") | ❌ Not highlighted | ✅ Automatic detection + smart timing + kanban view |
+| **Nested Labels** | ❌ No labels (uses splits/filters) | ✅ Smart labels, bundles (not nested) | ❌ (not email) | ❌ Not documented | ✅ Full tree hierarchy with drag-drop |
+| **Keyboard Shortcuts** | ✅ (core feature) | ✅ Extensive | ✅ Cmd+K palette | ❌ Not highlighted | ✅ Already have (v2.0 FE-09) |
+| **Speed Claims** | **150% faster** than Gmail | **45% faster** inbox zero | N/A | **75% less time** on email | **Target: 2x faster** than Gmail (match Superhuman) |
+| **Learning Period** | 2 weeks to 94% accuracy | Instant smart bundles | N/A | Learns user tone | **Target: 1 week** to 90% accuracy |
+
+**Key Takeaways:**
+1. **Superhuman = Speed obsession:** Keyboard-first, no chat, split inbox, VIP lists
+2. **Shortwave = Intelligent organization:** Smart bundles, AI filters, collaborative features
+3. **Linear = Workbench pattern:** Functional UI complemented by AI, not replaced by chat
+4. **Inbox Zero = Full automation:** Pre-drafted replies, auto-labels, high automation (risky without user control)
+
+**MailAgent Positioning:**
+**"The best professional AI mail client"** means combining Superhuman's speed, Shortwave's intelligence, and Linear's functional AI integration. NOT Inbox Zero's over-automation.
+
+---
+
+## Feature Dependencies
+
+```
+Priority Scoring ──┐
+                   ├──> Auto-Triage Dashboard
+VIP Lists ─────────┘     (requires scoring to rank)
+                         │
+                         ├──> Action Suggestions
+                         │    (high-priority emails get prominent actions)
+                         │
+                         └──> Bulk Triage Mode
+                              (batch actions on scored emails)
+
+Contact Embeddings ──> Sender Relationship Context
+(already implemented)  (show in email list preview)
+
+RAG Retrieval ─────┐
+                   ├──> AI Chat Context Awareness
+VoltAgent ─────────┘     (query emails, calendar, contacts)
+                         │
+                         └──> Predicted Response Templates
+                              (use RAG + user writing style)
+
+Nested Labels ─────> Hierarchical Search
+(backend API done)   (search within parent + children)
+                    │
+                    └──> Smart Categorization
+                         (AI assigns to nested labels)
+
+Follow-Up Date ────> Automatic Reminder Detection
+(existing field)     (NLP extracts deadlines from emails)
+                    │
+                    └──> Follow-Up Dashboard
+                         (kanban view with status workflow)
+```
+
+**Critical Path for v3.0:**
+1. **Phase 1:** Priority scoring (enables auto-triage, action suggestions)
+2. **Phase 2:** AI chat streaming (fixes current slow/buggy chat)
+3. **Phase 3:** Follow-ups UI refactor (improves existing broken feature)
+4. **Phase 4:** Nested labels frontend (backend already done in v2.1)
+
+---
+
+## MVP Recommendation (v3.0 Scope)
+
+### Must-Have for v3.0:
+
+1. **Auto-Triage Core:**
+   - Priority scoring (0-100)
+   - Importance indicator (High/Medium/Low)
+   - VIP lists (user-defined + AI-suggested)
+   - Learning from user actions (track open/reply patterns)
+
+2. **AI Chat Overhaul:**
+   - Vercel AI SDK streaming (replace current polling)
+   - Contextual suggested prompts
+   - Error handling + retry logic
+   - Mobile-responsive design
+
+3. **Follow-Ups Refactor:**
+   - Two types: Waiting For / To Do
+   - Smart timing suggestions
+   - Automatic reminder detection (NLP deadline extraction)
+   - Follow-up dashboard with tabs (Today/This Week/Overdue)
+
+4. **Nested Labels Frontend:**
+   - Tree view with expand/collapse
+   - Drag-drop nesting (MUI X Rich Tree View)
+   - Hierarchical search (include children)
+
+### Defer to Post-v3.0:
+
+- AI category assignment (complex NLP, requires training dataset)
+- Predicted response templates (high complexity, needs fine-tuning)
+- Bulk triage mode (power user feature, lower priority)
+- Rich responses in chat (structured JSON → UI components)
+- Milestone markers in AI responses (UX polish)
+
+**Rationale:**
+v3.0 focuses on **fixing what's broken** (slow chat, bad follow-ups UI) and **adding high-value basics** (priority scoring, nested labels). Advanced AI features like predicted responses require more R&D and can ship in v3.1.
+
+---
+
+## Performance Targets
+
+| Feature | Metric | Target | Measurement |
+|---------|--------|--------|-------------|
+| Priority Scoring | Calculation time per email | <50ms | Background batch job, not blocking sync |
+| AI Chat Streaming | First token latency | <500ms | Vercel AI SDK monitoring |
+| AI Chat Streaming | Tokens per second | 20-50 | Monitor LLM provider metrics |
+| Follow-Up Detection | NLP deadline extraction | <100ms per email | Process during email sync |
+| Nested Labels | Tree render time | <16ms (60fps) | Virtualize if >50 labels |
+| Auto-Triage Learning | Accuracy after 1 week | >90% | Track precision/recall on test set |
+
+**User-Perceived Speed Goals:**
+- Email list with priority badges: **No slowdown** from v2.1 (VList already optimized)
+- AI chat response start: **Feels instant** (<500ms first token = Superhuman benchmark)
+- Follow-up creation: **One-click** from email list hover (no modal for simple cases)
+
+
+---
+
+## Sources
+
+### Auto-Triage Research
+- [Superhuman Email Triage](https://blog.superhuman.com/email-triage/)
+- [Superhuman Split Inbox Guide](https://blog.superhuman.com/how-to-split-your-inbox-in-superhuman/)
+- [Tutorials with AI - Superhuman AI Overview](https://tutorialswithai.com/tools/superhuman-ai/)
+- [Shortwave Review 2025](https://skywork.ai/skypage/en/Shortwave-Review-(2025)-The-AI-Email-Assistant-I've-Been-Waiting-For/1972874164437708800)
+- [Shortwave vs Superhuman Executive Guide](https://www.baytechconsulting.com/blog/shortwave-vs-superhuman-the-2025-executives-guide-to-ai-email-clients)
+
+### AI Chat Interface UX
+- [AI UI Patterns](https://www.patterns.dev/react/ai-ui-patterns/)
+- [16 Chat UI Design Patterns 2025](https://bricxlabs.com/blogs/message-screen-ui-deisgn)
+- [UX for AI Chatbots Complete Guide](https://www.parallelhq.com/blog/ux-ai-chatbots)
+- [Smashing Magazine - Design Patterns for AI Interfaces](https://www.smashingmagazine.com/2025/07/design-patterns-ai-interfaces/)
+- [Beyond Chat: How AI is Transforming UI Design](https://artium.ai/insights/beyond-chat-how-ai-is-transforming-ui-design-patterns)
+- [assistant-ui Library](https://www.assistant-ui.com/)
+
+### Chat Anti-Patterns
+- [Chatbots are AI Anti-Patterns (Medium)](https://medium.com/swlh/chatbots-are-ai-anti-patterns-c5334b403794)
+- [Chat is a Bad UI Pattern for Development Tools (Hacker News)](https://news.ycombinator.com/item?id=42934190)
+- [AI Agentic Patterns and Anti-Patterns](https://glaforge.dev/talks/2025/12/02/ai-agentic-patterns-and-anti-patterns/)
+
+### Follow-Ups Best Practices
+- [Superhuman Follow-Up Email Guide](https://blog.superhuman.com/follow-up-on-emails/)
+- [Superhuman Follow-Up Email Templates](https://blog.superhuman.com/follow-up-email-examples/)
+- [Mailsuite Follow-Up Reminders](https://mailsuite.com/en/features/follow-up-reminders)
+- [Writing Effective Follow-Up Reminders (NewMail AI)](https://www.newmail.ai/blog/writing-an-effective-follow-up-reminder-email)
+
+### Nested Labels/Tree Views
+- [Gmail Labels vs Folders 2025 Guide](https://www.getinboxzero.com/blog/post/gmail-labels-vs-folders)
+- [Gmail Nested Labels Guide (cloudHQ)](https://support.cloudhq.net/how-to-use-gmails-nested-labels-labels-and-sub-labels/)
+- [shadcn/ui Tree View Component Feature Request](https://github.com/shadcn-ui/ui/issues/4642)
+- [MUI X Rich Tree View - Ordering](https://mui.com/x/react-tree-view/rich-tree-view/ordering/)
+- [KendoReact TreeView Drag-Drop](https://www.telerik.com/kendo-react-ui/components/treeview/drag-drop)
+
+### Priority Inbox & AI Scoring
+- [Inbox Zero AI Email Tool](https://www.getinboxzero.com/)
+- [Zero AI Email Client (Y Combinator)](https://www.ycombinator.com/companies/zero)
+- [Best AI Email Tools for Inbox Zero 2025](https://inboxdone.com/ai-email-tools-for-inbox-zero/)
+- [Canary Mail Smart Inbox Guide](https://canarymail.io/blog/smart-inbox)
+
+### Linear Design Philosophy
+- [Linear Design for AI Age](https://linear.app/now/design-for-the-ai-age)
+- [Building an Intelligent Linear Assistant](https://www.getdynamiq.ai/post/building-an-intelligent-linear-app-assistant)
+- [Linear UI Redesign Part 2](https://linear.app/now/how-we-redesigned-the-linear-ui)
+
+---
+
+*Research confidence: HIGH — Based on official documentation, 2025 product comparisons, and UX research from authoritative sources. All competitor claims verified from multiple sources.*
+
+*Last updated: 2026-02-05 — Ready for v3.0 roadmap creation.*
