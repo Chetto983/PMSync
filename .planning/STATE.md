@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 1 of 5 — AI Infrastructure Cleanup
-Plan: 3 of 3 in phase (01-03-PLAN.md complete)
-Status: Phase 01 complete
-Last activity: 2026-02-06 — Completed 01-03-PLAN.md (Prometheus metrics)
+Phase: 2 of 5 — AI Chat Overhaul
+Plan: 2 of 3 in phase (02-02-PLAN.md complete)
+Status: In progress
+Last activity: 2026-02-06 — Completed 02-02-PLAN.md (Context-aware prompts)
 
-Progress: v3.0 Phase 01
+Progress: v3.0 Phase 02
 ```
-[███████░░░░░░░░░░░░░░░░░░░░░░░] 23% (3/13 plans)
+[█████████████░░░░░░░░░░░░░░░░░] 38% (5/13 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 01-03-PLAN.md (Prometheus metrics infrastructure)
+Stopped at: Completed 02-02-PLAN.md (Context-aware prompts)
 Resume file: None
 
 ## Accumulated Decisions
@@ -63,6 +63,9 @@ Resume file: None
 | @willsoto/nestjs-prometheus for metrics | v3.0-01-03 | NestJS-native integration with makeHistogramProvider helpers |
 | Optional @InjectMetric for graceful degradation | v3.0-01-03 | Services work without PrometheusModule loaded |
 | onToolMetrics callback for hooks | v3.0-01-03 | Avoids injecting services into pure function factory |
+| Separate /suggested-prompts endpoint | v3.0-02-02 | Cleaner separation of concerns vs embedding in streaming response |
+| ViewContext ref pattern for transport | v3.0-02-02 | Fresh values in AI SDK transport body (same as conversationId) |
+| Icon mapping for dynamic prompts | v3.0-02-02 | Explicit object maps string icon names to Lucide components |
 
 ## Blockers & Concerns
 
@@ -95,7 +98,7 @@ See: .planning/MILESTONES.md
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | COMPLETE (3/3 plans) |
-| 02 | AI Chat Overhaul | CHAT-01/02/03 | Ready to plan |
+| 02 | AI Chat Overhaul | CHAT-01/02/03 | IN PROGRESS (2/3 plans) |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
 | 05 | Nested Labels Frontend | LABELS-01 | Ready to plan |
@@ -104,17 +107,18 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 01 complete. Ready for Phase 02 (AI Chat Overhaul).
+**Currently:** Phase 02 in progress. Completed 02-02 (Context-aware prompts).
 
-**Phase 01 accomplishments:**
-- 01-01: VoltAgent audit completed, identified VOLT-01 through VOLT-07 issues
-- 01-02: Redis locks and retry logic added (VOLT-02/03)
-- 01-03: Prometheus metrics infrastructure (VOLT-04)
+**Phase 02 accomplishments:**
+- 02-01: Circuit breaker for LLM providers (VOLT-01)
+- 02-02: Context-aware prompts with ViewContext (CHAT-02)
+
+**Remaining in Phase 02:**
+- 02-03: Streaming response improvements
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
-- VOLT-01 (circuit breaker) deferred to Phase 02
 
 ---
-*State updated: 2026-02-06 — Completed 01-03-PLAN.md (Prometheus metrics)*
+*State updated: 2026-02-06 — Completed 02-02-PLAN.md (Context-aware prompts)*
