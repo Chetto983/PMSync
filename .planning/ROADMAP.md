@@ -47,6 +47,8 @@
 
 **Goal:** Clean technical foundation before adding new AI features
 
+**Status:** COMPLETE
+
 **Requirements:**
 - INFRA-01: VoltAgent audit and alignment with official patterns
 - INFRA-02: Tool consolidation (remove duplicates)
@@ -61,9 +63,9 @@
 - Scalability bottlenecks under concurrent requests
 
 **Plans:** 3 plans
-- 01-01: VoltAgent audit against official documentation
-- 01-02: Tool consolidation and deduplication
-- 01-03: Scalability improvements (caching, connection pooling)
+- [x] 02-01-PLAN.md - VoltAgent audit against official documentation
+- [x] 02-02-PLAN.md - Tool consolidation and deduplication
+- [x] 02-03-PLAN.md - Scalability improvements (caching, connection pooling)
 
 **Deliverables:**
 - Audit report with findings and fixes
@@ -75,10 +77,12 @@
 
 ## Phase 02: AI Chat Overhaul
 
-**Goal:** Modern streaming chat experience replacing current slow implementation
+**Goal:** Modern streaming chat experience with graceful error handling
+
+**Status:** PLANNED
 
 **Requirements:**
-- CHAT-01: Vercel AI SDK streaming integration
+- CHAT-01: Vercel AI SDK streaming integration (already working, needs circuit breaker)
 - CHAT-02: Contextual suggested prompts based on current view
 - CHAT-03: Mobile-responsive chat design (375px+)
 
@@ -89,12 +93,16 @@
 **Research findings (from FEATURES.md):**
 - First token target: <500ms (Superhuman benchmark)
 - Token streaming: 20-50 tokens/second
-- Pure chat is losing favor — prefer structured UI + AI suggestions
+- Pure chat is losing favor - prefer structured UI + AI suggestions
 
 **Plans:** 3 plans
-- 02-01: Vercel AI SDK integration (useChat hook, streaming)
-- 02-02: Contextual prompts + command palette enhancement
-- 02-03: Mobile-responsive design + error handling
+- [ ] 02-01-PLAN.md - Circuit breaker integration + retry UI (VOLT-01)
+- [ ] 02-02-PLAN.md - Contextual prompts + view context passing
+- [ ] 02-03-PLAN.md - Mobile full-screen chat + iOS viewport fixes
+
+**Wave Structure:**
+- Wave 1: 02-01, 02-02 (parallel - no file conflicts)
+- Wave 2: 02-03 (depends on 02-01 for error handling)
 
 **Deliverables:**
 - Streaming chat with <500ms first token
@@ -154,7 +162,7 @@
 **Why fourth:** Follow-ups is broken/underused. High user value with moderate complexity.
 
 **Research findings (from FEATURES.md):**
-- Single follow-up doubles response rate (16% → 27%)
+- Single follow-up doubles response rate (16% -> 27%)
 - Sweet spot: 2-3 days after initial send
 - Automatic detection of "Please respond by Friday" patterns
 
@@ -220,7 +228,7 @@ Wave 3: Phase 04 (Follow-Ups) ─────┤                           ├�
 | AI category assignment | Complex NLP, requires training dataset |
 | Predicted response templates | High complexity, needs fine-tuning |
 | Bulk triage mode | Power user feature, lower priority |
-| Rich responses in chat | Structured JSON → UI components |
+| Rich responses in chat | Structured JSON -> UI components |
 | Milestone markers in AI responses | UX polish |
 
 ---
