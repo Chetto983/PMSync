@@ -1,414 +1,263 @@
-# Features Research: Code Quality Standards
+# Features Research: v3.0 AI Intelligence & Scalability
 
-## Summary
+**Domain:** Professional AI email client with auto-triage, AI chat, and follow-ups
+**Researched:** 2026-02-05
+**Overall confidence:** HIGH
 
-A well-refactored codebase exhibits three characteristics: **elimination of duplication** (DRY), **removal of dead code**, and **file sizes under 500 lines** for cognitive manageability. Table stakes include type safety, consistent naming, and test coverage for refactored code. Differentiators include measurable complexity metrics (cyclomatic < 10), zero ESLint/TypeScript errors, and sub-500-line modules with single responsibilities.
+## Executive Summary
 
----
+Modern AI email clients in 2025 have converged on three core patterns: **intelligent auto-triage** (priority scoring + category assignment), **streaming AI chat interfaces** (fast, contextual, non-blocking), and **proactive follow-up reminders** (smart timing, context-aware). MailAgent already has the technical foundation (VoltAgent, embeddings, RAG) but needs UX/UI overhaul to match 2025 expectations where chat is increasingly seen as an anti-pattern and task-oriented UIs with AI-generated options are preferred.
 
-## Table Stakes (Must Have)
+**Key Finding:** Pure chat interfaces are losing favor. Linear's "workbench" metaphor and Superhuman's "split inbox" show that AI should augment functional UIs, not replace them with endless conversations. MailAgent's ChatCommandPalette is on the right track but needs evolution toward contextual AI suggestions embedded in the email interface.
 
-### 1. Zero Duplicate Code (DRY Principle)
-
-**Criteria:**
-- No function appears in more than one file with >80% logic similarity
-- Utility functions consolidated in dedicated `utils/` directories
-- Shared logic extracted to common modules (`backend/src/common/`)
-
-**MailAgent-Specific:**
-- Consolidate 3 sanitization functions into `backend/src/modules/ai/voltagent/utils/sanitize.utils.ts`
-- Single source of truth for LLM response cleaning patterns
-
-**Measurement:**
-- `jscpd` (copy-paste detector) reports 0% duplication in targeted areas
-- Code review checklist: "Is this logic already implemented elsewhere?"
+**Competitive Gap:** Superhuman reports users process emails 150% faster with auto-triage (94% accuracy after 2 weeks). Shortwave achieves inbox zero 45% faster with smart bundles. MailAgent has the RAG intelligence but lacks the UX scaffolding to surface it effectively.
 
 ---
 
-### 2. No Dead Code
+## Auto-Triage Features
 
-**Criteria:**
-- No code marked `@deprecated` without scheduled removal (max 30-day grace period)
-- No exported functions with zero callers (verified via static analysis)
-- No commented-out code blocks in production files
-- No unreachable code after `return`, `throw`, or `process.exit()`
+### Table Stakes (Must Have)
 
-**MailAgent-Specific:**
-- Remove all `DEPRECATED TOOLS` blocks in `email.tools.ts`, `folder.tools.ts`, etc.
-- Delete deprecated `MEDIUM` model mapping in Mistral provider
-- Remove `extractPlainText` dead code in `base-email-sync.service.ts` (lines 1314-1346)
+| Feature | Why Expected | Complexity | Implementation Notes |
+|---------|--------------|------------|----------------------|
+| **Priority Scoring (0-100)** | Users expect AI to surface urgent emails first | Medium | Use RAG similarity + sender relationship score + recency. Machine learning on open/reply patterns. Target: 94% accuracy after 2-week learning period (Superhuman benchmark). |
+| **VIP Lists** | Board members, key clients must never be buried | Low | User-defined + AI-suggested based on email frequency and response speed. Superhuman's pattern: VIP split gets checked first. |
+| **Importance Indicator (High/Medium/Low)** | Visual hierarchy required for scanning | Low | Gmail's importance feature uses past actions (who you email, what you read). Badge/color coding in email list. |
+| **Auto-Archive Low-Priority** | Newsletters, promotions clutter inbox | Medium | Smart bundles (Shortwave pattern): group promotions, social notifications, newsletters. Archive entire bundle with one action. |
+| **Learning from User Actions** | Must adapt to individual behavior patterns | High | Track open rate, reply speed, star/archive actions by sender/keyword. Update scoring weights weekly. Store in contact embeddings. |
 
-**Measurement:**
-- TypeScript `--noUnusedLocals --noUnusedParameters` passes
-- ESLint `no-unreachable` rule enabled
-- Manual grep: `git grep -n "DEPRECATED\|TODO.*remove\|FIXME.*delete"` returns 0 matches
+**Technical Requirements:**
+- Existing contact embeddings (already implemented) provide foundation
+- Need new `priority_score` field on Email model (0-100 int)
+- New `importance_level` enum: HIGH, MEDIUM, LOW
+- Background job to recalculate scores nightly (BullMQ queue)
+- RAG query: "Is this email urgent based on historical context?"
 
----
-
-### 3. File Size Under 500 Lines (Hard Limit)
-
-**Criteria:**
-- No source file exceeds 500 lines of code (excluding comments/imports)
-- Complex files split by single-responsibility principle
-- Each file has one primary export/class/concern
-
-**MailAgent-Specific Violations (from CONCERNS.md):**
-| File | Lines | Target |
-|------|-------|--------|
-| `imap.driver.ts` | 2,249 | Split: `imap-connection.ts`, `imap-folder.ts`, `imap-email.ts` |
-| `emails.service.ts` | 1,705 | Split: `email-crud.service.ts`, `email-bulk.service.ts` |
-| `folder-sync.service.ts` | 1,629 | Split by provider |
-| `microsoft.driver.ts` | 1,429 | Split: `ms-auth.ts`, `ms-folder.ts`, `ms-email.ts` |
-| `google.driver.ts` | 1,364 | Split: `gmail-auth.ts`, `gmail-folder.ts`, `gmail-email.ts` |
-| `base-email-sync.service.ts` | 1,382 | Extract retry logic, error handling |
-| `knowledge-base.service.ts` | 1,371 | Split RAG, embedding, retrieval |
-
-**Measurement:**
-```bash
-find backend/src -name "*.ts" -exec wc -l {} \; | awk '$1 > 500 {print}'
-# Target: 0 files returned
-```
+**Performance Target:**
+- Score calculation: <50ms per email (batch scoring during sync)
+- UI rendering: Priority badge must not slow list virtualization
+- Learning cycle: Weekly batch update of scoring weights
 
 ---
 
-### 4. Type Safety Enforcement
+### Differentiators (Competitive Advantage)
 
-**Criteria:**
-- Zero TypeScript errors in strict mode
-- No `any` casts without explicit justification comment
-- All function parameters and return types explicitly typed
-- Interface-driven contracts between modules
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| **AI Category Assignment** | Automatic labels: "Meeting Request", "Action Required", "FYI" | High | NLP classification using Mistral. 10-15 standard categories + user-defined training. Shortwave's "smart labels" inspire this. |
+| **Action Suggestions** | "Schedule meeting", "Add to CRM", "Set reminder" buttons in email preview | High | Context-aware prompts based on email content. Linear's "workbench" pattern: functional UI + AI functions, not chat. |
+| **Predicted Response Templates** | Pre-drafted replies in user's tone ready to send | High | "When you check your inbox, every email needing a response will have a pre-drafted reply" (Inbox Zero pattern). Use RAG + fine-tuned LLM. |
+| **Sender Relationship Context** | Show last interaction date, response rate, relationship strength in list preview | Medium | Already have CRM relationship scoring. Surface it in email list hover/preview. |
+| **Bulk Triage Mode** | Review 50 emails at once with AI-suggested actions (archive, reply, snooze) | Medium | Keyboard-first: J/K navigate, A archive, R reply with template, S snooze. Superhuman's speed pattern. |
 
-**MailAgent-Specific:**
-- Run `npm run type-check` as CI gate
-- Audit existing `any` usage in AI modules (service wrappers)
+**Inspiration Sources:**
+- **Superhuman Split Inbox:** Divide inbox into "VIP", "Important", "Other", "Notifications" splits
+- **Shortwave Smart Bundles:** Group related emails (receipts, travel, newsletters) for batch processing
+- **Inbox Zero AI Assistant:** Pre-drafted replies ready to send
 
-**Measurement:**
-- `tsc --noEmit` exits with code 0
-- ESLint `@typescript-eslint/no-explicit-any` set to `error` (currently `off` in backend)
-
----
-
-### 5. Consistent Naming Conventions
-
-**Criteria:**
-- Files follow pattern: `*.service.ts`, `*.controller.ts`, `*.utils.ts`
-- Functions: camelCase
-- Classes/Types: PascalCase
-- Constants: UPPER_SNAKE_CASE
-- Boolean variables: `is*`, `has*`, `can*` prefixes
-
-**MailAgent-Specific:**
-- Already enforced per CONVENTIONS.md
-- Verify new utility files follow naming
-
-**Measurement:**
-- ESLint naming convention rules pass
-- Code review checklist enforces pattern
+**Implementation Priority:**
+1. Priority scoring (enables all other features)
+2. Action suggestions (high user value, moderate complexity)
+3. Predicted response templates (differentiator, high complexity)
+4. Bulk triage mode (power user feature)
 
 ---
 
-### 6. Test Coverage for Refactored Code
+### Anti-Features (Deliberately NOT Build)
 
-**Criteria:**
-- Every refactored function has at least one unit test
-- Edge cases documented in test descriptions
-- Integration tests for cross-module refactors
-- No refactor merged without corresponding test additions
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| **Automatic Sending** | Dangerous: AI could send emails without review | Always require user confirmation. Show preview with "Edit" and "Send" buttons. |
+| **Automatic Archiving Without User Control** | Users panic when emails "disappear" | Show "AI suggests archiving" badge, require one-click confirmation or bulk approval. |
+| **Over-Categorization (>20 Categories)** | Cognitive overload, defeats purpose of simplification | Limit to 10-15 standard categories. Allow 5 custom. Gmail nested labels already cause confusion. |
+| **"Smart Reply" Generic Suggestions** | Gmail's "Thanks!" / "Sounds good!" feel robotic | Use RAG context + user's writing style. Must be >50 characters and reference email content. |
+| **Silent Learning Without Transparency** | Users need to understand why AI prioritizes certain emails | Show "Why this is important" tooltip: "You always reply to Sarah within 1 hour" or "Contains deadline: Friday 3pm". |
 
-**MailAgent-Specific:**
-- Add tests for consolidated `sanitize.utils.ts`
-- Test file size: mirrors source file (e.g., `sanitize.utils.spec.ts`)
+**Design Philosophy:**
+AI should be **transparent, controllable, and conservative**. Better to under-suggest than over-automate.
 
-**Measurement:**
-- Jest coverage report shows >80% for touched files
-- PR review requires test file changes if source changes
 
 ---
 
-## Differentiators (Excellence)
+## AI Chat Interface
 
-### 1. Cyclomatic Complexity < 10
+### Table Stakes (Expected Behavior)
 
-**Criteria:**
-- No function has cyclomatic complexity > 10
-- Complex branching extracted to strategy patterns or lookup tables
-- Early returns reduce nesting depth
+| Feature | Why Expected | Complexity | Implementation Notes |
+|---------|--------------|------------|----------------------|
+| **Streaming Responses (Token-by-Token)** | Modern AI UX standard (ChatGPT, Claude) | Low | Vercel AI SDK's `useChat()` hook handles this. Replace current ChatCommandPalette polling. |
+| **Context Awareness** | Chat should know current email, folder, calendar events | Medium | Already have VoltAgent context management. Ensure UnifiedRetriever queries all sources. |
+| **Message History** | Persist chat across sessions | Low | Already have Prisma Conversation model. Add session restoration on page load. |
+| **Typing Indicator** | Show AI is "thinking" | Low | Already have TypingIndicator.tsx component. Trigger on stream start. |
+| **Error Handling (Graceful Degradation)** | Network issues, API timeouts must not crash UI | Medium | Show "AI is temporarily unavailable" with retry button. Log errors for monitoring. |
+| **Mobile-Responsive Design** | Chat must work on 375px viewport | Medium | Full-screen modal on mobile, side panel on desktop (>1024px). |
 
-**Tools:**
-- ESLint `complexity` rule set to `["error", 10]`
-- `ts-complexity` CLI for pre-commit checks
+**Technical Stack Recommendation:**
+- **Vercel AI SDK** (`ai` package) for streaming and useChat hook
+- **React Server Components** for initial message loading (Next.js App Router pattern)
+- **Optimistic Updates** for instant message rendering before server confirms
 
-**MailAgent Opportunity:**
-- IMAP driver has complex state machines - extract to finite state automata
-- Folder sync conditional logic - use provider-specific strategy classes
-
----
-
-### 2. Zero ESLint Warnings
-
-**Criteria:**
-- All ESLint warnings resolved or explicitly disabled with explanation
-- No `eslint-disable` comments without inline justification
-- Consistent formatting (Prettier integrated)
-
-**Measurement:**
-- `npm run lint` returns 0 warnings
-- CI fails on any new warning
+**Performance Target:**
+- First token: <500ms (fast start impression)
+- Subsequent tokens: 20-50 tokens/second streaming
+- Max response time: 30 seconds (circuit breaker at 45s)
 
 ---
 
-### 3. Single Responsibility per Module
+### Differentiators (Modern AI Chat UX 2025)
 
-**Criteria:**
-- Each service has one reason to change
-- Dependencies injected, not instantiated internally
-- Side effects isolated to edges (controllers, gateways)
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| **Contextual Suggested Prompts** | Show relevant commands based on current view | Medium | In inbox: "Summarize unread" / "Find urgent". In thread: "Draft reply" / "Extract action items". Linear's pattern: AI-generated options. |
+| **Command Palette Integration** | "/" commands trigger structured actions, not chat | Low | Already have ChatCommandPalette. Enhance with more commands. Avoid pure chat when structured UI is better. |
+| **Rich Responses (Not Just Text)** | Show emails, calendar events, contacts as interactive cards | High | Return structured JSON from LLM: `{ type: "email_list", items: [...] }`. Render as EmailCard components, not markdown. |
+| **Interruption Support** | Stop generation mid-response if user wants to refine query | Low | Vercel AI SDK supports AbortController. Add "Stop" button during streaming. |
+| **Milestone Markers** | Visual indicators for progress: "Searching emails..." → "Found 12 matches" → "Summarizing..." | Medium | AI-generated progress steps. Reduces "unstructured conversation" feel. (Smashing Magazine pattern) |
+| **Persistent Context Sidebar** | Keep key info visible: current date, unread count, active filters | Low | Left sidebar (desktop) or top bar (mobile) shows context. User never loses orientation. |
 
-**MailAgent Excellence Pattern:**
-```
-email-sync/
-├── drivers/
-│   ├── imap/
-│   │   ├── imap-connection.driver.ts    # Connection lifecycle
-│   │   ├── imap-folder.driver.ts        # Folder operations
-│   │   └── imap-email.driver.ts         # Email fetch/sync
-│   ├── google/
-│   │   ├── gmail-auth.driver.ts
-│   │   ├── gmail-folder.driver.ts
-│   │   └── gmail-email.driver.ts
-│   └── microsoft/
-│       ├── ms-auth.driver.ts
-│       ├── ms-folder.driver.ts
-│       └── ms-email.driver.ts
-└── services/
-    ├── sync-orchestrator.service.ts     # Coordinates drivers
-    ├── sync-scheduler.service.ts        # Timing/cron
-    └── sync-retry.service.ts            # Error recovery
-```
+**Inspiration Sources:**
+- **Linear "Workbench":** Functional UI with AI assistance, not pure chat
+- **Claude Code (Anthropic):** Streaming with rich components (file previews, diffs)
+- **Vercel v0:** Generates UI components, not just text responses
+
+**Implementation Priority:**
+1. Streaming with Vercel AI SDK (foundational upgrade)
+2. Contextual suggested prompts (high user value)
+3. Rich responses with structured JSON (differentiator)
+4. Milestone markers (UX polish)
 
 ---
 
-### 4. Comprehensive JSDoc on Public APIs
+### Anti-Patterns to Avoid (Chat Interface)
 
-**Criteria:**
-- Every exported function/class has JSDoc with description
-- Parameters documented with types and semantics
-- `@throws` documented for functions that can fail
-- `@example` for complex usage patterns
+| Anti-Pattern | Why It's Bad | What to Do Instead |
+|--------------|--------------|-------------------|
+| **Pure Chat for Everything** | Research shows users prefer visual UIs over chat for most tasks. 18/20 users chose GUI over chat for returns (Medium research). | Reserve chat for exploratory questions ("What did Sarah say about the project?"). Use structured UIs for actions (archive, schedule, label). |
+| **Slow Conversational Input** | Typing prompts takes 30-60 seconds. Users get lost editing/re-typing. | Provide pre-written command templates. "/" commands insert structured prompts instantly. |
+| **Silent AI Confabulation** | LLM invents facts without citing sources. Dangerous in email context. | Force source citation: "Based on email from Sarah on Jan 15..." with link to thread. IVO (Immediately Validatable Output). |
+| **No Empty State Guidance** | Blank chat box forces user to invent prompts. High cognitive load. | Show 4-6 suggested actions: "Summarize today's emails", "Show follow-ups", "Find emails from John". Update suggestions based on context. |
+| **Overly Anthropomorphic Design** | Chatbot avatar, "typing..." for 10 seconds feels uncanny. | Use abstract "AI Assistant" branding. Fast responses (<1s first token). Skip theatrical delays. |
+| **Lost Context Between Messages** | User references "that email" but AI has no idea which one. | Track visual context: if user is viewing Thread A, chat context includes Thread A metadata automatically. |
 
-**Measurement:**
-- TypeDoc generates complete API documentation
-- ESLint `jsdoc/require-jsdoc` on public exports
+**Critical Insight from Research:**
+"Chat is a bad UI pattern for development tools" (Hacker News discussion, 2025). The shift in 2025 is toward **hybrid interfaces**: temperature controls, knobs, sliders, buttons with AI providing options, not endless text conversations.
 
----
+**MailAgent Strategy:**
+- Keep chat for **exploratory queries** ("Find all emails about Q1 budget")
+- Use **structured UI + AI suggestions** for actions (archive, label, reply)
+- Example: Email list shows AI-generated "Quick Actions" buttons per email, not "Ask AI what to do"
 
-### 5. Atomic Commits with Focused Changes
-
-**Criteria:**
-- Each commit does one thing (refactor OR feature OR fix)
-- Commit messages explain "why" not "what"
-- No "cleanup" commits mixing unrelated changes
-
-**Measurement:**
-- Code review: each PR has single logical change
-- Git history readable without diffing
 
 ---
 
-## Anti-Features (Remove These)
+## Follow-Ups UI
 
-### 1. God Files / Mega Services
+### Best Practices (2025 Standards)
 
-**Definition:** Files over 500 lines handling multiple concerns
+| Practice | Why Important | Implementation |
+|----------|---------------|----------------|
+| **Two Follow-Up Types: "Waiting For" and "To Do"** | Distinguish outbound (awaiting reply) vs inbound (need to reply) | Existing `followUpDate` field. Add `followUpType` enum: WAITING_FOR, TO_DO. |
+| **Smart Timing Suggestions** | Users struggle to pick reminder dates | AI analyzes email urgency and suggests: 2 days, 1 week, custom. Show confidence: "Most people follow up after 3 days for this type of request". |
+| **Automatic Reminder Detection** | Many emails contain explicit deadlines | NLP extraction: "Please respond by Friday 3pm" → auto-create follow-up for Thursday 2pm (1 hour buffer). |
+| **Contextual Reminders** | Show original email content when reminder fires | Notification includes: email subject, sender, snippet, "View original" link. Desktop notification + in-app badge. |
+| **Snooze with Recurrence** | Some follow-ups need multiple checks | "Remind me every Monday until resolved". Follow-up spawns new reminder after each check-in. |
+| **Follow-Up Dashboard** | Dedicated view, not buried in inbox | Existing FollowUpTracker component. Enhance with tabs: Today, This Week, Overdue. Kanban columns for status. |
 
-**MailAgent Examples:**
-- `emails.service.ts` (1,705 lines) - handles CRUD, bulk ops, cleanup, threading
-- `imap.driver.ts` (2,249 lines) - handles auth, folders, emails, attachments
+**Timing Best Practices (from Superhuman research):**
+- **Single follow-up doubles response rate** (16% → 27%)
+- **Sweet spot: 2-3 days** after initial send (86% of responses within 48 hours)
+- **Diminishing returns after 2 follow-ups** (more increases spam complaints 3x)
 
-**Removal Strategy:**
-- Extract cohesive functionality into focused services
-- Use composition over inheritance
-- Apply Interface Segregation Principle
-
----
-
-### 2. Copy-Paste Programming
-
-**Definition:** Nearly identical code in multiple locations
-
-**MailAgent Example:**
-```typescript
-// Three locations with similar regex-based sanitization:
-// 1. chat-context-builder.service.ts - sanitizeLlmResponse()
-// 2. conversation-management.service.ts - sanitizeMessageContent()
-// 3. observability/hooks.ts - stripInternalMarkers()
-```
-
-**Removal Strategy:**
-- Create `sanitize.utils.ts` with canonical implementation
-- Re-export or call from all three locations
-- Test once, fix everywhere
+**UI Pattern: Floating Action Bar**
+On email hover, show quick actions: "Follow up in 2 days" / "1 week" / "Custom". One-click reminder creation.
 
 ---
 
-### 3. Zombie Code (Dead but Undead)
+### Inspiration (Good Examples)
 
-**Definition:** Code marked deprecated but never removed, or commented blocks
+| Product | What They Do Well | Apply to MailAgent |
+|---------|-------------------|-------------------|
+| **Superhuman Follow-Ups** | Keyboard shortcut (H) to set reminder from any email. Shows reminder count in inbox badge. | Add keyboard shortcut to existing FollowUpTracker. Show count in sidebar navigation. |
+| **Mailsuite No Reply Alerts** | Automatic detection of sent emails with no response after N days. | Background job queries sent emails with no reply thread after 3 days. Auto-create follow-up. |
+| **Boomerang for Gmail** | "Send later" + "Remind if no reply" combined feature. Clean date picker with smart presets. | Enhance existing follow-up form with "also remind me if no reply" checkbox. |
+| **Linear Reminders** | Snooze tasks with natural language: "tomorrow morning", "next Friday", "in 2 weeks". | Add NLP parsing to follow-up date input: "friday 3pm" → parse to Date object. |
 
-**MailAgent Examples:**
-- `DEPRECATED TOOLS` blocks in 5+ tool files (consolidated but not deleted)
-- `MEDIUM` model mapping in Mistral (deprecated comment but still executed)
-- `extractPlainText` function never called
-
-**Removal Strategy:**
-- Set removal deadline when marking deprecated (max 30 days)
-- Add pre-commit hook to fail on `@deprecated` without `@removal-date`
-- Weekly dead code audit via `ts-prune`
-
----
-
-### 4. Implicit Dependencies
-
-**Definition:** Services that reach into globals or instantiate their own dependencies
-
-**Pattern to Remove:**
-```typescript
-// BAD: Implicit dependency
-class EmailService {
-  private cache = new CacheService(); // Creates its own
-}
-
-// GOOD: Explicit injection
-class EmailService {
-  constructor(private cache: CacheService) {} // Injected
-}
-```
-
-**Measurement:**
-- NestJS `@Injectable()` decorators on all services
-- No `new Service()` calls inside other services
+**Component Redesign Needed:**
+Current `FollowUpTracker` component needs:
+1. **Tabs for status filtering:** Today / This Week / Overdue / All
+2. **Kanban view option:** To Do → In Progress → Waiting → Done
+3. **Bulk actions:** "Snooze all until next week" / "Mark 5 as done"
+4. **Sorting:** By date, by sender, by priority score
 
 ---
 
-### 5. Magic Strings and Numbers
+### Critical UX Patterns
 
-**Definition:** Hardcoded values without named constants
+**1. Notification Strategy**
+- **Desktop:** Browser notification 1 hour before due (requires permission)
+- **In-App:** Badge count on Follow-Ups nav item
+- **Email Digest:** Daily 8am email with today's follow-ups (optional)
 
-**Pattern to Remove:**
-```typescript
-// BAD
-if (retryCount > 3) { ... }
-cache.set(key, value, 300000); // What is 300000?
+**2. Quick-Add from Email List**
+- Hover email → show "⏰ Follow up" button in action bar
+- Click → mini-popover with date presets: Tomorrow / 2 days / 1 week / Custom
+- One-click creation (no full modal for simple cases)
 
-// GOOD
-const MAX_RETRIES = 3;
-const CACHE_TTL_5_MIN = 5 * 60 * 1000;
-```
-
-**Measurement:**
-- ESLint `no-magic-numbers` rule enabled
-- Grep for numeric literals in business logic
+**3. Follow-Up Resolution**
+- When user replies to email with active follow-up → auto-mark as "Waiting for reply"
+- When reply received → auto-mark follow-up as "Done"
+- Smart: "Looks like you got a reply from Sarah. Mark this follow-up as resolved?"
 
 ---
 
-### 6. Inconsistent Error Handling
+## Nested Labels/Folders
 
-**Definition:** Mix of thrown errors, returned nulls, and silent failures
+### Expected Behavior (Gmail Pattern)
 
-**Pattern to Remove:**
-```typescript
-// BAD: Inconsistent
-function getUser(id) {
-  if (!id) return null; // Silent failure
-  // ...
-  throw new Error('User not found'); // Different failure mode
-}
+| Feature | User Expectation | Implementation |
+|---------|------------------|----------------|
+| **Drag-Drop to Nest** | Drag "ClientA" label onto "Projects" label to create "Projects/ClientA" hierarchy | Tree view component with react-dnd or @dnd-kit. Update `parent_id` on Label model. |
+| **Expand/Collapse Tree** | Click arrow to show/hide child labels | Local state for expanded nodes. Persist to localStorage for session memory. |
+| **Multi-Level Nesting** | Support Projects → ClientA → Q1_Budget (3 levels) | Backend: existing folder nesting endpoint (v2.1 API-01 shipped). Frontend: recursive tree rendering. |
+| **Indent Visual Hierarchy** | Child labels indented 16px per level | CSS: `paddingLeft: ${depth * 16}px`. Limit depth to 5 levels (avoid deep hierarchies). |
+| **Search Within Label** | "Search in Projects/ClientA" filters to just that label and children | API: `GET /emails?labelId=X&includeChildren=true`. Backend recursively fetches descendant label IDs. |
 
-// GOOD: Consistent
-function getUser(id): User | null {
-  if (!id) return null;
-  const user = db.find(id);
-  return user ?? null; // Always null for "not found"
-}
-```
+**Known Limitation (Gmail Behavior):**
+Gmail nested labels are visually grouped but **NOT searched hierarchically**. Searching "Projects" only finds emails labeled "Projects", not "Projects/ClientA". Users expect folder-like behavior but get flat label search.
+
+**MailAgent Improvement:**
+When user searches within a parent label, **automatically include child labels** in query. This is what users actually want (folder semantics).
 
 ---
 
-## Measurable Criteria
+### Tree View Component Requirements
 
-### Automated Metrics
+**Recommended Libraries (2025):**
+- **MUI X Rich Tree View** (already using MUI): Built-in drag-drop, keyboard nav, virtualization
+- **Reka UI Tree** (if switching to shadcn/ui): Accessible, headless, supports pragmatic-drag-and-drop
+- **react-dnd-treeview** (standalone): Lightweight, proven for file/folder UIs
 
-| Metric | Tool | Target | Current (Estimate) |
-|--------|------|--------|-------------------|
-| Duplication | `jscpd` | 0% in refactored areas | ~3% (sanitization) |
-| Max file lines | `wc -l` | 500 | 2,249 (imap.driver.ts) |
-| Cyclomatic complexity | ESLint | <10 per function | Unknown |
-| TypeScript errors | `tsc --noEmit` | 0 | 0 (assumed) |
-| ESLint errors | `npm run lint` | 0 | 0 (assumed) |
-| Dead exports | `ts-prune` | 0 | Unknown |
-| Test coverage (refactored) | Jest | >80% | Variable |
-
-### Manual Review Checklist
-
-Before merging any refactor PR:
-- [ ] No new files over 500 lines
-- [ ] No duplicate logic introduced
-- [ ] All deprecated code has removal date
-- [ ] Tests added for changed logic
-- [ ] JSDoc on public exports
-- [ ] Naming follows conventions
-- [ ] No `any` without justification comment
-
-### CI/CD Gates
-
-```yaml
-# Suggested CI checks for refactoring milestone
-quality-gates:
-  - name: "File size check"
-    command: "find backend/src -name '*.ts' | xargs wc -l | awk '$1 > 500 {exit 1}'"
-
-  - name: "Duplication check"
-    command: "npx jscpd backend/src --threshold 1"
-
-  - name: "Dead code check"
-    command: "npx ts-prune backend/src | grep -v '(used in module)' | head -10 && exit 1"
-
-  - name: "Type check"
-    command: "npm run type-check"
-
-  - name: "Lint"
-    command: "npm run lint"
-
-  - name: "Tests"
-    command: "npm run test -- --coverage --coverageThreshold='{\"global\":{\"lines\":80}}'"
-```
+**Keyboard Navigation (Accessibility):**
+- **Arrow keys:** Navigate tree (up/down/left/right)
+- **Enter:** Select label (filter emails)
+- **Space:** Expand/collapse node
+- **Home/End:** Jump to first/last label
 
 ---
 
-## References
+### Drag-Drop UX Details
 
-**Industry Standards:**
-- Clean Code (Robert C. Martin) - File size, function size, naming
-- SOLID Principles - Single Responsibility, Interface Segregation
-- DRY Principle - Don't Repeat Yourself
+**Visual Feedback:**
+- **Dragging:** Semi-transparent ghost of label follows cursor
+- **Valid drop target:** Highlight with blue border, show indent level
+- **Invalid drop target:** Red border (e.g., can't nest label under itself, circular reference)
+- **Drop animation:** Smooth 200ms transition to new position in tree
 
-**TypeScript/NestJS Specific:**
-- NestJS Best Practices: https://docs.nestjs.com/fundamentals/testing
-- TypeScript ESLint: https://typescript-eslint.io/rules/
-- Prisma Best Practices: https://www.prisma.io/docs/guides/performance-and-optimization
+**Validation Rules:**
+1. **No circular references:** Can't nest "Projects" under "Projects/ClientA"
+2. **Max depth limit:** 5 levels (prevent overly complex hierarchies)
+3. **System labels protected:** Can't nest/move Inbox, Sent, Trash (backend enforces)
 
-**Tools:**
-- jscpd (copy-paste detector): https://github.com/kucherenko/jscpd
-- ts-prune (dead code): https://github.com/nadeesha/ts-prune
-- ESLint complexity rule: https://eslint.org/docs/rules/complexity
+**Backend Protection (already implemented in v2.1):**
+API-01 shipped with circular reference detection (12 unit tests). Frontend must call `PUT /labels/:id/parent` with validation.
 
-**MailAgent Context:**
-- `.planning/codebase/CONCERNS.md` - Identified issues
-- `.planning/codebase/CONVENTIONS.md` - Naming patterns
-- `.planning/codebase/TESTING.md` - Test patterns
-- `CLAUDE.md` - 500-line file limit rule
-
----
-
-*Research date: 2026-01-31*
