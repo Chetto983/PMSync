@@ -1,8 +1,14 @@
 /**
  * VoltAgent Module - AI Agent orchestration with RAG and memory
+ *
+ * VOLT-04: Prometheus metrics integration (2026-02-06)
+ * - Exposes AI metrics via /metrics endpoint
+ * - Chat, RAG, and tool execution latency histograms
+ * - Error rates and token usage counters
  */
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { CacheModule } from '../../../common/services/cache.module';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { CalendarModule } from '../../calendar/calendar.module';
@@ -10,6 +16,9 @@ import { EmailModule } from '../../email/email.module';
 import { EmailSyncModule } from '../../email-sync/email-sync.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
 import { SubscriptionModule } from '../../subscription/subscription.module';
+
+// Prometheus metrics (VOLT-04)
+import { AI_METRICS_PROVIDERS } from './observability/metrics';
 
 // Controllers
 import { VoltAgentController } from './voltagent.controller';
@@ -85,6 +94,11 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     PrismaModule,
     CacheModule,
     RealtimeModule,
+    // VOLT-04: Prometheus metrics - registers /metrics endpoint
+    // defaultMetrics enables Node.js process metrics (memory, CPU, GC, etc.)
+    PrometheusModule.register({
+      defaultMetrics: { enabled: true },
+    }),
     forwardRef(() => EmailModule),
     forwardRef(() => CalendarModule),
     forwardRef(() => EmailSyncModule),
@@ -102,6 +116,8 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     DocumentLibraryController,
   ],
   providers: [
+    // VOLT-04: Prometheus AI metrics providers
+    ...AI_METRICS_PROVIDERS,
     // Core
     VoltAgentService,
     HitlService,

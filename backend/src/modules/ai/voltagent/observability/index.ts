@@ -1,7 +1,7 @@
 /**
  * VoltAgent Observability Export
  *
- * Exports observability hooks and utilities.
+ * Exports observability hooks, Prometheus metrics, and utilities.
  *
  * VoltOps Production Setup:
  * Set these environment variables for automatic cloud telemetry:
@@ -41,3 +41,10 @@ export {
   type LearningMetrics,
   type LearningObservabilityOptions,
 } from './learning';
+
+// Prometheus metrics (VOLT-04: Prometheus metrics exposure)
+export {
+  AI_METRICS,
+  AI_METRICS_PROVIDERS,
+  AI_METRIC_NAMES,
+} from './metrics';
