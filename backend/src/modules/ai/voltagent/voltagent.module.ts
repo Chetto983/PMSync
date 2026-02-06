@@ -88,6 +88,9 @@ import { AgentPoolService } from './services/agent-pool.service';
 import { AgentMetricsService } from './services/agent-metrics.service';
 import { ApprovalWorkflowService } from './services/approval-workflow.service';
 
+// CHAT-02: Context-aware suggested prompts
+import { SuggestedPromptsService } from './services/suggested-prompts.service';
+
 // VOLT-02/03: Reliability services for conversation operations
 import { RetryService } from '../../../common/services/retry.service';
 
@@ -174,6 +177,8 @@ import { RetryService } from '../../../common/services/retry.service';
     ApprovalWorkflowService,
     // VOLT-02/03: Retry service for Memory API resilience
     RetryService,
+    // CHAT-02: Context-aware suggested prompts
+    SuggestedPromptsService,
   ],
   exports: [
     VoltAgentService,
@@ -206,6 +211,8 @@ import { RetryService } from '../../../common/services/retry.service';
     AgentPoolService,
     AgentMetricsService,
     ApprovalWorkflowService,
+    // CHAT-02: Context-aware suggested prompts
+    SuggestedPromptsService,
   ],
 })
 export class VoltAgentModule { }
