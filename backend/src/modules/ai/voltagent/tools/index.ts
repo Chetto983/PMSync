@@ -60,3 +60,17 @@ export {
   createAttachmentTools,
   type AttachmentToolsOptions,
 } from './attachment.tools';
+
+// VOLT-05: Tool timeout utilities
+// VOLT-07: Standardized tool result types
+export {
+  withToolTimeout,
+  executeWithTimeout,
+  toolSuccess,
+  toolError,
+  normalizeToolError,
+  isRetryableError,
+  ToolTimeoutError,
+  DEFAULT_TOOL_TIMEOUT_MS,
+  type ToolResult,
+} from './utils';
