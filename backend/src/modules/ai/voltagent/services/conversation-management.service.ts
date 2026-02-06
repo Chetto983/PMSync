@@ -18,10 +18,15 @@
  * @see ConversationAtomicityService for hybrid Prisma+VoltAgent operations
  * @see https://voltagent.dev/docs/agents/memory/overview/
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import type { Memory } from '@voltagent/core';
 import { MistralService } from '../../services/mistral.service';
 import { sanitizeLlmResponse } from './chat-context-builder.service';
+import { RedisLockService } from '../../../../common/services/redis-lock.service';
+import { RetryService } from '../../../../common/services/retry.service';
+
+/** Lock TTL for conversation operations (5 seconds) */
+const CONVERSATION_LOCK_TTL_MS = 5000;
 
 /** Conversation summary for listing */
 export interface ConversationSummary {
@@ -48,7 +53,13 @@ export interface ConversationDetail extends ConversationSummary {
 export class ConversationManagementService {
   private readonly logger = new Logger(ConversationManagementService.name);
 
-  constructor(private readonly mistralService: MistralService) {}
+  constructor(
+    private readonly mistralService: MistralService,
+    @Optional() @Inject(RedisLockService) private readonly redisLockService?: RedisLockService,
+    @Optional() @Inject(RetryService) private readonly retryService?: RetryService,
+  ) {
+    this.logger.log(`[INIT] ConversationManagementService: lock=${!!this.redisLockService}, retry=${!!this.retryService}`);
+  }
 
   /**
    * Create tenant-scoped user ID for isolation.
@@ -56,6 +67,61 @@ export class ConversationManagementService {
    */
   private getTenantUserId(tenantId: string, userId: string): string {
     return `${tenantId}:${userId}`;
+  }
+
+  /**
+   * Execute a Memory API call with retry logic (VOLT-03).
+   * Retries on transient errors (network blips, temporary failures).
+   */
+  private async withMemoryRetry<T>(
+    fn: () => Promise<T>,
+    operation: string,
+  ): Promise<T> {
+    if (!this.retryService) {
+      return fn();
+    }
+
+    return this.retryService.withRetry(fn, {
+      maxAttempts: 3,
+      loggerName: `ConversationManagement.${operation}`,
+      // VoltAgent Memory API may return 500 errors on temporary DB issues
+      extractStatus: (error) => {
+        if (error?.response?.status) return error.response.status;
+        if (error?.statusCode) return error.statusCode;
+        // Treat connection errors as retryable (5xx equivalent)
+        if (error?.code === 'ECONNRESET' || error?.code === 'ECONNREFUSED') return 503;
+        return undefined;
+      },
+    });
+  }
+
+  /**
+   * Execute a conversation mutation with distributed lock (VOLT-02).
+   * Prevents race conditions in multi-instance deployments.
+   */
+  private async withConversationLock<T>(
+    conversationId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    if (!this.redisLockService) {
+      return fn();
+    }
+
+    try {
+      return await this.redisLockService.withLock(
+        `conversation:${conversationId}`,
+        CONVERSATION_LOCK_TTL_MS,
+        fn,
+      );
+    } catch (error) {
+      // If lock acquisition fails, log and proceed without lock
+      // This ensures graceful degradation when Redis is unavailable
+      if (error instanceof Error && error.message.includes('Failed to acquire lock')) {
+        this.logger.warn(`Lock acquisition failed for conversation ${conversationId}, proceeding without lock`);
+        return fn();
+      }
+      throw error;
+    }
   }
 
   /**
@@ -127,6 +193,8 @@ export class ConversationManagementService {
   /**
    * List conversations for a user.
    * Uses VoltAgent Memory.getConversationsByUserId() method.
+   *
+   * VOLT-03: Wrapped with retry logic for transient failures.
    */
   async listConversations(
     memory: Memory | null,
@@ -141,16 +209,24 @@ export class ConversationManagementService {
     }
 
     try {
-      const conversations = await memory.getConversationsByUserId(tenantUserId, {
-        limit,
-        orderBy: 'updated_at',
-        orderDirection: 'DESC',
-      });
+      // VOLT-03: Use retry for transient failures
+      const conversations = await this.withMemoryRetry(
+        () => memory.getConversationsByUserId(tenantUserId, {
+          limit,
+          orderBy: 'updated_at',
+          orderDirection: 'DESC',
+        }),
+        'getConversationsByUserId',
+      );
 
       // Get message counts for each conversation
       const results = await Promise.all(
         conversations.map(async (c: { id: string; title?: string; metadata?: Record<string, unknown>; updatedAt: string }) => {
-          const messages = await memory.getMessages(tenantUserId, c.id, { limit: 1000 });
+          // VOLT-03: Use retry for transient failures
+          const messages = await this.withMemoryRetry(
+            () => memory.getMessages(tenantUserId, c.id, { limit: 1000 }),
+            'getMessages',
+          );
           return {
             id: c.id,
             title: c.title || (c.metadata?.title as string) || null,
@@ -174,6 +250,8 @@ export class ConversationManagementService {
   /**
    * Get a conversation with its messages.
    * Includes deduplication to prevent duplicate messages from VoltAgent memory.
+   *
+   * VOLT-03: Wrapped with retry logic for transient failures.
    */
   async getConversationWithMessages(
     memory: Memory | null,
@@ -189,12 +267,20 @@ export class ConversationManagementService {
     }
 
     try {
-      const conversation = await memory.getConversation(conversationId);
+      // VOLT-03: Use retry for transient failures
+      const conversation = await this.withMemoryRetry(
+        () => memory.getConversation(conversationId),
+        'getConversation',
+      );
       if (!conversation) {
         return null;
       }
 
-      const rawMessages = await memory.getMessages(tenantUserId, conversationId, { limit: messageLimit });
+      // VOLT-03: Use retry for transient failures
+      const rawMessages = await this.withMemoryRetry(
+        () => memory.getMessages(tenantUserId, conversationId, { limit: messageLimit }),
+        'getMessages',
+      );
 
       // FIX: Filter out internal delegation messages from VoltAgent subagent coordination
       // PRIMARY: Check parts[].type - tool calls have type like "tool-delegate_task", "tool-manage_email"
@@ -284,6 +370,9 @@ export class ConversationManagementService {
   /**
    * Update conversation metadata (title, archived status).
    * Uses VoltAgent Memory.updateConversation() method.
+   *
+   * VOLT-02: Protected by distributed lock to prevent race conditions.
+   * VOLT-03: Wrapped with retry logic for transient failures.
    */
   async updateConversation(
     memory: Memory | null,
@@ -295,11 +384,18 @@ export class ConversationManagementService {
     }
 
     try {
-      await memory.updateConversation(conversationId, {
-        title: updates.title,
-        metadata: updates.isArchived !== undefined ? { isArchived: updates.isArchived } : undefined,
+      // VOLT-02: Use distributed lock to prevent concurrent updates
+      return await this.withConversationLock(conversationId, async () => {
+        // VOLT-03: Use retry for transient failures
+        await this.withMemoryRetry(
+          () => memory.updateConversation(conversationId, {
+            title: updates.title,
+            metadata: updates.isArchived !== undefined ? { isArchived: updates.isArchived } : undefined,
+          }),
+          'updateConversation',
+        );
+        return true;
       });
-      return true;
     } catch (error) {
       this.logger.error('Failed to update conversation', {
         conversationId,
@@ -312,6 +408,9 @@ export class ConversationManagementService {
   /**
    * Delete a conversation and its messages.
    * Uses VoltAgent Memory.deleteConversation() method.
+   *
+   * VOLT-02: Protected by distributed lock to prevent race conditions.
+   * VOLT-03: Wrapped with retry logic for transient failures.
    */
   async deleteConversation(
     memory: Memory | null,
@@ -322,8 +421,15 @@ export class ConversationManagementService {
     }
 
     try {
-      await memory.deleteConversation(conversationId);
-      return true;
+      // VOLT-02: Use distributed lock to prevent concurrent deletes
+      return await this.withConversationLock(conversationId, async () => {
+        // VOLT-03: Use retry for transient failures
+        await this.withMemoryRetry(
+          () => memory.deleteConversation(conversationId),
+          'deleteConversation',
+        );
+        return true;
+      });
     } catch (error) {
       this.logger.error('Failed to delete conversation', {
         conversationId,

@@ -88,6 +88,9 @@ import { AgentPoolService } from './services/agent-pool.service';
 import { AgentMetricsService } from './services/agent-metrics.service';
 import { ApprovalWorkflowService } from './services/approval-workflow.service';
 
+// VOLT-02/03: Reliability services for conversation operations
+import { RetryService } from '../../../common/services/retry.service';
+
 @Module({
   imports: [
     ConfigModule,
@@ -169,6 +172,8 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     AgentPoolService,
     AgentMetricsService,
     ApprovalWorkflowService,
+    // VOLT-02/03: Retry service for Memory API resilience
+    RetryService,
   ],
   exports: [
     VoltAgentService,
