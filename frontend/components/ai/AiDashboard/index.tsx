@@ -26,7 +26,7 @@ import {
   Badge,
   useMediaQuery,
 } from '@mui/material';
-import { Sparkles, Send, Zap, PanelRightOpen, X, MessageSquare, StopCircle } from 'lucide-react';
+import { Sparkles, Send, Zap, PanelRightOpen, X, MessageSquare, StopCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -115,12 +115,19 @@ export function AiDashboard() {
     conversationId,
     setConversationId,
     setMessages: setChatMessages,
+    // VOLT-01: Error categorization for retry UI
+    lastError,
+    lastPrompt,
+    clearError,
   } = useVoltAgentChat({
     locale: t.locale,
     viewContext,
     onError: (error) => {
       logger.error('[AiDashboard] Chat error:', error);
-      toast.error(t.ai?.errors?.chatFailed || 'Failed to send message. Please try again.');
+      // VOLT-01: Don't show toast for retryable errors - we show inline retry UI instead
+      if (!error.message.includes('circuit') && !error.message.includes('temporarily unavailable')) {
+        toast.error(t.ai?.errors?.chatFailed || 'Failed to send message. Please try again.');
+      }
     },
     onConversationIdChange: (newId) => {
       // Mark new conversations for title generation (will be done after first assistant response)
@@ -130,6 +137,14 @@ export function AiDashboard() {
       }
     },
   });
+
+  // VOLT-01: Handle retry for failed messages
+  const handleRetry = useCallback(() => {
+    if (lastPrompt) {
+      clearError();
+      sendMessage(lastPrompt);
+    }
+  }, [lastPrompt, clearError, sendMessage]);
 
   // Auto-generate title AFTER first assistant message arrives (conversation now exists in DB)
   // FIX: Use stable reference (length) instead of array to prevent infinite re-renders
@@ -430,6 +445,55 @@ export function AiDashboard() {
               </Box>
             )}
           </Box>
+
+          {/* VOLT-01: Error Banner with Retry Button */}
+          {lastError && lastError.retryable && (
+            <Box
+              sx={{
+                mx: 2,
+                mb: 1,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.warning.main, 0.1),
+                border: '1px solid',
+                borderColor: alpha(theme.palette.warning.main, 0.3),
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+              }}
+            >
+              <AlertTriangle size={20} color={theme.palette.warning.main} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" fontWeight={600} color="warning.main">
+                  {lastError.code === 'CIRCUIT_OPEN'
+                    ? 'AI service temporarily unavailable'
+                    : lastError.code === 'RATE_LIMIT'
+                    ? (t.ai?.errors?.rateLimit || 'Rate limit reached')
+                    : lastError.code === 'TIMEOUT'
+                    ? 'Request timed out'
+                    : (t.ai?.errors?.connectionLost || 'Connection error')}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Please try again in a moment
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                startIcon={<RefreshCw size={16} />}
+                onClick={handleRetry}
+                disabled={sending}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Retry
+              </Button>
+            </Box>
+          )}
 
           {/* Input Area - 2025 Glassmorphism Design */}
           <Box
