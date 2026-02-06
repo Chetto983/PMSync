@@ -50,6 +50,38 @@ export interface MessageMetadata {
   totalTokens?: number;
 }
 
+/**
+ * ChatError - Categorized error with retry information (VOLT-01)
+ * Added 2026-02-06 for circuit breaker UI integration
+ */
+export interface ChatError {
+  code: 'RATE_LIMIT' | 'CIRCUIT_OPEN' | 'TIMEOUT' | 'NETWORK' | 'UNKNOWN';
+  message: string;
+  retryable: boolean;
+  retryAfterMs?: number;
+}
+
+/**
+ * Parse backend error into categorized ChatError
+ */
+function parseError(error: Error): ChatError {
+  const message = error.message || 'Unknown error';
+
+  if (message.includes('rate limit') || message.includes('429')) {
+    return { code: 'RATE_LIMIT', message, retryable: true, retryAfterMs: 10000 };
+  }
+  if (message.includes('circuit') || message.includes('temporarily unavailable') || message.includes('CIRCUIT_BREAKER_OPEN')) {
+    return { code: 'CIRCUIT_OPEN', message, retryable: true, retryAfterMs: 5000 };
+  }
+  if (message.includes('timeout') || message.includes('ETIMEDOUT')) {
+    return { code: 'TIMEOUT', message, retryable: true };
+  }
+  if (message.includes('network') || message.includes('ECONNREFUSED') || message.includes('fetch')) {
+    return { code: 'NETWORK', message, retryable: true };
+  }
+  return { code: 'UNKNOWN', message, retryable: false };
+}
+
 export interface UseVoltAgentChatOptions {
   initialConversationId?: string;
   locale?: string;
@@ -72,6 +104,12 @@ export interface UseVoltAgentChatReturn {
   conversationId: string;
   setConversationId: (id: string) => void;
   setMessages: (messages: UIMessage[]) => void;
+  /** Categorized error with retryable flag (VOLT-01) */
+  lastError: ChatError | null;
+  /** Last prompt that failed (for retry) */
+  lastPrompt: string | null;
+  /** Clear the last error */
+  clearError: () => void;
 }
 
 // ============ Helpers ============
@@ -128,6 +166,15 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
     [onConversationIdChange]
   );
 
+  // VOLT-01: Error categorization state for retry UI
+  const [lastError, setLastError] = useState<ChatError | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+
+  const clearError = useCallback(() => {
+    setLastError(null);
+    setLastPrompt(null);
+  }, []);
+
   // Transport - stable reference, uses ref for fresh conversationId
   // Note: ref is accessed in callback (prepareSendMessagesRequest), not during render
   /* eslint-disable react-hooks/refs */
@@ -158,12 +205,19 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
     transport,
     id: conversationId,
     experimental_throttle: 100, // SDK handles render batching
-    onError,
+    onError: (error) => {
+      // VOLT-01: Categorize error for retry UI
+      setLastError(parseError(error));
+      onError?.(error);
+    },
   });
 
-  // Simple string-based sendMessage wrapper
+  // Simple string-based sendMessage wrapper with error tracking
   const sendMessage = useCallback(
     async (content: string) => {
+      // VOLT-01: Track prompt for retry
+      setLastPrompt(content);
+      setLastError(null);
       await chat.sendMessage({ text: content });
     },
     [chat]
@@ -185,6 +239,10 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
     conversationId,
     setConversationId,
     setMessages: chat.setMessages,
+    // VOLT-01: Error categorization for retry UI
+    lastError,
+    lastPrompt,
+    clearError,
   };
 }
 
