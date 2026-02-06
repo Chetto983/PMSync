@@ -19,6 +19,17 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // ============ Types ============
 
+/**
+ * ViewContext - Describes user's current location in the app.
+ * Used for context-aware prompt suggestions (CHAT-02).
+ */
+export interface ViewContext {
+  currentView: 'inbox' | 'thread' | 'calendar' | 'contacts' | 'compose' | 'dashboard' | 'ai';
+  selectedEmailId?: string;
+  selectedFolderId?: string;
+  selectedContactId?: string;
+}
+
 /** AskUser data structure for clarifying questions */
 export interface AskUserOption {
   label: string;
@@ -42,6 +53,7 @@ export interface MessageMetadata {
 export interface UseVoltAgentChatOptions {
   initialConversationId?: string;
   locale?: string;
+  viewContext?: ViewContext;
   onError?: (error: Error) => void;
   onConversationIdChange?: (conversationId: string) => void;
 }
@@ -89,7 +101,7 @@ function extractTextFromParts(message: UIMessage | undefined): string {
 // ============ Hook ============
 
 export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVoltAgentChatReturn {
-  const { initialConversationId, locale = 'en', onError, onConversationIdChange } = options;
+  const { initialConversationId, locale = 'en', viewContext, onError, onConversationIdChange } = options;
 
   // Conversation ID management
   const [conversationId, setConversationIdState] = useState(
@@ -100,6 +112,13 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
+
+  // ViewContext management - keep ref for fresh values in transport
+  const viewContextRef = useRef(viewContext);
+
+  useEffect(() => {
+    viewContextRef.current = viewContext;
+  }, [viewContext]);
 
   const setConversationId = useCallback(
     (id: string) => {
@@ -126,6 +145,7 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
             message: extractTextFromParts(messages[messages.length - 1] as UIMessage),
             conversationId: conversationIdRef.current,
             locale,
+            viewContext: viewContextRef.current,
           },
         }),
       }),

@@ -37,6 +37,7 @@ import { VoltAgentService, type ChatOptions} from './voltagent.service';
 import { HitlService } from './services/hitl.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
 import { WritingStyleService } from './services/writing-style.service';
+import { SuggestedPromptsService, type ViewContext, type PromptSuggestion } from './services/suggested-prompts.service';
 import type { ApprovalResumeData } from './workflows';
 
 interface AuthenticatedRequest {
@@ -70,6 +71,15 @@ class ChatRequestDto {
   @IsOptional()
   @IsIn(['small', 'large', 'creative', 'router', 'reasoning'])
   model?: 'small' | 'large' | 'creative' | 'router' | 'reasoning';
+
+  @IsOptional()
+  @IsObject()
+  viewContext?: {
+    currentView: string;
+    selectedEmailId?: string;
+    selectedFolderId?: string;
+    selectedContactId?: string;
+  };
 }
 
 /**
@@ -121,6 +131,7 @@ export class VoltAgentController {
     private readonly hitlService: HitlService,
     private readonly dailyBriefingService: DailyBriefingService,
     private readonly writingStyleService: WritingStyleService,
+    private readonly suggestedPromptsService: SuggestedPromptsService,
   ) {}
 
   // ============ Core Chat Endpoints ============
@@ -238,6 +249,32 @@ export class VoltAgentController {
     } finally {
       if (!res.writableEnded) res.end();
     }
+  }
+
+  // ============ Suggested Prompts Endpoint (CHAT-02) ============
+
+  /**
+   * Get suggested prompts based on user's current view context.
+   * Frontend calls this when view changes to get relevant prompt suggestions.
+   */
+  @Get('suggested-prompts')
+  @ApiOperation({ summary: 'Get context-aware prompt suggestions' })
+  async getSuggestedPrompts(
+    @Query('view') view: string = 'ai',
+    @Query('locale') locale: string = 'en',
+    @Query('emailId') emailId?: string,
+    @Query('folderId') folderId?: string,
+    @Query('contactId') contactId?: string,
+  ): Promise<{ prompts: PromptSuggestion[] }> {
+    const viewContext: ViewContext = {
+      currentView: view as ViewContext['currentView'],
+      selectedEmailId: emailId,
+      selectedFolderId: folderId,
+      selectedContactId: contactId,
+    };
+    return {
+      prompts: this.suggestedPromptsService.getPromptsForView(viewContext, locale),
+    };
   }
 
   // ============ Action Approval Endpoints ============
