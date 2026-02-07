@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 4 of 9 — Follow-Ups Refactor
-Plan: 01 of 2
-Status: COMPLETE
-Last activity: 2026-02-07 — Completed 04-01-PLAN.md (Follow-Up Type Classification)
+Plan: 02 of 2
+Status: PHASE COMPLETE
+Last activity: 2026-02-07 — Completed 04-02-PLAN.md (Smart Timing & NLP Deadline Detection)
 
 Progress: v3.0
 ```
@@ -22,9 +22,9 @@ Progress: v3.0
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 04-01-PLAN.md — Follow-up type classification with WAITING_FOR/TODO
+Stopped at: Completed 04-02-PLAN.md — Smart timing and NLP deadline detection
 Resume file: None
-Next action: Execute 04-02-PLAN.md (Follow-Up Smart Actions) or Plan Phase 03 (Auto-Triage Core)
+Next action: Plan Phase 03 (Auto-Triage Core) or Phase 09 (Chat Artifact Smart Renderers)
 
 ## Accumulated Decisions
 
@@ -104,6 +104,10 @@ Next action: Execute 04-02-PLAN.md (Follow-Up Smart Actions) or Plan Phase 03 (A
 | Follow-up type defaults to TODO | v3.0-04-01 | Existing follow-ups remain valid after migration; most are received emails |
 | Folder-based type detection | v3.0-04-01 | SENT folder + waitingFor items = WAITING_FOR, else TODO |
 | Lightweight followUp select (7 fields) | v3.0-04-01 | Updated from 6 to include followUpType field |
+| Use chrono-node for NLP deadlines | v3.0-04-02 | Already installed, handles relative dates, zero new dependencies |
+| Smart timing: 2-3 days, Tue-Thu 10 AM | v3.0-04-02 | Research shows single follow-up doubles response rate (16% → 27%) |
+| Separate detectedDeadline from dueDate | v3.0-04-02 | Preserves both AI-detected and manual dates |
+| Lightweight followUp select (10 fields) | v3.0-04-02 | Updated from 7 to include detectedDeadline + deadlineSource |
 
 ## Blockers & Concerns
 
@@ -145,7 +149,7 @@ See: .planning/MILESTONES.md
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | COMPLETE (3/3 plans) |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | COMPLETE (4/4 plans) |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
-| 04 | Follow-Ups Refactor | FOLLOW-01/02 | IN PROGRESS (1/2 plans) ✓ |
+| 04 | Follow-Ups Refactor | FOLLOW-01/02 | COMPLETE (2/2 plans) |
 | 05 | Nested Labels Frontend | LABELS-01 | COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (5/5 plans) |
 | 07 | Chat Improvement | CHAT-04 | PENDING VERIFICATION (6/6 plans) |
@@ -166,8 +170,8 @@ See: .planning/MILESTONES.md
 - Phase 07: Chat Improvement (6/6 plans)
 - Phase 08: Email Tool Triage Exposure (2/2 plans)
 
-**In progress:**
-- Phase 04: Follow-Ups Refactor (1/2 plans) — 04-01 complete, 04-02 ready
+**Completed phases (continued):**
+- Phase 04: Follow-Ups Refactor (2/2 plans) — COMPLETE
 
 **Remaining phases:**
 - Phase 03: Auto-Triage Core (0/3 plans — NOT PLANNED)
@@ -180,4 +184,4 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-07 -- Phase 04 Plan 01 complete — Follow-up type classification with WAITING_FOR/TODO*
+*State updated: 2026-02-07 -- Phase 04 COMPLETE (2/2 plans) — Smart timing and NLP deadline detection*
