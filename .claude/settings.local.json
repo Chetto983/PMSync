@@ -92,7 +92,8 @@
       "Bash(gh repo view:*)",
       "Bash(cmd /c:*)",
       "Skill(gsd:add-phase)",
-      "Skill(gsd:add-phase:*)"
+      "Skill(gsd:add-phase:*)",
+      "Bash(git clone:*)"
     ],
     "deny": [],
     "ask": []

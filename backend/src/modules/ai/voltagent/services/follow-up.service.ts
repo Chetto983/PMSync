@@ -22,7 +22,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { getErrorMessage } from '../../../../common/utils';
-import { FollowUpStatus, EmailFollowUp, Prisma } from '@prisma/client';
+import { FollowUpStatus, FollowUpType, EmailFollowUp, Prisma } from '@prisma/client';
 import { MistralService } from '../../services/mistral.service';
 import { FollowUpQueueService } from './follow-up-queue.service';
 import { FollowUpScannerService, FollowUpScanResult, FollowUpScanOptions } from './follow-up-scanner.service';

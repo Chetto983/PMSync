@@ -35,6 +35,7 @@
 | CHAT-04 | Chat improvement features | 07 |
 | TOOL-01 | Email tool triage data exposure (priority, labels, sentiment, follow-ups) | 08 |
 | ARTIFACT-01 | Smart tool result renderers replacing raw JSON in chat UI | 09 |
+| REVIEW-01 | UI review and visual polish pass | 10 |
 
 ## Phase Summary
 
@@ -49,6 +50,7 @@
 | 07 | Chat Improvement | CHAT-04 | 6/6 | ✅ COMPLETE |
 | 08 | Email Tool Triage Exposure | TOOL-01 | 2/2 | ✅ COMPLETE |
 | 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | 0/0 | ❌ NOT PLANNED |
+| 10 | UI Review | REVIEW-01 | 0/0 | ❌ NOT PLANNED |
 
 ---
 
@@ -377,6 +379,33 @@ Plans:
 - Hidden parameters (only shown on error)
 - Consistent empty states per tool type
 - Raw JSON toggle for debugging
+
+---
+
+## Phase 10: UI Review
+
+**Goal:** Visual polish pass across the entire frontend — ensure all pages, components, and tool renderers meet 2026 design standards with consistent theming, spacing, and responsive behavior.
+
+**Status:** NOT PLANNED
+
+**Requirements:**
+- REVIEW-01: UI review and visual polish pass
+
+**Dependencies:** Phase 09 (Chat Artifact Smart Renderers)
+
+**Why tenth:** After all functional features are built, a dedicated visual review pass catches inconsistencies, dated patterns, and accessibility gaps across the full UI.
+
+**Plans:** 0 plans (NOT CREATED)
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 10 to break down)
+
+**Deliverables:**
+- Visual audit report of all pages
+- Theme consistency fixes
+- Responsive layout fixes
+- Accessibility improvements
+- Design polish to match assistant-ui / modern standards
 
 ---
 

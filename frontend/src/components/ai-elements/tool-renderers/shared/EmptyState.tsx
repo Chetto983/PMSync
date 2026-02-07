@@ -10,6 +10,10 @@ interface EmptyStateProps extends ComponentProps<"div"> {
   description?: string;
 }
 
+/**
+ * Empty state - assistant-ui inspired.
+ * Centered muted icon in circle, title, optional description.
+ */
 export function EmptyState({
   icon: Icon = FileQuestion,
   title,
@@ -20,17 +24,17 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-6 px-4 text-center",
-        className
+        "flex flex-col items-center justify-center py-8 px-4 text-center",
+        className,
       )}
       {...props}
     >
-      <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center mb-3">
-        <Icon className="h-5 w-5 text-primary/40" />
+      <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-muted">
+        <Icon className="size-5 text-muted-foreground" />
       </div>
-      <p className="text-sm font-medium text-foreground/70">{title}</p>
+      <p className="text-sm font-medium text-foreground">{title}</p>
       {description && (
-        <p className="text-xs text-muted-foreground mt-1 max-w-[220px]">
+        <p className="mt-1.5 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
           {description}
         </p>
       )}
