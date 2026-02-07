@@ -21,6 +21,7 @@ import {
   ReasoningTrigger,
   ReasoningContent,
 } from '@/src/components/ai-elements/reasoning';
+import { Shimmer } from '@/src/components/ai-elements/shimmer';
 
 /** Reasoning part type for AI SDK extended thinking */
 interface ReasoningPart {
@@ -139,6 +140,27 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
     sessionId: conversationId,
   });
 
+  // Get current active action text from agent steps
+  const activeAction = agentSteps.find(s => s.status === 'active')?.action;
+
+  /**
+   * Create custom thinking message for Reasoning component.
+   * Shows dynamic action text during streaming, duration after completion.
+   */
+  const createThinkingMessage = React.useCallback((currentAction?: string) => {
+    return (isStreaming: boolean, duration?: number) => {
+      if (isStreaming || duration === 0) {
+        // Use current action if available, otherwise default
+        const text = currentAction || 'Thinking...';
+        return <Shimmer duration={1.5}>{text}</Shimmer>;
+      }
+      if (duration === undefined) {
+        return <span>Thought for a few seconds</span>;
+      }
+      return <span>Thought for {duration} seconds</span>;
+    };
+  }, []);
+
   // WebSocket subscription for real-time HITL updates
   // Invalidates pending actions queries when actions are created/approved/rejected/executed
   useEffect(() => {
@@ -256,7 +278,7 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                         isStreaming={reasoningPart.state === 'streaming'}
                         defaultOpen={true}
                       >
-                        <ReasoningTrigger />
+                        <ReasoningTrigger getThinkingMessage={createThinkingMessage(activeAction)} />
                         <ReasoningContent>
                           {reasoningPart.text || ''}
                         </ReasoningContent>
