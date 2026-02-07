@@ -167,7 +167,7 @@
 
 **Goal:** Complete redesign of follow-ups UI with smart features
 
-**Status:** NOT PLANNED (gap closure required)
+**Status:** PLANNED
 
 **Requirements:**
 - FOLLOW-01: Follow-ups UI refactor with two types (Waiting For / To Do)
@@ -182,17 +182,22 @@
 - Sweet spot: 2-3 days after initial send
 - Automatic detection of "Please respond by Friday" patterns
 
-**Plans:** 2 plans (NOT CREATED)
-- [ ] 04-01: UI refactor (tabs, kanban view, bulk actions)
-- [ ] 04-02: Smart timing + NLP deadline extraction
+**Plans:** 2 plans
 
-**Next action:** `/gsd:plan-phase 04`
+Plans:
+- [ ] 04-01-PLAN.md — UI refactor: FollowUpType enum (WAITING_FOR/TODO), type detection, filter toggle, type badges
+- [ ] 04-02-PLAN.md — Smart timing + NLP deadline: chrono-node extraction, deadline display, smart timing API
+
+**Wave Structure:**
+- Wave 1: 04-01 (schema + backend + frontend types)
+- Wave 2: 04-02 (NLP + smart timing, depends on 04-01)
 
 **Deliverables:**
 - Follow-up types: Waiting For / To Do
-- Dashboard with tabs: Today / This Week / Overdue
-- One-click follow-up from email hover
-- Automatic deadline detection during sync
+- Type filter toggle in Kanban header
+- Type badges on follow-up cards
+- Auto-detected deadlines from email text (chrono-node NLP)
+- Smart timing recommendation in snooze dialog
 
 ---
 
