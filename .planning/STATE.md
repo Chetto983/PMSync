@@ -12,17 +12,17 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 Phase: 7 of 7 — Chat Improvement
 Plan: 02 of 6
 Status: IN PROGRESS
-Last activity: 2026-02-07 — Completed 07-02-PLAN.md (Message Bubbles + Smart Scroll)
+Last activity: 2026-02-07 — Completed 07-01-PLAN.md (AiDashboard Refactor) and 07-02-PLAN.md (Message Bubbles + Smart Scroll)
 
 Progress: v3.0 Phase 07
 ```
-[█████████████████████████████████████] 73% (16/22 plans)
+[██████████████████████████████████████] 77% (17/22 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 07-02-PLAN.md (Message Bubbles + Smart Scroll)
+Stopped at: Completed 07-01-PLAN.md (AiDashboard Refactor) and 07-02-PLAN.md
 Resume file: None
 
 ## Accumulated Decisions
@@ -85,6 +85,9 @@ Resume file: None
 | Type narrowing for currentView | v3.0-06-05 | Cast to specific union type when passing to createUnifiedAgent |
 | Separate DndContext for labels | v3.0-05-02 | Avoid collision with EmailLayout folder DnD |
 | Toggle deselect on all sidebar filters | v3.0-05-02 | Clicking active filter clears it (labels, folders, provider folders) |
+| 6 files for AiDashboard refactor | v3.0-07-01 | ChatInput extracted separately for mobile reuse |
+| Controller hook returns typed interface | v3.0-07-01 | Clear contract for consumers, easier to extend |
+| hideQuickActions on ChatInput | v3.0-07-01 | Mobile dialog has less space for quick actions |
 | IntersectionObserver for scroll detection | v3.0-07-02 | Works with any scrollable ancestor without needing containerRef |
 | User messages: 8% secondary alpha | v3.0-07-02 | Subtle modern look matching Claude/ChatGPT UX |
 | Assistant messages: no container | v3.0-07-02 | Clean typography focus, reduces visual noise |
@@ -130,23 +133,24 @@ See: .planning/MILESTONES.md
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
 | 05 | Nested Labels Frontend | LABELS-01 | COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (5/5 plans) |
-| 07 | Chat Improvement | CHAT-04 | IN PROGRESS (1/6 plans) |
+| 07 | Chat Improvement | CHAT-04 | IN PROGRESS (2/6 plans) |
 | 08 | Email Tool Triage Exposure | TOOL-01 | Not planned |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Phase 07 in progress (1/6 plans complete).
+**Currently:** Phase 07 in progress (2/6 plans complete).
 
 **Phase 07 accomplishments:**
+- 07-01: AiDashboard refactored from 954 to 311 lines, split into 6 focused files
 - 07-02: Message bubbles modernized (Claude/ChatGPT-style), smart scroll with IntersectionObserver, scroll-to-bottom button
 
 **Remaining in v3.0:**
 - Phase 02: 02-03 (mobile chat)
 - Phase 03: Auto-Triage Core (3 plans)
 - Phase 04: Follow-Ups Refactor (2 plans)
-- Phase 07: 5 plans remaining (07-03 through 07-06)
+- Phase 07: 4 plans remaining (07-03 through 07-06)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -154,4 +158,4 @@ See: .planning/MILESTONES.md
 - Pre-existing lint error in LabelTreeDndWrapper.tsx (resetState accessed before declaration)
 
 ---
-*State updated: 2026-02-07 -- Completed 07-02-PLAN.md (Message Bubbles + Smart Scroll)*
+*State updated: 2026-02-07 -- Completed 07-01-PLAN.md (AiDashboard Refactor) and 07-02-PLAN.md*
