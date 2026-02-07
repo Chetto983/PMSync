@@ -50,7 +50,7 @@ const {
 const CSRF_EXCLUDED_PATHS = [
   '/health',
   '/health/ready',
-  '/api/v1/auth/csrf-token', // Token fetch endpoint itself
+  '/auth/csrf-token',        // Token fetch endpoint itself
   '/api/v1/webhooks',        // Webhook endpoints use signatures
   '/api/v1/providers/oauth', // OAuth callbacks
 ];

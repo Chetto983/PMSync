@@ -47,7 +47,7 @@ export async function getCsrfToken(): Promise<string> {
   }
 
   csrfTokenPromise = axios
-    .get(`${apiBaseURL}/api/v1/auth/csrf-token`, { withCredentials: true })
+    .get(`${apiBaseURL}/auth/csrf-token`, { withCredentials: true })
     .then((res) => {
       csrfToken = res.data.csrfToken;
       csrfTokenPromise = null;
