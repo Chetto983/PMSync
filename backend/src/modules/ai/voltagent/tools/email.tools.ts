@@ -162,7 +162,11 @@ Examples:
               where: { tenantId, isRead: false, folder: EXCLUDE_JUNK_FOLDERS },
               take: limit ?? 10,
               orderBy: { receivedAt: 'desc' },
-              select: { id: true, subject: true, from: true, snippet: true, receivedAt: true },
+              select: {
+                id: true, subject: true, from: true, snippet: true, receivedAt: true,
+                // AI triage fields
+                aiPriority: true, aiSentiment: true, aiLabels: true,
+              },
             });
             const serializedEmails = emails.map((e) => ({
               ...e,
@@ -185,6 +189,8 @@ Examples:
                 id: true, subject: true, from: true, to: true, cc: true,
                 bodyText: true, snippet: true, // NO bodyHtml - 80% token savings!
                 receivedAt: true, isRead: true, isStarred: true, folder: true,
+                // AI triage fields
+                aiPriority: true, aiSentiment: true, aiLabels: true,
               },
             });
             if (!email) {
@@ -502,6 +508,10 @@ Examples:
                   receivedAt: true,
                   isRead: true,
                   isStarred: true,
+                  // AI triage fields
+                  aiPriority: true,
+                  aiSentiment: true,
+                  aiLabels: true,
                 },
               });
 
@@ -577,6 +587,10 @@ Examples:
             receivedAt: true,
             isRead: true,
             isStarred: true,
+            // AI triage fields
+            aiPriority: true,
+            aiSentiment: true,
+            aiLabels: true,
           },
         });
 

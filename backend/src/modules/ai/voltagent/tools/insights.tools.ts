@@ -675,6 +675,10 @@ function createSemanticSearchEmailsTool(options: InsightsToolOptions) {
             snippet: true,
             receivedAt: true,
             isRead: true,
+            // AI triage fields
+            aiPriority: true,
+            aiSentiment: true,
+            aiLabels: true,
           },
           orderBy: { receivedAt: 'desc' },
         });
