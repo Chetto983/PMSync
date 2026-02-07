@@ -386,7 +386,7 @@ Plans:
 
 **Goal:** Visual polish pass across the entire frontend — ensure all pages, components, and tool renderers meet 2026 design standards with consistent theming, spacing, and responsive behavior.
 
-**Status:** NOT PLANNED
+**Status:** PLANNED
 
 **Requirements:**
 - REVIEW-01: UI review and visual polish pass
@@ -395,17 +395,35 @@ Plans:
 
 **Why tenth:** After all functional features are built, a dedicated visual review pass catches inconsistencies, dated patterns, and accessibility gaps across the full UI.
 
-**Plans:** 0 plans (NOT CREATED)
+**Plans:** 8 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 10 to break down)
+
+- [ ] 10-01-PLAN.md — Global foundations: Lucide icon migration + skip nav + reduced motion
+- [ ] 10-02-PLAN.md — Theme parity: light theme overrides + hardcoded color cleanup
+- [ ] 10-03-PLAN.md — Shell audit + fix: Layout, Header, Sidebar, ThemeToggle
+- [ ] 10-04-PLAN.md — Email pages audit + fix: Email List, Thread, Compose
+- [ ] 10-05-PLAN.md — AI pages audit + fix: AI Chat, Memories, Follow-ups
+- [ ] 10-06-PLAN.md — Dashboard + Contacts + Calendar audit + fix
+- [ ] 10-07-PLAN.md — Settings + Auth + Landing + Static pages audit + fix
+- [ ] 10-08-PLAN.md — Micro-interactions + accessibility verification
+
+**Wave Structure:**
+
+- Wave 1: 10-01, 10-02 (parallel — global foundations, no file conflicts)
+- Wave 2: 10-03 (shell audit — depends on global foundations)
+- Wave 3: 10-04, 10-05, 10-06, 10-07 (parallel — page audits, depends on shell)
+- Wave 4: 10-08 (micro-interactions + a11y verification — depends on all page audits)
 
 **Deliverables:**
-- Visual audit report of all pages
-- Theme consistency fixes
-- Responsive layout fixes
-- Accessibility improvements
-- Design polish to match assistant-ui / modern standards
+
+- Zero @mui/icons-material imports (all Lucide)
+- Light/dark theme parity (matching component overrides)
+- Skip navigation + prefers-reduced-motion support
+- Before/after screenshots for every page at 4 breakpoints x 2 themes
+- Framer-motion micro-interactions on key elements
+- WCAG AA accessibility improvements (fewer axe-core exclusions)
+- Consistent focus indicators across all interactive elements
 
 ---
 
