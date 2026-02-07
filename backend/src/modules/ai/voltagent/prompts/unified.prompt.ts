@@ -18,6 +18,42 @@ import {
 } from './shared.prompt';
 
 /**
+ * Email context for when user is viewing/discussing a specific email.
+ * Used to inject contextual awareness into the prompt when selectedEmailId is present.
+ */
+export interface EmailContext {
+  id: string;
+  subject: string;
+  from: string;
+  receivedAt: string;
+  snippet?: string;
+}
+
+/**
+ * Build email context section for the prompt when viewing a specific email.
+ * This enables the AI to understand "this email" references.
+ */
+function buildEmailContextSection(emailContext?: EmailContext): string {
+  if (!emailContext) return '';
+
+  const snippetLine = emailContext.snippet
+    ? `- **Preview**: ${emailContext.snippet.slice(0, 200)}...`
+    : '';
+
+  return `
+<EMAIL_CONTEXT>
+You are helping the user with this specific email:
+- **Subject**: ${emailContext.subject}
+- **From**: ${emailContext.from}
+- **Received**: ${emailContext.receivedAt}
+${snippetLine}
+
+When the user says "this email", "the email", or similar, they are referring to this email (ID: ${emailContext.id}).
+For operations on this email (reply, forward, archive, label, summarize), use this email's ID.
+</EMAIL_CONTEXT>`;
+}
+
+/**
  * BASE: Always included (~500 chars)
  * Core identity and rules - kept minimal like Notion AI.
  */
@@ -210,9 +246,15 @@ export function getUnifiedPrompt(
     hasWebSearch?: boolean;
     hasDocuments?: boolean;
     includeBulkSafety?: boolean;
+    emailContext?: EmailContext;
   },
 ): string {
   const parts: string[] = [BASE];
+
+  // Add email context if provided (for "this email" references)
+  if (options?.emailContext) {
+    parts.push(buildEmailContextSection(options.emailContext));
+  }
 
   // Add intent-specific modules
   switch (intent) {
