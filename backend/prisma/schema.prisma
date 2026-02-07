@@ -1031,6 +1031,12 @@ model MistralAgent {
   @@map("mistral_agents")
 }
 
+/// Follow-up type classification (FOLLOW-01)
+enum FollowUpType {
+  WAITING_FOR // I sent email, waiting for response
+  TODO        // I received email, need to take action
+}
+
 /// Tracks emails that need follow-up
 model EmailFollowUp {
   id             String         @id @default(cuid())
@@ -1038,6 +1044,7 @@ model EmailFollowUp {
   userId         String
   emailId        String
   status         FollowUpStatus @default(PENDING)
+  followUpType   FollowUpType   @default(TODO)
   reason         String?
   dueDate        DateTime
   remindCount    Int            @default(0)
@@ -1057,6 +1064,7 @@ model EmailFollowUp {
   @@unique([emailId, tenantId])
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])
+  @@index([tenantId, userId, followUpType])
   @@index([dueDate])
   @@map("email_follow_ups")
 }
