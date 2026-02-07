@@ -2667,6 +2667,15 @@ export interface AppTranslations {
         overdue: string;
         resolved: string;
       };
+      types: {
+        all: string;
+        waitingFor: string;
+        todo: string;
+      };
+      typeDescriptions: {
+        waitingFor: string;
+        todo: string;
+      };
       status: {
         PENDING: string;
         REMINDED: string;

@@ -2618,6 +2618,15 @@ export const en: AppTranslations = {
         overdue: 'Overdue',
         resolved: 'Resolved',
       },
+      types: {
+        all: 'All Types',
+        waitingFor: 'Waiting For',
+        todo: 'To Do',
+      },
+      typeDescriptions: {
+        waitingFor: 'Emails you sent, awaiting response',
+        todo: 'Emails you received, need to take action',
+      },
       status: {
         PENDING: 'Pending',
         REMINDED: 'Reminded',

@@ -10,7 +10,7 @@
 export const followUpKeys = {
   all: ['follow-ups'] as const,
   lists: () => [...followUpKeys.all, 'list'] as const,
-  list: (status?: string) => [...followUpKeys.lists(), { status }] as const,
+  list: (status?: string, type?: 'WAITING_FOR' | 'TODO') => [...followUpKeys.lists(), { status, type }] as const,
   pending: () => [...followUpKeys.all, 'pending'] as const,
   overdue: () => [...followUpKeys.all, 'overdue'] as const,
   stats: () => [...followUpKeys.all, 'stats'] as const,

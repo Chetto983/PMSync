@@ -49,6 +49,7 @@ export interface EmailFollowUp {
   emailId: string;
   reason?: string;
   status: EmailFollowUpStatus;
+  followUpType?: 'WAITING_FOR' | 'TODO';
   dueDate?: string;
   reminderCount?: number;
   lastRemindedAt?: string;
@@ -90,14 +91,14 @@ export interface EmailFollowUpListData {
 // ============================================================================
 
 /**
- * Query options for all follow-ups (optionally filtered by status)
+ * Query options for all follow-ups (optionally filtered by status and type)
  */
-export function followUpsListOptions(status?: string, limit = 50) {
+export function followUpsListOptions(status?: string, type?: 'WAITING_FOR' | 'TODO', limit = 50) {
   return queryOptions({
-    queryKey: followUpKeys.list(status),
+    queryKey: followUpKeys.list(status, type),
     queryFn: async (): Promise<EmailFollowUpListData> => {
       try {
-        const response = await voltAgentApi.listFollowUps({ status, limit });
+        const response = await voltAgentApi.listFollowUps({ status, type, limit });
         const followUps = response.data?.followUps || [];
         return {
           followUps: followUps as unknown as EmailFollowUp[],
@@ -225,10 +226,10 @@ export function followUpDetailOptions(id: string) {
 // ============================================================================
 
 /**
- * Hook for all follow-ups (optionally by status)
+ * Hook for all follow-ups (optionally by status and type)
  */
-export function useFollowUpsList(status?: string, limit = 50) {
-  return useQuery(followUpsListOptions(status, limit));
+export function useFollowUpsList(status?: string, type?: 'WAITING_FOR' | 'TODO', limit = 50) {
+  return useQuery(followUpsListOptions(status, type, limit));
 }
 
 /**

@@ -21,6 +21,8 @@ import {
   IconButton,
   Tooltip,
   Divider,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import { useHotkeys } from 'react-hotkeys-hook';
 import {
@@ -84,6 +86,7 @@ export function FollowupsKanbanBoard() {
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'WAITING_FOR' | 'TODO' | undefined>(undefined);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false);
   const [snoozeTargetId, setSnoozeTargetId] = useState<string | null>(null);
@@ -95,7 +98,7 @@ export function FollowupsKanbanBoard() {
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   // Queries
-  const { data, isLoading, error } = useFollowUpsList(undefined, 200);
+  const { data, isLoading, error } = useFollowUpsList(undefined, typeFilter, 200);
   const { data: stats } = useFollowUpStats();
 
   // Mutations
@@ -394,7 +397,16 @@ export function FollowupsKanbanBoard() {
   if (isLoading) {
     return (
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Header theme={theme} t={t} stats={stats} searchQuery={searchQuery} onSearchChange={setSearchQuery} onShowHelp={() => setHelpDialogOpen(true)} />
+        <Header
+          theme={theme}
+          t={t}
+          stats={stats}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          onShowHelp={() => setHelpDialogOpen(true)}
+        />
         <KanbanSkeleton />
       </Box>
     );
@@ -410,7 +422,16 @@ export function FollowupsKanbanBoard() {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Header theme={theme} t={t} stats={stats} searchQuery={searchQuery} onSearchChange={setSearchQuery} onShowHelp={() => setHelpDialogOpen(true)} />
+      <Header
+        theme={theme}
+        t={t}
+        stats={stats}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        onShowHelp={() => setHelpDialogOpen(true)}
+      />
 
       {/* Kanban Board */}
       <DndContext
@@ -589,10 +610,12 @@ interface HeaderProps {
   stats?: { pending: number; overdue: number; dueToday: number; resolved: number } | null;
   searchQuery: string;
   onSearchChange: (value: string) => void;
+  typeFilter?: 'WAITING_FOR' | 'TODO';
+  onTypeFilterChange?: (value: 'WAITING_FOR' | 'TODO' | undefined) => void;
   onShowHelp?: () => void;
 }
 
-function Header({ theme, t, stats, searchQuery, onSearchChange, onShowHelp }: HeaderProps) {
+function Header({ theme, t, stats, searchQuery, onSearchChange, typeFilter, onTypeFilterChange, onShowHelp }: HeaderProps) {
   return (
     <Box sx={{ mb: 2, px: 2, pt: 2 }}>
       {/* Title */}
@@ -681,6 +704,39 @@ function Header({ theme, t, stats, searchQuery, onSearchChange, onShowHelp }: He
           },
         }}
       />
+
+      {/* Type Filter */}
+      {onTypeFilterChange && (
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+            {t.ai.followUpTracker.types.all}:
+          </Typography>
+          <ToggleButtonGroup
+            value={typeFilter || ''}
+            exclusive
+            onChange={(_, newValue) => onTypeFilterChange(newValue === '' ? undefined : newValue)}
+            size="small"
+            sx={{
+              '& .MuiToggleButton-root': {
+                textTransform: 'none',
+                px: 2,
+                py: 0.5,
+                fontSize: '0.875rem',
+              },
+            }}
+          >
+            <ToggleButton value="">
+              {t.ai.followUpTracker.types.all}
+            </ToggleButton>
+            <ToggleButton value="WAITING_FOR">
+              {t.ai.followUpTracker.types.waitingFor}
+            </ToggleButton>
+            <ToggleButton value="TODO">
+              {t.ai.followUpTracker.types.todo}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+      )}
     </Box>
   );
 }

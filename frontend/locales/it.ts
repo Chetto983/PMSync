@@ -2599,6 +2599,15 @@ export const it: AppTranslations = {
         overdue: 'In ritardo',
         resolved: 'Risolti',
       },
+      types: {
+        all: 'Tutti i tipi',
+        waitingFor: 'In attesa',
+        todo: 'Da fare',
+      },
+      typeDescriptions: {
+        waitingFor: 'Email inviate, in attesa di risposta',
+        todo: 'Email ricevute, richiesta azione',
+      },
       status: {
         PENDING: 'In sospeso',
         REMINDED: 'Promemoria inviato',

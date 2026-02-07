@@ -150,6 +150,21 @@ export function FollowUpCard({
                 height: 24,
               }}
             />
+            {/* Type badge */}
+            {followUp.followUpType && (
+              <Chip
+                size="small"
+                icon={followUp.followUpType === 'WAITING_FOR' ? <Hourglass size={12} /> : <ListTodo size={12} />}
+                label={followUp.followUpType === 'WAITING_FOR' ? t.ai.followUpTracker.types.waitingFor : t.ai.followUpTracker.types.todo}
+                variant="outlined"
+                sx={{
+                  height: 24,
+                  fontSize: '0.7rem',
+                  color: followUp.followUpType === 'WAITING_FOR' ? 'info.main' : 'secondary.main',
+                  borderColor: followUp.followUpType === 'WAITING_FOR' ? 'info.main' : 'secondary.main',
+                }}
+              />
+            )}
             {isOverdue && (
               <Chip
                 size="small"

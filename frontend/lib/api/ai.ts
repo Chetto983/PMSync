@@ -987,7 +987,7 @@ export const voltAgentApi = {
 
   // ============ Follow-ups ============
 
-  listFollowUps(params?: { status?: string; limit?: number; offset?: number }) {
+  listFollowUps(params?: { status?: string; type?: 'WAITING_FOR' | 'TODO'; limit?: number; offset?: number }) {
     return apiClient.get<{
       success: boolean;
       count: number;
