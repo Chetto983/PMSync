@@ -1108,6 +1108,17 @@ export const it: AppTranslations = {
       addSelected: 'Aggiungi etichette',
       labelSelected: '1 etichetta selezionata',
       labelsSelected: '{count} etichette selezionate',
+      // Nested label tree
+      parentLabel: 'Etichetta genitore',
+      noParent: 'Nessuno (livello principale)',
+      addChildLabel: 'Aggiungi sotto-etichetta',
+      changeColor: 'Cambia colore',
+      moveTo: 'Sposta in...',
+      deleteSubtreeWarning: 'Questa operazione eliminerà anche {count} sotto-etichetta/e. Le email con queste etichette perderanno semplicemente l\'etichetta.',
+      searchLabelsPlaceholder: 'Filtra etichette...',
+      depthLimitReached: 'Profondità massima di nidificazione raggiunta',
+      collapseAll: 'Chiudi tutto',
+      expandAll: 'Espandi tutto',
       errors: {
         nameRequired: 'Il nome è obbligatorio',
         nameTooShort: 'Il nome deve essere almeno 2 caratteri',

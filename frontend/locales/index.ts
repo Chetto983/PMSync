@@ -1040,6 +1040,17 @@ export interface AppTranslations {
       addSelected: string;
       labelSelected: string;
       labelsSelected: string;
+      // Nested label tree
+      parentLabel: string;
+      noParent: string;
+      addChildLabel: string;
+      changeColor: string;
+      moveTo: string;
+      deleteSubtreeWarning: string;
+      searchLabelsPlaceholder: string;
+      depthLimitReached: string;
+      collapseAll: string;
+      expandAll: string;
       errors: {
         nameRequired: string;
         nameTooShort: string;

@@ -242,3 +242,54 @@ export function useReorderLabels() {
     },
   });
 }
+
+/**
+ * Hook for moving a label (changing parentId and/or orderIndex)
+ *
+ * Used by the label tree for drag-drop nesting and reordering.
+ * Supports optimistic updates for snappy UX.
+ */
+export function useMoveLabel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      labelId,
+      parentId,
+      orderIndex,
+    }: {
+      labelId: string;
+      parentId: string | null;
+      orderIndex: number;
+    }) =>
+      labelsApi.updateLabel(labelId, { parentId, orderIndex }),
+    onMutate: async ({ labelId, parentId, orderIndex }) => {
+      await queryClient.cancelQueries({ queryKey: labelKeys.lists() });
+
+      const previousLabels = queryClient.getQueryData<Label[]>(
+        labelKeys.list(),
+      );
+
+      if (previousLabels) {
+        queryClient.setQueryData(
+          labelKeys.list(),
+          previousLabels.map((l) =>
+            l.id === labelId
+              ? { ...l, parentId, orderIndex, level: parentId ? l.level : 0 }
+              : l,
+          ),
+        );
+      }
+
+      return { previousLabels };
+    },
+    onError: (_, __, context) => {
+      if (context?.previousLabels) {
+        queryClient.setQueryData(labelKeys.list(), context.previousLabels);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
+    },
+  });
+}

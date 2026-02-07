@@ -203,6 +203,9 @@ export class LabelsService {
       },
     });
 
+    // Cascade soft-delete to all descendants
+    await this.archiveDescendants(tenantId, id);
+
     // Emit WebSocket event for deleted label
     this.realtimeEvents.emitLabelDelete(tenantId, {
       labelId: id,
@@ -399,6 +402,31 @@ export class LabelsService {
     }
 
     await this.prisma.$transaction(updates);
+  }
+
+  /**
+   * Recursively soft-delete all descendant labels of a given parent.
+   * Prisma cascade does not fire on soft-delete (update), so we do it manually.
+   */
+  private async archiveDescendants(
+    tenantId: string,
+    parentId: string,
+  ): Promise<void> {
+    const children = await this.prisma.userLabel.findMany({
+      where: { tenantId, parentId, isArchived: false },
+      select: { id: true, slug: true },
+    });
+
+    for (const child of children) {
+      await this.prisma.userLabel.update({
+        where: { id: child.id },
+        data: {
+          isArchived: true,
+          slug: `${child.slug}-deleted-${Date.now()}`,
+        },
+      });
+      await this.archiveDescendants(tenantId, child.id);
+    }
   }
 
   private generateSlug(name: string) {

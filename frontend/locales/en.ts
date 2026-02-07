@@ -1118,6 +1118,17 @@ export const en: AppTranslations = {
       addSelected: 'Add Labels',
       labelSelected: '1 label selected',
       labelsSelected: '{count} labels selected',
+      // Nested label tree
+      parentLabel: 'Parent Label',
+      noParent: 'None (top level)',
+      addChildLabel: 'Add child label',
+      changeColor: 'Change color',
+      moveTo: 'Move to...',
+      deleteSubtreeWarning: 'This will also delete {count} child label(s). Emails with these labels will simply lose the label.',
+      searchLabelsPlaceholder: 'Filter labels...',
+      depthLimitReached: 'Maximum nesting depth reached',
+      collapseAll: 'Collapse all',
+      expandAll: 'Expand all',
       errors: {
         nameRequired: 'Name is required',
         nameTooShort: 'Name must be at least 2 characters',
