@@ -2201,6 +2201,15 @@ export const it: AppTranslations = {
       title: 'Strumenti AI',
       subtitle: 'Sessioni chat, memoria e altro',
     },
+    emailChat: {
+      panelTitle: 'Assistente AI',
+      contextLabel: 'Riguardo a:',
+      inputPlaceholder: 'Chiedi informazioni su questa email...',
+      close: 'Chiudi assistente',
+      noMessages: 'Chiedimi qualsiasi cosa su questa email',
+      draftReply: 'Scrivi risposta',
+      keyPoints: 'Punti chiave',
+    },
     tools: {
       argsLabel: 'Parametri',
       resultLabel: 'Risultato',

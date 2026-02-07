@@ -2307,6 +2307,15 @@ export interface AppTranslations {
       title: string;
       subtitle: string;
     };
+    emailChat?: {
+      panelTitle: string;
+      contextLabel: string;
+      inputPlaceholder: string;
+      close: string;
+      noMessages: string;
+      draftReply: string;
+      keyPoints: string;
+    };
     tools?: {
       argsLabel?: string;
       resultLabel?: string;

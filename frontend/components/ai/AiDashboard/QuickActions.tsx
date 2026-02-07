@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, Paper, alpha, useTheme } from '@mui/material';
+import { Box, Typography, Paper, Chip, Stack, alpha, useTheme } from '@mui/material';
 import {
   Mail,
   Calendar,
@@ -18,9 +18,12 @@ import {
   Bell,
   Minimize2,
   Check,
+  Archive,
+  Tag,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { ViewContext } from '@/hooks/use-voltagent-chat';
+import { useEmailChatActions } from '@/hooks/use-email-chat-actions';
 
 /**
  * Prompt suggestion from backend or static fallback.
@@ -58,11 +61,16 @@ const iconMap: Record<string, React.ElementType> = {
   Bell,
   Minimize2,
   Check,
+  Archive,
+  Tag,
 };
 
-export function QuickActions({ onSelectQuery, userName, viewContext: _viewContext, customPrompts }: QuickActionsProps) {
+export function QuickActions({ onSelectQuery, userName, viewContext, customPrompts }: QuickActionsProps) {
   const theme = useTheme();
   const t = useTranslations();
+
+  // Email-specific actions when viewing a thread
+  const emailActions = useEmailChatActions(viewContext);
 
   // Static default prompts (used when no customPrompts provided)
   const staticQuickActions = [
@@ -151,6 +159,38 @@ export function QuickActions({ onSelectQuery, userName, viewContext: _viewContex
           {t.ai?.dashboard?.greetingQuestion || 'How can I help you today?'}
         </Typography>
       </Box>
+
+      {/* Email Context Actions - only when viewing thread */}
+      {emailActions.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+            {t.ai?.emailActions?.sectionTitle || 'Email Actions'}
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {emailActions.map((action, idx) => {
+              const ActionIcon = action.icon;
+              return (
+                <Chip
+                  key={idx}
+                  icon={<ActionIcon size={14} />}
+                  label={action.label}
+                  onClick={() => onSelectQuery(action.prompt)}
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    borderColor: alpha(action.color, 0.5),
+                    '& .MuiChip-icon': { color: action.color },
+                    '&:hover': {
+                      bgcolor: alpha(action.color, 0.08),
+                      borderColor: action.color,
+                    },
+                  }}
+                />
+              );
+            })}
+          </Stack>
+        </Box>
+      )}
 
       {/* Quick Action Grid */}
       <Box
