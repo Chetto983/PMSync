@@ -44,6 +44,24 @@ export class EmailExecutor {
   ): Promise<ActionExecutionResult> {
     const { to, cc, bcc, subject, body, providerId } = action.payload;
 
+    // DEBUG: Log action payload to verify PII resolution
+    deps.logger.debug(
+      `[SEND_EMAIL] Payload after PII resolution: to=${JSON.stringify(to)}, subject=${subject?.substring(0, 50)}`,
+    );
+
+    // Check if any PII placeholders remain (indicates resolution failed)
+    const toArray = Array.isArray(to) ? to : [to];
+    const hasUnresolvedPii = toArray.some((addr: string) => /\[[A-Z_]+_REDACTED/.test(addr));
+    if (hasUnresolvedPii) {
+      deps.logger.error(
+        `[SEND_EMAIL] CRITICAL: Unresolved PII placeholders detected in 'to' field! sessionId=${context.sessionId}`,
+      );
+      throw new AiError(
+        'Email addresses contain unresolved placeholders. This is a bug - please report it.',
+        AiErrorCode.INTERNAL_ERROR,
+      );
+    }
+
     if (!deps.emailSendService) {
       deps.logger.error('EmailSendService not available');
       throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
