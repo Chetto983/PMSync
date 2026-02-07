@@ -10,20 +10,20 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 2 of 5 — AI Chat Overhaul
-Plan: 2 of 3 in phase (02-02-PLAN.md complete)
+Plan: 2 of 3 in phase (02-01 and 02-02 complete)
 Status: In progress
-Last activity: 2026-02-06 — Completed 02-02-PLAN.md (Context-aware prompts)
+Last activity: 2026-02-07 — Completed 02-01-PLAN.md (Circuit breaker + retry UI)
 
 Progress: v3.0 Phase 02
 ```
-[█████████████░░░░░░░░░░░░░░░░░] 38% (5/13 plans)
+[████████████████░░░░░░░░░░░░░░] 46% (6/13 plans)
 ```
 
 ## Session Continuity
 
-Last session: 2026-02-06
-Stopped at: Completed 02-02-PLAN.md (Context-aware prompts)
-Resume file: None
+Last session: 2026-02-07
+Stopped at: Completed 02-01-PLAN.md (Circuit breaker + retry UI)
+Resume file: .planning/phases/02-ai-chat-overhaul/.continue-here.md
 
 ## Accumulated Decisions
 
@@ -66,6 +66,9 @@ Resume file: None
 | Separate /suggested-prompts endpoint | v3.0-02-02 | Cleaner separation of concerns vs embedding in streaming response |
 | ViewContext ref pattern for transport | v3.0-02-02 | Fresh values in AI SDK transport body (same as conversationId) |
 | Icon mapping for dynamic prompts | v3.0-02-02 | Explicit object maps string icon names to Lucide components |
+| Use existing LlmCircuitBreaker | v3.0-02-01 | Leverage MistralService class, no new dependencies |
+| Error categorization in hook | v3.0-02-01 | parseError in use-voltagent-chat.ts for reusability |
+| Inline retry banner | v3.0-02-01 | Visible retry action path, not just toast |
 
 ## Blockers & Concerns
 
@@ -74,7 +77,6 @@ Resume file: None
 | LCP exceeds budget (4.12s vs 2.5s) | High | v2.1-01 | Primary v2.1 target |
 | TTI exceeds budget (4.13s vs 3.5s) | High | v2.1-01 | Primary v2.1 target |
 | E2E chip interaction tests | Medium | v2.1-02 | 5/7 search tests pass; chip removal click needs debugging |
-| VOLT-01: No circuit breaker for LLM | High | v3.0-01 | Risk of cascade failures during API outages |
 
 ## Milestones
 
@@ -107,18 +109,18 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 02 in progress. Completed 02-02 (Context-aware prompts).
+**Currently:** Phase 02 in progress. 02-01 and 02-02 complete.
 
 **Phase 02 accomplishments:**
-- 02-01: Circuit breaker for LLM providers (VOLT-01)
+- 02-01: Circuit breaker + retry UI (VOLT-01 resolved)
 - 02-02: Context-aware prompts with ViewContext (CHAT-02)
 
 **Remaining in Phase 02:**
-- 02-03: Streaming response improvements
+- 02-03: Streaming response improvements (Wave 2)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-06 — Completed 02-02-PLAN.md (Context-aware prompts)*
+*State updated: 2026-02-07 — Completed 02-01-PLAN.md (Circuit breaker + retry UI)*
