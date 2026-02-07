@@ -144,7 +144,6 @@ export class AgentPoolService {
 
     // Create agent (stateless - always recreated for consistency)
     const model = getMistralModel(modelType);
-    let agent: Agent;
 
     const commonOptions = {
       model,
@@ -158,7 +157,7 @@ export class AgentPoolService {
 
     // VoltAgent Simplification 2026-01-29: Single UnifiedAgent with dynamic tool loading
     // All agent types now use UnifiedAgent - intent-based tool selection
-    agent = createUnifiedAgent({
+    const agent = await createUnifiedAgent({
       model,
       prisma: this.prisma,
       locale,
