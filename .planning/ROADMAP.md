@@ -41,7 +41,7 @@
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | 3 | Phase 01 |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2 | None |
 | 05 | Nested Labels Frontend | LABELS-01 | 2 | None (backend done v2.1) |
-| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 3 | Phase 02 |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5 | Phase 02 |
 
 ---
 
@@ -217,7 +217,7 @@
 
 **Goal:** Enhanced chat interface with agent tool integration for email actions
 
-**Status:** PLANNED
+**Status:** COMPLETE
 
 **Requirements:**
 - CHATUI-01: Chat UI improvements and agent tool on mail
@@ -226,22 +226,25 @@
 
 **Why sixth:** Builds on chat infrastructure from Phase 02. Extends chat with actionable email tools.
 
-**Plans:** 3 plans
+**Plans:** 5 plans
 
-- [ ] 06-01-PLAN.md — Context-aware email quick actions in AI chat
-- [ ] 06-02-PLAN.md — Slide-in chat panel with FAB for email threads
-- [ ] 06-03-PLAN.md — Tool rendering improvements and email context in prompts
+- [x] 06-01-PLAN.md — Context-aware email quick actions in AI chat
+- [x] 06-02-PLAN.md — Slide-in chat panel with FAB for email threads
+- [x] 06-03-PLAN.md — Tool rendering improvements and email context in prompts
+- [x] 06-04-PLAN.md — Email context wiring to unified prompt
+- [x] 06-05-PLAN.md — ViewContext parameter chain completion (gap closure)
 
 **Wave Structure:**
 - Wave 1: 06-01, 06-02 (parallel - no file conflicts)
-- Wave 2: 06-03 (depends on 06-01, 06-02 for context/panel infrastructure)
+- Wave 2: 06-03, 06-04 (tool rendering + email context)
+- Wave 3: 06-05 (gap closure - parameter chain)
 
 **Deliverables:**
-- Email-specific quick actions when viewing threads
-- Floating AI button (FAB) on email thread pages
-- Slide-in chat panel with email context
-- Improved tool execution visual feedback
-- AI understands "this email" context
+- Email-specific quick actions when viewing threads ✓
+- Floating AI button (FAB) on email thread pages ✓
+- Slide-in chat panel with email context ✓
+- Improved tool execution visual feedback ✓
+- AI understands "this email" context ✓
 
 ---
 
