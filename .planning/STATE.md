@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 6 of 6 — Chat UI and Agent Tool on Mail
-Plan: 5 of 5 in phase (06-05 complete)
+Phase: 5 of 7 — Nested Labels Frontend
+Plan: 2 of 2 in phase (05-02 complete)
 Status: Phase complete
-Last activity: 2026-02-07 — Completed 06-05-PLAN.md (ViewContext parameter chain)
+Last activity: 2026-02-07 — Completed 05-02-PLAN.md (drag-drop + context menu + search)
 
-Progress: v3.0 Phase 06
+Progress: v3.0 Phase 05
 ```
-[███████████████████████████████] 81% (13/16 plans)
+[████████████████████████████████████] 68% (15/22 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 06-05-PLAN.md (ViewContext parameter chain)
+Stopped at: Completed Phase 05 (Nested Labels Frontend)
 Resume file: None
 
 ## Accumulated Decisions
@@ -83,6 +83,8 @@ Resume file: None
 | Use from field (not fromAddress) | v3.0-06-04 | Prisma Email schema uses 'from' as sender address field |
 | viewContext optional at all layers | v3.0-06-05 | Backward compatibility with existing API calls |
 | Type narrowing for currentView | v3.0-06-05 | Cast to specific union type when passing to createUnifiedAgent |
+| Separate DndContext for labels | v3.0-05-02 | Avoid collision with EmailLayout folder DnD |
+| Toggle deselect on all sidebar filters | v3.0-05-02 | Clicking active filter clears it (labels, folders, provider folders) |
 
 ## Blockers & Concerns
 
@@ -114,7 +116,7 @@ See: .planning/MILESTONES.md
 - 3 phases, 5 plans
 - 5 requirements (OPT-01/02, POLISH-01/02, API-01)
 
-## v3.0 Roadmap -- 5 Phases, 13 Plans
+## v3.0 Roadmap -- 7 Phases, 22 Plans
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
@@ -122,33 +124,29 @@ See: .planning/MILESTONES.md
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | IN PROGRESS (2/3 plans) |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
-| 05 | Nested Labels Frontend | LABELS-01 | IN PROGRESS (1/2 plans) |
+| 05 | Nested Labels Frontend | LABELS-01 | COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (5/5 plans) |
+| 07 | Chat Improvement | CHAT-04 | Ready to execute |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Phase 06 complete. Moving to Phase 05-02 (nested labels drag-drop).
+**Currently:** Phase 05 complete. Phases 01, 05, 06 done.
 
-**Phase 06 accomplishments:**
-- 06-01: ViewContext and conversation isolation (useVoltAgentChat enhancements, new action card components, email-specific prompts)
-- 06-02: Email thread chat overlay (EmailChatFab, EmailChatPanel, thread page integration)
-- 06-03: Tool rendering enhancements (spinner states, readable names, email context in prompt)
-- 06-04: Email context wiring to unified prompt (async agent creation, email fetching from selectedEmailId)
-- 06-05: ViewContext parameter chain (controller to createUnifiedAgent complete wiring)
-
-**Remaining in Phase 05:**
-- 05-02: Drag-drop nesting and reordering (Wave 2)
+**Phase 05 accomplishments:**
+- 05-01: Tree view foundation (label-tree-utils, store, LabelTreeItem, LabelDialog parent dropdown, subtree delete)
+- 05-02: Drag-drop nesting/reordering, 5-action context menu, label search filter, toggle deselect on all filters
 
 **Remaining in v3.0:**
-- Phase 02: 02-04 (RAG memory improvements)
+- Phase 02: 02-03 (mobile chat)
 - Phase 03: Auto-Triage Core (3 plans)
 - Phase 04: Follow-Ups Refactor (2 plans)
+- Phase 07: Chat Improvement (6 plans)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-07 -- Completed 06-05-PLAN.md (ViewContext parameter chain)*
+*State updated: 2026-02-07 -- Completed Phase 05 (Nested Labels Frontend)*

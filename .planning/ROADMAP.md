@@ -41,9 +41,9 @@
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | 3 | Phase 01 |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | 3 | Phase 01 |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2 | None |
-| 05 | Nested Labels Frontend | LABELS-01 | 2 | None (backend done v2.1) |
+| 05 | Nested Labels Frontend | LABELS-01 | 2 (COMPLETE) | None (backend done v2.1) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5 | Phase 02 |
-| 07 | Chat Improvement | CHAT-04 | TBD | Phase 06 |
+| 07 | Chat Improvement | CHAT-04 | 6 | Phase 06 |
 
 ---
 
@@ -198,10 +198,12 @@
 - Max depth: 5 levels (prevent over-complexity)
 - MUI X Rich Tree View recommended (already using MUI)
 
+**Status:** COMPLETE
+
 **Plans:** 2 plans
 
-- [ ] 05-01-PLAN.md — Tree view foundation: utils, store, components, dialog updates, backend subtree delete
-- [ ] 05-02-PLAN.md — Drag-drop nesting/reordering, context menu enhancements, label search
+- [x] 05-01-PLAN.md — Tree view foundation: utils, store, components, dialog updates, backend subtree delete
+- [x] 05-02-PLAN.md — Drag-drop nesting/reordering, context menu enhancements, label search
 
 **Wave Structure:**
 
@@ -252,22 +254,47 @@
 
 ## Phase 07: Chat Improvement
 
-**Goal:** [To be planned]
+**Goal:** Modernize AiDashboard architecture and enhance visual design to match 2025 AI chat standards (Claude, ChatGPT)
 
-**Status:** NOT PLANNED
+**Status:** PLANNED
 
 **Requirements:**
-- CHAT-04: Chat improvement features (TBD)
+- CHAT-04: Chat improvement features
+  - AiDashboard monolith split (954 lines → 5 files <500 lines)
+  - Modern message bubble design (borderless, Claude-style)
+  - Wire unused ai-elements components (Reasoning, Shimmer, MessageActions, Artifact, ChainOfThought)
+  - Smart scroll behavior (stop auto-scroll when user scrolls up)
+  - Theme-compliant colors (fix hardcoded hex in QuickActions)
+  - Compact header (80px → 48-56px)
 
 **Dependencies:** Phase 06 (Chat UI and Agent Tool on Mail)
 
-**Why seventh:** Builds on completed chat infrastructure from Phases 02 and 06.
+**Why seventh:** Builds on completed chat infrastructure from Phases 02 and 06. Addresses 954-line monolith violation and dated UI patterns.
 
-**Plans:** 0 plans
-- [ ] TBD (run /gsd:plan-phase 07 to break down)
+**Plans:** 6 plans
+
+- [ ] 07-01-PLAN.md — AiDashboard monolith split: useChatController, ChatArea, DesktopLayout, MobileLayout
+- [ ] 07-02-PLAN.md — Modern message bubbles + useChatScroll hook + scroll-to-bottom button
+- [ ] 07-03-PLAN.md — Wire Reasoning/Shimmer components, replace TypingIndicator
+- [ ] 07-04-PLAN.md — Wire MessageActions hover bar, fix QuickActions hardcoded colors
+- [ ] 07-05-PLAN.md — Wire Artifact, ChainOfThought, Sources for structured output
+- [ ] 07-06-PLAN.md — Compact header + human verification checkpoint
+
+**Wave Structure:**
+- Wave 1: 07-01, 07-02 (parallel - different files: index.tsx vs ChatMessages.tsx)
+- Wave 2: 07-03, 07-04, 07-05 (parallel - all modify ChatMessages.tsx, depend on 07-02)
+- Wave 3: 07-06 (depends on all previous, has human verification gate)
 
 **Deliverables:**
-- [To be added during planning]
+- AiDashboard split into 5 maintainable files (<500 lines each)
+- Modern Claude/ChatGPT-style message bubbles
+- Smart scroll with scroll-to-bottom button
+- Shimmer typing indicator (replace bouncing dots)
+- MessageActions hover bar (Copy, Regenerate, Feedback)
+- Artifact panels for drafts and code blocks
+- ChainOfThought for multi-tool sequences
+- Compact header (~48-56px)
+- Theme-compliant colors throughout
 
 ---
 
@@ -283,7 +310,7 @@ Wave 3: Phase 04 (Follow-Ups) ─────┤                           ├�
         Phase 05 (Nested Labels) ──┘── can run anytime ────────┘
 ```
 
-**Estimated timeline:** 16 plans total (3 + 3 + 3 + 2 + 2 + 3)
+**Estimated timeline:** 22 plans total (3 + 3 + 3 + 2 + 2 + 5 + 6)
 
 ---
 
