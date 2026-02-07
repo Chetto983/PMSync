@@ -39,7 +39,7 @@ interface LabelColorPickerProps {
 export function LabelColorPicker({
   selectedColor,
   onColorSelect,
-  showCustom = true,
+  showCustom = false,
 }: LabelColorPickerProps) {
   const t = useTranslations();
 
