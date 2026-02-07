@@ -9,21 +9,21 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 2 of 5 — AI Chat Overhaul
-Plan: 2 of 3 in phase (02-01 and 02-02 complete)
+Phase: 5 of 5 — Nested Labels Frontend
+Plan: 1 of 2 in phase (05-01 complete)
 Status: In progress
-Last activity: 2026-02-07 — Completed 02-01-PLAN.md (Circuit breaker + retry UI)
+Last activity: 2026-02-07 — Completed 05-01-PLAN.md (Nested labels tree view)
 
-Progress: v3.0 Phase 02
+Progress: v3.0 Phase 05
 ```
-[████████████████░░░░░░░░░░░░░░] 46% (6/13 plans)
+[███████████████████████░░░░░░░] 54% (7/13 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 02-01-PLAN.md (Circuit breaker + retry UI)
-Resume file: .planning/phases/02-ai-chat-overhaul/.continue-here.md
+Stopped at: Completed 05-01-PLAN.md (Nested labels tree view)
+Resume file: None
 
 ## Accumulated Decisions
 
@@ -69,6 +69,10 @@ Resume file: .planning/phases/02-ai-chat-overhaul/.continue-here.md
 | Use existing LlmCircuitBreaker | v3.0-02-01 | Leverage MistralService class, no new dependencies |
 | Error categorization in hook | v3.0-02-01 | parseError in use-voltagent-chat.ts for reusability |
 | Inline retry banner | v3.0-02-01 | Visible retry action path, not just toast |
+| expandedIds tracks expanded labels | v3.0-05-01 | Collapsed by default matches context decision |
+| Aggregate counts in buildTree | v3.0-05-01 | Avoids cascading re-renders (precomputed once) |
+| Preset-only color picker | v3.0-05-01 | Context: no custom hex input |
+| Variable indent (16px L0-1, 8px L2+) | v3.0-05-01 | Keep sidebar tight at deeper nesting levels |
 
 ## Blockers & Concerns
 
@@ -78,24 +82,28 @@ Resume file: .planning/phases/02-ai-chat-overhaul/.continue-here.md
 | TTI exceeds budget (4.13s vs 3.5s) | High | v2.1-01 | Primary v2.1 target |
 | E2E chip interaction tests | Medium | v2.1-02 | 5/7 search tests pass; chip removal click needs debugging |
 
+## Roadmap Evolution
+
+- Phase 06 added: Chat UI and Agent Tool on Mail (2026-02-07)
+
 ## Milestones
 
 See: .planning/MILESTONES.md
 
-**v2.0 Professional Email Client** — SHIPPED 2026-02-04
+**v2.0 Professional Email Client** -- SHIPPED 2026-02-04
 - 8 phases, 21 plans
 - 24/24 requirements satisfied
 - 200 E2E tests across 5 browsers
 
-**v1 Stability & Code Quality Refactor** — SHIPPED 2026-02-02
+**v1 Stability & Code Quality Refactor** -- SHIPPED 2026-02-02
 - 8 phases, 40 plans
 - 77% reduction in large service files
 
-**v2.1 Optimization & Polish** — IN PROGRESS
+**v2.1 Optimization & Polish** -- IN PROGRESS
 - 3 phases, 5 plans
 - 5 requirements (OPT-01/02, POLISH-01/02, API-01)
 
-## v3.0 Roadmap — 5 Phases, 13 Plans
+## v3.0 Roadmap -- 5 Phases, 13 Plans
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
@@ -103,24 +111,24 @@ See: .planning/MILESTONES.md
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | IN PROGRESS (2/3 plans) |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
-| 05 | Nested Labels Frontend | LABELS-01 | Ready to plan |
+| 05 | Nested Labels Frontend | LABELS-01 | IN PROGRESS (1/2 plans) |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | Not planned |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Phase 02 in progress. 02-01 and 02-02 complete.
+**Currently:** Phase 05 in progress. 05-01 complete.
 
-**Phase 02 accomplishments:**
-- 02-01: Circuit breaker + retry UI (VOLT-01 resolved)
-- 02-02: Context-aware prompts with ViewContext (CHAT-02)
+**Phase 05 accomplishments:**
+- 05-01: Tree view foundation (tree utils, expansion store, LabelTreeItem, sidebar rewrite, dialog updates, backend subtree delete)
 
-**Remaining in Phase 02:**
-- 02-03: Streaming response improvements (Wave 2)
+**Remaining in Phase 05:**
+- 05-02: Drag-drop nesting and reordering (Wave 2)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-07 — Completed 02-01-PLAN.md (Circuit breaker + retry UI)*
+*State updated: 2026-02-07 -- Completed 05-01-PLAN.md (Nested labels tree view)*
