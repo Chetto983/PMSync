@@ -8,6 +8,7 @@
  * - Aggregate email counts on parent labels
  * - Context menu for edit/delete
  * - Colored left border per label
+ * - Drag-drop nesting and reordering (via LabelTreeDndWrapper)
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -29,10 +30,11 @@ import { useLabels } from '@/hooks/queries';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import { useLabelTreeStore } from '@/stores/label-tree-store';
 import { buildTree, flattenTree } from '@/lib/label-tree-utils';
-import { LabelTreeItem } from '../labels/LabelTreeItem';
+import { LabelTreeDndWrapper } from '../labels/LabelTreeDndWrapper';
 import { LabelDialog } from '../labels/LabelDialog';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
 import type { Label } from '@/lib/api/labels';
+import type { FlattenedItem } from '@/lib/label-tree-utils';
 
 interface LabelsSidebarProps {
   /** Whether sidebar is collapsed */
@@ -98,15 +100,18 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     [setFilters],
   );
 
-  // Handle context menu
-  const handleContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLElement>, label: Label) => {
+  // Handle context menu from DnD wrapper (receives FlattenedItem)
+  const handleDndContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLElement>, item: FlattenedItem) => {
       event.preventDefault();
       event.stopPropagation();
-      setMenuAnchor(event.currentTarget);
-      setSelectedLabel(label);
+      const flatLabel = userLabels.find((l) => l.id === item.id);
+      if (flatLabel) {
+        setMenuAnchor(event.currentTarget);
+        setSelectedLabel(flatLabel);
+      }
     },
-    [],
+    [userLabels],
   );
 
   const handleMenuClose = useCallback(() => {
@@ -119,11 +124,18 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     setSectionExpanded((prev) => !prev);
   }, []);
 
-  // Find the original flat Label object for context menu/dialog
-  const findLabel = useCallback(
-    (id: string): Label | null =>
-      userLabels.find((l) => l.id === id) ?? null,
-    [userLabels],
+  // Check if a label is selected
+  const isLabelSelected = useCallback(
+    (id: string) => filters.labelId === id,
+    [filters.labelId],
+  );
+
+  // DnD wrapper label click handler (receives FlattenedItem)
+  const handleDndLabelClick = useCallback(
+    (item: FlattenedItem) => {
+      handleLabelClick(item.id);
+    },
+    [handleLabelClick],
   );
 
   // Handle create dialog open with optional parent
@@ -241,40 +253,24 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
             selectedLabelId={filters.labelId}
             onLabelClick={handleLabelClick}
           />
+        ) : flatList.length === 0 ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ px: 2, py: 1, display: 'block' }}
+          >
+            {t.email?.labels?.noLabels || 'No labels yet'}
+          </Typography>
         ) : (
-          <List disablePadding>
-            {flatList.length === 0 ? (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ px: 2, py: 1, display: 'block' }}
-              >
-                {t.email?.labels?.noLabels || 'No labels yet'}
-              </Typography>
-            ) : (
-              flatList.map((item) => (
-                <LabelTreeItem
-                  key={item.id}
-                  label={item}
-                  depth={item.depth}
-                  isCollapsed={item.collapsed}
-                  isSelected={filters.labelId === item.id}
-                  hasChildren={item.children.length > 0}
-                  aggregateCount={item.aggregateCount}
-                  onToggle={() => toggleExpanded(item.id)}
-                  onClick={() => handleLabelClick(item.id)}
-                  onContextMenu={(e) => {
-                    const flat = findLabel(item.id);
-                    if (flat) handleContextMenu(e, flat);
-                  }}
-                  onMenuClick={(e) => {
-                    const flat = findLabel(item.id);
-                    if (flat) handleContextMenu(e, flat);
-                  }}
-                />
-              ))
-            )}
-          </List>
+          <LabelTreeDndWrapper
+            flatItems={flatList}
+            tree={tree}
+            expandedIds={expandedIds}
+            onToggle={toggleExpanded}
+            isLabelSelected={isLabelSelected}
+            onLabelClick={handleDndLabelClick}
+            onContextMenu={handleDndContextMenu}
+          />
         )}
       </Collapse>
 

@@ -293,3 +293,27 @@ export function useMoveLabel() {
     },
   });
 }
+
+/**
+ * Hook for reordering siblings (batch update orderIndex)
+ *
+ * Used after drag-drop reordering to update multiple labels' orderIndex.
+ */
+export function useReorderSiblings() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      updates: { labelId: string; orderIndex: number }[],
+    ) => {
+      await Promise.all(
+        updates.map(({ labelId, orderIndex }) =>
+          labelsApi.updateLabel(labelId, { orderIndex }),
+        ),
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
+    },
+  });
+}
