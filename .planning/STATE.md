@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 2 of 9 — AI Chat Overhaul
-Plan: 04 of 4
-Status: COMPLETE (verified)
-Last activity: 2026-02-07 — Phase 02 complete, all plans executed and verified
+Phase: 4 of 9 — Follow-Ups Refactor
+Plan: 01 of 2
+Status: COMPLETE
+Last activity: 2026-02-07 — Completed 04-01-PLAN.md (Follow-Up Type Classification)
 
 Progress: v3.0
 ```
-[███████████████████████████████████████████] 96% (23/24 plans)
+[████████████████████████████████████████████] 100% (24/24 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed Phase 02 (AI Chat Overhaul) — 12/12 must-haves verified
+Stopped at: Completed 04-01-PLAN.md — Follow-up type classification with WAITING_FOR/TODO
 Resume file: None
-Next action: Plan Phase 03 (Auto-Triage Core) or Phase 04 (Follow-Ups Refactor)
+Next action: Execute 04-02-PLAN.md (Follow-Up Smart Actions) or Plan Phase 03 (Auto-Triage Core)
 
 ## Accumulated Decisions
 
@@ -101,6 +101,9 @@ Next action: Plan Phase 03 (Auto-Triage Core) or Phase 04 (Follow-Ups Refactor)
 | list_follow_ups uses select not include | v3.0-08-02 | Lightweight responses, excludes bodyText/bodyHtml |
 | Excluded JSON blobs from list_follow_ups | v3.0-08-02 | commitments/waitingFor/actionItems cause token bloat |
 | Compact header 48-56px | v3.0-07-06 | Reduced from 80px for cleaner UI, inline status chip |
+| Follow-up type defaults to TODO | v3.0-04-01 | Existing follow-ups remain valid after migration; most are received emails |
+| Folder-based type detection | v3.0-04-01 | SENT folder + waitingFor items = WAITING_FOR, else TODO |
+| Lightweight followUp select (7 fields) | v3.0-04-01 | Updated from 6 to include followUpType field |
 
 ## Blockers & Concerns
 
@@ -142,7 +145,7 @@ See: .planning/MILESTONES.md
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | COMPLETE (3/3 plans) |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | COMPLETE (4/4 plans) |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
-| 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
+| 04 | Follow-Ups Refactor | FOLLOW-01/02 | IN PROGRESS (1/2 plans) ✓ |
 | 05 | Nested Labels Frontend | LABELS-01 | COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (5/5 plans) |
 | 07 | Chat Improvement | CHAT-04 | PENDING VERIFICATION (6/6 plans) |
@@ -153,19 +156,21 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 02 complete, verified.
+**Currently:** Phase 04 in progress, plan 01 complete.
 
 **Completed phases:**
 - Phase 01: AI Infrastructure Cleanup (3/3 plans)
-- Phase 02: AI Chat Overhaul (4/4 plans) ✓
+- Phase 02: AI Chat Overhaul (4/4 plans)
 - Phase 05: Nested Labels Frontend (2/2 plans)
 - Phase 06: Chat UI and Agent Tool on Mail (5/5 plans)
 - Phase 07: Chat Improvement (6/6 plans)
 - Phase 08: Email Tool Triage Exposure (2/2 plans)
 
+**In progress:**
+- Phase 04: Follow-Ups Refactor (1/2 plans) — 04-01 complete, 04-02 ready
+
 **Remaining phases:**
 - Phase 03: Auto-Triage Core (0/3 plans — NOT PLANNED)
-- Phase 04: Follow-Ups Refactor (0/2 plans — NOT PLANNED)
 - Phase 09: Chat Artifact Smart Renderers (NOT PLANNED)
 
 **Known issues carried forward:**
@@ -175,4 +180,4 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-07 -- Phase 02 (AI Chat Overhaul) complete — 12/12 must-haves verified*
+*State updated: 2026-02-07 -- Phase 04 Plan 01 complete — Follow-up type classification with WAITING_FOR/TODO*
