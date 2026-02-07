@@ -44,7 +44,7 @@
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3/3 | ✅ COMPLETE |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | 4/4 | ✅ COMPLETE |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | 0/3 | ❌ NOT PLANNED |
-| 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2/2 | ✅ COMPLETE |
+| 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2/3 | ⏳ GAP CLOSURE |
 | 05 | Nested Labels Frontend | LABELS-01 | 2/2 | ✅ COMPLETE |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5/5 | ✅ COMPLETE |
 | 07 | Chat Improvement | CHAT-04 | 6/6 | ✅ COMPLETE |
@@ -184,22 +184,24 @@
 - Sweet spot: 2-3 days after initial send
 - Automatic detection of "Please respond by Friday" patterns
 
-**Plans:** 2 plans
+**Plans:** 3 plans
 
 Plans:
 - [x] 04-01-PLAN.md — UI refactor: FollowUpType enum (WAITING_FOR/TODO), type detection, filter toggle, type badges
 - [x] 04-02-PLAN.md — Smart timing + NLP deadline: chrono-node extraction, deadline display, smart timing API
+- [ ] 04-03-PLAN.md — SnoozeDialog UI: wire useSmartTiming hook, custom date picker (gap closure)
 
 **Wave Structure:**
 - Wave 1: 04-01 (schema + backend + frontend types) ✓
 - Wave 2: 04-02 (NLP + smart timing, depends on 04-01) ✓
+- Wave 3: 04-03 (SnoozeDialog UI, depends on 04-02)
 
 **Deliverables:**
 - Follow-up types: Waiting For / To Do ✓
 - Type filter toggle in Kanban header ✓
 - Type badges on follow-up cards ✓
 - Auto-detected deadlines from email text (chrono-node NLP) ✓
-- Smart timing recommendation in snooze dialog (API ready, UI deferred to v3.1)
+- Smart timing recommendation in snooze dialog
 
 ---
 
