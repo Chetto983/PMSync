@@ -490,7 +490,7 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
 
                     // DEBUG: Log non-text parts to see tools
                     if (process.env.NODE_ENV === 'development' && part.type !== 'text') {
-                      console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
+                      //console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
                     }
 
                     // Reasoning parts -> Reasoning component with shimmer

@@ -2,7 +2,7 @@
 phase: 07-chat-improvement
 plan: 05
 subsystem: ui
-tags: [artifact, ai-elements, chat, structured-output]
+tags: [artifact, chain-of-thought, sources, ai-elements, chat, structured-output]
 
 # Dependency graph
 requires:
@@ -12,89 +12,113 @@ requires:
     provides: Modern message bubbles and scroll
 provides:
   - ArtifactPanel wrapper component for structured output
-  - Imports ready for artifact rendering in ChatMessages
+  - ChainOfThought for multi-tool sequences
+  - Sources for RAG citations
+  - groupToolParts helper for tool grouping
 affects: [07-06, future chat features]
 
 # Tech tracking
 tech-stack:
   added: []
-  patterns: [artifact-panel-wrapper]
+  patterns:
+    - artifact-panel-wrapper
+    - chain-of-thought-grouping
+    - rag-source-extraction
 
 key-files:
   created:
     - frontend/components/ai/AiDashboard/ArtifactPanel.tsx
-  modified: []
+  modified:
+    - frontend/components/ai/AiDashboard/ChatMessages.tsx
 
 key-decisions:
   - "Created ArtifactPanel as wrapper around ai-elements Artifact components"
-  - "Type-safe props for email-draft, code, document artifact types"
-  - "Copy functionality with visual feedback (Check icon transition)"
+  - "ChainOfThought for >1 consecutive tool parts"
+  - "Sources extracted from email/contact search results"
+  - "TOOL_NAME_MAP for human-readable step labels"
 
 patterns-established:
   - "ArtifactPanel: Reusable wrapper for structured AI output display"
+  - "groupToolParts: Groups consecutive tools for ChainOfThought rendering"
+  - "extractSources: Extracts RAG citations from tool outputs"
 
 # Metrics
-duration: 45min
+duration: 60min (45min initial + 15min completion)
 completed: 2026-02-07
 ---
 
 # Phase 07-05: Artifact Rendering Integration Summary
 
-**ArtifactPanel wrapper component for structured output display with copy action**
+**ArtifactPanel, ChainOfThought, and Sources integration for structured AI output display**
 
 ## Performance
 
-- **Duration:** 45 min
+- **Duration:** 60 min total (45 min initial, 15 min completion)
 - **Started:** 2026-02-07T14:30:00Z
-- **Completed:** 2026-02-07T15:15:00Z
-- **Tasks:** 1 of 4 completed (see Issues Encountered)
+- **Completed:** 2026-02-07T16:00:00Z
+- **Tasks:** 4/4 completed
 - **Files created:** 1
+- **Files modified:** 1
 
 ## Accomplishments
+
 - Created ArtifactPanel.tsx wrapper combining ai-elements Artifact with useful actions
 - Copy to clipboard with visual feedback (Check icon transition after copy)
 - Type-safe props supporting email-draft, code, document artifact types
-- Optional edit action hook for future extensibility
+- ChainOfThought wrapper for multi-tool sequences (>1 consecutive tools)
+- Sources component for RAG citations from email/contact search results
+- TOOL_NAME_MAP for human-readable tool step labels
+- Helper functions: shouldRenderAsArtifact, groupToolParts, extractSources, getToolIcon
 
 ## Task Commits
 
 1. **Task 1: Create ArtifactPanel wrapper component** - `73577f6c` (feat)
-
-**Note:** Tasks 2-4 (wiring artifact detection, ChainOfThought, Sources to ChatMessages) encountered blocking issues - see Issues Encountered.
+2. **Tasks 2-4: Wire to ChatMessages** - `3305af3e` (feat)
 
 ## Files Created/Modified
+
+**Created:**
 - `frontend/components/ai/AiDashboard/ArtifactPanel.tsx` - Wrapper component with copy action, type labels
 
+**Modified:**
+- `frontend/components/ai/AiDashboard/ChatMessages.tsx` - Added imports, helpers, grouped rendering
+
 ## Decisions Made
-- Used ai-elements Artifact components (Artifact, ArtifactHeader, ArtifactTitle, ArtifactActions, ArtifactAction, ArtifactContent)
-- getTypeLabel() returns human-readable labels (Draft Email, Code, Document)
-- rawContent prop enables copy functionality for non-string outputs via JSON.stringify
+
+| Decision | Rationale |
+|----------|-----------|
+| ChainOfThought for >1 consecutive tools | Single tools render normally, chains get collapsible UI |
+| Sources max 3 items | Avoid overwhelming UI with too many citations |
+| LucideIcon type for getToolIcon | Match ChainOfThoughtStep icon prop type |
+| Conditional ToolHeader rendering | Dynamic vs static tools have different type signatures |
 
 ## Deviations from Plan
 
-None - Task 1 executed as specified.
+### Session 1 (Partial - Tasks 2-4 Blocked)
+
+**Linter file modification interference**
+- A file watcher/linter was continuously modifying ChatMessages.tsx
+- Task 1 completed (new file), Tasks 2-4 deferred
+
+### Session 2 (Completion)
+
+**No deviations** - Tasks 2-4 completed as specified with proper type fixes.
 
 ## Issues Encountered
 
-**Linter file modification interference**
-
-Tasks 2-4 required modifying ChatMessages.tsx. During edit attempts:
-1. A file watcher/linter was continuously modifying the file between read and write operations
-2. Multiple attempts to add imports and helper functions were reverted
-3. Git commits captured empty changesets due to timing conflicts
-
-**Resolution:** Task 1 (ArtifactPanel.tsx creation) completed successfully as it was a new file. Tasks 2-4 deferred - the ArtifactPanel component is ready and can be wired in a subsequent plan or manual integration.
-
-**Workaround for future:** Consider disabling file watchers during batch edits, or use a single atomic write operation.
+- TypeScript required `LucideIcon` import for proper ChainOfThoughtStep icon typing
+- ToolHeader discriminated union required separate rendering paths for dynamic vs static tools
+- Pre-existing lint error in LabelTreeDndWrapper.tsx (unrelated)
 
 ## User Setup Required
 
 None - no external service configuration required.
 
 ## Next Phase Readiness
-- ArtifactPanel component ready for use
-- ChatMessages integration pending (artifact detection, ChainOfThought, Sources)
-- Can be completed in 07-06 or manually wired
+
+- All ai-elements components now wired to ChatMessages
+- Ready for 07-06 (compact header + visual verification)
+- Phase goal achieved: modern chat UI with structured output
 
 ---
 *Phase: 07-chat-improvement*
