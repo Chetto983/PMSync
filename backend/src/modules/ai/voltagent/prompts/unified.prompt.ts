@@ -165,6 +165,7 @@ export const TOOL_GROUPS: Record<string, readonly string[]> = {
     'count_emails',
     'manage_email',
     'bulk_email_actions',
+    'list_follow_ups',
   ] as const,
 
   // Calendar tools - for event operations
