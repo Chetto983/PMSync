@@ -89,7 +89,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:r.assistant-ui.com)",
       "WebFetch(domain:www.assistant-ui.com)",
-      "Bash(gh repo view:*)"
+      "Bash(gh repo view:*)",
+      "Bash(cmd /c:*)"
     ],
     "deny": [],
     "ask": []
