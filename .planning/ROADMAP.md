@@ -4,8 +4,8 @@
 
 **Version:** v3.0
 **Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management
-**Total Phases:** 7
-**Total Requirements:** 14
+**Total Phases:** 8
+**Total Requirements:** 15
 
 **Key deliverables:**
 - Clean VoltAgent integration with modern patterns
@@ -13,6 +13,7 @@
 - Auto-triage with priority scoring and learning
 - Refactored follow-ups UI with smart timing
 - Nested labels frontend (tree view + drag-drop)
+- Email tool triage data exposure (priority, labels, sentiment, follow-ups)
 
 ## Requirements Summary
 
@@ -32,6 +33,7 @@
 | LABELS-01 | Nested labels tree view with drag-drop | 05 |
 | CHATUI-01 | Chat UI improvements and agent tool on mail | 06 |
 | CHAT-04 | Chat improvement features | 07 |
+| TOOL-01 | Email tool triage data exposure (priority, labels, sentiment, follow-ups) | 08 |
 
 ## Phase Summary
 
@@ -44,6 +46,7 @@
 | 05 | Nested Labels Frontend | LABELS-01 | 2 (COMPLETE) | None (backend done v2.1) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5 | Phase 02 |
 | 07 | Chat Improvement | CHAT-04 | 6 | Phase 06 |
+| 08 | Email Tool Triage Exposure | TOOL-01 | 2 | Phase 01 |
 
 ---
 
@@ -298,6 +301,39 @@
 
 ---
 
+## Phase 08: Email Tool Triage Exposure
+
+**Goal:** Fix the write-but-never-read antipattern: all VoltAgent email listing tools are blind to AI triage data (priority, sentiment, labels, follow-ups) that is already computed and stored in the database.
+
+**Status:** NOT PLANNED
+
+**Requirements:**
+- TOOL-01: Email tool triage data exposure — add aiPriority, aiSentiment, aiLabels, labels, followUp to all email listing/content select statements; add filter parameters (priority, label, needsFollowUp) to listing tools; create a follow-up listing tool
+
+**Dependencies:** Phase 01 (clean VoltAgent tools required)
+
+**Why eighth:** Audit revealed every email listing tool ignores saved triage fields. The system does expensive AI analysis, persists to DB, and then every tool that lists emails pretends the data doesn't exist. Critical blocker for Phases 03 (Auto-Triage) and 04 (Follow-Ups).
+
+**Audit findings (2026-02-07):**
+- 6 email listing tools tested, ALL missing aiPriority/aiSentiment/aiLabels/followUp
+- Only `analyze_email` returns triage data (on-demand LLM call, not DB read)
+- `EmailFollowUp` model never queried by any tool
+- Agent cannot answer "show me urgent emails" or "what needs follow-up"
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Triage fields in all email tool selects + DB index
+- [ ] 08-02-PLAN.md — Filter params on listing tools + list_follow_ups tool
+
+**Deliverables:**
+- All email listing tools include triage fields in select
+- Filter by priority/label/followUp in list_emails and list_email_index
+- New follow-up listing tool (or mode) querying EmailFollowUp
+- Agent can answer priority/label/sentiment/follow-up questions from DB reads
+
+---
+
 ## Execution Order
 
 ```
@@ -310,7 +346,7 @@ Wave 3: Phase 04 (Follow-Ups) ─────┤                           ├�
         Phase 05 (Nested Labels) ──┘── can run anytime ────────┘
 ```
 
-**Estimated timeline:** 22 plans total (3 + 3 + 3 + 2 + 2 + 5 + 6)
+**Estimated timeline:** 22+ plans total (3 + 3 + 3 + 2 + 2 + 5 + 6 + TBD)
 
 ---
 
@@ -328,7 +364,7 @@ Wave 3: Phase 04 (Follow-Ups) ─────┤                           ├�
 
 ## Success Criteria
 
-- [ ] 12/12 requirements satisfied
+- [ ] 15/15 requirements satisfied
 - [ ] AI chat first token <500ms
 - [ ] Priority scoring 90%+ accuracy after 1 week
 - [ ] Follow-ups dashboard functional with two types
