@@ -13,10 +13,24 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
+import { code as shikiCode } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
+
+// Wrap the code plugin to handle unknown languages gracefully
+// This prevents Shiki errors when AI uses non-standard code block languages like "suggestions"
+const code: typeof shikiCode = {
+  ...shikiCode,
+  highlight: (options, callback) => {
+    // Check if language is supported before highlighting
+    if (!shikiCode.supportsLanguage(options.language)) {
+      // Fallback to markdown for unknown languages (renders most text reasonably)
+      return shikiCode.highlight({ ...options, language: 'md' as typeof options.language }, callback);
+    }
+    return shikiCode.highlight(options, callback);
+  },
+};
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";

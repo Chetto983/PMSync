@@ -55,9 +55,7 @@ export function MobileChatDialog({
   const theme = useTheme();
   const t = useTranslations();
 
-  // DEBUG: Log close handler calls
   const handleClose = React.useCallback(() => {
-    console.log('[MobileChatDialog] Close button clicked');
     onClose();
   }, [onClose]);
 

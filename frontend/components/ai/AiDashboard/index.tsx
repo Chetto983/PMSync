@@ -45,7 +45,8 @@ const ChatCommandPalette = lazy(() => import('../ChatCommandPalette'));
 const AskUserModal = lazy(() => import('./AskUserModal'));
 const MobileChatDialog = lazy(() => import('./MobileChatDialog'));
 
-// Re-export types from hook for ChatMessages
+// Import UIMessage for type casting, re-export types from hook for ChatMessages
+import type { UIMessage } from '@/hooks/use-voltagent-chat';
 export type { AskUserData, UIMessage, MessageMetadata } from '@/hooks/use-voltagent-chat';
 export { getMessageMetadata, getMessageText } from '@/hooks/use-voltagent-chat';
 
@@ -96,6 +97,8 @@ export function AiDashboard() {
   // CHAT-03: Mobile chat detection (md and below = tablets and phones)
   const isMobileChat = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  // Track if user manually dismissed the mobile chat - prevents auto-reopen
+  const mobileDialogDismissedRef = useRef(false);
 
   // Command palette state (triggered by "/" at start of input)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -190,9 +193,14 @@ export function AiDashboard() {
   }, [lastAskUser, sending]);
 
   // CHAT-03: Auto-open mobile chat dialog when there's an active conversation
+  // Only auto-open if user hasn't manually dismissed it
   useEffect(() => {
-    if (isMobileChat && chatMessages.length > 0 && !mobileChatOpen) {
+    if (isMobileChat && chatMessages.length > 0 && !mobileChatOpen && !mobileDialogDismissedRef.current) {
       setMobileChatOpen(true);
+    }
+    // Reset dismissed flag when switching back to desktop (user can re-open on mobile later)
+    if (!isMobileChat) {
+      mobileDialogDismissedRef.current = false;
     }
   }, [isMobileChat, chatMessages.length, mobileChatOpen]);
 
@@ -209,6 +217,8 @@ export function AiDashboard() {
     setChatMessages([]);
     setConversationId(`conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     setPrompt('');
+    // Reset dismissed flag so mobile dialog can auto-open for new conversations
+    mobileDialogDismissedRef.current = false;
   }, [setChatMessages, setConversationId]);
 
   // Load an existing conversation
@@ -229,7 +239,7 @@ export function AiDashboard() {
       if (conversationRes.data?.conversation) {
         const conv = conversationRes.data.conversation;
 
-        // Map messages
+        // Map messages - use parts from API if available (AI SDK v6 format with tools)
         const filteredMessages = conv.messages
           .filter((m) => m.role === 'user' || m.role === 'assistant');
 
@@ -248,9 +258,12 @@ export function AiDashboard() {
           .map((m, idx) => ({
             id: `msg-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
             role: m.role as 'user' | 'assistant',
-            // AI SDK v6 UIMessage format requires parts array, not content
-            parts: [{ type: 'text' as const, text: m.content }],
-          }));
+            // Use parts from API if available (includes tool parts), fallback to text-only
+            // Cast to unknown first since API MessagePart has type:string but UIMessage needs discriminated union
+            parts: m.parts && m.parts.length > 0
+              ? m.parts as unknown as UIMessage['parts']
+              : [{ type: 'text' as const, text: m.content }],
+          })) as UIMessage[];
 
         // Use setTimeout(0) to ensure useChat hook has reinitialized with new conversationId
         // This fixes the "click twice to load" issue - React needs a render cycle to reinitialize useChat
@@ -498,7 +511,10 @@ export function AiDashboard() {
           <Fab
             color="primary"
             aria-label="open chat"
-            onClick={() => setMobileChatOpen(true)}
+            onClick={() => {
+              mobileDialogDismissedRef.current = false; // Reset dismissed flag when user explicitly opens
+              setMobileChatOpen(true);
+            }}
             sx={{
               position: 'fixed',
               bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
@@ -514,7 +530,10 @@ export function AiDashboard() {
           <Suspense fallback={null}>
             <MobileChatDialog
               open={mobileChatOpen}
-              onClose={() => setMobileChatOpen(false)}
+              onClose={() => {
+                mobileDialogDismissedRef.current = true;
+                setMobileChatOpen(false);
+              }}
               messages={renderChatMessages()}
               input={renderChatInput()}
               error={renderErrorBanner()}

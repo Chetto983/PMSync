@@ -280,19 +280,55 @@ export function getMessageMetadata(message: UIMessage): MessageMetadata {
     metadata.totalTokens = rawMetadata.totalTokens;
   }
 
-  // Fallback: Check toolInvocations for ask_user_clarification
-  // (backward compatibility with tool-based approach)
+  // Fallback: Parse suggestions from text content (agent outputs ```suggestions blocks)
+  if (!metadata.suggestedQuestions) {
+    const text = extractTextFromParts(message);
+    const suggestionsMatch = text.match(/```suggestions\s*\n?\s*(\[[\s\S]*?\])\s*\n?```/);
+    if (suggestionsMatch) {
+      try {
+        const parsed = JSON.parse(suggestionsMatch[1]);
+        if (Array.isArray(parsed) && parsed.every((s) => typeof s === 'string')) {
+          metadata.suggestedQuestions = parsed;
+        }
+      } catch {
+        // Invalid JSON, ignore
+      }
+    }
+  }
+
+  // Fallback: Check tool parts for ask_user_clarification
+  // AI SDK v6 uses 'tool-{name}' format (e.g., 'tool-ask_user_clarification')
+  // or 'dynamic-tool' with toolName property
   if (!metadata.askUser && message.parts) {
     for (const part of message.parts) {
+      // Check for dynamic-tool with ask_user_clarification
       if (
-        part.type === 'tool-invocation' &&
+        part.type === 'dynamic-tool' &&
         'toolName' in part &&
         part.toolName === 'ask_user_clarification' &&
-        'result' in part &&
-        part.result &&
-        typeof part.result === 'object'
+        'output' in part &&
+        part.output &&
+        typeof part.output === 'object'
       ) {
-        const result = part.result as Record<string, unknown>;
+        const result = part.output as Record<string, unknown>;
+        if (result.__askUser === true) {
+          metadata.askUser = {
+            question: result.question as string,
+            header: (result.header as string) || 'Clarification',
+            options: result.options as AskUserOption[],
+            multiSelect: (result.multiSelect as boolean) || false,
+          };
+          break;
+        }
+      }
+      // Check for static tool 'tool-ask_user_clarification'
+      if (
+        part.type === 'tool-ask_user_clarification' &&
+        'output' in part &&
+        part.output &&
+        typeof part.output === 'object'
+      ) {
+        const result = part.output as Record<string, unknown>;
         if (result.__askUser === true) {
           metadata.askUser = {
             question: result.question as string,
@@ -311,9 +347,12 @@ export function getMessageMetadata(message: UIMessage): MessageMetadata {
 
 /**
  * Get text content from a message.
+ * Strips suggestion code blocks since they're rendered as chips separately.
  */
 export function getMessageText(message: UIMessage): string {
-  return extractTextFromParts(message);
+  const text = extractTextFromParts(message);
+  // Strip suggestions code blocks - they're rendered as chips via getMessageMetadata()
+  return text.replace(/```suggestions\s*\n?\s*\[[\s\S]*?\]\s*\n?```/g, '').trim();
 }
 
 export default useVoltAgentChat;

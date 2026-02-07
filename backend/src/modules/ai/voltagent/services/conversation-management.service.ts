@@ -36,10 +36,25 @@ export interface ConversationSummary {
   messageCount: number;
 }
 
-/** Conversation message for API responses (distinct from compaction service) */
+/** Message part type for AI SDK v6 format */
+export interface MessagePart {
+  type: string;
+  text?: string;
+  toolName?: string;
+  toolCallId?: string;
+  state?: string;
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
+}
+
+/** Conversation message for API responses (AI SDK v6 UIMessage format) */
 export interface ConversationMessageDetail {
   role: 'user' | 'assistant' | 'system';
+  /** @deprecated Remove by 2026-06-01: Use parts instead - kept for backwards compatibility */
   content: string;
+  /** AI SDK v6 parts array - includes text and tool parts */
+  parts: MessagePart[];
   createdAt: Date;
 }
 
@@ -319,12 +334,41 @@ export class ConversationManagementService {
         return true;
       });
 
-      // Map to our format with sanitization
+      // Map to our format with sanitization - PRESERVE PARTS for tool UI rendering
       const mappedMessages = userVisibleMessages.map((m) => {
-        const msg = m as unknown as { role: string; parts?: Array<{ type?: string; text?: string }>; createdAt?: Date };
+        const msg = m as unknown as {
+          role: string;
+          parts?: Array<{ type?: string; text?: string; toolName?: string; toolCallId?: string; state?: string; input?: unknown; output?: unknown; errorText?: string }>;
+          createdAt?: Date;
+        };
+
+        // Sanitize text parts while preserving tool parts
+        const sanitizedParts: MessagePart[] = (msg.parts || []).map((part) => {
+          if (part.type === 'text' || !part.type) {
+            // Sanitize text content
+            return {
+              type: 'text',
+              text: sanitizeLlmResponse(part.text || ''),
+            };
+          }
+          // Preserve tool parts as-is (they contain structured data)
+          return {
+            type: part.type,
+            toolName: part.toolName,
+            toolCallId: part.toolCallId,
+            state: part.state,
+            input: part.input,
+            output: part.output,
+            errorText: part.errorText,
+          };
+        });
+
         return {
           role: msg.role as 'user' | 'assistant' | 'system',
+          // Keep content for backwards compatibility
           content: sanitizeLlmResponse(this.extractMessageContent(msg)),
+          // AI SDK v6 parts array with tool parts preserved
+          parts: sanitizedParts,
           createdAt: msg.createdAt || new Date(),
         };
       });

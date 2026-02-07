@@ -4,8 +4,8 @@
 
 **Version:** v3.0
 **Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management
-**Total Phases:** 5
-**Total Requirements:** 12
+**Total Phases:** 6
+**Total Requirements:** 13
 
 **Key deliverables:**
 - Clean VoltAgent integration with modern patterns
@@ -30,6 +30,7 @@
 | FOLLOW-01 | Follow-ups UI refactor with two types | 04 |
 | FOLLOW-02 | Smart timing suggestions + NLP detection | 04 |
 | LABELS-01 | Nested labels tree view with drag-drop | 05 |
+| CHATUI-01 | Chat UI improvements and agent tool on mail | 06 |
 
 ## Phase Summary
 
@@ -40,6 +41,7 @@
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | 3 | Phase 01 |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2 | None |
 | 05 | Nested Labels Frontend | LABELS-01 | 2 | None (backend done v2.1) |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 3 | Phase 02 |
 
 ---
 
@@ -211,6 +213,38 @@
 
 ---
 
+## Phase 06: Chat UI and Agent Tool on Mail
+
+**Goal:** Enhanced chat interface with agent tool integration for email actions
+
+**Status:** PLANNED
+
+**Requirements:**
+- CHATUI-01: Chat UI improvements and agent tool on mail
+
+**Dependencies:** Phase 02 (AI Chat Overhaul)
+
+**Why sixth:** Builds on chat infrastructure from Phase 02. Extends chat with actionable email tools.
+
+**Plans:** 3 plans
+
+- [ ] 06-01-PLAN.md — Context-aware email quick actions in AI chat
+- [ ] 06-02-PLAN.md — Slide-in chat panel with FAB for email threads
+- [ ] 06-03-PLAN.md — Tool rendering improvements and email context in prompts
+
+**Wave Structure:**
+- Wave 1: 06-01, 06-02 (parallel - no file conflicts)
+- Wave 2: 06-03 (depends on 06-01, 06-02 for context/panel infrastructure)
+
+**Deliverables:**
+- Email-specific quick actions when viewing threads
+- Floating AI button (FAB) on email thread pages
+- Slide-in chat panel with email context
+- Improved tool execution visual feedback
+- AI understands "this email" context
+
+---
+
 ## Execution Order
 
 ```
@@ -223,7 +257,7 @@ Wave 3: Phase 04 (Follow-Ups) ─────┤                           ├�
         Phase 05 (Nested Labels) ──┘── can run anytime ────────┘
 ```
 
-**Estimated timeline:** 13 plans total (3 + 3 + 3 + 2 + 2)
+**Estimated timeline:** 16 plans total (3 + 3 + 3 + 2 + 2 + 3)
 
 ---
 

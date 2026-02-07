@@ -128,25 +128,6 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length, sending, hasAgentActivity, agentSteps.length]);
 
-  // DEBUG: Log message structure to understand VoltAgent format
-  React.useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      console.log('[ChatMessages DEBUG] Last message:', {
-        role: lastMsg.role,
-        id: lastMsg.id,
-        partsCount: lastMsg.parts?.length,
-        parts: lastMsg.parts?.map((p, i) => ({
-          index: i,
-          type: p.type,
-          keys: Object.keys(p),
-          // Safe stringify for debugging
-          preview: JSON.stringify(p).slice(0, 200),
-        })),
-        rawMessage: lastMsg,
-      });
-    }
-  }, [messages.length]);
 
   return (
     <Box
@@ -225,58 +206,29 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                 </Typography>
               ) : (
                 <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
-                  {/* Native AI SDK pattern: iterate through message.parts */}
+                  {/* Native AI SDK v6 pattern: iterate through message.parts */}
                   {message.parts.map((part, partIndex) => {
-                    // Text parts -> MessageResponse (uses Streamdown)
-                    if (part.type === 'text') {
-                      return <MessageResponse key={partIndex}>{part.text}</MessageResponse>;
+                    // DEBUG: Log non-text parts to see tools
+                    if (process.env.NODE_ENV === 'development' && part.type !== 'text') {
+                      console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
                     }
-                    // AI SDK v4: 'tool-invocation' type with args/result structure
-                    if (part.type === 'tool-invocation') {
-                      const invocation = part as unknown as {
-                        type: 'tool-invocation';
-                        toolInvocationId: string;
-                        toolName: string;
-                        args: unknown;
-                        state: 'call' | 'partial-call' | 'result';
-                        result?: unknown;
-                      };
-                      // Map AI SDK state to ai-elements state
-                      const mappedState = invocation.state === 'result' ? 'output-available'
-                        : invocation.state === 'partial-call' ? 'input-streaming'
-                        : 'input-available';
+                    // Text parts -> MessageResponse (uses Streamdown)
+                    // Strip suggestions code blocks - they're rendered as chips separately
+                    if (part.type === 'text') {
+                      const cleanText = (part.text || '').replace(/```suggestions\s*\n?\s*\[[\s\S]*?\]\s*\n?```/g, '').trim();
+                      if (!cleanText) return null; // Skip empty text parts
+                      return <MessageResponse key={partIndex}>{cleanText}</MessageResponse>;
+                    }
+                    // AI SDK v6: 'dynamic-tool' type for dynamic tools
+                    if (part.type === 'dynamic-tool') {
+                      const toolPart = part as ToolPart;
                       return (
-                        <Tool key={invocation.toolInvocationId} defaultOpen={false}>
+                        <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
                           <ToolHeader
                             type="dynamic-tool"
-                            state={mappedState}
-                            toolName={invocation.toolName}
+                            state={toolPart.state}
+                            toolName={(toolPart as { toolName: string }).toolName}
                           />
-                          <ToolContent>
-                            <ToolInput input={invocation.args} />
-                            <ToolOutput output={invocation.result} errorText={undefined} />
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
-                    // Legacy: tool-{name} parts from ai-elements
-                    if (part.type.startsWith('tool-') || part.type === 'dynamic-tool') {
-                      const toolPart = part as ToolPart;
-                      const isDynamic = toolPart.type === 'dynamic-tool';
-                      return (
-                        <Tool key={toolPart.toolCallId} defaultOpen={false}>
-                          {isDynamic ? (
-                            <ToolHeader
-                              type="dynamic-tool"
-                              state={toolPart.state}
-                              toolName={(toolPart as { toolName: string }).toolName}
-                            />
-                          ) : (
-                            <ToolHeader
-                              type={toolPart.type as `tool-${string}`}
-                              state={toolPart.state}
-                            />
-                          )}
                           <ToolContent>
                             <ToolInput input={toolPart.input} />
                             <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
@@ -284,7 +236,23 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                         </Tool>
                       );
                     }
-                    // Other part types (reasoning, sources, etc.) - skip for now
+                    // AI SDK v6: 'tool-{name}' format for static tools (e.g., 'tool-list_emails')
+                    if (part.type.startsWith('tool-')) {
+                      const toolPart = part as ToolPart;
+                      return (
+                        <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
+                          <ToolHeader
+                            type={toolPart.type as `tool-${string}`}
+                            state={toolPart.state}
+                          />
+                          <ToolContent>
+                            <ToolInput input={toolPart.input} />
+                            <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
+                          </ToolContent>
+                        </Tool>
+                      );
+                    }
+                    // Other part types (reasoning, sources, step-start, etc.) - skip for now
                     return null;
                   })}
                 </Box>

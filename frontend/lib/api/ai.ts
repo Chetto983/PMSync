@@ -383,9 +383,24 @@ export type ConversationSummary = {
   messageCount: number;
 };
 
+/** AI SDK v6 message part - supports text and tool parts */
+export type MessagePart = {
+  type: string;
+  text?: string;
+  toolName?: string;
+  toolCallId?: string;
+  state?: string;
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
+};
+
 export type ConversationMessage = {
   role: 'user' | 'assistant' | 'system';
+  /** @deprecated Remove by 2026-06-01: Use parts instead - kept for backwards compatibility */
   content: string;
+  /** AI SDK v6 parts array - includes text and tool parts */
+  parts?: MessagePart[];
   toolCalls?: Array<{ tool: string; args: Record<string, unknown> }>;
   toolResults?: Array<{ tool: string; result: unknown }>;
   tokenCount?: number;
