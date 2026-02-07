@@ -134,7 +134,7 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
+        gap: 3,
         minHeight: '100%',
         justifyContent: messages.length <= 4 ? 'flex-end' : 'flex-start',
       }}
@@ -175,26 +175,17 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
 
           {/* Message Content */}
           <Box sx={{ flex: 1, maxWidth: { xs: '85%', sm: '80%' } }}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: { xs: 1.5, md: 2 },
-                borderRadius: 3,
-                ...(message.role === 'user'
-                  ? {
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    borderBottomRightRadius: 0.5,
-                  }
-                  : {
-                    bgcolor: alpha(theme.palette.background.default, 0.8),
-                    border: '1px solid',
-                    borderColor: alpha(theme.palette.divider, 0.08),
-                    borderBottomLeftRadius: 0.5,
-                  }),
-              }}
-            >
-              {message.role === 'user' ? (
+            {/* User messages: Paper with subtle background. Assistant: no container (clean typography) */}
+            {message.role === 'user' ? (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: { xs: 1.5, md: 2 },
+                  borderRadius: 3,
+                  bgcolor: alpha(theme.palette.secondary.main, 0.08),
+                  color: 'text.primary',
+                }}
+              >
                 <Typography
                   variant="body2"
                   sx={{
@@ -204,60 +195,61 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                 >
                   {getMessageText(message)}
                 </Typography>
-              ) : (
-                <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
-                  {/* Native AI SDK v6 pattern: iterate through message.parts */}
-                  {message.parts.map((part, partIndex) => {
-                    // DEBUG: Log non-text parts to see tools
-                    if (process.env.NODE_ENV === 'development' && part.type !== 'text') {
-                      console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
-                    }
-                    // Text parts -> MessageResponse (uses Streamdown)
-                    // Strip suggestions code blocks - they're rendered as chips separately
-                    if (part.type === 'text') {
-                      const cleanText = (part.text || '').replace(/```suggestions\s*\n?\s*\[[\s\S]*?\]\s*\n?```/g, '').trim();
-                      if (!cleanText) return null; // Skip empty text parts
-                      return <MessageResponse key={partIndex}>{cleanText}</MessageResponse>;
-                    }
-                    // AI SDK v6: 'dynamic-tool' type for dynamic tools
-                    if (part.type === 'dynamic-tool') {
-                      const toolPart = part as ToolPart;
-                      return (
-                        <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
-                          <ToolHeader
-                            type="dynamic-tool"
-                            state={toolPart.state}
-                            toolName={(toolPart as { toolName: string }).toolName}
-                          />
-                          <ToolContent>
-                            <ToolInput input={toolPart.input} />
-                            <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
-                    // AI SDK v6: 'tool-{name}' format for static tools (e.g., 'tool-list_emails')
-                    if (part.type.startsWith('tool-')) {
-                      const toolPart = part as ToolPart;
-                      return (
-                        <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
-                          <ToolHeader
-                            type={toolPart.type as `tool-${string}`}
-                            state={toolPart.state}
-                          />
-                          <ToolContent>
-                            <ToolInput input={toolPart.input} />
-                            <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
-                    // Other part types (reasoning, sources, step-start, etc.) - skip for now
-                    return null;
-                  })}
-                </Box>
-              )}
-            </Paper>
+              </Paper>
+            ) : (
+              /* Assistant messages: no container, just clean typography */
+              <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
+                {/* Native AI SDK v6 pattern: iterate through message.parts */}
+                {message.parts.map((part, partIndex) => {
+                  // DEBUG: Log non-text parts to see tools
+                  if (process.env.NODE_ENV === 'development' && part.type !== 'text') {
+                    console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
+                  }
+                  // Text parts -> MessageResponse (uses Streamdown)
+                  // Strip suggestions code blocks - they're rendered as chips separately
+                  if (part.type === 'text') {
+                    const cleanText = (part.text || '').replace(/```suggestions\s*\n?\s*\[[\s\S]*?\]\s*\n?```/g, '').trim();
+                    if (!cleanText) return null; // Skip empty text parts
+                    return <MessageResponse key={partIndex}>{cleanText}</MessageResponse>;
+                  }
+                  // AI SDK v6: 'dynamic-tool' type for dynamic tools
+                  if (part.type === 'dynamic-tool') {
+                    const toolPart = part as ToolPart;
+                    return (
+                      <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
+                        <ToolHeader
+                          type="dynamic-tool"
+                          state={toolPart.state}
+                          toolName={(toolPart as { toolName: string }).toolName}
+                        />
+                        <ToolContent>
+                          <ToolInput input={toolPart.input} />
+                          <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+                  // AI SDK v6: 'tool-{name}' format for static tools (e.g., 'tool-list_emails')
+                  if (part.type.startsWith('tool-')) {
+                    const toolPart = part as ToolPart;
+                    return (
+                      <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
+                        <ToolHeader
+                          type={toolPart.type as `tool-${string}`}
+                          state={toolPart.state}
+                        />
+                        <ToolContent>
+                          <ToolInput input={toolPart.input} />
+                          <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+                  // Other part types (reasoning, sources, step-start, etc.) - skip for now
+                  return null;
+                })}
+              </Box>
+            )}
 
             {/* Metadata */}
             <Box
