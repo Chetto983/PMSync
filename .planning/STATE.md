@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 6 of 6 — Chat UI and Agent Tool on Mail
-Plan: 2 of 3 in phase (06-02 complete)
-Status: In progress
-Last activity: 2026-02-07 — Completed 06-02-PLAN.md (Email thread chat overlay)
+Plan: 3 of 3 in phase (06-03 complete)
+Status: Phase complete
+Last activity: 2026-02-07 — Completed 06-03-PLAN.md (Tool rendering and email context)
 
 Progress: v3.0 Phase 06
 ```
-[██████████████████████████░░░░] 62% (10/16 plans)
+[██████████████████████████████] 69% (11/16 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 06-02-PLAN.md (Email thread chat overlay)
+Stopped at: Completed 06-03-PLAN.md (Tool rendering and email context)
 Resume file: None
 
 ## Accumulated Decisions
@@ -76,6 +76,9 @@ Resume file: None
 | Panel width 380px desktop, 100vw mobile | v3.0-06-02 | Consistent with typical chat sidebars, full width on mobile |
 | Fixed overlay panel (not pushing content) | v3.0-06-02 | Does not disturb email reading flow |
 | Context banner with subject + sender | v3.0-06-02 | User always knows which email the AI is discussing |
+| Loader2Icon for tool spinners | v3.0-06-03 | Animated spinning vs static pulsing for clearer active state |
+| TOOL_NAME_MAP in tool.tsx | v3.0-06-03 | Human-readable tool names for better UX |
+| EmailContext after BASE prompt | v3.0-06-03 | Contextual AI prompt section when viewing specific email |
 
 ## Blockers & Concerns
 
@@ -115,27 +118,30 @@ See: .planning/MILESTONES.md
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
 | 05 | Nested Labels Frontend | LABELS-01 | IN PROGRESS (1/2 plans) |
-| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | IN PROGRESS (2/3 plans) |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (3/3 plans) |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Phase 06 in progress. 06-01 and 06-02 complete.
+**Currently:** Phase 06 complete. Moving to Phase 05-02 (nested labels drag-drop).
 
 **Phase 06 accomplishments:**
 - 06-01: ViewContext and conversation isolation (useVoltAgentChat enhancements, new action card components, email-specific prompts)
 - 06-02: Email thread chat overlay (EmailChatFab, EmailChatPanel, thread page integration)
-
-**Remaining in Phase 06:**
-- 06-03: Mobile chat dialog (Wave 2)
+- 06-03: Tool rendering enhancements (spinner states, readable names, email context in prompt)
 
 **Remaining in Phase 05:**
 - 05-02: Drag-drop nesting and reordering (Wave 2)
+
+**Remaining in v3.0:**
+- Phase 02: 02-04 (RAG memory improvements)
+- Phase 03: Auto-Triage Core (3 plans)
+- Phase 04: Follow-Ups Refactor (2 plans)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-07 -- Completed 06-02-PLAN.md (Email thread chat overlay)*
+*State updated: 2026-02-07 -- Completed 06-03-PLAN.md (Tool rendering and email context)*
