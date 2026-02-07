@@ -1,40 +1,55 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface UseChatScrollOptions {
-  /** Threshold in pixels from bottom to consider "at bottom" */
-  threshold?: number;
   /** Dependencies that trigger scroll check (e.g., messages.length) */
   deps?: unknown[];
 }
 
 interface UseChatScrollReturn {
-  /** Ref to attach to scrollable container */
-  containerRef: React.RefObject<HTMLDivElement | null>;
   /** Ref to attach to end-of-messages anchor */
   endRef: React.RefObject<HTMLDivElement | null>;
-  /** Whether user is currently at bottom */
+  /** Whether user is currently at bottom (endRef is visible) */
   isAtBottom: boolean;
   /** Scroll to bottom (smooth) */
   scrollToBottom: () => void;
-  /** Handler to attach to container's onScroll */
-  handleScroll: () => void;
 }
 
+/**
+ * Smart scroll behavior for chat messages.
+ *
+ * Uses IntersectionObserver to detect if user has scrolled up (endRef not visible).
+ * Only auto-scrolls when user is at bottom, preventing disruption while reading.
+ * Works with any scrollable ancestor (doesn't need direct access to scroll container).
+ */
 export function useChatScroll(options: UseChatScrollOptions = {}): UseChatScrollReturn {
-  const { threshold = 100, deps = [] } = options;
+  const { deps = [] } = options;
 
-  const containerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
-  const handleScroll = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  // Use IntersectionObserver to detect if endRef is visible
+  // This works with any scrollable ancestor, no need for containerRef
+  useEffect(() => {
+    const element = endRef.current;
+    if (!element) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    setIsAtBottom(distanceFromBottom < threshold);
-  }, [threshold]);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsAtBottom(entry.isIntersecting);
+      },
+      {
+        // rootMargin allows detecting "near bottom" - 100px buffer
+        rootMargin: '100px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,10 +64,8 @@ export function useChatScroll(options: UseChatScrollOptions = {}): UseChatScroll
   }, deps);
 
   return {
-    containerRef,
     endRef,
     isAtBottom,
     scrollToBottom,
-    handleScroll,
   };
 }

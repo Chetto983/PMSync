@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Box, Typography, Paper, alpha, useTheme, IconButton, Tooltip } from '@mui/material';
-import { Bot, User, Copy, Check } from 'lucide-react';
+import { Box, Typography, Paper, alpha, useTheme, IconButton, Tooltip, Fade } from '@mui/material';
+import { Bot, User, Copy, Check, ArrowDown } from 'lucide-react';
+import { useChatScroll } from './useChatScroll';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type UIMessage, getMessageMetadata, getMessageText } from '@/hooks/use-voltagent-chat';
 import { TypingIndicator } from './TypingIndicator';
@@ -55,6 +56,37 @@ function useConversationPendingActions(conversationId: string | null | undefined
  * Shows below the last assistant message for inline HITL approval.
  * Follows AI SDK HITL pattern - actions appear in chat flow, not sidebar.
  */
+/**
+ * Scroll-to-bottom floating button.
+ * Appears when user scrolls up in the chat.
+ */
+function ScrollToBottomButton({ visible, onClick }: { visible: boolean; onClick: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <Fade in={visible}>
+      <IconButton
+        onClick={onClick}
+        sx={{
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bgcolor: alpha(theme.palette.background.paper, 0.9),
+          border: '1px solid',
+          borderColor: alpha(theme.palette.divider, 0.2),
+          boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.15)}`,
+          '&:hover': {
+            bgcolor: theme.palette.background.paper,
+          },
+        }}
+      >
+        <ArrowDown size={20} />
+      </IconButton>
+    </Fade>
+  );
+}
+
 function ConversationPendingActions({ conversationId }: { conversationId: string | null | undefined }) {
   const { data: actions = [] } = useConversationPendingActions(conversationId);
 
@@ -118,20 +150,17 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
     };
   }, [queryClient]);
 
-  // Auto-scroll to bottom ref
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-
-  // Scroll to bottom whenever messages count or agent activity changes
-  // FIX: Use messages.length instead of messages array to prevent infinite re-renders
-  // See: https://github.com/vercel/ai/issues/4741
-  React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, sending, hasAgentActivity, agentSteps.length]);
+  // Smart scroll: only auto-scroll when user is at bottom
+  // Uses IntersectionObserver on endRef - works with any scrollable ancestor
+  const { endRef, isAtBottom, scrollToBottom } = useChatScroll({
+    deps: [messages.length, sending, hasAgentActivity, agentSteps.length],
+  });
 
 
   return (
     <Box
       sx={{
+        position: 'relative', // For scroll-to-bottom button positioning
         display: 'flex',
         flexDirection: 'column',
         gap: 3,
@@ -327,7 +356,13 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
         action={agentSteps.find(s => s.status === 'active')?.action}
       />
 
-      <div ref={messagesEndRef} />
+      {/* Scroll-to-bottom button - appears when scrolled up */}
+      <ScrollToBottomButton
+        visible={!isAtBottom && messages.length > 4}
+        onClick={scrollToBottom}
+      />
+
+      <div ref={endRef} />
     </Box>
   );
 }
