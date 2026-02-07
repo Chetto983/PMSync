@@ -14,6 +14,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MistralService } from '../../services/mistral.service';
 import { getErrorMessage } from '../../../../common/utils';
+import * as chrono from 'chrono-node';
 
 /**
  * A commitment the user made in an email
@@ -231,6 +232,48 @@ Return JSON:
       return emailType as 'receipt' | 'notification' | 'request' | 'conversation' | 'newsletter' | 'alert';
     }
     return 'conversation';
+  }
+
+  /**
+   * Extract deadline from email text using NLP (chrono-node).
+   * Looks for patterns like "by Friday", "end of next week", "before March 15".
+   * @returns Date or null if no deadline found
+   */
+  extractDeadlineFromText(text: string, referenceDate: Date = new Date()): Date | null {
+    // First try to find explicit deadline patterns
+    const deadlinePatterns = [
+      /\b(?:by|before|until|due|deadline[:]?)\s+(.+?)(?:\.|,|$)/gi,
+      /\b(?:respond|reply|answer|get back)\s+(?:by|before)\s+(.+?)(?:\.|,|$)/gi,
+      /\b(?:please|kindly)\s+(?:respond|reply)\s+by\s+(.+?)(?:\.|,|$)/gi,
+    ];
+
+    for (const pattern of deadlinePatterns) {
+      pattern.lastIndex = 0; // Reset regex state
+      const match = pattern.exec(text);
+      if (match && match[1]) {
+        const parsed = chrono.parseDate(match[1], referenceDate, { forwardDate: true });
+        if (parsed && parsed > referenceDate) {
+          return parsed;
+        }
+      }
+    }
+
+    // Fallback: general date extraction from text (only future dates)
+    const results = chrono.parse(text, referenceDate, { forwardDate: true });
+    if (results.length > 0) {
+      // Prefer dates in the future
+      const futureResult = results.find((r) => r.start.date() > referenceDate);
+      if (futureResult) {
+        return futureResult.start.date();
+      }
+      // Return first result if it's in the future
+      const firstDate = results[0].start.date();
+      if (firstDate > referenceDate) {
+        return firstDate;
+      }
+    }
+
+    return null;
   }
 
   /**

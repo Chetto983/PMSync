@@ -168,6 +168,9 @@ export interface CreateFollowUpInput {
   actionItems?: ExtractedActionItem[];
   emailType?: string;
   confidence?: number;
+  // NLP deadline detection (Phase 04-02)
+  detectedDeadline?: Date;
+  deadlineSource?: string;
 }
 
 /**
@@ -430,6 +433,8 @@ Return JSON ONLY (no markdown):
       actionItems,
       emailType,
       confidence,
+      detectedDeadline,
+      deadlineSource,
     } = input;
 
     const existing = await this.prisma.emailFollowUp.findFirst({
@@ -475,6 +480,9 @@ Return JSON ONLY (no markdown):
         actionItems: actionItems?.length ? (actionItems as unknown as Prisma.InputJsonValue) : undefined,
         emailType: emailType ?? undefined,
         confidence: confidence ?? undefined,
+        // NLP deadline detection (Phase 04-02)
+        detectedDeadline: detectedDeadline ?? undefined,
+        deadlineSource: deadlineSource ?? undefined,
       },
     });
 
@@ -520,11 +528,17 @@ Return JSON ONLY (no markdown):
       return { followUp: null, extraction: null };
     }
 
-    // Run LLM analysis and extraction in parallel for efficiency
+    // Run LLM analysis, extraction, and NLP deadline detection in parallel for efficiency
     const [llmResult, extraction] = await Promise.all([
       this.analyzeWithLlm(tenantId, userId, body, subject),
       this.extractionService.extractFromEmail(tenantId, userId, subject || '', body, isSentByUser),
     ]);
+
+    // Extract deadline using chrono-node NLP (Phase 04-02)
+    const detectedDeadline = this.extractionService.extractDeadlineFromText(
+      `${subject || ''} ${body}`,
+      new Date()
+    );
 
     // Log extraction results for debugging
     if (extraction.commitments.length > 0 || extraction.waitingFor.length > 0) {
@@ -571,6 +585,9 @@ Return JSON ONLY (no markdown):
         actionItems: extraction.actionItems,
         emailType: extraction.emailType,
         confidence: finalConfidence,
+        // NLP deadline detection (Phase 04-02)
+        detectedDeadline: detectedDeadline ?? undefined,
+        deadlineSource: detectedDeadline ? 'nlp' : undefined,
       });
 
       return { followUp, extraction };
@@ -603,6 +620,8 @@ Return JSON ONLY (no markdown):
         actionItems: true,
         emailType: true,
         confidence: true,
+        detectedDeadline: true,
+        deadlineSource: true,
         createdAt: true,
         updatedAt: true,
         email: {
@@ -661,6 +680,8 @@ Return JSON ONLY (no markdown):
         actionItems: true,
         emailType: true,
         confidence: true,
+        detectedDeadline: true,
+        deadlineSource: true,
         createdAt: true,
         updatedAt: true,
         email: {
@@ -740,6 +761,8 @@ Return JSON ONLY (no markdown):
         actionItems: true,
         emailType: true,
         confidence: true,
+        detectedDeadline: true,
+        deadlineSource: true,
         createdAt: true,
         updatedAt: true,
         email: {
