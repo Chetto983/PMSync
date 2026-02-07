@@ -182,6 +182,12 @@ export class ActionExecutorService {
         this.logger.debug(`${logPrefix} Resolved PII placeholders in action payload`);
         action.payload = resolvedPayload;
       }
+    } else if (this.piiResolutionService && !context.sessionId) {
+      // FIX: Log warning when PII resolution is skipped due to missing sessionId
+      // This helps debug issues where PII placeholders are not restored
+      this.logger.warn(
+        `${logPrefix} PII resolution skipped - no sessionId in context for action ${action.type}`,
+      );
     }
 
     try {

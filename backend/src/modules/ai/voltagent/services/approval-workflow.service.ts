@@ -118,10 +118,14 @@ export class ApprovalWorkflowService implements OnModuleInit {
       // FIX C2: Capture ActionQueue ID from createPendingAction for approve/reject
       let actionQueueId: string | undefined;
       if (this.hitlService) {
+        // FIX: Use actual conversation sessionId for PII resolution, not executionId
+        // PII mappings are stored with the original conversation sessionId, so we must
+        // pass that same sessionId to enable resolvePayload() in ActionExecutorService
+        const conversationSessionId = (action as { sessionId?: string }).sessionId;
         actionQueueId = await this.hitlService.createPendingAction({
           tenantId: action.tenantId,
           userId: action.userId,
-          sessionId: executionId,
+          sessionId: conversationSessionId,
           agentName: action.agentName,
           action: {
             type: action.actionType as unknown as AgentActionType,
