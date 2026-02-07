@@ -53,6 +53,7 @@ export class FollowUpController {
   async getFollowUps(
     @Req() req: AuthenticatedRequest,
     @Query('status') status?: string,
+    @Query('type') type?: 'WAITING_FOR' | 'TODO',
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
@@ -66,6 +67,7 @@ export class FollowUpController {
       req.user.userId,
       {
         status: statusFilter && statusFilter.length === 1 ? statusFilter[0] : statusFilter,
+        type: type as 'WAITING_FOR' | 'TODO' | undefined,
         limit: limit ? parseInt(limit, 10) : 50,
         offset: offset ? parseInt(offset, 10) : 0,
       },

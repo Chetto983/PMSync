@@ -175,6 +175,7 @@ export interface CreateFollowUpInput {
  */
 export interface ListFollowUpsOptions {
   status?: FollowUpStatus | FollowUpStatus[];
+  type?: FollowUpType;
   limit?: number;
   offset?: number;
   orderBy?: 'dueDate' | 'createdAt';
@@ -281,6 +282,30 @@ export class FollowUpService implements OnModuleInit {
     if (patternStr.includes('by') || patternStr.includes('before')) return 'Has deadline';
     if (patternStr.includes('follow') || patternStr.includes('circle')) return 'Follow-up mentioned';
     return 'Follow-up needed';
+  }
+
+  /**
+   * Detect follow-up type based on email folder and extraction data.
+   * WAITING_FOR: Email in SENT folder with waitingFor items
+   * TODO: Email in INBOX/other folder with actionItems (or default)
+   */
+  private detectFollowUpType(
+    email: { folder: string | null },
+    extraction?: { waitingFor?: unknown[]; actionItems?: unknown[] }
+  ): FollowUpType {
+    // Check if email is in sent folder
+    const folderPath = (email.folder || '').toLowerCase();
+    const isSentFolder = folderPath.includes('sent') || folderPath.includes('envoy') || folderPath.includes('inviati');
+
+    // If email was sent by user and has waitingFor items -> WAITING_FOR
+    const hasWaitingFor = extraction?.waitingFor && Array.isArray(extraction.waitingFor) && extraction.waitingFor.length > 0;
+
+    if (isSentFolder && hasWaitingFor) {
+      return FollowUpType.WAITING_FOR;
+    }
+
+    // Default to TODO (received email requiring action)
+    return FollowUpType.TODO;
   }
 
   /**
@@ -421,6 +446,18 @@ Return JSON ONLY (no markdown):
       return existing;
     }
 
+    // Fetch email to detect type based on folder
+    const email = await this.prisma.email.findFirst({
+      where: { id: emailId, tenantId },
+      select: { folder: true },
+    });
+
+    // Detect follow-up type
+    const followUpType = this.detectFollowUpType(
+      { folder: email?.folder || null },
+      { waitingFor, actionItems }
+    );
+
     const finalDueDate = dueDate || this.getDefaultDueDate();
 
     const followUp = await this.prisma.emailFollowUp.create({
@@ -431,6 +468,7 @@ Return JSON ONLY (no markdown):
         reason: reason ?? null,
         dueDate: finalDueDate,
         status: 'PENDING',
+        followUpType,
         // Extraction data (persisted for VoltAgent access)
         commitments: commitments?.length ? (commitments as unknown as Prisma.InputJsonValue) : undefined,
         waitingFor: waitingFor?.length ? (waitingFor as unknown as Prisma.InputJsonValue) : undefined,
@@ -547,7 +585,26 @@ Return JSON ONLY (no markdown):
   async getFollowUp(tenantId: string, userId: string, id: string): Promise<EmailFollowUp | null> {
     return this.prisma.emailFollowUp.findFirst({
       where: { id, tenantId, userId },
-      include: {
+      select: {
+        id: true,
+        tenantId: true,
+        userId: true,
+        emailId: true,
+        status: true,
+        followUpType: true,
+        reason: true,
+        dueDate: true,
+        remindCount: true,
+        lastRemindedAt: true,
+        resolvedAt: true,
+        resolvedBy: true,
+        commitments: true,
+        waitingFor: true,
+        actionItems: true,
+        emailType: true,
+        confidence: true,
+        createdAt: true,
+        updatedAt: true,
         email: {
           select: {
             id: true,
@@ -571,11 +628,14 @@ Return JSON ONLY (no markdown):
     userId: string,
     options: ListFollowUpsOptions = {},
   ): Promise<EmailFollowUp[]> {
-    const { status, limit = 50, offset = 0, orderBy = 'dueDate', orderDir = 'asc' } = options;
+    const { status, type, limit = 50, offset = 0, orderBy = 'dueDate', orderDir = 'asc' } = options;
 
     const where: Record<string, unknown> = { tenantId, userId };
     if (status) {
       where.status = Array.isArray(status) ? { in: status } : status;
+    }
+    if (type) {
+      where.followUpType = type;
     }
 
     return this.prisma.emailFollowUp.findMany({
@@ -583,7 +643,26 @@ Return JSON ONLY (no markdown):
       orderBy: { [orderBy]: orderDir },
       take: limit,
       skip: offset,
-      include: {
+      select: {
+        id: true,
+        tenantId: true,
+        userId: true,
+        emailId: true,
+        status: true,
+        followUpType: true,
+        reason: true,
+        dueDate: true,
+        remindCount: true,
+        lastRemindedAt: true,
+        resolvedAt: true,
+        resolvedBy: true,
+        commitments: true,
+        waitingFor: true,
+        actionItems: true,
+        emailType: true,
+        confidence: true,
+        createdAt: true,
+        updatedAt: true,
         email: {
           select: {
             id: true,
@@ -643,7 +722,26 @@ Return JSON ONLY (no markdown):
       },
       orderBy: { dueDate: 'asc' },
       take: limit,
-      include: {
+      select: {
+        id: true,
+        tenantId: true,
+        userId: true,
+        emailId: true,
+        status: true,
+        followUpType: true,
+        reason: true,
+        dueDate: true,
+        remindCount: true,
+        lastRemindedAt: true,
+        resolvedAt: true,
+        resolvedBy: true,
+        commitments: true,
+        waitingFor: true,
+        actionItems: true,
+        emailType: true,
+        confidence: true,
+        createdAt: true,
+        updatedAt: true,
         email: {
           select: {
             id: true,
