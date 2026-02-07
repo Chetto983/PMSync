@@ -56,6 +56,7 @@ export function createEmailRLMTools(
     createTool({
       name: 'list_email_index',
       description: `Get lightweight email index (metadata only, ~100 chars per email).
+Supports optional triage filters: priority (1-5), sentiment, label, needsFollowUp.
 
 USE THIS FIRST to see what emails exist, then use get_email_content to load specific ones.
 
@@ -71,18 +72,36 @@ Modes:
 - "search": Search by query (keyword in subject/from)
 
 Returns: id, from, subject (truncated), date, preview (50 chars)
-Does NOT return: full body content (use get_email_content for that)`,
+Does NOT return: full body content (use get_email_content for that)
+
+Examples with triage filters:
+- Urgent emails: mode="unread", priority=1
+- Negative emails: mode="recent", sentiment="negative"
+- Emails needing follow-up: mode="unread", needsFollowUp=true`,
       parameters: z.object({
         mode: z.enum(['unread', 'recent', 'starred', 'search']).describe('What to list'),
         limit: z.number().optional().default(15).describe('Max results (default 15)'),
         query: z.string().optional().describe('Search query for mode="search"'),
+        // Triage filters
+        priority: z.number().min(1).max(5).optional().describe('Filter by AI priority (1=highest urgency, 5=lowest). Use 1-2 for urgent emails.'),
+        sentiment: z.enum(['positive', 'negative', 'neutral', 'mixed']).optional().describe('Filter by AI-detected sentiment'),
+        label: z.string().optional().describe('Filter by AI-assigned label (e.g. "meeting", "invoice", "newsletter")'),
+        needsFollowUp: z.boolean().optional().describe('If true, only show emails with pending/reminded follow-up records'),
       }),
-      execute: async ({ mode, limit = 15, query }) => {
+      execute: async ({ mode, limit = 15, query, priority, sentiment, label, needsFollowUp }) => {
         const startTime = Date.now();
 
         // Build where clause based on mode
-         
+
         let where: any = { tenantId };
+
+        // Apply triage filters (shared across all modes)
+        if (priority) where.aiPriority = priority;
+        if (sentiment) where.aiSentiment = sentiment;
+        if (label) where.aiLabels = { has: label };
+        if (needsFollowUp) {
+          where.followUp = { status: { in: ['PENDING', 'REMINDED'] } };
+        }
 
         switch (mode) {
           case 'unread':

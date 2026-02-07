@@ -122,6 +122,7 @@ export function createEmailTools(
     createTool({
       name: 'list_emails',
       description: `Get email data based on mode. CONSOLIDATED TOOL - use ONE call for multiple needs.
+Supports optional triage filters: priority (1-5), sentiment, label, needsFollowUp.
 
 Modes:
 - "accounts": List connected email accounts (REQUIRED before sending)
@@ -131,13 +132,21 @@ Modes:
 Examples:
 - Before sending: mode="accounts" → returns account IDs
 - Check unread: mode="unread", limit=10
-- Read email: mode="content", emailId="abc123"`,
+- Read email: mode="content", emailId="abc123"
+- Urgent emails: mode="unread", priority=1
+- Negative sentiment: mode="unread", sentiment="negative"
+- Emails needing follow-up: mode="unread", needsFollowUp=true`,
       parameters: z.object({
         mode: z.enum(['accounts', 'unread', 'content']).describe('What to list'),
         emailId: z.string().optional().describe('Email ID (required for mode="content")'),
         limit: z.number().optional().describe('Max results for mode="unread" (default 10)'),
+        // Triage filters (apply to unread/content modes)
+        priority: z.number().min(1).max(5).optional().describe('Filter by AI priority (1=highest urgency, 5=lowest). Use 1-2 for urgent emails.'),
+        sentiment: z.enum(['positive', 'negative', 'neutral', 'mixed']).optional().describe('Filter by AI-detected sentiment'),
+        label: z.string().optional().describe('Filter by AI-assigned label (e.g. "meeting", "invoice", "newsletter")'),
+        needsFollowUp: z.boolean().optional().describe('If true, only show emails with pending/reminded follow-up records'),
       }),
-      execute: async ({ mode, emailId, limit }) => {
+      execute: async ({ mode, emailId, limit, priority, sentiment, label, needsFollowUp }) => {
         switch (mode) {
           case 'accounts': {
             const providers = await prisma.providerConfig.findMany({
@@ -158,8 +167,16 @@ Examples:
           }
 
           case 'unread': {
+            const where: any = { tenantId, isRead: false, folder: EXCLUDE_JUNK_FOLDERS };
+            // Apply triage filters
+            if (priority) where.aiPriority = priority;
+            if (sentiment) where.aiSentiment = sentiment;
+            if (label) where.aiLabels = { has: label };
+            if (needsFollowUp) {
+              where.followUp = { status: { in: ['PENDING', 'REMINDED'] } };
+            }
             const emails = await prisma.email.findMany({
-              where: { tenantId, isRead: false, folder: EXCLUDE_JUNK_FOLDERS },
+              where,
               take: limit ?? 10,
               orderBy: { receivedAt: 'desc' },
               select: {
@@ -183,8 +200,16 @@ Examples:
             if (!emailId) {
               return { success: false, error: 'emailId is required for mode="content"' };
             }
+            const contentWhere: any = { id: emailId, tenantId };
+            // Apply triage filters
+            if (priority) contentWhere.aiPriority = priority;
+            if (sentiment) contentWhere.aiSentiment = sentiment;
+            if (label) contentWhere.aiLabels = { has: label };
+            if (needsFollowUp) {
+              contentWhere.followUp = { status: { in: ['PENDING', 'REMINDED'] } };
+            }
             const email = await prisma.email.findFirst({
-              where: { id: emailId, tenantId },
+              where: contentWhere,
               select: {
                 id: true, subject: true, from: true, to: true, cc: true,
                 bodyText: true, snippet: true, // NO bodyHtml - 80% token savings!
