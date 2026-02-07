@@ -2147,6 +2147,13 @@ export const it: AppTranslations = {
       analyzeContacts: 'Analizza contatti',
       aiSuggestions: 'Suggerimenti AI',
     },
+    emailActions: {
+      reply: 'Rispondi',
+      summarize: 'Riassumi thread',
+      archive: 'Archivia email',
+      addLabel: 'Aggiungi etichetta',
+      sectionTitle: 'Azioni Email',
+    },
     dashboard: {
       greeting: 'Ciao {userName}!',
       greetingQuestion: 'Come posso aiutarti oggi?',

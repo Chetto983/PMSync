@@ -2253,6 +2253,13 @@ export interface AppTranslations {
       analyzeContacts: string;
       aiSuggestions: string;
     };
+    emailActions?: {
+      reply: string;
+      summarize: string;
+      archive: string;
+      addLabel: string;
+      sectionTitle: string;
+    };
     dashboard: {
       greeting: string;
       greetingQuestion: string;

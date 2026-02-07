@@ -2159,6 +2159,13 @@ export const en: AppTranslations = {
       analyzeContacts: 'Analyze contacts',
       aiSuggestions: 'AI suggestions',
     },
+    emailActions: {
+      reply: 'Draft reply',
+      summarize: 'Summarize thread',
+      archive: 'Archive email',
+      addLabel: 'Add label',
+      sectionTitle: 'Email Actions',
+    },
     dashboard: {
       greeting: 'Hi {userName}!',
       greetingQuestion: 'How can I help you today?',
@@ -2205,6 +2212,15 @@ export const en: AppTranslations = {
     widgets: {
       title: 'AI Tools',
       subtitle: 'Chat sessions, memory, and more',
+    },
+    emailChat: {
+      panelTitle: 'AI Assistant',
+      contextLabel: 'Regarding:',
+      inputPlaceholder: 'Ask about this email...',
+      close: 'Close assistant',
+      noMessages: 'Ask me anything about this email',
+      draftReply: 'Draft reply',
+      keyPoints: 'Key points',
     },
     tools: {
       argsLabel: 'Arguments',
