@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 6 of 6 — Chat UI and Agent Tool on Mail
-Plan: 4 of 4 in phase (06-04 complete)
+Plan: 5 of 5 in phase (06-05 complete)
 Status: Phase complete
-Last activity: 2026-02-07 — Completed 06-04-PLAN.md (Email context wiring to unified prompt)
+Last activity: 2026-02-07 — Completed 06-05-PLAN.md (ViewContext parameter chain)
 
 Progress: v3.0 Phase 06
 ```
-[███████████████████████████████] 75% (12/16 plans)
+[███████████████████████████████] 81% (13/16 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 06-04-PLAN.md (Email context wiring to unified prompt)
+Stopped at: Completed 06-05-PLAN.md (ViewContext parameter chain)
 Resume file: None
 
 ## Accumulated Decisions
@@ -81,6 +81,8 @@ Resume file: None
 | EmailContext after BASE prompt | v3.0-06-03 | Contextual AI prompt section when viewing specific email |
 | Async agent creation | v3.0-06-04 | Required to fetch email context from database before building prompt |
 | Use from field (not fromAddress) | v3.0-06-04 | Prisma Email schema uses 'from' as sender address field |
+| viewContext optional at all layers | v3.0-06-05 | Backward compatibility with existing API calls |
+| Type narrowing for currentView | v3.0-06-05 | Cast to specific union type when passing to createUnifiedAgent |
 
 ## Blockers & Concerns
 
@@ -120,7 +122,7 @@ See: .planning/MILESTONES.md
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
 | 05 | Nested Labels Frontend | LABELS-01 | IN PROGRESS (1/2 plans) |
-| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (4/4 plans) |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (5/5 plans) |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
@@ -133,6 +135,7 @@ See: .planning/MILESTONES.md
 - 06-02: Email thread chat overlay (EmailChatFab, EmailChatPanel, thread page integration)
 - 06-03: Tool rendering enhancements (spinner states, readable names, email context in prompt)
 - 06-04: Email context wiring to unified prompt (async agent creation, email fetching from selectedEmailId)
+- 06-05: ViewContext parameter chain (controller to createUnifiedAgent complete wiring)
 
 **Remaining in Phase 05:**
 - 05-02: Drag-drop nesting and reordering (Wave 2)
@@ -147,4 +150,4 @@ See: .planning/MILESTONES.md
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-07 -- Completed 06-04-PLAN.md (Email context wiring to unified prompt)*
+*State updated: 2026-02-07 -- Completed 06-05-PLAN.md (ViewContext parameter chain)*
