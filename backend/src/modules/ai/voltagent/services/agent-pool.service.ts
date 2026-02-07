@@ -184,6 +184,10 @@ export class AgentPoolService {
       piiDetectionService: this.piiDetectionService,
       configService: this.configService,
       intent: params.intent ?? 'unknown', // RLM: Intent for dynamic tool loading
+      viewContext: params.viewContext ? {
+        currentView: params.viewContext.currentView as 'inbox' | 'thread' | 'compose' | 'search' | 'dashboard' | undefined,
+        selectedEmailId: params.viewContext.selectedEmailId,
+      } : undefined,
     });
 
     // Cache metadata in Redis (not the agent instance)
