@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 7 of 7 — Chat Improvement
-Plan: 05 of 6
+Phase: 8 of 8 — Email Tool Triage Exposure
+Plan: 01 of 2
 Status: IN PROGRESS
-Last activity: 2026-02-07 — Completed 07-05-PLAN.md (Artifact Rendering - partial)
+Last activity: 2026-02-07 — Completed 08-01-PLAN.md (Triage Fields in Tool Selects)
 
-Progress: v3.0 Phase 07
+Progress: v3.0 Phase 08
 ```
-[██████████████████████████████████████] 86% (19/22 plans)
+[██████████████████████████████████████] 83% (20/24 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 07-05-PLAN.md (Artifact Rendering - partial)
+Stopped at: Completed 08-01-PLAN.md (Triage Fields in Tool Selects)
 Resume file: None
 
 ## Accumulated Decisions
@@ -93,6 +93,9 @@ Resume file: None
 | Assistant messages: no container | v3.0-07-02 | Clean typography focus, reduces visual noise |
 | Tailwind group/group-hover for hover actions | v3.0-07-04 | Reveals action bar on message hover with opacity transition |
 | Theme palette for semantic colors | v3.0-07-04 | Always use theme.palette.* not hardcoded hex |
+| Exclude followUp from bulk listing tools | v3.0-08-01 | Token bloat risk; only get_email_content (max 5) includes it |
+| Lightweight followUp select (6 fields) | v3.0-08-01 | Excludes commitments/waitingFor/actionItems JSON blobs |
+| count_emails unchanged | v3.0-08-01 | Only counts rows, no email select to modify |
 
 ## Blockers & Concerns
 
@@ -136,30 +139,29 @@ See: .planning/MILESTONES.md
 | 05 | Nested Labels Frontend | LABELS-01 | COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (5/5 plans) |
 | 07 | Chat Improvement | CHAT-04 | IN PROGRESS (4/6 plans) |
-| 08 | Email Tool Triage Exposure | TOOL-01 | Not planned |
+| 08 | Email Tool Triage Exposure | TOOL-01 | IN PROGRESS (1/2 plans) |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Phase 07 in progress (4/6 plans complete).
+**Currently:** Phase 08 in progress (1/2 plans complete).
 
-**Phase 07 accomplishments:**
-- 07-01: AiDashboard refactored from 954 to 311 lines, split into 6 focused files
-- 07-02: Message bubbles modernized (Claude/ChatGPT-style), smart scroll with IntersectionObserver, scroll-to-bottom button
-- 07-03: Reasoning component with custom thinking message and shimmer animation
-- 07-04: MessageActions hover bar (Copy/Regenerate/Feedback), theme-compliant QuickActions colors
+**Phase 08 accomplishments:**
+- 08-01: All 5 email listing/content tools now return aiPriority/aiSentiment/aiLabels; get_email_content adds followUp; schema has (tenantId, aiPriority) index
 
 **Remaining in v3.0:**
 - Phase 02: 02-03 (mobile chat)
 - Phase 03: Auto-Triage Core (3 plans)
 - Phase 04: Follow-Ups Refactor (2 plans)
 - Phase 07: 2 plans remaining (07-05 and 07-06)
+- Phase 08: 1 plan remaining (08-02)
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 - Pre-existing lint error in LabelTreeDndWrapper.tsx (resetState accessed before declaration)
+- @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-07 -- Completed 07-04-PLAN.md (MessageActions + Theme Colors)*
+*State updated: 2026-02-07 -- Completed 08-01-PLAN.md (Triage Fields in Tool Selects)*
