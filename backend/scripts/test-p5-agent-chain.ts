@@ -103,7 +103,7 @@ async function testSupervisorSubAgents(
   const model = getMistralModel();
 
   // Create supervisor with minimal config
-  const supervisor = createSupervisorAgent({
+  const supervisor = await createSupervisorAgent({
     model,
     prisma: prisma as any,
     emailSendService: null,

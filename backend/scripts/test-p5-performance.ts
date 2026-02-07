@@ -236,7 +236,7 @@ async function testAgentCreationPerformance(
   const supervisorTimings: number[] = [];
   for (let i = 0; i < iterations; i++) {
     const start = Date.now();
-    createSupervisorAgent({
+    await createSupervisorAgent({
       model,
       prisma: prisma as any,
       emailSendService: null,
@@ -571,7 +571,7 @@ async function testMemoryUsage(
 
   for (let i = 0; i < 10; i++) {
     agents.push(
-      createSupervisorAgent({
+      await createSupervisorAgent({
         model,
         prisma: prisma as any,
         emailSendService: null,
