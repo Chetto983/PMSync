@@ -38,6 +38,12 @@ export interface ChatPrepareOptions {
   skipCache?: boolean;
   preferSpeed?: boolean;
   preferQuality?: boolean;
+  viewContext?: {
+    currentView?: string;
+    selectedEmailId?: string;
+    selectedFolderId?: string;
+    selectedContactId?: string;
+  };
 }
 
 export interface PreparedChatContext {
@@ -178,6 +184,7 @@ export class ChatPrepareService {
       memory,
       hooks: hooks?.hooks,
       intent: detectedIntent, // RLM: Pass intent for minimal prompt loading
+      viewContext: options.viewContext,
     };
 
     let agent: Agent;
