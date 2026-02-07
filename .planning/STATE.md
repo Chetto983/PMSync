@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 6 of 6 — Chat UI and Agent Tool on Mail
-Plan: 3 of 3 in phase (06-03 complete)
+Plan: 4 of 4 in phase (06-04 complete)
 Status: Phase complete
-Last activity: 2026-02-07 — Completed 06-03-PLAN.md (Tool rendering and email context)
+Last activity: 2026-02-07 — Completed 06-04-PLAN.md (Email context wiring to unified prompt)
 
 Progress: v3.0 Phase 06
 ```
-[██████████████████████████████] 69% (11/16 plans)
+[███████████████████████████████] 75% (12/16 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 06-03-PLAN.md (Tool rendering and email context)
+Stopped at: Completed 06-04-PLAN.md (Email context wiring to unified prompt)
 Resume file: None
 
 ## Accumulated Decisions
@@ -79,6 +79,8 @@ Resume file: None
 | Loader2Icon for tool spinners | v3.0-06-03 | Animated spinning vs static pulsing for clearer active state |
 | TOOL_NAME_MAP in tool.tsx | v3.0-06-03 | Human-readable tool names for better UX |
 | EmailContext after BASE prompt | v3.0-06-03 | Contextual AI prompt section when viewing specific email |
+| Async agent creation | v3.0-06-04 | Required to fetch email context from database before building prompt |
+| Use from field (not fromAddress) | v3.0-06-04 | Prisma Email schema uses 'from' as sender address field |
 
 ## Blockers & Concerns
 
@@ -118,7 +120,7 @@ See: .planning/MILESTONES.md
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
 | 05 | Nested Labels Frontend | LABELS-01 | IN PROGRESS (1/2 plans) |
-| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (3/3 plans) |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (4/4 plans) |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
@@ -130,6 +132,7 @@ See: .planning/MILESTONES.md
 - 06-01: ViewContext and conversation isolation (useVoltAgentChat enhancements, new action card components, email-specific prompts)
 - 06-02: Email thread chat overlay (EmailChatFab, EmailChatPanel, thread page integration)
 - 06-03: Tool rendering enhancements (spinner states, readable names, email context in prompt)
+- 06-04: Email context wiring to unified prompt (async agent creation, email fetching from selectedEmailId)
 
 **Remaining in Phase 05:**
 - 05-02: Drag-drop nesting and reordering (Wave 2)
@@ -144,4 +147,4 @@ See: .planning/MILESTONES.md
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-07 -- Completed 06-03-PLAN.md (Tool rendering and email context)*
+*State updated: 2026-02-07 -- Completed 06-04-PLAN.md (Email context wiring to unified prompt)*
