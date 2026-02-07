@@ -44,13 +44,13 @@
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3/3 | ✅ COMPLETE |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | 4/4 | ✅ COMPLETE |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | 0/3 | ❌ NOT PLANNED |
-| 04 | Follow-Ups Refactor | FOLLOW-01/02 | 0/2 | ❌ NOT PLANNED |
+| 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2/2 | ✅ COMPLETE |
 | 05 | Nested Labels Frontend | LABELS-01 | 2/2 | ✅ COMPLETE |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5/5 | ✅ COMPLETE |
 | 07 | Chat Improvement | CHAT-04 | 6/6 | ✅ COMPLETE |
 | 08 | Email Tool Triage Exposure | TOOL-01 | 2/2 | ✅ COMPLETE |
 | 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | 0/0 | ❌ NOT PLANNED |
-| 10 | UI Review | REVIEW-01 | 0/0 | ❌ NOT PLANNED |
+| 10 | UI Review | REVIEW-01 | 8/8 | ⏳ PLANNED |
 
 ---
 
@@ -169,7 +169,7 @@
 
 **Goal:** Complete redesign of follow-ups UI with smart features
 
-**Status:** PLANNED
+**Status:** COMPLETE
 
 **Requirements:**
 - FOLLOW-01: Follow-ups UI refactor with two types (Waiting For / To Do)
@@ -187,19 +187,19 @@
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — UI refactor: FollowUpType enum (WAITING_FOR/TODO), type detection, filter toggle, type badges
-- [ ] 04-02-PLAN.md — Smart timing + NLP deadline: chrono-node extraction, deadline display, smart timing API
+- [x] 04-01-PLAN.md — UI refactor: FollowUpType enum (WAITING_FOR/TODO), type detection, filter toggle, type badges
+- [x] 04-02-PLAN.md — Smart timing + NLP deadline: chrono-node extraction, deadline display, smart timing API
 
 **Wave Structure:**
-- Wave 1: 04-01 (schema + backend + frontend types)
-- Wave 2: 04-02 (NLP + smart timing, depends on 04-01)
+- Wave 1: 04-01 (schema + backend + frontend types) ✓
+- Wave 2: 04-02 (NLP + smart timing, depends on 04-01) ✓
 
 **Deliverables:**
-- Follow-up types: Waiting For / To Do
-- Type filter toggle in Kanban header
-- Type badges on follow-up cards
-- Auto-detected deadlines from email text (chrono-node NLP)
-- Smart timing recommendation in snooze dialog
+- Follow-up types: Waiting For / To Do ✓
+- Type filter toggle in Kanban header ✓
+- Type badges on follow-up cards ✓
+- Auto-detected deadlines from email text (chrono-node NLP) ✓
+- Smart timing recommendation in snooze dialog (API ready, UI deferred to v3.1)
 
 ---
 
