@@ -31,7 +31,7 @@ import { AIMemoryService } from '../services/ai-memory.service';
 import { PiiDetectionService } from '../../guards';
 import type { TaskIntent } from '../services/task-complexity-classifier.service';
 import { buildDynamicInstructions, type UserContext } from './supervisor.agent';
-import { getUnifiedPrompt, getToolGroupsForIntent, TOOL_GROUPS } from '../prompts/unified.prompt';
+import { getUnifiedPrompt, getToolGroupsForIntent, TOOL_GROUPS, type EmailContext } from '../prompts/unified.prompt';
 import type { SupportedLocale } from '../locales';
 
 // Tool factories
@@ -75,6 +75,11 @@ export interface UnifiedAgentOptions {
   configService?: ConfigService;
   // RLM: Intent for dynamic loading
   intent?: TaskIntent;
+  // View context for email-specific prompts
+  viewContext?: {
+    currentView?: 'inbox' | 'thread' | 'compose' | 'search' | 'dashboard';
+    selectedEmailId?: string;
+  };
 }
 
 /**
@@ -90,6 +95,45 @@ interface ToolRegistry {
   insights: Tool[];
   websearch: Tool[];
   documents: Tool[];
+}
+
+/**
+ * Fetch email context for prompt enrichment when viewing a specific email.
+ * Returns undefined if no email is selected or email not found.
+ */
+async function fetchEmailContext(
+  prisma: PrismaService,
+  tenantId: string,
+  emailId: string,
+): Promise<EmailContext | undefined> {
+  try {
+    const email = await prisma.email.findFirst({
+      where: { id: emailId, tenantId },
+      select: {
+        id: true,
+        subject: true,
+        snippet: true,
+        receivedAt: true,
+        from: true,
+      },
+    });
+
+    if (!email) {
+      logger.warn(`[UNIFIED] Email not found for context: ${emailId}`);
+      return undefined;
+    }
+
+    return {
+      id: email.id,
+      subject: email.subject || '(No Subject)',
+      from: email.from || 'Unknown Sender',
+      receivedAt: email.receivedAt?.toISOString() || new Date().toISOString(),
+      snippet: email.snippet || undefined,
+    };
+  } catch (error) {
+    logger.error(`[UNIFIED] Failed to fetch email context: ${error}`);
+    return undefined;
+  }
 }
 
 /**
@@ -251,7 +295,7 @@ function buildToolsForIntent(
  * This is the main entry point for VoltAgent simplification.
  * Replaces the multi-agent routing pattern with a single agent.
  */
-export function createUnifiedAgent(options: UnifiedAgentOptions): Agent {
+export async function createUnifiedAgent(options: UnifiedAgentOptions): Promise<Agent> {
   const {
     model,
     locale,
@@ -259,6 +303,7 @@ export function createUnifiedAgent(options: UnifiedAgentOptions): Agent {
     hooks,
     userContext,
     intent = 'unknown',
+    viewContext,
   } = options;
 
   const startTime = Date.now();
@@ -272,7 +317,23 @@ export function createUnifiedAgent(options: UnifiedAgentOptions): Agent {
     includeBulkSafety: ['write', 'compose', 'orchestrate'].includes(intent),
   };
 
-  const basePrompt = getUnifiedPrompt(intent, serviceFlags);
+  // Fetch email context if viewing a specific email
+  let emailContext: EmailContext | undefined;
+  if (viewContext?.selectedEmailId) {
+    emailContext = await fetchEmailContext(
+      options.prisma,
+      options.tenantId,
+      viewContext.selectedEmailId,
+    );
+    if (emailContext) {
+      logger.debug(`[UNIFIED] Email context loaded: ${emailContext.subject}`);
+    }
+  }
+
+  const basePrompt = getUnifiedPrompt(intent, {
+    ...serviceFlags,
+    emailContext,
+  });
   const dynamicInstructions = buildDynamicInstructions(basePrompt, userContext, locale);
 
   // Build tools for this intent
@@ -299,10 +360,10 @@ export function createUnifiedAgent(options: UnifiedAgentOptions): Agent {
  * Factory for creating UnifiedAgent with specific intent.
  * Useful for pre-classified requests where intent is known.
  */
-export function createUnifiedAgentForIntent(
+export async function createUnifiedAgentForIntent(
   intent: TaskIntent,
   options: Omit<UnifiedAgentOptions, 'intent'>,
-): Agent {
+): Promise<Agent> {
   return createUnifiedAgent({ ...options, intent });
 }
 
