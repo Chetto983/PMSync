@@ -280,7 +280,7 @@ IMPORTANT: Remember and use this information throughout the conversation. Addres
  * - Delegates to the appropriate specialist agent
  * - Combines results when multiple agents are needed
  */
-export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
+export async function createSupervisorAgent(options: SupervisorAgentOptions): Promise<Agent> {
   const {
     model,
     prisma,
@@ -307,7 +307,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
   // - 5x faster startup (100ms vs 500ms)
   // - 60%+ token reduction via intent-based module loading
   // - Better tool selection accuracy (fewer tools = better choices)
-  return createUnifiedAgent({
+  return await createUnifiedAgent({
     model,
     prisma,
     locale,
