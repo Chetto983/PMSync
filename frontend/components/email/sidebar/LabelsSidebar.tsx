@@ -22,14 +22,15 @@ import {
   Tooltip,
   Skeleton,
   Collapse,
+  TextField,
   alpha,
 } from '@mui/material';
-import { Tag, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Tag, Plus, ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLabels } from '@/hooks/queries';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import { useLabelTreeStore } from '@/stores/label-tree-store';
-import { buildTree, flattenTree } from '@/lib/label-tree-utils';
+import { buildTree, flattenTree, getAncestorIds } from '@/lib/label-tree-utils';
 import { LabelTreeDndWrapper } from '../labels/LabelTreeDndWrapper';
 import { LabelDialog } from '../labels/LabelDialog';
 import { LabelContextMenu } from '../labels/LabelContextMenu';
@@ -56,6 +57,9 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
   // Section expanded state
   const [sectionExpanded, setSectionExpanded] = useState(true);
 
+  // Search filter state
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createParentId, setCreateParentId] = useState<string | undefined>();
@@ -78,6 +82,35 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
 
   // Flatten tree for display (skips collapsed children)
   const flatList = useMemo(() => flattenTree(tree), [tree]);
+
+  // Filter flat items by search query (show matches + ancestors)
+  const expandTo = useLabelTreeStore((state) => state.expandTo);
+
+  const filteredFlatItems = useMemo(() => {
+    if (!searchQuery.trim()) return flatList;
+    const query = searchQuery.toLowerCase();
+    const matchIds = new Set(
+      userLabels
+        .filter((l) => l.name.toLowerCase().includes(query))
+        .map((l) => l.id),
+    );
+    const ancestorIds = new Set<string>();
+    matchIds.forEach((id) => {
+      getAncestorIds(userLabels, id).forEach((aid) => ancestorIds.add(aid));
+    });
+    const visibleIds = new Set([...matchIds, ...ancestorIds]);
+    return flatList.filter((item) => visibleIds.has(item.id));
+  }, [flatList, searchQuery, userLabels]);
+
+  // Auto-expand ancestors of search matches
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const query = searchQuery.toLowerCase();
+    const matchIds = userLabels
+      .filter((l) => l.name.toLowerCase().includes(query))
+      .map((l) => l.id);
+    matchIds.forEach((id) => expandTo(id, userLabels));
+  }, [searchQuery, userLabels, expandTo]);
 
   // Prune stale expansion IDs when labels change
   useEffect(() => {
@@ -253,24 +286,66 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
             selectedLabelId={filters.labelId}
             onLabelClick={handleLabelClick}
           />
-        ) : flatList.length === 0 ? (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ px: 2, py: 1, display: 'block' }}
-          >
-            {t.email?.labels?.noLabels || 'No labels yet'}
-          </Typography>
         ) : (
-          <LabelTreeDndWrapper
-            flatItems={flatList}
-            tree={tree}
-            expandedIds={expandedIds}
-            onToggle={toggleExpanded}
-            isLabelSelected={isLabelSelected}
-            onLabelClick={handleDndLabelClick}
-            onContextMenu={handleDndContextMenu}
-          />
+          <>
+            {/* Search filter (visible when 6+ labels) */}
+            {userLabels.length > 5 && (
+              <Box sx={{ px: 2, py: 0.5 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder={
+                    t.email?.labels?.searchLabelsPlaceholder ||
+                    'Filter labels...'
+                  }
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <Search
+                          size={14}
+                          style={{ marginRight: 4, flexShrink: 0 }}
+                        />
+                      ),
+                      endAdornment: searchQuery ? (
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery('')}
+                          sx={{ p: 0.25 }}
+                        >
+                          <X size={14} />
+                        </IconButton>
+                      ) : null,
+                      sx: { fontSize: '0.75rem', height: 28 },
+                    },
+                  }}
+                />
+              </Box>
+            )}
+
+            {filteredFlatItems.length === 0 ? (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ px: 2, py: 1, display: 'block' }}
+              >
+                {searchQuery
+                  ? (t.email?.labels?.noLabelsFound || 'No labels found')
+                  : (t.email?.labels?.noLabels || 'No labels yet')}
+              </Typography>
+            ) : (
+              <LabelTreeDndWrapper
+                flatItems={filteredFlatItems}
+                tree={tree}
+                expandedIds={expandedIds}
+                onToggle={toggleExpanded}
+                isLabelSelected={isLabelSelected}
+                onLabelClick={handleDndLabelClick}
+                onContextMenu={handleDndContextMenu}
+              />
+            )}
+          </>
         )}
       </Collapse>
 
@@ -313,6 +388,7 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
         open={Boolean(menuAnchor)}
         onClose={handleMenuClose}
         label={selectedLabel}
+        onAddChild={handleOpenCreate}
       />
     </>
   );
