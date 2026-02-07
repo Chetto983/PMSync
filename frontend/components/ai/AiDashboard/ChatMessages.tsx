@@ -22,6 +22,198 @@ import {
   ReasoningContent,
 } from '@/src/components/ai-elements/reasoning';
 import { Shimmer } from '@/src/components/ai-elements/shimmer';
+import {
+  ChainOfThought,
+  ChainOfThoughtHeader,
+  ChainOfThoughtContent,
+  ChainOfThoughtStep,
+} from '@/src/components/ai-elements/chain-of-thought';
+import { Sources, SourcesTrigger, SourcesContent, Source } from '@/src/components/ai-elements/sources';
+import { ArtifactPanel } from './ArtifactPanel';
+import { Search, FileText, Mail, Calendar, Users, Circle, BookOpenText, type LucideIcon } from 'lucide-react';
+
+/** Human-readable tool names for ChainOfThought display */
+const TOOL_NAME_MAP: Record<string, string> = {
+  list_emails: 'Listing emails',
+  search_emails: 'Searching emails',
+  read_email: 'Reading email',
+  draft_email: 'Drafting email',
+  send_email: 'Sending email',
+  list_contacts: 'Listing contacts',
+  search_contacts: 'Searching contacts',
+  list_calendar_events: 'Listing events',
+  create_calendar_event: 'Creating event',
+  list_follow_ups: 'Listing follow-ups',
+  create_follow_up: 'Creating follow-up',
+};
+
+/**
+ * Get icon for a tool based on its name.
+ */
+function getToolIcon(toolName?: string): LucideIcon {
+  if (!toolName) return Circle;
+  if (toolName.includes('search') || toolName.includes('list')) return Search;
+  if (toolName.includes('email') || toolName.includes('mail')) return Mail;
+  if (toolName.includes('calendar') || toolName.includes('event')) return Calendar;
+  if (toolName.includes('contact')) return Users;
+  if (toolName.includes('read') || toolName.includes('get')) return FileText;
+  return Circle;
+}
+
+/**
+ * Get tool status for ChainOfThought step.
+ */
+function getToolStatus(state?: string): 'complete' | 'active' | 'pending' {
+  if (state === 'complete' || state === 'result') return 'complete';
+  if (state === 'streaming' || state === 'running') return 'active';
+  return 'pending';
+}
+
+/**
+ * Determine if a tool output should render as an Artifact panel.
+ * - draft_email tool outputs -> Artifact
+ * - Code blocks >10 lines -> Artifact
+ */
+function shouldRenderAsArtifact(toolPart: ToolPart): boolean {
+  const toolName = (toolPart as { toolName?: string }).toolName;
+  if (toolName === 'draft_email') return true;
+
+  const output = toolPart.output;
+  if (typeof output === 'string') {
+    const lines = output.split('\n').length;
+    const hasDefinitions = /^(class|function|export|import|interface|type|const|let|var)\s/m.test(output);
+    if (lines > 10 || hasDefinitions) return true;
+  }
+  return false;
+}
+
+/**
+ * Get artifact title from tool part.
+ */
+function getArtifactTitle(toolPart: ToolPart): string {
+  const toolName = (toolPart as { toolName?: string }).toolName;
+  if (toolName === 'draft_email') return 'Draft Reply';
+  return 'Generated Content';
+}
+
+/**
+ * Group consecutive tool parts for ChainOfThought display.
+ * Returns groups where each group with >1 tool should use ChainOfThought.
+ */
+type PartWithType = UIMessage['parts'][number];
+
+function groupToolParts(parts: PartWithType[]): Array<{
+  isChain: boolean;
+  parts: PartWithType[];
+  startIndex: number;
+}> {
+  const groups: Array<{ isChain: boolean; parts: PartWithType[]; startIndex: number }> = [];
+  let currentToolGroup: PartWithType[] = [];
+  let currentStartIndex = 0;
+
+  parts.forEach((part, index) => {
+    const isTool = part.type.startsWith('tool-') || part.type === 'dynamic-tool';
+
+    if (isTool) {
+      if (currentToolGroup.length === 0) {
+        currentStartIndex = index;
+      }
+      currentToolGroup.push(part);
+    } else {
+      // Flush tool group if exists
+      if (currentToolGroup.length > 0) {
+        groups.push({
+          isChain: currentToolGroup.length > 1,
+          parts: currentToolGroup,
+          startIndex: currentStartIndex,
+        });
+        currentToolGroup = [];
+      }
+      // Add non-tool part as single item
+      groups.push({
+        isChain: false,
+        parts: [part],
+        startIndex: index,
+      });
+    }
+  });
+
+  // Flush remaining tool group
+  if (currentToolGroup.length > 0) {
+    groups.push({
+      isChain: currentToolGroup.length > 1,
+      parts: currentToolGroup,
+      startIndex: currentStartIndex,
+    });
+  }
+
+  return groups;
+}
+
+/** Source reference for RAG citations */
+interface SourceReference {
+  id: string;
+  type: 'email' | 'contact' | 'document';
+  title: string;
+  snippet?: string;
+}
+
+/**
+ * Extract source references from tool outputs.
+ * RAG tools (search_emails, list_contacts, etc.) return items that can be cited.
+ */
+function extractSources(parts: PartWithType[]): SourceReference[] {
+  const sources: SourceReference[] = [];
+
+  for (const part of parts) {
+    if (part.type.startsWith('tool-') || part.type === 'dynamic-tool') {
+      const toolPart = part as ToolPart;
+      const toolName = (toolPart as { toolName?: string }).toolName;
+      const output = toolPart.output;
+
+      // Email search results
+      if (toolName?.includes('email') && Array.isArray(output)) {
+        for (const item of output.slice(0, 3)) {
+          if (item.id && item.subject) {
+            sources.push({
+              id: item.id,
+              type: 'email',
+              title: item.subject,
+              snippet: item.snippet || item.from,
+            });
+          }
+        }
+      }
+
+      // Contact search results
+      if (toolName?.includes('contact') && Array.isArray(output)) {
+        for (const item of output.slice(0, 3)) {
+          if (item.id && (item.name || item.displayName)) {
+            sources.push({
+              id: item.id,
+              type: 'contact',
+              title: item.name || item.displayName,
+              snippet: item.email || item.company,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return sources;
+}
+
+/**
+ * Get icon for source type.
+ */
+function getSourceIcon(type: string): React.ElementType {
+  switch (type) {
+    case 'email': return Mail;
+    case 'contact': return Users;
+    default: return BookOpenText;
+  }
+}
 
 /** Reasoning part type for AI SDK extended thinking */
 interface ReasoningPart {
@@ -264,73 +456,163 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
             ) : (
               /* Assistant messages: no container, just clean typography */
               <Box sx={{ '& > *:first-of-type': { mt: 0 }, '& > *:last-child': { mb: 0 } }}>
-                {/* Native AI SDK v6 pattern: iterate through message.parts */}
-                {message.parts.map((part, partIndex) => {
-                  // DEBUG: Log non-text parts to see tools
-                  if (process.env.NODE_ENV === 'development' && part.type !== 'text') {
-                    console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
-                  }
-
-                  // Reasoning parts -> Reasoning component with shimmer
-                  if (part.type === 'reasoning') {
-                    const reasoningPart = part as ReasoningPart;
+                {/* Process message parts with ChainOfThought grouping */}
+                {groupToolParts(message.parts).map((group, groupIndex) => {
+                  // Multiple consecutive tools - wrap in ChainOfThought
+                  if (group.isChain) {
                     return (
-                      <Reasoning
-                        key={`reasoning-${partIndex}`}
-                        isStreaming={reasoningPart.state === 'streaming'}
-                        defaultOpen={true}
-                      >
-                        <ReasoningTrigger getThinkingMessage={createThinkingMessage(activeAction)} />
-                        <ReasoningContent>
-                          {reasoningPart.text || ''}
-                        </ReasoningContent>
-                      </Reasoning>
+                      <ChainOfThought key={`chain-${groupIndex}`} defaultOpen={false}>
+                        <ChainOfThoughtHeader>
+                          Processing your request ({group.parts.length} steps)
+                        </ChainOfThoughtHeader>
+                        <ChainOfThoughtContent>
+                          {group.parts.map((part, partIndex) => {
+                            const toolPart = part as ToolPart;
+                            const toolName = (toolPart as { toolName?: string }).toolName;
+                            const ToolIcon = getToolIcon(toolName);
+                            return (
+                              <ChainOfThoughtStep
+                                key={toolPart.toolCallId || `step-${partIndex}`}
+                                icon={ToolIcon}
+                                label={TOOL_NAME_MAP[toolName || ''] || toolName || 'Processing'}
+                                status={getToolStatus(toolPart.state)}
+                              />
+                            );
+                          })}
+                        </ChainOfThoughtContent>
+                      </ChainOfThought>
                     );
                   }
 
-                  // Text parts -> MessageResponse (uses Streamdown)
-                  // Strip suggestions code blocks - they're rendered as chips separately
-                  if (part.type === 'text') {
-                    const cleanText = (part.text || '').replace(/```suggestions\s*\n?\s*\[[\s\S]*?\]\s*\n?```/g, '').trim();
-                    if (!cleanText) return null; // Skip empty text parts
-                    return <MessageResponse key={partIndex}>{cleanText}</MessageResponse>;
-                  }
-                  // AI SDK v6: 'dynamic-tool' type for dynamic tools
-                  if (part.type === 'dynamic-tool') {
-                    const toolPart = part as ToolPart;
-                    return (
-                      <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
-                        <ToolHeader
-                          type="dynamic-tool"
-                          state={toolPart.state}
-                          toolName={(toolPart as { toolName: string }).toolName}
-                        />
-                        <ToolContent>
-                          <ToolInput input={toolPart.input} />
-                          <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
-                        </ToolContent>
-                      </Tool>
-                    );
-                  }
-                  // AI SDK v6: 'tool-{name}' format for static tools (e.g., 'tool-list_emails')
-                  if (part.type.startsWith('tool-')) {
-                    const toolPart = part as ToolPart;
-                    return (
-                      <Tool key={toolPart.toolCallId || `tool-${partIndex}`} defaultOpen={false}>
-                        <ToolHeader
-                          type={toolPart.type as `tool-${string}`}
-                          state={toolPart.state}
-                        />
-                        <ToolContent>
-                          <ToolInput input={toolPart.input} />
-                          <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
-                        </ToolContent>
-                      </Tool>
-                    );
-                  }
-                  // Other part types (reasoning, sources, step-start, etc.) - skip for now
-                  return null;
+                  // Single tool or non-tool parts - render directly
+                  return group.parts.map((part, partIndex) => {
+                    const absIndex = group.startIndex + partIndex;
+
+                    // DEBUG: Log non-text parts to see tools
+                    if (process.env.NODE_ENV === 'development' && part.type !== 'text') {
+                      console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
+                    }
+
+                    // Reasoning parts -> Reasoning component with shimmer
+                    if (part.type === 'reasoning') {
+                      const reasoningPart = part as ReasoningPart;
+                      return (
+                        <Reasoning
+                          key={`reasoning-${absIndex}`}
+                          isStreaming={reasoningPart.state === 'streaming'}
+                          defaultOpen={true}
+                        >
+                          <ReasoningTrigger getThinkingMessage={createThinkingMessage(activeAction)} />
+                          <ReasoningContent>
+                            {reasoningPart.text || ''}
+                          </ReasoningContent>
+                        </Reasoning>
+                      );
+                    }
+
+                    // Text parts -> MessageResponse (uses Streamdown)
+                    // Strip suggestions code blocks - they're rendered as chips separately
+                    if (part.type === 'text') {
+                      const cleanText = (part.text || '').replace(/```suggestions\s*\n?\s*\[[\s\S]*?\]\s*\n?```/g, '').trim();
+                      if (!cleanText) return null; // Skip empty text parts
+                      return <MessageResponse key={absIndex}>{cleanText}</MessageResponse>;
+                    }
+
+                    // AI SDK v6: 'dynamic-tool' or 'tool-{name}' types
+                    if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
+                      const toolPart = part as ToolPart;
+                      const toolName = (toolPart as { toolName?: string }).toolName;
+
+                      // Check if this should be an artifact (draft emails, large code)
+                      if (shouldRenderAsArtifact(toolPart) && toolPart.output) {
+                        return (
+                          <React.Fragment key={toolPart.toolCallId || `tool-${absIndex}`}>
+                            {/* Tool header still shows the action */}
+                            <Tool defaultOpen={false}>
+                              {part.type === 'dynamic-tool' ? (
+                                <ToolHeader
+                                  type="dynamic-tool"
+                                  state={toolPart.state}
+                                  toolName={toolName || 'unknown'}
+                                />
+                              ) : (
+                                <ToolHeader
+                                  type={toolPart.type as `tool-${string}`}
+                                  state={toolPart.state}
+                                />
+                              )}
+                            </Tool>
+                            {/* Output in Artifact panel */}
+                            <ArtifactPanel
+                              title={getArtifactTitle(toolPart)}
+                              type={toolName === 'draft_email' ? 'email-draft' : 'code'}
+                              content={
+                                typeof toolPart.output === 'string'
+                                  ? <pre className="whitespace-pre-wrap text-sm">{toolPart.output}</pre>
+                                  : <pre className="text-sm">{JSON.stringify(toolPart.output, null, 2)}</pre>
+                              }
+                              rawContent={
+                                typeof toolPart.output === 'string'
+                                  ? toolPart.output
+                                  : JSON.stringify(toolPart.output, null, 2)
+                              }
+                            />
+                          </React.Fragment>
+                        );
+                      }
+
+                      // Regular tool rendering
+                      return (
+                        <Tool key={toolPart.toolCallId || `tool-${absIndex}`} defaultOpen={false}>
+                          {part.type === 'dynamic-tool' ? (
+                            <ToolHeader
+                              type="dynamic-tool"
+                              state={toolPart.state}
+                              toolName={toolName || 'unknown'}
+                            />
+                          ) : (
+                            <ToolHeader
+                              type={toolPart.type as `tool-${string}`}
+                              state={toolPart.state}
+                            />
+                          )}
+                          <ToolContent>
+                            <ToolInput input={toolPart.input} />
+                            <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
+                          </ToolContent>
+                        </Tool>
+                      );
+                    }
+
+                    // Other part types - skip
+                    return null;
+                  });
                 })}
+
+                {/* Sources - rendered after message content when applicable */}
+                {(() => {
+                  const sources = extractSources(message.parts);
+                  if (sources.length === 0) return null;
+                  return (
+                    <Sources className="mt-3">
+                      <SourcesTrigger count={sources.length} />
+                      <SourcesContent>
+                        {sources.map((source, idx) => {
+                          const SourceIcon = getSourceIcon(source.type);
+                          return (
+                            <Source key={source.id || idx} title={source.title}>
+                              <SourceIcon className="h-4 w-4" />
+                              <span className="block font-medium">{source.title}</span>
+                              {source.snippet && (
+                                <span className="text-muted-foreground text-xs ml-1">— {source.snippet}</span>
+                              )}
+                            </Source>
+                          );
+                        })}
+                      </SourcesContent>
+                    </Sources>
+                  );
+                })()}
               </Box>
             )}
 
