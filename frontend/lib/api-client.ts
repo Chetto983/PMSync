@@ -36,7 +36,7 @@ export const apiClient = axios.create({
  * Fetch CSRF token from backend (SEC-04)
  * Uses promise caching to prevent concurrent token fetches
  */
-async function getCsrfToken(): Promise<string> {
+export async function getCsrfToken(): Promise<string> {
   if (csrfToken) {
     return csrfToken;
   }

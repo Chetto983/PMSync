@@ -15,6 +15,8 @@ import { useChat, type UIMessage } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useCallback, useState, useMemo, useRef, useEffect } from 'react';
 
+import { getCsrfToken } from '@/lib/api-client';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // ============ Types ============
@@ -175,6 +177,15 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
     setLastPrompt(null);
   }, []);
 
+  // SEC-04: CSRF token for POST requests
+  const csrfTokenRef = useRef<string>('');
+
+  useEffect(() => {
+    getCsrfToken().then((token) => {
+      csrfTokenRef.current = token;
+    });
+  }, []);
+
   // Transport - stable reference, uses ref for fresh conversationId
   // Note: ref is accessed in callback (prepareSendMessagesRequest), not during render
   /* eslint-disable react-hooks/refs */
@@ -184,6 +195,7 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
         api: `${API_BASE_URL}/api/v1/voltagent/chat/stream/v3`,
         headers: () => ({
           Authorization: `Bearer ${getAuthToken()}`,
+          'X-CSRF-Token': csrfTokenRef.current,
         }),
         // Fresh body on each request (fixes stale conversationId issue)
         // See: github.com/vercel/ai/issues/7819
