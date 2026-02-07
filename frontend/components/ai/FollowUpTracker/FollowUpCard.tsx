@@ -29,7 +29,9 @@ import {
   ListTodo,
   Gauge,
   Trash2,
+  Sparkles,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailFollowUp, EmailFollowUpStatus } from '@/hooks/queries';
 
@@ -369,6 +371,16 @@ export function FollowUpCard({
                 {t.ai.followUpTracker.dueDate}: {formattedDate}
               </Typography>
             </Box>
+          )}
+          {followUp.detectedDeadline && (
+            <Tooltip title={t.ai.followUpTracker.deadline.source[followUp.deadlineSource || 'nlp']}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Sparkles size={12} color={theme.palette.info.main} />
+                <Typography variant="caption" sx={{ color: 'info.main', fontWeight: 500 }}>
+                  {t.ai.followUpTracker.deadline.detected}: {format(new Date(followUp.detectedDeadline), 'MMM d')}
+                </Typography>
+              </Box>
+            </Tooltip>
           )}
           {(followUp.reminderCount ?? 0) > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

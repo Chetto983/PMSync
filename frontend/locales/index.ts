@@ -2721,6 +2721,21 @@ export interface AppTranslations {
         confidence: string;
         emailType: string;
       };
+      smartTiming: {
+        title: string;
+        recommended: string;
+        basedOnPatterns: string;
+        optimalWindow: string;
+        tuesThurs: string;
+      };
+      deadline: {
+        detected: string;
+        source: {
+          nlp: string;
+          manual: string;
+          extraction: string;
+        };
+      };
       kanban?: {
         subtitle: string;
         columns: {

@@ -62,6 +62,9 @@ export interface EmailFollowUp {
   actionItems?: ExtractedActionItem[];
   emailType?: EmailType;
   confidence?: number;
+  // NLP deadline detection (Phase 04-02)
+  detectedDeadline?: string;
+  deadlineSource?: 'nlp' | 'manual' | 'extraction';
   email?: {
     id: string;
     subject?: string;
@@ -69,6 +72,12 @@ export interface EmailFollowUp {
     receivedAt?: string;
     to?: string[];
   };
+}
+
+export interface SmartTimingRecommendation {
+  suggestedDate: string;
+  reason: string;
+  confidence: number;
 }
 
 export interface EmailFollowUpStats {
@@ -258,6 +267,34 @@ export function useFollowUpStats() {
  */
 export function useFollowUpDetail(id: string) {
   return useQuery(followUpDetailOptions(id));
+}
+
+/**
+ * Query options for smart timing recommendation (Phase 04-02)
+ */
+export function smartTimingOptions(id: string) {
+  return queryOptions({
+    queryKey: followUpKeys.smartTiming(id),
+    queryFn: async (): Promise<SmartTimingRecommendation | null> => {
+      try {
+        const response = await voltAgentApi.getSmartTiming(id);
+        return response.data?.recommendation || null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 min - timing doesn't change often
+    gcTime: 15 * 60 * 1000,
+    retry: 1,
+    enabled: !!id,
+  });
+}
+
+/**
+ * Hook for smart timing recommendation (Phase 04-02)
+ */
+export function useSmartTiming(id: string) {
+  return useQuery(smartTimingOptions(id));
 }
 
 /**

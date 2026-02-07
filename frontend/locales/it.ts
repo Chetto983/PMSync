@@ -2654,6 +2654,23 @@ export const it: AppTranslations = {
         confidence: 'Affidabilità',
         emailType: 'Tipo email',
       },
+      // Tempistica intelligente (Phase 04-02)
+      smartTiming: {
+        title: 'Tempistica intelligente',
+        recommended: 'Consigliato',
+        basedOnPatterns: 'Basato sui pattern di risposta',
+        optimalWindow: 'Finestra ottimale per follow-up',
+        tuesThurs: 'Martedì-Giovedì 10:00',
+      },
+      // Rilevamento scadenza (Phase 04-02)
+      deadline: {
+        detected: 'Scadenza rilevata',
+        source: {
+          nlp: 'Rilevata automaticamente',
+          manual: 'Impostata manualmente',
+          extraction: 'Da estrazione AI',
+        },
+      },
       // Kanban board (2026-01-30)
       kanban: {
         subtitle: 'Trascina per cambiare stato',

@@ -1037,6 +1037,17 @@ export const voltAgentApi = {
     );
   },
 
+  getSmartTiming(id: string) {
+    return apiClient.get<{
+      success: boolean;
+      recommendation: {
+        suggestedDate: string;
+        reason: string;
+        confidence: number;
+      };
+    }>(`/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}/smart-timing`);
+  },
+
   resolveFollowUp(id: string) {
     return apiClient.post<{ success: boolean; followUp: Record<string, unknown> }>(
       `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}/resolve`,

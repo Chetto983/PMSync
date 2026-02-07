@@ -2673,6 +2673,23 @@ export const en: AppTranslations = {
         confidence: 'Confidence',
         emailType: 'Email type',
       },
+      // Smart timing (Phase 04-02)
+      smartTiming: {
+        title: 'Smart Timing',
+        recommended: 'Recommended',
+        basedOnPatterns: 'Based on response patterns',
+        optimalWindow: 'Optimal follow-up window',
+        tuesThurs: 'Tuesday-Thursday 10 AM',
+      },
+      // Deadline detection (Phase 04-02)
+      deadline: {
+        detected: 'Deadline detected',
+        source: {
+          nlp: 'Auto-detected from email',
+          manual: 'Manually set',
+          extraction: 'From AI extraction',
+        },
+      },
       // Kanban board (2026-01-30)
       kanban: {
         subtitle: 'Drag and drop to change status',

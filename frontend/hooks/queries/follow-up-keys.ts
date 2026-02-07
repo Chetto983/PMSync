@@ -15,4 +15,5 @@ export const followUpKeys = {
   overdue: () => [...followUpKeys.all, 'overdue'] as const,
   stats: () => [...followUpKeys.all, 'stats'] as const,
   detail: (id: string) => [...followUpKeys.all, 'detail', id] as const,
+  smartTiming: (id: string) => [...followUpKeys.all, 'smart-timing', id] as const,
 };
