@@ -16,6 +16,18 @@ import { MessageResponse } from '@/src/components/ai-elements/message';
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/src/components/ai-elements/tool';
 import type { ToolPart } from '@/src/components/ai-elements/tool';
 import { Suggestions, Suggestion } from '@/src/components/ai-elements/suggestion';
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from '@/src/components/ai-elements/reasoning';
+
+/** Reasoning part type for AI SDK extended thinking */
+interface ReasoningPart {
+  type: 'reasoning';
+  text?: string;
+  state?: 'streaming' | 'complete';
+}
 
 interface ChatMessagesProps {
   messages: UIMessage[];
@@ -234,6 +246,24 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                   if (process.env.NODE_ENV === 'development' && part.type !== 'text') {
                     console.log('[ChatMessages] Tool part:', { type: part.type, ...('toolName' in part ? { toolName: (part as { toolName: string }).toolName } : {}) });
                   }
+
+                  // Reasoning parts -> Reasoning component with shimmer
+                  if (part.type === 'reasoning') {
+                    const reasoningPart = part as ReasoningPart;
+                    return (
+                      <Reasoning
+                        key={`reasoning-${partIndex}`}
+                        isStreaming={reasoningPart.state === 'streaming'}
+                        defaultOpen={true}
+                      >
+                        <ReasoningTrigger />
+                        <ReasoningContent>
+                          {reasoningPart.text || ''}
+                        </ReasoningContent>
+                      </Reasoning>
+                    );
+                  }
+
                   // Text parts -> MessageResponse (uses Streamdown)
                   // Strip suggestions code blocks - they're rendered as chips separately
                   if (part.type === 'text') {
