@@ -73,6 +73,7 @@ export function QuickActions({ onSelectQuery, userName, viewContext, customPromp
   const emailActions = useEmailChatActions(viewContext);
 
   // Static default prompts (used when no customPrompts provided)
+  // All colors use theme.palette.* per CLAUDE.md rules (no hardcoded hex)
   const staticQuickActions = [
     {
       icon: Mail,
@@ -84,31 +85,31 @@ export function QuickActions({ onSelectQuery, userName, viewContext, customPromp
       icon: Calendar,
       label: t.ai?.quickActions?.todaySchedule || "Today's schedule",
       prompt: t.ai?.examples?.calendar?.todayAgenda || "What's on my agenda today?",
-      color: '#7c3aed',
+      color: theme.palette.secondary.main,
     },
     {
       icon: Users,
       label: t.ai?.quickActions?.pendingFollowUps || 'Pending follow-ups',
       prompt: t.dashboard?.widgets?.followUps?.title || 'What follow-ups do I need to do?',
-      color: '#0ea5e9',
+      color: theme.palette.info.main,
     },
     {
       icon: FileText,
       label: t.ai?.quickActions?.writeEmail || 'Write an email',
       prompt: t.ai?.examples?.email?.draftReply || 'Write a professional email',
-      color: '#10b981',
+      color: theme.palette.success.main,
     },
     {
       icon: TrendingUp,
       label: t.ai?.quickActions?.analyzeContacts || 'Analyze contacts',
       prompt: t.ai?.examples?.contacts?.findContact || 'Analyze my most active contacts',
-      color: '#f59e0b',
+      color: theme.palette.warning.main,
     },
     {
       icon: Sparkles,
       label: t.ai?.quickActions?.aiSuggestions || 'AI suggestions',
       prompt: t.ai?.chat?.howCanIHelp || 'What actions do you suggest today?',
-      color: '#ec4899',
+      color: theme.palette.error.main,
     },
   ];
 
@@ -131,7 +132,7 @@ export function QuickActions({ onSelectQuery, userName, viewContext, customPromp
             width: 64,
             height: 64,
             borderRadius: 3,
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
