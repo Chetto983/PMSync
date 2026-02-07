@@ -4,8 +4,8 @@
 
 **Version:** v3.0
 **Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management
-**Total Phases:** 8
-**Total Requirements:** 15
+**Total Phases:** 9
+**Total Requirements:** 16
 
 **Key deliverables:**
 - Clean VoltAgent integration with modern patterns
@@ -34,19 +34,21 @@
 | CHATUI-01 | Chat UI improvements and agent tool on mail | 06 |
 | CHAT-04 | Chat improvement features | 07 |
 | TOOL-01 | Email tool triage data exposure (priority, labels, sentiment, follow-ups) | 08 |
+| ARTIFACT-01 | Smart tool result renderers replacing raw JSON in chat UI | 09 |
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Plans | Status |
 |-------|------|--------------|-------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3/3 | ✅ COMPLETE |
-| 02 | AI Chat Overhaul | CHAT-01/02/03 | 3/4 | ⏳ 02-03 pending |
+| 02 | AI Chat Overhaul | CHAT-01/02/03 | 4/4 | ✅ COMPLETE |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | 0/3 | ❌ NOT PLANNED |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 0/2 | ❌ NOT PLANNED |
 | 05 | Nested Labels Frontend | LABELS-01 | 2/2 | ✅ COMPLETE |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5/5 | ✅ COMPLETE |
 | 07 | Chat Improvement | CHAT-04 | 6/6 | ✅ COMPLETE |
 | 08 | Email Tool Triage Exposure | TOOL-01 | 2/2 | ✅ COMPLETE |
+| 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | 0/0 | ❌ NOT PLANNED |
 
 ---
 
@@ -86,7 +88,7 @@
 
 **Goal:** Modern streaming chat experience with graceful error handling
 
-**Status:** IN PROGRESS (3/4 plans complete)
+**Status:** COMPLETE
 
 **Requirements:**
 - CHAT-01: Vercel AI SDK streaming integration (already working, needs circuit breaker)
@@ -102,20 +104,20 @@
 - Token streaming: 20-50 tokens/second
 - Pure chat is losing favor - prefer structured UI + AI suggestions
 
-**Plans:** 4 plans (3 complete, 1 pending)
+**Plans:** 4 plans
 - [x] 02-01-PLAN.md - Circuit breaker integration + retry UI (VOLT-01)
 - [x] 02-02-PLAN.md - Contextual prompts + view context passing
-- [ ] 02-03-PLAN.md - Mobile full-screen chat + iOS viewport fixes
+- [x] 02-03-PLAN.md - Mobile full-screen chat + iOS viewport fixes
 - [x] 02-04 - AI SDK v6 fixes (tool rendering, mobile close button)
 
 **Wave Structure:**
 - Wave 1: 02-01, 02-02 (parallel - no file conflicts) ✓
-- Wave 2: 02-03 (depends on 02-01 for error handling) ← NEXT
+- Wave 2: 02-03 (depends on 02-01 for error handling) ✓
 
 **Deliverables:**
 - Streaming chat with <500ms first token ✓
 - Context-aware suggested prompts per view ✓
-- Mobile-optimized full-screen chat modal (pending 02-03)
+- Mobile-optimized full-screen chat modal ✓
 - Graceful error handling with retry ✓
 
 ---
@@ -340,6 +342,36 @@ Plans:
 - Filter by priority/label/followUp in list_emails and list_email_index
 - New follow-up listing tool (or mode) querying EmailFollowUp
 - Agent can answer priority/label/sentiment/follow-up questions from DB reads
+
+---
+
+## Phase 09: Chat Artifact Smart Renderers
+
+**Goal:** Replace raw JSON tool result rendering in chat with semantic, tool-specific UI components. Each tool type gets a custom renderer (email lists, follow-ups, contacts, events, etc.) instead of dumping JSON code blocks.
+
+**Status:** NOT PLANNED
+
+**Requirements:**
+- ARTIFACT-01: Smart tool result renderers — registry-based system mapping toolName to custom React components; renderers for email list, email content, follow-ups, contacts, events, counts, folders, analysis, memory; improved fallback for unknown tools; hidden parameters; collapsible raw JSON debug
+
+**Dependencies:** Phase 07 (Chat Improvement — ai-elements components wired)
+
+**Why ninth:** Current tool cards dump raw JSON for parameters and results — looks like a developer debug panel. Users see `{"message": "No pending follow-ups found.", "followUps": []}` instead of a clean empty state. Directly impacts perceived quality of the AI chat experience.
+
+**Inspiration:** [assistant-ui](https://github.com/assistant-ui/assistant-ui) `makeAssistantToolUI` pattern — custom React renderers per tool type.
+
+**Plans:** 0 plans (NOT CREATED)
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 09 to break down)
+
+**Deliverables:**
+- Tool renderer registry mapping toolName -> React component
+- 10+ custom renderers (email list, content, search, follow-ups, contacts, events, counts, folders, analysis, memory)
+- Improved fallback renderer (summary + collapsible JSON instead of raw dump)
+- Hidden parameters (only shown on error)
+- Consistent empty states per tool type
+- Raw JSON toggle for debugging
 
 ---
 

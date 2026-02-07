@@ -90,7 +90,9 @@
       "WebFetch(domain:r.assistant-ui.com)",
       "WebFetch(domain:www.assistant-ui.com)",
       "Bash(gh repo view:*)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Skill(gsd:add-phase)",
+      "Skill(gsd:add-phase:*)"
     ],
     "deny": [],
     "ask": []

@@ -115,6 +115,7 @@ Next action: User verification of Phase 07 improvements (see 07-06-SUMMARY.md fo
 - Phase 06 added: Chat UI and Agent Tool on Mail (2026-02-07)
 - Phase 07 added: Chat Improvement (2026-02-07)
 - Phase 08 added: Email Tool Triage Exposure (2026-02-07) — audit found all listing tools blind to aiPriority/aiSentiment/aiLabels/followUp
+- Phase 09 added: Chat Artifact Smart Renderers (2026-02-07) — raw JSON tool results replaced with semantic UI renderers per tool type
 
 ## Milestones
 
@@ -145,6 +146,7 @@ See: .planning/MILESTONES.md
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | COMPLETE (5/5 plans) |
 | 07 | Chat Improvement | CHAT-04 | PENDING VERIFICATION (6/6 plans) |
 | 08 | Email Tool Triage Exposure | TOOL-01 | COMPLETE (2/2 plans) |
+| 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | NOT PLANNED |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 

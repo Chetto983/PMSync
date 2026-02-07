@@ -13,8 +13,9 @@ import { useAgentActivityStream } from '@/hooks/ai/use-agent-activity-stream';
 import { websocketClient } from '@/lib/websocket-client';
 // ai-elements components (shadcn-based) - located in src/components/ai-elements
 import { MessageResponse } from '@/src/components/ai-elements/message';
-import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/src/components/ai-elements/tool';
+import { Tool, ToolHeader, ToolContent } from '@/src/components/ai-elements/tool';
 import type { ToolPart } from '@/src/components/ai-elements/tool';
+import { SmartToolOutput } from '@/src/components/ai-elements/tool-renderers/SmartToolOutput';
 import { Suggestions, Suggestion } from '@/src/components/ai-elements/suggestion';
 import {
   Reasoning,
@@ -468,7 +469,9 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                         <ChainOfThoughtContent>
                           {group.parts.map((part, partIndex) => {
                             const toolPart = part as ToolPart;
-                            const toolName = (toolPart as { toolName?: string }).toolName;
+                            const toolName = part.type === 'dynamic-tool'
+                              ? (toolPart as { toolName?: string }).toolName
+                              : part.type.replace(/^tool-/, '');
                             const ToolIcon = getToolIcon(toolName);
                             return (
                               <ChainOfThoughtStep
@@ -521,7 +524,10 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                     // AI SDK v6: 'dynamic-tool' or 'tool-{name}' types
                     if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
                       const toolPart = part as ToolPart;
-                      const toolName = (toolPart as { toolName?: string }).toolName;
+                      // Extract tool name: dynamic-tool has .toolName, tool-{name} has name in type
+                      const toolName = part.type === 'dynamic-tool'
+                        ? (toolPart as { toolName?: string }).toolName
+                        : part.type.replace(/^tool-/, '');
 
                       // Check if this should be an artifact (draft emails, large code)
                       if (shouldRenderAsArtifact(toolPart) && toolPart.output) {
@@ -577,8 +583,11 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                             />
                           )}
                           <ToolContent>
-                            <ToolInput input={toolPart.input} />
-                            <ToolOutput output={toolPart.output} errorText={toolPart.errorText} />
+                            <SmartToolOutput
+                              output={toolPart.output}
+                              errorText={toolPart.errorText}
+                              toolName={toolName}
+                            />
                           </ToolContent>
                         </Tool>
                       );
