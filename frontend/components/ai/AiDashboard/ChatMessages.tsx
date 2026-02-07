@@ -128,6 +128,26 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length, sending, hasAgentActivity, agentSteps.length]);
 
+  // DEBUG: Log message structure to understand VoltAgent format
+  React.useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      console.log('[ChatMessages DEBUG] Last message:', {
+        role: lastMsg.role,
+        id: lastMsg.id,
+        partsCount: lastMsg.parts?.length,
+        parts: lastMsg.parts?.map((p, i) => ({
+          index: i,
+          type: p.type,
+          keys: Object.keys(p),
+          // Safe stringify for debugging
+          preview: JSON.stringify(p).slice(0, 200),
+        })),
+        rawMessage: lastMsg,
+      });
+    }
+  }, [messages.length]);
+
   return (
     <Box
       sx={{

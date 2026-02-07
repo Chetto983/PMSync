@@ -55,11 +55,17 @@ export function MobileChatDialog({
   const theme = useTheme();
   const t = useTranslations();
 
+  // DEBUG: Log close handler calls
+  const handleClose = React.useCallback(() => {
+    console.log('[MobileChatDialog] Close button clicked');
+    onClose();
+  }, [onClose]);
+
   return (
     <Dialog
       fullScreen
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       TransitionComponent={SlideTransition}
       PaperProps={{
         sx: {
@@ -79,7 +85,7 @@ export function MobileChatDialog({
         }}
       >
         <Toolbar sx={{ minHeight: 56, px: 1 }}>
-          <IconButton edge="start" onClick={onClose} aria-label="close">
+          <IconButton edge="start" onClick={handleClose} aria-label="close">
             <X size={20} />
           </IconButton>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
