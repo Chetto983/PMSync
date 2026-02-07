@@ -25,6 +25,7 @@ import {
   IconButton,
   Badge,
   useMediaQuery,
+  Fab,
 } from '@mui/material';
 import { Sparkles, Send, Zap, PanelRightOpen, X, MessageSquare, StopCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -42,6 +43,7 @@ const ChatSessionList = lazy(() => import('./ChatSessionList'));
 const MentionInput = lazy(() => import('./MentionInput'));
 const ChatCommandPalette = lazy(() => import('../ChatCommandPalette'));
 const AskUserModal = lazy(() => import('./AskUserModal'));
+const MobileChatDialog = lazy(() => import('./MobileChatDialog'));
 
 // Re-export types from hook for ChatMessages
 export type { AskUserData, UIMessage, MessageMetadata } from '@/hooks/use-voltagent-chat';
@@ -90,6 +92,10 @@ export function AiDashboard() {
   // Mobile detection and drawer state
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [widgetsDrawerOpen, setWidgetsDrawerOpen] = useState(false);
+
+  // CHAT-03: Mobile chat detection (md and below = tablets and phones)
+  const isMobileChat = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   // Command palette state (triggered by "/" at start of input)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -182,6 +188,13 @@ export function AiDashboard() {
       setAskUserModalOpen(true);
     }
   }, [lastAskUser, sending]);
+
+  // CHAT-03: Auto-open mobile chat dialog when there's an active conversation
+  useEffect(() => {
+    if (isMobileChat && chatMessages.length > 0 && !mobileChatOpen) {
+      setMobileChatOpen(true);
+    }
+  }, [isMobileChat, chatMessages.length, mobileChatOpen]);
 
   // Handle askUser response - send it as a new message
   const handleAskUserResponse = useCallback((response: string | string[]) => {
@@ -286,6 +299,111 @@ export function AiDashboard() {
     inputRef.current?.focus();
   }, []);
 
+  // CHAT-03: Shared chat content for mobile and desktop
+  const renderChatMessages = () => (
+    chatMessages.length === 0 ? (
+      <Suspense fallback={<WidgetSkeleton height={300} />}>
+        <QuickActions onSelectQuery={handleSendMessage} userName={userName} viewContext={viewContext} />
+      </Suspense>
+    ) : (
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Suspense fallback={<WidgetSkeleton height={300} />}>
+          <ChatMessages
+            messages={chatMessages}
+            sending={sending}
+            conversationId={conversationId}
+            onSuggestedQuestionSelect={handleSendMessage}
+          />
+        </Suspense>
+      </Box>
+    )
+  );
+
+  // CHAT-03: Shared input for mobile and desktop
+  const renderChatInput = () => (
+    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
+      <Suspense fallback={<Skeleton variant="rounded" height={56} sx={{ flex: 1, borderRadius: 3 }} />}>
+        <MentionInput
+          value={prompt}
+          onChange={handlePromptChange}
+          onSubmit={() => handleSendMessage()}
+          disabled={sending}
+          placeholder={t.ai?.mentions?.typeHint || t.ai?.inputPlaceholder || 'Type / for commands, @ for contacts...'}
+          inputRef={inputRef}
+        />
+      </Suspense>
+      {status === 'streaming' && (
+        <IconButton
+          onClick={stop}
+          title={t.ai?.actions?.stop || 'Stop'}
+          sx={{
+            width: 56, height: 56, borderRadius: 3,
+            bgcolor: alpha(theme.palette.error.main, 0.1),
+            border: '1px solid', borderColor: alpha(theme.palette.error.main, 0.3),
+            color: 'error.main',
+            '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.2), borderColor: 'error.main' },
+          }}
+        >
+          <StopCircle size={24} />
+        </IconButton>
+      )}
+      <Button
+        variant="contained"
+        onClick={() => handleSendMessage()}
+        disabled={sending || !prompt.trim()}
+        sx={{
+          minWidth: 56, height: 56, borderRadius: 3,
+          background: sending || !prompt.trim()
+            ? alpha(theme.palette.action.disabled, 0.3)
+            : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)} 0%, ${alpha(theme.palette.secondary.main, 0.9)} 100%)`,
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid', borderColor: alpha(theme.palette.common.white, 0.2),
+          boxShadow: sending || !prompt.trim() ? 'none'
+            : `0 8px 32px ${alpha(theme.palette.primary.main, 0.35)}, inset 0 1px 1px ${alpha(theme.palette.common.white, 0.2)}`,
+          '&:hover': {
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+            transform: 'translateY(-2px)',
+          },
+          '&.Mui-disabled': {
+            background: alpha(theme.palette.action.disabled, 0.2),
+            borderColor: alpha(theme.palette.divider, 0.1),
+          },
+        }}
+      >
+        {sending ? <CircularProgress size={24} sx={{ color: 'white' }} /> : <Send size={24} />}
+      </Button>
+    </Box>
+  );
+
+  // CHAT-03: Shared error banner for mobile and desktop
+  const renderErrorBanner = () => (
+    lastError && lastError.retryable ? (
+      <Box
+        sx={{
+          mx: 2, mb: 1, p: 2, borderRadius: 2,
+          bgcolor: alpha(theme.palette.warning.main, 0.1),
+          border: '1px solid', borderColor: alpha(theme.palette.warning.main, 0.3),
+          display: 'flex', alignItems: 'center', gap: 2,
+        }}
+      >
+        <AlertTriangle size={20} color={theme.palette.warning.main} />
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="body2" fontWeight={600} color="warning.main">
+            {lastError.code === 'CIRCUIT_OPEN' ? 'AI service temporarily unavailable'
+              : lastError.code === 'RATE_LIMIT' ? (t.ai?.errors?.rateLimit || 'Rate limit reached')
+              : lastError.code === 'TIMEOUT' ? 'Request timed out'
+              : (t.ai?.errors?.connectionLost || 'Connection error')}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">Please try again in a moment</Typography>
+        </Box>
+        <Button size="small" variant="outlined" color="warning" startIcon={<RefreshCw size={16} />}
+          onClick={handleRetry} disabled={sending}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >Retry</Button>
+      </Box>
+    ) : null
+  );
+
   return (
     <Box
       sx={{
@@ -373,21 +491,52 @@ export function AiDashboard() {
         </Box>
       </Box>
 
-      {/* Main Grid - Responsive layout with fixed height */}
-      <Box
-        sx={{
-          display: 'grid',
-          gap: { xs: 2, md: 3 },
-          gridTemplateColumns: {
-            xs: '1fr',
-            md: '1fr',
-            lg: '1fr minmax(300px, 380px)',
-          },
-          flex: 1,
-          minHeight: 0, // Critical for flexbox overflow
-          pb: 2,
-        }}
-      >
+      {/* CHAT-03: Mobile chat experience - FAB + full-screen dialog */}
+      {isMobileChat ? (
+        <>
+          {/* FAB to open chat - positioned at bottom-right with safe area */}
+          <Fab
+            color="primary"
+            aria-label="open chat"
+            onClick={() => setMobileChatOpen(true)}
+            sx={{
+              position: 'fixed',
+              bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+              right: 24,
+              zIndex: theme.zIndex.fab,
+              boxShadow: `0 8px 32px ${alpha(theme.palette.primary.main, 0.35)}`,
+            }}
+          >
+            <MessageSquare size={24} />
+          </Fab>
+
+          {/* Full-screen mobile chat dialog */}
+          <Suspense fallback={null}>
+            <MobileChatDialog
+              open={mobileChatOpen}
+              onClose={() => setMobileChatOpen(false)}
+              messages={renderChatMessages()}
+              input={renderChatInput()}
+              error={renderErrorBanner()}
+            />
+          </Suspense>
+        </>
+      ) : (
+        /* Desktop layout - existing grid with chat + sidebar */
+        <Box
+          sx={{
+            display: 'grid',
+            gap: { xs: 2, md: 3 },
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: '1fr',
+              lg: '1fr minmax(300px, 380px)',
+            },
+            flex: 1,
+            minHeight: 0, // Critical for flexbox overflow
+            pb: 2,
+          }}
+        >
         {/* Chat Area - Fixed height with internal scroll */}
         <Paper
           elevation={0}
@@ -653,7 +802,8 @@ export function AiDashboard() {
             <LearningWidget />
           </Suspense>
         </Box>
-      </Box>
+        </Box>
+      )}
 
       {/* Mobile Widgets Drawer */}
       <SwipeableDrawer
