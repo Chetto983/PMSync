@@ -37,16 +37,16 @@
 
 ## Phase Summary
 
-| Phase | Name | Requirements | Plans | Dependencies |
-|-------|------|--------------|-------|--------------|
-| 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3 | None |
-| 02 | AI Chat Overhaul | CHAT-01/02/03 | 3 | Phase 01 |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 3 | Phase 01 |
-| 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2 | None |
-| 05 | Nested Labels Frontend | LABELS-01 | 2 (COMPLETE) | None (backend done v2.1) |
-| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5 | Phase 02 |
-| 07 | Chat Improvement | CHAT-04 | 6 | Phase 06 |
-| 08 | Email Tool Triage Exposure | TOOL-01 | 2 | Phase 01 |
+| Phase | Name | Requirements | Plans | Status |
+|-------|------|--------------|-------|--------|
+| 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3/3 | ✅ COMPLETE |
+| 02 | AI Chat Overhaul | CHAT-01/02/03 | 3/4 | ⏳ 02-03 pending |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 0/3 | ❌ NOT PLANNED |
+| 04 | Follow-Ups Refactor | FOLLOW-01/02 | 0/2 | ❌ NOT PLANNED |
+| 05 | Nested Labels Frontend | LABELS-01 | 2/2 | ✅ COMPLETE |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5/5 | ✅ COMPLETE |
+| 07 | Chat Improvement | CHAT-04 | 6/6 | ✅ COMPLETE |
+| 08 | Email Tool Triage Exposure | TOOL-01 | 2/2 | ✅ COMPLETE |
 
 ---
 
@@ -86,7 +86,7 @@
 
 **Goal:** Modern streaming chat experience with graceful error handling
 
-**Status:** PLANNED
+**Status:** IN PROGRESS (3/4 plans complete)
 
 **Requirements:**
 - CHAT-01: Vercel AI SDK streaming integration (already working, needs circuit breaker)
@@ -102,20 +102,21 @@
 - Token streaming: 20-50 tokens/second
 - Pure chat is losing favor - prefer structured UI + AI suggestions
 
-**Plans:** 3 plans
-- [ ] 02-01-PLAN.md - Circuit breaker integration + retry UI (VOLT-01)
-- [ ] 02-02-PLAN.md - Contextual prompts + view context passing
+**Plans:** 4 plans (3 complete, 1 pending)
+- [x] 02-01-PLAN.md - Circuit breaker integration + retry UI (VOLT-01)
+- [x] 02-02-PLAN.md - Contextual prompts + view context passing
 - [ ] 02-03-PLAN.md - Mobile full-screen chat + iOS viewport fixes
+- [x] 02-04 - AI SDK v6 fixes (tool rendering, mobile close button)
 
 **Wave Structure:**
-- Wave 1: 02-01, 02-02 (parallel - no file conflicts)
-- Wave 2: 02-03 (depends on 02-01 for error handling)
+- Wave 1: 02-01, 02-02 (parallel - no file conflicts) ✓
+- Wave 2: 02-03 (depends on 02-01 for error handling) ← NEXT
 
 **Deliverables:**
-- Streaming chat with <500ms first token
-- Context-aware suggested prompts per view
-- Mobile-optimized full-screen chat modal
-- Graceful error handling with retry
+- Streaming chat with <500ms first token ✓
+- Context-aware suggested prompts per view ✓
+- Mobile-optimized full-screen chat modal (pending 02-03)
+- Graceful error handling with retry ✓
 
 ---
 
@@ -123,12 +124,14 @@
 
 **Goal:** AI-powered email prioritization and importance scoring
 
+**Status:** NOT PLANNED (gap closure required)
+
 **Requirements:**
 - TRIAGE-01: Priority scoring model (0-100 scale)
 - TRIAGE-02: VIP lists (user-defined + AI-suggested)
 - TRIAGE-03: Learning from user actions (open/reply patterns)
 
-**Dependencies:** Phase 01 (scalable RAG required for scoring)
+**Dependencies:** Phase 01 (scalable RAG required for scoring) ✓
 
 **Why third:** Auto-triage is the core v3.0 value proposition. Priority scoring enables all future triage features.
 
@@ -143,10 +146,12 @@
 - Background BullMQ job for nightly score recalculation
 - RAG query: "Is this email urgent based on historical context?"
 
-**Plans:** 3 plans
-- 03-01: Priority scoring model + database schema
-- 03-02: VIP lists management (user + AI suggestions)
-- 03-03: Learning engine (track actions, update weights)
+**Plans:** 3 plans (NOT CREATED)
+- [ ] 03-01: Priority scoring model + database schema
+- [ ] 03-02: VIP lists management (user + AI suggestions)
+- [ ] 03-03: Learning engine (track actions, update weights)
+
+**Next action:** `/gsd:plan-phase 03`
 
 **Deliverables:**
 - Priority score on every email
@@ -159,6 +164,8 @@
 ## Phase 04: Follow-Ups Refactor
 
 **Goal:** Complete redesign of follow-ups UI with smart features
+
+**Status:** NOT PLANNED (gap closure required)
 
 **Requirements:**
 - FOLLOW-01: Follow-ups UI refactor with two types (Waiting For / To Do)
@@ -173,9 +180,11 @@
 - Sweet spot: 2-3 days after initial send
 - Automatic detection of "Please respond by Friday" patterns
 
-**Plans:** 2 plans
-- 04-01: UI refactor (tabs, kanban view, bulk actions)
-- 04-02: Smart timing + NLP deadline extraction
+**Plans:** 2 plans (NOT CREATED)
+- [ ] 04-01: UI refactor (tabs, kanban view, bulk actions)
+- [ ] 04-02: Smart timing + NLP deadline extraction
+
+**Next action:** `/gsd:plan-phase 04`
 
 **Deliverables:**
 - Follow-up types: Waiting For / To Do
