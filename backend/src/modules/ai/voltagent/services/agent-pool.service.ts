@@ -51,6 +51,13 @@ export interface GetOrCreateAgentParams {
   hooks?: AgentHooks;
   /** RLM: Detected intent for loading minimal prompt */
   intent?: import('../services/task-complexity-classifier.service').TaskIntent;
+  /** View context for email-specific prompts */
+  viewContext?: {
+    currentView?: string;
+    selectedEmailId?: string;
+    selectedFolderId?: string;
+    selectedContactId?: string;
+  };
 }
 
 @Injectable()
