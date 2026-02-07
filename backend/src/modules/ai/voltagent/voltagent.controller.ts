@@ -183,6 +183,7 @@ export class VoltAgentController {
       conversationId,
       locale: body.locale,
       model: body.model,
+      viewContext: body.viewContext,
     };
 
     let isConnectionClosed = false;
