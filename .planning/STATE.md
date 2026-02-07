@@ -95,6 +95,7 @@ Resume file: None
 ## Roadmap Evolution
 
 - Phase 06 added: Chat UI and Agent Tool on Mail (2026-02-07)
+- Phase 07 added: Chat Improvement (2026-02-07)
 
 ## Milestones
 

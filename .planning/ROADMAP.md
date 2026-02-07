@@ -4,8 +4,8 @@
 
 **Version:** v3.0
 **Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management
-**Total Phases:** 6
-**Total Requirements:** 13
+**Total Phases:** 7
+**Total Requirements:** 14
 
 **Key deliverables:**
 - Clean VoltAgent integration with modern patterns
@@ -31,6 +31,7 @@
 | FOLLOW-02 | Smart timing suggestions + NLP detection | 04 |
 | LABELS-01 | Nested labels tree view with drag-drop | 05 |
 | CHATUI-01 | Chat UI improvements and agent tool on mail | 06 |
+| CHAT-04 | Chat improvement features | 07 |
 
 ## Phase Summary
 
@@ -42,6 +43,7 @@
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2 | None |
 | 05 | Nested Labels Frontend | LABELS-01 | 2 | None (backend done v2.1) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5 | Phase 02 |
+| 07 | Chat Improvement | CHAT-04 | TBD | Phase 06 |
 
 ---
 
@@ -245,6 +247,27 @@
 - Slide-in chat panel with email context ✓
 - Improved tool execution visual feedback ✓
 - AI understands "this email" context ✓
+
+---
+
+## Phase 07: Chat Improvement
+
+**Goal:** [To be planned]
+
+**Status:** NOT PLANNED
+
+**Requirements:**
+- CHAT-04: Chat improvement features (TBD)
+
+**Dependencies:** Phase 06 (Chat UI and Agent Tool on Mail)
+
+**Why seventh:** Builds on completed chat infrastructure from Phases 02 and 06.
+
+**Plans:** 0 plans
+- [ ] TBD (run /gsd:plan-phase 07 to break down)
+
+**Deliverables:**
+- [To be added during planning]
 
 ---
 

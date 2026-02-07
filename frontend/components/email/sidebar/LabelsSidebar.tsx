@@ -120,17 +120,22 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
     }
   }, [userLabels, pruneStaleIds]);
 
-  // Handle label click - filter emails by label
+  // Handle label click - toggle filter by label
   const handleLabelClick = useCallback(
     (labelId: string) => {
-      setFilters({
-        labelId,
-        providerId: undefined,
-        folderId: undefined,
-        specialUse: undefined,
-      });
+      if (filters.labelId === labelId) {
+        // Deselect — clear label filter
+        setFilters({ labelId: undefined });
+      } else {
+        setFilters({
+          labelId,
+          providerId: undefined,
+          folderId: undefined,
+          specialUse: undefined,
+        });
+      }
     },
-    [setFilters],
+    [setFilters, filters.labelId],
   );
 
   // Handle context menu from DnD wrapper (receives FlattenedItem)
