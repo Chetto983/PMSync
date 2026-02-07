@@ -350,5 +350,95 @@ Returns: Full body content (up to 1500 chars per email), attachments info`,
         };
       },
     }),
+
+    // ========================================================================
+    // RLM TOOL #3: list_follow_ups
+    // Lists emails needing follow-up action with email context
+    // ========================================================================
+    createTool({
+      name: 'list_follow_ups',
+      description: `List emails that need follow-up action. Returns follow-up records with email context.
+Statuses: pending (awaiting action), reminded (reminder sent), overdue (past due date), all.
+Use this tool when asked about emails needing follow-up, pending actions, or overdue items.`,
+      parameters: z.object({
+        status: z.enum(['pending', 'reminded', 'overdue', 'all']).optional().default('pending')
+          .describe('Filter by follow-up status. "overdue" = pending/reminded with past due date.'),
+        limit: z.number().min(1).max(50).optional().default(15)
+          .describe('Maximum follow-ups to return'),
+      }),
+      execute: async ({ status, limit }) => {
+        const userId = ragOptions?.userId;
+        if (!userId) {
+          return { error: 'Follow-up listing requires user context. Please try again.' };
+        }
+
+        try {
+          const where: any = { tenantId, userId };
+
+          if (status === 'overdue') {
+            where.status = { in: ['PENDING', 'REMINDED'] };
+            where.dueDate = { lt: new Date() };
+          } else if (status !== 'all') {
+            where.status = status.toUpperCase();
+          }
+
+          const followUps = await prisma.emailFollowUp.findMany({
+            where,
+            take: limit,
+            orderBy: { dueDate: 'asc' },
+            select: {
+              id: true,
+              status: true,
+              reason: true,
+              dueDate: true,
+              emailType: true,
+              confidence: true,
+              remindCount: true,
+              lastRemindedAt: true,
+              email: {
+                select: {
+                  id: true,
+                  subject: true,
+                  from: true,
+                  receivedAt: true,
+                  aiPriority: true,
+                  aiSentiment: true,
+                },
+              },
+            },
+          });
+
+          if (followUps.length === 0) {
+            return { message: `No ${status === 'all' ? '' : status + ' '}follow-ups found.`, followUps: [] };
+          }
+
+          return {
+            count: followUps.length,
+            status: status,
+            followUps: followUps.map(fu => ({
+              followUpId: fu.id,
+              status: fu.status,
+              reason: fu.reason,
+              dueDate: fu.dueDate?.toISOString(),
+              emailType: fu.emailType,
+              confidence: fu.confidence,
+              remindCount: fu.remindCount,
+              lastRemindedAt: fu.lastRemindedAt?.toISOString(),
+              email: {
+                id: fu.email.id,
+                subject: fu.email.subject,
+                from: fu.email.from,
+                receivedAt: fu.email.receivedAt?.toISOString(),
+                aiPriority: fu.email.aiPriority,
+                aiSentiment: fu.email.aiSentiment,
+              },
+            })),
+          };
+        } catch (error) {
+          logger.error('list_follow_ups failed', error);
+          return { error: 'Failed to retrieve follow-ups. Please try again.' };
+        }
+      },
+    }),
   ];
 }

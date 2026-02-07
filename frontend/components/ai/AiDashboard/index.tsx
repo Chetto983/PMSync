@@ -168,13 +168,13 @@ export function AiDashboard() {
       }}
     >
       {/* Header */}
-      <Box sx={{ pt: { xs: 2, md: 3 }, pb: { xs: 3, md: 4 } }}>
+      <Box sx={{ pt: { xs: 1.5, md: 2 }, pb: { xs: 2, md: 2.5 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             sx={{
-              width: { xs: 40, md: 56 },
-              height: { xs: 40, md: 56 },
-              borderRadius: 2.5,
+              width: { xs: 36, md: 40 },
+              height: { xs: 36, md: 40 },
+              borderRadius: 2,
               background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
               display: 'flex',
               alignItems: 'center',
@@ -183,15 +183,15 @@ export function AiDashboard() {
               flexShrink: 0,
             }}
           >
-            <Sparkles size={isMobile ? 20 : 24} color="white" />
+            <Sparkles size={isMobile ? 18 : 20} color="white" />
           </Box>
-          <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography
-              variant="h4"
+              variant="h5"
               noWrap
               sx={{
-                fontWeight: 800,
-                fontSize: { xs: '1.25rem', md: '2rem' },
+                fontWeight: 700,
+                fontSize: { xs: '1.1rem', md: '1.5rem' },
                 background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${alpha(theme.palette.text.primary, 0.7)} 100%)`,
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
@@ -202,43 +202,33 @@ export function AiDashboard() {
             >
               {t.ai?.title || 'Assistente AI'}
             </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              noWrap
-              sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}
-            >
-              {t.ai?.subtitle || 'Email • Calendario • Contatti'}
-            </Typography>
-          </Box>
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Chip
-              icon={<Zap size={14} />}
+              icon={<Zap size={12} />}
               label={t.ai?.online || 'Online'}
               size="small"
               color="success"
-              sx={{ fontWeight: 600 }}
+              sx={{ fontWeight: 600, height: 24 }}
             />
-            {isMobile && (
-              <IconButton
-                onClick={() => controller.setWidgetsDrawerOpen(true)}
-                sx={{
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  borderRadius: 2,
-                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) },
-                }}
-              >
-                <Badge
-                  badgeContent={controller.chatMessages.length > 0 ? undefined : 0}
-                  color="primary"
-                  variant="dot"
-                  invisible={controller.chatMessages.length === 0}
-                >
-                  <PanelRightOpen size={20} />
-                </Badge>
-              </IconButton>
-            )}
           </Box>
+          {isMobile && (
+            <IconButton
+              onClick={() => controller.setWidgetsDrawerOpen(true)}
+              sx={{
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                borderRadius: 2,
+                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) },
+              }}
+            >
+              <Badge
+                badgeContent={controller.chatMessages.length > 0 ? undefined : 0}
+                color="primary"
+                variant="dot"
+                invisible={controller.chatMessages.length === 0}
+              >
+                <PanelRightOpen size={20} />
+              </Badge>
+            </IconButton>
+          )}
         </Box>
       </Box>
 
