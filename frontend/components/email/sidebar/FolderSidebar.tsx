@@ -158,19 +158,31 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
     }
   }, []);
 
-  // Handle aggregated folder selection (clears provider filter)
+  // Handle aggregated folder selection (toggle: click again to deselect → INBOX)
   const handleFolderClick = (folder: SpecialFolder) => {
-    setFilters({ providerId: undefined, folderId: undefined });
-    setFolder(folder);
+    if (filters.specialUse === folder && !filters.providerId && !filters.folderId) {
+      // Already selected — toggle off → back to INBOX
+      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined });
+      setFolder('INBOX');
+    } else {
+      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined });
+      setFolder(folder);
+    }
   };
 
-  // Handle provider-specific folder click (tracks by folder ID)
+  // Handle provider-specific folder click (toggle: click again to deselect → INBOX)
   const handleProviderFolderClick = (providerId: string, folder: FolderType) => {
-    setFilters({
-      providerId,
-      folderId: folder.id,
-      specialUse: folder.specialUse?.toUpperCase() as SpecialFolder,
-    });
+    if (filters.folderId === folder.id && filters.providerId === providerId) {
+      // Already selected — toggle off → back to INBOX
+      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined });
+      setFolder('INBOX');
+    } else {
+      setFilters({
+        providerId,
+        folderId: folder.id,
+        specialUse: folder.specialUse?.toUpperCase() as SpecialFolder,
+      });
+    }
   };
 
   // Handle refresh (basic refetch without sync)
