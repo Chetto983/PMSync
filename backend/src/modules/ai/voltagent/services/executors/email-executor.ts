@@ -42,11 +42,11 @@ export class EmailExecutor {
     context: AgentContext,
     deps: EmailExecutorDeps,
   ): Promise<ActionExecutionResult> {
-    const { to, cc, bcc, subject, body, providerId } = action.payload;
+    const { to, cc, bcc, subject, body, providerId, from: fromEmail } = action.payload;
 
     // DEBUG: Log action payload to verify PII resolution
     deps.logger.debug(
-      `[SEND_EMAIL] Payload after PII resolution: to=${JSON.stringify(to)}, subject=${subject?.substring(0, 50)}`,
+      `[SEND_EMAIL] Payload after PII resolution: to=${JSON.stringify(to)}, from=${fromEmail}, subject=${subject?.substring(0, 50)}`,
     );
 
     // Check if any PII placeholders remain (indicates resolution failed)
@@ -67,8 +67,22 @@ export class EmailExecutor {
       throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
-    // Resolve provider (use provided or find default)
-    const actualProviderId = await deps.resolveProviderId(context.tenantId, providerId, 'email');
+    // Resolve provider: prefer providerId, then match by 'from' email, then default
+    let actualProviderId = providerId;
+    if (!actualProviderId && fromEmail) {
+      const matchedProvider = await deps.prisma.providerConfig.findFirst({
+        where: { email: fromEmail, tenantId: context.tenantId, isActive: true, supportsEmail: true },
+        select: { id: true },
+      });
+      if (matchedProvider) {
+        actualProviderId = matchedProvider.id;
+        deps.logger.log(`[SEND_EMAIL] Resolved provider from 'from' field: ${fromEmail} → ${actualProviderId}`);
+      }
+    }
+    if (!actualProviderId) {
+      deps.logger.warn(`[SEND_EMAIL] No providerId or from match - falling back to default provider`);
+      actualProviderId = await deps.resolveProviderId(context.tenantId, undefined, 'email');
+    }
 
     // Send email via EmailSendService
     const result = await deps.emailSendService.sendEmail({

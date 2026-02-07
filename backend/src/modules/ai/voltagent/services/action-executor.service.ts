@@ -72,10 +72,14 @@ export class ActionExecutorService {
       ? { tenantId, supportsEmail: true, isActive: true }
       : { tenantId, supportsCalendar: true, isActive: true };
 
-    const provider = await this.prisma.providerConfig.findFirst({ where: whereClause });
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: whereClause,
+      orderBy: { createdAt: 'asc' },
+    });
     if (!provider) {
       throw new AiError(`No ${type} provider available`, AiErrorCode.PROVIDER_UNAVAILABLE);
     }
+    this.logger.warn(`[resolveProviderId] No providerId provided for ${type} - using default: ${provider.id}`);
 
     return provider.id;
   }

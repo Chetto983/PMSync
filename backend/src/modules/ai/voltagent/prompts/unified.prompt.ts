@@ -80,6 +80,7 @@ const EMAIL_MODULE = `<EMAIL_STRATEGY>
 READ: list_email_index(mode:'unread') → pick 3-5 IDs → get_email_content([ids]) → summarize
 SEARCH: search_emails(query) for keywords | semantic_search_emails for meaning
 COMPOSE: list_emails(mode:'accounts') → get providerId → manage_email(action:'send'|'reply'|'forward')
+CRITICAL: When user specifies a sender account, ALWAYS pass it as the "from" parameter in manage_email. Also pass providerId if known. Never omit both.
 </EMAIL_STRATEGY>`;
 
 /**

@@ -260,7 +260,7 @@ Examples:
       description: `Perform email actions. CONSOLIDATED TOOL - handles send, reply, forward, and status changes.
 
 Actions:
-- "send": Send new email (requires providerId, to, subject, body)
+- "send": Send new email (requires to, body, and EITHER providerId OR from). ALWAYS call list_emails(mode='accounts') first to get the correct providerId.
 - "reply": Reply to email (requires emailId, body; optional replyAll)
 - "forward": Forward email (requires emailId, to)
 - "delete": Delete email (requires emailId; optional permanent)
@@ -276,7 +276,8 @@ All actions require user approval (HITL).`,
           .describe('Action to perform'),
         emailId: z.string().optional().describe('Email ID (required for all except "send")'),
         // Send params
-        providerId: z.string().optional().describe('Provider ID for "send" (from list_emails mode=accounts)'),
+        providerId: z.string().optional().describe('Provider ID for "send" (from list_emails mode=accounts). Preferred over "from".'),
+        from: z.string().optional().describe('Sender email address for "send". Use when user specifies which account to send from. System will match to provider.'),
         to: z.array(z.string()).optional().describe('Recipients for "send" or "forward"'),
         subject: z.string().optional().describe('Subject for "send"'),
         body: z.string().optional().describe('Body for "send" or "reply"'),
@@ -302,25 +303,50 @@ All actions require user approval (HITL).`,
             if (!emailSendService) {
               return { success: false, error: t.email.serviceUnavailable };
             }
-            const { providerId, to, subject, body, cc, bcc } = params;
-            if (!providerId || !to?.length || !body) {
-              return { success: false, error: 'send requires providerId, to, and body' };
+            const { providerId, from: fromEmail, to, subject, body, cc, bcc } = params;
+            if (!to?.length || !body) {
+              return { success: false, error: 'send requires to and body' };
             }
-            const provider = await prisma.providerConfig.findFirst({
-              where: { id: providerId, tenantId, isActive: true, supportsEmail: true },
-              select: { email: true },
-            });
-            if (!provider) {
-              return { success: false, error: 'Email account not found or not active' };
+            if (!providerId && !fromEmail) {
+              return { success: false, error: 'send requires providerId or from email. Call list_emails(mode="accounts") first.' };
             }
+
+            let resolvedProviderId = providerId;
+            let senderEmail = fromEmail;
+
+            // If providerId given, use it to find sender email
+            if (providerId) {
+              const provider = await prisma.providerConfig.findFirst({
+                where: { id: providerId, tenantId, isActive: true, supportsEmail: true },
+                select: { email: true },
+              });
+              if (!provider) {
+                return { success: false, error: 'Email account not found or not active' };
+              }
+              senderEmail = provider.email;
+            }
+            // If from given but no providerId, try to find provider by email
+            else if (fromEmail) {
+              const provider = await prisma.providerConfig.findFirst({
+                where: { email: fromEmail, tenantId, isActive: true, supportsEmail: true },
+                select: { id: true, email: true },
+              });
+              if (provider) {
+                resolvedProviderId = provider.id;
+                senderEmail = provider.email;
+              }
+              // If not found (likely PII-redacted), pass through for resolution at execution time
+            }
+
             const subjectText = subject || t.email.noSubject;
+            const summaryFrom = senderEmail ? ` (from ${senderEmail})` : '';
             return {
               success: true,
               requiresApproval: true,
               actionType: 'SEND_EMAIL',
               severity: 'HIGH',
-              payload: { providerId, from: provider.email, to, subject: subjectText, body, cc, bcc },
-              summary: t.email.sent(to.join(', '), subjectText) + ` (from ${provider.email})`,
+              payload: { providerId: resolvedProviderId, from: senderEmail, to, subject: subjectText, body, cc, bcc },
+              summary: t.email.sent(to.join(', '), subjectText) + summaryFrom,
             };
           }
 

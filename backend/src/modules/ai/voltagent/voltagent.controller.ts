@@ -26,6 +26,8 @@ import {
   HttpStatus,
   NotFoundException,
   Logger,
+  Optional,
+  Inject,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
@@ -39,6 +41,7 @@ import { DailyBriefingService } from './services/daily-briefing.service';
 import { WritingStyleService } from './services/writing-style.service';
 import { SuggestedPromptsService, type ViewContext, type PromptSuggestion } from './services/suggested-prompts.service';
 import type { ApprovalResumeData } from './workflows';
+import { PiiResolutionService } from '../guards';
 
 interface AuthenticatedRequest {
   user: {
@@ -132,6 +135,7 @@ export class VoltAgentController {
     private readonly dailyBriefingService: DailyBriefingService,
     private readonly writingStyleService: WritingStyleService,
     private readonly suggestedPromptsService: SuggestedPromptsService,
+    @Optional() @Inject(PiiResolutionService) private readonly piiResolutionService: PiiResolutionService | null,
   ) {}
 
   // ============ Core Chat Endpoints ============
@@ -330,24 +334,45 @@ export class VoltAgentController {
   async getPendingActions(@Req() req: AuthenticatedRequest) {
     const suspended = await this.voltAgentService.getSuspendedWorkflows(req.user.tenantId);
 
+    // Resolve PII placeholders so user can verify real addresses before approving
+    const actions = await Promise.all(
+      suspended.map(async (s) => {
+        let payload = s.action.payload;
+        let summary = s.action.summary;
+
+        if (this.piiResolutionService && s.sessionId) {
+          payload = await this.piiResolutionService.resolvePayload(
+            req.user.tenantId, s.sessionId, payload,
+          );
+          if (summary) {
+            summary = await this.piiResolutionService.resolveText(
+              req.user.tenantId, s.sessionId, summary,
+            );
+          }
+        }
+
+        return {
+          id: s.executionId,
+          executionId: s.executionId,
+          actionType: s.action.actionType,
+          severity: s.action.severity,
+          summary,
+          payload,
+          status: 'PENDING',
+          suspendReason: s.suspendReason,
+          reasoningSteps: s.action.reasoningSteps,
+          suspendedAt: s.suspendedAt,
+          userId: s.userId,
+          agentName: s.action.agentName,
+          confidence: s.action.confidence,
+          sessionId: s.sessionId,
+        };
+      }),
+    );
+
     return {
       success: true,
-      actions: suspended.map((s) => ({
-        id: s.executionId,
-        executionId: s.executionId,
-        actionType: s.action.actionType,
-        severity: s.action.severity,
-        summary: s.action.summary,
-        payload: s.action.payload,
-        status: 'PENDING',
-        suspendReason: s.suspendReason,
-        reasoningSteps: s.action.reasoningSteps,
-        suspendedAt: s.suspendedAt,
-        userId: s.userId,
-        agentName: s.action.agentName,
-        confidence: s.action.confidence,
-        sessionId: s.sessionId,
-      })),
+      actions,
       total: suspended.length,
     };
   }
@@ -371,13 +396,28 @@ export class VoltAgentController {
       throw new NotFoundException(`Pending action not found: ${executionId}`);
     }
 
+    // Resolve PII placeholders so user can verify real addresses before approving
+    let payload = suspended.action.payload;
+    let summary = suspended.action.summary;
+
+    if (this.piiResolutionService && suspended.sessionId) {
+      payload = await this.piiResolutionService.resolvePayload(
+        req.user.tenantId, suspended.sessionId, payload,
+      );
+      if (summary) {
+        summary = await this.piiResolutionService.resolveText(
+          req.user.tenantId, suspended.sessionId, summary,
+        );
+      }
+    }
+
     return {
       id: suspended.executionId,
       executionId: suspended.executionId,
       actionType: suspended.action.actionType,
       severity: suspended.action.severity,
-      summary: suspended.action.summary,
-      payload: suspended.action.payload,
+      summary,
+      payload,
       status: 'PENDING',
       suspendReason: suspended.suspendReason,
       reasoningSteps: suspended.action.reasoningSteps,
