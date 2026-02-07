@@ -411,6 +411,8 @@ export class ConversationManagementService {
    *
    * VOLT-02: Protected by distributed lock to prevent race conditions.
    * VOLT-03: Wrapped with retry logic for transient failures.
+   *
+   * Idempotent: Returns true if conversation doesn't exist (nothing to delete).
    */
   async deleteConversation(
     memory: Memory | null,
@@ -423,6 +425,18 @@ export class ConversationManagementService {
     try {
       // VOLT-02: Use distributed lock to prevent concurrent deletes
       return await this.withConversationLock(conversationId, async () => {
+        // Check if conversation exists first (idempotent delete)
+        const existing = await this.withMemoryRetry(
+          () => memory.getConversation(conversationId),
+          'getConversation',
+        ).catch(() => null);
+
+        if (!existing) {
+          // Conversation doesn't exist - treat as already deleted (idempotent)
+          this.logger.debug(`Conversation ${conversationId} not found, treating as already deleted`);
+          return true;
+        }
+
         // VOLT-03: Use retry for transient failures
         await this.withMemoryRetry(
           () => memory.deleteConversation(conversationId),

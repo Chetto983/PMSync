@@ -211,7 +211,35 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                     if (part.type === 'text') {
                       return <MessageResponse key={partIndex}>{part.text}</MessageResponse>;
                     }
-                    // Tool parts (tool-{name} or dynamic-tool)
+                    // AI SDK v4: 'tool-invocation' type with args/result structure
+                    if (part.type === 'tool-invocation') {
+                      const invocation = part as unknown as {
+                        type: 'tool-invocation';
+                        toolInvocationId: string;
+                        toolName: string;
+                        args: unknown;
+                        state: 'call' | 'partial-call' | 'result';
+                        result?: unknown;
+                      };
+                      // Map AI SDK state to ai-elements state
+                      const mappedState = invocation.state === 'result' ? 'output-available'
+                        : invocation.state === 'partial-call' ? 'input-streaming'
+                        : 'input-available';
+                      return (
+                        <Tool key={invocation.toolInvocationId} defaultOpen={false}>
+                          <ToolHeader
+                            type="dynamic-tool"
+                            state={mappedState}
+                            toolName={invocation.toolName}
+                          />
+                          <ToolContent>
+                            <ToolInput input={invocation.args} />
+                            <ToolOutput output={invocation.result} errorText={undefined} />
+                          </ToolContent>
+                        </Tool>
+                      );
+                    }
+                    // Legacy: tool-{name} parts from ai-elements
                     if (part.type.startsWith('tool-') || part.type === 'dynamic-tool') {
                       const toolPart = part as ToolPart;
                       const isDynamic = toolPart.type === 'dynamic-tool';
