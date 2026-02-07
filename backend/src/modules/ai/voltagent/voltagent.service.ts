@@ -113,6 +113,13 @@ export interface ChatOptions {
   preferSpeed?: boolean;
   /** Prefer higher quality (may use larger model) */
   preferQuality?: boolean;
+  /** View context for email-specific prompts */
+  viewContext?: {
+    currentView?: string;
+    selectedEmailId?: string;
+    selectedFolderId?: string;
+    selectedContactId?: string;
+  };
 }
 
 export interface ChatResult {
