@@ -195,8 +195,14 @@
 - MUI X Rich Tree View recommended (already using MUI)
 
 **Plans:** 2 plans
-- 05-01: Tree view component with expand/collapse
-- 05-02: Drag-drop nesting + hierarchical search
+
+- [ ] 05-01-PLAN.md — Tree view foundation: utils, store, components, dialog updates, backend subtree delete
+- [ ] 05-02-PLAN.md — Drag-drop nesting/reordering, context menu enhancements, label search
+
+**Wave Structure:**
+
+- Wave 1: 05-01 (tree rendering foundation)
+- Wave 2: 05-02 (DnD + interactions, depends on 05-01)
 
 **Deliverables:**
 - Tree view in sidebar with visual hierarchy
