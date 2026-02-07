@@ -151,6 +151,7 @@ export class VoltAgentController {
       conversationId: body.conversationId || body.sessionId,
       locale: body.locale,
       model: body.model,
+      viewContext: body.viewContext,
     };
 
     return this.voltAgentService.chat(body.message, options);
