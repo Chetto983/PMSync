@@ -193,6 +193,7 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
     () =>
       new DefaultChatTransport({
         api: `${API_BASE_URL}/api/v1/voltagent/chat/stream/v3`,
+        credentials: 'include', // SEC-04: Send httpOnly CSRF cookie
         headers: () => ({
           Authorization: `Bearer ${getAuthToken()}`,
           'X-CSRF-Token': csrfTokenRef.current,
