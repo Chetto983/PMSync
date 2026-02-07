@@ -2163,6 +2163,9 @@ export const en: AppTranslations = {
       chatFailed: 'Failed to send message. Please try again.',
       connectionLost: 'Connection lost. Reconnecting...',
       rateLimit: 'Too many requests. Please wait a moment.',
+      circuitOpen: 'AI service temporarily unavailable',
+      timeout: 'Request timed out',
+      retryHint: 'Please try again in a moment',
     },
     suggestedQuestions: {
       title: 'Suggested questions',

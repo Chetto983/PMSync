@@ -2257,6 +2257,9 @@ export interface AppTranslations {
       chatFailed: string;
       connectionLost: string;
       rateLimit: string;
+      circuitOpen: string;
+      timeout: string;
+      retryHint: string;
     };
     suggestedQuestions: {
       title: string;

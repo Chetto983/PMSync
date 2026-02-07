@@ -2151,6 +2151,9 @@ export const it: AppTranslations = {
       chatFailed: 'Impossibile inviare il messaggio. Riprova.',
       connectionLost: 'Connessione persa. Riconnessione in corso...',
       rateLimit: 'Troppe richieste. Attendi un momento.',
+      circuitOpen: 'Servizio AI temporaneamente non disponibile',
+      timeout: 'Richiesta scaduta',
+      retryHint: 'Riprova tra un momento',
     },
     suggestedQuestions: {
       title: 'Domande suggerite',

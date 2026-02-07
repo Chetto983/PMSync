@@ -389,17 +389,17 @@ export function AiDashboard() {
         <AlertTriangle size={20} color={theme.palette.warning.main} />
         <Box sx={{ flex: 1 }}>
           <Typography variant="body2" fontWeight={600} color="warning.main">
-            {lastError.code === 'CIRCUIT_OPEN' ? 'AI service temporarily unavailable'
+            {lastError.code === 'CIRCUIT_OPEN' ? (t.ai?.errors?.circuitOpen || 'AI service temporarily unavailable')
               : lastError.code === 'RATE_LIMIT' ? (t.ai?.errors?.rateLimit || 'Rate limit reached')
-              : lastError.code === 'TIMEOUT' ? 'Request timed out'
+              : lastError.code === 'TIMEOUT' ? (t.ai?.errors?.timeout || 'Request timed out')
               : (t.ai?.errors?.connectionLost || 'Connection error')}
           </Typography>
-          <Typography variant="caption" color="text.secondary">Please try again in a moment</Typography>
+          <Typography variant="caption" color="text.secondary">{t.ai?.errors?.retryHint || 'Please try again in a moment'}</Typography>
         </Box>
         <Button size="small" variant="outlined" color="warning" startIcon={<RefreshCw size={16} />}
           onClick={handleRetry} disabled={sending}
           sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
-        >Retry</Button>
+        >{t.ai?.chat?.retry || t.common?.retry || 'Retry'}</Button>
       </Box>
     ) : null
   );
@@ -615,15 +615,15 @@ export function AiDashboard() {
               <Box sx={{ flex: 1 }}>
                 <Typography variant="body2" fontWeight={600} color="warning.main">
                   {lastError.code === 'CIRCUIT_OPEN'
-                    ? 'AI service temporarily unavailable'
+                    ? (t.ai?.errors?.circuitOpen || 'AI service temporarily unavailable')
                     : lastError.code === 'RATE_LIMIT'
                     ? (t.ai?.errors?.rateLimit || 'Rate limit reached')
                     : lastError.code === 'TIMEOUT'
-                    ? 'Request timed out'
+                    ? (t.ai?.errors?.timeout || 'Request timed out')
                     : (t.ai?.errors?.connectionLost || 'Connection error')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Please try again in a moment
+                  {t.ai?.errors?.retryHint || 'Please try again in a moment'}
                 </Typography>
               </Box>
               <Button
@@ -639,7 +639,7 @@ export function AiDashboard() {
                   fontWeight: 600,
                 }}
               >
-                Retry
+                {t.ai?.chat?.retry || t.common?.retry || 'Retry'}
               </Button>
             </Box>
           )}
@@ -659,8 +659,8 @@ export function AiDashboard() {
             {chatMessages.length > 0 && !sending && (
               <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
                 {[
-                  { label: t.ai?.quickActions?.summarizeInbox || 'Riepiloga', prompt: 'Riepiloga le mie email non lette' },
-                  { label: t.ai?.quickActions?.todaySchedule || 'Oggi', prompt: 'Cosa ho in agenda oggi?' },
+                  { label: t.ai?.quickActions?.summarizeInbox || 'Summarize', prompt: t.ai?.examples?.email?.summarize || 'Summarize my unread emails' },
+                  { label: t.ai?.quickActions?.todaySchedule || 'Today', prompt: t.ai?.examples?.calendar?.todayAgenda || "What's on my agenda today?" },
                 ].map((action, idx) => (
                   <Chip
                     key={idx}
