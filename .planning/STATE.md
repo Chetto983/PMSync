@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 5 of 5 — Nested Labels Frontend
-Plan: 1 of 2 in phase (05-01 complete)
+Phase: 6 of 6 — Chat UI and Agent Tool on Mail
+Plan: 2 of 3 in phase (06-02 complete)
 Status: In progress
-Last activity: 2026-02-07 — Completed 05-01-PLAN.md (Nested labels tree view)
+Last activity: 2026-02-07 — Completed 06-02-PLAN.md (Email thread chat overlay)
 
-Progress: v3.0 Phase 05
+Progress: v3.0 Phase 06
 ```
-[███████████████████████░░░░░░░] 54% (7/13 plans)
+[██████████████████████████░░░░] 62% (10/16 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 05-01-PLAN.md (Nested labels tree view)
+Stopped at: Completed 06-02-PLAN.md (Email thread chat overlay)
 Resume file: None
 
 ## Accumulated Decisions
@@ -73,6 +73,9 @@ Resume file: None
 | Aggregate counts in buildTree | v3.0-05-01 | Avoids cascading re-renders (precomputed once) |
 | Preset-only color picker | v3.0-05-01 | Context: no custom hex input |
 | Variable indent (16px L0-1, 8px L2+) | v3.0-05-01 | Keep sidebar tight at deeper nesting levels |
+| Panel width 380px desktop, 100vw mobile | v3.0-06-02 | Consistent with typical chat sidebars, full width on mobile |
+| Fixed overlay panel (not pushing content) | v3.0-06-02 | Does not disturb email reading flow |
+| Context banner with subject + sender | v3.0-06-02 | User always knows which email the AI is discussing |
 
 ## Blockers & Concerns
 
@@ -112,16 +115,20 @@ See: .planning/MILESTONES.md
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | Ready to plan |
 | 05 | Nested Labels Frontend | LABELS-01 | IN PROGRESS (1/2 plans) |
-| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | Not planned |
+| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | IN PROGRESS (2/3 plans) |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Phase 05 in progress. 05-01 complete.
+**Currently:** Phase 06 in progress. 06-01 and 06-02 complete.
 
-**Phase 05 accomplishments:**
-- 05-01: Tree view foundation (tree utils, expansion store, LabelTreeItem, sidebar rewrite, dialog updates, backend subtree delete)
+**Phase 06 accomplishments:**
+- 06-01: ViewContext and conversation isolation (useVoltAgentChat enhancements, new action card components, email-specific prompts)
+- 06-02: Email thread chat overlay (EmailChatFab, EmailChatPanel, thread page integration)
+
+**Remaining in Phase 06:**
+- 06-03: Mobile chat dialog (Wave 2)
 
 **Remaining in Phase 05:**
 - 05-02: Drag-drop nesting and reordering (Wave 2)
@@ -131,4 +138,4 @@ See: .planning/MILESTONES.md
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 
 ---
-*State updated: 2026-02-07 -- Completed 05-01-PLAN.md (Nested labels tree view)*
+*State updated: 2026-02-07 -- Completed 06-02-PLAN.md (Email thread chat overlay)*
