@@ -37,22 +37,18 @@ if (!apiKey) {
 // Model configuration from environment variables with defaults
 // 2026-01-29: Updated to use faster, cheaper models based on pricing audit
 //
-// IMPORTANT: mistral-small-3-1-2503 ($0.03/$0.11) replaces mistral-medium ($0.40/$2.00)
-// for orchestration - it's 13x cheaper AND faster while still supporting tool calls!
-//
+// IMPORTANT: mistral-small-latest replaces mistral-medium for cost savings
 // Model defaults (override via .env):
-const MISTRAL_MODEL_SMALL = process.env.AI_MODEL_SIMPLE || 'mistral-small-3-1-2503-latest';
-const MISTRAL_MODEL_LARGE = process.env.AI_MODEL_COMPLEX || 'mistral-large-3-2512-latest';
-// CREATIVE: Optimized for writing tasks (email composition, smart replies)
-// ⚠️ Use ONLY for pure text generation - may not work well with complex tool calls
-const MISTRAL_MODEL_CREATIVE = process.env.AI_MODEL_CREATIVE || 'mistral-small-creative-25-12';
-// ROUTER: Ultra-cheap 3B model for intent classification, triage (~$0.04/1M tokens)
-// Best for: classify intent, email priority, simple decisions
+// @see https://docs.mistral.ai/getting-started/models for valid model IDs
+const MISTRAL_MODEL_SMALL = process.env.AI_MODEL_SIMPLE || 'mistral-small-latest';
+const MISTRAL_MODEL_LARGE = process.env.AI_MODEL_COMPLEX || 'mistral-large-latest';
+// CREATIVE: Use same model as SMALL - differentiation is via temperature
+const MISTRAL_MODEL_CREATIVE = process.env.AI_MODEL_CREATIVE || 'mistral-small-latest';
+// ROUTER: Ultra-cheap 3B model for intent classification, triage
 const MISTRAL_MODEL_ROUTER = process.env.AI_MODEL_ROUTER || 'ministral-3b-latest';
 // REASONING: Magistral - Extended thinking with [THINK]/[/THINK] tokens
-// Use for complex reasoning, analysis, planning
 // @see https://docs.mistral.ai/capabilities/reasoning
-const MISTRAL_MODEL_REASONING = process.env.AI_MODEL_REASONING || 'magistral-small-2509-latest';
+const MISTRAL_MODEL_REASONING = process.env.AI_MODEL_REASONING || 'magistral-small-latest';
 
 // Create Mistral provider instance (lazy initialization to allow for missing API key)
 let _mistralProvider: ReturnType<typeof createMistral> | null = null;

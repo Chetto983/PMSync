@@ -25,6 +25,7 @@ import { useAiProfile } from '@/hooks/queries/use-settings';
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
 import logger from '@/lib/logger';
+import { getErrorMessage } from '@/lib/error-utils';
 import AiComposeMenu, { type AiActionType, type ToneType } from './AiComposeMenu';
 
 function fileListToImageFiles(fileList: FileList): File[] {
@@ -265,8 +266,13 @@ export default function ComposeEditor({
         setAiContent(formattedBody);
       }
     } catch (err) {
+      const errorMessage = getErrorMessage(err);
       logger.error('AI compose error', err instanceof Error ? err : new Error(String(err)));
-      setAiContent(`<p style="color: red;">${composer.aiComposeError}</p>`);
+      // Show specific error from backend if available, otherwise generic message
+      const displayMessage = errorMessage !== 'An unexpected error occurred'
+        ? errorMessage
+        : composer.aiComposeError;
+      setAiContent(`<p style="color: red;">${displayMessage}</p>`);
     } finally {
       setAiIsLoading(false);
     }

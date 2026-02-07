@@ -1,11 +1,15 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { AiError, AiErrorCode } from '../errors';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { WritingStyleService } from '../voltagent/services/writing-style.service';
@@ -302,7 +306,7 @@ export class EmailInsightsService {
       return result;
     } catch (error) {
       this.logger.error(`Failed unified analysis for ${emailId}: ${this.getErrorMessage(error)}`);
-      throw new BadRequestException('Unable to analyze email');
+      throw this.mapAiErrorToHttpException(error, 'analyze email');
     }
   }
 
@@ -441,7 +445,7 @@ export class EmailInsightsService {
       this.logger.error(
         `Failed to generate smart replies for email ${emailId}: ${this.getErrorMessage(error)}`,
       );
-      throw new BadRequestException('Unable to generate smart replies');
+      throw this.mapAiErrorToHttpException(error, 'generate smart replies');
     }
   }
 
@@ -521,7 +525,8 @@ export class EmailInsightsService {
       this.logger.error(
         `Failed to compose email for tenant=${tenantId}: ${this.getErrorMessage(error)}`,
       );
-      throw new BadRequestException('Unable to compose email');
+      // Map AiError codes to appropriate HTTP status codes
+      throw this.mapAiErrorToHttpException(error, 'compose email');
     }
   }
 
@@ -838,6 +843,115 @@ export class EmailInsightsService {
 
   private getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  /**
+   * Map AiError codes to appropriate HTTP exceptions
+   * Provides meaningful error messages and status codes for debugging
+   */
+  private mapAiErrorToHttpException(error: unknown, operation: string): HttpException {
+    // If it's already an HttpException, re-throw as-is
+    if (error instanceof HttpException) {
+      return error;
+    }
+
+    // Convert to AiError for standardized handling
+    const aiError = error instanceof AiError ? error : AiError.fromError(error);
+
+    // Map error codes to HTTP status codes and messages
+    switch (aiError.code) {
+      case AiErrorCode.CIRCUIT_BREAKER_OPEN:
+        return new ServiceUnavailableException({
+          message: `AI service temporarily unavailable. Please try again in a minute.`,
+          code: aiError.code,
+          retryable: true,
+        });
+
+      case AiErrorCode.QUOTA_EXCEEDED:
+        return new HttpException(
+          {
+            message: aiError.message || 'AI usage quota exceeded. Please check your subscription.',
+            code: aiError.code,
+            retryable: false,
+          },
+          HttpStatus.PAYMENT_REQUIRED, // 402
+        );
+
+      case AiErrorCode.RATE_LIMITED:
+        return new HttpException(
+          {
+            message: 'Too many AI requests. Please wait a moment and try again.',
+            code: aiError.code,
+            retryable: true,
+          },
+          HttpStatus.TOO_MANY_REQUESTS, // 429
+        );
+
+      case AiErrorCode.PROVIDER_TIMEOUT:
+        return new HttpException(
+          {
+            message: 'AI service timed out. Please try again.',
+            code: aiError.code,
+            retryable: true,
+          },
+          HttpStatus.GATEWAY_TIMEOUT, // 504
+        );
+
+      case AiErrorCode.PROVIDER_UNAVAILABLE:
+        return new ServiceUnavailableException({
+          message: 'AI provider is currently unavailable. Please try again later.',
+          code: aiError.code,
+          retryable: true,
+        });
+
+      case AiErrorCode.PROVIDER_ERROR:
+        // Include actual message for debugging (e.g., "Mistral API key is not configured")
+        return new ServiceUnavailableException({
+          message: aiError.message || 'AI provider error. Please contact support.',
+          code: aiError.code,
+          retryable: false,
+        });
+
+      case AiErrorCode.PROMPT_BLOCKED:
+      case AiErrorCode.OUTPUT_BLOCKED:
+        return new BadRequestException({
+          message: 'Request blocked by security filters.',
+          code: aiError.code,
+          retryable: false,
+        });
+
+      case AiErrorCode.CONTEXT_TOO_LONG:
+        return new BadRequestException({
+          message: 'Input too long for AI processing. Please shorten your request.',
+          code: aiError.code,
+          retryable: false,
+        });
+
+      case AiErrorCode.EMPTY_RESPONSE:
+        return new ServiceUnavailableException({
+          message: 'AI returned an empty response. Please try again.',
+          code: aiError.code,
+          retryable: true,
+        });
+
+      case AiErrorCode.AUTH_FAILED:
+        return new ServiceUnavailableException({
+          message: 'AI service authentication failed. Please contact support.',
+          code: aiError.code,
+          retryable: false,
+        });
+
+      default:
+        // For unknown errors, return 500 with the original message for debugging
+        return new HttpException(
+          {
+            message: `Unable to ${operation}: ${aiError.message}`,
+            code: aiError.code || 'INTERNAL_ERROR',
+            retryable: aiError.retryable,
+          },
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+    }
   }
 
   /**

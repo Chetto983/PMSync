@@ -126,22 +126,22 @@ export class MistralService {
   }
 
   private getModel(tier: 'fast' | 'creative' | 'router' | 'default' = 'default'): string {
-    // Model routing by tier (2026-01-29 audit: updated defaults)
-    // See: voltagent/providers/mistral.provider.ts for full pricing reference
+    // Model routing by tier (2026-02-07: fixed invalid model names)
+    // See: https://docs.mistral.ai/getting-started/models for valid model IDs
     switch (tier) {
       case 'fast':
-        // Fast tasks with tool support - $0.03/$0.11 per M tokens
-        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-3-1-2503-latest';
+        // Fast tasks with tool support
+        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
       case 'creative':
-        // Email composition, smart replies - $0.10/$0.30 (NO complex tool calls!)
-        return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistral-small-creative-25-12';
+        // Email composition, smart replies - use same model, just higher temperature
+        return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistral-small-latest';
       case 'router':
-        // Intent classification, triage - ultra-cheap $0.04/$0.04 per M tokens
+        // Intent classification, triage - ultra-cheap small model
         return this.configService.get<string>('AI_MODEL_ROUTER') || 'ministral-3b-latest';
       case 'default':
       default:
-        // Default to fast (small) for cost optimization
-        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-3-1-2503-latest';
+        // Default to small for cost optimization
+        return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
     }
   }
 

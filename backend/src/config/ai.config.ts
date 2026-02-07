@@ -30,7 +30,7 @@ export default registerAs('ai', () => ({
     /** Complex tasks: code generation, analytics (~$2.7/M) */
     complex: process.env.AI_MODEL_COMPLEX || 'devstral-latest',
     /** Creative tasks: email composition, smart replies ($0.1/M) */
-    creative: process.env.AI_MODEL_CREATIVE || 'mistral-small-creative-25-12',
+    creative: process.env.AI_MODEL_CREATIVE || 'mistral-small-latest',
   },
 
   // ===========================================
