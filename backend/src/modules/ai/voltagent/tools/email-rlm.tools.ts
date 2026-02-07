@@ -129,6 +129,10 @@ Does NOT return: full body content (use get_email_content for that)`,
                       receivedAt: true,
                       isRead: true,
                       isStarred: true,
+                      // AI triage fields
+                      aiPriority: true,
+                      aiSentiment: true,
+                      aiLabels: true,
                     },
                   });
 
@@ -191,6 +195,10 @@ Does NOT return: full body content (use get_email_content for that)`,
             receivedAt: true,
             isRead: true,
             isStarred: true,
+            // AI triage fields
+            aiPriority: true,
+            aiSentiment: true,
+            aiLabels: true,
           },
         });
 
@@ -261,6 +269,21 @@ Returns: Full body content (up to 1500 chars per email), attachments info`,
             isRead: true,
             isStarred: true,
             folder: true,
+            // AI triage fields
+            aiPriority: true,
+            aiSentiment: true,
+            aiLabels: true,
+            // Follow-up data (1:1 relation, max 5 emails loaded here)
+            followUp: {
+              select: {
+                id: true,
+                status: true,
+                reason: true,
+                dueDate: true,
+                emailType: true,
+                confidence: true,
+              },
+            },
           },
         });
 
