@@ -154,6 +154,15 @@ function getRelationshipBoost(fromEmail: string, toEmails: string[]): number {
 }
 
 /**
+ * Smart timing recommendation for follow-ups
+ */
+export interface SmartTimingRecommendation {
+  suggestedDate: Date;
+  reason: string;
+  confidence: number; // 0-1
+}
+
+/**
  * Input for creating a follow-up
  */
 export interface CreateFollowUpInput {
@@ -412,6 +421,62 @@ Return JSON ONLY (no markdown):
       this.logger.warn(`LLM analysis failed: ${getErrorMessage(error)}`);
       return { needsFollowUp: false, confidence: 0, reason: null, dueDate: null };
     }
+  }
+
+  // ==========================================================================
+  // SMART TIMING (Phase 04-02)
+  // ==========================================================================
+
+  /**
+   * Calculate optimal follow-up time based on research:
+   * - 2-3 days after initial send (sweet spot)
+   * - Tuesday-Thursday preferred (higher response rates)
+   * - 9-11 AM optimal window
+   *
+   * Research source: FEATURES.md competitive analysis
+   * - Single follow-up doubles response rate (16% -> 27%)
+   */
+  private calculateSmartTiming(createdAt: Date): SmartTimingRecommendation {
+    const now = new Date();
+    const daysSinceCreation = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Default: 3 days from creation or now, whichever is later
+    let targetDate = new Date(createdAt);
+    targetDate.setDate(targetDate.getDate() + 3); // 3 days after creation
+
+    if (targetDate < now) {
+      // If already past, suggest next business day
+      targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+
+    // Adjust to Tuesday-Thursday if possible
+    const dayOfWeek = targetDate.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+    if (dayOfWeek === 0) targetDate.setDate(targetDate.getDate() + 2); // Sun -> Tue
+    if (dayOfWeek === 6) targetDate.setDate(targetDate.getDate() + 3); // Sat -> Tue
+    if (dayOfWeek === 5) targetDate.setDate(targetDate.getDate() + 4); // Fri -> Tue
+    if (dayOfWeek === 1) targetDate.setDate(targetDate.getDate() + 1); // Mon -> Tue
+
+    // Set to 10 AM (optimal window)
+    targetDate.setHours(10, 0, 0, 0);
+
+    const reason = daysSinceCreation < 2
+      ? 'Recommended: 2-3 days after initial send'
+      : 'Recommended: Tuesday-Thursday 10 AM';
+
+    return {
+      suggestedDate: targetDate,
+      reason,
+      confidence: 0.85, // Based on research averages
+    };
+  }
+
+  /**
+   * Get smart timing recommendation for a follow-up
+   * Public method for controller access
+   */
+  getSmartTimingRecommendation(createdAt: Date): SmartTimingRecommendation {
+    return this.calculateSmartTiming(createdAt);
   }
 
   // ==========================================================================

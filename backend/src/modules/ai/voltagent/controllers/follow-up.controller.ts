@@ -210,6 +210,34 @@ export class FollowUpController {
   }
 
   /**
+   * Get smart timing recommendation for a follow-up (Phase 04-02).
+   */
+  @Get('follow-ups/:id/smart-timing')
+  @ApiOperation({ summary: 'Get smart timing recommendation' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  async getSmartTiming(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const followUp = await this.followUpService.getFollowUp(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+    );
+
+    if (!followUp) {
+      throw new NotFoundException('Follow-up not found');
+    }
+
+    const recommendation = this.followUpService.getSmartTimingRecommendation(followUp.createdAt);
+
+    return {
+      success: true,
+      recommendation,
+    };
+  }
+
+  /**
    * Resolve a follow-up.
    */
   @Post('follow-ups/:id/resolve')
