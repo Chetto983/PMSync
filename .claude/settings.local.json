@@ -94,7 +94,11 @@
       "Skill(gsd:add-phase)",
       "Skill(gsd:add-phase:*)",
       "Bash(git clone:*)",
-      "Bash(npx next lint:*)"
+      "Bash(npx next lint:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

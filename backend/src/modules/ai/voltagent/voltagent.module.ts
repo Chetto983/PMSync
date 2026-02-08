@@ -38,6 +38,8 @@ import { VoltAgentService } from './voltagent.service';
 import { HitlService } from './services/hitl.service';
 import { ActionExecutorService } from './services/action-executor.service';
 import { MistralService } from '../services/mistral.service';
+import { MistralEmbeddingService } from '../services/mistral-embedding.service';
+import { MistralRagService } from '../services/mistral-rag.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 
 // AI services
@@ -133,6 +135,8 @@ import { RetryService } from '../../../common/services/retry.service';
     HitlService,
     ActionExecutorService,
     MistralService,
+    MistralEmbeddingService, // Required by MistralService (DI dependency)
+    MistralRagService, // Required by MistralService (DI dependency)
     EmbeddingsService,
     // AI
     WritingStyleService,
