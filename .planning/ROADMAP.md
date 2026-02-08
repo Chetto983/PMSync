@@ -456,8 +456,9 @@ Plans:
 **Wave Structure:**
 
 - Wave 1: 11-01 (dead code removal — no dependencies)
-- Wave 2: 11-02, 11-03 (parallel file splitting — no file conflicts, depends on 11-01)
-- Wave 3: 11-04, 11-05 (parallel tests + perf fixes — depends on splits being done)
+- Wave 2: 11-02 (file splits: follow-up, mistral, unified-retriever — depends on 11-01)
+- Wave 3: 11-03 (file splits: relationship-intel, email-insights, email.tools — serialized after 11-02 to avoid ai.module.ts conflicts)
+- Wave 4: 11-04, 11-05 (parallel tests + perf fixes — depends on all splits)
 
 **Deliverables:**
 
