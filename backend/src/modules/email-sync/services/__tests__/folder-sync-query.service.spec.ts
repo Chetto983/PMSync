@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FolderSyncQueryService, FolderInfo } from '../folder-sync-query.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { PrismaRetryService } from '../../../../common/services/prisma-retry.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
@@ -28,6 +29,34 @@ const mockRealtimeEvents = {
   emitFolderCountsUpdate: jest.fn(),
 };
 
+// Mock PrismaRetryService with retry simulation matching real service behavior
+const mockPrismaRetryService = {
+  withRetry: jest.fn().mockImplementation(async (fn: () => Promise<unknown>) => {
+    const maxAttempts = 3;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error: unknown) {
+        lastError = error;
+        const code = (error as { code?: string })?.code;
+        const isRetryable = code === 'P2002' || code === 'P2034';
+
+        if (!isRetryable) {
+          throw error;
+        }
+
+        if (attempt >= maxAttempts) {
+          throw error;
+        }
+        // Continue to retry for P2002/P2034
+      }
+    }
+    throw lastError;
+  }),
+};
+
 describe('FolderSyncQueryService', () => {
   let service: FolderSyncQueryService;
 
@@ -38,6 +67,7 @@ describe('FolderSyncQueryService', () => {
       providers: [
         FolderSyncQueryService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PrismaRetryService, useValue: mockPrismaRetryService },
         { provide: RealtimeEventsService, useValue: mockRealtimeEvents },
       ],
     }).compile();

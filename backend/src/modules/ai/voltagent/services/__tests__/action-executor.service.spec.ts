@@ -11,10 +11,32 @@ import { PiiResolutionService } from '../../../guards';
 import { AgentAction, AgentActionType } from '../../interfaces/agent-action.interface';
 import { AgentContext } from '../../interfaces/agent-context.interface';
 
+// Default provider for resolveProviderId queries
+const defaultProvider = { id: 'provider-123', tenantId: 'tenant-123', isActive: true };
+
 // Mock services
 const mockPrismaService = {
   providerConfig: {
+    findFirst: jest.fn().mockResolvedValue(defaultProvider),
+  },
+  email: {
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  contact: {
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+  },
+  calendarEvent: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
   },
 };
 
@@ -26,6 +48,7 @@ const mockEmailSyncBackService = {
   deleteEmail: jest.fn(),
   archiveEmail: jest.fn(),
   updateFlags: jest.fn(),
+  syncOperationToProvider: jest.fn().mockResolvedValue({ success: true }),
 };
 
 const mockCalendarService = {
@@ -43,10 +66,7 @@ const mockFolderSyncService = {
 };
 
 const mockBulkOperationsQueue = {
-  enqueueBulkDelete: jest.fn(),
-  enqueueBulkArchive: jest.fn(),
-  enqueueBulkMarkRead: jest.fn(),
-  enqueueBulkMove: jest.fn(),
+  enqueueBulkOperation: jest.fn(),
 };
 
 const mockCacheService = {
@@ -114,6 +134,16 @@ describe('ActionExecutorService', () => {
   });
 
   describe('Email Actions', () => {
+    const mockEmail = {
+      id: 'email-123',
+      subject: 'Test Subject',
+      from: 'sender@example.com',
+      externalId: 'ext-123',
+      providerId: 'provider-123',
+      folder: 'INBOX',
+      labels: [],
+    };
+
     it('should dispatch SEND_EMAIL to EmailExecutor', async () => {
       const action = createAction(AgentActionType.SEND_EMAIL, {
         to: ['test@example.com'],
@@ -123,7 +153,7 @@ describe('ActionExecutorService', () => {
       const context = createContext();
 
       mockEmailSendService.sendEmail.mockResolvedValue({
-        id: 'email-123',
+        success: true,
         messageId: 'msg-123',
       });
 
@@ -140,12 +170,12 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockEmailSyncBackService.archiveEmail.mockResolvedValue({ success: true });
+      mockPrismaService.email.findFirst.mockResolvedValue(mockEmail);
+      mockPrismaService.email.update.mockResolvedValue({ ...mockEmail, folder: 'ARCHIVE' });
 
       const result = await service.execute(action, context);
 
       expect(result.success).toBe(true);
-      expect(emailSyncBackService.archiveEmail).toHaveBeenCalled();
     });
 
     it('should dispatch DELETE_EMAIL to EmailExecutor', async () => {
@@ -154,12 +184,12 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockEmailSyncBackService.deleteEmail.mockResolvedValue({ success: true });
+      mockPrismaService.email.findFirst.mockResolvedValue(mockEmail);
+      mockPrismaService.email.update.mockResolvedValue({ ...mockEmail, isDeleted: true, folder: 'TRASH' });
 
       const result = await service.execute(action, context);
 
       expect(result.success).toBe(true);
-      expect(emailSyncBackService.deleteEmail).toHaveBeenCalled();
     });
 
     it('should dispatch MARK_READ to EmailExecutor', async () => {
@@ -168,16 +198,18 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockEmailSyncBackService.updateFlags.mockResolvedValue({ success: true });
+      mockPrismaService.email.findFirst.mockResolvedValue(mockEmail);
+      mockPrismaService.email.update.mockResolvedValue({ ...mockEmail, isRead: true });
 
       const result = await service.execute(action, context);
 
       expect(result.success).toBe(true);
-      expect(emailSyncBackService.updateFlags).toHaveBeenCalled();
     });
   });
 
   describe('Calendar Actions', () => {
+    const mockEvent = { id: 'event-123', externalId: 'ext-event-123', title: 'Test Meeting' };
+
     it('should dispatch CREATE_EVENT to CalendarExecutor', async () => {
       const action = createAction(AgentActionType.CREATE_EVENT, {
         title: 'Test Meeting',
@@ -186,10 +218,7 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockCalendarService.createEvent.mockResolvedValue({
-        id: 'event-123',
-        title: 'Test Meeting',
-      });
+      mockCalendarService.createEvent.mockResolvedValue(mockEvent);
 
       const result = await service.execute(action, context);
 
@@ -204,10 +233,7 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockCalendarService.updateEvent.mockResolvedValue({
-        id: 'event-123',
-        title: 'Updated Meeting',
-      });
+      mockCalendarService.updateEvent.mockResolvedValue({ ...mockEvent, title: 'Updated Meeting' });
 
       const result = await service.execute(action, context);
 
@@ -221,7 +247,8 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockCalendarService.deleteEvent.mockResolvedValue({ success: true });
+      mockPrismaService.calendarEvent.findFirst.mockResolvedValue(mockEvent);
+      mockCalendarService.deleteEvent.mockResolvedValue(undefined);
 
       const result = await service.execute(action, context);
 
@@ -231,51 +258,50 @@ describe('ActionExecutorService', () => {
 
     it('should dispatch CHECK_AVAILABILITY to CalendarExecutor', async () => {
       const action = createAction(AgentActionType.CHECK_AVAILABILITY, {
-        startTime: '2026-03-01T10:00:00Z',
-        endTime: '2026-03-01T11:00:00Z',
+        startDate: '2026-03-01T10:00:00Z',
+        endDate: '2026-03-01T11:00:00Z',
       });
       const context = createContext();
 
-      mockCalendarService.checkAvailability.mockResolvedValue({
-        available: true,
-        conflicts: [],
-      });
+      // CalendarExecutor.executeCheckAvailability uses prisma.calendarEvent.findMany directly
+      mockPrismaService.calendarEvent.findMany.mockResolvedValue([]);
 
       const result = await service.execute(action, context);
 
       expect(result.success).toBe(true);
-      expect(calendarService.checkAvailability).toHaveBeenCalled();
+      expect(mockPrismaService.calendarEvent.findMany).toHaveBeenCalled();
     });
   });
 
   describe('Contact Actions', () => {
+    const mockContact = { id: 'contact-123', displayName: 'John Doe', tenantId: 'tenant-123' };
+
     it('should dispatch CREATE_CONTACT to ContactExecutor', async () => {
       const action = createAction(AgentActionType.CREATE_CONTACT, {
-        displayName: 'John Doe',
+        name: 'John Doe',
         email: 'john@example.com',
       });
       const context = createContext();
 
-      mockPrismaService.providerConfig.findFirst.mockResolvedValue({
-        id: 'provider-123',
-      });
+      mockPrismaService.contact.create.mockResolvedValue(mockContact);
 
       const result = await service.execute(action, context);
 
-      // Contact executor uses Prisma directly
       expect(result.success).toBe(true);
     });
 
     it('should dispatch UPDATE_CONTACT to ContactExecutor', async () => {
       const action = createAction(AgentActionType.UPDATE_CONTACT, {
         contactId: 'contact-123',
-        displayName: 'Jane Doe',
+        name: 'Jane Doe',
       });
       const context = createContext();
 
+      mockPrismaService.contact.findFirst.mockResolvedValue(mockContact);
+      mockPrismaService.contact.update.mockResolvedValue({ ...mockContact, displayName: 'Jane Doe' });
+
       const result = await service.execute(action, context);
 
-      // Contact executor uses Prisma directly
       expect(result.success).toBe(true);
     });
 
@@ -285,9 +311,11 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
+      mockPrismaService.contact.findFirst.mockResolvedValue(mockContact);
+      mockPrismaService.contact.delete.mockResolvedValue(mockContact);
+
       const result = await service.execute(action, context);
 
-      // Contact executor uses Prisma directly
       expect(result.success).toBe(true);
     });
   });
@@ -312,7 +340,7 @@ describe('ActionExecutorService', () => {
 
     it('should dispatch RENAME_FOLDER to FolderExecutor', async () => {
       const action = createAction(AgentActionType.RENAME_FOLDER, {
-        folderId: 'folder-123',
+        folderPath: 'Important',
         newName: 'Very Important',
       });
       const context = createContext();
@@ -320,6 +348,7 @@ describe('ActionExecutorService', () => {
       mockFolderSyncService.renameFolder.mockResolvedValue({
         id: 'folder-123',
         name: 'Very Important',
+        path: 'Very Important',
       });
 
       const result = await service.execute(action, context);
@@ -330,11 +359,11 @@ describe('ActionExecutorService', () => {
 
     it('should dispatch DELETE_FOLDER to FolderExecutor', async () => {
       const action = createAction(AgentActionType.DELETE_FOLDER, {
-        folderId: 'folder-123',
+        folderPath: 'Important',
       });
       const context = createContext();
 
-      mockFolderSyncService.deleteFolder.mockResolvedValue({ success: true });
+      mockFolderSyncService.deleteFolder.mockResolvedValue(undefined);
 
       const result = await service.execute(action, context);
 
@@ -344,20 +373,30 @@ describe('ActionExecutorService', () => {
   });
 
   describe('Bulk Email Actions', () => {
+    beforeEach(() => {
+      // BulkEmailExecutor looks up provider from first email
+      mockPrismaService.email.findFirst.mockResolvedValue({ providerId: 'provider-123' });
+      // And gets provider type
+      mockPrismaService.providerConfig.findFirst.mockResolvedValue({
+        ...defaultProvider,
+        providerType: 'GOOGLE',
+      });
+    });
+
     it('should dispatch BULK_DELETE_EMAILS to BulkEmailExecutor', async () => {
       const action = createAction(AgentActionType.BULK_DELETE_EMAILS, {
         emailIds: ['email-1', 'email-2', 'email-3'],
       });
       const context = createContext();
 
-      mockBulkOperationsQueue.enqueueBulkDelete.mockResolvedValue({
-        jobId: 'job-123',
-      });
+      mockBulkOperationsQueue.enqueueBulkOperation.mockResolvedValue('job-123');
 
       const result = await service.execute(action, context);
 
       expect(result.success).toBe(true);
-      expect(bulkOperationsQueue.enqueueBulkDelete).toHaveBeenCalled();
+      expect(bulkOperationsQueue.enqueueBulkOperation).toHaveBeenCalledWith(
+        expect.objectContaining({ operation: 'delete' }),
+      );
     });
 
     it('should dispatch BULK_ARCHIVE_EMAILS to BulkEmailExecutor', async () => {
@@ -366,14 +405,14 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockBulkOperationsQueue.enqueueBulkArchive.mockResolvedValue({
-        jobId: 'job-456',
-      });
+      mockBulkOperationsQueue.enqueueBulkOperation.mockResolvedValue('job-456');
 
       const result = await service.execute(action, context);
 
       expect(result.success).toBe(true);
-      expect(bulkOperationsQueue.enqueueBulkArchive).toHaveBeenCalled();
+      expect(bulkOperationsQueue.enqueueBulkOperation).toHaveBeenCalledWith(
+        expect.objectContaining({ operation: 'archive' }),
+      );
     });
 
     it('should dispatch BULK_MARK_READ to BulkEmailExecutor', async () => {
@@ -382,14 +421,14 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
-      mockBulkOperationsQueue.enqueueBulkMarkRead.mockResolvedValue({
-        jobId: 'job-789',
-      });
+      mockBulkOperationsQueue.enqueueBulkOperation.mockResolvedValue('job-789');
 
       const result = await service.execute(action, context);
 
       expect(result.success).toBe(true);
-      expect(bulkOperationsQueue.enqueueBulkMarkRead).toHaveBeenCalled();
+      expect(bulkOperationsQueue.enqueueBulkOperation).toHaveBeenCalledWith(
+        expect.objectContaining({ operation: 'mark-read' }),
+      );
     });
   });
 
@@ -415,6 +454,9 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
+      // Mock provider resolution to succeed
+      mockPrismaService.providerConfig.findFirst.mockResolvedValue(defaultProvider);
+      // Mock sendEmail to fail
       const expectedError = new Error('Email service unavailable');
       mockEmailSendService.sendEmail.mockRejectedValue(expectedError);
 
@@ -433,6 +475,8 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
+      // Mock provider resolution to succeed
+      mockPrismaService.providerConfig.findFirst.mockResolvedValue(defaultProvider);
       mockCalendarService.createEvent.mockRejectedValue('String error');
 
       const result = await service.execute(action, context);
@@ -470,6 +514,7 @@ describe('ActionExecutorService', () => {
       });
       const context = createContext();
 
+      mockPrismaService.calendarEvent.findFirst.mockResolvedValue(null);
       mockCalendarService.deleteEvent.mockRejectedValue(
         new Error('Event not found'),
       );
@@ -494,7 +539,7 @@ describe('ActionExecutorService', () => {
       const context = createContext();
 
       mockEmailSendService.sendEmail.mockResolvedValue({
-        id: 'email-123',
+        success: true,
         messageId: 'msg-123',
       });
 

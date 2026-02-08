@@ -4,8 +4,8 @@
 
 **Version:** v3.0
 **Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management
-**Total Phases:** 11
-**Total Requirements:** 17
+**Total Phases:** 12
+**Total Requirements:** 19
 
 **Key deliverables:**
 - Clean VoltAgent integration with modern patterns
@@ -36,6 +36,9 @@
 | TOOL-01 | Email tool triage data exposure (priority, labels, sentiment, follow-ups) | 08 |
 | ARTIFACT-01 | Smart tool result renderers replacing raw JSON in chat UI | 09 |
 | REVIEW-01 | UI review and visual polish pass | 10 |
+| AUDIT-01 | AI module audit (dead code, file splits, tests, perf fixes) | 11 |
+| FIX-01 | Fix failing ActionExecutor tests + emailType display | 12 |
+| FIX-02 | WCAG aria-input-field-name fix for ComposeDialog | 12 |
 
 ## Phase Summary
 
@@ -43,15 +46,16 @@
 |-------|------|--------------|-------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3/3 | ✅ COMPLETE |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | 4/4 | ✅ COMPLETE |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 0/3 | ❌ NOT PLANNED |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 0/3 | ⏳ GAP CLOSURE |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2/3 | ⏳ GAP CLOSURE |
 | 05 | Nested Labels Frontend | LABELS-01 | 2/2 | ✅ COMPLETE |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5/5 | ✅ COMPLETE |
 | 07 | Chat Improvement | CHAT-04 | 6/6 | ✅ COMPLETE |
 | 08 | Email Tool Triage Exposure | TOOL-01 | 2/2 | ✅ COMPLETE |
-| 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | 0/0 | ❌ NOT PLANNED |
+| 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | informal | ✅ COMPLETE |
 | 10 | UI Review | REVIEW-01 | 8/8 | ✅ COMPLETE |
-| 11 | AI Module Audit | AUDIT-01 | 5/5 | ⏳ PLANNED |
+| 11 | AI Module Audit | AUDIT-01 | 5/5 | ✅ COMPLETE |
+| 12 | Test Fixes + Minor Gaps | FIX-01/02 | 0/2 | ⏳ GAP CLOSURE |
 
 ---
 
@@ -129,7 +133,7 @@
 
 **Goal:** AI-powered email prioritization and importance scoring
 
-**Status:** NOT PLANNED (gap closure required)
+**Status:** GAP CLOSURE (identified by milestone audit 2026-02-08)
 
 **Requirements:**
 - TRIAGE-01: Priority scoring model (0-100 scale)
@@ -280,7 +284,7 @@ Plans:
 
 **Goal:** Modernize AiDashboard architecture and enhance visual design to match 2025 AI chat standards (Claude, ChatGPT)
 
-**Status:** PLANNED
+**Status:** COMPLETE
 
 **Requirements:**
 - CHAT-04: Chat improvement features
@@ -297,12 +301,12 @@ Plans:
 
 **Plans:** 6 plans
 
-- [ ] 07-01-PLAN.md — AiDashboard monolith split: useChatController, ChatArea, DesktopLayout, MobileLayout
-- [ ] 07-02-PLAN.md — Modern message bubbles + useChatScroll hook + scroll-to-bottom button
-- [ ] 07-03-PLAN.md — Wire Reasoning/Shimmer components, replace TypingIndicator
-- [ ] 07-04-PLAN.md — Wire MessageActions hover bar, fix QuickActions hardcoded colors
-- [ ] 07-05-PLAN.md — Wire Artifact, ChainOfThought, Sources for structured output
-- [ ] 07-06-PLAN.md — Compact header + human verification checkpoint
+- [x] 07-01-PLAN.md — AiDashboard monolith split: useChatController, ChatArea, DesktopLayout, MobileLayout
+- [x] 07-02-PLAN.md — Modern message bubbles + useChatScroll hook + scroll-to-bottom button
+- [x] 07-03-PLAN.md — Wire Reasoning/Shimmer components, replace TypingIndicator
+- [x] 07-04-PLAN.md — Wire MessageActions hover bar, fix QuickActions hardcoded colors
+- [x] 07-05-PLAN.md — Wire Artifact, ChainOfThought, Sources for structured output
+- [x] 07-06-PLAN.md — Compact header + human verification checkpoint
 
 **Wave Structure:**
 - Wave 1: 07-01, 07-02 (parallel - different files: index.tsx vs ChatMessages.tsx)
@@ -326,7 +330,7 @@ Plans:
 
 **Goal:** Fix the write-but-never-read antipattern: all VoltAgent email listing tools are blind to AI triage data (priority, sentiment, labels, follow-ups) that is already computed and stored in the database.
 
-**Status:** NOT PLANNED
+**Status:** COMPLETE
 
 **Requirements:**
 - TOOL-01: Email tool triage data exposure — add aiPriority, aiSentiment, aiLabels, labels, followUp to all email listing/content select statements; add filter parameters (priority, label, needsFollowUp) to listing tools; create a follow-up listing tool
@@ -344,8 +348,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Triage fields in all email tool selects + DB index
-- [ ] 08-02-PLAN.md — Filter params on listing tools + list_follow_ups tool
+- [x] 08-01-PLAN.md — Triage fields in all email tool selects + DB index
+- [x] 08-02-PLAN.md — Filter params on listing tools + list_follow_ups tool
 
 **Deliverables:**
 - All email listing tools include triage fields in select
@@ -359,7 +363,7 @@ Plans:
 
 **Goal:** Replace raw JSON tool result rendering in chat with semantic, tool-specific UI components. Each tool type gets a custom renderer (email lists, follow-ups, contacts, events, etc.) instead of dumping JSON code blocks.
 
-**Status:** NOT PLANNED
+**Status:** COMPLETE (built informally — no formal plans, needs verification)
 
 **Requirements:**
 - ARTIFACT-01: Smart tool result renderers — registry-based system mapping toolName to custom React components; renderers for email list, email content, follow-ups, contacts, events, counts, folders, analysis, memory; improved fallback for unknown tools; hidden parameters; collapsible raw JSON debug
@@ -370,10 +374,12 @@ Plans:
 
 **Inspiration:** [assistant-ui](https://github.com/assistant-ui/assistant-ui) `makeAssistantToolUI` pattern — custom React renderers per tool type.
 
-**Plans:** 0 plans (NOT CREATED)
+**Plans:** Built informally (no formal plan files)
 
-Plans:
-- [ ] TBD (run /gsd:plan-phase 09 to break down)
+Implementation:
+- [x] Tool renderer registry at `frontend/src/components/ai-elements/tool-renderers/index.ts`
+- [x] 10 custom renderers + FallbackRenderer
+- [x] SmartToolOutput integrated in ChatMessages.tsx
 
 **Deliverables:**
 - Tool renderer registry mapping toolName -> React component
@@ -434,7 +440,7 @@ Plans:
 
 **Goal:** Clean, maintainable AI module — zero dead code, all files under 500 lines, safety-critical services tested, performance gaps fixed
 
-**Status:** PLANNED
+**Status:** COMPLETE
 
 **Requirements:**
 - AUDIT-01: AI module audit — dead code removal, dependency cleanup, file splitting (500-line limit), test coverage for safety-critical services, performance fixes
@@ -447,11 +453,11 @@ Plans:
 
 Plans:
 
-- [ ] 11-01-PLAN.md — Dead code removal + unused dependency cleanup (~1,600 lines deleted)
-- [ ] 11-02-PLAN.md — File splitting: follow-up.service, mistral.service, unified-retriever
-- [ ] 11-03-PLAN.md — File splitting: relationship-intelligence, email-insights, email.tools
-- [ ] 11-04-PLAN.md — Tests for safety-critical services (HITL, PII detection, prompt guard)
-- [ ] 11-05-PLAN.md — Tests for action executor + performance/reliability fixes
+- [x] 11-01-PLAN.md — Dead code removal + unused dependency cleanup (~1,876 lines deleted)
+- [x] 11-02-PLAN.md — File splitting: follow-up.service, mistral.service, unified-retriever
+- [x] 11-03-PLAN.md — File splitting: relationship-intelligence, email-insights, email.tools
+- [x] 11-04-PLAN.md — Tests for safety-critical services (HITL, PII detection, prompt guard)
+- [x] 11-05-PLAN.md — Tests for action executor + performance/reliability fixes
 
 **Wave Structure:**
 
@@ -473,19 +479,60 @@ Plans:
 
 ---
 
+## Phase 12: Test Fixes + Minor Gaps
+
+**Goal:** Close remaining tech debt — fix failing tests, wire orphaned UI elements, fix WCAG gap
+
+**Status:** GAP CLOSURE (identified by milestone audit 2026-02-08)
+
+**Requirements:**
+
+- FIX-01: Fix ActionExecutor tests (16/25 failing due to incomplete Prisma mocks) + display emailType in FollowUpCard
+- FIX-02: WCAG aria-input-field-name fix for ComposeDialog
+
+**Dependencies:** Phase 11 (AI Module Audit — ActionExecutor tests created in 11-05)
+
+**Why twelfth:** Audit found 16 failing tests from Phase 11-05 (incomplete Prisma mocks) and minor UI gaps (emailType computed but never displayed, WCAG exclusion for ComposeDialog).
+
+**Plans:** 2 plans (NOT CREATED)
+
+- [ ] 12-01-PLAN.md — Fix ActionExecutor test Prisma mocks + emailType display in FollowUpCard/FollowUpRenderer
+- [ ] 12-02-PLAN.md — WCAG aria-input-field-name fix for ComposeDialog
+
+**Wave Structure:**
+
+- Wave 1: 12-01, 12-02 (parallel — no file conflicts)
+
+**Deliverables:**
+
+- ActionExecutor tests: 25/25 passing
+- emailType badge visible on follow-up cards
+- ComposeDialog passes aria-input-field-name WCAG rule
+- Zero remaining axe-core exclusions for tested rules
+
+---
+
 ## Execution Order
 
 ```
-Wave 1: Phase 01 (Infrastructure) ─────────────────────────────┐
-                                                               │
-Wave 2: Phase 02 (Chat) ───────────┐                           │
-        Phase 03 (Auto-Triage) ────┼─ parallel after 01 ──────>│
-                                   │                           │
-Wave 3: Phase 04 (Follow-Ups) ─────┤                           ├──> v3.0 Complete
-        Phase 05 (Nested Labels) ──┘── can run anytime ────────┘
+Completed:
+  Phase 01 (Infrastructure) ✅
+  Phase 02 (Chat Overhaul) ✅
+  Phase 05 (Nested Labels) ✅
+  Phase 06 (Chat UI + Email Tools) ✅
+  Phase 07 (Chat Improvement) ✅
+  Phase 08 (Triage Exposure) ✅
+  Phase 09 (Smart Renderers) ✅
+  Phase 10 (UI Review) ✅
+  Phase 11 (AI Module Audit) ✅
+
+Gap Closure (remaining):
+  Phase 03 (Auto-Triage) ────┐
+  Phase 04-03 (SnoozeDialog) ┼── parallel, no dependencies ──> v3.0 Complete
+  Phase 12 (Test Fixes) ─────┘
 ```
 
-**Estimated timeline:** 22+ plans total (3 + 3 + 3 + 2 + 2 + 5 + 6 + TBD)
+**Total plans:** 35+ (32 complete + 3 gap closure phases)
 
 ---
 
@@ -503,12 +550,15 @@ Wave 3: Phase 04 (Follow-Ups) ─────┤                           ├�
 
 ## Success Criteria
 
-- [ ] 15/15 requirements satisfied
-- [ ] AI chat first token <500ms
-- [ ] Priority scoring 90%+ accuracy after 1 week
-- [ ] Follow-ups dashboard functional with two types
-- [ ] Nested labels drag-drop working
-- [ ] No regressions in existing functionality
+- [x] AI chat first token <500ms
+- [x] Follow-ups dashboard functional with two types
+- [x] Nested labels drag-drop working
+- [x] No regressions in existing functionality
+- [ ] 19/19 requirements satisfied (currently 13/19)
+- [ ] Priority scoring implemented and functional
+- [ ] SnoozeDialog UI wires useSmartTiming hook
+- [ ] ActionExecutor tests passing (currently 9/25)
+- [ ] Formal verification on phases 05, 07, 09, 10, 11
 
 ---
 

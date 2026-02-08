@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 11 of 11 — AI Module Audit
-Plan: 05 of 5
-Status: ✅ COMPLETE
-Last activity: 2026-02-08 — Phase 11 complete (AI Module Audit)
+Phase: Gap closure — Phases 03, 04-03, 12
+Plan: Pending planning
+Status: ⏳ GAP CLOSURE
+Last activity: 2026-02-08 — Milestone audit identified gaps, created closure phases
 
 Progress: v3.0
 ```
-[██████████████████████████████████████████████] 100% (32/32 plans)
+[██████████████████████████████████████████░░░░] 91% (32/35 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Phase 11 complete (AI Module Audit)
+Stopped at: Gap closure phases created after milestone audit
 Resume file: None
-Next action: Phase 11 complete - all v3.0 core phases finished
+Next action: Plan Phase 03 (Auto-Triage) — `/gsd:plan-phase 03`
 
 ## Accumulated Decisions
 
@@ -143,6 +143,7 @@ Next action: Phase 11 complete - all v3.0 core phases finished
 - Phase 09 added: Chat Artifact Smart Renderers (2026-02-07) — raw JSON tool results replaced with semantic UI renderers per tool type
 - Phase 10 added: UI Review (2026-02-07) — visual polish pass for design consistency and modern standards
 - Phase 11 added: AI Module Audit (2026-02-08)
+- Phase 12 added: Test Fixes + Minor Gaps (2026-02-08) — gap closure from milestone audit
 
 ## Milestones
 
@@ -161,53 +162,55 @@ See: .planning/MILESTONES.md
 - 3 phases, 5 plans
 - 5 requirements (OPT-01/02, POLISH-01/02, API-01)
 
-## v3.0 Roadmap -- 7 Phases, 22 Plans
+## v3.0 Roadmap -- 12 Phases, 35 Plans
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | ✅ COMPLETE (3/3 plans) |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | ✅ COMPLETE (4/4 plans) |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | Ready to plan |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ⏳ GAP CLOSURE (0/3 plans) |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | ⏳ GAP CLOSURE (2/3 plans) |
 | 05 | Nested Labels Frontend | LABELS-01 | ✅ COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | ✅ COMPLETE (5/5 plans) |
-| 07 | Chat Improvement | CHAT-04 | PENDING VERIFICATION (6/6 plans) |
+| 07 | Chat Improvement | CHAT-04 | ✅ COMPLETE (6/6 plans) |
 | 08 | Email Tool Triage Exposure | TOOL-01 | ✅ COMPLETE (2/2 plans) |
-| 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | NOT PLANNED |
+| 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | ✅ COMPLETE (informal) |
 | 10 | UI Review | REVIEW-01 | ✅ COMPLETE (8/8 plans) |
 | 11 | AI Module Audit | AUDIT-01 | ✅ COMPLETE (5/5 plans) |
+| 12 | Test Fixes + Minor Gaps | FIX-01/02 | ⏳ GAP CLOSURE (0/2 plans) |
 
 **Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
 
 ## Next Steps
 
-**Currently:** Phase 11-02 complete (Large File Splitting). Ready for 11-03.
+**Currently:** Gap closure after milestone audit.
 
-**Completed phases:**
+**Completed phases (9/12):**
 - Phase 01: AI Infrastructure Cleanup (3/3 plans) ✅
 - Phase 02: AI Chat Overhaul (4/4 plans) ✅
 - Phase 05: Nested Labels Frontend (2/2 plans) ✅
 - Phase 06: Chat UI and Agent Tool on Mail (5/5 plans) ✅
 - Phase 07: Chat Improvement (6/6 plans) ✅
 - Phase 08: Email Tool Triage Exposure (2/2 plans) ✅
+- Phase 09: Chat Artifact Smart Renderers (informal) ✅
 - Phase 10: UI Review (8/8 plans) ✅
-
-**In progress:**
-- Phase 04: Follow-Ups Refactor (2/3 plans) ⏳ — 04-03 pending
 - Phase 11: AI Module Audit (5/5 plans) ✅
 
-**Remaining phases:**
-- Phase 03: Auto-Triage Core (0/3 plans — NOT PLANNED)
-- Phase 09: Chat Artifact Smart Renderers (NOT PLANNED)
+**Gap closure (3 remaining):**
+- Phase 03: Auto-Triage Core (0/3 plans) — needs `/gsd:plan-phase 03`
+- Phase 04-03: SnoozeDialog UI (1 plan) — needs plan + execution
+- Phase 12: Test Fixes + Minor Gaps (0/2 plans) — needs `/gsd:plan-phase 12`
 
 **Known issues carried forward:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 - Pre-existing lint error in LabelTreeDndWrapper.tsx (resetState accessed before declaration)
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
+- 16/25 ActionExecutor tests failing (incomplete Prisma mocks — Phase 12)
+- Formal verification needed on phases 05, 07, 09, 10, 11
 
 ---
-*State updated: 2026-02-08 -- Phase 11 complete (AI Module Audit)*
+*State updated: 2026-02-08 -- Gap closure phases created after milestone audit*
 
 ## Phase 11 Accomplishments
 
