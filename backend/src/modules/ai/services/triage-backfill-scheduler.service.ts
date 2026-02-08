@@ -1,12 +1,13 @@
 import { Job, Queue, Worker } from 'bullmq';
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailTriageService } from './email-triage.service';
+import { TriageLearningService } from './triage-learning.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 
 interface BackfillJobData {
-  type: 'scheduled' | 'manual';
+  type: 'scheduled' | 'manual' | 'recalculation';
   tenantId?: string; // Optional: specific tenant
   userId?: string; // Optional: specific user
 }
@@ -19,14 +20,10 @@ interface BackfillResult {
   tenantsProcessed: number;
 }
 
-/**
- * Automatic triage backfill scheduler using BullMQ.
- * Finds emails with isAutoTriaged=false and triggers triage.
- *
- * Similar pattern to EmbeddingBackfillSchedulerService.
- *
- * @see EmbeddingBackfillSchedulerService for reference implementation
- */
+/** Folders excluded from backfill and recalculation */
+const SKIP_FOLDERS = ['SPAM', 'TRASH', 'SENT', 'DRAFTS', 'ARCHIVE'];
+
+/** Automatic triage backfill scheduler + nightly recalculation using BullMQ. */
 @Injectable()
 export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TriageBackfillSchedulerService.name);
@@ -42,6 +39,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     private readonly prisma: PrismaService,
     private readonly triageService: EmailTriageService,
     private readonly configService: ConfigService,
+    @Optional() private readonly triageLearningService?: TriageLearningService,
   ) {
     this.ENABLED =
       (this.configService.get<string>('TRIAGE_BACKFILL_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -81,6 +79,9 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     this.worker = new Worker<BackfillJobData, BackfillResult>(
       QUEUE_NAMES.TRIAGE_BACKFILL || 'triage-backfill',
       async (job: Job<BackfillJobData>) => {
+        if (job.data.type === 'recalculation') {
+          return this.processRecalculation(job);
+        }
         return this.processBackfillJob(job);
       },
       {
@@ -121,15 +122,18 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   }
 
   private async setupRepeatableJob() {
-    // Remove existing repeatable job
+    // Remove existing repeatable jobs
     const repeatableJobs = await this.queue.getRepeatableJobs();
     for (const job of repeatableJobs) {
-      if (job.name === 'scheduled-triage-backfill') {
+      if (
+        job.name === 'scheduled-triage-backfill' ||
+        job.name === 'nightly-recalculation'
+      ) {
         await this.queue.removeRepeatableByKey(job.key);
       }
     }
 
-    // Add new repeatable job
+    // Add hourly backfill job
     await this.queue.add(
       'scheduled-triage-backfill',
       { type: 'scheduled' },
@@ -140,6 +144,18 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
         jobId: 'triage-backfill-scheduled',
       },
     );
+
+    // Nightly recalculation job (updates priorities using learned weights)
+    await this.queue.add(
+      'nightly-recalculation',
+      { type: 'recalculation' },
+      {
+        repeat: { pattern: '0 3 * * *' }, // 3 AM daily
+        jobId: 'triage-nightly-recalculation',
+      },
+    );
+
+    this.logger.debug('Repeatable jobs configured: hourly backfill + nightly recalculation');
   }
 
   /**
@@ -219,13 +235,10 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     const cutoff = new Date();
     cutoff.setHours(cutoff.getHours() - 48); // Last 48 hours
 
-    // Skip folders (based on actual DB values - all UPPERCASE)
-    const skipFolders = ['SPAM', 'TRASH', 'SENT', 'DRAFTS', 'ARCHIVE'];
-
     const whereClause: Record<string, unknown> = {
       isAutoTriaged: false,
       receivedAt: { gte: cutoff },
-      folder: { notIn: skipFolders },
+      folder: { notIn: SKIP_FOLDERS },
       isDeleted: false,
       isDraft: false,
     };
@@ -280,6 +293,135 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /** Re-triages stale emails using updated sender behavior weights. */
+  private async processRecalculation(job: Job<BackfillJobData>): Promise<BackfillResult> {
+    const emptyResult: BackfillResult = { processed: 0, successful: 0, failed: 0, skipped: 0, tenantsProcessed: 0 };
+
+    if (!this.triageLearningService) {
+      this.logger.warn('Recalculation skipped: TriageLearningService not available');
+      return emptyResult;
+    }
+
+    const activeTenants = await this.findActiveTenants(job.data.tenantId);
+    if (activeTenants.length === 0) {
+      this.logger.debug('Recalculation: no active tenants found');
+      return emptyResult;
+    }
+
+    this.logger.log(`Recalculation starting for ${activeTenants.length} tenants`);
+    let totalRecalculated = 0, totalChanged = 0, totalFailed = 0;
+
+    for (const tenant of activeTenants) {
+      try {
+        const r = await this.recalculateTenant(tenant.tenantId, tenant.userId);
+        totalRecalculated += r.recalculated;
+        totalChanged += r.changed;
+        totalFailed += r.failed;
+        await job.updateProgress({
+          tenantsProcessed: activeTenants.indexOf(tenant) + 1,
+          totalTenants: activeTenants.length,
+        });
+        await this.sleep(500);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Recalculation failed for tenant ${tenant.tenantId}: ${msg}`);
+      }
+    }
+
+    this.logger.log(`Recalculation complete: ${totalRecalculated} emails, ${totalChanged} changed, ${totalFailed} failed`);
+    return {
+      processed: totalRecalculated, successful: totalChanged,
+      failed: totalFailed, skipped: totalRecalculated - totalChanged - totalFailed,
+      tenantsProcessed: activeTenants.length,
+    };
+  }
+
+  /** Recalculate triage for a single tenant's stale emails (>24h old, limit 100). */
+  private async recalculateTenant(
+    tenantId: string,
+    userId: string,
+  ): Promise<{ recalculated: number; changed: number; failed: number }> {
+    const cutoff = new Date();
+    cutoff.setHours(cutoff.getHours() - 24);
+
+    // Find emails triaged >24h ago with aiPriority set
+    const staleEmails = await this.prisma.email.findMany({
+      where: {
+        tenantId,
+        isAutoTriaged: true,
+        aiPriority: { not: null },
+        updatedAt: { lte: cutoff },
+        folder: { notIn: SKIP_FOLDERS },
+        isDeleted: false,
+        isDraft: false,
+      },
+      select: {
+        id: true,
+        aiPriority: true,
+      },
+      orderBy: { updatedAt: 'asc' }, // Oldest first
+      take: 100, // Limit per tenant per run
+    });
+
+    if (staleEmails.length === 0) return { recalculated: 0, changed: 0, failed: 0 };
+
+    this.logger.debug(
+      `Recalculating ${staleEmails.length} stale emails for tenant ${tenantId}`,
+    );
+
+    let changed = 0;
+    let failed = 0;
+
+    for (const email of staleEmails) {
+      try {
+        const prevPriority = email.aiPriority;
+        const result = await this.triageService.triageEmail(email.id, {
+          tenantId,
+          userId,
+        });
+
+        if (result.aiPriority !== prevPriority) {
+          changed++;
+        }
+      } catch (error) {
+        failed++;
+        this.logger.debug(
+          `Recalculation failed for email ${email.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return { recalculated: staleEmails.length, changed, failed };
+  }
+
+  /** Find active tenants with a userId (for recalculation). */
+  private async findActiveTenants(
+    specificTenantId?: string,
+  ): Promise<Array<{ tenantId: string; userId: string }>> {
+    const tenants = specificTenantId
+      ? [{ id: specificTenantId }]
+      : await this.prisma.tenant.findMany({
+          where: { isActive: true, deletedAt: null },
+          select: { id: true },
+          take: 50,
+        });
+
+    if (tenants.length === 0) return [];
+
+    const results: Array<{ tenantId: string; userId: string }> = [];
+    for (const t of tenants) {
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { tenantId: t.id },
+        select: { userId: true },
+      });
+      if (provider?.userId) {
+        results.push({ tenantId: t.id, userId: provider.userId });
+      }
+    }
+
+    return results;
+  }
+
   /**
    * Get current backfill status
    */
@@ -301,7 +443,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       where: {
         isAutoTriaged: false,
         receivedAt: { gte: cutoff },
-        folder: { notIn: ['SPAM', 'TRASH', 'SENT', 'DRAFTS', 'ARCHIVE'] },
+        folder: { notIn: SKIP_FOLDERS },
         isDeleted: false,
         isDraft: false,
       },
