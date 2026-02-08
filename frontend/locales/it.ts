@@ -2655,6 +2655,15 @@ export const it: AppTranslations = {
         confidence: 'Affidabilità',
         emailType: 'Tipo email',
       },
+      // Etichette tipo email (Phase 12-01)
+      emailTypes: {
+        receipt: 'Ricevuta',
+        notification: 'Notifica',
+        request: 'Richiesta',
+        conversation: 'Conversazione',
+        newsletter: 'Newsletter',
+        alert: 'Avviso',
+      },
       // Tempistica intelligente (Phase 04-02)
       smartTiming: {
         title: 'Tempistica intelligente',

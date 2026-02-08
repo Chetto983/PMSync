@@ -16,13 +16,14 @@
  * - aria-prohibited-attr: MUI internal clone elements add aria-label to span
  * - button-name: Some icon buttons missing aria-label (needs component updates)
  * - label: Checkboxes need aria-label (needs component updates)
- * - aria-input-field-name: Compose selects/TipTap editor need labels
+ *
+ * Fixed in Phase 12-02:
+ * - aria-input-field-name: ComposeDialog, ComposeEditor, ComposeRecipients
  *
  * TODO: Phase 9 - Fix remaining violations in components:
  * - ThreadListHeader: Add aria-label to select-all checkbox
  * - ThreadListItem: Add aria-label to row checkbox
  * - Sidebar: Add aria-labels to icon buttons
- * - ComposeDialog: Add aria-labels to selects and TipTap editor
  */
 
 import { test, expect } from './fixtures';
@@ -34,9 +35,9 @@ import AxeBuilder from '@axe-core/playwright';
  * These are documented as tech debt and will be addressed in future phases.
  * Each exclusion is justified:
  * - Library constraints (dnd-kit, MUI internals)
- * - Component updates needed (aria-labels for compose inputs)
  *
  * Phase 10-01 fixed: button-name, label, color-contrast
+ * Phase 12-02 fixed: aria-input-field-name (ComposeDialog, ComposeEditor, ComposeRecipients)
  */
 const EXCLUDED_RULES = [
   // @dnd-kit wraps items in role="button" containing checkboxes/buttons
@@ -50,11 +51,6 @@ const EXCLUDED_RULES = [
   // MUI internal clones add aria-label to spans without role
   // Fix requires: upstream MUI change (cosmetic issue)
   'aria-prohibited-attr',
-
-  // Compose selects and TipTap editor missing accessible names
-  // Fix requires: aria-label on Select and TipTap editor components
-  // Components: ComposeDialog, TipTap toolbar selects
-  'aria-input-field-name',
 ];
 
 // Helper to format violation details for test output

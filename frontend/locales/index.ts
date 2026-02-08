@@ -2722,6 +2722,14 @@ export interface AppTranslations {
         confidence: string;
         emailType: string;
       };
+      emailTypes?: {
+        receipt: string;
+        notification: string;
+        request: string;
+        conversation: string;
+        newsletter: string;
+        alert: string;
+      };
       smartTiming: {
         title: string;
         recommended: string;

@@ -2674,6 +2674,15 @@ export const en: AppTranslations = {
         confidence: 'Confidence',
         emailType: 'Email type',
       },
+      // Email type badges (Phase 12-01)
+      emailTypes: {
+        receipt: 'Receipt',
+        notification: 'Notification',
+        request: 'Request',
+        conversation: 'Conversation',
+        newsletter: 'Newsletter',
+        alert: 'Alert',
+      },
       // Smart timing (Phase 04-02)
       smartTiming: {
         title: 'Smart Timing',
