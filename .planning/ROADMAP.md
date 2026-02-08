@@ -502,8 +502,9 @@ Plans:
 
 **Why twelfth:** Audit found 16 failing tests from Phase 11-05 (incomplete Prisma mocks) and minor UI gaps (emailType computed but never displayed, WCAG exclusion for ComposeDialog).
 
-**Plans:** 2 plans (NOT CREATED)
+**Plans:** 2 plans
 
+Plans:
 - [ ] 12-01-PLAN.md — Fix ActionExecutor test Prisma mocks + emailType display in FollowUpCard/FollowUpRenderer
 - [ ] 12-02-PLAN.md — WCAG aria-input-field-name fix for ComposeDialog
 
