@@ -1,4 +1,5 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, OnModuleInit, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MistralService } from './services/mistral.service';
 import { MistralEmbeddingService } from './services/mistral-embedding.service';
 import { MistralRagService } from './services/mistral-rag.service';
@@ -96,4 +97,29 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
     VoltAgentModule,
   ],
 })
-export class AiModule {}
+export class AiModule implements OnModuleInit {
+  private readonly logger = new Logger(AiModule.name);
+
+  constructor(private readonly configService: ConfigService) {}
+
+  onModuleInit() {
+    // Validate MISTRAL_API_KEY at startup in production
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+    const mistralApiKey = this.configService.get<string>('MISTRAL_API_KEY');
+
+    if (nodeEnv === 'production' && !mistralApiKey) {
+      throw new Error(
+        'MISTRAL_API_KEY is required in production. Set the environment variable to enable AI features.'
+      );
+    }
+
+    if (!mistralApiKey) {
+      this.logger.warn(
+        'MISTRAL_API_KEY not configured - AI features will be limited or unavailable. ' +
+        'Set MISTRAL_API_KEY environment variable to enable full functionality.'
+      );
+    } else {
+      this.logger.log('MISTRAL_API_KEY configured successfully');
+    }
+  }
+}

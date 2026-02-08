@@ -12,6 +12,9 @@ import { KeywordSearchService, type KeywordSearchResult } from './keyword-search
 const EMAIL_ADDRESS_REGEX = /\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i;
 const STOPWORDS = new Set(['a', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'but', 'by', 'for', 'from', 'how', 'if', 'in', 'is', 'it', 'me', 'my', 'of', 'on', 'or', 'our', 'that', 'the', 'their', 'then', 'there', 'this', 'to', 'was', 'we', 'were', 'what', 'when', 'where', 'which', 'who', 'why', 'with', 'you', 'your', 'che', 'chi', 'come', 'da', 'dei', 'degli', 'delle', 'del', 'della', 'di', 'e', 'gli', 'il', 'in', 'la', 'le', 'lo', 'ma', 'nel', 'nella', 'nelle', 'nello', 'no', 'non', 'o', 'per', 'perche', 'quando', 'questo', 'su', 'un', 'una', 'uno', 'si']);
 
+/** RAG query timeout in milliseconds (configurable via env var, default: 10s) */
+const RAG_QUERY_TIMEOUT_MS = parseInt(process.env.RAG_QUERY_TIMEOUT_MS || '10000', 10);
+
 export type SearchSource = 'emails' | 'contacts' | 'deadlines' | 'followups' | 'actions' | 'memories';
 
 type MemItem = { id: string; content: string; category: string; score: number };
@@ -114,16 +117,27 @@ export class UnifiedRetriever extends BaseRetriever {
     const promises: Promise<SourceResult>[] = [];
     const sourceNames: SearchSource[] = [];
 
-    if (sources.includes('emails')) { promises.push(this.searchEmails(query)); sourceNames.push('emails'); }
-    if (sources.includes('contacts')) { promises.push(this.searchContacts(query)); sourceNames.push('contacts'); }
-    if (sources.includes('deadlines')) { promises.push(this.searchDeadlines(query)); sourceNames.push('deadlines'); }
-    if (sources.includes('followups')) { promises.push(this.searchFollowUps(query)); sourceNames.push('followups'); }
-    if (sources.includes('actions')) { promises.push(this.searchActionItems(query)); sourceNames.push('actions'); }
+    // Wrap each search with timeout
+    const withTimeout = <T>(promise: Promise<T>, source: SearchSource): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`RAG query timeout (${RAG_QUERY_TIMEOUT_MS}ms) for ${source}`)), RAG_QUERY_TIMEOUT_MS)
+        ),
+      ]);
+    };
+
+    if (sources.includes('emails')) { promises.push(withTimeout(this.searchEmails(query), 'emails')); sourceNames.push('emails'); }
+    if (sources.includes('contacts')) { promises.push(withTimeout(this.searchContacts(query), 'contacts')); sourceNames.push('contacts'); }
+    if (sources.includes('deadlines')) { promises.push(withTimeout(this.searchDeadlines(query), 'deadlines')); sourceNames.push('deadlines'); }
+    if (sources.includes('followups')) { promises.push(withTimeout(this.searchFollowUps(query), 'followups')); sourceNames.push('followups'); }
+    if (sources.includes('actions')) { promises.push(withTimeout(this.searchActionItems(query), 'actions')); sourceNames.push('actions'); }
 
     const results = await Promise.allSettled(promises);
     return results.map((result, index) => {
       if (result.status === 'fulfilled') return result.value;
-      this.nestLogger.warn(`Search failed for source ${sourceNames[index]}: ${result.reason}`);
+      const errorMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      this.nestLogger.warn(`Search failed for source ${sourceNames[index]}: ${errorMsg}`);
       return { source: sourceNames[index], items: [] };
     });
   }

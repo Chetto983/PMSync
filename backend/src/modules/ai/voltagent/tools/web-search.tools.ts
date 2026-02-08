@@ -58,8 +58,10 @@ const WEB_CACHE_TTL_SEC = 15 * 60;
  * Keys include tenantId:userId for GDPR isolation
  */
 const fallbackSearchCache = new Map<string, { result: WebSearchResult; timestamp: number }>();
-/** Agent pool keyed by locale:tenantId for tenant isolation */
+/** Agent pool keyed by locale:tenantId for tenant isolation (with TTL and max size) */
 const fallbackAgentPool = new Map<string, { agentId: string; createdAt: number }>();
+
+import { getAgentFromPool, setAgentInPool, clearAgentFromPool } from './agent-pool-cache';
 
 /**
  * Build GDPR-compliant cache key with tenant and user isolation
@@ -262,16 +264,16 @@ async function getOrCreateWebSearchAgent(
   const cacheKey = buildAgentPoolKey(locale, tenantId);
   const agentType = MistralAgentType.WEB_SEARCH;
 
-  // 1. Check memory cache first (fast path)
-  const memCached = fallbackAgentPool.get(cacheKey);
-  if (memCached) {
-    const exists = await verifyAgentExists(client, memCached.agentId);
+  // 1. Check memory cache first (fast path) - with TTL check
+  const cachedAgentId = getAgentFromPool(fallbackAgentPool, cacheKey);
+  if (cachedAgentId) {
+    const exists = await verifyAgentExists(client, cachedAgentId);
     if (exists) {
-      logger.debug(`Reusing memory-cached web search agent: ${memCached.agentId}`);
-      return memCached.agentId;
+      logger.debug(`Reusing memory-cached web search agent: ${cachedAgentId}`);
+      return cachedAgentId;
     }
     // Agent gone from Mistral, clear memory cache
-    fallbackAgentPool.delete(cacheKey);
+    clearAgentFromPool(fallbackAgentPool, cacheKey);
   }
 
   // 2. Check PostgreSQL (persistent storage)
@@ -285,8 +287,8 @@ async function getOrCreateWebSearchAgent(
     const exists = await verifyAgentExists(client, dbAgent.agentId);
     if (exists) {
       logger.debug(`Reusing DB-stored web search agent: ${dbAgent.agentId} for ${locale}:${tenantId}`);
-      // Update memory cache
-      fallbackAgentPool.set(cacheKey, { agentId: dbAgent.agentId, createdAt: Date.now() });
+      // Update memory cache with TTL enforcement
+      setAgentInPool(fallbackAgentPool, cacheKey, dbAgent.agentId);
       return dbAgent.agentId;
     }
     // Agent gone from Mistral, delete from DB
@@ -353,8 +355,8 @@ You help users find current information relevant to their email workflow:
     model,
   });
 
-  // 5. Update memory cache
-  fallbackAgentPool.set(cacheKey, { agentId: persistedAgentId, createdAt: Date.now() });
+  // 5. Update memory cache with TTL and max size enforcement
+  setAgentInPool(fallbackAgentPool, cacheKey, persistedAgentId);
 
   return persistedAgentId;
 }
@@ -369,7 +371,7 @@ async function clearAgentFromCache(
   cacheService?: CacheService,
 ): Promise<void> {
   const cacheKey = buildAgentPoolKey(locale, tenantId);
-  fallbackAgentPool.delete(cacheKey);
+  clearAgentFromPool(fallbackAgentPool, cacheKey);
   if (cacheService?.isHealthy()) {
     await cacheService.del(cacheKey, { namespace: CacheNamespace.WEB_SEARCH_AGENT });
   }
@@ -614,7 +616,7 @@ export async function deleteTenantAgents(
 
     // Clear from memory cache
     const cacheKey = buildAgentPoolKey(agent.locale as SupportedLocale, tenantId);
-    fallbackAgentPool.delete(cacheKey);
+    clearAgentFromPool(fallbackAgentPool, cacheKey);
   }
 
   // 3. Delete records from PostgreSQL for successfully deleted agents
