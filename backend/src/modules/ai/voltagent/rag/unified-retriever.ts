@@ -21,34 +21,17 @@ export interface SourceResult { source: SearchSource; items: SrcItem[]; }
 interface RankedResult { source: SearchSource; content: string; score: number; metadata?: Record<string, unknown>; }
 export interface UnifiedRetrieverOptions { tenantId: string; userId: string; locale: SupportedLocale; prisma: PrismaService; mistralService?: MistralService; embeddingsService?: EmbeddingsService; queryAnalyzer?: QueryAnalyzerService; memoryLimit?: number; emailLimit?: number; contactLimit?: number; deadlineLimit?: number; followupLimit?: number; actionLimit?: number; finalLimit?: number; memoryBoost?: number; diversityLambda?: number; recencyBoost?: number; recencyHalfLifeDays?: number; }
 
-/** Advanced Unified RAG Retriever with memory-first approach. */
 export class UnifiedRetriever extends BaseRetriever {
   private readonly nestLogger = new Logger(UnifiedRetriever.name);
-  private readonly tenantId: string;
-  private readonly userId: string;
-  private readonly locale: SupportedLocale;
-  private readonly prisma: PrismaService;
-  private readonly mistralService?: MistralService;
-  private readonly embeddingsService?: EmbeddingsService;
-  private readonly queryAnalyzer?: QueryAnalyzerService;
-
-  private readonly vectorSearch = new VectorSearchService();
-  private readonly keywordSearch = new KeywordSearchService();
-
-  private readonly memoryLimit: number;
-  private readonly emailLimit: number;
-  private readonly contactLimit: number;
-  private readonly deadlineLimit: number;
-  private readonly followupLimit: number;
-  private readonly actionLimit: number;
-  private readonly finalLimit: number;
-  private readonly memoryBoost: number;
-  private readonly diversityLambda: number;
-  private readonly recencyBoost: number;
-  private readonly recencyHalfLifeDays: number;
-
-  private readonly MIN_RESULT_SCORE = 0.01;
-  private readonly MIN_RESULTS_THRESHOLD = 3;
+  private readonly tenantId: string; private readonly userId: string; private readonly locale: SupportedLocale;
+  private readonly prisma: PrismaService; private readonly mistralService?: MistralService;
+  private readonly embeddingsService?: EmbeddingsService; private readonly queryAnalyzer?: QueryAnalyzerService;
+  private readonly vectorSearch = new VectorSearchService(); private readonly keywordSearch = new KeywordSearchService();
+  private readonly memoryLimit: number; private readonly emailLimit: number; private readonly contactLimit: number;
+  private readonly deadlineLimit: number; private readonly followupLimit: number; private readonly actionLimit: number;
+  private readonly finalLimit: number; private readonly memoryBoost: number; private readonly diversityLambda: number;
+  private readonly recencyBoost: number; private readonly recencyHalfLifeDays: number;
+  private readonly MIN_RESULT_SCORE = 0.01; private readonly MIN_RESULTS_THRESHOLD = 3;
 
   constructor(options: UnifiedRetrieverOptions) {
     super();
@@ -60,26 +43,14 @@ export class UnifiedRetriever extends BaseRetriever {
     this.embeddingsService = options.embeddingsService;
     this.queryAnalyzer = options.queryAnalyzer;
 
-    // Wire up dependencies for search services
-    if (this.mistralService && this.embeddingsService) {
-      this.vectorSearch.setDependencies({ mistralService: this.mistralService, embeddingsService: this.embeddingsService, prisma: this.prisma });
-    }
+    if (this.mistralService && this.embeddingsService) this.vectorSearch.setDependencies({ mistralService: this.mistralService, embeddingsService: this.embeddingsService, prisma: this.prisma });
     this.keywordSearch.setDependencies({ prisma: this.prisma });
-
-    this.memoryLimit = options.memoryLimit ?? 5;
-    this.emailLimit = options.emailLimit ?? 10;
-    this.contactLimit = options.contactLimit ?? 10;
-    this.deadlineLimit = options.deadlineLimit ?? 5;
-    this.followupLimit = options.followupLimit ?? 5;
-    this.actionLimit = options.actionLimit ?? 5;
-    this.finalLimit = options.finalLimit ?? 10;
-    this.memoryBoost = options.memoryBoost ?? 0.2;
-    this.diversityLambda = options.diversityLambda ?? 0.7;
-    this.recencyBoost = options.recencyBoost ?? 0.15;
-    this.recencyHalfLifeDays = options.recencyHalfLifeDays ?? 30;
+    this.memoryLimit = options.memoryLimit ?? 5; this.emailLimit = options.emailLimit ?? 10; this.contactLimit = options.contactLimit ?? 10;
+    this.deadlineLimit = options.deadlineLimit ?? 5; this.followupLimit = options.followupLimit ?? 5; this.actionLimit = options.actionLimit ?? 5;
+    this.finalLimit = options.finalLimit ?? 10; this.memoryBoost = options.memoryBoost ?? 0.2; this.diversityLambda = options.diversityLambda ?? 0.7;
+    this.recencyBoost = options.recencyBoost ?? 0.15; this.recencyHalfLifeDays = options.recencyHalfLifeDays ?? 30;
   }
 
-  /** Main retrieval method - implements memory-first unified RAG. */
   async retrieve(input: string | BaseMessage[]): Promise<string> {
     const query = this.extractQuery(input);
     if (!query || query.trim().length < 3) return '';
@@ -139,7 +110,6 @@ export class UnifiedRetriever extends BaseRetriever {
     return { facts: [], preferences: [], contacts: [], history: [] };
   }
 
-  /** Multi-Source Retrieval with RRF Fusion. */
   async searchSources(query: string, sources: SearchSource[]): Promise<SourceResult[]> {
     const promises: Promise<SourceResult>[] = [];
     const sourceNames: SearchSource[] = [];
@@ -158,7 +128,6 @@ export class UnifiedRetriever extends BaseRetriever {
     });
   }
 
-  /** Hybrid email search with RRF fusion (vector + keyword). */
   private async searchEmails(query: string): Promise<SourceResult> {
     const RRF_K = 60;
     const rrfScores = new Map<string, { score: number; content: string; metadata: Record<string, unknown> }>();
@@ -197,7 +166,6 @@ export class UnifiedRetriever extends BaseRetriever {
     return { source: 'emails', items };
   }
 
-  /** Hybrid contact search with RRF fusion (vector + keyword). */
   private async searchContacts(query: string): Promise<SourceResult> {
     const RRF_K = 60;
     const rrfScores = new Map<string, { score: number; content: string; metadata: Record<string, unknown> }>();
@@ -231,7 +199,6 @@ export class UnifiedRetriever extends BaseRetriever {
     return { source: 'contacts', items };
   }
 
-  /** Search deadlines from EmailAnalysis. */
   private async searchDeadlines(_query: string): Promise<SourceResult> {
     try {
       const providers = await this.prisma.providerConfig.findMany({
@@ -258,7 +225,6 @@ export class UnifiedRetriever extends BaseRetriever {
     }
   }
 
-  /** Search follow-ups. */
   private async searchFollowUps(query: string): Promise<SourceResult> {
     try {
       const followups = await this.prisma.emailFollowUp.findMany({
@@ -287,7 +253,6 @@ export class UnifiedRetriever extends BaseRetriever {
     }
   }
 
-  /** Search action items from ActionQueue. */
   private async searchActionItems(_query: string): Promise<SourceResult> {
     try {
       const actions = await this.prisma.actionQueue.findMany({
@@ -309,7 +274,6 @@ export class UnifiedRetriever extends BaseRetriever {
     }
   }
 
-  /** Fusion & Re-ranking with memory boost and recency boost. */
   fuseAndRerank(
     _query: string,
     results: SourceResult[],
