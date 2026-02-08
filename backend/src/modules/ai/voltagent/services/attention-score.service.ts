@@ -274,10 +274,14 @@ export class AttentionScoreService {
         select: {
           relationshipScore: true,
           totalInteractions: true,
+          isVip: true,
         },
       });
 
       if (contact) {
+        // User-defined VIP always gets max sender importance (handles cache-miss edge case)
+        if (contact.isVip) return 1.0;
+
         // Known contact - score based on relationship
         const relScore = contact.relationshipScore || 0;
         const interactions = contact.totalInteractions || 0;
@@ -434,18 +438,21 @@ export class AttentionScoreService {
       return this.vipCache.get(tenantId)!;
     }
 
-    // Fetch top contacts
+    // Fetch top contacts (both auto-detected VIPs by score AND user-defined VIPs)
     const topContacts = await this.prisma.contact.findMany({
       where: {
         tenantId,
         isDeleted: false,
-        relationshipScore: { gte: 50 },
+        OR: [
+          { relationshipScore: { gte: 50 } },
+          { isVip: true },
+        ],
       },
       select: {
         emails: true,
       },
       orderBy: { relationshipScore: 'desc' },
-      take: 20,
+      take: 50, // Accommodate both auto-detected and user-defined VIPs
     });
 
     // Extract emails
