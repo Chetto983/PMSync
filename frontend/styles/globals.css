@@ -127,6 +127,18 @@
   }
 }
 
+/* Accessibility: Consistent focus indicators (WCAG 2.1 AA) */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Accessibility: Respect user's reduced motion preference (WCAG 2.1 AA) */
 @media (prefers-reduced-motion: reduce) {
   *,
