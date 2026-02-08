@@ -48,6 +48,7 @@ import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
 import { FollowUpService } from './services/follow-up.service';
+import { FollowUpCrudService } from './services/follow-up-crud.service';
 import { FollowUpQueueService } from './services/follow-up-queue.service';
 import { FollowUpScannerService } from './services/follow-up-scanner.service';
 import { FollowUpExtractionService } from './services/follow-up-extraction.service';
@@ -139,6 +140,7 @@ import { RetryService } from '../../../common/services/retry.service';
     FollowUpQueueService,
     FollowUpScannerService,
     FollowUpService,
+    FollowUpCrudService,
     FollowUpExtractionService,
     AnalyticsService,
     UnifiedKnowledgeService,

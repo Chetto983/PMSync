@@ -29,6 +29,7 @@ export type { AgentType } from '../types';
 // AI Features
 export * from './daily-briefing.service';
 export * from './follow-up.service';
+export * from './follow-up-crud.service';
 export * from './follow-up-queue.service';
 export * from './follow-up-scanner.service';
 export * from './follow-up-extraction.service';
