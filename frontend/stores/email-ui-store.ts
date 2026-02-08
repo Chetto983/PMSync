@@ -170,6 +170,8 @@ interface EmailUIState {
   moveEmailToColumn: (emailId: string, columnId: KanbanColumnId) => void;
   getEmailColumn: (emailId: string) => KanbanColumnId;
   clearKanbanAssignments: () => void;
+  /** Remove kanban assignments for emails that no longer exist */
+  pruneKanbanAssignments: (validEmailIds: Set<string>) => void;
 
   // Reset
   reset: () => void;
@@ -439,6 +441,17 @@ export const useEmailUIStore = create<EmailUIState>()(
       clearKanbanAssignments: () =>
         set({ kanbanAssignments: {} }),
 
+      pruneKanbanAssignments: (validEmailIds) =>
+        set((state) => {
+          const pruned: KanbanColumnAssignments = {};
+          for (const [id, col] of Object.entries(state.kanbanAssignments)) {
+            if (validEmailIds.has(id)) {
+              pruned[id] = col;
+            }
+          }
+          return { kanbanAssignments: pruned };
+        }),
+
       // Reset
       reset: () =>
         set({
@@ -518,5 +531,6 @@ export const useEmailKanban = () =>
       moveEmailToColumn: state.moveEmailToColumn,
       getEmailColumn: state.getEmailColumn,
       clearKanbanAssignments: state.clearKanbanAssignments,
+      pruneKanbanAssignments: state.pruneKanbanAssignments,
     }))
   );

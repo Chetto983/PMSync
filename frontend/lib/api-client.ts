@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth-store';
+import { getAuthToken } from '@/lib/utils/auth-token';
 
 // =============================================================================
 // CSRF Token Management (SEC-04)
@@ -53,9 +54,9 @@ export async function getCsrfToken(): Promise<string> {
       csrfTokenPromise = null;
       return csrfToken!;
     })
-    .catch((err) => {
+    .catch((_err) => {
       csrfTokenPromise = null;
-      console.warn('Failed to fetch CSRF token:', err);
+      //console.warn('Failed to fetch CSRF token:', err);
       return '';
     });
 
@@ -107,19 +108,9 @@ export function getApiErrorMessage(error: unknown): string {
 // Add token and CSRF header to requests
 apiClient.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
-    // Read auth token from Zustand persist storage (auth-storage)
-    // Format: {"state":{"token":"..."},"version":0}
-    const stored = localStorage.getItem('auth-storage');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const token = parsed?.state?.token;
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      } catch {
-        // Invalid JSON, skip
-      }
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
     // CSRF token for mutations (SEC-04)

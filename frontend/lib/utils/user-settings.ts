@@ -48,17 +48,6 @@ export const DEFAULT_USER_SETTINGS: StoredUserSettings = {
 
 const isBrowser = typeof window !== 'undefined';
 
-const readLegacyTheme = (): ThemePreference => {
-  if (!isBrowser) {
-    return DEFAULT_USER_SETTINGS.theme;
-  }
-  const legacyTheme = window.localStorage.getItem('pmSyncTheme');
-  if (legacyTheme === 'light' || legacyTheme === 'dark') {
-    return legacyTheme;
-  }
-  return DEFAULT_USER_SETTINGS.theme;
-};
-
 // Locale storage key used by useLocale hook
 const LOCALE_STORAGE_KEY_READ = 'mailagent:locale';
 
@@ -73,7 +62,6 @@ export const getStoredUserSettings = (): StoredUserSettings => {
     const existingLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY_READ);
     const settings = {
       ...DEFAULT_USER_SETTINGS,
-      theme: readLegacyTheme(),
       language: existingLocale || DEFAULT_USER_SETTINGS.language,
     };
     // Sync locale key on first access
@@ -97,10 +85,7 @@ export const getStoredUserSettings = (): StoredUserSettings => {
     return settings;
   } catch (error) {
     logger.warn('Failed to parse stored user settings', { error });
-    return {
-      ...DEFAULT_USER_SETTINGS,
-      theme: readLegacyTheme(),
-    };
+    return { ...DEFAULT_USER_SETTINGS };
   }
 };
 
@@ -136,12 +121,6 @@ export const persistUserSettings = (updates: Partial<StoredUserSettings>): Store
 
   window.localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify(next));
 
-  if (next.theme) {
-    // Keep legacy key in sync for any other code still referencing it
-    const resolved = resolveThemePreference(next.theme);
-    window.localStorage.setItem('pmSyncTheme', resolved);
-  }
-
   // Sync language to mailagent:locale key used by useLocale hook
   if (updates.language) {
     window.localStorage.setItem(LOCALE_STORAGE_KEY_READ, updates.language);
@@ -157,7 +136,6 @@ export const resetUserSettings = (): StoredUserSettings => {
     return DEFAULT_USER_SETTINGS;
   }
   window.localStorage.removeItem(USER_SETTINGS_STORAGE_KEY);
-  window.localStorage.removeItem('pmSyncTheme');
   window.dispatchEvent(new CustomEvent(USER_SETTINGS_EVENT, { detail: DEFAULT_USER_SETTINGS }));
   return DEFAULT_USER_SETTINGS;
 };

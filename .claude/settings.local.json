@@ -93,7 +93,8 @@
       "Bash(cmd /c:*)",
       "Skill(gsd:add-phase)",
       "Skill(gsd:add-phase:*)",
-      "Bash(git clone:*)"
+      "Bash(git clone:*)",
+      "Bash(npx next lint:*)"
     ],
     "deny": [],
     "ask": []

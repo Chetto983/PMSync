@@ -1,19 +1,5 @@
 import { apiClient, API_BASE_URL } from '../api-client';
-
-// Helper to get auth token from storage
-function getAuthToken(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    const stored = localStorage.getItem('auth-storage');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed?.state?.token || '';
-    }
-  } catch {
-    // Ignore
-  }
-  return '';
-}
+import { getAuthToken } from '../utils/auth-token';
 
 // ============ Personalization Types (migrated from deleted personalization.ts) ============
 

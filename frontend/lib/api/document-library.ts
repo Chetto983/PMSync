@@ -14,6 +14,7 @@
  * @see https://docs.mistral.ai/agents/tools/built-in/document_library
  */
 import { apiClient, API_BASE_URL } from '../api-client';
+import { getAuthToken } from '../utils/auth-token';
 
 // ============================================================================
 // Types
@@ -146,19 +147,7 @@ export const documentLibraryApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    // Get auth token from localStorage
-    let authToken = '';
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('auth-storage');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          authToken = parsed?.state?.token || '';
-        }
-      } catch {
-        // Ignore
-      }
-    }
+    const authToken = getAuthToken();
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

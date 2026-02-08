@@ -37,10 +37,12 @@ interface DailyBriefingProps {
   onDismiss?: () => void;
 }
 
+const BRIEFING_DISMISSED_KEY = 'briefing-dismissed';
+
 // Check if dismissed for today
 function getInitialDismissed(): boolean {
   if (typeof window === 'undefined') return false;
-  const dismissedDate = localStorage.getItem('briefing-dismissed');
+  const dismissedDate = localStorage.getItem(BRIEFING_DISMISSED_KEY);
   return dismissedDate === new Date().toDateString();
 }
 
@@ -72,7 +74,7 @@ export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('briefing-dismissed', new Date().toDateString());
+    localStorage.setItem(BRIEFING_DISMISSED_KEY, new Date().toDateString());
     setDismissed(true);
     onDismiss?.();
   };

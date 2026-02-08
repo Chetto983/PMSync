@@ -16,6 +16,7 @@ import { DefaultChatTransport } from 'ai';
 import { useCallback, useState, useMemo, useRef, useEffect } from 'react';
 
 import { getCsrfToken } from '@/lib/api-client';
+import { getAuthToken } from '@/lib/utils/auth-token';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -115,16 +116,6 @@ export interface UseVoltAgentChatReturn {
 }
 
 // ============ Helpers ============
-
-function getAuthToken(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    const stored = localStorage.getItem('auth-storage');
-    return JSON.parse(stored || '{}')?.state?.token || '';
-  } catch {
-    return '';
-  }
-}
 
 function generateConversationId(): string {
   return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

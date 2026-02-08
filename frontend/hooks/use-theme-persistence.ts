@@ -44,11 +44,6 @@ function getLocalTheme(): ThemeMode {
   if (stored === 'light' || stored === 'dark' || stored === 'system') {
     return stored;
   }
-  // Check legacy key
-  const legacy = localStorage.getItem('pmSyncTheme');
-  if (legacy === 'light' || legacy === 'dark') {
-    return legacy;
-  }
   return 'system';
 }
 
@@ -58,10 +53,6 @@ function getLocalTheme(): ThemeMode {
 function setLocalTheme(theme: ThemeMode): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(THEME_STORAGE_KEY, theme);
-  // Keep legacy key in sync
-  if (theme !== 'system') {
-    localStorage.setItem('pmSyncTheme', theme);
-  }
 }
 
 export function useThemePersistence(): UseThemePersistenceReturn {
