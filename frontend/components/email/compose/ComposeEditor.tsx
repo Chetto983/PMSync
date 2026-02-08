@@ -324,6 +324,9 @@ export default function ComposeEditor({
         editorProps={{
           handleDrop: handleDrop,
           handlePaste: handlePaste,
+          attributes: {
+            'aria-label': editorPlaceholder,
+          },
         }}
         onUpdate={({ editor }) => {
           if (onChange) {
