@@ -58,6 +58,7 @@ import { DocumentLibraryService } from './services/document-library.service';
 
 // CRM & Scheduling
 import { RelationshipIntelligenceService } from './services/relationship-intelligence.service';
+import { RelationshipScoringService } from './services/relationship-scoring.service';
 import { AttentionScoreService } from './services/attention-score.service';
 import { CrmBackfillProcessor, ReconnectReminderProcessor } from './jobs';
 import { CalendarConflictService } from './services/calendar-conflict.service';
@@ -149,6 +150,7 @@ import { RetryService } from '../../../common/services/retry.service';
     DocumentLibraryService,
     // CRM & Scheduling
     RelationshipIntelligenceService,
+    RelationshipScoringService,
     AttentionScoreService,
     CrmBackfillProcessor,
     ReconnectReminderProcessor,
@@ -197,6 +199,7 @@ import { RetryService } from '../../../common/services/retry.service';
     AnalyticsService,
     UnifiedKnowledgeService,
     RelationshipIntelligenceService,
+    RelationshipScoringService,
     AttentionScoreService,
     CrmBackfillProcessor,
     ReconnectReminderProcessor,

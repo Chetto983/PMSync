@@ -8,6 +8,7 @@ export * from './action-executor.service';
 
 // CRM & Scheduling
 export * from './relationship-intelligence.service';
+export { RelationshipScoringService } from './relationship-scoring.service';
 export * from './calendar-conflict.service';
 export * from './focus-time.service';
 export * from './meeting-prep.service';
