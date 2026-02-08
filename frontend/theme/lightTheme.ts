@@ -12,6 +12,7 @@ import {
   transitions,
   glass,
   lightColors,
+  layout,
   zIndex,
 } from './tokens';
 import { typography, shape } from './typography';
@@ -101,6 +102,10 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
             boxShadow: shadows.light.glow,
           },
         },
+        containedSecondary: {
+          background: brand.gradientPurple,
+          '&:hover': { boxShadow: shadows.light.glowPurple },
+        },
         outlined: {
           borderWidth: '1.5px',
           '&:hover': { borderWidth: '1.5px', backgroundColor: lightColors.primary.hover },
@@ -109,8 +114,21 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
           borderColor: alpha(lightColors.primary.main, 0.5),
           '&:hover': { borderColor: lightColors.primary.main },
         },
+        text: { '&:hover': { backgroundColor: lightColors.action.hover } },
         sizeSmall: { padding: '6px 14px', fontSize: fontSize.sm, borderRadius: borderRadius.DEFAULT },
         sizeLarge: { padding: '14px 28px', fontSize: fontSize.md, borderRadius: borderRadius.lg },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.md,
+          transition: `all ${transitions.duration.fast}ms ${transitions.easing.DEFAULT}`,
+          '&:hover': { backgroundColor: lightColors.action.hover },
+        },
+        sizeSmall: { padding: 6 },
+        sizeMedium: { padding: 8 },
+        sizeLarge: { padding: 12 },
       },
     },
 
@@ -118,10 +136,16 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
     MuiPaper: {
       defaultProps: { elevation: 0 },
       styleOverrides: {
-        root: { backgroundImage: 'none', borderRadius: borderRadius.lg },
+        root: {
+          backgroundImage: 'none',
+          borderRadius: borderRadius.lg,
+          transition: `all ${transitions.duration.DEFAULT}ms ${transitions.easing.DEFAULT}`,
+        },
+        elevation0: { boxShadow: 'none' },
         elevation1: { boxShadow: shadows.light.sm },
         elevation2: { boxShadow: shadows.light.DEFAULT },
         elevation3: { boxShadow: shadows.light.md },
+        elevation4: { boxShadow: shadows.light.lg },
       },
     },
     MuiCard: {
@@ -132,7 +156,7 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
           border: '1px solid',
           borderColor: lightColors.border.default,
           backgroundColor: lightColors.background.paper,
-          boxShadow: shadows.light.sm,
+          transition: `all ${transitions.duration.DEFAULT}ms ${transitions.easing.DEFAULT}`,
           '&:hover': {
             borderColor: lightColors.primary.main, // Brand Cyan border on hover
             boxShadow: shadows.light.lg,
@@ -140,6 +164,21 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
           },
         },
       },
+    },
+    MuiCardHeader: {
+      styleOverrides: {
+        root: { padding: layout.card.padding.md },
+        title: { fontSize: fontSize.md, fontWeight: fontWeight.semibold },
+        subheader: { fontSize: fontSize.sm, color: lightColors.text.secondary },
+      },
+    },
+    MuiCardContent: {
+      styleOverrides: {
+        root: { padding: layout.card.padding.md, '&:last-child': { paddingBottom: layout.card.padding.md } },
+      },
+    },
+    MuiCardActions: {
+      styleOverrides: { root: { padding: `12px ${layout.card.padding.md}px` } },
     },
 
     // TEXT FIELDS & INPUTS
@@ -150,12 +189,89 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
           '& .MuiOutlinedInput-root': {
             borderRadius: borderRadius.md,
             backgroundColor: lightColors.background.subtle,
-            '& fieldset': { borderColor: lightColors.border.default },
+            transition: `all ${transitions.duration.DEFAULT}ms ${transitions.easing.DEFAULT}`,
+            '& fieldset': {
+              borderColor: lightColors.border.default,
+              borderWidth: '1px',
+              transition: `all ${transitions.duration.fast}ms ${transitions.easing.DEFAULT}`,
+            },
             '&:hover fieldset': { borderColor: lightColors.border.strong },
             '&.Mui-focused fieldset': { borderColor: lightColors.primary.main, borderWidth: '2px' },
             '&.Mui-focused': { boxShadow: `0 0 0 3px ${lightColors.primary.focus}` },
           },
         },
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        root: { fontSize: fontSize.base },
+        input: { '&::placeholder': { opacity: 0.5, color: lightColors.text.tertiary } },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: { borderRadius: borderRadius.md },
+        notchedOutline: { borderColor: lightColors.border.default },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          fontSize: fontSize.base,
+          color: lightColors.text.secondary,
+          '&.Mui-focused': { color: lightColors.primary.main },
+        },
+      },
+    },
+
+    // SELECT & AUTOCOMPLETE
+    MuiSelect: {
+      styleOverrides: { select: { borderRadius: borderRadius.md } },
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        paper: {
+          borderRadius: borderRadius.lg,
+          border: `1px solid ${lightColors.border.default}`,
+          boxShadow: shadows.light.lg,
+          marginTop: 4,
+        },
+        listbox: { padding: 4 },
+        option: {
+          borderRadius: borderRadius.DEFAULT,
+          margin: '2px 4px',
+          '&[aria-selected="true"]': { backgroundColor: lightColors.primary.selected },
+          '&:hover': { backgroundColor: lightColors.action.hover },
+        },
+      },
+    },
+
+    // LISTS & NAVIGATION
+    MuiList: { styleOverrides: { root: { padding: 4 } } },
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.md,
+          margin: '2px 4px',
+          padding: '10px 12px',
+          transition: `all ${transitions.duration.fast}ms ${transitions.easing.DEFAULT}`,
+          '&:hover': { backgroundColor: lightColors.background.hover },
+          '&.Mui-selected': {
+            backgroundColor: lightColors.primary.selected,
+            '&:hover': { backgroundColor: lightColors.primary.selected },
+            '& .MuiListItemIcon-root': { color: lightColors.primary.main },
+            '& .MuiListItemText-primary': { color: lightColors.primary.main, fontWeight: fontWeight.semibold },
+          },
+        },
+      },
+    },
+    MuiListItemIcon: {
+      styleOverrides: { root: { minWidth: 36, color: lightColors.text.secondary } },
+    },
+    MuiListItemText: {
+      styleOverrides: {
+        primary: { fontSize: fontSize.base, fontWeight: fontWeight.medium },
+        secondary: { fontSize: fontSize.sm, color: lightColors.text.tertiary },
       },
     },
 
@@ -164,7 +280,8 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
       styleOverrides: {
         paper: {
           backgroundColor: lightColors.background.paper,
-          borderRight: `1px solid ${lightColors.border.default}`,
+          borderRight: `1px solid ${lightColors.border.subtle}`,
+          boxShadow: 'none',
         },
       },
     },
@@ -183,22 +300,43 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
         },
       },
     },
+    MuiToolbar: {
+      styleOverrides: { root: { minHeight: `${layout.header.height}px !important` } },
+    },
 
-    // LISTS & NAVIGATION
-    MuiListItemButton: {
+    // TABLES
+    MuiTableContainer: {
+      styleOverrides: {
+        root: { borderRadius: borderRadius.lg, border: `1px solid ${lightColors.border.default}` },
+      },
+    },
+    MuiTableHead: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.md,
-          margin: '2px 4px',
-          padding: '10px 12px',
-          '&:hover': { backgroundColor: lightColors.background.hover },
-          '&.Mui-selected': {
-            backgroundColor: lightColors.primary.selected,
-            '&:hover': { backgroundColor: lightColors.primary.selected },
-            '& .MuiListItemIcon-root': { color: lightColors.primary.main },
-            '& .MuiListItemText-primary': { color: lightColors.primary.main, fontWeight: fontWeight.semibold },
+          backgroundColor: lightColors.background.subtle,
+          '& .MuiTableCell-head': {
+            fontWeight: fontWeight.semibold,
+            fontSize: fontSize.xs,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: lightColors.text.secondary,
+            borderBottom: `1px solid ${lightColors.border.default}`,
           },
         },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          transition: `background-color ${transitions.duration.fast}ms ${transitions.easing.DEFAULT}`,
+          '&:hover': { backgroundColor: lightColors.background.hover },
+          '&:last-child td': { borderBottom: 0 },
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: { borderBottom: `1px solid ${lightColors.border.subtle}`, padding: '14px 16px', fontSize: fontSize.base },
       },
     },
 
@@ -210,15 +348,41 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
         colorWarning: { backgroundColor: lightColors.warning.subtle, color: lightColors.warning.dark },
         colorError: { backgroundColor: lightColors.error.subtle, color: lightColors.error.dark },
         colorInfo: { backgroundColor: lightColors.info.subtle, color: lightColors.info.dark },
+        outlined: { borderWidth: '1.5px' },
+        sizeSmall: { height: 22, fontSize: '0.6875rem' },
       },
+    },
+    MuiBadge: {
+      styleOverrides: { badge: { fontWeight: fontWeight.semibold, fontSize: '0.625rem' } },
     },
 
     // DIALOGS & MODALS
     MuiDialog: {
-      styleOverrides: { paper: { borderRadius: borderRadius['2xl'], boxShadow: shadows.light.xl } },
+      styleOverrides: {
+        paper: {
+          borderRadius: borderRadius['2xl'],
+          backgroundColor: lightColors.background.elevated,
+          border: `1px solid ${lightColors.border.default}`,
+          boxShadow: shadows.light.xl,
+        },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: { root: { padding: '20px 24px 16px', fontSize: fontSize.lg, fontWeight: fontWeight.semibold } },
+    },
+    MuiDialogContent: { styleOverrides: { root: { padding: '16px 24px' } } },
+    MuiDialogActions: { styleOverrides: { root: { padding: '16px 24px 20px', gap: 12 } } },
+    MuiBackdrop: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: glass.blur.sm,
+          WebkitBackdropFilter: glass.blur.sm,
+        },
+      },
     },
 
-    // TOOLTIPS
+    // TOOLTIPS & POPOVERS
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
@@ -230,28 +394,171 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
           borderRadius: borderRadius.DEFAULT,
           boxShadow: shadows.light.md,
         },
+        arrow: { color: lightColors.text.primary },
+      },
+    },
+    MuiPopover: {
+      styleOverrides: {
+        paper: {
+          borderRadius: borderRadius.lg,
+          border: `1px solid ${lightColors.border.default}`,
+          boxShadow: shadows.light.lg,
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          borderRadius: borderRadius.lg,
+          border: `1px solid ${lightColors.border.default}`,
+          boxShadow: shadows.light.lg,
+          marginTop: 4,
+        },
+        list: { padding: 4 },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.DEFAULT,
+          margin: '2px 4px',
+          padding: '8px 12px',
+          fontSize: fontSize.base,
+          '&:hover': { backgroundColor: lightColors.action.hover },
+          '&.Mui-selected': {
+            backgroundColor: lightColors.primary.selected,
+            '&:hover': { backgroundColor: lightColors.primary.selected },
+          },
+        },
       },
     },
 
-    // ALERTS
+    // TABS
+    MuiTabs: {
+      styleOverrides: {
+        root: { minHeight: 44 },
+        indicator: { height: 3, borderRadius: '3px 3px 0 0', background: brand.gradient },
+      },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          fontWeight: fontWeight.medium,
+          fontSize: fontSize.base,
+          minHeight: 44,
+          padding: '12px 16px',
+          transition: `color ${transitions.duration.fast}ms ${transitions.easing.DEFAULT}`,
+          '&.Mui-selected': { fontWeight: fontWeight.semibold },
+        },
+      },
+    },
+
+    // ALERTS & SNACKBARS
     MuiAlert: {
       styleOverrides: {
-        root: { borderRadius: borderRadius.lg },
+        root: { borderRadius: borderRadius.lg, padding: '12px 16px' },
         standardSuccess: { backgroundColor: lightColors.success.subtle, color: lightColors.success.dark },
         standardWarning: { backgroundColor: lightColors.warning.subtle, color: lightColors.warning.dark },
         standardError: { backgroundColor: lightColors.error.subtle, color: lightColors.error.dark },
         standardInfo: { backgroundColor: lightColors.info.subtle, color: lightColors.info.dark },
       },
     },
+    MuiSnackbar: {
+      styleOverrides: { root: { '& .MuiPaper-root': { borderRadius: borderRadius.lg } } },
+    },
 
-    // SKELETON
+    // AVATARS
+    MuiAvatar: {
+      styleOverrides: {
+        root: { fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
+        colorDefault: { background: brand.gradient, color: '#ffffff' },
+      },
+    },
+    MuiAvatarGroup: {
+      styleOverrides: { avatar: { borderWidth: 2, borderColor: lightColors.background.paper } },
+    },
+
+    // SKELETON & LOADING
     MuiSkeleton: {
-      styleOverrides: { root: { backgroundColor: lightColors.background.hover } },
+      styleOverrides: {
+        root: { backgroundColor: lightColors.background.hover },
+        rounded: { borderRadius: borderRadius.md },
+      },
+    },
+    MuiLinearProgress: {
+      styleOverrides: {
+        root: { borderRadius: borderRadius.full, backgroundColor: lightColors.background.subtle },
+        bar: { borderRadius: borderRadius.full, background: brand.gradient },
+      },
+    },
+    MuiCircularProgress: {
+      styleOverrides: { circle: { strokeLinecap: 'round' } },
+    },
+
+    // DIVIDERS
+    MuiDivider: {
+      styleOverrides: { root: { borderColor: lightColors.border.subtle } },
+    },
+
+    // SWITCHES, CHECKBOXES, RADIOS
+    MuiSwitch: {
+      styleOverrides: {
+        root: { padding: 8 },
+        track: { borderRadius: borderRadius.full, backgroundColor: lightColors.background.subtle, opacity: 1 },
+        thumb: { boxShadow: shadows.light.sm },
+        switchBase: {
+          '&.Mui-checked': { '& + .MuiSwitch-track': { backgroundColor: lightColors.primary.main, opacity: 1 } },
+        },
+      },
+    },
+    MuiCheckbox: { styleOverrides: { root: { borderRadius: borderRadius.sm } } },
+    MuiRadio: {
+      styleOverrides: { root: { '&.Mui-checked': { color: lightColors.primary.main } } },
+    },
+
+    // ACCORDION
+    MuiAccordion: {
+      defaultProps: { elevation: 0, disableGutters: true },
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.lg,
+          border: `1px solid ${lightColors.border.default}`,
+          '&:before': { display: 'none' },
+          '&:not(:last-child)': { marginBottom: 8 },
+        },
+      },
+    },
+    MuiAccordionSummary: {
+      styleOverrides: { root: { padding: '0 16px', minHeight: 56 } },
+    },
+    MuiAccordionDetails: {
+      styleOverrides: { root: { padding: 16, paddingTop: 0 } },
+    },
+
+    // BREADCRUMBS
+    MuiBreadcrumbs: {
+      styleOverrides: { separator: { color: lightColors.text.tertiary } },
+    },
+
+    // PAGINATION
+    MuiPaginationItem: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.md,
+          '&.Mui-selected': {
+            background: brand.gradient,
+            color: '#ffffff',
+            '&:hover': { background: brand.gradient },
+          },
+        },
+      },
     },
 
     // CSS BASELINE
     MuiCssBaseline: {
       styleOverrides: {
+        html: { scrollBehavior: 'smooth' },
         body: {
           scrollbarWidth: 'thin',
           scrollbarColor: `${lightColors.border.strong} ${lightColors.background.default}`,
