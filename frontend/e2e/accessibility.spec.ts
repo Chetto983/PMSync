@@ -34,8 +34,9 @@ import AxeBuilder from '@axe-core/playwright';
  * These are documented as tech debt and will be addressed in future phases.
  * Each exclusion is justified:
  * - Library constraints (dnd-kit, MUI internals)
- * - Design review needed (color contrast)
- * - Component updates needed (aria-labels)
+ * - Component updates needed (aria-labels for compose inputs)
+ *
+ * Phase 10-01 fixed: button-name, label, color-contrast
  */
 const EXCLUDED_RULES = [
   // @dnd-kit wraps items in role="button" containing checkboxes/buttons
@@ -49,20 +50,6 @@ const EXCLUDED_RULES = [
   // MUI internal clones add aria-label to spans without role
   // Fix requires: upstream MUI change (cosmetic issue)
   'aria-prohibited-attr',
-
-  // Theme colors have insufficient contrast (e.g., primary on selected bg)
-  // Fix requires: design review and theme palette adjustment
-  'color-contrast',
-
-  // Some icon buttons missing aria-label attributes
-  // Fix requires: component updates to add aria-label to IconButtons
-  // Components: Sidebar, ThreadListHeader, Composer toolbar
-  'button-name',
-
-  // Checkboxes missing aria-label
-  // Fix requires: inputProps={{ 'aria-label': ... }} on Checkbox components
-  // Components: ThreadListHeader, ThreadListItem
-  'label',
 
   // Compose selects and TipTap editor missing accessible names
   // Fix requires: aria-label on Select and TipTap editor components

@@ -72,22 +72,21 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
  * Subtle fade-in animation on render (framer-motion).
  */
 export const Tool = ({ className, ...props }: ToolProps) => (
-  <Collapsible
-    asChild
-    className={cn(
-      "group not-prose w-full rounded-lg border py-3",
-      "[--animation-duration:200ms]",
-      className,
-    )}
-    style={{ "--animation-duration": "200ms" } as React.CSSProperties}
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.15 }}
   >
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.15 }}
+    <Collapsible
+      className={cn(
+        "group not-prose w-full rounded-lg border py-3",
+        "[--animation-duration:200ms]",
+        className,
+      )}
+      style={{ "--animation-duration": "200ms" } as React.CSSProperties}
       {...props}
     />
-  </Collapsible>
+  </motion.div>
 );
 
 export type ToolPart = ToolUIPart | DynamicToolUIPart;
