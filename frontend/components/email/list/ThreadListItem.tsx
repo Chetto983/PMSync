@@ -192,7 +192,7 @@ export const ThreadListItem = memo(function ThreadListItem({
         cursor: 'pointer',
         position: 'relative',
         bgcolor: thread.isUnread
-          ? 'rgba(25, 118, 210, 0.04)'
+          ? (theme) => `${theme.palette.primary.main}0A` // 4% alpha of primary color
           : isSelected
             ? 'action.selected'
             : isFocused
