@@ -704,6 +704,7 @@ export default function ComposeDialog({
                       displayEmpty
                       variant="standard"
                       disableUnderline
+                      aria-label={composer.from}
                     >
                       {emailProviders.map((provider) => (
                         <MenuItem key={provider.id} value={provider.id}>
@@ -750,6 +751,9 @@ export default function ComposeDialog({
               placeholder={t.email.composer.subjectPlaceholder}
               value={subject}
               onChange={handleSubjectChange}
+              inputProps={{
+                'aria-label': t.email.composer.subject,
+              }}
               InputProps={{
                 disableUnderline: true,
               }}
