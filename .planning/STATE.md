@@ -10,21 +10,21 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 03 of 12 (Auto-Triage Core)
-Plan: 02 of 3
-Status: In progress
-Last activity: 2026-02-08 — Completed 03-02-PLAN.md
+Plan: 03 of 3
+Status: Phase complete
+Last activity: 2026-02-08 — Completed 03-03-PLAN.md
 
 Progress: v3.0
 ```
-[████████████████████████████████████████████░░] 97% (34/35 plans)
+[█████████████████████████████████████████████] 100% (35/35 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 03-02-PLAN.md
+Stopped at: Completed 03-03-PLAN.md (Phase 03 complete)
 Resume file: None
-Next action: Execute 03-03-PLAN.md
+Next action: Execute remaining gap closure (Phase 04-03, Phase 12)
 
 ## Accumulated Decisions
 
@@ -132,6 +132,11 @@ Next action: Execute 03-03-PLAN.md
 | Active tenant filtering in backfill | v3.0-03-01 | Prevent processing for inactive/deleted tenants |
 | @Optional() injection for AttentionScoreService | v3.0-03-02 | Degrades gracefully in tests without VoltAgentModule |
 | Query limit as string with parseInt fallback | v3.0-03-02 | NestJS @Query() returns string; manual parsing needed |
+| Redis hash for sender behavior scores | v3.0-03-03 | Zero JSONB queries, fast reads, 30-day TTL auto-expiry |
+| EMA blend 0.7 prev weight | v3.0-03-03 | Smooth score evolution, prevents single action from dominating |
+| Buffer flush at 5 signals or 5 min | v3.0-03-03 | Balance between responsiveness and write efficiency |
+| 100 emails per tenant recalculation | v3.0-03-03 | Prevent overload; oldest emails recalculated first |
+| SKIP_FOLDERS extracted constant | v3.0-03-03 | Eliminated 3x folder exclusion duplication |
 
 ## Blockers & Concerns
 
@@ -174,7 +179,7 @@ See: .planning/MILESTONES.md
 |-------|------|--------------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | ✅ COMPLETE (3/3 plans) |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | ✅ COMPLETE (4/4 plans) |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ⏳ IN PROGRESS (2/3 plans) |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ✅ COMPLETE (3/3 plans) |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | ⏳ GAP CLOSURE (2/3 plans) |
 | 05 | Nested Labels Frontend | LABELS-01 | ✅ COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | ✅ COMPLETE (5/5 plans) |
@@ -191,9 +196,10 @@ See: .planning/MILESTONES.md
 
 **Currently:** Gap closure after milestone audit.
 
-**Completed phases (9/12):**
+**Completed phases (10/12):**
 - Phase 01: AI Infrastructure Cleanup (3/3 plans) ✅
 - Phase 02: AI Chat Overhaul (4/4 plans) ✅
+- Phase 03: Auto-Triage Core (3/3 plans) ✅
 - Phase 05: Nested Labels Frontend (2/2 plans) ✅
 - Phase 06: Chat UI and Agent Tool on Mail (5/5 plans) ✅
 - Phase 07: Chat Improvement (6/6 plans) ✅
@@ -202,8 +208,7 @@ See: .planning/MILESTONES.md
 - Phase 10: UI Review (8/8 plans) ✅
 - Phase 11: AI Module Audit (5/5 plans) ✅
 
-**Gap closure (3 remaining):**
-- Phase 03: Auto-Triage Core (2/3 plans) — 03-02 complete, execute 03-03 next
+**Gap closure (2 remaining):**
 - Phase 04-03: SnoozeDialog UI (1 plan) — needs plan + execution
 - Phase 12: Test Fixes + Minor Gaps (0/2 plans) — needs `/gsd:plan-phase 12`
 
@@ -216,7 +221,7 @@ See: .planning/MILESTONES.md
 - Formal verification needed on phases 05, 07, 09, 10, 11
 
 ---
-*State updated: 2026-02-08 -- Completed 03-02 (VIP cache invalidation + suggested VIPs endpoint)*
+*State updated: 2026-02-08 -- Completed 03-03 (Triage learning signals + nightly recalculation). Phase 03 COMPLETE.*
 
 ## Phase 11 Accomplishments
 
