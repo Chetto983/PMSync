@@ -46,7 +46,7 @@
 |-------|------|--------------|-------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3/3 | ✅ COMPLETE |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | 4/4 | ✅ COMPLETE |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 3/3 | ⏳ PLANNED |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 3/3 | ✅ COMPLETE |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2/3 | ⏳ GAP CLOSURE |
 | 05 | Nested Labels Frontend | LABELS-01 | 2/2 | ✅ COMPLETE |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5/5 | ✅ COMPLETE |
@@ -133,7 +133,7 @@
 
 **Goal:** AI-powered email prioritization and importance scoring
 
-**Status:** GAP CLOSURE (identified by milestone audit 2026-02-08)
+**Status:** COMPLETE
 
 **Requirements:**
 - TRIAGE-01: Priority scoring model (0-100 scale)
@@ -158,23 +158,23 @@
 
 **Plans:** 3 plans
 
-- [ ] 03-01-PLAN.md — Priority scoring activation: VIP boost in AttentionScoreService + backfill hardening
-- [ ] 03-02-PLAN.md — VIP lists management: cache invalidation on toggle + AI-suggested VIPs endpoint
-- [ ] 03-03-PLAN.md — Learning engine: implicit signal tracking service + nightly recalculation mode
+- [x] 03-01-PLAN.md — Priority scoring activation: VIP boost in AttentionScoreService + backfill hardening
+- [x] 03-02-PLAN.md — VIP lists management: cache invalidation on toggle + AI-suggested VIPs endpoint
+- [x] 03-03-PLAN.md — Learning engine: implicit signal tracking service + nightly recalculation mode
 
 **Wave Structure:**
 
-- Wave 1: 03-01 (foundation — scoring pipeline active with VIP integration)
-- Wave 2: 03-02, 03-03 (parallel — VIP management and learning engine)
+- Wave 1: 03-01 (foundation — scoring pipeline active with VIP integration) ✓
+- Wave 2: 03-02, 03-03 (parallel — VIP management and learning engine) ✓
 
 **Deliverables:**
 
-- Priority score on every email (via existing aiPriority field)
-- VIP boost in triage scoring
-- AI-suggested VIP contacts endpoint
-- Implicit learning from user actions (reply/archive/flag)
-- Nightly recalculation updating stale priorities
-- Email list showing importance indicators
+- Priority score on every email (via existing aiPriority field) ✓
+- VIP boost in triage scoring ✓
+- AI-suggested VIP contacts endpoint ✓
+- Implicit learning from user actions (reply/archive/flag) ✓
+- Nightly recalculation updating stale priorities ✓
+- Email list showing importance indicators ✓
 
 ---
 
@@ -526,6 +526,7 @@ Plans:
 Completed:
   Phase 01 (Infrastructure) ✅
   Phase 02 (Chat Overhaul) ✅
+  Phase 03 (Auto-Triage) ✅
   Phase 05 (Nested Labels) ✅
   Phase 06 (Chat UI + Email Tools) ✅
   Phase 07 (Chat Improvement) ✅
@@ -535,12 +536,11 @@ Completed:
   Phase 11 (AI Module Audit) ✅
 
 Gap Closure (remaining):
-  Phase 03 (Auto-Triage) ────┐
-  Phase 04-03 (SnoozeDialog) ┼── parallel, no dependencies ──> v3.0 Complete
+  Phase 04-03 (SnoozeDialog) ┬── parallel, no dependencies ──> v3.0 Complete
   Phase 12 (Test Fixes) ─────┘
 ```
 
-**Total plans:** 35+ (32 complete + 3 gap closure phases)
+**Total plans:** 35 (35 complete + 2 gap closure phases remaining)
 
 ---
 
@@ -562,8 +562,8 @@ Gap Closure (remaining):
 - [x] Follow-ups dashboard functional with two types
 - [x] Nested labels drag-drop working
 - [x] No regressions in existing functionality
-- [ ] 19/19 requirements satisfied (currently 13/19)
-- [ ] Priority scoring implemented and functional
+- [ ] 19/19 requirements satisfied (currently 16/19)
+- [x] Priority scoring implemented and functional
 - [ ] SnoozeDialog UI wires useSmartTiming hook
 - [ ] ActionExecutor tests passing (currently 9/25)
 - [ ] Formal verification on phases 05, 07, 09, 10, 11
