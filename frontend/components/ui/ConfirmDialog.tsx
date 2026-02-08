@@ -39,6 +39,7 @@ import {
   Box,
   Typography,
   CircularProgress,
+  useTheme,
   type DialogProps,
   type ButtonProps,
 } from '@mui/material';
@@ -48,16 +49,17 @@ import type { ReactNode } from 'react';
 // Preset variants for common use cases
 type DialogVariant = 'danger' | 'warning' | 'info' | 'success' | 'primary';
 
+// Icon color keys map to theme.palette semantic colors (theme-aware)
 const VARIANT_CONFIG: Record<DialogVariant, {
   color: ButtonProps['color'];
-  iconColor: string;
+  paletteKey: 'error' | 'warning' | 'info' | 'success' | 'primary';
   Icon: typeof AlertTriangle;
 }> = {
-  danger: { color: 'error', iconColor: '#f44336', Icon: AlertTriangle },
-  warning: { color: 'warning', iconColor: '#ff9800', Icon: AlertCircle },
-  info: { color: 'info', iconColor: '#2196f3', Icon: Info },
-  success: { color: 'success', iconColor: '#4caf50', Icon: CheckCircle },
-  primary: { color: 'primary', iconColor: '#1976d2', Icon: Info },
+  danger: { color: 'error', paletteKey: 'error', Icon: AlertTriangle },
+  warning: { color: 'warning', paletteKey: 'warning', Icon: AlertCircle },
+  info: { color: 'info', paletteKey: 'info', Icon: Info },
+  success: { color: 'success', paletteKey: 'success', Icon: CheckCircle },
+  primary: { color: 'primary', paletteKey: 'primary', Icon: Info },
 };
 
 export interface ConfirmDialogProps {
@@ -125,7 +127,10 @@ export function ConfirmDialog({
   onCancel,
   DialogProps,
 }: ConfirmDialogProps) {
+  const theme = useTheme();
   const config = VARIANT_CONFIG[variant];
+  // Use theme palette color for icon (theme-aware for light/dark mode)
+  const iconColor = theme.palette[config.paletteKey].main;
 
   const handleClose = () => {
     if (!isLoading) {
@@ -144,7 +149,7 @@ export function ConfirmDialog({
   };
 
   const IconComponent = config.Icon;
-  const displayIcon = hideIcon ? null : (icon ?? <IconComponent size={20} color={config.iconColor} />);
+  const displayIcon = hideIcon ? null : (icon ?? <IconComponent size={20} color={iconColor} />);
 
   // Determine confirm button icon
   let startIcon: ReactNode = null;

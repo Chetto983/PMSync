@@ -19,6 +19,7 @@ import {
   Typography,
   Stack,
   CircularProgress,
+  useTheme,
 } from '@mui/material';
 import { Users, X, Check, HelpCircle, Clock } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -90,15 +91,16 @@ function getInitials(name?: string, email?: string): string {
  * Get RSVP status icon
  */
 function RSVPIcon({ status }: { status?: string }) {
+  const theme = useTheme();
   switch (status) {
     case 'accepted':
-      return <Check size={12} color="#4caf50" />;
+      return <Check size={12} color={theme.palette.success.main} />;
     case 'declined':
-      return <X size={12} color="#f44336" />;
+      return <X size={12} color={theme.palette.error.main} />;
     case 'tentative':
-      return <HelpCircle size={12} color="#ff9800" />;
+      return <HelpCircle size={12} color={theme.palette.warning.main} />;
     case 'needsAction':
-      return <Clock size={12} color="#9e9e9e" />;
+      return <Clock size={12} color={theme.palette.text.disabled} />;
     default:
       return null;
   }

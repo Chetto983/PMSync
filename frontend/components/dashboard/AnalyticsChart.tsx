@@ -10,12 +10,13 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Paper, Typography, CircularProgress } from '@mui/material';
+import { Paper, Typography, CircularProgress, useTheme } from '@mui/material';
 import { analyticsApi, EmailAnalyticsDataPoint } from '@/lib/api/analytics';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export function AnalyticsChart() {
   const t = useTranslations();
+  const theme = useTheme();
   const [data, setData] = useState<EmailAnalyticsDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,8 +71,8 @@ export function AnalyticsChart() {
               return labels[value] || value;
             }}
           />
-          <Line type="monotone" dataKey="sent" stroke="#8884d8" name={t.dashboard.widgets.trendCharts.sent} />
-          <Line type="monotone" dataKey="received" stroke="#82ca9d" name={t.dashboard.widgets.trendCharts.received} />
+          <Line type="monotone" dataKey="sent" stroke={theme.palette.primary.main} name={t.dashboard.widgets.trendCharts.sent} />
+          <Line type="monotone" dataKey="received" stroke={theme.palette.success.main} name={t.dashboard.widgets.trendCharts.received} />
         </LineChart>
       </ResponsiveContainer>
     </Paper>

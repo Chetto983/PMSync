@@ -11,6 +11,8 @@ import {
   Button,
   Skeleton,
   alpha,
+  useTheme,
+  type Theme,
 } from '@mui/material';
 import { Crown, Sparkles, Building2, User } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -30,11 +32,15 @@ const planIcons: Record<string, React.ReactNode> = {
   ENTERPRISE: <Building2 size={20} />,
 };
 
-const planColors: Record<string, string> = {
-  FREE: '#6B7280',
-  STARTER: '#3B82F6',
-  PROFESSIONAL: '#8B5CF6',
-  ENTERPRISE: '#F59E0B',
+// Map plan tiers to theme palette colors (theme-aware for light/dark mode)
+const getPlanColor = (plan: string, theme: Theme): string => {
+  const colorMap: Record<string, string> = {
+    FREE: theme.palette.grey[500],
+    STARTER: theme.palette.info.main,
+    PROFESSIONAL: theme.palette.secondary.main,
+    ENTERPRISE: theme.palette.warning.main,
+  };
+  return colorMap[plan] || theme.palette.grey[500];
 };
 
 export function SubscriptionCard({
@@ -44,6 +50,7 @@ export function SubscriptionCard({
   isOpeningPortal,
 }: SubscriptionCardProps) {
   const t = useTranslations();
+  const theme = useTheme();
 
   if (isLoading) {
     return (
@@ -61,7 +68,7 @@ export function SubscriptionCard({
 
   const planKey = subscription.plan.toLowerCase() as 'free' | 'starter' | 'professional' | 'enterprise';
   const planInfo = t.billing?.plans?.[planKey];
-  const planColor = planColors[subscription.plan];
+  const planColor = getPlanColor(subscription.plan, theme);
   const statusColor = subscription.status === 'ACTIVE' ? 'success' :
     subscription.status === 'PAST_DUE' ? 'warning' : 'error';
 

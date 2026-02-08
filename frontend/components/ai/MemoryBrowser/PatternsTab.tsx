@@ -34,7 +34,7 @@ export function PatternsTab() {
 
             <List>
                 {patterns.map((p, index) => (
-                    <ListItem key={p.id || index} sx={{ border: '1px solid #eee', mb: 1, borderRadius: 1 }}>
+                    <ListItem key={p.id || index} sx={{ border: 1, borderColor: 'divider', mb: 1, borderRadius: 1 }}>
                         <ListItemText
                             primary={p.trigger}
                             secondary={`${p.taskType} - Success: ${Math.round(p.successRate * 100)}%`}
