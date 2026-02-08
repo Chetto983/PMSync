@@ -187,6 +187,20 @@ export function FollowUpCard({
                 sx={{ height: 24, fontSize: '0.7rem' }}
               />
             )}
+            {/* Email type badge */}
+            {followUp.emailType && (
+              <Chip
+                size="small"
+                label={t.ai.followUpTracker.emailTypes?.[followUp.emailType] ?? followUp.emailType}
+                variant="outlined"
+                sx={{
+                  height: 24,
+                  fontSize: '0.7rem',
+                  textTransform: 'capitalize',
+                  borderColor: theme.palette.divider,
+                }}
+              />
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', gap: 0.5 }}>
