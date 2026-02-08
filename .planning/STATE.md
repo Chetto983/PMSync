@@ -10,21 +10,21 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 03 of 12 (Auto-Triage Core)
-Plan: 01 of 3
+Plan: 02 of 3
 Status: In progress
-Last activity: 2026-02-08 — Completed 03-01-PLAN.md
+Last activity: 2026-02-08 — Completed 03-02-PLAN.md
 
 Progress: v3.0
 ```
-[███████████████████████████████████████████░░░] 94% (33/35 plans)
+[████████████████████████████████████████████░░] 97% (34/35 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 03-01-PLAN.md
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
-Next action: Execute 03-02-PLAN.md
+Next action: Execute 03-03-PLAN.md
 
 ## Accumulated Decisions
 
@@ -130,6 +130,8 @@ Next action: Execute 03-02-PLAN.md
 | VIP take limit 50 | v3.0-03-01 | Accommodate both auto-detected and user-defined VIPs |
 | isVip fast-path in scoreSenderImportance | v3.0-03-01 | Cache-miss fallback returns 1.0 for user-defined VIPs |
 | Active tenant filtering in backfill | v3.0-03-01 | Prevent processing for inactive/deleted tenants |
+| @Optional() injection for AttentionScoreService | v3.0-03-02 | Degrades gracefully in tests without VoltAgentModule |
+| Query limit as string with parseInt fallback | v3.0-03-02 | NestJS @Query() returns string; manual parsing needed |
 
 ## Blockers & Concerns
 
@@ -172,7 +174,7 @@ See: .planning/MILESTONES.md
 |-------|------|--------------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | ✅ COMPLETE (3/3 plans) |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | ✅ COMPLETE (4/4 plans) |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ⏳ IN PROGRESS (1/3 plans) |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ⏳ IN PROGRESS (2/3 plans) |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | ⏳ GAP CLOSURE (2/3 plans) |
 | 05 | Nested Labels Frontend | LABELS-01 | ✅ COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | ✅ COMPLETE (5/5 plans) |
@@ -201,7 +203,7 @@ See: .planning/MILESTONES.md
 - Phase 11: AI Module Audit (5/5 plans) ✅
 
 **Gap closure (3 remaining):**
-- Phase 03: Auto-Triage Core (1/3 plans) — 03-01 complete, execute 03-02 next
+- Phase 03: Auto-Triage Core (2/3 plans) — 03-02 complete, execute 03-03 next
 - Phase 04-03: SnoozeDialog UI (1 plan) — needs plan + execution
 - Phase 12: Test Fixes + Minor Gaps (0/2 plans) — needs `/gsd:plan-phase 12`
 
@@ -214,7 +216,7 @@ See: .planning/MILESTONES.md
 - Formal verification needed on phases 05, 07, 09, 10, 11
 
 ---
-*State updated: 2026-02-08 -- Completed 03-01 (VIP attention scoring + backfill hardening)*
+*State updated: 2026-02-08 -- Completed 03-02 (VIP cache invalidation + suggested VIPs endpoint)*
 
 ## Phase 11 Accomplishments
 
