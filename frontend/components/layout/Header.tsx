@@ -291,7 +291,7 @@ export function Header({
         borderColor: (theme) => alpha(theme.palette.divider, 0.1),
       }}
     >
-      <Toolbar sx={{ minHeight: '64px !important', gap: 1 }}>
+      <Toolbar sx={{ minHeight: 64, gap: 1 }}>
         {/* Mobile Menu Button */}
         {isMobile && (
           <IconButton
@@ -727,24 +727,19 @@ export function Header({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box
+                component="span"
+                role="img"
+                aria-label="British flag"
                 sx={{
                   width: 24,
                   height: 16,
                   borderRadius: 0.5,
-                  bgcolor: '#012169',
-                  backgroundImage: `
-                    linear-gradient(to bottom right, transparent 0%, transparent 49.9%, white 50%, transparent 50.1%),
-                    linear-gradient(to top right, transparent 0%, transparent 49.9%, white 50%, transparent 50.1%),
-                    linear-gradient(to bottom right, transparent 0%, transparent 49.5%, #C8102E 50%, transparent 50.5%),
-                    linear-gradient(to top right, transparent 0%, transparent 49.5%, #C8102E 50%, transparent 50.5%),
-                    linear-gradient(white, white),
-                    linear-gradient(#C8102E, #C8102E)
-                  `,
-                  backgroundSize: '100% 100%, 100% 100%, 100% 100%, 100% 100%, 20% 100%, 100% 20%',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
+                  display: 'inline-block',
+                  fontSize: '0.875rem',
                 }}
-              />
+              >
+                🇬🇧
+              </Box>
               <Typography variant="body2">English</Typography>
             </Box>
           </MenuItem>
@@ -755,13 +750,19 @@ export function Header({
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box
+                component="span"
+                role="img"
+                aria-label="Italian flag"
                 sx={{
                   width: 24,
                   height: 16,
                   borderRadius: 0.5,
-                  background: 'linear-gradient(to right, #009246 0%, #009246 33.33%, white 33.33%, white 66.67%, #CE2B37 66.67%, #CE2B37 100%)',
+                  display: 'inline-block',
+                  fontSize: '0.875rem',
                 }}
-              />
+              >
+                🇮🇹
+              </Box>
               <Typography variant="body2">Italiano</Typography>
             </Box>
           </MenuItem>

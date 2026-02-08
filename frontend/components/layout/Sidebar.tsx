@@ -168,7 +168,7 @@ export function Sidebar({
               <ListItemIcon
                 sx={{
                   minWidth: collapsed ? 'auto' : 40,
-                  color: isActive(item.href) ? 'primary.contrastText' : 'text.secondary',
+                  color: isActive(item.href) ? 'primary.main' : 'text.secondary',
                 }}
               >
                 {item.icon}
@@ -233,7 +233,7 @@ export function Sidebar({
               sx={{
                 minWidth: collapsed ? 'auto' : 40,
                 color: isActive('/dashboard/settings')
-                  ? 'primary.contrastText'
+                  ? 'primary.main'
                   : 'text.secondary',
               }}
             >
