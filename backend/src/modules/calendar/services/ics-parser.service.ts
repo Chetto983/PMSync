@@ -107,7 +107,7 @@ export class IcsParserService {
       // Find VEVENT component
       const events = Object.values(parsed).filter(
         (component): component is ical.VEvent =>
-          component.type === 'VEVENT',
+          component != null && component.type === 'VEVENT',
       );
 
       if (events.length === 0) {
@@ -133,9 +133,9 @@ export class IcsParserService {
         uid: event.uid || this.generateUid(),
         method,
         sequence: typeof event.sequence === 'string' ? parseInt(event.sequence, 10) : (event.sequence ?? 0),
-        summary: event.summary || 'No Title',
-        description: event.description,
-        location: event.location,
+        summary: this.parameterValueToString(event.summary) || 'No Title',
+        description: this.parameterValueToString(event.description),
+        location: this.parameterValueToString(event.location),
         url: this.extractUrl(event),
         startTime: parsedStartTime,
         endTime: parsedEndTime,
@@ -285,6 +285,15 @@ export class IcsParserService {
     }
 
     return attendees;
+  }
+
+  /**
+   * Extract string value from a ParameterValue (which can be string or { val, params })
+   */
+  private parameterValueToString(value: string | { val: string; params: Record<string, string> } | undefined): string | undefined {
+    if (value == null) return undefined;
+    if (typeof value === 'string') return value;
+    return value.val;
   }
 
   /**
