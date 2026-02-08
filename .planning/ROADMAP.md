@@ -46,7 +46,7 @@
 |-------|------|--------------|-------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | 3/3 | ✅ COMPLETE |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | 4/4 | ✅ COMPLETE |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 0/3 | ⏳ GAP CLOSURE |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | 3/3 | ⏳ PLANNED |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | 2/3 | ⏳ GAP CLOSURE |
 | 05 | Nested Labels Frontend | LABELS-01 | 2/2 | ✅ COMPLETE |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | 5/5 | ✅ COMPLETE |
@@ -150,22 +150,30 @@
 - Score calculation: <50ms per email (batch during sync)
 
 **Technical approach:**
-- New `priority_score` field on Email model (0-100 int)
-- New `importance_level` enum: HIGH, MEDIUM, LOW
-- Background BullMQ job for nightly score recalculation
-- RAG query: "Is this email urgent based on historical context?"
+- Use existing aiPriority (1-5) field — no new schema fields needed
+- AttentionScoreService (0.0-1.0) maps to aiPriority (1-5) internally
+- Contact.isVip integrated into attention scoring
+- Background BullMQ nightly recalculation using learned weights
+- Implicit signal tracking (reply, archive, flag patterns) for sender importance
 
-**Plans:** 3 plans (NOT CREATED)
-- [ ] 03-01: Priority scoring model + database schema
-- [ ] 03-02: VIP lists management (user + AI suggestions)
-- [ ] 03-03: Learning engine (track actions, update weights)
+**Plans:** 3 plans
 
-**Next action:** `/gsd:plan-phase 03`
+- [ ] 03-01-PLAN.md — Priority scoring activation: VIP boost in AttentionScoreService + backfill hardening
+- [ ] 03-02-PLAN.md — VIP lists management: cache invalidation on toggle + AI-suggested VIPs endpoint
+- [ ] 03-03-PLAN.md — Learning engine: implicit signal tracking service + nightly recalculation mode
+
+**Wave Structure:**
+
+- Wave 1: 03-01 (foundation — scoring pipeline active with VIP integration)
+- Wave 2: 03-02, 03-03 (parallel — VIP management and learning engine)
 
 **Deliverables:**
-- Priority score on every email
-- VIP list management UI
-- Weekly learning cycle updating scores
+
+- Priority score on every email (via existing aiPriority field)
+- VIP boost in triage scoring
+- AI-suggested VIP contacts endpoint
+- Implicit learning from user actions (reply/archive/flag)
+- Nightly recalculation updating stale priorities
 - Email list showing importance indicators
 
 ---
