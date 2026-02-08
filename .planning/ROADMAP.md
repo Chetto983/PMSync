@@ -55,7 +55,7 @@
 | 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | informal | ✅ COMPLETE |
 | 10 | UI Review | REVIEW-01 | 8/8 | ✅ COMPLETE |
 | 11 | AI Module Audit | AUDIT-01 | 5/5 | ✅ COMPLETE |
-| 12 | Test Fixes + Minor Gaps | FIX-01/02 | 0/2 | ⏳ GAP CLOSURE |
+| 12 | Test Fixes + Minor Gaps | FIX-01/02 | 2/2 | ✅ COMPLETE |
 
 ---
 
