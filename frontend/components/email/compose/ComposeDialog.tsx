@@ -24,13 +24,13 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import { useTheme } from '@mui/material/styles';
 import { safeArea } from '@/theme/appTheme';
-import CloseIcon from '@mui/icons-material/Close';
-import SendIcon from '@mui/icons-material/Send';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+
+
+
+
+
+
+import { X as CloseIcon, Send as SendIcon, Clock as ScheduleIcon, Maximize2 as OpenInFullIcon, Minimize2 as CloseFullscreenIcon, ChevronDown as ExpandMoreIcon, ChevronUp as ExpandLessIcon } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useProviders } from '@/hooks/queries/use-providers';
@@ -791,7 +791,7 @@ export default function ComposeDialog({
                   {quoteHeader}
                 </Typography>
                 <IconButton size="small">
-                  {showQuotedContent ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  {showQuotedContent ? <ExpandLessIcon size={18} /> : <ExpandMoreIcon size={18} />}
                 </IconButton>
               </Box>
               <Collapse in={showQuotedContent}>

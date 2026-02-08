@@ -10,9 +10,9 @@
  */
 import { memo, useState } from 'react';
 import { Box, Button, Tooltip, CircularProgress, Divider } from '@mui/material';
-import SummarizeIcon from '@mui/icons-material/Summarize';
-import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
-import SentimentSatisfiedAltIcon from '@mui/icons-material/SentimentSatisfiedAlt';
+
+
+import { FileText as SummarizeIcon, AlertTriangle as PriorityHighIcon, Smile as SentimentSatisfiedAltIcon } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useEmailSummarizeMutation, PriorityResult, SentimentResult } from '@/hooks/ai';
@@ -169,7 +169,7 @@ export const AiActionButtons = memo(function AiActionButtons({
           summarizeMutation.isPending ? (
             <CircularProgress size={14} />
           ) : (
-            <SummarizeIcon sx={{ fontSize: 16 }} />
+            <SummarizeIcon size={16} />
           )
         }
         onClick={handleSummarize}
@@ -198,7 +198,7 @@ export const AiActionButtons = memo(function AiActionButtons({
             isAnalyzingPriority ? (
               <CircularProgress size={14} />
             ) : (
-              <PriorityHighIcon sx={{ fontSize: 16 }} />
+              <PriorityHighIcon size={16} />
             )
           }
           onClick={handleAnalyzePriority}
@@ -227,7 +227,7 @@ export const AiActionButtons = memo(function AiActionButtons({
             isAnalyzingSentiment ? (
               <CircularProgress size={14} />
             ) : (
-              <SentimentSatisfiedAltIcon sx={{ fontSize: 16 }} />
+              <SentimentSatisfiedAltIcon size={16} />
             )
           }
           onClick={handleAnalyzeSentiment}

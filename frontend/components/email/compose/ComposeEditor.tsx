@@ -7,9 +7,9 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Collapse from '@mui/material/Collapse';
-import CloseIcon from '@mui/icons-material/Close';
-import CheckIcon from '@mui/icons-material/Check';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+
+
+import { X as CloseIcon, Check as CheckIcon, Sparkles as AutoAwesomeIcon } from 'lucide-react';
 import {
   LinkBubbleMenu,
   RichTextEditor,
@@ -440,12 +440,12 @@ export default function ComposeEditor({
               color: 'primary.contrastText',
             }}
           >
-            <AutoAwesomeIcon fontSize="small" />
+            <AutoAwesomeIcon size={18} />
             <Typography variant="subtitle2" sx={{ flex: 1 }}>
               {composer.aiComposeTitle}
             </Typography>
             <IconButton size="small" onClick={handleCloseAiPanel} sx={{ color: 'inherit' }}>
-              <CloseIcon fontSize="small" />
+              <CloseIcon size={18} />
             </IconButton>
           </Box>
 
@@ -496,7 +496,7 @@ export default function ComposeEditor({
                 variant="outlined"
                 color="inherit"
                 onClick={handleCloseAiPanel}
-                startIcon={<CloseIcon fontSize="small" />}
+                startIcon={<CloseIcon size={18} />}
               >
                 {composer.aiComposeReject}
               </Button>
@@ -505,7 +505,7 @@ export default function ComposeEditor({
                 variant="contained"
                 color="primary"
                 onClick={handleAcceptAiContent}
-                startIcon={<CheckIcon fontSize="small" />}
+                startIcon={<CheckIcon size={18} />}
               >
                 {composer.aiComposeAccept}
               </Button>

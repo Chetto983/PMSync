@@ -5,9 +5,9 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Popover from '@mui/material/Popover';
 import Box from '@mui/material/Box';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+
+
+import { Sparkles as AutoAwesomeIcon, Paperclip as AttachFileIcon, MoreHorizontal as MoreHorizIcon } from 'lucide-react';
 import {
   MenuButtonAddTable,
   MenuButtonAlignCenter,
@@ -200,7 +200,7 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
                   ...touchTargetStyle,
                 }}
               >
-                <AutoAwesomeIcon fontSize="small" />
+                <AutoAwesomeIcon size={18} />
               </IconButton>
             </Tooltip>
             <MenuDivider />
@@ -228,7 +228,7 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
                   ...touchTargetStyle,
                 }}
               >
-                <AttachFileIcon fontSize="small" />
+                <AttachFileIcon size={18} />
               </IconButton>
             </Tooltip>
           </>
@@ -305,7 +305,7 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
                 },
               }}
             >
-              <AutoAwesomeIcon fontSize="small" />
+              <AutoAwesomeIcon size={18} />
             </IconButton>
           </Tooltip>
           <MenuDivider />
@@ -466,7 +466,7 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
                 },
               }}
             >
-              <AttachFileIcon fontSize="small" />
+              <AttachFileIcon size={18} />
             </IconButton>
           </Tooltip>
         </>

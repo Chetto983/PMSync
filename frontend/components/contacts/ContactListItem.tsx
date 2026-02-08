@@ -11,15 +11,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import {
-  Email as MailIcon,
-  Phone as PhoneIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Business as BuildingIcon,
-  Star as StarIcon,
-  StarBorder as StarBorderIcon,
-} from '@mui/icons-material';
+import { Mail as MailIcon, Phone as PhoneIcon, Pencil as EditIcon, Trash2 as DeleteIcon, Building2 as BuildingIcon, Star as StarIcon } from 'lucide-react';
 import type { Contact } from '@/lib/api/contacts';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -300,7 +292,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                     gap: 0.5,
                   }}
                 >
-                  <MailIcon sx={{ fontSize: 12 }} />
+                  <MailIcon size={12} />
                   {primaryEmail}
                 </Typography>
               )}
@@ -319,7 +311,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                     gap: 0.5,
                   }}
                 >
-                  <BuildingIcon sx={{ fontSize: 12 }} />
+                  <BuildingIcon size={12} />
                   {contact.company}
                   {contact.jobTitle && ` - ${contact.jobTitle}`}
                 </Typography>
@@ -362,35 +354,35 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                       color: contact.isVip ? 'warning.main' : 'action.active',
                     }}
                   >
-                    {contact.isVip ? <StarIcon sx={{ fontSize: 18 }} /> : <StarBorderIcon sx={{ fontSize: 18 }} />}
+                    {contact.isVip ? <StarIcon size={18} fill="currentColor" /> : <StarIcon size={18} />}
                   </IconButton>
                 </Tooltip>
               )}
               {primaryEmail && onEmail && (
                 <Tooltip title={t.contacts?.actions?.sendEmail || 'Send email'}>
                   <IconButton size="small" onClick={handleEmail} sx={{ p: 0.5 }}>
-                    <MailIcon sx={{ fontSize: 18 }} />
+                    <MailIcon size={18} />
                   </IconButton>
                 </Tooltip>
               )}
               {primaryPhone && onCall && (
                 <Tooltip title={t.contacts?.actions?.call || 'Call'}>
                   <IconButton size="small" onClick={handleCall} sx={{ p: 0.5 }}>
-                    <PhoneIcon sx={{ fontSize: 18 }} />
+                    <PhoneIcon size={18} />
                   </IconButton>
                 </Tooltip>
               )}
               {onEdit && (
                 <Tooltip title={t.common?.edit || 'Edit'}>
                   <IconButton size="small" onClick={handleEdit} sx={{ p: 0.5 }}>
-                    <EditIcon sx={{ fontSize: 18 }} />
+                    <EditIcon size={18} />
                   </IconButton>
                 </Tooltip>
               )}
               {onDelete && (
                 <Tooltip title={t.common?.delete || 'Delete'}>
                   <IconButton size="small" onClick={handleDelete} color="error" sx={{ p: 0.5 }}>
-                    <DeleteIcon sx={{ fontSize: 18 }} />
+                    <DeleteIcon size={18} />
                   </IconButton>
                 </Tooltip>
               )}

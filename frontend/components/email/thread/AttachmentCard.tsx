@@ -11,7 +11,7 @@
 
 import { memo } from 'react';
 import { Box, Typography, Link } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
+import { Download as DownloadIcon } from 'lucide-react';
 import {
   PdfFileIcon,
   ImageFileIcon,
@@ -194,7 +194,7 @@ export const AttachmentCard = memo(function AttachmentCard({
                 '&:hover': { textDecoration: 'underline' },
               }}
             >
-              <DownloadIcon sx={{ fontSize: 14 }} />
+              <DownloadIcon size={14} />
               {t.threadMessage?.download || 'Download'}
             </Link>
           ) : (

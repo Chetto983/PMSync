@@ -17,7 +17,7 @@
 
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { People as UsersIcon } from '@mui/icons-material';
+import { Users as UsersIcon } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ContactListItem } from './ContactListItem';
 import type { Contact } from '@/lib/api/contacts';
@@ -216,7 +216,7 @@ export const ContactList: React.FC<ContactListProps> = ({
           textAlign: 'center',
         }}
       >
-        <UsersIcon sx={{ fontSize: 48, opacity: 0.3, mb: 2 }} />
+        <UsersIcon size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
         <Typography variant="h6" color="text.secondary" gutterBottom>
           {emptyTitle}
         </Typography>

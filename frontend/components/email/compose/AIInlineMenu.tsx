@@ -7,10 +7,10 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputAdornment from '@mui/material/InputAdornment';
-import CloseIcon from '@mui/icons-material/Close';
-import CheckIcon from '@mui/icons-material/Check';
-import SendIcon from '@mui/icons-material/Send';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+
+
+
+import { X as CloseIcon, Check as CheckIcon, Send as SendIcon, Sparkles as AutoAwesomeIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -105,12 +105,12 @@ export function ContentPreview({
             color: 'primary.contrastText',
           }}
         >
-          <AutoAwesomeIcon fontSize="small" />
+          <AutoAwesomeIcon size={18} />
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             {composer.aiComposeTitle || 'AI Assistant'}
           </Typography>
           <IconButton size="small" onClick={() => onReject?.()} sx={{ color: 'inherit' }}>
-            <CloseIcon fontSize="small" />
+            <CloseIcon size={18} />
           </IconButton>
         </Box>
 
@@ -135,7 +135,7 @@ export function ContentPreview({
                       disabled={isLoading || !instruction.trim()}
                       color="primary"
                     >
-                      {isLoading ? <CircularProgress size={18} /> : <SendIcon fontSize="small" />}
+                      {isLoading ? <CircularProgress size={18} /> : <SendIcon size={18} />}
                     </IconButton>
                   </InputAdornment>
                 ),
@@ -202,7 +202,7 @@ export function ContentPreview({
               variant="outlined"
               color="inherit"
               onClick={() => onReject?.()}
-              startIcon={<CloseIcon fontSize="small" />}
+              startIcon={<CloseIcon size={18} />}
             >
               {composer.aiComposeReject}
             </Button>
@@ -211,7 +211,7 @@ export function ContentPreview({
               variant="contained"
               color="primary"
               onClick={() => onAccept?.(content)}
-              startIcon={<CheckIcon fontSize="small" />}
+              startIcon={<CheckIcon size={18} />}
             >
               {composer.aiComposeAccept}
             </Button>

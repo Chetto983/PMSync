@@ -8,9 +8,9 @@ import TextField from '@mui/material/TextField';
 import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import PersonIcon from '@mui/icons-material/Person';
+
+
+import { ChevronDown as ExpandMoreIcon, ChevronUp as ExpandLessIcon, User as PersonIcon } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useContactSearch } from '@/hooks/queries/use-contacts';
 import type { Contact } from '@/lib/api/contacts';
@@ -237,7 +237,7 @@ function RecipientField({
                 sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}
               >
                 <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                  <PersonIcon fontSize="small" />
+                  <PersonIcon size={18} />
                 </Avatar>
                 <Typography variant="body2">
                   {addPrefix} {option.email}

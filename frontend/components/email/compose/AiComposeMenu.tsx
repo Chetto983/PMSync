@@ -13,20 +13,7 @@ import {
     CircularProgress,
     Popover
 } from '@mui/material';
-import {
-    AutoAwesome as AiIcon,
-    Send as SendIcon,
-    Close as CloseIcon,
-    Spellcheck as SpellcheckIcon,
-    Compress as CompressIcon,
-    UnfoldMore as ExpandIcon,
-    SentimentSatisfied as FriendlyIcon,
-    Business as ProfessionalIcon,
-    Create as DraftIcon,
-    Psychology as StyleIcon,
-    EmojiEmotions as CasualIcon,
-    Check as CheckIcon
-} from '@mui/icons-material';
+import { Sparkles as AiIcon, Send as SendIcon, X as CloseIcon, SpellCheck as SpellcheckIcon, Minimize2 as CompressIcon, Maximize2 as ExpandIcon, Smile as FriendlyIcon, Briefcase as ProfessionalIcon, PenLine as DraftIcon, Brain as StyleIcon, PartyPopper as CasualIcon, Check as CheckIcon } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export type AiActionType =
@@ -106,31 +93,31 @@ export default function AiComposeMenu({
         {
             id: 'fix_spelling',
             label: t.email.composer.aiMenu.fixSpelling,
-            icon: <SpellcheckIcon fontSize="small" />,
+            icon: <SpellcheckIcon size={18} />,
             type: 'refine'
         },
         {
             id: 'shorten',
             label: t.email.composer.aiMenu.makeShorter,
-            icon: <CompressIcon fontSize="small" />,
+            icon: <CompressIcon size={18} />,
             type: 'refine'
         },
         {
             id: 'expand',
             label: t.email.composer.aiMenu.makeLonger,
-            icon: <ExpandIcon fontSize="small" />,
+            icon: <ExpandIcon size={18} />,
             type: 'refine'
         },
         {
             id: 'tone_professional',
             label: t.email.composer.aiMenu.makeProfessional,
-            icon: <ProfessionalIcon fontSize="small" />,
+            icon: <ProfessionalIcon size={18} />,
             type: 'tone'
         },
         {
             id: 'tone_friendly',
             label: t.email.composer.aiMenu.makeFriendly,
-            icon: <FriendlyIcon fontSize="small" />,
+            icon: <FriendlyIcon size={18} />,
             type: 'tone'
         },
     ] as const;
@@ -176,13 +163,13 @@ export default function AiComposeMenu({
                         color: 'white'
                     }}
                 >
-                    <AiIcon fontSize="small" />
+                    <AiIcon size={18} />
                     <Typography variant="subtitle2" fontWeight={600}>
                         {hasSelection ? t.email.composer.aiMenu.titleRefine : t.email.composer.aiMenu.titleDraft}
                     </Typography>
                     <Box sx={{ flex: 1 }} />
                     <IconButton size="small" onClick={onClose} sx={{ color: 'white' }}>
-                        <CloseIcon fontSize="small" />
+                        <CloseIcon size={18} />
                     </IconButton>
                 </Box>
 
@@ -210,7 +197,7 @@ export default function AiComposeMenu({
                                         disabled={!customPrompt.trim() || isLoading}
                                         color="primary"
                                     >
-                                        {isLoading ? <CircularProgress size={16} /> : <SendIcon fontSize="small" />}
+                                        {isLoading ? <CircularProgress size={16} /> : <SendIcon size={18} />}
                                     </IconButton>
                                 </InputAdornment>
                             )
@@ -241,21 +228,21 @@ export default function AiComposeMenu({
                         <>
                             {/* Draft templates */}
                             <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.draftProjectUpdate)}>
-                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
+                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon size={18} /></ListItemIcon>
                                 <ListItemText
                                     primary={t.email.composer.aiMenu.draftProjectUpdate}
                                     secondary={t.email.composer.aiMenu.draftProjectUpdateSecondary}
                                 />
                             </ListItemButton>
                             <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.draftFollowUp)}>
-                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
+                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon size={18} /></ListItemIcon>
                                 <ListItemText
                                     primary={t.email.composer.aiMenu.draftFollowUp}
                                     secondary={t.email.composer.aiMenu.draftFollowUpSecondary}
                                 />
                             </ListItemButton>
                             <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.draftMeetingRequest)}>
-                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
+                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon size={18} /></ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.draftMeetingRequest} />
                             </ListItemButton>
 
@@ -273,10 +260,10 @@ export default function AiComposeMenu({
                                 sx={{ bgcolor: selectedTone === 'professional' ? 'action.selected' : undefined }}
                             >
                                 <ListItemIcon sx={{ minWidth: 36, color: selectedTone === 'professional' ? 'primary.main' : 'text.secondary' }}>
-                                    <ProfessionalIcon fontSize="small" />
+                                    <ProfessionalIcon size={18} />
                                 </ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.toneProfessional} />
-                                {selectedTone === 'professional' && <CheckIcon fontSize="small" color="primary" />}
+                                {selectedTone === 'professional' && <CheckIcon size={18} color="primary" />}
                             </ListItemButton>
                             <ListItemButton
                                 onClick={() => handleToneSelect('friendly')}
@@ -284,10 +271,10 @@ export default function AiComposeMenu({
                                 sx={{ bgcolor: selectedTone === 'friendly' ? 'action.selected' : undefined }}
                             >
                                 <ListItemIcon sx={{ minWidth: 36, color: selectedTone === 'friendly' ? 'primary.main' : 'text.secondary' }}>
-                                    <FriendlyIcon fontSize="small" />
+                                    <FriendlyIcon size={18} />
                                 </ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.toneFriendly} />
-                                {selectedTone === 'friendly' && <CheckIcon fontSize="small" color="primary" />}
+                                {selectedTone === 'friendly' && <CheckIcon size={18} color="primary" />}
                             </ListItemButton>
                             <ListItemButton
                                 onClick={() => handleToneSelect('casual')}
@@ -295,17 +282,17 @@ export default function AiComposeMenu({
                                 sx={{ bgcolor: selectedTone === 'casual' ? 'action.selected' : undefined }}
                             >
                                 <ListItemIcon sx={{ minWidth: 36, color: selectedTone === 'casual' ? 'primary.main' : 'text.secondary' }}>
-                                    <CasualIcon fontSize="small" />
+                                    <CasualIcon size={18} />
                                 </ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.toneCasual} />
-                                {selectedTone === 'casual' && <CheckIcon fontSize="small" color="primary" />}
+                                {selectedTone === 'casual' && <CheckIcon size={18} color="primary" />}
                             </ListItemButton>
 
                             <Divider sx={{ my: 1 }} />
 
                             {/* Personalization indicator */}
                             <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <StyleIcon fontSize="small" color="primary" />
+                                <StyleIcon size={18} color="primary" />
                                 <Typography variant="caption" color="text.secondary">
                                     {t.email.composer.aiMenu.writingStyleActive}
                                 </Typography>

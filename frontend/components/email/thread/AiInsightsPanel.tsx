@@ -7,7 +7,7 @@
  */
 import { memo } from 'react';
 import { Box, Typography, Paper, Collapse } from '@mui/material';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { Sparkles as AutoAwesomeIcon } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface AiInsightsPanelProps {
@@ -37,7 +37,7 @@ export const AiInsightsPanel = memo(function AiInsightsPanel({
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <AutoAwesomeIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+            <AutoAwesomeIcon size={16} style={{ color: 'var(--mui-palette-primary-main)' }} />
             <Typography variant="caption" color="primary.main" fontWeight={600}>
               {t.threadMessage?.ai?.summarize || 'AI Summary'}
             </Typography>
