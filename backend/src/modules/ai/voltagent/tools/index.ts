@@ -5,6 +5,7 @@
  */
 
 export { createEmailTools } from './email.tools';
+export { createEmailWriteTools } from './email-write.tools';
 export { createEmailRLMTools, type EmailRLMRagOptions } from './email-rlm.tools';
 export { createCalendarTools } from './calendar.tools';
 export { createContactsTools } from './contacts.tools';
