@@ -13,4 +13,3 @@ export {
   INTENT_TAXONOMY,
   SLOT_FILLERS,
 } from './intent-taxonomy';
-export { EmbeddingIntentClassifierService, type EmbeddingClassificationResult } from './embedding-intent-classifier.service';

@@ -15,7 +15,6 @@ import { QueryEmbeddingCacheService } from './services/query-embedding-cache.ser
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
 import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill-scheduler.service';
 import { TriageBackfillSchedulerService } from './services/triage-backfill-scheduler.service';
-import { FeedbackQueueService } from './services/feedback-queue.service';
 import { EmailModule } from '../email/email.module';
 import { AlertingService } from '../../common/services/alerting.service';
 // VoltAgent module provides consolidated AI agent services
@@ -27,7 +26,7 @@ import { BatchIndexingService } from './services/batch-indexing.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
-import { IntentClassifierService, EmbeddingIntentClassifierService } from './nlp';
+import { IntentClassifierService } from './nlp';
 // Phase 7: Extracted RAG sub-services (registered BEFORE KnowledgeBaseService facade)
 import { EmbeddingComposerService } from './services/embedding-composer.service';
 import { EmbeddingCrudService } from './services/embedding-crud.service';
@@ -61,7 +60,6 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
-    FeedbackQueueService,
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
     EmbeddingProviderService, // Unified embedding with caching + rate limiting
     BatchIndexingService, // Batch API for large-scale email indexing (1000+ emails)
@@ -69,7 +67,6 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
     MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
-    EmbeddingIntentClassifierService, // Embedding-based multilingual intent fallback
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
@@ -86,13 +83,11 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
-    FeedbackQueueService,
     EmbeddingProviderService, // Unified embedding with caching + rate limiting
     BatchIndexingService, // Batch API for large-scale email indexing
     MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
-    EmbeddingIntentClassifierService, // Embedding-based multilingual intent fallback
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     VoltAgentModule,
   ],

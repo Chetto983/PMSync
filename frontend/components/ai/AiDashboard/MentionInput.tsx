@@ -315,6 +315,9 @@ export function MentionInput({
           multiline
           maxRows={4}
           inputRef={inputRef}
+          inputProps={{
+            'aria-label': t.ai?.inputPlaceholder || 'Chat input - Type @ for contacts, # for accounts',
+          }}
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: 3,

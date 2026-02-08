@@ -29,7 +29,6 @@
   },
   "dependencies": {
     "@ai-sdk/mistral": "^3.0.12",
-    "@anthropic-ai/sdk": "^0.71.2",
     "@aws-sdk/client-s3": "^3.975.0",
     "@aws-sdk/s3-request-presigner": "^3.975.0",
     "@azure/msal-node": "^5.0.2",
@@ -55,7 +54,6 @@
     "@sentinelseed/voltagent": "^0.2.2",
     "@simplewebauthn/server": "^13.2.2",
     "@voltagent/core": "^2.2.1",
-    "@voltagent/logger": "^2.0.2",
     "@voltagent/postgres": "^2.0.3",
     "@willsoto/nestjs-prometheus": "^6.0.2",
     "ai": "^6.0.49",
