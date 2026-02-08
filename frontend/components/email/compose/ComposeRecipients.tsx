@@ -250,6 +250,10 @@ function RecipientField({
               {...params}
               variant="standard"
               placeholder={recipients.length === 0 ? placeholder : ''}
+              inputProps={{
+                ...params.inputProps,
+                'aria-label': label,
+              }}
               InputProps={{
                 ...params.InputProps,
                 disableUnderline: true,
