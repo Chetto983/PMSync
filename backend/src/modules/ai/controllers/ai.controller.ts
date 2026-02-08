@@ -3,8 +3,10 @@ import {
   Post,
   Get,
   Body,
+  Query,
   UseGuards,
   Request,
+  Req,
   Param,
   UsePipes,
   ValidationPipe,
@@ -23,6 +25,7 @@ import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { MistralService } from '../services/mistral.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { EmailInsightsService } from '../services/email-insights.service';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
@@ -72,6 +75,7 @@ export class AiController {
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly emailTriageService: EmailTriageService,
     private readonly triageBackfillService: TriageBackfillSchedulerService,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -415,6 +419,53 @@ export class AiController {
       success: true,
       ...status,
     };
+  }
+
+  /**
+   * Get AI-suggested VIP contacts based on interaction data
+   */
+  @Get('triage/suggested-vips')
+  @ApiOperation({
+    summary: 'Get AI-suggested VIP contacts',
+    description: 'Returns non-VIP contacts ranked by interaction frequency and relationship score',
+  })
+  @ApiResponse({ status: 200, description: 'Suggested VIP contacts returned' })
+  async getSuggestedVips(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limitParam?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const limit = Math.min(Math.max(parseInt(limitParam || '10', 10) || 10, 1), 20);
+
+    const suggestedVips = await this.prisma.contact.findMany({
+      where: {
+        tenantId,
+        isDeleted: false,
+        isVip: false,
+        OR: [
+          { totalInteractions: { gte: 10 } },
+          { relationshipScore: { gte: 60 } },
+        ],
+      },
+      select: {
+        id: true,
+        displayName: true,
+        firstName: true,
+        lastName: true,
+        company: true,
+        emails: true,
+        totalInteractions: true,
+        relationshipScore: true,
+        lastInteractedAt: true,
+      },
+      orderBy: [
+        { totalInteractions: 'desc' },
+        { relationshipScore: 'desc' },
+      ],
+      take: limit,
+    });
+
+    return { suggestions: suggestedVips, total: suggestedVips.length };
   }
 
   /**
