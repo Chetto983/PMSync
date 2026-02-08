@@ -98,7 +98,16 @@
       "Bash(powershell.exe:*)",
       "Bash(python:*)",
       "Bash(pip show:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXNzaW9uSWQiOiJKTXJBR2xnRmF0YWZtUkI1WkgzM1oiLCJ1c2VySWQiOiJjbWpneWx4cXAwMDAxNTR5aHlsNW11NnNzIiwidGVuYW50SWQiOiJjbWpneWx4a2cwMDAwNTR5aG5qcGttemQ5IiwiZW1haWwiOiJkdmRtYXJjaGV0dG9AZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwNTU2ODkyLCJleHAiOjE3NzExNjE2OTIsImF1ZCI6Im1haWxhZ2VudC1hcGkiLCJpc3MiOiJtYWlsYWdlbnQtYXV0aCJ9.hKxLCqsuXUjW08YzIL5eBFu6iigE-uDvWx2oHnNzXF8\")",
+      "Bash(TOKEN=:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWpneWx4cXAwMDAxNTR5aHlsNW11NnNzIiwic3ViIjoiY21qZ3lseHFwMDAwMTU0eWh5bDVtdTZzcyIsImVtYWlsIjoiZHZkbWFyY2hldHRvQGdtYWlsLmNvbSIsInRlbmFudElkIjoiY21qZ3lseGtnMDAwMDU0eWhuanBrbXpkOSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDU1ODE4NSwiZXhwIjoxNzcwNTYxNzg1fQ.GrskCkPqOlUrG5dYsZuKQ-RqhsVxzn6TGlelsofJMEQ\")",
+      "Bash(npx prisma db pull:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(for m in 20250109_citus_composite_pks 20250109_citus_tenantid_columns 20250109_citus_tenantid_remaining 20260110_add_auto_triage_fields 20260111_add_user_avatar 20260111_fix_calendar_sync_state_tenantid 20260129_embedding_content_optional 20260202_composite_indexes 20260207162745_add_detected_deadline 20260207170724_add_follow_up_type)",
+      "Bash(do echo \"Marking $m...\")",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma generate:*)"
     ],
     "deny": [],
     "ask": []

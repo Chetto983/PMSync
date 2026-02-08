@@ -233,7 +233,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     specificTenantId?: string,
   ): Promise<Array<{ tenantId: string; userId: string | null; count: number }>> {
     const cutoff = new Date();
-    cutoff.setHours(cutoff.getHours() - 48); // Last 48 hours
+    cutoff.setHours(cutoff.getHours() - 168); // Temporarily 1 week for PST dataset validation (was 48)
 
     const whereClause: Record<string, unknown> = {
       isAutoTriaged: false,
@@ -437,7 +437,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     } | null;
   }> {
     const cutoff = new Date();
-    cutoff.setHours(cutoff.getHours() - 48);
+    cutoff.setHours(cutoff.getHours() - 168); // Temporarily 1 week for PST dataset validation (was 48)
 
     const pendingEmails = await this.prisma.email.count({
       where: {
