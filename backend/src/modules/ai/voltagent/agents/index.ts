@@ -3,7 +3,7 @@
  *
  * VoltAgent Simplification 2026-01-29:
  * - UnifiedAgent: Single agent with dynamic tool groups (replaces 5 agents)
- * - SupervisorAgent: Kept for backward compatibility (delegates to UnifiedAgent)
+ * - Instruction builder utilities from supervisor.agent.ts
  */
 
 // UnifiedAgent - single agent with dynamic tool groups (primary)
@@ -14,11 +14,9 @@ export {
   type UnifiedAgentOptions,
 } from './unified.agent';
 
-// Supervisor agent (backward compatibility - now delegates to UnifiedAgent)
+// Instruction builder utilities (retained from supervisor.agent.ts)
 export {
-  createSupervisorAgent,
   buildDynamicInstructions,
-  type SupervisorAgentOptions,
   type UserContext,
   type ConnectedProvider,
 } from './supervisor.agent';

@@ -24,7 +24,6 @@ export type {
 export * from './analytics.service';
 export * from './ai-queue.service';
 export * from './rate-limiter.service';
-// ModelRouterService removed - VoltAgent 2.x handles model routing natively
 export type { AgentType } from '../types';
 
 // AI Features

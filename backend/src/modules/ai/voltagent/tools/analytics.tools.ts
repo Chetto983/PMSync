@@ -635,20 +635,6 @@ export function createAnalyticsTools(options: AnalyticsToolOptions) {
 }
 
 /**
- * Clear analytics cache (for testing)
- */
-export function clearAnalyticsCache(): void {
-  fallbackAnalyticsCache.clear();
-}
-
-/**
- * Clear agent pool (for testing or forced refresh)
- */
-export function clearAnalyticsAgentPool(): void {
-  fallbackAgentPool.clear();
-}
-
-/**
  * GDPR: Delete all Mistral analytics agents for a tenant
  * Call this when subscription is cancelled or tenant is deleted.
  * This deletes agents from both Mistral API and PostgreSQL.

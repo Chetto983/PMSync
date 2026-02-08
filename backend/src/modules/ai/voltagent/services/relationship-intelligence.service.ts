@@ -327,17 +327,6 @@ export function classifyContactRoleSmart(
 }
 
 /**
- * Simple role classification (backward compatible).
- * Returns just the role string without confidence scoring.
- *
- * @deprecated Use classifyContactRoleSmart() for better accuracy
- */
-export function classifyContactRole(jobTitle?: string | null, company?: string | null): string {
-  const result = classifyContactRoleSmart(jobTitle, company);
-  return result.role;
-}
-
-/**
  * Get all matching roles for a contact with confidence scores.
  * Useful for detailed role analysis.
  *

@@ -20,23 +20,17 @@ export {
 export {
   createWebSearchTool,
   createWebSearchTools,
-  clearWebSearchCache,
-  clearAgentPool,
   type WebSearchToolOptions,
 } from './web-search.tools';
 export {
   createAnalyticsTool,
   createAnalyticsTools,
-  clearAnalyticsCache,
-  clearAnalyticsAgentPool,
   type AnalyticsToolOptions,
   type AnalyticsResult,
 } from './analytics.tools';
 export {
   createDocumentLibraryTool,
   createDocumentLibraryTools,
-  clearDocumentLibraryCache,
-  clearDocumentLibraryAgentPool,
   type DocumentLibraryToolOptions,
   type DocumentLibrary,
   type LibraryDocument,

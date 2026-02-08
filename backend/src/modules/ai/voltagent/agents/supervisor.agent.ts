@@ -1,62 +1,12 @@
 /**
- * Supervisor Agent for VoltAgent
+ * Dynamic instruction builder utilities.
  *
- * VoltAgent Simplification 2026-01-29:
- * - Single UnifiedAgent replaces multi-agent routing (5 agents → 1)
- * - 5x faster startup, 60%+ token reduction
- * - Dynamic tool loading based on intent
+ * Formerly contained createSupervisorAgent() -- deleted in Phase 11 audit.
+ * Retained helpers: buildDynamicInstructions, UserContext, ConnectedProvider, formatCurrentDateTime.
+ * File not renamed to avoid import churn across 4+ consumers.
  */
-import { Agent, type Memory, type AgentHooks } from '@voltagent/core';
-import type { LanguageModel } from 'ai';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../../../prisma/prisma.service';
-import { CalendarService } from '../../../calendar/services/calendar.service';
-import { EmailSendService } from '../../../email/services/email-send.service';
-import { MistralService } from '../../services/mistral.service';
-import { EmbeddingsService } from '../../services/embeddings.service';
-import { CacheService } from '../../../../common/services/cache.service';
-import { DocumentLibraryService } from '../services/document-library.service';
 import { getLocaleInstruction, type SupportedLocale } from '../locales';
-import { createUnifiedAgent } from './unified.agent';
-import { PiiDetectionService } from '../../guards';
-import { EmailInsightsService } from '../../services/email-insights.service';
-import { AIMemoryService } from '../services/ai-memory.service';
 
-export interface SupervisorAgentOptions {
-  model: LanguageModel;
-  prisma: PrismaService;
-  emailSendService: EmailSendService | null;
-  calendarService: CalendarService | null;
-  locale: SupportedLocale;
-  tenantId: string;
-  memory?: Memory;
-  hooks?: AgentHooks;
-  /** Optional: MistralService for RAG embeddings */
-  mistralService?: MistralService;
-  /** Optional: EmbeddingsService for RAG vector search */
-  embeddingsService?: EmbeddingsService;
-  /** Optional: User context for personalization */
-  userContext?: UserContext;
-  /** Optional: ConfigService for web search agent */
-  configService?: ConfigService;
-  /** Optional: User ID for web search context */
-  userId?: string;
-  /** Optional: CacheService for Redis-based caching (multi-instance support) */
-  cacheService?: CacheService;
-  /** Optional: DocumentLibraryService for document RAG */
-  documentLibraryService?: DocumentLibraryService;
-  /** Optional: PII detection for LLM redaction */
-  piiDetectionService?: PiiDetectionService;
-  /** Optional: EmailInsightsService for unified email analysis with DB persistence */
-  emailInsightsService?: EmailInsightsService;
-  /** Optional: AIMemoryService for semantic search on user memories */
-  aiMemoryService?: AIMemoryService | null;
-}
-
-/**
- * User profile context passed to agent for personalization.
- * Combines user data and preferences for a complete user profile.
- */
 /**
  * Connected email/calendar provider info for AI context.
  */
@@ -272,60 +222,3 @@ IMPORTANT: Remember and use this information throughout the conversation. Addres
   return `${instructions}\n${dateTimeSection}${userContextSection}${providersSection}${localeInstruction}`;
 }
 
-/**
- * Creates a Supervisor Agent that coordinates all specialized agents.
- *
- * The supervisor uses VoltAgent's built-in delegation pattern:
- * - Analyzes the user's request
- * - Delegates to the appropriate specialist agent
- * - Combines results when multiple agents are needed
- */
-export async function createSupervisorAgent(options: SupervisorAgentOptions): Promise<Agent> {
-  const {
-    model,
-    prisma,
-    emailSendService,
-    calendarService,
-    locale,
-    tenantId,
-    memory,
-    hooks,
-    mistralService,
-    embeddingsService,
-    userContext,
-    configService,
-    userId,
-    cacheService,
-    documentLibraryService,
-    // followUpService, longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
-    piiDetectionService,
-    emailInsightsService,
-    aiMemoryService,
-  } = options;
-  // VoltAgent Simplification 2026-01-29: Single UnifiedAgent replaces multi-agent routing
-  // - Eliminates routing overhead (1 LLM call saved per request)
-  // - 5x faster startup (100ms vs 500ms)
-  // - 60%+ token reduction via intent-based module loading
-  // - Better tool selection accuracy (fewer tools = better choices)
-  return await createUnifiedAgent({
-    model,
-    prisma,
-    locale,
-    tenantId,
-    userId,
-    memory,
-    hooks,
-    userContext,
-    cacheService,
-    emailSendService: emailSendService ?? null,
-    calendarService: calendarService ?? null,
-    mistralService: mistralService ?? null,
-    embeddingsService: embeddingsService ?? null,
-    emailInsightsService: emailInsightsService ?? null,
-    documentLibraryService: documentLibraryService ?? null,
-    aiMemoryService: aiMemoryService ?? null,
-    piiDetectionService,
-    configService,
-    intent: 'unknown', // Will be determined at runtime by TaskComplexityClassifier
-  });
-}

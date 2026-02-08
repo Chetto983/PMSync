@@ -7,7 +7,6 @@ import { SubscriptionModule } from '../subscription/subscription.module';
 import { EmbeddingsService } from './services/embeddings.service';
 import { KnowledgeBaseService } from './services/knowledge-base.service';
 import { KnowledgeBaseController } from './controllers/knowledge-base.controller';
-// PersonalizationController removed - AI refactor v2.0
 import { EmailEmbeddingQueueService } from './services/email-embedding.queue';
 import { ContactEmbeddingQueueService } from './services/contact-embedding.queue';
 import { EmailInsightsService } from './services/email-insights.service';
@@ -41,7 +40,6 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
   imports: [
     PrismaModule,
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
-    // VoltAgent module exports: PersonalizationService, WritingStyleService, PromptRegistryService
     forwardRef(() => VoltAgentModule),
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
   ],
@@ -96,7 +94,6 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     EmbeddingIntentClassifierService, // Embedding-based multilingual intent fallback
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
-    // VoltAgent module (re-exports PersonalizationService, WritingStyleService, etc.)
     VoltAgentModule,
   ],
 })

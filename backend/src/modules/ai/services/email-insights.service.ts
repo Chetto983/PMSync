@@ -13,7 +13,6 @@ import { AiError, AiErrorCode } from '../errors';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { WritingStyleService } from '../voltagent/services/writing-style.service';
-// PersonalizationService removed - AI refactor v2.0
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
 import {
@@ -115,7 +114,6 @@ export class EmailInsightsService {
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
     private readonly writingStyle: WritingStyleService,
-    // PersonalizationService removed - AI refactor v2.0
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(PiiDetectionService) private readonly piiDetection?: PiiDetectionService,
   ) {}
@@ -483,7 +481,6 @@ export class EmailInsightsService {
       }
     }
 
-    // Memory context removed - PersonalizationService removed in AI refactor v2.0
     const memoryContext = '';
 
     const toneInstruction = t.insights.tones[toneKey];

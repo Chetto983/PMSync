@@ -234,18 +234,3 @@ export function createDocumentLibraryTools(options: DocumentLibraryToolOptions) 
   return [createDocumentLibraryTool(options)];
 }
 
-/**
- * Clear document library cache (delegates to service)
- * Note: Service handles its own caching, this is for testing compatibility
- */
-export function clearDocumentLibraryCache(): void {
-  logger.log('Document library cache clear requested (service handles caching)');
-}
-
-/**
- * Clear document library agent pool (delegates to service)
- * Note: Service handles its own agent pooling, this is for testing compatibility
- */
-export function clearDocumentLibraryAgentPool(): void {
-  logger.log('Document library agent pool clear requested (service handles pooling)');
-}

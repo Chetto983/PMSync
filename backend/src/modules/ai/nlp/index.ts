@@ -13,10 +13,4 @@ export {
   INTENT_TAXONOMY,
   SLOT_FILLERS,
 } from './intent-taxonomy';
-export {
-  generateAugmentedDataset,
-  generateItalianParaphrases,
-  exportFastTextFormat,
-  getAugmentationStats,
-} from './intent-augmentation';
 export { EmbeddingIntentClassifierService, type EmbeddingClassificationResult } from './embedding-intent-classifier.service';

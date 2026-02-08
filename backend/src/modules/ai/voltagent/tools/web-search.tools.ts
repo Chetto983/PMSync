@@ -569,20 +569,6 @@ export function createWebSearchTools(options: WebSearchToolOptions) {
 }
 
 /**
- * Clear web search cache (for testing)
- */
-export function clearWebSearchCache(): void {
-  fallbackSearchCache.clear();
-}
-
-/**
- * Clear agent pool (for testing or forced refresh)
- */
-export function clearAgentPool(): void {
-  fallbackAgentPool.clear();
-}
-
-/**
  * GDPR: Delete all Mistral agents for a tenant
  * Call this when subscription is cancelled or tenant is deleted.
  * This deletes agents from both Mistral API and PostgreSQL.
