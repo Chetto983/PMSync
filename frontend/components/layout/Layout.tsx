@@ -1,10 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Box, ThemeProvider, CssBaseline, Snackbar, Alert } from '@mui/material';
+import { Box, Snackbar, Alert } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { CommandPalette } from '@/components/ai/CommandPalette';
-import { darkTheme, lightTheme } from '@/theme/appTheme';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
@@ -28,8 +27,8 @@ export function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Unified theme management - syncs with database
-  const { resolvedTheme, isDarkMode, toggleTheme } = useThemePersistence();
-  const theme = resolvedTheme === 'dark' ? darkTheme : lightTheme;
+  // Note: MUI ThemeProvider is in _app.tsx (MaterialThemeWrapper) - no duplicate here
+  const { isDarkMode, toggleTheme } = useThemePersistence();
 
   // Get translated sync status message
   const getSyncStatusMessage = useMemo(() => {
@@ -60,8 +59,6 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
       <Box sx={{ display: 'flex', height: '100vh', minHeight: '100vh', maxWidth: '100vw', overflow: 'hidden' }}>
         {/* Skip Navigation Link - WCAG 2.1 AA requirement */}
         <a
@@ -138,6 +135,5 @@ export function Layout({ children }: LayoutProps) {
         <CookieConsent />
         <CommandPalette />
       </Box>
-    </ThemeProvider>
   );
 }
