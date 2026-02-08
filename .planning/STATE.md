@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: Gap closure — Phases 03, 04-03, 12
-Plan: Pending planning
-Status: ⏳ GAP CLOSURE
-Last activity: 2026-02-08 — Milestone audit identified gaps, created closure phases
+Phase: 03 of 12 (Auto-Triage Core)
+Plan: 01 of 3
+Status: In progress
+Last activity: 2026-02-08 — Completed 03-01-PLAN.md
 
 Progress: v3.0
 ```
-[██████████████████████████████████████████░░░░] 91% (32/35 plans)
+[███████████████████████████████████████████░░░] 94% (33/35 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Gap closure phases created after milestone audit
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
-Next action: Plan Phase 03 (Auto-Triage) — `/gsd:plan-phase 03`
+Next action: Execute 03-02-PLAN.md
 
 ## Accumulated Decisions
 
@@ -126,6 +126,10 @@ Next action: Plan Phase 03 (Auto-Triage) — `/gsd:plan-phase 03`
 | Extract-then-delegate pattern for large files | v3.0-11-03 | Create new services first, modify originals in follow-up to avoid file conflicts |
 | Flexible assertions for external library tests | v3.0-11-04 | Test pattern detection instead of strict blocking for library version compatibility |
 | Context-aware validation testing | v3.0-11-04 | Different security levels for USER_PROMPT vs EMAIL_CONTENT vs SYSTEM_INTERNAL |
+| OR query for VIP detection | v3.0-03-01 | User-defined VIPs (isVip) + auto-detected (relationshipScore >= 50) |
+| VIP take limit 50 | v3.0-03-01 | Accommodate both auto-detected and user-defined VIPs |
+| isVip fast-path in scoreSenderImportance | v3.0-03-01 | Cache-miss fallback returns 1.0 for user-defined VIPs |
+| Active tenant filtering in backfill | v3.0-03-01 | Prevent processing for inactive/deleted tenants |
 
 ## Blockers & Concerns
 
@@ -168,7 +172,7 @@ See: .planning/MILESTONES.md
 |-------|------|--------------|--------|
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | ✅ COMPLETE (3/3 plans) |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | ✅ COMPLETE (4/4 plans) |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ⏳ GAP CLOSURE (0/3 plans) |
+| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ⏳ IN PROGRESS (1/3 plans) |
 | 04 | Follow-Ups Refactor | FOLLOW-01/02 | ⏳ GAP CLOSURE (2/3 plans) |
 | 05 | Nested Labels Frontend | LABELS-01 | ✅ COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | ✅ COMPLETE (5/5 plans) |
@@ -197,7 +201,7 @@ See: .planning/MILESTONES.md
 - Phase 11: AI Module Audit (5/5 plans) ✅
 
 **Gap closure (3 remaining):**
-- Phase 03: Auto-Triage Core (0/3 plans) — needs `/gsd:plan-phase 03`
+- Phase 03: Auto-Triage Core (1/3 plans) — 03-01 complete, execute 03-02 next
 - Phase 04-03: SnoozeDialog UI (1 plan) — needs plan + execution
 - Phase 12: Test Fixes + Minor Gaps (0/2 plans) — needs `/gsd:plan-phase 12`
 
@@ -210,7 +214,7 @@ See: .planning/MILESTONES.md
 - Formal verification needed on phases 05, 07, 09, 10, 11
 
 ---
-*State updated: 2026-02-08 -- Gap closure phases created after milestone audit*
+*State updated: 2026-02-08 -- Completed 03-01 (VIP attention scoring + backfill hardening)*
 
 ## Phase 11 Accomplishments
 
