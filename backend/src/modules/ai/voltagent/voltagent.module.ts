@@ -82,6 +82,8 @@ import { ChatPrepareService } from './services/chat-prepare.service';
 import { TaskComplexityClassifierService } from './services/task-complexity-classifier.service';
 import { NlpIntentClassifierService } from './services/nlp-intent-classifier.service';
 import { QueryAnalyzerService } from './rag/query-analyzer.service';
+import { VectorSearchService } from './rag/vector-search.service';
+import { KeywordSearchService } from './rag/keyword-search.service';
 import { IntentClassifierService } from '../nlp';
 
 // Phase 6: Extracted Services (VoltAgentService refactoring)
@@ -173,6 +175,8 @@ import { RetryService } from '../../../common/services/retry.service';
     NlpIntentClassifierService, // Neural network intent classifier (2026-01-29)
     IntentClassifierService, // FastText bilingual intent classifier (2026-01-30)
     QueryAnalyzerService, // RAG query analysis (Phase D - 2026-01-30)
+    VectorSearchService, // RAG vector search (Phase 11-02)
+    KeywordSearchService, // RAG keyword search (Phase 11-02)
     // Phase 6: Extracted Services (VoltAgentService refactoring)
     AgentPoolService,
     AgentMetricsService,

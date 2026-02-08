@@ -9,3 +9,5 @@
  * @see https://www.microsoft.com/en-us/microsoft-cloud/blog/2025/02/04/common-retrieval-augmented-generation-rag-techniques-explained/
  */
 export * from './unified-retriever';
+export * from './vector-search.service';
+export * from './keyword-search.service';
