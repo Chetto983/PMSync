@@ -151,7 +151,7 @@ export function ChatInput({
           variant="contained"
           onClick={() => onSendMessage()}
           disabled={sending || !prompt.trim()}
-          aria-label={t.ai?.actions?.send || 'Send message'}
+          aria-label={t.common?.send || 'Send message'}
           sx={{
             minWidth: 56,
             height: 56,
