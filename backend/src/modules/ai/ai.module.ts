@@ -37,6 +37,7 @@ import { EmbeddingSearchService } from './services/embedding-search.service';
 import { EmbeddingBackfillService } from './services/embedding-backfill.service';
 // PERF-03: Orphan embedding cleanup (null emailId AND null contactId)
 import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-cleanup.service';
+import { TriageLearningService } from './services/triage-learning.service';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
+    TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -94,6 +96,7 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
+    TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
     VoltAgentModule,
   ],
 })
