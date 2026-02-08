@@ -7,11 +7,13 @@
  * - Remove button (edit mode only)
  * - Integrates with react-grid-layout
  * - Uses MUI theme colors
+ * - Subtle hover lift animation (framer-motion)
  */
 
 import { ReactNode } from 'react';
 import { Box, IconButton, alpha, useTheme } from '@mui/material';
 import { GripVertical, X } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export interface WidgetContainerProps {
     /** Widget ID */
@@ -38,6 +40,9 @@ export function WidgetContainer({
 
     return (
         <Box
+            component={motion.div}
+            whileHover={!editMode ? { y: -2, boxShadow: isDark ? `0 12px 40px ${alpha('#000', 0.4)}` : `0 12px 40px ${alpha(theme.palette.primary.main, 0.15)}` } : undefined}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
             sx={{
                 position: 'relative',
                 height: '100%',
@@ -50,7 +55,6 @@ export function WidgetContainer({
                 boxShadow: isDark
                     ? `0 8px 32px ${alpha('#000', 0.3)}`
                     : `0 8px 32px ${alpha(theme.palette.primary.main, 0.1)}`,
-                transition: 'all 0.3s ease',
                 overflow: 'hidden',
                 // Edit mode styling
                 ...(editMode && {

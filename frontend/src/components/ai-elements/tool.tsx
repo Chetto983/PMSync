@@ -14,6 +14,7 @@ import {
   XCircleIcon,
   AlertCircleIcon,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import type { ComponentProps, ReactNode } from "react";
 import { isValidElement } from "react";
 import { CodeBlock } from "./code-block";
@@ -68,17 +69,25 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
 /**
  * Tool wrapper - matches assistant-ui ToolFallback design.
  * Clean rounded-lg border, no shadow, minimal chrome.
+ * Subtle fade-in animation on render (framer-motion).
  */
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
+    asChild
     className={cn(
       "group not-prose w-full rounded-lg border py-3",
       "[--animation-duration:200ms]",
       className,
     )}
     style={{ "--animation-duration": "200ms" } as React.CSSProperties}
-    {...props}
-  />
+  >
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      {...props}
+    />
+  </Collapsible>
 );
 
 export type ToolPart = ToolUIPart | DynamicToolUIPart;

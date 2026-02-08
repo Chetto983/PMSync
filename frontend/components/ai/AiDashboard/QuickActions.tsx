@@ -21,6 +21,7 @@ import {
   Archive,
   Tag,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { ViewContext } from '@/hooks/use-voltagent-chat';
 import { useEmailChatActions } from '@/hooks/use-email-chat-actions';
@@ -206,6 +207,9 @@ export function QuickActions({ onSelectQuery, userName, viewContext, customPromp
           return (
             <Paper
               key={index}
+              component={motion.div}
+              whileTap={{ scale: 0.97 }}
+              transition={{ duration: 0.1 }}
               elevation={0}
               onClick={() => onSelectQuery(action.prompt)}
               sx={{

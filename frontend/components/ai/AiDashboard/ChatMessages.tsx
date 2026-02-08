@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { Box, Typography, Paper, alpha, useTheme, IconButton, Tooltip, Fade } from '@mui/material';
 import { Bot, User, Copy, Check, ArrowDown } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useChatScroll } from './useChatScroll';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type UIMessage, getMessageMetadata, getMessageText } from '@/hooks/use-voltagent-chat';
@@ -400,6 +401,10 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
       {messages.map((message, index) => (
         <Box
           key={index}
+          component={motion.div}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut', delay: index * 0.05 }}
           sx={{
             display: 'flex',
             flexDirection: message.role === 'user' ? 'row-reverse' : 'row',
