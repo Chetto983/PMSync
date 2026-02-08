@@ -4,8 +4,8 @@
 
 **Version:** v3.0
 **Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management
-**Total Phases:** 9
-**Total Requirements:** 16
+**Total Phases:** 11
+**Total Requirements:** 17
 
 **Key deliverables:**
 - Clean VoltAgent integration with modern patterns
@@ -51,6 +51,7 @@
 | 08 | Email Tool Triage Exposure | TOOL-01 | 2/2 | ✅ COMPLETE |
 | 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | 0/0 | ❌ NOT PLANNED |
 | 10 | UI Review | REVIEW-01 | 8/8 | ⏳ PLANNED |
+| 11 | AI Module Audit | AUDIT-01 | 5/5 | ⏳ PLANNED |
 
 ---
 
@@ -426,6 +427,48 @@ Plans:
 - Framer-motion micro-interactions on key elements
 - WCAG AA accessibility improvements (fewer axe-core exclusions)
 - Consistent focus indicators across all interactive elements
+
+---
+
+## Phase 11: AI Module Audit
+
+**Goal:** Clean, maintainable AI module — zero dead code, all files under 500 lines, safety-critical services tested, performance gaps fixed
+
+**Status:** PLANNED
+
+**Requirements:**
+- AUDIT-01: AI module audit — dead code removal, dependency cleanup, file splitting (500-line limit), test coverage for safety-critical services, performance fixes
+
+**Dependencies:** Phase 10 (UI Review)
+
+**Why eleventh:** After all feature work and UI polish, audit the AI backend to eliminate accumulated dead code, enforce file size limits, and add tests for safety-critical services that currently have zero coverage.
+
+**Plans:** 5 plans
+
+Plans:
+
+- [ ] 11-01-PLAN.md — Dead code removal + unused dependency cleanup (~1,600 lines deleted)
+- [ ] 11-02-PLAN.md — File splitting: follow-up.service, mistral.service, unified-retriever
+- [ ] 11-03-PLAN.md — File splitting: relationship-intelligence, email-insights, email.tools
+- [ ] 11-04-PLAN.md — Tests for safety-critical services (HITL, PII detection, prompt guard)
+- [ ] 11-05-PLAN.md — Tests for action executor + performance/reliability fixes
+
+**Wave Structure:**
+
+- Wave 1: 11-01 (dead code removal — no dependencies)
+- Wave 2: 11-02, 11-03 (parallel file splitting — no file conflicts, depends on 11-01)
+- Wave 3: 11-04, 11-05 (parallel tests + perf fixes — depends on splits being done)
+
+**Deliverables:**
+
+- ~1,600 lines of dead code removed
+- 2 unused NestJS providers deleted (FeedbackQueueService, EmbeddingIntentClassifierService)
+- 2 unused npm packages removed (@anthropic-ai/sdk, @voltagent/logger)
+- 7 files over 1,000 lines split to under 500 lines each
+- Tests for HITL, PII detection, prompt guard, action executor
+- Tool agent pool TTL + max size limits
+- RAG query timeout protection
+- MISTRAL_API_KEY startup validation
 
 ---
 
