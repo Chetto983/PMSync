@@ -148,8 +148,10 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
   private async processBackfillJob(job: Job<BackfillJobData>): Promise<BackfillResult> {
     const { tenantId, userId } = job.data;
 
-    // Find tenants with untriaged emails
+    // Find active tenants with untriaged emails
     const tenantsToProcess = await this.findTenantsWithUntriagedEmails(tenantId);
+
+    this.logger.debug(`Processing triage backfill for ${tenantsToProcess.length} tenants`);
 
     if (tenantsToProcess.length === 0) {
       this.logger.debug('No untriaged emails found');
@@ -232,6 +234,22 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       whereClause.tenantId = specificTenantId;
     }
 
+    // Filter to only active tenants
+    const activeTenantIds = specificTenantId
+      ? [specificTenantId]
+      : (
+          await this.prisma.tenant.findMany({
+            where: { isActive: true, deletedAt: null },
+            select: { id: true },
+          })
+        ).map((t) => t.id);
+
+    if (activeTenantIds.length === 0) return [];
+
+    if (!specificTenantId) {
+      whereClause.tenantId = { in: activeTenantIds };
+    }
+
     const results = await this.prisma.email.groupBy({
       by: ['tenantId'],
       where: whereClause,
@@ -283,7 +301,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       where: {
         isAutoTriaged: false,
         receivedAt: { gte: cutoff },
-        folder: { notIn: ['spam', 'junk', 'trash', '[gmail]/spam', '[gmail]/trash'] },
+        folder: { notIn: ['SPAM', 'TRASH', 'SENT', 'DRAFTS', 'ARCHIVE'] },
         isDeleted: false,
         isDraft: false,
       },
