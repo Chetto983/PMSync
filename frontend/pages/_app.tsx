@@ -4,6 +4,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { MotionConfig } from 'framer-motion';
 import {
   ThemeProvider as MuiThemeProvider,
   CssBaseline,
@@ -38,7 +39,9 @@ function MaterialThemeWrapper({ children }: { children: React.ReactNode }) {
   return (
     <MuiThemeProvider theme={muiTheme}>
       <CssBaseline enableColorScheme />
+      <MotionConfig reducedMotion="user">
       {children}
+      </MotionConfig>
     </MuiThemeProvider>
   );
 }

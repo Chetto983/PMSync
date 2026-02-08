@@ -41,6 +41,7 @@ export const en: AppTranslations = {
     searchPlaceholder: 'Search emails, contacts, events...',
   },
   common: {
+    skipToContent: 'Skip to main content',
     loading: 'Loading...',
     getStarted: 'Get started',
     contactSales: 'Contact sales',

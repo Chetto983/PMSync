@@ -300,6 +300,7 @@ export interface AppTranslations {
     searchPlaceholder: string;
   };
   common: {
+    skipToContent: string;
     loading: string;
     getStarted: string;
     contactSales: string;

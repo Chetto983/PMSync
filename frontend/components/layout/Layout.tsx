@@ -63,6 +63,13 @@ export function Layout({ children }: LayoutProps) {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ display: 'flex', height: '100vh', minHeight: '100vh', maxWidth: '100vw', overflow: 'hidden' }}>
+        {/* Skip Navigation Link - WCAG 2.1 AA requirement */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-[9999] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {t.common?.skipToContent || 'Skip to main content'}
+        </a>
         {/* Sidebar */}
         <Sidebar
           collapsed={collapsed}
@@ -94,8 +101,10 @@ export function Layout({ children }: LayoutProps) {
           {/* Quota Alert Banner - shows when usage > 80% */}
           <QuotaAlertBanner />
 
-          {/* Page Content */}
+          {/* Page Content - Main content target for skip navigation */}
           <Box
+            id="main-content"
+            tabIndex={-1}
             sx={{
               flex: 1,
               display: 'flex',
