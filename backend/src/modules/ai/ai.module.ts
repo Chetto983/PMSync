@@ -1,5 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MistralService } from './services/mistral.service';
+import { MistralEmbeddingService } from './services/mistral-embedding.service';
+import { MistralRagService } from './services/mistral-rag.service';
 import { AiController } from './controllers/ai.controller';
 import { AiHealthController } from './controllers/ai-health.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
@@ -44,6 +46,8 @@ import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-clean
   ],
   providers: [
     // Core AI services (not in VoltAgent)
+    MistralEmbeddingService,
+    MistralRagService,
     MistralService,
     EmbeddingsService,
     // Phase 7: Extracted RAG sub-services (must be before KnowledgeBaseService facade)
