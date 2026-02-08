@@ -10,21 +10,21 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 11 of 11 — AI Module Audit
-Plan: 03 of 5
+Plan: 04 of 5
 Status: IN PROGRESS
-Last activity: 2026-02-08 — Completed 11-03 (Additional Service Extractions - partial)
+Last activity: 2026-02-08 — Completed 11-04 (Safety-Critical AI Services Tests)
 
 Progress: v3.0
 ```
-[██████████████████████████████████████████████] 100% (30/30 plans)
+[██████████████████████████████████████████████] 100% (31/31 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 11-03 (Additional Service Extractions - partial)
+Stopped at: Completed 11-04 (Safety-Critical AI Services Tests)
 Resume file: None
-Next action: Continue with 11-03 (Low Test Coverage Analysis)
+Next action: Continue with 11-05 (Low Test Coverage Analysis)
 
 ## Accumulated Decisions
 
@@ -124,6 +124,8 @@ Next action: Continue with 11-03 (Low Test Coverage Analysis)
 | Setter-based DI for cross-service wiring | v3.0-11-02 | Avoids NestJS circular dependency errors in extracted services |
 | RRF K=60 constant for rank fusion | v3.0-11-02 | Industry standard parameter balancing vector and keyword rankings |
 | Extract-then-delegate pattern for large files | v3.0-11-03 | Create new services first, modify originals in follow-up to avoid file conflicts |
+| Flexible assertions for external library tests | v3.0-11-04 | Test pattern detection instead of strict blocking for library version compatibility |
+| Context-aware validation testing | v3.0-11-04 | Different security levels for USER_PROMPT vs EMAIL_CONTENT vs SYSTEM_INTERNAL |
 
 ## Blockers & Concerns
 
@@ -192,7 +194,7 @@ See: .planning/MILESTONES.md
 
 **In progress:**
 - Phase 04: Follow-Ups Refactor (2/3 plans) ⏳ — 04-03 pending
-- Phase 11: AI Module Audit (3/5 plans — IN PROGRESS)
+- Phase 11: AI Module Audit (4/5 plans — IN PROGRESS)
 
 **Remaining phases:**
 - Phase 03: Auto-Triage Core (0/3 plans — NOT PLANNED)
@@ -205,4 +207,4 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-08 -- Completed 11-03 (Additional Service Extractions - partial)*
+*State updated: 2026-02-08 -- Completed 11-04 (Safety-Critical AI Services Tests)*
