@@ -11,10 +11,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   alpha,
   useTheme,
   useMediaQuery,
@@ -52,6 +48,7 @@ import type { Theme } from '@mui/material';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanSkeleton } from './KanbanSkeleton';
 import { FollowUpCard } from '@/components/ai/FollowUpTracker/FollowUpCard';
+import { SnoozeDialog } from './SnoozeDialog';
 
 // Column configuration - actionable view (not strictly matching Prisma enum)
 // "overdue" is a virtual column for items past due date
@@ -63,19 +60,11 @@ const COLUMNS: { id: KanbanColumnId; title: string; titleKey: string; color: str
   { id: 'EXPIRED', title: 'Expired', titleKey: 'expired', color: 'grey.500' },
 ];
 
-// Date helper functions
+// Date helper for drag-drop snooze
 function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
-}
-
-function addWeeks(date: Date, weeks: number): Date {
-  return addDays(date, weeks * 7);
-}
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export function FollowupsKanbanBoard() {
@@ -357,17 +346,14 @@ export function FollowupsKanbanBoard() {
     setSnoozeDialogOpen(true);
   }, []);
 
-  const handleSnooze = useCallback(async (days: number) => {
+  const handleSnooze = useCallback(async (date: Date) => {
     if (!snoozeTargetId) return;
 
-    const newDate = days === 7
-      ? addWeeks(new Date(), 1)
-      : addDays(new Date(), days);
 
     try {
       await snoozeFollowUp.mutateAsync({
         id: snoozeTargetId,
-        dueDate: newDate.toISOString(),
+        dueDate: date.toISOString(),
       });
       setSnoozeDialogOpen(false);
       setSnoozeTargetId(null);
@@ -486,41 +472,15 @@ export function FollowupsKanbanBoard() {
       </DndContext>
 
       {/* Snooze Dialog */}
-      <Dialog
+      <SnoozeDialog
         open={snoozeDialogOpen}
-        onClose={() => setSnoozeDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>{t.ai.followUpTracker.snooze.title}</DialogTitle>
-        <DialogContent>
-          <List>
-            <ListItemButton onClick={() => handleSnooze(1)}>
-              <ListItemIcon>
-                <Calendar size={20} />
-              </ListItemIcon>
-              <ListItemText
-                primary={t.ai.followUpTracker.snooze.tomorrow}
-                secondary={formatDate(addDays(new Date(), 1))}
-              />
-            </ListItemButton>
-            <ListItemButton onClick={() => handleSnooze(7)}>
-              <ListItemIcon>
-                <Calendar size={20} />
-              </ListItemIcon>
-              <ListItemText
-                primary={t.ai.followUpTracker.snooze.nextWeek}
-                secondary={formatDate(addWeeks(new Date(), 1))}
-              />
-            </ListItemButton>
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSnoozeDialogOpen(false)}>
-            {t.common.cancel}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => {
+          setSnoozeDialogOpen(false);
+          setSnoozeTargetId(null);
+        }}
+        followUpId={snoozeTargetId}
+        onSnooze={handleSnooze}
+      />
 
       {/* Keyboard Shortcuts Help Dialog */}
       <Dialog
