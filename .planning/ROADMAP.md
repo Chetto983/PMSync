@@ -50,7 +50,7 @@
 | 07 | Chat Improvement | CHAT-04 | 6/6 | ✅ COMPLETE |
 | 08 | Email Tool Triage Exposure | TOOL-01 | 2/2 | ✅ COMPLETE |
 | 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | 0/0 | ❌ NOT PLANNED |
-| 10 | UI Review | REVIEW-01 | 8/8 | ⏳ PLANNED |
+| 10 | UI Review | REVIEW-01 | 8/8 | ✅ COMPLETE |
 | 11 | AI Module Audit | AUDIT-01 | 5/5 | ⏳ PLANNED |
 
 ---
@@ -389,7 +389,7 @@ Plans:
 
 **Goal:** Visual polish pass across the entire frontend — ensure all pages, components, and tool renderers meet 2026 design standards with consistent theming, spacing, and responsive behavior.
 
-**Status:** PLANNED
+**Status:** COMPLETE
 
 **Requirements:**
 - REVIEW-01: UI review and visual polish pass
@@ -402,14 +402,14 @@ Plans:
 
 Plans:
 
-- [ ] 10-01-PLAN.md — Global foundations: Lucide icon migration + skip nav + reduced motion
-- [ ] 10-02-PLAN.md — Theme parity: light theme overrides + hardcoded color cleanup
-- [ ] 10-03-PLAN.md — Shell audit + fix: Layout, Header, Sidebar, ThemeToggle
-- [ ] 10-04-PLAN.md — Email pages audit + fix: Email List, Thread, Compose
-- [ ] 10-05-PLAN.md — AI pages audit + fix: AI Chat, Memories, Follow-ups
-- [ ] 10-06-PLAN.md — Dashboard + Contacts + Calendar audit + fix
-- [ ] 10-07-PLAN.md — Settings + Auth + Landing + Static pages audit + fix
-- [ ] 10-08-PLAN.md — Micro-interactions + accessibility verification
+- [x] 10-01-PLAN.md — Global foundations: Lucide icon migration + skip nav + reduced motion
+- [x] 10-02-PLAN.md — Theme parity: light theme overrides + hardcoded color cleanup
+- [x] 10-03-PLAN.md — Shell audit + fix: Layout, Header, Sidebar, ThemeToggle
+- [x] 10-04-PLAN.md — Email pages audit + fix: Email List, Thread, Compose
+- [x] 10-05-PLAN.md — AI pages audit + fix: AI Chat, Memories, Follow-ups
+- [x] 10-06-PLAN.md — Dashboard + Contacts + Calendar audit + fix
+- [x] 10-07-PLAN.md — Settings + Auth + Landing + Static pages audit + fix
+- [x] 10-08-PLAN.md — Micro-interactions + accessibility verification
 
 **Wave Structure:**
 
