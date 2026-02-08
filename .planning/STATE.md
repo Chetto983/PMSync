@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 
 ## Current Position
 
-Phase: 03 of 12 (Auto-Triage Core)
-Plan: 03 of 3
+Phase: 04 of 12 (Follow-Ups Refactor)
+Plan: 03 of 3 (gap closure complete)
 Status: Phase complete
-Last activity: 2026-02-08 — Completed 03-03-PLAN.md
+Last activity: 2026-02-08 — Completed 04-03-PLAN.md
 
 Progress: v3.0
 ```
-[█████████████████████████████████████████████] 100% (35/35 plans)
+[█████████████████████████████████████████████] 100% (36/36 plans)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 03-03-PLAN.md (Phase 03 complete)
+Stopped at: Completed 04-03-PLAN.md (Phase 04 gap closure complete)
 Resume file: None
-Next action: Execute remaining gap closure (Phase 04-03, Phase 12)
+Next action: Execute Phase 12: Test Fixes + Minor Gaps
 
 ## Accumulated Decisions
 
@@ -137,6 +137,9 @@ Next action: Execute remaining gap closure (Phase 04-03, Phase 12)
 | Buffer flush at 5 signals or 5 min | v3.0-03-03 | Balance between responsiveness and write efficiency |
 | 100 emails per tenant recalculation | v3.0-03-03 | Prevent overload; oldest emails recalculated first |
 | SKIP_FOLDERS extracted constant | v3.0-03-03 | Eliminated 3x folder exclusion duplication |
+| Native date input for custom dates | v3.0-04-03 | @mui/x-date-pickers not installed; matches existing patterns |
+| Smart timing above presets | v3.0-04-03 | AI recommendation is primary value-add; prominent placement |
+| handleSnooze accepts Date object | v3.0-04-03 | Cleaner API for both presets and smart timing |
 
 ## Blockers & Concerns
 
@@ -180,7 +183,7 @@ See: .planning/MILESTONES.md
 | 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | ✅ COMPLETE (3/3 plans) |
 | 02 | AI Chat Overhaul | CHAT-01/02/03 | ✅ COMPLETE (4/4 plans) |
 | 03 | Auto-Triage Core | TRIAGE-01/02/03 | ✅ COMPLETE (3/3 plans) |
-| 04 | Follow-Ups Refactor | FOLLOW-01/02 | ⏳ GAP CLOSURE (2/3 plans) |
+| 04 | Follow-Ups Refactor | FOLLOW-01/02 | ✅ COMPLETE (3/3 plans) |
 | 05 | Nested Labels Frontend | LABELS-01 | ✅ COMPLETE (2/2 plans) |
 | 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | ✅ COMPLETE (5/5 plans) |
 | 07 | Chat Improvement | CHAT-04 | ✅ COMPLETE (6/6 plans) |
@@ -196,10 +199,11 @@ See: .planning/MILESTONES.md
 
 **Currently:** Gap closure after milestone audit.
 
-**Completed phases (10/12):**
+**Completed phases (11/12):**
 - Phase 01: AI Infrastructure Cleanup (3/3 plans) ✅
 - Phase 02: AI Chat Overhaul (4/4 plans) ✅
 - Phase 03: Auto-Triage Core (3/3 plans) ✅
+- Phase 04: Follow-Ups Refactor (3/3 plans) ✅
 - Phase 05: Nested Labels Frontend (2/2 plans) ✅
 - Phase 06: Chat UI and Agent Tool on Mail (5/5 plans) ✅
 - Phase 07: Chat Improvement (6/6 plans) ✅
@@ -208,8 +212,7 @@ See: .planning/MILESTONES.md
 - Phase 10: UI Review (8/8 plans) ✅
 - Phase 11: AI Module Audit (5/5 plans) ✅
 
-**Gap closure (2 remaining):**
-- Phase 04-03: SnoozeDialog UI (1 plan) — needs plan + execution
+**Gap closure (1 remaining):**
 - Phase 12: Test Fixes + Minor Gaps (0/2 plans) — needs `/gsd:plan-phase 12`
 
 **Known issues carried forward:**
@@ -221,7 +224,7 @@ See: .planning/MILESTONES.md
 - Formal verification needed on phases 05, 07, 09, 10, 11
 
 ---
-*State updated: 2026-02-08 -- Completed 03-03 (Triage learning signals + nightly recalculation). Phase 03 COMPLETE.*
+*State updated: 2026-02-08 -- Completed 04-03 (SnoozeDialog with smart timing). Phase 04 gap closure COMPLETE.*
 
 ## Phase 11 Accomplishments
 
