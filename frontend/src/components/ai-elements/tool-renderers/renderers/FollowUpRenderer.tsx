@@ -100,6 +100,14 @@ export function FollowUpRenderer({ output, errorText }: ToolRendererProps) {
                   >
                     {isOverdue ? "Overdue" : fu.status}
                   </Badge>
+                  {fu.emailType && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 shrink-0 capitalize"
+                    >
+                      {fu.emailType}
+                    </Badge>
+                  )}
                 </div>
 
                 {/* Line 2: from + reason */}
