@@ -1,5 +1,33 @@
 # Project Milestones: MailAgent
 
+## v3.0 AI Intelligence & Scalability (Shipped: 2026-02-09)
+
+**Delivered:** Complete AI infrastructure overhaul with streaming chat, auto-triage priority scoring, smart follow-ups, and visual polish.
+
+**Phases completed:** 01-12 (42 plans total)
+
+**Key accomplishments:**
+
+- Modern AI chat experience (954-line monolith split into 6 files, Vercel AI SDK streaming)
+- Auto-triage priority scoring (VIP-aware, implicit learning, nightly recalculation)
+- Smart tool renderers (10 custom React components replacing raw JSON)
+- Nested labels tree view with drag-drop and context menu
+- AI module cleanup (1,618 lines dead code removed, TTL pools, RAG timeout)
+- WCAG accessibility and visual polish (Lucide icons, theme parity, micro-interactions)
+
+**Stats:**
+
+- 12 phases, 42 plans
+- 206 commits, 326 files changed
+- +47,644 / -13,903 lines (net +33,741)
+- 4 days from start to ship (2026-02-05 → 2026-02-09)
+
+**Git tag:** `v3.0`
+
+**Notes:** 19/19 requirements satisfied. 10 tech debt items deferred (non-blocking documentation and human verification).
+
+---
+
 ## v2.1 Optimization & Polish (Shipped: 2026-02-05)
 
 **Delivered:** Performance infrastructure (code splitting + Lighthouse CI), iOS safe area support, and folder nesting API.

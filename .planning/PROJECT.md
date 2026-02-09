@@ -8,23 +8,17 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v3.0 AI Intelligence & Scalability
+## Current Milestone: v3.1 (Planning)
 
-**Goal:** Overhaul AI infrastructure for speed, reliability, and intelligent email management.
+**Goal:** TBD - awaiting requirements definition.
 
-**Target features:**
-- VoltAgent alignment with official patterns + runtime agent spawning
-- Vercel AI SDK for modern chat UI (streaming, useChat)
-- Auto-triage with priority scoring, category assignment, action suggestions
-- Nested labels with tree hierarchy
-- Follow-ups UI refactor
-- Tool consolidation and UX/UI audit
+**Previous:** v3.0 AI Intelligence & Scalability shipped 2026-02-09 with 19/19 requirements satisfied.
 
 ## Current State
 
-**Version:** v3.0 in progress
-**Status:** Defining requirements
-**Base:** v2.1 shipped (2026-02-05)
+**Version:** v3.0 shipped
+**Status:** Milestone complete, v3.1 planning
+**Base:** v3.0 shipped (2026-02-09)
 
 **Tech Stack:**
 - Backend: NestJS, PostgreSQL, Redis, BullMQ
@@ -38,6 +32,19 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 ### Validated
 
 <!-- Shipped and working -->
+
+**v3.0 - AI Intelligence & Scalability (shipped 2026-02-09):**
+- ✓ INFRA-01/02/03: VoltAgent audit, tool consolidation, AI scalability
+- ✓ CHAT-01/02/03/04: Vercel AI SDK streaming, contextual prompts, mobile chat, modern UI
+- ✓ TRIAGE-01/02/03: Priority scoring, VIP lists, learning from user actions
+- ✓ FOLLOW-01/02: Follow-ups refactor with two types, smart timing + NLP
+- ✓ LABELS-01: Nested labels tree view with drag-drop
+- ✓ CHATUI-01: Chat UI + agent tool on mail
+- ✓ TOOL-01: Email tool triage data exposure
+- ✓ ARTIFACT-01: Smart tool result renderers
+- ✓ REVIEW-01: UI review and visual polish
+- ✓ AUDIT-01: AI module audit (dead code, tests, perf)
+- ✓ FIX-01/02: ActionExecutor tests, WCAG accessibility
 
 **v2.1 - Optimization & Polish (shipped 2026-02-05):**
 - ✓ OPT-01: Code splitting infrastructure (React.lazy for TipTap, @dnd-kit)
@@ -70,25 +77,7 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ### Active
 
-<!-- v3.0 AI Intelligence & Scalability -->
-
-**AI Infrastructure:**
-- [ ] Audit VoltAgent integration against official patterns
-- [ ] Explore runtime agent spawning for parallel processing
-- [ ] Evaluate/adopt Vercel AI SDK for chat UI
-- [ ] Consolidate all AI tools (remove duplicates)
-- [ ] Fix chat interface (slow, lost messages, context issues)
-- [ ] Improve AI scalability for concurrent requests
-
-**UX/UI Improvements:**
-- [ ] Audit AI interface UX/UI design
-- [ ] Major refactor of follow-ups UI
-- [ ] Nested labels (backend + frontend tree hierarchy)
-
-**New Features:**
-- [ ] Auto-triage: priority scoring
-- [ ] Auto-triage: category assignment
-- [ ] Auto-triage: action suggestions
+<!-- v3.1 - awaiting definition -->
 
 ### Out of Scope
 
@@ -157,4 +146,4 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | TipTap for rich compose | Best-in-class React editor, AI-friendly | v2.0 |
 
 ---
-*Last updated: 2026-02-05 — v3.0 milestone started*
+*Last updated: 2026-02-09 — v3.0 milestone shipped*
