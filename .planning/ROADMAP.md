@@ -6,13 +6,13 @@ v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced 
 
 ## Milestones
 
-- ✅ **v3.0 AI Intelligence & Scalability** - Phases 1-12 (shipped 2026-02-09)
-- 🚧 **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-18 (in progress)
+- v3.0 AI Intelligence & Scalability - Phases 1-12 (shipped 2026-02-09)
+- v3.1 GDPR Compliance & Chatbot Enhancement - Phases 13-18 (in progress)
 
 ## Phases
 
 <details>
-<summary>✅ v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
+<summary>v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
 
 ### Phase 1: VoltAgent Infrastructure Audit
 **Goal**: Reliable AI infrastructure with tool consolidation
@@ -110,7 +110,7 @@ v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced 
 
 ---
 
-## 🚧 v3.1 GDPR Compliance & Chatbot Enhancement (In Progress)
+## v3.1 GDPR Compliance & Chatbot Enhancement (In Progress)
 
 **Milestone Goal:** Full GDPR compliance with enhanced AI chatbot artifacts and advanced triage features.
 
@@ -127,12 +127,13 @@ v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced 
 2. User sees real names/emails/phones when viewing AI responses (tokens restored)
 3. AI tool calls execute with real PII values (tokens restored for execution)
 4. RAG embeddings are generated from PII-sanitized content (no PII in vector DB)
-5. System maintains bidirectional token mapping (token ↔ original value)
+5. System maintains bidirectional token mapping (token <-> original value)
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 13-01: (To be planned)
+- [ ] 13-01-PLAN.md - Wire PII sanitization into EmbeddingComposerService (PII-04)
+- [ ] 13-02-PLAN.md - PII integration tests (PII-01, PII-02, PII-03 verification)
 
 ---
 
@@ -250,11 +251,11 @@ Plans:
 
 ## Progress
 
-**Execution Order:** Phases execute in numeric order (13 → 14 → 15 → 16 → 17 → 18)
+**Execution Order:** Phases execute in numeric order (13 -> 14 -> 15 -> 16 -> 17 -> 18)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 13. PII Tokenization Foundation | v3.1 | 0/? | Not started | - |
+| 13. PII Tokenization Foundation | v3.1 | 0/2 | Planned | - |
 | 14. GDPR Core Compliance | v3.1 | 0/? | Not started | - |
 | 15. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
 | 16. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
