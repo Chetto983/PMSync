@@ -325,17 +325,8 @@ export function getUnifiedPrompt(
     parts.push(WEBSEARCH_MODULE);
   }
 
-  const shouldUseChainOfVerification =
-    intent !== 'greeting' &&
-    (
-      ['search', 'read', 'calendar', 'orchestrate', 'unknown'].includes(intent) ||
-      options?.hasWebSearch ||
-      options?.hasDocuments
-    );
-
-  if (shouldUseChainOfVerification) {
-    parts.push(CHAIN_OF_VERIFICATION_MODULE);
-  }
+  // Always-on verification policy to minimize hallucinations across all intents.
+  parts.push(CHAIN_OF_VERIFICATION_MODULE);
 
   // Add bulk safety for write operations
   if (options?.includeBulkSafety && ['write', 'compose', 'orchestrate'].includes(intent)) {
