@@ -2,29 +2,29 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-05)
+See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** The best professional AI mail client — fast, intelligent, and secure
-**Current focus:** v3.0 AI Intelligence & Scalability
+**Current focus:** v3.1 GDPR Compliance & Chatbot Enhancement
 
 ## Current Position
 
-Phase: 12 of 12 (Test Fixes + Minor Gaps)
-Plan: 02 of 2 (gap closure complete)
-Status: Phase complete
-Last activity: 2026-02-08 — Completed 12-01-PLAN.md
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-09 — Milestone v3.1 started
 
-Progress: v3.0
+Progress: v3.1
 ```
-[█████████████████████████████████████████████] 100% (38/38 plans)
+[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% (0/? plans)
 ```
 
 ## Session Continuity
 
-Last session: 2026-02-08
-Stopped at: Completed 12-01-PLAN.md (emailType badges + test verification)
+Last session: 2026-02-09
+Stopped at: Milestone initialization
 Resume file: None
-Next action: v3.0 COMPLETE - Ready for production verification
+Next action: Define requirements → Create roadmap
 
 ## Accumulated Decisions
 
@@ -178,67 +178,37 @@ See: .planning/MILESTONES.md
 - 3 phases, 5 plans
 - 5 requirements (OPT-01/02, POLISH-01/02, API-01)
 
-## v3.0 Roadmap -- 12 Phases, 35 Plans
+## v3.1 Roadmap
 
-| Phase | Name | Requirements | Status |
-|-------|------|--------------|--------|
-| 01 | AI Infrastructure Cleanup | INFRA-01/02/03 | ✅ COMPLETE (3/3 plans) |
-| 02 | AI Chat Overhaul | CHAT-01/02/03 | ✅ COMPLETE (4/4 plans) |
-| 03 | Auto-Triage Core | TRIAGE-01/02/03 | ✅ COMPLETE (3/3 plans) |
-| 04 | Follow-Ups Refactor | FOLLOW-01/02 | ✅ COMPLETE (3/3 plans) |
-| 05 | Nested Labels Frontend | LABELS-01 | ✅ COMPLETE (2/2 plans) |
-| 06 | Chat UI and Agent Tool on Mail | CHATUI-01 | ✅ COMPLETE (5/5 plans) |
-| 07 | Chat Improvement | CHAT-04 | ✅ COMPLETE (6/6 plans) |
-| 08 | Email Tool Triage Exposure | TOOL-01 | ✅ COMPLETE (2/2 plans) |
-| 09 | Chat Artifact Smart Renderers | ARTIFACT-01 | ✅ COMPLETE (informal) |
-| 10 | UI Review | REVIEW-01 | ✅ COMPLETE (8/8 plans) |
-| 11 | AI Module Audit | AUDIT-01 | ✅ COMPLETE (5/5 plans) |
-| 12 | Test Fixes + Minor Gaps | FIX-01/02 | ✅ COMPLETE (2/2 plans) |
-
-**Deferred to v3.1:** Category assignment, predicted responses, bulk triage, rich chat responses
+(Awaiting requirements definition and roadmap creation)
 
 ## Next Steps
 
-**Currently:** Gap closure after milestone audit.
+**Currently:** Defining v3.1 requirements
 
-**Completed phases (12/12):**
-- Phase 01: AI Infrastructure Cleanup (3/3 plans) ✅
-- Phase 02: AI Chat Overhaul (4/4 plans) ✅
-- Phase 03: Auto-Triage Core (3/3 plans) ✅
-- Phase 04: Follow-Ups Refactor (3/3 plans) ✅
-- Phase 05: Nested Labels Frontend (2/2 plans) ✅
-- Phase 06: Chat UI and Agent Tool on Mail (5/5 plans) ✅
-- Phase 07: Chat Improvement (6/6 plans) ✅
-- Phase 08: Email Tool Triage Exposure (2/2 plans) ✅
-- Phase 09: Chat Artifact Smart Renderers (informal) ✅
-- Phase 10: UI Review (8/8 plans) ✅
-- Phase 11: AI Module Audit (5/5 plans) ✅
+**Focus areas:**
+- GDPR & Data Privacy compliance
+- AI Chatbot artifact improvements
+- Nested label triage
+- Bulk triage operations
+- Full draft generation
 
-**v3.0 Milestone COMPLETE**
-- Phase 12: Test Fixes + Minor Gaps (2/2 plans) ✅
-
-**Known issues carried forward:**
+**Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
 - E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
 - Pre-existing lint error in LabelTreeDndWrapper.tsx (resetState accessed before declaration)
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
-- Formal verification needed on phases 05, 07, 09, 10, 11
 
 ---
-*State updated: 2026-02-08 -- Completed 12-01 (emailType badges). v3.0 Phase 12 COMPLETE.*
+*State updated: 2026-02-09 — Milestone v3.1 started*
 
-## Phase 12 Accomplishments
+## Previous Milestone (v3.0) Highlights
 
-- 12-01: Verified 25/25 ActionExecutor tests passing (fixed in prior Phase 11 work)
-- 12-01: Added emailType translation keys (en/it: receipt, notification, request, conversation, newsletter, alert)
-- 12-01: Added emailType badge to FollowUpCard (Kanban) and FollowUpRenderer (AI chat)
-- 12-02: Fixed 4 aria-input-field-name WCAG violations (Provider Select, Subject, RichTextEditor, Recipients)
-
-## Phase 11 Accomplishments
-
-- 11-01: Removed 1,876 lines of dead code (unused exports, orphaned files)
-- 11-02: Split 3 files (3,485 lines) into 8 focused services (all <500 lines)
-- 11-03: Created RelationshipScoringService, EmailAnalysisService, email-write.tools.ts
-- 11-04: Added 96 safety-critical tests (HITL, PII detection, prompt guard)
-- 11-05: Added agent pool TTL/max size, RAG timeout, MISTRAL_API_KEY validation
+- 12 phases, 42 plans completed
+- Modern AI chat (Vercel AI SDK streaming)
+- Auto-triage priority scoring (VIP-aware)
+- Nested labels with drag-drop
+- 10 custom tool renderers
+- 1,618 lines dead code removed
+- WCAG accessibility polish
 

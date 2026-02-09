@@ -8,9 +8,27 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v3.1 (Planning)
+## Current Milestone: v3.1 GDPR Compliance & Chatbot Enhancement
 
-**Goal:** TBD - awaiting requirements definition.
+**Goal:** Full GDPR data privacy compliance with enhanced AI chatbot artifacts for all domains.
+
+**Target features:**
+
+**GDPR & Data Privacy:**
+- PII tokenization for AI (extract before LLM, restore on tool/display)
+- Database encryption at rest (per-tenant key management)
+- Data retention policies + Right to erasure (GDPR Art. 17)
+- Consent management (granular per-feature tracking)
+- Audit logging (all data access for compliance)
+- User data export (GDPR Art. 20 portability)
+- DPA documentation support
+- Terms of Service + Privacy Policy (user acceptance flow)
+
+**AI Chatbot Improvements:**
+- Rich artifacts for emails, calendar, contacts, daily briefing, follow-ups, CRM
+- Nested label triage (AI assigns to label hierarchy)
+- Bulk triage (batch labels, batch follow-ups)
+- Full AI draft generation for replies
 
 **Previous:** v3.0 AI Intelligence & Scalability shipped 2026-02-09 with 19/19 requirements satisfied.
 
@@ -77,7 +95,23 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ### Active
 
-<!-- v3.1 - awaiting definition -->
+<!-- v3.1 GDPR Compliance & Chatbot Enhancement -->
+
+**GDPR & Data Privacy:**
+- [ ] PII tokenization for AI calls
+- [ ] Database encryption at rest (per-tenant)
+- [ ] Data retention policies + Right to erasure
+- [ ] Consent management (granular tracking)
+- [ ] Audit logging (all data access)
+- [ ] User data export (GDPR Art. 20)
+- [ ] DPA documentation
+- [ ] Terms of Service + Privacy Policy
+
+**AI Chatbot Improvements:**
+- [ ] Rich artifacts for all domains (email, calendar, contacts, briefing, follow-ups, CRM)
+- [ ] Nested label triage
+- [ ] Bulk triage (batch labels, batch follow-ups)
+- [ ] Full draft generation
 
 ### Out of Scope
 
@@ -146,4 +180,4 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | TipTap for rich compose | Best-in-class React editor, AI-friendly | v2.0 |
 
 ---
-*Last updated: 2026-02-09 — v3.0 milestone shipped*
+*Last updated: 2026-02-09 — v3.1 milestone started*
