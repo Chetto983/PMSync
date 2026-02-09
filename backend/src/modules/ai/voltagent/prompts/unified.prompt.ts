@@ -148,6 +148,26 @@ NOTE: Use memory to personalize responses and remember context
 </MEMORY_STRATEGY>`;
 
 /**
+ * CHAIN_OF_VERIFICATION_MODULE: For hallucination reduction on factual answers.
+ * Applied to read/search/calendar/orchestrate style intents.
+ */
+const CHAIN_OF_VERIFICATION_MODULE = `<CHAIN_OF_VERIFICATION>
+For factual, time-sensitive, or source-dependent answers, run this internal loop before final response:
+1) Draft: form an initial answer candidate.
+2) Verify-plan: list concise verification questions for critical claims.
+3) Verify: answer those questions with tools, independently from the draft.
+   - Internal/workspace facts -> email, contacts, calendar, documents tools
+   - External/current facts -> web_search
+4) Revise: return corrected answer based on verification outcomes.
+
+RULES:
+- Never present unverified claims as facts.
+- If verification is incomplete, state uncertainty clearly.
+- If sources conflict, prefer tool-grounded evidence and mention the conflict briefly.
+- Keep the verification reasoning internal unless user explicitly asks for it.
+</CHAIN_OF_VERIFICATION>`;
+
+/**
  * Tool groups by intent - defines which tools to load
  */
 export const TOOL_GROUPS: Record<string, readonly string[]> = {
@@ -303,6 +323,18 @@ export function getUnifiedPrompt(
   }
   if (options?.hasWebSearch && intent !== 'greeting') {
     parts.push(WEBSEARCH_MODULE);
+  }
+
+  const shouldUseChainOfVerification =
+    intent !== 'greeting' &&
+    (
+      ['search', 'read', 'calendar', 'orchestrate', 'unknown'].includes(intent) ||
+      options?.hasWebSearch ||
+      options?.hasDocuments
+    );
+
+  if (shouldUseChainOfVerification) {
+    parts.push(CHAIN_OF_VERIFICATION_MODULE);
   }
 
   // Add bulk safety for write operations

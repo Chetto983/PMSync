@@ -107,7 +107,10 @@
       "Bash(for m in 20250109_citus_composite_pks 20250109_citus_tenantid_columns 20250109_citus_tenantid_remaining 20260110_add_auto_triage_fields 20260111_add_user_avatar 20260111_fix_calendar_sync_state_tenantid 20260129_embedding_content_optional 20260202_composite_indexes 20260207162745_add_detected_deadline 20260207170724_add_follow_up_type)",
       "Bash(do echo \"Marking $m...\")",
       "Bash(npx prisma db push:*)",
-      "Bash(npx prisma generate:*)"
+      "Bash(npx prisma generate:*)",
+      "Bash(export:*)",
+      "Bash(tasklist:*)",
+      "Bash(wmic process where \"processid=6888\" get name,commandline)"
     ],
     "deny": [],
     "ask": []
