@@ -1,5 +1,267 @@
-# Roadmap
+# Roadmap: v3.1 GDPR Compliance & Chatbot Enhancement
 
-v3.0 AI Intelligence & Scalability shipped 2026-02-09. See `.planning/milestones/v3.0-ROADMAP.md` for archived details.
+## Overview
 
-Next milestone: v3.1 (awaiting requirements definition)
+v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced chatbot capabilities. The milestone centers on PII protection (Phase 13 - critical blocker), complete GDPR compliance infrastructure (Phases 14-15), and advanced AI features including rich artifacts, smart triage, and draft generation (Phases 16-18). All 27 requirements map to 6 coherent phases starting at Phase 13.
+
+## Milestones
+
+- ✅ **v3.0 AI Intelligence & Scalability** - Phases 1-12 (shipped 2026-02-09)
+- 🚧 **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-18 (in progress)
+
+## Phases
+
+<details>
+<summary>✅ v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
+
+### Phase 1: VoltAgent Infrastructure Audit
+**Goal**: Reliable AI infrastructure with tool consolidation
+**Plans**: 3 plans
+- [x] 01-01: VoltAgent audit and Redis lock fix
+- [x] 01-02: Tool consolidation analysis
+- [x] 01-03: Prometheus metrics integration
+
+### Phase 2: Modern Chat UI
+**Goal**: Vercel AI SDK streaming with contextual prompts
+**Plans**: 4 plans
+- [x] 02-01: Circuit breaker implementation
+- [x] 02-02: Context-aware prompts
+- [x] 02-03: Suggested prompts endpoint
+- [x] 02-04: Error recovery UI
+
+### Phase 3: Priority Scoring
+**Goal**: VIP-aware auto-triage
+**Plans**: 3 plans
+- [x] 03-01: VIP detection and scoring
+- [x] 03-02: Attention score service
+- [x] 03-03: Sender behavior tracking
+
+### Phase 4: Follow-ups Refactor
+**Goal**: Two-type follow-ups with smart timing
+**Plans**: 3 plans
+- [x] 04-01: Follow-up types migration
+- [x] 04-02: Smart timing with NLP
+- [x] 04-03: Snooze UI
+
+### Phase 5: Nested Labels
+**Goal**: Hierarchical label tree with drag-drop
+**Plans**: 3 plans
+- [x] 05-01: Tree view implementation
+- [x] 05-02: Drag-drop reordering
+- [x] 05-03: Color picker UI
+
+### Phase 6: Chat UI on Mail
+**Goal**: Contextual AI panel on email view
+**Plans**: 5 plans
+- [x] 06-01: Chat layout with sliding panel
+- [x] 06-02: Context banner
+- [x] 06-03: Tool execution UI
+- [x] 06-04: Async agent creation
+- [x] 06-05: View context routing
+
+### Phase 7: Chat Improvements
+**Goal**: Modern chat UX patterns
+**Plans**: 6 plans
+- [x] 07-01: AiDashboard refactor
+- [x] 07-02: Modern message styling
+- [x] 07-03: Scroll detection
+- [x] 07-04: Hover actions
+- [x] 07-05: Markdown rendering
+- [x] 07-06: Compact header
+
+### Phase 8: Email Tool Triage Exposure
+**Goal**: AI tools see triage data
+**Plans**: 2 plans
+- [x] 08-01: Follow-up exposure in listing tools
+- [x] 08-02: Triage filters on tools
+
+### Phase 9: Chat Artifact Renderers
+**Goal**: Semantic UI for tool results
+**Plans**: 1 plan
+- [x] 09-01: Ten custom tool renderers
+
+### Phase 10: UI Review
+**Goal**: Visual polish and modern standards
+**Plans**: 8 plans
+- [x] 10-01: Accessibility audit
+- [x] 10-02: Button styling consistency
+- [x] 10-03: Icon consistency
+- [x] 10-04: Email list modern design
+- [x] 10-05: Typography review
+- [x] 10-06: Dashboard widgets
+- [x] 10-07: Color consistency
+- [x] 10-08: Animations polish
+
+### Phase 11: AI Module Audit
+**Goal**: Clean, performant AI codebase
+**Plans**: 4 plans
+- [x] 11-01: Dead code removal
+- [x] 11-02: MistralService facade
+- [x] 11-03: Service extraction
+- [x] 11-04: Test improvements
+
+### Phase 12: Test Fixes + Minor Gaps
+**Goal**: Gap closure from milestone audit
+**Plans**: 2 plans
+- [x] 12-01: ActionExecutor tests
+- [x] 12-02: WCAG accessibility fixes
+
+</details>
+
+---
+
+## 🚧 v3.1 GDPR Compliance & Chatbot Enhancement (In Progress)
+
+**Milestone Goal:** Full GDPR compliance with enhanced AI chatbot artifacts and advanced triage features.
+
+### Phase 13: PII Tokenization Foundation
+
+**Goal**: All AI interactions use tokenized PII (emails, names, phones) with automatic restoration
+
+**Depends on**: Nothing (first phase, CRITICAL BLOCKER)
+
+**Requirements**: PII-01, PII-02, PII-03, PII-04
+
+**Success Criteria** (what must be TRUE):
+1. System extracts PII from all text before sending to LLM APIs
+2. User sees real names/emails/phones when viewing AI responses (tokens restored)
+3. AI tool calls execute with real PII values (tokens restored for execution)
+4. RAG embeddings are generated from PII-sanitized content (no PII in vector DB)
+5. System maintains bidirectional token mapping (token ↔ original value)
+
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: (To be planned)
+
+---
+
+### Phase 14: GDPR Core Compliance
+
+**Goal**: Consent management and audit logging operational
+
+**Depends on**: Phase 13 (PII tokenization must work before processing consent)
+
+**Requirements**: CONS-01, CONS-02, CONS-03, AUDIT-01, AUDIT-02, AUDIT-03
+
+**Success Criteria** (what must be TRUE):
+1. User can view granular consent settings page (per-feature toggles)
+2. User can modify consent settings at any time
+3. System blocks data processing when required consent is missing
+4. System logs all data access events with user/tenant/timestamp context
+5. System logs all AI tool executions with input/output summaries
+6. Audit logs are retained for 3 years per GDPR Article 30
+
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: (To be planned)
+
+---
+
+### Phase 15: Data Rights & Legal Documents
+
+**Goal**: Users can export data, request deletion, and accept legal terms
+
+**Depends on**: Phase 14 (consent management must exist before enforcing legal acceptance)
+
+**Requirements**: DATA-01, DATA-02, DATA-03, LEGAL-01, LEGAL-02
+
+**Success Criteria** (what must be TRUE):
+1. User can request complete data export (emails, contacts, calendar, AI history)
+2. User receives data export in machine-readable format (GDPR Article 20)
+3. User can request account deletion (right to erasure)
+4. System performs hard delete after 30-day grace period
+5. New users must accept Terms of Service before using app
+6. New users must accept Privacy Policy before using app
+
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: (To be planned)
+
+---
+
+### Phase 16: Rich Artifacts UI
+
+**Goal**: AI chat renders interactive artifacts for all domains
+
+**Depends on**: Phase 13 (artifacts must show tokenized data properly)
+
+**Requirements**: ARTIFACT-01, ARTIFACT-02, ARTIFACT-03, ARTIFACT-04, ARTIFACT-05, ARTIFACT-06
+
+**Success Criteria** (what must be TRUE):
+1. AI chat renders email artifacts with interactive UI (open, reply, archive buttons)
+2. AI chat renders calendar event artifacts with interactive UI (accept, decline, view)
+3. AI chat renders contact artifacts with interactive UI (view profile, send email)
+4. AI chat renders follow-up artifacts with interactive UI (complete, snooze, view)
+5. AI chat renders daily briefing artifacts with structured sections (priorities, deadlines)
+6. AI chat renders CRM/relationship artifacts with interactive UI (relationship score, history)
+
+**Plans**: TBD
+
+Plans:
+- [ ] 16-01: (To be planned)
+
+---
+
+### Phase 17: AI Triage & Bulk Operations
+
+**Goal**: Users can triage emails with AI assistance at scale
+
+**Depends on**: Phase 13 (triage needs tokenized PII for AI analysis)
+
+**Requirements**: TRIAGE-01, TRIAGE-02, BULK-01, BULK-02
+
+**Success Criteria** (what must be TRUE):
+1. AI analyzes email content and assigns to appropriate nested label
+2. User sees AI triage suggestions in email list
+3. User can bulk-apply AI triage suggestions to multiple selected emails
+4. User can batch-apply labels to selected emails via AI assistant
+5. User can batch-create follow-ups for selected emails via AI assistant
+
+**Plans**: TBD
+
+Plans:
+- [ ] 17-01: (To be planned)
+
+---
+
+### Phase 18: AI Draft Generation
+
+**Goal**: AI generates full reply drafts in user's writing style
+
+**Depends on**: Phase 13 (drafts need tokenized PII), Phase 17 (uses triage context)
+
+**Requirements**: DRAFT-01, DRAFT-02
+
+**Success Criteria** (what must be TRUE):
+1. AI generates full reply drafts based on email context and conversation history
+2. AI drafts match user's writing style (learned from sent emails)
+3. User can accept, edit, or regenerate AI drafts
+4. System learns from user edits to improve future drafts
+
+**Plans**: TBD
+
+Plans:
+- [ ] 18-01: (To be planned)
+
+---
+
+## Progress
+
+**Execution Order:** Phases execute in numeric order (13 → 14 → 15 → 16 → 17 → 18)
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 13. PII Tokenization Foundation | v3.1 | 0/? | Not started | - |
+| 14. GDPR Core Compliance | v3.1 | 0/? | Not started | - |
+| 15. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
+| 16. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
+| 17. AI Triage & Bulk Operations | v3.1 | 0/? | Not started | - |
+| 18. AI Draft Generation | v3.1 | 0/? | Not started | - |
+
+---
+
+*Roadmap created: 2026-02-09*
+*Last updated: 2026-02-09*

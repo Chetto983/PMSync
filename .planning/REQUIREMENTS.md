@@ -1,76 +1,126 @@
-# v2.1 Requirements: Optimization & Polish
+# Requirements: MailAgent v3.1
 
-## Overview
+**Defined:** 2026-02-09
+**Core Value:** The best professional AI mail client — fast, intelligent, and secure
 
-**Version:** v2.1
-**Goal:** Performance optimization and polish items deferred from v2.0
-**Total Requirements:** 5
+## v3.1 Requirements
 
-## Performance (OPT-01 to OPT-02)
+Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 
-### OPT-01: Code Splitting for LCP
+### PII Protection (PII-01 to PII-04)
 
-**What:** Implement React.lazy code splitting to meet LCP budget
-**Why:** Current LCP is 4.12s, target is 2.5s
-**Acceptance:**
-- [ ] Identify non-critical widgets for lazy loading
-- [ ] Implement React.lazy with Suspense boundaries
-- [ ] Add skeleton fallbacks for lazy components
-- [ ] Achieve LCP <= 2.5s in Lighthouse CI
+- [ ] **PII-01**: System tokenizes PII (emails, names, phones) before sending to LLM
+- [ ] **PII-02**: System restores PII tokens when displaying AI responses to user
+- [ ] **PII-03**: System restores PII tokens when executing AI tool calls
+- [ ] **PII-04**: RAG embeddings are generated from PII-sanitized content
 
-### OPT-02: Code Splitting for TTI
+### Consent Management (CONS-01 to CONS-03)
 
-**What:** Reduce Time to Interactive through deferred loading
-**Why:** Current TTI is 4.13s, target is 3.5s
-**Acceptance:**
-- [ ] Defer non-essential JavaScript
-- [ ] Implement route-based code splitting
-- [ ] Achieve TTI <= 3.5s in Lighthouse CI
+- [ ] **CONS-01**: User can view and modify granular consent settings per feature
+- [ ] **CONS-02**: System blocks data processing until consent is captured
+- [ ] **CONS-03**: System maintains versioned consent audit trail
 
-## Polish (POLISH-01 to POLISH-02)
+### Audit Logging (AUDIT-01 to AUDIT-03)
 
-### POLISH-01: iOS Viewport Safe Area
+- [ ] **AUDIT-01**: System logs all data access events with user/tenant context
+- [ ] **AUDIT-02**: System logs all AI tool executions with input/output summary
+- [ ] **AUDIT-03**: Audit logs are retained for 3 years per GDPR requirements
 
-**What:** Add viewport-fit=cover meta tag for iOS safe areas
-**Why:** iOS safe area CSS won't activate without this meta tag
-**Acceptance:**
-- [ ] Add viewport-fit=cover to _app.tsx or _document.tsx
-- [ ] Verify safe-area-inset-* CSS works on iPhone X+
-- [ ] Test on iOS Safari (notch area rendering)
+### Data Rights (DATA-01 to DATA-03)
 
-### POLISH-02: Search Filter E2E Tests
+- [ ] **DATA-01**: User can request complete data export (emails, contacts, calendar)
+- [ ] **DATA-02**: User can request account deletion (right to erasure)
+- [ ] **DATA-03**: System performs hard delete after 30-day grace period
 
-**What:** Complete the 7 skipped search filter E2E tests
-**Why:** Filter parsing works but tests need full search state
-**Acceptance:**
-- [ ] Implement search state management for E2E
-- [ ] Enable skipped tests
-- [ ] All 7 search filter tests passing
+### Legal Documents (LEGAL-01 to LEGAL-02)
 
-## Backend API (API-01)
+- [ ] **LEGAL-01**: User must accept Terms of Service before using app
+- [ ] **LEGAL-02**: User must accept Privacy Policy before using app
 
-### API-01: Folder Nesting Endpoint
+### Rich Artifacts (ARTIFACT-01 to ARTIFACT-06)
 
-**What:** Backend PATCH /folders/:id { parentId } endpoint
-**Why:** Frontend drag-folder-into-folder UI is ready but lacks backend
-**Acceptance:**
-- [ ] Create PATCH /api/folders/:id endpoint
-- [ ] Accept parentId in request body
-- [ ] Validate folder ownership and tenant isolation
-- [ ] Prevent circular references
-- [ ] Update folder tree structure
-- [ ] Add unit tests
+- [ ] **ARTIFACT-01**: AI chat renders email artifacts with interactive UI
+- [ ] **ARTIFACT-02**: AI chat renders calendar event artifacts with interactive UI
+- [ ] **ARTIFACT-03**: AI chat renders contact artifacts with interactive UI
+- [ ] **ARTIFACT-04**: AI chat renders follow-up artifacts with interactive UI
+- [ ] **ARTIFACT-05**: AI chat renders daily briefing artifacts with interactive UI
+- [ ] **ARTIFACT-06**: AI chat renders CRM/relationship artifacts with interactive UI
+
+### AI Triage (TRIAGE-01 to TRIAGE-02)
+
+- [ ] **TRIAGE-01**: AI assigns emails to appropriate nested label based on content
+- [ ] **TRIAGE-02**: User can bulk-apply AI triage suggestions to multiple emails
+
+### Bulk Operations (BULK-01 to BULK-02)
+
+- [ ] **BULK-01**: User can batch-apply labels to selected emails via AI
+- [ ] **BULK-02**: User can batch-create follow-ups for selected emails via AI
+
+### AI Drafts (DRAFT-01 to DRAFT-02)
+
+- [ ] **DRAFT-01**: AI generates full reply drafts based on email context
+- [ ] **DRAFT-02**: AI drafts match user's writing style (learned from sent emails)
+
+## Future Requirements (v3.2+)
+
+### Advanced Privacy
+
+- **PRIV-01**: Per-tenant encryption key management (dedicated keys)
+- **PRIV-02**: Zero-knowledge architecture (server cannot read content)
+- **PRIV-03**: Cross-border data transfer compliance (SCCs)
+
+### Advanced AI
+
+- **AI-01**: Predicted response suggestions (quick replies)
+- **AI-02**: Email categorization (Primary, Social, Promotions)
+- **AI-03**: Smart scheduling suggestions
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| End-to-end encryption | Requires separate security audit, high complexity |
+| Per-tenant encryption keys | Deferred to v3.2, requires key management infrastructure |
+| Mobile app | Web-first, responsive design covers mobile use cases |
+| Offline support | Requires service worker complexity |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| PII-01 | Phase 13 | Pending |
+| PII-02 | Phase 13 | Pending |
+| PII-03 | Phase 13 | Pending |
+| PII-04 | Phase 13 | Pending |
+| CONS-01 | Phase 14 | Pending |
+| CONS-02 | Phase 14 | Pending |
+| CONS-03 | Phase 14 | Pending |
+| AUDIT-01 | Phase 14 | Pending |
+| AUDIT-02 | Phase 14 | Pending |
+| AUDIT-03 | Phase 14 | Pending |
+| DATA-01 | Phase 15 | Pending |
+| DATA-02 | Phase 15 | Pending |
+| DATA-03 | Phase 15 | Pending |
+| LEGAL-01 | Phase 15 | Pending |
+| LEGAL-02 | Phase 15 | Pending |
+| ARTIFACT-01 | Phase 16 | Pending |
+| ARTIFACT-02 | Phase 16 | Pending |
+| ARTIFACT-03 | Phase 16 | Pending |
+| ARTIFACT-04 | Phase 16 | Pending |
+| ARTIFACT-05 | Phase 16 | Pending |
+| ARTIFACT-06 | Phase 16 | Pending |
+| TRIAGE-01 | Phase 17 | Pending |
+| TRIAGE-02 | Phase 17 | Pending |
+| BULK-01 | Phase 17 | Pending |
+| BULK-02 | Phase 17 | Pending |
+| DRAFT-01 | Phase 18 | Pending |
+| DRAFT-02 | Phase 18 | Pending |
+
+**Coverage:**
+- v3.1 requirements: 27 total
+- Mapped to phases: 27 (100% coverage)
+- Unmapped: 0
 
 ---
-
-## Requirement Coverage
-
-| Category | Count | Requirements |
-|----------|-------|--------------|
-| Performance | 2 | OPT-01, OPT-02 |
-| Polish | 2 | POLISH-01, POLISH-02 |
-| Backend API | 1 | API-01 |
-| **Total** | **5** | |
-
----
-*Requirements defined: 2026-02-04*
+*Requirements defined: 2026-02-09*
+*Last updated: 2026-02-09 with phase assignments*
