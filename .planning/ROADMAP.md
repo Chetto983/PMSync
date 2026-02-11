@@ -191,10 +191,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 15-01-PLAN.md -- Consent backend: Prisma model, service, guard, decorator, controller (CONS-01/02/03)
-- [ ] 15-02-PLAN.md -- Audit backend: AuditService expansion, interceptor, VoltAgent hook, retention cron (AUDIT-01/02/03)
-- [ ] 15-03-PLAN.md -- Consent frontend: translations, API module, query hooks, consent settings UI (CONS-01)
-- [ ] 15-04-PLAN.md -- TDD: Unit tests for consent and audit (all 6 requirements)
+- [x] 15-01-PLAN.md -- Consent backend: Prisma model, service, guard, decorator, controller (CONS-01/02/03)
+- [x] 15-02-PLAN.md -- Audit backend: AuditService expansion, interceptor, VoltAgent hook, retention cron (AUDIT-01/02/03)
+- [x] 15-03-PLAN.md -- Consent frontend: translations, API module, query hooks, consent settings UI (CONS-01)
+- [x] 15-04-PLAN.md -- TDD: Unit tests for consent and audit (all 6 requirements)
 
 ---
 
@@ -295,7 +295,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 13. PII Tokenization Foundation | v3.1 | 2/2 | ✓ Complete | 2026-02-11 |
 | 14. Database Encryption at Rest | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 15. GDPR Core Compliance | v3.1 | 0/? | Not started | - |
+| 15. GDPR Core Compliance | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 16. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
 | 17. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
 | 18. AI Triage & Bulk Operations | v3.1 | 0/? | Not started | - |
@@ -304,4 +304,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-11 — Phase 14 complete (Database Encryption at Rest), all 4 plans delivered*
+*Last updated: 2026-02-11 — Phase 15 complete (GDPR Core Compliance), consent + audit logging, 29 tests*
