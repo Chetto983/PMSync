@@ -10,21 +10,21 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 17 (Rich Artifacts UI)
-Plan: 1 of 4 complete
+Plan: 2 of 4 complete
 Status: In Progress
-Last activity: 2026-02-11 — Plan 17-01 complete (action infrastructure)
+Last activity: 2026-02-11 — Plan 17-02 complete (backend VoltAgent tools)
 
 Progress: v3.1
 ```
-[###############################░░░░░░░░░░░░░░░] 71% (4.25/6 phases)
+[################################░░░░░░░░░░░░░░] 75% (4.5/6 phases)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 17-01-PLAN.md (action infrastructure)
+Stopped at: Completed 17-02-PLAN.md (backend VoltAgent tools)
 Resume file: None
-Next action: Execute Phase 17-02 plan
+Next action: Execute Phase 17-03 plan
 
 ## Accumulated Decisions
 
@@ -185,6 +185,9 @@ Next action: Execute Phase 17-02 plan
 - [Phase v3.1-16-04]: Polling refetchInterval 5s for active export status tracking
 - [Phase v3.1-17-01]: Use next/router over next/navigation for ChatMessages (matches 25/29 codebase imports)
 - [Phase v3.1-17-01]: ActionBar uses title attr for tooltips (no TooltipProvider dependency)
+- [Phase v3.1-17-02]: Briefing/CRM tools loaded for read/search/orchestrate/unknown intents only
+- [Phase v3.1-17-02]: Parallel topContacts + staleContacts fetch in CRM tool
+- [Phase v3.1-17-02]: @Optional() @Inject() for DailyBriefingService/RelationshipIntelligenceService in AgentPoolService
 
 ## Blockers & Concerns
 
@@ -240,11 +243,11 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 17 in progress (1 of 4 plans done). Execute Plan 17-02 next.
+**Currently:** Phase 17 in progress (2 of 4 plans done). Execute Plan 17-03 next.
 
 **Phase 17 progress (Rich Artifacts UI):**
 - Plan 17-01: Action infrastructure (types, ActionBar, onAction plumbing) -- COMPLETE
-- Plan 17-02: Briefing renderer -- PENDING
+- Plan 17-02: Backend VoltAgent tools (get_daily_briefing, get_relationship_stats) -- COMPLETE
 - Plan 17-03: CRM renderer -- PENDING
 - Plan 17-04: Follow-up renderer -- PENDING
 
@@ -255,7 +258,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Plan 17-01 complete (action infrastructure)*
+*State updated: 2026-02-11 — Plan 17-02 complete (backend VoltAgent tools)*
 
 ## Previous Milestone (v3.0) Highlights
 
