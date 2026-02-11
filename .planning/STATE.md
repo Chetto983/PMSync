@@ -24,7 +24,7 @@ Progress: v3.1
 Last session: 2026-02-11
 Stopped at: Completed 13-02-PLAN.md (Phase 13 complete)
 Resume file: None
-Next action: `/gsd:execute-phase 14` to begin GDPR Core Compliance
+Next action: `/gsd:plan-phase 14` to plan Database Encryption at Rest
 
 ## Accumulated Decisions
 

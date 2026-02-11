@@ -2,12 +2,12 @@
 
 ## Overview
 
-v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced chatbot capabilities. The milestone centers on PII protection (Phase 13 - critical blocker), complete GDPR compliance infrastructure (Phases 14-15), and advanced AI features including rich artifacts, smart triage, and draft generation (Phases 16-18). All 27 requirements map to 6 coherent phases starting at Phase 13.
+v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced chatbot capabilities. The milestone centers on PII protection for AI (Phase 13), database encryption at rest with per-tenant key isolation using prisma-field-encryption (Phase 14), complete GDPR compliance infrastructure (Phases 15-16), and advanced AI features including rich artifacts, smart triage, and draft generation (Phases 17-19). All 32 requirements map to 7 coherent phases starting at Phase 13.
 
 ## Milestones
 
 - v3.0 AI Intelligence & Scalability - Phases 1-12 (shipped 2026-02-09)
-- v3.1 GDPR Compliance & Chatbot Enhancement - Phases 13-18 (in progress)
+- v3.1 GDPR Compliance & Chatbot Enhancement - Phases 13-19 (in progress)
 
 ## Phases
 
@@ -112,7 +112,7 @@ v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced 
 
 ## v3.1 GDPR Compliance & Chatbot Enhancement (In Progress)
 
-**Milestone Goal:** Full GDPR compliance with enhanced AI chatbot artifacts and advanced triage features.
+**Milestone Goal:** Full GDPR compliance with database encryption at rest, enhanced AI chatbot artifacts, and advanced triage features.
 
 ### Phase 13: PII Tokenization Foundation
 
@@ -132,16 +132,51 @@ v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced 
 **Plans**: 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md - Wire PII sanitization into EmbeddingComposerService (PII-04)
-- [ ] 13-02-PLAN.md - PII integration tests (PII-01, PII-02, PII-03 verification)
+- [x] 13-01-PLAN.md - Wire PII sanitization into EmbeddingComposerService (PII-04)
+- [x] 13-02-PLAN.md - PII integration tests (PII-01, PII-02, PII-03 verification)
 
 ---
 
-### Phase 14: GDPR Core Compliance
+### Phase 14: Database Encryption at Rest
+
+**Goal**: All sensitive tenant data encrypted at rest with per-tenant key isolation using prisma-field-encryption
+
+**Depends on**: Phase 13 (PII tokenization must work before layering DB encryption)
+
+**Requirements**: ENC-01, ENC-02, ENC-03, ENC-04, ENC-05
+
+**Success Criteria** (what must be TRUE):
+1. All PII fields (email addresses, sender names, phone numbers, body text) are encrypted in PostgreSQL
+2. Each tenant's data is encrypted with a derived key unique to that tenant (HKDF from master key + tenant ID)
+3. Encrypted fields with hash indexes support exact-match queries (email lookup, contact search)
+4. All existing data is migrated (backfill encrypted) without downtime
+5. Key rotation works: new key encrypts new data, old keys in keychain still decrypt old data
+
+**Technology**: `prisma-field-encryption` (npm) — fully self-hosted, Prisma-native, no external cloud dependency
+
+**Key Design Decisions**:
+- Schema annotations (`/// @encrypted`) for transparent encrypt/decrypt
+- SHA-256 hash fields (`/// @encryption:hash`) for searchable encrypted fields
+- `TenantKeyService` using HKDF to derive per-tenant keys from a master secret
+- Prisma client extension intercepts all read/write to handle encryption transparently
+- Migration script processes existing records in batches (avoid locking entire tables)
+
+**Plans**: TBD (estimated 4-5 plans)
+
+Plans:
+- [ ] 14-01: Install prisma-field-encryption, schema annotations, TenantKeyService
+- [ ] 14-02: Prisma extension for per-tenant key injection
+- [ ] 14-03: Hash indexes for searchable encrypted fields
+- [ ] 14-04: Data migration script (backfill encrypt existing records)
+- [ ] 14-05: Integration tests for encrypt/decrypt/search/rotation round-trip
+
+---
+
+### Phase 15: GDPR Core Compliance
 
 **Goal**: Consent management and audit logging operational
 
-**Depends on**: Phase 13 (PII tokenization must work before processing consent)
+**Depends on**: Phase 14 (encryption at rest must protect data before consent workflows process it)
 
 **Requirements**: CONS-01, CONS-02, CONS-03, AUDIT-01, AUDIT-02, AUDIT-03
 
@@ -156,15 +191,15 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 14-01: (To be planned)
+- [ ] 15-01: (To be planned)
 
 ---
 
-### Phase 15: Data Rights & Legal Documents
+### Phase 16: Data Rights & Legal Documents
 
 **Goal**: Users can export data, request deletion, and accept legal terms
 
-**Depends on**: Phase 14 (consent management must exist before enforcing legal acceptance)
+**Depends on**: Phase 15 (consent management must exist before enforcing legal acceptance)
 
 **Requirements**: DATA-01, DATA-02, DATA-03, LEGAL-01, LEGAL-02
 
@@ -179,11 +214,11 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 15-01: (To be planned)
+- [ ] 16-01: (To be planned)
 
 ---
 
-### Phase 16: Rich Artifacts UI
+### Phase 17: Rich Artifacts UI
 
 **Goal**: AI chat renders interactive artifacts for all domains
 
@@ -202,11 +237,11 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 16-01: (To be planned)
+- [ ] 17-01: (To be planned)
 
 ---
 
-### Phase 17: AI Triage & Bulk Operations
+### Phase 18: AI Triage & Bulk Operations
 
 **Goal**: Users can triage emails with AI assistance at scale
 
@@ -224,15 +259,15 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 17-01: (To be planned)
+- [ ] 18-01: (To be planned)
 
 ---
 
-### Phase 18: AI Draft Generation
+### Phase 19: AI Draft Generation
 
 **Goal**: AI generates full reply drafts in user's writing style
 
-**Depends on**: Phase 13 (drafts need tokenized PII), Phase 17 (uses triage context)
+**Depends on**: Phase 13 (drafts need tokenized PII), Phase 18 (uses triage context)
 
 **Requirements**: DRAFT-01, DRAFT-02
 
@@ -245,24 +280,25 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 18-01: (To be planned)
+- [ ] 19-01: (To be planned)
 
 ---
 
 ## Progress
 
-**Execution Order:** Phases execute in numeric order (13 -> 14 -> 15 -> 16 -> 17 -> 18)
+**Execution Order:** Phases execute in numeric order (13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 13. PII Tokenization Foundation | v3.1 | 0/2 | Ready to Execute | - |
-| 14. GDPR Core Compliance | v3.1 | 0/? | Not started | - |
-| 15. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
-| 16. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
-| 17. AI Triage & Bulk Operations | v3.1 | 0/? | Not started | - |
-| 18. AI Draft Generation | v3.1 | 0/? | Not started | - |
+| 13. PII Tokenization Foundation | v3.1 | 2/2 | ✓ Complete | 2026-02-11 |
+| 14. Database Encryption at Rest | v3.1 | 0/5 | Not started | - |
+| 15. GDPR Core Compliance | v3.1 | 0/? | Not started | - |
+| 16. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
+| 17. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
+| 18. AI Triage & Bulk Operations | v3.1 | 0/? | Not started | - |
+| 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
 
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-09*
+*Last updated: 2026-02-11 — Phase 13 complete (PII Tokenization Foundation), 5/5 success criteria verified*
