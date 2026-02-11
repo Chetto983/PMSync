@@ -17,10 +17,10 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 
 ### Encryption at Rest (ENC-01 to ENC-05)
 
-- [ ] **ENC-01**: All PII fields (email addresses, names, phones, body text) encrypted at rest using prisma-field-encryption
+- [ ] **ENC-01**: Tier 1 PII fields (bodyText, bodyHtml, snippet) encrypted at rest using custom Prisma extension (AES-256-GCM). Tier 2 fields (from, subject, displayName) deferred — requires search infrastructure redesign (17+ query sites use contains/insensitive on these fields)
 - [ ] **ENC-02**: Per-tenant key derivation (master key + tenant ID via HKDF → derived encryption key)
-- [ ] **ENC-03**: Hash-based search indexes on encrypted fields (SHA-256 for exact match queries)
-- [ ] **ENC-04**: Migration of existing data (backfill encrypt all current emails, contacts, calendar)
+- [ ] **ENC-03**: _(Deferred from Phase 14)_ Hash-based search indexes on encrypted fields (SHA-256 for exact match queries). Only needed when Tier 2 searchable fields are encrypted, which requires search redesign first
+- [ ] **ENC-04**: Migration of existing email body content (backfill encrypt bodyText, bodyHtml, snippet). Contact/CalendarEvent models have no Tier 1 body fields to encrypt
 - [ ] **ENC-05**: Key rotation support (new key encrypts, old keys in keychain still decrypt)
 
 ### Consent Management (CONS-01 to CONS-03)
