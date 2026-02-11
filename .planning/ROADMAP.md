@@ -217,10 +217,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 16-01-PLAN.md -- Prisma models (LegalAcceptance, DataExportRequest) + legal acceptance backend (LEGAL-01, LEGAL-02)
-- [ ] 16-02-PLAN.md -- Data export backend: assembler, ZIP generation, download endpoint (DATA-01)
-- [ ] 16-03-PLAN.md -- Account deletion backend: soft-delete, 30-day grace period, purge cron (DATA-02, DATA-03)
-- [ ] 16-04-PLAN.md -- Frontend: translations, API module, query hooks, export/deletion panels, registration integration
+- [x] 16-01-PLAN.md -- Prisma models (LegalAcceptance, DataExportRequest) + legal acceptance backend (LEGAL-01, LEGAL-02)
+- [x] 16-02-PLAN.md -- Data export backend: assembler, ZIP generation, download endpoint (DATA-01)
+- [x] 16-03-PLAN.md -- Account deletion backend: soft-delete, 30-day grace period, purge cron (DATA-02, DATA-03)
+- [x] 16-04-PLAN.md -- Frontend: translations, API module, query hooks, export/deletion panels, registration integration
 
 ---
 
@@ -299,7 +299,7 @@ Plans:
 | 13. PII Tokenization Foundation | v3.1 | 2/2 | ✓ Complete | 2026-02-11 |
 | 14. Database Encryption at Rest | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 15. GDPR Core Compliance | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 16. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
+| 16. Data Rights & Legal Documents | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 17. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
 | 18. AI Triage & Bulk Operations | v3.1 | 0/? | Not started | - |
 | 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
@@ -307,4 +307,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-11 — Phase 15 complete (GDPR Core Compliance), consent + audit logging, 29 tests*
+*Last updated: 2026-02-11 — Phase 16 complete (Data Rights & Legal Documents), data export, account deletion with 30-day grace period, legal acceptance*
