@@ -50,6 +50,7 @@ model Tenant {
   libraryDocuments         LibraryDocument[]
   dealActivities           DealActivity[]
   mistralAgents            MistralAgent[]
+  userConsents             UserConsent[]
 
   @@map("tenants")
 }
@@ -85,6 +86,7 @@ model User {
   tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webauthnCredentials WebAuthnCredential[]
   writingStyleProfile WritingStyleProfile?
+  userConsents        UserConsent[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -825,6 +827,26 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([userId, createdAt])
   @@map("audit_logs")
+}
+
+/// GDPR consent tracking - append-only versioned records (CONSENT-01)
+model UserConsent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  feature   String
+  granted   Boolean
+  version   Int
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, feature, createdAt(sort: Desc)])
+  @@index([tenantId, createdAt])
+  @@map("user_consents")
 }
 
 model JobQueue {
