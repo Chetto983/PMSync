@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 13 (PII Tokenization Foundation)
-Plan: 1 of 2 complete
-Status: Executing phase 13
-Last activity: 2026-02-11 — Plan 13-01 complete (embedding PII sanitization)
+Phase: Phase 13 (PII Tokenization Foundation) -- COMPLETE
+Plan: 2 of 2 complete
+Status: Phase 13 complete, ready for Phase 14
+Last activity: 2026-02-11 — Plan 13-02 complete (PII integration tests)
 
 Progress: v3.1
 ```
-[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0% (0/6 phases)
+[########░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 17% (1/6 phases)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 13-01-PLAN.md
+Stopped at: Completed 13-02-PLAN.md (Phase 13 complete)
 Resume file: None
-Next action: `/gsd:execute-phase 13` to run 13-02-PLAN.md
+Next action: `/gsd:execute-phase 14` to begin GDPR Core Compliance
 
 ## Accumulated Decisions
 
@@ -147,6 +147,8 @@ Next action: `/gsd:execute-phase 13` to run 13-02-PLAN.md
 | Sanitize body, NOT subject in embeddings | v3.1-13-01 | Subject is critical for semantic search relevance |
 | Sanitize contact emails/phones, NOT name | v3.1-13-01 | Name is primary search target for contact lookups |
 | @Optional() @Inject() for PII in embeddings | v3.1-13-01 | Matches codebase convention, graceful degradation |
+| Mock CacheService directly for PII tests | v3.1-13-02 | Faster than NestJS TestingModule, sufficient for integration validation |
+| Real PiiDetectionService in tests (no mocks) | v3.1-13-02 | Ensures actual regex patterns and hashing work correctly |
 
 ## Blockers & Concerns
 
@@ -202,12 +204,12 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Plan 13-01 complete, ready for 13-02
+**Currently:** Phase 13 complete (2/2 plans), ready for Phase 14
 
 **Focus areas:**
-- 13-02: Additional PII integration points (remaining Phase 13 work)
-- Phase 13 blocks all AI features (CRITICAL)
-- RAG embedding sanitization DONE (13-01)
+- Phase 14: GDPR Core Compliance (6 requirements)
+- Phase 13 DONE: PII tokenization foundation verified (14 integration tests + 6 unit tests)
+- RAG embedding sanitization DONE (13-01), PII round-trip verified (13-02)
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -216,7 +218,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Plan 13-01 complete (embedding PII sanitization)*
+*State updated: 2026-02-11 — Phase 13 complete (PII tokenization foundation verified)*
 
 ## Previous Milestone (v3.0) Highlights
 
