@@ -165,10 +165,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — TenantKeyService + AES-256-GCM encryption primitives + config (ENC-02 foundation)
-- [ ] 14-02-PLAN.md — Custom Prisma client extension + PrismaService wiring (ENC-01 core)
-- [ ] 14-03-PLAN.md — Backfill migration script for existing data (ENC-04)
-- [ ] 14-04-PLAN.md — Integration tests + key rotation verification (ENC-05)
+- [x] 14-01-PLAN.md — TenantKeyService + AES-256-GCM encryption primitives + config (ENC-02 foundation)
+- [x] 14-02-PLAN.md — Custom Prisma client extension + PrismaService wiring (ENC-01 core)
+- [x] 14-03-PLAN.md — Backfill migration script for existing data (ENC-04)
+- [x] 14-04-PLAN.md — Integration tests + key rotation verification (ENC-05)
 
 ---
 
@@ -291,7 +291,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 13. PII Tokenization Foundation | v3.1 | 2/2 | ✓ Complete | 2026-02-11 |
-| 14. Database Encryption at Rest | v3.1 | 0/4 | Not started | - |
+| 14. Database Encryption at Rest | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 15. GDPR Core Compliance | v3.1 | 0/? | Not started | - |
 | 16. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
 | 17. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
@@ -301,4 +301,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-11 — Phase 14 planned (Database Encryption at Rest), 4 plans in 3 waves*
+*Last updated: 2026-02-11 — Phase 14 complete (Database Encryption at Rest), all 4 plans delivered*
