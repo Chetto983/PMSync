@@ -139,36 +139,36 @@ Plans:
 
 ### Phase 14: Database Encryption at Rest
 
-**Goal**: All sensitive tenant data encrypted at rest with per-tenant key isolation using prisma-field-encryption
+**Goal**: Tier 1 PII fields encrypted at rest with per-tenant key isolation via custom Prisma extension
 
 **Depends on**: Phase 13 (PII tokenization must work before layering DB encryption)
 
-**Requirements**: ENC-01, ENC-02, ENC-03, ENC-04, ENC-05
+**Requirements**: ENC-01, ENC-02, ENC-04, ENC-05 (ENC-03 hash indexes deferred to Tier 2 field encryption)
 
 **Success Criteria** (what must be TRUE):
-1. All PII fields (email addresses, sender names, phone numbers, body text) are encrypted in PostgreSQL
+1. Tier 1 PII fields (bodyText, bodyHtml, snippet) are encrypted at rest in PostgreSQL
 2. Each tenant's data is encrypted with a derived key unique to that tenant (HKDF from master key + tenant ID)
-3. Encrypted fields with hash indexes support exact-match queries (email lookup, contact search)
-4. All existing data is migrated (backfill encrypted) without downtime
-5. Key rotation works: new key encrypts new data, old keys in keychain still decrypt old data
+3. All existing data is migrated (backfill encrypted) without downtime
+4. Key rotation works: new key encrypts new data, old keys in keychain still decrypt old data
+5. Encryption is opt-in via env var (zero breaking change when disabled)
 
-**Technology**: `prisma-field-encryption` (npm) — fully self-hosted, Prisma-native, no external cloud dependency
+**Technology**: Custom Prisma client extension using Node.js built-in `crypto` (AES-256-GCM + HKDF). `prisma-field-encryption` library rejected — broken on Prisma 7 (issue #143), no composite @@id support, no per-tenant keys.
 
 **Key Design Decisions**:
-- Schema annotations (`/// @encrypted`) for transparent encrypt/decrypt
-- SHA-256 hash fields (`/// @encryption:hash`) for searchable encrypted fields
+- Custom `$extends()` Prisma extension for transparent encrypt/decrypt (NOT prisma-field-encryption)
+- `enc:` prefix marker for detecting encrypted vs plaintext values during migration
 - `TenantKeyService` using HKDF to derive per-tenant keys from a master secret
-- Prisma client extension intercepts all read/write to handle encryption transparently
-- Migration script processes existing records in batches (avoid locking entire tables)
+- Two-tier strategy: Tier 1 (body fields) encrypted now, Tier 2 (from, subject, displayName) deferred — fuzzy search on encrypted fields requires search redesign
+- Skip+take pagination for composite PK batch migration
+- Keychain pattern for key rotation (try current key first, then old keys)
 
-**Plans**: TBD (estimated 4-5 plans)
+**Plans**: 4 plans
 
 Plans:
-- [ ] 14-01: Install prisma-field-encryption, schema annotations, TenantKeyService
-- [ ] 14-02: Prisma extension for per-tenant key injection
-- [ ] 14-03: Hash indexes for searchable encrypted fields
-- [ ] 14-04: Data migration script (backfill encrypt existing records)
-- [ ] 14-05: Integration tests for encrypt/decrypt/search/rotation round-trip
+- [ ] 14-01-PLAN.md — TenantKeyService + AES-256-GCM encryption primitives + config (ENC-02 foundation)
+- [ ] 14-02-PLAN.md — Custom Prisma client extension + PrismaService wiring (ENC-01 core)
+- [ ] 14-03-PLAN.md — Backfill migration script for existing data (ENC-04)
+- [ ] 14-04-PLAN.md — Integration tests + key rotation verification (ENC-05)
 
 ---
 
@@ -291,7 +291,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 13. PII Tokenization Foundation | v3.1 | 2/2 | ✓ Complete | 2026-02-11 |
-| 14. Database Encryption at Rest | v3.1 | 0/5 | Not started | - |
+| 14. Database Encryption at Rest | v3.1 | 0/4 | Not started | - |
 | 15. GDPR Core Compliance | v3.1 | 0/? | Not started | - |
 | 16. Data Rights & Legal Documents | v3.1 | 0/? | Not started | - |
 | 17. Rich Artifacts UI | v3.1 | 0/? | Not started | - |
@@ -301,4 +301,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-11 — Phase 13 complete (PII Tokenization Foundation), 5/5 success criteria verified*
+*Last updated: 2026-02-11 — Phase 14 planned (Database Encryption at Rest), 4 plans in 3 waves*
