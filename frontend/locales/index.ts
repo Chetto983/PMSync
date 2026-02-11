@@ -1866,9 +1866,30 @@ export interface AppTranslations {
       ai: string;
       accounts: string;
       signatures: string;
+      consent: string;
       account: string;
       notifications: string;
       billing: string;
+    };
+    consentPanel?: {
+      title: string;
+      description: string;
+      categories: {
+        ai: string;
+        data: string;
+      };
+      features: {
+        ai_smart_replies: { label: string; description: string };
+        ai_summarization: { label: string; description: string };
+        ai_scheduling: { label: string; description: string };
+        ai_auto_triage: { label: string; description: string };
+        email_analytics: { label: string; description: string };
+        contact_enrichment: { label: string; description: string };
+      };
+      consentUpdated: string;
+      consentError: string;
+      lastUpdated: string;
+      version: string;
     };
     signaturesPanel?: {
       title: string;

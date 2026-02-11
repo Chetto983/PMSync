@@ -1791,6 +1791,7 @@ export const it: AppTranslations = {
       notifications: 'Notifiche',
       billing: 'Abbonamento',
       signatures: 'Firme',
+      consent: 'Privacy e consenso',
     },
     signaturesPanel: {
       title: 'Firme Email',
@@ -2038,6 +2039,44 @@ export const it: AppTranslations = {
         DIGEST: 'Riepilogo giornaliero',
         MINIMAL: 'Minima',
       },
+    },
+    consentPanel: {
+      title: 'Privacy e consenso',
+      description: 'Gestisci come vengono elaborati i tuoi dati. Puoi modificare queste impostazioni in qualsiasi momento.',
+      categories: {
+        ai: 'Funzionalità AI',
+        data: 'Elaborazione dati',
+      },
+      features: {
+        ai_smart_replies: {
+          label: 'Risposte intelligenti AI',
+          description: 'Consenti all\'AI di generare suggerimenti di risposta basati sul contenuto delle email',
+        },
+        ai_summarization: {
+          label: 'Riepilogo email AI',
+          description: 'Consenti all\'AI di analizzare e riassumere il contenuto delle email',
+        },
+        ai_scheduling: {
+          label: 'Pianificazione AI',
+          description: 'Consenti all\'AI di suggerire orari di riunione e gestire il calendario',
+        },
+        ai_auto_triage: {
+          label: 'Auto-Triage AI',
+          description: 'Consenti all\'AI di categorizzare e dare priorità automaticamente alle email',
+        },
+        email_analytics: {
+          label: 'Analisi email',
+          description: 'Elabora i metadati delle email per le dashboard analitiche',
+        },
+        contact_enrichment: {
+          label: 'Arricchimento contatti',
+          description: 'Usa l\'AI per generare embedding dai dati dei contatti per la ricerca intelligente',
+        },
+      },
+      consentUpdated: 'Consenso aggiornato',
+      consentError: 'Aggiornamento consenso fallito',
+      lastUpdated: 'Ultimo aggiornamento',
+      version: 'Versione consenso',
     },
     accountPanel: {
       title: 'Impostazioni account',

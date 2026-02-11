@@ -1799,6 +1799,7 @@ export const en: AppTranslations = {
       ai: 'AI Agent',
       accounts: 'Mail Accounts',
       signatures: 'Signatures',
+      consent: 'Privacy & Consent',
       account: 'Account',
       notifications: 'Notifications',
       billing: 'Billing',
@@ -2050,6 +2051,44 @@ export const en: AppTranslations = {
         DIGEST: 'Daily Digest',
         MINIMAL: 'Minimal',
       },
+    },
+    consentPanel: {
+      title: 'Privacy & Consent',
+      description: 'Manage how your data is processed. You can change these settings at any time.',
+      categories: {
+        ai: 'AI Features',
+        data: 'Data Processing',
+      },
+      features: {
+        ai_smart_replies: {
+          label: 'AI Smart Replies',
+          description: 'Allow AI to generate reply suggestions based on email content',
+        },
+        ai_summarization: {
+          label: 'AI Email Summarization',
+          description: 'Allow AI to analyze and summarize email content',
+        },
+        ai_scheduling: {
+          label: 'AI Scheduling',
+          description: 'Allow AI to suggest meeting times and manage calendar',
+        },
+        ai_auto_triage: {
+          label: 'AI Auto-Triage',
+          description: 'Allow AI to automatically categorize and prioritize emails',
+        },
+        email_analytics: {
+          label: 'Email Analytics',
+          description: 'Process email metadata for analytics dashboards',
+        },
+        contact_enrichment: {
+          label: 'Contact Enrichment',
+          description: 'Use AI to generate embeddings from contact data for intelligent search',
+        },
+      },
+      consentUpdated: 'Consent updated',
+      consentError: 'Failed to update consent',
+      lastUpdated: 'Last updated',
+      version: 'Consent version',
     },
     accountPanel: {
       title: 'Account Settings',

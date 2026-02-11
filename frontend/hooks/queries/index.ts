@@ -26,6 +26,8 @@ export * from './billing-keys';
 export * from './use-billing';
 export * from './use-subscription-features';
 export * from './use-subscription-limits';
+export * from './consent-keys';
+export * from './use-consent';
 // Note: use-providers exports are NOT re-exported here because use-settings already
 // exports useProviders, useSyncAllProviders, useDeleteProvider. Import directly from
 // './use-providers' if you need the dedicated provider hooks (useProvider, useUpdateProvider etc).
