@@ -160,6 +160,10 @@ export interface Configuration {
   encryption: {
     aesSecretKey: string;
   };
+  fieldEncryption: {
+    masterKey: string;
+    oldMasterKeys: string;
+  };
   stt: {
     provider: string;
     googleApiKey?: string;
@@ -313,6 +317,12 @@ export function loadConfiguration(): Configuration {
     if (isDefaultMinioCredentials) {
       throw new Error('SECURITY ERROR: S3_ACCESS_KEY and S3_SECRET_KEY cannot use default MinIO credentials in production');
     }
+    // Field encryption key validation (opt-in: only validated if set)
+    const fieldEncMasterKey = process.env.FIELD_ENCRYPTION_MASTER_KEY;
+    if (fieldEncMasterKey && fieldEncMasterKey.length < 44) {
+      // 32 bytes base64-encoded = 44 chars minimum
+      throw new Error('SECURITY ERROR: FIELD_ENCRYPTION_MASTER_KEY must be at least 32 bytes (44 base64 chars). Generate with: openssl rand -base64 32');
+    }
   } else {
     // Development - warn about insecure defaults but don't prevent startup
     if (!jwtSecret || jwtSecret === 'change-me-in-production' || jwtSecret === 'secret') {
@@ -417,6 +427,11 @@ export function loadConfiguration(): Configuration {
 
     encryption: {
       aesSecretKey: aesSecretKey || 'default-key-change-in-production',
+    },
+
+    fieldEncryption: {
+      masterKey: process.env.FIELD_ENCRYPTION_MASTER_KEY || '',
+      oldMasterKeys: process.env.FIELD_ENCRYPTION_OLD_KEYS || '',
     },
 
     stt: {

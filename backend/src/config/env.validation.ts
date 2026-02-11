@@ -155,6 +155,15 @@ export class EnvironmentVariables {
   @IsOptional()
   AES_SECRET_KEY?: string;
 
+  // Field-level encryption (database at-rest, opt-in)
+  @IsString()
+  @IsOptional()
+  FIELD_ENCRYPTION_MASTER_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  FIELD_ENCRYPTION_OLD_KEYS?: string;
+
   // SMTP (Optional)
   @IsString()
   @IsOptional()
