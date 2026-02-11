@@ -9,7 +9,15 @@ export interface ToolRendererProps {
   output: unknown;
   errorText?: string;
   toolName?: string;
+  onAction?: (action: ArtifactAction) => void;
 }
+
+// --- Action Types ---
+
+export type ArtifactAction =
+  | { type: 'navigate'; route: string }
+  | { type: 'send-message'; message: string }
+  | { type: 'api-call'; fn: () => Promise<unknown> };
 
 // --- Email Tool Outputs ---
 
@@ -224,6 +232,70 @@ export interface MemorySearchResult {
   error?: string;
   message?: string;
   memories: MemoryItem[];
+}
+
+// --- Briefing Tool Output ---
+
+export interface BriefingSectionItem {
+  title: string;
+  detail?: string;
+}
+
+export interface BriefingResult {
+  success?: boolean;
+  error?: string;
+  generatedAt: string;
+  validUntil: string;
+  stats: {
+    totalUnread: number;
+    newToday: number;
+    highPriority: number;
+  };
+  summary: {
+    summary: string;
+    highlights: string[];
+  };
+  followUps: {
+    pending: number;
+    overdue: number;
+    dueToday: number;
+    message: string;
+  };
+  deadlines: {
+    count: number;
+    message: string;
+    items: BriefingSectionItem[];
+  };
+  actionItems: {
+    count: number;
+    message: string;
+    items: BriefingSectionItem[];
+  };
+  calendar: {
+    hasEvents: boolean;
+    message: string;
+  };
+}
+
+// --- CRM Tool Output ---
+
+export interface CrmContactStat {
+  contactId: string;
+  displayName: string;
+  email: string;
+  relationshipScore: number;
+  lastInteraction: string | null;
+  interactionCount: number;
+  staleDays?: number;
+}
+
+export interface CrmResult {
+  success?: boolean;
+  error?: string;
+  summary?: string;
+  contacts: CrmContactStat[];
+  totalContacts?: number;
+  averageScore?: number;
 }
 
 // --- Generic / Fallback ---
