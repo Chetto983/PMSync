@@ -22,6 +22,7 @@ import {
   CreditCard,
   FileSignature,
   ShieldCheck,
+  DatabaseZap,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
@@ -61,6 +62,8 @@ import {
 } from '@/components/settings';
 import { SignatureSettings } from '@/components/settings/SignatureSettings';
 import { ConsentSettings } from '@/components/dashboard/consent/ConsentSettings';
+import { DataExportPanel } from '@/components/dashboard/data-rights/DataExportPanel';
+import { AccountDeletionPanel } from '@/components/dashboard/data-rights/AccountDeletionPanel';
 import { BillingPanel } from '@/components/billing';
 import {
   useSignatures,
@@ -70,7 +73,7 @@ import {
   useSetDefaultSignature,
 } from '@/hooks/queries/use-signatures';
 
-type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'account' | 'billing';
+type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'dataRights' | 'account' | 'billing';
 
 export function Settings() {
   const router = useRouter();
@@ -152,6 +155,7 @@ export function Settings() {
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
       { id: 'signatures', label: settingsCopy.sections.signatures || 'Signatures', icon: <FileSignature size={18} /> },
       { id: 'consent', label: settingsCopy.sections.consent || 'Privacy & Consent', icon: <ShieldCheck size={18} /> },
+      { id: 'dataRights', label: settingsCopy.sections.dataRights || 'Data & Privacy', icon: <DatabaseZap size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
       { id: 'billing', label: settingsCopy.sections.billing || 'Billing', icon: <CreditCard size={18} /> },
     ],
@@ -653,6 +657,18 @@ export function Settings() {
               />
             )}
             {selectedSection === 'consent' && <ConsentSettings />}
+            {selectedSection === 'dataRights' && (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  {settingsCopy.dataRights?.title || 'Data & Privacy'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  {t.settings.dataRights?.export?.description || ''}
+                </Typography>
+                <DataExportPanel />
+                <AccountDeletionPanel />
+              </Box>
+            )}
             {selectedSection === 'account' && (
               <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarSave={handleAvatarSave} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
             )}
