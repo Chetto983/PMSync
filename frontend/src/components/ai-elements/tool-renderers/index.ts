@@ -16,6 +16,8 @@ import { CountRenderer } from "./renderers/CountRenderer";
 import { FolderRenderer } from "./renderers/FolderRenderer";
 import { AnalysisRenderer } from "./renderers/AnalysisRenderer";
 import { MemoryRenderer } from "./renderers/MemoryRenderer";
+import { BriefingRenderer } from "./renderers/BriefingRenderer";
+import { CrmRenderer } from "./renderers/CrmRenderer";
 import { FallbackRenderer } from "./renderers/FallbackRenderer";
 
 const TOOL_RENDERERS: Record<string, ComponentType<ToolRendererProps>> = {
@@ -52,6 +54,12 @@ const TOOL_RENDERERS: Record<string, ComponentType<ToolRendererProps>> = {
   // Memory
   search_memory: MemoryRenderer,
   memory_search: MemoryRenderer,
+
+  // Daily briefing
+  get_daily_briefing: BriefingRenderer,
+
+  // CRM / Relationship stats
+  get_relationship_stats: CrmRenderer,
 };
 
 export function getToolRenderer(
