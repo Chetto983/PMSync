@@ -1,6 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional, Inject } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AccountDeletionService } from '../../modules/compliance/services/account-deletion.service';
+import { DataExportService } from '../../modules/compliance/services/data-export.service';
 
 /**
  * Data Cleanup Service
@@ -14,13 +16,23 @@ import { PrismaService } from '../../prisma/prisma.service';
  * - ActionQueue (expired pending actions)
  * - VoltAgent conversations (30 day retention)
  *
- * Runs daily at 3 AM (low traffic period)
+ * Cron schedule:
+ * - 2 AM: Purge expired account deletion requests (GDPR Art. 17)
+ * - 3 AM: Cleanup expired data records
+ * - 3:30 AM: Cleanup expired data exports (GDPR Art. 20)
+ * - 4 AM Sunday: Audit log retention (3-year policy)
  */
 @Injectable()
 export class DataCleanupService implements OnModuleInit {
   private readonly logger = new Logger(DataCleanupService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(AccountDeletionService)
+    private readonly accountDeletionService?: AccountDeletionService,
+    @Optional() @Inject(DataExportService)
+    private readonly dataExportService?: DataExportService,
+  ) {}
 
   onModuleInit() {
     this.logger.log('Data cleanup service initialized');
@@ -133,6 +145,56 @@ export class DataCleanupService implements OnModuleInit {
       return result.count;
     } catch (error) {
       this.logger.error(`Audit retention cleanup failed: ${error}`);
+      return 0;
+    }
+  }
+
+  /**
+   * DATA-02/DATA-03: Purge expired account deletion requests (GDPR Art. 17).
+   * Runs daily at 2 AM (before the 3 AM data cleanup).
+   *
+   * Finds users with deletedAt older than 30 days and hard-deletes them
+   * via Prisma cascade (removes all user data).
+   */
+  @Cron('0 2 * * *')
+  async purgeExpiredAccountDeletions(): Promise<number> {
+    if (!this.accountDeletionService) {
+      this.logger.debug('AccountDeletionService not available, skipping purge');
+      return 0;
+    }
+
+    this.logger.log('Starting expired account deletion purge...');
+    try {
+      const purgedCount = await this.accountDeletionService.purgeExpiredDeletions();
+      this.logger.log(`Account deletion purge complete: ${purgedCount} accounts purged`);
+      return purgedCount;
+    } catch (error) {
+      this.logger.error(`Account deletion purge failed: ${error}`);
+      return 0;
+    }
+  }
+
+  /**
+   * DATA-01: Cleanup expired data export files (GDPR Art. 20).
+   * Runs daily at 3:30 AM (after the 3 AM data cleanup, before 4 AM audit cleanup).
+   *
+   * Deletes export ZIP files from disk and marks exports as EXPIRED
+   * after the 72-hour download window.
+   */
+  @Cron('30 3 * * *')
+  async cleanupExpiredDataExports(): Promise<number> {
+    if (!this.dataExportService) {
+      this.logger.debug('DataExportService not available, skipping export cleanup');
+      return 0;
+    }
+
+    this.logger.log('Starting expired data export cleanup...');
+    try {
+      const cleaned = await this.dataExportService.cleanupExpiredExports();
+      this.logger.log(`Data export cleanup complete: ${cleaned} exports cleaned`);
+      return cleaned;
+    } catch (error) {
+      this.logger.error(`Data export cleanup failed: ${error}`);
       return 0;
     }
   }

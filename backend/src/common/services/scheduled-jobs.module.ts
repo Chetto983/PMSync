@@ -1,8 +1,9 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, forwardRef } from '@nestjs/common';
 import { ScheduledJobsQueueService } from './scheduled-jobs.queue';
 import { RedisLockService } from './redis-lock.service';
 import { DataCleanupService } from './data-cleanup.service';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { ComplianceModule } from '../../modules/compliance/compliance.module';
 
 /**
  * Global module for BullMQ-based scheduled jobs and distributed locking
@@ -12,10 +13,14 @@ import { PrismaModule } from '../../prisma/prisma.module';
  * RedisLockService provides distributed locking for all use cases
  *
  * DataCleanupService: Daily cleanup of expired data (AIMemory, Learning, Actions)
+ * AccountDeletionService: Purge expired account deletion requests (2 AM daily)
  */
 @Global()
 @Module({
-  imports: [PrismaModule],
+  imports: [
+    PrismaModule,
+    forwardRef(() => ComplianceModule), // For AccountDeletionService (purge expired deletions)
+  ],
   providers: [ScheduledJobsQueueService, RedisLockService, DataCleanupService],
   exports: [ScheduledJobsQueueService, RedisLockService, DataCleanupService],
 })
