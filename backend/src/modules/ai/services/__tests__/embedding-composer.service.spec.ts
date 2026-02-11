@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EmbeddingComposerService } from '../embedding-composer.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { PiiDetectionService } from '../../guards';
 
 const mockPrismaService = {
   emailAttachment: {
@@ -196,6 +197,153 @@ describe('EmbeddingComposerService', () => {
 
       expect(result).toContain('Name: Jane');
       expect(result).not.toContain('Company');
+    });
+  });
+
+  describe('PII sanitization', () => {
+    const mockPiiDetection = {
+      detect: jest.fn(),
+      containsPii: jest.fn(),
+      redact: jest.fn(),
+      resolveFromMatches: jest.fn(),
+      getSupportedTypes: jest.fn(),
+      configure: jest.fn(),
+    };
+
+    let serviceWithPii: EmbeddingComposerService;
+
+    beforeEach(async () => {
+      mockPiiDetection.detect.mockReset();
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EmbeddingComposerService,
+          { provide: PrismaService, useValue: mockPrismaService },
+          { provide: ConfigService, useValue: mockConfigService },
+          { provide: PiiDetectionService, useValue: mockPiiDetection },
+        ],
+      }).compile();
+
+      serviceWithPii = module.get<EmbeddingComposerService>(EmbeddingComposerService);
+    });
+
+    it('should sanitize email body content', () => {
+      mockPiiDetection.detect.mockReturnValue({
+        hasPii: true,
+        redactedText: 'Contact me at [EMAIL_REDACTED:abc123]',
+        piiCount: 1,
+        detectedTypes: ['EMAIL'],
+        originalText: 'Contact me at john@example.com',
+        details: [],
+      });
+
+      const result = serviceWithPii.composeEmailEmbeddingContent({
+        subject: 'Test Subject',
+        bodyText: 'Contact me at john@example.com',
+      });
+
+      expect(mockPiiDetection.detect).toHaveBeenCalledWith('Contact me at john@example.com');
+      expect(result).toContain('[EMAIL_REDACTED:');
+      expect(result).toContain('Test Subject'); // Subject NOT sanitized
+      expect(result).not.toContain('john@example.com');
+    });
+
+    it('should NOT sanitize email subject (preserves search relevance)', () => {
+      // detect should NOT be called for subject
+      mockPiiDetection.detect.mockReturnValue({
+        hasPii: false,
+        redactedText: 'Some body text',
+        piiCount: 0,
+        detectedTypes: [],
+        originalText: 'Some body text',
+        details: [],
+      });
+
+      const result = serviceWithPii.composeEmailEmbeddingContent({
+        subject: 'Meeting with john@example.com',
+        bodyText: 'Some body text',
+      });
+
+      // Subject should be preserved as-is
+      expect(result).toContain('Oggetto: Meeting with john@example.com');
+    });
+
+    it('should sanitize contact emails and phones', () => {
+      mockPiiDetection.detect
+        .mockReturnValueOnce({
+          hasPii: true,
+          redactedText: '[EMAIL_REDACTED:def456]',
+          piiCount: 1,
+          detectedTypes: ['EMAIL'],
+          originalText: 'john@example.com',
+          details: [],
+        })
+        .mockReturnValueOnce({
+          hasPii: true,
+          redactedText: '[PHONE_REDACTED:ghi789]',
+          piiCount: 1,
+          detectedTypes: ['PHONE'],
+          originalText: '+1-555-123-4567',
+          details: [],
+        });
+
+      const result = serviceWithPii.composeContactEmbeddingContent({
+        displayName: 'John Smith',
+        emails: [{ value: 'john@example.com' }],
+        phoneNumbers: [{ value: '+1-555-123-4567' }],
+      });
+
+      expect(result).toContain('John Smith'); // Name NOT sanitized
+      expect(result).toContain('[EMAIL_REDACTED:');
+      expect(result).toContain('[PHONE_REDACTED:');
+      expect(result).not.toContain('john@example.com');
+      expect(result).not.toContain('+1-555-123-4567');
+    });
+
+    it('should gracefully handle PiiDetectionService errors', () => {
+      mockPiiDetection.detect.mockImplementation(() => {
+        throw new Error('Detection failed');
+      });
+
+      const result = serviceWithPii.composeEmailEmbeddingContent({
+        subject: 'Test',
+        bodyText: 'Contact john@example.com',
+      });
+
+      // Should return original text on error
+      expect(result).toContain('john@example.com');
+    });
+
+    it('should work without PiiDetectionService (graceful degradation)', async () => {
+      // Default service (from outer beforeEach) has no PiiDetectionService
+      const result = service.composeEmailEmbeddingContent({
+        subject: 'Test',
+        bodyText: 'Contact john@example.com',
+      });
+
+      // Should return original text when service unavailable
+      expect(result).toContain('john@example.com');
+    });
+
+    it('should sanitize body in composeEmailEmbeddingContentWithAttachments', async () => {
+      mockPrismaService.emailAttachment.findMany.mockResolvedValue([]);
+      mockPiiDetection.detect.mockReturnValue({
+        hasPii: true,
+        redactedText: 'Call [PHONE_REDACTED:xyz999]',
+        piiCount: 1,
+        detectedTypes: ['PHONE'],
+        originalText: 'Call +39-02-1234567',
+        details: [],
+      });
+
+      const result = await serviceWithPii.composeEmailEmbeddingContentWithAttachments(
+        { id: 'e-1', subject: 'Invoice', bodyText: 'Call +39-02-1234567' },
+        'tenant-1',
+      );
+
+      expect(result.content).toContain('Oggetto: Invoice'); // Subject preserved
+      expect(result.content).toContain('[PHONE_REDACTED:');
+      expect(result.content).not.toContain('+39-02-1234567');
     });
   });
 
