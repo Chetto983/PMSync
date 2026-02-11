@@ -168,6 +168,9 @@ Next action: Execute Phase 16 (Data Rights & Legal Documents)
 | @Optional() AuditService in VoltAgentService | v3.1-15-02 | Graceful degradation matching codebase convention |
 | Pure Jest mocks for PrismaService in GDPR tests | v3.1-15-04 | Faster than NestJS TestingModule, sufficient for unit tests |
 | Full ExecutionContext mock shape for guard/interceptor tests | v3.1-15-04 | Complete interface avoids runtime type errors |
+| Translations under settings.consentPanel | v3.1-15-03 | Nested under settings matching existing panel patterns |
+| Optimistic toggle with rollback | v3.1-15-03 | Standard TanStack Query onMutate/onError/onSettled pattern |
+| Frontend feature grouping arrays | v3.1-15-03 | AI_FEATURES/DATA_FEATURES hardcoded matching backend constants |
 
 ## Blockers & Concerns
 
@@ -228,7 +231,7 @@ See: .planning/MILESTONES.md
 **Phase 15 progress (GDPR Core Compliance):**
 - Plan 15-01: Consent management backend (UserConsent model, ConsentService, ConsentGuard, REST API) -- COMPLETE
 - Plan 15-02: Audit logging system (AuditLogInterceptor, VoltAgent hook, retention cron) -- COMPLETE
-- Plan 15-03: GDPR status API and compliance module wiring -- COMPLETE
+- Plan 15-03: Consent management frontend UI (ConsentSettings, TanStack Query hooks, EN/IT translations) -- COMPLETE
 - Plan 15-04: GDPR compliance unit tests (29 tests, 5 files) -- COMPLETE
 
 **Known issues carried forward from v3.0:**
