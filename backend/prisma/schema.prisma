@@ -51,6 +51,8 @@ model Tenant {
   dealActivities           DealActivity[]
   mistralAgents            MistralAgent[]
   userConsents             UserConsent[]
+  legalAcceptances         LegalAcceptance[]
+  dataExportRequests       DataExportRequest[]
 
   @@map("tenants")
 }
@@ -87,6 +89,8 @@ model User {
   webauthnCredentials WebAuthnCredential[]
   writingStyleProfile WritingStyleProfile?
   userConsents        UserConsent[]
+  legalAcceptances    LegalAcceptance[]
+  dataExportRequests  DataExportRequest[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -847,6 +851,48 @@ model UserConsent {
   @@index([userId, feature, createdAt(sort: Desc)])
   @@index([tenantId, createdAt])
   @@map("user_consents")
+}
+
+/// Legal document acceptance tracking (LEGAL-01, LEGAL-02)
+/// Append-only records proving user accepted specific ToS/PP versions
+model LegalAcceptance {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String
+  documentType    String   // 'TOS' or 'PRIVACY_POLICY'
+  documentVersion String   // e.g., '1.0', '1.1'
+  acceptedAt      DateTime @default(now())
+  ipAddress       String?
+  userAgent       String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, documentType, acceptedAt(sort: Desc)])
+  @@index([tenantId, documentType])
+  @@map("legal_acceptances")
+}
+
+/// Data export request tracking (DATA-RIGHTS-01)
+/// Tracks GDPR data portability requests through their lifecycle
+model DataExportRequest {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  status      String    @default("PENDING") // PENDING, PROCESSING, READY, EXPIRED, FAILED
+  filePath    String?
+  fileSize    Int?
+  expiresAt   DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("data_export_requests")
 }
 
 model JobQueue {
