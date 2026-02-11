@@ -17,6 +17,7 @@ import { MessageResponse } from '@/src/components/ai-elements/message';
 import { Tool, ToolHeader, ToolContent } from '@/src/components/ai-elements/tool';
 import type { ToolPart } from '@/src/components/ai-elements/tool';
 import { SmartToolOutput } from '@/src/components/ai-elements/tool-renderers/SmartToolOutput';
+import type { ArtifactAction } from '@/src/components/ai-elements/tool-renderers/types';
 import { Suggestions, Suggestion } from '@/src/components/ai-elements/suggestion';
 import {
   Reasoning,
@@ -31,6 +32,7 @@ import {
   ChainOfThoughtStep,
 } from '@/src/components/ai-elements/chain-of-thought';
 import { Sources, SourcesTrigger, SourcesContent, Source } from '@/src/components/ai-elements/sources';
+import { useRouter } from 'next/router';
 import { ArtifactPanel } from './ArtifactPanel';
 import { Search, FileText, Mail, Calendar, Users, Circle, BookOpenText, type LucideIcon } from 'lucide-react';
 
@@ -316,6 +318,7 @@ function ConversationPendingActions({ conversationId }: { conversationId: string
 export function ChatMessages({ messages, sending, conversationId, onSuggestedQuestionSelect }: ChatMessagesProps) {
   const theme = useTheme();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Copy to clipboard state
   const [copiedMessageId, setCopiedMessageId] = React.useState<string | null>(null);
@@ -328,6 +331,21 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
       setTimeout(() => setCopiedMessageId(null), 2000);
     } catch  { }
   }, []);
+
+  // Handle artifact actions from tool renderers (navigate, send-message, api-call)
+  const handleArtifactAction = React.useCallback((action: ArtifactAction) => {
+    switch (action.type) {
+      case 'navigate':
+        router.push(action.route);
+        break;
+      case 'send-message':
+        onSuggestedQuestionSelect?.(action.message);
+        break;
+      case 'api-call':
+        action.fn().catch((err) => console.error('Artifact action failed:', err));
+        break;
+    }
+  }, [router, onSuggestedQuestionSelect]);
 
   // Real-time agent activity streaming
   const { steps: agentSteps, isActive: hasAgentActivity } = useAgentActivityStream({
@@ -592,6 +610,7 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
                               output={toolPart.output}
                               errorText={toolPart.errorText}
                               toolName={toolName}
+                              onAction={handleArtifactAction}
                             />
                           </ToolContent>
                         </Tool>

@@ -13,6 +13,7 @@ export function SmartToolOutput({
   output,
   errorText,
   toolName,
+  onAction,
 }: ToolRendererProps) {
   // Memoize renderer lookup - toolName is stable per tool invocation
   const Renderer = useMemo(() => getToolRenderer(toolName), [toolName]);
@@ -21,5 +22,5 @@ export function SmartToolOutput({
   if (!output && !errorText) return null;
 
   // eslint-disable-next-line react-hooks/static-components
-  return <Renderer output={output} errorText={errorText} toolName={toolName} />;
+  return <Renderer output={output} errorText={errorText} toolName={toolName} onAction={onAction} />;
 }
