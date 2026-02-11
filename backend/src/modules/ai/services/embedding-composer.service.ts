@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { HtmlContentExtractor } from './html-content-extractor';
+import { PiiDetectionService } from '../guards';
 
 // ============================================================================
 // INTERFACES (Internal to service - not exported)
@@ -95,8 +96,35 @@ export class EmbeddingComposerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    @Optional() @Inject(PiiDetectionService)
+    private readonly piiDetectionService?: PiiDetectionService,
   ) {
     this.maxCharsPerChunk = this.configService.get<number>('AI_EMBEDDING_CHUNK_SIZE', 6000);
+  }
+
+  // ============================================================================
+  // PII SANITIZATION
+  // ============================================================================
+
+  /**
+   * Sanitize text by redacting PII for GDPR-compliant embeddings.
+   * Gracefully degrades if PiiDetectionService is unavailable.
+   */
+  private sanitize(text: string): string {
+    if (!this.piiDetectionService || !text) return text;
+
+    try {
+      const result = this.piiDetectionService.detect(text);
+      if (result.hasPii) {
+        this.logger.debug(
+          `Sanitized ${result.piiCount} PII items for embedding: ${result.detectedTypes.join(', ')}`,
+        );
+      }
+      return result.redactedText;
+    } catch (error) {
+      this.logger.warn(`PII detection failed, using original text: ${error}`);
+      return text; // Graceful degradation
+    }
   }
 
   // ============================================================================
@@ -121,16 +149,17 @@ export class EmbeddingComposerService {
     // Priority: bodyHtml > bodyText > snippet
     // If HTML is available, use it (it's usually more complete)
     // bodyText is often a plain-text duplicate of bodyHtml
+    // Body content is SANITIZED for GDPR (subject is NOT - preserves search relevance)
     if (email.bodyHtml) {
       // Use Readability to extract clean content from HTML
       const extracted = HtmlContentExtractor.extractMainContent(email.bodyHtml);
       if (extracted) {
-        pieces.push(extracted);
+        pieces.push(this.sanitize(extracted));
       }
     } else if (email.bodyText?.trim()) {
-      pieces.push(email.bodyText.trim());
+      pieces.push(this.sanitize(email.bodyText.trim()));
     } else if (email.snippet) {
-      pieces.push(email.snippet);
+      pieces.push(this.sanitize(email.snippet));
     }
 
     const combined = pieces.join('\n\n').trim();
@@ -161,13 +190,14 @@ export class EmbeddingComposerService {
     }
 
     // Email body (same as composeEmailEmbeddingContent)
+    // Body content is SANITIZED for GDPR (subject is NOT - preserves search relevance)
     if (email.bodyHtml) {
       const extracted = HtmlContentExtractor.extractMainContent(email.bodyHtml);
-      if (extracted) pieces.push(extracted);
+      if (extracted) pieces.push(this.sanitize(extracted));
     } else if (email.bodyText?.trim()) {
-      pieces.push(email.bodyText.trim());
+      pieces.push(this.sanitize(email.bodyText.trim()));
     } else if (email.snippet) {
-      pieces.push(email.snippet);
+      pieces.push(this.sanitize(email.snippet));
     }
 
     // Query attachment metadata (NO content extraction - on-demand via agent tool)
@@ -256,18 +286,18 @@ export class EmbeddingComposerService {
       parts.push(`Tags: ${contact.tags.join(', ')}`);
     }
 
-    // Contact info (for exact matching)
+    // Contact info (sanitized for GDPR - no raw emails/phones in vector DB)
     if (contact.emails && Array.isArray(contact.emails)) {
       const emailList = contact.emails.map((e) => e.value).filter(Boolean).join(', ');
       if (emailList) {
-        parts.push(`Emails: ${emailList}`);
+        parts.push(`Emails: ${this.sanitize(emailList)}`);
       }
     }
 
     if (contact.phoneNumbers && Array.isArray(contact.phoneNumbers)) {
       const phoneList = contact.phoneNumbers.map((p) => p.value).filter(Boolean).join(', ');
       if (phoneList) {
-        parts.push(`Phones: ${phoneList}`);
+        parts.push(`Phones: ${this.sanitize(phoneList)}`);
       }
     }
 
