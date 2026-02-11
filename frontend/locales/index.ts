@@ -1867,6 +1867,7 @@ export interface AppTranslations {
       accounts: string;
       signatures: string;
       consent: string;
+      dataRights: string;
       account: string;
       notifications: string;
       billing: string;
@@ -2185,6 +2186,45 @@ export interface AppTranslations {
       deleteDialogConfirm: string;
       deleteDialogDeleting: string;
       deleteDialogError: string;
+    };
+    dataRights?: {
+      title: string;
+      export: {
+        title: string;
+        description: string;
+        requestButton: string;
+        downloadButton: string;
+        status: {
+          PENDING: string;
+          PROCESSING: string;
+          READY: string;
+          EXPIRED: string;
+          FAILED: string;
+        };
+        expiresAt: string;
+        fileSize: string;
+        noExports: string;
+        requestSuccess: string;
+        includes: string;
+      };
+      deletion: {
+        title: string;
+        description: string;
+        warning: string;
+        requestButton: string;
+        cancelButton: string;
+        confirmTitle: string;
+        confirmMessage: string;
+        confirmButton: string;
+        status: {
+          ACTIVE: string;
+          SCHEDULED: string;
+        };
+        purgeDate: string;
+        daysRemaining: string;
+        cancelSuccess: string;
+        requestSuccess: string;
+      };
     };
   };
   cookies: {
