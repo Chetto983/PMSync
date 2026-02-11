@@ -214,10 +214,13 @@ Plans:
 5. New users must accept Terms of Service before using app
 6. New users must accept Privacy Policy before using app
 
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 16-01: (To be planned)
+- [ ] 16-01-PLAN.md -- Prisma models (LegalAcceptance, DataExportRequest) + legal acceptance backend (LEGAL-01, LEGAL-02)
+- [ ] 16-02-PLAN.md -- Data export backend: assembler, ZIP generation, download endpoint (DATA-01)
+- [ ] 16-03-PLAN.md -- Account deletion backend: soft-delete, 30-day grace period, purge cron (DATA-02, DATA-03)
+- [ ] 16-04-PLAN.md -- Frontend: translations, API module, query hooks, export/deletion panels, registration integration
 
 ---
 
