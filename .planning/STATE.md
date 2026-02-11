@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 16 (Data Rights & Legal Documents)
-Plan: 4 of 4 complete
-Status: Phase Complete
-Last activity: 2026-02-11 — Plan 16-04 complete (data rights frontend UI)
+Phase: Phase 17 (Rich Artifacts UI)
+Plan: 1 of 4 complete
+Status: In Progress
+Last activity: 2026-02-11 — Plan 17-01 complete (action infrastructure)
 
 Progress: v3.1
 ```
-[#############################░░░░░░░░░░░░░░░░░] 67% (4/6 phases)
+[###############################░░░░░░░░░░░░░░░] 71% (4.25/6 phases)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 16-04-PLAN.md (data rights frontend UI)
+Stopped at: Completed 17-01-PLAN.md (action infrastructure)
 Resume file: None
-Next action: Execute Phase 17 plans
+Next action: Execute Phase 17-02 plan
 
 ## Accumulated Decisions
 
@@ -183,6 +183,8 @@ Next action: Execute Phase 17 plans
 - [Phase v3.1-16-04]: Self-contained data rights panels with own TanStack Query hooks
 - [Phase v3.1-16-04]: New sidebar section for Data & Privacy instead of embedding in Account
 - [Phase v3.1-16-04]: Polling refetchInterval 5s for active export status tracking
+- [Phase v3.1-17-01]: Use next/router over next/navigation for ChatMessages (matches 25/29 codebase imports)
+- [Phase v3.1-17-01]: ActionBar uses title attr for tooltips (no TooltipProvider dependency)
 
 ## Blockers & Concerns
 
@@ -238,13 +240,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 16 complete (4 of 4 plans done). Ready for Phase 17.
+**Currently:** Phase 17 in progress (1 of 4 plans done). Execute Plan 17-02 next.
 
-**Phase 16 progress (Data Rights & Legal Documents):**
-- Plan 16-01: Legal acceptance backend (LegalAcceptance/DataExportRequest models, service, guard, controller) -- COMPLETE
-- Plan 16-02: Data export service -- COMPLETE
-- Plan 16-03: Account deletion with 30-day grace period -- COMPLETE
-- Plan 16-04: Data rights frontend UI (export panel, deletion panel, legal acceptance on registration) -- COMPLETE
+**Phase 17 progress (Rich Artifacts UI):**
+- Plan 17-01: Action infrastructure (types, ActionBar, onAction plumbing) -- COMPLETE
+- Plan 17-02: Briefing renderer -- PENDING
+- Plan 17-03: CRM renderer -- PENDING
+- Plan 17-04: Follow-up renderer -- PENDING
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -253,7 +255,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Phase 16 complete (data rights frontend UI, all 4 plans done)*
+*State updated: 2026-02-11 — Plan 17-01 complete (action infrastructure)*
 
 ## Previous Milestone (v3.0) Highlights
 
