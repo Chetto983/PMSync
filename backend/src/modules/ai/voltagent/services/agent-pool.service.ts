@@ -24,6 +24,8 @@ import { FollowUpService } from './follow-up.service';
 import { PiiDetectionService } from '../../guards';
 import { EmailInsightsService } from '../../services/email-insights.service';
 import { AIMemoryService } from './ai-memory.service';
+import { DailyBriefingService } from './daily-briefing.service';
+import { RelationshipIntelligenceService } from './relationship-intelligence.service';
 import { createUnifiedAgent } from '../agents/unified.agent';
 import { buildDynamicInstructions, type UserContext } from '../agents/supervisor.agent';
 import { getMistralModel, type MistralModel } from '../providers/mistral.provider';
@@ -85,6 +87,8 @@ export class AgentPoolService {
     @Optional() @Inject(PiiDetectionService) private readonly piiDetectionService?: PiiDetectionService,
     @Optional() @Inject(EmailInsightsService) private readonly emailInsightsService?: EmailInsightsService,
     @Optional() @Inject(AIMemoryService) private readonly aiMemoryService?: AIMemoryService,
+    @Optional() @Inject(DailyBriefingService) private readonly dailyBriefingService?: DailyBriefingService,
+    @Optional() @Inject(RelationshipIntelligenceService) private readonly relationshipIntelligenceService?: RelationshipIntelligenceService,
   ) {
     this.logger.log(`[INIT] AgentPoolService: cache=${!!this.cacheService}, email=${!!this.emailSendService}, mistral=${!!this.mistralService}`);
   }
@@ -181,6 +185,8 @@ export class AgentPoolService {
       emailInsightsService: this.emailInsightsService ?? null,
       documentLibraryService: this.documentLibraryService ?? null,
       aiMemoryService: this.aiMemoryService ?? null,
+      dailyBriefingService: this.dailyBriefingService ?? null,
+      relationshipIntelligenceService: this.relationshipIntelligenceService ?? null,
       piiDetectionService: this.piiDetectionService,
       configService: this.configService,
       intent: params.intent ?? 'unknown', // RLM: Intent for dynamic tool loading

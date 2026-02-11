@@ -10,6 +10,8 @@ export { createEmailRLMTools, type EmailRLMRagOptions } from './email-rlm.tools'
 export { createCalendarTools } from './calendar.tools';
 export { createContactsTools } from './contacts.tools';
 export { createFolderTools } from './folder.tools';
+export { createBriefingTools } from './briefing.tools';
+export { createCrmTools } from './crm.tools';
 export {
   createInsightTools,
   createComposeReplyTool,

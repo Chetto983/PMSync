@@ -28,6 +28,8 @@ import { EmailSendService } from '../../../email/services/email-send.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
 import { DocumentLibraryService } from '../services/document-library.service';
 import { AIMemoryService } from '../services/ai-memory.service';
+import { DailyBriefingService } from '../services/daily-briefing.service';
+import { RelationshipIntelligenceService } from '../services/relationship-intelligence.service';
 import { PiiDetectionService } from '../../guards';
 import type { TaskIntent } from '../services/task-complexity-classifier.service';
 import { buildDynamicInstructions, type UserContext } from './supervisor.agent';
@@ -44,6 +46,8 @@ import { createInsightTools } from '../tools/insights.tools';
 import { createAskUserTool } from '../tools/ask-user.tool';
 import { createMemoryTools } from '../tools/memory.tools';
 import { createWebSearchTools, type WebSearchToolOptions } from '../tools/web-search.tools';
+import { createBriefingTools } from '../tools/briefing.tools';
+import { createCrmTools } from '../tools/crm.tools';
 import type { ConfigService } from '@nestjs/config';
 import type { PrismaClient } from '@prisma/client';
 
@@ -70,6 +74,8 @@ export interface UnifiedAgentOptions {
   emailInsightsService?: EmailInsightsService | null;
   documentLibraryService?: DocumentLibraryService | null;
   aiMemoryService?: AIMemoryService | null;
+  dailyBriefingService?: DailyBriefingService | null;
+  relationshipIntelligenceService?: RelationshipIntelligenceService | null;
   piiDetectionService?: PiiDetectionService;
   // Web search configuration
   configService?: ConfigService;
@@ -95,6 +101,8 @@ interface ToolRegistry {
   insights: Tool[];
   websearch: Tool[];
   documents: Tool[];
+  briefing: Tool[];
+  crm: Tool[];
 }
 
 /**
@@ -250,6 +258,25 @@ function createToolsForGroup(
       return [];
     }
 
+    case 'briefing': {
+      const { dailyBriefingService } = options;
+      if (!dailyBriefingService) return [];
+      return createBriefingTools(
+        { dailyBriefingService },
+        tenantId,
+        userId,
+      );
+    }
+
+    case 'crm': {
+      const { relationshipIntelligenceService } = options;
+      if (!relationshipIntelligenceService) return [];
+      return createCrmTools(
+        { relationshipIntelligenceService },
+        tenantId,
+      );
+    }
+
     default:
       logger.warn(`Unknown tool group: ${group}`);
       return [];
@@ -268,6 +295,8 @@ function buildToolsForIntent(
     hasInsights: !!options.mistralService,
     hasWebSearch: !!options.configService,
     hasDocuments: !!options.documentLibraryService,
+    hasBriefing: !!options.dailyBriefingService,
+    hasCrm: !!options.relationshipIntelligenceService,
   };
 
   const groups = getToolGroupsForIntent(intent, serviceFlags);
@@ -382,6 +411,8 @@ export function getAvailableToolGroups(options: UnifiedAgentOptions): string[] {
     available.push('websearch');
   }
   if (options.documentLibraryService) available.push('documents');
+  if (options.dailyBriefingService) available.push('briefing');
+  if (options.relationshipIntelligenceService) available.push('crm');
 
   return available;
 }

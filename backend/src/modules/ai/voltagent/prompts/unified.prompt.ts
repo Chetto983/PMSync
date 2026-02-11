@@ -206,6 +206,12 @@ export const TOOL_GROUPS: Record<string, readonly string[]> = {
 
   // Document tools - for document library
   documents: ['manage_document_library', 'search_documents'] as const,
+
+  // Briefing tools - for daily summary/overview
+  briefing: ['get_daily_briefing'] as const,
+
+  // CRM tools - for relationship intelligence
+  crm: ['get_relationship_stats'] as const,
 } as const;
 
 /**
@@ -232,6 +238,8 @@ export function getToolGroupsForIntent(
     hasInsights?: boolean;
     hasWebSearch?: boolean;
     hasDocuments?: boolean;
+    hasBriefing?: boolean;
+    hasCrm?: boolean;
   },
 ): string[] {
   const groups = [...INTENT_TOOL_GROUPS[intent]];
@@ -248,6 +256,13 @@ export function getToolGroupsForIntent(
   }
   if (options?.hasDocuments && intent !== 'greeting') {
     groups.push('documents');
+  }
+  // Briefing and CRM tools: available for read, search, orchestrate, unknown intents
+  if (options?.hasBriefing && ['read', 'search', 'orchestrate', 'unknown'].includes(intent)) {
+    groups.push('briefing');
+  }
+  if (options?.hasCrm && ['read', 'search', 'orchestrate', 'unknown'].includes(intent)) {
+    groups.push('crm');
   }
 
   return groups;
