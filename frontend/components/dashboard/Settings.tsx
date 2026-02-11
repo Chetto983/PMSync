@@ -21,6 +21,7 @@ import {
   Shield,
   CreditCard,
   FileSignature,
+  ShieldCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
@@ -59,6 +60,7 @@ import {
   AccountSettings,
 } from '@/components/settings';
 import { SignatureSettings } from '@/components/settings/SignatureSettings';
+import { ConsentSettings } from '@/components/dashboard/consent/ConsentSettings';
 import { BillingPanel } from '@/components/billing';
 import {
   useSignatures,
@@ -68,7 +70,7 @@ import {
   useSetDefaultSignature,
 } from '@/hooks/queries/use-signatures';
 
-type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'account' | 'billing';
+type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'account' | 'billing';
 
 export function Settings() {
   const router = useRouter();
@@ -149,6 +151,7 @@ export function Settings() {
       { id: 'ai', label: settingsCopy.sections.ai, icon: <Sparkles size={18} /> },
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
       { id: 'signatures', label: settingsCopy.sections.signatures || 'Signatures', icon: <FileSignature size={18} /> },
+      { id: 'consent', label: settingsCopy.sections.consent || 'Privacy & Consent', icon: <ShieldCheck size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
       { id: 'billing', label: settingsCopy.sections.billing || 'Billing', icon: <CreditCard size={18} /> },
     ],
@@ -649,6 +652,7 @@ export function Settings() {
                 copy={signaturesCopy}
               />
             )}
+            {selectedSection === 'consent' && <ConsentSettings />}
             {selectedSection === 'account' && (
               <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarSave={handleAvatarSave} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
             )}
