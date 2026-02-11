@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 16 (Data Rights & Legal Documents)
-Plan: 1 of 4 complete
+Plan: 3 of 4 complete
 Status: Executing
-Last activity: 2026-02-11 — Plan 16-01 complete (legal acceptance backend)
+Last activity: 2026-02-11 — Plan 16-03 complete (account deletion with grace period)
 
 Progress: v3.1
 ```
@@ -22,9 +22,9 @@ Progress: v3.1
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 16-01-PLAN.md (legal acceptance backend)
+Stopped at: Completed 16-03-PLAN.md (account deletion with grace period)
 Resume file: None
-Next action: Execute 16-02-PLAN.md
+Next action: Execute 16-04-PLAN.md
 
 ## Accumulated Decisions
 
@@ -174,6 +174,9 @@ Next action: Execute 16-02-PLAN.md
 | Version-pinned legal acceptance | v3.1-16-01 | Guard checks CURRENT version only, not any historical acceptance |
 | SkipLegalCheck decorator for guard bypass | v3.1-16-01 | Same SetMetadata pattern as RequiresConsent but inverted (opt-out) |
 | Legal endpoints exclude LegalAcceptanceGuard | v3.1-16-01 | Users must accept without being blocked by the guard |
+| forwardRef ComplianceModule in ScheduledJobsModule | v3.1-16-03 | Cross-module cron DI without circular dependency |
+| @Optional() AccountDeletionService in DataCleanupService | v3.1-16-03 | Graceful degradation if ComplianceModule unavailable |
+| AuditModule imported in ComplianceModule | v3.1-16-03 | Required for deletion audit trail (not global module) |
 
 ## Blockers & Concerns
 
@@ -233,8 +236,8 @@ See: .planning/MILESTONES.md
 
 **Phase 16 progress (Data Rights & Legal Documents):**
 - Plan 16-01: Legal acceptance backend (LegalAcceptance/DataExportRequest models, service, guard, controller) -- COMPLETE
-- Plan 16-02: Data export service -- PENDING
-- Plan 16-03: Legal acceptance frontend -- PENDING
+- Plan 16-02: Data export service -- COMPLETE
+- Plan 16-03: Account deletion with 30-day grace period -- COMPLETE
 - Plan 16-04: Data rights unit tests -- PENDING
 
 **Known issues carried forward from v3.0:**
@@ -244,7 +247,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Phase 16 plan 01 complete (legal acceptance backend)*
+*State updated: 2026-02-11 — Phase 16 plan 03 complete (account deletion with grace period)*
 
 ## Previous Milestone (v3.0) Highlights
 
