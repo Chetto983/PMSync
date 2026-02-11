@@ -243,10 +243,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 17-01-PLAN.md -- Infrastructure: extend ToolRendererProps with onAction, create ActionBar shared component, wire callback plumbing through SmartToolOutput and ChatMessages
-- [ ] 17-02-PLAN.md -- Backend: create get_daily_briefing and get_relationship_stats VoltAgent tools
-- [ ] 17-03-PLAN.md -- Upgrade email and follow-up renderers with interactive action buttons (ARTIFACT-01, ARTIFACT-04)
-- [ ] 17-04-PLAN.md -- Upgrade contact/event renderers, create BriefingRenderer and CrmRenderer (ARTIFACT-02, ARTIFACT-03, ARTIFACT-05, ARTIFACT-06)
+- [x] 17-01-PLAN.md -- Infrastructure: extend ToolRendererProps with onAction, create ActionBar shared component, wire callback plumbing through SmartToolOutput and ChatMessages
+- [x] 17-02-PLAN.md -- Backend: create get_daily_briefing and get_relationship_stats VoltAgent tools
+- [x] 17-03-PLAN.md -- Upgrade email and follow-up renderers with interactive action buttons (ARTIFACT-01, ARTIFACT-04)
+- [x] 17-04-PLAN.md -- Upgrade contact/event renderers, create BriefingRenderer and CrmRenderer (ARTIFACT-02, ARTIFACT-03, ARTIFACT-05, ARTIFACT-06)
 
 ---
 
@@ -303,11 +303,11 @@ Plans:
 | 14. Database Encryption at Rest | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 15. GDPR Core Compliance | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 16. Data Rights & Legal Documents | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 17. Rich Artifacts UI | v3.1 | 0/4 | Not started | - |
+| 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 18. AI Triage & Bulk Operations | v3.1 | 0/? | Not started | - |
 | 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
 
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-11 — Phase 16 complete (Data Rights & Legal Documents), data export, account deletion with 30-day grace period, legal acceptance*
+*Last updated: 2026-02-11 — Phase 17 complete (Rich Artifacts UI), interactive artifacts for all 6 domains, ActionBar infrastructure, briefing/CRM backend tools*
