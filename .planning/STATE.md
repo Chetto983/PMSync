@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 13 (PII Tokenization Foundation)
-Plan: —
-Status: Roadmap complete, ready for planning
-Last activity: 2026-02-09 — Roadmap created for v3.1
+Plan: 1 of 2 complete
+Status: Executing phase 13
+Last activity: 2026-02-11 — Plan 13-01 complete (embedding PII sanitization)
 
 Progress: v3.1
 ```
@@ -21,10 +21,10 @@ Progress: v3.1
 
 ## Session Continuity
 
-Last session: 2026-02-09
-Stopped at: Roadmap creation complete
+Last session: 2026-02-11
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
-Next action: `/gsd:plan-phase 13` to create Phase 13 execution plan
+Next action: `/gsd:execute-phase 13` to run 13-02-PLAN.md
 
 ## Accumulated Decisions
 
@@ -144,6 +144,9 @@ Next action: `/gsd:plan-phase 13` to create Phase 13 execution plan
 | label prop for recipient aria-labels | v3.0-12-02 | To/Cc/Bcc labels map directly to accessibility context |
 | PII tokenization as Phase 13 blocker | v3.1-roadmap | All AI features depend on PII protection foundation |
 | 6 phases for 27 requirements | v3.1-roadmap | Comprehensive depth (8-12 phases target), natural groupings |
+| Sanitize body, NOT subject in embeddings | v3.1-13-01 | Subject is critical for semantic search relevance |
+| Sanitize contact emails/phones, NOT name | v3.1-13-01 | Name is primary search target for contact lookups |
+| @Optional() @Inject() for PII in embeddings | v3.1-13-01 | Matches codebase convention, graceful degradation |
 
 ## Blockers & Concerns
 
@@ -199,13 +202,12 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Ready to plan Phase 13 (PII Tokenization Foundation)
+**Currently:** Plan 13-01 complete, ready for 13-02
 
 **Focus areas:**
+- 13-02: Additional PII integration points (remaining Phase 13 work)
 - Phase 13 blocks all AI features (CRITICAL)
-- PII tokenization service with NER detection
-- Token restoration for display and tool execution
-- RAG embedding sanitization
+- RAG embedding sanitization DONE (13-01)
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -214,7 +216,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-09 — v3.1 roadmap created*
+*State updated: 2026-02-11 — Plan 13-01 complete (embedding PII sanitization)*
 
 ## Previous Milestone (v3.0) Highlights
 
