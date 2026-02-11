@@ -265,10 +265,12 @@ Plans:
 4. User can batch-apply labels to selected emails via AI assistant
 5. User can batch-create follow-ups for selected emails via AI assistant
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 18-01: (To be planned)
+- [ ] 18-01-PLAN.md -- Backend: TriageSuggestionService, bulk_email_actions tool extension, action types + executors, module wiring (TRIAGE-01, BULK-01, BULK-02)
+- [ ] 18-02-PLAN.md -- Frontend email list: AI triage chips in ThreadListItem, Apply AI Suggestions button in ThreadListHeader, translations (TRIAGE-02)
+- [ ] 18-03-PLAN.md -- Frontend chat: TriageRenderer for bulk action results, tool registry registration (TRIAGE-02, BULK-01)
 
 ---
 
