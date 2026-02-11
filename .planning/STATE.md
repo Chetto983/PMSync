@@ -9,22 +9,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 14 (Database Encryption at Rest) -- COMPLETE
-Plan: 4 of 4 complete
-Status: All plans complete, phase finished
-Last activity: 2026-02-11 — Plan 14-04 complete (deployment verification, 10 integration tests)
+Phase: Phase 15 (GDPR Core Compliance)
+Plan: 1 of 4 complete
+Status: In progress
+Last activity: 2026-02-11 — Plan 15-01 complete (consent management backend)
 
 Progress: v3.1
 ```
-[################░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 33% (2/6 phases)
+[##################░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 38% (2.25/6 phases)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 14-04-PLAN.md (deployment verification — Phase 14 complete)
+Stopped at: Completed 15-01-PLAN.md (consent management backend)
 Resume file: None
-Next action: Begin Phase 15 (Data Rights & Legal Documents)
+Next action: Execute 15-02-PLAN.md
 
 ## Accumulated Decisions
 
@@ -160,6 +160,9 @@ Next action: Begin Phase 15 (Data Rights & Legal Documents)
 | Pure function extension (no NestJS DI) | v3.1-14-02 | Accepts key-getter callbacks, instantiated in constructor for simplicity |
 | Direct HKDF derivation in integration tests | v3.1-14-04 | Reproduces TenantKeyService logic without NestJS DI for fast test isolation |
 | No DB required for encryption integration tests | v3.1-14-04 | Exported helper functions are the same code the Prisma extension uses internally |
+| Dual-write consent-to-preferences pattern | v3.1-15-01 | Immutable consent records + sync to UserPreferences for fast runtime checks |
+| Default deny for consent checks | v3.1-15-01 | hasConsent returns false when no record exists, forcing explicit opt-in |
+| Feature validation on consent update | v3.1-15-01 | Rejects unknown feature IDs with BadRequestException |
 
 ## Blockers & Concerns
 
@@ -215,14 +218,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 14 complete, ready for Phase 15
+**Currently:** Phase 15 in progress (plan 1 of 4 complete)
 
-**Phase 14 summary (Database Encryption at Rest):**
-- Plan 14-01: TenantKeyService + AES-256-GCM utils + field config (20 tests)
-- Plan 14-02: Prisma extension for transparent field encryption + PrismaService wiring (20 tests)
-- Plan 14-03: Backfill encryption migration script + 6 unit tests
-- Plan 14-04: Integration tests proving ENC-01/02/04/05 + full suite verification (10 tests, 633 total pass)
-- Next: Phase 15 (Data Rights & Legal Documents)
+**Phase 15 progress (GDPR Core Compliance):**
+- Plan 15-01: Consent management backend (UserConsent model, ConsentService, ConsentGuard, REST API) -- COMPLETE
+- Plan 15-02: Next
+- Plan 15-03: Pending
+- Plan 15-04: Pending
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -231,7 +233,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Phase 14 complete (Database Encryption at Rest, 4/4 plans, 56 tests)*
+*State updated: 2026-02-11 — Phase 15 plan 01 complete (Consent Management Backend)*
 
 ## Previous Milestone (v3.0) Highlights
 

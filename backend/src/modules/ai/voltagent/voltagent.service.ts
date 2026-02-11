@@ -57,6 +57,7 @@ import { AgentMetricsService } from './services/agent-metrics.service';
 import { AgentPoolService } from './services/agent-pool.service';
 import { ChatPrepareService } from './services/chat-prepare.service';
 import { MistralService } from '../services/mistral.service';
+import { AuditService } from '../../../common/services/audit.service';
 
 /**
  * Streaming-safe sanitizer - ZERO BUFFERING.
@@ -176,6 +177,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() @Inject(ChatPrepareService) private readonly chatPrepareService?: ChatPrepareService,
     @Optional() @Inject(RedisLockService) private readonly redisLockService?: RedisLockService,
     @Optional() @Inject(MistralService) private readonly mistralService?: MistralService,
+    @Optional() @Inject(AuditService) private readonly auditService?: AuditService,
   ) {
     this.logger.log(`[INIT] VoltAgentService: cache=${!!this.cacheService}, hitl=${!!this.hitlService}, memory=${!!this.memoryIntelligenceService}, lock=${!!this.redisLockService}`);
   }
@@ -248,6 +250,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           toolMetrics.status,
           toolMetrics.durationSeconds,
         );
+      },
+      // AUDIT-02: Persist AI tool executions to audit log
+      onAuditToolExecution: (data) => {
+        this.auditService?.logToolExecution(data);
       },
       // Capture HITL pending actions from tool results (including sub-agents)
       onPendingAction: async (action) => {

@@ -64,6 +64,20 @@ export interface ObservabilityOptions {
    * Called on every tool completion with duration and status.
    */
   onToolMetrics?: (metrics: ToolMetrics) => void;
+  /**
+   * AUDIT-02: Callback for audit logging of tool executions.
+   * Called on every tool completion to persist to audit_logs.
+   */
+  onAuditToolExecution?: (data: {
+    tenantId: string;
+    userId?: string;
+    toolName: string;
+    agentName: string;
+    inputSummary: string;
+    outputSummary: string;
+    durationMs: number;
+    status: 'success' | 'error';
+  }) => void;
 }
 
 export interface AgentMetrics {
@@ -128,7 +142,7 @@ interface OperationTracking {
 }
 
 export function createObservabilityHooks(options: ObservabilityOptions = {}): DisposableHooks {
-  const { logger, logToolCalls = true, trackUsage = true, onMetrics, onPendingAction, onToolMetrics } = options;
+  const { logger, logToolCalls = true, trackUsage = true, onMetrics, onPendingAction, onToolMetrics, onAuditToolExecution } = options;
 
   // Track operations with TTL cleanup for >1000 tenants
   const operations = new Map<string, OperationTracking>();
@@ -298,6 +312,8 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
       const toolStartKey = `${operationId}:${tool.name}:${Date.now()}`;
       (context as Record<string, unknown>).__toolStartTime = Date.now();
       (context as Record<string, unknown>).__toolStartKey = toolStartKey;
+      // AUDIT-02: Store args for audit logging in onToolEnd
+      (context as Record<string, unknown>).__toolArgs = args;
 
       // PERF: Log at info level to see tool names in production logs
       logger?.info(`[PERF] Tool START: ${tool.name} | agent=${agent.name}`, {
@@ -330,6 +346,25 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
           durationSeconds: toolDurationSeconds,
           status: error ? 'error' : 'success',
           agentName: agent.name,
+        });
+      }
+
+      // AUDIT-02: Record tool execution to audit log
+      if (onAuditToolExecution) {
+        const tenantId = extractTenantId(context.userId);
+        const userId = extractUserId(context.userId);
+        const args = (context as Record<string, unknown>).__toolArgs as Record<string, unknown> | undefined;
+        const inputKeys = args ? Object.keys(args).join(', ') : '';
+        const outputStr = output ? JSON.stringify(output).slice(0, 200) : '';
+        onAuditToolExecution({
+          tenantId,
+          userId,
+          toolName: tool.name,
+          agentName: agent.name,
+          inputSummary: `args: [${inputKeys}]`.slice(0, 200),
+          outputSummary: outputStr,
+          durationMs: toolDuration,
+          status: error ? 'error' : 'success',
         });
       }
 

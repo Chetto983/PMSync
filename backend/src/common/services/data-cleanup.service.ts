@@ -115,6 +115,29 @@ export class DataCleanupService implements OnModuleInit {
   }
 
   /**
+   * AUDIT-03: Weekly cleanup of audit logs older than 3 years (GDPR retention).
+   * Runs Sunday 4 AM (offset from daily 3 AM cleanup).
+   */
+  @Cron('0 4 * * 0')
+  async cleanupOldAuditLogs(): Promise<number> {
+    this.logger.log('Starting audit log retention cleanup (3-year policy)...');
+    try {
+      const threeYearsAgo = new Date();
+      threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+
+      const result = await this.prisma.auditLog.deleteMany({
+        where: { createdAt: { lt: threeYearsAgo } },
+      });
+
+      this.logger.log(`Audit retention cleanup: deleted ${result.count} records older than 3 years`);
+      return result.count;
+    } catch (error) {
+      this.logger.error(`Audit retention cleanup failed: ${error}`);
+      return 0;
+    }
+  }
+
+  /**
    * Manual cleanup trigger (for testing or admin use)
    */
   async runManualCleanup(): Promise<CleanupResult> {

@@ -10,6 +10,7 @@ import aiConfig from './config/ai.config';
 import { pinoLoggerConfig } from './config/logger.config';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ResponseTimeInterceptor } from './common/interceptors/response-time.interceptor';
+import { AuditLogInterceptor } from './modules/audit/interceptors/audit-log.interceptor';
 import { LogRotationService } from './common/services/log-rotation.service';
 import { CacheModule } from './common/services/cache.module';
 import { ScheduledJobsModule } from './common/services/scheduled-jobs.module';
@@ -87,6 +88,11 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseTimeInterceptor,
+    },
+    // AUDIT-01: Auto-log all authenticated HTTP data access events
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
     },
     // Custom 429 response format with Retry-After header (SEC-05)
     {

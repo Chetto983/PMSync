@@ -99,6 +99,7 @@ import { SuggestedPromptsService } from './services/suggested-prompts.service';
 
 // VOLT-02/03: Reliability services for conversation operations
 import { RetryService } from '../../../common/services/retry.service';
+import { AuditModule } from '../../audit/audit.module';
 
 @Module({
   imports: [
@@ -115,6 +116,7 @@ import { RetryService } from '../../../common/services/retry.service';
     forwardRef(() => CalendarModule),
     forwardRef(() => EmailSyncModule),
     forwardRef(() => SubscriptionModule),
+    AuditModule, // AUDIT-02: Provides AuditService for tool execution audit logging
   ],
   controllers: [
     VoltAgentController,
