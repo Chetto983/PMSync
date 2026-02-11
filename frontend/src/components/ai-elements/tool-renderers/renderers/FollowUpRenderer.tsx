@@ -1,14 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangleIcon,
+  AlarmClockIcon,
   CheckCircle2Icon,
+  CheckIcon,
   ClockIcon,
   BellIcon,
+  ExternalLinkIcon,
   MailIcon,
 } from "lucide-react";
 import type { ToolRendererProps, FollowUpResult } from "../types";
+import { ActionBar } from "../shared/ActionBar";
 import { EmptyState } from "../shared/EmptyState";
 import { ResultSummary } from "../shared/ResultSummary";
 import { RawJsonToggle } from "../shared/RawJsonToggle";
@@ -17,7 +22,27 @@ import { RawJsonToggle } from "../shared/RawJsonToggle";
  * Smart renderer for list_follow_ups tool.
  * Shows follow-up items with status badges, due dates, and linked email info.
  */
-export function FollowUpRenderer({ output, errorText }: ToolRendererProps) {
+export function FollowUpRenderer({ output, errorText, onAction }: ToolRendererProps) {
+  const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
+
+  const handleResolve = (followUpId: string) => {
+    setResolvedIds(prev => new Set(prev).add(followUpId));
+    onAction?.({
+      type: "api-call",
+      fn: async () => {
+        const { voltAgentApi } = await import("@/lib/api/ai");
+        await voltAgentApi.resolveFollowUp(followUpId);
+      },
+    });
+  };
+
+  const handleSnooze = (_followUpId: string, emailSubject: string) => {
+    onAction?.({
+      type: "send-message",
+      message: `Snooze the follow-up for "${emailSubject}" to tomorrow`,
+    });
+  };
+
   if (errorText) {
     return (
       <div className="p-3">
@@ -77,41 +102,55 @@ export function FollowUpRenderer({ output, errorText }: ToolRendererProps) {
           const isOverdue = fu.dueDate && new Date(fu.dueDate) < new Date();
           const statusConfig = getStatusConfig(fu.status, !!isOverdue);
 
+          const isResolved = resolvedIds.has(fu.followUpId);
+
           return (
             <div
               key={fu.followUpId}
-              className="flex items-start gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors"
+              className="relative group flex items-start gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors"
             >
               {/* Status icon */}
-              <statusConfig.icon
-                className={`h-4 w-4 mt-0.5 shrink-0 ${statusConfig.iconColor}`}
-              />
+              {isResolved ? (
+                <CheckCircle2Icon className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+              ) : (
+                <statusConfig.icon
+                  className={`h-4 w-4 mt-0.5 shrink-0 ${statusConfig.iconColor}`}
+                />
+              )}
 
               {/* Content */}
               <div className="flex-1 min-w-0">
                 {/* Line 1: email subject + status badge */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium truncate">
+                  <span className={`text-sm font-medium truncate ${isResolved ? "line-through opacity-50" : ""}`}>
                     {fu.email.subject || "(No subject)"}
                   </span>
-                  <Badge
-                    variant={statusConfig.variant as "default" | "secondary" | "destructive" | "outline"}
-                    className={`text-[10px] px-1.5 py-0 shrink-0 ${statusConfig.badgeClass}`}
-                  >
-                    {isOverdue ? "Overdue" : fu.status}
-                  </Badge>
-                  {fu.emailType && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 shrink-0 capitalize"
-                    >
-                      {fu.emailType}
+                  {isResolved ? (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 text-green-700 bg-green-50">
+                      Completed
                     </Badge>
+                  ) : (
+                    <>
+                      <Badge
+                        variant={statusConfig.variant as "default" | "secondary" | "destructive" | "outline"}
+                        className={`text-[10px] px-1.5 py-0 shrink-0 ${statusConfig.badgeClass}`}
+                      >
+                        {isOverdue ? "Overdue" : fu.status}
+                      </Badge>
+                      {fu.emailType && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 shrink-0 capitalize"
+                        >
+                          {fu.emailType}
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </div>
 
                 {/* Line 2: from + reason */}
-                <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                <div className={`flex items-center gap-1.5 text-[13px] text-muted-foreground ${isResolved ? "opacity-50" : ""}`}>
                   <MailIcon className="h-3 w-3 shrink-0" />
                   <span className="truncate">{fu.email.from}</span>
                   {fu.reason && (
@@ -125,13 +164,24 @@ export function FollowUpRenderer({ output, errorText }: ToolRendererProps) {
                 {/* Line 3: due date */}
                 {fu.dueDate && (
                   <div
-                    className={`flex items-center gap-1 text-[12px] mt-0.5 ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}
+                    className={`flex items-center gap-1 text-[12px] mt-0.5 ${isResolved ? "opacity-50 text-muted-foreground" : isOverdue ? "text-destructive" : "text-muted-foreground"}`}
                   >
                     <ClockIcon className="h-3 w-3" />
                     <span>Due {formatRelativeDate(fu.dueDate)}</span>
                   </div>
                 )}
               </div>
+
+              {/* Action bar - shows on hover */}
+              {!isResolved && (
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ActionBar actions={[
+                    { icon: CheckIcon, label: "Complete", onClick: () => handleResolve(fu.followUpId) },
+                    { icon: AlarmClockIcon, label: "Snooze", onClick: () => handleSnooze(fu.followUpId, fu.email.subject || "") },
+                    { icon: ExternalLinkIcon, label: "View email", onClick: () => onAction?.({ type: "navigate", route: `/dashboard/email?threadId=${fu.email.id}` }) },
+                  ]} />
+                </div>
+              )}
             </div>
           );
         })}
