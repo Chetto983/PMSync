@@ -10,21 +10,21 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 17 (Rich Artifacts UI)
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: In Progress
-Last activity: 2026-02-11 — Plan 17-02 complete (backend VoltAgent tools)
+Last activity: 2026-02-11 — Plan 17-03 complete (email & follow-up renderer actions)
 
 Progress: v3.1
 ```
-[################################░░░░░░░░░░░░░░] 75% (4.5/6 phases)
+[####################################░░░░░░░░░░] 83% (5/6 phases)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 17-02-PLAN.md (backend VoltAgent tools)
+Stopped at: Completed 17-03-PLAN.md (email & follow-up renderer actions)
 Resume file: None
-Next action: Execute Phase 17-03 plan
+Next action: Execute Phase 17-04 plan
 
 ## Accumulated Decisions
 
@@ -188,6 +188,8 @@ Next action: Execute Phase 17-03 plan
 - [Phase v3.1-17-02]: Briefing/CRM tools loaded for read/search/orchestrate/unknown intents only
 - [Phase v3.1-17-02]: Parallel topContacts + staleContacts fetch in CRM tool
 - [Phase v3.1-17-02]: @Optional() @Inject() for DailyBriefingService/RelationshipIntelligenceService in AgentPoolService
+- [Phase v3.1-17-03]: Dynamic import for voltAgentApi in FollowUpRenderer (lazy API loading)
+- [Phase v3.1-17-03]: Underscore-prefix for unused handler params in snooze handler
 
 ## Blockers & Concerns
 
@@ -243,13 +245,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 17 in progress (2 of 4 plans done). Execute Plan 17-03 next.
+**Currently:** Phase 17 in progress (3 of 4 plans done). Execute Plan 17-04 next.
 
 **Phase 17 progress (Rich Artifacts UI):**
 - Plan 17-01: Action infrastructure (types, ActionBar, onAction plumbing) -- COMPLETE
 - Plan 17-02: Backend VoltAgent tools (get_daily_briefing, get_relationship_stats) -- COMPLETE
-- Plan 17-03: CRM renderer -- PENDING
-- Plan 17-04: Follow-up renderer -- PENDING
+- Plan 17-03: Email & follow-up renderer actions -- COMPLETE
+- Plan 17-04: Remaining renderers (briefing, CRM, etc.) -- PENDING
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -258,7 +260,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Plan 17-02 complete (backend VoltAgent tools)*
+*State updated: 2026-02-11 — Plan 17-03 complete (email & follow-up renderer actions)*
 
 ## Previous Milestone (v3.0) Highlights
 
