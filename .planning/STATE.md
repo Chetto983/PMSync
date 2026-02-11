@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 13 (PII Tokenization Foundation) -- COMPLETE
-Plan: 2 of 2 complete
-Status: Phase 13 complete, ready for Phase 14
-Last activity: 2026-02-11 — Plan 13-02 complete (PII integration tests)
+Phase: Phase 14 (Database Encryption at Rest) -- IN PROGRESS
+Plan: 1 of 4 complete
+Status: Plan 14-01 complete (encryption foundation), continuing to 14-02
+Last activity: 2026-02-11 — Plan 14-01 complete (TenantKeyService + AES-256-GCM utils)
 
 Progress: v3.1
 ```
@@ -22,9 +22,9 @@ Progress: v3.1
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 13-02-PLAN.md (Phase 13 complete)
+Stopped at: Completed 14-01-PLAN.md (encryption foundation)
 Resume file: None
-Next action: `/gsd:plan-phase 14` to plan Database Encryption at Rest
+Next action: Execute 14-02-PLAN.md (Prisma middleware for transparent encrypt/decrypt)
 
 ## Accumulated Decisions
 
@@ -149,6 +149,9 @@ Next action: `/gsd:plan-phase 14` to plan Database Encryption at Rest
 | @Optional() @Inject() for PII in embeddings | v3.1-13-01 | Matches codebase convention, graceful degradation |
 | Mock CacheService directly for PII tests | v3.1-13-02 | Faster than NestJS TestingModule, sufficient for integration validation |
 | Real PiiDetectionService in tests (no mocks) | v3.1-13-02 | Ensures actual regex patterns and hashing work correctly |
+| jest.isolateModules for config-dependent tests | v3.1-14-01 | jest.mock singleton prevents per-test config changes |
+| isEnabled getter on TenantKeyService | v3.1-14-01 | Downstream code can skip encryption when master key not set |
+| Encryption opt-in (empty key = disabled) | v3.1-14-01 | Graceful degradation; encryption activated only after master key configured |
 
 ## Blockers & Concerns
 
@@ -204,12 +207,12 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 13 complete (2/2 plans), ready for Phase 14
+**Currently:** Phase 14 in progress (1/4 plans complete)
 
 **Focus areas:**
-- Phase 14: GDPR Core Compliance (6 requirements)
-- Phase 13 DONE: PII tokenization foundation verified (14 integration tests + 6 unit tests)
-- RAG embedding sanitization DONE (13-01), PII round-trip verified (13-02)
+- Phase 14: Database Encryption at Rest — Plan 01 done, Plans 02-04 remaining
+- Plan 14-01 DONE: TenantKeyService + AES-256-GCM utils + field config (20 tests)
+- Next: Plan 14-02 (Prisma middleware for transparent encrypt/decrypt)
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -218,7 +221,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Phase 13 complete (PII tokenization foundation verified)*
+*State updated: 2026-02-11 — Phase 14 Plan 01 complete (encryption foundation: TenantKeyService + AES-256-GCM utils)*
 
 ## Previous Milestone (v3.0) Highlights
 
