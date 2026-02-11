@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 15 (GDPR Core Compliance)
-Plan: 4 of 4 complete
-Status: Phase complete
-Last activity: 2026-02-11 — Plan 15-04 complete (GDPR compliance unit tests)
+Phase: Phase 16 (Data Rights & Legal Documents)
+Plan: 1 of 4 complete
+Status: Executing
+Last activity: 2026-02-11 — Plan 16-01 complete (legal acceptance backend)
 
 Progress: v3.1
 ```
@@ -22,9 +22,9 @@ Progress: v3.1
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 15-04-PLAN.md (GDPR compliance unit tests)
+Stopped at: Completed 16-01-PLAN.md (legal acceptance backend)
 Resume file: None
-Next action: Execute Phase 16 (Data Rights & Legal Documents)
+Next action: Execute 16-02-PLAN.md
 
 ## Accumulated Decisions
 
@@ -171,6 +171,9 @@ Next action: Execute Phase 16 (Data Rights & Legal Documents)
 | Translations under settings.consentPanel | v3.1-15-03 | Nested under settings matching existing panel patterns |
 | Optimistic toggle with rollback | v3.1-15-03 | Standard TanStack Query onMutate/onError/onSettled pattern |
 | Frontend feature grouping arrays | v3.1-15-03 | AI_FEATURES/DATA_FEATURES hardcoded matching backend constants |
+| Version-pinned legal acceptance | v3.1-16-01 | Guard checks CURRENT version only, not any historical acceptance |
+| SkipLegalCheck decorator for guard bypass | v3.1-16-01 | Same SetMetadata pattern as RequiresConsent but inverted (opt-out) |
+| Legal endpoints exclude LegalAcceptanceGuard | v3.1-16-01 | Users must accept without being blocked by the guard |
 
 ## Blockers & Concerns
 
@@ -226,13 +229,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 15 complete (4 of 4 plans done)
+**Currently:** Phase 16 in progress (1 of 4 plans done)
 
-**Phase 15 progress (GDPR Core Compliance):**
-- Plan 15-01: Consent management backend (UserConsent model, ConsentService, ConsentGuard, REST API) -- COMPLETE
-- Plan 15-02: Audit logging system (AuditLogInterceptor, VoltAgent hook, retention cron) -- COMPLETE
-- Plan 15-03: Consent management frontend UI (ConsentSettings, TanStack Query hooks, EN/IT translations) -- COMPLETE
-- Plan 15-04: GDPR compliance unit tests (29 tests, 5 files) -- COMPLETE
+**Phase 16 progress (Data Rights & Legal Documents):**
+- Plan 16-01: Legal acceptance backend (LegalAcceptance/DataExportRequest models, service, guard, controller) -- COMPLETE
+- Plan 16-02: Data export service -- PENDING
+- Plan 16-03: Legal acceptance frontend -- PENDING
+- Plan 16-04: Data rights unit tests -- PENDING
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -241,7 +244,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Phase 15 complete (GDPR Core Compliance - 4/4 plans done)*
+*State updated: 2026-02-11 — Phase 16 plan 01 complete (legal acceptance backend)*
 
 ## Previous Milestone (v3.0) Highlights
 
