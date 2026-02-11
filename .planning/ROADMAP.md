@@ -188,10 +188,13 @@ Plans:
 5. System logs all AI tool executions with input/output summaries
 6. Audit logs are retained for 3 years per GDPR Article 30
 
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 15-01: (To be planned)
+- [ ] 15-01-PLAN.md -- Consent backend: Prisma model, service, guard, decorator, controller (CONS-01/02/03)
+- [ ] 15-02-PLAN.md -- Audit backend: AuditService expansion, interceptor, VoltAgent hook, retention cron (AUDIT-01/02/03)
+- [ ] 15-03-PLAN.md -- Consent frontend: translations, API module, query hooks, consent settings UI (CONS-01)
+- [ ] 15-04-PLAN.md -- TDD: Unit tests for consent and audit (all 6 requirements)
 
 ---
 
