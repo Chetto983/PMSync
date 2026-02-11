@@ -3,10 +3,13 @@
 import {
   AlertTriangleIcon,
   BuildingIcon,
+  ExternalLinkIcon,
   MailIcon,
+  SendIcon,
   UsersIcon,
 } from "lucide-react";
 import type { ToolRendererProps, ContactSearchResult } from "../types";
+import { ActionBar } from "../shared/ActionBar";
 import { EmptyState } from "../shared/EmptyState";
 import { ResultSummary } from "../shared/ResultSummary";
 import { RawJsonToggle } from "../shared/RawJsonToggle";
@@ -15,7 +18,7 @@ import { RawJsonToggle } from "../shared/RawJsonToggle";
  * Smart renderer for search_contacts tool.
  * Shows contact cards with avatar, name, role, company, email.
  */
-export function ContactRenderer({ output, errorText }: ToolRendererProps) {
+export function ContactRenderer({ output, errorText, onAction }: ToolRendererProps) {
   if (errorText) {
     return (
       <div className="p-3">
@@ -69,7 +72,7 @@ export function ContactRenderer({ output, errorText }: ToolRendererProps) {
           return (
             <div
               key={contact.id}
-              className="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors"
+              className="relative group flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors"
             >
               {/* Avatar */}
               <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -103,6 +106,18 @@ export function ContactRenderer({ output, errorText }: ToolRendererProps) {
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Action bar - shows on hover */}
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <ActionBar actions={[
+                  { icon: ExternalLinkIcon, label: 'View profile', onClick: () => onAction?.({ type: 'navigate', route: '/dashboard/contacts' }) },
+                  ...(primaryEmail ? [{
+                    icon: SendIcon,
+                    label: 'Send email',
+                    onClick: () => onAction?.({ type: 'navigate', route: `/dashboard/email/compose?to=${encodeURIComponent(primaryEmail)}` }),
+                  }] : []),
+                ]} />
               </div>
             </div>
           );

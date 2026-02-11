@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangleIcon,
   CircleIcon,
+  ExternalLinkIcon,
   StarIcon,
   SearchIcon,
 } from "lucide-react";
@@ -31,7 +32,7 @@ const PRIORITY_CONFIG: Record<number, { label: string; color: string }> = {
  * Smart renderer for search_emails, list_emails, semantic_search_emails.
  * Shows email items with priority badges, sentiment, and AI labels.
  */
-export function EmailSearchRenderer({ output, errorText }: ToolRendererProps) {
+export function EmailSearchRenderer({ output, errorText, onAction }: ToolRendererProps) {
   if (errorText) {
     return (
       <div className="p-3">
@@ -90,7 +91,8 @@ export function EmailSearchRenderer({ output, errorText }: ToolRendererProps) {
           return (
             <div
               key={email.id}
-              className="flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors"
+              className="group flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
+              onClick={() => onAction?.({ type: "navigate", route: `/dashboard/email?threadId=${email.id}` })}
             >
               {/* Avatar initials */}
               <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
@@ -130,6 +132,7 @@ export function EmailSearchRenderer({ output, errorText }: ToolRendererProps) {
                   <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
                     {email.receivedAt ? formatDate(email.receivedAt) : ""}
                   </span>
+                  <ExternalLinkIcon className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </div>
 
                 {/* Line 2: subject */}

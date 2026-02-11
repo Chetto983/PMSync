@@ -3,11 +3,14 @@
 import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangleIcon,
+  BellPlusIcon,
   CalendarIcon,
   ClockIcon,
+  ExternalLinkIcon,
   MapPinIcon,
 } from "lucide-react";
 import type { ToolRendererProps, EventResult } from "../types";
+import { ActionBar } from "../shared/ActionBar";
 import { EmptyState } from "../shared/EmptyState";
 import { ResultSummary } from "../shared/ResultSummary";
 import { RawJsonToggle } from "../shared/RawJsonToggle";
@@ -16,7 +19,7 @@ import { RawJsonToggle } from "../shared/RawJsonToggle";
  * Smart renderer for get_events tool.
  * Shows event items with time range, title, location, all-day badge.
  */
-export function EventRenderer({ output, errorText }: ToolRendererProps) {
+export function EventRenderer({ output, errorText, onAction }: ToolRendererProps) {
   if (errorText) {
     return (
       <div className="p-3">
@@ -63,7 +66,7 @@ export function EventRenderer({ output, errorText }: ToolRendererProps) {
         {result.data.map((event) => (
           <div
             key={event.id}
-            className="flex items-start gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors"
+            className="relative group flex items-start gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors"
           >
             {/* Time indicator */}
             <div className="w-12 shrink-0 text-center mt-0.5">
@@ -104,6 +107,14 @@ export function EventRenderer({ output, errorText }: ToolRendererProps) {
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* Action bar - shows on hover */}
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ActionBar actions={[
+                { icon: ExternalLinkIcon, label: 'View calendar', onClick: () => onAction?.({ type: 'navigate', route: '/dashboard/calendar' }) },
+                { icon: BellPlusIcon, label: 'Create follow-up', onClick: () => onAction?.({ type: 'send-message', message: `Create a follow-up for the event "${event.title}"` }) },
+              ]} />
             </div>
           </div>
         ))}

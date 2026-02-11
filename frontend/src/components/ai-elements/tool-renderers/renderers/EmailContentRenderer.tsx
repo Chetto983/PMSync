@@ -3,11 +3,15 @@
 import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangleIcon,
+  ArchiveIcon,
+  ExternalLinkIcon,
   MailIcon,
   PaperclipIcon,
+  ReplyIcon,
   StarIcon,
 } from "lucide-react";
 import type { ToolRendererProps, EmailContentResult } from "../types";
+import { ActionBar } from "../shared/ActionBar";
 import { EmptyState } from "../shared/EmptyState";
 import { RawJsonToggle } from "../shared/RawJsonToggle";
 
@@ -17,7 +21,7 @@ const MAX_BODY_CHARS = 500;
  * Smart renderer for get_email_content tool.
  * Shows email cards with headers, body preview, and attachment chips.
  */
-export function EmailContentRenderer({ output, errorText }: ToolRendererProps) {
+export function EmailContentRenderer({ output, errorText, onAction }: ToolRendererProps) {
   if (errorText) {
     return (
       <div className="p-3">
@@ -69,6 +73,11 @@ export function EmailContentRenderer({ output, errorText }: ToolRendererProps) {
                 {email.hasAttachments && (
                   <PaperclipIcon className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
+                <ActionBar actions={[
+                  { icon: ReplyIcon, label: "Reply", onClick: () => onAction?.({ type: "send-message", message: `Reply to the email "${email.subject}" from ${email.from}` }) },
+                  { icon: ArchiveIcon, label: "Archive", onClick: () => onAction?.({ type: "send-message", message: `Archive the email "${email.subject}"` }) },
+                  { icon: ExternalLinkIcon, label: "Open", onClick: () => onAction?.({ type: "navigate", route: `/dashboard/email?threadId=${email.id}` }) },
+                ]} />
               </div>
             </div>
 

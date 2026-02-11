@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangleIcon, CircleIcon, MailIcon, StarIcon } from "lucide-react";
+import { AlertTriangleIcon, CircleIcon, ExternalLinkIcon, MailIcon, StarIcon } from "lucide-react";
 import type { ToolRendererProps, EmailIndexResult } from "../types";
 import { EmptyState } from "../shared/EmptyState";
 import { SearchTypeBadge } from "../shared/ResultSummary";
@@ -31,7 +31,7 @@ function getAvatarColor(name: string): string {
  * Smart renderer for list_email_index tool.
  * Modern design with colored avatars, clean typography, Superhuman-inspired layout.
  */
-export function EmailListRenderer({ output, errorText }: ToolRendererProps) {
+export function EmailListRenderer({ output, errorText, onAction }: ToolRendererProps) {
   if (errorText) {
     return (
       <div className="p-3">
@@ -88,9 +88,10 @@ export function EmailListRenderer({ output, errorText }: ToolRendererProps) {
           return (
             <div
               key={email.id}
-              className={`flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40 ${
+              className={`group flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40 cursor-pointer ${
                 email.unread ? "bg-primary/[0.02]" : ""
               }`}
+              onClick={() => onAction?.({ type: "navigate", route: `/dashboard/email?threadId=${email.id}` })}
             >
               {/* Avatar with sender color */}
               <div
@@ -123,6 +124,7 @@ export function EmailListRenderer({ output, errorText }: ToolRendererProps) {
                   <span className="text-[11px] text-muted-foreground/60 ml-auto shrink-0 tabular-nums">
                     {formatDate(email.date)}
                   </span>
+                  <ExternalLinkIcon className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </div>
 
                 {/* Line 2: subject */}
