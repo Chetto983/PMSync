@@ -10,21 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 17 (Rich Artifacts UI)
-Plan: 3 of 4 complete
-Status: In Progress
-Last activity: 2026-02-11 — Plan 17-03 complete (email & follow-up renderer actions)
+Plan: 4 of 4 complete
+Status: Phase Complete
+Last activity: 2026-02-11 — Plan 17-04 complete (briefing, CRM renderers + action buttons)
 
 Progress: v3.1
 ```
 [####################################░░░░░░░░░░] 83% (5/6 phases)
 ```
+Phase 17 fully complete (4/4 plans).
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 17-03-PLAN.md (email & follow-up renderer actions)
+Stopped at: Completed 17-04-PLAN.md (briefing, CRM renderers + action buttons)
 Resume file: None
-Next action: Execute Phase 17-04 plan
+Next action: Execute Phase 18 (AI Triage & Bulk Operations) or wrap up Phase 17
 
 ## Accumulated Decisions
 
@@ -190,6 +191,10 @@ Next action: Execute Phase 17-04 plan
 - [Phase v3.1-17-02]: @Optional() @Inject() for DailyBriefingService/RelationshipIntelligenceService in AgentPoolService
 - [Phase v3.1-17-03]: Dynamic import for voltAgentApi in FollowUpRenderer (lazy API loading)
 - [Phase v3.1-17-03]: Underscore-prefix for unused handler params in snooze handler
+- [Phase v3.1-17-04]: Inline formatRelativeDate helper (no date-fns dependency for CRM)
+- [Phase v3.1-17-04]: Score color thresholds 0-25 red, 26-50 amber, 51-75 blue, 76-100 green
+- [Phase v3.1-17-04]: CrmContactRow sub-component for file size management
+- [Phase v3.1-17-04]: Stale threshold 14 days matching backend convention
 
 ## Blockers & Concerns
 
@@ -245,13 +250,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 17 in progress (3 of 4 plans done). Execute Plan 17-04 next.
+**Currently:** Phase 17 COMPLETE (4/4 plans done). Ready for Phase 18.
 
 **Phase 17 progress (Rich Artifacts UI):**
 - Plan 17-01: Action infrastructure (types, ActionBar, onAction plumbing) -- COMPLETE
 - Plan 17-02: Backend VoltAgent tools (get_daily_briefing, get_relationship_stats) -- COMPLETE
 - Plan 17-03: Email & follow-up renderer actions -- COMPLETE
-- Plan 17-04: Remaining renderers (briefing, CRM, etc.) -- PENDING
+- Plan 17-04: Briefing, CRM renderers + remaining action buttons -- COMPLETE
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -260,7 +265,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Plan 17-03 complete (email & follow-up renderer actions)*
+*State updated: 2026-02-11 — Plan 17-04 complete (briefing, CRM renderers + action buttons). Phase 17 fully done.*
 
 ## Previous Milestone (v3.0) Highlights
 
