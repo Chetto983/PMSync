@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 14 (Database Encryption at Rest) -- IN PROGRESS
-Plan: 1 of 4 complete
-Status: Plan 14-01 complete (encryption foundation), continuing to 14-02
-Last activity: 2026-02-11 — Plan 14-01 complete (TenantKeyService + AES-256-GCM utils)
+Plan: 2 of 4 complete
+Status: Plan 14-03 complete (backfill migration script), continuing to 14-04
+Last activity: 2026-02-11 — Plan 14-03 complete (backfill encryption migration script)
 
 Progress: v3.1
 ```
@@ -22,9 +22,9 @@ Progress: v3.1
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 14-01-PLAN.md (encryption foundation)
+Stopped at: Completed 14-03-PLAN.md (backfill encryption migration)
 Resume file: None
-Next action: Execute 14-02-PLAN.md (Prisma middleware for transparent encrypt/decrypt)
+Next action: Execute 14-04-PLAN.md (deployment verification)
 
 ## Accumulated Decisions
 
@@ -152,6 +152,9 @@ Next action: Execute 14-02-PLAN.md (Prisma middleware for transparent encrypt/de
 | jest.isolateModules for config-dependent tests | v3.1-14-01 | jest.mock singleton prevents per-test config changes |
 | isEnabled getter on TenantKeyService | v3.1-14-01 | Downstream code can skip encryption when master key not set |
 | Encryption opt-in (empty key = disabled) | v3.1-14-01 | Graceful degradation; encryption activated only after master key configured |
+| skip+take pagination over cursor for composite PK | v3.1-14-03 | Composite @@id([id, tenantId]) prevents cursor-based pagination in Prisma |
+| Dynamic Prisma model accessor for generic backfill | v3.1-14-03 | Lowercase first char of model name for reusable backfillEncryptModel() |
+| Dry-run via CLI flag for migration safety | v3.1-14-03 | --dry-run logs encryption candidates without writing to database |
 
 ## Blockers & Concerns
 
@@ -207,12 +210,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 14 in progress (1/4 plans complete)
+**Currently:** Phase 14 in progress (2/4 plans complete)
 
 **Focus areas:**
-- Phase 14: Database Encryption at Rest — Plan 01 done, Plans 02-04 remaining
+- Phase 14: Database Encryption at Rest — Plans 01+03 done, Plans 02+04 remaining
 - Plan 14-01 DONE: TenantKeyService + AES-256-GCM utils + field config (20 tests)
-- Next: Plan 14-02 (Prisma middleware for transparent encrypt/decrypt)
+- Plan 14-03 DONE: Backfill encryption migration script + 6 unit tests
+- Next: Plan 14-04 (deployment verification)
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -221,7 +225,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Phase 14 Plan 01 complete (encryption foundation: TenantKeyService + AES-256-GCM utils)*
+*State updated: 2026-02-11 — Phase 14 Plan 03 complete (backfill encryption migration script)*
 
 ## Previous Milestone (v3.0) Highlights
 
