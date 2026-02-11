@@ -10,21 +10,21 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 16 (Data Rights & Legal Documents)
-Plan: 3 of 4 complete
-Status: Executing
-Last activity: 2026-02-11 — Plan 16-03 complete (account deletion with grace period)
+Plan: 4 of 4 complete
+Status: Phase Complete
+Last activity: 2026-02-11 — Plan 16-04 complete (data rights frontend UI)
 
 Progress: v3.1
 ```
-[#########################░░░░░░░░░░░░░░░░░░░░░] 50% (3/6 phases)
+[#############################░░░░░░░░░░░░░░░░░] 67% (4/6 phases)
 ```
 
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 16-03-PLAN.md (account deletion with grace period)
+Stopped at: Completed 16-04-PLAN.md (data rights frontend UI)
 Resume file: None
-Next action: Execute 16-04-PLAN.md
+Next action: Execute Phase 17 plans
 
 ## Accumulated Decisions
 
@@ -180,6 +180,9 @@ Next action: Execute 16-04-PLAN.md
 - [Phase v3.1-16-02]: Inline async export processing over BullMQ for single-tenant simplicity
 - [Phase v3.1-16-02]: Individual JSON files per data category in export ZIP for selective import
 - [Phase v3.1-16-02]: 3:30 AM export cleanup cron separate from 3 AM data cleanup
+- [Phase v3.1-16-04]: Self-contained data rights panels with own TanStack Query hooks
+- [Phase v3.1-16-04]: New sidebar section for Data & Privacy instead of embedding in Account
+- [Phase v3.1-16-04]: Polling refetchInterval 5s for active export status tracking
 
 ## Blockers & Concerns
 
@@ -235,13 +238,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 16 in progress (1 of 4 plans done)
+**Currently:** Phase 16 complete (4 of 4 plans done). Ready for Phase 17.
 
 **Phase 16 progress (Data Rights & Legal Documents):**
 - Plan 16-01: Legal acceptance backend (LegalAcceptance/DataExportRequest models, service, guard, controller) -- COMPLETE
 - Plan 16-02: Data export service -- COMPLETE
 - Plan 16-03: Account deletion with 30-day grace period -- COMPLETE
-- Plan 16-04: Data rights unit tests -- PENDING
+- Plan 16-04: Data rights frontend UI (export panel, deletion panel, legal acceptance on registration) -- COMPLETE
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -250,7 +253,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Phase 16 plan 03 complete (account deletion with grace period)*
+*State updated: 2026-02-11 — Phase 16 complete (data rights frontend UI, all 4 plans done)*
 
 ## Previous Milestone (v3.0) Highlights
 
