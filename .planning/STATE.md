@@ -177,6 +177,9 @@ Next action: Execute 16-04-PLAN.md
 | forwardRef ComplianceModule in ScheduledJobsModule | v3.1-16-03 | Cross-module cron DI without circular dependency |
 | @Optional() AccountDeletionService in DataCleanupService | v3.1-16-03 | Graceful degradation if ComplianceModule unavailable |
 | AuditModule imported in ComplianceModule | v3.1-16-03 | Required for deletion audit trail (not global module) |
+- [Phase v3.1-16-02]: Inline async export processing over BullMQ for single-tenant simplicity
+- [Phase v3.1-16-02]: Individual JSON files per data category in export ZIP for selective import
+- [Phase v3.1-16-02]: 3:30 AM export cleanup cron separate from 3 AM data cleanup
 
 ## Blockers & Concerns
 
