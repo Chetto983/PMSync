@@ -1,6 +1,7 @@
 # Requirements: MailAgent v3.1
 
 **Defined:** 2026-02-09
+**Updated:** 2026-02-11 (added ENC requirements, renumbered phases)
 **Core Value:** The best professional AI mail client — fast, intelligent, and secure
 
 ## v3.1 Requirements
@@ -13,6 +14,14 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 - [ ] **PII-02**: System restores PII tokens when displaying AI responses to user
 - [ ] **PII-03**: System restores PII tokens when executing AI tool calls
 - [ ] **PII-04**: RAG embeddings are generated from PII-sanitized content
+
+### Encryption at Rest (ENC-01 to ENC-05)
+
+- [ ] **ENC-01**: All PII fields (email addresses, names, phones, body text) encrypted at rest using prisma-field-encryption
+- [ ] **ENC-02**: Per-tenant key derivation (master key + tenant ID via HKDF → derived encryption key)
+- [ ] **ENC-03**: Hash-based search indexes on encrypted fields (SHA-256 for exact match queries)
+- [ ] **ENC-04**: Migration of existing data (backfill encrypt all current emails, contacts, calendar)
+- [ ] **ENC-05**: Key rotation support (new key encrypts, old keys in keychain still decrypt)
 
 ### Consent Management (CONS-01 to CONS-03)
 
@@ -65,9 +74,8 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 
 ### Advanced Privacy
 
-- **PRIV-01**: Per-tenant encryption key management (dedicated keys)
-- **PRIV-02**: Zero-knowledge architecture (server cannot read content)
-- **PRIV-03**: Cross-border data transfer compliance (SCCs)
+- **PRIV-01**: Zero-knowledge architecture (server cannot read content)
+- **PRIV-02**: Cross-border data transfer compliance (SCCs)
 
 ### Advanced AI
 
@@ -80,7 +88,6 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 | Feature | Reason |
 |---------|--------|
 | End-to-end encryption | Requires separate security audit, high complexity |
-| Per-tenant encryption keys | Deferred to v3.2, requires key management infrastructure |
 | Mobile app | Web-first, responsive design covers mobile use cases |
 | Offline support | Requires service worker complexity |
 
@@ -92,35 +99,40 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 | PII-02 | Phase 13 | Pending |
 | PII-03 | Phase 13 | Pending |
 | PII-04 | Phase 13 | Pending |
-| CONS-01 | Phase 14 | Pending |
-| CONS-02 | Phase 14 | Pending |
-| CONS-03 | Phase 14 | Pending |
-| AUDIT-01 | Phase 14 | Pending |
-| AUDIT-02 | Phase 14 | Pending |
-| AUDIT-03 | Phase 14 | Pending |
-| DATA-01 | Phase 15 | Pending |
-| DATA-02 | Phase 15 | Pending |
-| DATA-03 | Phase 15 | Pending |
-| LEGAL-01 | Phase 15 | Pending |
-| LEGAL-02 | Phase 15 | Pending |
-| ARTIFACT-01 | Phase 16 | Pending |
-| ARTIFACT-02 | Phase 16 | Pending |
-| ARTIFACT-03 | Phase 16 | Pending |
-| ARTIFACT-04 | Phase 16 | Pending |
-| ARTIFACT-05 | Phase 16 | Pending |
-| ARTIFACT-06 | Phase 16 | Pending |
-| TRIAGE-01 | Phase 17 | Pending |
-| TRIAGE-02 | Phase 17 | Pending |
-| BULK-01 | Phase 17 | Pending |
-| BULK-02 | Phase 17 | Pending |
-| DRAFT-01 | Phase 18 | Pending |
-| DRAFT-02 | Phase 18 | Pending |
+| ENC-01 | Phase 14 | Pending |
+| ENC-02 | Phase 14 | Pending |
+| ENC-03 | Phase 14 | Pending |
+| ENC-04 | Phase 14 | Pending |
+| ENC-05 | Phase 14 | Pending |
+| CONS-01 | Phase 15 | Pending |
+| CONS-02 | Phase 15 | Pending |
+| CONS-03 | Phase 15 | Pending |
+| AUDIT-01 | Phase 15 | Pending |
+| AUDIT-02 | Phase 15 | Pending |
+| AUDIT-03 | Phase 15 | Pending |
+| DATA-01 | Phase 16 | Pending |
+| DATA-02 | Phase 16 | Pending |
+| DATA-03 | Phase 16 | Pending |
+| LEGAL-01 | Phase 16 | Pending |
+| LEGAL-02 | Phase 16 | Pending |
+| ARTIFACT-01 | Phase 17 | Pending |
+| ARTIFACT-02 | Phase 17 | Pending |
+| ARTIFACT-03 | Phase 17 | Pending |
+| ARTIFACT-04 | Phase 17 | Pending |
+| ARTIFACT-05 | Phase 17 | Pending |
+| ARTIFACT-06 | Phase 17 | Pending |
+| TRIAGE-01 | Phase 18 | Pending |
+| TRIAGE-02 | Phase 18 | Pending |
+| BULK-01 | Phase 18 | Pending |
+| BULK-02 | Phase 18 | Pending |
+| DRAFT-01 | Phase 19 | Pending |
+| DRAFT-02 | Phase 19 | Pending |
 
 **Coverage:**
-- v3.1 requirements: 27 total
-- Mapped to phases: 27 (100% coverage)
+- v3.1 requirements: 32 total
+- Mapped to phases: 32 (100% coverage)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-09 with phase assignments*
+*Last updated: 2026-02-11 — added ENC-01 to ENC-05 for prisma-field-encryption, renumbered phases 14-18 to 15-19*

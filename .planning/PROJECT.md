@@ -16,7 +16,9 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 **GDPR & Data Privacy:**
 - PII tokenization for AI (extract before LLM, restore on tool/display)
-- Database encryption at rest (per-tenant key management)
+- Database encryption at rest via prisma-field-encryption (per-tenant HKDF key derivation)
+- Hash-based search indexes on encrypted fields (exact match queries)
+- Data migration (backfill encrypt existing records) + key rotation support
 - Data retention policies + Right to erasure (GDPR Art. 17)
 - Consent management (granular per-feature tracking)
 - Audit logging (all data access for compliance)
@@ -97,27 +99,30 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 <!-- v3.1 GDPR Compliance & Chatbot Enhancement -->
 
-**GDPR & Data Privacy:**
-- [ ] PII tokenization for AI calls
-- [ ] Database encryption at rest (per-tenant)
-- [ ] Data retention policies + Right to erasure
-- [ ] Consent management (granular tracking)
-- [ ] Audit logging (all data access)
-- [ ] User data export (GDPR Art. 20)
-- [ ] DPA documentation
-- [ ] Terms of Service + Privacy Policy
+**PII & Encryption (Phases 13-14):**
+- [ ] PII tokenization for AI calls (PII-01 to PII-04)
+- [ ] Database encryption at rest via prisma-field-encryption (ENC-01)
+- [ ] Per-tenant HKDF key derivation (ENC-02)
+- [ ] Hash-based search on encrypted fields (ENC-03)
+- [ ] Existing data migration + key rotation (ENC-04, ENC-05)
 
-**AI Chatbot Improvements:**
-- [ ] Rich artifacts for all domains (email, calendar, contacts, briefing, follow-ups, CRM)
-- [ ] Nested label triage
-- [ ] Bulk triage (batch labels, batch follow-ups)
-- [ ] Full draft generation
+**GDPR Compliance (Phases 15-16):**
+- [ ] Consent management with granular tracking (CONS-01 to CONS-03)
+- [ ] Audit logging for all data access + AI tools (AUDIT-01 to AUDIT-03)
+- [ ] Data export (GDPR Art. 20) + Right to erasure (DATA-01 to DATA-03)
+- [ ] Terms of Service + Privacy Policy (LEGAL-01, LEGAL-02)
+
+**AI Chatbot Improvements (Phases 17-19):**
+- [ ] Rich artifacts for all domains (ARTIFACT-01 to ARTIFACT-06)
+- [ ] Nested label triage + bulk operations (TRIAGE-01/02, BULK-01/02)
+- [ ] Full AI draft generation (DRAFT-01, DRAFT-02)
 
 ### Out of Scope
 
 - Mobile app (web-first, responsive)
 - Offline support (requires service worker complexity)
 - End-to-end encryption (separate security audit)
+- Zero-knowledge architecture (deferred to v3.2)
 - Custom email provider (focus on Gmail, Outlook, IMAP)
 
 ## UI Vision
@@ -179,5 +184,9 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | VList for virtualization | Proven performance with 1000+ items | v2.0 |
 | TipTap for rich compose | Best-in-class React editor, AI-friendly | v2.0 |
 
+| prisma-field-encryption for DB at rest | Self-hosted, Prisma-native, no cloud deps | v3.1 |
+| Per-tenant HKDF key derivation | Crypto isolation without external KMS | v3.1 |
+| CipherStash Protect rejected | Cloud dependency on ZeroKMS unacceptable | v3.1 |
+
 ---
-*Last updated: 2026-02-09 — v3.1 milestone started*
+*Last updated: 2026-02-11 — v3.1 restructured: added Phase 14 (DB encryption at rest), 32 requirements across 7 phases*
