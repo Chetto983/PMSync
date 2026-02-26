@@ -298,6 +298,33 @@ export interface CrmResult {
   averageScore?: number;
 }
 
+// --- Bulk Action / Triage Tool Output ---
+
+export interface BulkActionResult {
+  success?: boolean;
+  error?: string;
+  requiresApproval?: boolean;
+  actionType?: string;
+  severity?: string;
+  summary?: string;
+  payload?: {
+    emailIds?: string[];
+    labelNames?: string[];
+    labelIds?: string[];
+    reason?: string;
+    dueDays?: number;
+    count?: number;
+    skipped?: number;
+    folder?: string;
+    permanent?: boolean;
+  };
+  data?: {
+    count?: number;
+    jobId?: string;
+    [key: string]: unknown;
+  };
+}
+
 // --- Generic / Fallback ---
 
 export interface GenericToolResult {
