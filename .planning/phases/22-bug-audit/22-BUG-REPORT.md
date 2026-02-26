@@ -719,3 +719,71 @@ Audited all v3.1 components (phases 13-21) for WCAG AA compliance.
 | 04 | Frontend Fixes | 13 | BUG-004, 009, 011, 012, 016, 018, 019, 021, 022, 029, 038, 039, 044 |
 | 05 | Unfinished Plans | 3 | BUG-035, 046, 047 |
 | N/A | Accepted / No fix | 2 | BUG-040, 043 |
+
+---
+
+## Runtime & Visual Audit
+
+### Frontend Build Status
+
+| Check | Status | Details |
+|-------|--------|---------|
+| `next build` | **PASS** | Compiled successfully in 11.1s (Turbopack). 26 routes generated. |
+| Static pages | 3/3 generated | `/dashboard/email/compose`, `/privacy`, `/terms` |
+| Dynamic pages | 23 routes | All server-rendered on demand |
+| TypeScript | PASS | No errors during build |
+
+### Screenshot Inventory
+
+21 before-state screenshots captured at 3 breakpoints for 7 pages:
+
+| Page | Desktop (1440) | Tablet (768) | Mobile (375) |
+|------|---------------|--------------|--------------|
+| Dashboard | dashboard-desktop-1440.png | dashboard-tablet-768.png | dashboard-mobile-375.png |
+| Email List | email-list-desktop-1440.png | email-list-tablet-768.png | email-list-mobile-375.png |
+| Contacts | contacts-desktop-1440.png | contacts-tablet-768.png | contacts-mobile-375.png |
+| Calendar | calendar-desktop-1440.png | calendar-tablet-768.png | calendar-mobile-375.png |
+| Settings | settings-desktop-1440.png | settings-tablet-768.png | settings-mobile-375.png |
+| AI Chat | ai-chat-desktop-1440.png | ai-chat-tablet-768.png | ai-chat-mobile-375.png |
+| Login | login-desktop-1440.png | login-tablet-768.png | login-mobile-375.png |
+
+**Location:** `docs/screenshots/before/`
+
+**Note:** Screenshots captured without authentication (pages redirect to login for protected routes). Authenticated screenshots would require running E2E auth mock setup. Visual issues on authenticated pages need manual review with the app running.
+
+### Visual Issues Found
+
+- Protected pages (dashboard, email, contacts, calendar, settings, AI chat) redirect to login when not authenticated. Unauthenticated screenshots show login page state.
+- Login page renders correctly at all 3 breakpoints.
+- Email compose page (`/dashboard/email/compose`) is a static route -- available for visual review.
+- GDPR consent/data panels are nested within settings -- not directly accessible as standalone routes.
+
+---
+
+## Metrics Baseline
+
+| Metric | Current | Target | Gap |
+|--------|---------|--------|-----|
+| Backend TS errors | 0 | 0 | MET |
+| Frontend TS errors | 0 | 0 | MET |
+| Backend ESLint | BROKEN (coverage dir) | 0 warnings | BLOCKED |
+| Frontend ESLint | BROKEN (plugin compat) | 0 warnings | BLOCKED |
+| Backend Jest | 672/672 (100%) | 100% | MET |
+| Frontend Jest | 206/209 (98.6%) | 100% | 3 failures |
+| Frontend Build | PASS (11.1s) | PASS | MET |
+| npm audit (root) | 5 high | 0 | 5 high |
+| npm audit (backend prod) | 11 vulns | 0 | 1 critical, 7 high |
+| npm audit (frontend prod) | 8 moderate | 0 | 8 moderate |
+| Files >500 lines (backend) | 38 files | 0 | 38 files |
+| Files >500 lines (frontend) | 35 files | minimize | 35 files |
+| i18n key sync | 1 missing in it.ts | 0 | 1 key |
+| LCP | 4.12s (stale) | < 2.5s | ~1.6s over |
+| TTI | 4.13s (stale) | < 3.5s | ~0.6s over |
+| TODO/FIXME markers (backend) | 5 | document | documented |
+| TODO/FIXME markers (frontend) | 2 | document | documented |
+| E2E tests | unknown (auth mock bug) | all pass | needs investigation |
+| Uncommitted changes | 4 files | 0 | 4 files |
+
+---
+
+*Report complete. 47 bugs cataloged. Ready for user review.*
