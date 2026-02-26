@@ -1,11 +1,25 @@
 import type { GetServerSideProps } from 'next';
 
+function normalizeSiteUrl(siteUrl: string): string {
+  return siteUrl.replace(/\/+$/, '');
+}
+
+function getConfiguredSiteUrl(): string | null {
+  const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
+  return envSiteUrl ? normalizeSiteUrl(envSiteUrl) : null;
+}
+
 function getBaseUrl(headers: GetServerSidePropsContextHeaders): string {
+  const configuredSiteUrl = getConfiguredSiteUrl();
+  if (configuredSiteUrl) {
+    return configuredSiteUrl;
+  }
+
   const protocolHeader = headers['x-forwarded-proto'];
   const hostHeader = headers['x-forwarded-host'] || headers.host;
   const protocol = Array.isArray(protocolHeader) ? protocolHeader[0] : protocolHeader || 'http';
   const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader || 'localhost:3001';
-  return `${protocol}://${host}`;
+  return normalizeSiteUrl(`${protocol}://${host}`);
 }
 
 type GetServerSidePropsContextHeaders = {
@@ -25,6 +39,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res, req }) => {
   ].join('\n');
 
   res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
   res.write(robots);
   res.end();
 
@@ -34,4 +49,3 @@ export const getServerSideProps: GetServerSideProps = async ({ res, req }) => {
 export default function RobotsTxt() {
   return null;
 }
-

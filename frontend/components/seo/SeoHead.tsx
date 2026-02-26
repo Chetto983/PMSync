@@ -11,7 +11,8 @@ interface SeoHeadProps {
 }
 
 const DEFAULT_SITE_URL = 'https://mail-agent-indol.vercel.app/';
-const DEFAULT_OG_IMAGE_PATH = '/og-image.svg?v=2';
+const DEFAULT_OG_IMAGE_PATH = '/og-image.png?v=3';
+const DEFAULT_OG_IMAGE_ALT = 'PMSync AI workspace for inbox teams';
 
 function normalizeSiteUrl(siteUrl: string): string {
   return siteUrl.replace(/\/+$/, '');
@@ -67,11 +68,17 @@ export function SeoHead({
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:site_name" content="PMSync" />
       <meta property="og:image" content={ogImageUrl} />
+      <meta property="og:image:secure_url" content={ogImageUrl} />
+      <meta property="og:image:type" content="image/png" />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={DEFAULT_OG_IMAGE_ALT} />
 
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImageUrl} />
+      <meta name="twitter:image:alt" content={DEFAULT_OG_IMAGE_ALT} />
 
       {structuredDataEntries.map((entry, index) => (
         <script

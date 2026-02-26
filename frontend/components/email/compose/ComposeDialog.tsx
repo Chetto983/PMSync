@@ -30,7 +30,7 @@ import { safeArea } from '@/theme/appTheme';
 
 
 
-import { X as CloseIcon, Send as SendIcon, Clock as ScheduleIcon, Maximize2 as OpenInFullIcon, Minimize2 as CloseFullscreenIcon, ChevronDown as ExpandMoreIcon, ChevronUp as ExpandLessIcon } from 'lucide-react';
+import { X as CloseIcon, Send as SendIcon, Clock as ScheduleIcon, Maximize2 as OpenInFullIcon, Minimize2 as CloseFullscreenIcon, ChevronDown as ExpandMoreIcon, ChevronUp as ExpandLessIcon, RefreshCw } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useProviders } from '@/hooks/queries/use-providers';
@@ -45,6 +45,9 @@ import {
 } from '@/hooks/queries/use-emails';
 import { fileToBase64, type DraftAttachmentDto } from '@/lib/api/emails';
 import ComposeRecipients, { type Recipient } from './ComposeRecipients';
+import { AiDraftBadge } from './AiDraftBadge';
+import { ToneSelector, type DraftTone } from './ToneSelector';
+import { useAiDraft, useRegenerateDraft, useRecordDraftFeedback } from '@/hooks/queries';
 
 // Lazy load ComposeEditor - contains heavy TipTap dependencies (~40 packages)
 // TipTap uses browser APIs (window, document) so SSR must be disabled
@@ -220,6 +223,14 @@ export default function ComposeDialog({
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
 
+  // AI Draft state
+  const [draftTone, setDraftTone] = useState<DraftTone | undefined>();
+  const [userHasEdited, setUserHasEdited] = useState(false);
+  const [aiDraftOriginal, setAiDraftOriginal] = useState<string | null>(null);
+  const [aiDraftId, setAiDraftId] = useState<string | null>(null);
+  const [regenerateInstructions, setRegenerateInstructions] = useState('');
+  const [showRegenerateInput, setShowRegenerateInput] = useState(false);
+
   // Quoted content - rendered separately from editor (like Gmail/Outlook)
   const [showQuotedContent, setShowQuotedContent] = useState(true);
   const quotedContent = mode !== 'new' && originalEmail?.bodyHtml ? originalEmail.bodyHtml : '';
@@ -232,6 +243,15 @@ export default function ComposeDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isDirtyRef = useRef(false);
   const signatureAppendedRef = useRef(false);
+
+  // AI Draft hooks (enabled only for reply/replyAll)
+  const isReplyMode = mode === 'reply' || mode === 'replyAll';
+  const { data: aiDraft, isLoading: draftLoading } = useAiDraft(
+    isReplyMode ? originalEmail?.id : undefined,
+    { tone: draftTone, enabled: isReplyMode && !!originalEmail?.id },
+  );
+  const regenerateMutation = useRegenerateDraft();
+  const feedbackMutation = useRecordDraftFeedback();
 
   // Debounced values for autosave
   const [debouncedBody] = useDebounce(body, AUTOSAVE_DELAY_MS);
@@ -257,6 +277,13 @@ export default function ComposeDialog({
     isDirtyRef.current = false;
     // Always reset signature flag when body is reset, so signature can be re-appended
     signatureAppendedRef.current = false;
+    // Reset AI draft state
+    setDraftTone(undefined);
+    setUserHasEdited(false);
+    setAiDraftOriginal(null);
+    setAiDraftId(null);
+    setRegenerateInstructions('');
+    setShowRegenerateInput(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, originalEmail?.id, open]);
 
@@ -280,6 +307,16 @@ export default function ComposeDialog({
       signatureAppendedRef.current = true;
     }
   }, [open, defaultSignature, signatureFetched, computedProviderId, signatureLoading]);
+
+  // Populate editor when AI draft arrives (reply/replyAll only)
+  useEffect(() => {
+    if (aiDraft?.body && !userHasEdited) {
+      setBody(aiDraft.body);
+      setAiDraftOriginal(aiDraft.body);
+      setAiDraftId(aiDraft.draftId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiDraft?.draftId]);
 
   // Restore attachments from draft when editing an existing draft
   // Converts base64 data back to File objects for seamless UX
@@ -375,7 +412,8 @@ export default function ComposeDialog({
   const handleBodyChange = useCallback((html: string) => {
     setBody(html);
     isDirtyRef.current = true;
-  }, []);
+    if (aiDraftOriginal) setUserHasEdited(true);
+  }, [aiDraftOriginal]);
 
   const handleSubjectChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSubject(e.target.value);
@@ -472,10 +510,16 @@ export default function ComposeDialog({
 
     setError(null);
 
+    // Helper: record AI draft feedback
+    const recordDraftFbk = (action: 'accepted' | 'edited') => {
+      if (aiDraftId) feedbackMutation.mutate({ draftId: aiDraftId, action, sentBody: userHasEdited ? body : undefined });
+    };
+
     // For scheduled emails, send immediately (no undo needed)
     if (scheduledAt) {
       try {
         await performSend(scheduledAt);
+        recordDraftFbk(userHasEdited ? 'edited' : 'accepted');
         setSuccessMessage(t.email.scheduleSend?.scheduledFor ?? 'Scheduled');
         onSent?.();
         onClose();
@@ -492,6 +536,7 @@ export default function ComposeDialog({
         await performSend();
       },
       onSuccess: () => {
+        recordDraftFbk(userHasEdited ? 'edited' : 'accepted');
         setSuccessMessage(t.email.undoSend.sent);
         onSent?.();
         onClose();
@@ -507,6 +552,7 @@ export default function ComposeDialog({
     });
   }, [
     providerId, to, composer, t, onSent, onClose, performSend, queueSend,
+    aiDraftId, userHasEdited, body, feedbackMutation,
   ]);
 
   const handleAttachFromToolbar = useCallback(() => {
@@ -558,6 +604,14 @@ export default function ComposeDialog({
     return composer.savedHoursAgo.replace('{hours}', String(Math.floor(minutesAgo / 60)));
   };
 
+  // Handle dialog close — records draft rejection if AI draft was present but not sent
+  const handleDialogClose = useCallback(() => {
+    if (aiDraftId) {
+      feedbackMutation.mutate({ draftId: aiDraftId, action: 'rejected' });
+    }
+    onClose();
+  }, [aiDraftId, feedbackMutation, onClose]);
+
   // Handle schedule send
   const handleScheduleSend = useCallback((scheduledTime: Date) => {
     handleSend(scheduledTime);
@@ -568,7 +622,7 @@ export default function ComposeDialog({
     <>
       <Dialog
         open={open}
-        onClose={onClose}
+        onClose={handleDialogClose}
         maxWidth={isMobile || isFullscreen ? false : 'md'}
         fullWidth
         fullScreen={isMobile || isFullscreen}
@@ -616,7 +670,7 @@ export default function ComposeDialog({
             }}
           >
             <Toolbar sx={{ minHeight: 56 }}>
-              <IconButton edge="start" onClick={onClose} aria-label={t.common.close}>
+              <IconButton edge="start" onClick={handleDialogClose} aria-label={t.common.close}>
                 <CloseIcon />
               </IconButton>
               <Typography variant="h6" sx={{ flex: 1, ml: 1 }}>

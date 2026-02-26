@@ -46,6 +46,10 @@ const floatReverse = keyframes`
   50% { transform: translateY(20px) rotate(-2deg); }
 `;
 
+function normalizeSiteUrl(siteUrl: string): string {
+  return siteUrl.replace(/\/+$/, '');
+}
+
 export default function Home() {
   const { isLoading } = useAuth();
   const t = useTranslations();
@@ -85,7 +89,11 @@ export default function Home() {
     { label: t.nav.features, href: '#features' },
     { label: t.nav.automation, href: '#automation' },
   ];
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+  const siteUrl = normalizeSiteUrl(
+    process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'https://mail-agent-indol.vercel.app'
+  );
   const seoTitle = 'PMSync | Unified AI Workspace for Email, Calendar & Contacts';
   const seoDescription = t.landing.hero.subtitle;
   const homeStructuredData: Record<string, unknown>[] = [
