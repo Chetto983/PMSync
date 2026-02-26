@@ -352,7 +352,7 @@ Plans:
 | 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 18. AI Triage & Bulk Operations | v3.1 | Complete    | 2026-02-26 | 2026-02-26 |
 | 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
-| 20. Mount GDPR Guards | 1/1 | Complete   | 2026-02-26 | - |
+| 20. Mount GDPR Guards | 1/1 | Complete    | 2026-02-26 | - |
 | 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
 
 ---
