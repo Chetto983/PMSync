@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 19 (AI Draft Generation)
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: In Progress
-Last activity: 2026-02-26 — Plan 19-02 complete (Writing Style Service Extension)
+Last activity: 2026-02-26 — Plan 19-03 complete (Frontend AI Draft Wiring)
 
 Progress: Phase 19
 ```
-[########################......................] 50% (2/4 plans complete)
+[####################################..........] 75% (3/4 plans complete)
 ```
-Plan 19-02 complete. Per-provider writing style profiles, manual samples, correction learning, weekly refresh cron.
+Plan 19-03 complete. AI draft wired into ComposeDialog: auto-fetch, ToneSelector, AiDraftBadge, feedback on send/close.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 19-02-PLAN.md (Writing Style Service Extension)
+Stopped at: Completed 19-03-PLAN.md (Frontend AI Draft Wiring)
 Resume file: None
-Next action: Execute 19-03-PLAN.md (Writing style settings panel)
+Next action: Execute 19-04-PLAN.md (Weekly style refresh cron)
 
 ## Accumulated Decisions
 
@@ -216,6 +216,10 @@ Next action: Execute 19-03-PLAN.md (Writing style settings panel)
 - [Phase v3.1-19-02]: Provider-specific profile falls back to default (providerId: null) profile
 - [Phase v3.1-19-02]: analyzeUserEmails overloaded signature for backward compat (limit, providerId?)
 - [Phase v3.1-19-02]: Correction snippets truncated to 120 chars, max 3 corrections for token control
+- [Phase v3.1-19-03]: AI draft controls rendered above editor, not inline or side-by-side
+- [Phase v3.1-19-03]: handleDialogClose wraps onClose to capture rejection feedback
+- [Phase v3.1-19-03]: Draft population useEffect keyed on aiDraft.draftId to avoid re-render loops
+- [Phase v3.1-19-03]: focusEnd uses requestAnimationFrame for one-tick delay after content render
 
 ## Blockers & Concerns
 
@@ -271,12 +275,12 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 19 IN PROGRESS (2/4 plans done).
+**Currently:** Phase 19 IN PROGRESS (3/4 plans done).
 
 **Phase 19 progress (AI Draft Generation):**
 - Plan 19-01: Backend draft generation infrastructure -- COMPLETE
 - Plan 19-02: Writing style service extension -- COMPLETE
-- Plan 19-03: Writing style settings panel -- PENDING
+- Plan 19-03: Frontend AI Draft Wiring -- COMPLETE
 - Plan 19-04: Weekly style refresh cron -- PENDING
 
 **Known issues carried forward from v3.0:**

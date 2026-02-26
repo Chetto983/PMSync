@@ -12,6 +12,8 @@
   - `frontend/pages/index.tsx`
   - `frontend/pages/robots.txt.ts`
   - `frontend/pages/sitemap.xml.ts`
+  - `frontend/.env.production`
+  - `frontend/.env.example`
   - `frontend/public/og-image.svg`
   - `frontend/public/og-image.png`
 - Changes:
@@ -21,6 +23,8 @@
   - Added env-aware canonical base URL resolution for `robots.txt` and `sitemap.xml`.
   - Stabilized sitemap `lastmod` to a fixed timestamp and added cache headers for crawl endpoints.
   - Removed localhost fallback in homepage JSON-LD URL generation.
+  - Fixed SSR SEO gap: `SeoHead` now renders even when homepage is in loading state.
+  - Added `NEXT_PUBLIC_SITE_URL` to production/example env files for canonical consistency.
 - Verification:
   - `cd frontend && npm run type-check` ✅
   - `cd frontend && npm run build` ✅
