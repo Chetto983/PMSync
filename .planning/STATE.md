@@ -9,23 +9,23 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 17 (Rich Artifacts UI)
-Plan: 4 of 4 complete
-Status: Phase Complete
-Last activity: 2026-02-11 — Plan 17-04 complete (briefing, CRM renderers + action buttons)
+Phase: Phase 18 (AI Triage & Bulk Operations)
+Plan: 2 of 3 complete
+Status: In Progress
+Last activity: 2026-02-26 — Plan 18-02 complete (AI triage UI visibility in email list)
 
 Progress: v3.1
 ```
-[####################################░░░░░░░░░░] 83% (5/6 phases)
+[########################################░░░░░░] 90% (5/6 phases, 18-02 done)
 ```
-Phase 17 fully complete (4/4 plans).
+Phase 18 in progress (2/3 plans done).
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: Completed 17-04-PLAN.md (briefing, CRM renderers + action buttons)
+Last session: 2026-02-26
+Stopped at: Completed 18-02-PLAN.md (AI triage UI visibility in email list)
 Resume file: None
-Next action: Execute Phase 18 (AI Triage & Bulk Operations) or wrap up Phase 17
+Next action: Execute Phase 18 Plan 03 (triage chat renderer)
 
 ## Accumulated Decisions
 
@@ -195,6 +195,12 @@ Next action: Execute Phase 18 (AI Triage & Bulk Operations) or wrap up Phase 17
 - [Phase v3.1-17-04]: Score color thresholds 0-25 red, 26-50 amber, 51-75 blue, 76-100 green
 - [Phase v3.1-17-04]: CrmContactRow sub-component for file size management
 - [Phase v3.1-17-04]: Stale threshold 14 days matching backend convention
+- [Phase v3.1-18-01]: Locale strings in Task 1 commit (pre-commit type-check requires all referenced keys to exist)
+- [Phase v3.1-18-01]: ConflictException retry in TriageSuggestionService for race condition on slug collision
+- [Phase v3.1-18-01]: forwardRef(() => LabelsModule) in VoltAgentModule to avoid circular dependency
+- [Phase v3.1-18-01]: @Optional() @Inject() for LabelsService/TriageSuggestionService/FollowUpCrudService in ActionExecutorService
+- [Phase v3.1-18-02]: Use t.emailList.* for header translations (matches existing pattern, not t.email.*)
+- [Phase v3.1-18-02]: Add triage section under ai.triage in locales (9 keys for Plan 03 renderer)
 
 ## Blockers & Concerns
 
@@ -250,13 +256,12 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 17 COMPLETE (4/4 plans done). Ready for Phase 18.
+**Currently:** Phase 18 IN PROGRESS (2/3 plans done).
 
-**Phase 17 progress (Rich Artifacts UI):**
-- Plan 17-01: Action infrastructure (types, ActionBar, onAction plumbing) -- COMPLETE
-- Plan 17-02: Backend VoltAgent tools (get_daily_briefing, get_relationship_stats) -- COMPLETE
-- Plan 17-03: Email & follow-up renderer actions -- COMPLETE
-- Plan 17-04: Briefing, CRM renderers + remaining action buttons -- COMPLETE
+**Phase 18 progress (AI Triage & Bulk Operations):**
+- Plan 18-01: Backend bulk label & follow-up infrastructure -- COMPLETE
+- Plan 18-02: AI triage UI visibility in email list -- COMPLETE
+- Plan 18-03: Chat renderer for bulk operations -- PENDING
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -265,7 +270,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-11 — Plan 17-04 complete (briefing, CRM renderers + action buttons). Phase 17 fully done.*
+*State updated: 2026-02-26 — Plan 18-02 complete (AI triage UI visibility in email list). Phase 18: 2/3 plans done.*
 
 ## Previous Milestone (v3.0) Highlights
 
