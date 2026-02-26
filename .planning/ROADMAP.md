@@ -2,12 +2,12 @@
 
 ## Overview
 
-v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced chatbot capabilities. The milestone centers on PII protection for AI (Phase 13), database encryption at rest with per-tenant key isolation using prisma-field-encryption (Phase 14), complete GDPR compliance infrastructure (Phases 15-16), and advanced AI features including rich artifacts, smart triage, and draft generation (Phases 17-19). All 32 requirements map to 7 coherent phases starting at Phase 13.
+v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced chatbot capabilities. The milestone centers on PII protection for AI (Phase 13), database encryption at rest with per-tenant key isolation (Phase 14), complete GDPR compliance infrastructure (Phases 15-16), advanced AI features including rich artifacts, smart triage, and draft generation (Phases 17-19), and gap closure phases for guard mounting and prompt quality (Phases 20-21). 31 requirements map to 9 phases starting at Phase 13 (ENC-03 deferred to v3.2).
 
 ## Milestones
 
 - v3.0 AI Intelligence & Scalability - Phases 1-12 (shipped 2026-02-09)
-- v3.1 GDPR Compliance & Chatbot Enhancement - Phases 13-19 (in progress)
+- v3.1 GDPR Compliance & Chatbot Enhancement - Phases 13-21 (in progress)
 
 ## Phases
 
@@ -296,6 +296,47 @@ Plans:
 
 ---
 
+### Phase 20: Mount GDPR Guards
+
+**Goal**: Wire existing ConsentGuard and LegalAcceptanceGuard into runtime enforcement
+
+**Depends on**: Phase 15 (ConsentGuard), Phase 16 (LegalAcceptanceGuard)
+
+**Requirements**: CONS-02, LEGAL-01, LEGAL-02
+
+**Gap Closure**: Closes CONS-02, LEGAL-01, LEGAL-02 from v3.1 audit
+
+**Success Criteria** (what must be TRUE):
+1. `LegalAcceptanceGuard` registered as `APP_GUARD` in `app.module.ts` — users without TOS/Privacy acceptance are blocked from non-exempt routes
+2. `ConsentGuard` enforces `ai_email_processing` consent on VoltAgent chat and embedding endpoints
+3. Exempt routes (auth, health, compliance) are decorated with `@SkipLegalCheck` / `@SkipConsent`
+4. Integration test verifies guards block requests when consent/legal acceptance is missing
+
+Plans:
+- [ ] 20-01: (To be planned)
+
+---
+
+### Phase 21: Enrich Triage Prompt
+
+**Goal**: Fix Apply AI Suggestions prompt to include email metadata instead of raw UUIDs
+
+**Depends on**: Phase 18 (mechanical wiring already complete)
+
+**Requirements**: TRIAGE-02
+
+**Gap Closure**: Closes TRIAGE-02 from v3.1 audit
+
+**Success Criteria** (what must be TRUE):
+1. Apply AI Suggestions prompt includes email subject + sender for each selected email
+2. VoltAgent LLM receives sufficient context to construct valid `bulk_email_actions` calls
+3. E2E flow works: select emails → click Apply AI → LLM triages with correct metadata
+
+Plans:
+- [ ] 21-01: (To be planned)
+
+---
+
 ## Progress
 
 **Execution Order:** Phases execute in numeric order (13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19)
@@ -309,8 +350,10 @@ Plans:
 | 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 18. AI Triage & Bulk Operations | v3.1 | Complete    | 2026-02-26 | 2026-02-26 |
 | 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
+| 20. Mount GDPR Guards | v3.1 | 0/? | Not started | - |
+| 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
 
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-26 — Phase 18 gap closure: Plan 18-04 added to wire Apply AI Suggestions button in email list.*
+*Last updated: 2026-02-26 — Gap closure phases 20-21 added from milestone audit. ENC-03 deferred to v3.2.*
