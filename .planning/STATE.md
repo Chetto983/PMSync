@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 22 (Bug Audit)
-Plan: 3 of 6 complete
+Plan: 4 of 6 complete
 Status: In Progress
-Last activity: 2026-02-26 — Plan 22-03 complete (Backend bug fixes)
+Last activity: 2026-02-26 — Plan 22-04 complete (Frontend bug fixes)
 
 Progress: Phase 22
 ```
-[########################......................] 50% (3/6 plans complete)
+[################################..............] 67% (4/6 plans complete)
 ```
-Plan 22-03 complete. Security guards added to 5 controllers, CSP hardened for production, 24 regression tests for P2034 retry and sanitization. All 696 backend tests pass. Git tag v3.1-post-backend-fixes created.
+Plan 22-04 complete. DOMPurify sanitization on 4 XSS vectors, resetState hoisting fix, ESLint config cleanup, WCAG accessibility fixes. All 211 frontend tests pass. Git tag v3.1-post-frontend-fixes created.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 22-03-PLAN.md (Backend bug fixes)
+Stopped at: Completed 22-04-PLAN.md (Frontend bug fixes)
 Resume file: None
-Next action: Execute 22-04-PLAN.md (Frontend bug fixes)
+Next action: Execute 22-05-PLAN.md (Gap closures)
 
 ## Accumulated Decisions
 
@@ -229,6 +229,11 @@ Next action: Execute 22-04-PLAN.md (Frontend bug fixes)
 - [Phase 22-03]: Autumn pricing_table endpoint stays public (per-method guards, not class-level)
 - [Phase 22-03]: styleSrc keeps unsafe-inline in all envs (CSS-in-JS requires it)
 - [Phase 22-03]: Stale TODOs converted to DEBT markers with BUG-NNN tracking refs
+- [Phase 22-04]: BUG-011/012 LCP/TTI perf deferred -- needs dedicated optimization pass
+- [Phase 22-04]: BUG-016 i18n resolved -- key parity confirmed (3076 paths match)
+- [Phase 22-04]: BUG-018/029/044 file size violations flagged only -- high regression risk to split
+- [Phase 22-04]: ESLint ai-elements 10 errors accepted -- pre-existing React compiler warnings
+- [Phase 22-04]: DOMPurify required on all dangerouslySetInnerHTML for email/AI content
 
 ## Blockers & Concerns
 
@@ -285,13 +290,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 22 IN PROGRESS (3/6 plans done).
+**Currently:** Phase 22 IN PROGRESS (4/6 plans done).
 
 **Phase 22 progress (Bug Audit):**
 - Plan 22-01: Comprehensive bug audit -- COMPLETE
 - Plan 22-02: Tooling & CI fixes -- COMPLETE
 - Plan 22-03: Backend bug fixes -- COMPLETE
-- Plan 22-04: Frontend bug fixes -- PENDING
+- Plan 22-04: Frontend bug fixes -- COMPLETE
 - Plan 22-05: Gap closures (19-04 + 21-01) -- PENDING
 - Plan 22-06: Final verification & sign-off -- PENDING
 
