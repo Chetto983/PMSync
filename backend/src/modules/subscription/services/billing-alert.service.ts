@@ -124,7 +124,7 @@ export class BillingAlertService {
   ): Promise<void> {
     const { tenantId, level } = alert;
 
-    // TODO: Integrate with actual email service when available
+    // DEBT: Integrate with actual email service - tracked in BUG-037
     // For now, log what would be sent
 
     if (tenantAdminEmail) {

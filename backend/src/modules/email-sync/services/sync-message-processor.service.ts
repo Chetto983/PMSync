@@ -417,7 +417,7 @@ export class SyncMessageProcessorService {
                 err.stack,
               );
               // Note: Fire-and-forget is intentional - AI features shouldn't block sync
-              // TODO: Consider adding retry queue for failed AI analyses
+              // DEBT: Retry queue for failed AI analyses (tracked in BUG-036)
             });
 
           // AUTO-RESOLVE FOLLOW-UPS: Check if incoming email is a reply to a sent email with follow-up
@@ -722,7 +722,7 @@ export class SyncMessageProcessorService {
                 err.stack,
               );
               // Note: Fire-and-forget is intentional - AI features shouldn't block sync
-              // TODO: Consider adding retry queue for failed AI analyses
+              // DEBT: Retry queue for failed AI analyses (tracked in BUG-036)
             });
         }
 

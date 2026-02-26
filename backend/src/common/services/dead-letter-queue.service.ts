@@ -471,7 +471,7 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
         `⚠️ ALERT: Queue ${queue} has ${failureCount} failures in DLQ (threshold: ${threshold})`,
       );
 
-      // TODO: Integrate with alerting service (email, Slack, PagerDuty, etc.)
+      // DEBT: Integrate with alerting service (email, Slack, PagerDuty) - tracked in BUG-034
       // await this.alertingService.send({
       //   severity: 'high',
       //   message: `Queue ${queue} has ${failureCount} failures`,
