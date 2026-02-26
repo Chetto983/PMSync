@@ -56,7 +56,6 @@ describe('useAiCompose', () => {
         success: true,
         body: 'Dear John,\n\nThank you for your email.',
         subject: 'Re: Meeting Request',
-        variantUsed: 'professional',
       },
     };
     (aiApi.composeEmail as jest.Mock).mockResolvedValueOnce(mockResponse);
@@ -82,19 +81,16 @@ describe('useAiCompose', () => {
       subject: undefined,
       tone: 'professional',
       locale: 'en',
-      variant: undefined,
     });
 
     expect(composeResult).toEqual({
       body: 'Dear John,\n\nThank you for your email.',
       subject: 'Re: Meeting Request',
-      variantUsed: 'professional',
     });
 
     expect(result.current.result).toEqual({
       body: 'Dear John,\n\nThank you for your email.',
       subject: 'Re: Meeting Request',
-      variantUsed: 'professional',
     });
 
     expect(onSuccess).toHaveBeenCalled();
@@ -133,7 +129,6 @@ describe('useAiCompose', () => {
       subject: 'Team Meeting',
       tone: 'friendly',
       locale: 'en',
-      variant: 'concise',
     });
   });
 
