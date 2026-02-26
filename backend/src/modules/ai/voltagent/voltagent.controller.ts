@@ -42,6 +42,7 @@ import { WritingStyleService } from './services/writing-style.service';
 import { SuggestedPromptsService, type ViewContext, type PromptSuggestion } from './services/suggested-prompts.service';
 import type { ApprovalResumeData } from './workflows';
 import { PiiResolutionService } from '../guards';
+import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
 
 interface AuthenticatedRequest {
   user: {
@@ -145,6 +146,7 @@ export class VoltAgentController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({ summary: 'Send a chat message to VoltAgent' })
   @ApiBody({ type: ChatRequestDto })
@@ -168,6 +170,7 @@ export class VoltAgentController {
    */
   @Post('chat/stream/v3')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({ summary: 'Stream chat via AI SDK v6 native protocol' })
   @ApiBody({ type: ChatRequestDto })

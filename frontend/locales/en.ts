@@ -2061,6 +2061,10 @@ export const en: AppTranslations = {
         data: 'Data Processing',
       },
       features: {
+        ai_email_processing: {
+          label: 'AI Email Processing',
+          description: 'Allow AI to process email content for chat, analysis, and recommendations',
+        },
         ai_smart_replies: {
           label: 'AI Smart Replies',
           description: 'Allow AI to generate reply suggestions based on email content',

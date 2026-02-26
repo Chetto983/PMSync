@@ -30,6 +30,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { EmailInsightsService } from '../services/email-insights.service';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
 import { EmailTriageService } from '../services/email-triage.service';
+import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
 import { TriageBackfillSchedulerService } from '../services/triage-backfill-scheduler.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
 import {
@@ -83,6 +84,7 @@ export class AiController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Chat completion',
@@ -110,6 +112,7 @@ export class AiController {
    */
   @Post('compose')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'AI-assisted email composition',
@@ -138,6 +141,7 @@ export class AiController {
    */
   @Post('summarize/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Summarize email',
@@ -165,6 +169,7 @@ export class AiController {
    */
   @Post('smart-reply/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Generate smart replies',
@@ -194,6 +199,7 @@ export class AiController {
    */
   @Post('categorize/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Categorize email',
@@ -259,6 +265,7 @@ export class AiController {
    */
   @Post('sentiment/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Analyze email sentiment',
@@ -297,6 +304,7 @@ export class AiController {
    */
   @Post('priority/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Calculate email priority',
@@ -340,6 +348,7 @@ export class AiController {
    */
   @Post('analyze/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Comprehensive email analysis',

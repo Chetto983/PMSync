@@ -17,6 +17,13 @@ export interface ConsentFeature {
 
 export const CONSENT_FEATURES: ConsentFeature[] = [
   {
+    id: 'ai_email_processing',
+    label: 'AI Email Processing',
+    description: 'Process email content with AI for chat, analysis, and recommendations',
+    required: false,
+    category: 'ai',
+  },
+  {
     id: 'ai_smart_replies',
     label: 'AI Smart Replies',
     description: 'Generate AI-powered reply suggestions based on email content',
@@ -73,6 +80,7 @@ export const FEATURE_TO_PREF_MAP: Record<string, string> = {
 
 /** Union type of all valid consent feature IDs */
 export type ConsentFeatureId =
+  | 'ai_email_processing'
   | 'ai_smart_replies'
   | 'ai_summarization'
   | 'ai_scheduling'
