@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 22 (Bug Audit)
-Plan: 4 of 6 complete
+Plan: 5 of 6 complete
 Status: In Progress
-Last activity: 2026-02-26 — Plan 22-04 complete (Frontend bug fixes)
+Last activity: 2026-02-26 — Plan 22-05 complete (Gap closures)
 
 Progress: Phase 22
 ```
-[################################..............] 67% (4/6 plans complete)
+[######################################........] 83% (5/6 plans complete)
 ```
-Plan 22-04 complete. DOMPurify sanitization on 4 XSS vectors, resetState hoisting fix, ESLint config cleanup, WCAG accessibility fixes. All 211 frontend tests pass. Git tag v3.1-post-frontend-fixes created.
+Plan 22-05 complete. Verified WritingStyleSettings already implemented (19-04). Enriched triage prompt with email subject + sender metadata (21-01). 211/211 frontend tests pass, 0 TS errors.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 22-04-PLAN.md (Frontend bug fixes)
+Stopped at: Completed 22-05-PLAN.md (Gap closures)
 Resume file: None
-Next action: Execute 22-05-PLAN.md (Gap closures)
+Next action: Execute 22-06-PLAN.md (Final verification & sign-off)
 
 ## Accumulated Decisions
 
@@ -234,6 +234,8 @@ Next action: Execute 22-05-PLAN.md (Gap closures)
 - [Phase 22-04]: BUG-018/029/044 file size violations flagged only -- high regression risk to split
 - [Phase 22-04]: ESLint ai-elements 10 errors accepted -- pre-existing React compiler warnings
 - [Phase 22-04]: DOMPurify required on all dangerouslySetInnerHTML for email/AI content
+- [Phase 22-05]: Plan 19-04 WritingStyleSettings already fully implemented -- verified, no changes needed
+- [Phase 22-05]: Triage prompt enriched with From+Subject lines instead of raw UUIDs for VoltAgent context
 
 ## Blockers & Concerns
 
@@ -290,14 +292,14 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 22 IN PROGRESS (4/6 plans done).
+**Currently:** Phase 22 IN PROGRESS (5/6 plans done).
 
 **Phase 22 progress (Bug Audit):**
 - Plan 22-01: Comprehensive bug audit -- COMPLETE
 - Plan 22-02: Tooling & CI fixes -- COMPLETE
 - Plan 22-03: Backend bug fixes -- COMPLETE
 - Plan 22-04: Frontend bug fixes -- COMPLETE
-- Plan 22-05: Gap closures (19-04 + 21-01) -- PENDING
+- Plan 22-05: Gap closures (19-04 + 21-01) -- COMPLETE
 - Plan 22-06: Final verification & sign-off -- PENDING
 
 **47 bugs discovered in audit:**
@@ -307,7 +309,7 @@ See: .planning/MILESTONES.md
 - 14 LOW: styling, naming conventions
 
 ---
-*State updated: 2026-02-26 — Plan 22-03 complete (Backend Bug Fixes). Phase 22: 3/6 plans done.*
+*State updated: 2026-02-26 — Plan 22-05 complete (Gap closures). Phase 22: 5/6 plans done.*
 
 ## Previous Milestone (v3.0) Highlights
 

@@ -350,7 +350,7 @@ Plans:
 
 **Requirements**: AUDIT-FIX-01, AUDIT-FIX-02, AUDIT-FIX-03, AUDIT-FIX-04, AUDIT-FIX-05, AUDIT-FIX-06, AUDIT-FIX-07, AUDIT-FIX-08
 
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 - [ ] 22-01-PLAN.md — Comprehensive codebase audit producing BUG-REPORT.md + visual baseline screenshots
@@ -377,7 +377,7 @@ Plans:
 | 19. AI Draft Generation | 3/4 | In Progress|  | - |
 | 20. Mount GDPR Guards | 1/1 | Complete    | 2026-02-26 | - |
 | 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
-| 22. Bug Audit | 4/6 | In Progress|  | - |
+| 22. Bug Audit | 5/6 | In Progress|  | - |
 
 ---
 
