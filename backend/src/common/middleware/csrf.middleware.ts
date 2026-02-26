@@ -20,14 +20,11 @@ const {
   invalidCsrfTokenError,
 } = doubleCsrf({
   getSecret: () => CSRF_SECRET,
-  // Session identifier from JWT user ID or IP as fallback for anonymous requests
+  // Session identifier: always IP-based for consistency.
+  // The /auth/csrf-token endpoint runs without JwtAuthGuard, so req.user
+  // is never set during token generation. Using userId here would cause a
+  // mismatch between generation (IP) and validation (userId) = "invalid csrf token".
   getSessionIdentifier: (req: Request) => {
-    // For authenticated requests, use user ID from JWT (if available on request)
-    const user = (req as any).user;
-    if (user?.userId) {
-      return user.userId;
-    }
-    // For anonymous/pre-auth requests (login, register), use IP
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim()
       || req.socket?.remoteAddress
       || 'anonymous';

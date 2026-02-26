@@ -324,9 +324,9 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 borderRadius: 1,
                 boxShadow: 1,
                 p: 0.5,
-                // Mobile: always visible, Desktop: controlled by isHovered
-                opacity: { xs: 1, md: isHovered ? 1 : 0 },
-                visibility: { xs: 'visible', md: isHovered ? 'visible' : 'hidden' },
+                // Hover-only on ALL viewports (no mobile overlap)
+                opacity: isHovered ? 1 : 0,
+                visibility: isHovered ? 'visible' as const : 'hidden' as const,
                 transition: 'opacity 0.2s ease, visibility 0.2s ease',
                 zIndex: 10,
               }}
