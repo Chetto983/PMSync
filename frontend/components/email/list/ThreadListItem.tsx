@@ -1,10 +1,11 @@
 /**
  * Thread List Item Component
  *
- * Single email row with 3-line layout (Outlook-inspired):
- * Line 1: Avatar + Sender + Labels + Date
+ * Single email row (Gmail/Superhuman-inspired):
+ * Line 1: Avatar + Sender + indicators (flag, attachment, thread count) + Date
  * Line 2: Subject
- * Line 3: Snippet
+ * Line 3: Snippet (hidden if redundant with subject)
+ * Line 4: All chips merged (AI priority + sentiment + user labels + AI labels)
  *
  * Features:
  * - Checkbox (hidden until hover)
@@ -23,7 +24,6 @@ import {
   Chip,
   Fade,
   Tooltip,
-  useTheme,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap } from 'lucide-react';
@@ -47,6 +47,19 @@ const AI_SENTIMENT_CONFIG: Record<string, 'error' | 'warning' | 'success' | 'def
 };
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
+
+/** Hide snippet if it's identical or a subset of the subject */
+function isSnippetRedundant(subject: string, snippet: string): boolean {
+  if (!subject || !snippet) return false;
+  const s = subject.toLowerCase().trim();
+  const p = snippet.toLowerCase().trim();
+  // Exact match or one contains the other
+  if (s === p) return true;
+  if (s.includes(p) || p.includes(s)) return true;
+  // Check if snippet starts with subject (common for newsletters)
+  if (p.startsWith(s.slice(0, Math.min(s.length, 40)))) return true;
+  return false;
+}
 
 export interface ThreadListItemData {
   id: string;
@@ -105,7 +118,6 @@ export const ThreadListItem = memo(function ThreadListItem({
   onMouseLeave,
 }: ThreadListItemProps) {
   const t = useTranslations();
-  const theme = useTheme();
   const queryClient = useQueryClient();
   const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -238,15 +250,15 @@ export const ThreadListItem = memo(function ThreadListItem({
         {getInitials(thread.from)}
       </Avatar>
 
-      {/* Content - 3 lines */}
-      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-        {/* Line 1: Sender + Labels + Date */}
+      {/* Content */}
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {/* Line 1: Sender + small indicators + Date (NO chips here) */}
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
             gap: 0.75,
-            mb: 0.5,
+            mb: 0.25,
             minWidth: 0,
           }}
         >
@@ -258,70 +270,19 @@ export const ThreadListItem = memo(function ThreadListItem({
               sx={{
                 fontWeight: thread.isUnread ? 600 : 400,
                 fontSize: '0.875rem',
-                flex: '1 1 auto',
                 minWidth: 0,
+                flex: '1 1 auto',
               }}
             >
               {formatSender(thread.from)}
             </Typography>
           </Tooltip>
 
-          {/* AI Priority Badge */}
-          {thread.aiPriority && thread.aiPriority <= 3 && (
-            <Tooltip title={t.emailList.aiPriority.replace('{priority}', String(thread.aiPriority))}>
-              <Chip
-                icon={<Zap size={12} />}
-                label={thread.aiPriority}
-                size="small"
-                color={AI_PRIORITY_CONFIG[thread.aiPriority]?.color || 'default'}
-                sx={{
-                  height: 18,
-                  fontSize: '0.625rem',
-                  fontWeight: 600,
-                  '& .MuiChip-label': { px: 0.5 },
-                  '& .MuiChip-icon': { ml: 0.5, mr: -0.5 },
-                }}
-              />
-            </Tooltip>
-          )}
-
-          {/* AI Sentiment Badge (only show if not neutral) */}
-          {thread.aiSentiment && thread.aiSentiment !== 'neutral' && (
-            <Chip
-              label={t.emailList.aiSentiment[thread.aiSentiment as keyof typeof t.emailList.aiSentiment] || thread.aiSentiment}
-              size="small"
-              color={AI_SENTIMENT_CONFIG[thread.aiSentiment] || 'default'}
-              variant="outlined"
-              sx={{
-                height: 16,
-                fontSize: '0.5625rem',
-                '& .MuiChip-label': { px: 0.5 },
-              }}
-            />
-          )}
-
-          {/* Labels (includes AI-suggested labels that user has accepted) */}
-          {thread.labels && thread.labels.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-              {thread.labels.slice(0, 2).map((label) => (
-                <Chip
-                  key={label.id}
-                  label={label.name}
-                  size="small"
-                  sx={{
-                    height: 18,
-                    fontSize: '0.6875rem',
-                    bgcolor: label.color,
-                    color: 'white',
-                    '& .MuiChip-label': { px: 0.75 },
-                  }}
-                />
-              ))}
-            </Box>
-          )}
-
-          {/* Indicators */}
+          {/* Indicators: attachment + thread count only */}
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
+            {thread.isFlagged && (
+              <Flag size={13} strokeWidth={2} fill="var(--mui-palette-error-main)" style={{ color: 'var(--mui-palette-error-main)' }} />
+            )}
             {thread.hasAttachments && (
               <Paperclip
                 data-testid="attachment-icon"
@@ -343,15 +304,11 @@ export const ThreadListItem = memo(function ThreadListItem({
             )}
           </Box>
 
-          {/* Date */}
+          {/* Date — always right-aligned, never truncated */}
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{
-              fontSize: '0.75rem',
-              flexShrink: 0,
-              ml: 'auto',
-            }}
+            sx={{ fontSize: '0.75rem', flexShrink: 0, whiteSpace: 'nowrap', ml: 'auto' }}
           >
             {thread.date}
           </Typography>
@@ -361,58 +318,82 @@ export const ThreadListItem = memo(function ThreadListItem({
         <Typography
           variant="body2"
           color="text.primary"
+          noWrap
           sx={{
             fontWeight: thread.isUnread ? 500 : 400,
             fontSize: '0.8125rem',
             mb: 0.25,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
           }}
         >
           {thread.subject || t.common.noSubject}
         </Typography>
 
-        {/* Line 3: Snippet */}
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            fontSize: '0.8125rem',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {thread.snippet}
-        </Typography>
-
-        {/* AI Triage Labels (suggested by AI, not yet applied) */}
-        {thread.aiLabels && thread.aiLabels.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.25, alignItems: 'center' }}>
-            <Zap size={11} style={{ color: theme.palette.info.main, flexShrink: 0 }} />
-            {thread.aiLabels.slice(0, 3).map((label) => (
-              <Chip
-                key={label}
-                label={label}
-                size="small"
-                variant="outlined"
-                sx={{
-                  height: 18,
-                  fontSize: '0.65rem',
-                  borderColor: 'divider',
-                  color: 'text.secondary',
-                  '& .MuiChip-label': { px: 0.75 },
-                }}
-              />
-            ))}
-            {thread.aiLabels.length > 3 && (
-              <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.6rem' }}>
-                +{thread.aiLabels.length - 3}
-              </Typography>
-            )}
-          </Box>
+        {/* Line 3: Snippet (hidden if identical/subset of subject) */}
+        {thread.snippet && !isSnippetRedundant(thread.subject, thread.snippet) && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            noWrap
+            sx={{ fontSize: '0.8125rem' }}
+          >
+            {thread.snippet}
+          </Typography>
         )}
+
+        {/* Line 4: All labels merged — user labels + AI badges + AI labels (deduplicated) */}
+        {(() => {
+          const userLabels = (thread.labels || []).slice(0, 3);
+          const appliedNames = new Set(userLabels.map(l => l.name.toLowerCase()));
+          const aiLabels = (thread.aiLabels || []).filter(l => !appliedNames.has(l.toLowerCase())).slice(0, 3);
+          const hasAiPriority = thread.aiPriority && thread.aiPriority <= 3;
+          const hasAiSentiment = thread.aiSentiment && thread.aiSentiment !== 'neutral';
+          const hasAnything = userLabels.length > 0 || aiLabels.length > 0 || hasAiPriority || hasAiSentiment;
+          if (!hasAnything) return null;
+
+          return (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5, alignItems: 'center', overflow: 'hidden', maxHeight: 22 }}>
+              {/* AI Priority */}
+              {hasAiPriority && (
+                <Chip
+                  icon={<Zap size={10} />}
+                  label={thread.aiPriority}
+                  size="small"
+                  color={AI_PRIORITY_CONFIG[thread.aiPriority!]?.color || 'default'}
+                  sx={{ height: 18, fontSize: '0.625rem', fontWeight: 600, '& .MuiChip-label': { px: 0.5 }, '& .MuiChip-icon': { ml: 0.5, mr: -0.5 } }}
+                />
+              )}
+              {/* AI Sentiment */}
+              {hasAiSentiment && (
+                <Chip
+                  label={t.emailList.aiSentiment[thread.aiSentiment as keyof typeof t.emailList.aiSentiment] || thread.aiSentiment}
+                  size="small"
+                  color={AI_SENTIMENT_CONFIG[thread.aiSentiment!] || 'default'}
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.6rem', '& .MuiChip-label': { px: 0.5 } }}
+                />
+              )}
+              {/* User labels */}
+              {userLabels.map((label) => (
+                <Chip
+                  key={label.id}
+                  label={label.name}
+                  size="small"
+                  sx={{ height: 18, fontSize: '0.6875rem', bgcolor: label.color, color: 'white', '& .MuiChip-label': { px: 0.75 } }}
+                />
+              ))}
+              {/* AI-suggested labels (deduplicated) */}
+              {aiLabels.map((label) => (
+                <Chip
+                  key={label}
+                  label={label}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 18, fontSize: '0.65rem', borderColor: 'divider', color: 'text.secondary', '& .MuiChip-label': { px: 0.75 } }}
+                />
+              ))}
+            </Box>
+          );
+        })()}
       </Box>
 
       {/* Action buttons - always visible on mobile, hover reveal on desktop */}

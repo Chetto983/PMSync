@@ -255,6 +255,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
               sx={{
                 width: 40,
                 height: 40,
+                flexShrink: 0,
                 bgcolor: 'primary.main',
                 fontSize: '0.875rem',
                 fontWeight: 600,
@@ -263,17 +264,13 @@ export const ContactListItem = React.memo<ContactListItemProps>(
               {initials}
             </Avatar>
 
-            {/* Content - no padding, let action bar overlap truncated text like email list */}
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25, overflow: 'hidden' }}>
+            {/* Content — minWidth:0 enables flex truncation */}
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
               {/* Name */}
               <Typography
                 variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+                noWrap
+                sx={{ fontWeight: 600 }}
               >
                 {displayName}
               </Typography>
@@ -283,17 +280,11 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 <Typography
                   variant="caption"
                   color="text.secondary"
-                  sx={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                  }}
+                  noWrap
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
                 >
-                  <MailIcon size={12} />
-                  {primaryEmail}
+                  <MailIcon size={12} style={{ flexShrink: 0 }} />
+                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{primaryEmail}</Box>
                 </Typography>
               )}
 
@@ -302,18 +293,14 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 <Typography
                   variant="caption"
                   color="text.secondary"
-                  sx={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                  }}
+                  noWrap
+                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
                 >
-                  <BuildingIcon size={12} />
-                  {contact.company}
-                  {contact.jobTitle && ` - ${contact.jobTitle}`}
+                  <BuildingIcon size={12} style={{ flexShrink: 0 }} />
+                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {contact.company}
+                    {contact.jobTitle && ` - ${contact.jobTitle}`}
+                  </Box>
                 </Typography>
               )}
             </Box>

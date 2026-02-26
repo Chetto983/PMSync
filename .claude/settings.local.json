@@ -111,7 +111,11 @@
       "Bash(export:*)",
       "Bash(tasklist:*)",
       "Bash(wmic process where \"processid=6888\" get name,commandline)",
-      "Bash(taskkill //PID 17876 //F)"
+      "Bash(taskkill //PID 17876 //F)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_run_code"
     ],
     "deny": [],
     "ask": []
