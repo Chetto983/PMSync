@@ -143,8 +143,8 @@ export const it: AppTranslations = {
       titlePart2: 'con sicurezza',
       subtitle:
         'PMSync combina triage intelligente, bozze automatiche e copiloti vocali per risposte sempre puntuali e in linea con il brand.',
-      primaryCta: 'Prenota una demo',
-      secondaryCta: 'Scopri la piattaforma',
+      primaryCta: 'Crea il tuo workspace',
+      secondaryCta: 'Fai un tour di 2 minuti',
     },
     highlights: [
       { label: 'Risposte più veloci', value: '2.4×' },
@@ -205,8 +205,8 @@ export const it: AppTranslations = {
     secondaryCta: {
       title: 'Pronto per un refresh material delle tue operazioni email?',
       subtitle: 'Porta ogni workflow in un unico workspace AI-nativo con PMSync.',
-      primaryCta: 'Parla con il prodotto',
-      secondaryCta: 'Scarica la scheda',
+      primaryCta: 'Crea il tuo workspace',
+      secondaryCta: 'Fai un tour di 2 minuti',
     },
     productCards: {
       email: { label: 'Email', desc: 'Casella unificata' },
@@ -216,6 +216,11 @@ export const it: AppTranslations = {
     trustIndicators: {
       soc2: 'Conforme SOC 2',
       uptime: '99.9% Uptime',
+    },
+    socialProof: {
+      trustedBy: 'Scelto da oltre 1.200 team operativi',
+      logoNames: ['Aeris', 'Northstar Health', 'DeltaGrid', 'Vela Support'],
+      caseStudy: 'Caso studio: Aeris ha ridotto il triage manuale del 63% in 6 settimane.',
     },
     featuresSection: {
       badge: 'Funzionalità',

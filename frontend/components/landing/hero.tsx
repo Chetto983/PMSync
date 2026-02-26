@@ -244,6 +244,62 @@ export function Hero() {
             </Button>
           </Stack>
 
+          {/* Logo strip + quantified social proof */}
+          <Stack
+            spacing={1.5}
+            alignItems="center"
+            sx={{
+              width: '100%',
+              maxWidth: 760,
+              pt: 1,
+            }}
+          >
+            <Typography
+              variant="overline"
+              sx={{
+                letterSpacing: 1.5,
+                fontWeight: 700,
+                color: isDark ? alpha('#ffffff', 0.65) : 'text.secondary',
+              }}
+            >
+              {t.landing.socialProof.trustedBy}
+            </Typography>
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
+              justifyContent="center"
+            >
+              {t.landing.socialProof.logoNames.map((logoName) => (
+                <Box
+                  key={logoName}
+                  sx={{
+                    px: 1.75,
+                    py: 0.75,
+                    borderRadius: 99,
+                    border: '1px solid',
+                    borderColor: isDark ? alpha('#55cae5', 0.25) : alpha('#7650ce', 0.2),
+                    bgcolor: isDark ? alpha('#55cae5', 0.06) : alpha('#ffffff', 0.85),
+                  }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                    {logoName}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                color: isDark ? alpha('#ffffff', 0.82) : 'text.secondary',
+              }}
+            >
+              {t.landing.socialProof.caseStudy}
+            </Typography>
+          </Stack>
+
           {/* Stats with glassmorphism */}
           <Stack
             direction={{ xs: 'column', sm: 'row' }}

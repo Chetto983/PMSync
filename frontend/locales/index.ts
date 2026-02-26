@@ -53,7 +53,11 @@ interface LandingTranslations {
   trustIndicators: {
     soc2: string;
     uptime: string;
-
+  };
+  socialProof: {
+    trustedBy: string;
+    logoNames: string[];
+    caseStudy: string;
   };
   // Features section
   featuresSection: {
