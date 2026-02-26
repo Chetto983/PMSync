@@ -47,7 +47,7 @@ import { fileToBase64, type DraftAttachmentDto } from '@/lib/api/emails';
 import ComposeRecipients, { type Recipient } from './ComposeRecipients';
 import { AiDraftBadge } from './AiDraftBadge';
 import { ToneSelector, type DraftTone } from './ToneSelector';
-import { useAiDraft, useRegenerateDraft, useRecordDraftFeedback } from '@/hooks/queries';
+import { useAiDraft, useRegenerateDraft, useRecordDraftFeedback, useConsent } from '@/hooks/queries';
 
 // Lazy load ComposeEditor - contains heavy TipTap dependencies (~40 packages)
 // TipTap uses browser APIs (window, document) so SSR must be disabled
@@ -244,11 +244,13 @@ export default function ComposeDialog({
   const isDirtyRef = useRef(false);
   const signatureAppendedRef = useRef(false);
 
-  // AI Draft hooks (enabled only for reply/replyAll)
+  // AI Draft hooks (enabled only for reply/replyAll AND when user has granted AI consent)
   const isReplyMode = mode === 'reply' || mode === 'replyAll';
+  const { data: consentList } = useConsent();
+  const hasAiConsent = consentList?.some((c) => c.feature === 'ai_email_processing' && c.granted) ?? false;
   const { data: aiDraft, isLoading: draftLoading, isError: draftError } = useAiDraft(
     isReplyMode ? originalEmail?.id : undefined,
-    { tone: draftTone, enabled: isReplyMode && !!originalEmail?.id },
+    { tone: draftTone, enabled: isReplyMode && !!originalEmail?.id && hasAiConsent },
   );
   const regenerateMutation = useRegenerateDraft();
   const feedbackMutation = useRecordDraftFeedback();
@@ -818,8 +820,8 @@ export default function ComposeDialog({
         </Box>
 
         <DialogContent sx={{ flex: 1, p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* AI Draft controls (reply/replyAll only) */}
-          {isReplyMode && (aiDraftOriginal || draftLoading || draftError) && (
+          {/* AI Draft controls (reply/replyAll only, when user has AI consent) */}
+          {isReplyMode && hasAiConsent && (aiDraftOriginal || draftLoading || draftError) && (
             <Box sx={{ px: 2, pt: 1 }}>
               <AiDraftBadge
                 visible={!!aiDraftOriginal && !userHasEdited}

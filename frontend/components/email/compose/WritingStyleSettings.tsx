@@ -24,7 +24,7 @@ import {
 } from '@mui/material';
 import { Pen, BarChart3, Sparkles } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useProviders } from '@/hooks/queries';
+import { useProviders, useConsent } from '@/hooks/queries';
 import {
   useWritingStyle,
   useUpdateManualSamples,
@@ -88,9 +88,11 @@ export function WritingStyleSettings() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const { data: providers } = useProviders();
+  const { data: consentList } = useConsent();
+  const hasAiConsent = consentList?.some((c) => c.feature === 'ai_email_processing' && c.granted) ?? false;
   const providerId = selectedProvider || undefined;
-  const { data: style, isLoading: styleLoading } = useWritingStyle(providerId);
-  const { data: stats, isLoading: statsLoading } = useDraftStats();
+  const { data: style, isLoading: styleLoading } = useWritingStyle(providerId, { enabled: hasAiConsent });
+  const { data: stats, isLoading: statsLoading } = useDraftStats({ enabled: hasAiConsent });
   const updateSamples = useUpdateManualSamples();
 
   const handleSaveSamples = useCallback(async () => {
@@ -101,6 +103,17 @@ export function WritingStyleSettings() {
   }, [samples, providerId, updateSamples]);
 
   if (!ws) return null;
+
+  // If consent data loaded and user hasn't granted AI consent, show notice
+  if (consentList && !hasAiConsent) {
+    return (
+      <Box sx={{ mt: 3 }}>
+        <Alert severity="info" variant="outlined">
+          {ws.noProfile}
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 3 }}>

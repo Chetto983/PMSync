@@ -20,7 +20,7 @@ export const writingStyleKeys = {
  * Fetch the user's writing style profile.
  * TODO: When per-provider support is added to the GET endpoint, pass providerId as query param.
  */
-export function useWritingStyle(_providerId?: string) {
+export function useWritingStyle(_providerId?: string, options?: { enabled?: boolean }) {
   return useQuery<WritingStyleProfile | null>({
     queryKey: writingStyleKeys.profile(_providerId),
     queryFn: async () => {
@@ -32,6 +32,7 @@ export function useWritingStyle(_providerId?: string) {
         return null;
       }
     },
+    enabled: options?.enabled !== false,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -57,7 +58,7 @@ export function useUpdateManualSamples() {
 /**
  * Fetch AI draft quality statistics (accept rate, edit rate, etc.).
  */
-export function useDraftStats() {
+export function useDraftStats(options?: { enabled?: boolean }) {
   return useQuery<DraftStats | null>({
     queryKey: writingStyleKeys.draftStats,
     queryFn: async () => {
@@ -68,6 +69,7 @@ export function useDraftStats() {
         return null;
       }
     },
+    enabled: options?.enabled !== false,
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
