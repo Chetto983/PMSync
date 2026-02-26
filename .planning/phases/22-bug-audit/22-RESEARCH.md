@@ -15,10 +15,12 @@ The phase also absorbs two unfinished plans: 19-04 (WritingStyleSettings fronten
 **Primary recommendation:** Structure the audit as two major passes -- (1) audit-and-document pass producing BUG-REPORT.md, (2) fix pass working backend-first then frontend -- with explicit user review gate between the two passes.
 
 <user_constraints>
+
 ## User Constraints (from CONTEXT.md)
 
 ### Locked Decisions
-- Full audit of ALL functionality -- every v3.0 and v3.1 feature, every endpoint, every UI component
+
+- Full audit of ALL functionality -- every feature, every endpoint, every UI component
 - Both backend (NestJS APIs, email sync, AI services) and frontend (Next.js, email list, chat, dashboard, GDPR panels) -- both equally broken
 - Full visual audit using Playwright screenshots at all breakpoints: desktop (1440px), tablet (768px), mobile (375px)
 - Both static code analysis AND live endpoint testing (static first to find obvious issues, then live testing for runtime bugs)
@@ -67,6 +69,7 @@ The phase also absorbs two unfinished plans: 19-04 (WritingStyleSettings fronten
 - Type-check gate on every commit: tsc --noEmit must pass before each commit
 
 ### Claude's Discretion
+
 - Specific order of feature areas within backend/frontend passes
 - Which static analysis tools to use per area (beyond tsc + eslint)
 - How to structure the BUG-REPORT.md (severity categories, grouping)
@@ -74,14 +77,17 @@ The phase also absorbs two unfinished plans: 19-04 (WritingStyleSettings fronten
 - Which specific skills from skills.sh to deploy for each domain area
 
 ### Deferred Ideas (OUT OF SCOPE)
+
 None -- discussion stayed within phase scope. All items discussed are remediation of existing features, not new capabilities.
 </user_constraints>
 
 ## Standard Stack
 
 ### Core (Already Installed -- No New Dependencies)
+
 | Library | Version | Purpose | Status |
 |---------|---------|---------|--------|
+
 | NestJS | 11.1.13 | Backend framework | Installed |
 | Next.js | 16.1.6 | Frontend framework | Installed |
 | Prisma | 7.3.0 | ORM + migrations | Installed |
@@ -93,8 +99,10 @@ None -- discussion stayed within phase scope. All items discussed are remediatio
 | MUI | (installed) | Frontend UI components | Installed |
 
 ### Audit-Specific Tools (No Install Needed)
+
 | Tool | Purpose | How to Use |
 |------|---------|------------|
+
 | `npx tsc --noEmit` | Type checking | Both backend and frontend directories |
 | `npx jest` | Unit tests | Both directories |
 | `npx playwright test` | E2E tests | Frontend directory |
@@ -103,8 +111,10 @@ None -- discussion stayed within phase scope. All items discussed are remediatio
 | Playwright MCP screenshots | Visual audit | All breakpoints |
 
 ### Alternatives Considered
+
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
+
 | Manual code review | SonarQube/CodeClimate | Overkill for one-time audit; manual review catches context-specific bugs better |
 | Custom grep scripts | depcheck (unused deps) | `npx depcheck` can identify unused dependencies automatically |
 | Manual security scan | npm audit + OWASP ZAP | npm audit covers dependency CVEs; OWASP ZAP is overkill for this scope |
@@ -112,7 +122,7 @@ None -- discussion stayed within phase scope. All items discussed are remediatio
 ## Architecture Patterns
 
 ### Recommended Audit Structure
-```
+
 .planning/phases/22-bug-audit/
   22-CONTEXT.md          # User decisions (exists)
   22-RESEARCH.md         # This file
@@ -126,12 +136,13 @@ None -- discussion stayed within phase scope. All items discussed are remediatio
 docs/screenshots/
   before/                # Pre-audit screenshots
   after/                 # Post-fix screenshots
-```
 
 ### Pattern 1: Domain-Parallel Audit
+
 **What:** Split audit into independent domain areas that can be investigated in parallel
 **When to use:** Pass 1 (audit discovery)
 **Domains:**
+
 1. **backend-api** -- All NestJS controllers, services, guards, interceptors
 2. **backend-sync** -- Email sync engine, IMAP, folder ops, race conditions
 3. **backend-ai** -- VoltAgent, tools, embeddings, triage, drafts
@@ -145,8 +156,10 @@ docs/screenshots/
 11. **ci-tests** -- Broken tests, CI config, coverage gaps
 
 ### Pattern 2: Severity-Categorized Bug Report
+
 **What:** Every bug gets a severity, category, and location
 **Structure for BUG-REPORT.md:**
+
 ```markdown
 ## Bug Report
 
@@ -178,17 +191,18 @@ docs/screenshots/
 ```
 
 ### Pattern 3: Atomic Fix Commits
+
 **What:** One commit per bug fix with descriptive message and regression test
 **Format:**
-```
+
 fix(category): BUG-NNN short description
 
 - Root cause: [explanation]
 - Fix: [what was changed]
 - Test: [what regression test was added]
-```
 
 ### Anti-Patterns to Avoid
+
 - **Batch fixing without testing:** Fix one bug, run type-check + tests, commit. Never batch multiple fixes without verification.
 - **Fixing symptoms not causes:** If a component crashes, don't just add a null check -- find why the data is null.
 - **Fixing tests to match bugs:** If a test fails because the code is wrong, fix the code. Never adjust test expectations to match buggy behavior.
@@ -198,6 +212,7 @@ fix(category): BUG-NNN short description
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
+
 | Unused dependency detection | Manual grep for imports | `npx depcheck` | Handles re-exports, dynamic imports, config files |
 | Visual regression testing | Manual screenshot comparison | Playwright screenshot assertions | Deterministic, automatable, CI-compatible |
 | Security vulnerability scan | Manual CVE lookup | `npm audit` | Comprehensive, transitive dependency coverage |
@@ -209,42 +224,50 @@ fix(category): BUG-NNN short description
 ## Common Pitfalls
 
 ### Pitfall 1: ESLint Incompatibility (CONFIRMED BUG)
+
 **What goes wrong:** Frontend ESLint is completely non-functional. ESLint 10.0.0 + eslint-plugin-react 7.37.5 throws `contextOrFilename.getFilename is not a function`.
 **Why it happens:** eslint-plugin-react 7.x is not compatible with ESLint 10 flat config API changes.
 **How to avoid:** Either downgrade ESLint to 9.x or upgrade eslint-plugin-react to a version compatible with ESLint 10. The eslint-config-next 16.1.6 likely needs alignment too.
 **Warning signs:** `npm run lint` in frontend crashes instead of reporting warnings.
 
 ### Pitfall 2: Backend ESLint Flat Config Self-Linting
+
 **What goes wrong:** Backend ESLint tries to lint `eslint.config.js` itself with type-checked rules that require tsconfig, which doesn't include the config file.
 **Why it happens:** The `eslint.config.js` file matches `**/*.ts` glob (actually it's a .js file but still gets processed) and the `recommendedTypeChecked` config requires parserOptions.project.
 **How to avoid:** Add `eslint.config.js` to the ignores array.
 
 ### Pitfall 3: Frontend Test Drift
+
 **What goes wrong:** 3 tests fail in 2 suites (`use-ai-compose.test.tsx`, `use-ai-actions.test.tsx`). Tests expect properties (`variantUsed`, `variant`) that were removed from the implementation, and `approveAction` signature changed (now takes 2 args, test expects 1).
 **Why it happens:** Implementation changed in later phases without updating tests.
 **How to avoid:** Fix tests to match current implementation. Add CI gates that fail on test failures.
 
 ### Pitfall 4: File Size Violations
+
 **What goes wrong:** CLAUDE.md mandates max 500 lines per file. Currently 15+ backend files and 10+ frontend files exceed this limit, with the worst offenders at 1,429 lines (email-sync-back.service.ts) and 1,263 lines (prompt-input.tsx).
 **Why it happens:** Incremental feature additions without refactoring.
 **How to avoid:** This is a code quality issue for the audit to flag but NOT necessarily fix in this phase unless the refactoring is safe and contained. Splitting large files risks introducing regressions.
 
 ### Pitfall 5: Missing Database Migration
+
 **What goes wrong:** `@@index([tenantId, aiPriority])` is defined in schema.prisma but was never migrated to the database. The Prisma migrate status says "up to date" because it tracks migration files, not schema diff.
 **Why it happens:** The index was added to the schema file but `prisma migrate dev` was never run to generate the migration SQL.
 **How to avoid:** Run `npx prisma migrate dev --name add_missing_indexes` to generate and apply the migration.
 
 ### Pitfall 6: Audit Scope Creep
+
 **What goes wrong:** A "fix everything" mandate can lead to refactoring perfectly working code, introducing new bugs.
 **Why it happens:** Overzealous cleanup without clear bug criteria.
 **How to avoid:** The BUG-REPORT.md must distinguish between "broken behavior" (fix) and "suboptimal code" (document but don't fix unless safe). Only fix things that are actually broken or violate explicit rules (like file size limits).
 
 ### Pitfall 7: E2E Auth Mock Fragility
+
 **What goes wrong:** The auth.setup.ts mocks localStorage + API routes but doesn't mock ALL endpoints the app calls on load. If the app adds new initial API calls, E2E tests break.
 **Why it happens:** Mock coverage doesn't keep pace with app changes.
 **How to avoid:** The E2E auth mock needs to be comprehensive -- mock all endpoints called during initial page load, or use a more robust auth simulation.
 
 ### Pitfall 8: npm Audit False Positives
+
 **What goes wrong:** Many npm audit warnings are in dev dependencies (e.g., @lhci/cli, fasttext) that don't affect production.
 **Why it happens:** npm audit doesn't distinguish dev vs production impact.
 **How to avoid:** Use `npm audit --production` for accurate production vulnerability count. Document dev-only vulnerabilities separately.
@@ -252,6 +275,7 @@ fix(category): BUG-NNN short description
 ## Code Examples
 
 ### Running the Audit Commands (verified from codebase)
+
 ```bash
 # Backend type-check (currently passes)
 cd backend && npx tsc --noEmit
@@ -279,16 +303,19 @@ find frontend -name "*.tsx" -o -name "*.ts" | grep -v node_modules | grep -v ".n
 ```
 
 ### Known Failing Frontend Tests (verified)
-```
-FAIL hooks/ai/use-ai-compose.test.tsx
-  - "should compose email successfully" -- expects variantUsed property (removed from impl)
-  - "should compose email with all options" -- expects variant parameter (removed from impl)
 
-FAIL hooks/ai/use-ai-actions.test.tsx
-  - "should approve action successfully" -- expects approveAction(id) but impl is approveAction(id, undefined)
-```
+## FAIL hooks/ai/use-ai-compose.test.tsx
+
+   "should compose email successfully" -- expects variantUsed property (removed from impl)
+   "should compose email with all options" -- expects variant parameter (removed from impl)
+
+### Known Failing Backend Tests (verified)
+
+AIL hooks/ai/use-ai-actions.test.tsx
+   "should approve action successfully" -- expects approveAction(id) but impl is approveAction(id, undefined)
 
 ### Missing Prisma Migration (verified)
+
 ```bash
 # The schema has this index defined:
 # @@index([tenantId, aiPriority])
@@ -300,6 +327,7 @@ cd backend && npx prisma migrate dev --name add_tenant_ai_priority_index
 ```
 
 ### LabelTreeDndWrapper.tsx Bug (verified)
+
 ```typescript
 // Lines 250, 256: resetState() is called
 // Line 259: const resetState = () => { ... }
@@ -310,8 +338,10 @@ cd backend && npx prisma migrate dev --name add_tenant_ai_priority_index
 ## State of the Art
 
 ### Current Codebase Metrics (Baseline for Audit)
+
 | Metric | Current Value | Target |
 |--------|---------------|--------|
+
 | Backend TS errors | 0 | 0 |
 | Frontend TS errors | 0 | 0 |
 | Backend lint | ESLint config error (self-lint) | 0 warnings |
@@ -330,8 +360,10 @@ cd backend && npx prisma migrate dev --name add_tenant_ai_priority_index
 | TTI | 4.13s | < 3.5s |
 
 ### Known Issues Carried Forward (from STATE.md)
+
 | Issue | Source | Status |
 |-------|--------|--------|
+
 | LCP exceeds budget (4.12s vs 2.5s target) | v2.1-01 | Open |
 | TTI exceeds budget (4.13s vs 3.5s target) | v2.1-01 | Open |
 | E2E chip interaction tests (5/7 pass) | v2.1-02 | Open |
@@ -340,14 +372,18 @@ cd backend && npx prisma migrate dev --name add_tenant_ai_priority_index
 | @@index([tenantId, aiPriority]) needs migration | v3.0 | Open -- CONFIRMED |
 
 ### Unfinished Plans
+
 | Plan | Status | What's Needed |
 |------|--------|---------------|
+
 | 19-04 (WritingStyleSettings) | Fully planned, not executed | Execute the existing plan (create component, hooks, translations, wire into Settings) |
 | 21-01 (Triage Prompt enrichment) | Phase dir empty (only .gitkeep) | Needs planning AND execution -- enrich Apply AI Suggestions prompt with email metadata |
 
 ### Technology Versions (verified from node_modules)
+
 | Package | Backend | Frontend |
 |---------|---------|----------|
+
 | TypeScript | 5.9.3 | 5.9.3 |
 | ESLint | 10.0.0 | 10.0.0 |
 | Next.js | -- | 16.1.6 |
@@ -388,6 +424,7 @@ cd backend && npx prisma migrate dev --name add_tenant_ai_priority_index
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - Direct codebase inspection via Read/Bash/Grep tools -- all findings verified against actual files
 - `npx tsc --noEmit` -- both backend and frontend compile clean
 - `npx jest` -- backend 672/672, frontend 206/209
@@ -395,16 +432,19 @@ cd backend && npx prisma migrate dev --name add_tenant_ai_priority_index
 - `npx prisma migrate status` -- "Database schema is up to date" (but missing compound index migration)
 
 ### Secondary (MEDIUM confidence)
+
 - STATE.md known issues -- carried forward from prior phases, some confirmed, some unverified at runtime
 - CONTEXT.md user decisions -- locked constraints from discussion phase
 
 ### Tertiary (LOW confidence)
+
 - LCP/TTI performance numbers -- from prior phase measurements, may have changed since then
 - E2E test status -- unknown without running against live app
 
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH -- all versions verified from node_modules
 - Architecture: HIGH -- audit structure follows established patterns from CONTEXT.md decisions
 - Pitfalls: HIGH -- all major pitfalls confirmed through direct codebase inspection
