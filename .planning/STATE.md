@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 22 (Bug Audit)
-Plan: 2 of 6 complete
+Plan: 3 of 6 complete
 Status: In Progress
-Last activity: 2026-02-26 — Plan 22-02 complete (Tooling & CI fixes)
+Last activity: 2026-02-26 — Plan 22-03 complete (Backend bug fixes)
 
 Progress: Phase 22
 ```
-[################..............................] 33% (2/6 plans complete)
+[########################......................] 50% (3/6 plans complete)
 ```
-Plan 22-02 complete. ESLint fixed in both sides, Prisma migration applied, 3 test failures fixed, E2E auth mocks hardened, GitHub Actions CI workflow created. 8 atomic commits.
+Plan 22-03 complete. Security guards added to 5 controllers, CSP hardened for production, 24 regression tests for P2034 retry and sanitization. All 696 backend tests pass. Git tag v3.1-post-backend-fixes created.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 22-02-PLAN.md (Tooling & CI fixes)
+Stopped at: Completed 22-03-PLAN.md (Backend bug fixes)
 Resume file: None
-Next action: Execute 22-03-PLAN.md (Backend bug fixes)
+Next action: Execute 22-04-PLAN.md (Frontend bug fixes)
 
 ## Accumulated Decisions
 
@@ -225,6 +225,10 @@ Next action: Execute 22-03-PLAN.md (Backend bug fixes)
 - [Phase 22-02]: Manual Prisma migration for aiPriority index (shadow DB replay issue)
 - [Phase 22-02]: Catch-all E2E API mock returns 200 with empty JSON for unmocked endpoints
 - [Phase 22-02]: Backend xlsx/node-nlp vulns accepted as risk (no safe fix)
+- [Phase 22-03]: Auth endpoints (logout, refresh) confirmed user-scoped -- TenantGuard not needed
+- [Phase 22-03]: Autumn pricing_table endpoint stays public (per-method guards, not class-level)
+- [Phase 22-03]: styleSrc keeps unsafe-inline in all envs (CSS-in-JS requires it)
+- [Phase 22-03]: Stale TODOs converted to DEBT markers with BUG-NNN tracking refs
 
 ## Blockers & Concerns
 
@@ -281,12 +285,12 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 22 IN PROGRESS (1/6 plans done).
+**Currently:** Phase 22 IN PROGRESS (3/6 plans done).
 
 **Phase 22 progress (Bug Audit):**
 - Plan 22-01: Comprehensive bug audit -- COMPLETE
 - Plan 22-02: Tooling & CI fixes -- COMPLETE
-- Plan 22-03: Backend bug fixes -- PENDING
+- Plan 22-03: Backend bug fixes -- COMPLETE
 - Plan 22-04: Frontend bug fixes -- PENDING
 - Plan 22-05: Gap closures (19-04 + 21-01) -- PENDING
 - Plan 22-06: Final verification & sign-off -- PENDING
@@ -298,7 +302,7 @@ See: .planning/MILESTONES.md
 - 14 LOW: styling, naming conventions
 
 ---
-*State updated: 2026-02-26 — Plan 22-01 complete (Comprehensive Bug Audit). Phase 22: 1/6 plans done.*
+*State updated: 2026-02-26 — Plan 22-03 complete (Backend Bug Fixes). Phase 22: 3/6 plans done.*
 
 ## Previous Milestone (v3.0) Highlights
 
