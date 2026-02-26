@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import { ArrowLeft } from 'lucide-react';
 import { SeoHead } from '@/components/seo/SeoHead';
 
+const LAST_UPDATED_DATE = 'February 26, 2026';
+
 export default function PrivacyPolicy() {
   const router = useRouter();
 
@@ -52,7 +54,7 @@ export default function PrivacyPolicy() {
             Privacy Policy
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-            Last updated: {new Date().toLocaleDateString()}
+            Last updated: {LAST_UPDATED_DATE}
           </Typography>
 
           <Divider sx={{ mb: 4 }} />

@@ -1,0 +1,64 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">PMSync - AI workspace for inbox teams</title>
+  <desc id="desc">Open graph image for PMSync with clean left copy and right product panel.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#071224" />
+      <stop offset="50%" stop-color="#0b1a34" />
+      <stop offset="100%" stop-color="#20103b" />
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#55cae5" />
+      <stop offset="52%" stop-color="#7650ce" />
+      <stop offset="100%" stop-color="#b43db6" />
+    </linearGradient>
+    <filter id="blur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="34" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <circle cx="1020" cy="80" r="170" fill="#55cae5" fill-opacity="0.2" filter="url(#blur)" />
+  <circle cx="160" cy="560" r="210" fill="#b43db6" fill-opacity="0.2" filter="url(#blur)" />
+  <circle cx="560" cy="80" r="140" fill="#7650ce" fill-opacity="0.15" filter="url(#blur)" />
+
+  <rect x="54" y="40" width="1092" height="550" rx="30" fill="#0c1731" fill-opacity="0.85" stroke="#4f6d9f" stroke-opacity="0.35" />
+
+  <rect x="110" y="96" width="176" height="42" rx="21" fill="#55cae5" fill-opacity="0.14" stroke="#55cae5" stroke-opacity="0.4" />
+  <text x="198" y="124" text-anchor="middle" fill="#91ecff" font-family="Roboto, Arial, sans-serif" font-size="18" font-weight="700">
+    AI-native
+  </text>
+
+  <text x="110" y="240" fill="#ffffff" font-family="Roboto, Arial, sans-serif" font-size="88" font-weight="800">
+    PMSync
+  </text>
+  <text x="110" y="302" fill="#d8e5fb" font-family="Roboto, Arial, sans-serif" font-size="44" font-weight="620">
+    AI workspace for inbox teams
+  </text>
+  <text x="110" y="352" fill="#9ab2d8" font-family="Roboto, Arial, sans-serif" font-size="30" font-weight="500">
+    Triage, draft, and automate replies.
+  </text>
+
+  <rect x="110" y="408" width="360" height="66" rx="16" fill="url(#brand)" />
+  <text x="290" y="451" text-anchor="middle" fill="#ffffff" font-family="Roboto, Arial, sans-serif" font-size="32" font-weight="700">
+    Create your workspace
+  </text>
+
+  <rect x="760" y="120" width="326" height="256" rx="24" fill="#122141" stroke="#6683b8" stroke-opacity="0.38" />
+  <rect x="790" y="160" width="266" height="28" rx="8" fill="#1a2b4a" />
+  <rect x="790" y="202" width="266" height="28" rx="8" fill="#1a2b4a" />
+  <rect x="790" y="244" width="266" height="28" rx="8" fill="#1a2b4a" />
+  <rect x="790" y="286" width="266" height="28" rx="8" fill="#1a2b4a" />
+  <circle cx="814" cy="174" r="7" fill="#55cae5" />
+  <circle cx="814" cy="216" r="7" fill="#7650ce" />
+  <circle cx="814" cy="258" r="7" fill="#b43db6" />
+  <circle cx="814" cy="300" r="7" fill="#55cae5" />
+
+  <rect x="760" y="404" width="326" height="82" rx="14" fill="#122241" stroke="#607cb0" stroke-opacity="0.34" />
+  <text x="786" y="438" fill="#9fc4ea" font-family="Roboto, Arial, sans-serif" font-size="20" font-weight="700">
+    63% less manual triage
+  </text>
+  <text x="786" y="467" fill="#8ea8cf" font-family="Roboto, Arial, sans-serif" font-size="18" font-weight="500">
+    Trusted by 1,200+ operations teams
+  </text>
+</svg>

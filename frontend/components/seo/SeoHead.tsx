@@ -10,8 +10,8 @@ interface SeoHeadProps {
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-const DEFAULT_SITE_URL = 'http://localhost:3001';
-const DEFAULT_OG_IMAGE_PATH = '/favicon.svg';
+const DEFAULT_SITE_URL = 'https://mail-agent-indol.vercel.app/';
+const DEFAULT_OG_IMAGE_PATH = '/og-image.svg?v=2';
 
 function normalizeSiteUrl(siteUrl: string): string {
   return siteUrl.replace(/\/+$/, '');
@@ -84,4 +84,3 @@ export function SeoHead({
     </Head>
   );
 }
-

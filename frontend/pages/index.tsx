@@ -84,7 +84,6 @@ export default function Home() {
     { label: t.nav.product, href: '#product' },
     { label: t.nav.features, href: '#features' },
     { label: t.nav.automation, href: '#automation' },
-    { label: t.nav.resources, href: '#resources' },
   ];
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
   const seoTitle = 'PMSync | Unified AI Workspace for Email, Calendar & Contacts';
