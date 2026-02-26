@@ -183,6 +183,62 @@ export const test = base.extend<{ authedPage: Page }>({
       });
     });
 
+    // Mock voltagent endpoints (added in v3.0+)
+    await page.route('**/localhost:3000/voltagent/**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ actions: [], total: 0, success: true }),
+      });
+    });
+
+    // Mock CSRF token endpoint
+    await page.route('**/localhost:3000/auth/csrf-token', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ token: 'test-csrf-token' }),
+      });
+    });
+
+    // Mock legal acceptance check (v3.1 GDPR)
+    await page.route('**/localhost:3000/legal/**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accepted: true, version: '1.0' }),
+      });
+    });
+
+    // Mock consent endpoints (v3.1 GDPR)
+    await page.route('**/localhost:3000/consent/**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ consents: [], features: [] }),
+      });
+    });
+
+    // Mock subscription endpoints
+    await page.route('**/localhost:3000/subscription/**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ plan: 'pro', status: 'active' }),
+      });
+    });
+
+    // Catch-all for any unmocked localhost:3000 API call.
+    // Returns 200 with empty JSON to prevent E2E failures when new
+    // endpoints are added. Specific mocks above take priority.
+    await page.route('**/localhost:3000/**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({}),
+      });
+    });
+
     // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture callback, not a React hook
     await use(page);
   },

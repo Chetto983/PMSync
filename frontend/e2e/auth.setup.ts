@@ -47,6 +47,15 @@ setup('authenticate', async ({ page }) => {
     });
   });
 
+  // Catch-all for any API call during auth setup to prevent network errors
+  await page.route('**/localhost:3000/**', (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({}),
+    });
+  });
+
   // Navigate to trigger localStorage population
   await page.goto('/');
 
