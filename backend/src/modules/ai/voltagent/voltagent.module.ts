@@ -81,6 +81,11 @@ import { ConversationAtomicityService } from './services/conversation-atomicity.
 // Phase 18: AI Triage & Bulk Operations
 import { TriageSuggestionService } from '../services/triage-suggestion.service';
 
+// Phase 19: AI Draft Generation
+import { AiDraftController } from './controllers/ai-draft.controller';
+import { DraftGenerationService } from './services/draft-generation.service';
+import { DraftFeedbackService } from './services/draft-feedback.service';
+
 // Chat Processing (Refactored from VoltAgentService 2026-01-22)
 import { ChatRequestProcessorService } from './services/chat-request-processor.service';
 import { ChatContextBuilderService } from './services/chat-context-builder.service';
@@ -133,6 +138,7 @@ import { AuditModule } from '../../audit/audit.module';
     SchedulingController,
     ConversationController,
     DocumentLibraryController,
+    AiDraftController, // Phase 19: AI Draft Generation
   ],
   providers: [
     // VOLT-04: Prometheus AI metrics providers
@@ -200,6 +206,9 @@ import { AuditModule } from '../../audit/audit.module';
     SuggestedPromptsService,
     // Phase 18: AI Triage & Bulk Operations
     TriageSuggestionService,
+    // Phase 19: AI Draft Generation
+    DraftGenerationService,
+    DraftFeedbackService,
   ],
   exports: [
     VoltAgentService,
@@ -235,6 +244,9 @@ import { AuditModule } from '../../audit/audit.module';
     ApprovalWorkflowService,
     // CHAT-02: Context-aware suggested prompts
     SuggestedPromptsService,
+    // Phase 19: AI Draft Generation
+    DraftGenerationService,
+    DraftFeedbackService,
   ],
 })
 export class VoltAgentModule { }
