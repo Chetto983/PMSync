@@ -154,8 +154,8 @@ export const SpeechInput = ({
       }
     };
 
-    speechRecognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
+    speechRecognition.onerror = (_event) => {
+      //console.error("Speech recognition error:", event.error);
       setIsListening(false);
     };
 
@@ -172,9 +172,9 @@ export const SpeechInput = ({
   // Start MediaRecorder recording
   const startMediaRecorder = useCallback(async () => {
     if (!onAudioRecorded) {
-      console.warn(
+     /* console.warn(
         "SpeechInput: onAudioRecorded callback is required for MediaRecorder fallback"
-      );
+      );*/
       return;
     }
 
@@ -206,16 +206,16 @@ export const SpeechInput = ({
             if (transcript) {
               onTranscriptionChange?.(transcript);
             }
-          } catch (error) {
-            console.error("Transcription error:", error);
+          } catch {
+            //console.error("Transcription error:", error);
           } finally {
             setIsProcessing(false);
           }
         }
       };
 
-      mediaRecorder.onerror = (event) => {
-        console.error("MediaRecorder error:", event);
+      mediaRecorder.onerror = (_event) => {
+        //console.error("MediaRecorder error:", event);
         setIsListening(false);
         // Stop all tracks on error
         for (const track of stream.getTracks()) {
@@ -226,8 +226,8 @@ export const SpeechInput = ({
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
       setIsListening(true);
-    } catch (error) {
-      console.error("Failed to start MediaRecorder:", error);
+    } catch {
+      //console.error("Failed to start MediaRecorder:", error);
       setIsListening(false);
     }
   }, [onAudioRecorded, onTranscriptionChange]);
