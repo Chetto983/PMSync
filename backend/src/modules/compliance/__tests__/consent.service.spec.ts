@@ -37,7 +37,7 @@ describe('ConsentService', () => {
   });
 
   describe('getCurrentConsents', () => {
-    it('returns all 6 features with correct granted state from latest records', async () => {
+    it('returns all features with correct granted state from latest records', async () => {
       const now = new Date();
       prisma.userConsent.findMany.mockResolvedValue([
         { feature: 'ai_smart_replies', granted: true, createdAt: now, version: 1 },
@@ -46,7 +46,7 @@ describe('ConsentService', () => {
 
       const result = await service.getCurrentConsents('user-1', 'tenant-1');
 
-      expect(result).toHaveLength(6);
+      expect(result).toHaveLength(CONSENT_FEATURES.length);
 
       // Features with records use the record's granted state
       const smartReplies = result.find((r) => r.feature === 'ai_smart_replies');
@@ -70,7 +70,7 @@ describe('ConsentService', () => {
 
       const result = await service.getCurrentConsents('user-1', 'tenant-1');
 
-      expect(result).toHaveLength(6);
+      expect(result).toHaveLength(CONSENT_FEATURES.length);
       for (const state of result) {
         expect(state.granted).toBe(false);
         expect(state.lastUpdated).toBeNull();
