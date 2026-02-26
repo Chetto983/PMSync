@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 18 (AI Triage & Bulk Operations)
-Plan: 2 of 3 complete
-Status: In Progress
-Last activity: 2026-02-26 — Plan 18-02 complete (AI triage UI visibility in email list)
+Plan: 3 of 3 complete
+Status: Complete
+Last activity: 2026-02-26 — Plan 18-03 complete (chat renderer for bulk operations)
 
 Progress: v3.1
 ```
-[########################################░░░░░░] 90% (5/6 phases, 18-02 done)
+[##############################################] 100% (6/6 phases complete)
 ```
-Phase 18 in progress (2/3 plans done).
+Phase 18 complete (3/3 plans done). v3.1 milestone complete.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 18-02-PLAN.md (AI triage UI visibility in email list)
+Stopped at: Completed 18-03-PLAN.md (chat renderer for bulk operations)
 Resume file: None
-Next action: Execute Phase 18 Plan 03 (triage chat renderer)
+Next action: v3.1 milestone complete. All 6 phases (13-18) delivered.
 
 ## Accumulated Decisions
 
@@ -201,6 +201,8 @@ Next action: Execute Phase 18 Plan 03 (triage chat renderer)
 - [Phase v3.1-18-01]: @Optional() @Inject() for LabelsService/TriageSuggestionService/FollowUpCrudService in ActionExecutorService
 - [Phase v3.1-18-02]: Use t.emailList.* for header translations (matches existing pattern, not t.email.*)
 - [Phase v3.1-18-02]: Add triage section under ai.triage in locales (9 keys for Plan 03 renderer)
+- [Phase v3.1-18-03]: Type alias for Translations over inline ReturnType (conciseness in sub-components)
+- [Phase v3.1-18-03]: Dual-card pattern: amber PendingCard for HITL approval, green CompletedCard for executed actions
 
 ## Blockers & Concerns
 
@@ -256,12 +258,12 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 18 IN PROGRESS (2/3 plans done).
+**Currently:** Phase 18 COMPLETE (3/3 plans done). v3.1 milestone complete.
 
 **Phase 18 progress (AI Triage & Bulk Operations):**
 - Plan 18-01: Backend bulk label & follow-up infrastructure -- COMPLETE
 - Plan 18-02: AI triage UI visibility in email list -- COMPLETE
-- Plan 18-03: Chat renderer for bulk operations -- PENDING
+- Plan 18-03: Chat renderer for bulk operations -- COMPLETE
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -270,7 +272,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-26 — Plan 18-02 complete (AI triage UI visibility in email list). Phase 18: 2/3 plans done.*
+*State updated: 2026-02-26 — Plan 18-03 complete (chat renderer for bulk operations). Phase 18: 3/3 plans done. v3.1 milestone complete.*
 
 ## Previous Milestone (v3.0) Highlights
 
