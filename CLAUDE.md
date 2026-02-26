@@ -95,7 +95,7 @@ This project uses SPARC (Specification, Pseudocode, Architecture, Refinement, Co
 - **Test-First**: Write tests before implementation
 - **Clean Architecture**: Separate concerns
 - **Documentation**: Keep updated
-- **🔍 RESEARCH FIRST**: ALWAYS search online for best 2025 practices/methods BEFORE implementing, modifying, or refactoring code
+- **🔍 RESEARCH FIRST**: ALWAYS search online for best 2026 practices/methods BEFORE implementing, modifying, or refactoring code
 - **🎨 Theme Over Custom CSS**: ALWAYS use MUI theme colors and native components (Accordion, etc.), NEVER use custom/hardcoded CSS colors
 
 ## 🚀 Available Agents (54 Total)

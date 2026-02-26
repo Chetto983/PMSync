@@ -723,9 +723,9 @@ export default function EmailPage() {
     [bulkDelete, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, clearSelection]
   );
 
-  // Bulk move - show folder picker (TODO: implement picker dialog)
+  // Bulk move - show folder picker
   const handleBulkMove = useCallback((_ids: string[]) => {
-    // TODO: Show folder picker dialog (implement in Phase 4.3)
+    // DEBT: Show folder picker dialog (tracked in BUG-039)
     toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
   }, [toast, t]);
 

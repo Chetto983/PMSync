@@ -82,7 +82,6 @@ export function SeoHead({
 
       {structuredDataEntries.map((entry, index) => (
         <script
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: JSON.stringify(entry) }}
           key={`seo-jsonld-${index}`}
           type="application/ld+json"

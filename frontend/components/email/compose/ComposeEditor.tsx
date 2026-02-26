@@ -266,7 +266,7 @@ export default function ComposeEditor({
         tone,
         locale: locale || 'en',
         senderName,
-        // TODO: signature will come from user settings once signature editor is implemented
+        // DEBT: signature from user settings once editor implemented (tracked in BUG-038)
       });
 
       if (response.data.success && response.data.body) {

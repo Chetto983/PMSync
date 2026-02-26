@@ -7,6 +7,7 @@ import tseslint from 'typescript-eslint';
 // and its rules until a compatible version is released.
 const filteredNextConfig = nextConfig.map((cfg) => {
   if (!cfg.plugins || !cfg.plugins.react) return cfg;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { react: _reactPlugin, ...restPlugins } = cfg.plugins;
   const filteredRules = cfg.rules
     ? Object.fromEntries(
@@ -18,7 +19,7 @@ const filteredNextConfig = nextConfig.map((cfg) => {
 
 const config = [
   {
-    ignores: ['coverage/**', '.next/**', 'node_modules/**'],
+    ignores: ['coverage/**', '.next/**', 'node_modules/**', 'playwright-report/**', 'e2e-results/**'],
   },
   ...filteredNextConfig,
   ...tseslint.configs.recommended,
@@ -31,6 +32,16 @@ const config = [
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
       }],
+      // Disable react rules that reference the removed plugin (inline eslint-disable comments)
+      'react/display-name': 'off',
+      'react/no-danger': 'off',
+    },
+  },
+  {
+    // CommonJS config files use require()
+    files: ['*.js', '*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 ];

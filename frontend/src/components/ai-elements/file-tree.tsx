@@ -117,6 +117,7 @@ export const FileTreeFolder = ({
         <div
           className={cn("", className)}
           role="treeitem"
+          aria-selected={isSelected}
           tabIndex={0}
           {...props}
         >
@@ -196,6 +197,7 @@ export const FileTreeFile = ({
           }
         }}
         role="treeitem"
+        aria-selected={isSelected}
         tabIndex={0}
         {...props}
       >

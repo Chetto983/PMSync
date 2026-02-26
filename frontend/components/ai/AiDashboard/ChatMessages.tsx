@@ -359,7 +359,6 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
    * Create custom thinking message for Reasoning component.
    * Shows dynamic action text during streaming, duration after completion.
    */
-  /* eslint-disable react/display-name */
   const createThinkingMessage = React.useCallback((currentAction?: string) => {
     return (isStreaming: boolean, duration?: number) => {
       if (isStreaming || duration === 0) {
@@ -373,7 +372,6 @@ export function ChatMessages({ messages, sending, conversationId, onSuggestedQue
       return <span>Thought for {duration} seconds</span>;
     };
   }, []);
-  /* eslint-enable react/display-name */
 
   // WebSocket subscription for real-time HITL updates
   // Invalidates pending actions queries when actions are created/approved/rejected/executed
