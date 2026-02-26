@@ -342,6 +342,26 @@ Plans:
 
 ---
 
+### Phase 22: Bug Audit
+
+**Goal**: Comprehensive audit and remediation of all bugs across the entire MailAgent codebase (v3.0 + v3.1). Completes unfinished plans 19-04 and 21-01. Zero known bugs when done.
+
+**Depends on:** Phase 21
+
+**Requirements**: AUDIT-FIX-01, AUDIT-FIX-02, AUDIT-FIX-03, AUDIT-FIX-04, AUDIT-FIX-05, AUDIT-FIX-06, AUDIT-FIX-07, AUDIT-FIX-08
+
+**Plans:** 6 plans
+
+Plans:
+- [ ] 22-01-PLAN.md — Comprehensive codebase audit producing BUG-REPORT.md + visual baseline screenshots
+- [ ] 22-02-PLAN.md — Tooling fixes: ESLint (both), Prisma migration, npm audit, test infrastructure
+- [ ] 22-03-PLAN.md — Backend bug fixes: dead code removal, code consolidation, known bugs
+- [ ] 22-04-PLAN.md — Frontend bug fixes: UI issues, i18n gaps, pattern violations, lint cleanup
+- [ ] 22-05-PLAN.md — Unfinished plans: 19-04 WritingStyleSettings + 21-01 Triage Prompt enrichment
+- [ ] 22-06-PLAN.md — Final verification: after screenshots, before/after metrics, git tag, user sign-off
+
+---
+
 ## Progress
 
 **Execution Order:** Phases execute in numeric order (13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19)
@@ -357,17 +377,9 @@ Plans:
 | 19. AI Draft Generation | 3/4 | In Progress|  | - |
 | 20. Mount GDPR Guards | 1/1 | Complete    | 2026-02-26 | - |
 | 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
-
-### Phase 22: bug_audit
-
-**Goal:** [To be planned]
-**Depends on:** Phase 21
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 22 to break down)
+| 22. Bug Audit | v3.1 | 0/6 | Not started | - |
 
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-26 — Gap closure phases 20-21 added from milestone audit. ENC-03 deferred to v3.2.*
+*Last updated: 2026-02-26 — Phase 22 planned with 6 plans. Gap closure phases 20-21 added from milestone audit. ENC-03 deferred to v3.2.*
