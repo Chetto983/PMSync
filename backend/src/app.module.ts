@@ -25,6 +25,8 @@ import { AuditModule } from './modules/audit/audit.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { EmailSyncModule } from './modules/email-sync/email-sync.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { LegalAcceptanceGuard } from './modules/compliance/guards/legal-acceptance.guard';
+import { ConsentGuard } from './modules/compliance/guards/consent.guard';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
@@ -83,6 +85,16 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // LEGAL-01/02: Block users who haven't accepted TOS/Privacy Policy
+    {
+      provide: APP_GUARD,
+      useClass: LegalAcceptanceGuard,
+    },
+    // CONS-02: Block AI processing without consent
+    {
+      provide: APP_GUARD,
+      useClass: ConsentGuard,
     },
     // Apply response time logging globally
     {

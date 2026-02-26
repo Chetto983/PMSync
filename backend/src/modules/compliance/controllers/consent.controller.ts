@@ -5,6 +5,7 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { ConsentService } from '../services/consent.service';
 import { ConsentHistoryDto, ConsentStateDto, UpdateConsentDto } from '../dto/consent.dto';
+import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 
 /**
  * REST API for user consent management (CONSENT-01)
@@ -13,9 +14,12 @@ import { ConsentHistoryDto, ConsentStateDto, UpdateConsentDto } from '../dto/con
  * - GET  /compliance/consent         - View current consent state
  * - POST /compliance/consent         - Update consent for a feature
  * - GET  /compliance/consent/history  - View consent change history
+ *
+ * @SkipLegalCheck: Consent management must remain accessible before legal acceptance.
  */
 @ApiTags('Compliance')
 @ApiBearerAuth()
+@SkipLegalCheck()
 @Controller('compliance/consent')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class ConsentController {

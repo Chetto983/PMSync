@@ -7,9 +7,11 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
+import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 
 @ApiTags('Compliance')
 @ApiBearerAuth()
+@SkipLegalCheck()
 @Controller('compliance/gdpr')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class GdprController {

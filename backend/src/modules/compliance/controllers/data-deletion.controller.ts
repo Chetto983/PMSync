@@ -11,6 +11,7 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { AccountDeletionService } from '../services/account-deletion.service';
 import { DeletionResponseDto, DeletionStatusDto } from '../dto/data-deletion.dto';
+import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 
 /**
  * REST API for account deletion (GDPR Article 17 - Right to Erasure)
@@ -21,9 +22,12 @@ import { DeletionResponseDto, DeletionStatusDto } from '../dto/data-deletion.dto
  * - POST   /compliance/data-deletion         - Request account deletion
  * - GET    /compliance/data-deletion/status   - Check deletion status
  * - DELETE /compliance/data-deletion/cancel   - Cancel pending deletion
+ *
+ * @SkipLegalCheck: GDPR right to erasure must remain accessible regardless of legal acceptance.
  */
 @ApiTags('Compliance')
 @ApiBearerAuth()
+@SkipLegalCheck()
 @Controller('compliance/data-deletion')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class DataDeletionController {

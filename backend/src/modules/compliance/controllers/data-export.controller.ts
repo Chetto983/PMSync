@@ -22,6 +22,7 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { DataExportService } from '../services/data-export.service';
 import { DataExportResponseDto, DataExportListDto } from '../dto/data-export.dto';
+import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 
 /**
  * REST API for GDPR data portability exports (DATA-01 / Article 20)
@@ -31,9 +32,12 @@ import { DataExportResponseDto, DataExportListDto } from '../dto/data-export.dto
  * - GET  /compliance/data-export       - List recent exports
  * - GET  /compliance/data-export/:id   - Get export status
  * - GET  /compliance/data-export/:id/download - Download completed export
+ *
+ * @SkipLegalCheck: GDPR data rights must remain accessible regardless of legal acceptance.
  */
 @ApiTags('Compliance')
 @ApiBearerAuth()
+@SkipLegalCheck()
 @Controller('compliance/data-export')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class DataExportController {

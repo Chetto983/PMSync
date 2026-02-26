@@ -5,6 +5,7 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { LegalAcceptanceService } from '../services/legal-acceptance.service';
 import { AcceptLegalDocumentDto, LegalStatusDto } from '../dto/legal-acceptance.dto';
+import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 
 /**
  * REST API for legal document acceptance (LEGAL-01, LEGAL-02)
@@ -13,12 +14,12 @@ import { AcceptLegalDocumentDto, LegalStatusDto } from '../dto/legal-acceptance.
  * - GET  /compliance/legal/status  - Check current acceptance status
  * - POST /compliance/legal/accept  - Accept a legal document
  *
- * NOTE: Neither endpoint uses LegalAcceptanceGuard because the user
- * must be able to check status and accept documents even when they
- * haven't accepted yet.
+ * @SkipLegalCheck: User must be able to check status and accept documents
+ * even when they haven't accepted yet.
  */
 @ApiTags('Compliance')
 @ApiBearerAuth()
+@SkipLegalCheck()
 @Controller('compliance/legal')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class LegalController {
