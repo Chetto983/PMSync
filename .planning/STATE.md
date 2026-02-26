@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 18 (AI Triage & Bulk Operations)
-Plan: 3 of 3 complete
+Plan: 4 of 4 complete
 Status: Complete
-Last activity: 2026-02-26 — Plan 18-03 complete (chat renderer for bulk operations)
+Last activity: 2026-02-26 — Plan 18-04 complete (Apply AI Suggestions button wiring)
 
 Progress: v3.1
 ```
 [##############################################] 100% (6/6 phases complete)
 ```
-Phase 18 complete (3/3 plans done). v3.1 milestone complete.
+Phase 18 complete (4/4 plans done). v3.1 milestone complete.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 18-03-PLAN.md (chat renderer for bulk operations)
+Stopped at: Completed 18-04-PLAN.md (Apply AI Suggestions button wiring)
 Resume file: None
-Next action: v3.1 milestone complete. All 6 phases (13-18) delivered.
+Next action: v3.1 milestone complete. All 6 phases (13-18) delivered. Phase 19 (AI Draft Generation) to be planned.
 
 ## Accumulated Decisions
 
@@ -203,6 +203,9 @@ Next action: v3.1 milestone complete. All 6 phases (13-18) delivered.
 - [Phase v3.1-18-02]: Add triage section under ai.triage in locales (9 keys for Plan 03 renderer)
 - [Phase v3.1-18-03]: Type alias for Translations over inline ReturnType (conciseness in sub-components)
 - [Phase v3.1-18-03]: Dual-card pattern: amber PendingCard for HITL approval, green CompletedCard for executed actions
+- [Phase v3.1-18-04]: pendingAiPrompt is ephemeral (not persisted) -- excluded from partialize
+- [Phase v3.1-18-04]: 50ms setTimeout before sendMessage to ensure chat UI mounted
+- [Phase v3.1-18-04]: Clear pending prompt before sending to prevent useEffect re-trigger loops
 
 ## Blockers & Concerns
 
@@ -258,12 +261,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 18 COMPLETE (3/3 plans done). v3.1 milestone complete.
+**Currently:** Phase 18 COMPLETE (4/4 plans done). v3.1 milestone complete.
 
 **Phase 18 progress (AI Triage & Bulk Operations):**
 - Plan 18-01: Backend bulk label & follow-up infrastructure -- COMPLETE
 - Plan 18-02: AI triage UI visibility in email list -- COMPLETE
 - Plan 18-03: Chat renderer for bulk operations -- COMPLETE
+- Plan 18-04: Apply AI Suggestions button wiring (gap closure) -- COMPLETE
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -272,7 +276,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-26 — Plan 18-03 complete (chat renderer for bulk operations). Phase 18: 3/3 plans done. v3.1 milestone complete.*
+*State updated: 2026-02-26 — Plan 18-04 complete (Apply AI Suggestions button wiring). Phase 18: 4/4 plans done. v3.1 milestone complete.*
 
 ## Previous Milestone (v3.0) Highlights
 

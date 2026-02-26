@@ -58,7 +58,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 ### AI Triage (TRIAGE-01 to TRIAGE-02)
 
 - [ ] **TRIAGE-01**: AI assigns emails to appropriate nested label based on content
-- [ ] **TRIAGE-02**: User can bulk-apply AI triage suggestions to multiple emails
+- [x] **TRIAGE-02**: User can bulk-apply AI triage suggestions to multiple emails
 
 ### Bulk Operations (BULK-01 to BULK-02)
 
@@ -122,7 +122,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 | ARTIFACT-05 | Phase 17 | Pending |
 | ARTIFACT-06 | Phase 17 | Pending |
 | TRIAGE-01 | Phase 18 | Pending |
-| TRIAGE-02 | Phase 18 | Pending |
+| TRIAGE-02 | Phase 18 | Complete |
 | BULK-01 | Phase 18 | Pending |
 | BULK-02 | Phase 18 | Pending |
 | DRAFT-01 | Phase 19 | Pending |

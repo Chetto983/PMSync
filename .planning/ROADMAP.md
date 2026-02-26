@@ -271,7 +271,7 @@ Plans:
 - [x] 18-01-PLAN.md -- Backend: TriageSuggestionService, bulk_email_actions tool extension, action types + executors, module wiring (TRIAGE-01, BULK-01, BULK-02)
 - [x] 18-02-PLAN.md -- Frontend email list: AI triage chips in ThreadListItem, Apply AI Suggestions button in ThreadListHeader, translations (TRIAGE-02)
 - [x] 18-03-PLAN.md -- Frontend chat: TriageRenderer for bulk action results, tool registry registration (TRIAGE-02, BULK-01)
-- [ ] 18-04-PLAN.md -- Gap closure: Wire onApplyAiSuggestions handler in ThreadList.tsx, bridge email selection to AI chat via Zustand store (TRIAGE-02)
+- [x] 18-04-PLAN.md -- Gap closure: Wire onApplyAiSuggestions handler in ThreadList.tsx, bridge email selection to AI chat via Zustand store (TRIAGE-02)
 
 ---
 
@@ -307,7 +307,7 @@ Plans:
 | 15. GDPR Core Compliance | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 16. Data Rights & Legal Documents | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 18. AI Triage & Bulk Operations | v3.1 | 3/4 | Gap closure | - |
+| 18. AI Triage & Bulk Operations | v3.1 | 4/4 | ✓ Complete | 2026-02-26 |
 | 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
 
 ---
