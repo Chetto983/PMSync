@@ -208,11 +208,14 @@ export function ThreadList({
 
   const handleApplyAiSuggestions = useCallback(() => {
     if (selectedIds.size === 0) return;
-    const ids = Array.from(selectedIds);
-    const prompt = `Apply AI label suggestions to these ${ids.length} emails: ${ids.join(', ')}`;
+    const selected = threads.filter((t) => selectedIds.has(t.id));
+    const emailLines = selected
+      .map((t, i) => `${i + 1}. From: ${t.from} - Subject: ${t.subject || 'No subject'}`)
+      .join('\n');
+    const prompt = `Triage these ${selected.length} emails:\n${emailLines}\n\nAssign appropriate labels and create follow-ups where needed.`;
     setPendingAiPrompt(prompt);
     router.push('/dashboard/ai');
-  }, [selectedIds, setPendingAiPrompt, router]);
+  }, [selectedIds, threads, setPendingAiPrompt, router]);
 
   // Individual action handlers - FIXED: Memoized
   const handleFlag = useCallback((id: string) => onFlag?.(id), [onFlag]);
