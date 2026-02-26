@@ -67,7 +67,7 @@ export class FollowUpController {
       req.user.userId,
       {
         status: statusFilter && statusFilter.length === 1 ? statusFilter[0] : statusFilter,
-        type: type as 'WAITING_FOR' | 'TODO' | undefined,
+        type: type,
         limit: limit ? parseInt(limit, 10) : 50,
         offset: offset ? parseInt(offset, 10) : 0,
       },

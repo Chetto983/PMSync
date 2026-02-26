@@ -40,15 +40,15 @@ describe('TenantKeyService', () => {
     const svc = createServiceWithConfig(TEST_MASTER_KEY);
     svc.getCurrentKey('tenant-x');
     svc.getCurrentKey('tenant-x');
-    expect((svc as any).cache.size).toBe(1);
+    expect((svc).cache.size).toBe(1);
   });
 
   it('clearCache empties the cache', () => {
     const svc = createServiceWithConfig(TEST_MASTER_KEY);
     svc.getCurrentKey('tenant-y');
-    expect((svc as any).cache.size).toBe(1);
+    expect((svc).cache.size).toBe(1);
     svc.clearCache();
-    expect((svc as any).cache.size).toBe(0);
+    expect((svc).cache.size).toBe(0);
   });
 
   it('getDecryptionKeys includes current and old keys', () => {

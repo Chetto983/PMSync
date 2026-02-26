@@ -156,9 +156,9 @@ describe('field-encryption.extension', () => {
       encryptDataFields(writeData, 'Email', testKey);
 
       // Verify encryption happened
-      expect(isEncrypted(writeData.bodyText as string)).toBe(true);
-      expect(isEncrypted(writeData.bodyHtml as string)).toBe(true);
-      expect(isEncrypted(writeData.snippet as string)).toBe(true);
+      expect(isEncrypted(writeData.bodyText)).toBe(true);
+      expect(isEncrypted(writeData.bodyHtml)).toBe(true);
+      expect(isEncrypted(writeData.snippet)).toBe(true);
       expect(writeData.subject).toBe('Meeting tomorrow');
 
       // Simulate read path (data returned from DB)

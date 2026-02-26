@@ -70,7 +70,7 @@ export async function backfillEncryptModel(
   for (const tenant of tenants) {
     const tenantId = tenant.id;
     const key = tenantKeyService.getCurrentKey(tenantId);
-    const total = await model.count({ where: { tenantId } }) as number;
+    const total = await model.count({ where: { tenantId } });
 
     if (total === 0) {
       log(`[${modelName}] Tenant ${tenantId}: 0 records, skipping`);
