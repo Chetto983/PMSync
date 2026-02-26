@@ -786,4 +786,103 @@ Audited all v3.1 components (phases 13-21) for WCAG AA compliance.
 
 ---
 
-*Report complete. 47 bugs cataloged. Ready for user review.*
+## After Metrics (Post-Fix)
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| Backend TS errors | 0 | PASS |
+| Frontend TS errors | 0 | PASS |
+| Backend ESLint | 2 errors, 33 warnings (runs with 8GB heap) | RUNS |
+| Frontend ESLint | 10 errors, 38 warnings (all pre-existing ai-elements) | RUNS |
+| Backend Jest | 696/696 (100%) | PASS |
+| Frontend Jest | 211/211 (100%) | PASS |
+| npm audit (root prod) | 0 vulnerabilities | CLEAN |
+| npm audit (frontend prod) | 0 vulnerabilities | CLEAN |
+| npm audit (backend prod) | 6 vulnerabilities (xlsx chain, accepted risk) | ACCEPTED |
+| Prisma migrations | 17, up to date | PASS |
+| Files >500 lines (backend) | 38 files | UNCHANGED (refactoring out of scope) |
+| Files >500 lines (frontend) | 35 files | UNCHANGED (refactoring out of scope) |
+| Uncommitted changes | 0 | CLEAN |
+| Git tags | v3.1-pre-audit, v3.1-post-backend-fixes, v3.1-post-frontend-fixes | 3/4 |
+
+---
+
+## Before vs After Comparison
+
+| Metric | Before | After | Delta |
+|--------|--------|-------|-------|
+| Backend TS errors | 0 | 0 | -- |
+| Frontend TS errors | 0 | 0 | -- |
+| Backend ESLint | BROKEN (crash) | 2 errors, 33 warnings | FIXED |
+| Frontend ESLint | BROKEN (crash) | 10 errors, 38 warnings | FIXED |
+| Backend Jest | 672/672 | 696/696 | +24 tests |
+| Frontend Jest | 206/209 | 211/211 | +5 tests, 3 failures fixed |
+| npm audit (root prod) | 5 high | 0 | -5 vulns |
+| npm audit (frontend prod) | 8 moderate | 0 | -8 vulns |
+| npm audit (backend prod) | 11 vulns | 6 (xlsx accepted) | -5 vulns |
+| Prisma migrations | 16 (missing index) | 17 (up to date) | +1 migration |
+| Uncommitted changes | 4 files | 0 | CLEAN |
+| E2E auth mocks | broken | hardened with catch-all | FIXED |
+| CI workflow | none | .github/workflows/ci.yml | ADDED |
+| XSS sanitization | 0 DOMPurify uses | 4 DOMPurify guards | +4 guards |
+| TenantGuard gaps | 4 controllers exposed | 0 | FIXED |
+| CSP unsafe-inline | all environments | non-prod only | FIXED |
+| resetState hoisting | BUG-004 CRITICAL | useCallback, correct order | FIXED |
+| Triage prompt | raw UUIDs | subject + sender metadata | ENRICHED |
+| WritingStyleSettings | not wired | in Settings > AI | VERIFIED |
+
+---
+
+## Bug Resolution Status
+
+### Plan 02 — Tooling & CI (11 bugs)
+- BUG-001 [FIXED] Frontend ESLint config
+- BUG-002 [FIXED] Backend ESLint config
+- BUG-003 [FIXED] Missing Prisma @@index migration
+- BUG-005 [FIXED] use-ai-compose test failures
+- BUG-006 [FIXED] use-ai-actions test failure
+- BUG-007 [PARTIAL] npm audit backend (6 xlsx remain, accepted risk)
+- BUG-008 [FIXED] npm audit frontend
+- BUG-010 [DOCUMENTED] Jest forceExit warning (pre-existing)
+- BUG-013 [FIXED] npm audit root
+- BUG-015 [FIXED] E2E auth mock infrastructure
+- BUG-033 [FIXED] Uncommitted test files
+
+### Plan 03 — Backend Fixes (13 bugs)
+- BUG-016 [VERIFIED] Dead code extractPlainText (removed in prior phase)
+- BUG-017 [VERIFIED] Sanitization consolidation (already consolidated)
+- BUG-020 [DOCUMENTED] TODO/FIXME markers → DEBT comments
+- BUG-023 [FIXED] CSP unsafe-inline restricted to non-prod
+- BUG-024 [FIXED] Missing TenantGuard on FollowUpController
+- BUG-025 [FIXED] Missing TenantGuard on ai-draft.controller
+- BUG-026 [FIXED] Missing QuotaGuard on VoltagentController
+- BUG-027 [FIXED] Missing TenantGuard on SubscriptionController
+- BUG-031 [FIXED] Missing TenantGuard on VoltagentController routes
+- BUG-034 [DOCUMENTED] Stale TODO → DEBT comment
+- BUG-036 [DOCUMENTED] Stale TODO → DEBT comment
+- BUG-037 [DOCUMENTED] Stale TODO → DEBT comment
+- BUG-042 [VERIFIED] RC-A1/RC-A8 race conditions (fixed in prior phase)
+
+### Plan 04 — Frontend Fixes (13 bugs)
+- BUG-004 [FIXED] resetState hoisting in LabelTreeDndWrapper (CRITICAL)
+- BUG-009 [FIXED] DOMPurify on ComposeDialog/ComposeEditor
+- BUG-019 [FIXED] Hardcoded hex → theme tokens in ContactDetail
+- BUG-021 [FIXED] DOMPurify on SignatureSettings
+- BUG-022 [FIXED] DOMPurify on schema-display
+- BUG-011 [DEFERRED] Pattern violation: raw apiClient (refactoring scope)
+- BUG-012 [DEFERRED] Pattern violation: raw apiClient (refactoring scope)
+- BUG-018 [DEFERRED] i18n hardcoded strings (minor, non-user-facing)
+- BUG-029 [DEFERRED] File size violation (refactoring scope)
+- BUG-038 [DEFERRED] WCAG minor (keyboard navigation edge case)
+- BUG-039 [DEFERRED] WCAG minor (color contrast in ai-elements)
+- BUG-044 [DEFERRED] ESLint warnings in ai-elements (pre-existing)
+- WCAG aria-selected [FIXED] file-tree treeitem roles
+
+### Plan 05 — Gap Closures (3 bugs)
+- BUG-014 [VERIFIED] WritingStyleSettings already implemented
+- BUG-040 [FIXED] Triage prompt enriched with email metadata
+- BUG-043 [VERIFIED] Plan 19-04 fully executed
+
+---
+
+*Report updated with after metrics and bug resolution status. Phase 22 audit complete.*
