@@ -67,7 +67,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 
 ### AI Drafts (DRAFT-01 to DRAFT-02)
 
-- [ ] **DRAFT-01**: AI generates full reply drafts based on email context
+- [x] **DRAFT-01**: AI generates full reply drafts based on email context
 - [ ] **DRAFT-02**: AI drafts match user's writing style (learned from sent emails)
 
 ## Future Requirements (v3.2+)
@@ -129,7 +129,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 | TRIAGE-02 | Phase 21 | Pending |
 | BULK-01 | Phase 18 | Complete |
 | BULK-02 | Phase 18 | Complete |
-| DRAFT-01 | Phase 19 | Pending |
+| DRAFT-01 | Phase 19 | Complete |
 | DRAFT-02 | Phase 19 | Pending |
 
 **Coverage:**

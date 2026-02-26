@@ -9,23 +9,23 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 20 (Mount GDPR Guards)
-Plan: 1 of 1 complete
-Status: Complete
-Last activity: 2026-02-26 — Plan 20-01 complete (Wire GDPR Guards into Runtime Enforcement)
+Phase: Phase 19 (AI Draft Generation)
+Plan: 1 of 4 complete
+Status: In Progress
+Last activity: 2026-02-26 — Plan 19-01 complete (Backend Draft Generation Infrastructure)
 
-Progress: v3.1
+Progress: Phase 19
 ```
-[##############################################] 100% (7/7 phases complete)
+[############..................................] 25% (1/4 plans complete)
 ```
-Phase 20 complete (1/1 plans done). GDPR guards mounted as APP_GUARD.
+Plan 19-01 complete. Backend API for draft generation, feedback, stats ready.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 20-01-PLAN.md (Wire GDPR Guards into Runtime Enforcement)
+Stopped at: Completed 19-01-PLAN.md (Backend Draft Generation Infrastructure)
 Resume file: None
-Next action: Phase 20 complete. GDPR guards active in runtime. Phase 21 or other gap closure to be planned.
+Next action: Execute 19-02-PLAN.md (Frontend draft wiring into ComposeDialog)
 
 ## Accumulated Decisions
 
@@ -210,6 +210,9 @@ Next action: Phase 20 complete. GDPR guards active in runtime. Phase 21 or other
 - [Phase v3.1-20-01]: Guard ordering: ThrottlerGuard -> LegalAcceptanceGuard -> ConsentGuard
 - [Phase v3.1-20-01]: ai_email_processing umbrella consent covers all VoltAgent chat + AiController AI handlers
 - [Phase v3.1-20-01]: @SkipLegalCheck on all 5 compliance controllers (GDPR rights accessible before legal acceptance)
+- [Phase v3.1-19-01]: findFirst + create/update over upsert for nullable compound unique (WritingStyleProfile)
+- [Phase v3.1-19-01]: Inline language detection with Italian keyword heuristic (2+ hits = Italian)
+- [Phase v3.1-19-01]: Two-row Levenshtein optimization for O(min(m,n)) memory in edit distance
 
 ## Blockers & Concerns
 
@@ -265,13 +268,13 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 18 COMPLETE (4/4 plans done). v3.1 milestone complete.
+**Currently:** Phase 19 IN PROGRESS (1/4 plans done).
 
-**Phase 18 progress (AI Triage & Bulk Operations):**
-- Plan 18-01: Backend bulk label & follow-up infrastructure -- COMPLETE
-- Plan 18-02: AI triage UI visibility in email list -- COMPLETE
-- Plan 18-03: Chat renderer for bulk operations -- COMPLETE
-- Plan 18-04: Apply AI Suggestions button wiring (gap closure) -- COMPLETE
+**Phase 19 progress (AI Draft Generation):**
+- Plan 19-01: Backend draft generation infrastructure -- COMPLETE
+- Plan 19-02: Frontend draft wiring into ComposeDialog -- PENDING
+- Plan 19-03: Writing style settings panel -- PENDING
+- Plan 19-04: Weekly style refresh cron -- PENDING
 
 **Known issues carried forward from v3.0:**
 - LCP/TTI targets monitored but not yet met (continue-on-error in CI)
@@ -280,7 +283,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-26 — Plan 18-04 complete (Apply AI Suggestions button wiring). Phase 18: 4/4 plans done. v3.1 milestone complete.*
+*State updated: 2026-02-26 — Plan 19-01 complete (Backend Draft Generation Infrastructure). Phase 19: 1/4 plans done.*
 
 ## Previous Milestone (v3.0) Highlights
 
