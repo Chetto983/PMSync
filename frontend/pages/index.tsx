@@ -56,39 +56,6 @@ export default function Home() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen((prev: boolean) => !prev);
-  };
-
-  if (isLoading) {
-    return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: isDark
-            ? `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.purple, 0.1)} 0%, transparent 70%)`
-            : `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.cyan, 0.1)} 0%, transparent 70%)`,
-        }}
-      >
-        <Stack spacing={2} alignItems="center">
-          <Image src="/Logo PMSync.svg" alt="PMSync" width={60} height={60} priority />
-          <Typography variant="body1" color="text.secondary">
-            {t.common.loading}
-          </Typography>
-        </Stack>
-      </Box>
-    );
-  }
-
-  const navLinks = [
-    { label: t.nav.product, href: '#product' },
-    { label: t.nav.features, href: '#features' },
-    { label: t.nav.automation, href: '#automation' },
-  ];
   const siteUrl = normalizeSiteUrl(
     process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -125,6 +92,45 @@ export default function Home() {
       name: 'PMSync',
       url: siteUrl,
     },
+  ];
+
+  const handleDrawerToggle = () => {
+    setMobileOpen((prev: boolean) => !prev);
+  };
+
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: isDark
+            ? `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.purple, 0.1)} 0%, transparent 70%)`
+            : `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.cyan, 0.1)} 0%, transparent 70%)`,
+        }}
+      >
+        <SeoHead
+          canonicalPath="/"
+          description={seoDescription}
+          structuredData={homeStructuredData}
+          title={seoTitle}
+        />
+        <Stack spacing={2} alignItems="center">
+          <Image src="/Logo PMSync.svg" alt="PMSync" width={60} height={60} priority />
+          <Typography variant="body1" color="text.secondary">
+            {t.common.loading}
+          </Typography>
+        </Stack>
+      </Box>
+    );
+  }
+
+  const navLinks = [
+    { label: t.nav.product, href: '#product' },
+    { label: t.nav.features, href: '#features' },
+    { label: t.nav.automation, href: '#automation' },
   ];
 
   return (

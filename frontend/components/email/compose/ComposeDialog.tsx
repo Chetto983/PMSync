@@ -717,7 +717,7 @@ export default function ComposeDialog({
                   {isFullscreen ? <CloseFullscreenIcon /> : <OpenInFullIcon />}
                 </IconButton>
               </Tooltip>
-              <IconButton onClick={onClose} size="small">
+              <IconButton onClick={handleDialogClose} size="small">
                 <CloseIcon />
               </IconButton>
             </Box>
@@ -818,6 +818,30 @@ export default function ComposeDialog({
         </Box>
 
         <DialogContent sx={{ flex: 1, p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* AI Draft controls (reply/replyAll only) */}
+          {isReplyMode && (aiDraftOriginal || draftLoading) && (
+            <Box sx={{ px: 2, pt: 1 }}>
+              <AiDraftBadge
+                visible={!!aiDraftOriginal && !userHasEdited}
+                showRestore={userHasEdited && !!aiDraftOriginal}
+                onRestore={() => { if (aiDraftOriginal) { setBody(aiDraftOriginal); setUserHasEdited(false); } }}
+              />
+              {draftLoading && <Skeleton variant="rectangular" height={60} sx={{ mb: 1, borderRadius: 1 }} />}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                <ToneSelector selectedTone={draftTone} onToneChange={(tone) => { setDraftTone(tone); setUserHasEdited(false); }} disabled={draftLoading || regenerateMutation.isPending} />
+                <IconButton size="small" onClick={() => { regenerateMutation.mutate({ emailId: originalEmail!.id, tone: draftTone, instructions: regenerateInstructions || undefined }); setUserHasEdited(false); }} disabled={draftLoading || regenerateMutation.isPending} title={t.email.aiDraft.regenerate}>
+                  <RefreshCw size={16} />
+                </IconButton>
+                <Typography variant="caption" color="primary" sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }} onClick={() => setShowRegenerateInput((v) => !v)}>
+                  {t.email.aiDraft.regenerateWith}
+                </Typography>
+              </Box>
+              {showRegenerateInput && (
+                <TextField size="small" fullWidth placeholder={t.email.aiDraft.instructionPlaceholder} value={regenerateInstructions} onChange={(e) => setRegenerateInstructions(e.target.value)} sx={{ mb: 0.5 }} />
+              )}
+            </Box>
+          )}
+
           <Box sx={{ flex: quotedContent ? 'none' : 1, p: 2, display: 'flex', flexDirection: 'column', minHeight: quotedContent ? 150 : '100%' }}>
             <ComposeEditor
               placeholder={t.email.composer.bodyPlaceholder}
@@ -827,6 +851,7 @@ export default function ComposeDialog({
               onAttach={handleAttachFromToolbar}
               recipients={to.map((r) => r.email)}
               subject={subject}
+              focusEnd={!!aiDraftOriginal && !userHasEdited}
             />
           </Box>
 
