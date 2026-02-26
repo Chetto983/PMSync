@@ -36,13 +36,21 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Security middleware with Content Security Policy
+  // BUG-023: Only allow unsafe-inline in non-production (needed for Swagger UI)
+  const isProduction = process.env.NODE_ENV === 'production';
+  const scriptSrc: string[] = isProduction
+    ? ["'self'"]
+    : ["'self'", "'unsafe-inline'"];
+  const styleSrc: string[] = isProduction
+    ? ["'self'", "'unsafe-inline'"] // Swagger/MUI needs inline styles even in prod
+    : ["'self'", "'unsafe-inline'"];
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"], // Needed for Swagger UI
-          styleSrc: ["'self'", "'unsafe-inline'"], // Needed for Swagger UI
+          scriptSrc,
+          styleSrc,
           imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'", 'wss:', 'https:'],
           fontSrc: ["'self'", 'https:', 'data:'],
