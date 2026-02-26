@@ -160,7 +160,8 @@ export const complianceApi = {
    */
   async listExports(): Promise<DataExportResponse[]> {
     const response = await apiClient.get('/compliance/data-export');
-    return response.data;
+    const data = response.data;
+    return Array.isArray(data) ? data : data?.exports ?? [];
   },
 
   /**

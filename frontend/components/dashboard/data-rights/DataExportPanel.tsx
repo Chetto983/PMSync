@@ -62,7 +62,8 @@ export function DataExportPanel() {
   const { data: exports, isLoading, error } = useDataExports();
   const exportMutation = useExportMutation();
 
-  const hasPendingExport = exports?.some(
+  const exportList = Array.isArray(exports) ? exports : [];
+  const hasPendingExport = exportList.some(
     (e: DataExportResponse) => e.status === 'PENDING' || e.status === 'PROCESSING',
   );
 
@@ -131,13 +132,13 @@ export function DataExportPanel() {
         </Alert>
       )}
 
-      {(!exports || exports.length === 0) ? (
+      {exportList.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
           {copy?.noExports}
         </Typography>
       ) : (
         <List disablePadding>
-          {exports.map((exp: DataExportResponse, index: number) => (
+          {exportList.map((exp: DataExportResponse, index: number) => (
             <React.Fragment key={exp.id}>
               {index > 0 && <Divider />}
               <ListItem

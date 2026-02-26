@@ -32,7 +32,8 @@ export function dataExportsOptions(refetchInterval?: number | false) {
  */
 export function useDataExports() {
   const query = useQuery(dataExportsOptions(false));
-  const hasPendingExport = query.data?.some(
+  const data = Array.isArray(query.data) ? query.data : [];
+  const hasPendingExport = data.some(
     (e: DataExportResponse) => e.status === 'PENDING' || e.status === 'PROCESSING',
   );
 

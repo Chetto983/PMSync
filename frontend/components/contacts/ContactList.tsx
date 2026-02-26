@@ -1,18 +1,10 @@
 /**
- * Contact List Component
+ * Contact List — Virtual scrolling with @tanstack/react-virtual
  *
- * Virtual scrolling contact list with @tanstack/react-virtual
- * Handles 10,000+ contacts with 60 FPS performance
- *
- * Features:
- * - Virtual scrolling (render only visible items)
- * - Infinite scroll (automatic pagination)
- * - Multi-selection support
- * - Optimized with React.memo
- *
- * Performance targets:
- * - 60 FPS scrolling
- * - <500ms initial render
+ * Performance fixes:
+ * - measureElement for accurate dynamic row heights
+ * - Stable callback refs (no closures in render loop)
+ * - estimateSize matched to compact 52px layout
  */
 
 import React, { useRef, useCallback, useEffect, useState } from 'react';
@@ -22,104 +14,31 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ContactListItem } from './ContactListItem';
 import type { Contact } from '@/lib/api/contacts';
 
-/**
- * Props for ContactList component
- */
 interface ContactListProps {
-  /**
-   * List of contacts to display
-   */
   contacts: Contact[];
-
-  /**
-   * Currently selected contact ID (for viewing details)
-   */
   selectedId?: string;
-
-  /**
-   * Set of multi-selected contact IDs
-   */
   selectedIds?: Set<string>;
-
-  /**
-   * Whether data is loading
-   */
   isLoading?: boolean;
-
-  /**
-   * Whether loading more (pagination)
-   */
   isLoadingMore?: boolean;
-
-  /**
-   * Callback when contact is clicked
-   */
   onContactClick?: (contact: Contact) => void;
-
-  /**
-   * Callback to toggle selection
-   */
   onToggleSelect?: (id: string) => void;
-
-  /**
-   * Callback to edit contact
-   */
   onEdit?: (id: string) => void;
-
-  /**
-   * Callback to delete contact
-   */
   onDelete?: (id: string) => void;
-
-  /**
-   * Callback to email contact
-   */
   onEmail?: (email: string) => void;
-
-  /**
-   * Callback to call contact
-   */
   onCall?: (phone: string) => void;
-
-  /**
-   * Callback to toggle VIP status
-   */
   onToggleVip?: (id: string, isVip: boolean) => void;
-
-  /**
-   * Callback to load more contacts (infinite scroll)
-   */
   onLoadMore?: () => void;
-
-  /**
-   * Whether there are more contacts to load
-   */
   hasMore?: boolean;
-
-  /**
-   * Custom empty state title
-   */
   emptyTitle?: string;
-
-  /**
-   * Custom empty state subtitle
-   */
   emptySubtitle?: string;
 }
 
-// Estimated height of each contact item (for virtual scrolling)
-const ITEM_HEIGHT = 72;
+const EMPTY_SET = new Set<string>();
 
-/**
- * ContactList - Virtualized contact list with infinite scroll
- *
- * Uses @tanstack/react-virtual for optimal performance
- * with large contact lists (10,000+ items)
- */
 export const ContactList: React.FC<ContactListProps> = ({
   contacts,
   selectedId,
-  selectedIds = new Set(),
+  selectedIds = EMPTY_SET,
   isLoading = false,
   isLoadingMore = false,
   onContactClick,
@@ -134,27 +53,18 @@ export const ContactList: React.FC<ContactListProps> = ({
   emptyTitle = 'No contacts',
   emptySubtitle = 'Add contacts or sync from providers',
 }) => {
-  // Hover state for action bar visibility (like email list)
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Virtual scrolling setup
+  // Virtual scrolling
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: contacts.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ITEM_HEIGHT,
-    overscan: 5, // Render 5 extra items above/below viewport for smooth scrolling
+    estimateSize: () => 52,
+    overscan: 5,
   });
 
-  // Handle contact click - memoized
-  const handleContactClick = useCallback(
-    (contact: Contact) => {
-      onContactClick?.(contact);
-    },
-    [onContactClick]
-  );
-
-  // CRITICAL: Memoized mouse event handlers to prevent re-renders (matches email pattern)
+  // Stable callbacks — NO closures per row (takes id as param)
   const handleMouseEnter = useCallback((id: string) => {
     setHoveredId(id);
   }, []);
@@ -163,13 +73,20 @@ export const ContactList: React.FC<ContactListProps> = ({
     setHoveredId(null);
   }, []);
 
-  // Infinite scroll using virtualizer
+  // onClick passes id, parent resolves contact from the contacts array
+  const handleContactClick = useCallback(
+    (id: string) => {
+      const contact = contacts.find((c) => c.id === id);
+      if (contact) onContactClick?.(contact);
+    },
+    [contacts, onContactClick]
+  );
+
+  // Infinite scroll
   const virtualItems = virtualizer.getVirtualItems();
 
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
-
-    // Trigger load more when scrolled near bottom
     if (
       lastItem &&
       lastItem.index >= contacts.length - 5 &&
@@ -184,38 +101,17 @@ export const ContactList: React.FC<ContactListProps> = ({
 
   const isEmpty = contacts.length === 0;
 
-  // Loading state - only show full spinner if loading AND no contacts
   if (isLoading && isEmpty) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-          minHeight: 200,
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 200 }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  // Empty state
   if (isEmpty) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-          minHeight: 200,
-          px: 3,
-          textAlign: 'center',
-        }}
-      >
+      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 200, px: 3, textAlign: 'center' }}>
         <UsersIcon size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
         <Typography variant="h6" color="text.secondary" gutterBottom>
           {emptyTitle}
@@ -234,22 +130,8 @@ export const ContactList: React.FC<ContactListProps> = ({
         width: '100%',
         height: '100%',
         overflow: 'auto',
-        '&::-webkit-scrollbar': {
-          width: 8,
-        },
-        '&::-webkit-scrollbar-track': {
-          bgcolor: 'transparent',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          bgcolor: 'action.hover',
-          borderRadius: 4,
-        },
-        '&::-webkit-scrollbar-thumb:hover': {
-          bgcolor: 'action.selected',
-        },
       }}
     >
-      {/* Virtual list container with total height */}
       <Box
         sx={{
           height: virtualizer.getTotalSize(),
@@ -257,16 +139,14 @@ export const ContactList: React.FC<ContactListProps> = ({
           position: 'relative',
         }}
       >
-        {/* Render only visible items */}
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const contact = contacts[virtualRow.index];
           if (!contact) return null;
 
-          const isMultiSelected = selectedIds.has(contact.id);
-
           return (
             <Box
               key={contact.id}
+              ref={virtualizer.measureElement}
               data-index={virtualRow.index}
               sx={{
                 position: 'absolute',
@@ -279,7 +159,7 @@ export const ContactList: React.FC<ContactListProps> = ({
               <ContactListItem
                 contact={contact}
                 selected={selectedId === contact.id}
-                multiSelected={isMultiSelected}
+                multiSelected={selectedIds.has(contact.id)}
                 isHovered={hoveredId === contact.id}
                 onToggleSelect={onToggleSelect}
                 onEdit={onEdit}
@@ -287,8 +167,8 @@ export const ContactList: React.FC<ContactListProps> = ({
                 onEmail={onEmail}
                 onCall={onCall}
                 onToggleVip={onToggleVip}
-                onClick={() => handleContactClick(contact)}
-                onMouseEnter={() => handleMouseEnter(contact.id)}
+                onClick={handleContactClick}
+                onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
               />
             </Box>
@@ -296,16 +176,8 @@ export const ContactList: React.FC<ContactListProps> = ({
         })}
       </Box>
 
-      {/* Loading indicator for infinite scroll */}
       {(isLoadingMore || (hasMore && isLoading && contacts.length > 0)) && (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            py: 2,
-          }}
-        >
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 2 }}>
           <CircularProgress size={24} />
         </Box>
       )}
@@ -313,5 +185,4 @@ export const ContactList: React.FC<ContactListProps> = ({
   );
 };
 
-// Export memoized version for performance
 export default React.memo(ContactList);

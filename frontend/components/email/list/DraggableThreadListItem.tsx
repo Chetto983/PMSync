@@ -29,7 +29,7 @@ interface DraggableThreadListItemProps {
   onDelete: (id: string) => void;
   /** Move to folder (opens folder picker) */
   onMove?: (id: string) => void;
-  onMouseEnter: () => void;
+  onMouseEnter: (id: string) => void;
   onMouseLeave: () => void;
 }
 

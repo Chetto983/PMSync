@@ -83,7 +83,7 @@ interface ThreadListItemProps {
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
   onMove?: (id: string) => void;
-  onMouseEnter: () => void;
+  onMouseEnter: (id: string) => void;
   onMouseLeave: () => void;
 }
 
@@ -98,7 +98,7 @@ export const ThreadListItem = memo(function ThreadListItem({
 
   // Debounced prefetch on hover (300ms)
   const handleMouseEnter = useCallback(() => {
-    onMouseEnter();
+    onMouseEnter(thread.id);
     prefetchRef.current = setTimeout(async () => {
       await queryClient.prefetchQuery({
         ...emailThreadOptions(thread.id),

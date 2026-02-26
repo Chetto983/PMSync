@@ -1,140 +1,79 @@
+/**
+ * Contact List Item — Compact 2-line layout (matches ThreadListItem style)
+ *
+ * Line 1: Name + VIP star + primary email (merged, truncated)
+ * Line 2: Company — job title (if present)
+ *
+ * Design decisions:
+ * - VIP: 3px left accent border (matches email unread pattern)
+ * - Checkbox: appears on hover or when selected
+ * - Action bar: hover-only on ALL viewports
+ * - ~52px compact row height
+ */
+
 import React, { useMemo } from 'react';
 import {
-  ListItemButton,
   Box,
   Typography,
   Checkbox,
   Avatar,
-  Divider,
   IconButton,
   Tooltip,
-  alpha,
-  useTheme,
+  Fade,
 } from '@mui/material';
-import { Mail as MailIcon, Phone as PhoneIcon, Pencil as EditIcon, Trash2 as DeleteIcon, Building2 as BuildingIcon, Star as StarIcon } from 'lucide-react';
+import {
+  Mail as MailIcon,
+  Phone as PhoneIcon,
+  Pencil as EditIcon,
+  Trash2 as DeleteIcon,
+  Building2 as BuildingIcon,
+  Star as StarIcon,
+} from 'lucide-react';
 import type { Contact } from '@/lib/api/contacts';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { stringToColor } from '@/lib/utils/gravatar';
 
-/**
- * Props for ContactListItem component
- */
-interface ContactListItemProps {
-  /**
-   * Contact data
-   */
-  contact: Contact;
-
-  /**
-   * Whether this contact is selected (for viewing details)
-   */
-  selected?: boolean;
-
-  /**
-   * Whether this contact is multi-selected (checkbox)
-   */
-  multiSelected?: boolean;
-
-  /**
-   * Whether this contact row is hovered (controlled by parent)
-   */
-  isHovered?: boolean;
-
-  /**
-   * Callback to toggle selection
-   */
-  onToggleSelect?: (id: string) => void;
-
-  /**
-   * Callback to edit contact
-   */
-  onEdit?: (id: string) => void;
-
-  /**
-   * Callback to delete contact
-   */
-  onDelete?: (id: string) => void;
-
-  /**
-   * Callback to email contact
-   */
-  onEmail?: (email: string) => void;
-
-  /**
-   * Callback to call contact
-   */
-  onCall?: (phone: string) => void;
-
-  /**
-   * Callback when clicked
-   */
-  onClick?: () => void;
-
-  /**
-   * Callback to toggle VIP status
-   */
-  onToggleVip?: (id: string, isVip: boolean) => void;
-
-  /**
-   * Mouse enter callback for hover state
-   */
-  onMouseEnter?: () => void;
-
-  /**
-   * Mouse leave callback for hover state
-   */
-  onMouseLeave?: () => void;
-}
-
-/**
- * Get initials from contact name
- */
 function getInitials(contact: Contact): string {
   const name = contact.displayName ||
     [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
   if (!name) return '?';
   const parts = name.split(' ').filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   return parts[0].substring(0, 2).toUpperCase();
 }
 
-/**
- * Get display name from contact
- */
 function getDisplayName(contact: Contact): string {
   return contact.displayName ||
     [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim() ||
-    contact.emails?.[0]?.value ||
-    'Unknown';
+    contact.emails?.[0]?.value || 'Unknown';
 }
 
-/**
- * Get primary email from contact
- */
 function getPrimaryEmail(contact: Contact): string | null {
-  const primaryEmail = contact.emails?.find(e => e.type === 'primary' || e.type === 'work');
-  return primaryEmail?.value || contact.emails?.[0]?.value || null;
+  const primary = contact.emails?.find(e => e.type === 'primary' || e.type === 'work');
+  return primary?.value || contact.emails?.[0]?.value || null;
 }
 
-/**
- * Get primary phone from contact
- */
 function getPrimaryPhone(contact: Contact): string | null {
-  const primaryPhone = contact.phoneNumbers?.find(p => p.type === 'mobile' || p.type === 'work');
-  return primaryPhone?.value || contact.phoneNumbers?.[0]?.value || null;
+  const primary = contact.phoneNumbers?.find(p => p.type === 'mobile' || p.type === 'work');
+  return primary?.value || contact.phoneNumbers?.[0]?.value || null;
 }
 
-/**
- * ContactListItem - Individual contact in list with selection and hover actions
- *
- * Features:
- * - Checkbox for multi-selection
- * - Avatar with initials
- * - Contact info (name, email, company)
- * - Hover action bar (edit, delete, email, call)
- * - Optimized with React.memo
- */
+interface ContactListItemProps {
+  contact: Contact;
+  selected?: boolean;
+  multiSelected?: boolean;
+  isHovered?: boolean;
+  onToggleSelect?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onEmail?: (email: string) => void;
+  onCall?: (phone: string) => void;
+  onClick?: (id: string) => void;
+  onToggleVip?: (id: string, isVip: boolean) => void;
+  onMouseEnter?: (id: string) => void;
+  onMouseLeave?: () => void;
+}
+
 export const ContactListItem = React.memo<ContactListItemProps>(
   ({
     contact,
@@ -151,250 +90,199 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     onMouseEnter,
     onMouseLeave,
   }) => {
-    const theme = useTheme();
     const t = useTranslations();
     const displayName = useMemo(() => getDisplayName(contact), [contact]);
     const initials = useMemo(() => getInitials(contact), [contact]);
     const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
     const primaryPhone = useMemo(() => getPrimaryPhone(contact), [contact]);
 
-    const handleClick = (e: React.MouseEvent) => {
-      // Don't trigger onClick if clicking on checkbox or action buttons
-      if ((e.target as HTMLElement).closest('.MuiCheckbox-root, .contact-action-bar')) {
-        return;
-      }
-      onClick?.();
-    };
+    const stop = (e: React.MouseEvent) => e.stopPropagation();
 
-    const handleToggleSelect = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onToggleSelect?.(contact.id);
-    };
-
-    const handleEdit = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onEdit?.(contact.id);
-    };
-
-    const handleDelete = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onDelete?.(contact.id);
-    };
-
-    const handleEmail = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (primaryEmail) {
-        onEmail?.(primaryEmail);
-      }
-    };
-
-    const handleCall = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (primaryPhone) {
-        onCall?.(primaryPhone);
-      }
-    };
-
-    const handleToggleVip = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onToggleVip?.(contact.id, !contact.isVip);
-    };
+    const handleClick = () => onClick?.(contact.id);
+    const handleMouseEnter = () => onMouseEnter?.(contact.id);
+    const handleCheckbox = (e: React.MouseEvent) => { stop(e); onToggleSelect?.(contact.id); };
+    const handleEdit = (e: React.MouseEvent) => { stop(e); onEdit?.(contact.id); };
+    const handleDelete = (e: React.MouseEvent) => { stop(e); onDelete?.(contact.id); };
+    const handleEmail = (e: React.MouseEvent) => { stop(e); if (primaryEmail) onEmail?.(primaryEmail); };
+    const handleCall = (e: React.MouseEvent) => { stop(e); if (primaryPhone) onCall?.(primaryPhone); };
+    const handleToggleVip = (e: React.MouseEvent) => { stop(e); onToggleVip?.(contact.id, !contact.isVip); };
 
     const hasActionBar = onEdit || onDelete || onEmail || onCall || onToggleVip;
 
     return (
-      <>
-        <Box
-          onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
-          sx={{ position: 'relative' }}
+      <Box
+        onClick={handleClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={onMouseLeave}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          px: 2,
+          py: 1,
+          minHeight: 52,
+          cursor: 'pointer',
+          position: 'relative',
+          // VIP: left accent border (transparent when not VIP for alignment)
+          borderLeft: 3,
+          borderLeftColor: contact.isVip ? 'warning.main' : 'transparent',
+          borderBottom: '1px solid',
+          borderBottomColor: 'divider',
+          bgcolor: selected ? 'action.selected' : 'transparent',
+          transition: 'background-color 0.15s ease',
+          '&:hover': {
+            bgcolor: selected ? 'action.selected' : 'action.hover',
+          },
+        }}
+      >
+        {/* Checkbox — visible on hover or selected */}
+        <Fade in={isHovered || multiSelected}>
+          <Box sx={{ width: 36, flexShrink: 0 }}>
+            <Checkbox
+              checked={multiSelected}
+              onClick={handleCheckbox}
+              size="small"
+              sx={{ p: 0.5 }}
+            />
+          </Box>
+        </Fade>
+
+        {/* Avatar — 28px with color hash */}
+        <Avatar
+          src={contact.photoUrl || undefined}
+          sx={{
+            width: 28,
+            height: 28,
+            fontSize: '0.7rem',
+            flexShrink: 0,
+            bgcolor: contact.photoUrl ? undefined : stringToColor(displayName),
+          }}
         >
-          <ListItemButton
-            selected={selected}
-            onClick={handleClick}
-            sx={{
-              py: 1.5,
-              px: 2,
-              display: 'flex',
-              gap: 2,
-              alignItems: 'center',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s ease',
-              '&.Mui-selected': {
-                bgcolor: 'action.selected',
-              },
-              '&:hover': {
-                bgcolor: 'action.hover',
-              },
-            }}
-          >
-            {/* Checkbox */}
-            {onToggleSelect && (
-              <Box onClick={handleToggleSelect}>
-                <Checkbox
-                  checked={multiSelected}
-                  sx={{
-                    p: 0,
-                    width: { xs: 44, sm: 'auto' },
-                    height: { xs: 44, sm: 'auto' },
-                    color: 'action.active',
-                    '&.Mui-checked': {
-                      color: 'primary.main',
-                    },
-                    '& .MuiSvgIcon-root': {
-                      fontSize: 20,
-                    },
-                  }}
-                />
-              </Box>
-            )}
+          {initials}
+        </Avatar>
 
-            {/* Avatar */}
-            <Avatar
-              src={contact.photoUrl || undefined}
-              sx={{
-                width: 40,
-                height: 40,
-                flexShrink: 0,
-                bgcolor: 'primary.main',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-              }}
+        {/* Content — 2-line compact layout */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {/* Line 1: Name + VIP star + email */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+            <Typography
+              variant="body2"
+              component="span"
+              noWrap
+              sx={{ fontWeight: 600, fontSize: '0.8125rem', minWidth: 0 }}
             >
-              {initials}
-            </Avatar>
-
-            {/* Content — minWidth:0 enables flex truncation */}
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-              {/* Name */}
+              {displayName}
+            </Typography>
+            {contact.isVip && (
+              <StarIcon
+                size={12}
+                fill="var(--mui-palette-warning-main)"
+                style={{ color: 'var(--mui-palette-warning-main)', flexShrink: 0 }}
+              />
+            )}
+            {primaryEmail && (
               <Typography
-                variant="body2"
+                variant="caption"
+                color="text.disabled"
                 noWrap
-                sx={{ fontWeight: 600 }}
+                sx={{ fontSize: '0.6875rem', ml: 'auto', flexShrink: 1, minWidth: 0 }}
               >
-                {displayName}
+                {primaryEmail}
               </Typography>
+            )}
+          </Box>
 
-              {/* Email */}
-              {primaryEmail && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  noWrap
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-                >
-                  <MailIcon size={12} style={{ flexShrink: 0 }} />
-                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{primaryEmail}</Box>
-                </Typography>
+          {/* Line 2: Company — job title (if present) */}
+          {contact.company && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              noWrap
+              sx={{ fontSize: '0.8125rem' }}
+            >
+              <BuildingIcon size={11} style={{ verticalAlign: '-1px', marginRight: 4, opacity: 0.5 }} />
+              {contact.company}
+              {contact.jobTitle && (
+                <Box component="span" sx={{ color: 'text.disabled' }}>
+                  {' \u2014 '}{contact.jobTitle}
+                </Box>
               )}
+            </Typography>
+          )}
+        </Box>
 
-              {/* Company */}
-              {contact.company && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  noWrap
-                  sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}
-                >
-                  <BuildingIcon size={12} style={{ flexShrink: 0 }} />
-                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {contact.company}
-                    {contact.jobTitle && ` - ${contact.jobTitle}`}
-                  </Box>
-                </Typography>
-              )}
-            </Box>
-          </ListItemButton>
-
-          {/* Floating Action Bar - same pattern as email list */}
-          {/* Mobile: always visible, Desktop: hover reveal via isHovered prop */}
-          {hasActionBar && (
+        {/* Action bar — hover-only on ALL viewports */}
+        {hasActionBar && (
+          <Fade in={isHovered}>
             <Box
               className="contact-action-bar"
               sx={{
                 position: 'absolute',
-                right: { xs: 8, md: 16 },
+                right: 12,
                 top: '50%',
                 transform: 'translateY(-50%)',
                 display: 'flex',
-                gap: 0.5,
-                bgcolor: alpha(theme.palette.background.paper, 0.95),
-                backdropFilter: 'blur(8px)',
-                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                gap: 0.25,
+                bgcolor: 'background.paper',
                 borderRadius: 1,
-                boxShadow: 1,
-                p: 0.5,
-                // Hover-only on ALL viewports (no mobile overlap)
-                opacity: isHovered ? 1 : 0,
-                visibility: isHovered ? 'visible' as const : 'hidden' as const,
-                transition: 'opacity 0.2s ease, visibility 0.2s ease',
-                zIndex: 10,
+                boxShadow: 2,
+                p: 0.25,
               }}
             >
               {onToggleVip && (
                 <Tooltip title={contact.isVip ? (t.contacts?.actions?.removeVip || 'Remove VIP') : (t.contacts?.actions?.markVip || 'Mark as VIP')}>
-                  <IconButton
-                    size="small"
-                    onClick={handleToggleVip}
-                    sx={{
-                      p: 0.5,
-                      color: contact.isVip ? 'warning.main' : 'action.active',
-                    }}
-                  >
-                    {contact.isVip ? <StarIcon size={18} fill="currentColor" /> : <StarIcon size={18} />}
+                  <IconButton size="small" onClick={handleToggleVip} sx={{ p: 0.5, color: contact.isVip ? 'warning.main' : 'action.active' }}>
+                    {contact.isVip ? <StarIcon size={16} fill="currentColor" /> : <StarIcon size={16} />}
                   </IconButton>
                 </Tooltip>
               )}
               {primaryEmail && onEmail && (
                 <Tooltip title={t.contacts?.actions?.sendEmail || 'Send email'}>
                   <IconButton size="small" onClick={handleEmail} sx={{ p: 0.5 }}>
-                    <MailIcon size={18} />
+                    <MailIcon size={16} />
                   </IconButton>
                 </Tooltip>
               )}
               {primaryPhone && onCall && (
                 <Tooltip title={t.contacts?.actions?.call || 'Call'}>
                   <IconButton size="small" onClick={handleCall} sx={{ p: 0.5 }}>
-                    <PhoneIcon size={18} />
+                    <PhoneIcon size={16} />
                   </IconButton>
                 </Tooltip>
               )}
               {onEdit && (
                 <Tooltip title={t.common?.edit || 'Edit'}>
                   <IconButton size="small" onClick={handleEdit} sx={{ p: 0.5 }}>
-                    <EditIcon size={18} />
+                    <EditIcon size={16} />
                   </IconButton>
                 </Tooltip>
               )}
               {onDelete && (
                 <Tooltip title={t.common?.delete || 'Delete'}>
                   <IconButton size="small" onClick={handleDelete} color="error" sx={{ p: 0.5 }}>
-                    <DeleteIcon size={18} />
+                    <DeleteIcon size={16} />
                   </IconButton>
                 </Tooltip>
               )}
             </Box>
-          )}
-        </Box>
-        <Divider />
-      </>
+          </Fade>
+        )}
+      </Box>
     );
   },
-  (prevProps, nextProps) => {
-    // Custom comparison for React.memo
-    return (
-      prevProps.contact.id === nextProps.contact.id &&
-      prevProps.contact.displayName === nextProps.contact.displayName &&
-      prevProps.contact.firstName === nextProps.contact.firstName &&
-      prevProps.contact.lastName === nextProps.contact.lastName &&
-      prevProps.contact.company === nextProps.contact.company &&
-      prevProps.contact.photoUrl === nextProps.contact.photoUrl &&
-      prevProps.contact.isVip === nextProps.contact.isVip &&
-      prevProps.selected === nextProps.selected &&
-      prevProps.multiSelected === nextProps.multiSelected &&
-      prevProps.isHovered === nextProps.isHovered
-    );
-  }
+  (prev, next) => (
+    prev.contact.id === next.contact.id &&
+    prev.contact.displayName === next.contact.displayName &&
+    prev.contact.firstName === next.contact.firstName &&
+    prev.contact.lastName === next.contact.lastName &&
+    prev.contact.company === next.contact.company &&
+    prev.contact.jobTitle === next.contact.jobTitle &&
+    prev.contact.photoUrl === next.contact.photoUrl &&
+    prev.contact.isVip === next.contact.isVip &&
+    prev.selected === next.selected &&
+    prev.multiSelected === next.multiSelected &&
+    prev.isHovered === next.isHovered
+  ),
 );
 
 ContactListItem.displayName = 'ContactListItem';

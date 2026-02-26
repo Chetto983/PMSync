@@ -388,7 +388,7 @@ export function ThreadList({
                     onArchive={handleArchive}
                     onDelete={handleDelete}
                     onMove={handleMove}
-                    onMouseEnter={() => handleMouseEnter(thread.id)}
+                    onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                   />
                 ) : (
@@ -403,7 +403,7 @@ export function ThreadList({
                     onArchive={handleArchive}
                     onDelete={handleDelete}
                     onMove={handleMove}
-                    onMouseEnter={() => handleMouseEnter(thread.id)}
+                    onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                   />
                 )}

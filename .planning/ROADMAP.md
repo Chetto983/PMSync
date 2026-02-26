@@ -358,6 +358,15 @@ Plans:
 | 20. Mount GDPR Guards | 1/1 | Complete    | 2026-02-26 | - |
 | 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
 
+### Phase 22: bug_audit
+
+**Goal:** [To be planned]
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 22 to break down)
+
 ---
 
 *Roadmap created: 2026-02-09*
