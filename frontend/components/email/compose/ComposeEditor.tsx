@@ -1,5 +1,6 @@
 import type { EditorOptions } from '@tiptap/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import DOMPurify from 'dompurify';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
@@ -490,7 +491,7 @@ export default function ComposeEditor({
                   '& p': { mb: 1, '&:last-child': { mb: 0 } },
                   lineHeight: 1.6,
                 }}
-                dangerouslySetInnerHTML={{ __html: aiContent || '' }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(aiContent || '') }}
               />
             )}
           </Box>

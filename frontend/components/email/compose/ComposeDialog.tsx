@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import dynamic from 'next/dynamic';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -902,7 +903,7 @@ export default function ComposeDialog({
                     '& img': { maxWidth: '100%', height: 'auto' },
                     '& table': { maxWidth: '100%', fontSize: '0.875rem' },
                   }}
-                  dangerouslySetInnerHTML={{ __html: quotedContent }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(quotedContent) }}
                 />
               </Collapse>
             </Box>
