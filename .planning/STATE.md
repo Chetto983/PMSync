@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 22 (Bug Audit)
-Plan: 1 of 6 complete
+Plan: 2 of 6 complete
 Status: In Progress
-Last activity: 2026-02-26 — Plan 22-01 complete (Comprehensive Bug Audit)
+Last activity: 2026-02-26 — Plan 22-02 complete (Tooling & CI fixes)
 
 Progress: Phase 22
 ```
-[########......................................] 17% (1/6 plans complete)
+[################..............................] 33% (2/6 plans complete)
 ```
-Plan 22-01 complete. 789-line BUG-REPORT.md with 47 bugs (3 CRITICAL, 12 HIGH, 18 MEDIUM, 14 LOW). 18 authenticated before-state screenshots. Git tag v3.1-pre-audit. Metrics baseline established.
+Plan 22-02 complete. ESLint fixed in both sides, Prisma migration applied, 3 test failures fixed, E2E auth mocks hardened, GitHub Actions CI workflow created. 8 atomic commits.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 22-01-PLAN.md (Comprehensive Bug Audit)
+Stopped at: Completed 22-02-PLAN.md (Tooling & CI fixes)
 Resume file: None
-Next action: Execute 22-02-PLAN.md (Tooling & CI fixes)
+Next action: Execute 22-03-PLAN.md (Backend bug fixes)
 
 ## Accumulated Decisions
 
@@ -220,6 +220,11 @@ Next action: Execute 22-02-PLAN.md (Tooling & CI fixes)
 - [Phase v3.1-19-03]: handleDialogClose wraps onClose to capture rejection feedback
 - [Phase v3.1-19-03]: Draft population useEffect keyed on aiDraft.draftId to avoid re-render loops
 - [Phase v3.1-19-03]: focusEnd uses requestAnimationFrame for one-tick delay after content render
+- [Phase 22-02]: Ignore all **/*.js in backend ESLint (TS-only project with utility JS scripts)
+- [Phase 22-02]: Filter eslint-plugin-react from eslint-config-next (7.37.5 incompatible with ESLint 10)
+- [Phase 22-02]: Manual Prisma migration for aiPriority index (shadow DB replay issue)
+- [Phase 22-02]: Catch-all E2E API mock returns 200 with empty JSON for unmocked endpoints
+- [Phase 22-02]: Backend xlsx/node-nlp vulns accepted as risk (no safe fix)
 
 ## Blockers & Concerns
 
@@ -280,7 +285,7 @@ See: .planning/MILESTONES.md
 
 **Phase 22 progress (Bug Audit):**
 - Plan 22-01: Comprehensive bug audit -- COMPLETE
-- Plan 22-02: Tooling & CI fixes -- PENDING
+- Plan 22-02: Tooling & CI fixes -- COMPLETE
 - Plan 22-03: Backend bug fixes -- PENDING
 - Plan 22-04: Frontend bug fixes -- PENDING
 - Plan 22-05: Gap closures (19-04 + 21-01) -- PENDING
