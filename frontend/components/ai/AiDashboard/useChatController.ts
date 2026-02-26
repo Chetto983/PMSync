@@ -21,6 +21,7 @@ import {
   type AskUserData,
   type UIMessage,
 } from '@/hooks/use-voltagent-chat';
+import { useEmailUIStore } from '@/stores/email-ui-store';
 
 export interface ChatControllerState {
   // State
@@ -85,6 +86,10 @@ export function useChatController(options: UseChatControllerOptions): ChatContro
   const [askUserModalOpen, setAskUserModalOpen] = useState(false);
   const [widgetsDrawerOpen, setWidgetsDrawerOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
+
+  // AI prompt bridge from email list "Apply AI Suggestions" button
+  const pendingAiPrompt = useEmailUIStore((state) => state.pendingAiPrompt);
+  const clearPendingAiPrompt = useEmailUIStore((state) => state.clearPendingAiPrompt);
 
   // ViewContext - hardcoded to 'ai' for now (CHAT-02)
   const viewContext: ViewContext = useMemo(
@@ -172,6 +177,19 @@ export function useChatController(options: UseChatControllerOptions): ChatContro
       mobileDialogDismissedRef.current = false;
     }
   }, [isMobileChat, chatMessages.length, mobileChatOpen]);
+
+  // Auto-send pending AI prompt from email list "Apply AI Suggestions" button
+  useEffect(() => {
+    if (pendingAiPrompt && !sending) {
+      const prompt = pendingAiPrompt;
+      clearPendingAiPrompt();
+      // Small delay to ensure chat UI is mounted and ready
+      const timer = setTimeout(() => {
+        sendMessage(prompt);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingAiPrompt, sending, clearPendingAiPrompt, sendMessage]);
 
   // ============ Handlers ============
 
