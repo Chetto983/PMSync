@@ -289,10 +289,13 @@ Plans:
 3. User can accept, edit, or regenerate AI drafts
 4. System learns from user edits to improve future drafts
 
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 19-01: (To be planned)
+- [ ] 19-01-PLAN.md -- Backend: Prisma schema (AiDraftFeedback, WritingStyleProfile extension), DraftGenerationService, DraftFeedbackService, AiDraftController (DRAFT-01)
+- [ ] 19-02-PLAN.md -- Backend: Per-provider writing style profiles, manual samples, draft corrections, weekly refresh cron (DRAFT-02)
+- [ ] 19-03-PLAN.md -- Frontend: Translations, API module, TanStack Query hooks, AiDraftBadge, ToneSelector, ComposeDialog auto-draft wiring (DRAFT-01)
+- [ ] 19-04-PLAN.md -- Frontend: WritingStyleSettings panel with style summary, manual samples, draft stats + visual checkpoint (DRAFT-02)
 
 ---
 
@@ -351,7 +354,7 @@ Plans:
 | 16. Data Rights & Legal Documents | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 18. AI Triage & Bulk Operations | v3.1 | Complete    | 2026-02-26 | 2026-02-26 |
-| 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
+| 19. AI Draft Generation | v3.1 | 0/4 | Planned | - |
 | 20. Mount GDPR Guards | 1/1 | Complete    | 2026-02-26 | - |
 | 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
 
