@@ -10,22 +10,22 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: Phase 19 (AI Draft Generation)
-Plan: 1 of 4 complete
+Plan: 2 of 4 complete
 Status: In Progress
-Last activity: 2026-02-26 — Plan 19-01 complete (Backend Draft Generation Infrastructure)
+Last activity: 2026-02-26 — Plan 19-02 complete (Writing Style Service Extension)
 
 Progress: Phase 19
 ```
-[############..................................] 25% (1/4 plans complete)
+[########################......................] 50% (2/4 plans complete)
 ```
-Plan 19-01 complete. Backend API for draft generation, feedback, stats ready.
+Plan 19-02 complete. Per-provider writing style profiles, manual samples, correction learning, weekly refresh cron.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 19-01-PLAN.md (Backend Draft Generation Infrastructure)
+Stopped at: Completed 19-02-PLAN.md (Writing Style Service Extension)
 Resume file: None
-Next action: Execute 19-02-PLAN.md (Frontend draft wiring into ComposeDialog)
+Next action: Execute 19-03-PLAN.md (Writing style settings panel)
 
 ## Accumulated Decisions
 
@@ -213,6 +213,9 @@ Next action: Execute 19-02-PLAN.md (Frontend draft wiring into ComposeDialog)
 - [Phase v3.1-19-01]: findFirst + create/update over upsert for nullable compound unique (WritingStyleProfile)
 - [Phase v3.1-19-01]: Inline language detection with Italian keyword heuristic (2+ hits = Italian)
 - [Phase v3.1-19-01]: Two-row Levenshtein optimization for O(min(m,n)) memory in edit distance
+- [Phase v3.1-19-02]: Provider-specific profile falls back to default (providerId: null) profile
+- [Phase v3.1-19-02]: analyzeUserEmails overloaded signature for backward compat (limit, providerId?)
+- [Phase v3.1-19-02]: Correction snippets truncated to 120 chars, max 3 corrections for token control
 
 ## Blockers & Concerns
 
@@ -268,11 +271,11 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 19 IN PROGRESS (1/4 plans done).
+**Currently:** Phase 19 IN PROGRESS (2/4 plans done).
 
 **Phase 19 progress (AI Draft Generation):**
 - Plan 19-01: Backend draft generation infrastructure -- COMPLETE
-- Plan 19-02: Frontend draft wiring into ComposeDialog -- PENDING
+- Plan 19-02: Writing style service extension -- COMPLETE
 - Plan 19-03: Writing style settings panel -- PENDING
 - Plan 19-04: Weekly style refresh cron -- PENDING
 
@@ -283,7 +286,7 @@ See: .planning/MILESTONES.md
 - @@index([tenantId, aiPriority]) needs Prisma migration before production use
 
 ---
-*State updated: 2026-02-26 — Plan 19-01 complete (Backend Draft Generation Infrastructure). Phase 19: 1/4 plans done.*
+*State updated: 2026-02-26 — Plan 19-02 complete (Writing Style Service Extension). Phase 19: 2/4 plans done.*
 
 ## Previous Milestone (v3.0) Highlights
 

@@ -1,5 +1,5 @@
 import type { EditorOptions } from '@tiptap/core';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
@@ -56,6 +56,8 @@ export type ComposeEditorProps = {
   onAttach?: () => void;
   recipients?: string[];
   subject?: string;
+  /** When true, focus cursor at end of editor content (used after AI draft population) */
+  focusEnd?: boolean;
 };
 
 export default function ComposeEditor({
@@ -68,6 +70,7 @@ export default function ComposeEditor({
   onAttach,
   recipients = [],
   subject = '',
+  focusEnd,
 }: ComposeEditorProps) {
   const t = useTranslations();
   const { locale } = useLocale();
@@ -84,6 +87,16 @@ export default function ComposeEditor({
   // Ref for AI button to anchor keyboard-triggered popover
   const aiButtonRef = useRef<HTMLButtonElement>(null);
   const rteRef = useRef<RichTextEditorRef>(null);
+
+  // Focus cursor at end of content when AI draft populates
+  useEffect(() => {
+    if (focusEnd && rteRef.current?.editor) {
+      requestAnimationFrame(() => {
+        rteRef.current?.editor?.commands.focus('end');
+      });
+    }
+  }, [focusEnd]);
+
   // Inline AI state
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [aiContent, setAiContent] = useState<string | null>(null);

@@ -354,7 +354,7 @@ Plans:
 | 16. Data Rights & Legal Documents | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 18. AI Triage & Bulk Operations | v3.1 | Complete    | 2026-02-26 | 2026-02-26 |
-| 19. AI Draft Generation | 1/4 | In Progress|  | - |
+| 19. AI Draft Generation | 2/4 | In Progress|  | - |
 | 20. Mount GDPR Guards | 1/1 | Complete    | 2026-02-26 | - |
 | 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
 
