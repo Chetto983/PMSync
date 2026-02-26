@@ -18,6 +18,7 @@ import { AnalysisRenderer } from "./renderers/AnalysisRenderer";
 import { MemoryRenderer } from "./renderers/MemoryRenderer";
 import { BriefingRenderer } from "./renderers/BriefingRenderer";
 import { CrmRenderer } from "./renderers/CrmRenderer";
+import { TriageRenderer } from "./renderers/TriageRenderer";
 import { FallbackRenderer } from "./renderers/FallbackRenderer";
 
 const TOOL_RENDERERS: Record<string, ComponentType<ToolRendererProps>> = {
@@ -60,6 +61,9 @@ const TOOL_RENDERERS: Record<string, ComponentType<ToolRendererProps>> = {
 
   // CRM / Relationship stats
   get_relationship_stats: CrmRenderer,
+
+  // Bulk email actions (triage, labels, follow-ups)
+  bulk_email_actions: TriageRenderer,
 };
 
 export function getToolRenderer(
