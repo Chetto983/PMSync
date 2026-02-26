@@ -307,7 +307,7 @@ Plans:
 | 15. GDPR Core Compliance | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 16. Data Rights & Legal Documents | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 18. AI Triage & Bulk Operations | v3.1 | 4/4 | ✓ Complete | 2026-02-26 |
+| 18. AI Triage & Bulk Operations | v3.1 | Complete    | 2026-02-26 | 2026-02-26 |
 | 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
 
 ---
