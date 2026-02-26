@@ -7,6 +7,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import DOMPurify from "dompurify";
 import { ChevronRightIcon } from "lucide-react";
 import {
   type ComponentProps,
@@ -163,7 +164,7 @@ export const SchemaDisplayPath = ({
     <span
       className={cn("font-mono text-sm", className)}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: "needed for parameter highlighting"
-      dangerouslySetInnerHTML={{ __html: String(children ?? highlightedPath) }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(String(children ?? highlightedPath), { ALLOWED_TAGS: ['span'], ALLOWED_ATTR: ['class'] }) }}
       {...props}
     />
   );

@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
+import DOMPurify from 'dompurify';
 import {
   Box,
   Typography,
@@ -301,7 +302,7 @@ export function SignatureSettings({
                             WebkitBoxOrient: 'vertical',
                           }}
                           dangerouslySetInnerHTML={{
-                            __html: signature.content.replace(/<[^>]*>/g, ' ').substring(0, 100) + '...',
+                            __html: DOMPurify.sanitize(signature.content, { ALLOWED_TAGS: [] }).substring(0, 100) + '...',
                           }}
                         />
                       }
