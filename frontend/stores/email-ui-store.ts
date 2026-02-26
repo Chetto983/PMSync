@@ -123,6 +123,9 @@ interface EmailUIState {
   // Loading states (for optimistic UI)
   pendingActions: Set<string>; // emailIds with pending actions
 
+  // AI prompt bridge (ephemeral, not persisted)
+  pendingAiPrompt: string | null;
+
   // Kanban state (LOCAL ONLY - not persisted to backend)
   kanbanAssignments: KanbanColumnAssignments;
 
@@ -159,6 +162,10 @@ interface EmailUIState {
   addPendingAction: (emailId: string) => void;
   removePendingAction: (emailId: string) => void;
   clearPendingActions: () => void;
+
+  // Actions - AI prompt bridge
+  setPendingAiPrompt: (prompt: string) => void;
+  clearPendingAiPrompt: () => void;
 
   // Actions - Sidebar
   setSidebarWidth: (width: number) => void;
@@ -218,6 +225,7 @@ export const useEmailUIStore = create<EmailUIState>()(
         compose: initialComposeState,
         pendingActions: new Set<string>(),
         kanbanAssignments: {},
+        pendingAiPrompt: null,
 
       // Selection actions
       selectEmail: (id) =>
@@ -387,6 +395,10 @@ export const useEmailUIStore = create<EmailUIState>()(
 
       clearPendingActions: () => set({ pendingActions: new Set<string>() }),
 
+      // AI prompt bridge actions
+      setPendingAiPrompt: (prompt) => set({ pendingAiPrompt: prompt }),
+      clearPendingAiPrompt: () => set({ pendingAiPrompt: null }),
+
       // Sidebar actions
       setSidebarWidth: (width) =>
         set((state) => ({
@@ -467,6 +479,7 @@ export const useEmailUIStore = create<EmailUIState>()(
           compose: initialComposeState,
           pendingActions: new Set<string>(),
           kanbanAssignments: {},
+          pendingAiPrompt: null,
         }),
       }),
       {

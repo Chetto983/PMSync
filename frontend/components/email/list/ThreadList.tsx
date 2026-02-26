@@ -21,6 +21,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 // DragOverlay is centralized in EmailLayout
+import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 // DnD state is managed by EmailLayout - no need to access here
@@ -91,6 +92,8 @@ export function ThreadList({
   // Mobile uses touch scroll, and DndContext isn't available in mobile layouts anyway
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
+  const router = useRouter();
+
   // Selection state from Zustand store (replaces local useState)
   const {
     selectedIds,
@@ -100,6 +103,7 @@ export function ThreadList({
     selectRange,
     selectAll,
     clearSelection,
+    setPendingAiPrompt,
   } = useEmailUIStore();
 
   // Local UI state (hover, refreshing, folder picker)
@@ -201,6 +205,14 @@ export function ThreadList({
     onBulkLabel?.(Array.from(selectedIds));
     // Keep selection for label picker
   }, [onBulkLabel, selectedIds]);
+
+  const handleApplyAiSuggestions = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const prompt = `Apply AI label suggestions to these ${ids.length} emails: ${ids.join(', ')}`;
+    setPendingAiPrompt(prompt);
+    router.push('/dashboard/ai');
+  }, [selectedIds, setPendingAiPrompt, router]);
 
   // Individual action handlers - FIXED: Memoized
   const handleFlag = useCallback((id: string) => onFlag?.(id), [onFlag]);
@@ -321,6 +333,7 @@ export function ThreadList({
         onDelete={handleBulkDelete}
         onMoveToFolder={handleBulkMove}
         onAddLabel={handleBulkLabel}
+        onApplyAiSuggestions={handleApplyAiSuggestions}
       />
 
       {/* Virtual scrolling container */}
