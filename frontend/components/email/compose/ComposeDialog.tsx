@@ -246,7 +246,7 @@ export default function ComposeDialog({
 
   // AI Draft hooks (enabled only for reply/replyAll)
   const isReplyMode = mode === 'reply' || mode === 'replyAll';
-  const { data: aiDraft, isLoading: draftLoading } = useAiDraft(
+  const { data: aiDraft, isLoading: draftLoading, isError: draftError } = useAiDraft(
     isReplyMode ? originalEmail?.id : undefined,
     { tone: draftTone, enabled: isReplyMode && !!originalEmail?.id },
   );
@@ -819,7 +819,7 @@ export default function ComposeDialog({
 
         <DialogContent sx={{ flex: 1, p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {/* AI Draft controls (reply/replyAll only) */}
-          {isReplyMode && (aiDraftOriginal || draftLoading) && (
+          {isReplyMode && (aiDraftOriginal || draftLoading || draftError) && (
             <Box sx={{ px: 2, pt: 1 }}>
               <AiDraftBadge
                 visible={!!aiDraftOriginal && !userHasEdited}
@@ -827,16 +827,23 @@ export default function ComposeDialog({
                 onRestore={() => { if (aiDraftOriginal) { setBody(aiDraftOriginal); setUserHasEdited(false); } }}
               />
               {draftLoading && <Skeleton variant="rectangular" height={60} sx={{ mb: 1, borderRadius: 1 }} />}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
-                <ToneSelector selectedTone={draftTone} onToneChange={(tone) => { setDraftTone(tone); setUserHasEdited(false); }} disabled={draftLoading || regenerateMutation.isPending} />
-                <IconButton size="small" onClick={() => { regenerateMutation.mutate({ emailId: originalEmail!.id, tone: draftTone, instructions: regenerateInstructions || undefined }); setUserHasEdited(false); }} disabled={draftLoading || regenerateMutation.isPending} title={t.email.aiDraft.regenerate}>
-                  <RefreshCw size={16} />
-                </IconButton>
-                <Typography variant="caption" color="primary" sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }} onClick={() => setShowRegenerateInput((v) => !v)}>
-                  {t.email.aiDraft.regenerateWith}
-                </Typography>
-              </Box>
-              {showRegenerateInput && (
+              {draftError && !aiDraftOriginal && (
+                <Alert severity="info" variant="outlined" sx={{ mb: 0.5, py: 0, fontSize: '0.75rem' }}>
+                  {t.email.aiDraft.failed}
+                </Alert>
+              )}
+              {!draftError && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                  <ToneSelector selectedTone={draftTone} onToneChange={(tone) => { setDraftTone(tone); setUserHasEdited(false); }} disabled={draftLoading || regenerateMutation.isPending} />
+                  <IconButton size="small" onClick={() => { regenerateMutation.mutate({ emailId: originalEmail!.id, tone: draftTone, instructions: regenerateInstructions || undefined }); setUserHasEdited(false); }} disabled={draftLoading || regenerateMutation.isPending} title={t.email.aiDraft.regenerate}>
+                    <RefreshCw size={16} />
+                  </IconButton>
+                  <Typography variant="caption" color="primary" sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }} onClick={() => setShowRegenerateInput((v) => !v)}>
+                    {t.email.aiDraft.regenerateWith}
+                  </Typography>
+                </Box>
+              )}
+              {showRegenerateInput && !draftError && (
                 <TextField size="small" fullWidth placeholder={t.email.aiDraft.instructionPlaceholder} value={regenerateInstructions} onChange={(e) => setRegenerateInstructions(e.target.value)} sx={{ mb: 0.5 }} />
               )}
             </Box>
