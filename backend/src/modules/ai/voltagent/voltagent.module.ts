@@ -63,7 +63,7 @@ import { DocumentLibraryService } from './services/document-library.service';
 import { RelationshipIntelligenceService } from './services/relationship-intelligence.service';
 import { RelationshipScoringService } from './services/relationship-scoring.service';
 import { AttentionScoreService } from './services/attention-score.service';
-import { CrmBackfillProcessor, ReconnectReminderProcessor } from './jobs';
+import { CrmBackfillProcessor, ReconnectReminderProcessor, WritingStyleRefreshProcessor } from './jobs';
 import { CalendarConflictService } from './services/calendar-conflict.service';
 import { FocusTimeService } from './services/focus-time.service';
 import { MeetingPrepService } from './services/meeting-prep.service';
@@ -171,6 +171,7 @@ import { AuditModule } from '../../audit/audit.module';
     AttentionScoreService,
     CrmBackfillProcessor,
     ReconnectReminderProcessor,
+    WritingStyleRefreshProcessor, // Phase 19: Weekly writing style refresh cron
     CalendarConflictService,
     FocusTimeService,
     MeetingPrepService,
