@@ -228,8 +228,8 @@ describe('useAiActions', () => {
         await result.current.approveAction('exec-1');
       });
 
-      expect(voltAgentApi.approveAction).toHaveBeenCalledWith('exec-1');
-      expect(onApprove).toHaveBeenCalledWith('exec-1');
+      expect(voltAgentApi.approveAction).toHaveBeenCalledWith('exec-1', undefined);
+      expect(onApprove).toHaveBeenCalledWith('exec-1', undefined);
     });
 
     it('should handle approval error', async () => {
