@@ -1,0 +1,74 @@
+/**
+ * TanStack Query hooks for writing style profile and draft statistics.
+ * Phase 19-04: Writing Style Settings panel.
+ */
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { voltAgentApi, type WritingStyleProfile, type DraftStats } from '@/lib/api/ai';
+
+// ============ Query Keys ============
+
+export const writingStyleKeys = {
+  all: ['ai', 'writing-style'] as const,
+  profile: (providerId?: string) =>
+    [...writingStyleKeys.all, providerId ?? 'default'] as const,
+  draftStats: ['ai', 'draft-stats'] as const,
+};
+
+// ============ Query Hooks ============
+
+/**
+ * Fetch the user's writing style profile.
+ * TODO: When per-provider support is added to the GET endpoint, pass providerId as query param.
+ */
+export function useWritingStyle(_providerId?: string) {
+  return useQuery<WritingStyleProfile | null>({
+    queryKey: writingStyleKeys.profile(_providerId),
+    queryFn: async () => {
+      try {
+        const { data } = await voltAgentApi.getWritingStyle();
+        return data.profile ?? null;
+      } catch {
+        // If no profile exists yet, return null instead of throwing
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+/**
+ * Mutation to update manual writing samples.
+ * Invalidates the writing style profile cache on success.
+ */
+export function useUpdateManualSamples() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { samples: string; providerId?: string }) => {
+      const { data } = await voltAgentApi.updateManualSamples(params);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: writingStyleKeys.all });
+    },
+  });
+}
+
+/**
+ * Fetch AI draft quality statistics (accept rate, edit rate, etc.).
+ */
+export function useDraftStats() {
+  return useQuery<DraftStats | null>({
+    queryKey: writingStyleKeys.draftStats,
+    queryFn: async () => {
+      try {
+        const { data } = await voltAgentApi.getDraftStats();
+        return data.stats ?? null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}

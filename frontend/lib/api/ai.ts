@@ -1215,6 +1215,13 @@ export const voltAgentApi = {
   getDraftStats() {
     return apiClient.get<{ success: boolean; stats: DraftStats }>('/api/v1/voltagent/draft-stats');
   },
+
+  updateManualSamples(params: { samples: string; providerId?: string }) {
+    return apiClient.post<{ success: boolean }>(
+      '/api/v1/voltagent/writing-style/manual-samples',
+      params,
+    );
+  },
 };
 
 // ============ AI Draft Types ============

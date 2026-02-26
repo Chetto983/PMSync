@@ -23,6 +23,7 @@ import { QuotaGuard, RequiresQuota } from '../../../subscription/guards/quota.gu
 import { RequiresConsent } from '../../../compliance/decorators/requires-consent.decorator';
 import { DraftGenerationService } from '../services/draft-generation.service';
 import { DraftFeedbackService, type DraftAction } from '../services/draft-feedback.service';
+import { WritingStyleService } from '../services/writing-style.service';
 
 interface AuthenticatedRequest {
   user: {
@@ -71,6 +72,7 @@ export class AiDraftController {
   constructor(
     private readonly draftGenerationService: DraftGenerationService,
     private readonly draftFeedbackService: DraftFeedbackService,
+    private readonly writingStyleService: WritingStyleService,
   ) {}
 
   /**
@@ -128,5 +130,24 @@ export class AiDraftController {
       req.user.userId,
     );
     return { success: true, stats };
+  }
+
+  /**
+   * Update manual writing samples for the current user.
+   * Manual samples override auto-detected writing style patterns.
+   */
+  @Post('writing-style/manual-samples')
+  @ApiOperation({ summary: 'Update manual writing samples' })
+  async updateManualSamples(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: { samples: string; providerId?: string },
+  ) {
+    await this.writingStyleService.updateManualSamples(
+      req.user.tenantId,
+      req.user.userId,
+      dto.samples,
+      dto.providerId,
+    );
+    return { success: true };
   }
 }

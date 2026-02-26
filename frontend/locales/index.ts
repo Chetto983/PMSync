@@ -1912,6 +1912,35 @@ export interface AppTranslations {
       lastUpdated: string;
       version: string;
     };
+    writingStylePanel?: {
+      title: string;
+      subtitle: string;
+      greeting: string;
+      tone: string;
+      signOff: string;
+      formality: string;
+      formalityFormal: string;
+      formalitySemiFormal: string;
+      formalityCasual: string;
+      avgSentenceLength: string;
+      words: string;
+      sampleCount: string;
+      lastAnalyzed: string;
+      manualSamples: string;
+      manualSamplesHelp: string;
+      manualSamplesSave: string;
+      manualSamplesSaved: string;
+      selectAccount: string;
+      defaultProfile: string;
+      noProfile: string;
+      draftStats: string;
+      totalDrafts: string;
+      acceptRate: string;
+      editRate: string;
+      rejectRate: string;
+      avgEditDistance: string;
+      noDraftStats: string;
+    };
     signaturesPanel?: {
       title: string;
       description: string;
