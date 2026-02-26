@@ -121,7 +121,7 @@ export function ThreadList({
   const virtualizer = useVirtualizer({
     count: threads.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 96, // 3-line layout height
+    estimateSize: () => 56, // Compact 2-line layout (~52-72px actual)
     overscan: 5, // Render 5 extra items above/below viewport
   });
 
@@ -365,6 +365,7 @@ export function ThreadList({
             return (
               <Box
                 key={thread.id}
+                ref={virtualizer.measureElement}
                 data-index={virtualRow.index}
                 sx={{
                   position: 'absolute',

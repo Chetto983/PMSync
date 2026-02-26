@@ -1,25 +1,18 @@
 /**
- * Thread List Skeleton Component
+ * Thread List Skeleton — matches compact 2-line ThreadListItem layout
  *
- * Loading skeleton that mimics ThreadListItem 3-line layout:
  * Line 1: Avatar + Sender + Date
- * Line 2: Subject
- * Line 3: Snippet
- *
- * Provides smooth visual loading experience per Phase 10 requirements.
+ * Line 2: Subject — snippet
  */
 
 import { memo } from 'react';
 import { Box, Skeleton } from '@mui/material';
 
 interface ThreadItemSkeletonProps {
-  /** Animation variant - wave for initial load, pulse for refresh */
   animation?: 'wave' | 'pulse' | false;
 }
 
-/**
- * Single skeleton row matching ThreadListItem structure
- */
+/** Single skeleton row matching compact ThreadListItem */
 export const ThreadItemSkeleton = memo(function ThreadItemSkeleton({
   animation = 'wave',
 }: ThreadItemSkeletonProps) {
@@ -30,19 +23,21 @@ export const ThreadItemSkeleton = memo(function ThreadItemSkeleton({
         alignItems: 'center',
         gap: 1.5,
         px: 2,
-        py: 1.5,
-        minHeight: 96,
-        borderBottom: 1,
-        borderColor: 'divider',
+        py: 1,
+        minHeight: 52,
+        borderLeft: 3,
+        borderLeftColor: 'transparent',
+        borderBottom: '1px solid',
+        borderBottomColor: 'divider',
       }}
     >
       {/* Checkbox area */}
-      <Box sx={{ width: 40, flexShrink: 0 }}>
+      <Box sx={{ width: 36, flexShrink: 0 }}>
         <Skeleton
           animation={animation}
           variant="circular"
-          width={20}
-          height={20}
+          width={18}
+          height={18}
           sx={{ ml: 0.5 }}
         />
       </Box>
@@ -56,49 +51,31 @@ export const ThreadItemSkeleton = memo(function ThreadItemSkeleton({
         sx={{ flexShrink: 0 }}
       />
 
-      {/* Content - 3 lines */}
+      {/* Content — 2 lines */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         {/* Line 1: Sender + Date */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mb: 0.5,
-          }}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Skeleton
             animation={animation}
             variant="text"
-            width="35%"
-            height={20}
-            sx={{ fontSize: '0.875rem' }}
+            width="30%"
+            height={18}
           />
           <Box sx={{ flex: 1 }} />
           <Skeleton
             animation={animation}
             variant="text"
-            width={60}
-            height={16}
+            width={55}
+            height={14}
           />
         </Box>
 
-        {/* Line 2: Subject */}
+        {/* Line 2: Subject — snippet */}
         <Skeleton
           animation={animation}
           variant="text"
-          width="75%"
+          width="80%"
           height={18}
-          sx={{ mb: 0.25, fontSize: '0.8125rem' }}
-        />
-
-        {/* Line 3: Snippet */}
-        <Skeleton
-          animation={animation}
-          variant="text"
-          width="90%"
-          height={18}
-          sx={{ fontSize: '0.8125rem' }}
         />
       </Box>
     </Box>
@@ -106,19 +83,13 @@ export const ThreadItemSkeleton = memo(function ThreadItemSkeleton({
 });
 
 interface ThreadListSkeletonProps {
-  /** Number of skeleton items to render */
   count?: number;
-  /** Animation variant */
   animation?: 'wave' | 'pulse' | false;
 }
 
-/**
- * Full list skeleton with configurable count
- *
- * Default 8 items fills typical viewport
- */
+/** Full list skeleton — default 10 items fills compact viewport */
 export const ThreadListSkeleton = memo(function ThreadListSkeleton({
-  count = 8,
+  count = 10,
   animation = 'wave',
 }: ThreadListSkeletonProps) {
   return (
