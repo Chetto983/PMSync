@@ -154,9 +154,10 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
   const router = useRouter();
   const isPrivateRoute =
     router.pathname.startsWith('/dashboard') || router.pathname.startsWith('/auth');
+  const shouldShowHydrationSkeleton = !mounted && isPrivateRoute;
 
-  // Show skeleton during hydration instead of null (prevents flash)
-  if (!mounted) {
+  // Keep SEO-critical public pages SSR-rendered; only hold private routes during hydration.
+  if (shouldShowHydrationSkeleton) {
     return (
       <MuiThemeProvider theme={lightTheme}>
         <CssBaseline />

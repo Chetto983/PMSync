@@ -25,8 +25,8 @@ import { AlertingService } from '../../common/services/alerting.service';
     PrismaModule,
     forwardRef(() => ProvidersModule),
     RealtimeModule, // WebSocket events
-    EmailSyncModule, // Import for SyncAuthService (webhook authentication)
-    VoltAgentModule, // CRM Relationship Intelligence
+    forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
+    forwardRef(() => VoltAgentModule), // CRM Relationship Intelligence
     forwardRef(() => AiModule), // ContactEmbeddingQueueService for RAG
   ],
   controllers: [

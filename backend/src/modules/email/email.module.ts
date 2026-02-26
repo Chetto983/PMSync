@@ -30,7 +30,6 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
 import { ProviderTokenService } from '../email-sync/services/provider-token.service';
 import { CalendarModule } from '../calendar/calendar.module';
-import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module';
 
 /**
  * EmailModule - Core email functionality with observability
@@ -46,12 +45,12 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
 @Module({
   imports: [
     PrismaModule,
-    ProvidersModule,
+    forwardRef(() => ProvidersModule),
     forwardRef(() => AiModule),
     forwardRef(() => EmailSyncModule),
     forwardRef(() => CalendarModule),
     RealtimeModule,
-    ScheduledJobsModule, // For RedisLockService
+    // ScheduledJobsModule is @Global() — no need to import, available everywhere
   ],
   providers: [
     // Core services

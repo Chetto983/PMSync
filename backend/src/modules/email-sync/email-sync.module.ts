@@ -7,7 +7,6 @@ import { EmailModule } from '../email/email.module';
 import { AiModule } from '../ai/ai.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RetryService } from '../../common/services/retry.service';
-import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
 import { AlertingService } from '../../common/services/alerting.service';
 import { PrismaRetryService } from '../../common/services/prisma-retry.service';
@@ -78,7 +77,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     forwardRef(() => AiModule),
     RealtimeModule, // WebSocket events
     DriversModule, // Email Drivers (Phase 2)
-    ScheduledJobsModule, // For RedisLockService (Phase 6.1)
+    // ScheduledJobsModule is @Global() — no need to import, available everywhere
   ],
   controllers: [
     EmailSyncController,

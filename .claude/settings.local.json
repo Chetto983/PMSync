@@ -110,15 +110,16 @@
       "Bash(npx prisma generate:*)",
       "Bash(export:*)",
       "Bash(tasklist:*)",
-      "Bash(wmic process where \"processid=6888\" get name,commandline)"
+      "Bash(wmic process where \"processid=6888\" get name,commandline)",
+      "Bash(taskkill //PID 17876 //F)"
     ],
     "deny": [],
     "ask": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "claude-flow@alpha",
     "ruv-swarm",
     "flow-nexus"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
