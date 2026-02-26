@@ -14,6 +14,7 @@ import { PrismaModule } from '../../../prisma/prisma.module';
 import { CalendarModule } from '../../calendar/calendar.module';
 import { EmailModule } from '../../email/email.module';
 import { EmailSyncModule } from '../../email-sync/email-sync.module';
+import { LabelsModule } from '../../labels/labels.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
 import { SubscriptionModule } from '../../subscription/subscription.module';
 
@@ -77,6 +78,9 @@ import { AlertingService } from '../../../common/services/alerting.service';
 import { LearningService } from './services/learning.service';
 import { ConversationAtomicityService } from './services/conversation-atomicity.service';
 
+// Phase 18: AI Triage & Bulk Operations
+import { TriageSuggestionService } from '../services/triage-suggestion.service';
+
 // Chat Processing (Refactored from VoltAgentService 2026-01-22)
 import { ChatRequestProcessorService } from './services/chat-request-processor.service';
 import { ChatContextBuilderService } from './services/chat-context-builder.service';
@@ -116,6 +120,7 @@ import { AuditModule } from '../../audit/audit.module';
     forwardRef(() => CalendarModule),
     forwardRef(() => EmailSyncModule),
     forwardRef(() => SubscriptionModule),
+    forwardRef(() => LabelsModule), // Phase 18: Provides LabelsService for bulk label operations
     AuditModule, // AUDIT-02: Provides AuditService for tool execution audit logging
   ],
   controllers: [
@@ -193,6 +198,8 @@ import { AuditModule } from '../../audit/audit.module';
     RetryService,
     // CHAT-02: Context-aware suggested prompts
     SuggestedPromptsService,
+    // Phase 18: AI Triage & Bulk Operations
+    TriageSuggestionService,
   ],
   exports: [
     VoltAgentService,

@@ -2609,6 +2609,17 @@ export interface AppTranslations {
         confidence: string;
       };
     };
+    triage: {
+      title: string;
+      emailCount: string;
+      applyAll: string;
+      applySelected: string;
+      dismiss: string;
+      labelSuggestion: string;
+      priorityLabel: string;
+      sentimentLabel: string;
+      noSuggestions: string;
+    };
     calendarAi: {
       scheduling: {
         title: string;
@@ -3081,6 +3092,8 @@ export interface AppTranslations {
     delete: string;
     moveToFolder: string;
     addLabel: string;
+    applyAiSuggestions: string;
+    aiTriageLabels: string;
     // Empty states
     emptyInbox: string;
     emptyInboxDesc: string;

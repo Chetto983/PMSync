@@ -2576,6 +2576,17 @@ export const en: AppTranslations = {
         confidence: 'Confidence',
       },
     },
+    triage: {
+      title: 'AI Triage Results',
+      emailCount: 'emails analyzed',
+      applyAll: 'Apply All Suggestions',
+      applySelected: 'Apply to Selected',
+      dismiss: 'Dismiss',
+      labelSuggestion: 'Suggested label',
+      priorityLabel: 'Priority',
+      sentimentLabel: 'Sentiment',
+      noSuggestions: 'No triage suggestions available',
+    },
     calendarAi: {
       scheduling: {
         title: 'AI Scheduling Assistant',
@@ -3236,6 +3247,8 @@ export const en: AppTranslations = {
     delete: 'Delete',
     moveToFolder: 'Move to folder',
     addLabel: 'Add label',
+    applyAiSuggestions: 'Apply AI suggestions',
+    aiTriageLabels: 'AI Labels',
     // Empty states
     emptyInbox: 'Your inbox is empty',
     emptyInboxDesc: 'No emails to display',

@@ -16,6 +16,10 @@ import { CalendarExecutor, CalendarExecutorDeps } from './executors/calendar-exe
 import { ContactExecutor, ContactExecutorDeps } from './executors/contact-executor';
 import { EmailExecutor, EmailExecutorDeps } from './executors/email-executor';
 import { BulkEmailExecutor, BulkEmailExecutorDeps } from './executors/bulk-email-executor';
+import { BulkLabelExecutor, BulkLabelExecutorDeps } from './executors/bulk-label-executor';
+import { LabelsService } from '../../../labels/services/labels.service';
+import { TriageSuggestionService } from '../../services/triage-suggestion.service';
+import { FollowUpCrudService } from './follow-up-crud.service';
 
 /** Default TTL for idempotency keys (5 minutes) */
 const IDEMPOTENCY_TTL_SECONDS = 300;
@@ -53,6 +57,10 @@ export class ActionExecutorService {
     @Optional() @Inject(CacheService) private readonly cacheService: CacheService | null,
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(PiiResolutionService) private readonly piiResolutionService: PiiResolutionService | null,
+    // Phase 18: Bulk label + follow-up dependencies
+    @Optional() @Inject(LabelsService) private readonly labelsService: LabelsService | null,
+    @Optional() @Inject(TriageSuggestionService) private readonly triageSuggestionService: TriageSuggestionService | null,
+    @Optional() @Inject(FollowUpCrudService) private readonly followUpCrudService: FollowUpCrudService | null,
   ) {
     this.logger.log(`[INIT] PiiResolutionService injected: ${!!this.piiResolutionService}`);
   }
@@ -137,6 +145,19 @@ export class ActionExecutorService {
   private getBulkEmailDeps(): BulkEmailExecutorDeps {
     return {
       bulkOperationsQueue: this.bulkOperationsQueue,
+      prisma: this.prisma,
+      logger: this.logger,
+    };
+  }
+
+  /**
+   * Get dependencies for BulkLabelExecutor (Phase 18 extraction).
+   */
+  private getBulkLabelDeps(): BulkLabelExecutorDeps {
+    return {
+      labelsService: this.labelsService,
+      triageSuggestionService: this.triageSuggestionService,
+      followUpCrudService: this.followUpCrudService,
       prisma: this.prisma,
       logger: this.logger,
     };
@@ -304,6 +325,14 @@ export class ActionExecutorService {
           break;
         case AgentActionType.BULK_MOVE_EMAILS:
           result = await BulkEmailExecutor.executeBulkMoveEmails(action, context, this.getBulkEmailDeps());
+          break;
+
+        // Phase 18: Bulk label + follow-up actions
+        case AgentActionType.BULK_APPLY_LABELS:
+          result = await BulkLabelExecutor.executeBulkApplyLabels(action, context, this.getBulkLabelDeps());
+          break;
+        case AgentActionType.BULK_CREATE_FOLLOW_UPS:
+          result = await BulkLabelExecutor.executeBulkCreateFollowUps(action, context, this.getBulkLabelDeps());
           break;
 
         default:

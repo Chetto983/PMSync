@@ -763,13 +763,15 @@ Examples:
     // ========================================================================
     createTool({
       name: 'bulk_email_actions',
-      description: `Perform bulk email operations. CONSOLIDATED TOOL - handles mass delete, archive, and mark-read.
+      description: `Perform bulk email operations. CONSOLIDATED TOOL - handles mass delete, archive, mark-read, label application, and follow-up creation.
 
 Actions:
 - "delete": Delete multiple emails (requires folder OR emailIds)
 - "empty_folder": Empty JUNK/SPAM/TRASH completely (requires folder)
 - "archive": Archive multiple emails (folder defaults to INBOX)
 - "mark_read": Mark multiple emails as read
+- "apply_labels": Apply labels to multiple emails (requires emailIds + labelNames). Uses HITL approval.
+- "create_follow_ups": Create follow-ups for multiple emails (requires emailIds). Uses HITL approval.
 
 Filters (optional):
 - emailIds: Specific emails to target
@@ -777,19 +779,25 @@ Filters (optional):
 - olderThanDays: Only emails older than X days
 - onlyRead: Only read emails (for archive)
 - permanent: Permanently delete (for delete/empty_folder)
+- labelNames: Label names to apply (for apply_labels)
+- reason: Follow-up reason (for create_follow_ups)
+- dueDays: Days until follow-up due (for create_follow_ups, default 3)
 
 All actions require user approval (HITL).`,
       parameters: z.object({
-        action: z.enum(['delete', 'empty_folder', 'archive', 'mark_read'])
+        action: z.enum(['delete', 'empty_folder', 'archive', 'mark_read', 'apply_labels', 'create_follow_ups'])
           .describe('Bulk action to perform'),
         folder: z.string().optional().describe('Folder name (JUNK, SPAM, TRASH, INBOX, etc.)'),
         emailIds: z.array(z.string()).optional().describe('Specific email IDs to target'),
         olderThanDays: z.number().optional().describe('Only emails older than X days'),
         onlyRead: z.boolean().optional().describe('Only read emails (for archive)'),
         permanent: z.boolean().optional().describe('Permanently delete'),
+        labelNames: z.array(z.string()).optional().describe('Label names to apply (AI labels or user labels). Required for apply_labels action.'),
+        reason: z.string().optional().describe('Follow-up reason. Optional for create_follow_ups action.'),
+        dueDays: z.number().optional().describe('Days until follow-up is due (default 3). Optional for create_follow_ups action.'),
       }),
       execute: async (params) => {
-        const { action, folder, emailIds, olderThanDays, onlyRead, permanent } = params;
+        const { action, folder, emailIds, olderThanDays, onlyRead, permanent, labelNames, reason, dueDays } = params;
 
         // Helper to resolve folder names from specialUse (handles JUNK/SPAM synonyms)
         const resolveFolderNames = async (folderName: string): Promise<string[]> => {
@@ -1021,6 +1029,77 @@ All actions require user approval (HITL).`,
                 count: selectedCount,
               },
               summary: `Mark ${selectedCount} email${selectedCount === 1 ? '' : 's'} as read${truncationNote}`,
+            };
+          }
+
+          case 'apply_labels': {
+            if (!emailIds?.length) {
+              return { success: false, error: 'apply_labels requires emailIds' };
+            }
+            if (!labelNames?.length) {
+              return { success: false, error: 'apply_labels requires labelNames' };
+            }
+
+            // Verify emails exist
+            const labelsEmails = await prisma.email.findMany({
+              where: { tenantId, id: { in: emailIds } },
+              select: { id: true },
+              take: 500,
+            });
+            const validLabelEmailIds = labelsEmails.map((e) => e.id);
+            if (validLabelEmailIds.length === 0) {
+              return { success: true, data: { count: 0 }, summary: 'No valid emails found for labeling' };
+            }
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'BULK_APPLY_LABELS',
+              severity: 'MEDIUM',
+              payload: { emailIds: validLabelEmailIds, labelNames, count: validLabelEmailIds.length },
+              summary: `Apply labels [${labelNames.join(', ')}] to ${validLabelEmailIds.length} emails`,
+            };
+          }
+
+          case 'create_follow_ups': {
+            if (!emailIds?.length) {
+              return { success: false, error: 'create_follow_ups requires emailIds' };
+            }
+
+            // Check which emails already have active follow-ups
+            const existingFollowUps = await prisma.emailFollowUp.findMany({
+              where: {
+                tenantId,
+                emailId: { in: emailIds },
+                status: { in: ['PENDING', 'REMINDED'] },
+              },
+              select: { emailId: true },
+            });
+            const existingEmailIds = new Set(existingFollowUps.map((f) => f.emailId));
+            const newEmailIds = emailIds.filter((id: string) => !existingEmailIds.has(id));
+            const existingCount = existingEmailIds.size;
+
+            if (newEmailIds.length === 0) {
+              return {
+                success: true,
+                data: { count: 0, skipped: existingCount },
+                summary: `All ${existingCount} emails already have active follow-ups`,
+              };
+            }
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'BULK_CREATE_FOLLOW_UPS',
+              severity: 'MEDIUM',
+              payload: {
+                emailIds: newEmailIds,
+                reason: reason || 'Bulk follow-up via AI',
+                dueDays: dueDays || 3,
+                count: newEmailIds.length,
+                skipped: existingCount,
+              },
+              summary: `Create follow-ups for ${newEmailIds.length} emails (${existingCount} already tracked)`,
             };
           }
 

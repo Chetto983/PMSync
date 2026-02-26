@@ -2557,6 +2557,17 @@ export const it: AppTranslations = {
         confidence: 'Affidabilità',
       },
     },
+    triage: {
+      title: 'Risultati Triage AI',
+      emailCount: 'email analizzate',
+      applyAll: 'Applica tutti i suggerimenti',
+      applySelected: 'Applica ai selezionati',
+      dismiss: 'Ignora',
+      labelSuggestion: 'Etichetta suggerita',
+      priorityLabel: 'Priorita',
+      sentimentLabel: 'Sentimento',
+      noSuggestions: 'Nessun suggerimento di triage disponibile',
+    },
     calendarAi: {
       scheduling: {
         title: 'Assistente pianificazione AI',
@@ -3213,6 +3224,8 @@ export const it: AppTranslations = {
     delete: 'Elimina',
     moveToFolder: 'Sposta in cartella',
     addLabel: 'Aggiungi etichetta',
+    applyAiSuggestions: 'Applica suggerimenti AI',
+    aiTriageLabels: 'Etichette AI',
     // Empty states
     emptyInbox: 'La posta in arrivo è vuota',
     emptyInboxDesc: 'Nessuna email da visualizzare',
