@@ -9,23 +9,23 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 19 (AI Draft Generation)
-Plan: 3 of 4 complete
+Phase: Phase 22 (Bug Audit)
+Plan: 1 of 6 complete
 Status: In Progress
-Last activity: 2026-02-26 — Plan 19-03 complete (Frontend AI Draft Wiring)
+Last activity: 2026-02-26 — Plan 22-01 complete (Comprehensive Bug Audit)
 
-Progress: Phase 19
+Progress: Phase 22
 ```
-[####################################..........] 75% (3/4 plans complete)
+[########......................................] 17% (1/6 plans complete)
 ```
-Plan 19-03 complete. AI draft wired into ComposeDialog: auto-fetch, ToneSelector, AiDraftBadge, feedback on send/close.
+Plan 22-01 complete. 789-line BUG-REPORT.md with 47 bugs (3 CRITICAL, 12 HIGH, 18 MEDIUM, 14 LOW). 18 authenticated before-state screenshots. Git tag v3.1-pre-audit. Metrics baseline established.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 19-03-PLAN.md (Frontend AI Draft Wiring)
+Stopped at: Completed 22-01-PLAN.md (Comprehensive Bug Audit)
 Resume file: None
-Next action: Execute 19-04-PLAN.md (Weekly style refresh cron)
+Next action: Execute 22-02-PLAN.md (Tooling & CI fixes)
 
 ## Accumulated Decisions
 
@@ -276,22 +276,24 @@ See: .planning/MILESTONES.md
 
 ## Next Steps
 
-**Currently:** Phase 19 IN PROGRESS (3/4 plans done).
+**Currently:** Phase 22 IN PROGRESS (1/6 plans done).
 
-**Phase 19 progress (AI Draft Generation):**
-- Plan 19-01: Backend draft generation infrastructure -- COMPLETE
-- Plan 19-02: Writing style service extension -- COMPLETE
-- Plan 19-03: Frontend AI Draft Wiring -- COMPLETE
-- Plan 19-04: Weekly style refresh cron -- PENDING
+**Phase 22 progress (Bug Audit):**
+- Plan 22-01: Comprehensive bug audit -- COMPLETE
+- Plan 22-02: Tooling & CI fixes -- PENDING
+- Plan 22-03: Backend bug fixes -- PENDING
+- Plan 22-04: Frontend bug fixes -- PENDING
+- Plan 22-05: Gap closures (19-04 + 21-01) -- PENDING
+- Plan 22-06: Final verification & sign-off -- PENDING
 
-**Known issues carried forward from v3.0:**
-- LCP/TTI targets monitored but not yet met (continue-on-error in CI)
-- E2E auth mock infrastructure bug (pre-existing, affects all E2E tests)
-- Pre-existing lint error in LabelTreeDndWrapper.tsx (resetState accessed before declaration)
-- @@index([tenantId, aiPriority]) needs Prisma migration before production use
+**47 bugs discovered in audit:**
+- 3 CRITICAL: ESLint broken (both), missing Prisma migration
+- 12 HIGH: dead code, duplicate sanitization, RC-A1/RC-A8, P2034 retry, security findings
+- 18 MEDIUM: i18n gaps, pattern violations, accessibility
+- 14 LOW: styling, naming conventions
 
 ---
-*State updated: 2026-02-26 — Plan 19-02 complete (Writing Style Service Extension). Phase 19: 2/4 plans done.*
+*State updated: 2026-02-26 — Plan 22-01 complete (Comprehensive Bug Audit). Phase 22: 1/6 plans done.*
 
 ## Previous Milestone (v3.0) Highlights
 
