@@ -305,6 +305,11 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
     bulkArchiveQueued: (count) => `Archiviazione di ${count} email in coda.`,
     bulkMarkReadQueued: (count) => `${count} email contrassegnate come lette.`,
     bulkMoveQueued: (count, folder) => `Spostamento di ${count} email in ${folder}.`,
+    // Phase 18: Bulk label + follow-up actions
+    bulkApplyLabelsQueued: (count, labels) =>
+      `Etichette [${labels}] applicate a ${count} email.`,
+    bulkCreateFollowUpsQueued: (count, skipped) =>
+      `Follow-up creati per ${count} email${skipped > 0 ? ` (${skipped} gia monitorati)` : ''}.`,
     noSubject: 'Senza oggetto',
     unknownSender: 'Mittente sconosciuto',
     event: 'Evento',

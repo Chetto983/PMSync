@@ -90,6 +90,9 @@ export const actionSummaries = {
   bulkArchiveQueued: { en: en.actions.bulkArchiveQueued, it: it.actions.bulkArchiveQueued },
   bulkMarkReadQueued: { en: en.actions.bulkMarkReadQueued, it: it.actions.bulkMarkReadQueued },
   bulkMoveQueued: { en: en.actions.bulkMoveQueued, it: it.actions.bulkMoveQueued },
+  // Phase 18: Bulk label + follow-up actions
+  bulkApplyLabelsQueued: { en: en.actions.bulkApplyLabelsQueued, it: it.actions.bulkApplyLabelsQueued },
+  bulkCreateFollowUpsQueued: { en: en.actions.bulkCreateFollowUpsQueued, it: it.actions.bulkCreateFollowUpsQueued },
 
   // Fallback labels
   noSubject: { en: en.actions.noSubject, it: it.actions.noSubject },

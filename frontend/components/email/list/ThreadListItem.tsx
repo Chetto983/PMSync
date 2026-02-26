@@ -23,6 +23,7 @@ import {
   Chip,
   Fade,
   Tooltip,
+  useTheme,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap } from 'lucide-react';
@@ -104,6 +105,7 @@ export const ThreadListItem = memo(function ThreadListItem({
   onMouseLeave,
 }: ThreadListItemProps) {
   const t = useTranslations();
+  const theme = useTheme();
   const queryClient = useQueryClient();
   const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -384,6 +386,33 @@ export const ThreadListItem = memo(function ThreadListItem({
         >
           {thread.snippet}
         </Typography>
+
+        {/* AI Triage Labels (suggested by AI, not yet applied) */}
+        {thread.aiLabels && thread.aiLabels.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.25, alignItems: 'center' }}>
+            <Zap size={11} style={{ color: theme.palette.info.main, flexShrink: 0 }} />
+            {thread.aiLabels.slice(0, 3).map((label) => (
+              <Chip
+                key={label}
+                label={label}
+                size="small"
+                variant="outlined"
+                sx={{
+                  height: 18,
+                  fontSize: '0.65rem',
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '& .MuiChip-label': { px: 0.75 },
+                }}
+              />
+            ))}
+            {thread.aiLabels.length > 3 && (
+              <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.6rem' }}>
+                +{thread.aiLabels.length - 3}
+              </Typography>
+            )}
+          </Box>
+        )}
       </Box>
 
       {/* Action buttons - always visible on mobile, hover reveal on desktop */}

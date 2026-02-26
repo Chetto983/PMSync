@@ -327,6 +327,9 @@ export interface ActionSummaryTranslations {
   bulkArchiveQueued: (count: number) => string;
   bulkMarkReadQueued: (count: number) => string;
   bulkMoveQueued: (count: number, folder: string) => string;
+  // Phase 18: Bulk label + follow-up actions
+  bulkApplyLabelsQueued: (count: number, labels: string) => string;
+  bulkCreateFollowUpsQueued: (count: number, skipped: number) => string;
   noSubject: string;
   unknownSender: string;
   event: string;

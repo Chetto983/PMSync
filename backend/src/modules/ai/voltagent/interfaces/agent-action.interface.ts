@@ -24,6 +24,10 @@ export enum AgentActionType {
   BULK_MARK_READ = 'BULK_MARK_READ',
   BULK_MOVE_EMAILS = 'BULK_MOVE_EMAILS',
 
+  // Bulk label + follow-up actions (Phase 18)
+  BULK_APPLY_LABELS = 'BULK_APPLY_LABELS',
+  BULK_CREATE_FOLLOW_UPS = 'BULK_CREATE_FOLLOW_UPS',
+
   // Folder actions
   CREATE_FOLDER = 'CREATE_FOLDER',
   RENAME_FOLDER = 'RENAME_FOLDER',
@@ -189,4 +193,25 @@ export interface BulkMoveEmailsPayload {
   emailIds: string[];
   targetFolder: string;
   count: number;
+}
+
+/**
+ * Bulk label application payload (Phase 18)
+ */
+export interface BulkApplyLabelsPayload {
+  emailIds: string[];
+  labelNames?: string[];  // AI label strings (resolved to UserLabel IDs)
+  labelIds?: string[];    // Direct UserLabel IDs
+  count: number;
+}
+
+/**
+ * Bulk follow-up creation payload (Phase 18)
+ */
+export interface BulkCreateFollowUpsPayload {
+  emailIds: string[];
+  reason: string;
+  dueDays: number;
+  count: number;
+  skipped: number;
 }

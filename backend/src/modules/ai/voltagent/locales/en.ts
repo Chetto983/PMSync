@@ -385,6 +385,11 @@ Reply ONLY with valid JSON (no markdown, no explanation):
       `Queued marking ${count} email${count === 1 ? '' : 's'} as read. Processing in background.`,
     bulkMoveQueued: (count, folder) =>
       `Queued moving ${count} email${count === 1 ? '' : 's'} to ${folder}. Processing in background.`,
+    // Phase 18: Bulk label + follow-up actions
+    bulkApplyLabelsQueued: (count, labels) =>
+      `Applied labels [${labels}] to ${count} email${count === 1 ? '' : 's'}.`,
+    bulkCreateFollowUpsQueued: (count, skipped) =>
+      `Created follow-ups for ${count} email${count === 1 ? '' : 's'}${skipped > 0 ? ` (${skipped} already tracked)` : ''}.`,
     noSubject: 'No subject',
     unknownSender: 'Unknown sender',
     event: 'Event',
