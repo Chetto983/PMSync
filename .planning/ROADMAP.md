@@ -312,8 +312,10 @@ Plans:
 3. Exempt routes (auth, health, compliance) are decorated with `@SkipLegalCheck` / `@SkipConsent`
 4. Integration test verifies guards block requests when consent/legal acceptance is missing
 
+**Plans**: 1 plan
+
 Plans:
-- [ ] 20-01: (To be planned)
+- [ ] 20-01-PLAN.md — Register LegalAcceptanceGuard + ConsentGuard as APP_GUARD, exempt compliance routes, enforce ai_email_processing consent on AI endpoints, integration tests (CONS-02, LEGAL-01, LEGAL-02)
 
 ---
 
@@ -350,7 +352,7 @@ Plans:
 | 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
 | 18. AI Triage & Bulk Operations | v3.1 | Complete    | 2026-02-26 | 2026-02-26 |
 | 19. AI Draft Generation | v3.1 | 0/? | Not started | - |
-| 20. Mount GDPR Guards | v3.1 | 0/? | Not started | - |
+| 20. Mount GDPR Guards | 1/1 | Complete   | 2026-02-26 | - |
 | 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
 
 ---

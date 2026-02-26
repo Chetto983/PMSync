@@ -26,7 +26,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 ### Consent Management (CONS-01 to CONS-03)
 
 - [x] **CONS-01**: User can view and modify granular consent settings per feature
-- [ ] **CONS-02**: System blocks data processing until consent is captured
+- [x] **CONS-02**: System blocks data processing until consent is captured
 - [x] **CONS-03**: System maintains versioned consent audit trail
 
 ### Audit Logging (AUDIT-01 to AUDIT-03)
@@ -43,8 +43,8 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 
 ### Legal Documents (LEGAL-01 to LEGAL-02)
 
-- [ ] **LEGAL-01**: User must accept Terms of Service before using app
-- [ ] **LEGAL-02**: User must accept Privacy Policy before using app
+- [x] **LEGAL-01**: User must accept Terms of Service before using app
+- [x] **LEGAL-02**: User must accept Privacy Policy before using app
 
 ### Rich Artifacts (ARTIFACT-01 to ARTIFACT-06)
 
@@ -109,7 +109,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 | ENC-04 | Phase 14 | Complete |
 | ENC-05 | Phase 14 | Complete |
 | CONS-01 | Phase 15 | Complete |
-| CONS-02 | Phase 20 | Pending |
+| CONS-02 | Phase 20 | Complete |
 | CONS-03 | Phase 15 | Complete |
 | AUDIT-01 | Phase 15 | Complete |
 | AUDIT-02 | Phase 15 | Complete |
@@ -117,8 +117,8 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 | DATA-01 | Phase 16 | Complete |
 | DATA-02 | Phase 16 | Complete |
 | DATA-03 | Phase 16 | Complete |
-| LEGAL-01 | Phase 20 | Pending |
-| LEGAL-02 | Phase 20 | Pending |
+| LEGAL-01 | Phase 20 | Complete |
+| LEGAL-02 | Phase 20 | Complete |
 | ARTIFACT-01 | Phase 17 | Complete |
 | ARTIFACT-02 | Phase 17 | Complete |
 | ARTIFACT-03 | Phase 17 | Complete |

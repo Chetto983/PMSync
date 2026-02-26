@@ -9,23 +9,23 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 
 ## Current Position
 
-Phase: Phase 18 (AI Triage & Bulk Operations)
-Plan: 4 of 4 complete
+Phase: Phase 20 (Mount GDPR Guards)
+Plan: 1 of 1 complete
 Status: Complete
-Last activity: 2026-02-26 — Plan 18-04 complete (Apply AI Suggestions button wiring)
+Last activity: 2026-02-26 — Plan 20-01 complete (Wire GDPR Guards into Runtime Enforcement)
 
 Progress: v3.1
 ```
-[##############################################] 100% (6/6 phases complete)
+[##############################################] 100% (7/7 phases complete)
 ```
-Phase 18 complete (4/4 plans done). v3.1 milestone complete.
+Phase 20 complete (1/1 plans done). GDPR guards mounted as APP_GUARD.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 18-04-PLAN.md (Apply AI Suggestions button wiring)
+Stopped at: Completed 20-01-PLAN.md (Wire GDPR Guards into Runtime Enforcement)
 Resume file: None
-Next action: v3.1 milestone complete. All 6 phases (13-18) delivered. Phase 19 (AI Draft Generation) to be planned.
+Next action: Phase 20 complete. GDPR guards active in runtime. Phase 21 or other gap closure to be planned.
 
 ## Accumulated Decisions
 
@@ -206,6 +206,10 @@ Next action: v3.1 milestone complete. All 6 phases (13-18) delivered. Phase 19 (
 - [Phase v3.1-18-04]: pendingAiPrompt is ephemeral (not persisted) -- excluded from partialize
 - [Phase v3.1-18-04]: 50ms setTimeout before sendMessage to ensure chat UI mounted
 - [Phase v3.1-18-04]: Clear pending prompt before sending to prevent useEffect re-trigger loops
+- [Phase v3.1-20-01]: LegalAcceptanceGuard skips unauthenticated routes (return true when request.user absent)
+- [Phase v3.1-20-01]: Guard ordering: ThrottlerGuard -> LegalAcceptanceGuard -> ConsentGuard
+- [Phase v3.1-20-01]: ai_email_processing umbrella consent covers all VoltAgent chat + AiController AI handlers
+- [Phase v3.1-20-01]: @SkipLegalCheck on all 5 compliance controllers (GDPR rights accessible before legal acceptance)
 
 ## Blockers & Concerns
 
