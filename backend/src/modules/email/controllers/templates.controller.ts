@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { EmailTemplateService } from '../services/email-template.service';
 import {
   CreateTemplateDto,
@@ -23,7 +24,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Email Templates')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('emails/templates')
 export class TemplatesController {
   constructor(private templateService: EmailTemplateService) {}

@@ -12,13 +12,14 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { EmailSignatureService } from '../services/email-signature.service';
 import { CreateSignatureDto, UpdateSignatureDto, SignatureResponseDto } from '../dto/signature.dto';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Email Signatures')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('emails/signatures')
 export class SignaturesController {
   constructor(private signatureService: EmailSignatureService) {}

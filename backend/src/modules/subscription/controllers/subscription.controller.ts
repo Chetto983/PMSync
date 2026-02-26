@@ -23,6 +23,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { SubscriptionService, PLAN_LIMITS } from '../services/subscription.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -37,7 +38,7 @@ import {
 
 @ApiTags('Subscription')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('api/v1/subscription')
 export class SubscriptionController {
   constructor(

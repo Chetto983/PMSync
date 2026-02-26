@@ -33,6 +33,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nes
 import { IsString, IsOptional, IsArray, MaxLength, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../auth/guards/tenant.guard';
+import { QuotaGuard } from '../../../subscription/guards/quota.guard';
 import { DocumentLibraryService, type DocumentLibrary, type LibraryDocument, type DocumentQueryResult } from '../services/document-library.service';
 import { getErrorTranslations } from '../locales';
 
@@ -82,7 +83,7 @@ class QueryDocumentsDto {
 
 @ApiTags('Document Library')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
 @Controller('api/v1/voltagent/documents')
 export class DocumentLibraryController {
   private readonly logger = new Logger(DocumentLibraryController.name);
