@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { pmSyncColors } from '@/theme/appTheme';
 import dynamic from 'next/dynamic';
+import { SeoHead } from '@/components/seo/SeoHead';
 
 const Hero = dynamic(() => import('@/components/landing/hero').then((mod) => mod.Hero));
 const Features = dynamic(() => import('@/components/landing/features').then((mod) => mod.Features));
@@ -85,6 +86,39 @@ export default function Home() {
     { label: t.nav.automation, href: '#automation' },
     { label: t.nav.resources, href: '#resources' },
   ];
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+  const seoTitle = 'PMSync | Unified AI Workspace for Email, Calendar & Contacts';
+  const seoDescription = t.landing.hero.subtitle;
+  const homeStructuredData: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'PMSync',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      description: seoDescription,
+      url: siteUrl,
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'PMSync',
+      url: siteUrl,
+      logo: `${siteUrl}/favicon.svg`,
+      email: 'privacy@pmsync.com',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'PMSync',
+      url: siteUrl,
+    },
+  ];
 
   return (
     <Box
@@ -95,6 +129,13 @@ export default function Home() {
         overflow: 'hidden',
       }}
     >
+      <SeoHead
+        canonicalPath="/"
+        description={seoDescription}
+        structuredData={homeStructuredData}
+        title={seoTitle}
+      />
+
       {/* Universal BackgroundMesh Gradient */}
       <Box
         sx={{

@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Container, Typography, Paper, Divider, Link } from '@mui/material';
 import { useRouter } from 'next/router';
 import { ArrowLeft } from 'lucide-react';
+import { SeoHead } from '@/components/seo/SeoHead';
 
 export default function PrivacyPolicy() {
   const router = useRouter();
@@ -22,6 +23,11 @@ export default function PrivacyPolicy() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 4 }}>
+      <SeoHead
+        canonicalPath="/privacy"
+        description="Read the PMSync Privacy Policy, including data handling, tenant isolation, security controls, and AI processing disclosures."
+        title="Privacy Policy | PMSync"
+      />
       <Container maxWidth="md">
         <Link
           href="/"

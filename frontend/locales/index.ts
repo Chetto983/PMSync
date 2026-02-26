@@ -1884,6 +1884,7 @@ export interface AppTranslations {
         data: string;
       };
       features: {
+        ai_email_processing: { label: string; description: string };
         ai_smart_replies: { label: string; description: string };
         ai_summarization: { label: string; description: string };
         ai_scheduling: { label: string; description: string };

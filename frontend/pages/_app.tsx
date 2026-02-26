@@ -151,6 +151,9 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
   // Skip RouteGuard for error pages and pages with skipAuthGuard flag
   const skipAuth = Component.skipAuthGuard || false;
   const mounted = useHasMounted();
+  const router = useRouter();
+  const isPrivateRoute =
+    router.pathname.startsWith('/dashboard') || router.pathname.startsWith('/auth');
 
   // Show skeleton during hydration instead of null (prevents flash)
   if (!mounted) {
@@ -165,13 +168,13 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
   return (
     <QueryProvider>
       <Head>
-        <title>PMSync</title>
         {/* iOS safe area support - must be in _app, not _document */}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
+        {isPrivateRoute && <meta name="robots" content="noindex,nofollow" />}
       </Head>
       <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <MaterialThemeWrapper>

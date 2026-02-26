@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Container, Typography, Paper, Divider, Link } from '@mui/material';
 import { useRouter } from 'next/router';
 import { ArrowLeft } from 'lucide-react';
+import { SeoHead } from '@/components/seo/SeoHead';
 
 export default function TermsOfService() {
   const router = useRouter();
@@ -22,6 +23,11 @@ export default function TermsOfService() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 4 }}>
+      <SeoHead
+        canonicalPath="/terms"
+        description="Read the PMSync Terms of Service covering account use, provider integrations, AI features, data ownership, and service conditions."
+        title="Terms of Service | PMSync"
+      />
       <Container maxWidth="md">
         <Link
           href="/"
