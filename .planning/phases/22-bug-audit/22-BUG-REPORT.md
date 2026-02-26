@@ -735,7 +735,7 @@ Audited all v3.1 components (phases 13-21) for WCAG AA compliance.
 
 ### Screenshot Inventory
 
-21 before-state screenshots captured at 3 breakpoints for 7 pages:
+18 authenticated before-state screenshots captured at 3 breakpoints for 6 pages:
 
 | Page | Desktop (1440) | Tablet (768) | Mobile (375) |
 |------|---------------|--------------|--------------|
@@ -745,18 +745,18 @@ Audited all v3.1 components (phases 13-21) for WCAG AA compliance.
 | Calendar | calendar-desktop-1440.png | calendar-tablet-768.png | calendar-mobile-375.png |
 | Settings | settings-desktop-1440.png | settings-tablet-768.png | settings-mobile-375.png |
 | AI Chat | ai-chat-desktop-1440.png | ai-chat-tablet-768.png | ai-chat-mobile-375.png |
-| Login | login-desktop-1440.png | login-tablet-768.png | login-mobile-375.png |
 
 **Location:** `docs/screenshots/before/`
 
-**Note:** Screenshots captured without authentication (pages redirect to login for protected routes). Authenticated screenshots would require running E2E auth mock setup. Visual issues on authenticated pages need manual review with the app running.
+**Note:** All screenshots captured with authenticated session via Playwright MCP (manual login + MFA).
 
 ### Visual Issues Found
 
-- Protected pages (dashboard, email, contacts, calendar, settings, AI chat) redirect to login when not authenticated. Unauthenticated screenshots show login page state.
-- Login page renders correctly at all 3 breakpoints.
-- Email compose page (`/dashboard/email/compose`) is a static route -- available for visual review.
-- GDPR consent/data panels are nested within settings -- not directly accessible as standalone routes.
+- AI chat page at tablet/mobile breakpoints shows empty content area — chat messages and quick actions not visible, only header renders.
+- Contacts page on tablet/mobile shows contact detail panel instead of list view — no way to navigate back to list.
+- Calendar mobile (375px) truncates event names heavily ("0 Comp...").
+- Settings mobile captured timezone dropdown open (cosmetic — retaken with it closed).
+- GDPR consent/data panels are nested within settings — not directly accessible as standalone routes.
 
 ---
 
