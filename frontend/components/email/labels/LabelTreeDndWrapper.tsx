@@ -223,6 +223,13 @@ export function LabelTreeDndWrapper({
     setOverId(event.over?.id ? String(event.over.id) : null);
   }, []);
 
+  const resetState = useCallback(() => {
+    setActiveId(null);
+    setOverId(null);
+    setOffsetLeft(0);
+    collapsedOnDragRef.current = [];
+  }, []);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -249,19 +256,12 @@ export function LabelTreeDndWrapper({
 
       resetState();
     },
-    [flatItems, projected, isOverMaxDepth, moveLabel],
+    [flatItems, projected, isOverMaxDepth, moveLabel, resetState],
   );
 
   const handleDragCancel = useCallback(() => {
     resetState();
-  }, []);
-
-  const resetState = () => {
-    setActiveId(null);
-    setOverId(null);
-    setOffsetLeft(0);
-    collapsedOnDragRef.current = [];
-  };
+  }, [resetState]);
 
   // -----------------------------------------------------------------------
   // Render
