@@ -927,6 +927,21 @@ export interface AppTranslations {
       fullscreen: string;
       exitFullscreen: string;
     };
+    aiDraft: {
+      badge: string;
+      generating: string;
+      regenerate: string;
+      regenerateWith: string;
+      restore: string;
+      cleared: string;
+      failed: string;
+      toneLabel: string;
+      toneFormal: string;
+      toneCasual: string;
+      toneShorter: string;
+      toneDetailed: string;
+      instructionPlaceholder: string;
+    };
     advancedSearch: {
       title: string;
       active: string;

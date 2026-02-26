@@ -181,19 +181,36 @@ export class WritingStyleService {
 
   /**
    * Analyze a user's sent emails and update their writing style profile.
+   * When providerId is given, only sent emails from that provider are analyzed.
    */
   async analyzeUserEmails(
     tenantId: string,
     userId: string,
-    limit: number = 50,
+    limitOrProviderId?: number | string,
+    providerIdArg?: string,
   ): Promise<WritingStyleProfile> {
-    // Get the user's sent emails
+    // Support both (tenantId, userId, limit) and (tenantId, userId, providerId)
+    let limit = 50;
+    let providerId: string | undefined;
+    if (typeof limitOrProviderId === 'string') {
+      providerId = limitOrProviderId;
+    } else if (typeof limitOrProviderId === 'number') {
+      limit = limitOrProviderId;
+      providerId = providerIdArg;
+    }
+
+    // Get the user's sent emails, optionally scoped by provider
+    const emailWhere: Record<string, unknown> = {
+      tenantId,
+      folder: 'SENT',
+      bodyText: { not: null },
+    };
+    if (providerId) {
+      emailWhere.providerId = providerId;
+    }
+
     const emails = await this.prisma.email.findMany({
-      where: {
-        tenantId,
-        folder: 'SENT',
-        bodyText: { not: null },
-      },
+      where: emailWhere,
       select: {
         id: true,
         bodyText: true,
@@ -203,8 +220,8 @@ export class WritingStyleService {
     });
 
     if (emails.length === 0) {
-      this.logger.debug(`No sent emails found for user ${userId}`);
-      return this.getOrCreateProfile(tenantId, userId);
+      this.logger.debug(`No sent emails found for user ${userId}${providerId ? ` provider ${providerId}` : ''}`);
+      return this.getOrCreateProfile(tenantId, userId, providerId);
     }
 
     // Analyze each email
@@ -237,7 +254,7 @@ export class WritingStyleService {
     // Update or create the profile
     // Use findFirst + create/update since compound unique includes nullable providerId
     const existing = await this.prisma.writingStyleProfile.findFirst({
-      where: { tenantId, userId, providerId: null },
+      where: { tenantId, userId, providerId: providerId ?? null },
     });
 
     const profileData = {
@@ -255,11 +272,11 @@ export class WritingStyleService {
           data: profileData,
         })
       : await this.prisma.writingStyleProfile.create({
-          data: { tenantId, userId, ...profileData },
+          data: { tenantId, userId, providerId: providerId ?? null, ...profileData },
         });
 
     this.logger.log(
-      `Updated writing style profile for user ${userId} (${metricsArray.length} samples)`,
+      `Updated writing style profile for user ${userId}${providerId ? ` provider ${providerId}` : ''} (${metricsArray.length} samples)`,
     );
 
     return profile;
@@ -268,11 +285,13 @@ export class WritingStyleService {
   /**
    * Learn from a single email (incremental update)
    * Uses moving average to update stats without re-reading all history.
+   * When providerId is given, updates the provider-specific profile.
    */
   async learnFromEmail(
     tenantId: string,
     userId: string,
     emailBody: string,
+    providerId?: string,
   ): Promise<void> {
     if (!emailBody || emailBody.length < 50) {
       return; // Skip short emails
@@ -280,7 +299,7 @@ export class WritingStyleService {
 
     try {
       const metrics = this.analyzeText(emailBody);
-      const profile = await this.getOrCreateProfile(tenantId, userId);
+      const profile = await this.getOrCreateProfile(tenantId, userId, providerId);
 
       const n = profile.sampleCount;
       const newN = n + 1;
@@ -338,23 +357,31 @@ export class WritingStyleService {
 
   /**
    * Get or create a user's writing style profile.
+   * When providerId is given, returns provider-specific profile. Falls back to default profile
+   * if no provider-specific one exists.
    */
-  async getOrCreateProfile(tenantId: string, userId: string): Promise<WritingStyleProfile> {
+  async getOrCreateProfile(tenantId: string, userId: string, providerId?: string): Promise<WritingStyleProfile> {
+    // Try provider-specific profile first
     let profile = await this.prisma.writingStyleProfile.findFirst({
-      where: { tenantId, userId, providerId: null },
+      where: { tenantId, userId, providerId: providerId ?? null },
     });
+
+    // Fall back to default profile if provider-specific not found
+    if (!profile && providerId) {
+      profile = await this.prisma.writingStyleProfile.findFirst({
+        where: { tenantId, userId, providerId: null },
+      });
+    }
 
     if (!profile) {
       profile = await this.prisma.writingStyleProfile.create({
-        data: { tenantId, userId },
+        data: { tenantId, userId, providerId: providerId ?? null },
       });
 
       // Auto-backfill on creation
       this.logger.log(`New writing style profile created for ${userId}. Triggering auto-backfill...`);
-      // We await this to ensure the user sees data immediately, 
-      // as 50 emails analysis is sub-second usually.
       try {
-        profile = await this.analyzeUserEmails(tenantId, userId, 50);
+        profile = await this.analyzeUserEmails(tenantId, userId, 50, providerId);
       } catch (e) {
         this.logger.error(`Auto-backfill failed: ${(e as Error).message}`);
       }
@@ -362,7 +389,7 @@ export class WritingStyleService {
       // Profile exists but empty? Try to backfill again.
       this.logger.log(`Existing empty writing style profile for ${userId}. Retrying backfill...`);
       try {
-        profile = await this.analyzeUserEmails(tenantId, userId, 50);
+        profile = await this.analyzeUserEmails(tenantId, userId, 50, providerId);
       } catch (e) {
         this.logger.error(`Auto-backfill failed: ${(e as Error).message}`);
       }
@@ -373,8 +400,15 @@ export class WritingStyleService {
 
   /**
    * Get the user's writing style profile.
+   * When providerId is given, returns provider-specific profile; falls back to default.
    */
-  async getProfile(tenantId: string, userId: string): Promise<WritingStyleProfile | null> {
+  async getProfile(tenantId: string, userId: string, providerId?: string): Promise<WritingStyleProfile | null> {
+    if (providerId) {
+      const providerProfile = await this.prisma.writingStyleProfile.findFirst({
+        where: { tenantId, userId, providerId },
+      });
+      if (providerProfile) return providerProfile;
+    }
     return this.prisma.writingStyleProfile.findFirst({
       where: { tenantId, userId, providerId: null },
     });
@@ -383,13 +417,15 @@ export class WritingStyleService {
   /**
    * Generate a prompt section describing the user's writing style.
    * This can be injected into email composition prompts.
+   * When providerId is given, returns provider-specific style if available.
    */
   async getStylePromptSection(
     tenantId: string,
     userId: string,
     locale: 'en' | 'it' = 'en',
+    providerId?: string,
   ): Promise<string | null> {
-    const profile = await this.getProfile(tenantId, userId);
+    const profile = await this.getProfile(tenantId, userId, providerId);
     if (!profile || profile.sampleCount < 5) {
       return null; // Not enough data
     }
@@ -466,11 +502,90 @@ export class WritingStyleService {
     const header = isIt ? 'Imita lo stile di scrittura dell\'utente:' : 'Mirror the user\'s writing style:';
     const avgLabel = isIt ? 'Lunghezza media email' : 'Average email length';
 
-    return `<writing_style>
+    let result = `<writing_style>
 ${header}
 - ${styleDescriptions.join('\n- ')}
-- ${avgLabel}: ~${profile.avgWordsPerEmail} words
-</writing_style>`;
+- ${avgLabel}: ~${profile.avgWordsPerEmail} words`;
+
+    // Append manual writing samples if provided
+    if (profile.manualSamples) {
+      const samplesHeader = isIt
+        ? 'L\'utente ha fornito questi campioni di scrittura come riferimento di stile:'
+        : 'The user has provided these writing samples as style reference:';
+      result += `\n${samplesHeader}\n${profile.manualSamples}`;
+    }
+
+    result += '\n</writing_style>';
+    return result;
+  }
+
+  /**
+   * Update manual writing samples for a user's profile.
+   * Manual samples override auto-analyzed style when generating prompts.
+   */
+  async updateManualSamples(
+    tenantId: string,
+    userId: string,
+    samples: string,
+    providerId?: string,
+  ): Promise<WritingStyleProfile> {
+    const existing = await this.prisma.writingStyleProfile.findFirst({
+      where: { tenantId, userId, providerId: providerId ?? null },
+    });
+
+    if (existing) {
+      return this.prisma.writingStyleProfile.update({
+        where: { id: existing.id },
+        data: { manualSamples: samples },
+      });
+    }
+
+    return this.prisma.writingStyleProfile.create({
+      data: { tenantId, userId, providerId: providerId ?? null, manualSamples: samples },
+    });
+  }
+
+  /**
+   * Get style prompt section enhanced with recent draft corrections.
+   * Corrections teach the AI to avoid patterns the user has previously edited.
+   * Limited to last 3 corrections to control token usage.
+   */
+  async getStylePromptWithCorrections(
+    tenantId: string,
+    userId: string,
+    locale: 'en' | 'it' = 'en',
+    recentCorrections: Array<{ draftBody: string; sentBody: string }>,
+    providerId?: string,
+  ): Promise<string | null> {
+    const styleSection = await this.getStylePromptSection(tenantId, userId, locale, providerId);
+
+    if (!recentCorrections || recentCorrections.length === 0) {
+      return styleSection;
+    }
+
+    // Limit to last 3 corrections to control token usage
+    const trimmedCorrections = recentCorrections.slice(-3);
+
+    const isIt = locale === 'it';
+    const header = isIt
+      ? 'Correzioni recenti delle bozze (impara da queste):'
+      : 'Recent draft corrections (learn from these):';
+
+    const correctionLines = trimmedCorrections.map((c) => {
+      const draft = c.draftBody.length > 120 ? c.draftBody.slice(0, 120) + '...' : c.draftBody;
+      const sent = c.sentBody.length > 120 ? c.sentBody.slice(0, 120) + '...' : c.sentBody;
+      return isIt
+        ? `- Bozza: "${draft}" → Utente ha cambiato in: "${sent}"`
+        : `- Draft: "${draft}" → User changed to: "${sent}"`;
+    });
+
+    const correctionBlock = `<draft_corrections>\n${header}\n${correctionLines.join('\n')}\n</draft_corrections>`;
+
+    if (!styleSection) {
+      return correctionBlock;
+    }
+
+    return `${styleSection}\n${correctionBlock}`;
   }
 
   // ========== PRIVATE HELPER METHODS ==========

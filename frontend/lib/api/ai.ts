@@ -1189,7 +1189,43 @@ export const voltAgentApi = {
       '/api/v1/voltagent/analytics/status',
     );
   },
+
+  // ============ AI Draft Generation ============
+
+  generateReplyDraft(params: {
+    emailId: string;
+    tone?: string;
+    instructions?: string;
+    locale?: string;
+  }) {
+    return apiClient.post<{ draftId: string; body: string; subject: string }>(
+      '/api/v1/voltagent/generate-reply-draft',
+      params,
+    );
+  },
+
+  recordDraftFeedback(params: {
+    draftId: string;
+    action: 'accepted' | 'edited' | 'rejected' | 'regenerated';
+    sentBody?: string;
+  }) {
+    return apiClient.post('/api/v1/voltagent/draft-feedback', params);
+  },
+
+  getDraftStats() {
+    return apiClient.get<{ success: boolean; stats: DraftStats }>('/api/v1/voltagent/draft-stats');
+  },
 };
+
+// ============ AI Draft Types ============
+
+export interface DraftStats {
+  totalDrafts: number;
+  acceptRate: number;
+  editRate: number;
+  rejectRate: number;
+  avgEditDistance: number;
+}
 
 // ============ Unified Knowledge Types (P1.6) ============
 
