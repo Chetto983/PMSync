@@ -268,8 +268,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 18-01-PLAN.md -- Backend: TriageSuggestionService, bulk_email_actions tool extension, action types + executors, module wiring (TRIAGE-01, BULK-01, BULK-02)
-- [ ] 18-02-PLAN.md -- Frontend email list: AI triage chips in ThreadListItem, Apply AI Suggestions button in ThreadListHeader, translations (TRIAGE-02)
+- [x] 18-01-PLAN.md -- Backend: TriageSuggestionService, bulk_email_actions tool extension, action types + executors, module wiring (TRIAGE-01, BULK-01, BULK-02)
+- [x] 18-02-PLAN.md -- Frontend email list: AI triage chips in ThreadListItem, Apply AI Suggestions button in ThreadListHeader, translations (TRIAGE-02)
 - [ ] 18-03-PLAN.md -- Frontend chat: TriageRenderer for bulk action results, tool registry registration (TRIAGE-02, BULK-01)
 
 ---
@@ -312,4 +312,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-11 — Phase 17 complete (Rich Artifacts UI), interactive artifacts for all 6 domains, ActionBar infrastructure, briefing/CRM backend tools*
+*Last updated: 2026-02-26 — Phase 18 in progress (2/3 plans done). Backend bulk label/follow-up infrastructure + AI triage UI in email list complete.*
