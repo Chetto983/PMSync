@@ -87,7 +87,7 @@ model User {
   userPreferences     UserPreferences?
   tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webauthnCredentials WebAuthnCredential[]
-  writingStyleProfile WritingStyleProfile?
+  writingStyleProfiles WritingStyleProfile[]
   userConsents        UserConsent[]
   legalAcceptances    LegalAcceptance[]
   dataExportRequests  DataExportRequest[]
@@ -321,6 +321,7 @@ model ProviderConfig {
   providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   scheduledEmails          ScheduledEmail[]
   webhookSubscriptions     WebhookSubscription[]
+  writingStyleProfiles     WritingStyleProfile[]
 
   @@unique([tenantId, email, providerType])
   @@index([tenantId, isDefault])
@@ -958,36 +959,40 @@ model HealthCheck {
 }
 
 model WritingStyleProfile {
-  id                  String   @id @default(cuid())
+  id                  String          @id @default(cuid())
   tenantId            String
-  userId              String   @unique
-  avgSentenceLength   Float    @default(15)
-  avgParagraphLines   Float    @default(3)
-  avgWordsPerEmail    Int      @default(100)
-  bulletListRate      Float    @default(0)
-  formalityScore      Float    @default(0.5)
-  contractionRate     Float    @default(0.3)
-  emojiRate           Float    @default(0)
-  typeTokenRatio      Float    @default(0.5)
-  exclamationRate     Float    @default(0)
-  questionRate        Float    @default(0)
-  ellipsisRate        Float    @default(0)
-  greetingPresent     Boolean  @default(true)
-  preferredGreetings  String[] @default([])
-  signOffPresent      Boolean  @default(true)
-  preferredSignOffs   String[] @default([])
-  sentimentPolarity   Float    @default(0)
-  empathyPhraseRate   Float    @default(0)
-  hedgeRate           Float    @default(0)
-  sampleCount         Int      @default(0)
+  userId              String
+  providerId          String?
+  manualSamples       String?
+  avgSentenceLength   Float           @default(15)
+  avgParagraphLines   Float           @default(3)
+  avgWordsPerEmail    Int             @default(100)
+  bulletListRate      Float           @default(0)
+  formalityScore      Float           @default(0.5)
+  contractionRate     Float           @default(0.3)
+  emojiRate           Float           @default(0)
+  typeTokenRatio      Float           @default(0.5)
+  exclamationRate     Float           @default(0)
+  questionRate        Float           @default(0)
+  ellipsisRate        Float           @default(0)
+  greetingPresent     Boolean         @default(true)
+  preferredGreetings  String[]        @default([])
+  signOffPresent      Boolean         @default(true)
+  preferredSignOffs   String[]        @default([])
+  sentimentPolarity   Float           @default(0)
+  empathyPhraseRate   Float           @default(0)
+  hedgeRate           Float           @default(0)
+  sampleCount         Int             @default(0)
   lastAnalyzedEmailId String?
-  lastAnalyzed        DateTime @default(now())
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastAnalyzed        DateTime        @default(now())
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider            ProviderConfig? @relation(fields: [providerId], references: [id])
 
-  @@unique([tenantId, userId])
+  @@unique([tenantId, userId, providerId])
   @@index([tenantId, userId])
+  @@index([providerId])
   @@map("writing_style_profiles")
 }
 
@@ -1010,6 +1015,28 @@ model EmailSignature {
   @@index([tenantId, userId, providerId])
   @@index([providerId])
   @@map("email_signatures")
+}
+
+/// AI draft feedback - tracks accept/edit/reject for AI-generated email drafts
+model AiDraftFeedback {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  emailId       String
+  draftBody     String   // The AI-generated draft
+  sentBody      String?  // What the user actually sent (null if rejected)
+  action        String   @default("pending") // pending | accepted | edited | rejected | regenerated
+  editDistance   Float?   // Levenshtein distance ratio (0 = identical, 1 = completely different)
+  corrections   Json?    // Extracted correction patterns
+  tone          String?
+  locale        String?
+  providerId    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId, userId])
+  @@index([tenantId, emailId])
+  @@map("ai_draft_feedback")
 }
 
 /// Email templates - reusable email templates for quick composition

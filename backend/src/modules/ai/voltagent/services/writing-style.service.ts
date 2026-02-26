@@ -235,29 +235,28 @@ export class WritingStyleService {
     const topSignOffs = this.getTopItems(allSignOffs, 3);
 
     // Update or create the profile
-    const profile = await this.prisma.writingStyleProfile.upsert({
-      where: {
-        tenantId_userId: { tenantId, userId },
-      },
-      create: {
-        tenantId,
-        userId,
-        ...avgMetrics,
-        preferredGreetings: topGreetings,
-        preferredSignOffs: topSignOffs,
-        sampleCount: metricsArray.length,
-        lastAnalyzedEmailId: emails[0]?.id,
-        lastAnalyzed: new Date(),
-      },
-      update: {
-        ...avgMetrics,
-        preferredGreetings: topGreetings,
-        preferredSignOffs: topSignOffs,
-        sampleCount: metricsArray.length,
-        lastAnalyzedEmailId: emails[0]?.id,
-        lastAnalyzed: new Date(),
-      },
+    // Use findFirst + create/update since compound unique includes nullable providerId
+    const existing = await this.prisma.writingStyleProfile.findFirst({
+      where: { tenantId, userId, providerId: null },
     });
+
+    const profileData = {
+      ...avgMetrics,
+      preferredGreetings: topGreetings,
+      preferredSignOffs: topSignOffs,
+      sampleCount: metricsArray.length,
+      lastAnalyzedEmailId: emails[0]?.id,
+      lastAnalyzed: new Date(),
+    };
+
+    const profile = existing
+      ? await this.prisma.writingStyleProfile.update({
+          where: { id: existing.id },
+          data: profileData,
+        })
+      : await this.prisma.writingStyleProfile.create({
+          data: { tenantId, userId, ...profileData },
+        });
 
     this.logger.log(
       `Updated writing style profile for user ${userId} (${metricsArray.length} samples)`,
@@ -341,8 +340,8 @@ export class WritingStyleService {
    * Get or create a user's writing style profile.
    */
   async getOrCreateProfile(tenantId: string, userId: string): Promise<WritingStyleProfile> {
-    let profile = await this.prisma.writingStyleProfile.findUnique({
-      where: { tenantId_userId: { tenantId, userId } },
+    let profile = await this.prisma.writingStyleProfile.findFirst({
+      where: { tenantId, userId, providerId: null },
     });
 
     if (!profile) {
@@ -376,8 +375,8 @@ export class WritingStyleService {
    * Get the user's writing style profile.
    */
   async getProfile(tenantId: string, userId: string): Promise<WritingStyleProfile | null> {
-    return this.prisma.writingStyleProfile.findUnique({
-      where: { tenantId_userId: { tenantId, userId } },
+    return this.prisma.writingStyleProfile.findFirst({
+      where: { tenantId, userId, providerId: null },
     });
   }
 
