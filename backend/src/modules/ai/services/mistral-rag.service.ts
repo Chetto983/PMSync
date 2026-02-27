@@ -1,28 +1,32 @@
-/** MistralRagService - RAG completion with context retrieval (Phase 11-02). */
+/**
+ * MistralRagService - RAG completion with context retrieval (Phase 23 rewire).
+ *
+ * Uses AI SDK generateText() via MistralProviderService. No direct
+ * @mistralai/mistralai imports.
+ */
 import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
-import { Mistral } from '@mistralai/mistralai';
-import type { Messages as MistralChatMessage } from '@mistralai/mistralai/models/components/chatcompletionrequest.js';
-import type { AssistantMessage } from '@mistralai/mistralai/models/components/assistantmessage.js';
+import { generateText } from 'ai';
+import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from './embeddings.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
-import { getLocale, getTranslations, type SupportedLocale } from '../voltagent/locales';
+import { getLocale, getTranslations } from '../voltagent/locales';
 import { getAiCircuitBreaker, withRetry } from '../utils';
 import { AiError, AiErrorCode } from '../errors';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { CostProtectionService } from '../../subscription/services/cost-protection.service';
 
-type ConversationMessage = { role: 'assistant' | 'user'; content: string };
-
 @Injectable()
 export class MistralRagService {
   private readonly logger = new Logger(MistralRagService.name);
-  private createClientFn!: () => Mistral;
-  private generateEmbeddingFn!: (text: string, client: Mistral | undefined, ctx: { tenantId: string; userId?: string }) => Promise<number[]>;
+
+  // Injected lazily by MistralService.onModuleInit to avoid circular deps
+  private generateEmbeddingFn!: (text: string, ctx: { tenantId: string; userId?: string }) => Promise<number[]>;
   private getModelFn!: (tier: 'fast' | 'creative' | 'router' | 'default') => string;
   private getEmbeddingModelFn!: () => string;
 
   constructor(
+    private readonly mistralProvider: MistralProviderService,
     private readonly prisma: PrismaService,
     private readonly embeddingsService: EmbeddingsService,
     @Optional() @Inject(UsageTrackingService) private usageTrackingService?: UsageTrackingService,
@@ -31,36 +35,13 @@ export class MistralRagService {
 
   /** Set dependencies (injected by MistralService to avoid circular dependency). */
   setDependencies(deps: {
-    createClient: () => Mistral;
-    generateEmbedding: (text: string, client: Mistral | undefined, ctx: { tenantId: string; userId?: string }) => Promise<number[]>;
+    generateEmbedding: (text: string, ctx: { tenantId: string; userId?: string }) => Promise<number[]>;
     getModel: (tier: 'fast' | 'creative' | 'router' | 'default') => string;
     getEmbeddingModel: () => string;
   }): void {
-    this.createClientFn = deps.createClient;
     this.generateEmbeddingFn = deps.generateEmbedding;
     this.getModelFn = deps.getModel;
     this.getEmbeddingModelFn = deps.getEmbeddingModel;
-  }
-
-  private normaliseConversation(history: Array<{ role?: string; content?: unknown }>): MistralChatMessage[] {
-    const result = history
-      .filter((item): item is ConversationMessage =>
-        item && typeof item.content === 'string' && (item.role === 'assistant' || item.role === 'user'))
-      .map((item) => item.role === 'assistant'
-        ? { role: 'assistant' as const, content: item.content }
-        : { role: 'user' as const, content: item.content });
-    return result as MistralChatMessage[];
-  }
-
-  private extractAssistantContent(message: AssistantMessage | undefined): string {
-    if (!message || message.content == null) return '';
-    if (typeof message.content === 'string') return message.content;
-    if (Array.isArray(message.content)) {
-      return message.content
-        .map((chunk) => chunk && typeof chunk === 'object' && 'text' in chunk && typeof chunk.text === 'string' ? chunk.text : '')
-        .join('').trim();
-    }
-    return '';
   }
 
   /** GDPR-compliant: Get similar embeddings and hydrate with content from source tables. */
@@ -117,27 +98,20 @@ export class MistralRagService {
     }
   }
 
-  /** Call Mistral API with RAG context and timeout protection. */
+  /** Call Mistral via AI SDK generateText() with RAG context. */
   async generateResponse(
     tenantId: string,
     userId: string,
     userPrompt: string,
     conversationHistory: Array<{ role?: string; content?: unknown }> = [],
     options?: { conversationId?: string; locale?: string; timeoutMs?: number },
-    apiKey?: string,
   ): Promise<string> {
-    const model = this.getModelFn('fast');
+    const modelId = this.getModelFn('fast');
     const supportedLocale = getLocale(options?.locale);
     const t = getTranslations(supportedLocale);
     const timeoutMs = options?.timeoutMs ?? 60000;
 
-    if (!apiKey) {
-      const fallbackResponse = t.mistral.errors.notConfigured;
-      this.logger.warn('Mistral API key missing. Responded with fallback message.');
-      return fallbackResponse;
-    }
-
-    // P10: Check cost cap BEFORE making RAG + LLM call
+    // Cost cap check
     if (tenantId && this.costProtectionService) {
       const costCheck = await this.costProtectionService.canProceed(tenantId, 'smartReply');
       if (!costCheck.allowed) {
@@ -151,14 +125,13 @@ export class MistralRagService {
     try {
       return await cb.execute(async () => {
         const executeCall = async () => {
-          const mistralClient = this.createClientFn();
           let ragContext = '';
 
           try {
             // Generate embedding for user prompt
-            const userEmbedding = await this.generateEmbeddingFn(userPrompt, mistralClient, { tenantId, userId });
+            const userEmbedding = await this.generateEmbeddingFn(userPrompt, { tenantId, userId });
 
-            // GDPR-compliant: No content stored for user prompts (ephemeral)
+            // GDPR-compliant: ephemeral embedding for RAG retrieval
             await this.embeddingsService.saveEmbedding({
               tenantId, embedding: userEmbedding, model: this.getEmbeddingModelFn(),
               documentName: 'user_prompt', metadata: { source: 'user_prompt', createdBy: userId },
@@ -180,41 +153,47 @@ export class MistralRagService {
             this.logger.warn(`Unable to build RAG context: ${ragMessage}`);
           }
 
-          const historyMessages = this.normaliseConversation(conversationHistory);
-          const messages: MistralChatMessage[] = [
+          // Build messages for AI SDK
+          const historyMessages = conversationHistory
+            .filter((item): item is { role: 'assistant' | 'user'; content: string } =>
+              !!item && typeof item.content === 'string' && (item.role === 'assistant' || item.role === 'user'))
+            .map((item) => ({
+              role: item.role as 'assistant' | 'user',
+              content: item.content,
+            }));
+
+          const messages = [
             ...historyMessages,
-            { role: 'user', content: userPrompt + ragContext } as MistralChatMessage,
+            { role: 'user' as const, content: userPrompt + ragContext },
           ];
 
-          const completionPromise = mistralClient.chat.complete({
-            model, messages, temperature: 0.7, maxTokens: 1024, safePrompt: true,
+          const { text } = await generateText({
+            model: this.mistralProvider.getChatModel(modelId),
+            messages,
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+            abortSignal: AbortSignal.timeout(timeoutMs),
+            providerOptions: { mistral: { safePrompt: true } },
           });
 
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new AiError(`LLM request timed out after ${timeoutMs}ms`, AiErrorCode.PROVIDER_TIMEOUT)), timeoutMs);
-          });
-
-          const completion = await Promise.race([completionPromise, timeoutPromise]);
-          const assistantMessage = completion.choices?.[0]?.message;
-          const assistantResponse = this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
-          return { response: assistantResponse, usage: completion.usage };
+          return text || t.mistral.errors.tryAgain;
         };
 
-        const result = await withRetry(async () => await executeCall(), {
+        const response = await withRetry(async () => await executeCall(), {
           maxRetries: 3, isRetryable: (err: unknown) => AiError.fromError(err).retryable, initialDelayMs: 500,
         });
 
         const corrId = CorrelationContext.getCorrelationId();
         this.logger.log(`[${corrId}] [tenant:${tenantId}] Generated response for user: ${userId}`);
 
-        // P10: Track successful AI usage
+        // Track successful AI usage
         if (tenantId && this.usageTrackingService) {
           await this.usageTrackingService.trackUsage(tenantId, 'ai-calls', 1).catch((err: Error) => {
             this.logger.warn(`[tenant:${tenantId}] Failed to track RAG response usage: ${err.message}`);
           });
         }
 
-        return result.response;
+        return response;
       });
     } catch (error) {
       const aiError = AiError.fromError(error);

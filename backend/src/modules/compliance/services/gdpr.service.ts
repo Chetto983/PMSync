@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   DataSubjectRightDto,
@@ -8,7 +8,7 @@ import {
   GdprStatusDto,
   PendingActionDto,
 } from '../dto/gdpr-status.dto';
-import { MistralAgentCleanupService } from '../../ai/services/mistral-agent-cleanup.service';
+// Phase 23: MistralAgentCleanupService removed (Mistral agents no longer used after VoltAgent removal)
 
 /**
  * Result of a GDPR data purge operation
@@ -36,8 +36,6 @@ export class GdprService {
 
   constructor(
     private readonly prisma: PrismaService,
-    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
-    @Optional() @Inject(MistralAgentCleanupService) private readonly mistralAgentCleanup?: MistralAgentCleanupService,
   ) {}
 
   /**
@@ -178,28 +176,11 @@ export class GdprService {
   async purgeExternalTenantData(tenantId: string): Promise<GdprPurgeResult> {
     this.logger.log(`[GDPR] Starting external data purge for tenant ${tenantId}`);
     const errors: string[] = [];
-    let mistralAgentsDeleted = 0;
 
-    // 1. Delete Mistral agents (web-search + analytics)
-    if (this.mistralAgentCleanup) {
-      try {
-        const result = await this.mistralAgentCleanup.deleteAllTenantAgents(tenantId);
-        mistralAgentsDeleted = result.totalDeleted;
-        if (result.totalErrors > 0) {
-          for (const r of result.results) {
-            errors.push(...r.errors);
-          }
-        }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        errors.push(`Mistral agent cleanup failed: ${msg}`);
-        this.logger.error(`[GDPR] Mistral agent cleanup failed for tenant ${tenantId}: ${msg}`);
-      }
-    } else {
-      this.logger.warn(`[GDPR] MistralAgentCleanupService not available, skipping agent cleanup`);
-    }
+    // Phase 23: Mistral agent cleanup removed (agents no longer used after VoltAgent removal).
+    // MistralAgent records in DB will be cascade-deleted with the tenant.
 
-    // 2. Add more external service cleanups here as needed
+    // Add more external service cleanups here as needed
     // e.g., S3 attachments, third-party integrations, etc.
 
     const success = errors.length === 0;
@@ -214,7 +195,7 @@ export class GdprService {
       success,
       errors,
       deletedCounts: {
-        mistralAgents: mistralAgentsDeleted,
+        mistralAgents: 0,
       },
     };
   }

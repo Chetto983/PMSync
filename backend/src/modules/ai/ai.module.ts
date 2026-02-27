@@ -23,11 +23,9 @@ import { AlertingService } from '../../common/services/alerting.service';
 // VoltAgent module provides consolidated AI agent services
 // DeadLetterQueueService is available globally from CacheModule
 import { VoltAgentModule } from './voltagent/voltagent.module';
-// Unified embedding provider (consolidates caching, rate limiting, provider abstraction)
-import { EmbeddingProviderService } from './services/embedding';
+// Phase 23: BatchIndexingService is now a no-op stub (Batch API removed with @mistralai/mistralai)
 import { BatchIndexingService } from './services/batch-indexing.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
-import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
 import { IntentClassifierService } from './nlp';
 // Phase 7: Extracted RAG sub-services (registered BEFORE KnowledgeBaseService facade)
@@ -67,10 +65,8 @@ import { TriageLearningService } from './services/triage-learning.service';
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
-    EmbeddingProviderService, // Unified embedding with caching + rate limiting
-    BatchIndexingService, // Batch API for large-scale email indexing (1000+ emails)
+    BatchIndexingService, // No-op stub (Phase 23: Batch API removed)
     CachePrewarmingService, // Pre-warm query cache for common searches
-    MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
@@ -90,9 +86,7 @@ import { TriageLearningService } from './services/triage-learning.service';
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
-    EmbeddingProviderService, // Unified embedding with caching + rate limiting
-    BatchIndexingService, // Batch API for large-scale email indexing
-    MistralAgentCleanupService, // GDPR: Delete Mistral agents on tenant deletion
+    BatchIndexingService, // No-op stub (Phase 23: Batch API removed)
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly

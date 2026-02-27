@@ -1,21 +1,24 @@
-/** MistralEmbeddingService - Embedding generation with caching (Phase 11-02). */
+/**
+ * MistralEmbeddingService - Embedding generation via AI SDK (Phase 23 rewire).
+ *
+ * Uses AI SDK embed()/embedMany() with MistralProviderService.getEmbeddingModel().
+ * Preserves: cache, cost protection, telemetry context.
+ * Removed: manual circuit breaker, rate limiter, lazy client factory.
+ */
 import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Mistral } from '@mistralai/mistralai';
-import { CorrelationContext } from '../../../common/services/correlation-context.service';
+import { embed, embedMany } from 'ai';
+import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
 import { CostProtectionService } from '../../subscription/services/cost-protection.service';
-import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../utils';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import { AiError, AiErrorCode } from '../errors';
 
 @Injectable()
 export class MistralEmbeddingService {
   private readonly logger = new Logger(MistralEmbeddingService.name);
-  private readonly embeddingModel = 'mistral-embed';
-  private createClientFn!: () => Promise<Mistral>;
 
   constructor(
-    private readonly configService: ConfigService,
+    private readonly mistralProvider: MistralProviderService,
     @Optional() @Inject(QueryEmbeddingCacheService) private queryEmbeddingCache?: QueryEmbeddingCacheService,
     @Optional() @Inject(CostProtectionService) private costProtectionService?: CostProtectionService,
   ) {
@@ -24,25 +27,25 @@ export class MistralEmbeddingService {
     }
   }
 
-  /** Set the client factory (injected by MistralService to avoid circular dependency). */
-  setClientFactory(fn: () => Promise<Mistral>): void { this.createClientFn = fn; }
-
-  getEmbeddingModel(): string { return this.embeddingModel; }
-
-  private async acquireSlot(): Promise<void> { await embeddingRateLimiter.acquire(); }
+  getEmbeddingModel(): string {
+    return 'mistral-embed';
+  }
 
   /**
-   * Generate embedding for a single text (rate-limited, circuit breaker, cached).
+   * Generate embedding for a single text.
    * GDPR compliant: Cache is tenant-isolated. tenantId is REQUIRED for caching.
+   *
+   * The optional `_client` parameter is kept for backward compatibility with
+   * callers that pass `undefined` (e.g., KnowledgeBaseService). It is ignored.
    */
   async generateEmbedding(
     text: string,
-    client?: Mistral,
+    _client?: unknown,
     telemetryContext?: { tenantId: string; userId?: string },
   ): Promise<number[]> {
     const tenantId = telemetryContext?.tenantId;
 
-    // P10: Check cost cap BEFORE making embedding API call
+    // Cost cap check BEFORE API call
     if (tenantId && this.costProtectionService) {
       const costCheck = await this.costProtectionService.canProceed(tenantId, 'embedding');
       if (!costCheck.allowed) {
@@ -53,7 +56,7 @@ export class MistralEmbeddingService {
       }
     }
 
-    // Check cache first (HIGH IMPACT for scale) - GDPR: requires tenantId
+    // Cache check (GDPR: requires tenantId)
     if (this.queryEmbeddingCache && tenantId) {
       const cached = await this.queryEmbeddingCache.getCachedEmbedding(tenantId, text);
       if (cached) {
@@ -64,103 +67,73 @@ export class MistralEmbeddingService {
       this.logger.warn('Query embedding cache SKIPPED - no tenantId provided (GDPR requirement)');
     }
 
-    const cb = getAiCircuitBreaker('mistral', 'embedding');
+    try {
+      const { embedding } = await embed({
+        model: this.mistralProvider.getEmbeddingModel(),
+        value: text,
+        maxRetries: 3,
+        abortSignal: AbortSignal.timeout(15_000),
+      });
 
-    const embedding = await cb.execute(async () => {
-      await this.acquireSlot();
-      try {
-        const executeCall = async () => {
-          const mistralClient = client ?? (await this.createClientFn());
-          const response = await mistralClient.embeddings.create({
-            model: this.embeddingModel,
-            inputs: text,
-          });
-
-          const embeddingResult = response.data?.[0]?.embedding;
-          if (!embeddingResult || embeddingResult.length === 0) {
-            throw new AiError('Mistral embeddings response did not contain data', AiErrorCode.EMPTY_RESPONSE);
-          }
-
-          return { embedding: embeddingResult, usage: response.usage };
-        };
-
-        return withRetry(
-          async () => (await executeCall()).embedding,
-          { maxRetries: 3, initialDelayMs: 200, isRetryable: (err: unknown) => AiError.fromError(err).retryable }
-        );
-      } catch (error) {
-        const corrId = CorrelationContext.getCorrelationId();
-        const aiError = AiError.fromError(error);
-        this.logger.error(`[${corrId}] Failed to generate embedding: ${aiError.message}`);
-        throw aiError;
+      if (!embedding || embedding.length === 0) {
+        throw new AiError('Mistral embeddings response did not contain data', AiErrorCode.EMPTY_RESPONSE);
       }
-    });
 
-    // Cache the result for future queries - GDPR: requires tenantId
-    if (this.queryEmbeddingCache && embedding && tenantId) {
-      await this.queryEmbeddingCache.setCachedEmbedding(tenantId, text, embedding);
+      // Cache the result (GDPR: requires tenantId)
+      if (this.queryEmbeddingCache && embedding && tenantId) {
+        await this.queryEmbeddingCache.setCachedEmbedding(tenantId, text, embedding);
+      }
+
+      return embedding;
+    } catch (error) {
+      if (error instanceof AiError) throw error;
+      const corrId = CorrelationContext.getCorrelationId();
+      const aiError = AiError.fromError(error);
+      this.logger.error(`[${corrId}] Failed to generate embedding: ${aiError.message}`);
+      throw aiError;
     }
-
-    return embedding;
   }
 
   /**
-   * Generate embeddings for multiple texts in a single bulk operation (rate-limited with circuit breaker).
+   * Generate embeddings for multiple texts in a single bulk operation.
+   *
+   * The optional `_client` parameter is kept for backward compatibility.
    */
   async generateBulkEmbeddings(
     texts: string[],
-    client?: Mistral,
+    _client?: unknown,
     _telemetryContext?: { tenantId: string; userId?: string },
   ): Promise<number[][]> {
     if (!texts || texts.length === 0) return [];
 
-    const cb = getAiCircuitBreaker('mistral', 'bulk_embedding');
+    try {
+      const { embeddings } = await embedMany({
+        model: this.mistralProvider.getEmbeddingModel(),
+        values: texts,
+        maxRetries: 3,
+        maxParallelCalls: 2, // matches existing 2 req/s rate limit
+        abortSignal: AbortSignal.timeout(30_000),
+      });
 
-    return cb.execute(async () => {
-      await this.acquireSlot();
-      try {
-        const executeCall = async () => {
-          const mistralClient = client ?? (await this.createClientFn());
-          const response = await mistralClient.embeddings.create({
-            model: this.embeddingModel,
-            inputs: texts,
-          });
-
-          if (!response.data || response.data.length === 0) {
-            throw new AiError('Mistral bulk embeddings response did not contain data', AiErrorCode.EMPTY_RESPONSE);
-          }
-
-          // Sort by index to ensure correct order
-          const sortedData = response.data.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-
-          const embeddings = sortedData.map((item, index) => {
-            if (!item.embedding || item.embedding.length === 0) {
-              throw new AiError(`Embedding at index ${index} is empty or invalid`, AiErrorCode.PROVIDER_ERROR);
-            }
-            return item.embedding;
-          });
-
-          if (embeddings.length !== texts.length) {
-            throw new AiError(
-              `Expected ${texts.length} embeddings but received ${embeddings.length}`,
-              AiErrorCode.PROVIDER_ERROR,
-            );
-          }
-
-          this.logger.debug(`Generated ${embeddings.length} embeddings in bulk`);
-          return { embeddings, usage: response.usage };
-        };
-
-        return withRetry(
-          async () => (await executeCall()).embeddings,
-          { maxRetries: 3, initialDelayMs: 200, isRetryable: (err: unknown) => AiError.fromError(err).retryable }
-        );
-      } catch (error) {
-        const corrId = CorrelationContext.getCorrelationId();
-        const aiError = AiError.fromError(error);
-        this.logger.error(`[${corrId}] Failed to generate bulk embeddings: ${aiError.message}`);
-        throw aiError;
+      if (!embeddings || embeddings.length === 0) {
+        throw new AiError('Mistral bulk embeddings response did not contain data', AiErrorCode.EMPTY_RESPONSE);
       }
-    });
+
+      if (embeddings.length !== texts.length) {
+        throw new AiError(
+          `Expected ${texts.length} embeddings but received ${embeddings.length}`,
+          AiErrorCode.PROVIDER_ERROR,
+        );
+      }
+
+      this.logger.debug(`Generated ${embeddings.length} embeddings in bulk`);
+      return embeddings;
+    } catch (error) {
+      if (error instanceof AiError) throw error;
+      const corrId = CorrelationContext.getCorrelationId();
+      const aiError = AiError.fromError(error);
+      this.logger.error(`[${corrId}] Failed to generate bulk embeddings: ${aiError.message}`);
+      throw aiError;
+    }
   }
 }

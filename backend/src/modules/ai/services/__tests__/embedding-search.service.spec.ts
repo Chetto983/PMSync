@@ -13,7 +13,6 @@ const mockPrismaService = {
 };
 
 const mockMistralService = {
-  createMistralClient: jest.fn().mockResolvedValue({}),
   generateEmbedding: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
 };
 
@@ -315,10 +314,9 @@ describe('EmbeddingSearchService', () => {
         limit: 5,
       });
 
-      expect(mistralService.createMistralClient).toHaveBeenCalled();
       expect(mistralService.generateEmbedding).toHaveBeenCalledWith(
         'my search query',
-        expect.anything(), // client
+        undefined,
         { tenantId: 'tenant-123' },
       );
     });

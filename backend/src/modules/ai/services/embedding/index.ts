@@ -1,20 +1,10 @@
 /**
  * Embedding Module Exports
  *
- * Unified embedding provider with:
- * - Redis caching (50-70% API cost reduction)
- * - Rate limiting (prevents API throttling)
- * - Circuit breaker (graceful degradation)
- * - Provider abstraction (Mistral, future: OpenAI, Ollama)
- * - Batch API for async bulk operations (lower cost)
+ * Legacy barrel file -- the IEmbeddingProvider abstraction layer and
+ * MistralBatchProvider have been removed in Phase 23 (AI SDK consolidation).
+ * Embedding generation now goes through MistralProviderService + AI SDK embed()/embedMany().
+ *
+ * This file is intentionally empty. It remains as a barrel to avoid
+ * breaking any stale import paths during the migration.
  */
-
-// Types
-export * from './embedding-provider.types';
-
-// Providers
-export * from './mistral-embedding.provider';
-export * from './mistral-batch.provider';
-
-// Main service
-export * from './embedding-provider.service';

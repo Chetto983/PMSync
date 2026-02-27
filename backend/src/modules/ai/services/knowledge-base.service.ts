@@ -96,7 +96,6 @@ export class KnowledgeBaseService {
       return [];
     }
 
-    const client = await this.mistralService.createMistralClient();
     const results: Array<{ emailId: string; success: boolean; error?: string }> = [];
 
     // Prepare all chunks from all emails
@@ -155,7 +154,7 @@ export class KnowledgeBaseService {
 
     try {
       const allContents = allChunksData.map((c) => c.content);
-      const embeddings = await this.mistralService.generateBulkEmbeddings(allContents, client);
+      const embeddings = await this.mistralService.generateBulkEmbeddings(allContents);
 
       for (let i = 0; i < allChunksData.length; i++) {
         const chunkData = allChunksData[i];
@@ -226,7 +225,6 @@ export class KnowledgeBaseService {
 
     try {
       const chunks = this.composerService.chunkContentForEmbedding(contentResult.content);
-      const client = await this.mistralService.createMistralClient();
       await this.crudService.deleteEmbeddingsForEmail(options.tenantId, options.emailId);
       const receivedAtIso = options.receivedAt instanceof Date ? options.receivedAt.toISOString() : options.receivedAt || undefined;
 
@@ -234,7 +232,7 @@ export class KnowledgeBaseService {
 
       try {
         const chunkContents = chunks.map((chunk) => chunk.content);
-        const embeddings = await this.mistralService.generateBulkEmbeddings(chunkContents, client);
+        const embeddings = await this.mistralService.generateBulkEmbeddings(chunkContents);
 
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
@@ -271,7 +269,7 @@ export class KnowledgeBaseService {
 
         for (const chunk of chunks) {
           try {
-            const embedding = await this.mistralService.generateEmbedding(chunk.content, client, { tenantId: options.tenantId });
+            const embedding = await this.mistralService.generateEmbedding(chunk.content, undefined, { tenantId: options.tenantId });
 
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
@@ -413,7 +411,6 @@ export class KnowledgeBaseService {
         );
       }
 
-      const client = await this.mistralService.createMistralClient();
       // Delegate delete to crudService
       await this.crudService.deleteEmbeddingsForContact(options.tenantId, options.contactId);
 
@@ -421,7 +418,7 @@ export class KnowledgeBaseService {
 
       try {
         const chunkContents = chunks.map((chunk) => chunk.content);
-        const embeddings = await this.mistralService.generateBulkEmbeddings(chunkContents, client);
+        const embeddings = await this.mistralService.generateBulkEmbeddings(chunkContents);
 
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
@@ -457,7 +454,7 @@ export class KnowledgeBaseService {
           try {
             const embedding = await this.mistralService.generateEmbedding(
               chunk.content,
-              client,
+              undefined,
               { tenantId: options.tenantId },
             );
 

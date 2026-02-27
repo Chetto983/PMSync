@@ -111,8 +111,7 @@ export class EmbeddingSearchService {
     }
 
     // Generate embedding for search query (tenant-isolated for GDPR)
-    const client = await this.mistralService.createMistralClient();
-    const embedding = await this.mistralService.generateEmbedding(searchText, client, {
+    const embedding = await this.mistralService.generateEmbedding(searchText, undefined, {
       tenantId: options.tenantId,
     });
 
