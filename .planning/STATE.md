@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v3.2
+milestone_name: AI Rebuild & Cleanup
+status: phase-complete
+last_updated: "2026-02-27T15:05:00Z"
+progress:
+  total_phases: 8
+  completed_phases: 1
+  total_plans: 23
+  completed_plans: 2
+---
+
 # Project State
 
 ## Project Reference
@@ -5,29 +18,30 @@
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 23 - SDK Foundation & Test Infrastructure
+**Current focus:** Phase 23 - SDK Foundation & Test Infrastructure (COMPLETE)
 
 ## Current Position
 
-Phase: 23 of 30 (SDK Foundation & Test Infrastructure)
-Plan: 1 of 2 in current phase
-Status: Executing
-Last activity: 2026-02-27 -- Completed 23-01-PLAN.md (MistralModule + SDK consolidation)
+Phase: 23 of 30 (SDK Foundation & Test Infrastructure) -- COMPLETE
+Plan: 2 of 2 in current phase (all done)
+Status: Phase Complete
+Last activity: 2026-02-27 -- Completed 23-02-PLAN.md (VoltAgent deletion + Vitest E2E)
 
-Progress: [░░░░░░░░░░] 4% (1/23 plans)
+Progress: [#░░░░░░░░░] 9% (2/23 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (v3.2)
-- Average duration: 17min
-- Total execution time: 17min
+- Total plans completed: 2 (v3.2)
+- Average duration: 17.5min
+- Total execution time: 35min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 23 | 1 | 17min | 17min |
+| 23-01 | 1 | 17min | 17min |
+| 23-02 | 1 | 18min | 18min |
 
 ## Accumulated Context
 
@@ -44,6 +58,11 @@ Recent decisions affecting current work:
 - [23-01]: BatchIndexingService stubbed to no-op (sync services depend on it, Batch API removed)
 - [23-01]: EmbeddingModel type is not generic in ai@6.0.77 (union type, not EmbeddingModel<string>)
 - [23-01]: GdprService MistralAgentCleanup dependency removed (agents no longer used)
+- [23-02]: Extracted locales from voltagent/ to ai/locales/ (shared by 6+ services)
+- [23-02]: Stubbed deleted VoltAgent services with @Optional/@Inject string tokens
+- [23-02]: dotenv/config in vitest.config.ts for env var loading
+- [23-02]: Deterministic math test for generateText (LLMs unreliable for exact text matching)
+- [23-02]: @sentinelseed/voltagent retained (separate security package from @voltagent/core)
 
 ### Pending Todos
 
@@ -53,11 +72,10 @@ None yet.
 
 - LCP/TTI at 4.1s (deferred from v2.1, target <2.5s/<3.5s in Phase 30)
 - ENC-03 hash indexes deferred from v3.1 (17+ query sites, Phase 30)
-- VoltAgent has 5 hidden dependency bundles beyond "wraps AI SDK" (memory, BaseRetriever, hooks, createTool, workflow) -- each must be explicitly replaced before removal
 
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 23-01-PLAN.md
+Stopped at: Completed 23-02-PLAN.md (Phase 23 complete)
 Resume file: None
-Next action: /gsd:execute-phase 23 (plan 02)
+Next action: /gsd:execute-phase 24

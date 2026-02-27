@@ -56,7 +56,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 ### Testing (TEST-01 to TEST-04)
 
-- [ ] **TEST-01**: MSW v2 infrastructure with SSE handlers for mocking LLM streaming responses
+- [x] **TEST-01**: MSW v2 infrastructure with SSE handlers for mocking LLM streaming responses
 - [ ] **TEST-02**: Integration tests for new AI chat pipeline (message -> tool execution -> streaming response)
 - [ ] **TEST-03**: Integration tests for non-chat AI (briefing, follow-ups, drafts via generateText)
 - [ ] **TEST-04**: Playwright E2E tests for assistant-ui chat frontend
@@ -102,7 +102,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 |-------------|-------|--------|
 | MSDK-01 | Phase 23 | Complete |
 | MSDK-02 | Phase 23 | Complete |
-| TEST-01 | Phase 23 | Pending |
+| TEST-01 | Phase 23 | Complete |
 | AI-01 | Phase 24 | Pending |
 | AI-04 | Phase 24 | Pending |
 | AI-05 | Phase 24 | Pending |

@@ -37,7 +37,7 @@ Phases 13-22: PII tokenization, database encryption at rest, GDPR core complianc
 - Integer phases (23-30): Planned milestone work
 - Decimal phases (e.g., 24.1): Urgent insertions if needed
 
-- [ ] **Phase 23: SDK Foundation & Test Infrastructure** - Route all LLM calls through @ai-sdk/mistral, set up MSW v2 SSE mocking, establish E2E validation gate
+- [x] **Phase 23: SDK Foundation & Test Infrastructure** - Route all LLM calls through @ai-sdk/mistral, set up MSW v2 SSE mocking, establish E2E validation gate (completed 2026-02-27)
 - [ ] **Phase 24: Backend Core Pipeline** - New AiChatService with streamText, conversation history via Prisma, HITL via onStepFinish, GDPR guards, rate limiting
 - [ ] **Phase 25: Tools & RAG** - ~20 tools as @Injectable ToolsService classes with AI SDK v6 tool(), intent routing, embedding pipeline and hybrid search preserved
 - [ ] **Phase 26: Non-Chat AI & Backend Testing** - Briefing/follow-ups/drafts via generateText + Output.object(), integration tests for chat and non-chat pipelines
@@ -193,7 +193,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 23. SDK Foundation & Test Infrastructure | 1/2 | In progress | - |
+| 23. SDK Foundation & Test Infrastructure | 2/2 | Complete   | 2026-02-27 |
 | 24. Backend Core Pipeline | 0/3 | Not started | - |
 | 25. Tools & RAG | 0/3 | Not started | - |
 | 26. Non-Chat AI & Backend Testing | 0/3 | Not started | - |
