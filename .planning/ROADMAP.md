@@ -1,385 +1,207 @@
-# Roadmap: v3.1 GDPR Compliance & Chatbot Enhancement
-
-## Overview
-
-v3.1 transforms MailAgent into a GDPR-compliant AI email platform with enhanced chatbot capabilities. The milestone centers on PII protection for AI (Phase 13), database encryption at rest with per-tenant key isolation (Phase 14), complete GDPR compliance infrastructure (Phases 15-16), advanced AI features including rich artifacts, smart triage, and draft generation (Phases 17-19), and gap closure phases for guard mounting and prompt quality (Phases 20-21). 31 requirements map to 9 phases starting at Phase 13 (ENC-03 deferred to v3.2).
+# Roadmap: MailAgent
 
 ## Milestones
 
-- v3.0 AI Intelligence & Scalability - Phases 1-12 (shipped 2026-02-09)
-- v3.1 GDPR Compliance & Chatbot Enhancement - Phases 13-21 (in progress)
+- ✅ **v1.0 Stability & Code Quality** - Phases 1-5 (shipped 2026-02-02)
+- ✅ **v2.0 Professional Email Client** - Phases 6-10 (shipped 2026-02-04)
+- ✅ **v2.1 Optimization & Polish** - Phases 11-13 (shipped 2026-02-05)
+- ✅ **v3.0 AI Intelligence & Scalability** - Phases 1-12 (shipped 2026-02-09)
+- ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-22 (shipped 2026-02-27)
+- 🚧 **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (in progress)
 
 ## Phases
 
 <details>
-<summary>v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
+<summary>✅ v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
 
-### Phase 1: VoltAgent Infrastructure Audit
-**Goal**: Reliable AI infrastructure with tool consolidation
-**Plans**: 3 plans
-- [x] 01-01: VoltAgent audit and Redis lock fix
-- [x] 01-02: Tool consolidation analysis
-- [x] 01-03: Prometheus metrics integration
+Phases 1-12: VoltAgent audit, modern chat UI, priority scoring, follow-ups refactor, nested labels, chat UI on mail, chat improvements, email tool triage, artifact renderers, UI review, AI module audit, test fixes. 12 phases, 42 plans, 19/19 requirements.
 
-### Phase 2: Modern Chat UI
-**Goal**: Vercel AI SDK streaming with contextual prompts
-**Plans**: 4 plans
-- [x] 02-01: Circuit breaker implementation
-- [x] 02-02: Context-aware prompts
-- [x] 02-03: Suggested prompts endpoint
-- [x] 02-04: Error recovery UI
+</details>
 
-### Phase 3: Priority Scoring
-**Goal**: VIP-aware auto-triage
-**Plans**: 3 plans
-- [x] 03-01: VIP detection and scoring
-- [x] 03-02: Attention score service
-- [x] 03-03: Sender behavior tracking
+<details>
+<summary>✅ v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) - SHIPPED 2026-02-27</summary>
 
-### Phase 4: Follow-ups Refactor
-**Goal**: Two-type follow-ups with smart timing
-**Plans**: 3 plans
-- [x] 04-01: Follow-up types migration
-- [x] 04-02: Smart timing with NLP
-- [x] 04-03: Snooze UI
-
-### Phase 5: Nested Labels
-**Goal**: Hierarchical label tree with drag-drop
-**Plans**: 3 plans
-- [x] 05-01: Tree view implementation
-- [x] 05-02: Drag-drop reordering
-- [x] 05-03: Color picker UI
-
-### Phase 6: Chat UI on Mail
-**Goal**: Contextual AI panel on email view
-**Plans**: 5 plans
-- [x] 06-01: Chat layout with sliding panel
-- [x] 06-02: Context banner
-- [x] 06-03: Tool execution UI
-- [x] 06-04: Async agent creation
-- [x] 06-05: View context routing
-
-### Phase 7: Chat Improvements
-**Goal**: Modern chat UX patterns
-**Plans**: 6 plans
-- [x] 07-01: AiDashboard refactor
-- [x] 07-02: Modern message styling
-- [x] 07-03: Scroll detection
-- [x] 07-04: Hover actions
-- [x] 07-05: Markdown rendering
-- [x] 07-06: Compact header
-
-### Phase 8: Email Tool Triage Exposure
-**Goal**: AI tools see triage data
-**Plans**: 2 plans
-- [x] 08-01: Follow-up exposure in listing tools
-- [x] 08-02: Triage filters on tools
-
-### Phase 9: Chat Artifact Renderers
-**Goal**: Semantic UI for tool results
-**Plans**: 1 plan
-- [x] 09-01: Ten custom tool renderers
-
-### Phase 10: UI Review
-**Goal**: Visual polish and modern standards
-**Plans**: 8 plans
-- [x] 10-01: Accessibility audit
-- [x] 10-02: Button styling consistency
-- [x] 10-03: Icon consistency
-- [x] 10-04: Email list modern design
-- [x] 10-05: Typography review
-- [x] 10-06: Dashboard widgets
-- [x] 10-07: Color consistency
-- [x] 10-08: Animations polish
-
-### Phase 11: AI Module Audit
-**Goal**: Clean, performant AI codebase
-**Plans**: 4 plans
-- [x] 11-01: Dead code removal
-- [x] 11-02: MistralService facade
-- [x] 11-03: Service extraction
-- [x] 11-04: Test improvements
-
-### Phase 12: Test Fixes + Minor Gaps
-**Goal**: Gap closure from milestone audit
-**Plans**: 2 plans
-- [x] 12-01: ActionExecutor tests
-- [x] 12-02: WCAG accessibility fixes
+Phases 13-22: PII tokenization, database encryption at rest, GDPR core compliance, data rights & legal, rich artifacts UI, AI triage & bulk ops, AI draft generation, GDPR guard mounting, triage prompt enrichment, bug audit. 10 phases, 31/32 requirements (ENC-03 deferred to v3.2).
 
 </details>
 
 ---
 
-## v3.1 GDPR Compliance & Chatbot Enhancement (In Progress)
+## 🚧 v3.2 AI Rebuild & Cleanup (Phases 23-30)
 
-**Milestone Goal:** Full GDPR compliance with database encryption at rest, enhanced AI chatbot artifacts, and advanced triage features.
+**Milestone Goal:** Full rebuild of the AI layer -- drop VoltAgent (33K LOC, 167 files), rewrite clean AI module with AI SDK v6 + assistant-ui. Consolidate services, tools, and frontend. Fix accumulated debt.
 
-### Phase 13: PII Tokenization Foundation
+**Strategy:** Parallel construction. Build new pipeline alongside old, verify with real LLM calls, then delete old code. Every AI phase passes a real E2E validation gate (actual Mistral API, not mocked) before the next phase begins.
 
-**Goal**: All AI interactions use tokenized PII (emails, names, phones) with automatic restoration
+**Phase Numbering:**
+- Integer phases (23-30): Planned milestone work
+- Decimal phases (e.g., 24.1): Urgent insertions if needed
 
-**Depends on**: Nothing (first phase, CRITICAL BLOCKER)
+- [ ] **Phase 23: SDK Foundation & Test Infrastructure** - Route all LLM calls through @ai-sdk/mistral, set up MSW v2 SSE mocking, establish E2E validation gate
+- [ ] **Phase 24: Backend Core Pipeline** - New AiChatService with streamText, conversation history via Prisma, HITL via onStepFinish, GDPR guards, rate limiting
+- [ ] **Phase 25: Tools & RAG** - ~20 tools as @Injectable ToolsService classes with AI SDK v6 tool(), intent routing, embedding pipeline and hybrid search preserved
+- [ ] **Phase 26: Non-Chat AI & Backend Testing** - Briefing/follow-ups/drafts via generateText + Output.object(), integration tests for chat and non-chat pipelines
+- [ ] **Phase 27: Chat Frontend** - assistant-ui runtime, Thread/Composer primitives, tool renderers via makeAssistantToolUI, HITL inline, mobile layout
+- [ ] **Phase 28: Cleanup & VoltAgent Deletion** - Delete old ai-elements and voltagent code, remove @voltagent/* packages, bundle analysis, Playwright E2E
+- [ ] **Phase 29: Architecture Hardening** - Module boundaries with explicit interfaces, AI module decoupled via service contracts, memory profiling, lazy loading
+- [ ] **Phase 30: Performance & Debt** - LCP <2.5s, TTI <3.5s, ENC-03 hash indexes on encrypted fields, 7 deferred bugs from v3.1
 
-**Requirements**: PII-01, PII-02, PII-03, PII-04
+## Phase Details
 
+### Phase 23: SDK Foundation & Test Infrastructure
+**Goal**: All LLM calls route through a single SDK provider and test infrastructure exists for deterministic AI pipeline testing
+**Depends on**: Nothing (first v3.2 phase)
+**Requirements**: MSDK-01, MSDK-02, TEST-01
 **Success Criteria** (what must be TRUE):
-1. System extracts PII from all text before sending to LLM APIs
-2. User sees real names/emails/phones when viewing AI responses (tokens restored)
-3. AI tool calls execute with real PII values (tokens restored for execution)
-4. RAG embeddings are generated from PII-sanitized content (no PII in vector DB)
-5. System maintains bidirectional token mapping (token <-> original value)
-
-**Plans**: 2 plans
+  1. Every chat/completion call in the codebase goes through `@ai-sdk/mistral` provider -- zero direct `@mistralai/mistralai` SDK usage for LLM calls
+  2. All embedding generation uses AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral` -- existing BullMQ queues and pgvector storage still work, existing embeddings remain queryable
+  3. MSW v2 test infrastructure can intercept and mock SSE streaming responses from the Mistral endpoint, enabling deterministic pipeline tests in CI
+  4. E2E validation gate: a real Mistral API call through the consolidated provider returns a coherent response (not mocked), validating the full SDK path end-to-end
+**Plans**: TBD
 
 Plans:
-- [x] 13-01-PLAN.md - Wire PII sanitization into EmbeddingComposerService (PII-04)
-- [x] 13-02-PLAN.md - PII integration tests (PII-01, PII-02, PII-03 verification)
+- [ ] 23-01: Mistral SDK consolidation and embedding migration
+- [ ] 23-02: MSW v2 SSE test infrastructure and E2E gate validation
 
----
-
-### Phase 14: Database Encryption at Rest
-
-**Goal**: Tier 1 PII fields encrypted at rest with per-tenant key isolation via custom Prisma extension
-
-**Depends on**: Phase 13 (PII tokenization must work before layering DB encryption)
-
-**Requirements**: ENC-01, ENC-02, ENC-04, ENC-05 (ENC-03 hash indexes deferred to Tier 2 field encryption)
-
+### Phase 24: Backend Core Pipeline
+**Goal**: A new AiChatService handles chat orchestration end-to-end with conversation persistence, HITL safety, GDPR compliance, and rate limiting -- running alongside the old pipeline with zero breakage
+**Depends on**: Phase 23
+**Requirements**: AI-01, AI-04, AI-05, AI-06, AI-08
 **Success Criteria** (what must be TRUE):
-1. Tier 1 PII fields (bodyText, bodyHtml, snippet) are encrypted at rest in PostgreSQL
-2. Each tenant's data is encrypted with a derived key unique to that tenant (HKDF from master key + tenant ID)
-3. All existing data is migrated (backfill encrypted) without downtime
-4. Key rotation works: new key encrypts new data, old keys in keychain still decrypt old data
-5. Encryption is opt-in via env var (zero breaking change when disabled)
-
-**Technology**: Custom Prisma client extension using Node.js built-in `crypto` (AES-256-GCM + HKDF). `prisma-field-encryption` library rejected — broken on Prisma 7 (issue #143), no composite @@id support, no per-tenant keys.
-
-**Key Design Decisions**:
-- Custom `$extends()` Prisma extension for transparent encrypt/decrypt (NOT prisma-field-encryption)
-- `enc:` prefix marker for detecting encrypted vs plaintext values during migration
-- `TenantKeyService` using HKDF to derive per-tenant keys from a master secret
-- Two-tier strategy: Tier 1 (body fields) encrypted now, Tier 2 (from, subject, displayName) deferred — fuzzy search on encrypted fields requires search redesign
-- Skip+take pagination for composite PK batch migration
-- Keychain pattern for key rotation (try current key first, then old keys)
-
-**Plans**: 4 plans
+  1. New `POST /api/v1/ai/chat/stream` endpoint accepts a message and streams a coherent AI response via a 3-hop pipeline (Controller -> AiChatService -> streamText) -- old v3 endpoint still works unchanged
+  2. Conversation history loads from existing Prisma tables -- old conversation IDs preserved, users see their previous messages in the new endpoint
+  3. Destructive tool calls (send, delete, move) create a pending HITL action via `onStepFinish` callback -- the action does NOT execute without user approval
+  4. PII tokenization and audit logging are wired into the new pipeline -- a message containing PII is tokenized before reaching the LLM, and the interaction is audit-logged
+  5. Rate limiting and circuit breaker reject requests when thresholds are exceeded, matching existing behavior
+  6. E2E validation gate: send a real message through the new endpoint, verify streaming response, verify conversation persisted, verify HITL action created for a write tool call
+**Plans**: TBD
 
 Plans:
-- [x] 14-01-PLAN.md — TenantKeyService + AES-256-GCM encryption primitives + config (ENC-02 foundation)
-- [x] 14-02-PLAN.md — Custom Prisma client extension + PrismaService wiring (ENC-01 core)
-- [x] 14-03-PLAN.md — Backfill migration script for existing data (ENC-04)
-- [x] 14-04-PLAN.md — Integration tests + key rotation verification (ENC-05)
+- [ ] 24-01: AiChatService, ConversationService, and new streaming controller
+- [ ] 24-02: HITL rewiring (onStepFinish), GDPR guards, rate limiting integration
+- [ ] 24-03: E2E validation of full backend pipeline with real Mistral calls
 
----
-
-### Phase 15: GDPR Core Compliance
-
-**Goal**: Consent management and audit logging operational
-
-**Depends on**: Phase 14 (encryption at rest must protect data before consent workflows process it)
-
-**Requirements**: CONS-01, CONS-02, CONS-03, AUDIT-01, AUDIT-02, AUDIT-03
-
+### Phase 25: Tools & RAG
+**Goal**: All chat tools defined as AI SDK v6 tool() in @Injectable ToolsService classes with NestJS DI, intent-based routing, and preserved RAG pipeline
+**Depends on**: Phase 24
+**Requirements**: AI-02, AI-03, RAG-01, RAG-02
 **Success Criteria** (what must be TRUE):
-1. User can view granular consent settings page (per-feature toggles)
-2. User can modify consent settings at any time
-3. System blocks data processing when required consent is missing
-4. System logs all data access events with user/tenant/timestamp context
-5. System logs all AI tool executions with input/output summaries
-6. Audit logs are retained for 3 years per GDPR Article 30
-
-**Plans**: 4 plans
+  1. ~20 tools defined in ToolsService classes using AI SDK v6 `tool()` with NestJS DI via closures -- no factory functions, no parameter threading
+  2. Intent routing serves 6-8 relevant tools per request based on query analysis, not all 20 every time
+  3. Embedding pipeline (BullMQ queues, KnowledgeBase ingestion, pgvector storage) works end-to-end -- new emails get embedded, existing embeddings remain queryable
+  4. Hybrid search (vector + keyword with RRF fusion) returns relevant results for both semantic and exact-match queries
+  5. Duplicate tools eliminated (manage_email x2, bulk_email_actions x2) and overlapping tools merged (search_emails + semantic_search_emails)
+  6. E2E validation gate: send a real query that triggers tool execution (e.g., "search my emails from John"), verify correct tool selected via intent routing, verify RAG results returned with relevant content
+**Plans**: TBD
 
 Plans:
-- [x] 15-01-PLAN.md -- Consent backend: Prisma model, service, guard, decorator, controller (CONS-01/02/03)
-- [x] 15-02-PLAN.md -- Audit backend: AuditService expansion, interceptor, VoltAgent hook, retention cron (AUDIT-01/02/03)
-- [x] 15-03-PLAN.md -- Consent frontend: translations, API module, query hooks, consent settings UI (CONS-01)
-- [x] 15-04-PLAN.md -- TDD: Unit tests for consent and audit (all 6 requirements)
+- [ ] 25-01: ToolsService classes (email, calendar, contacts, folders, insights, memory, core)
+- [ ] 25-02: Intent routing, tool consolidation, and duplicate elimination
+- [ ] 25-03: RAG pipeline preservation and hybrid search verification
 
----
-
-### Phase 16: Data Rights & Legal Documents
-
-**Goal**: Users can export data, request deletion, and accept legal terms
-
-**Depends on**: Phase 15 (consent management must exist before enforcing legal acceptance)
-
-**Requirements**: DATA-01, DATA-02, DATA-03, LEGAL-01, LEGAL-02
-
+### Phase 26: Non-Chat AI & Backend Testing
+**Goal**: Non-chat AI features use direct generateText calls instead of agent loops, domain services relocated to proper modules, and integration tests cover both chat and non-chat pipelines
+**Depends on**: Phase 25
+**Requirements**: AI-07, TEST-02, TEST-03
 **Success Criteria** (what must be TRUE):
-1. User can request complete data export (emails, contacts, calendar, AI history)
-2. User receives data export in machine-readable format (GDPR Article 20)
-3. User can request account deletion (right to erasure)
-4. System performs hard delete after 30-day grace period
-5. New users must accept Terms of Service before using app
-6. New users must accept Privacy Policy before using app
-
-**Plans**: 4 plans
+  1. Daily briefing generates via single `generateText + Output.object()` call with pre-fetched data -- no agent loop, no tool calls during generation, output matches structured schema
+  2. Follow-up detection and draft generation both use `generateText + Output.object()` with pre-fetched context -- output quality verified against existing agent loop output (50+ case comparison)
+  3. Domain services relocated: CRM/relationship services -> contacts module, calendar conflict/focus/meeting-prep -> calendar module, with proper NestJS DI wiring
+  4. Integration tests for chat pipeline: message -> tool execution -> streaming response, with MSW-mocked LLM responses
+  5. Integration tests for non-chat AI: briefing generation, follow-up detection, draft generation, with MSW-mocked LLM responses
+  6. E2E validation gate: generate a real daily briefing via Mistral, verify structured output matches schema and contains relevant data; send a real chat message requiring multi-step tool use, verify response quality
+**Plans**: TBD
 
 Plans:
-- [x] 16-01-PLAN.md -- Prisma models (LegalAcceptance, DataExportRequest) + legal acceptance backend (LEGAL-01, LEGAL-02)
-- [x] 16-02-PLAN.md -- Data export backend: assembler, ZIP generation, download endpoint (DATA-01)
-- [x] 16-03-PLAN.md -- Account deletion backend: soft-delete, 30-day grace period, purge cron (DATA-02, DATA-03)
-- [x] 16-04-PLAN.md -- Frontend: translations, API module, query hooks, export/deletion panels, registration integration
+- [ ] 26-01: Non-chat AI migration (briefing, follow-ups, drafts to generateText + Output.object)
+- [ ] 26-02: Domain service relocation (CRM -> contacts, calendar services -> calendar)
+- [ ] 26-03: Integration test suite for chat and non-chat AI pipelines
 
----
-
-### Phase 17: Rich Artifacts UI
-
-**Goal**: AI chat renders interactive artifacts for all domains
-
-**Depends on**: Phase 13 (artifacts must show tokenized data properly)
-
-**Requirements**: ARTIFACT-01, ARTIFACT-02, ARTIFACT-03, ARTIFACT-04, ARTIFACT-05, ARTIFACT-06
-
+### Phase 27: Chat Frontend
+**Goal**: AI chat UI rebuilt with assistant-ui primitives replacing all custom MUI chat components, with tool rendering, HITL inline, and mobile support
+**Depends on**: Phase 26
+**Requirements**: CHAT-01, CHAT-02, CHAT-03, CHAT-04, CHAT-05
 **Success Criteria** (what must be TRUE):
-1. AI chat renders email artifacts with interactive UI (open, reply, archive buttons)
-2. AI chat renders calendar event artifacts with interactive UI (accept, decline, view)
-3. AI chat renders contact artifacts with interactive UI (view profile, send email)
-4. AI chat renders follow-up artifacts with interactive UI (complete, snooze, view)
-5. AI chat renders daily briefing artifacts with structured sections (priorities, deadlines)
-6. AI chat renders CRM/relationship artifacts with interactive UI (relationship score, history)
-
-**Plans**: 4 plans
+  1. assistant-ui runtime connects to new streaming endpoint via `useChatRuntime` + `AssistantChatTransport` -- chat messages stream token-by-token in real time
+  2. Thread, Composer, and Messages use assistant-ui primitives -- auto-scroll, message editing, regeneration all work; no custom MUI chat components remain in the chat panel
+  3. Domain tool renderers (email search, calendar, contacts, briefing, etc.) built with `makeAssistantToolUI` showing running/complete/error states -- tool results render as rich cards, not raw JSON
+  4. HITL approval renders inline via assistant-ui `requires_action` status -- user can approve/reject destructive actions without leaving the chat
+  5. Mobile-responsive chat layout works on 375px viewport with touch-friendly interactions -- verified at mobile, tablet, and desktop breakpoints
+  6. E2E validation gate (Playwright against running backend with real LLM): send a message, verify streaming response renders, verify tool result card appears, verify HITL card shows for write action, verify mobile layout at 375px
+**Plans**: TBD
 
 Plans:
-- [x] 17-01-PLAN.md -- Infrastructure: extend ToolRendererProps with onAction, create ActionBar shared component, wire callback plumbing through SmartToolOutput and ChatMessages
-- [x] 17-02-PLAN.md -- Backend: create get_daily_briefing and get_relationship_stats VoltAgent tools
-- [x] 17-03-PLAN.md -- Upgrade email and follow-up renderers with interactive action buttons (ARTIFACT-01, ARTIFACT-04)
-- [x] 17-04-PLAN.md -- Upgrade contact/event renderers, create BriefingRenderer and CrmRenderer (ARTIFACT-02, ARTIFACT-03, ARTIFACT-05, ARTIFACT-06)
+- [ ] 27-01: assistant-ui runtime setup (AiChatRuntime, transport, provider scoping, CSS isolation)
+- [ ] 27-02: Thread, Composer, Messages with assistant-ui primitives
+- [ ] 27-03: Tool renderers (makeAssistantToolUI) and HITL inline approval
+- [ ] 27-04: Mobile layout and Playwright E2E smoke tests
 
----
-
-### Phase 18: AI Triage & Bulk Operations
-
-**Goal**: Users can triage emails with AI assistance at scale
-
-**Depends on**: Phase 13 (triage needs tokenized PII for AI analysis)
-
-**Requirements**: TRIAGE-01, TRIAGE-02, BULK-01, BULK-02
-
+### Phase 28: Cleanup & VoltAgent Deletion
+**Goal**: All old VoltAgent code, unused ai-elements, and dead frontend components deleted; bundle size reduced; full Playwright E2E coverage
+**Depends on**: Phase 27
+**Requirements**: FECLEAN-01, FECLEAN-02, FECLEAN-03, MSDK-03, TEST-04
 **Success Criteria** (what must be TRUE):
-1. AI analyzes email content and assigns to appropriate nested label
-2. User sees AI triage suggestions in email list
-3. User can bulk-apply AI triage suggestions to multiple selected emails
-4. User can batch-apply labels to selected emails via AI assistant
-5. User can batch-create follow-ups for selected emails via AI assistant
-
-**Plans**: 4 plans
+  1. `npm ls @voltagent/core @voltagent/postgres @mistralai/mistralai` returns empty -- all three packages removed from dependencies
+  2. Old ai-elements chat files deleted (~35 files that assistant-ui replaces) -- ChatArea, ChatMessages, ChatInput, useChatController, TypingIndicator, StreamingMessage, etc.
+  3. Dead components and orphaned files removed across entire frontend -- verified by import tracing, no unused exports ship
+  4. Bundle analysis performed and documented: main JS chunks sized, largest offenders identified, tree-shaking verified for ai-elements removal
+  5. Playwright E2E test suite covers: full chat flow (send message -> tool execution -> HITL approval -> response), daily briefing widget, and mobile viewport
+  6. `npm run type-check` and `npm run lint` pass with zero errors after all deletions
+**Plans**: TBD
 
 Plans:
-- [x] 18-01-PLAN.md -- Backend: TriageSuggestionService, bulk_email_actions tool extension, action types + executors, module wiring (TRIAGE-01, BULK-01, BULK-02)
-- [x] 18-02-PLAN.md -- Frontend email list: AI triage chips in ThreadListItem, Apply AI Suggestions button in ThreadListHeader, translations (TRIAGE-02)
-- [x] 18-03-PLAN.md -- Frontend chat: TriageRenderer for bulk action results, tool registry registration (TRIAGE-02, BULK-01)
-- [x] 18-04-PLAN.md -- Gap closure: Wire onApplyAiSuggestions handler in ThreadList.tsx, bridge email selection to AI chat via Zustand store (TRIAGE-02)
+- [ ] 28-01: VoltAgent deletion (packages, old controllers, tool factories, merged services)
+- [ ] 28-02: Frontend cleanup (old ai-elements, dead components, orphan removal)
+- [ ] 28-03: Bundle analysis and Playwright E2E test suite
 
----
-
-### Phase 19: AI Draft Generation
-
-**Goal**: AI generates full reply drafts in user's writing style
-
-**Depends on**: Phase 13 (drafts need tokenized PII), Phase 18 (uses triage context)
-
-**Requirements**: DRAFT-01, DRAFT-02
-
+### Phase 29: Architecture Hardening
+**Goal**: Clean modular monolith with explicit interface contracts, validated memory efficiency, and lazy-loadable AI module
+**Depends on**: Phase 28
+**Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04
 **Success Criteria** (what must be TRUE):
-1. AI generates full reply drafts based on email context and conversation history
-2. AI drafts match user's writing style (learned from sent emails)
-3. User can accept, edit, or regenerate AI drafts
-4. System learns from user edits to improve future drafts
-
-**Plans**: 4 plans
+  1. Each NestJS module exports a defined service contract (TypeScript interface) -- no cross-module internal imports exist (verified by import path analysis)
+  2. AI module communicates with domain modules via interfaces (EmailServiceInterface, CalendarServiceInterface, ContactsServiceInterface) -- not direct service class imports
+  3. Memory profiling under simulated 1000-user load shows no unbounded cache growth, connection pool exhaustion, or large payload retention in BullMQ queues
+  4. AI module loads lazily on demand -- application startup time measured with and without AI module shows measurable improvement; users who never open chat do not pay the AI module initialization cost
+**Plans**: TBD
 
 Plans:
-- [ ] 19-01-PLAN.md -- Backend: Prisma schema (AiDraftFeedback, WritingStyleProfile extension), DraftGenerationService, DraftFeedbackService, AiDraftController (DRAFT-01)
-- [ ] 19-02-PLAN.md -- Backend: Per-provider writing style profiles, manual samples, draft corrections, weekly refresh cron (DRAFT-02)
-- [ ] 19-03-PLAN.md -- Frontend: Translations, API module, TanStack Query hooks, AiDraftBadge, ToneSelector, ComposeDialog auto-draft wiring (DRAFT-01)
-- [ ] 19-04-PLAN.md -- Frontend: WritingStyleSettings panel with style summary, manual samples, draft stats + visual checkpoint (DRAFT-02)
+- [ ] 29-01: Module boundary enforcement and interface contracts
+- [ ] 29-02: Memory profiling and lazy loading
 
----
-
-### Phase 20: Mount GDPR Guards
-
-**Goal**: Wire existing ConsentGuard and LegalAcceptanceGuard into runtime enforcement
-
-**Depends on**: Phase 15 (ConsentGuard), Phase 16 (LegalAcceptanceGuard)
-
-**Requirements**: CONS-02, LEGAL-01, LEGAL-02
-
-**Gap Closure**: Closes CONS-02, LEGAL-01, LEGAL-02 from v3.1 audit
-
+### Phase 30: Performance & Debt
+**Goal**: Performance targets hit, encrypted field search works, and all v3.1 deferred bugs resolved
+**Depends on**: Phase 29
+**Requirements**: PERF-01, PERF-02, PERF-03, PERF-04
 **Success Criteria** (what must be TRUE):
-1. `LegalAcceptanceGuard` registered as `APP_GUARD` in `app.module.ts` — users without TOS/Privacy acceptance are blocked from non-exempt routes
-2. `ConsentGuard` enforces `ai_email_processing` consent on VoltAgent chat and embedding endpoints
-3. Exempt routes (auth, health, compliance) are decorated with `@SkipLegalCheck` / `@SkipConsent`
-4. Integration test verifies guards block requests when consent/legal acceptance is missing
-
-**Plans**: 1 plan
-
-Plans:
-- [ ] 20-01-PLAN.md — Register LegalAcceptanceGuard + ConsentGuard as APP_GUARD, exempt compliance routes, enforce ai_email_processing consent on AI endpoints, integration tests (CONS-02, LEGAL-01, LEGAL-02)
-
----
-
-### Phase 21: Enrich Triage Prompt
-
-**Goal**: Fix Apply AI Suggestions prompt to include email metadata instead of raw UUIDs
-
-**Depends on**: Phase 18 (mechanical wiring already complete)
-
-**Requirements**: TRIAGE-02
-
-**Gap Closure**: Closes TRIAGE-02 from v3.1 audit
-
-**Success Criteria** (what must be TRUE):
-1. Apply AI Suggestions prompt includes email subject + sender for each selected email
-2. VoltAgent LLM receives sufficient context to construct valid `bulk_email_actions` calls
-3. E2E flow works: select emails → click Apply AI → LLM triages with correct metadata
+  1. Lighthouse LCP on email list page < 2.5s (production build, 4G throttled) -- down from 4.1s
+  2. TTI on email list page < 3.5s (production build, 4G throttled) -- down from 4.1s
+  3. ENC-03 hash-based search indexes implemented on all 17+ encrypted field query sites -- indexed lookups replace full-table scans
+  4. All 7 deferred bugs from v3.1 audit resolved and verified (RC-A1/A8 race conditions and remaining BUG-REPORT items)
+  5. Lighthouse CI budget gates enforced in CI pipeline, blocking PRs that regress LCP/TTI/CLS beyond thresholds
+**Plans**: TBD
 
 Plans:
-- [ ] 21-01: (To be planned)
-
----
-
-### Phase 22: Bug Audit
-
-**Goal**: Comprehensive audit and remediation of all bugs across the entire MailAgent codebase (v3.0 + v3.1). Completes unfinished plans 19-04 and 21-01. Zero known bugs when done.
-
-**Depends on:** Phase 21
-
-**Requirements**: AUDIT-FIX-01, AUDIT-FIX-02, AUDIT-FIX-03, AUDIT-FIX-04, AUDIT-FIX-05, AUDIT-FIX-06, AUDIT-FIX-07, AUDIT-FIX-08
-
-**Plans:** 5/6 plans executed
-
-Plans:
-- [ ] 22-01-PLAN.md — Comprehensive codebase audit producing BUG-REPORT.md + visual baseline screenshots
-- [ ] 22-02-PLAN.md — Tooling fixes: ESLint (both), Prisma migration, npm audit, test infrastructure
-- [ ] 22-03-PLAN.md — Backend bug fixes: dead code removal, code consolidation, known bugs
-- [ ] 22-04-PLAN.md — Frontend bug fixes: UI issues, i18n gaps, pattern violations, lint cleanup
-- [ ] 22-05-PLAN.md — Unfinished plans: 19-04 WritingStyleSettings + 21-01 Triage Prompt enrichment
-- [ ] 22-06-PLAN.md — Final verification: after screenshots, before/after metrics, git tag, user sign-off
-
----
+- [ ] 30-01: LCP and TTI optimization (profiling, code splitting, waterfall elimination)
+- [ ] 30-02: ENC-03 hash indexes on encrypted fields
+- [ ] 30-03: Deferred bug fixes from v3.1 audit
 
 ## Progress
 
-**Execution Order:** Phases execute in numeric order (13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19)
+**Execution Order:**
+Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
-| 13. PII Tokenization Foundation | v3.1 | 2/2 | ✓ Complete | 2026-02-11 |
-| 14. Database Encryption at Rest | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 15. GDPR Core Compliance | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 16. Data Rights & Legal Documents | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 17. Rich Artifacts UI | v3.1 | 4/4 | ✓ Complete | 2026-02-11 |
-| 18. AI Triage & Bulk Operations | v3.1 | Complete    | 2026-02-26 | 2026-02-26 |
-| 19. AI Draft Generation | 3/4 | In Progress|  | - |
-| 20. Mount GDPR Guards | 1/1 | Complete    | 2026-02-26 | - |
-| 21. Enrich Triage Prompt | v3.1 | 0/? | Not started | - |
-| 22. Bug Audit | 5/6 | In Progress|  | - |
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 23. SDK Foundation & Test Infrastructure | 0/2 | Not started | - |
+| 24. Backend Core Pipeline | 0/3 | Not started | - |
+| 25. Tools & RAG | 0/3 | Not started | - |
+| 26. Non-Chat AI & Backend Testing | 0/3 | Not started | - |
+| 27. Chat Frontend | 0/4 | Not started | - |
+| 28. Cleanup & VoltAgent Deletion | 0/3 | Not started | - |
+| 29. Architecture Hardening | 0/2 | Not started | - |
+| 30. Performance & Debt | 0/3 | Not started | - |
 
 ---
-
 *Roadmap created: 2026-02-09*
-*Last updated: 2026-02-26 — Phase 22 planned with 6 plans. Gap closure phases 20-21 added from milestone audit. ENC-03 deferred to v3.2.*
+*v3.2 phases added: 2026-02-27 -- 8 phases, 23 plans, 33 requirements mapped*

@@ -4,313 +4,56 @@
 
 See: .planning/PROJECT.md (updated 2026-02-27)
 
-**Core value:** The best professional AI mail client — fast, intelligent, and secure
-**Current focus:** v3.2 AI Rebuild & Cleanup
+**Core value:** The best professional AI mail client -- fast, intelligent, and secure
+**Current focus:** Phase 23 - SDK Foundation & Test Infrastructure
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-27 — Milestone v3.2 started
+Phase: 23 of 30 (SDK Foundation & Test Infrastructure)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-02-27 -- v3.2 roadmap created (8 phases, 33 requirements)
+
+Progress: [░░░░░░░░░░] 0% (0/23 plans)
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0 (v3.2)
+- Average duration: -
+- Total execution time: -
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [v3.2]: Drop VoltAgent for raw AI SDK v6 (framework weight without proportional value)
+- [v3.2]: Mastra rejected (no NestJS support)
+- [v3.2]: generateText + Output.object() for non-chat AI (faster, cheaper than agent loops)
+- [v3.2]: Parallel construction strategy (new pipeline alongside old, zero breakage)
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- LCP/TTI at 4.1s (deferred from v2.1, target <2.5s/<3.5s in Phase 30)
+- ENC-03 hash indexes deferred from v3.1 (17+ query sites, Phase 30)
+- VoltAgent has 5 hidden dependency bundles beyond "wraps AI SDK" (memory, BaseRetriever, hooks, createTool, workflow) -- each must be explicitly replaced before removal
 
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Milestone initialization
+Stopped at: v3.2 roadmap created
 Resume file: None
-Next action: Define requirements and create roadmap
-
-## Accumulated Decisions
-
-| Decision | Phase | Rationale |
-|----------|-------|-----------|
-| Standalone Prisma in benchmarks | v2.0-01-01 | CI/CD portability without NestJS startup |
-| Partial indexes for filtered queries | v2.0-01-01 | 80% index size reduction for common patterns |
-| CONCURRENTLY index creation | v2.0-01-01 | Avoid table locks in production |
-| Promise.all for folder counts | v2.0-01-02 | Each provider independent, no cross-provider state |
-| Weekly orphan cleanup at 2 AM Sunday | v2.0-01-02 | Avoid peak usage, batch processing with limits |
-| 300ms debounce for prefetch | v2.0-03-01 | Prevents API flood on fast mouse movements |
-| Mobile header with Send, no Schedule | v2.0-04-03 | Simplify mobile UX; schedule send available on desktop |
-| 5 primary actions on mobile toolbar | v2.0-04-02 | AI, Bold, Italic, Link, Attach - most used |
-| 16px indentation per nesting level | v2.0-05-03 | Clean visual hierarchy with MUI spacing |
-| Regex tokenization for search filters | v2.0-06-03 | Handles quoted strings and space-separated tokens |
-| Kanban columns LOCAL ONLY | v2.0-06-02 | Backend API out of scope v2.0; localStorage via Zustand |
-| AES256 (SSE-S3) over SSE-KMS | v2.0-07-01 | Simpler, cheaper, sufficient for attachments |
-| csrf-csrf package | v2.0-07-04 | Maintained SPA-focused package, replaces deprecated csurf |
-| Pixel 7/iPhone 14 device profiles | v2.0-08-01 | Current mainstream devices for mobile E2E testing |
-| fail-fast: false in CI matrix | v2.0-08-05 | Complete browser coverage even if one fails |
-| ssr: false for TipTap dynamic import | v2.1-01-01 | TipTap uses browser APIs (window, document) |
-| ssr: false for @dnd-kit dynamic import | v2.1-01-01 | @dnd-kit uses browser APIs (window, document) |
-| Reuse KanbanSkeleton for lazy load | v2.1-01-01 | Already exists with configurable columns/cards |
-| continue-on-error: true for Lighthouse CI | v2.1-01-02 | Don't block PRs until budgets verified achievable |
-| Separate lighthouse job in CI | v2.1-01-02 | Clearer separation, parallel execution, easy toggle |
-| 3 URLs tested by Lighthouse | v2.1-01-02 | Email, compose, follow-ups - key performance pages |
-| 0px fallback for safe area insets | v2.1-02-01 | Non-iOS devices automatically get 0px |
-| Landscape safe area (left/right) | v2.1-02-01 | Support iPhone landscape mode on all mobile components |
-| calc() for Desktop FAB safe area | v2.1-02-01 | Preserve 24px base spacing while adding safe area |
-| Serial execution for search E2E | v2.1-02-02 | Prevents tenant data race conditions |
-| test.beforeEach for E2E mock setup | v2.1-02-02 | Ensures mocks set before each test |
-| URL navigation for filter tests | v2.1-02-02 | /dashboard/email?search=filter:value pattern |
-| Bidirectional URL-store sync | v2.1-02-02 | email.tsx syncs URL ?search= to Zustand store and vice versa |
-| aria-label chip selectors | v2.1-02-02 | Use /Remove filter:.*/ pattern to avoid matching email list items |
-| Prioritize Redis locks and retry first | v3.0-01-01 | Small effort, high impact on reliability (VOLT-02, VOLT-03) |
-| No tool consolidation needed | v3.0-01-01 | Tools already well-consolidated, no duplicates found |
-| @willsoto/nestjs-prometheus for metrics | v3.0-01-03 | NestJS-native integration with makeHistogramProvider helpers |
-| Optional @InjectMetric for graceful degradation | v3.0-01-03 | Services work without PrometheusModule loaded |
-| onToolMetrics callback for hooks | v3.0-01-03 | Avoids injecting services into pure function factory |
-| Separate /suggested-prompts endpoint | v3.0-02-02 | Cleaner separation of concerns vs embedding in streaming response |
-| ViewContext ref pattern for transport | v3.0-02-02 | Fresh values in AI SDK transport body (same as conversationId) |
-| Icon mapping for dynamic prompts | v3.0-02-02 | Explicit object maps string icon names to Lucide components |
-| Use existing LlmCircuitBreaker | v3.0-02-01 | Leverage MistralService class, no new dependencies |
-| Error categorization in hook | v3.0-02-01 | parseError in use-voltagent-chat.ts for reusability |
-| Inline retry banner | v3.0-02-01 | Visible retry action path, not just toast |
-| expandedIds tracks expanded labels | v3.0-05-01 | Collapsed by default matches context decision |
-| Aggregate counts in buildTree | v3.0-05-01 | Avoids cascading re-renders (precomputed once) |
-| Preset-only color picker | v3.0-05-01 | Context: no custom hex input |
-| Variable indent (16px L0-1, 8px L2+) | v3.0-05-01 | Keep sidebar tight at deeper nesting levels |
-| Panel width 380px desktop, 100vw mobile | v3.0-06-02 | Consistent with typical chat sidebars, full width on mobile |
-| Fixed overlay panel (not pushing content) | v3.0-06-02 | Does not disturb email reading flow |
-| Context banner with subject + sender | v3.0-06-02 | User always knows which email the AI is discussing |
-| Loader2Icon for tool spinners | v3.0-06-03 | Animated spinning vs static pulsing for clearer active state |
-| TOOL_NAME_MAP in tool.tsx | v3.0-06-03 | Human-readable tool names for better UX |
-| EmailContext after BASE prompt | v3.0-06-03 | Contextual AI prompt section when viewing specific email |
-| Async agent creation | v3.0-06-04 | Required to fetch email context from database before building prompt |
-| Use from field (not fromAddress) | v3.0-06-04 | Prisma Email schema uses 'from' as sender address field |
-| viewContext optional at all layers | v3.0-06-05 | Backward compatibility with existing API calls |
-| Type narrowing for currentView | v3.0-06-05 | Cast to specific union type when passing to createUnifiedAgent |
-| Separate DndContext for labels | v3.0-05-02 | Avoid collision with EmailLayout folder DnD |
-| Toggle deselect on all sidebar filters | v3.0-05-02 | Clicking active filter clears it (labels, folders, provider folders) |
-| 6 files for AiDashboard refactor | v3.0-07-01 | ChatInput extracted separately for mobile reuse |
-| Controller hook returns typed interface | v3.0-07-01 | Clear contract for consumers, easier to extend |
-| hideQuickActions on ChatInput | v3.0-07-01 | Mobile dialog has less space for quick actions |
-| IntersectionObserver for scroll detection | v3.0-07-02 | Works with any scrollable ancestor without needing containerRef |
-| User messages: 8% secondary alpha | v3.0-07-02 | Subtle modern look matching Claude/ChatGPT UX |
-| Assistant messages: no container | v3.0-07-02 | Clean typography focus, reduces visual noise |
-| Tailwind group/group-hover for hover actions | v3.0-07-04 | Reveals action bar on message hover with opacity transition |
-| Theme palette for semantic colors | v3.0-07-04 | Always use theme.palette.* not hardcoded hex |
-| Exclude followUp from bulk listing tools | v3.0-08-01 | Token bloat risk; only get_email_content (max 5) includes it |
-| Lightweight followUp select (6 fields) | v3.0-08-01 | Excludes commitments/waitingFor/actionItems JSON blobs |
-| count_emails unchanged | v3.0-08-01 | Only counts rows, no email select to modify |
-| Triage filters on listing tools only | v3.0-08-02 | Search tools have RAG/text filtering; mixing creates confusing semantics |
-| list_follow_ups uses select not include | v3.0-08-02 | Lightweight responses, excludes bodyText/bodyHtml |
-| Excluded JSON blobs from list_follow_ups | v3.0-08-02 | commitments/waitingFor/actionItems cause token bloat |
-| Compact header 48-56px | v3.0-07-06 | Reduced from 80px for cleaner UI, inline status chip |
-| Follow-up type defaults to TODO | v3.0-04-01 | Existing follow-ups remain valid after migration; most are received emails |
-| Folder-based type detection | v3.0-04-01 | SENT folder + waitingFor items = WAITING_FOR, else TODO |
-| Lightweight followUp select (7 fields) | v3.0-04-01 | Updated from 6 to include followUpType field |
-| Use chrono-node for NLP deadlines | v3.0-04-02 | Already installed, handles relative dates, zero new dependencies |
-| Smart timing: 2-3 days, Tue-Thu 10 AM | v3.0-04-02 | Research shows single follow-up doubles response rate (16% → 27%) |
-| Separate detectedDeadline from dueDate | v3.0-04-02 | Preserves both AI-detected and manual dates |
-| Lightweight followUp select (10 fields) | v3.0-04-02 | Updated from 7 to include detectedDeadline + deadlineSource |
-| Lucide icons size prop convention | v3.0-10-01 | size={18} for small, size={20} for medium, size={24} for large |
-| Skip navigation sr-only pattern | v3.0-10-01 | Tailwind sr-only + focus:not-sr-only for WCAG AA skip link |
-| MotionConfig placement | v3.0-10-01 | Wrapped inside MaterialThemeWrapper for proper provider nesting |
-| Preserved 3-line email layout | v3.0-10-04 | Outlook-inspired design with snippet preview is superior UX over 2-line spec |
-| Hex alpha suffix for theme colors | v3.0-10-04 | `${theme.palette.primary.main}0A` more explicit than alpha() function |
-| Code audit sufficient when standards met | v3.0-10-06 | Code review can replace visual testing when patterns are consistent |
-| 2-column dashboard grid over 3-column | v3.0-10-06 | Better card proportions at 1440px (~640px per widget) |
-| CALENDAR_COLORS hardcoded array acceptable | v3.0-10-06 | Semantic preset values for calendar customization, user-modifiable |
-| Animations 0.1-0.25s (SUBTLE) | v3.0-10-08 | Micro-interactions enhance UX without distracting |
-| No stagger on virtualized lists | v3.0-10-08 | Performance concern with large email lists |
-| Focus-visible 2px offset + 4px radius | v3.0-10-08 | Modern look matching contemporary design systems |
-| Re-enabled button-name/label/color-contrast WCAG | v3.0-10-08 | Phases 10-01 and 10-02 fixed these violations |
-| Facade pattern for MistralService | v3.0-11-02 | Preserves all existing consumer imports while delegating to focused services |
-| Setter-based DI for cross-service wiring | v3.0-11-02 | Avoids NestJS circular dependency errors in extracted services |
-| RRF K=60 constant for rank fusion | v3.0-11-02 | Industry standard parameter balancing vector and keyword rankings |
-| Extract-then-delegate pattern for large files | v3.0-11-03 | Create new services first, modify originals in follow-up to avoid file conflicts |
-| Flexible assertions for external library tests | v3.0-11-04 | Test pattern detection instead of strict blocking for library version compatibility |
-| Context-aware validation testing | v3.0-11-04 | Different security levels for USER_PROMPT vs EMAIL_CONTENT vs SYSTEM_INTERNAL |
-| OR query for VIP detection | v3.0-03-01 | User-defined VIPs (isVip) + auto-detected (relationshipScore >= 50) |
-| VIP take limit 50 | v3.0-03-01 | Accommodate both auto-detected and user-defined VIPs |
-| isVip fast-path in scoreSenderImportance | v3.0-03-01 | Cache-miss fallback returns 1.0 for user-defined VIPs |
-| Active tenant filtering in backfill | v3.0-03-01 | Prevent processing for inactive/deleted tenants |
-| @Optional() injection for AttentionScoreService | v3.0-03-02 | Degrades gracefully in tests without VoltAgentModule |
-| Query limit as string with parseInt fallback | v3.0-03-02 | NestJS @Query() returns string; manual parsing needed |
-| Redis hash for sender behavior scores | v3.0-03-03 | Zero JSONB queries, fast reads, 30-day TTL auto-expiry |
-| EMA blend 0.7 prev weight | v3.0-03-03 | Smooth score evolution, prevents single action from dominating |
-| Buffer flush at 5 signals or 5 min | v3.0-03-03 | Balance between responsiveness and write efficiency |
-| 100 emails per tenant recalculation | v3.0-03-03 | Prevent overload; oldest emails recalculated first |
-| SKIP_FOLDERS extracted constant | v3.0-03-03 | Eliminated 3x folder exclusion duplication |
-| Native date input for custom dates | v3.0-04-03 | @mui/x-date-pickers not installed; matches existing patterns |
-| Smart timing above presets | v3.0-04-03 | AI recommendation is primary value-add; prominent placement |
-| handleSnooze accepts Date object | v3.0-04-03 | Cleaner API for both presets and smart timing |
-| editorPlaceholder for RichTextEditor aria-label | v3.0-12-02 | Consistent with placeholder text for accessible name |
-| label prop for recipient aria-labels | v3.0-12-02 | To/Cc/Bcc labels map directly to accessibility context |
-| PII tokenization as Phase 13 blocker | v3.1-roadmap | All AI features depend on PII protection foundation |
-| 6 phases for 27 requirements | v3.1-roadmap | Comprehensive depth (8-12 phases target), natural groupings |
-| Sanitize body, NOT subject in embeddings | v3.1-13-01 | Subject is critical for semantic search relevance |
-| Sanitize contact emails/phones, NOT name | v3.1-13-01 | Name is primary search target for contact lookups |
-| @Optional() @Inject() for PII in embeddings | v3.1-13-01 | Matches codebase convention, graceful degradation |
-| Mock CacheService directly for PII tests | v3.1-13-02 | Faster than NestJS TestingModule, sufficient for integration validation |
-| Real PiiDetectionService in tests (no mocks) | v3.1-13-02 | Ensures actual regex patterns and hashing work correctly |
-| jest.isolateModules for config-dependent tests | v3.1-14-01 | jest.mock singleton prevents per-test config changes |
-| isEnabled getter on TenantKeyService | v3.1-14-01 | Downstream code can skip encryption when master key not set |
-| Encryption opt-in (empty key = disabled) | v3.1-14-01 | Graceful degradation; encryption activated only after master key configured |
-| skip+take pagination over cursor for composite PK | v3.1-14-03 | Composite @@id([id, tenantId]) prevents cursor-based pagination in Prisma |
-| Dynamic Prisma model accessor for generic backfill | v3.1-14-03 | Lowercase first char of model name for reusable backfillEncryptModel() |
-| Dry-run via CLI flag for migration safety | v3.1-14-03 | --dry-run logs encryption candidates without writing to database |
-| Object.assign for PrismaService extension wiring | v3.1-14-02 | Copies interceptor methods onto this, preserving single injectable token |
-| Exported helper functions for extension testability | v3.1-14-02 | Prisma.defineExtension returns opaque function; helpers enable unit testing |
-| Pure function extension (no NestJS DI) | v3.1-14-02 | Accepts key-getter callbacks, instantiated in constructor for simplicity |
-| Direct HKDF derivation in integration tests | v3.1-14-04 | Reproduces TenantKeyService logic without NestJS DI for fast test isolation |
-| No DB required for encryption integration tests | v3.1-14-04 | Exported helper functions are the same code the Prisma extension uses internally |
-| Dual-write consent-to-preferences pattern | v3.1-15-01 | Immutable consent records + sync to UserPreferences for fast runtime checks |
-| Default deny for consent checks | v3.1-15-01 | hasConsent returns false when no record exists, forcing explicit opt-in |
-| Feature validation on consent update | v3.1-15-01 | Rejects unknown feature IDs with BadRequestException |
-| Wire onAuditToolExecution in voltagent.service.ts | v3.1-15-02 | Follows existing hook pattern (hooks wired in service, not module) |
-| Store tool args in context for onToolEnd access | v3.1-15-02 | onToolEnd doesn't receive args; stored via __toolArgs in onToolStart |
-| @Optional() AuditService in VoltAgentService | v3.1-15-02 | Graceful degradation matching codebase convention |
-| Pure Jest mocks for PrismaService in GDPR tests | v3.1-15-04 | Faster than NestJS TestingModule, sufficient for unit tests |
-| Full ExecutionContext mock shape for guard/interceptor tests | v3.1-15-04 | Complete interface avoids runtime type errors |
-| Translations under settings.consentPanel | v3.1-15-03 | Nested under settings matching existing panel patterns |
-| Optimistic toggle with rollback | v3.1-15-03 | Standard TanStack Query onMutate/onError/onSettled pattern |
-| Frontend feature grouping arrays | v3.1-15-03 | AI_FEATURES/DATA_FEATURES hardcoded matching backend constants |
-| Version-pinned legal acceptance | v3.1-16-01 | Guard checks CURRENT version only, not any historical acceptance |
-| SkipLegalCheck decorator for guard bypass | v3.1-16-01 | Same SetMetadata pattern as RequiresConsent but inverted (opt-out) |
-| Legal endpoints exclude LegalAcceptanceGuard | v3.1-16-01 | Users must accept without being blocked by the guard |
-| forwardRef ComplianceModule in ScheduledJobsModule | v3.1-16-03 | Cross-module cron DI without circular dependency |
-| @Optional() AccountDeletionService in DataCleanupService | v3.1-16-03 | Graceful degradation if ComplianceModule unavailable |
-| AuditModule imported in ComplianceModule | v3.1-16-03 | Required for deletion audit trail (not global module) |
-- [Phase v3.1-16-02]: Inline async export processing over BullMQ for single-tenant simplicity
-- [Phase v3.1-16-02]: Individual JSON files per data category in export ZIP for selective import
-- [Phase v3.1-16-02]: 3:30 AM export cleanup cron separate from 3 AM data cleanup
-- [Phase v3.1-16-04]: Self-contained data rights panels with own TanStack Query hooks
-- [Phase v3.1-16-04]: New sidebar section for Data & Privacy instead of embedding in Account
-- [Phase v3.1-16-04]: Polling refetchInterval 5s for active export status tracking
-- [Phase v3.1-17-01]: Use next/router over next/navigation for ChatMessages (matches 25/29 codebase imports)
-- [Phase v3.1-17-01]: ActionBar uses title attr for tooltips (no TooltipProvider dependency)
-- [Phase v3.1-17-02]: Briefing/CRM tools loaded for read/search/orchestrate/unknown intents only
-- [Phase v3.1-17-02]: Parallel topContacts + staleContacts fetch in CRM tool
-- [Phase v3.1-17-02]: @Optional() @Inject() for DailyBriefingService/RelationshipIntelligenceService in AgentPoolService
-- [Phase v3.1-17-03]: Dynamic import for voltAgentApi in FollowUpRenderer (lazy API loading)
-- [Phase v3.1-17-03]: Underscore-prefix for unused handler params in snooze handler
-- [Phase v3.1-17-04]: Inline formatRelativeDate helper (no date-fns dependency for CRM)
-- [Phase v3.1-17-04]: Score color thresholds 0-25 red, 26-50 amber, 51-75 blue, 76-100 green
-- [Phase v3.1-17-04]: CrmContactRow sub-component for file size management
-- [Phase v3.1-17-04]: Stale threshold 14 days matching backend convention
-- [Phase v3.1-18-01]: Locale strings in Task 1 commit (pre-commit type-check requires all referenced keys to exist)
-- [Phase v3.1-18-01]: ConflictException retry in TriageSuggestionService for race condition on slug collision
-- [Phase v3.1-18-01]: forwardRef(() => LabelsModule) in VoltAgentModule to avoid circular dependency
-- [Phase v3.1-18-01]: @Optional() @Inject() for LabelsService/TriageSuggestionService/FollowUpCrudService in ActionExecutorService
-- [Phase v3.1-18-02]: Use t.emailList.* for header translations (matches existing pattern, not t.email.*)
-- [Phase v3.1-18-02]: Add triage section under ai.triage in locales (9 keys for Plan 03 renderer)
-- [Phase v3.1-18-03]: Type alias for Translations over inline ReturnType (conciseness in sub-components)
-- [Phase v3.1-18-03]: Dual-card pattern: amber PendingCard for HITL approval, green CompletedCard for executed actions
-- [Phase v3.1-18-04]: pendingAiPrompt is ephemeral (not persisted) -- excluded from partialize
-- [Phase v3.1-18-04]: 50ms setTimeout before sendMessage to ensure chat UI mounted
-- [Phase v3.1-18-04]: Clear pending prompt before sending to prevent useEffect re-trigger loops
-- [Phase v3.1-20-01]: LegalAcceptanceGuard skips unauthenticated routes (return true when request.user absent)
-- [Phase v3.1-20-01]: Guard ordering: ThrottlerGuard -> LegalAcceptanceGuard -> ConsentGuard
-- [Phase v3.1-20-01]: ai_email_processing umbrella consent covers all VoltAgent chat + AiController AI handlers
-- [Phase v3.1-20-01]: @SkipLegalCheck on all 5 compliance controllers (GDPR rights accessible before legal acceptance)
-- [Phase v3.1-19-01]: findFirst + create/update over upsert for nullable compound unique (WritingStyleProfile)
-- [Phase v3.1-19-01]: Inline language detection with Italian keyword heuristic (2+ hits = Italian)
-- [Phase v3.1-19-01]: Two-row Levenshtein optimization for O(min(m,n)) memory in edit distance
-- [Phase v3.1-19-02]: Provider-specific profile falls back to default (providerId: null) profile
-- [Phase v3.1-19-02]: analyzeUserEmails overloaded signature for backward compat (limit, providerId?)
-- [Phase v3.1-19-02]: Correction snippets truncated to 120 chars, max 3 corrections for token control
-- [Phase v3.1-19-03]: AI draft controls rendered above editor, not inline or side-by-side
-- [Phase v3.1-19-03]: handleDialogClose wraps onClose to capture rejection feedback
-- [Phase v3.1-19-03]: Draft population useEffect keyed on aiDraft.draftId to avoid re-render loops
-- [Phase v3.1-19-03]: focusEnd uses requestAnimationFrame for one-tick delay after content render
-- [Phase 22-02]: Ignore all **/*.js in backend ESLint (TS-only project with utility JS scripts)
-- [Phase 22-02]: Filter eslint-plugin-react from eslint-config-next (7.37.5 incompatible with ESLint 10)
-- [Phase 22-02]: Manual Prisma migration for aiPriority index (shadow DB replay issue)
-- [Phase 22-02]: Catch-all E2E API mock returns 200 with empty JSON for unmocked endpoints
-- [Phase 22-02]: Backend xlsx/node-nlp vulns accepted as risk (no safe fix)
-- [Phase 22-03]: Auth endpoints (logout, refresh) confirmed user-scoped -- TenantGuard not needed
-- [Phase 22-03]: Autumn pricing_table endpoint stays public (per-method guards, not class-level)
-- [Phase 22-03]: styleSrc keeps unsafe-inline in all envs (CSS-in-JS requires it)
-- [Phase 22-03]: Stale TODOs converted to DEBT markers with BUG-NNN tracking refs
-- [Phase 22-04]: BUG-011/012 LCP/TTI perf deferred -- needs dedicated optimization pass
-- [Phase 22-04]: BUG-016 i18n resolved -- key parity confirmed (3076 paths match)
-- [Phase 22-04]: BUG-018/029/044 file size violations flagged only -- high regression risk to split
-- [Phase 22-04]: ESLint ai-elements 10 errors accepted -- pre-existing React compiler warnings
-- [Phase 22-04]: DOMPurify required on all dangerouslySetInnerHTML for email/AI content
-- [Phase 22-05]: Plan 19-04 WritingStyleSettings already fully implemented -- verified, no changes needed
-- [Phase 22-05]: Triage prompt enriched with From+Subject lines instead of raw UUIDs for VoltAgent context
-
-## Blockers & Concerns
-
-| Issue | Severity | Phase | Notes |
-|-------|----------|-------|-------|
-| LCP exceeds budget (4.12s vs 2.5s) | High | v2.1-01 | Primary v2.1 target |
-| TTI exceeds budget (4.13s vs 3.5s) | High | v2.1-01 | Primary v2.1 target |
-| E2E chip interaction tests | Medium | v2.1-02 | 5/7 search tests pass; chip removal click needs debugging |
-
-## Roadmap Evolution
-
-- Phase 06 added: Chat UI and Agent Tool on Mail (2026-02-07)
-- Phase 07 added: Chat Improvement (2026-02-07)
-- Phase 08 added: Email Tool Triage Exposure (2026-02-07) — audit found all listing tools blind to aiPriority/aiSentiment/aiLabels/followUp
-- Phase 09 added: Chat Artifact Smart Renderers (2026-02-07) — raw JSON tool results replaced with semantic UI renderers per tool type
-- Phase 10 added: UI Review (2026-02-07) — visual polish pass for design consistency and modern standards
-- Phase 11 added: AI Module Audit (2026-02-08)
-- Phase 12 added: Test Fixes + Minor Gaps (2026-02-08) — gap closure from milestone audit
-- Phase 13-18 added: v3.1 GDPR Compliance & Chatbot Enhancement (2026-02-09) — PII tokenization, GDPR core, data rights, artifacts, triage, drafts
-- Phase 22 added: bug_audit (2026-02-26)
-
-## Milestones
-
-See: .planning/MILESTONES.md
-
-**v2.0 Professional Email Client** -- SHIPPED 2026-02-04
-- 8 phases, 21 plans
-- 24/24 requirements satisfied
-- 200 E2E tests across 5 browsers
-
-**v1 Stability & Code Quality Refactor** -- SHIPPED 2026-02-02
-- 8 phases, 40 plans
-- 77% reduction in large service files
-
-**v2.1 Optimization & Polish** -- SHIPPED 2026-02-05
-- 3 phases, 5 plans
-- 5 requirements (OPT-01/02, POLISH-01/02, API-01)
-
-**v3.0 AI Intelligence & Scalability** -- SHIPPED 2026-02-09
-- 12 phases, 42 plans
-- 19/19 requirements satisfied
-
-## v3.1 Roadmap
-
-**Phases:**
-- Phase 13: PII Tokenization Foundation (4 requirements)
-- Phase 14: GDPR Core Compliance (6 requirements)
-- Phase 15: Data Rights & Legal Documents (5 requirements)
-- Phase 16: Rich Artifacts UI (6 requirements)
-- Phase 17: AI Triage & Bulk Operations (4 requirements)
-- Phase 18: AI Draft Generation (2 requirements)
-
-**Coverage:** 27/27 requirements mapped (100%)
-
-## Next Steps
-
-**Currently:** Phase 22 IN PROGRESS (5/6 plans done).
-
-**Phase 22 progress (Bug Audit):**
-- Plan 22-01: Comprehensive bug audit -- COMPLETE
-- Plan 22-02: Tooling & CI fixes -- COMPLETE
-- Plan 22-03: Backend bug fixes -- COMPLETE
-- Plan 22-04: Frontend bug fixes -- COMPLETE
-- Plan 22-05: Gap closures (19-04 + 21-01) -- COMPLETE
-- Plan 22-06: Final verification & sign-off -- PENDING
-
-**47 bugs discovered in audit:**
-- 3 CRITICAL: ESLint broken (both), missing Prisma migration
-- 12 HIGH: dead code, duplicate sanitization, RC-A1/RC-A8, P2034 retry, security findings
-- 18 MEDIUM: i18n gaps, pattern violations, accessibility
-- 14 LOW: styling, naming conventions
-
----
-*State updated: 2026-02-26 — Plan 22-05 complete (Gap closures). Phase 22: 5/6 plans done.*
-
-## Previous Milestone (v3.0) Highlights
-
-- 12 phases, 42 plans completed
-- Modern AI chat (Vercel AI SDK streaming)
-- Auto-triage priority scoring (VIP-aware)
-- Nested labels with drag-drop
-- 10 custom tool renderers
-- 1,618 lines dead code removed
-- WCAG accessibility polish
+Next action: /gsd:plan-phase 23
