@@ -8,42 +8,54 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v3.1 GDPR Compliance & Chatbot Enhancement
+## Current Milestone: v3.2 AI Rebuild & Cleanup
 
-**Goal:** Full GDPR data privacy compliance with enhanced AI chatbot artifacts for all domains.
+**Goal:** Full rebuild of the AI layer — drop VoltAgent framework, simplify to raw AI SDK v6, consolidate services/tools, redesign AI chat frontend, add proper testing, fix accumulated debt.
 
 **Target features:**
 
-**GDPR & Data Privacy:**
-- PII tokenization for AI (extract before LLM, restore on tool/display)
-- Database encryption at rest via prisma-field-encryption (per-tenant HKDF key derivation)
-- Hash-based search indexes on encrypted fields (exact match queries)
-- Data migration (backfill encrypt existing records) + key rotation support
-- Data retention policies + Right to erasure (GDPR Art. 17)
-- Consent management (granular per-feature tracking)
-- Audit logging (all data access for compliance)
-- User data export (GDPR Art. 20 portability)
-- DPA documentation support
-- Terms of Service + Privacy Policy (user acceptance flow)
+**AI Backend Rebuild:**
+- Drop `@voltagent/core` dependency, replace with raw AI SDK v6 `streamText` + `tool()`
+- Collapse 45+ VoltAgent services to ~20 (merge follow-ups 5→1, flatten chat pipeline 3→1)
+- Move domain services out of voltagent (calendar, CRM, writing-style → their own modules)
+- Reduce 65+ tools to ~30 (merge overlapping, remove low-value)
+- Use `generateObject()` for non-chat AI (briefing, follow-up generation) instead of agent loops
+- Kill `AgentPoolService`, `@voltagent/core` wrappers, tool factory overhead
 
-**AI Chatbot Improvements:**
-- Rich artifacts for emails, calendar, contacts, daily briefing, follow-ups, CRM
-- Nested label triage (AI assigns to label hierarchy)
-- Bulk triage (batch labels, batch follow-ups)
-- Full AI draft generation for replies
+**AI Chat Frontend Redesign:**
+- Rebuild AI chat UI from scratch (current UX is poor)
+- Modern chat patterns (Shortwave/ChatGPT-inspired)
+- Better artifact rendering and interaction
+- Responsive mobile chat experience
 
-**Previous:** v3.0 AI Intelligence & Scalability shipped 2026-02-09 with 19/19 requirements satisfied.
+**Frontend Cleanup:**
+- Remove dead components and unused code
+- Reduce bundle size
+- Simplify component hierarchy
+
+**Testing Overhaul:**
+- Proper integration tests for AI layer
+- Tool execution tests (input → output validation)
+- Chat pipeline end-to-end tests
+
+**Bug & Performance Debt:**
+- LCP <2.5s / TTI <3.5s (currently 4.1s/4.1s)
+- ENC-03: Hash-based search on encrypted fields
+- Fix deferred bugs from v3.1 audit (7 deferred items)
+- RC-A1/A8 remaining race conditions
+
+**Previous:** v3.1 GDPR Compliance & Chatbot Enhancement shipped 2026-02-27 with 31/32 requirements satisfied.
 
 ## Current State
 
-**Version:** v3.0 shipped
-**Status:** Milestone complete, v3.1 planning
-**Base:** v3.0 shipped (2026-02-09)
+**Version:** v3.1 shipped
+**Status:** Starting v3.2 AI Rebuild & Cleanup
+**Base:** v3.1 shipped (2026-02-27)
 
 **Tech Stack:**
 - Backend: NestJS, PostgreSQL, Redis, BullMQ
 - Frontend: Next.js, React, TanStack Query, shadcn/ui, Tailwind CSS
-- AI: Mistral, pgvector embeddings, VoltAgent
+- AI: Mistral, pgvector embeddings, VoltAgent → **migrating to raw AI SDK v6**
 - Editor: TipTap for rich email compose
 - Virtualization: VList for 1000+ email performance
 
@@ -95,35 +107,56 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 - ✓ Calendar and contacts integration
 - ✓ CRM features with relationship scoring
 
+**v3.1 - GDPR Compliance & Chatbot Enhancement (shipped 2026-02-27):**
+- ✓ PII-01/02/03/04: PII tokenization for AI calls
+- ✓ ENC-01/02/04/05: Database encryption at rest, per-tenant HKDF, migration, key rotation
+- ✓ CONS-01/02/03: Consent management with granular tracking
+- ✓ AUDIT-01/02/03: Audit logging for all data access + AI tools
+- ✓ DATA-01/02/03: Data export (GDPR Art. 20) + Right to erasure (Art. 17)
+- ✓ LEGAL-01/02: Terms of Service + Privacy Policy acceptance flow
+- ✓ ARTIFACT-01/02/03/04/05/06: Rich artifacts for all domains
+- ✓ TRIAGE-01/02, BULK-01/02: Nested label triage + bulk operations
+- ✓ DRAFT-01/02: Full AI draft generation with writing style learning
+- ⚠️ ENC-03 deferred: Hash-based search on encrypted fields (17+ query sites)
+
 ### Active
 
-<!-- v3.1 GDPR Compliance & Chatbot Enhancement -->
+<!-- v3.2 AI Rebuild & Cleanup -->
 
-**PII & Encryption (Phases 13-14):**
-- [ ] PII tokenization for AI calls (PII-01 to PII-04)
-- [ ] Database encryption at rest via prisma-field-encryption (ENC-01)
-- [ ] Per-tenant HKDF key derivation (ENC-02)
-- [ ] Hash-based search on encrypted fields (ENC-03)
-- [ ] Existing data migration + key rotation (ENC-04, ENC-05)
+**AI Backend Rebuild:**
+- [ ] Drop `@voltagent/core`, migrate to AI SDK v6 `streamText` + `tool()`
+- [ ] Consolidate 45+ services to ~20
+- [ ] Reduce 65+ tools to ~30
+- [ ] Move domain services to proper modules
+- [ ] Use `generateObject()` for non-chat AI features
 
-**GDPR Compliance (Phases 15-16):**
-- [ ] Consent management with granular tracking (CONS-01 to CONS-03)
-- [ ] Audit logging for all data access + AI tools (AUDIT-01 to AUDIT-03)
-- [ ] Data export (GDPR Art. 20) + Right to erasure (DATA-01 to DATA-03)
-- [ ] Terms of Service + Privacy Policy (LEGAL-01, LEGAL-02)
+**AI Chat Frontend Redesign:**
+- [ ] Rebuild AI chat UI (modern patterns, better UX)
+- [ ] Improved artifact rendering and interaction
+- [ ] Responsive mobile chat
 
-**AI Chatbot Improvements (Phases 17-19):**
-- [ ] Rich artifacts for all domains (ARTIFACT-01 to ARTIFACT-06)
-- [ ] Nested label triage + bulk operations (TRIAGE-01/02, BULK-01/02)
-- [ ] Full AI draft generation (DRAFT-01, DRAFT-02)
+**Frontend Cleanup:**
+- [ ] Remove dead components and unused code
+- [ ] Reduce bundle size
+
+**Testing Overhaul:**
+- [ ] AI layer integration tests
+- [ ] Tool execution tests
+- [ ] Chat pipeline E2E tests
+
+**Bug & Performance Debt:**
+- [ ] LCP <2.5s / TTI <3.5s
+- [ ] ENC-03: Hash-based search on encrypted fields
+- [ ] Fix 7 deferred bugs from v3.1 audit
 
 ### Out of Scope
 
 - Mobile app (web-first, responsive)
 - Offline support (requires service worker complexity)
 - End-to-end encryption (separate security audit)
-- Zero-knowledge architecture (deferred to v3.2)
+- Zero-knowledge architecture (deferred to v4.0+)
 - Custom email provider (focus on Gmail, Outlook, IMAP)
+- Mastra framework (NestJS incompatible — explicitly no NestJS support)
 
 ## UI Vision
 
@@ -184,9 +217,13 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | VList for virtualization | Proven performance with 1000+ items | v2.0 |
 | TipTap for rich compose | Best-in-class React editor, AI-friendly | v2.0 |
 
-| prisma-field-encryption for DB at rest | Self-hosted, Prisma-native, no cloud deps | v3.1 |
-| Per-tenant HKDF key derivation | Crypto isolation without external KMS | v3.1 |
-| CipherStash Protect rejected | Cloud dependency on ZeroKMS unacceptable | v3.1 |
+| prisma-field-encryption for DB at rest | Self-hosted, Prisma-native, no cloud deps | ✓ Good |
+| Per-tenant HKDF key derivation | Crypto isolation without external KMS | ✓ Good |
+| CipherStash Protect rejected | Cloud dependency on ZeroKMS unacceptable | ✓ Good |
+| Drop VoltAgent for raw AI SDK v6 | VoltAgent adds framework weight without proportional value; AI SDK v6 ToolLoopAgent covers our use case natively | v3.2 |
+| Mastra rejected | Explicitly no NestJS support (GitHub #5081, #5880, #3301); Hono-coupled, ESM-only | v3.2 |
+| Nanobot as design inspiration only | Different problem (single-user agent vs multi-tenant email client); design discipline is the lesson, not the architecture | v3.2 |
+| generateObject for non-chat AI | Direct LLM call with pre-fetched data is faster, cheaper, more reliable than agent loop for briefing/follow-ups | v3.2 |
 
 ---
-*Last updated: 2026-02-11 — v3.1 restructured: added Phase 14 (DB encryption at rest), 32 requirements across 7 phases*
+*Last updated: 2026-02-27 — v3.2 started: AI Rebuild & Cleanup*
