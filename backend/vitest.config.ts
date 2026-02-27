@@ -1,3 +1,4 @@
+import 'dotenv/config'; // Load .env before tests run (MISTRAL_API_KEY, etc.)
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
