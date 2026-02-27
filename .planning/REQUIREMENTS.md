@@ -31,8 +31,8 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 ### Mistral SDK Consolidation (MSDK-01 to MSDK-03)
 
-- [ ] **MSDK-01**: All LLM chat/completion calls routed through `@ai-sdk/mistral` provider -- no direct `@mistralai/mistralai` SDK usage
-- [ ] **MSDK-02**: All embedding generation routed through AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral`
+- [x] **MSDK-01**: All LLM chat/completion calls routed through `@ai-sdk/mistral` provider -- no direct `@mistralai/mistralai` SDK usage
+- [x] **MSDK-02**: All embedding generation routed through AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral`
 - [ ] **MSDK-03**: `@mistralai/mistralai` and `@voltagent/core` packages removed from dependencies
 
 ### RAG & Embeddings (RAG-01 to RAG-02)
@@ -100,8 +100,8 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MSDK-01 | Phase 23 | Pending |
-| MSDK-02 | Phase 23 | Pending |
+| MSDK-01 | Phase 23 | Complete |
+| MSDK-02 | Phase 23 | Complete |
 | TEST-01 | Phase 23 | Pending |
 | AI-01 | Phase 24 | Pending |
 | AI-04 | Phase 24 | Pending |

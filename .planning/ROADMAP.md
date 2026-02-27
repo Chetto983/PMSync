@@ -60,7 +60,7 @@ Phases 13-22: PII tokenization, database encryption at rest, GDPR core complianc
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 23-01: MistralModule provider + SDK consolidation + embedding rewiring (wave 1)
+- [x] 23-01: MistralModule provider + SDK consolidation + embedding rewiring (wave 1)
 - [ ] 23-02: VoltAgent deletion + Vitest real-API tests + re-embed script + E2E gate (wave 2)
 
 ### Phase 24: Backend Core Pipeline
@@ -193,7 +193,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 23. SDK Foundation & Test Infrastructure | 0/2 | Not started | - |
+| 23. SDK Foundation & Test Infrastructure | 1/2 | In progress | - |
 | 24. Backend Core Pipeline | 0/3 | Not started | - |
 | 25. Tools & RAG | 0/3 | Not started | - |
 | 26. Non-Chat AI & Backend Testing | 0/3 | Not started | - |
