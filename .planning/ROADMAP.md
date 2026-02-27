@@ -57,11 +57,12 @@ Phases 13-22: PII tokenization, database encryption at rest, GDPR core complianc
   2. All embedding generation uses AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral` -- existing BullMQ queues and pgvector storage still work, existing embeddings remain queryable
   3. MSW v2 test infrastructure can intercept and mock SSE streaming responses from the Mistral endpoint, enabling deterministic pipeline tests in CI
   4. E2E validation gate: a real Mistral API call through the consolidated provider returns a coherent response (not mocked), validating the full SDK path end-to-end
-**Plans**: 2 plans in 2 waves
+**Plans**: 3 plans in 3 waves
 
 Plans:
 - [x] 23-01: MistralModule provider + SDK consolidation + embedding rewiring (wave 1)
-- [ ] 23-02: VoltAgent deletion + Vitest real-API tests + re-embed script + E2E gate (wave 2)
+- [x] 23-02: VoltAgent deletion + Vitest real-API tests + re-embed script + E2E gate (wave 2)
+- [x] 23-03: MSW v2 SSE streaming handlers + deterministic test + MSDK-03 tracking fix (wave 3)
 
 ### Phase 24: Backend Core Pipeline
 **Goal**: A new AiChatService handles chat orchestration end-to-end with conversation persistence, HITL safety, GDPR compliance, and rate limiting -- running alongside the old pipeline with zero breakage
@@ -193,7 +194,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 23. SDK Foundation & Test Infrastructure | 2/2 | Complete   | 2026-02-27 |
+| 23. SDK Foundation & Test Infrastructure | 3/3 | Complete   | 2026-02-27 |
 | 24. Backend Core Pipeline | 0/3 | Not started | - |
 | 25. Tools & RAG | 0/3 | Not started | - |
 | 26. Non-Chat AI & Backend Testing | 0/3 | Not started | - |
@@ -204,4 +205,4 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 
 ---
 *Roadmap created: 2026-02-09*
-*v3.2 phases added: 2026-02-27 -- 8 phases, 23 plans, 33 requirements mapped*
+*v3.2 phases added: 2026-02-27 -- 8 phases, 24 plans, 33 requirements mapped*
