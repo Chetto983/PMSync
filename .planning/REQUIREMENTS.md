@@ -58,7 +58,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 ### AI Triage (TRIAGE-01 to TRIAGE-02)
 
 - [x] **TRIAGE-01**: AI assigns emails to appropriate nested label based on content
-- [ ] **TRIAGE-02**: User can bulk-apply AI triage suggestions to multiple emails
+- [x] **TRIAGE-02**: User can bulk-apply AI triage suggestions to multiple emails
 
 ### Bulk Operations (BULK-01 to BULK-02)
 
@@ -126,7 +126,7 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 | ARTIFACT-05 | Phase 17 | Complete |
 | ARTIFACT-06 | Phase 17 | Complete |
 | TRIAGE-01 | Phase 18 | Complete |
-| TRIAGE-02 | Phase 21 | Pending |
+| TRIAGE-02 | Phase 22 | Complete |
 | BULK-01 | Phase 18 | Complete |
 | BULK-02 | Phase 18 | Complete |
 | DRAFT-01 | Phase 19 | Complete |
@@ -134,11 +134,11 @@ Requirements for GDPR Compliance & Chatbot Enhancement milestone.
 
 **Coverage:**
 - v3.1 requirements: 32 total
-- Complete: 25 (78%)
-- Pending: 6 (CONS-02, LEGAL-01, LEGAL-02, TRIAGE-02, DRAFT-01, DRAFT-02)
+- Complete: 31 (97%)
 - Deferred to v3.2: 1 (ENC-03)
 - Mapped to phases: 31 (ENC-03 deferred)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-26 — gap closure phases 20-21 from v3.1 audit, ENC-03 deferred to v3.2, checkboxes updated*
+*Last updated: 2026-02-27 — v3.1 milestone closed, all requirements resolved (31 complete, 1 deferred)*

@@ -1,5 +1,36 @@
 # Project Milestones: MailAgent
 
+## v3.1 GDPR Compliance & Chatbot Enhancement (Shipped: 2026-02-27)
+
+**Delivered:** Full GDPR data privacy compliance (PII tokenization, database encryption at rest, consent management, audit logging, data rights, legal acceptance) plus enhanced AI chatbot with rich artifacts, AI triage, and writing-style-aware draft generation.
+
+**Phases completed:** 13-22 (34 plans total)
+
+**Key accomplishments:**
+
+- PII tokenization for all AI calls (detect, tokenize, restore pipeline)
+- AES-256-GCM database encryption at rest with per-tenant HKDF key derivation
+- GDPR consent management (granular per-feature toggles, versioned audit trail)
+- Audit logging for all data access + AI tool executions (3-year retention)
+- Data export (GDPR Art. 20) and right to erasure (Art. 17) with 30-day grace period
+- Terms of Service + Privacy Policy acceptance flow with version-pinned guards
+- 6 rich interactive artifact renderers (email, calendar, contacts, follow-ups, briefing, CRM)
+- AI triage: nested label assignment, bulk operations (batch labels + follow-ups)
+- AI draft generation with per-provider writing style learning
+- Comprehensive bug audit (47 bugs: 30 fixed, 7 deferred, 7 documented, 3 accepted risk)
+
+**Stats:**
+
+- 10 phases, 34 plans
+- 31/32 requirements satisfied (ENC-03 deferred to v3.2)
+- ~17 days from start to ship (2026-02-09 → 2026-02-27)
+
+**Git tag:** `v3.1`
+
+**Notes:** ENC-03 (hash-based search indexes on encrypted fields) deferred — requires search infrastructure redesign across 17+ query sites. Addressed in v3.2+.
+
+---
+
 ## v3.0 AI Intelligence & Scalability (Shipped: 2026-02-09)
 
 **Delivered:** Complete AI infrastructure overhaul with streaming chat, auto-triage priority scoring, smart follow-ups, and visual polish.
@@ -110,4 +141,4 @@
 
 ---
 
-*Milestones log updated: 2026-02-04*
+*Milestones log updated: 2026-02-27*
