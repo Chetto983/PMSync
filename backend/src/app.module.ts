@@ -32,6 +32,7 @@ import { ContactsModule } from './modules/contacts/contacts.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { MistralModule } from './modules/mistral/mistral.module';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
 @Module({
@@ -61,6 +62,7 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
         },
       ],
     }),
+    MistralModule, // @Global() - provides MistralProviderService to all modules
     CacheModule, // Redis-based caching for horizontal scaling
     ScheduledJobsModule, // BullMQ-based scheduled jobs for horizontal scaling
     PrismaModule,
