@@ -28,7 +28,7 @@ import { SubscriptionService } from '../services/subscription.service';
 import { UsageTrackingService } from '../services/usage-tracking.service';
 import { CostProtectionService } from '../services/cost-protection.service';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
-import { getErrorTranslations, type SupportedLocale } from '../../ai/voltagent/locales';
+import { getErrorTranslations, type SupportedLocale } from '../../ai/locales';
 
 /**
  * Quota type metadata key

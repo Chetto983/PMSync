@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { generateText } from 'ai';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
-import { getLocale, getTranslations, type SupportedLocale } from '../voltagent/locales';
+import { getLocale, getTranslations, type SupportedLocale } from '../locales';
 import { PromptGuardService, type ValidationContext } from '../guards';
 import { getAiCircuitBreaker, withRetry } from '../utils';
 import { AiError, AiErrorCode } from '../errors';

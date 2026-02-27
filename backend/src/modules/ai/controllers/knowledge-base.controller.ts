@@ -20,7 +20,7 @@ import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
-import { getErrorTranslations } from '../voltagent/locales';
+import { getErrorTranslations } from '../locales';
 import {
   BackfillEmailsDto,
   ListEmbeddingsQueryDto,

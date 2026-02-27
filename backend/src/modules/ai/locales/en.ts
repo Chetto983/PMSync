@@ -4,14 +4,18 @@
  * To add a new language, copy this file and translate all strings.
  */
 import type { VoltAgentTranslations } from './index';
-import {
-  SUPERVISOR_PROMPT,
-  SUPERVISOR_MESSAGES,
-  WEBSEARCH_PROMPT,
-  ANALYTICS_PROMPT,
-  DOCUMENT_LIBRARY_PROMPT,
-  getUnifiedPrompt,
-} from '../prompts';
+// Phase 23: Agent prompts removed with VoltAgent deletion. Stub values for type compatibility.
+// TODO Phase 24: Rebuild agent prompts with new AiChatService
+const SUPERVISOR_PROMPT = 'Phase 24: Supervisor prompt pending rebuild';
+const SUPERVISOR_MESSAGES = {
+  delegateActions: 'Phase 24: pending rebuild',
+  delegateIntelligence: 'Phase 24: pending rebuild',
+  delegateWebSearch: 'Phase 24: pending rebuild',
+};
+const WEBSEARCH_PROMPT = 'Phase 24: Web search prompt pending rebuild';
+const ANALYTICS_PROMPT = 'Phase 24: Analytics prompt pending rebuild';
+const DOCUMENT_LIBRARY_PROMPT = 'Phase 24: Document library prompt pending rebuild';
+const getUnifiedPrompt = (_locale: string) => 'Phase 24: Unified prompt pending rebuild';
 
 export const en: VoltAgentTranslations = {
   tools: {

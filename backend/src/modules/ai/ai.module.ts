@@ -20,9 +20,8 @@ import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill
 import { TriageBackfillSchedulerService } from './services/triage-backfill-scheduler.service';
 import { EmailModule } from '../email/email.module';
 import { AlertingService } from '../../common/services/alerting.service';
-// VoltAgent module provides consolidated AI agent services
+// Phase 23: VoltAgent module deleted. Chat pipeline rebuilt in Phase 24.
 // DeadLetterQueueService is available globally from CacheModule
-import { VoltAgentModule } from './voltagent/voltagent.module';
 // Phase 23: BatchIndexingService is now a no-op stub (Batch API removed with @mistralai/mistralai)
 import { BatchIndexingService } from './services/batch-indexing.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
@@ -41,7 +40,7 @@ import { TriageLearningService } from './services/triage-learning.service';
   imports: [
     PrismaModule,
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
-    forwardRef(() => VoltAgentModule),
+    // Phase 23: VoltAgentModule removed (deleted). Chat pipeline rebuilt in Phase 24.
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
   ],
   providers: [
@@ -91,7 +90,7 @@ import { TriageLearningService } from './services/triage-learning.service';
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
-    VoltAgentModule,
+    // Phase 23: VoltAgentModule export removed (deleted). Chat pipeline rebuilt in Phase 24.
   ],
 })
 export class AiModule implements OnModuleInit {

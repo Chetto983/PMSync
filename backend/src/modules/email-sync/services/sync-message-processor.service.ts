@@ -409,7 +409,7 @@ export class SyncMessageProcessorService {
               toEmails,
               isSentByUser,
             )
-            .catch((err) => {
+            .catch((err: any) => {
               // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures
               // Changed from warn to error for monitoring visibility
               this.logger.error(
@@ -430,12 +430,12 @@ export class SyncMessageProcessorService {
                 canonicalMsg.inReplyTo || null,
                 canonicalMsg.references || null,
               )
-              .then((resolved) => {
+              .then((resolved: any) => {
                 if (resolved) {
                   this.logger.debug(`Auto-resolved follow-up from reply email ${result.id}`);
                 }
               })
-              .catch((err) => {
+              .catch((err: any) => {
                 this.logger.warn(
                   `Failed to check reply follow-up for email ${result.id}: ${err.message}`,
                 );
@@ -714,7 +714,7 @@ export class SyncMessageProcessorService {
               toEmails,
               isSentByUser,
             )
-            .catch((err) => {
+            .catch((err: any) => {
               // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures
               // Changed from warn to error for monitoring visibility
               this.logger.error(
@@ -735,7 +735,7 @@ export class SyncMessageProcessorService {
         ) {
           context.writingStyleService
             .learnFromEmail(tenantId, context.userId, result.bodyText)
-            .catch((err) =>
+            .catch((err: any) =>
               this.logger.warn(`Writing style learning failed for ${result.id}: ${err.message}`),
             );
         }

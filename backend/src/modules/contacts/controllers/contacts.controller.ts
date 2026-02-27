@@ -20,7 +20,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
-import { RelationshipIntelligenceService } from '../../ai/voltagent/services/relationship-intelligence.service';
+// TODO Phase 24: Rebuild RelationshipIntelligenceService with new AiChatService
+// import { RelationshipIntelligenceService } from '../../ai/voltagent/services/relationship-intelligence.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ForbiddenException } from '@nestjs/common';
@@ -43,7 +44,8 @@ export class ContactsController {
   constructor(
     private readonly contactsService: ContactsService,
     private readonly contactsSyncQueue: ContactsSyncQueueService,
-    private readonly relationshipService: RelationshipIntelligenceService,
+    // TODO Phase 24: Rebuild RelationshipIntelligenceService
+    private readonly relationshipService: any,
     private readonly prisma: PrismaService,
   ) { }
 
@@ -107,7 +109,8 @@ export class ContactsController {
   async getContactHistory(@Req() req: any, @Param('id') contactId: string, @Query('limit') limit?: number) {
     const tenantId = req.user.tenantId;
     const parsedLimit = limit ? parseInt(String(limit), 10) : 50;
-    return this.relationshipService.getContactInteractionHistory(tenantId, contactId, { limit: parsedLimit });
+    // TODO Phase 24: Rebuild RelationshipIntelligenceService with new AiChatService
+    return { interactions: [], total: 0, message: 'Relationship intelligence temporarily unavailable (Phase 23 migration)' };
   }
 
   /**

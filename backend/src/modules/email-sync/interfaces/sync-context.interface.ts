@@ -10,8 +10,11 @@
 
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { BatchIndexingService } from '../../ai/services/batch-indexing.service';
-import { FollowUpService } from '../../ai/voltagent/services/follow-up.service';
-import { WritingStyleService } from '../../ai/voltagent/services/writing-style.service';
+// TODO Phase 24: Rebuild FollowUpService and WritingStyleService with new AiChatService
+// import { FollowUpService } from '../../ai/voltagent/services/follow-up.service';
+// import { WritingStyleService } from '../../ai/voltagent/services/writing-style.service';
+type FollowUpService = any;
+type WritingStyleService = any;
 import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { AttachmentMeta } from '../drivers/interfaces/canonical.types';
 

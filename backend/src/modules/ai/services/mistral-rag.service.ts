@@ -10,7 +10,7 @@ import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from './embeddings.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
-import { getLocale, getTranslations } from '../voltagent/locales';
+import { getLocale, getTranslations } from '../locales';
 import { getAiCircuitBreaker, withRetry } from '../utils';
 import { AiError, AiErrorCode } from '../errors';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';

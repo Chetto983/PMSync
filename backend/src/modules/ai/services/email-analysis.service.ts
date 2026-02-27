@@ -23,14 +23,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
-import { WritingStyleService } from '../voltagent/services/writing-style.service';
+// TODO Phase 24: Rebuild WritingStyleService with new AiChatService
+// import { WritingStyleService } from '../voltagent/services/writing-style.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
 import {
   getLocale,
   getToolTranslations,
   type SupportedLocale,
-} from '../voltagent/locales';
+} from '../locales';
 import { PiiDetectionService } from '../guards';
 import { AiError, AiErrorCode } from '../errors';
 
@@ -58,7 +59,9 @@ export class EmailAnalysisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
-    private readonly writingStyle: WritingStyleService,
+    // TODO Phase 24: Rebuild WritingStyleService with new AiChatService
+    @Optional() @Inject('WritingStyleService')
+    private readonly writingStyle?: any,
     @Optional() @Inject(PiiDetectionService)
     private readonly piiDetection?: PiiDetectionService,
   ) {}
@@ -141,7 +144,7 @@ export class EmailAnalysisService {
     let styleSection = '';
     if (userId) {
       try {
-        const style = await this.writingStyle.getStylePromptSection(
+        const style = await this.writingStyle?.getStylePromptSection(
           tenantId,
           userId,
           lang,

@@ -12,8 +12,11 @@ import { AttachmentMeta } from '../../drivers/interfaces/canonical.types';
 import { IEmailDriver } from '../../drivers/interfaces/email-driver.interface';
 import { MicrosoftAttachmentHandler } from './microsoft-attachment-handler';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
-import { FollowUpService } from '../../../ai/voltagent/services/follow-up.service';
-import { WritingStyleService } from '../../../ai/voltagent/services/writing-style.service';
+// TODO Phase 24: Rebuild FollowUpService and WritingStyleService with new AiChatService
+// import { FollowUpService } from '../../../ai/voltagent/services/follow-up.service';
+// import { WritingStyleService } from '../../../ai/voltagent/services/writing-style.service';
+type FollowUpService = any;
+type WritingStyleService = any;
 import { SyncOrchestrationService } from '../sync-orchestration.service';
 import { SyncMessageProcessorService } from '../sync-message-processor.service';
 import { SyncTokenService } from '../sync-token.service';

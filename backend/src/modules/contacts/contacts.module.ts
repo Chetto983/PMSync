@@ -15,7 +15,8 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for SyncAuthService
-import { VoltAgentModule } from '../ai/voltagent/voltagent.module';
+// TODO Phase 24: Rebuild VoltAgent CRM services with new AiChatService
+// import { VoltAgentModule } from '../ai/voltagent/voltagent.module';
 import { AiModule } from '../ai/ai.module';
 import { AlertingService } from '../../common/services/alerting.service';
 // DeadLetterQueueService is available globally from CacheModule
@@ -26,7 +27,8 @@ import { AlertingService } from '../../common/services/alerting.service';
     forwardRef(() => ProvidersModule),
     RealtimeModule, // WebSocket events
     forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
-    forwardRef(() => VoltAgentModule), // CRM Relationship Intelligence
+    // TODO Phase 24: VoltAgentModule removed (deleted). CRM Relationship Intelligence rebuilt in Phase 24.
+    // forwardRef(() => VoltAgentModule),
     forwardRef(() => AiModule), // ContactEmbeddingQueueService for RAG
   ],
   controllers: [

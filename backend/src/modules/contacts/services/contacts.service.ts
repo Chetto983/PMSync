@@ -25,7 +25,9 @@ import { ContactsCacheService } from './contacts-cache.service';
 import { ContactsImportService } from './contacts-import.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ContactEmbeddingQueueService } from '../../ai/services/contact-embedding.queue';
-import { AttentionScoreService } from '../../ai/voltagent/services/attention-score.service';
+// TODO Phase 24: Rebuild AttentionScoreService with new AiChatService
+// import { AttentionScoreService } from '../../ai/voltagent/services/attention-score.service';
+type AttentionScoreService = any;
 import { CONTACTS_DEFAULTS } from '../contacts.constants';
 import type {
   ContactWithProviders,
@@ -61,7 +63,8 @@ export class ContactsService {
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly configService: ConfigService,
     private readonly contactEmbeddingQueue: ContactEmbeddingQueueService,
-    @Optional() @Inject(AttentionScoreService) private readonly attentionScoreService?: AttentionScoreService,
+    // TODO Phase 24: Rebuild AttentionScoreService with new AiChatService
+    @Optional() @Inject('AttentionScoreService') private readonly attentionScoreService?: AttentionScoreService,
   ) {
     this.maxContactsLimit = this.configService.get<number>(
       'CONTACTS_LIST_MAX_LIMIT',

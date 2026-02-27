@@ -17,10 +17,16 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
-import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
-import { AttentionScoreService } from '../voltagent/services/attention-score.service';
+// TODO Phase 24: Rebuild MistralBatchService and AttentionScoreService with new AiChatService
+// import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
+// import { AttentionScoreService } from '../voltagent/services/attention-score.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
-import { type SupportedLocale } from '../voltagent/locales';
+import { type SupportedLocale } from '../locales';
+
+// Stub types for deleted voltagent services (Phase 23)
+type MistralBatchService = any;
+type BatchResponse = { customId: string; error?: string; response?: Record<string, unknown> };
+type AttentionScoreService = any;
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 500; // Temporarily 500 for PST dataset validation (was 50)
@@ -97,8 +103,9 @@ export class EmailTriageService {
     private readonly subscriptionService: SubscriptionService,
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
-    @Optional() @Inject(MistralBatchService) private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
-    @Optional() @Inject(AttentionScoreService) private readonly attentionScore?: AttentionScoreService, // P4.1: Pre-filter
+    // TODO Phase 24: Rebuild MistralBatchService and AttentionScoreService
+    @Optional() @Inject('MistralBatchService') private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
+    @Optional() @Inject('AttentionScoreService') private readonly attentionScore?: AttentionScoreService, // P4.1: Pre-filter
   ) {
     // P11 Phase 4: Load batch config (with fallback defaults)
     this.batchEnabled = this.configService?.get<boolean>('ai.batch.enabled') ?? true;
@@ -561,7 +568,7 @@ export class EmailTriageService {
     }
 
     // Track with completion handler (GDPR: tenant-isolated)
-    this.mistralBatch!.trackJob(jobId, tenantId, 'sentiment', async (results) => {
+    this.mistralBatch!.trackJob(jobId, tenantId, 'sentiment', async (results: BatchResponse[]) => {
       await this.processBatchSentimentResults(results, tenantId);
     });
 
