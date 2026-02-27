@@ -57,11 +57,11 @@ Phases 13-22: PII tokenization, database encryption at rest, GDPR core complianc
   2. All embedding generation uses AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral` -- existing BullMQ queues and pgvector storage still work, existing embeddings remain queryable
   3. MSW v2 test infrastructure can intercept and mock SSE streaming responses from the Mistral endpoint, enabling deterministic pipeline tests in CI
   4. E2E validation gate: a real Mistral API call through the consolidated provider returns a coherent response (not mocked), validating the full SDK path end-to-end
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 23-01: Mistral SDK consolidation and embedding migration
-- [ ] 23-02: MSW v2 SSE test infrastructure and E2E gate validation
+- [ ] 23-01: MistralModule provider + SDK consolidation + embedding rewiring (wave 1)
+- [ ] 23-02: VoltAgent deletion + Vitest real-API tests + re-embed script + E2E gate (wave 2)
 
 ### Phase 24: Backend Core Pipeline
 **Goal**: A new AiChatService handles chat orchestration end-to-end with conversation persistence, HITL safety, GDPR compliance, and rate limiting -- running alongside the old pipeline with zero breakage
