@@ -1,144 +1,144 @@
-# Requirements: MailAgent v3.1
+# Requirements: MailAgent v3.2
 
-**Defined:** 2026-02-09
-**Updated:** 2026-02-26 (gap closure from v3.1 audit: phases 20-21 added, ENC-03 deferred to v3.2, checkboxes updated)
+**Defined:** 2026-02-27
 **Core Value:** The best professional AI mail client — fast, intelligent, and secure
 
-## v3.1 Requirements
+## v3.2 Requirements
 
-Requirements for GDPR Compliance & Chatbot Enhancement milestone.
+Requirements for AI Rebuild & Cleanup milestone. **Strategy: delete `voltagent/` (33K LOC), rewrite clean AI module from scratch with AI SDK v6 + assistant-ui.**
 
-### PII Protection (PII-01 to PII-04)
+### Cross-Cutting: Real E2E Validation Gate
 
-- [x] **PII-01**: System tokenizes PII (emails, names, phones) before sending to LLM
-- [x] **PII-02**: System restores PII tokens when displaying AI responses to user
-- [x] **PII-03**: System restores PII tokens when executing AI tool calls
-- [x] **PII-04**: RAG embeddings are generated from PII-sanitized content
+**Every phase MUST pass real E2E validation before proceeding to the next phase.** No phase is considered complete until:
 
-### Encryption at Rest (ENC-01 to ENC-05)
+1. **Real LLM calls** — integration tests hit actual Mistral API (not mocked), validating the full pipeline end-to-end
+2. **Quality validation** — LLM responses are checked for correctness, not just "did it return 200"
+3. **Phase gate** — failing E2E blocks the next phase; no skipping ahead with TODO stubs
+4. **MSW mocking is for unit/CI only** — fast feedback during development, but the phase gate requires real calls
 
-- [x] **ENC-01**: Tier 1 PII fields (bodyText, bodyHtml, snippet) encrypted at rest using custom Prisma extension (AES-256-GCM). Tier 2 fields (from, subject, displayName) deferred — requires search infrastructure redesign (17+ query sites use contains/insensitive on these fields)
-- [x] **ENC-02**: Per-tenant key derivation (master key + tenant ID via HKDF → derived encryption key)
-- [ ] **ENC-03**: _(Deferred to v3.2)_ Hash-based search indexes on encrypted fields (SHA-256 for exact match queries). Only needed when Tier 2 searchable fields are encrypted, which requires search redesign first
-- [x] **ENC-04**: Migration of existing email body content (backfill encrypt bodyText, bodyHtml, snippet). Contact/CalendarEvent models have no Tier 1 body fields to encrypt
-- [x] **ENC-05**: Key rotation support (new key encrypts, old keys in keychain still decrypt)
+This applies to every phase that touches AI functionality (chat, tools, non-chat AI, RAG). Frontend-only and cleanup phases validate with Playwright E2E against a running backend with real LLM.
 
-### Consent Management (CONS-01 to CONS-03)
+### New AI Module (AI-01 to AI-08)
 
-- [x] **CONS-01**: User can view and modify granular consent settings per feature
-- [x] **CONS-02**: System blocks data processing until consent is captured
-- [x] **CONS-03**: System maintains versioned consent audit trail
+- [ ] **AI-01**: Clean AI module with `AiChatService` using AI SDK v6 `streamText` + `pipeAgentUIStreamToResponse` — single service handles chat orchestration, context building, and streaming
+- [ ] **AI-02**: ~20 tools defined as AI SDK v6 `tool()` in `@Injectable()` ToolsService classes with NestJS DI — no factory functions, no parameter threading
+- [ ] **AI-03**: Intent-based tool routing serves 6-8 relevant tools per request (not all 20)
+- [ ] **AI-04**: `ConversationService` with direct Prisma queries for chat history — preserves existing conversation data
+- [ ] **AI-05**: HITL approval for destructive actions via AI SDK v6 `needsApproval` + `onStepFinish` callback
+- [ ] **AI-06**: PII tokenization, audit logging, and consent guards wired into new chat pipeline (GDPR compliance preserved)
+- [ ] **AI-07**: Non-chat AI (daily briefing, follow-up detection, draft generation, email analysis) uses `generateText + Output.object()` — single LLM call per operation, no agent loops
+- [ ] **AI-08**: Rate limiting and circuit breaker preserved in new module
 
-### Audit Logging (AUDIT-01 to AUDIT-03)
+### Mistral SDK Consolidation (MSDK-01 to MSDK-03)
 
-- [x] **AUDIT-01**: System logs all data access events with user/tenant context
-- [x] **AUDIT-02**: System logs all AI tool executions with input/output summary
-- [x] **AUDIT-03**: Audit logs are retained for 3 years per GDPR requirements
+- [ ] **MSDK-01**: All LLM chat/completion calls routed through `@ai-sdk/mistral` provider — no direct `@mistralai/mistralai` SDK usage
+- [ ] **MSDK-02**: All embedding generation routed through AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral`
+- [ ] **MSDK-03**: `@mistralai/mistralai` and `@voltagent/core` packages removed from dependencies
 
-### Data Rights (DATA-01 to DATA-03)
+### RAG & Embeddings (RAG-01 to RAG-02)
 
-- [x] **DATA-01**: User can request complete data export (emails, contacts, calendar)
-- [x] **DATA-02**: User can request account deletion (right to erasure)
-- [x] **DATA-03**: System performs hard delete after 30-day grace period
+- [ ] **RAG-01**: Embedding pipeline (BullMQ queues, KnowledgeBase, pgvector storage) preserved and rewired to new AI module — existing embeddings data intact
+- [ ] **RAG-02**: Hybrid search (vector + keyword with RRF fusion) preserved — `UnifiedRetriever` logic survives in new module
 
-### Legal Documents (LEGAL-01 to LEGAL-02)
+### Chat Frontend (CHAT-01 to CHAT-05)
 
-- [x] **LEGAL-01**: User must accept Terms of Service before using app
-- [x] **LEGAL-02**: User must accept Privacy Policy before using app
+- [ ] **CHAT-01**: assistant-ui runtime wired with `useChatRuntime` + `AssistantChatTransport` pointing at new streaming endpoint
+- [ ] **CHAT-02**: Thread, Composer, and Messages use assistant-ui primitives — no custom MUI chat components
+- [ ] **CHAT-03**: Domain tool renderers built with `makeAssistantToolUI` with running/complete/error states
+- [ ] **CHAT-04**: HITL approval rendered inline via assistant-ui `requires_action` status
+- [ ] **CHAT-05**: Mobile-responsive chat layout using assistant-ui responsive primitives
 
-### Rich Artifacts (ARTIFACT-01 to ARTIFACT-06)
+### Frontend Cleanup (FECLEAN-01 to FECLEAN-03)
 
-- [x] **ARTIFACT-01**: AI chat renders email artifacts with interactive UI
-- [x] **ARTIFACT-02**: AI chat renders calendar event artifacts with interactive UI
-- [x] **ARTIFACT-03**: AI chat renders contact artifacts with interactive UI
-- [x] **ARTIFACT-04**: AI chat renders follow-up artifacts with interactive UI
-- [x] **ARTIFACT-05**: AI chat renders daily briefing artifacts with interactive UI
-- [x] **ARTIFACT-06**: AI chat renders CRM/relationship artifacts with interactive UI
+- [ ] **FECLEAN-01**: Old ai-elements chat files deleted (assistant-ui replaces them)
+- [ ] **FECLEAN-02**: Bundle analysis performed and largest offenders addressed
+- [ ] **FECLEAN-03**: Dead components and orphaned files removed across entire frontend
 
-### AI Triage (TRIAGE-01 to TRIAGE-02)
+### Testing (TEST-01 to TEST-04)
 
-- [x] **TRIAGE-01**: AI assigns emails to appropriate nested label based on content
-- [x] **TRIAGE-02**: User can bulk-apply AI triage suggestions to multiple emails
+- [ ] **TEST-01**: MSW v2 infrastructure with SSE handlers for mocking LLM streaming responses
+- [ ] **TEST-02**: Integration tests for new AI chat pipeline (message → tool execution → streaming response)
+- [ ] **TEST-03**: Integration tests for non-chat AI (briefing, follow-ups, drafts via generateText)
+- [ ] **TEST-04**: Playwright E2E tests for assistant-ui chat frontend
 
-### Bulk Operations (BULK-01 to BULK-02)
+### Modular Monolith Architecture (ARCH-01 to ARCH-04)
 
-- [x] **BULK-01**: User can batch-apply labels to selected emails via AI
-- [x] **BULK-02**: User can batch-create follow-ups for selected emails via AI
+- [ ] **ARCH-01**: Clean module boundaries with explicit public interfaces — each NestJS module exports a defined service contract, no cross-module internal imports
+- [ ] **ARCH-02**: AI module decoupled from domain modules — communicates via interfaces (EmailServiceInterface, CalendarServiceInterface) not direct imports
+- [ ] **ARCH-03**: Memory profiling under 1000-user simulation — identify and fix RAM bloat sources (unbounded caches, connection pools, large payloads in queues)
+- [ ] **ARCH-04**: Lazy module loading for AI features — AI module loaded on demand, not at startup for users who don't use AI chat
 
-### AI Drafts (DRAFT-01 to DRAFT-02)
+### Performance & Debt (PERF-01 to PERF-04)
 
-- [x] **DRAFT-01**: AI generates full reply drafts based on email context
-- [x] **DRAFT-02**: AI drafts match user's writing style (learned from sent emails)
+- [ ] **PERF-01**: LCP reduced from 4.1s to <2.5s
+- [ ] **PERF-02**: TTI reduced from 4.1s to <3.5s
+- [ ] **PERF-03**: ENC-03 — hash-based search indexes on encrypted fields (17+ query sites)
+- [ ] **PERF-04**: 7 deferred bugs from v3.1 audit fixed
 
-## Future Requirements (v3.2+)
+## Future Requirements (v3.3+)
 
-### Advanced Privacy
+### Deferred
 
-- **PRIV-01**: Zero-knowledge architecture (server cannot read content)
-- **PRIV-02**: Cross-border data transfer compliance (SCCs)
-
-### Encryption (deferred from v3.1)
-
-- **ENC-03**: Hash-based search indexes on encrypted fields (requires search infrastructure redesign across 17+ query sites)
-
-### Advanced AI
-
-- **AI-01**: Predicted response suggestions (quick replies)
-- **AI-02**: Email categorization (Primary, Social, Promotions)
-- **AI-03**: Smart scheduling suggestions
+- **CTX-01**: Contextual AI inline in email view
+- **ART-01**: Artifact panel redesign
+- **STREAM-01**: Advanced streaming array output via `elementStream`
+- **ZK-01**: Zero-knowledge architecture
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| End-to-end encryption | Requires separate security audit, high complexity |
-| Mobile app | Web-first, responsive design covers mobile use cases |
-| Offline support | Requires service worker complexity |
+| Mastra framework | Explicitly no NestJS support |
+| VoltAgent (any version) | Removed — AI SDK v6 replaces it entirely |
+| Multi-agent orchestration | Single ToolLoopAgent is sufficient |
+| Custom streaming infrastructure | assistant-ui handles natively |
+| Vitest migration | Jest 30 already configured, cost > benefit |
+| Direct @mistralai/mistralai SDK | Consolidated to @ai-sdk/mistral |
+| Mobile app | Web-first, responsive |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PII-01 | Phase 13 | Complete |
-| PII-02 | Phase 13 | Complete |
-| PII-03 | Phase 13 | Complete |
-| PII-04 | Phase 13 | Complete |
-| ENC-01 | Phase 14 | Complete |
-| ENC-02 | Phase 14 | Complete |
-| ENC-03 | Deferred (v3.2) | Deferred |
-| ENC-04 | Phase 14 | Complete |
-| ENC-05 | Phase 14 | Complete |
-| CONS-01 | Phase 15 | Complete |
-| CONS-02 | Phase 20 | Complete |
-| CONS-03 | Phase 15 | Complete |
-| AUDIT-01 | Phase 15 | Complete |
-| AUDIT-02 | Phase 15 | Complete |
-| AUDIT-03 | Phase 15 | Complete |
-| DATA-01 | Phase 16 | Complete |
-| DATA-02 | Phase 16 | Complete |
-| DATA-03 | Phase 16 | Complete |
-| LEGAL-01 | Phase 20 | Complete |
-| LEGAL-02 | Phase 20 | Complete |
-| ARTIFACT-01 | Phase 17 | Complete |
-| ARTIFACT-02 | Phase 17 | Complete |
-| ARTIFACT-03 | Phase 17 | Complete |
-| ARTIFACT-04 | Phase 17 | Complete |
-| ARTIFACT-05 | Phase 17 | Complete |
-| ARTIFACT-06 | Phase 17 | Complete |
-| TRIAGE-01 | Phase 18 | Complete |
-| TRIAGE-02 | Phase 22 | Complete |
-| BULK-01 | Phase 18 | Complete |
-| BULK-02 | Phase 18 | Complete |
-| DRAFT-01 | Phase 19 | Complete |
-| DRAFT-02 | Phase 19 | Complete |
+| AI-01 | — | Pending |
+| AI-02 | — | Pending |
+| AI-03 | — | Pending |
+| AI-04 | — | Pending |
+| AI-05 | — | Pending |
+| AI-06 | — | Pending |
+| AI-07 | — | Pending |
+| AI-08 | — | Pending |
+| MSDK-01 | — | Pending |
+| MSDK-02 | — | Pending |
+| MSDK-03 | — | Pending |
+| RAG-01 | — | Pending |
+| RAG-02 | — | Pending |
+| CHAT-01 | — | Pending |
+| CHAT-02 | — | Pending |
+| CHAT-03 | — | Pending |
+| CHAT-04 | — | Pending |
+| CHAT-05 | — | Pending |
+| FECLEAN-01 | — | Pending |
+| FECLEAN-02 | — | Pending |
+| FECLEAN-03 | — | Pending |
+| TEST-01 | — | Pending |
+| TEST-02 | — | Pending |
+| TEST-03 | — | Pending |
+| TEST-04 | — | Pending |
+| PERF-01 | — | Pending |
+| PERF-02 | — | Pending |
+| PERF-03 | — | Pending |
+| PERF-04 | — | Pending |
+| ARCH-01 | — | Pending |
+| ARCH-02 | — | Pending |
+| ARCH-03 | — | Pending |
+| ARCH-04 | — | Pending |
 
 **Coverage:**
-- v3.1 requirements: 32 total
-- Complete: 31 (97%)
-- Deferred to v3.2: 1 (ENC-03)
-- Mapped to phases: 31 (ENC-03 deferred)
-- Unmapped: 0 ✓
+- v3.2 requirements: 33 total
+- Mapped to phases: 0
+- Unmapped: 33 ⚠️
 
 ---
-*Requirements defined: 2026-02-09*
-*Last updated: 2026-02-27 — v3.1 milestone closed, all requirements resolved (31 complete, 1 deferred)*
+*Requirements defined: 2026-02-27*
+*Last updated: 2026-02-27 after architecture requirements added*
