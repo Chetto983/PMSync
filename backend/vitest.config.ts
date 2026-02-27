@@ -1,4 +1,9 @@
 import 'dotenv/config'; // Load .env before tests run (MISTRAL_API_KEY, etc.)
+
+// MSW test infrastructure: src/test/setup.ts exports mswServer
+// Import in test files for deterministic (non-real-API) responses.
+// See src/test/msw-streaming.test.ts for usage pattern.
+
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
