@@ -78,9 +78,9 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 24-01: Prisma models, AiChatModule, ConversationService, AiChatService, streaming controller (wave 1)
-- [ ] 24-02: HITL via needsApproval + ActionQueue, GDPR guards (PII, consent, audit), rate limiting, circuit breaker (wave 2)
-- [ ] 24-03: E2E validation with real Mistral calls, old endpoint cleanup (wave 3)
+- [x] 24-01: Prisma models, AiChatModule, ConversationService, AiChatService, streaming controller (wave 1)
+- [x] 24-02: HITL via needsApproval + ActionQueue, GDPR guards (PII, consent, audit), rate limiting, circuit breaker (wave 2)
+- [x] 24-03: E2E validation with real Mistral calls, old endpoint cleanup (wave 3)
 
 ### Phase 25: Tools & RAG
 **Goal**: All chat tools defined as AI SDK v6 tool() in @Injectable ToolsService classes with NestJS DI, intent-based routing, and preserved RAG pipeline
@@ -93,12 +93,12 @@ Plans:
   4. Hybrid search (vector + keyword with RRF fusion) returns relevant results for both semantic and exact-match queries
   5. Duplicate tools eliminated (manage_email x2, bulk_email_actions x2) and overlapping tools merged (search_emails + semantic_search_emails)
   6. E2E validation gate: send a real query that triggers tool execution (e.g., "search my emails from John"), verify correct tool selected via intent routing, verify RAG results returned with relevant content
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 25-01: ToolsService classes (email, calendar, contacts, folders, insights, memory, core)
-- [ ] 25-02: Intent routing, tool consolidation, and duplicate elimination
-- [ ] 25-03: RAG pipeline preservation and hybrid search verification
+- [ ] 25-01-PLAN.md -- 5 ToolsService classes (~20 tools: email, calendar, contacts, folders, RAG/memory) wired into AiChatModule (wave 1)
+- [ ] 25-02-PLAN.md -- Intent routing via prepareStep + activeTools, memory auto-inject into system prompt (wave 2)
+- [ ] 25-03-PLAN.md -- tsvector FTS migration, RRF hybrid search functions, HybridSearchService (wave 2)
 
 ### Phase 26: Non-Chat AI & Backend Testing
 **Goal**: Non-chat AI features use direct generateText calls instead of agent loops, domain services relocated to proper modules, and integration tests cover both chat and non-chat pipelines
