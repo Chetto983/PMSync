@@ -1,0 +1,12 @@
+{
+  "subject": "Re: Client Proposal Feedback",
+  "body": "Thank you for your feedback on the proposal. I have reviewed your comments and will incorporate the suggested changes. I will send the revised version by end of day tomorrow.\n\nBest regards",
+  "suggestedRecipients": [
+    {
+      "email": "client@external.com",
+      "name": "John Client"
+    }
+  ],
+  "confidence": 0.85,
+  "tone": "formal"
+}

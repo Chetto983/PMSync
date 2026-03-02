@@ -1,0 +1,23 @@
+{
+  "detectedFollowUps": [
+    {
+      "emailId": "e-101",
+      "reason": "Client asked for updated timeline by end of week",
+      "suggestedDueDate": "2026-03-06",
+      "urgency": "high",
+      "confidence": 0.92
+    },
+    {
+      "emailId": "e-103",
+      "reason": "Manager requested status report on Q1 goals",
+      "suggestedDueDate": "2026-03-04",
+      "urgency": "medium",
+      "confidence": 0.78
+    }
+  ],
+  "batchSummary": {
+    "totalAnalyzed": 5,
+    "totalDetected": 2,
+    "highUrgencyCount": 1
+  }
+}

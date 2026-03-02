@@ -1,0 +1,66 @@
+{
+  "priorityEmails": [
+    {
+      "emailId": "e-001",
+      "subject": "Q1 Budget Review",
+      "sender": "cfo@company.com",
+      "urgency": "high",
+      "reason": "Deadline tomorrow"
+    },
+    {
+      "emailId": "e-002",
+      "subject": "Client Proposal Feedback",
+      "sender": "client@external.com",
+      "urgency": "critical",
+      "reason": "Client waiting for response"
+    }
+  ],
+  "calendarSnapshot": [
+    {
+      "eventId": "ev-001",
+      "title": "Team Standup",
+      "startTime": "2026-03-02T09:00:00Z",
+      "endTime": "2026-03-02T09:30:00Z",
+      "hasConflict": false
+    }
+  ],
+  "pendingFollowUps": [
+    {
+      "emailId": "e-003",
+      "contactName": "Alice Johnson",
+      "reason": "Promised deliverables by Friday",
+      "suggestedDueDate": "2026-03-05",
+      "urgency": "medium"
+    }
+  ],
+  "executiveSummary": "Today you have 1 meeting and 2 high-priority emails. Alice Johnson is expecting deliverables by Friday.",
+  "staleContactsAlert": [
+    {
+      "contactId": "c-001",
+      "name": "Bob Smith",
+      "daysSinceContact": 45,
+      "suggestedAction": "Send a brief check-in email"
+    }
+  ],
+  "draftSuggestions": [
+    {
+      "emailId": "e-002",
+      "subject": "Re: Client Proposal Feedback",
+      "reason": "Client is waiting for response"
+    }
+  ],
+  "emailVolumeTrends": {
+    "todayReceived": 12,
+    "todaySent": 5,
+    "weeklyAvgReceived": 18,
+    "weeklyAvgSent": 8,
+    "trend": "stable"
+  },
+  "focusTimeRecommendations": [
+    {
+      "startTime": "2026-03-02T14:00:00Z",
+      "endTime": "2026-03-02T16:00:00Z",
+      "reason": "No meetings scheduled"
+    }
+  ]
+}
