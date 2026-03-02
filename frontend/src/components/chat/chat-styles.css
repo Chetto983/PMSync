@@ -1,0 +1,28 @@
+/*
+ * Chat-specific style overrides for assistant-ui components.
+ * assistant-ui primitives are styled via Tailwind classes inline.
+ * This file provides only overrides that cannot be expressed inline.
+ */
+
+/* Smooth scrollbar for the chat viewport */
+.aui-thread-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.aui-thread-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.aui-thread-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aui-thread-viewport::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+.aui-thread-viewport::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}

@@ -1,22 +1,20 @@
 import React from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { AiDashboard } from '@/components/ai/AiDashboard';
+import { ChatPage } from '@/src/components/chat/ChatPage';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 
 /**
- * AI Assistant Page - Modern 2025 Design
+ * AI Assistant Page
  *
- * Clean, widget-based AI assistant interface with:
- * - Chat interface with quick actions
- * - Pending actions sidebar widget
- * - Learning progress widget
- * - Follows main dashboard patterns
+ * Full assistant-ui chat interface with responsive layouts:
+ * - Desktop: conversation sidebar + thread side-by-side
+ * - Mobile: full-screen thread with hamburger for conversation list
  */
 export default function AiAssistantPage() {
   return (
     <Layout>
       <PageErrorBoundary pageName="AI Assistant">
-        <AiDashboard />
+        <ChatPage />
       </PageErrorBoundary>
     </Layout>
   );
