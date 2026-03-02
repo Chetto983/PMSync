@@ -26,6 +26,9 @@ import { Request, Response } from 'express';
 import { pipeUIMessageStreamToResponse } from 'ai';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { ConsentGuard } from '../../compliance/guards/consent.guard';
+import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
+import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
 import { ChatRequestDto } from '../dto/chat-request.dto';
@@ -38,15 +41,14 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  * GET  /ai/chat/conversations   -- List conversations
  * DELETE /ai/chat/conversations/:id -- Delete a conversation
  *
- * Guards: JwtAuthGuard, TenantGuard
- * NOTE: ConsentGuard and QuotaGuard are added in Plan 02.
+ * Guards: JwtAuthGuard, TenantGuard, ConsentGuard, QuotaGuard
  *
  * Phase 24: Backend Core Pipeline
  */
 @ApiTags('AI Chat')
 @ApiBearerAuth()
 @Controller('ai')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, ConsentGuard, QuotaGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiChatController {
   constructor(
@@ -63,6 +65,8 @@ export class AiChatController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_chat')
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'AI chat (streaming)',
     description:
@@ -75,7 +79,10 @@ export class AiChatController {
     description: 'SSE stream of AI response chunks',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Consent required or quota exceeded' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
+  @ApiResponse({ status: 503, description: 'AI service temporarily unavailable' })
   async chat(
     @Req() req: Request & { user: AuthenticatedRequest['user'] },
     @Res() res: Response,
