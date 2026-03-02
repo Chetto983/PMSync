@@ -3350,6 +3350,38 @@ export interface AppTranslations {
       featureNotAvailable: string;
     };
   };
+  chat: {
+    emptyState: {
+      title: string;
+      subtitle: string;
+    };
+    composer: {
+      placeholder: string;
+      send: string;
+      stop: string;
+    };
+    actions: {
+      copy: string;
+      reload: string;
+      edit: string;
+    };
+    reasoning: {
+      label: string;
+    };
+    threadList: {
+      title: string;
+      newChat: string;
+      deleteConfirm: string;
+    };
+    hitl: {
+      approveLabel: string;
+      rejectLabel: string;
+      pendingTitle: string;
+    };
+    suggestions: {
+      label: string;
+    };
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;

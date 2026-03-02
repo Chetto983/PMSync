@@ -3509,4 +3509,36 @@ export const en: AppTranslations = {
       featureNotAvailable: 'This feature is not available on your plan',
     },
   },
+  chat: {
+    emptyState: {
+      title: 'How can I help?',
+      subtitle: 'Ask me anything about your emails, calendar, or contacts',
+    },
+    composer: {
+      placeholder: 'Ask anything about your emails...',
+      send: 'Send',
+      stop: 'Stop',
+    },
+    actions: {
+      copy: 'Copy',
+      reload: 'Regenerate',
+      edit: 'Edit',
+    },
+    reasoning: {
+      label: 'Reasoning',
+    },
+    threadList: {
+      title: 'Conversations',
+      newChat: 'New chat',
+      deleteConfirm: 'Delete this conversation?',
+    },
+    hitl: {
+      approveLabel: 'Approve',
+      rejectLabel: 'Reject',
+      pendingTitle: 'Action requires approval',
+    },
+    suggestions: {
+      label: 'Suggested questions',
+    },
+  },
 };

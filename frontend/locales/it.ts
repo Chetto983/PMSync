@@ -3486,4 +3486,36 @@ export const it: AppTranslations = {
       featureNotAvailable: 'Questa funzionalità non è disponibile nel tuo piano',
     },
   },
+  chat: {
+    emptyState: {
+      title: 'Come posso aiutarti?',
+      subtitle: 'Chiedimi qualsiasi cosa su email, calendario o contatti',
+    },
+    composer: {
+      placeholder: 'Chiedi qualsiasi cosa sulle tue email...',
+      send: 'Invia',
+      stop: 'Ferma',
+    },
+    actions: {
+      copy: 'Copia',
+      reload: 'Rigenera',
+      edit: 'Modifica',
+    },
+    reasoning: {
+      label: 'Ragionamento',
+    },
+    threadList: {
+      title: 'Conversazioni',
+      newChat: 'Nuova chat',
+      deleteConfirm: 'Eliminare questa conversazione?',
+    },
+    hitl: {
+      approveLabel: 'Approva',
+      rejectLabel: 'Rifiuta',
+      pendingTitle: 'Azione richiede approvazione',
+    },
+    suggestions: {
+      label: 'Domande suggerite',
+    },
+  },
 };
