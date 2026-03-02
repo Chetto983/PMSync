@@ -45,7 +45,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 - [x] **CHAT-01**: assistant-ui runtime wired with `useChatRuntime` + `AssistantChatTransport` pointing at new streaming endpoint
 - [x] **CHAT-02**: Thread, Composer, and Messages use assistant-ui primitives -- no custom MUI chat components
 - [x] **CHAT-03**: Domain tool renderers built with `makeAssistantToolUI` with running/complete/error states
-- [ ] **CHAT-04**: HITL approval rendered inline via assistant-ui `requires_action` status
+- [x] **CHAT-04**: HITL approval rendered inline via assistant-ui `requires_action` status
 - [ ] **CHAT-05**: Mobile-responsive chat layout using assistant-ui responsive primitives
 
 ### Frontend Cleanup (FECLEAN-01 to FECLEAN-03)
@@ -118,7 +118,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 | CHAT-01 | Phase 27 | Complete |
 | CHAT-02 | Phase 27 | Complete |
 | CHAT-03 | Phase 27 | Complete |
-| CHAT-04 | Phase 27 | Pending |
+| CHAT-04 | Phase 27 | Complete |
 | CHAT-05 | Phase 27 | Pending |
 | FECLEAN-01 | Phase 28 | Pending |
 | FECLEAN-02 | Phase 28 | Pending |

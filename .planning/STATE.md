@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
 status: unknown
-last_updated: "2026-03-02T15:58:10.368Z"
+last_updated: "2026-03-02T20:08:06.914Z"
 progress:
-  total_phases: 14
+  total_phases: 15
   completed_phases: 12
-  total_plans: 46
-  completed_plans: 45
+  total_plans: 50
+  completed_plans: 48
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 27 of 30 (Chat Frontend)
-Plan: 2 of 4 complete in current phase
+Plan: 3 of 4 complete in current phase
 Status: In Progress
-Last activity: 2026-03-02 -- Completed 27-02-PLAN.md (Email/Data Tool UIs)
+Last activity: 2026-03-02 -- Completed 27-03-PLAN.md (Analysis/AI Tool UIs + HITL)
 
-Progress: [######░░░░] 62% (15/24 plans)
+Progress: [######░░░░] 67% (16/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15 (v3.2)
+- Total plans completed: 16 (v3.2)
 - Average duration: 11min
-- Total execution time: 137min
+- Total execution time: 148min
 
 **By Phase:**
 
@@ -55,6 +55,7 @@ Progress: [######░░░░] 62% (15/24 plans)
 | Phase 26 P03 | 9min | 2 tasks | 10 files |
 | Phase 27 P01 | 24min | 2 tasks | 16 files |
 | Phase 27 P02 | 8min | 1 task | 9 files |
+| Phase 27 P03 | 11min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -122,6 +123,10 @@ Recent decisions affecting current work:
 - [27-01]: ThreadListPrimitive with runtime-managed thread list (backend conversation hydration deferred)
 - [27-02]: Barrel export index.tsx not index.ts (JSX fragments require .tsx extension)
 - [27-02]: Operator precedence parenthesization for ?? vs || coalescing in ContactToolUI
+- [27-03]: addResult typed as any in HitlApprovalCardFromStatus (generic erasure at component boundary)
+- [27-03]: Poll-based HITL is the functional mechanism; native requires_action code path gated on backend update
+- [27-03]: FallbackToolUI uses wildcard toolName '*' for catch-all matching
+- [27-03]: HitlPendingActions rendered unconditionally in AssistantMessage
 
 ### Pending Todos
 
@@ -135,6 +140,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 27-02-PLAN.md (Email/Data Tool UIs)
+Stopped at: Completed 27-03-PLAN.md (Analysis/AI Tool UIs + HITL)
 Resume file: None
-Next action: Execute 27-03-PLAN.md
+Next action: Execute 27-04-PLAN.md
