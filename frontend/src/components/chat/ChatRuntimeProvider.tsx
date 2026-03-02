@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useRef, useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import {
   useChatRuntime,
   AssistantChatTransport,
@@ -26,16 +26,28 @@ function extractLastUserText(messages: UIMessage[]): string {
     .join('');
 }
 
+// Module-scoped CSRF token cache.
+// getCsrfToken() returns cached value after first fetch.
+// Token is fetched lazily on first header read, warmed eagerly on mount.
+let csrfCache = '';
+
+function getHeaders(): Record<string, string> {
+  return {
+    Authorization: `Bearer ${getAuthToken()}`,
+    'X-CSRF-Token': csrfCache,
+  };
+}
+
 export function ChatRuntimeProvider({
   children,
 }: {
   children: ReactNode;
 }) {
-  // Cache CSRF token in ref (async init, sync read for headers callback)
-  const csrfRef = useRef('');
+  // Warm CSRF cache eagerly so it's ready when user sends first message.
+  // The headers callback reads csrfCache at request time (not render time).
   useEffect(() => {
     getCsrfToken().then((t) => {
-      csrfRef.current = t;
+      csrfCache = t;
     });
   }, []);
 
@@ -43,10 +55,7 @@ export function ChatRuntimeProvider({
     transport: new AssistantChatTransport({
       api: `${API_BASE}/api/v1/ai/chat`,
       credentials: 'include',
-      headers: () => ({
-        Authorization: `Bearer ${getAuthToken()}`,
-        'X-CSRF-Token': csrfRef.current,
-      }),
+      headers: getHeaders,
       // Backend expects { message, conversationId }, not the AI SDK messages array.
       // See Pitfall 4 in 27-RESEARCH.md
       prepareSendMessagesRequest: ({ messages, body }) => ({
