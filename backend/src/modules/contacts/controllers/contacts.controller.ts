@@ -44,8 +44,6 @@ export class ContactsController {
   constructor(
     private readonly contactsService: ContactsService,
     private readonly contactsSyncQueue: ContactsSyncQueueService,
-    // TODO Phase 24: Rebuild RelationshipIntelligenceService
-    private readonly relationshipService: any,
     private readonly prisma: PrismaService,
   ) { }
 

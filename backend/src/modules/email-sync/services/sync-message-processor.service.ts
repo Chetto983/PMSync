@@ -399,7 +399,7 @@ export class SyncMessageProcessorService {
           const isSentByUser = result.folder === 'SENT';
           const toEmails = Array.isArray(result.to) ? result.to : [];
           context.followUpService
-            .analyzeAndCreateFollowUp(
+            ?.analyzeAndCreateFollowUp(
               tenantId,
               context.userId,
               result.id,
@@ -424,7 +424,7 @@ export class SyncMessageProcessorService {
           // Only for incoming emails (not SENT) that are replies
           if (!isSentByUser && (canonicalMsg.inReplyTo || canonicalMsg.references)) {
             context.followUpService
-              .checkAndResolveReplyFollowUp(
+              ?.checkAndResolveReplyFollowUp(
                 tenantId,
                 context.userId,
                 canonicalMsg.inReplyTo || null,
@@ -704,7 +704,7 @@ export class SyncMessageProcessorService {
           const isSentByUser = result.folder === 'SENT';
           const toEmails = Array.isArray(result.to) ? result.to : [];
           context.followUpService
-            .analyzeAndCreateFollowUp(
+            ?.analyzeAndCreateFollowUp(
               tenantId,
               context.userId,
               result.id,
@@ -734,7 +734,7 @@ export class SyncMessageProcessorService {
           result.bodyText.length > 50
         ) {
           context.writingStyleService
-            .learnFromEmail(tenantId, context.userId, result.bodyText)
+            ?.learnFromEmail(tenantId, context.userId, result.bodyText)
             .catch((err: any) =>
               this.logger.warn(`Writing style learning failed for ${result.id}: ${err.message}`),
             );

@@ -35,6 +35,7 @@ import { EmbeddingBackfillService } from './services/embedding-backfill.service'
 // PERF-03: Orphan embedding cleanup (null emailId AND null contactId)
 import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-cleanup.service';
 import { TriageLearningService } from './services/triage-learning.service';
+import { PromptGuardService } from './guards';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { TriageLearningService } from './services/triage-learning.service';
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
+    PromptGuardService, // Required by MistralService for prompt injection prevention
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [

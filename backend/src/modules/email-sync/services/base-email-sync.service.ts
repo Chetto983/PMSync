@@ -1,4 +1,4 @@
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleInit, Optional, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -61,8 +61,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     protected readonly prisma: PrismaService,
     protected readonly realtimeEvents: RealtimeEventsService,
     protected readonly config: ConfigService,
-    protected readonly followUpService: FollowUpService,
-    protected readonly writingStyleService: WritingStyleService,
+    @Optional() protected readonly followUpService: FollowUpService | null,
+    @Optional() protected readonly writingStyleService: WritingStyleService | null,
     // Phase 6: Extracted services
     protected readonly syncOrchestration: SyncOrchestrationService,
     protected readonly messageProcessor: SyncMessageProcessorService,

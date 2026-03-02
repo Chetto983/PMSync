@@ -158,7 +158,7 @@ export class MistralRagService {
             .filter((item): item is { role: 'assistant' | 'user'; content: string } =>
               !!item && typeof item.content === 'string' && (item.role === 'assistant' || item.role === 'user'))
             .map((item) => ({
-              role: item.role as 'assistant' | 'user',
+              role: item.role,
               content: item.content,
             }));
 

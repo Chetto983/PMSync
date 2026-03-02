@@ -47,8 +47,8 @@ export interface MessageProcessorContext {
   processAttachments: ProcessAttachmentsCallback;
 
   // AI services (passed from base class)
-  followUpService: FollowUpService;
-  writingStyleService: WritingStyleService;
+  followUpService: FollowUpService | null;
+  writingStyleService: WritingStyleService | null;
 }
 
 /**

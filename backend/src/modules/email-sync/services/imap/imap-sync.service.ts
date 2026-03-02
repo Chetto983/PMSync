@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
 import { BatchIndexingService } from '../../../ai/services/batch-indexing.service';
@@ -50,8 +50,8 @@ export class ImapSyncService extends BaseEmailSyncService {
     private imapAttachmentHandler: ImapAttachmentHandler,
     // BUG-5 FIX: Inject RedisLockService for distributed locking (matching Google/Microsoft)
     private redisLockService: RedisLockService,
-    followUpService: FollowUpService,
-    writingStyleService: WritingStyleService,
+    @Optional() followUpService: FollowUpService,
+    @Optional() writingStyleService: WritingStyleService,
     // Phase 6: Extracted services
     syncOrchestration: SyncOrchestrationService,
     messageProcessor: SyncMessageProcessorService,
