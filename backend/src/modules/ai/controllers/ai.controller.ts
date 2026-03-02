@@ -31,6 +31,10 @@ import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/k
 import { EmailTriageService } from '../services/email-triage.service';
 import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
 import { TriageBackfillSchedulerService } from '../services/triage-backfill-scheduler.service';
+// Phase 26: Non-chat AI services
+import { BriefingService } from '../services/briefing.service';
+import { FollowUpDetectionService } from '../services/follow-up-detection.service';
+import { DraftGenerationService } from '../services/draft-generation.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
 import {
   EmailAiDto,
@@ -52,6 +56,7 @@ import {
  * - Email insights (summarize, smart-reply, categorize, compose)
  * - Knowledge base search (RAG)
  * - Email triage and priority scoring
+ * - Daily briefing, follow-up detection, draft generation (Phase 26)
  *
  * Phase 24: Chat endpoint moved to AiChatModule (ai-chat.controller.ts)
  */
@@ -69,6 +74,10 @@ export class AiController {
     private readonly emailTriageService: EmailTriageService,
     private readonly triageBackfillService: TriageBackfillSchedulerService,
     private readonly prisma: PrismaService,
+    // Phase 26: Non-chat AI services
+    private readonly briefingService: BriefingService,
+    private readonly followUpDetectionService: FollowUpDetectionService,
+    private readonly draftGenerationService: DraftGenerationService,
   ) {}
 
   // Phase 24: Chat endpoint moved to AiChatModule (ai-chat.controller.ts)
@@ -89,22 +98,11 @@ export class AiController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: ComposeEmailDto,
   ): Promise<ComposeEmailResponseDto> {
-    const result = await this.emailInsightsService.composeEmail(
-      req.user.tenantId,
-      dto,
-      req.user.userId,
-    );
-
-    return {
-      success: true,
-      ...result,
-    };
+    const result = await this.emailInsightsService.composeEmail(req.user.tenantId, dto, req.user.userId);
+    return { success: true, ...result };
   }
 
-  /**
-   * Generate AI summary for an email
-   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
-   */
+  /** Summarize email (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('summarize/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
@@ -130,9 +128,7 @@ export class AiController {
     return { success: true, summary: analysis.summary };
   }
 
-  /**
-   * Generate smart reply suggestions
-   */
+  /** Generate smart reply suggestions */
   @Post('smart-reply/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
@@ -159,10 +155,7 @@ export class AiController {
     return { success: true, suggestions };
   }
 
-  /**
-   * Suggest labels for an email
-   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
-   */
+  /** Categorize email (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('categorize/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
@@ -188,9 +181,7 @@ export class AiController {
     return { success: true, labels: analysis.labels };
   }
 
-  /**
-   * Search knowledge base using semantic similarity (RAG)
-   */
+  /** Search knowledge base using semantic similarity (RAG) */
   @Post('memory/search')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
@@ -225,10 +216,7 @@ export class AiController {
 
   // ============ Email Intelligence Endpoints (2025 Best Practices) ============
 
-  /**
-   * Analyze email sentiment with aspect-based analysis
-   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
-   */
+  /** Analyze email sentiment (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('sentiment/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
@@ -264,10 +252,7 @@ export class AiController {
     };
   }
 
-  /**
-   * Calculate email priority with multi-factor scoring
-   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
-   */
+  /** Calculate email priority (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('priority/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
@@ -308,10 +293,7 @@ export class AiController {
     };
   }
 
-  /**
-   * Comprehensive email analysis
-   * CONSOLIDATED: Uses analyzeEmailUnified() for single LLM call with DB caching
-   */
+  /** Comprehensive email analysis (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('analyze/:emailId')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
@@ -356,9 +338,7 @@ export class AiController {
     };
   }
 
-  /**
-   * Trigger auto-triage for untriaged emails
-   */
+  /** Trigger auto-triage for untriaged emails */
   @Post('triage')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
@@ -379,9 +359,7 @@ export class AiController {
     };
   }
 
-  /**
-   * Get triage backfill status
-   */
+  /** Get triage backfill status */
   @Get('triage/backfill/status')
   @ApiOperation({
     summary: 'Get triage backfill status',
@@ -396,9 +374,7 @@ export class AiController {
     };
   }
 
-  /**
-   * Get AI-suggested VIP contacts based on interaction data
-   */
+  /** Get AI-suggested VIP contacts based on interaction data */
   @Get('triage/suggested-vips')
   @ApiOperation({
     summary: 'Get AI-suggested VIP contacts',
@@ -443,9 +419,7 @@ export class AiController {
     return { suggestions: suggestedVips, total: suggestedVips.length };
   }
 
-  /**
-   * Manually trigger triage backfill
-   */
+  /** Manually trigger triage backfill */
   @Post('triage/backfill')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -463,5 +437,53 @@ export class AiController {
       success: true,
       ...result,
     };
+  }
+
+  // ============ Phase 26: Non-Chat AI Endpoints ============
+
+  @Get('briefing')
+  @RequiresConsent('ai_email_processing')
+  @RequiresQuota('ai')
+  @ApiOperation({ summary: 'Get daily briefing', description: 'Comprehensive daily briefing' })
+  @ApiResponse({ status: 200, description: 'Briefing generated' })
+  async getBriefing(@Request() req: AuthenticatedRequest) {
+    const result = await this.briefingService.generateBriefing(req.user.tenantId);
+    return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
+  }
+
+  @Post('briefing/refresh')
+  @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
+  @RequiresQuota('ai')
+  @ApiOperation({ summary: 'Refresh daily briefing', description: 'Force regenerate briefing' })
+  @ApiResponse({ status: 200, description: 'Briefing refreshed' })
+  async refreshBriefing(@Request() req: AuthenticatedRequest) {
+    const result = await this.briefingService.generateBriefing(req.user.tenantId);
+    return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
+  }
+
+  @Post('follow-ups/detect')
+  @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
+  @RequiresQuota('ai')
+  @ApiOperation({ summary: 'Detect follow-ups', description: 'Analyze recent emails for follow-up needs' })
+  @ApiResponse({ status: 200, description: 'Detection complete' })
+  async detectFollowUps(@Request() req: AuthenticatedRequest) {
+    const result = await this.followUpDetectionService.detectFollowUps(req.user.tenantId);
+    return { success: true, ...result.data, ...(result.error ? { error: result.error } : {}) };
+  }
+
+  @Post('drafts/generate')
+  @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
+  @RequiresQuota('ai')
+  @ApiOperation({ summary: 'Generate reply draft', description: 'AI-powered reply draft generation' })
+  @ApiResponse({ status: 200, description: 'Draft generated' })
+  async generateDraft(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: { emailId: string; instruction: string; tone?: string },
+  ) {
+    const result = await this.draftGenerationService.generateDraft(req.user.tenantId, dto);
+    return { success: true, draft: result.data, ...(result.error ? { error: result.error } : {}) };
   }
 }

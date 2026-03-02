@@ -36,6 +36,10 @@ import { EmbeddingBackfillService } from './services/embedding-backfill.service'
 import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-cleanup.service';
 import { TriageLearningService } from './services/triage-learning.service';
 import { PromptGuardService } from './guards';
+// Phase 26: Non-chat AI services (generateText + Output.object())
+import { BriefingService } from './services/briefing.service';
+import { FollowUpDetectionService } from './services/follow-up-detection.service';
+import { DraftGenerationService } from './services/draft-generation.service';
 
 @Module({
   imports: [
@@ -72,6 +76,10 @@ import { PromptGuardService } from './guards';
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
     PromptGuardService, // Required by MistralService for prompt injection prevention
+    // Phase 26: Non-chat AI services (generateText + Output.object())
+    BriefingService,
+    FollowUpDetectionService,
+    DraftGenerationService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -92,6 +100,10 @@ import { PromptGuardService } from './guards';
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
+    // Phase 26: Non-chat AI services
+    BriefingService,
+    FollowUpDetectionService,
+    DraftGenerationService,
     // Phase 23: VoltAgentModule export removed (deleted). Chat pipeline rebuilt in Phase 24.
   ],
 })

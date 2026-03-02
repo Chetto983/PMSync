@@ -101,7 +101,7 @@ export const personalizationApi = {
   // Get memories by type - RESTORED
   getMemories(params: { type?: MemoryType; limit?: number }) {
     return apiClient.get<{ success: boolean; memories: Memory[]; total: number }>(
-      '/api/v1/voltagent/memory',
+      '/api/v1/ai/memory',
       { params: { type: params.type, limit: params.limit } }
     );
   },
@@ -109,7 +109,7 @@ export const personalizationApi = {
   // Search memories - RESTORED
   searchMemories(payload: { query: string; limit?: number }) {
     return apiClient.get<{ success: boolean; memories: Memory[]; total: number }>(
-      '/api/v1/voltagent/memory/search',
+      '/api/v1/ai/memory/search',
       { params: payload }
     );
   },
@@ -117,7 +117,7 @@ export const personalizationApi = {
   // Store a memory - RESTORED
   storeMemory(memory: StoreMemoryPayload) {
     return apiClient.post<{ success: boolean; memory: Memory }>(
-      '/api/v1/voltagent/memory',
+      '/api/v1/ai/memory',
       memory
     );
   },
@@ -125,14 +125,14 @@ export const personalizationApi = {
   // Delete a memory - RESTORED
   deleteMemory(memoryId: string) {
     return apiClient.delete<{ success: boolean; message: string }>(
-      `/api/v1/voltagent/memory/${memoryId}`
+      `/api/v1/ai/memory/${memoryId}`
     );
   },
 
   // Clear all memories - RESTORED
   clearAllMemories() {
     return apiClient.delete<{ success: boolean; message: string; count: number }>(
-      '/api/v1/voltagent/memory'
+      '/api/v1/ai/memory'
     );
   },
 
@@ -162,7 +162,7 @@ export const personalizationApi = {
         newValue?: string;
         createdAt: string;
       }>;
-    }>(`/api/v1/voltagent/memory/${memoryId}/history`);
+    }>(`/api/v1/ai/memory/${memoryId}/history`);
   },
 
   // Get procedural patterns - RESTORED
@@ -177,7 +177,7 @@ export const personalizationApi = {
         successRate: number;
         lastUsedAt: string;
       }>;
-    }>('/api/v1/voltagent/memory/patterns');
+    }>('/api/v1/ai/memory/patterns');
   },
 };
 
@@ -603,7 +603,7 @@ export const voltAgentApi = {
     locale?: string;
     model?: 'small' | 'medium' | 'large';
   }) {
-    return apiClient.post<ChatResult>('/api/v1/voltagent/chat', payload);
+    return apiClient.post<ChatResult>('/api/v1/ai/chat', payload);
   },
 
   // Stream chat response via SSE
@@ -622,7 +622,7 @@ export const voltAgentApi = {
   ): AbortController {
     const controller = new AbortController();
 
-    fetch(`${API_BASE_URL}/api/v1/voltagent/chat/stream`, {
+    fetch(`${API_BASE_URL}/api/v1/ai/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -690,22 +690,22 @@ export const voltAgentApi = {
 
   getPendingActions() {
     return apiClient.get<{ actions: PendingAction[]; total: number }>(
-      '/api/v1/voltagent/actions/pending',
+      '/api/v1/ai/actions/pending',
     );
   },
 
   getPendingAction(executionId: string) {
-    return apiClient.get<PendingAction>(`/api/v1/voltagent/actions/${executionId}`);
+    return apiClient.get<PendingAction>(`/api/v1/ai/actions/${executionId}`);
   },
 
   approveAction(executionId: string, payload?: Record<string, unknown>) {
-    return apiClient.post<ApprovalResponse>(`/api/v1/voltagent/actions/${executionId}/approve`, {
+    return apiClient.post<ApprovalResponse>(`/api/v1/ai/actions/${executionId}/approve`, {
       payload,
     });
   },
 
   rejectAction(executionId: string, rejectionReason?: string) {
-    return apiClient.post<ApprovalResponse>(`/api/v1/voltagent/actions/${executionId}/reject`, {
+    return apiClient.post<ApprovalResponse>(`/api/v1/ai/actions/${executionId}/reject`, {
       approved: false,
       rejectionReason,
     });
@@ -715,7 +715,7 @@ export const voltAgentApi = {
 
   getActionCounts() {
     return apiClient.get<{ success: boolean; counts: ActionCounts }>(
-      '/api/v1/voltagent/stats/action-counts',
+      '/api/v1/ai/stats/action-counts',
     );
   },
 
@@ -723,7 +723,7 @@ export const voltAgentApi = {
 
   getWritingStyle() {
     return apiClient.get<{ success: boolean; profile: WritingStyleProfile }>(
-      '/api/v1/voltagent/stats/writing-style',
+      '/api/v1/ai/stats/writing-style',
     );
   },
 
@@ -732,7 +732,7 @@ export const voltAgentApi = {
 
   resetLearning(payload?: { agentName?: string; actionType?: string }) {
     return apiClient.post<{ success: boolean; message: string }>(
-      '/api/v1/voltagent/learning/reset',
+      '/api/v1/ai/learning/reset',
       payload || {},
     );
   },
@@ -748,7 +748,7 @@ export const voltAgentApi = {
     autoApproveThreshold?: number;
   }) {
     return apiClient.post<Record<string, unknown>>(
-      '/api/v1/voltagent/actions/submit',
+      '/api/v1/ai/actions/submit',
       payload,
     );
   },
@@ -764,7 +764,7 @@ export const voltAgentApi = {
         successRate: number;
         totalTokens: number;
       };
-    }>('/api/v1/voltagent/stats/performance');
+    }>('/api/v1/ai/stats/performance');
   },
 
   getRecentMetrics(params?: { agentName?: string; limit?: number }) {
@@ -779,14 +779,14 @@ export const voltAgentApi = {
         timestamp: string;
       }>;
       count: number;
-    }>('/api/v1/voltagent/stats/metrics', { params });
+    }>('/api/v1/ai/stats/metrics', { params });
   },
 
   getOptimizationStats() {
     return apiClient.get<{
       success: boolean;
       optimizations: Record<string, unknown>;
-    }>('/api/v1/voltagent/stats/optimizations');
+    }>('/api/v1/ai/stats/optimizations');
   },
 
   // ============ Semantic Cache ============
@@ -796,7 +796,7 @@ export const voltAgentApi = {
       success: boolean;
       message: string;
       entriesRemoved: number;
-    }>('/api/v1/voltagent/cache/invalidate', pattern ? { pattern } : {});
+    }>('/api/v1/ai/cache/invalidate', pattern ? { pattern } : {});
   },
 
   getCacheAnalytics() {
@@ -805,12 +805,12 @@ export const voltAgentApi = {
       analytics: Record<string, unknown>;
       config: Record<string, unknown>;
       recommendations: unknown;
-    }>('/api/v1/voltagent/cache/analytics');
+    }>('/api/v1/ai/cache/analytics');
   },
 
   resetCacheAnalytics() {
     return apiClient.post<{ success: boolean; message: string }>(
-      '/api/v1/voltagent/cache/analytics/reset',
+      '/api/v1/ai/cache/analytics/reset',
     );
   },
 
@@ -818,26 +818,26 @@ export const voltAgentApi = {
     return apiClient.post<
       | { success: true; message: string; newThreshold: number }
       | { success: false; error: string }
-    >('/api/v1/voltagent/cache/threshold', { threshold });
+    >('/api/v1/ai/cache/threshold', { threshold });
   },
 
   // ============ Daily Briefing ============
 
   getBriefing() {
     return apiClient.get<{ success: boolean; briefing: Record<string, unknown> }>(
-      '/api/v1/voltagent/briefing',
+      '/api/v1/ai/briefing',
     );
   },
 
   refreshBriefing() {
     return apiClient.post<{ success: boolean; jobId: string; message: string }>(
-      '/api/v1/voltagent/briefing/refresh',
+      '/api/v1/ai/briefing/refresh',
     );
   },
 
   getBriefingStatus() {
     return apiClient.get<{ success: boolean } & Record<string, unknown>>(
-      '/api/v1/voltagent/briefing/status',
+      '/api/v1/ai/briefing/status',
     );
   },
 
@@ -845,7 +845,7 @@ export const voltAgentApi = {
 
   listMemories(params?: { category?: LongTermMemoryCategory; limit?: number }) {
     return apiClient.get<{ success: boolean; count: number; memories: LongTermMemoryItem[] }>(
-      '/api/v1/voltagent/memory',
+      '/api/v1/ai/memory',
       { params },
     );
   },
@@ -859,7 +859,7 @@ export const voltAgentApi = {
     return apiClient.get<
       | { success: true; count: number; memories: LongTermMemoryItem[] }
       | { success: false; error: string }
-    >('/api/v1/voltagent/memory/search', { params });
+    >('/api/v1/ai/memory/search', { params });
   },
 
   addMemoryFact(payload: {
@@ -868,26 +868,26 @@ export const voltAgentApi = {
     importance?: number;
   }) {
     return apiClient.post<{ success: boolean; memoryId: string | null }>(
-      '/api/v1/voltagent/memory',
+      '/api/v1/ai/memory',
       payload,
     );
   },
 
   deleteMemory(memoryId: string) {
     return apiClient.delete<{ success: boolean }>(
-      `/api/v1/voltagent/memory/${encodeURIComponent(memoryId)}`,
+      `/api/v1/ai/memory/${encodeURIComponent(memoryId)}`,
     );
   },
 
   deleteAllMemories() {
     return apiClient.delete<{ success: boolean; deletedCount: number }>(
-      '/api/v1/voltagent/memory',
+      '/api/v1/ai/memory',
     );
   },
 
   getMemoryStats() {
     return apiClient.get<{ success: boolean; enabled: boolean } & Record<string, unknown>>(
-      '/api/v1/voltagent/memory/stats',
+      '/api/v1/ai/memory/stats',
     );
   },
 
@@ -898,32 +898,32 @@ export const voltAgentApi = {
       success: boolean;
       conversations: ConversationSummary[];
       count: number;
-    }>('/api/v1/voltagent/conversations', { params });
+    }>('/api/v1/ai/conversations', { params });
   },
 
   getConversation(conversationId: string, params?: { messageLimit?: number }) {
     return apiClient.get<{
       success: boolean;
       conversation: ConversationDetail;
-    }>(`/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}`, { params });
+    }>(`/api/v1/ai/conversations/${encodeURIComponent(conversationId)}`, { params });
   },
 
   updateConversation(conversationId: string, payload: { title?: string; isArchived?: boolean }) {
     return apiClient.post<{ success: boolean; message: string }>(
-      `/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}`,
+      `/api/v1/ai/conversations/${encodeURIComponent(conversationId)}`,
       payload,
     );
   },
 
   deleteConversation(conversationId: string) {
     return apiClient.post<{ success: boolean; message: string }>(
-      `/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}/delete`,
+      `/api/v1/ai/conversations/${encodeURIComponent(conversationId)}/delete`,
     );
   },
 
   generateConversationTitle(conversationId: string, locale?: string) {
     return apiClient.post<{ success: boolean; title: string }>(
-      `/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}/generate-title`,
+      `/api/v1/ai/conversations/${encodeURIComponent(conversationId)}/generate-title`,
       undefined,
       { params: locale ? { locale } : undefined },
     );
@@ -937,37 +937,37 @@ export const voltAgentApi = {
       enabled: boolean;
       count: number;
       deadlines: CachedDeadline[];
-    }>('/api/v1/voltagent/deadlines', { params });
+    }>('/api/v1/ai/deadlines', { params });
   },
 
   extractDeadlines(payload: { text: string; locale?: 'en' | 'it' }) {
     return apiClient.post<{ success: boolean; count: number; deadlines: ExtractedDeadlinePreview[] }>(
-      '/api/v1/voltagent/deadlines/extract',
+      '/api/v1/ai/deadlines/extract',
       payload,
     );
   },
 
   completeDeadline(id: string) {
     return apiClient.post<{ success: boolean }>(
-      `/api/v1/voltagent/deadlines/${encodeURIComponent(id)}/complete`,
+      `/api/v1/ai/deadlines/${encodeURIComponent(id)}/complete`,
     );
   },
 
   dismissDeadline(id: string) {
     return apiClient.post<{ success: boolean }>(
-      `/api/v1/voltagent/deadlines/${encodeURIComponent(id)}/dismiss`,
+      `/api/v1/ai/deadlines/${encodeURIComponent(id)}/dismiss`,
     );
   },
 
   getDeadlineStats() {
     return apiClient.get<{ success: boolean; enabled: boolean } & Record<string, unknown>>(
-      '/api/v1/voltagent/deadlines/stats',
+      '/api/v1/ai/deadlines/stats',
     );
   },
 
   getDeadlineQueueStats() {
     return apiClient.get<{ success: boolean } & Record<string, unknown>>(
-      '/api/v1/voltagent/deadlines/queue',
+      '/api/v1/ai/deadlines/queue',
     );
   },
 
@@ -978,7 +978,7 @@ export const voltAgentApi = {
       success: boolean;
       count: number;
       followUps: Array<Record<string, unknown>>;
-    }>('/api/v1/voltagent/follow-ups', { params });
+    }>('/api/v1/ai/follow-ups', { params });
   },
 
   getPendingFollowUps(params?: { limit?: number }) {
@@ -986,7 +986,7 @@ export const voltAgentApi = {
       success: boolean;
       count: number;
       followUps: Array<Record<string, unknown>>;
-    }>('/api/v1/voltagent/follow-ups/pending', { params });
+    }>('/api/v1/ai/follow-ups/pending', { params });
   },
 
   getOverdueFollowUps(params?: { limit?: number }) {
@@ -994,32 +994,32 @@ export const voltAgentApi = {
       success: boolean;
       count: number;
       followUps: Array<Record<string, unknown>>;
-    }>('/api/v1/voltagent/follow-ups/overdue', { params });
+    }>('/api/v1/ai/follow-ups/overdue', { params });
   },
 
   getFollowUpStats() {
     return apiClient.get<{ success: boolean } & Record<string, unknown>>(
-      '/api/v1/voltagent/follow-ups/stats',
+      '/api/v1/ai/follow-ups/stats',
     );
   },
 
   createFollowUp(payload: { emailId: string; reason?: string; dueDate?: string }) {
     return apiClient.post<{ success: boolean; followUp: Record<string, unknown> }>(
-      '/api/v1/voltagent/follow-ups',
+      '/api/v1/ai/follow-ups',
       payload,
     );
   },
 
   analyzeForFollowUp(payload: { body: string; subject?: string }) {
     return apiClient.post<{ success: boolean } & Record<string, unknown>>(
-      '/api/v1/voltagent/follow-ups/analyze',
+      '/api/v1/ai/follow-ups/analyze',
       payload,
     );
   },
 
   getFollowUp(id: string) {
     return apiClient.get<{ success: boolean; followUp: Record<string, unknown> }>(
-      `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}`,
+      `/api/v1/ai/follow-ups/${encodeURIComponent(id)}`,
     );
   },
 
@@ -1031,32 +1031,32 @@ export const voltAgentApi = {
         reason: string;
         confidence: number;
       };
-    }>(`/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}/smart-timing`);
+    }>(`/api/v1/ai/follow-ups/${encodeURIComponent(id)}/smart-timing`);
   },
 
   resolveFollowUp(id: string) {
     return apiClient.post<{ success: boolean; followUp: Record<string, unknown> }>(
-      `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}/resolve`,
+      `/api/v1/ai/follow-ups/${encodeURIComponent(id)}/resolve`,
     );
   },
 
   snoozeFollowUp(id: string, dueDate: string) {
     return apiClient.post<{ success: boolean; followUp: Record<string, unknown> }>(
-      `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}/snooze`,
+      `/api/v1/ai/follow-ups/${encodeURIComponent(id)}/snooze`,
       { dueDate },
     );
   },
 
   updateFollowUpStatus(id: string, status: string) {
     return apiClient.patch<{ success: boolean; followUp: Record<string, unknown> }>(
-      `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}/status`,
+      `/api/v1/ai/follow-ups/${encodeURIComponent(id)}/status`,
       { status },
     );
   },
 
   deleteFollowUp(id: string) {
     return apiClient.delete<{ success: boolean; message: string }>(
-      `/api/v1/voltagent/follow-ups/${encodeURIComponent(id)}`,
+      `/api/v1/ai/follow-ups/${encodeURIComponent(id)}`,
     );
   },
 
@@ -1067,7 +1067,7 @@ export const voltAgentApi = {
       success: boolean;
       items: Array<Record<string, unknown>>;
       count: number;
-    }>('/api/v1/voltagent/action-items', { params });
+    }>('/api/v1/ai/action-items', { params });
   },
 
   getPendingActionItems() {
@@ -1075,7 +1075,7 @@ export const voltAgentApi = {
       success: boolean;
       items: Array<Record<string, unknown>>;
       count: number;
-    }>('/api/v1/voltagent/action-items/pending');
+    }>('/api/v1/ai/action-items/pending');
   },
 
   getOverdueActionItems() {
@@ -1083,12 +1083,12 @@ export const voltAgentApi = {
       success: boolean;
       items: Array<Record<string, unknown>>;
       count: number;
-    }>('/api/v1/voltagent/action-items/overdue');
+    }>('/api/v1/ai/action-items/overdue');
   },
 
   getActionItemStats() {
     return apiClient.get<{ success: boolean; stats: Record<string, unknown> }>(
-      '/api/v1/voltagent/action-items/stats',
+      '/api/v1/ai/action-items/stats',
     );
   },
 
@@ -1101,7 +1101,7 @@ export const voltAgentApi = {
     dueDate?: string;
   }) {
     return apiClient.post<{ success: boolean; item: Record<string, unknown> }>(
-      '/api/v1/voltagent/action-items',
+      '/api/v1/ai/action-items',
       payload,
     );
   },
@@ -1112,12 +1112,12 @@ export const voltAgentApi = {
       needsExtraction: boolean;
       detected: Array<Record<string, unknown>>;
       count: number;
-    }>('/api/v1/voltagent/action-items/analyze', payload);
+    }>('/api/v1/ai/action-items/analyze', payload);
   },
 
   extractActionItems(payload: { emailId: string; subject: string; body: string; senderEmail?: string }) {
     return apiClient.post<{ success: boolean; createdIds: string[]; count: number }>(
-      '/api/v1/voltagent/action-items/extract',
+      '/api/v1/ai/action-items/extract',
       payload,
     );
   },
@@ -1126,32 +1126,32 @@ export const voltAgentApi = {
     return apiClient.post<
       | { success: true; jobId: string }
       | { success: false; error: string }
-    >('/api/v1/voltagent/action-items/queue', payload);
+    >('/api/v1/ai/action-items/queue', payload);
   },
 
   getActionItem(id: string) {
     return apiClient.get<{ success: boolean; item: Record<string, unknown> }>(
-      `/api/v1/voltagent/action-items/${encodeURIComponent(id)}`,
+      `/api/v1/ai/action-items/${encodeURIComponent(id)}`,
     );
   },
 
   updateActionItemStatus(id: string, status: string) {
     return apiClient.post<{ success: boolean; item: Record<string, unknown> }>(
-      `/api/v1/voltagent/action-items/${encodeURIComponent(id)}/status`,
+      `/api/v1/ai/action-items/${encodeURIComponent(id)}/status`,
       { status },
     );
   },
 
   updateActionItemPriority(id: string, priority: number) {
     return apiClient.post<{ success: boolean; item: Record<string, unknown> }>(
-      `/api/v1/voltagent/action-items/${encodeURIComponent(id)}/priority`,
+      `/api/v1/ai/action-items/${encodeURIComponent(id)}/priority`,
       { priority },
     );
   },
 
   updateActionItemDueDate(id: string, dueDate: string | null) {
     return apiClient.post<{ success: boolean; item: Record<string, unknown> }>(
-      `/api/v1/voltagent/action-items/${encodeURIComponent(id)}/due-date`,
+      `/api/v1/ai/action-items/${encodeURIComponent(id)}/due-date`,
       { dueDate },
     );
   },
@@ -1160,33 +1160,33 @@ export const voltAgentApi = {
 
   getDashboardAnalytics() {
     return apiClient.get<{ success: boolean; analytics: Record<string, unknown> }>(
-      '/api/v1/voltagent/analytics/dashboard',
+      '/api/v1/ai/analytics/dashboard',
     );
   },
 
   getEmailAnalytics(params?: { period?: 'day' | 'week' | 'month' }) {
     return apiClient.get<{ success: boolean; analytics: Record<string, unknown> }>(
-      '/api/v1/voltagent/analytics/email',
+      '/api/v1/ai/analytics/email',
       { params },
     );
   },
 
   runAiAnalytics(payload: { query: string; data?: Record<string, unknown>; locale?: string }) {
     return apiClient.post<{ success: boolean; result: Record<string, unknown> }>(
-      '/api/v1/voltagent/analytics/ai',
+      '/api/v1/ai/analytics/ai',
       payload,
     );
   },
 
   invalidateAnalyticsCache() {
     return apiClient.post<{ success: boolean; message: string }>(
-      '/api/v1/voltagent/analytics/invalidate',
+      '/api/v1/ai/analytics/invalidate',
     );
   },
 
   getAnalyticsStatus() {
     return apiClient.get<{ success: boolean; enabled: boolean }>(
-      '/api/v1/voltagent/analytics/status',
+      '/api/v1/ai/analytics/status',
     );
   },
 
@@ -1199,7 +1199,7 @@ export const voltAgentApi = {
     locale?: string;
   }) {
     return apiClient.post<{ draftId: string; body: string; subject: string }>(
-      '/api/v1/voltagent/generate-reply-draft',
+      '/api/v1/ai/generate-reply-draft',
       params,
     );
   },
@@ -1209,16 +1209,16 @@ export const voltAgentApi = {
     action: 'accepted' | 'edited' | 'rejected' | 'regenerated';
     sentBody?: string;
   }) {
-    return apiClient.post('/api/v1/voltagent/draft-feedback', params);
+    return apiClient.post('/api/v1/ai/draft-feedback', params);
   },
 
   getDraftStats() {
-    return apiClient.get<{ success: boolean; stats: DraftStats }>('/api/v1/voltagent/draft-stats');
+    return apiClient.get<{ success: boolean; stats: DraftStats }>('/api/v1/ai/draft-stats');
   },
 
   updateManualSamples(params: { samples: string; providerId?: string }) {
     return apiClient.post<{ success: boolean }>(
-      '/api/v1/voltagent/writing-style/manual-samples',
+      '/api/v1/ai/writing-style/manual-samples',
       params,
     );
   },
@@ -1270,7 +1270,7 @@ export const unifiedKnowledgeApi = {
     sources?: UnifiedSearchSource[];
     limit?: number;
   }) {
-    return apiClient.post<UnifiedSearchResult>('/api/v1/voltagent/knowledge/search', payload);
+    return apiClient.post<UnifiedSearchResult>('/api/v1/ai/knowledge/search', payload);
   },
 
   /**
@@ -1280,14 +1280,14 @@ export const unifiedKnowledgeApi = {
     content: string;
     category?: 'preference' | 'fact' | 'contact' | 'project' | 'general';
   }) {
-    return apiClient.post<RememberResult>('/api/v1/voltagent/knowledge/remember', payload);
+    return apiClient.post<RememberResult>('/api/v1/ai/knowledge/remember', payload);
   },
 
   /**
    * Get unified knowledge base statistics.
    */
   getStats() {
-    return apiClient.get<KnowledgeStats>('/api/v1/voltagent/knowledge/stats');
+    return apiClient.get<KnowledgeStats>('/api/v1/ai/knowledge/stats');
   },
 };
 
@@ -1315,14 +1315,14 @@ export const focusTimeApi = {
       success: boolean;
       count: number;
       slots: FocusTimeSlot[];
-    }>('/api/v1/voltagent/scheduling/focus-time/optimal', { params });
+    }>('/api/v1/ai/scheduling/focus-time/optimal', { params });
   },
 
   getStats(params?: { days?: number }) {
     return apiClient.get<{
       success: boolean;
       stats: FocusTimeStats;
-    }>('/api/v1/voltagent/scheduling/focus-time/stats', { params });
+    }>('/api/v1/ai/scheduling/focus-time/stats', { params });
   },
 
   createBlocks(payload: {
@@ -1335,7 +1335,7 @@ export const focusTimeApi = {
       success: boolean;
       count: number;
       blocks: FocusTimeSlot[];
-    }>('/api/v1/voltagent/scheduling/focus-time/create', payload);
+    }>('/api/v1/ai/scheduling/focus-time/create', payload);
   },
 
   getStatus() {
@@ -1343,7 +1343,7 @@ export const focusTimeApi = {
       success: boolean;
       isInFocusBlock: boolean;
       currentBlock?: { start: string; end: string; remaining: number };
-    }>('/api/v1/voltagent/scheduling/focus-time/status');
+    }>('/api/v1/ai/scheduling/focus-time/status');
   },
 };
 
@@ -1379,7 +1379,7 @@ export const calendarConflictApi = {
       hasConflicts: boolean;
       conflicts: CalendarConflict[];
       suggestions?: AvailableSlot[];
-    }>('/api/v1/voltagent/scheduling/conflicts/detect', payload);
+    }>('/api/v1/ai/scheduling/conflicts/detect', payload);
   },
 
   findAvailableSlots(params?: { duration?: number; days?: number; numSlots?: number }) {
@@ -1387,7 +1387,7 @@ export const calendarConflictApi = {
       success: boolean;
       count: number;
       slots: AvailableSlot[];
-    }>('/api/v1/voltagent/scheduling/conflicts/available-slots', { params });
+    }>('/api/v1/ai/scheduling/conflicts/available-slots', { params });
   },
 
   getSchedulingPreferences() {
@@ -1398,7 +1398,7 @@ export const calendarConflictApi = {
         avoidTimes: string[];
         maxMeetingsPerDay: number;
       };
-    }>('/api/v1/voltagent/scheduling/preferences');
+    }>('/api/v1/ai/scheduling/preferences');
   },
 
   getDayLoad(params?: { date?: string }) {
@@ -1408,7 +1408,7 @@ export const calendarConflictApi = {
       totalMeetingMinutes: number;
       eventCount: number;
       busyPercentage: number;
-    }>('/api/v1/voltagent/scheduling/day-load', { params });
+    }>('/api/v1/ai/scheduling/day-load', { params });
   },
 };
 
@@ -1434,7 +1434,7 @@ export const meetingPrepApi = {
     return apiClient.get<{
       success: boolean;
       brief: MeetingBrief;
-    }>(`/api/v1/voltagent/scheduling/meeting-prep/${eventId}`, { params });
+    }>(`/api/v1/ai/scheduling/meeting-prep/${eventId}`, { params });
   },
 
   getUpcomingMeetingsNeedingPrep(params?: { hoursAhead?: number }) {
@@ -1448,7 +1448,7 @@ export const meetingPrepApi = {
         attendeeCount: number;
         prepScore: number;
       }>;
-    }>('/api/v1/voltagent/scheduling/meeting-prep', { params });
+    }>('/api/v1/ai/scheduling/meeting-prep', { params });
   },
 };
 
