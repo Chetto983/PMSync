@@ -11,9 +11,7 @@ import {
   generateText,
   createUIMessageStream,
   stepCountIs,
-  tool,
 } from 'ai';
-import { z } from 'zod';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { ConversationService } from './conversation.service';
 import { HitlService } from './hitl.service';
@@ -27,7 +25,13 @@ import {
   CircuitBreakerOpenError,
 } from '../../ai/utils/index';
 import { SYSTEM_PROMPT } from '../constants/system-prompt';
-import { sendEmailSchema, searchEmailsSchema } from '../tools/index';
+import {
+  EmailToolsService,
+  CalendarToolsService,
+  ContactToolsService,
+  FolderToolsService,
+  RagToolsService,
+} from '../tools/index';
 
 /**
  * Parameters for streamChat method.
@@ -59,7 +63,7 @@ const CHAT_RATE_LIMIT_WINDOW = 60;
  * - Usage tracking for subscription quota
  * - HITL approval for dangerous tools (needsApproval)
  *
- * Phase 24: Backend Core Pipeline
+ * Phase 25: Tools wired via 5 ToolsService classes (email, calendar, contacts, folders, RAG)
  */
 @Injectable()
 export class AiChatService {
@@ -74,6 +78,12 @@ export class AiChatService {
     private readonly piiResolutionService: PiiResolutionService,
     private readonly auditService: AuditService,
     private readonly rateLimiterService: RedisRateLimiterService,
+    // Phase 25: Tool services
+    private readonly emailToolsService: EmailToolsService,
+    private readonly calendarToolsService: CalendarToolsService,
+    private readonly contactToolsService: ContactToolsService,
+    private readonly folderToolsService: FolderToolsService,
+    private readonly ragToolsService: RagToolsService,
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,
@@ -339,8 +349,9 @@ export class AiChatService {
   /**
    * Create tool set with PII resolution via closure.
    *
-   * This is the SOLE mechanism for creating tools.
-   * Tools receive PII-resolved args via closure -- no static getToolSet() export.
+   * Phase 25: Merges tools from 5 ToolsService classes.
+   * Each service's getTools() receives tenantId, conversationId, and piiResolve closure.
+   * Tools get PII-resolved args automatically -- no static getToolSet() export.
    */
   private createToolSet(tenantId: string, conversationId: string) {
     const piiResolve = async (
@@ -352,40 +363,44 @@ export class AiChatService {
         payload,
       );
 
-    return {
-      send_email: tool({
-        description: 'Send an email on behalf of the user',
-        inputSchema: sendEmailSchema,
-        needsApproval: true,
-        execute: async (args: { to: string; subject: string; body: string }) => {
-          const resolved = await piiResolve(
-            args as unknown as Record<string, unknown>,
-          );
-          // Phase 25: execute with resolved args (real email sending)
-          return { success: true, stub: true, resolved };
-        },
-      }),
-      search_emails: tool({
-        description: 'Search through user emails',
-        inputSchema: searchEmailsSchema,
-        execute: async (args: { query: string; limit?: number }) => {
-          const resolved = await piiResolve(
-            args as unknown as Record<string, unknown>,
-          );
-          // Phase 25: execute real search
-          return { results: [] as string[], stub: true, resolved };
-        },
-      }),
+    const toolSets = {
+      ...this.emailToolsService.getTools(tenantId, conversationId, piiResolve),
+      ...this.calendarToolsService.getTools(tenantId, conversationId, piiResolve),
+      ...this.contactToolsService.getTools(tenantId, conversationId, piiResolve),
+      ...this.folderToolsService.getTools(tenantId, conversationId, piiResolve),
+      ...this.ragToolsService.getTools(tenantId, conversationId, piiResolve),
     };
+
+    // Runtime duplicate check -- fail fast if tool names collide
+    const toolNames = Object.keys(toolSets);
+    const uniqueNames = new Set(toolNames);
+    if (toolNames.length !== uniqueNames.size) {
+      const duplicates = toolNames.filter(
+        (name, i) => toolNames.indexOf(name) !== i,
+      );
+      throw new Error(
+        `Duplicate tool names detected: ${duplicates.join(', ')}`,
+      );
+    }
+
+    this.logger.debug(`Tool set created: ${toolNames.length} tools`);
+
+    return toolSets;
   }
 
   /**
    * Map tool name to ActionType enum for ActionQueue.
+   *
+   * Phase 25: Complete mapping for all HITL-enabled tools.
    */
   private mapToolToActionType(toolName: string): string {
     const mapping: Record<string, string> = {
       send_email: 'SEND_EMAIL',
-      search_emails: 'ARCHIVE_EMAIL', // Placeholder, search doesn't need HITL
+      reply_email: 'REPLY_EMAIL',
+      forward_email: 'FORWARD_EMAIL',
+      delete_email: 'DELETE_EMAIL',
+      delete_event: 'SCHEDULE_MEETING', // Closest ActionType; DELETE_EVENT not in enum yet
+      delete_contact: 'DELETE_CONTACT',
     };
     return mapping[toolName] || 'SEND_EMAIL';
   }

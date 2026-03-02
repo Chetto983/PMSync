@@ -3,6 +3,10 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { ComplianceModule } from '../compliance/compliance.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { AuditModule } from '../audit/audit.module';
+import { EmailModule } from '../email/email.module';
+import { CalendarModule } from '../calendar/calendar.module';
+import { ContactsModule } from '../contacts/contacts.module';
+import { AiModule } from '../ai/ai.module';
 import { AiChatController } from './controllers/ai-chat.controller';
 import { HitlController } from './controllers/hitl.controller';
 import { AiChatService } from './services/ai-chat.service';
@@ -11,6 +15,13 @@ import { HitlService } from './services/hitl.service';
 import { PiiDetectionService } from '../ai/guards/pii-detection-sentinel.service';
 import { PiiResolutionService } from '../ai/guards/pii-resolution.service';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
+import {
+  EmailToolsService,
+  CalendarToolsService,
+  ContactToolsService,
+  FolderToolsService,
+  RagToolsService,
+} from './tools/index';
 
 /**
  * AiChatModule -- Streaming AI chat with conversation persistence.
@@ -19,9 +30,8 @@ import { RedisRateLimiterService } from '../../common/services/redis-rate-limite
  * MistralModule is @Global() so no import needed for MistralProviderService.
  * CacheModule is @Global() so no import needed for CacheService (used by PiiResolutionService).
  *
- * Plan 02: Added cross-cutting concerns (PII, audit, consent, rate limiting, HITL).
- *
- * Phase 24: Backend Core Pipeline
+ * Phase 25: Added domain module imports (forwardRef for circular deps)
+ *           and 5 ToolsService classes for tool execution.
  */
 @Module({
   imports: [
@@ -29,6 +39,11 @@ import { RedisRateLimiterService } from '../../common/services/redis-rate-limite
     ComplianceModule, // ConsentGuard, ConsentEnforcementService
     SubscriptionModule, // QuotaGuard, UsageTrackingService, CostProtectionService
     AuditModule, // AuditService
+    // Phase 25: Domain modules for tool execution
+    forwardRef(() => EmailModule), // EmailSearchService, EmailCrudService, EmailSendService, etc.
+    forwardRef(() => CalendarModule), // CalendarEventsService
+    forwardRef(() => ContactsModule), // ContactsService
+    forwardRef(() => AiModule), // EmbeddingsService, KnowledgeBaseService
   ],
   controllers: [AiChatController, HitlController],
   providers: [
@@ -39,6 +54,12 @@ import { RedisRateLimiterService } from '../../common/services/redis-rate-limite
     PiiDetectionService,
     PiiResolutionService,
     RedisRateLimiterService,
+    // Phase 25: Tool services
+    EmailToolsService,
+    CalendarToolsService,
+    ContactToolsService,
+    FolderToolsService,
+    RagToolsService,
   ],
   exports: [AiChatService, ConversationService, HitlService],
 })

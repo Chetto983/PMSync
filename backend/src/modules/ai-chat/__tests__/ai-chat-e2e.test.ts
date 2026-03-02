@@ -127,6 +127,8 @@ describe('AiChatService E2E (real Mistral API)', () => {
     const mistralProvider = new MistralProviderService(configService);
 
     // 5. Compose AiChatService with real + stub dependencies
+    // Phase 25: ToolsService stubs -- tools won't be invoked in basic chat tests
+    const toolsServiceStub = { getTools: () => ({}) } as any;
     aiChatService = new AiChatService(
       mistralProvider,
       conversationService,
@@ -135,6 +137,11 @@ describe('AiChatService E2E (real Mistral API)', () => {
       piiResolutionStub,       // Redis-dependent, stubbed
       auditService,            // Real -- will be spied on
       rateLimiterStub,         // Redis-dependent, stubbed
+      toolsServiceStub,        // EmailToolsService stub
+      toolsServiceStub,        // CalendarToolsService stub
+      toolsServiceStub,        // ContactToolsService stub
+      toolsServiceStub,        // FolderToolsService stub
+      toolsServiceStub,        // RagToolsService stub
       undefined,               // UsageTrackingService is @Optional
     );
   }, 30_000);
