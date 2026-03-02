@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
 status: unknown
-last_updated: "2026-03-02T13:19:40.302Z"
+last_updated: "2026-03-02T15:28:22.329Z"
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 11
-  total_plans: 43
-  completed_plans: 42
+  total_plans: 46
+  completed_plans: 43
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 25 - Tools & RAG (COMPLETE)
+**Current focus:** Phase 26 - Non-Chat AI & Backend Testing (IN PROGRESS)
 
 ## Current Position
 
-Phase: 25 of 30 (Tools & RAG)
-Plan: 4 of 4 complete in current phase
-Status: Phase Complete
-Last activity: 2026-03-02 -- Completed 25-04-PLAN.md (E2E Validation Gate)
+Phase: 26 of 30 (Non-Chat AI & Backend Testing)
+Plan: 1 of 3 complete in current phase
+Status: In Progress
+Last activity: 2026-03-02 -- Completed 26-01-PLAN.md (Non-Chat AI Services)
 
-Progress: [####░░░░░░] 42% (10/24 plans)
+Progress: [#####░░░░░] 46% (11/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (v3.2)
+- Total plans completed: 11 (v3.2)
 - Average duration: 10min
-- Total execution time: 102min
+- Total execution time: 112min
 
 **By Phase:**
 
@@ -50,6 +50,7 @@ Progress: [####░░░░░░] 42% (10/24 plans)
 | 25-02 | 1 | 5min | 5min |
 | 25-03 | 1 | 5min | 5min |
 | 25-04 | 1 | 7min | 7min |
+| Phase 26 P01 | 10min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,10 @@ Recent decisions affecting current work:
 - [25-04]: IntentClassifierService regex fallback in tests (no FastText model needed)
 - [25-04]: drainStream must type-check chunks (AI SDK createUIMessageStream emits strings)
 - [25-04]: HybridSearchService tested via direct call for graceful fallback verification
+- [26-01]: MistralModule is @Global -- no explicit import needed in AiModule for MistralProviderService
+- [26-01]: AI SDK v6 LanguageModelUsage uses inputTokens/outputTokens -- trackUsage simplified to counter-only
+- [26-01]: Frontend routes batch-migrated from /api/v1/voltagent/* to /api/v1/ai/* (90 occurrences)
+- [26-01]: .nullable() not .optional() in Output.object() Zod schemas per AI SDK v6 compatibility
 
 ### Pending Todos
 
@@ -113,6 +118,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 25-04-PLAN.md (E2E Validation Gate) -- Phase 25 COMPLETE (4/4 plans done)
+Stopped at: Completed 26-01-PLAN.md (Non-Chat AI Services)
 Resume file: None
-Next action: Begin Phase 26
+Next action: Execute 26-02-PLAN.md

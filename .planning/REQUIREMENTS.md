@@ -26,7 +26,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 - [x] **AI-04**: `ConversationService` with direct Prisma queries for chat history -- preserves existing conversation data
 - [x] **AI-05**: HITL approval for destructive actions via AI SDK v6 `needsApproval` + `onStepFinish` callback
 - [x] **AI-06**: PII tokenization, audit logging, and consent guards wired into new chat pipeline (GDPR compliance preserved)
-- [ ] **AI-07**: Non-chat AI (daily briefing, follow-up detection, draft generation, email analysis) uses `generateText + Output.object()` -- single LLM call per operation, no agent loops
+- [x] **AI-07**: Non-chat AI (daily briefing, follow-up detection, draft generation, email analysis) uses `generateText + Output.object()` -- single LLM call per operation, no agent loops
 - [x] **AI-08**: Rate limiting and circuit breaker preserved in new module
 
 ### Mistral SDK Consolidation (MSDK-01 to MSDK-03)
@@ -112,7 +112,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 | AI-03 | Phase 25 | Complete |
 | RAG-01 | Phase 25 | Complete |
 | RAG-02 | Phase 25 | Complete |
-| AI-07 | Phase 26 | Pending |
+| AI-07 | Phase 26 | Complete |
 | TEST-02 | Phase 26 | Pending |
 | TEST-03 | Phase 26 | Pending |
 | CHAT-01 | Phase 27 | Pending |
