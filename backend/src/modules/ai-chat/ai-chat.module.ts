@@ -22,6 +22,8 @@ import {
   FolderToolsService,
   RagToolsService,
 } from './tools/index';
+import { IntentRouterService } from './tools/intent-router.service';
+import { MemoryService } from './services/memory.service';
 
 /**
  * AiChatModule -- Streaming AI chat with conversation persistence.
@@ -60,6 +62,9 @@ import {
     ContactToolsService,
     FolderToolsService,
     RagToolsService,
+    // Phase 25 Plan 02: Intent routing + memory
+    IntentRouterService,
+    MemoryService,
   ],
   exports: [AiChatService, ConversationService, HitlService],
 })

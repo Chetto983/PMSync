@@ -32,6 +32,8 @@ import {
   FolderToolsService,
   RagToolsService,
 } from '../tools/index';
+import { IntentRouterService } from '../tools/intent-router.service';
+import { MemoryService } from './memory.service';
 
 /**
  * Parameters for streamChat method.
@@ -52,18 +54,8 @@ const CHAT_RATE_LIMIT_WINDOW = 60;
 /**
  * AiChatService -- Core chat orchestration with AI SDK v6.
  *
- * Pipeline: Controller -> AiChatService.streamChat() -> streamText
- *
- * Cross-cutting concerns (Plan 02):
- * - PII tokenization on user messages before LLM
- * - PII detokenization on tool args before execution
- * - Audit logging on every chat request and tool execution
- * - Per-user rate limiting (30 req/min)
- * - Circuit breaker for Mistral provider
- * - Usage tracking for subscription quota
- * - HITL approval for dangerous tools (needsApproval)
- *
- * Phase 25: Tools wired via 5 ToolsService classes (email, calendar, contacts, folders, RAG)
+ * Pipeline: rate limit -> circuit breaker -> PII tokenize -> streamText
+ * Phase 25: 20 tools via 5 ToolsService classes, intent routing, memory injection
  */
 @Injectable()
 export class AiChatService {
@@ -84,6 +76,9 @@ export class AiChatService {
     private readonly contactToolsService: ContactToolsService,
     private readonly folderToolsService: FolderToolsService,
     private readonly ragToolsService: RagToolsService,
+    // Phase 25 Plan 02: Intent routing + memory injection
+    private readonly intentRouterService: IntentRouterService,
+    private readonly memoryService: MemoryService,
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,
@@ -190,16 +185,57 @@ export class AiChatService {
         this.logger.warn(`Audit log failed: ${err.message}`),
       );
 
-    // 8. Create UI message stream
+    // 8. Memory auto-inject: search relevant memories, prepend to system prompt
+    const memories = await this.memoryService.getRelevantMemories(
+      tenantId,
+      userId,
+      message,
+      3,
+    );
+    const memoryBlock = this.memoryService.formatMemoriesForPrompt(memories);
+    const systemPromptWithMemory = memoryBlock
+      ? SYSTEM_PROMPT + '\n\n' + memoryBlock
+      : SYSTEM_PROMPT;
+
+    // 9. Create UI message stream
     return createUIMessageStream({
       execute: async ({ writer }) => {
         const tools = this.createToolSet(tenantId, conversation.id);
+        const allToolNames = Object.keys(tools);
 
         const result = streamText({
           model: this.mistralProvider.getChatModel(model),
-          system: SYSTEM_PROMPT,
+          system: systemPromptWithMemory,
           messages,
           tools,
+          // Phase 25 Plan 02: Intent-based tool routing via prepareStep
+          // Type assertion needed: activeTools is string[] from IntentRouterService,
+          // but AI SDK expects exact tool name literals. Safe because all names
+          // come from INTENT_TOOL_MAP which mirrors createToolSet() keys.
+          prepareStep: async ({ stepNumber, steps }) => {
+            if (stepNumber === 0) {
+              // Step 0: classify intent, serve only relevant tools
+              const classification =
+                await this.intentRouterService.classifyAndRoute(message);
+              this.logger.debug(
+                `Intent: ${classification.intent} (${classification.confidence.toFixed(2)}), tools: ${classification.activeTools.join(', ')}`,
+              );
+              return {
+                activeTools:
+                  classification.activeTools as (keyof typeof tools)[],
+              };
+            }
+            // Subsequent steps: expand based on what tools were just called
+            const lastStep = steps[steps.length - 1];
+            const lastToolCalls = lastStep?.toolCalls ?? [];
+            const expanded = this.intentRouterService.expandForFollowUp(
+              lastToolCalls,
+              allToolNames,
+            );
+            return {
+              activeTools: expanded as (keyof typeof tools)[],
+            };
+          },
           stopWhen: stepCountIs(5),
           abortSignal,
           onStepFinish: async ({ text, usage, toolCalls, content }) => {

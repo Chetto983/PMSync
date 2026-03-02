@@ -142,6 +142,9 @@ describe('AiChatService E2E (real Mistral API)', () => {
       toolsServiceStub,        // ContactToolsService stub
       toolsServiceStub,        // FolderToolsService stub
       toolsServiceStub,        // RagToolsService stub
+      // Phase 25 Plan 02: IntentRouterService + MemoryService stubs
+      { classifyAndRoute: async () => ({ intent: 'unknown', confidence: 0.5, activeTools: [] }), expandForFollowUp: () => [] } as any,
+      { getRelevantMemories: async () => [], formatMemoriesForPrompt: () => '' } as any,
       undefined,               // UsageTrackingService is @Optional
     );
   }, 30_000);
