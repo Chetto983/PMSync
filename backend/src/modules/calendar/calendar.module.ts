@@ -12,6 +12,9 @@ import { CalendarSyncQueueService } from './services/calendar-sync-queue.service
 import { CalendarSyncWorker } from './workers/calendar-sync.worker';
 import { IcsParserService } from './services/ics-parser.service';
 import { IcsGeneratorService } from './services/ics-generator.service';
+import { CalendarConflictService } from './services/calendar-conflict.service';
+import { FocusTimeService } from './services/focus-time.service';
+import { MeetingPrepService } from './services/meeting-prep.service';
 import { CalendarProviderFactory } from './calendar-provider.factory';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
@@ -44,6 +47,9 @@ import { AlertingService } from '../../common/services/alerting.service';
     IcsParserService,
     IcsGeneratorService,
     CalendarProviderFactory,
+    CalendarConflictService, // Scheduling conflict detection
+    FocusTimeService, // Focus time block suggestions
+    MeetingPrepService, // Pre-meeting briefing assembly
     AlertingService, // Required by CalendarSyncWorker (DLQ is global from CacheModule)
   ],
   exports: [
@@ -58,6 +64,9 @@ import { AlertingService } from '../../common/services/alerting.service';
     IcsParserService,
     IcsGeneratorService,
     CalendarProviderFactory,
+    CalendarConflictService,
+    FocusTimeService,
+    MeetingPrepService,
   ],
 })
 export class CalendarModule {}

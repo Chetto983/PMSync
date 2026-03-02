@@ -16,6 +16,9 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { CalendarService, ListEventsFilters } from '../services/calendar.service';
+import { CalendarConflictService } from '../services/calendar-conflict.service';
+import { FocusTimeService } from '../services/focus-time.service';
+import { MeetingPrepService } from '../services/meeting-prep.service';
 import {
   CreateEventDto,
   UpdateEventDto,
@@ -34,8 +37,82 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export class CalendarController {
   constructor(
     private readonly calendarService: CalendarService,
+    private readonly calendarConflictService: CalendarConflictService,
+    private readonly focusTimeService: FocusTimeService,
+    private readonly meetingPrepService: MeetingPrepService,
     private readonly prisma: PrismaService,
   ) { }
+
+  // ─── AI / Intelligence Endpoints ─────────────────────────────
+
+  /**
+   * Detect calendar scheduling conflicts
+   * GET /api/calendar/conflicts
+   */
+  @Get('conflicts')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Detect calendar scheduling conflicts' })
+  @ApiResponse({ status: 200, description: 'Conflicts returned successfully' })
+  async getConflicts(
+    @Req() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const conflicts = await this.calendarConflictService.detectConflicts(
+      tenantId,
+      {
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+      },
+    );
+    return { success: true, conflicts, total: conflicts.length };
+  }
+
+  /**
+   * Suggest focus time blocks
+   * GET /api/calendar/focus-time
+   */
+  @Get('focus-time')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Suggest focus time blocks' })
+  @ApiResponse({ status: 200, description: 'Focus blocks returned successfully' })
+  async getFocusTime(
+    @Req() req: any,
+    @Query('date') date?: string,
+    @Query('minDuration') minDuration?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const blocks = await this.focusTimeService.suggestFocusBlocks(
+      tenantId,
+      {
+        date: date ? new Date(date) : undefined,
+        minDurationMinutes: minDuration ? parseInt(minDuration, 10) : 60,
+      },
+    );
+    return { success: true, blocks, total: blocks.length };
+  }
+
+  /**
+   * Get pre-meeting briefing for a calendar event
+   * GET /api/calendar/meeting-prep/:eventId
+   */
+  @Get('meeting-prep/:eventId')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Get pre-meeting briefing for a calendar event' })
+  @ApiParam({ name: 'eventId', description: 'Calendar event ID' })
+  @ApiResponse({ status: 200, description: 'Meeting prep returned successfully' })
+  @ApiResponse({ status: 404, description: 'Event not found' })
+  async getMeetingPrep(
+    @Req() req: any,
+    @Param('eventId') eventId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const prep = await this.meetingPrepService.prepareMeeting(tenantId, eventId);
+    return { success: true, prep };
+  }
+
+  // ─── Calendar Management Endpoints ─────────────────────────
 
   /**
    * List all calendars from all providers
