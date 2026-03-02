@@ -1,21 +1,29 @@
-import { z } from 'zod';
-
 /**
- * Tool schemas for Phase 24 HITL testing.
- * Real tool implementations added in Phase 25.
+ * Tools barrel export -- Phase 25: Tools & RAG.
  *
  * IMPORTANT: Do NOT export a getToolSet() function here.
- * Tools are instantiated in AiChatService.createToolSet() which provides
- * PII resolution via closure. A static export would bypass PII detokenization.
+ * Tools are instantiated via ToolsService.getTools() inside
+ * AiChatService.createToolSet() which provides PII resolution via closure.
+ * A static export would bypass PII detokenization.
+ *
+ * Each ToolsService is @Injectable() and receives domain services via NestJS DI.
  */
 
-export const sendEmailSchema = z.object({
-  to: z.string().describe('Recipient email address'),
-  subject: z.string().describe('Email subject line'),
-  body: z.string().describe('Email body content'),
-});
+export { EmailToolsService } from './email-tools.service';
+export { CalendarToolsService } from './calendar-tools.service';
+export { ContactToolsService } from './contact-tools.service';
+export { FolderToolsService } from './folder-tools.service';
+export { RagToolsService } from './rag-tools.service';
 
-export const searchEmailsSchema = z.object({
-  query: z.string().describe('Search query'),
-  limit: z.number().optional().describe('Max results to return'),
-});
+/**
+ * Common interface for tool service getTools() signature.
+ */
+export interface ToolsServiceInterface {
+  getTools(
+    tenantId: string,
+    conversationId: string,
+    piiResolve: (
+      payload: Record<string, unknown>,
+    ) => Promise<Record<string, unknown>>,
+  ): Record<string, unknown>;
+}
