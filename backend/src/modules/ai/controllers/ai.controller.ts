@@ -24,7 +24,6 @@ import {
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
-import { MistralService } from '../services/mistral.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { EmailInsightsService } from '../services/email-insights.service';
@@ -34,9 +33,7 @@ import { RequiresConsent } from '../../compliance/decorators/requires-consent.de
 import { TriageBackfillSchedulerService } from '../services/triage-backfill-scheduler.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
 import {
-  ChatDto,
   EmailAiDto,
-  ChatResponseDto,
   SummaryResponseDto,
   SmartReplyResponseDto,
   CategorizeResponseDto,
@@ -52,15 +49,11 @@ import {
  * AI Controller
  *
  * Provides AI-powered endpoints for:
- * - Simple chat completion (MistralService)
  * - Email insights (summarize, smart-reply, categorize, compose)
  * - Knowledge base search (RAG)
+ * - Email triage and priority scoring
  *
- * For agentic workflows and session management, use VoltAgentController:
- * - POST /voltagent/chat - Agentic chat with tool execution
- * - GET /voltagent/sessions - List sessions
- * - POST /voltagent/sessions - Create session
- * - DELETE /voltagent/sessions/:id - Delete session
+ * Phase 24: Chat endpoint moved to AiChatModule (ai-chat.controller.ts)
  */
 @ApiTags('AI')
 @ApiBearerAuth()
@@ -71,7 +64,6 @@ export class AiController {
   private readonly logger = new Logger(AiController.name);
 
   constructor(
-    private readonly mistralService: MistralService,
     private readonly emailInsightsService: EmailInsightsService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly emailTriageService: EmailTriageService,
@@ -79,33 +71,7 @@ export class AiController {
     private readonly prisma: PrismaService,
   ) {}
 
-  /**
-   * Simple chat completion backed by Mistral
-   */
-  @Post('chat')
-  @HttpCode(HttpStatus.OK)
-  @RequiresConsent('ai_email_processing')
-  @RequiresQuota('ai')
-  @ApiOperation({
-    summary: 'Chat completion',
-    description: 'Send a message and receive an AI-generated response using Mistral',
-  })
-  @ApiResponse({ status: 200, description: 'Chat response generated', type: ChatResponseDto })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async chat(
-    @Request() req: AuthenticatedRequest,
-    @Body() dto: ChatDto,
-  ): Promise<ChatResponseDto> {
-    const response = await this.mistralService.generateResponse(
-      req.user.tenantId,
-      req.user.userId,
-      dto.message,
-      dto.conversationHistory || [],
-      { conversationId: dto.conversationId },
-    );
-
-    return { success: true, response };
-  }
+  // Phase 24: Chat endpoint moved to AiChatModule (ai-chat.controller.ts)
 
   /**
    * AI-assisted email composition (draft body + optional subject)

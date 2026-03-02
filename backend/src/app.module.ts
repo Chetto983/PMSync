@@ -33,6 +33,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { MistralModule } from './modules/mistral/mistral.module';
+import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
 @Module({
@@ -71,6 +72,7 @@ import { MistralModule } from './modules/mistral/mistral.module';
     TenantsModule,
     EmailModule,
     AiModule,
+    AiChatModule, // Phase 24: Streaming AI chat with conversation persistence
     HealthModule,
     AuditModule,
     ProvidersModule,
