@@ -93,12 +93,13 @@ Plans:
   4. Hybrid search (vector + keyword with RRF fusion) returns relevant results for both semantic and exact-match queries
   5. Duplicate tools eliminated (manage_email x2, bulk_email_actions x2) and overlapping tools merged (search_emails + semantic_search_emails)
   6. E2E validation gate: send a real query that triggers tool execution (e.g., "search my emails from John"), verify correct tool selected via intent routing, verify RAG results returned with relevant content
-**Plans**: 3 plans in 2 waves
+**Plans**: 4 plans in 4 waves
 
 Plans:
 - [ ] 25-01-PLAN.md -- 5 ToolsService classes (~20 tools: email, calendar, contacts, folders, RAG/memory) wired into AiChatModule (wave 1)
 - [ ] 25-02-PLAN.md -- Intent routing via prepareStep + activeTools, memory auto-inject into system prompt (wave 2)
-- [ ] 25-03-PLAN.md -- tsvector FTS migration, RRF hybrid search functions, HybridSearchService (wave 2)
+- [ ] 25-03-PLAN.md -- tsvector FTS migration, RRF hybrid search functions, HybridSearchService (wave 3)
+- [ ] 25-04-PLAN.md -- E2E validation gate with real Mistral calls (wave 4)
 
 ### Phase 26: Non-Chat AI & Backend Testing
 **Goal**: Non-chat AI features use direct generateText calls instead of agent loops, domain services relocated to proper modules, and integration tests cover both chat and non-chat pipelines
@@ -196,7 +197,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 |-------|----------------|--------|-----------|
 | 23. SDK Foundation & Test Infrastructure | 3/3 | Complete   | 2026-02-27 |
 | 24. Backend Core Pipeline | 3/3 | Complete    | 2026-03-02 |
-| 25. Tools & RAG | 0/3 | Not started | - |
+| 25. Tools & RAG | 0/4 | Not started | - |
 | 26. Non-Chat AI & Backend Testing | 0/3 | Not started | - |
 | 27. Chat Frontend | 0/4 | Not started | - |
 | 28. Cleanup & VoltAgent Deletion | 0/3 | Not started | - |
@@ -205,4 +206,4 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 
 ---
 *Roadmap created: 2026-02-09*
-*v3.2 phases added: 2026-02-27 -- 8 phases, 24 plans, 33 requirements mapped*
+*v3.2 phases added: 2026-02-27 -- 8 phases, 25 plans, 33 requirements mapped*
