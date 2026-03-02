@@ -18,22 +18,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 26 - Non-Chat AI & Backend Testing (COMPLETE)
+**Current focus:** Phase 27 - Chat Frontend
 
 ## Current Position
 
-Phase: 26 of 30 (Non-Chat AI & Backend Testing)
-Plan: 3 of 3 complete in current phase
-Status: Phase Complete
-Last activity: 2026-03-02 -- Completed 26-03-PLAN.md (AI Integration Tests)
+Phase: 27 of 30 (Chat Frontend)
+Plan: 1 of 4 complete in current phase
+Status: In Progress
+Last activity: 2026-03-02 -- Completed 27-01-PLAN.md (Chat Runtime + UI Components)
 
-Progress: [######░░░░] 54% (13/24 plans)
+Progress: [######░░░░] 58% (14/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13 (v3.2)
-- Average duration: 10min
+- Total plans completed: 14 (v3.2)
+- Average duration: 11min
 - Total execution time: 129min
 
 **By Phase:**
@@ -53,6 +53,7 @@ Progress: [######░░░░] 54% (13/24 plans)
 | Phase 26 P01 | 10min | 2 tasks | 6 files |
 | Phase 26 P02 | 8min | 2 tasks | 8 files |
 | Phase 26 P03 | 9min | 2 tasks | 10 files |
+| Phase 27 P01 | 24min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,11 @@ Recent decisions affecting current work:
 - [26-03]: createGenerateHandler matches system prompt keywords to fixtures (not URL path or model name)
 - [26-03]: ConversationService mock: getOrCreateConversation, saveUserMessage, getMessagesForContext (not getOrCreate/addMessage/getHistory)
 - [26-03]: 50 comparison cases procedurally generated (20 briefing + 20 follow-up + 10 draft) to avoid filesystem bloat
+- [27-01]: Module-scoped CSRF cache in ChatRuntimeProvider (avoids React Compiler ref-in-render lint error)
+- [27-01]: prepareSendMessagesRequest transforms AI SDK messages to { message, conversationId } for backend ChatRequestDto
+- [27-01]: MarkdownTextPrimitive cast to any for Text slot (runtime compatible, type signature mismatch)
+- [27-01]: ChainOfThought component slot replaces separate Reasoning+tools in MessagePrimitive.Content
+- [27-01]: ThreadListPrimitive with runtime-managed thread list (backend conversation hydration deferred)
 
 ### Pending Todos
 
@@ -126,6 +132,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 26-03-PLAN.md (AI Integration Tests)
+Stopped at: Completed 27-01-PLAN.md (Chat Runtime + UI Components)
 Resume file: None
-Next action: Begin Phase 27
+Next action: Execute 27-02-PLAN.md
