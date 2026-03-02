@@ -142,38 +142,45 @@ async function main() {
     // ==================================================================
     console.log('--- B. Contact Embeddings ---');
 
-    const contactsWithEmbedding = await prisma.$queryRawUnsafe(
-      `SELECT DISTINCT "contactId" FROM embeddings WHERE "tenantId" = $1 AND "contactId" IS NOT NULL`,
+    const [contactEmbCheck] = await prisma.$queryRawUnsafe(
+      `SELECT COUNT(DISTINCT "contactId")::int AS count FROM embeddings WHERE "tenantId" = $1 AND "contactId" IS NOT NULL`,
       tenantId,
     );
-    const alreadyEmbeddedContactIds = new Set(contactsWithEmbedding.map((r) => r.contactId));
+    const existingContactEmbCount = contactEmbCheck.count;
 
-    const candidateContacts = await prisma.contact.findMany({
-      where: { tenantId },
-      orderBy: { updatedAt: 'desc' },
-      take: CONTACT_COUNT + alreadyEmbeddedContactIds.size,
-      select: {
-        id: true,
-        tenantId: true,
-        displayName: true,
-        company: true,
-        jobTitle: true,
-        department: true,
-        notes: true,
-        tags: true,
-        emails: true,
-        phoneNumbers: true,
-      },
-    });
-
-    const contactsToSeed = candidateContacts
-      .filter((c) => !alreadyEmbeddedContactIds.has(c.id))
-      .slice(0, CONTACT_COUNT);
-
-    if (contactsToSeed.length === 0) {
-      console.log('  All candidate contacts already have embeddings. Skipping.\n');
+    if (existingContactEmbCount >= CONTACT_COUNT) {
+      console.log(`  Already have ${existingContactEmbCount} contact embeddings (>= ${CONTACT_COUNT}). Skipping.\n`);
     } else {
-      console.log(`  Generating embeddings for ${contactsToSeed.length} contacts...`);
+      const neededContacts = CONTACT_COUNT - existingContactEmbCount;
+      const contactsWithEmbedding = await prisma.$queryRawUnsafe(
+        `SELECT DISTINCT "contactId" FROM embeddings WHERE "tenantId" = $1 AND "contactId" IS NOT NULL`,
+        tenantId,
+      );
+      const alreadyEmbeddedContactIds = new Set(contactsWithEmbedding.map((r) => r.contactId));
+
+      const candidateContacts = await prisma.contact.findMany({
+        where: { tenantId },
+        orderBy: { updatedAt: 'desc' },
+        take: neededContacts + alreadyEmbeddedContactIds.size,
+        select: {
+          id: true,
+          tenantId: true,
+          displayName: true,
+          company: true,
+          jobTitle: true,
+          department: true,
+          notes: true,
+          tags: true,
+          emails: true,
+          phoneNumbers: true,
+        },
+      });
+
+      const contactsToSeed = candidateContacts
+        .filter((c) => !alreadyEmbeddedContactIds.has(c.id))
+        .slice(0, neededContacts);
+
+      console.log(`  Generating embeddings for ${contactsToSeed.length} contacts (have ${existingContactEmbCount}, need ${CONTACT_COUNT})...`);
       for (const contact of contactsToSeed) {
         const parts = [
           contact.displayName && `Name: ${contact.displayName}`,

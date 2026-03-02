@@ -55,6 +55,10 @@ export class EmailSearchService {
         snippet: true,
         receivedAt: true,
         isRead: true,
+        // Triage fields -- exposed to AI tools for intelligent context
+        aiPriority: true,
+        aiSentiment: true,
+        aiLabels: true,
       },
     });
 

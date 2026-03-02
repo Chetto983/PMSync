@@ -100,7 +100,7 @@ export class EmailToolsService {
     return tool({
       description:
         'Search through the user\'s emails by keyword, sender, subject, or date. ' +
-        'Returns matching emails with subject, sender, and date. ' +
+        'Returns matching emails with subject, sender, date, AI triage (priority, sentiment, labels). ' +
         'Example: search_emails({ query: "invoice from Acme", limit: 10 })',
       inputSchema: z.object({
         query: z.string().describe('Search query (keywords, sender name, subject text)'),
@@ -123,6 +123,9 @@ export class EmailToolsService {
           date: e.receivedAt ?? e.createdAt,
           snippet: e.snippet ?? e.bodyText?.slice(0, 120),
           labels: e.labels ?? [],
+          aiPriority: e.aiPriority ?? null,
+          aiSentiment: e.aiSentiment ?? null,
+          aiLabels: e.aiLabels ?? [],
         }));
 
         return { results, count: results.length };
@@ -134,7 +137,8 @@ export class EmailToolsService {
     return tool({
       description:
         'Read the full content of a specific email by its ID. ' +
-        'Returns sender, recipients, subject, body text, labels, and triage summary. ' +
+        'Returns sender, recipients, subject, body text, labels, AI triage (priority, sentiment, labels), ' +
+        'and analysis (summary, key points, category, suggested actions). ' +
         'Example: read_email({ emailId: "clx123abc" })',
       inputSchema: z.object({
         emailId: z.string().describe('The ID of the email to read'),
@@ -143,6 +147,7 @@ export class EmailToolsService {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const email = await this.prisma.email.findFirst({
           where: { id: resolved.emailId, tenantId },
+          include: { analysis: true },
         });
 
         if (!email) {
@@ -152,6 +157,8 @@ export class EmailToolsService {
         const bodyText = typeof email.bodyText === 'string'
           ? email.bodyText.slice(0, 2000)
           : '';
+
+        const analysis = (email as any).analysis;
 
         return {
           id: email.id,
@@ -165,6 +172,21 @@ export class EmailToolsService {
           labels: email.labels ?? [],
           isRead: email.isRead,
           isStarred: email.isStarred,
+          aiPriority: email.aiPriority ?? null,
+          aiSentiment: email.aiSentiment ?? null,
+          aiLabels: email.aiLabels ?? [],
+          analysis: analysis ? {
+            summary: analysis.summary ?? null,
+            keyPoints: analysis.keyPoints ?? [],
+            sentiment: analysis.sentiment ?? null,
+            priority: analysis.priority ?? null,
+            category: analysis.category ?? null,
+            hasDeadline: analysis.hasDeadline ?? false,
+            deadlineDate: analysis.deadlineDate ?? null,
+            needsFollowUp: analysis.needsFollowUp ?? false,
+            followUpDate: analysis.followUpDate ?? null,
+            suggestedActions: analysis.suggestedActions ?? null,
+          } : null,
         };
       },
     });
