@@ -1,0 +1,159 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  Body,
+  Param,
+  Req,
+  Res,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  UsePipes,
+  ValidationPipe,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
+import { Request, Response } from 'express';
+import { pipeUIMessageStreamToResponse } from 'ai';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { AiChatService } from '../services/ai-chat.service';
+import { ConversationService } from '../services/conversation.service';
+import { ChatRequestDto } from '../dto/chat-request.dto';
+import type { AuthenticatedRequest } from '../../../common/types/request.types';
+
+/**
+ * AiChatController -- Streaming chat endpoint + conversation management.
+ *
+ * POST /ai/chat         -- Stream a chat response (SSE via AI SDK v6)
+ * GET  /ai/chat/conversations   -- List conversations
+ * DELETE /ai/chat/conversations/:id -- Delete a conversation
+ *
+ * Guards: JwtAuthGuard, TenantGuard
+ * NOTE: ConsentGuard and QuotaGuard are added in Plan 02.
+ *
+ * Phase 24: Backend Core Pipeline
+ */
+@ApiTags('AI Chat')
+@ApiBearerAuth()
+@Controller('ai')
+@UseGuards(JwtAuthGuard, TenantGuard)
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+export class AiChatController {
+  constructor(
+    private readonly aiChatService: AiChatService,
+    private readonly conversationService: ConversationService,
+  ) {}
+
+  /**
+   * Stream a chat response via SSE.
+   *
+   * Uses AI SDK v6 pipeUIMessageStreamToResponse.
+   * CRITICAL: Returns void -- pipeUIMessageStreamToResponse handles the response.
+   * Do NOT call res.json() or return a value.
+   */
+  @Post('chat')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'AI chat (streaming)',
+    description:
+      'Send a message and receive a streaming AI response via SSE. ' +
+      'If conversationId is provided, continues existing conversation. ' +
+      'If omitted, creates a new conversation.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'SSE stream of AI response chunks',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  async chat(
+    @Req() req: Request & { user: AuthenticatedRequest['user'] },
+    @Res() res: Response,
+    @Body() dto: ChatRequestDto,
+  ): Promise<void> {
+    const abortController = new AbortController();
+    req.on('close', () => abortController.abort());
+
+    const stream = await this.aiChatService.streamChat({
+      tenantId: req.user.tenantId,
+      userId: req.user.userId,
+      message: dto.message,
+      conversationId: dto.conversationId,
+      model: dto.model,
+      abortSignal: abortController.signal,
+    });
+
+    pipeUIMessageStreamToResponse({ stream, response: res });
+  }
+
+  /**
+   * List conversations for the current user.
+   */
+  @Get('chat/conversations')
+  @ApiOperation({
+    summary: 'List AI chat conversations',
+    description: 'Returns conversations for the current user, most recent first',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max conversations to return (default 20)',
+  })
+  @ApiResponse({ status: 200, description: 'Conversations listed' })
+  async listConversations(
+    @Req() req: Request & { user: AuthenticatedRequest['user'] },
+    @Query('limit') limitParam?: string,
+  ) {
+    const limit = Math.min(
+      Math.max(parseInt(limitParam || '20', 10) || 20, 1),
+      50,
+    );
+
+    const conversations = await this.conversationService.listConversations(
+      req.user.tenantId,
+      req.user.userId,
+      limit,
+    );
+
+    return {
+      success: true,
+      conversations,
+      total: conversations.length,
+    };
+  }
+
+  /**
+   * Delete a conversation and all its messages.
+   */
+  @Delete('chat/conversations/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete an AI chat conversation',
+    description: 'Permanently deletes a conversation and all its messages',
+  })
+  @ApiParam({ name: 'id', description: 'Conversation ID to delete' })
+  @ApiResponse({ status: 200, description: 'Conversation deleted' })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  async deleteConversation(
+    @Req() req: Request & { user: AuthenticatedRequest['user'] },
+    @Param('id') conversationId: string,
+  ) {
+    await this.conversationService.deleteConversation(
+      conversationId,
+      req.user.tenantId,
+    );
+
+    return { success: true };
+  }
+}

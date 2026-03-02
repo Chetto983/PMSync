@@ -1,0 +1,42 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  MaxLength,
+} from 'class-validator';
+
+/**
+ * DTO for AI chat streaming endpoint
+ * POST /ai/chat
+ *
+ * Phase 24: Backend Core Pipeline
+ */
+export class ChatRequestDto {
+  @ApiProperty({
+    description: 'The user message to send to the AI assistant',
+    example: 'Summarize my unread emails from today',
+    maxLength: 10000,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000)
+  message!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Existing conversation ID to continue. If omitted, a new conversation is created.',
+    example: 'clxyz123abc',
+  })
+  @IsOptional()
+  @IsString()
+  conversationId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Override the default Mistral model (e.g. mistral-medium-latest)',
+    example: 'mistral-small-latest',
+  })
+  @IsOptional()
+  @IsString()
+  model?: string;
+}
