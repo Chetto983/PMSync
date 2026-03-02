@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from '../../ai/services/embeddings.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { HybridSearchService } from '../services/hybrid-search.service';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -33,6 +34,7 @@ export class RagToolsService {
     private readonly embeddingsService: EmbeddingsService,
     private readonly mistralProvider: MistralProviderService,
     private readonly prisma: PrismaService,
+    private readonly hybridSearchService: HybridSearchService,
   ) {}
 
   /**
@@ -52,52 +54,36 @@ export class RagToolsService {
   private buildSemanticSearch(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Search across emails, contacts, and calendar using semantic/meaning-based search. ' +
-        'Better than keyword search for finding related content. ' +
+        'Search across emails, contacts, and calendar events using semantic and keyword matching. ' +
+        'Finds relevant content by meaning, not just exact text matches. ' +
         'Example: semantic_search({ query: "project deadline discussion with marketing team", sources: ["emails", "contacts"] })',
       inputSchema: z.object({
         query: z
           .string()
-          .describe(
-            'Natural language search query describing what you are looking for',
-          ),
+          .describe('Natural language search query'),
         sources: z
           .array(z.enum(['emails', 'contacts', 'calendar']))
           .optional()
           .describe(
-            'Filter by source type. Omit to search all sources.',
+            'Sources to search. Omit to search all.',
           ),
         limit: z
           .number()
+          .min(1)
+          .max(20)
           .optional()
-          .describe('Max results to return (default 10, max 30)'),
+          .describe('Maximum results (default 10)'),
       }),
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
         )) as typeof args;
-        const limit = Math.min(resolved.limit ?? 10, 30);
 
-        // Generate embedding for the query
-        const embeddingModel = this.mistralProvider.getEmbeddingModel();
-        const { embedding } = await embed({
-          model: embeddingModel,
-          value: resolved.query,
-        });
-
-        // Vector similarity search
-        const rawResults = await this.embeddingsService.findSimilarContent(
+        const results = await this.hybridSearchService.search(
           tenantId,
-          embedding,
-          limit,
-          { maxDistance: 0.5 },
-        );
-
-        // Map to structured results with source enrichment
-        const results = await this.enrichResults(
-          tenantId,
-          rawResults,
-          resolved.sources,
+          resolved.query,
+          resolved.sources ?? ['emails', 'contacts', 'calendar'],
+          resolved.limit ?? 10,
         );
 
         return { results, count: results.length };
@@ -175,92 +161,4 @@ export class RagToolsService {
     });
   }
 
-  /**
-   * Enrich raw embedding results with source-specific metadata.
-   * Filters by requested sources (emails, contacts, calendar).
-   */
-  private async enrichResults(
-    tenantId: string,
-    rawResults: Array<{
-      id: string;
-      documentName: string | null;
-      metadata: any;
-      distance?: number;
-      emailId?: string | null;
-      contactId?: string | null;
-    }>,
-    sources?: string[],
-  ) {
-    const enriched: Array<{
-      source: string;
-      id: string;
-      title: string;
-      snippet: string;
-      relevanceScore: number;
-    }> = [];
-
-    for (const result of rawResults) {
-      const distance = result.distance ?? 1;
-      const relevanceScore = Math.round((1 - distance) * 100) / 100;
-
-      // Determine source type
-      let source = 'unknown';
-      if (result.emailId) source = 'emails';
-      else if (result.contactId) source = 'contacts';
-      else if (result.documentName?.startsWith('memory:')) source = 'memory';
-      else if (result.metadata?.type === 'calendar') source = 'calendar';
-
-      // Filter by requested sources
-      if (sources && sources.length > 0 && !sources.includes(source)) {
-        continue;
-      }
-
-      // Enrich based on source type
-      if (source === 'emails' && result.emailId) {
-        const email = await this.prisma.email.findFirst({
-          where: { id: result.emailId, tenantId },
-          select: { subject: true, from: true, snippet: true },
-        });
-        if (email) {
-          enriched.push({
-            source,
-            id: result.emailId,
-            title: email.subject ?? 'No subject',
-            snippet: `From: ${email.from} - ${email.snippet?.slice(0, 150) ?? ''}`,
-            relevanceScore,
-          });
-        }
-      } else if (source === 'contacts' && result.contactId) {
-        const contact = await this.prisma.contact.findFirst({
-          where: { id: result.contactId, tenantId },
-          select: { displayName: true, company: true, jobTitle: true },
-        });
-        if (contact) {
-          enriched.push({
-            source,
-            id: result.contactId,
-            title: contact.displayName ?? 'Unknown',
-            snippet: [contact.jobTitle, contact.company]
-              .filter(Boolean)
-              .join(' at '),
-            relevanceScore,
-          });
-        }
-      } else {
-        // Generic result (memory, calendar, or unknown)
-        enriched.push({
-          source,
-          id: result.id,
-          title: result.documentName ?? 'Untitled',
-          snippet:
-            typeof result.metadata?.content === 'string'
-              ? (result.metadata.content as string).slice(0, 150)
-              : '',
-          relevanceScore,
-        });
-      }
-    }
-
-    return enriched;
-  }
 }

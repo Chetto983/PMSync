@@ -24,6 +24,7 @@ import {
 } from './tools/index';
 import { IntentRouterService } from './tools/intent-router.service';
 import { MemoryService } from './services/memory.service';
+import { HybridSearchService } from './services/hybrid-search.service';
 
 /**
  * AiChatModule -- Streaming AI chat with conversation persistence.
@@ -65,6 +66,8 @@ import { MemoryService } from './services/memory.service';
     // Phase 25 Plan 02: Intent routing + memory
     IntentRouterService,
     MemoryService,
+    // Phase 25 Plan 03: Hybrid search (vector + FTS)
+    HybridSearchService,
   ],
   exports: [AiChatService, ConversationService, HitlService],
 })
