@@ -39,7 +39,7 @@ Phases 13-22: PII tokenization, database encryption at rest, GDPR core complianc
 
 - [x] **Phase 23: SDK Foundation & Test Infrastructure** - Route all LLM calls through @ai-sdk/mistral, set up MSW v2 SSE mocking, establish E2E validation gate (completed 2026-02-27)
 - [x] **Phase 24: Backend Core Pipeline** - New AiChatService with streamText, conversation history via Prisma, HITL via onStepFinish, GDPR guards, rate limiting (completed 2026-03-02)
-- [x] **Phase 25: Tools & RAG** - ~20 tools as @Injectable ToolsService classes with AI SDK v6 tool(), intent routing, embedding pipeline and hybrid search preserved (completed 2026-03-02)
+- [x] **Phase 25: Tools & RAG** - ~20 tools as @Injectable ToolsService classes with AI SDK v6 tool(), intent routing, embedding pipeline and hybrid search preserved, triage data exposed through tools (completed 2026-03-02)
 - [ ] **Phase 26: Non-Chat AI & Backend Testing** - Briefing/follow-ups/drafts via generateText + Output.object(), integration tests for chat and non-chat pipelines
 - [ ] **Phase 27: Chat Frontend** - assistant-ui runtime, Thread/Composer primitives, tool renderers via makeAssistantToolUI, HITL inline, mobile layout
 - [ ] **Phase 28: Cleanup & VoltAgent Deletion** - Delete old ai-elements and voltagent code, remove @voltagent/* packages, bundle analysis, Playwright E2E
@@ -96,10 +96,10 @@ Plans:
 **Plans**: 4 plans in 4 waves
 
 Plans:
-- [ ] 25-01-PLAN.md -- 5 ToolsService classes (~20 tools: email, calendar, contacts, folders, RAG/memory) wired into AiChatModule (wave 1)
-- [ ] 25-02-PLAN.md -- Intent routing via prepareStep + activeTools, memory auto-inject into system prompt (wave 2)
-- [ ] 25-03-PLAN.md -- tsvector FTS migration, RRF hybrid search functions, HybridSearchService (wave 3)
-- [ ] 25-04-PLAN.md -- E2E validation gate with real Mistral calls (wave 4)
+- [x] 25-01-PLAN.md -- 5 ToolsService classes (~20 tools: email, calendar, contacts, folders, RAG/memory) wired into AiChatModule (wave 1)
+- [x] 25-02-PLAN.md -- Intent routing via prepareStep + activeTools, memory auto-inject into system prompt (wave 2)
+- [x] 25-03-PLAN.md -- tsvector FTS migration, RRF hybrid search functions, HybridSearchService (wave 3)
+- [x] 25-04-PLAN.md -- E2E validation gate with real Mistral calls (wave 4)
 
 ### Phase 26: Non-Chat AI & Backend Testing
 **Goal**: Non-chat AI features use direct generateText calls instead of agent loops, domain services relocated to proper modules, and integration tests cover both chat and non-chat pipelines

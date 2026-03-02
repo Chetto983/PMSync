@@ -4,7 +4,7 @@ verified: 2026-03-02T14:00:00Z
 status: passed
 score: 17/17 must-haves verified
 re_verification: null
-gaps: []
+gaps: [] # triage data gap closed 2026-03-02
 human_verification:
   - test: "Run E2E tests with live MISTRAL_API_KEY"
     expected: "All 5 tests in tools-rag-e2e.test.ts pass with real LLM responses; intent routing selects correct tool subset for email vs calendar queries"
@@ -48,6 +48,26 @@ human_verification:
 | 17 | TypeScript compiles with zero errors | VERIFIED | `npx tsc --noEmit --project backend/tsconfig.json` returns no output (zero errors) |
 
 **Score:** 15 fully verified, 2 partial-pass (needsApproval count deviation documented; tool count per intent below stated "6-8"). Core goal achieved.
+
+### Post-Verification Gap Closure (2026-03-02)
+
+**Email tool triage data gap** identified and closed:
+- `search_emails` now returns `aiPriority`, `aiSentiment`, `aiLabels` per result
+- `read_email` now returns triage fields + full `EmailAnalysis` relation (summary, keyPoints, sentiment, category, suggestedActions)
+- `EmailSearchService.searchEmails` SELECT expanded to include triage fields
+- E2E tests A1, A2, C4 updated to assert triage fields
+
+**Real E2E validation (42/42 green across 6 test files):**
+- `tools-rag-real-e2e.test.ts`: 16/16 (TOOL_EXEC 10/11 against 500 emails, 560 contacts, 409 events)
+- `tools-rag-e2e.test.ts`: 5/5
+- `ai-chat-e2e.test.ts`: 5/5
+- `hybrid-search.test.ts`: 9/9
+- `intent-router.test.ts`: 4/4
+- `memory.test.ts`: 3/3
+
+Both human verification items satisfied:
+1. Real Mistral API E2E — 42/42 pass with live LLM calls
+2. Hybrid search SQL migrations — RRF returns ranked results (A6: 10 email results, A7: 5 contact results, C3: sorted by rrfScore)
 
 ---
 

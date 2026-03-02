@@ -124,8 +124,10 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 <!-- v3.2 AI Rebuild & Cleanup -->
 
 **AI Backend Rebuild:**
-- [ ] Drop `@voltagent/core`, migrate to AI SDK v6 `streamText` + `tool()`
-- [ ] Consolidate 45+ services to ~20
+- [x] Drop `@voltagent/core`, migrate to AI SDK v6 `streamText` + `tool()` (Phase 23-24)
+- [x] Define ~20 tools as @Injectable ToolsService classes with intent routing (Phase 25)
+- [x] Preserve hybrid search + embedding pipeline with triage data exposure (Phase 25)
+- [ ] Consolidate remaining 45+ services to ~20
 - [ ] Reduce 65+ tools to ~30
 - [ ] Move domain services to proper modules
 - [ ] Use `generateObject()` for non-chat AI features
