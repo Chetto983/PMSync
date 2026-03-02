@@ -115,7 +115,8 @@
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_take_screenshot",
-      "mcp__playwright__browser_run_code"
+      "mcp__playwright__browser_run_code",
+      "Bash(git ls-tree:*)"
     ],
     "deny": [],
     "ask": []
