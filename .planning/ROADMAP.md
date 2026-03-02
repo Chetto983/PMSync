@@ -197,7 +197,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 |-------|----------------|--------|-----------|
 | 23. SDK Foundation & Test Infrastructure | 3/3 | Complete   | 2026-02-27 |
 | 24. Backend Core Pipeline | 3/3 | Complete    | 2026-03-02 |
-| 25. Tools & RAG | 0/4 | Not started | - |
+| 25. Tools & RAG | 1/4 | In Progress|  |
 | 26. Non-Chat AI & Backend Testing | 0/3 | Not started | - |
 | 27. Chat Frontend | 0/4 | Not started | - |
 | 28. Cleanup & VoltAgent Deletion | 0/3 | Not started | - |

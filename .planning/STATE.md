@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: AI Rebuild & Cleanup
-status: unknown
-last_updated: "2026-03-02T09:08:55.409Z"
+status: in-progress
+last_updated: "2026-03-02T12:41:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 39
-  completed_plans: 38
+  completed_plans: 39
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 24 - Backend Core Pipeline (COMPLETE)
+**Current focus:** Phase 25 - Tools & RAG (IN PROGRESS)
 
 ## Current Position
 
-Phase: 24 of 30 (Backend Core Pipeline)
-Plan: 3 of 3 in current phase (ALL COMPLETE)
-Status: Phase Complete
-Last activity: 2026-03-02 -- Completed 24-03-PLAN.md (E2E Validation Gate)
+Phase: 25 of 30 (Tools & RAG)
+Plan: 1 of 4 complete in current phase
+Status: In Progress
+Last activity: 2026-03-02 -- Completed 25-01-PLAN.md (Chat Tools)
 
-Progress: [###░░░░░░░] 25% (6/24 plans)
+Progress: [####░░░░░░] 29% (7/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (v3.2)
+- Total plans completed: 7 (v3.2)
 - Average duration: 12min
-- Total execution time: 73min
+- Total execution time: 85min
 
 **By Phase:**
 
@@ -46,6 +46,7 @@ Progress: [###░░░░░░░] 25% (6/24 plans)
 | 24-01 | 1 | 11min | 11min |
 | 24-02 | 1 | 13min | 13min |
 | 24-03 | 1 | 7min | 7min |
+| 25-01 | 1 | 12min | 12min |
 
 ## Accumulated Context
 
@@ -80,6 +81,10 @@ Recent decisions affecting current work:
 - [24-03]: Direct service instantiation over NestJS TestingModule for tests (avoids Redis+Postgres bootstrap)
 - [24-03]: createPrismaClient() factory in tests (Prisma 7 adapter pattern, not raw constructor)
 - [24-03]: ChatDto/ChatResponseDto dead code removed from ai.dto.ts
+- [25-01]: delete_event maps to SCHEDULE_MEETING ActionType (DELETE_EVENT not in enum yet)
+- [25-01]: FolderToolsService uses Prisma directly (EmailFolderService is query-builder utility)
+- [25-01]: save_memory userId set to tenantId as placeholder (Phase 26)
+- [25-01]: 5 needsApproval flags not 6 (no delete_contact tool per ContactToolsService spec)
 
 ### Pending Todos
 
@@ -93,6 +98,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 24-03-PLAN.md (E2E Validation Gate) -- Phase 24 complete
+Stopped at: Completed 25-01-PLAN.md (Chat Tools) -- Phase 25 plan 1 of 4 done
 Resume file: None
-Next action: Begin Phase 25 planning or execution
+Next action: Execute 25-02-PLAN.md
