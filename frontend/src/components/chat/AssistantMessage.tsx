@@ -6,6 +6,8 @@ import { Bot } from 'lucide-react';
 import { ChatActionBar } from './ChatActionBar';
 import { ChatBranchPicker } from './ChatBranchPicker';
 import { ChatChainOfThought } from './ChatChainOfThought';
+import { HitlApprovalCard } from './HitlApprovalCard';
+import { useAiActions } from '@/hooks/ai/use-ai-actions';
 
 // MarkdownTextPrimitive reads content from context internally,
 // so it's compatible as a TextMessagePartComponent at runtime
@@ -14,8 +16,34 @@ import { ChatChainOfThought } from './ChatChainOfThought';
 const MarkdownText = MarkdownTextPrimitive as any;
 
 /**
+ * HITL: poll-based pending actions (functional mechanism -- works with current backend).
+ * Renders HitlApprovalCard for each pending action. Shows nothing when no actions pending.
+ */
+function HitlPendingActions() {
+  const { pendingActions, approveAction, rejectAction, isApproving, isRejecting } = useAiActions();
+  const pending = pendingActions.filter((a) => a.status === 'PENDING');
+
+  if (pending.length === 0) return null;
+
+  return (
+    <div className="mt-2 space-y-2">
+      {pending.map((action) => (
+        <HitlApprovalCard
+          key={action.executionId}
+          action={action}
+          onApprove={() => approveAction(action.executionId)}
+          onReject={() => rejectAction(action.executionId)}
+          isApproving={isApproving}
+          isRejecting={isRejecting}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
  * Assistant message with bot avatar, streaming markdown content,
- * chain-of-thought reasoning, action bar, and branch picker.
+ * chain-of-thought reasoning, action bar, branch picker, and HITL approval cards.
  *
  * Uses `ChainOfThought` component slot which handles both reasoning
  * and tool-call parts in a collapsible accordion.
@@ -33,6 +61,8 @@ export function AssistantMessage() {
             ChainOfThought: ChatChainOfThought,
           }}
         />
+        {/* HITL: poll-based pending actions (functional mechanism -- works with current backend) */}
+        <HitlPendingActions />
         <div className="flex items-center gap-2">
           <ChatActionBar />
           <ChatBranchPicker />

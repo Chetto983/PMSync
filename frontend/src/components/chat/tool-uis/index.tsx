@@ -11,11 +11,17 @@ import { ContactToolUI } from './ContactToolUI';
 import { EventToolUI } from './EventToolUI';
 import { CountToolUI } from './CountToolUI';
 import { FolderToolUI } from './FolderToolUI';
-// Plan 03 will extend this with analysis/AI tools + FallbackToolUI
+import { AnalysisToolUI } from './AnalysisToolUI';
+import { MemoryToolUI, MemorySearchToolUI } from './MemoryToolUI';
+import { BriefingToolUI } from './BriefingToolUI';
+import { CrmToolUI } from './CrmToolUI';
+import { TriageToolUI } from './TriageToolUI';
+import { FallbackToolUI } from './FallbackToolUI';
 
 export function AllToolUIs() {
   return (
     <>
+      {/* Email/data tools (Plan 02) */}
       <EmailSearchToolUI />
       <ListEmailsToolUI />
       <SemanticSearchToolUI />
@@ -26,6 +32,15 @@ export function AllToolUIs() {
       <EventToolUI />
       <CountToolUI />
       <FolderToolUI />
+      {/* Analysis/AI tools (Plan 03) */}
+      <AnalysisToolUI />
+      <MemoryToolUI />
+      <MemorySearchToolUI />
+      <BriefingToolUI />
+      <CrmToolUI />
+      <TriageToolUI />
+      {/* Fallback for unregistered tools */}
+      <FallbackToolUI />
     </>
   );
 }
