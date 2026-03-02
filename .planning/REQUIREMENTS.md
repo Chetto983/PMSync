@@ -20,7 +20,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 ### New AI Module (AI-01 to AI-08)
 
-- [ ] **AI-01**: Clean AI module with `AiChatService` using AI SDK v6 `streamText` + `pipeAgentUIStreamToResponse` -- single service handles chat orchestration, context building, and streaming
+- [ ] **AI-01**: Clean AI module with `AiChatService` using AI SDK v6 `streamText` + `pipeUIMessageStreamToResponse` -- single service handles chat orchestration, context building, and streaming
 - [ ] **AI-02**: ~20 tools defined as AI SDK v6 `tool()` in `@Injectable()` ToolsService classes with NestJS DI -- no factory functions, no parameter threading
 - [ ] **AI-03**: Intent-based tool routing serves 6-8 relevant tools per request (not all 20)
 - [ ] **AI-04**: `ConversationService` with direct Prisma queries for chat history -- preserves existing conversation data
@@ -141,4 +141,4 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 -- all 33 requirements mapped to phases 23-30*
+*Last updated: 2026-03-02 -- AI-01 text corrected: pipeAgentUIStreamToResponse -> pipeUIMessageStreamToResponse*

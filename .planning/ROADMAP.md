@@ -65,22 +65,22 @@ Plans:
 - [x] 23-03: MSW v2 SSE streaming handlers + deterministic test + MSDK-03 tracking fix (wave 3)
 
 ### Phase 24: Backend Core Pipeline
-**Goal**: A new AiChatService handles chat orchestration end-to-end with conversation persistence, HITL safety, GDPR compliance, and rate limiting -- running alongside the old pipeline with zero breakage
+**Goal**: A new AiChatService handles chat orchestration end-to-end with conversation persistence, HITL safety, GDPR compliance, and rate limiting -- atomic replacement of old chat endpoint
 **Depends on**: Phase 23
 **Requirements**: AI-01, AI-04, AI-05, AI-06, AI-08
 **Success Criteria** (what must be TRUE):
-  1. New `POST /api/v1/ai/chat/stream` endpoint accepts a message and streams a coherent AI response via a 3-hop pipeline (Controller -> AiChatService -> streamText) -- old v3 endpoint still works unchanged
-  2. Conversation history loads from existing Prisma tables -- old conversation IDs preserved, users see their previous messages in the new endpoint
+  1. New `POST /api/v1/ai/chat` endpoint replaces old chat handler and streams a coherent AI response via a 3-hop pipeline (Controller -> AiChatService -> streamText) -- old chat code deleted from AiController
+  2. Conversation history loads from new AiConversation/AiMessage Prisma tables -- new conversations created, rolling summary for long histories
   3. Destructive tool calls (send, delete, move) create a pending HITL action via `onStepFinish` callback -- the action does NOT execute without user approval
   4. PII tokenization and audit logging are wired into the new pipeline -- a message containing PII is tokenized before reaching the LLM, and the interaction is audit-logged
   5. Rate limiting and circuit breaker reject requests when thresholds are exceeded, matching existing behavior
   6. E2E validation gate: send a real message through the new endpoint, verify streaming response, verify conversation persisted, verify HITL action created for a write tool call
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 24-01: AiChatService, ConversationService, and new streaming controller
-- [ ] 24-02: HITL rewiring (onStepFinish), GDPR guards, rate limiting integration
-- [ ] 24-03: E2E validation of full backend pipeline with real Mistral calls
+- [ ] 24-01: Prisma models, AiChatModule, ConversationService, AiChatService, streaming controller (wave 1)
+- [ ] 24-02: HITL via needsApproval + ActionQueue, GDPR guards (PII, consent, audit), rate limiting, circuit breaker (wave 2)
+- [ ] 24-03: E2E validation with real Mistral calls, old endpoint cleanup (wave 3)
 
 ### Phase 25: Tools & RAG
 **Goal**: All chat tools defined as AI SDK v6 tool() in @Injectable ToolsService classes with NestJS DI, intent-based routing, and preserved RAG pipeline
