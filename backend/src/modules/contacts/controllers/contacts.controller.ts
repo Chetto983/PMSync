@@ -20,8 +20,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
-// TODO Phase 24: Rebuild RelationshipIntelligenceService with new AiChatService
-// import { RelationshipIntelligenceService } from '../../ai/voltagent/services/relationship-intelligence.service';
+import { RelationshipScoreService } from '../services/relationship-score.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ForbiddenException } from '@nestjs/common';
@@ -44,6 +43,7 @@ export class ContactsController {
   constructor(
     private readonly contactsService: ContactsService,
     private readonly contactsSyncQueue: ContactsSyncQueueService,
+    private readonly relationshipScoreService: RelationshipScoreService,
     private readonly prisma: PrismaService,
   ) { }
 
@@ -65,6 +65,48 @@ export class ContactsController {
       limit: query.limit,
       offset: query.offset,
     });
+  }
+
+  /**
+   * Get relationship scores for contacts (CRM intelligence)
+   * GET /api/contacts/relationship-scores
+   */
+  @Get('relationship-scores')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Get relationship scores for contacts' })
+  @ApiResponse({ status: 200, description: 'Relationship scores returned successfully' })
+  async getRelationshipScores(
+    @Req() req: any,
+    @Query('limit') limit?: string,
+    @Query('minScore') minScore?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const scores = await this.relationshipScoreService.getRelationshipScores(
+      tenantId,
+      { limit: limit ? parseInt(limit, 10) : 20, minScore: minScore ? parseInt(minScore, 10) : 0 },
+    );
+    return { success: true, scores, total: scores.length };
+  }
+
+  /**
+   * Get stale contacts that need re-engagement
+   * GET /api/contacts/stale
+   */
+  @Get('stale')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Get stale contacts that need re-engagement' })
+  @ApiResponse({ status: 200, description: 'Stale contacts returned successfully' })
+  async getStaleContacts(
+    @Req() req: any,
+    @Query('daysSince') daysSince?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const contacts = await this.relationshipScoreService.getStaleContacts(
+      tenantId,
+      { daysSince: daysSince ? parseInt(daysSince, 10) : 30, limit: limit ? parseInt(limit, 10) : 10 },
+    );
+    return { success: true, contacts, total: contacts.length };
   }
 
   /**
@@ -107,8 +149,8 @@ export class ContactsController {
   async getContactHistory(@Req() req: any, @Param('id') contactId: string, @Query('limit') limit?: number) {
     const tenantId = req.user.tenantId;
     const parsedLimit = limit ? parseInt(String(limit), 10) : 50;
-    // TODO Phase 24: Rebuild RelationshipIntelligenceService with new AiChatService
-    return { interactions: [], total: 0, message: 'Relationship intelligence temporarily unavailable (Phase 23 migration)' };
+    // Contact history: relies on ContactInteraction records; CRM scoring now in RelationshipScoreService
+    return { interactions: [], total: 0, message: 'Contact interaction history not yet implemented' };
   }
 
   /**

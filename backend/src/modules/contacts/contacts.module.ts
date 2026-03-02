@@ -10,13 +10,12 @@ import { GoogleContactsWebhookService } from './services/google-contacts-webhook
 import { MicrosoftContactsWebhookService } from './services/microsoft-contacts-webhook.service';
 import { ContactsSyncQueueService } from './services/contacts-sync-queue.service';
 import { ContactsSyncSchedulerService } from './services/contacts-sync-scheduler.service';
+import { RelationshipScoreService } from './services/relationship-score.service';
 import { ContactsSyncWorker } from './workers/contacts-sync.worker';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for SyncAuthService
-// TODO Phase 24: Rebuild VoltAgent CRM services with new AiChatService
-// import { VoltAgentModule } from '../ai/voltagent/voltagent.module';
 import { AiModule } from '../ai/ai.module';
 import { AlertingService } from '../../common/services/alerting.service';
 // DeadLetterQueueService is available globally from CacheModule
@@ -27,8 +26,7 @@ import { AlertingService } from '../../common/services/alerting.service';
     forwardRef(() => ProvidersModule),
     RealtimeModule, // WebSocket events
     forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
-    // TODO Phase 24: VoltAgentModule removed (deleted). CRM Relationship Intelligence rebuilt in Phase 24.
-    // forwardRef(() => VoltAgentModule),
+    // VoltAgentModule deleted. CRM Relationship Intelligence rebuilt as RelationshipScoreService (Phase 26).
     forwardRef(() => AiModule), // ContactEmbeddingQueueService for RAG
   ],
   controllers: [
@@ -45,6 +43,7 @@ import { AlertingService } from '../../common/services/alerting.service';
     MicrosoftContactsWebhookService,
     ContactsSyncQueueService, // Queue service for contacts sync
     ContactsSyncSchedulerService, // Scheduler for periodic sync
+    RelationshipScoreService, // CRM scoring: recency/frequency/reciprocity/trend
     ContactsSyncWorker, // Worker to process sync jobs (extends BaseWorker with DLQ/Alerting)
     AlertingService, // Required by ContactsSyncWorker for critical failure alerts
   ],
@@ -58,6 +57,7 @@ import { AlertingService } from '../../common/services/alerting.service';
     MicrosoftContactsWebhookService,
     ContactsSyncQueueService,
     ContactsSyncSchedulerService,
+    RelationshipScoreService,
   ],
 })
 export class ContactsModule { }
