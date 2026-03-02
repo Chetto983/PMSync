@@ -39,7 +39,7 @@ Phases 13-22: PII tokenization, database encryption at rest, GDPR core complianc
 
 - [x] **Phase 23: SDK Foundation & Test Infrastructure** - Route all LLM calls through @ai-sdk/mistral, set up MSW v2 SSE mocking, establish E2E validation gate (completed 2026-02-27)
 - [x] **Phase 24: Backend Core Pipeline** - New AiChatService with streamText, conversation history via Prisma, HITL via onStepFinish, GDPR guards, rate limiting (completed 2026-03-02)
-- [ ] **Phase 25: Tools & RAG** - ~20 tools as @Injectable ToolsService classes with AI SDK v6 tool(), intent routing, embedding pipeline and hybrid search preserved
+- [x] **Phase 25: Tools & RAG** - ~20 tools as @Injectable ToolsService classes with AI SDK v6 tool(), intent routing, embedding pipeline and hybrid search preserved (completed 2026-03-02)
 - [ ] **Phase 26: Non-Chat AI & Backend Testing** - Briefing/follow-ups/drafts via generateText + Output.object(), integration tests for chat and non-chat pipelines
 - [ ] **Phase 27: Chat Frontend** - assistant-ui runtime, Thread/Composer primitives, tool renderers via makeAssistantToolUI, HITL inline, mobile layout
 - [ ] **Phase 28: Cleanup & VoltAgent Deletion** - Delete old ai-elements and voltagent code, remove @voltagent/* packages, bundle analysis, Playwright E2E
@@ -197,7 +197,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 |-------|----------------|--------|-----------|
 | 23. SDK Foundation & Test Infrastructure | 3/3 | Complete   | 2026-02-27 |
 | 24. Backend Core Pipeline | 3/3 | Complete    | 2026-03-02 |
-| 25. Tools & RAG | 3/4 | In Progress|  |
+| 25. Tools & RAG | 4/4 | Complete   | 2026-03-02 |
 | 26. Non-Chat AI & Backend Testing | 0/3 | Not started | - |
 | 27. Chat Frontend | 0/4 | Not started | - |
 | 28. Cleanup & VoltAgent Deletion | 0/3 | Not started | - |

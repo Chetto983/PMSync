@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: AI Rebuild & Cleanup
 status: unknown
-last_updated: "2026-03-02T12:58:59Z"
+last_updated: "2026-03-02T13:08:57Z"
 progress:
   total_phases: 13
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 43
-  completed_plans: 41
+  completed_plans: 42
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 25 - Tools & RAG (IN PROGRESS)
+**Current focus:** Phase 25 - Tools & RAG (COMPLETE)
 
 ## Current Position
 
 Phase: 25 of 30 (Tools & RAG)
-Plan: 3 of 4 complete in current phase
-Status: In Progress
-Last activity: 2026-03-02 -- Completed 25-03-PLAN.md (Hybrid Search & RAG)
+Plan: 4 of 4 complete in current phase
+Status: Phase Complete
+Last activity: 2026-03-02 -- Completed 25-04-PLAN.md (E2E Validation Gate)
 
-Progress: [####░░░░░░] 37% (9/24 plans)
+Progress: [####░░░░░░] 42% (10/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9 (v3.2)
-- Average duration: 11min
-- Total execution time: 95min
+- Total plans completed: 10 (v3.2)
+- Average duration: 10min
+- Total execution time: 102min
 
 **By Phase:**
 
@@ -49,6 +49,7 @@ Progress: [####░░░░░░] 37% (9/24 plans)
 | 25-01 | 1 | 12min | 12min |
 | 25-02 | 1 | 5min | 5min |
 | 25-03 | 1 | 5min | 5min |
+| 25-04 | 1 | 7min | 7min |
 
 ## Accumulated Context
 
@@ -95,6 +96,10 @@ Recent decisions affecting current work:
 - [25-03]: CalendarEvent uses startTime/endTime (not startDate/endDate) per actual schema
 - [25-03]: Calendar FTS-only search (no embeddings) per research recommendation
 - [25-03]: HybridSearchService graceful fallback: empty results on missing SQL functions
+- [25-04]: Direct service instantiation for E2E tests (consistent with Phase 24 pattern)
+- [25-04]: IntentClassifierService regex fallback in tests (no FastText model needed)
+- [25-04]: drainStream must type-check chunks (AI SDK createUIMessageStream emits strings)
+- [25-04]: HybridSearchService tested via direct call for graceful fallback verification
 
 ### Pending Todos
 
@@ -108,6 +113,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 25-03-PLAN.md (Hybrid Search & RAG) -- Phase 25 plan 3 of 4 done
+Stopped at: Completed 25-04-PLAN.md (E2E Validation Gate) -- Phase 25 COMPLETE (4/4 plans done)
 Resume file: None
-Next action: Execute 25-04-PLAN.md
+Next action: Begin Phase 26
