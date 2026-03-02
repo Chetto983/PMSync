@@ -37,8 +37,8 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 ### RAG & Embeddings (RAG-01 to RAG-02)
 
-- [ ] **RAG-01**: Embedding pipeline (BullMQ queues, KnowledgeBase, pgvector storage) preserved and rewired to new AI module -- existing embeddings data intact
-- [ ] **RAG-02**: Hybrid search (vector + keyword with RRF fusion) preserved -- `UnifiedRetriever` logic survives in new module
+- [x] **RAG-01**: Embedding pipeline (BullMQ queues, KnowledgeBase, pgvector storage) preserved and rewired to new AI module -- existing embeddings data intact
+- [x] **RAG-02**: Hybrid search (vector + keyword with RRF fusion) preserved -- `UnifiedRetriever` logic survives in new module
 
 ### Chat Frontend (CHAT-01 to CHAT-05)
 
@@ -110,8 +110,8 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 | AI-08 | Phase 24 | Complete |
 | AI-02 | Phase 25 | Complete |
 | AI-03 | Phase 25 | Complete |
-| RAG-01 | Phase 25 | Pending |
-| RAG-02 | Phase 25 | Pending |
+| RAG-01 | Phase 25 | Complete |
+| RAG-02 | Phase 25 | Complete |
 | AI-07 | Phase 26 | Pending |
 | TEST-02 | Phase 26 | Pending |
 | TEST-03 | Phase 26 | Pending |

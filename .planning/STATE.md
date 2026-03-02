@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: AI Rebuild & Cleanup
 status: unknown
-last_updated: "2026-03-02T12:51:29.274Z"
+last_updated: "2026-03-02T12:58:59Z"
 progress:
   total_phases: 13
   completed_phases: 10
   total_plans: 43
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 25 of 30 (Tools & RAG)
-Plan: 2 of 4 complete in current phase
+Plan: 3 of 4 complete in current phase
 Status: In Progress
-Last activity: 2026-03-02 -- Completed 25-02-PLAN.md (Intent Routing & Memory)
+Last activity: 2026-03-02 -- Completed 25-03-PLAN.md (Hybrid Search & RAG)
 
-Progress: [####░░░░░░] 33% (8/24 plans)
+Progress: [####░░░░░░] 37% (9/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (v3.2)
+- Total plans completed: 9 (v3.2)
 - Average duration: 11min
-- Total execution time: 90min
+- Total execution time: 95min
 
 **By Phase:**
 
@@ -48,6 +48,7 @@ Progress: [####░░░░░░] 33% (8/24 plans)
 | 24-03 | 1 | 7min | 7min |
 | 25-01 | 1 | 12min | 12min |
 | 25-02 | 1 | 5min | 5min |
+| 25-03 | 1 | 5min | 5min |
 
 ## Accumulated Context
 
@@ -90,6 +91,10 @@ Recent decisions affecting current work:
 - [25-02]: Memory retrieval non-blocking (errors logged, empty returned, chat continues)
 - [25-02]: LLM fallback uses mistral-small-latest with maxOutputTokens: 30 (cheapest)
 - [25-02]: Tool expansion always includes save_memory in follow-up steps
+- [25-03]: Contact table is unified_contacts (not contacts) per Prisma @@map directive
+- [25-03]: CalendarEvent uses startTime/endTime (not startDate/endDate) per actual schema
+- [25-03]: Calendar FTS-only search (no embeddings) per research recommendation
+- [25-03]: HybridSearchService graceful fallback: empty results on missing SQL functions
 
 ### Pending Todos
 
@@ -103,6 +108,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 25-02-PLAN.md (Intent Routing & Memory) -- Phase 25 plan 2 of 4 done
+Stopped at: Completed 25-03-PLAN.md (Hybrid Search & RAG) -- Phase 25 plan 3 of 4 done
 Resume file: None
-Next action: Execute 25-03-PLAN.md
+Next action: Execute 25-04-PLAN.md
