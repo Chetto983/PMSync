@@ -11,59 +11,8 @@ import {
   useState,
 } from "react";
 
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onresult:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void)
-    | null;
-  onerror:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void)
-    | null;
-}
-
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionResultList {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition: {
-      new (): SpeechRecognition;
-    };
-    webkitSpeechRecognition: {
-      new (): SpeechRecognition;
-    };
-  }
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- browser SpeechRecognition API, types provided by @assistant-ui/core
+type SpeechRecognitionAny = any;
 
 type SpeechInputMode = "speech-recognition" | "media-recorder" | "none";
 
@@ -105,10 +54,10 @@ export const SpeechInput = ({
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [mode, setMode] = useState<SpeechInputMode>("none");
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(
+  const [recognition, setRecognition] = useState<SpeechRecognitionAny | null>(
     null
   );
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionAny | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -123,9 +72,10 @@ export const SpeechInput = ({
       return;
     }
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const speechRecognition = new SpeechRecognition();
+    const SpeechRecognitionCtor =
+      (window as SpeechRecognitionAny).SpeechRecognition || (window as SpeechRecognitionAny).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return;
+    const speechRecognition = new SpeechRecognitionCtor();
 
     speechRecognition.continuous = true;
     speechRecognition.interimResults = true;
@@ -139,7 +89,7 @@ export const SpeechInput = ({
       setIsListening(false);
     };
 
-    speechRecognition.onresult = (event) => {
+    speechRecognition.onresult = (event: SpeechRecognitionAny) => {
       let finalTranscript = "";
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -154,7 +104,7 @@ export const SpeechInput = ({
       }
     };
 
-    speechRecognition.onerror = (_event) => {
+    speechRecognition.onerror = (_event: SpeechRecognitionAny) => {
       //console.error("Speech recognition error:", event.error);
       setIsListening(false);
     };

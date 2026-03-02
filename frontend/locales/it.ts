@@ -3490,6 +3490,9 @@ export const it: AppTranslations = {
     emptyState: {
       title: 'Come posso aiutarti?',
       subtitle: 'Chiedimi qualsiasi cosa su email, calendario o contatti',
+      capEmail: 'Cerca e gestisci le email',
+      capCalendar: 'Controlla calendario e impegni',
+      capContacts: 'Trova e gestisci i contatti',
     },
     composer: {
       placeholder: 'Chiedi qualsiasi cosa sulle tue email...',

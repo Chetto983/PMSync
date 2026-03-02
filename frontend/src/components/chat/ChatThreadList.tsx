@@ -8,26 +8,27 @@ import { Plus, Trash2, MessageSquare } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
- * Individual thread list item rendered by ThreadListPrimitive.Items.
- * Uses ThreadListItemPrimitive sub-components for trigger, title, and delete.
+ * Thread list item with hover delete.
  */
 function ThreadListItem() {
   const t = useTranslations();
 
   return (
-    <ThreadListItemPrimitive.Root className="group flex items-center gap-2 rounded-lg hover:bg-muted/50 transition-colors">
-      <ThreadListItemPrimitive.Trigger className="flex-1 flex items-center gap-2 px-3 py-2.5 text-left min-w-0">
+    <ThreadListItemPrimitive.Root className="chat-thread-item group">
+      <ThreadListItemPrimitive.Trigger className="chat-thread-item-trigger">
         <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <ThreadListItemPrimitive.Title
-          fallback={
-            <span className="text-sm text-muted-foreground italic">
-              {t.chat.threadList.newChat}
-            </span>
-          }
-        />
+        <span className="truncate text-sm">
+          <ThreadListItemPrimitive.Title
+            fallback={
+              <span className="text-muted-foreground italic">
+                {t.chat.threadList.newChat}
+              </span>
+            }
+          />
+        </span>
       </ThreadListItemPrimitive.Trigger>
       <ThreadListItemPrimitive.Delete
-        className="p-1.5 mr-1 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all"
+        className="chat-thread-item-delete"
         aria-label={t.chat.threadList.deleteConfirm}
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -37,37 +38,28 @@ function ThreadListItem() {
 }
 
 /**
- * Conversation sidebar using ThreadListPrimitive.
- * Shows list of threads with a "New chat" button.
- *
- * Thread list state is managed by the assistant-ui runtime.
- * Backend conversation persistence is wired through the chat transport
- * (conversations are created when messages are sent).
- *
- * NOTE: For full backend conversation loading on init (hydrating the list
- * with previously saved conversations), a ThreadHistoryAdapter or custom
- * thread list adapter needs to be wired in a follow-up plan.
+ * Conversation sidebar with header + scrollable thread list.
  */
 export function ChatThreadList() {
   const t = useTranslations();
 
   return (
-    <ThreadListPrimitive.Root className="flex flex-col h-full">
+    <ThreadListPrimitive.Root className="chat-sidebar">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold text-foreground">
+      <div className="chat-sidebar-header">
+        <h2 className="text-sm font-semibold tracking-tight">
           {t.chat.threadList.title}
         </h2>
         <ThreadListPrimitive.New
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="chat-sidebar-new-btn"
           aria-label={t.chat.threadList.newChat}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
         </ThreadListPrimitive.New>
       </div>
 
-      {/* Thread list */}
-      <div className="flex-1 overflow-y-auto px-2 py-2">
+      {/* Thread items */}
+      <div className="chat-sidebar-list">
         <ThreadListPrimitive.Items
           components={{ ThreadListItem }}
         />

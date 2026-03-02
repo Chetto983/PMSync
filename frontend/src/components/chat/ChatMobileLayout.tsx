@@ -20,7 +20,7 @@ export function ChatMobileLayout() {
   const closeSidebar = useCallback(() => setShowSidebar(false), []);
 
   return (
-    <div className="flex md:hidden h-full relative">
+    <div className="chat-mobile-layout h-full relative">
       {showSidebar ? (
         <div className="flex flex-col h-full w-full">
           {/* Back button header */}

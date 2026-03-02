@@ -3354,6 +3354,9 @@ export interface AppTranslations {
     emptyState: {
       title: string;
       subtitle: string;
+      capEmail?: string;
+      capCalendar?: string;
+      capContacts?: string;
     };
     composer: {
       placeholder: string;

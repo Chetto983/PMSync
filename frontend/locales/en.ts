@@ -3513,6 +3513,9 @@ export const en: AppTranslations = {
     emptyState: {
       title: 'How can I help?',
       subtitle: 'Ask me anything about your emails, calendar, or contacts',
+      capEmail: 'Search and manage emails',
+      capCalendar: 'Check calendar and schedule',
+      capContacts: 'Find and manage contacts',
     },
     composer: {
       placeholder: 'Ask anything about your emails...',
