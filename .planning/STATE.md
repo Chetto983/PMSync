@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
 status: unknown
-last_updated: "2026-03-02T15:38:31.000Z"
+last_updated: "2026-03-02T15:51:58.907Z"
 progress:
   total_phases: 14
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 46
-  completed_plans: 44
+  completed_plans: 45
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 26 - Non-Chat AI & Backend Testing (IN PROGRESS)
+**Current focus:** Phase 26 - Non-Chat AI & Backend Testing (COMPLETE)
 
 ## Current Position
 
 Phase: 26 of 30 (Non-Chat AI & Backend Testing)
-Plan: 2 of 3 complete in current phase
-Status: In Progress
-Last activity: 2026-03-02 -- Completed 26-02-PLAN.md (Domain Services)
+Plan: 3 of 3 complete in current phase
+Status: Phase Complete
+Last activity: 2026-03-02 -- Completed 26-03-PLAN.md (AI Integration Tests)
 
-Progress: [#####░░░░░] 50% (12/24 plans)
+Progress: [######░░░░] 54% (13/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12 (v3.2)
+- Total plans completed: 13 (v3.2)
 - Average duration: 10min
-- Total execution time: 120min
+- Total execution time: 129min
 
 **By Phase:**
 
@@ -52,6 +52,7 @@ Progress: [#####░░░░░] 50% (12/24 plans)
 | 25-04 | 1 | 7min | 7min |
 | Phase 26 P01 | 10min | 2 tasks | 6 files |
 | Phase 26 P02 | 8min | 2 tasks | 8 files |
+| Phase 26 P03 | 9min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,9 @@ Recent decisions affecting current work:
 - [26-02]: Contact emails are JSONB (Array<{value}>) -- raw SQL with jsonb_array_elements for lookups
 - [26-02]: MeetingPrepService stays pure-data; LLM summarization deferred to AI module BriefingService
 - [26-02]: Batch email indexing for scoring (single query for all contact emails, then in-memory grouping)
+- [26-03]: createGenerateHandler matches system prompt keywords to fixtures (not URL path or model name)
+- [26-03]: ConversationService mock: getOrCreateConversation, saveUserMessage, getMessagesForContext (not getOrCreate/addMessage/getHistory)
+- [26-03]: 50 comparison cases procedurally generated (20 briefing + 20 follow-up + 10 draft) to avoid filesystem bloat
 
 ### Pending Todos
 
@@ -122,6 +126,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 26-02-PLAN.md (Domain Services)
+Stopped at: Completed 26-03-PLAN.md (AI Integration Tests)
 Resume file: None
-Next action: Execute 26-03-PLAN.md
+Next action: Begin Phase 27
