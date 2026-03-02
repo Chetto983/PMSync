@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
 status: executing
-last_updated: "2026-03-02T08:48:32Z"
+last_updated: "2026-03-02T09:01:17Z"
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 24
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 24 - Backend Core Pipeline (IN PROGRESS)
+**Current focus:** Phase 24 - Backend Core Pipeline (COMPLETE)
 
 ## Current Position
 
 Phase: 24 of 30 (Backend Core Pipeline)
-Plan: 3 of 3 in current phase
-Status: Executing
-Last activity: 2026-03-02 -- Completed 24-02-PLAN.md (Cross-cutting concerns)
+Plan: 3 of 3 in current phase (ALL COMPLETE)
+Status: Phase Complete
+Last activity: 2026-03-02 -- Completed 24-03-PLAN.md (E2E Validation Gate)
 
-Progress: [##░░░░░░░░] 21% (5/24 plans)
+Progress: [###░░░░░░░] 25% (6/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (v3.2)
-- Average duration: 13min
-- Total execution time: 66min
+- Total plans completed: 6 (v3.2)
+- Average duration: 12min
+- Total execution time: 73min
 
 **By Phase:**
 
@@ -45,6 +45,7 @@ Progress: [##░░░░░░░░] 21% (5/24 plans)
 | 23-03 | 1 | 7min | 7min |
 | 24-01 | 1 | 11min | 11min |
 | 24-02 | 1 | 13min | 13min |
+| 24-03 | 1 | 7min | 7min |
 
 ## Accumulated Context
 
@@ -76,6 +77,9 @@ Recent decisions affecting current work:
 - [24-02]: PiiDetectionService/PiiResolutionService registered directly in AiChatModule (not in AiModule)
 - [24-02]: createToolSet() closure pattern for PII resolution -- tools get resolved args without threading
 - [24-02]: data-needs-approval chunk type for HITL stream events via writer type assertion
+- [24-03]: Direct service instantiation over NestJS TestingModule for tests (avoids Redis+Postgres bootstrap)
+- [24-03]: createPrismaClient() factory in tests (Prisma 7 adapter pattern, not raw constructor)
+- [24-03]: ChatDto/ChatResponseDto dead code removed from ai.dto.ts
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 24-02-PLAN.md (Cross-cutting concerns)
+Stopped at: Completed 24-03-PLAN.md (E2E Validation Gate) -- Phase 24 complete
 Resume file: None
-Next action: Execute 24-03-PLAN.md
+Next action: Begin Phase 25 planning or execution
