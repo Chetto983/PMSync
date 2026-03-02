@@ -24,10 +24,10 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 - [ ] **AI-02**: ~20 tools defined as AI SDK v6 `tool()` in `@Injectable()` ToolsService classes with NestJS DI -- no factory functions, no parameter threading
 - [ ] **AI-03**: Intent-based tool routing serves 6-8 relevant tools per request (not all 20)
 - [x] **AI-04**: `ConversationService` with direct Prisma queries for chat history -- preserves existing conversation data
-- [ ] **AI-05**: HITL approval for destructive actions via AI SDK v6 `needsApproval` + `onStepFinish` callback
-- [ ] **AI-06**: PII tokenization, audit logging, and consent guards wired into new chat pipeline (GDPR compliance preserved)
+- [x] **AI-05**: HITL approval for destructive actions via AI SDK v6 `needsApproval` + `onStepFinish` callback
+- [x] **AI-06**: PII tokenization, audit logging, and consent guards wired into new chat pipeline (GDPR compliance preserved)
 - [ ] **AI-07**: Non-chat AI (daily briefing, follow-up detection, draft generation, email analysis) uses `generateText + Output.object()` -- single LLM call per operation, no agent loops
-- [ ] **AI-08**: Rate limiting and circuit breaker preserved in new module
+- [x] **AI-08**: Rate limiting and circuit breaker preserved in new module
 
 ### Mistral SDK Consolidation (MSDK-01 to MSDK-03)
 
@@ -105,9 +105,9 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 | TEST-01 | Phase 23 | Complete |
 | AI-01 | Phase 24 | Complete |
 | AI-04 | Phase 24 | Complete |
-| AI-05 | Phase 24 | Pending |
-| AI-06 | Phase 24 | Pending |
-| AI-08 | Phase 24 | Pending |
+| AI-05 | Phase 24 | Complete |
+| AI-06 | Phase 24 | Complete |
+| AI-08 | Phase 24 | Complete |
 | AI-02 | Phase 25 | Pending |
 | AI-03 | Phase 25 | Pending |
 | RAG-01 | Phase 25 | Pending |

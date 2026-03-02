@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
 status: executing
-last_updated: "2026-03-02T08:30:09Z"
+last_updated: "2026-03-02T08:48:32Z"
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 24
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 24 of 30 (Backend Core Pipeline)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Executing
-Last activity: 2026-03-02 -- Completed 24-01-PLAN.md (Core pipeline skeleton)
+Last activity: 2026-03-02 -- Completed 24-02-PLAN.md (Cross-cutting concerns)
 
-Progress: [##░░░░░░░░] 17% (4/24 plans)
+Progress: [##░░░░░░░░] 21% (5/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (v3.2)
+- Total plans completed: 5 (v3.2)
 - Average duration: 13min
-- Total execution time: 53min
+- Total execution time: 66min
 
 **By Phase:**
 
@@ -44,6 +44,7 @@ Progress: [##░░░░░░░░] 17% (4/24 plans)
 | 23-02 | 1 | 18min | 18min |
 | 23-03 | 1 | 7min | 7min |
 | 24-01 | 1 | 11min | 11min |
+| 24-02 | 1 | 13min | 13min |
 
 ## Accumulated Context
 
@@ -70,6 +71,11 @@ Recent decisions affecting current work:
 - [24-01]: AI SDK v6 uses ModelMessage (not CoreMessage) -- CoreMessage removed in v5
 - [24-01]: createUIMessageStream wrapping streamText with writer.merge() for NestJS streaming
 - [24-01]: Rolling summary + last 10 messages verbatim for conversation context management
+- [24-02]: CircuitBreaker uses isAllowed() not shouldAllowRequest() -- actual API method name
+- [24-02]: AI SDK v6 Tool uses inputSchema (not parameters) and TypedToolCall uses input (not args)
+- [24-02]: PiiDetectionService/PiiResolutionService registered directly in AiChatModule (not in AiModule)
+- [24-02]: createToolSet() closure pattern for PII resolution -- tools get resolved args without threading
+- [24-02]: data-needs-approval chunk type for HITL stream events via writer type assertion
 
 ### Pending Todos
 
@@ -83,6 +89,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 24-01-PLAN.md (Core pipeline skeleton)
+Stopped at: Completed 24-02-PLAN.md (Cross-cutting concerns)
 Resume file: None
-Next action: Execute 24-02-PLAN.md
+Next action: Execute 24-03-PLAN.md
