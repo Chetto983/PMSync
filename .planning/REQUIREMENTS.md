@@ -22,7 +22,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 - [x] **AI-01**: Clean AI module with `AiChatService` using AI SDK v6 `streamText` + `pipeUIMessageStreamToResponse` -- single service handles chat orchestration, context building, and streaming
 - [x] **AI-02**: ~20 tools defined as AI SDK v6 `tool()` in `@Injectable()` ToolsService classes with NestJS DI -- no factory functions, no parameter threading
-- [ ] **AI-03**: Intent-based tool routing serves 6-8 relevant tools per request (not all 20)
+- [x] **AI-03**: Intent-based tool routing serves 6-8 relevant tools per request (not all 20)
 - [x] **AI-04**: `ConversationService` with direct Prisma queries for chat history -- preserves existing conversation data
 - [x] **AI-05**: HITL approval for destructive actions via AI SDK v6 `needsApproval` + `onStepFinish` callback
 - [x] **AI-06**: PII tokenization, audit logging, and consent guards wired into new chat pipeline (GDPR compliance preserved)
@@ -109,7 +109,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 | AI-06 | Phase 24 | Complete |
 | AI-08 | Phase 24 | Complete |
 | AI-02 | Phase 25 | Complete |
-| AI-03 | Phase 25 | Pending |
+| AI-03 | Phase 25 | Complete |
 | RAG-01 | Phase 25 | Pending |
 | RAG-02 | Phase 25 | Pending |
 | AI-07 | Phase 26 | Pending |

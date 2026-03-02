@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: AI Rebuild & Cleanup
-status: in-progress
-last_updated: "2026-03-02T12:41:00.000Z"
+status: unknown
+last_updated: "2026-03-02T12:51:29.274Z"
 progress:
-  total_phases: 12
+  total_phases: 13
   completed_phases: 10
-  total_plans: 39
-  completed_plans: 39
+  total_plans: 43
+  completed_plans: 40
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 25 of 30 (Tools & RAG)
-Plan: 1 of 4 complete in current phase
+Plan: 2 of 4 complete in current phase
 Status: In Progress
-Last activity: 2026-03-02 -- Completed 25-01-PLAN.md (Chat Tools)
+Last activity: 2026-03-02 -- Completed 25-02-PLAN.md (Intent Routing & Memory)
 
-Progress: [####░░░░░░] 29% (7/24 plans)
+Progress: [####░░░░░░] 33% (8/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (v3.2)
-- Average duration: 12min
-- Total execution time: 85min
+- Total plans completed: 8 (v3.2)
+- Average duration: 11min
+- Total execution time: 90min
 
 **By Phase:**
 
@@ -47,6 +47,7 @@ Progress: [####░░░░░░] 29% (7/24 plans)
 | 24-02 | 1 | 13min | 13min |
 | 24-03 | 1 | 7min | 7min |
 | 25-01 | 1 | 12min | 12min |
+| 25-02 | 1 | 5min | 5min |
 
 ## Accumulated Context
 
@@ -85,6 +86,10 @@ Recent decisions affecting current work:
 - [25-01]: FolderToolsService uses Prisma directly (EmailFolderService is query-builder utility)
 - [25-01]: save_memory userId set to tenantId as placeholder (Phase 26)
 - [25-01]: 5 needsApproval flags not 6 (no delete_contact tool per ContactToolsService spec)
+- [25-02]: prepareStep activeTools uses keyof typeof tools cast (AI SDK expects literal union)
+- [25-02]: Memory retrieval non-blocking (errors logged, empty returned, chat continues)
+- [25-02]: LLM fallback uses mistral-small-latest with maxOutputTokens: 30 (cheapest)
+- [25-02]: Tool expansion always includes save_memory in follow-up steps
 
 ### Pending Todos
 
@@ -98,6 +103,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 25-01-PLAN.md (Chat Tools) -- Phase 25 plan 1 of 4 done
+Stopped at: Completed 25-02-PLAN.md (Intent Routing & Memory) -- Phase 25 plan 2 of 4 done
 Resume file: None
-Next action: Execute 25-02-PLAN.md
+Next action: Execute 25-03-PLAN.md
