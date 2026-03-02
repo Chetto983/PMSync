@@ -62,14 +62,20 @@ const piiResolutionStub = {
  */
 async function drainStream(stream: ReadableStream): Promise<string> {
   const reader = stream.getReader();
-  const decoder = new TextDecoder();
   const chunks: string[] = [];
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(decoder.decode(value, { stream: true }));
+      // AI SDK createUIMessageStream may emit string chunks, not Uint8Array
+      if (typeof value === 'string') {
+        chunks.push(value);
+      } else if (value instanceof Uint8Array || ArrayBuffer.isView(value)) {
+        chunks.push(new TextDecoder().decode(value));
+      } else {
+        chunks.push(String(value));
+      }
     }
   } finally {
     reader.releaseLock();
