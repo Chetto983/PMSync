@@ -53,6 +53,7 @@ model Tenant {
   userConsents             UserConsent[]
   legalAcceptances         LegalAcceptance[]
   dataExportRequests       DataExportRequest[]
+  aiConversations          AiConversation[]
 
   @@map("tenants")
 }
@@ -91,6 +92,7 @@ model User {
   userConsents        UserConsent[]
   legalAcceptances    LegalAcceptance[]
   dataExportRequests  DataExportRequest[]
+  aiConversations     AiConversation[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -1124,6 +1126,41 @@ model MistralAgent {
   @@unique([tenantId, agentType, locale]) // One agent per tenant/type/locale
   @@index([tenantId])
   @@map("mistral_agents")
+}
+
+/// AI Chat Conversation (Phase 24: Backend Core Pipeline)
+model AiConversation {
+  id        String      @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String?
+  summary   String?     @db.Text
+  metadata  Json?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AiMessage[]
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, updatedAt(sort: Desc)])
+  @@index([tenantId, updatedAt(sort: Desc)])
+  @@map("ai_conversations")
+}
+
+/// AI Chat Message (Phase 24: Backend Core Pipeline)
+model AiMessage {
+  id              String         @id @default(cuid())
+  conversationId  String
+  role            String
+  content         Json
+  toolCallId      String?
+  stepIndex       Int?
+  tokenCount      Int?
+  createdAt       DateTime       @default(now())
+  conversation    AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
 }
 
 /// Follow-up type classification (FOLLOW-01)
