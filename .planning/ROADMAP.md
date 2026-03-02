@@ -127,15 +127,16 @@ Plans:
   1. assistant-ui runtime connects to new streaming endpoint via `useChatRuntime` + `AssistantChatTransport` -- chat messages stream token-by-token in real time
   2. Thread, Composer, and Messages use assistant-ui primitives -- auto-scroll, message editing, regeneration all work; no custom MUI chat components remain in the chat panel
   3. Domain tool renderers (email search, calendar, contacts, briefing, etc.) built with `makeAssistantToolUI` showing running/complete/error states -- tool results render as rich cards, not raw JSON
-  4. HITL approval renders inline via assistant-ui `requires_action` status -- user can approve/reject destructive actions without leaving the chat
+  4. HITL approval renders inline in the chat stream -- poll-based approach functional now (useAiActions), native requires_action code path present and ready pending backend update (Phase 28)
   5. Mobile-responsive chat layout works on 375px viewport with touch-friendly interactions -- verified at mobile, tablet, and desktop breakpoints
   6. E2E validation gate (Playwright against running backend with real LLM): send a message, verify streaming response renders, verify tool result card appears, verify HITL card shows for write action, verify mobile layout at 375px
-**Plans**: 3 plans in 3 waves
+**Plans**: 4 plans in 3 waves
 
 Plans:
 - [ ] 27-01-PLAN.md -- Runtime provider + transport wiring + Thread/Composer/Messages primitives + conversation sidebar + i18n (wave 1)
-- [ ] 27-02-PLAN.md -- 14+ tool renderers via makeAssistantToolUI + fallback JSON viewer + HITL inline approval card (wave 2)
-- [ ] 27-03-PLAN.md -- Mobile/desktop responsive layouts + page integration + visual checkpoint (wave 3)
+- [ ] 27-02-PLAN.md -- Email/data tool renderers via makeAssistantToolUI + partial barrel (wave 2)
+- [ ] 27-03-PLAN.md -- Analysis/AI tool renderers + fallback JSON viewer + HITL inline approval card + barrel completion (wave 2, parallel with 27-02)
+- [ ] 27-04-PLAN.md -- Mobile/desktop responsive layouts + page integration + visual checkpoint (wave 3)
 
 ### Phase 28: Cleanup & VoltAgent Deletion
 **Goal**: All old VoltAgent code, unused ai-elements, and dead frontend components deleted; bundle size reduced; full Playwright E2E coverage
@@ -198,7 +199,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 | 24. Backend Core Pipeline | 3/3 | Complete    | 2026-03-02 |
 | 25. Tools & RAG | 4/4 | Complete    | 2026-03-02 |
 | 26. Non-Chat AI & Backend Testing | 3/3 | Complete    | 2026-03-02 |
-| 27. Chat Frontend | 0/3 | Not started | - |
+| 27. Chat Frontend | 0/4 | Not started | - |
 | 28. Cleanup & VoltAgent Deletion | 0/3 | Not started | - |
 | 29. Architecture Hardening | 0/2 | Not started | - |
 | 30. Performance & Debt | 0/3 | Not started | - |
