@@ -219,7 +219,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 3, h: 2 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/scheduling/meeting-prep'],
+        requiresData: ['/api/v1/ai/scheduling/meeting-prep'],
         tags: ['ai', 'meetings'],
     },
 
@@ -235,7 +235,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 4, h: 3 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/briefing'],
+        requiresData: ['/api/v1/ai/briefing'],
         refreshInterval: 3600000, // 1 hour
         tags: ['ai', 'summary'],
     },
@@ -250,7 +250,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 3, h: 2 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/chat'],
+        requiresData: ['/api/v1/ai/chat'],
         tags: ['ai', 'productivity'],
     },
 
@@ -264,7 +264,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 3, h: 2 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/scheduling/focus-time/optimal'],
+        requiresData: ['/api/v1/ai/scheduling/focus-time/optimal'],
         tags: ['ai', 'productivity'],
     },
 
@@ -334,7 +334,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 3, h: 2 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/follow-ups/pending'],
+        requiresData: ['/api/v1/ai/follow-ups/pending'],
         tags: ['productivity', 'email'],
     },
 
@@ -350,7 +350,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 3, h: 2 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/analytics/email'],
+        requiresData: ['/api/v1/ai/analytics/email'],
     },
 
     'response-time': {
@@ -363,7 +363,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 2, h: 2 },
         maxSize: { w: 3, h: 3 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/analytics/email'],
+        requiresData: ['/api/v1/ai/analytics/email'],
     },
 
     'productivity-metrics': {
@@ -376,7 +376,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 3, h: 2 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/stats/performance'],
+        requiresData: ['/api/v1/ai/stats/performance'],
     },
 
     // ========== ACTION WIDGETS ==========
@@ -391,7 +391,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 2, h: 2 },
         maxSize: { w: 4, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/deadlines'],
+        requiresData: ['/api/v1/ai/deadlines'],
         refreshInterval: 300000, // 5 minutes
     },
 
@@ -405,7 +405,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
         minSize: { w: 3, h: 2 },
         maxSize: { w: 6, h: 4 },
         component: (() => null) as ComponentType<WidgetProps>,
-        requiresData: ['/api/v1/voltagent/action-items/pending'],
+        requiresData: ['/api/v1/ai/action-items/pending'],
     },
 
     'todo-list': {

@@ -183,7 +183,7 @@ export function useVoltAgentChat(options: UseVoltAgentChatOptions = {}): UseVolt
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
-        api: `${API_BASE_URL}/api/v1/voltagent/chat/stream/v3`,
+        api: `${API_BASE_URL}/api/v1/ai/chat/stream/v3`,
         credentials: 'include', // SEC-04: Send httpOnly CSRF cookie
         headers: () => ({
           Authorization: `Bearer ${getAuthToken()}`,
