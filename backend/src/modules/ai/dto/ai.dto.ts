@@ -9,45 +9,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-/**
- * DTO for classic chat completion
- * POST /ai/chat
- */
-export class ChatDto {
-  @ApiProperty({
-    description: 'The user message to process',
-    example: 'Summarize my emails from today',
-  })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(10000)
-  message!: string;
-
-  @ApiPropertyOptional({
-    description: 'Previous conversation history for context',
-    type: 'array',
-  })
-  @IsOptional()
-  @IsArray()
-  conversationHistory?: Array<{ role: string; content: string }>;
-
-  @ApiPropertyOptional({
-    description: 'Existing conversation ID to continue',
-    example: 'conv_abc123',
-  })
-  @IsOptional()
-  @IsString()
-  conversationId?: string;
-
-  @ApiPropertyOptional({
-    description: 'Model size preference for response generation',
-    example: 'small',
-    enum: ['small', 'medium', 'large'],
-  })
-  @IsOptional()
-  @IsString()
-  model?: 'small' | 'medium' | 'large';
-}
+// ChatDto removed -- chat endpoint moved to AiChatModule (Phase 24)
 
 /**
  * History item for agent conversations
@@ -228,16 +190,7 @@ export class ComposeEmailResponseDto {
   subject?: string;
 }
 
-/**
- * Response DTOs for Swagger documentation
- */
-export class ChatResponseDto {
-  @ApiProperty({ example: true })
-  success: boolean;
-
-  @ApiProperty({ description: 'AI response text' })
-  response: string;
-}
+// ChatResponseDto removed -- chat endpoint moved to AiChatModule (Phase 24)
 
 export class SessionResponseDto {
   @ApiProperty({ example: true })
