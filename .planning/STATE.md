@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
-status: phase-complete
-last_updated: "2026-02-27T15:43:13Z"
+status: executing
+last_updated: "2026-03-02T08:30:09Z"
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 24
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 23 - SDK Foundation & Test Infrastructure (COMPLETE)
+**Current focus:** Phase 24 - Backend Core Pipeline (IN PROGRESS)
 
 ## Current Position
 
-Phase: 23 of 30 (SDK Foundation & Test Infrastructure) -- COMPLETE
-Plan: 3 of 3 in current phase (all done)
-Status: Phase Complete
-Last activity: 2026-02-27 -- Completed 23-03-PLAN.md (MSW v2 gap closure)
+Phase: 24 of 30 (Backend Core Pipeline)
+Plan: 2 of 3 in current phase
+Status: Executing
+Last activity: 2026-03-02 -- Completed 24-01-PLAN.md (Core pipeline skeleton)
 
-Progress: [##░░░░░░░░] 13% (3/24 plans)
+Progress: [##░░░░░░░░] 17% (4/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v3.2)
-- Average duration: 14min
-- Total execution time: 42min
+- Total plans completed: 4 (v3.2)
+- Average duration: 13min
+- Total execution time: 53min
 
 **By Phase:**
 
@@ -43,6 +43,7 @@ Progress: [##░░░░░░░░] 13% (3/24 plans)
 | 23-01 | 1 | 17min | 17min |
 | 23-02 | 1 | 18min | 18min |
 | 23-03 | 1 | 7min | 7min |
+| 24-01 | 1 | 11min | 11min |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [23-02]: @sentinelseed/voltagent retained (separate security package from @voltagent/core)
 - [23-03]: Per-test MSW lifecycle (not global setupFiles) to avoid intercepting real-API tests
 - [23-03]: AI SDK v6 uses inputTokens/outputTokens not promptTokens/completionTokens
+- [24-01]: AI SDK v6 uses ModelMessage (not CoreMessage) -- CoreMessage removed in v5
+- [24-01]: createUIMessageStream wrapping streamText with writer.merge() for NestJS streaming
+- [24-01]: Rolling summary + last 10 messages verbatim for conversation context management
 
 ### Pending Todos
 
@@ -78,7 +82,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-27
-Stopped at: Completed 23-03-PLAN.md (MSW v2 gap closure -- Phase 23 fully complete)
+Last session: 2026-03-02
+Stopped at: Completed 24-01-PLAN.md (Core pipeline skeleton)
 Resume file: None
-Next action: /gsd:execute-phase 24
+Next action: Execute 24-02-PLAN.md

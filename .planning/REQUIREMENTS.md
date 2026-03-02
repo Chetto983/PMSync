@@ -20,10 +20,10 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 
 ### New AI Module (AI-01 to AI-08)
 
-- [ ] **AI-01**: Clean AI module with `AiChatService` using AI SDK v6 `streamText` + `pipeUIMessageStreamToResponse` -- single service handles chat orchestration, context building, and streaming
+- [x] **AI-01**: Clean AI module with `AiChatService` using AI SDK v6 `streamText` + `pipeUIMessageStreamToResponse` -- single service handles chat orchestration, context building, and streaming
 - [ ] **AI-02**: ~20 tools defined as AI SDK v6 `tool()` in `@Injectable()` ToolsService classes with NestJS DI -- no factory functions, no parameter threading
 - [ ] **AI-03**: Intent-based tool routing serves 6-8 relevant tools per request (not all 20)
-- [ ] **AI-04**: `ConversationService` with direct Prisma queries for chat history -- preserves existing conversation data
+- [x] **AI-04**: `ConversationService` with direct Prisma queries for chat history -- preserves existing conversation data
 - [ ] **AI-05**: HITL approval for destructive actions via AI SDK v6 `needsApproval` + `onStepFinish` callback
 - [ ] **AI-06**: PII tokenization, audit logging, and consent guards wired into new chat pipeline (GDPR compliance preserved)
 - [ ] **AI-07**: Non-chat AI (daily briefing, follow-up detection, draft generation, email analysis) uses `generateText + Output.object()` -- single LLM call per operation, no agent loops
@@ -103,8 +103,8 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 | MSDK-01 | Phase 23 | Complete |
 | MSDK-02 | Phase 23 | Complete |
 | TEST-01 | Phase 23 | Complete |
-| AI-01 | Phase 24 | Pending |
-| AI-04 | Phase 24 | Pending |
+| AI-01 | Phase 24 | Complete |
+| AI-04 | Phase 24 | Complete |
 | AI-05 | Phase 24 | Pending |
 | AI-06 | Phase 24 | Pending |
 | AI-08 | Phase 24 | Pending |
