@@ -130,13 +130,12 @@ Plans:
   4. HITL approval renders inline via assistant-ui `requires_action` status -- user can approve/reject destructive actions without leaving the chat
   5. Mobile-responsive chat layout works on 375px viewport with touch-friendly interactions -- verified at mobile, tablet, and desktop breakpoints
   6. E2E validation gate (Playwright against running backend with real LLM): send a message, verify streaming response renders, verify tool result card appears, verify HITL card shows for write action, verify mobile layout at 375px
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 27-01: assistant-ui runtime setup (AiChatRuntime, transport, provider scoping, CSS isolation)
-- [ ] 27-02: Thread, Composer, Messages with assistant-ui primitives
-- [ ] 27-03: Tool renderers (makeAssistantToolUI) and HITL inline approval
-- [ ] 27-04: Mobile layout and Playwright E2E smoke tests
+- [ ] 27-01-PLAN.md -- Runtime provider + transport wiring + Thread/Composer/Messages primitives + conversation sidebar + i18n (wave 1)
+- [ ] 27-02-PLAN.md -- 14+ tool renderers via makeAssistantToolUI + fallback JSON viewer + HITL inline approval card (wave 2)
+- [ ] 27-03-PLAN.md -- Mobile/desktop responsive layouts + page integration + visual checkpoint (wave 3)
 
 ### Phase 28: Cleanup & VoltAgent Deletion
 **Goal**: All old VoltAgent code, unused ai-elements, and dead frontend components deleted; bundle size reduced; full Playwright E2E coverage
@@ -199,7 +198,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 | 24. Backend Core Pipeline | 3/3 | Complete    | 2026-03-02 |
 | 25. Tools & RAG | 4/4 | Complete    | 2026-03-02 |
 | 26. Non-Chat AI & Backend Testing | 3/3 | Complete    | 2026-03-02 |
-| 27. Chat Frontend | 0/4 | Not started | - |
+| 27. Chat Frontend | 0/3 | Not started | - |
 | 28. Cleanup & VoltAgent Deletion | 0/3 | Not started | - |
 | 29. Architecture Hardening | 0/2 | Not started | - |
 | 30. Performance & Debt | 0/3 | Not started | - |
