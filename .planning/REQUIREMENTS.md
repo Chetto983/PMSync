@@ -59,7 +59,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 - [x] **TEST-01**: MSW v2 infrastructure with SSE handlers for mocking LLM streaming responses
 - [x] **TEST-02**: Integration tests for new AI chat pipeline (message -> tool execution -> streaming response)
 - [x] **TEST-03**: Integration tests for non-chat AI (briefing, follow-ups, drafts via generateText)
-- [ ] **TEST-04**: Playwright E2E tests for assistant-ui chat frontend
+- [x] **TEST-04**: Playwright E2E tests for assistant-ui chat frontend
 
 ### Modular Monolith Architecture (ARCH-01 to ARCH-04)
 
@@ -124,7 +124,7 @@ This applies to every phase that touches AI functionality (chat, tools, non-chat
 | FECLEAN-02 | Phase 28 | Complete |
 | FECLEAN-03 | Phase 28 | Complete |
 | MSDK-03 | Phase 23 | Complete |
-| TEST-04 | Phase 28 | Pending |
+| TEST-04 | Phase 28 | Complete |
 | ARCH-01 | Phase 29 | Pending |
 | ARCH-02 | Phase 29 | Pending |
 | ARCH-03 | Phase 29 | Pending |

@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 28 of 30 (Cleanup & VoltAgent Deletion)
-Plan: 2 of 3 complete in current phase
-Status: Executing Phase 28
-Last activity: 2026-03-03 -- Completed 28-02-PLAN.md (Voltagent cleanup + bundle analysis)
+Plan: 3 of 3 complete in current phase
+Status: Phase 28 Complete
+Last activity: 2026-03-03 -- Completed 28-03-PLAN.md (Playwright E2E tests for AI chat)
 
-Progress: [########░░] 79% (19/24 plans)
+Progress: [########░░] 83% (20/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19 (v3.2)
+- Total plans completed: 20 (v3.2)
 - Average duration: 11min
-- Total execution time: 214min
+- Total execution time: 227min
 
 **By Phase:**
 
@@ -58,6 +58,7 @@ Progress: [########░░] 79% (19/24 plans)
 | Phase 27 P03 | 11min | 2 tasks | 9 files |
 | Phase 27 P04 | 45min | 2 tasks | 40+ files |
 | Phase 28 P01 | 8min | 2 tasks | 108 files |
+| Phase 28 P03 | 13min | 1 task | 1 file |
 | Phase 28 P02 | 13min | 2 tasks | 10 files |
 
 ## Accumulated Context
@@ -137,6 +138,9 @@ Recent decisions affecting current work:
 - [28-01]: components/ai/index.ts barrel kept with only CommandPalette export (direct subdirectory imports preferred)
 - [28-01]: Self-contained chat/types.ts owns all tool output types directly (no cross-directory re-exports)
 - [28-01]: ai-elements npm package left in package.json for 28-02 bundle analysis scope
+- [28-03]: AI SDK v6 DefaultChatTransport uses SSE format (text/event-stream), not old Data Stream prefix codes (0:, 9:, a:, d:)
+- [28-03]: Desktop thread scoping for E2E tests (dual-layout renders both in DOM, scope to visible container)
+- [28-03]: dispatchEvent('click') for CSS-transformed sidebar elements (bypasses viewport/pointer checks)
 - [28-02]: Voltagent E2E mock routes removed entirely (catch-all covers all unmocked endpoints)
 - [28-02]: crm.ts and document-library.ts API paths migrated from /api/v1/voltagent/* to /api/v1/ai/*
 - [28-02]: Tree-shaking confirmed: zero ai-elements code in production bundle before file deletion
@@ -153,6 +157,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 28-02-PLAN.md
-Resume file: .planning/phases/28-cleanup-voltagent-deletion/28-02-SUMMARY.md
-Next action: Execute 28-03-PLAN.md
+Stopped at: Completed 28-03-PLAN.md (Phase 28 complete)
+Resume file: .planning/phases/28-cleanup-voltagent-deletion/28-03-SUMMARY.md
+Next action: Execute Phase 29
