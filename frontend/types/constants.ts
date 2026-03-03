@@ -5,7 +5,7 @@
 
 /**
  * Action types that agents can propose
- * Matches: backend/src/modules/ai/voltagent/interfaces/agent-action.interface.ts
+ * Matches: backend/src/modules/ai/interfaces/agent-action.interface.ts
  */
 export const AgentActionType = {
   // Email actions

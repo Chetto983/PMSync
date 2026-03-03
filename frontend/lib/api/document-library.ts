@@ -10,7 +10,7 @@
  * - RAG-powered document queries with citations
  * - Multi-library search
  *
- * @see backend/src/modules/ai/voltagent/controllers/document-library.controller.ts
+ * @see backend/src/modules/ai/controllers/ai.controller.ts
  * @see https://docs.mistral.ai/agents/tools/built-in/document_library
  */
 import { apiClient, API_BASE_URL } from '../api-client';
@@ -88,7 +88,7 @@ export const documentLibraryApi = {
     return apiClient.post<{
       success: boolean;
       library: DocumentLibrary;
-    }>('/api/v1/voltagent/documents/libraries', payload);
+    }>('/api/v1/ai/documents/libraries', payload);
   },
 
   /**
@@ -99,7 +99,7 @@ export const documentLibraryApi = {
       success: boolean;
       libraries: DocumentLibrary[];
       count: number;
-    }>('/api/v1/voltagent/documents/libraries');
+    }>('/api/v1/ai/documents/libraries');
   },
 
   /**
@@ -111,7 +111,7 @@ export const documentLibraryApi = {
     return apiClient.get<{
       success: boolean;
       library: DocumentLibrary;
-    }>(`/api/v1/voltagent/documents/libraries/${encodeURIComponent(libraryId)}`);
+    }>(`/api/v1/ai/documents/libraries/${encodeURIComponent(libraryId)}`);
   },
 
   /**
@@ -123,7 +123,7 @@ export const documentLibraryApi = {
     return apiClient.delete<{
       success: boolean;
       message: string;
-    }>(`/api/v1/voltagent/documents/libraries/${encodeURIComponent(libraryId)}`);
+    }>(`/api/v1/ai/documents/libraries/${encodeURIComponent(libraryId)}`);
   },
 
   // ==========================================================================
@@ -187,7 +187,7 @@ export const documentLibraryApi = {
 
       xhr.open(
         'POST',
-        `${API_BASE_URL}/api/v1/voltagent/documents/libraries/${encodeURIComponent(libraryId)}/documents`,
+        `${API_BASE_URL}/api/v1/ai/documents/libraries/${encodeURIComponent(libraryId)}/documents`,
       );
       xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
       xhr.send(formData);
@@ -204,7 +204,7 @@ export const documentLibraryApi = {
       success: boolean;
       documents: LibraryDocument[];
       count: number;
-    }>(`/api/v1/voltagent/documents/libraries/${encodeURIComponent(libraryId)}/documents`);
+    }>(`/api/v1/ai/documents/libraries/${encodeURIComponent(libraryId)}/documents`);
   },
 
   /**
@@ -218,7 +218,7 @@ export const documentLibraryApi = {
       success: boolean;
       message: string;
     }>(
-      `/api/v1/voltagent/documents/libraries/${encodeURIComponent(libraryId)}/documents/${encodeURIComponent(documentId)}`,
+      `/api/v1/ai/documents/libraries/${encodeURIComponent(libraryId)}/documents/${encodeURIComponent(documentId)}`,
     );
   },
 
@@ -245,7 +245,7 @@ export const documentLibraryApi = {
     return apiClient.post<{
       success: boolean;
       result: DocumentQueryResult;
-    }>('/api/v1/voltagent/documents/query', payload);
+    }>('/api/v1/ai/documents/query', payload);
   },
 
   /**
@@ -257,6 +257,6 @@ export const documentLibraryApi = {
       success: boolean;
       enabled: boolean;
       features: string[];
-    }>('/api/v1/voltagent/documents/status');
+    }>('/api/v1/ai/documents/status');
   },
 };

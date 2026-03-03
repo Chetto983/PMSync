@@ -163,13 +163,6 @@ async function setupMocks(page: import('@playwright/test').Page) {
     });
   });
 
-  await page.route('**/voltagent/**', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ actions: [], total: 0 }),
-    });
-  });
 }
 
 test.describe('Search Filters', () => {

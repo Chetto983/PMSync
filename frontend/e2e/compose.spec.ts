@@ -128,14 +128,6 @@ const test = base.extend<{ composePage: Page }>({
       });
     });
 
-    await page.route('**/localhost:3000/voltagent/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ actions: [], total: 0 }),
-      });
-    });
-
     // Mock providers API
     await page.route('**/localhost:3000/providers', (route) => {
       route.fulfill({

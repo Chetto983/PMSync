@@ -82,14 +82,6 @@ const loginTest = base.extend<{ loginPage: Page }>({
       });
     });
 
-    await page.route('**/localhost:3000/voltagent/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ actions: [], total: 0 }),
-      });
-    });
-
     await page.route('**/localhost:3000/contacts/sender-photos**', (route) => {
       route.fulfill({
         status: 200,

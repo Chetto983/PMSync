@@ -183,15 +183,6 @@ export const test = base.extend<{ authedPage: Page }>({
       });
     });
 
-    // Mock voltagent endpoints (added in v3.0+)
-    await page.route('**/localhost:3000/voltagent/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ actions: [], total: 0, success: true }),
-      });
-    });
-
     // Mock CSRF token endpoint
     await page.route('**/localhost:3000/auth/csrf-token', (route) => {
       route.fulfill({

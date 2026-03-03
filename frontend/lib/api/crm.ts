@@ -11,7 +11,7 @@
  * - Relationship graph visualization
  * - Reconnection reminders
  *
- * @see backend/src/modules/ai/voltagent/services/relationship-intelligence.service.ts
+ * @see backend/src/modules/ai/services/relationship-intelligence.service.ts
  */
 import { apiClient } from '../api-client';
 
@@ -107,7 +107,7 @@ export const crmApi = {
       staleContacts: ContactRelationshipStats[];
       count: number;
       thresholdDays: number;
-    }>('/api/v1/voltagent/crm/stale-contacts', { params });
+    }>('/api/v1/ai/crm/stale-contacts', { params });
   },
 
   /**
@@ -122,7 +122,7 @@ export const crmApi = {
       success: boolean;
       candidates: ContactRelationshipStats[];
       count: number;
-    }>('/api/v1/voltagent/crm/reconnect', { params });
+    }>('/api/v1/ai/crm/reconnect', { params });
   },
 
   /**
@@ -137,7 +137,7 @@ export const crmApi = {
       success: boolean;
       topContacts: ContactRelationshipStats[];
       count: number;
-    }>('/api/v1/voltagent/crm/top-contacts', { params });
+    }>('/api/v1/ai/crm/top-contacts', { params });
   },
 
   /**
@@ -149,7 +149,7 @@ export const crmApi = {
       success: boolean;
       message: string;
       jobId?: string;
-    }>('/api/v1/voltagent/crm/recalculate-all');
+    }>('/api/v1/ai/crm/recalculate-all');
   },
 
   /**
@@ -166,7 +166,7 @@ export const crmApi = {
     return apiClient.get<{
       success: boolean;
       stats: ContactRelationshipStats;
-    }>(`/api/v1/voltagent/crm/contacts/${encodeURIComponent(contactId)}`);
+    }>(`/api/v1/ai/crm/contacts/${encodeURIComponent(contactId)}`);
   },
 
   /**
@@ -182,7 +182,7 @@ export const crmApi = {
       success: boolean;
       interactions: ContactInteraction[];
       count: number;
-    }>(`/api/v1/voltagent/crm/contacts/${encodeURIComponent(contactId)}/interactions`, { params });
+    }>(`/api/v1/ai/crm/contacts/${encodeURIComponent(contactId)}/interactions`, { params });
   },
 
   /**
@@ -196,7 +196,7 @@ export const crmApi = {
     return apiClient.post<{
       success: boolean;
       interaction: ContactInteraction;
-    }>(`/api/v1/voltagent/crm/contacts/${encodeURIComponent(contactId)}/interactions`, payload);
+    }>(`/api/v1/ai/crm/contacts/${encodeURIComponent(contactId)}/interactions`, payload);
   },
 
   /**
@@ -209,7 +209,7 @@ export const crmApi = {
     return apiClient.post<{
       success: boolean;
       stats: ContactRelationshipStats;
-    }>(`/api/v1/voltagent/crm/contacts/${encodeURIComponent(contactId)}/recalculate`);
+    }>(`/api/v1/ai/crm/contacts/${encodeURIComponent(contactId)}/recalculate`);
   },
 
   /**
@@ -226,7 +226,7 @@ export const crmApi = {
       success: boolean;
       graph: RelationshipGraphNode[];
       count: number;
-    }>(`/api/v1/voltagent/crm/contacts/${encodeURIComponent(contactId)}/graph`, { params });
+    }>(`/api/v1/ai/crm/contacts/${encodeURIComponent(contactId)}/graph`, { params });
   },
 
   /**
@@ -240,6 +240,6 @@ export const crmApi = {
     return apiClient.post<{
       success: boolean;
       message: string;
-    }>(`/api/v1/voltagent/crm/contacts/${encodeURIComponent(contactId)}/reminded`);
+    }>(`/api/v1/ai/crm/contacts/${encodeURIComponent(contactId)}/reminded`);
   },
 };
