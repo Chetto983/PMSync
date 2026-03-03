@@ -14,15 +14,15 @@ export function ChatChainOfThought() {
   const t = useTranslations();
 
   return (
-    <ChainOfThoughtPrimitive.Root className="my-2 rounded-lg border border-border bg-muted/30">
-      <ChainOfThoughtPrimitive.AccordionTrigger className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+    <ChainOfThoughtPrimitive.Root className="chat-cot-root">
+      <ChainOfThoughtPrimitive.AccordionTrigger className="chat-cot-trigger [&[data-state=open]>svg]:rotate-180">
         <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform duration-200" />
         {t.chat.reasoning.label}
       </ChainOfThoughtPrimitive.AccordionTrigger>
       <ChainOfThoughtPrimitive.Parts
         components={{
           Layout: ({ children }) => (
-            <div className="px-3 pb-3 text-sm text-muted-foreground">
+            <div className="chat-cot-content">
               {children}
             </div>
           ),

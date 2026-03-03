@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tool UI for list_folders.
  * Tree-like list with folder name, unread count badge, total count.
  */
@@ -15,7 +15,7 @@ function FolderRow({ folder }: { folder: FolderItem }) {
       <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
       <span className="text-sm flex-1 truncate">{folder.name}</span>
       {folder.unreadCount > 0 && (
-        <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+        <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--color-info)/0.1)] text-[hsl(var(--color-info))]">
           {folder.unreadCount}
         </span>
       )}
@@ -32,7 +32,7 @@ export const FolderToolUI = makeAssistantToolUI<
   render: ({ result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 animate-pulse">
+        <div className="chat-tool-running-inline">
           <Folder className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Loading folders...</span>
         </div>
@@ -59,7 +59,7 @@ export const FolderToolUI = makeAssistantToolUI<
     }
     const folders = result.folders ?? [];
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="chat-tool-card">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Folders
@@ -79,3 +79,4 @@ export const FolderToolUI = makeAssistantToolUI<
     );
   },
 });
+

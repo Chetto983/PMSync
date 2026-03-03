@@ -15,32 +15,32 @@ export const FallbackToolUI = makeAssistantToolUI<unknown, unknown>({
     const isRunning = status.type === 'running';
 
     return (
-      <div className="rounded-lg border bg-card p-3 text-sm">
-        <div className="flex items-center gap-2 mb-1">
+      <div className="chat-tool-fallback text-sm">
+        <div className="chat-tool-fallback-header">
           {isRunning ? (
-            <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
           ) : (
             <Code className="h-3.5 w-3.5 text-muted-foreground" />
           )}
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="chat-tool-fallback-name">
             {toolName}
           </span>
-          {isRunning && (
-            <span className="text-xs text-muted-foreground animate-pulse">running...</span>
-          )}
+          <span className="chat-tool-fallback-status">
+            {isRunning ? 'Running' : 'Complete'}
+          </span>
         </div>
-        <details className="mt-1">
-          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none">
+        <details className="mt-2">
+          <summary className="chat-tool-fallback-summary">
             {isRunning ? 'Arguments' : 'Details'}
           </summary>
           <div className="mt-1 space-y-1">
             {args != null && (
-              <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto max-h-40">
+              <pre className="chat-tool-fallback-pre">
                 {JSON.stringify(args, null, 2)}
               </pre>
             )}
             {result != null && (
-              <pre className="text-xs bg-muted/50 rounded p-2 overflow-x-auto max-h-40">
+              <pre className="chat-tool-fallback-pre">
                 {JSON.stringify(result, null, 2)}
               </pre>
             )}

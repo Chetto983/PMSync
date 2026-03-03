@@ -9,9 +9,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
  */
 export function ChatBranchPicker() {
   return (
-    <BranchPickerPrimitive.Root className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+    <BranchPickerPrimitive.Root className="chat-branch-picker" hideWhenSingleBranch>
       <BranchPickerPrimitive.Previous
-        className="p-1 rounded-md hover:bg-muted hover:text-foreground transition-colors"
+        className="chat-branch-btn"
         aria-label="Previous branch"
       >
         <ChevronLeft className="h-3.5 w-3.5" />
@@ -20,7 +20,7 @@ export function ChatBranchPicker() {
         <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
       </span>
       <BranchPickerPrimitive.Next
-        className="p-1 rounded-md hover:bg-muted hover:text-foreground transition-colors"
+        className="chat-branch-btn"
         aria-label="Next branch"
       >
         <ChevronRight className="h-3.5 w-3.5" />

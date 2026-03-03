@@ -12,15 +12,15 @@ export function ChatActionBar() {
   const t = useTranslations();
 
   return (
-    <ActionBarPrimitive.Root className="inline-flex items-center gap-1">
+    <ActionBarPrimitive.Root className="chat-inline-actions">
       <ActionBarPrimitive.Copy
-        className="inline-flex size-7 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border/80 hover:bg-muted/75 hover:text-foreground"
+        className="chat-inline-action-btn"
         aria-label={t.chat.actions.copy}
       >
         <Copy className="h-3.5 w-3.5" />
       </ActionBarPrimitive.Copy>
       <ActionBarPrimitive.Reload
-        className="inline-flex size-7 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border/80 hover:bg-muted/75 hover:text-foreground"
+        className="chat-inline-action-btn"
         aria-label={t.chat.actions.reload}
       >
         <RefreshCw className="h-3.5 w-3.5" />

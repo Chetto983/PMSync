@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Layers, AlertTriangle, ShieldAlert, CheckCircle } from 'lucide-react';
@@ -6,9 +6,9 @@ import type { BulkActionResult } from '../types';
 import { HitlApprovalCardFromStatus } from '../HitlApprovalCard';
 
 const severityBadge: Record<string, string> = {
-  HIGH: 'bg-red-100 text-red-800',
-  MEDIUM: 'bg-amber-100 text-amber-800',
-  LOW: 'bg-gray-100 text-gray-700',
+  HIGH: 'bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]',
+  MEDIUM: 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]',
+  LOW: 'bg-muted text-muted-foreground',
 };
 
 export const TriageToolUI = makeAssistantToolUI<
@@ -34,7 +34,7 @@ export const TriageToolUI = makeAssistantToolUI<
 
     if (status.type === 'running') {
       return (
-        <div className="rounded-lg border bg-card p-3 animate-pulse">
+        <div className="chat-tool-running-card">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Layers className="h-4 w-4" />
             <span className="text-sm">Processing bulk action...</span>
@@ -55,11 +55,11 @@ export const TriageToolUI = makeAssistantToolUI<
     }
 
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm space-y-2">
+      <div className="chat-tool-card space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {result.success ? (
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4 text-[hsl(var(--color-success))]" />
             ) : (
               <Layers className="h-4 w-4 text-primary" />
             )}
@@ -90,7 +90,7 @@ export const TriageToolUI = makeAssistantToolUI<
 
         {/* Approval notice (poll-based HITL handles actual card via AssistantMessage) */}
         {result.requiresApproval && (
-          <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50/50 rounded-md p-2">
+          <div className="flex items-center gap-2 text-xs text-[hsl(var(--color-warning))] bg-[hsl(var(--color-warning)/0.05)] rounded-md p-2">
             <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
             <span>This action requires your approval before execution</span>
           </div>
@@ -99,3 +99,4 @@ export const TriageToolUI = makeAssistantToolUI<
     );
   },
 });
+

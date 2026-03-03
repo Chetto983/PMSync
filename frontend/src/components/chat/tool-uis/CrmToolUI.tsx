@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Users, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
@@ -7,7 +7,7 @@ import type { CrmResult, CrmContactStat } from '../types';
 function ContactStatCard({ contact }: { contact: CrmContactStat }) {
   const scorePercent = Math.min(Math.round(contact.relationshipScore), 100);
   const scoreColor =
-    scorePercent >= 70 ? 'bg-green-500' : scorePercent >= 40 ? 'bg-amber-500' : 'bg-red-500';
+    scorePercent >= 70 ? 'bg-[hsl(var(--color-success))]' : scorePercent >= 40 ? 'bg-[hsl(var(--color-warning))]' : 'bg-[hsl(var(--color-error))]';
 
   return (
     <div className="flex items-center gap-3 py-2">
@@ -44,7 +44,7 @@ export const CrmToolUI = makeAssistantToolUI<
   render: ({ status, result }) => {
     if (status.type === 'running') {
       return (
-        <div className="rounded-lg border bg-card p-3 animate-pulse">
+        <div className="chat-tool-running-card">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="h-4 w-4" />
             <span className="text-sm">Loading relationship data...</span>
@@ -65,7 +65,7 @@ export const CrmToolUI = makeAssistantToolUI<
     }
 
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="chat-tool-card">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
@@ -86,7 +86,7 @@ export const CrmToolUI = makeAssistantToolUI<
           ))}
         </div>
         {result.contacts.some((c) => c.staleDays != null && c.staleDays > 30) && (
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-amber-600">
+          <div className="flex items-center gap-1.5 mt-2 text-xs text-[hsl(var(--color-warning))]">
             <Clock className="h-3 w-3" />
             Some contacts may need re-engagement
           </div>
@@ -95,3 +95,4 @@ export const CrmToolUI = makeAssistantToolUI<
     );
   },
 });
+

@@ -14,23 +14,25 @@ import { UserMessage } from './UserMessage';
  */
 export function ChatThread() {
   return (
-    <ThreadPrimitive.Root className="flex flex-col h-full bg-background">
+    <ThreadPrimitive.Root className="chat-thread-root">
       {/* Scrollable message viewport */}
-      <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto scroll-smooth aui-thread-viewport">
-        <ThreadPrimitive.Empty>
-          <ChatEmptyState />
-        </ThreadPrimitive.Empty>
-        <div className="max-w-3xl mx-auto w-full px-4">
-          <ThreadPrimitive.Messages
-            components={{ UserMessage, AssistantMessage }}
-          />
+      <ThreadPrimitive.Viewport className="chat-thread-viewport aui-thread-viewport">
+        <div className="chat-thread-inner">
+          <ThreadPrimitive.Empty>
+            <ChatEmptyState />
+          </ThreadPrimitive.Empty>
+          <div className="chat-thread-messages">
+            <ThreadPrimitive.Messages
+              components={{ UserMessage, AssistantMessage }}
+            />
+          </div>
         </div>
       </ThreadPrimitive.Viewport>
 
       {/* Sticky footer: scroll-to-bottom + suggestions + composer */}
-      <ThreadPrimitive.ViewportFooter className="sticky bottom-0 bg-gradient-to-b from-transparent via-background/80 to-background pt-6">
-        <div className="max-w-3xl mx-auto w-full relative">
-          <ThreadPrimitive.ScrollToBottom className="absolute -top-4 left-1/2 -translate-x-1/2 inline-flex items-center justify-center size-8 rounded-full border border-border bg-card shadow-sm hover:bg-muted transition-colors z-10">
+      <ThreadPrimitive.ViewportFooter className="chat-thread-footer">
+        <div className="chat-thread-footer-inner">
+          <ThreadPrimitive.ScrollToBottom className="chat-scroll-bottom-btn">
             <ArrowDown className="h-4 w-4" />
           </ThreadPrimitive.ScrollToBottom>
           <ChatSuggestions />

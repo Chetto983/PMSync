@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import {
@@ -21,7 +21,7 @@ export const BriefingToolUI = makeAssistantToolUI<
   render: ({ status, result }) => {
     if (status.type === 'running') {
       return (
-        <div className="rounded-lg border bg-card p-3 animate-pulse">
+        <div className="chat-tool-running-card">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Sun className="h-4 w-4" />
             <span className="text-sm">Generating daily briefing...</span>
@@ -44,24 +44,24 @@ export const BriefingToolUI = makeAssistantToolUI<
     const { stats, summary, followUps, deadlines, actionItems, calendar } = result;
 
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm space-y-3">
+      <div className="chat-tool-card space-y-3">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <Sun className="h-4 w-4 text-amber-500" />
+          <Sun className="h-4 w-4 text-[hsl(var(--color-warning))]" />
           <span className="text-sm font-medium">Daily Briefing</span>
         </div>
 
         {/* Stats bar */}
         <div className="flex items-center gap-3 text-xs">
-          <span className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-md">
+          <span className="flex items-center gap-1 bg-[hsl(var(--color-info)/0.1)] text-[hsl(var(--color-info))] px-2 py-1 rounded-md">
             <Mail className="h-3 w-3" />
             {stats.totalUnread} unread
           </span>
-          <span className="flex items-center gap-1 bg-red-50 text-red-700 px-2 py-1 rounded-md">
+          <span className="flex items-center gap-1 bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))] px-2 py-1 rounded-md">
             <Star className="h-3 w-3" />
             {stats.highPriority} high priority
           </span>
-          <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-md">
+          <span className="flex items-center gap-1 bg-[hsl(var(--color-success)/0.1)] text-[hsl(var(--color-success))] px-2 py-1 rounded-md">
             <Mail className="h-3 w-3" />
             {stats.newToday} new
           </span>
@@ -88,7 +88,7 @@ export const BriefingToolUI = makeAssistantToolUI<
           <span>
             {followUps.message}
             {followUps.overdue > 0 && (
-              <span className="text-red-600 font-medium ml-1">
+              <span className="text-[hsl(var(--color-error))] font-medium ml-1">
                 ({followUps.overdue} overdue)
               </span>
             )}
@@ -99,7 +99,7 @@ export const BriefingToolUI = makeAssistantToolUI<
         {deadlines.count > 0 && (
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-medium">
-              <Clock className="h-3 w-3 text-amber-500" />
+              <Clock className="h-3 w-3 text-[hsl(var(--color-warning))]" />
               Deadlines ({deadlines.count})
             </div>
             {deadlines.items.map((d, i) => (
@@ -115,7 +115,7 @@ export const BriefingToolUI = makeAssistantToolUI<
         {actionItems.count > 0 && (
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-medium">
-              <CheckSquare className="h-3 w-3 text-green-600" />
+              <CheckSquare className="h-3 w-3 text-[hsl(var(--color-success))]" />
               Action Items ({actionItems.count})
             </div>
             {actionItems.items.map((a, i) => (
@@ -130,7 +130,7 @@ export const BriefingToolUI = makeAssistantToolUI<
         {/* Calendar */}
         {calendar.hasEvents && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3 text-blue-500" />
+            <Calendar className="h-3 w-3 text-[hsl(var(--color-info))]" />
             {calendar.message}
           </div>
         )}
@@ -138,3 +138,4 @@ export const BriefingToolUI = makeAssistantToolUI<
     );
   },
 });
+

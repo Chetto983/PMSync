@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tool UI for search_contacts.
  * Contact cards with name, company, job title, email.
  */
@@ -38,7 +38,7 @@ export const ContactToolUI = makeAssistantToolUI<
   render: ({ args, result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 animate-pulse">
+        <div className="chat-tool-running-inline">
           <User className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Searching contacts for "{args.query}"...</span>
         </div>
@@ -65,7 +65,7 @@ export const ContactToolUI = makeAssistantToolUI<
     }
     const contacts = result.data ?? [];
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="chat-tool-card">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Contacts
@@ -88,3 +88,4 @@ export const ContactToolUI = makeAssistantToolUI<
     );
   },
 });
+

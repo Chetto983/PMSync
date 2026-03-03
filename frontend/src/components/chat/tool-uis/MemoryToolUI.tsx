@@ -1,21 +1,21 @@
-'use client';
+﻿'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Brain, AlertTriangle, Tag } from 'lucide-react';
 import type { MemorySearchResult, MemoryItem } from '../types';
 
 const typeColor: Record<string, string> = {
-  FACT: 'bg-blue-100 text-blue-800',
-  PREFERENCE: 'bg-purple-100 text-purple-800',
-  CONTACT_NOTE: 'bg-green-100 text-green-800',
-  PATTERN: 'bg-amber-100 text-amber-800',
+  FACT: 'bg-[hsl(var(--color-info)/0.1)] text-[hsl(var(--color-info))]',
+  PREFERENCE: 'bg-secondary/10 text-secondary',
+  CONTACT_NOTE: 'bg-[hsl(var(--color-success)/0.1)] text-[hsl(var(--color-success))]',
+  PATTERN: 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]',
 };
 
 function MemoryCard({ memory }: { memory: MemoryItem }) {
   return (
     <div className="flex items-start gap-2 py-1.5">
       <span
-        className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${typeColor[memory.type] ?? 'bg-gray-100 text-gray-700'}`}
+        className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${typeColor[memory.type] ?? 'bg-muted text-muted-foreground'}`}
       >
         {memory.type}
       </span>
@@ -44,7 +44,7 @@ function MemoryRender({
 }) {
   if (status.type === 'running') {
     return (
-      <div className="rounded-lg border bg-card p-3 animate-pulse">
+      <div className="chat-tool-running-card">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Brain className="h-4 w-4" />
           <span className="text-sm">Searching memories...</span>
@@ -73,7 +73,7 @@ function MemoryRender({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm">
+    <div className="chat-tool-card">
       <div className="flex items-center gap-2 mb-2">
         <Brain className="h-4 w-4 text-primary" />
         <span className="text-sm font-medium">
@@ -104,3 +104,4 @@ export const MemorySearchToolUI = makeAssistantToolUI<
   toolName: 'memory_search',
   render: (props) => <MemoryRender status={props.status} result={props.result} />,
 });
+

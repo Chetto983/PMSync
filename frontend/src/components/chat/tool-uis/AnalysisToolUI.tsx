@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import {
@@ -11,17 +11,17 @@ import {
 import type { AnalysisResult } from '../types';
 
 const sentimentColor: Record<string, string> = {
-  positive: 'bg-green-100 text-green-800',
-  negative: 'bg-red-100 text-red-800',
-  neutral: 'bg-gray-100 text-gray-800',
-  mixed: 'bg-amber-100 text-amber-800',
+  positive: 'bg-[hsl(var(--color-success)/0.1)] text-[hsl(var(--color-success))]',
+  negative: 'bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]',
+  neutral: 'bg-muted text-muted-foreground',
+  mixed: 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]',
 };
 
 const urgencyColor: Record<string, string> = {
-  critical: 'bg-red-600 text-white',
-  high: 'bg-red-100 text-red-800',
-  medium: 'bg-amber-100 text-amber-800',
-  low: 'bg-gray-100 text-gray-700',
+  critical: 'bg-[hsl(var(--color-error))] text-white',
+  high: 'bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]',
+  medium: 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]',
+  low: 'bg-muted text-muted-foreground',
 };
 
 export const AnalysisToolUI = makeAssistantToolUI<
@@ -32,7 +32,7 @@ export const AnalysisToolUI = makeAssistantToolUI<
   render: ({ status, result }) => {
     if (status.type === 'running') {
       return (
-        <div className="rounded-lg border bg-card p-3 animate-pulse">
+        <div className="chat-tool-running-card">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Brain className="h-4 w-4" />
             <span className="text-sm">Analyzing email...</span>
@@ -66,7 +66,7 @@ export const AnalysisToolUI = makeAssistantToolUI<
     const { analysis, subject, from, summary } = result;
 
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm space-y-3">
+      <div className="chat-tool-card space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export const AnalysisToolUI = makeAssistantToolUI<
         {/* Footer: deadline + priority */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {analysis.deadline && (
-            <span className="flex items-center gap-1 text-amber-600">
+            <span className="flex items-center gap-1 text-[hsl(var(--color-warning))]">
               <Clock className="h-3 w-3" />
               Deadline: {analysis.deadline}
             </span>
@@ -133,3 +133,4 @@ export const AnalysisToolUI = makeAssistantToolUI<
     );
   },
 });
+

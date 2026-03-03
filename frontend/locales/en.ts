@@ -1691,11 +1691,11 @@ export const en: AppTranslations = {
     },
     genericCard: {
       title: 'IMAP & CalDAV',
-      description: 'Connect custom IMAP/SMTP and CalDAV providers',
+      description: 'Connect IMAP/SMTP and CalDAV servers',
       subtitle: 'Bring any compatible mailbox or calendar by entering your server credentials.',
-      feature1: 'IMAP/SMTP support for inbound/outbound email',
-      feature2: 'Optional CalDAV sync for calendars',
-      feature3: 'Perfect for Fastmail, Yahoo, iCloud, and custom servers',
+      feature1: 'IMAP/SMTP inbound & outbound email',
+      feature2: 'Optional CalDAV calendar sync',
+      feature3: 'Fastmail, Yahoo, iCloud & more',
       configureButton: 'Configure IMAP / CalDAV',
       dialogTitle: 'Connect IMAP/SMTP & CalDAV Provider',
       dialogSubtitle: 'Configure your email and calendar server settings',
@@ -3516,6 +3516,9 @@ export const en: AppTranslations = {
       capEmail: 'Search and manage emails',
       capCalendar: 'Check calendar and schedule',
       capContacts: 'Find and manage contacts',
+      capEmailPrompt: 'Show my unread emails from today',
+      capCalendarPrompt: 'What meetings do I have today?',
+      capContactsPrompt: 'Who are my most recent contacts?',
     },
     composer: {
       placeholder: 'Ask anything about your emails...',
@@ -3534,6 +3537,7 @@ export const en: AppTranslations = {
       title: 'Conversations',
       newChat: 'New chat',
       deleteConfirm: 'Delete this conversation?',
+      noConversations: 'No conversations yet',
     },
     hitl: {
       approveLabel: 'Approve',

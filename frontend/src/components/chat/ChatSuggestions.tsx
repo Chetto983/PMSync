@@ -10,7 +10,7 @@ import {
  */
 function SuggestionItem() {
   return (
-    <SuggestionPrimitive.Trigger className="inline-flex items-center rounded-full border border-border/60 bg-card px-3.5 py-1.5 text-xs font-medium text-foreground shadow-xs hover:border-primary/40 hover:bg-primary/[0.03] transition-all cursor-pointer">
+    <SuggestionPrimitive.Trigger className="chat-suggestion-chip">
       <SuggestionPrimitive.Title />
     </SuggestionPrimitive.Trigger>
   );
@@ -21,7 +21,7 @@ function SuggestionItem() {
  */
 export function ChatSuggestions() {
   return (
-    <div className="flex flex-wrap gap-2 px-4 pb-2">
+    <div className="chat-suggestions-row">
       <ThreadPrimitive.Suggestions
         components={{ Suggestion: SuggestionItem }}
       />

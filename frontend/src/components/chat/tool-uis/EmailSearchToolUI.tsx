@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tool UIs for search_emails, list_emails, and semantic_search_emails.
  * All three share the same result shape (EmailSearchResult) and visual layout.
  */
@@ -20,17 +20,17 @@ function sentimentDot(sentiment: string | null) {
   if (!sentiment) return null;
   const color =
     sentiment === 'positive'
-      ? 'bg-green-500'
+      ? 'bg-[hsl(var(--color-success))]'
       : sentiment === 'negative'
-        ? 'bg-red-500'
-        : 'bg-yellow-500';
+        ? 'bg-[hsl(var(--color-error))]'
+        : 'bg-[hsl(var(--color-warning))]';
   return <span className={`inline-block w-2 h-2 rounded-full ${color}`} title={sentiment} />;
 }
 
 function priorityBadge(priority: number | null) {
   if (priority == null || priority < 7) return null;
   return (
-    <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+    <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]">
       P{priority}
     </span>
   );
@@ -45,7 +45,7 @@ function EmailRow({ item }: { item: EmailSearchItem }) {
           <span className={`text-sm truncate ${item.isRead === false ? 'font-semibold' : ''}`}>
             {item.from}
           </span>
-          {item.isStarred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 shrink-0" />}
+          {item.isStarred && <Star className="h-3 w-3 text-[hsl(var(--color-warning))] fill-[hsl(var(--color-warning))] shrink-0" />}
           {priorityBadge(item.aiPriority)}
           {sentimentDot(item.aiSentiment)}
           <span className="text-xs text-muted-foreground ml-auto shrink-0">
@@ -60,7 +60,7 @@ function EmailRow({ item }: { item: EmailSearchItem }) {
 
 function RunningState({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 animate-pulse">
+    <div className="chat-tool-running-inline">
       <Search className="h-4 w-4 text-muted-foreground" />
       <span className="text-sm text-muted-foreground">{label}</span>
     </div>
@@ -82,7 +82,7 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
   }
   const items = result.data ?? [];
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm">
+    <div className="chat-tool-card">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           {label}
@@ -143,3 +143,4 @@ export const SemanticSearchToolUI = makeAssistantToolUI<
     return <ResultCard result={result} label="Semantic Search" />;
   },
 });
+

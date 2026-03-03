@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tool UI for get_events.
  * Event list with title, time, location, all-day badge.
  */
@@ -23,12 +23,12 @@ function formatTime(item: EventItem): string {
 function EventRow({ event }: { event: EventItem }) {
   return (
     <div className="flex items-start gap-2.5 py-2 px-2 rounded hover:bg-muted/30 transition-colors">
-      <Calendar className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
+      <Calendar className="h-3.5 w-3.5 text-[hsl(var(--color-calendar))] mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium truncate">{event.title}</p>
           {event.isAllDay && (
-            <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+            <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[hsl(var(--color-calendar)/0.1)] text-[hsl(var(--color-calendar))]">
               All day
             </span>
           )}
@@ -53,7 +53,7 @@ export const EventToolUI = makeAssistantToolUI<
   render: ({ result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 animate-pulse">
+        <div className="chat-tool-running-inline">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Loading events...</span>
         </div>
@@ -80,7 +80,7 @@ export const EventToolUI = makeAssistantToolUI<
     }
     const events = result.data ?? [];
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="chat-tool-card">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Events
@@ -103,3 +103,4 @@ export const EventToolUI = makeAssistantToolUI<
     );
   },
 });
+

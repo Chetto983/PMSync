@@ -1680,11 +1680,11 @@ export const it: AppTranslations = {
     },
     genericCard: {
       title: 'IMAP e CalDAV',
-      description: 'Collega provider IMAP/SMTP e CalDAV personalizzati',
+      description: 'Collega server IMAP/SMTP e CalDAV',
       subtitle: 'Aggiungi qualsiasi casella di posta o calendario compatibile inserendo le tue credenziali server.',
-      feature1: 'Supporto IMAP/SMTP per email in entrata/uscita',
-      feature2: 'Sincronizzazione CalDAV opzionale per calendari',
-      feature3: 'Perfetto per Fastmail, Yahoo, iCloud e server personalizzati',
+      feature1: 'Email IMAP/SMTP in entrata e uscita',
+      feature2: 'Sincronizzazione CalDAV opzionale',
+      feature3: 'Fastmail, Yahoo, iCloud e altri',
       configureButton: 'Configura IMAP / CalDAV',
       dialogTitle: 'Collega provider IMAP/SMTP e CalDAV',
       dialogSubtitle: 'Configura le impostazioni del tuo server email e calendario',
@@ -3493,6 +3493,9 @@ export const it: AppTranslations = {
       capEmail: 'Cerca e gestisci le email',
       capCalendar: 'Controlla calendario e impegni',
       capContacts: 'Trova e gestisci i contatti',
+      capEmailPrompt: 'Mostrami le email non lette di oggi',
+      capCalendarPrompt: 'Quali riunioni ho oggi?',
+      capContactsPrompt: 'Chi sono i miei contatti più recenti?',
     },
     composer: {
       placeholder: 'Chiedi qualsiasi cosa sulle tue email...',
@@ -3511,6 +3514,7 @@ export const it: AppTranslations = {
       title: 'Conversazioni',
       newChat: 'Nuova chat',
       deleteConfirm: 'Eliminare questa conversazione?',
+      noConversations: 'Nessuna conversazione',
     },
     hitl: {
       approveLabel: 'Approva',

@@ -3357,6 +3357,9 @@ export interface AppTranslations {
       capEmail?: string;
       capCalendar?: string;
       capContacts?: string;
+      capEmailPrompt?: string;
+      capCalendarPrompt?: string;
+      capContactsPrompt?: string;
     };
     composer: {
       placeholder: string;
@@ -3375,6 +3378,7 @@ export interface AppTranslations {
       title: string;
       newChat: string;
       deleteConfirm: string;
+      noConversations?: string;
     };
     hitl: {
       approveLabel: string;

@@ -9,13 +9,13 @@ import { ChatThread } from './ChatThread';
  */
 export function ChatDesktopLayout() {
   return (
-    <div className="hidden md:flex h-full">
+    <div className="chat-desktop-layout h-full">
       {/* Conversation sidebar */}
-      <aside className="w-[300px] shrink-0 border-r border-border/50 bg-muted/30">
+      <aside className="chat-desktop-sidebar">
         <ChatThreadList />
       </aside>
       {/* Main thread area */}
-      <section className="min-w-0 flex-1">
+      <section className="chat-desktop-thread">
         <ChatThread />
       </section>
     </div>

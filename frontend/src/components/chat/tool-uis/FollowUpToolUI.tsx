@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tool UI for list_follow_ups.
  * Shows follow-ups with status badge, due date, reason, email subject.
  */
@@ -9,11 +9,11 @@ import type { FollowUpResult, FollowUpItem } from '../types';
 function statusColor(s: string): string {
   switch (s) {
     case 'pending':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      return 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]';
     case 'overdue':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+      return 'bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]';
     case 'completed':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      return 'bg-[hsl(var(--color-success)/0.1)] text-[hsl(var(--color-success))]';
     default:
       return 'bg-muted text-muted-foreground';
   }
@@ -53,7 +53,7 @@ export const FollowUpToolUI = makeAssistantToolUI<
   render: ({ result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 animate-pulse">
+        <div className="chat-tool-running-inline">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Loading follow-ups...</span>
         </div>
@@ -80,7 +80,7 @@ export const FollowUpToolUI = makeAssistantToolUI<
     }
     const items = result.followUps ?? [];
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="chat-tool-card">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Follow-ups
@@ -102,3 +102,4 @@ export const FollowUpToolUI = makeAssistantToolUI<
     );
   },
 });
+

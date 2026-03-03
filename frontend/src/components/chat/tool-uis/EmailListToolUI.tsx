@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tool UI for list_email_index.
  * Compact table with idx, from, subject, date, unread indicator.
  */
@@ -23,7 +23,7 @@ export const EmailListToolUI = makeAssistantToolUI<
   render: ({ args, result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 animate-pulse">
+        <div className="chat-tool-running-inline">
           <List className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Loading email index...</span>
         </div>
@@ -50,7 +50,7 @@ export const EmailListToolUI = makeAssistantToolUI<
     }
     const items = result.index ?? [];
     return (
-      <div className="rounded-lg border bg-card p-3 shadow-sm">
+      <div className="chat-tool-card">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Email Index{args.folder ? ` - ${args.folder}` : ''}
@@ -95,3 +95,4 @@ export const EmailListToolUI = makeAssistantToolUI<
     );
   },
 });
+

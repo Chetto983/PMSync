@@ -11,6 +11,7 @@ import { useAiActions } from '@/hooks/ai/use-ai-actions';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MarkdownText = MarkdownTextPrimitive as any;
+const MarkdownWithStreaming = (props: object) => <MarkdownText {...props} className="aui-md" />;
 
 /**
  * HITL: poll-based pending actions.
@@ -42,21 +43,21 @@ function HitlPendingActions() {
  */
 export function AssistantMessage() {
   return (
-    <MessagePrimitive.Root className="flex gap-3 py-5 group border-t first:border-t-0 border-border/30">
-      <div className="size-7 rounded-lg bg-primary flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+    <MessagePrimitive.Root className="chat-message-row chat-message-assistant group">
+      <div className="chat-message-avatar">
         <Bot className="h-4 w-4 text-primary-foreground" />
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm leading-relaxed text-foreground prose prose-sm max-w-none">
+      <div className="chat-message-main">
+        <div className="chat-assistant-bubble">
           <MessagePrimitive.Content
             components={{
-              Text: MarkdownText,
+              Text: MarkdownWithStreaming,
               ChainOfThought: ChatChainOfThought,
             }}
           />
         </div>
         <HitlPendingActions />
-        <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="chat-message-actions">
           <ChatActionBar />
           <ChatBranchPicker />
         </div>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tool UI for get_email_content.
  * Renders email card(s) with from, to, subject, date, content preview, attachment badges.
  */
@@ -23,7 +23,7 @@ function truncate(text: string, max: number): string {
 
 function EmailCard({ email }: { email: EmailContentItem }) {
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm">
+    <div className="chat-tool-card">
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -66,7 +66,7 @@ export const EmailContentToolUI = makeAssistantToolUI<
   render: ({ result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 animate-pulse">
+        <div className="chat-tool-running-inline">
           <Mail className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Loading email content...</span>
         </div>
@@ -104,3 +104,4 @@ export const EmailContentToolUI = makeAssistantToolUI<
     );
   },
 });
+
