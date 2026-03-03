@@ -237,6 +237,18 @@ export default function ComposeDialog({
   const quotedContent = mode !== 'new' && originalEmail?.bodyHtml ? originalEmail.bodyHtml : '';
   const quoteHeader = getQuoteHeader(originalEmail, mode);
 
+  // Thread context for AI compose — strip HTML to plain text
+  const threadContext = useMemo(() => {
+    if (!originalEmail?.bodyHtml && !originalEmail?.subject) return undefined;
+    let plainBody = originalEmail?.bodyHtml || '';
+    if (typeof document !== 'undefined' && plainBody) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = plainBody;
+      plainBody = tmp.textContent || tmp.innerText || '';
+    }
+    return [{ subject: originalEmail?.subject, body: plainBody }];
+  }, [originalEmail?.bodyHtml, originalEmail?.subject]);
+
   // Error/success state
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -861,6 +873,7 @@ export default function ComposeDialog({
               onAttach={handleAttachFromToolbar}
               recipients={to.map((r) => r.email)}
               subject={subject}
+              threadContext={threadContext}
               focusEnd={!!aiDraftOriginal && !userHasEdited}
             />
           </Box>

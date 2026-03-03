@@ -355,6 +355,7 @@ export const aiApi = {
     locale?: string;
     senderName?: string;
     signature?: string;
+    threadContext?: Array<{ subject?: string; body?: string }>;
   }) {
     return apiClient.post<{ success: boolean; body: string; subject?: string }>(
       '/ai/compose',

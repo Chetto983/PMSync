@@ -128,7 +128,7 @@ apiClient.interceptors.request.use(async (config) => {
 // Handle token expiration and CSRF errors
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         useAuthStore.getState().logout();
@@ -136,9 +136,15 @@ apiClient.interceptors.response.use(
         // This preserves the 'next' parameter for OAuth callbacks
       }
     }
-    // Clear CSRF token on 403 (might be expired/invalid) (SEC-04)
-    if (error.response?.status === 403) {
+    // Auto-retry once on CSRF 403: clear stale token, refetch, replay request (SEC-04)
+    if (error.response?.status === 403 && !error.config._csrfRetried) {
       clearCsrfToken();
+      error.config._csrfRetried = true;
+      const freshToken = await getCsrfToken();
+      if (freshToken) {
+        error.config.headers['X-CSRF-Token'] = freshToken;
+      }
+      return apiClient.request(error.config);
     }
     return Promise.reject(error);
   },

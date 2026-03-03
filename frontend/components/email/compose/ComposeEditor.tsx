@@ -57,6 +57,8 @@ export type ComposeEditorProps = {
   onAttach?: () => void;
   recipients?: string[];
   subject?: string;
+  /** Thread context for AI compose (original email being replied to) */
+  threadContext?: Array<{ subject?: string; body?: string }>;
   /** When true, focus cursor at end of editor content (used after AI draft population) */
   focusEnd?: boolean;
 };
@@ -71,6 +73,7 @@ export default function ComposeEditor({
   onAttach,
   recipients = [],
   subject = '',
+  threadContext,
   focusEnd,
 }: ComposeEditorProps) {
   const t = useTranslations();
@@ -266,7 +269,7 @@ export default function ComposeEditor({
         tone,
         locale: locale || 'en',
         senderName,
-        // DEBT: signature from user settings once editor implemented (tracked in BUG-038)
+        threadContext,
       });
 
       if (response.data.success && response.data.body) {
@@ -290,7 +293,7 @@ export default function ComposeEditor({
     } finally {
       setAiIsLoading(false);
     }
-  }, [selectedText, isModifyMode, recipients, subject, locale, senderName, handleCloseAiMenu, composer, aiProfile]);
+  }, [selectedText, isModifyMode, recipients, subject, locale, senderName, threadContext, handleCloseAiMenu, composer, aiProfile]);
 
   // Close AI Result Panel
   const handleCloseAiPanel = useCallback(() => {

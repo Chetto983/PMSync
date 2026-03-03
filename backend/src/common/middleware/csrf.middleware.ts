@@ -36,7 +36,7 @@ const {
     sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 24, // 24 hours
+    maxAge: 60 * 60 * 24 * 1000, // 24 hours in ms
   },
   getCsrfTokenFromRequest: (req: Request) => req.headers['x-csrf-token'] as string,
 });
