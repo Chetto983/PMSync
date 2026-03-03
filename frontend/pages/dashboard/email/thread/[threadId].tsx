@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { EmailLayout } from '@/components/email';
-import { ThreadView, EmailChatFab, EmailChatPanel } from '@/components/email/thread';
+import { ThreadView } from '@/components/email/thread';
 import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
 import { LabelPickerDialog } from '@/components/email/labels/LabelPickerDialog';
 import type { ThreadMessageData } from '@/components/email/thread';
@@ -65,9 +65,6 @@ export default function ThreadDetailPage() {
   // Dialog state
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
-  // AI chat panel state (06-02)
-  const [chatOpen, setChatOpen] = useState(false);
-
   // Fetch thread emails
   const { data: emails, isLoading, error, refetch } = useEmailThread(threadId);
 
@@ -98,11 +95,6 @@ export default function ThreadDetailPage() {
   // Get providerId from thread (all emails in a thread belong to same provider)
   const providerId = useMemo(() => {
     return emails?.[0]?.providerId;
-  }, [emails]);
-
-  // Get first email's sender for AI chat context (06-02)
-  const senderEmail = useMemo(() => {
-    return emails?.[0]?.from || '';
   }, [emails]);
 
   // Navigate back to email list
@@ -386,21 +378,6 @@ export default function ThreadDetailPage() {
             emailIds={emailIds}
           />
 
-          {/* AI Chat Overlay (06-02) */}
-          <EmailChatFab
-            isOpen={chatOpen}
-            onClick={() => setChatOpen((prev) => !prev)}
-            disabled={!threadId || isLoading}
-          />
-
-          <EmailChatPanel
-            open={chatOpen}
-            onClose={() => setChatOpen(false)}
-            emailId={emails?.[0]?.id || ''}
-            emailSubject={subject}
-            emailFrom={senderEmail}
-            threadId={typeof threadId === 'string' ? threadId : ''}
-          />
         </EmailLayout>
       </Layout>
     </PageErrorBoundary>

@@ -13,9 +13,5 @@ export { CollapsedMessage } from './CollapsedMessage';
 export { ExpandedMessage } from './ExpandedMessage';
 export { EmailHtmlContent } from './EmailHtmlContent';
 
-// AI Chat components (06-02)
-export { EmailChatFab } from './EmailChatFab';
-export { EmailChatPanel } from './EmailChatPanel';
-
 // Legacy exports - DEPRECATED - Remove by 2026-06-01: Use ThreadViewOutlook instead
 // export { ThreadMessage } from './ThreadMessage';
