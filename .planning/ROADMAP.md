@@ -65,11 +65,11 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. E2E mobile viewport tests pass in CI -- Playwright chat tests run at 375px breakpoint without skips
   4. `@nestjs/event-emitter` installed and `EventEmitterModule.forRoot()` registered in AppModule -- app boots without errors
   5. `dependency-cruiser` installed in warn-only mode with baseline config -- `npx depcruise --validate` runs and reports current violations without blocking
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 -- parallel)
 
 Plans:
-- [ ] 31-01: Phase 28 gap closure (chat 403, dead polling, E2E mobile)
-- [ ] 31-02: Foundation infrastructure installation (event-emitter, dependency-cruiser, domain event types, interface contracts, AiRunLedger schema)
+- [ ] 31-01-PLAN.md -- Phase 28 gap closure: fix chat 403 auth error, remove dead action-counts polling, create dedicated mobile E2E test suite at 375px
+- [ ] 31-02-PLAN.md -- Foundation infrastructure: install EventEmitterModule, dependency-cruiser baseline, domain event types, interface contracts, AiRunLedger Prisma schema
 
 ### Phase 32: Architecture Decoupling
 **Goal**: Circular dependencies reduced from 17 forwardRef edges to 5 or fewer, with typed domain events wired and module boundary rules enforced in CI
