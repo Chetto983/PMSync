@@ -149,12 +149,12 @@ Plans:
   4. Bundle analysis performed and documented: main JS chunks sized, largest offenders identified, tree-shaking verified for ai-elements removal
   5. Playwright E2E test suite covers: full chat flow (send message -> tool execution -> HITL approval -> response), daily briefing widget, and mobile viewport
   6. `npm run type-check` and `npm run lint` pass with zero errors after all deletions
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 28-01: VoltAgent deletion (packages, old controllers, tool factories, merged services)
-- [ ] 28-02: Frontend cleanup (old ai-elements, dead components, orphan removal)
-- [ ] 28-03: Bundle analysis and Playwright E2E test suite
+- [ ] 28-01-PLAN.md -- Type inlining + ai-elements/AiDashboard deletion + old hooks + cross-reference cleanup (wave 1)
+- [ ] 28-02-PLAN.md -- Voltagent reference cleanup in E2E/swagger + bundle analysis (wave 2)
+- [ ] 28-03-PLAN.md -- Playwright E2E test suite for chat frontend (wave 2)
 
 ### Phase 29: Architecture Hardening
 **Goal**: Clean modular monolith with explicit interface contracts, validated memory efficiency, and lazy-loadable AI module
