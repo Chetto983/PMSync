@@ -1,5 +1,34 @@
 # Project Milestones: MailAgent
 
+## v3.2 AI Rebuild & Cleanup (Shipped: 2026-03-03, partial)
+
+**Delivered:** Complete AI layer rebuild — dropped VoltAgent framework (167 files, 33K LOC), rewrote AI backend on raw AI SDK v6, rebuilt chat frontend with assistant-ui, added comprehensive E2E testing. Phases 29-30 (module boundaries, performance, encrypted search) carried forward to v4.0.
+
+**Phases completed:** 23-28 (20 plans total)
+
+**Key accomplishments:**
+
+- Dropped `@voltagent/core` entirely, consolidated all LLM calls to `@ai-sdk/mistral`
+- New AiChatService with streamText, conversation persistence via Prisma, HITL approval
+- ~20 tools as @Injectable ToolsService classes with intent-based routing
+- Non-chat AI (briefing, follow-ups, drafts) via generateText + Output.object()
+- Hybrid RAG preserved (vector + keyword with RRF fusion)
+- assistant-ui chat frontend with tool renderers, HITL inline, mobile layout
+- 167 VoltAgent files deleted (33K LOC removed)
+- Playwright E2E for chat frontend
+
+**Stats:**
+
+- 6 phases, 20 plans
+- 227min total execution time, 11min average per plan
+- 25/33 requirements satisfied (8 carried forward to v4.0)
+
+**Git tag:** —
+
+**Notes:** Phases 29-30 (architecture hardening, performance & debt) carried forward to v4.0 Enterprise Stabilization as ARCH-01/02/03 and PERF-01/02. Phase 28 gap closure (chat 403, dead polling, E2E mobile) also carried forward.
+
+---
+
 ## v3.1 GDPR Compliance & Chatbot Enhancement (Shipped: 2026-02-27)
 
 **Delivered:** Full GDPR data privacy compliance (PII tokenization, database encryption at rest, consent management, audit logging, data rights, legal acceptance) plus enhanced AI chatbot with rich artifacts, AI triage, and writing-style-aware draft generation.
@@ -141,4 +170,4 @@
 
 ---
 
-*Milestones log updated: 2026-02-27*
+*Milestones log updated: 2026-03-03*
