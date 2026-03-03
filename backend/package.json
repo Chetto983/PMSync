@@ -131,6 +131,7 @@
     "@types/sentiment": "^5.0.4",
     "@types/supertest": "^6.0.3",
     "chalk": "^5.6.2",
+    "dependency-cruiser": "^17.3.8",
     "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
