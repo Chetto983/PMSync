@@ -1,65 +1,39 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.2
-milestone_name: AI Rebuild & Cleanup
-status: unknown
-last_updated: "2026-03-03T09:43:29.966Z"
+milestone: v4.0
+milestone_name: Enterprise Stabilization
+status: defining_requirements
+last_updated: "2026-03-03T12:00:00.000Z"
 progress:
-  total_phases: 16
-  completed_phases: 14
-  total_plans: 53
-  completed_plans: 52
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-27)
+See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 28 - Cleanup & VoltAgent Deletion
+**Current focus:** Defining v4.0 requirements
 
 ## Current Position
 
-Phase: 28 of 30 (Cleanup & VoltAgent Deletion)
-Plan: 3 of 3 complete in current phase
-Status: Phase 28 Complete
-Last activity: 2026-03-03 -- Completed 28-03-PLAN.md (Playwright E2E tests for AI chat)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-03 — Milestone v4.0 started
 
-Progress: [########░░] 83% (20/24 plans)
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20 (v3.2)
-- Average duration: 11min
-- Total execution time: 227min
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 23-01 | 1 | 17min | 17min |
-| 23-02 | 1 | 18min | 18min |
-| 23-03 | 1 | 7min | 7min |
-| 24-01 | 1 | 11min | 11min |
-| 24-02 | 1 | 13min | 13min |
-| 24-03 | 1 | 7min | 7min |
-| 25-01 | 1 | 12min | 12min |
-| 25-02 | 1 | 5min | 5min |
-| 25-03 | 1 | 5min | 5min |
-| 25-04 | 1 | 7min | 7min |
-| Phase 26 P01 | 10min | 2 tasks | 6 files |
-| Phase 26 P02 | 8min | 2 tasks | 8 files |
-| Phase 26 P03 | 9min | 2 tasks | 10 files |
-| Phase 27 P01 | 24min | 2 tasks | 16 files |
-| Phase 27 P02 | 8min | 1 task | 9 files |
-| Phase 27 P03 | 11min | 2 tasks | 9 files |
-| Phase 27 P04 | 45min | 2 tasks | 40+ files |
-| Phase 28 P01 | 8min | 2 tasks | 108 files |
-| Phase 28 P03 | 13min | 1 task | 1 file |
-| Phase 28 P02 | 13min | 2 tasks | 10 files |
+- Total plans completed: 0 (v4.0)
+- Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 ## Accumulated Context
 
@@ -151,12 +125,14 @@ None yet.
 
 ### Blockers/Concerns
 
-- LCP/TTI at 4.1s (deferred from v2.1, target <2.5s/<3.5s in Phase 30)
-- ENC-03 hash indexes deferred from v3.1 (17+ query sites, Phase 30)
+- LCP/TTI at 4.1s (deferred since v2.1, target <2.5s/<3.5s)
+- ENC-03 hash indexes deferred since v3.1 (17+ query sites)
+- 15 circular dependencies identified in Enterprise Platform PRD audit
+- Enterprise readiness score: 58/100 (PRD baseline)
 
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 28-03-PLAN.md (Phase 28 complete)
-Resume file: .planning/phases/28-cleanup-voltagent-deletion/28-03-SUMMARY.md
-Next action: Execute Phase 29
+Stopped at: v4.0 milestone initialization
+Resume file: —
+Next action: Define v4.0 requirements and create roadmap

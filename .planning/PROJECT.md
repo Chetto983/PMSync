@@ -2,60 +2,52 @@
 
 ## What This Is
 
-A comprehensive email sync and AI-powered productivity platform. After v1 backend refactoring, v2 builds the professional email client frontend with performance optimizations and security hardening.
+A professional AI-powered email and productivity platform evolving toward enterprise CRM capabilities. Backend built on NestJS/Prisma/BullMQ, frontend on Next.js/React/assistant-ui. AI layer rebuilt on raw AI SDK v6 with tool orchestration, HITL, and hybrid RAG. Currently at 58/100 enterprise readiness per full-stack audit — v4.0 targets stabilization and debt reduction to establish enterprise foundations.
 
 ## Core Value
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v3.2 AI Rebuild & Cleanup
+## Current Milestone: v4.0 Enterprise Stabilization
 
-**Goal:** Full rebuild of the AI layer — drop VoltAgent framework, simplify to raw AI SDK v6, consolidate services/tools, redesign AI chat frontend, add proper testing, fix accumulated debt.
+**Goal:** Stabilize architecture for enterprise readiness — break circular dependencies, standardize API contracts, harden auth, fix performance debt, and formalize module boundaries. Based on Enterprise Platform PRD Phase 1 (Stabilization & Debt Reduction) plus v3.2 carry-forward items.
 
 **Target features:**
 
-**AI Backend Rebuild:**
-- Drop `@voltagent/core` dependency, replace with raw AI SDK v6 `streamText` + `tool()`
-- Collapse 45+ VoltAgent services to ~20 (merge follow-ups 5→1, flatten chat pipeline 3→1)
-- Move domain services out of voltagent (calendar, CRM, writing-style → their own modules)
-- Reduce 65+ tools to ~30 (merge overlapping, remove low-value)
-- Use `generateObject()` for non-chat AI (briefing, follow-up generation) instead of agent loops
-- Kill `AgentPoolService`, `@voltagent/core` wrappers, tool factory overhead
+**Architecture Stabilization (from PRD Phase 1):**
+- Break top circular dependencies (15 → ≤5) and formalize domain boundaries
+- Standardize API response/error contracts and enforce version policy
+- Remove silent frontend API fallbacks that hide backend contract drift
+- Migrate frontend token handling off localStorage to secure httpOnly cookies
 
-**AI Chat Frontend Redesign:**
-- Rebuild AI chat UI from scratch (current UX is poor)
-- Modern chat patterns (Shortwave/ChatGPT-inspired)
-- Better artifact rendering and interaction
-- Responsive mobile chat experience
+**Module Boundaries (v3.2 carry-forward):**
+- Module boundary enforcement with explicit interface contracts
+- AI module decoupled via service contracts (not direct imports)
+- Memory profiling under simulated load (no unbounded growth)
+- Lazy-loadable AI module (startup time improvement)
 
-**Frontend Cleanup:**
-- Remove dead components and unused code
-- Reduce bundle size
-- Simplify component hierarchy
+**Performance & Debt (v3.2 carry-forward):**
+- LCP <2.5s / TTI <3.5s (currently 4.1s)
+- ENC-03: Hash-based search indexes on encrypted fields (17+ query sites)
+- 7 deferred bugs from v3.1 audit (RC-A1/A8 race conditions, BUG-REPORT items)
+- Phase 28 gap closure: chat 403, dead polling cleanup, E2E mobile tests
 
-**Testing Overhaul:**
-- Proper integration tests for AI layer
-- Tool execution tests (input → output validation)
-- Chat pipeline end-to-end tests
+**Enterprise Prep (PRD immediate recommendations):**
+- Define enterprise authorization model (permission taxonomy + policy service contract)
+- Stand up AI Run Ledger schema and telemetry contract (explainability foundation)
 
-**Bug & Performance Debt:**
-- LCP <2.5s / TTI <3.5s (currently 4.1s/4.1s)
-- ENC-03: Hash-based search on encrypted fields
-- Fix deferred bugs from v3.1 audit (7 deferred items)
-- RC-A1/A8 remaining race conditions
-
-**Previous:** v3.1 GDPR Compliance & Chatbot Enhancement shipped 2026-02-27 with 31/32 requirements satisfied.
+**Previous:** v3.2 AI Rebuild & Cleanup shipped 2026-03-03 (partial — 20/25 plans, phases 23-28 core complete).
 
 ## Current State
 
-**Version:** v3.1 shipped
-**Status:** Starting v3.2 AI Rebuild & Cleanup
-**Base:** v3.1 shipped (2026-02-27)
+**Version:** v3.2 shipped (partial)
+**Status:** Starting v4.0 Enterprise Stabilization
+**Base:** v3.2 shipped (2026-03-03)
 
 **Tech Stack:**
-- Backend: NestJS, PostgreSQL, Redis, BullMQ
-- Frontend: Next.js, React, TanStack Query, shadcn/ui, Tailwind CSS
-- AI: Mistral, pgvector embeddings, VoltAgent → **migrating to raw AI SDK v6**
+- Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
+- Frontend: Next.js 16, React 19, TanStack Query, shadcn/ui, Tailwind CSS
+- AI: Mistral via AI SDK v6 (streamText + tool()), assistant-ui chat frontend
 - Editor: TipTap for rich email compose
 - Virtualization: VList for 1000+ email performance
 
@@ -107,6 +99,17 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 - ✓ Calendar and contacts integration
 - ✓ CRM features with relationship scoring
 
+**v3.2 - AI Rebuild & Cleanup (shipped 2026-03-03, partial):**
+- ✓ VoltAgent dropped, AI layer rebuilt on raw AI SDK v6 streamText + tool()
+- ✓ AiChatService with conversation persistence, HITL, PII tokenization, rate limiting
+- ✓ ~20 tools as @Injectable ToolsService classes with intent routing
+- ✓ Hybrid RAG preserved (vector + keyword with RRF fusion)
+- ✓ Non-chat AI (briefing, follow-ups, drafts) via generateText + Output.object()
+- ✓ assistant-ui chat frontend with tool renderers and HITL inline
+- ✓ Old VoltAgent code deleted (167 files, 33K LOC)
+- ✓ Playwright E2E for chat frontend
+- ⚠️ Module boundaries, performance, ENC-03, deferred bugs carried to v4.0
+
 **v3.1 - GDPR Compliance & Chatbot Enhancement (shipped 2026-02-27):**
 - ✓ PII-01/02/03/04: PII tokenization for AI calls
 - ✓ ENC-01/02/04/05: Database encryption at rest, per-tenant HKDF, migration, key rotation
@@ -121,35 +124,34 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 
 ### Active
 
-<!-- v3.2 AI Rebuild & Cleanup -->
+<!-- v4.0 Enterprise Stabilization -->
 
-**AI Backend Rebuild:**
-- [x] Drop `@voltagent/core`, migrate to AI SDK v6 `streamText` + `tool()` (Phase 23-24)
-- [x] Define ~20 tools as @Injectable ToolsService classes with intent routing (Phase 25)
-- [x] Preserve hybrid search + embedding pipeline with triage data exposure (Phase 25)
-- [ ] Consolidate remaining 45+ services to ~20
-- [ ] Reduce 65+ tools to ~30
-- [ ] Move domain services to proper modules
-- [ ] Use `generateObject()` for non-chat AI features
+**Architecture Stabilization:**
+- [ ] Break circular dependencies (15 → ≤5)
+- [ ] Formalize domain boundaries with event contracts + interfaces
+- [ ] Standardize API response/error contracts globally
+- [ ] Enforce API versioning policy across all controllers
+- [ ] Remove silent frontend API fallbacks
 
-**AI Chat Frontend Redesign:**
-- [ ] Rebuild AI chat UI (modern patterns, better UX)
-- [ ] Improved artifact rendering and interaction
-- [ ] Responsive mobile chat
+**Auth & Security Hardening:**
+- [ ] Migrate frontend auth off localStorage to httpOnly cookies
+- [ ] Standardize all encryption to AES-GCM with rotation policy
 
-**Frontend Cleanup:**
-- [ ] Remove dead components and unused code
-- [ ] Reduce bundle size
+**Module Boundaries (v3.2 carry-forward):**
+- [ ] Module boundary enforcement with explicit interface contracts
+- [ ] AI module decoupled via service contracts
+- [ ] Memory profiling (no unbounded cache growth under load)
+- [ ] Lazy-loadable AI module
 
-**Testing Overhaul:**
-- [ ] AI layer integration tests
-- [ ] Tool execution tests
-- [ ] Chat pipeline E2E tests
-
-**Bug & Performance Debt:**
+**Performance & Debt (v3.2 carry-forward):**
 - [ ] LCP <2.5s / TTI <3.5s
-- [ ] ENC-03: Hash-based search on encrypted fields
+- [ ] ENC-03: Hash-based search on encrypted fields (17+ sites)
 - [ ] Fix 7 deferred bugs from v3.1 audit
+- [ ] Phase 28 gap closure (chat 403, dead polling, E2E mobile)
+
+**Enterprise Prep:**
+- [ ] Define permission taxonomy and policy service contract
+- [ ] Stand up AI Run Ledger schema + telemetry contract
 
 ### Out of Scope
 
@@ -227,5 +229,8 @@ A comprehensive email sync and AI-powered productivity platform. After v1 backen
 | Nanobot as design inspiration only | Different problem (single-user agent vs multi-tenant email client); design discipline is the lesson, not the architecture | v3.2 |
 | generateObject for non-chat AI | Direct LLM call with pre-fetched data is faster, cheaper, more reliable than agent loop for briefing/follow-ups | v3.2 |
 
+| v4.0 milestone scoped from Enterprise Platform PRD | PRD audit scored 58/100 enterprise readiness; Phase 1 (stabilization) is prerequisite for all enterprise features | v4.0 |
+| v3.2 closed partial (20/25 plans) | Core AI rebuild complete; carry-forward items (perf, modules, debt) fit naturally into enterprise stabilization | v4.0 |
+
 ---
-*Last updated: 2026-02-27 — v3.2 started: AI Rebuild & Cleanup*
+*Last updated: 2026-03-03 — v4.0 started: Enterprise Stabilization*
