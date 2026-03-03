@@ -163,7 +163,7 @@ export function AiSettings({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Switch
-                  checked={smartRepliesEnabled}
+                  checked={smartRepliesEnabled && canUseSmartReplies}
                   onChange={(e) => setSmartRepliesEnabled(e.target.checked)}
                   disabled={!canUseSmartReplies}
                 />
@@ -183,7 +183,7 @@ export function AiSettings({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Switch
-                  checked={summarizationEnabled}
+                  checked={summarizationEnabled && canUseSummaries}
                   onChange={(e) => setSummarizationEnabled(e.target.checked)}
                   disabled={!canUseSummaries}
                 />
@@ -211,7 +211,7 @@ export function AiSettings({
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Switch
-                  checked={triageEnabled}
+                  checked={triageEnabled && canUseTriage}
                   onChange={(e) => setTriageEnabled(e.target.checked)}
                   disabled={!canUseTriage}
                 />
