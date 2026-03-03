@@ -1,5 +1,6 @@
-// Baseline violations (Phase 31, 2026-03-03): 989 cross-module, 21 circular, 3 orphan
-// Phase 32 target: reduce cross-module to <20, circular to <=5
+// Phase 32 complete (2026-03-03): circular deps enforced at error severity with known-violations baseline
+// Cross-module deep imports remain as warnings (separate reduction effort)
+// Use `npm run dep:check` to validate, `npm run dep:baseline` to regenerate baseline
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
@@ -22,8 +23,8 @@ module.exports = {
     {
       name: 'no-circular',
       comment:
-        'Circular dependencies cause forwardRef usage. Phase 32 targets reduction from 17 to 5.',
-      severity: 'warn',
+        'Circular dependencies cause forwardRef usage. Error severity enforced in CI with known-violations baseline.',
+      severity: 'error',
       from: {},
       to: { circular: true },
     },
