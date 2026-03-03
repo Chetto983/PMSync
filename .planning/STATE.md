@@ -84,6 +84,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 32-03-PLAN.md
-Resume file: .planning/phases/32-architecture-decoupling/
-Next action: Phase 32 complete; proceed to Phase 33 or next milestone phase
+Stopped at: Phase 33 context gathered
+Resume file: .planning/phases/33-api-contract-standardization/33-CONTEXT.md
+Next action: /gsd:plan-phase 33
