@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
 status: in_progress
-last_updated: "2026-03-03T09:17:15Z"
+last_updated: "2026-03-03T09:33:00Z"
 progress:
   total_phases: 15
   completed_phases: 13
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 28 of 30 (Cleanup & VoltAgent Deletion)
-Plan: 1 of 3 complete in current phase
+Plan: 2 of 3 complete in current phase
 Status: Executing Phase 28
-Last activity: 2026-03-03 -- Completed 28-01-PLAN.md (Type inlining + ai-elements/AiDashboard deletion)
+Last activity: 2026-03-03 -- Completed 28-02-PLAN.md (Voltagent cleanup + bundle analysis)
 
-Progress: [########░░] 75% (18/24 plans)
+Progress: [########░░] 79% (19/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18 (v3.2)
+- Total plans completed: 19 (v3.2)
 - Average duration: 11min
-- Total execution time: 201min
+- Total execution time: 214min
 
 **By Phase:**
 
@@ -58,6 +58,7 @@ Progress: [########░░] 75% (18/24 plans)
 | Phase 27 P03 | 11min | 2 tasks | 9 files |
 | Phase 27 P04 | 45min | 2 tasks | 40+ files |
 | Phase 28 P01 | 8min | 2 tasks | 108 files |
+| Phase 28 P02 | 13min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,9 @@ Recent decisions affecting current work:
 - [28-01]: components/ai/index.ts barrel kept with only CommandPalette export (direct subdirectory imports preferred)
 - [28-01]: Self-contained chat/types.ts owns all tool output types directly (no cross-directory re-exports)
 - [28-01]: ai-elements npm package left in package.json for 28-02 bundle analysis scope
+- [28-02]: Voltagent E2E mock routes removed entirely (catch-all covers all unmocked endpoints)
+- [28-02]: crm.ts and document-library.ts API paths migrated from /api/v1/voltagent/* to /api/v1/ai/*
+- [28-02]: Tree-shaking confirmed: zero ai-elements code in production bundle before file deletion
 
 ### Pending Todos
 
@@ -149,6 +153,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 28-01-PLAN.md
-Resume file: .planning/phases/28-cleanup-voltagent-deletion/28-01-SUMMARY.md
-Next action: Execute 28-02-PLAN.md
+Stopped at: Completed 28-02-PLAN.md
+Resume file: .planning/phases/28-cleanup-voltagent-deletion/28-02-SUMMARY.md
+Next action: Execute 28-03-PLAN.md
