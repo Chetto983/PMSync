@@ -7,6 +7,7 @@ import {
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 export interface CalendarSyncJobData {
   tenantId: string;
@@ -16,6 +17,8 @@ export interface CalendarSyncJobData {
   priority: 'high' | 'normal' | 'low';
   lastSyncedAt?: Date;
   syncToken?: string;
+  /** Correlation ID from the originating HTTP request (undefined for cron/worker-triggered jobs) */
+  requestId?: string;
 }
 
 export interface CalendarSyncJobResult {
@@ -253,7 +256,10 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    await queue.add(`calendar-sync-${jobData.providerId}`, jobData, {
+    await queue.add(`calendar-sync-${jobData.providerId}`, {
+      ...jobData,
+      requestId: CorrelationContext.getContext()?.correlationId,
+    } as CalendarSyncJobData, {
       jobId,
     });
 

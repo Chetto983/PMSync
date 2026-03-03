@@ -21,6 +21,7 @@ import * as crypto from 'crypto';
 import { QUEUE_NAMES } from '../../../common/config';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { BaseQueueService, QueuePriority } from './base-queue.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 /**
  * Email recipient with optional name
@@ -81,6 +82,8 @@ export interface EmailSendJobData {
   requestedAt: string;
   /** Retry count */
   retryCount?: number;
+  /** Correlation ID from the originating HTTP request */
+  requestId?: string;
 }
 
 /**
@@ -218,7 +221,10 @@ export class EmailSendQueueService extends BaseQueueService<EmailSendJobData, Em
       }
     }
 
-    const job = await this.queue.add('send', data, {
+    const job = await this.queue.add('send', {
+      ...data,
+      requestId: CorrelationContext.getContext()?.correlationId,
+    } as EmailSendJobData, {
       jobId: idempotencyKey,
       priority: data.priority === 'high' ? 1 : 5,
     });
@@ -240,7 +246,10 @@ export class EmailSendQueueService extends BaseQueueService<EmailSendJobData, Em
 
     const idempotencyKey = data.idempotencyKey || this.generateIdempotencyKey(data, 'scheduled');
 
-    const job = await this.queue.add('scheduled-send', data, {
+    const job = await this.queue.add('scheduled-send', {
+      ...data,
+      requestId: CorrelationContext.getContext()?.correlationId,
+    } as EmailSendJobData & { scheduledAt: string }, {
       jobId: idempotencyKey,
       delay,
       priority: 10, // Lower priority than immediate sends

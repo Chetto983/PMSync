@@ -19,6 +19,7 @@ import { JobType, JobsOptions } from 'bullmq';
 import { QUEUE_NAMES } from '../../../common/config';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { BaseQueueService, QueuePriority } from './base-queue.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 /**
  * Supported bulk operations
@@ -62,6 +63,8 @@ export interface BulkOperationJobData {
   permanent?: boolean;
   /** Internal: cancellation flag */
   _cancelled?: boolean;
+  /** Correlation ID from the originating HTTP request */
+  requestId?: string;
 }
 
 /**
@@ -187,7 +190,10 @@ export class BulkOperationsQueueService extends BaseQueueService<BulkOperationJo
   async enqueueBulkOperation(data: BulkOperationJobData): Promise<string> {
     const jobId = `bulk-${data.operation}-${data.providerId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-    const job = await this.queue.add('bulk-operation', data, {
+    const job = await this.queue.add('bulk-operation', {
+      ...data,
+      requestId: CorrelationContext.getContext()?.correlationId,
+    } as BulkOperationJobData, {
       jobId,
       priority: data.emailIds.length > 1000 ? 10 : 5,
     });

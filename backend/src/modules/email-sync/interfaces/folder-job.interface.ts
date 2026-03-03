@@ -37,6 +37,9 @@ export interface FolderJobData {
 
   // Timestamp for ordering
   createdAt: string;
+
+  /** Correlation ID from the originating HTTP request (undefined for cron/worker-triggered jobs) */
+  requestId?: string;
 }
 
 export interface FolderJobResult {

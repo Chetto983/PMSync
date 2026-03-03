@@ -6,6 +6,7 @@ import {
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 export interface ContactsSyncJobData {
   tenantId: string;
@@ -14,6 +15,8 @@ export interface ContactsSyncJobData {
   email: string;
   priority: 'high' | 'normal' | 'low';
   lastSyncedAt?: Date;
+  /** Correlation ID from the originating HTTP request (undefined for cron/worker-triggered jobs) */
+  requestId?: string;
 }
 
 export interface ContactsSyncJobResult {
@@ -233,7 +236,10 @@ export class ContactsSyncQueueService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    await queue.add(`sync-${jobData.providerId}`, jobData, {
+    await queue.add(`sync-${jobData.providerId}`, {
+      ...jobData,
+      requestId: CorrelationContext.getContext()?.correlationId,
+    } as ContactsSyncJobData, {
       jobId,
     });
 

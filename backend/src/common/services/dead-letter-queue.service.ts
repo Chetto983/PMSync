@@ -4,6 +4,7 @@ import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
 import { CacheService, CacheNamespace } from './cache.service';
 import { getSharedRedisConnection, releaseSharedRedisConnection, QUEUE_NAMES } from '../config';
+import { CorrelationContext } from './correlation-context.service';
 
 /**
  * Dead Letter Queue Job Data
@@ -171,7 +172,10 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
         },
       };
 
-      await this.dlqQueue.add('failed-job', dlqJobData, {
+      await this.dlqQueue.add('failed-job', {
+        ...dlqJobData,
+        requestId: (dlqJobData as any).requestId || CorrelationContext.getContext()?.correlationId,
+      } as DLQJobData<T>, {
         jobId: `dlq-${originalJobId}`,
       });
 

@@ -19,6 +19,7 @@ import { JobType, JobsOptions } from 'bullmq';
 import { QUEUE_NAMES } from '../../../common/config';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { BaseQueueService, QueuePriority } from './base-queue.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 /**
  * Supported sync-back actions
@@ -59,6 +60,8 @@ export interface SyncBackJobData {
   retryCount?: number;
   /** Permanent delete flag - if true, permanently delete from provider (not just move to trash) */
   permanent?: boolean;
+  /** Correlation ID from the originating HTTP request */
+  requestId?: string;
 }
 
 /**
@@ -182,7 +185,10 @@ export class ProviderSyncBackQueueService extends BaseQueueService<SyncBackJobDa
       }
     }
 
-    const job = await this.queue.add(`sync-${data.action}`, data, {
+    const job = await this.queue.add(`sync-${data.action}`, {
+      ...data,
+      requestId: CorrelationContext.getContext()?.correlationId,
+    } as SyncBackJobData, {
       jobId,
       delay: this.DEBOUNCE_DELAY_MS,
       priority: data.priority === 'high' ? 1 : 5,

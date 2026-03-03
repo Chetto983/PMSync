@@ -11,6 +11,8 @@ export interface SyncJobData {
   syncType: 'full' | 'incremental';
   lastSyncedAt?: Date;
   authToken?: string;
+  /** Correlation ID from the originating HTTP request (undefined for cron/worker-triggered jobs) */
+  requestId?: string;
 }
 
 export interface SyncJobResult {

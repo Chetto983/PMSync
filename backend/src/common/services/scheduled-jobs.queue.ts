@@ -21,6 +21,7 @@ import {
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../config/queue.config';
+import { CorrelationContext } from '../services/correlation-context.service';
 
 /**
  * Scheduled job types - each maps to a specific handler
@@ -76,6 +77,8 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
 export interface ScheduledJobData {
   jobType: ScheduledJobType;
   triggeredAt: string;
+  /** Correlation ID from the originating HTTP request (undefined for cron-triggered jobs) */
+  requestId?: string;
 }
 
 export type ScheduledJobHandler = (job: Job<ScheduledJobData>) => Promise<void>;
@@ -199,7 +202,7 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
 
       await this.queue.add(
         jobType,
-        { jobType, triggeredAt: new Date().toISOString() },
+        { jobType, triggeredAt: new Date().toISOString(), requestId: CorrelationContext.getContext()?.correlationId } as ScheduledJobData,
         {
           repeat: { pattern },
           jobId: `scheduled-${jobType}`,
@@ -220,7 +223,7 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
   ): Promise<string> {
     const job = await this.queue.add(
       jobType,
-      { jobType, triggeredAt: new Date().toISOString() },
+      { jobType, triggeredAt: new Date().toISOString(), requestId: CorrelationContext.getContext()?.correlationId } as ScheduledJobData,
       { deduplication: { id: deduplicationId, ttl: ttlMs } },
     );
     return job.id || 'unknown';
@@ -232,7 +235,7 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
   async triggerJob(jobType: ScheduledJobType): Promise<string> {
     const job = await this.queue.add(
       jobType,
-      { jobType, triggeredAt: new Date().toISOString() },
+      { jobType, triggeredAt: new Date().toISOString(), requestId: CorrelationContext.getContext()?.correlationId } as ScheduledJobData,
       { jobId: `manual-${jobType}-${Date.now()}` },
     );
     return job.id || 'unknown';

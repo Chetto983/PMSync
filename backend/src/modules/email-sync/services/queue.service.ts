@@ -9,6 +9,7 @@ import {
   QUEUE_NAMES,
 } from '../../../common/config';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 type QueuePriority = 'high' | 'normal' | 'low';
 
@@ -494,7 +495,10 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
           await queue.add(
             `sync-${jobData.providerType}-${jobData.email}`,
-            jobData,
+            {
+              ...jobData,
+              requestId: CorrelationContext.getContext()?.correlationId,
+            },
             {
               jobId,
               delay: jitterMs,

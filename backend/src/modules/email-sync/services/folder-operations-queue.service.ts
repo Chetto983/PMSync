@@ -24,6 +24,7 @@ import {
 } from '../interfaces/folder-job.interface';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseQueueService, QueuePriority } from './base-queue.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 export interface FolderQueueMetrics {
   completed: number;
@@ -219,7 +220,10 @@ export class FolderOperationsQueueService extends BaseQueueService<FolderJobData
 
     const job = await this.queue.add(
       `folder-${operation}-${jobData.email}`,
-      jobDataWithToken,
+      {
+        ...jobDataWithToken,
+        requestId: CorrelationContext.getContext()?.correlationId,
+      } as FolderJobData,
       {
         jobId,
         delay: 0,
