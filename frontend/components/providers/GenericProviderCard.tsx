@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
   Box,
-  Stack,
-  Typography,
   Card,
   CardContent,
-  Button,
+  CardActions,
+  Stack,
+  Typography,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -20,6 +20,7 @@ import {
   FormControl,
   InputLabel,
   CircularProgress,
+  Button as MuiButton,
 } from '@mui/material';
 import { Mail, CheckCircle, XCircle, Wifi } from 'lucide-react';
 import { providersApi, ConnectGenericDto, TestCredentialsResult } from '@/lib/api/providers';
@@ -226,59 +227,61 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
   return (
     <>
       <Card
+        variant="outlined"
         sx={{
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          border: 1,
-          borderColor: 'divider',
+          borderRadius: 3,
+          transition: 'box-shadow 0.2s',
+          '&:hover': { boxShadow: 2 },
         }}
       >
-        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-            <Mail size={24} />
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {genericCopy.title}
-            </Typography>
+        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+          {/* Logo */}
+          <Box sx={{ mb: 2.5 }}>
+            <Mail size={40} color="hsl(189,70%,50%)" strokeWidth={1.5} />
           </Box>
 
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+            {genericCopy.title}
+          </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {genericCopy.description}
           </Typography>
 
-          <Stack spacing={1.5} sx={{ flex: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              {genericCopy.subtitle}
+          {/* Features */}
+          <Box component="ul" sx={{ flex: 1, listStyle: 'disc', pl: 2.5, mb: 2, '& li': { mb: 0.5 } }}>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {genericCopy.feature1}
             </Typography>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {genericCopy.feature2}
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {genericCopy.feature3}
+            </Typography>
+          </Box>
+        </CardContent>
 
-            <Box
-              component="ul"
-              sx={{
-                pl: 3,
-                m: 0,
-                listStyle: 'disc',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0.5,
-                color: 'text.secondary',
-                fontSize: '0.875rem',
-              }}
-            >
-              <li>{genericCopy.feature1}</li>
-              <li>{genericCopy.feature2}</li>
-              <li>{genericCopy.feature3}</li>
-            </Box>
-          </Stack>
-
-          <Button
-            variant="outlined"
+        <CardActions sx={{ p: 0 }}>
+          <MuiButton
             fullWidth
             onClick={() => setOpen(true)}
-            sx={{ mt: 2 }}
+            sx={{
+              height: 48,
+              borderRadius: '0 0 12px 12px',
+              fontWeight: 600,
+              fontSize: 14,
+              color: 'white',
+              textTransform: 'none',
+              background: 'linear-gradient(to right, hsl(189,70%,50%), hsl(258,55%,57%))',
+              '&:hover': { opacity: 0.9, background: 'linear-gradient(to right, hsl(189,70%,50%), hsl(258,55%,57%))' },
+            }}
           >
             {genericCopy.configureButton}
-          </Button>
-        </CardContent>
+          </MuiButton>
+        </CardActions>
       </Card>
 
       <Dialog
@@ -531,21 +534,21 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
           </DialogContent>
 
           <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
-            <Button
+            <MuiButton
               onClick={handleTestConnection}
               disabled={testing || !canTest}
               startIcon={testing ? <CircularProgress size={16} /> : <Wifi size={16} />}
               variant="outlined"
             >
               {testing ? genericCopy.testing : genericCopy.testConnection}
-            </Button>
+            </MuiButton>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button onClick={() => setOpen(false)} disabled={loading}>
+              <MuiButton onClick={() => setOpen(false)} disabled={loading}>
                 {genericCopy.cancel}
-              </Button>
-              <Button type="submit" variant="contained" disabled={loading}>
+              </MuiButton>
+              <MuiButton type="submit" variant="contained" disabled={loading}>
                 {loading ? genericCopy.connecting : genericCopy.connectProvider}
-              </Button>
+              </MuiButton>
             </Box>
           </DialogActions>
         </form>

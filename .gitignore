@@ -149,3 +149,5 @@ frontend/.lighthouseci/
 *playwright*
 docs/screenshots/*
 .agents/*
+frontend/e2e/screenshots/*
+frontend/docs/screenshots/*

@@ -1,76 +1,102 @@
 import React, { useState } from 'react';
-import { Stack, Typography } from '@mui/material';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent, CardActions, Typography, Button, Alert, Box } from '@mui/material';
 import { providersApi } from '@/lib/api/providers';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface MicrosoftProviderCardProps {
   onSuccess: () => void;
 }
 
 export function MicrosoftProviderCard({ onSuccess }: MicrosoftProviderCardProps) {
+  const t = useTranslations();
+  const p = t.providers;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleConnect = async () => {
     setLoading(true);
     setError('');
-
     try {
-      // Get OAuth URL
       const { authUrl } = await providersApi.getMicrosoftAuthUrl();
-
       onSuccess();
-
-      // Redirect to Microsoft OAuth
       window.location.href = authUrl;
     } catch (err) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to connect Microsoft account');
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'Failed to connect Microsoft account');
       setLoading(false);
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-1.5">
-          <span className="w-7 h-7 inline-flex items-center justify-center">
-            <svg viewBox="0 0 23 23" width="100%" height="100%">
-              <path fill="#f3f3f3" d="M0 0h23v23H0z" />
-              <path fill="#f35325" d="M1 1h10v10H1z" />
-              <path fill="#81bc06" d="M12 1h10v10H12z" />
-              <path fill="#05a6f0" d="M1 12h10v10H1z" />
-              <path fill="#ffba08" d="M12 12h10v10H12z" />
-            </svg>
-          </span>
-          Microsoft
-        </CardTitle>
-        <CardDescription>Connect Outlook and Microsoft 365</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+    <Card
+      variant="outlined"
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 3,
+        transition: 'box-shadow 0.2s',
+        '&:hover': { boxShadow: 2 },
+      }}
+    >
+      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+        {/* Logo */}
+        <Box sx={{ mb: 2.5 }}>
+          <svg viewBox="0 0 21 21" width={40} height={40}>
+            <path fill="#f35325" d="M0 0h10v10H0z" />
+            <path fill="#81bc06" d="M11 0h10v10H11z" />
+            <path fill="#05a6f0" d="M0 11h10v10H0z" />
+            <path fill="#ffba08" d="M11 11h10v10H11z" />
+          </svg>
+        </Box>
+
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+          {p.microsoftTitle}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {p.microsoftDescription}
+        </Typography>
+
+        {/* Features */}
+        <Box component="ul" sx={{ flex: 1, listStyle: 'disc', pl: 2.5, mb: 2, '& li': { mb: 0.5 } }}>
+          <Typography component="li" variant="body2" color="text.secondary">
+            {p.microsoftFeatures.feature1}
+          </Typography>
+          <Typography component="li" variant="body2" color="text.secondary">
+            {p.microsoftFeatures.feature2}
+          </Typography>
+          <Typography component="li" variant="body2" color="text.secondary">
+            {p.microsoftFeatures.feature3}
+          </Typography>
+        </Box>
+
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+          <Alert severity="error" sx={{ mb: 1.5, fontSize: 12 }} onClose={() => setError('')}>
+            {error}
           </Alert>
         )}
-
-        <Stack spacing={1.5}>
-          <Typography variant="body2" color="text.secondary">
-            Connect your Microsoft account to sync emails and calendar events.
-          </Typography>
-          <ul className="pl-6 m-0 list-disc flex flex-col gap-0.5 text-muted-foreground text-sm">
-            <li>Read and send emails via Outlook</li>
-            <li>Access Microsoft Calendar events</li>
-            <li>Sync contacts (optional)</li>
-          </ul>
-        </Stack>
-
-        <Button onClick={handleConnect} disabled={loading} className="w-full">
-          {loading ? 'Connecting...' : 'Connect Microsoft Account'}
-        </Button>
       </CardContent>
+
+      <CardActions sx={{ p: 0 }}>
+        <Button
+          fullWidth
+          onClick={handleConnect}
+          disabled={loading}
+          sx={{
+            height: 48,
+            borderRadius: '0 0 12px 12px',
+            fontWeight: 600,
+            fontSize: 14,
+            color: 'white',
+            textTransform: 'none',
+            background: 'linear-gradient(to right, hsl(189,70%,50%), hsl(258,55%,57%))',
+            '&:hover': { opacity: 0.9, background: 'linear-gradient(to right, hsl(189,70%,50%), hsl(258,55%,57%))' },
+            '&.Mui-disabled': { opacity: 0.5, color: 'white' },
+          }}
+        >
+          {loading ? p.microsoftConnecting : p.microsoftConnect}
+        </Button>
+      </CardActions>
     </Card>
   );
 }

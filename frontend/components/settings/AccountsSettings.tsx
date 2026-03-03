@@ -152,14 +152,14 @@ export function AccountsSettings({
             </Typography>
           </Alert>
         )}
-        <Stack spacing={2} direction={{ xs: 'column', md: 'row' }}>
-          <Box sx={{ flex: 1, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
+        <Stack spacing={2} direction={{ xs: 'column', md: 'row' }} sx={{ alignItems: 'stretch' }}>
+          <Box sx={{ flex: 1, minWidth: 0, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
             <GoogleProviderCard onSuccess={onProviderInitiated} />
           </Box>
-          <Box sx={{ flex: 1, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
+          <Box sx={{ flex: 1, minWidth: 0, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
             <MicrosoftProviderCard onSuccess={onProviderInitiated} />
           </Box>
-          <Box sx={{ flex: 1, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
+          <Box sx={{ flex: 1, minWidth: 0, opacity: canAddProvider ? 1 : 0.5, pointerEvents: canAddProvider ? 'auto' : 'none' }}>
             <GenericProviderCard onSuccess={onProviderConnected} />
           </Box>
         </Stack>

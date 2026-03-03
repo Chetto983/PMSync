@@ -268,9 +268,9 @@ export function useBilling() {
       return { emailPercent: 0, aiPercent: 0, isWarning: false, isCritical: false };
     }
 
-    const { usage } = subscription;
-    const emailPercent = usage.percentEmailUsed;
-    const aiPercent = usage.percentAIUsed;
+    const usage = subscription?.usage;
+    const emailPercent = usage?.percentEmailUsed ?? 0;
+    const aiPercent = usage?.percentAIUsed ?? 0;
     const isWarning = emailPercent >= 80 || aiPercent >= 80;
     const isCritical = emailPercent >= 95 || aiPercent >= 95;
 
