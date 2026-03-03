@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
 status: in_progress
-last_updated: "2026-03-03T08:18:12Z"
+last_updated: "2026-03-03T09:17:15Z"
 progress:
   total_phases: 15
   completed_phases: 13
   total_plans: 50
-  completed_plans: 49
+  completed_plans: 50
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 27 - Chat Frontend
+**Current focus:** Phase 28 - Cleanup & VoltAgent Deletion
 
 ## Current Position
 
-Phase: 27 of 30 (Chat Frontend) -- COMPLETE
-Plan: 4 of 4 complete in current phase
-Status: Phase 27 Complete -- Ready for Phase 28
-Last activity: 2026-03-03 -- Completed 27-04-PLAN.md (Responsive Layouts + Route Integration)
+Phase: 28 of 30 (Cleanup & VoltAgent Deletion)
+Plan: 1 of 3 complete in current phase
+Status: Executing Phase 28
+Last activity: 2026-03-03 -- Completed 28-01-PLAN.md (Type inlining + ai-elements/AiDashboard deletion)
 
-Progress: [#######░░░] 71% (17/24 plans)
+Progress: [########░░] 75% (18/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17 (v3.2)
+- Total plans completed: 18 (v3.2)
 - Average duration: 11min
-- Total execution time: 193min
+- Total execution time: 201min
 
 **By Phase:**
 
@@ -57,6 +57,7 @@ Progress: [#######░░░] 71% (17/24 plans)
 | Phase 27 P02 | 8min | 1 task | 9 files |
 | Phase 27 P03 | 11min | 2 tasks | 9 files |
 | Phase 27 P04 | 45min | 2 tasks | 40+ files |
+| Phase 28 P01 | 8min | 2 tasks | 108 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Recent decisions affecting current work:
 - [27-04]: CSS variable design system with --chat-* tokens for light/dark mode theming
 - [27-04]: CSS-only responsive switching (hidden md:flex / flex md:hidden), no JS breakpoint detection
 - [27-04]: ChatPage skeleton loading guard prevents flash of unstyled content
+- [28-01]: components/ai/index.ts barrel kept with only CommandPalette export (direct subdirectory imports preferred)
+- [28-01]: Self-contained chat/types.ts owns all tool output types directly (no cross-directory re-exports)
+- [28-01]: ai-elements npm package left in package.json for 28-02 bundle analysis scope
 
 ### Pending Todos
 
@@ -145,6 +149,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Phase 28 context gathered
-Resume file: .planning/phases/28-cleanup-voltagent-deletion/28-CONTEXT.md
-Next action: /gsd:plan-phase 28
+Stopped at: Completed 28-01-PLAN.md
+Resume file: .planning/phases/28-cleanup-voltagent-deletion/28-01-SUMMARY.md
+Next action: Execute 28-02-PLAN.md
