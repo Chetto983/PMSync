@@ -1,7 +1,6 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
-import { BatchIndexingService } from '../../../ai/services/batch-indexing.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { ConfigService } from '@nestjs/config';
 import { ProviderTokenService } from '../provider-token.service';
@@ -12,11 +11,6 @@ import { AttachmentMeta } from '../../drivers/interfaces/canonical.types';
 import { IEmailDriver } from '../../drivers/interfaces/email-driver.interface';
 import { MicrosoftAttachmentHandler } from './microsoft-attachment-handler';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
-// TODO Phase 24: Rebuild FollowUpService and WritingStyleService with new AiChatService
-// import { FollowUpService } from '../../../ai/voltagent/services/follow-up.service';
-// import { WritingStyleService } from '../../../ai/voltagent/services/writing-style.service';
-type FollowUpService = any;
-type WritingStyleService = any;
 import { SyncOrchestrationService } from '../sync-orchestration.service';
 import { SyncMessageProcessorService } from '../sync-message-processor.service';
 import { SyncTokenService } from '../sync-token.service';
@@ -45,14 +39,11 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     realtimeEvents: RealtimeEventsService,
     config: ConfigService,
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
-    private batchIndexingService: BatchIndexingService, // P11: Batch API for 100+ emails
     private providerTokenService: ProviderTokenService,
     private driverFactory: EmailDriverFactory,
     private microsoftAttachmentHandler: MicrosoftAttachmentHandler,
     // RACE CONDITION FIX RC-5: Redis lock for attachment processing
     private redisLockService: RedisLockService,
-    @Optional() followUpService: FollowUpService,
-    @Optional() writingStyleService: WritingStyleService,
     // Phase 6: Extracted services
     syncOrchestration: SyncOrchestrationService,
     messageProcessor: SyncMessageProcessorService,
@@ -62,8 +53,6 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
       prisma,
       realtimeEvents,
       config,
-      followUpService,
-      writingStyleService,
       syncOrchestration,
       messageProcessor,
       tokenService,
@@ -91,13 +80,6 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
    */
   protected getEmbeddingQueue(): EmailEmbeddingQueueService {
     return this.emailEmbeddingQueue;
-  }
-
-  /**
-   * P11: Provide the batch indexing service for 100+ emails (50% cheaper)
-   */
-  protected getBatchIndexingService(): BatchIndexingService {
-    return this.batchIndexingService;
   }
 
   /**

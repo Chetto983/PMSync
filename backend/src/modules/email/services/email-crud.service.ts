@@ -558,7 +558,6 @@ export class EmailCrudService {
       metadata: {
         draftAttachments,
       },
-      crossProviderLinkId: null,
     };
 
     if (dto.id) {

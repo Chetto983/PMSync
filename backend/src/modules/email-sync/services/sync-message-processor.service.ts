@@ -25,7 +25,7 @@ import {
   UpsertResult,
   BatchResult,
 } from '../interfaces/sync-context.interface';
-import { isJunkFolder, isRecentEmail as isRecentEmailHelper } from '../../email/email.helpers';
+import { isJunkFolder } from '../../email/email.helpers';
 
 @Injectable()
 export class SyncMessageProcessorService {
@@ -393,55 +393,6 @@ export class SyncMessageProcessorService {
           reason: 'message-processed',
         });
 
-        // TRIGGER FOLLOW-UP ANALYSIS (only for recent emails to avoid storm on full sync)
-        // FIX (2025-01-05): Added recency check - old emails during full sync don't need AI analysis
-        if (context.userId && !isJunkFolder(result.folder) && isRecentEmailHelper(result.receivedAt)) {
-          const isSentByUser = result.folder === 'SENT';
-          const toEmails = Array.isArray(result.to) ? result.to : [];
-          context.followUpService
-            ?.analyzeAndCreateFollowUp(
-              tenantId,
-              context.userId,
-              result.id,
-              result.bodyText || '',
-              result.subject,
-              result.from || undefined,
-              toEmails,
-              isSentByUser,
-            )
-            .catch((err: any) => {
-              // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures
-              // Changed from warn to error for monitoring visibility
-              this.logger.error(
-                `Follow-up analysis failed for email ${result.id} in ${result.folder}: ${err.message}`,
-                err.stack,
-              );
-              // Note: Fire-and-forget is intentional - AI features shouldn't block sync
-              // DEBT: Retry queue for failed AI analyses (tracked in BUG-036)
-            });
-
-          // AUTO-RESOLVE FOLLOW-UPS: Check if incoming email is a reply to a sent email with follow-up
-          // Only for incoming emails (not SENT) that are replies
-          if (!isSentByUser && (canonicalMsg.inReplyTo || canonicalMsg.references)) {
-            context.followUpService
-              ?.checkAndResolveReplyFollowUp(
-                tenantId,
-                context.userId,
-                canonicalMsg.inReplyTo || null,
-                canonicalMsg.references || null,
-              )
-              .then((resolved: any) => {
-                if (resolved) {
-                  this.logger.debug(`Auto-resolved follow-up from reply email ${result.id}`);
-                }
-              })
-              .catch((err: any) => {
-                this.logger.warn(
-                  `Failed to check reply follow-up for email ${result.id}: ${err.message}`,
-                );
-              });
-          }
-        }
       }
 
       return { wasNew, conflictDetected: userModifiedRecently ?? false };
@@ -642,24 +593,6 @@ export class SyncMessageProcessorService {
     // Track new messages and process post-upsert operations
     let newCount = 0;
 
-    // P11: Pre-determine if batch indexing should be used (100+ new emails = 50% cheaper)
-    // Calculate new non-junk emails BEFORE the loop to decide strategy
-    const newEmailIdsForEmbedding: string[] = [];
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      const result = results[i];
-      const wasNew = !existingEmailIds.has(msg.id);
-      if (wasNew && !isJunkFolder(result.folder)) {
-        newEmailIdsForEmbedding.push(result.id);
-      }
-    }
-    const useBatchIndexing = newEmailIdsForEmbedding.length >= 100;
-    if (useBatchIndexing) {
-      this.logger.log(
-        `P11 Batch Indexing: ${newEmailIdsForEmbedding.length} new emails, using Mistral Batch API (50% cheaper)`,
-      );
-    }
-
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const msg = messages[i];
@@ -670,9 +603,7 @@ export class SyncMessageProcessorService {
         newCount++;
 
         // Queue for embeddings (skip SPAM/TRASH)
-        // Body is always fetched during sync for AI embeddings to work
-        // P11: Skip individual enqueue if using batch indexing (will be processed at end)
-        if (!isJunkFolder(result.folder) && !useBatchIndexing) {
+        if (!isJunkFolder(result.folder)) {
           await context.getEmbeddingQueue().enqueue({
             emailId: result.id,
             tenantId,
@@ -694,51 +625,6 @@ export class SyncMessageProcessorService {
           reason: 'message-processed',
         });
 
-        // TRIGGER FOLLOW-UP ANALYSIS (only for recent emails to avoid storm on full sync)
-        // FIX (2025-01-05): Added recency check - old emails during full sync don't need AI analysis
-        if (
-          context.userId &&
-          !isJunkFolder(result.folder) &&
-          isRecentEmailHelper(result.receivedAt)
-        ) {
-          const isSentByUser = result.folder === 'SENT';
-          const toEmails = Array.isArray(result.to) ? result.to : [];
-          context.followUpService
-            ?.analyzeAndCreateFollowUp(
-              tenantId,
-              context.userId,
-              result.id,
-              result.bodyText || '',
-              result.subject,
-              result.from || undefined,
-              toEmails,
-              isSentByUser,
-            )
-            .catch((err: any) => {
-              // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures
-              // Changed from warn to error for monitoring visibility
-              this.logger.error(
-                `Follow-up analysis failed for email ${result.id} in ${result.folder}: ${err.message}`,
-                err.stack,
-              );
-              // Note: Fire-and-forget is intentional - AI features shouldn't block sync
-              // DEBT: Retry queue for failed AI analyses (tracked in BUG-036)
-            });
-        }
-
-        // TRIGGER WRITING STYLE LEARNING
-        if (
-          context.userId &&
-          result.folder === 'SENT' &&
-          result.bodyText &&
-          result.bodyText.length > 50
-        ) {
-          context.writingStyleService
-            ?.learnFromEmail(tenantId, context.userId, result.bodyText)
-            .catch((err: any) =>
-              this.logger.warn(`Writing style learning failed for ${result.id}: ${err.message}`),
-            );
-        }
       }
 
       // Process attachments (must be sequential - involves external API calls)
@@ -751,41 +637,6 @@ export class SyncMessageProcessorService {
           msg.id,
           msg.attachments,
         );
-      }
-    }
-
-    // P11: Queue batch indexing for 100+ emails (50% cheaper via Mistral Batch API)
-    if (useBatchIndexing && newEmailIdsForEmbedding.length > 0) {
-      try {
-        const batchJobId = await context.getBatchIndexingService().queueBatchIndexing(
-          tenantId,
-          newEmailIdsForEmbedding,
-        );
-        this.logger.log(
-          `P11 Batch job ${batchJobId} created for ${newEmailIdsForEmbedding.length} emails ` +
-            `(will be polled by @Cron every 5 minutes)`,
-        );
-      } catch (err) {
-        // Fallback to real-time queue if batch indexing fails
-        this.logger.error(
-          `P11 Batch indexing failed, falling back to real-time queue: ${err instanceof Error ? err.message : err}`,
-        );
-        for (const emailId of newEmailIdsForEmbedding) {
-          const result = results.find((r) => r.id === emailId);
-          if (result) {
-            await context.getEmbeddingQueue().enqueue({
-              emailId: result.id,
-              tenantId,
-              providerId,
-              subject: result.subject,
-              snippet: result.snippet || '',
-              bodyText: result.bodyText || '',
-              bodyHtml: result.bodyHtml || '',
-              from: result.from || '',
-              receivedAt: result.receivedAt || new Date(),
-            });
-          }
-        }
       }
     }
 

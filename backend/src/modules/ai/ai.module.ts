@@ -21,8 +21,6 @@ import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill
 import { TriageBackfillSchedulerService } from './services/triage-backfill-scheduler.service';
 import { EmailModule } from '../email/email.module';
 import { AlertingService } from '../../common/services/alerting.service';
-// Phase 23: VoltAgent module deleted. Chat pipeline rebuilt in Phase 24.
-// DeadLetterQueueService is available globally from CacheModule
 import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
 import { IntentClassifierService } from './nlp';
@@ -44,12 +42,10 @@ import { DraftGenerationService } from './services/draft-generation.service';
   imports: [
     PrismaModule,
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
-    // Phase 23: VoltAgentModule removed (deleted). Chat pipeline rebuilt in Phase 24.
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
     ComplianceModule, // Phase 28: ConsentGuard + ConsentEnforcementService for @RequiresConsent
   ],
   providers: [
-    // Core AI services (not in VoltAgent)
     MistralEmbeddingService,
     MistralRagService,
     MistralService,
@@ -94,7 +90,6 @@ import { DraftGenerationService } from './services/draft-generation.service';
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
-    BatchIndexingService, // No-op stub (Phase 23: Batch API removed)
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
@@ -103,7 +98,6 @@ import { DraftGenerationService } from './services/draft-generation.service';
     BriefingService,
     FollowUpDetectionService,
     DraftGenerationService,
-    // Phase 23: VoltAgentModule export removed (deleted). Chat pipeline rebuilt in Phase 24.
   ],
 })
 export class AiModule implements OnModuleInit {

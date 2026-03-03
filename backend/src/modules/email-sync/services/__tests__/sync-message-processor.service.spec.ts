@@ -355,13 +355,7 @@ describe('SyncMessageProcessorService', () => {
         tenantId: 'tenant-1',
         providerId: 'provider-1',
         getEmbeddingQueue: () => ({ enqueue: jest.fn() }),
-        getBatchIndexingService: () => ({ queueBatchIndexing: jest.fn() }),
         processAttachments: jest.fn(),
-        followUpService: {
-          analyzeAndCreateFollowUp: jest.fn(),
-          checkAndResolveReplyFollowUp: jest.fn(),
-        },
-        writingStyleService: { learnFromEmail: jest.fn() },
       };
 
       await expect(
@@ -396,13 +390,7 @@ describe('SyncMessageProcessorService', () => {
         tenantId: 'tenant-1',
         providerId: 'provider-1',
         getEmbeddingQueue: () => ({ enqueue: jest.fn() }),
-        getBatchIndexingService: () => ({ queueBatchIndexing: jest.fn() }),
         processAttachments: jest.fn(),
-        followUpService: {
-          analyzeAndCreateFollowUp: jest.fn(),
-          checkAndResolveReplyFollowUp: jest.fn(),
-        },
-        writingStyleService: { learnFromEmail: jest.fn() },
       };
 
       await expect(
@@ -435,13 +423,7 @@ describe('SyncMessageProcessorService', () => {
       providerId,
       userId: 'user-1',
       getEmbeddingQueue: () => ({ enqueue: jest.fn().mockResolvedValue(undefined) }),
-      getBatchIndexingService: () => ({ queueBatchIndexing: jest.fn().mockResolvedValue('batch-1') }),
       processAttachments: jest.fn().mockResolvedValue(undefined),
-      followUpService: {
-        analyzeAndCreateFollowUp: jest.fn().mockResolvedValue(undefined),
-        checkAndResolveReplyFollowUp: jest.fn().mockResolvedValue(false),
-      },
-      writingStyleService: { learnFromEmail: jest.fn().mockResolvedValue(undefined) },
     };
 
     beforeEach(() => {

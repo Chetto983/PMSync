@@ -59,7 +59,7 @@ export default registerAs('ai', () => ({
 
   // ===========================================
   // Batch API Configuration
-  // Used by: batch-indexing.service.ts, email-triage.service.ts
+  // Used by: email-triage.service.ts
   // ===========================================
   batch: {
     /** Master switch for batch API operations */

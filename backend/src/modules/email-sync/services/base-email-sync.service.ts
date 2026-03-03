@@ -1,4 +1,4 @@
-import { Logger, OnModuleInit, Optional, Inject } from '@nestjs/common';
+import { Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -6,13 +6,7 @@ import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
 import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { CanonicalMessage, AttachmentMeta } from '../drivers/interfaces/canonical.types';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
-import { BatchIndexingService } from '../../ai/services/batch-indexing.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
-// TODO Phase 24: Rebuild FollowUpService and WritingStyleService with new AiChatService
-// import { FollowUpService } from '../../ai/voltagent/services/follow-up.service';
-// import { WritingStyleService } from '../../ai/voltagent/services/writing-style.service';
-type FollowUpService = any;
-type WritingStyleService = any;
 import { SyncMessageProcessorService } from './sync-message-processor.service';
 import {
   SyncOrchestrationService,
@@ -61,8 +55,6 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     protected readonly prisma: PrismaService,
     protected readonly realtimeEvents: RealtimeEventsService,
     protected readonly config: ConfigService,
-    @Optional() protected readonly followUpService: FollowUpService | null,
-    @Optional() protected readonly writingStyleService: WritingStyleService | null,
     // Phase 6: Extracted services
     protected readonly syncOrchestration: SyncOrchestrationService,
     protected readonly messageProcessor: SyncMessageProcessorService,
@@ -293,12 +285,6 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   protected abstract getEmbeddingQueue(): EmailEmbeddingQueueService;
 
   /**
-   * Get the batch indexing service - must be provided by child classes
-   * P11: For 100+ emails, use Mistral Batch API (50% cheaper)
-   */
-  protected abstract getBatchIndexingService(): BatchIndexingService;
-
-  /**
    * Process attachments for a message - must be implemented by each provider
    * This handles provider-specific attachment download and storage logic
    */
@@ -328,11 +314,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       providerId,
       userId,
       getEmbeddingQueue: () => this.getEmbeddingQueue(),
-      getBatchIndexingService: () => this.getBatchIndexingService(),
       processAttachments: (driver, emailId, tid, pid, externalMessageId, attachments) =>
         this.processAttachmentsForMessage(driver, emailId, tid, pid, externalMessageId, attachments),
-      followUpService: this.followUpService,
-      writingStyleService: this.writingStyleService,
     };
   }
 
