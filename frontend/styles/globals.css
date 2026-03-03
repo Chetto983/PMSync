@@ -127,6 +127,13 @@
   }
 }
 
+/* Chat thread scrollbar */
+.aui-thread-viewport,
+.chat-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
 /* Accessibility: Consistent focus indicators (WCAG 2.1 AA) */
 :focus-visible {
   outline: 2px solid hsl(var(--primary));

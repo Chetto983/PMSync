@@ -6,15 +6,17 @@ import { ChatDesktopLayout } from './ChatDesktopLayout';
 import { ChatMobileLayout } from './ChatMobileLayout';
 /**
  * Top-level chat page composing runtime provider, tool UIs, and responsive layouts.
- * CSS-only responsive switching: desktop (md+) shows sidebar+thread, mobile shows full-screen.
+ * Tailwind responsive switching: desktop (md+) shows sidebar+thread, mobile shows full-screen.
  */
 export function ChatPage() {
   return (
     <ChatRuntimeProvider>
       <AllToolUIs />
-      <div className="h-full overflow-hidden">
-        <ChatDesktopLayout />
-        <ChatMobileLayout />
+      <div className="relative h-full p-2.5 isolate bg-background">
+        <div className="relative h-full overflow-hidden rounded-3xl border border-border/65 bg-card/95 shadow-xl backdrop-blur-sm">
+          <ChatDesktopLayout />
+          <ChatMobileLayout />
+        </div>
       </div>
     </ChatRuntimeProvider>
   );

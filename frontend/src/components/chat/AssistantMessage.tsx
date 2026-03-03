@@ -38,16 +38,16 @@ function HitlPendingActions() {
 
 /**
  * Assistant message: avatar + markdown content + action bar.
- * Left-aligned with gradient avatar, prose-styled content.
+ * Left-aligned with primary avatar, prose-styled content.
  */
 export function AssistantMessage() {
   return (
-    <MessagePrimitive.Root className="chat-msg chat-msg-assistant group">
-      <div className="chat-msg-avatar">
-        <Bot className="h-4 w-4 text-white" />
+    <MessagePrimitive.Root className="flex gap-3 py-5 group border-t first:border-t-0 border-border/30">
+      <div className="size-7 rounded-lg bg-primary flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+        <Bot className="h-4 w-4 text-primary-foreground" />
       </div>
-      <div className="chat-msg-body">
-        <div className="chat-msg-content">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm leading-relaxed text-foreground prose prose-sm max-w-none">
           <MessagePrimitive.Content
             components={{
               Text: MarkdownText,
@@ -56,7 +56,7 @@ export function AssistantMessage() {
           />
         </div>
         <HitlPendingActions />
-        <div className="chat-msg-actions">
+        <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <ChatActionBar />
           <ChatBranchPicker />
         </div>
