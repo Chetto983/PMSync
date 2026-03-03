@@ -20,7 +20,7 @@ Requirements for enterprise stabilization. Each maps to roadmap phases.
 - [x] **API-02**: Unified ApiExceptionFilter emits `{ error: { code, message, details }, meta }` with machine-readable error codes per domain
 - [x] **API-03**: Global API prefix `api/v1` enforced via setGlobalPrefix, manual prefixes removed from 8 controllers
 - [x] **API-04**: CorrelationInterceptor registered globally, correlation IDs propagated through BullMQ jobs and AI run records
-- [ ] **API-05**: OpenAPI spec linted via Spectral in CI, frontend types generated via openapi-typescript
+- [x] **API-05**: OpenAPI spec linted via Spectral in CI, frontend types generated via openapi-typescript
 
 ### Security
 
@@ -92,7 +92,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | API-02 | Phase 33 | Complete |
 | API-03 | Phase 33 | Complete |
 | API-04 | Phase 33 | Complete |
-| API-05 | Phase 33 | Pending |
+| API-05 | Phase 33 | Complete |
 | SEC-01 | Phase 34 | Pending |
 | SEC-02 | Phase 36 | Pending |
 | SEC-03 | Phase 34 | Pending |

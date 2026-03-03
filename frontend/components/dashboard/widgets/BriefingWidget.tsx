@@ -30,6 +30,7 @@ export function BriefingWidget() {
       title={t.dashboard?.widgets?.briefing?.title || 'Daily Briefing'}
       loading={isLoading}
       error={error?.message}
+      rawError={error}
       onRefresh={() => refetch()}
       icon={<Sparkles size={18} />}
     >

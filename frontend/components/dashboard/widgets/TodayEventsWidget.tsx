@@ -20,6 +20,7 @@ export function TodayEventsWidget() {
             title={t.dashboard.widgets.todayEvents.title}
             loading={isLoading}
             error={error?.message}
+            rawError={error}
             onRefresh={() => refetch()}
             actions={
                 data?.total ? (

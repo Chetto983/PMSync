@@ -38,6 +38,7 @@ export function TrendChartsWidget() {
       subtitle={t.dashboard.widgets.trendCharts.subtitle}
       loading={isLoading}
       error={error?.message}
+      rawError={error}
       onRefresh={() => refetch()}
       icon={<TrendingUp size={18} />}
     >

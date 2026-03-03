@@ -27,6 +27,7 @@ export function UnreadEmailsWidget() {
             title={t.dashboard.widgets.unreadEmails.title}
             loading={isLoading}
             error={error?.message}
+            rawError={error}
             onRefresh={() => refetch()}
             icon={<Mail size={18} />}
             badge={data?.total || undefined}

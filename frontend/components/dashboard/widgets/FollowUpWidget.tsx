@@ -84,6 +84,7 @@ export function FollowUpWidget() {
       title={wt.title}
       loading={isLoading}
       error={error?.message}
+      rawError={error}
       onRefresh={() => refetch()}
       actions={
         data?.overdueCount ? (

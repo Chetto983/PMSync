@@ -5,10 +5,11 @@
  * - Uses existing API modules (voltAgentApi, crmApi, contactsApi, calendarApi)
  * - queryOptions for type-safe, reusable query configurations
  * - Proper staleTime and gcTime for optimal caching
- * - Graceful fallbacks when APIs fail
+ * - Errors propagate to TanStack Query for explicit UI error states (Phase 33)
  */
 
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
+import axios from 'axios';
 import { dashboardKeys } from './dashboard-keys';
 import { voltAgentApi, type CachedDeadline } from '@/lib/api/ai';
 import { crmApi, type ContactRelationshipStats } from '@/lib/api/crm';
@@ -88,30 +89,17 @@ export function briefingOptions() {
   return queryOptions({
     queryKey: dashboardKeys.briefing(),
     queryFn: async (): Promise<BriefingData> => {
-      try {
-        const response = await voltAgentApi.getBriefing();
-        const briefing = response.data?.briefing || {};
-        return {
-          summary: (briefing as Record<string, unknown>).summary as string || '',
-          urgentEmails: (briefing as Record<string, unknown>).urgentEmails as number || 0,
-          deadlinesToday: (briefing as Record<string, unknown>).deadlinesToday as number || 0,
-          pendingFollowUps: (briefing as Record<string, unknown>).pendingFollowUps as number || 0,
-          staleContacts: (briefing as Record<string, unknown>).staleContacts as number || 0,
-          highlights: ((briefing as Record<string, unknown>).highlights as string[]) || [],
-          generatedAt: (briefing as Record<string, unknown>).generatedAt as string || new Date().toISOString(),
-        };
-      } catch {
-        // Return empty briefing on failure
-        return {
-          summary: '',
-          urgentEmails: 0,
-          deadlinesToday: 0,
-          pendingFollowUps: 0,
-          staleContacts: 0,
-          highlights: [],
-          generatedAt: new Date().toISOString(),
-        };
-      }
+      const response = await voltAgentApi.getBriefing();
+      const briefing = response.data?.briefing || {};
+      return {
+        summary: (briefing as Record<string, unknown>).summary as string || '',
+        urgentEmails: (briefing as Record<string, unknown>).urgentEmails as number || 0,
+        deadlinesToday: (briefing as Record<string, unknown>).deadlinesToday as number || 0,
+        pendingFollowUps: (briefing as Record<string, unknown>).pendingFollowUps as number || 0,
+        staleContacts: (briefing as Record<string, unknown>).staleContacts as number || 0,
+        highlights: ((briefing as Record<string, unknown>).highlights as string[]) || [],
+        generatedAt: (briefing as Record<string, unknown>).generatedAt as string || new Date().toISOString(),
+      };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
@@ -154,39 +142,35 @@ export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }
           weekCount: deadlines.filter((d) => new Date(d.dueDate) <= weekEnd).length,
         };
       } catch {
-        // Fallback to calendar events
-        try {
-          const weekEnd = new Date();
-          weekEnd.setDate(weekEnd.getDate() + 7);
+        // Fallback to calendar events -- if this also fails, TanStack Query catches it
+        const weekEnd = new Date();
+        weekEnd.setDate(weekEnd.getDate() + 7);
 
-          const response = await calendarApi.listEvents({
-            startTime: new Date().toISOString(),
-            endTime: weekEnd.toISOString(),
-            limit,
-          });
+        const response = await calendarApi.listEvents({
+          startTime: new Date().toISOString(),
+          endTime: weekEnd.toISOString(),
+          limit,
+        });
 
-          const events = response.data?.events || [];
-          const deadlines: Deadline[] = events.map((e) => ({
-            id: e.id,
-            title: e.title,
-            dueDate: e.startTime,
-            source: 'calendar' as const,
-            sourceId: e.id,
-            priority: 'medium' as const,
-          }));
+        const events = response.data?.events || [];
+        const deadlines: Deadline[] = events.map((e) => ({
+          id: e.id,
+          title: e.title,
+          dueDate: e.startTime,
+          source: 'calendar' as const,
+          sourceId: e.id,
+          priority: 'medium' as const,
+        }));
 
-          const todayEnd = new Date();
-          todayEnd.setHours(23, 59, 59, 999);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
 
-          return {
-            deadlines,
-            total: events.length,
-            todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
-            weekCount: deadlines.length,
-          };
-        } catch {
-          return { deadlines: [], total: 0, todayCount: 0, weekCount: 0 };
-        }
+        return {
+          deadlines,
+          total: events.length,
+          todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
+          weekCount: deadlines.length,
+        };
       }
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -205,38 +189,34 @@ export function followUpsOptions(params?: { status?: string; limit?: number }) {
     queryFn: async (): Promise<{ followUps: FollowUp[]; total: number; pendingCount: number; overdueCount: number }> => {
       const limit = params?.limit || 5;
 
-      try {
-        // Use dedicated pending endpoint - it returns items ordered by dueDate
-        const response = await voltAgentApi.getPendingFollowUps({ limit });
-        const items = (response.data?.followUps || []) as unknown as ApiFollowUpItem[];
-        const now = new Date();
+      // Use dedicated pending endpoint - it returns items ordered by dueDate
+      const response = await voltAgentApi.getPendingFollowUps({ limit });
+      const items = (response.data?.followUps || []) as unknown as ApiFollowUpItem[];
+      const now = new Date();
 
-        const followUps: FollowUp[] = items.map((f) => {
-          const dueDate = f.dueDate as string || '';
-          const isOverdue = dueDate && new Date(dueDate) < now;
-          const email = f.email || {};
-
-          return {
-            id: f.id as string,
-            emailId: f.emailId as string || '',
-            subject: email.subject || f.subject || '(No subject)',
-            contactName: email.from || f.contactName || f.contactEmail || 'Unknown',
-            contactEmail: email.from || f.contactEmail || '',
-            dueDate,
-            status: isOverdue ? 'overdue' : 'pending',
-            reason: f.reason as string,
-          };
-        });
+      const followUps: FollowUp[] = items.map((f) => {
+        const dueDate = f.dueDate as string || '';
+        const isOverdue = dueDate && new Date(dueDate) < now;
+        const email = f.email || {};
 
         return {
-          followUps,
-          total: response.data?.count || items.length,
-          pendingCount: followUps.filter((f) => f.status === 'pending').length,
-          overdueCount: followUps.filter((f) => f.status === 'overdue').length,
+          id: f.id as string,
+          emailId: f.emailId as string || '',
+          subject: email.subject || f.subject || '(No subject)',
+          contactName: email.from || f.contactName || f.contactEmail || 'Unknown',
+          contactEmail: email.from || f.contactEmail || '',
+          dueDate,
+          status: isOverdue ? 'overdue' : 'pending',
+          reason: f.reason as string,
         };
-      } catch {
-        return { followUps: [], total: 0, pendingCount: 0, overdueCount: 0 };
-      }
+      });
+
+      return {
+        followUps,
+        total: response.data?.count || items.length,
+        pendingCount: followUps.filter((f) => f.status === 'pending').length,
+        overdueCount: followUps.filter((f) => f.status === 'overdue').length,
+      };
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -278,38 +258,34 @@ export function staleContactsOptions(params?: { limit?: number }) {
           averageScore: avgScore,
         };
       } catch {
-        // Fallback: Get contacts and calculate manually
-        try {
-          const response = await contactsApi.listContacts({ limit: limit * 2 });
-          const allContacts = response?.contacts || [];
-          const now = new Date();
+        // Fallback: Get contacts and calculate manually -- if this also fails, TanStack Query catches it
+        const response = await contactsApi.listContacts({ limit: limit * 2 });
+        const allContacts = response?.contacts || [];
+        const now = new Date();
 
-          const contacts: StaleContact[] = allContacts
-            .map((c) => {
-              const createdAt = c.createdAt ? new Date(c.createdAt) : now;
-              const daysSinceContact = Math.floor((now.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000));
+        const contacts: StaleContact[] = allContacts
+          .map((c) => {
+            const createdAt = c.createdAt ? new Date(c.createdAt) : now;
+            const daysSinceContact = Math.floor((now.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000));
 
-              return {
-                id: c.id,
-                name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.emails?.[0]?.value || 'Unknown',
-                email: c.emails?.[0]?.value || '',
-                company: c.company || undefined,
-                lastInteraction: c.createdAt || '',
-                relationshipScore: Math.max(0, 100 - daysSinceContact * 2),
-                daysSinceContact,
-              };
-            })
-            .filter((c) => c.daysSinceContact > 30)
-            .slice(0, limit);
+            return {
+              id: c.id,
+              name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.emails?.[0]?.value || 'Unknown',
+              email: c.emails?.[0]?.value || '',
+              company: c.company || undefined,
+              lastInteraction: c.createdAt || '',
+              relationshipScore: Math.max(0, 100 - daysSinceContact * 2),
+              daysSinceContact,
+            };
+          })
+          .filter((c) => c.daysSinceContact > 30)
+          .slice(0, limit);
 
-          const avgScore = contacts.length > 0
-            ? Math.round(contacts.reduce((sum, c) => sum + c.relationshipScore, 0) / contacts.length)
-            : 0;
+        const avgScore = contacts.length > 0
+          ? Math.round(contacts.reduce((sum, c) => sum + c.relationshipScore, 0) / contacts.length)
+          : 0;
 
-          return { contacts, total: contacts.length, averageScore: avgScore };
-        } catch {
-          return { contacts: [], total: 0, averageScore: 0 };
-        }
+        return { contacts, total: contacts.length, averageScore: avgScore };
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -381,18 +357,14 @@ export function importantEmailsOptions(params?: { limit?: number }) {
     queryKey: [...dashboardKeys.all, 'importantEmails', params] as const,
     queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
       const limit = params?.limit || 5;
-      try {
-        const response = await apiClient.get('/emails', {
-          // isImportant = starred OR flagged (provider-agnostic)
-          params: { limit, isImportant: true },
-        });
-        return {
-          emails: response.data?.emails || [],
-          total: response.data?.total || 0,
-        };
-      } catch {
-        return { emails: [], total: 0 };
-      }
+      const response = await apiClient.get('/emails', {
+        // isImportant = starred OR flagged (provider-agnostic)
+        params: { limit, isImportant: true },
+      });
+      return {
+        emails: response.data?.emails || [],
+        total: response.data?.total || 0,
+      };
     },
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -414,18 +386,14 @@ export function recentUnreadEmailsOptions(params?: { limit?: number }) {
     queryKey: [...dashboardKeys.all, 'recentUnreadEmails', params] as const,
     queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
       const limit = params?.limit || 5;
-      try {
-        const response = await apiClient.get('/emails', {
-          // Use specialUse: INBOX to exclude TRASH/SPAM from recent unread
-          params: { limit, isRead: false, specialUse: 'INBOX' },
-        });
-        return {
-          emails: response.data?.emails || [],
-          total: response.data?.total || 0,
-        };
-      } catch {
-        return { emails: [], total: 0 };
-      }
+      const response = await apiClient.get('/emails', {
+        // Use specialUse: INBOX to exclude TRASH/SPAM from recent unread
+        params: { limit, isRead: false, specialUse: 'INBOX' },
+      });
+      return {
+        emails: response.data?.emails || [],
+        total: response.data?.total || 0,
+      };
     },
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -450,29 +418,25 @@ export function todayEventsOptions() {
   return queryOptions({
     queryKey: [...dashboardKeys.all, 'todayEvents'] as const,
     queryFn: async (): Promise<{ events: CalendarEvent[]; total: number }> => {
-      try {
-        const today = new Date();
-        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-        const response = await calendarApi.listEvents({
-          startTime: startOfDay.toISOString(),
-          endTime: endOfDay.toISOString(),
-        });
+      const response = await calendarApi.listEvents({
+        startTime: startOfDay.toISOString(),
+        endTime: endOfDay.toISOString(),
+      });
 
-        const events: CalendarEvent[] = (response.data?.events || []).map((e) => ({
-          id: e.id,
-          title: e.title,
-          startTime: e.startTime,
-          endTime: e.endTime,
-          location: e.location,
-          type: 'event' as const,
-        }));
+      const events: CalendarEvent[] = (response.data?.events || []).map((e) => ({
+        id: e.id,
+        title: e.title,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        location: e.location,
+        type: 'event' as const,
+      }));
 
-        return { events, total: events.length };
-      } catch {
-        return { events: [], total: 0 };
-      }
+      return { events, total: events.length };
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -497,21 +461,17 @@ export function recentContactsOptions(params?: { limit?: number }) {
     queryKey: [...dashboardKeys.all, 'recentContacts', params] as const,
     queryFn: async (): Promise<{ contacts: RecentContact[]; total: number }> => {
       const limit = params?.limit || 5;
-      try {
-        const response = await contactsApi.listContacts({ limit });
+      const response = await contactsApi.listContacts({ limit });
 
-        const contacts: RecentContact[] = (response?.contacts || []).map((c) => ({
-          id: c.id,
-          name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.emails?.[0]?.value || 'Unknown',
-          email: c.emails?.[0]?.value || '',
-          company: c.company || undefined,
-          lastInteraction: c.updatedAt,
-        }));
+      const contacts: RecentContact[] = (response?.contacts || []).map((c) => ({
+        id: c.id,
+        name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.emails?.[0]?.value || 'Unknown',
+        email: c.emails?.[0]?.value || '',
+        company: c.company || undefined,
+        lastInteraction: c.updatedAt,
+      }));
 
-        return { contacts, total: response?.total || contacts.length };
-      } catch {
-        return { contacts: [], total: 0 };
-      }
+      return { contacts, total: response?.total || contacts.length };
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -560,8 +520,12 @@ export function dashboardPreferencesOptions() {
           };
         }
         return getDefaultLayout();
-      } catch {
-        return getDefaultLayout();
+      } catch (error) {
+        // 404 = no saved preferences yet, return default layout
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return getDefaultLayout();
+        }
+        throw error; // Re-throw non-404 errors
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -682,53 +646,24 @@ export interface EmailTrendDataPoint {
 
 /**
  * Query options for email trends
- * Uses analyticsApi.getEmailAnalytics() or falls back to mock data
+ * Uses the AI analytics endpoint for email volume data
  */
 export function emailTrendsOptions() {
   return queryOptions({
     queryKey: dashboardKeys.emailTrends(),
     queryFn: async (): Promise<{ trends: EmailTrendDataPoint[] }> => {
-      try {
-        // Try to fetch from AI analytics endpoint
-        const response = await apiClient.get('/ai/analytics/email');
-        // Backend returns { success, analytics } with volumeTrends array
-        const analytics = response.data?.analytics;
-        if (analytics?.volumeTrends && Array.isArray(analytics.volumeTrends)) {
-          return { trends: analytics.volumeTrends };
-        }
-        // If endpoint doesn't return expected format, use fallback
-        throw new Error('Analytics endpoint unavailable');
-      } catch {
-        // Generate mock data from email stats for last 7 days
-        // Use locale-aware day formatting
-        const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
-        const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
-        const today = new Date();
-
-        // Generate trends for last 7 days with locale-aware day names
-        const trends: EmailTrendDataPoint[] = [];
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          const dayName = formatter.format(date);
-          const dayOfWeek = date.getDay();
-          // Simulate realistic email patterns - more on weekdays
-          const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
-          const baseReceived = isWeekday ? 15 + Math.floor(Math.random() * 10) : 5 + Math.floor(Math.random() * 5);
-          const baseSent = isWeekday ? 8 + Math.floor(Math.random() * 6) : 2 + Math.floor(Math.random() * 3);
-          trends.push({
-            name: dayName,
-            emails: baseReceived + baseSent,
-            received: baseReceived,
-            sent: baseSent,
-          });
-        }
-        return { trends };
+      const response = await apiClient.get('/ai/analytics/email');
+      // Backend returns { success, analytics } with volumeTrends array
+      const analytics = response.data?.analytics;
+      if (analytics?.volumeTrends && Array.isArray(analytics.volumeTrends)) {
+        return { trends: analytics.volumeTrends };
       }
+      // Endpoint returned unexpected format -- treat as error
+      throw new Error('Analytics endpoint returned unexpected format');
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000,
-    retry: 0, // Don't retry if analytics endpoint fails
+    retry: 1,
   });
 }
 
@@ -764,42 +699,38 @@ export function triagedEmailsOptions(params?: { limit?: number; priority?: numbe
     queryKey: dashboardKeys.triagedEmails(params),
     queryFn: async (): Promise<{ emails: TriagedEmail[]; total: number; byPriority: Record<number, number> }> => {
       const limit = params?.limit || 10;
-      try {
-        // Fetch emails with isAutoTriaged=true
-        const response = await apiClient.get('/emails', {
-          params: {
-            limit,
-            isAutoTriaged: true,
-            ...(params?.priority && { aiPriority: params.priority }),
-          },
-        });
+      // Fetch emails with isAutoTriaged=true
+      const response = await apiClient.get('/emails', {
+        params: {
+          limit,
+          isAutoTriaged: true,
+          ...(params?.priority && { aiPriority: params.priority }),
+        },
+      });
 
-        const emails: TriagedEmail[] = (response.data?.emails || []).map((e: Record<string, unknown>) => ({
-          id: e.id as string,
-          subject: (e.subject as string) || '(No subject)',
-          from: e.from as string | { name?: string; email?: string },
-          aiPriority: (e.aiPriority as number) || 3,
-          aiPriorityReason: e.aiPriorityReason as string | undefined,
-          aiLabels: (e.aiLabels as string[]) || [],
-          isRead: (e.isRead as boolean) || false,
-          receivedAt: (e.receivedAt as string) || '',
-          autoTriagedAt: e.autoTriagedAt as string | undefined,
-        }));
+      const emails: TriagedEmail[] = (response.data?.emails || []).map((e: Record<string, unknown>) => ({
+        id: e.id as string,
+        subject: (e.subject as string) || '(No subject)',
+        from: e.from as string | { name?: string; email?: string },
+        aiPriority: (e.aiPriority as number) || 3,
+        aiPriorityReason: e.aiPriorityReason as string | undefined,
+        aiLabels: (e.aiLabels as string[]) || [],
+        isRead: (e.isRead as boolean) || false,
+        receivedAt: (e.receivedAt as string) || '',
+        autoTriagedAt: e.autoTriagedAt as string | undefined,
+      }));
 
-        // Count emails by priority
-        const byPriority: Record<number, number> = {};
-        for (const email of emails) {
-          byPriority[email.aiPriority] = (byPriority[email.aiPriority] || 0) + 1;
-        }
-
-        return {
-          emails,
-          total: response.data?.pagination?.total || emails.length,
-          byPriority,
-        };
-      } catch {
-        return { emails: [], total: 0, byPriority: {} };
+      // Count emails by priority
+      const byPriority: Record<number, number> = {};
+      for (const email of emails) {
+        byPriority[email.aiPriority] = (byPriority[email.aiPriority] || 0) + 1;
       }
+
+      return {
+        emails,
+        total: response.data?.pagination?.total || emails.length,
+        byPriority,
+      };
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000,

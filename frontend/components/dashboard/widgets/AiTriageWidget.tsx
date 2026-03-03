@@ -60,6 +60,7 @@ export function AiTriageWidget() {
       title={t.dashboard.widgets.aiTriage?.title || 'AI Triage'}
       loading={isLoading}
       error={error?.message}
+      rawError={error}
       onRefresh={() => refetch()}
       icon={<Zap size={18} />}
       badge={data?.total || undefined}

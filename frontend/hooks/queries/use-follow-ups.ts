@@ -76,16 +76,12 @@ export function pendingFollowUpsOptions(limit = 20) {
   return queryOptions({
     queryKey: followUpKeys.pending(),
     queryFn: async (): Promise<EmailFollowUpListData> => {
-      try {
-        const response = await voltAgentApi.getPendingFollowUps({ limit });
-        const followUps = response.data?.followUps || [];
-        return {
-          followUps: followUps as unknown as EmailFollowUp[],
-          count: response.data?.count || 0,
-        };
-      } catch {
-        return { followUps: [], count: 0 };
-      }
+      const response = await voltAgentApi.getPendingFollowUps({ limit });
+      const followUps = response.data?.followUps || [];
+      return {
+        followUps: followUps as unknown as EmailFollowUp[],
+        count: response.data?.count || 0,
+      };
     },
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,

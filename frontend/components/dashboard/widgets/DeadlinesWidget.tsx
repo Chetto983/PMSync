@@ -20,6 +20,7 @@ export function DeadlinesWidget() {
             title={t.dashboard.widgets.deadlines.title}
             loading={isLoading}
             error={error?.message}
+            rawError={error}
             onRefresh={() => refetch()}
             actions={
                 data?.todayCount ? (

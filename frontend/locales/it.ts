@@ -640,6 +640,8 @@ export const it: AppTranslations = {
         noItems: 'Nessun elemento',
         today: 'oggi',
         overdue: 'scaduto',
+        retry: 'Riprova',
+        showDetails: 'Mostra dettagli',
       },
       insights: {
         title: 'Approfondimenti AI',

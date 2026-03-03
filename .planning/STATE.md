@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
 status: in-progress
-last_updated: "2026-03-03T17:57:08.913Z"
+last_updated: "2026-03-03T18:15:38Z"
 progress:
   total_phases: 19
   completed_phases: 16
   total_plans: 64
-  completed_plans: 61
+  completed_plans: 63
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 33 of 37 (API Contract Standardization)
-Plan: 1 of 3 complete in current phase
-Status: Plan 33-01 complete (API contract infrastructure)
-Last activity: 2026-03-03 -- Plan 33-01 completed (ResponseEnvelopeInterceptor, ApiExceptionFilter, setGlobalPrefix)
+Plan: 3 of 3 complete in current phase
+Status: Phase 33 complete -- all 3 plans done
+Last activity: 2026-03-03 -- Plan 33-03 completed (BullMQ correlation ID propagation, OpenAPI Spectral linting, type generation)
 
-Progress: [######░░░░] 62%
+Progress: [######░░░░] 64%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (v4.0)
+- Total plans completed: 8 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -41,7 +41,7 @@ Progress: [######░░░░] 62%
 |-------|-------|-------|----------|
 | 31 | 2/2 | 20min | 10min |
 | 32 | 4/4 | 44min | 11min |
-| 33 | 1/3 | 9min | 9min |
+| 33 | 3/3 | 21min+ | 7min |
 
 ## Accumulated Context
 
@@ -73,6 +73,10 @@ Recent decisions affecting current work:
 - [33-01]: ThrottlerExceptionFilter absorbed into ApiExceptionFilter (3 filters -> 1)
 - [33-01]: ResponseEnvelopeInterceptor as APP_INTERCEPTOR (DI), CorrelationInterceptor via useGlobalInterceptors (no DI)
 - [33-01]: Webhook exclusion uses wildcard pattern for forward-compatibility
+- [33-03]: Used getContext()?.correlationId instead of getCorrelationId() to get undefined (not 'no-context' sentinel) when outside HTTP context
+- [33-03]: Added requestId?: string to all BullMQ job data interfaces for type safety
+- [33-03]: OpenAPI generation step is continue-on-error in CI (requires database); lint blocks when spec exists
+- [33-03]: frontend/types/api.generated.ts committed as placeholder; CI overwrites with real types
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 33-01-PLAN.md
-Resume file: .planning/phases/33-api-contract-standardization/33-01-SUMMARY.md
-Next action: /gsd:execute-phase 33 (plan 02)
+Stopped at: Completed 33-03-PLAN.md (Phase 33 complete)
+Resume file: .planning/phases/33-api-contract-standardization/33-03-SUMMARY.md
+Next action: /gsd:execute-phase 34 (Auth Security Hardening)

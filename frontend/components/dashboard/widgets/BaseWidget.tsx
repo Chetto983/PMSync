@@ -9,18 +9,19 @@
  * - Refresh button
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, useState, useMemo } from 'react';
 import {
   Box,
+  Button,
+  Collapse,
   IconButton,
   Skeleton,
-  Alert,
   Typography,
   alpha,
   useTheme,
   Chip,
 } from '@mui/material';
-import { RefreshCw, Inbox } from 'lucide-react';
+import { RefreshCw, Inbox, ChevronDown } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface BaseWidgetProps {
@@ -59,6 +60,9 @@ export interface BaseWidgetProps {
 
   /** Whether the widget has no data */
   isEmpty?: boolean;
+
+  /** Raw error object from TanStack Query -- extracts code + requestId for collapsible details */
+  rawError?: unknown;
 }
 
 export function BaseWidget({
@@ -74,9 +78,22 @@ export function BaseWidget({
   icon,
   emptyText,
   isEmpty = false,
+  rawError,
 }: BaseWidgetProps) {
   const theme = useTheme();
   const t = useTranslations();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Extract structured error details from raw Axios error (Phase 33: PERF-04)
+  const errorDetails = useMemo(() => {
+    if (!rawError) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const axiosError = rawError as any;
+    const code = axiosError?.response?.data?.error?.code as string | undefined;
+    const requestId = axiosError?.response?.data?.meta?.requestId as string | undefined;
+    if (!code && !requestId) return undefined;
+    return { code, requestId };
+  }, [rawError]);
 
   return (
     <Box
@@ -199,16 +216,68 @@ export function BaseWidget({
         {loading ? (
           <WidgetSkeleton />
         ) : error ? (
-          <Alert
-            severity="error"
+          <Box
             sx={{
               borderRadius: 2,
-              bgcolor: alpha(theme.palette.error.main, 0.08),
-              border: 'none',
+              bgcolor: alpha(theme.palette.error.main, 0.06),
+              border: `1px solid ${alpha(theme.palette.error.main, 0.15)}`,
+              p: 2,
             }}
           >
-            {error}
-          </Alert>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: onRefresh || errorDetails ? 1.5 : 0 }}>
+              {error}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {onRefresh && (
+                <Button
+                  size="small"
+                  startIcon={<RefreshCw size={14} />}
+                  onClick={onRefresh}
+                  sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                >
+                  {t.dashboard.widgets.common.retry}
+                </Button>
+              )}
+              {errorDetails && (
+                <Button
+                  size="small"
+                  variant="text"
+                  endIcon={
+                    <ChevronDown
+                      size={14}
+                      style={{
+                        transform: detailsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s',
+                      }}
+                    />
+                  }
+                  onClick={() => setDetailsOpen((prev) => !prev)}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.disabled' }}
+                >
+                  {t.dashboard.widgets.common.showDetails}
+                </Button>
+              )}
+            </Box>
+            {errorDetails && (
+              <Collapse in={detailsOpen}>
+                <Box
+                  sx={{
+                    mt: 1,
+                    p: 1.5,
+                    borderRadius: 1,
+                    bgcolor: alpha(theme.palette.error.main, 0.04),
+                    fontFamily: 'monospace',
+                    fontSize: '0.75rem',
+                    color: 'text.secondary',
+                    lineHeight: 1.8,
+                  }}
+                >
+                  {errorDetails.code && <div>Error code: {errorDetails.code}</div>}
+                  {errorDetails.requestId && <div>Request ID: {errorDetails.requestId}</div>}
+                </Box>
+              </Collapse>
+            )}
+          </Box>
         ) : isEmpty ? (
           <EmptyState text={emptyText} defaultText={t.dashboard.widgets.common.noItems} />
         ) : (

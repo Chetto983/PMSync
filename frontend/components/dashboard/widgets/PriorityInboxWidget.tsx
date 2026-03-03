@@ -42,6 +42,7 @@ export function PriorityInboxWidget() {
       title={t.dashboard.widgets.priorityInbox.title}
       loading={isLoading}
       error={error?.message}
+      rawError={error}
       onRefresh={() => refetch()}
       icon={<Star size={18} />}
       badge={data?.total || undefined}

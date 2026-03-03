@@ -578,6 +578,8 @@ export interface AppTranslations {
         noItems: string;
         today: string;
         overdue: string;
+        retry: string;
+        showDetails: string;
       };
       insights: {
         title: string;

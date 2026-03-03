@@ -647,6 +647,8 @@ export const en: AppTranslations = {
         noItems: 'No items',
         today: 'today',
         overdue: 'overdue',
+        retry: 'Retry',
+        showDetails: 'Show details',
       },
       insights: {
         title: 'AI Insights',
