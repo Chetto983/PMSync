@@ -401,7 +401,7 @@ export const voltAgentApi = {
     locale?: string;
     model?: 'small' | 'medium' | 'large';
   }) {
-    return apiClient.post<ChatResult>('/api/v1/ai/chat', payload);
+    return apiClient.post<ChatResult>('/ai/chat', payload);
   },
 
   streamChat(
@@ -478,20 +478,20 @@ export const voltAgentApi = {
   // Pending Actions (HITL)
   getPendingActions() {
     return apiClient.get<{ actions: PendingAction[]; total: number }>(
-      '/api/v1/ai/actions/pending',
+      '/ai/actions/pending',
     );
   },
 
   approveAction(executionId: string, payload?: Record<string, unknown>) {
     return apiClient.post<ApprovalResponse>(
-      `/api/v1/ai/actions/${executionId}/approve`,
+      `/ai/actions/${executionId}/approve`,
       { payload },
     );
   },
 
   rejectAction(executionId: string, rejectionReason?: string) {
     return apiClient.post<ApprovalResponse>(
-      `/api/v1/ai/actions/${executionId}/reject`,
+      `/ai/actions/${executionId}/reject`,
       { approved: false, rejectionReason },
     );
   },
@@ -499,20 +499,20 @@ export const voltAgentApi = {
   // Stats
   getWritingStyle() {
     return apiClient.get<{ success: boolean; profile: WritingStyleProfile }>(
-      '/api/v1/ai/stats/writing-style',
+      '/ai/stats/writing-style',
     );
   },
 
   // Daily Briefing
   getBriefing() {
     return apiClient.get<{ success: boolean; briefing: Record<string, unknown> }>(
-      '/api/v1/ai/briefing',
+      '/ai/briefing',
     );
   },
 
   refreshBriefing() {
     return apiClient.post<{ success: boolean; jobId: string; message: string }>(
-      '/api/v1/ai/briefing/refresh',
+      '/ai/briefing/refresh',
     );
   },
 
@@ -522,19 +522,19 @@ export const voltAgentApi = {
       success: boolean;
       conversations: ConversationSummary[];
       count: number;
-    }>('/api/v1/ai/conversations', { params });
+    }>('/ai/conversations', { params });
   },
 
   getConversation(conversationId: string, params?: { messageLimit?: number }) {
     return apiClient.get<{
       success: boolean;
       conversation: ConversationDetail;
-    }>(`/api/v1/ai/conversations/${encodeURIComponent(conversationId)}`, { params });
+    }>(`/ai/conversations/${encodeURIComponent(conversationId)}`, { params });
   },
 
   deleteConversation(conversationId: string) {
     return apiClient.post<{ success: boolean; message: string }>(
-      `/api/v1/ai/conversations/${encodeURIComponent(conversationId)}/delete`,
+      `/ai/conversations/${encodeURIComponent(conversationId)}/delete`,
     );
   },
 
@@ -545,7 +545,7 @@ export const voltAgentApi = {
       enabled: boolean;
       count: number;
       deadlines: CachedDeadline[];
-    }>('/api/v1/ai/deadlines', { params });
+    }>('/ai/deadlines', { params });
   },
 
   // Follow-ups
@@ -554,13 +554,13 @@ export const voltAgentApi = {
       success: boolean;
       count: number;
       followUps: Array<Record<string, unknown>>;
-    }>('/api/v1/ai/follow-ups/pending', { params });
+    }>('/ai/follow-ups/pending', { params });
   },
 
   // Analytics
   getEmailAnalytics(params?: { period?: 'day' | 'week' | 'month' }) {
     return apiClient.get<{ success: boolean; analytics: Record<string, unknown> }>(
-      '/api/v1/ai/analytics/email',
+      '/ai/analytics/email',
       { params },
     );
   },
@@ -573,7 +573,7 @@ export const voltAgentApi = {
     locale?: string;
   }) {
     return apiClient.post<{ draftId: string; body: string; subject: string }>(
-      '/api/v1/ai/drafts/generate',
+      '/ai/drafts/generate',
       params,
     );
   },
@@ -583,16 +583,16 @@ export const voltAgentApi = {
     action: 'accepted' | 'edited' | 'rejected' | 'regenerated';
     sentBody?: string;
   }) {
-    return apiClient.post('/api/v1/ai/draft-feedback', params);
+    return apiClient.post('/ai/draft-feedback', params);
   },
 
   getDraftStats() {
-    return apiClient.get<{ success: boolean; stats: DraftStats }>('/api/v1/ai/draft-stats');
+    return apiClient.get<{ success: boolean; stats: DraftStats }>('/ai/draft-stats');
   },
 
   updateManualSamples(params: { samples: string; providerId?: string }) {
     return apiClient.post<{ success: boolean }>(
-      '/api/v1/ai/writing-style/manual-samples',
+      '/ai/writing-style/manual-samples',
       params,
     );
   },

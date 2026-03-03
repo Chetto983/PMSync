@@ -690,7 +690,7 @@ export function emailTrendsOptions() {
     queryFn: async (): Promise<{ trends: EmailTrendDataPoint[] }> => {
       try {
         // Try to fetch from AI analytics endpoint
-        const response = await apiClient.get('/api/v1/ai/analytics/email');
+        const response = await apiClient.get('/ai/analytics/email');
         // Backend returns { success, analytics } with volumeTrends array
         const analytics = response.data?.analytics;
         if (analytics?.volumeTrends && Array.isArray(analytics.volumeTrends)) {

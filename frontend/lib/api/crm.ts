@@ -40,6 +40,6 @@ export const crmApi = {
       staleContacts: ContactRelationshipStats[];
       count: number;
       thresholdDays: number;
-    }>('/api/v1/ai/crm/stale-contacts', { params });
+    }>('/ai/crm/stale-contacts', { params });
   },
 };

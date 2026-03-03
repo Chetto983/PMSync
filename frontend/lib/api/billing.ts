@@ -100,7 +100,7 @@ export interface BillingPortalResponse {
  * Get current subscription with usage stats
  */
 export async function getSubscription(): Promise<Subscription> {
-  const response = await apiClient.get<Subscription>('/api/v1/subscription');
+  const response = await apiClient.get<Subscription>('/subscription');
   return response.data;
 }
 
@@ -108,7 +108,7 @@ export async function getSubscription(): Promise<Subscription> {
  * Get real-time usage statistics
  */
 export async function getUsage(): Promise<UsageStats> {
-  const response = await apiClient.get<UsageStats>('/api/v1/subscription/usage');
+  const response = await apiClient.get<UsageStats>('/subscription/usage');
   return response.data;
 }
 
@@ -116,7 +116,7 @@ export async function getUsage(): Promise<UsageStats> {
  * Get cost protection status
  */
 export async function getCostStatus(): Promise<CostProtectionStatus> {
-  const response = await apiClient.get<CostProtectionStatus>('/api/v1/subscription/cost-status');
+  const response = await apiClient.get<CostProtectionStatus>('/subscription/cost-status');
   return response.data;
 }
 
@@ -125,7 +125,7 @@ export async function getCostStatus(): Promise<CostProtectionStatus> {
  */
 export async function getFeatures(): Promise<{ features: Record<string, boolean> }> {
   const response = await apiClient.get<{ features: Record<string, boolean> }>(
-    '/api/v1/subscription/features',
+    '/subscription/features',
   );
   return response.data;
 }
@@ -134,7 +134,7 @@ export async function getFeatures(): Promise<{ features: Record<string, boolean>
  * Get daily cost breakdown by operation type
  */
 export async function getCostBreakdown(): Promise<CostBreakdown> {
-  const response = await apiClient.get<CostBreakdown>('/api/v1/subscription/cost-breakdown');
+  const response = await apiClient.get<CostBreakdown>('/subscription/cost-breakdown');
   return response.data;
 }
 
@@ -142,7 +142,7 @@ export async function getCostBreakdown(): Promise<CostBreakdown> {
  * Get feature usage breakdown for today
  */
 export async function getFeatureUsage(): Promise<FeatureUsage> {
-  const response = await apiClient.get<FeatureUsage>('/api/v1/subscription/feature-usage');
+  const response = await apiClient.get<FeatureUsage>('/subscription/feature-usage');
   return response.data;
 }
 
@@ -150,7 +150,7 @@ export async function getFeatureUsage(): Promise<FeatureUsage> {
  * Cancel subscription
  */
 export async function cancelSubscription(cancelAtPeriodEnd = true): Promise<Subscription> {
-  const response = await apiClient.post<Subscription>('/api/v1/subscription/cancel', {
+  const response = await apiClient.post<Subscription>('/subscription/cancel', {
     cancelAtPeriodEnd,
   });
   return response.data;
@@ -167,7 +167,7 @@ export async function attachProduct(
   productId: string,
   options?: { name?: string; email?: string },
 ): Promise<AttachResponse> {
-  const response = await apiClient.post<AttachResponse>('/api/v1/autumn/attach', {
+  const response = await apiClient.post<AttachResponse>('/autumn/attach', {
     productId,
     ...options,
   });
@@ -178,7 +178,7 @@ export async function attachProduct(
  * Check feature access
  */
 export async function checkFeature(featureId: string): Promise<CheckResponse> {
-  const response = await apiClient.post<CheckResponse>('/api/v1/autumn/check', {
+  const response = await apiClient.post<CheckResponse>('/autumn/check', {
     featureId,
   });
   return response.data;
@@ -188,7 +188,7 @@ export async function checkFeature(featureId: string): Promise<CheckResponse> {
  * Track usage event
  */
 export async function trackUsage(featureId: string, amount = 1): Promise<{ success: boolean }> {
-  const response = await apiClient.post<{ success: boolean }>('/api/v1/autumn/track', {
+  const response = await apiClient.post<{ success: boolean }>('/autumn/track', {
     featureId,
     amount,
   });
@@ -199,7 +199,7 @@ export async function trackUsage(featureId: string, amount = 1): Promise<{ succe
  * Get billing portal URL
  */
 export async function getBillingPortalUrl(returnUrl?: string): Promise<BillingPortalResponse> {
-  const response = await apiClient.post<BillingPortalResponse>('/api/v1/autumn/billing_portal', {
+  const response = await apiClient.post<BillingPortalResponse>('/autumn/billing_portal', {
     returnUrl,
   });
   return response.data;
@@ -209,7 +209,7 @@ export async function getBillingPortalUrl(returnUrl?: string): Promise<BillingPo
  * Open billing portal (returns to app root)
  */
 export async function openBillingPortal(): Promise<BillingPortalResponse> {
-  const response = await apiClient.post<BillingPortalResponse>('/api/v1/autumn/openBillingPortal');
+  const response = await apiClient.post<BillingPortalResponse>('/autumn/openBillingPortal');
   return response.data;
 }
 
@@ -217,7 +217,7 @@ export async function openBillingPortal(): Promise<BillingPortalResponse> {
  * Cancel via Autumn
  */
 export async function cancelViaAutumn(productId?: string): Promise<{ success: boolean }> {
-  const response = await apiClient.post<{ success: boolean }>('/api/v1/autumn/cancel', {
+  const response = await apiClient.post<{ success: boolean }>('/autumn/cancel', {
     productId,
   });
   return response.data;
@@ -227,7 +227,7 @@ export async function cancelViaAutumn(productId?: string): Promise<{ success: bo
  * Get pricing table (public)
  */
 export async function getPricingTable(): Promise<PricingTable> {
-  const response = await apiClient.get<PricingTable>('/api/v1/autumn/components/pricing_table');
+  const response = await apiClient.get<PricingTable>('/autumn/components/pricing_table');
   return response.data;
 }
 
@@ -236,7 +236,7 @@ export async function getPricingTable(): Promise<PricingTable> {
  */
 export async function getPricingTableAuthenticated(): Promise<PricingTable> {
   const response = await apiClient.get<PricingTable>(
-    '/api/v1/autumn/components/pricing_table/authenticated',
+    '/autumn/components/pricing_table/authenticated',
   );
   return response.data;
 }

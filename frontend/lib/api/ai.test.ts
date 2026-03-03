@@ -155,7 +155,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       await voltAgentApi.chat({ message: 'Hello' });
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/chat', { message: 'Hello' });
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat', { message: 'Hello' });
     });
 
     it('should pass all options', async () => {
@@ -169,7 +169,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
         model: 'large',
       });
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/chat', {
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat', {
         message: 'Send email',
         conversationId: 'conv-123',
         locale: 'it',
@@ -306,7 +306,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       const result = await voltAgentApi.getPendingActions();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/ai/actions/pending');
+      expect(apiClient.get).toHaveBeenCalledWith('/ai/actions/pending');
       expect(result.data.total).toBe(1);
     });
   });
@@ -320,7 +320,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       const result = await voltAgentApi.approveAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/actions/exec-1/approve', {
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/approve', {
         payload: undefined,
       });
       expect(result.data.status).toBe('approved');
@@ -334,7 +334,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       await voltAgentApi.rejectAction('exec-1', 'Not needed');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/actions/exec-1/reject', {
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/reject', {
         approved: false,
         rejectionReason: 'Not needed',
       });
@@ -346,7 +346,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       await voltAgentApi.rejectAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/actions/exec-1/reject', {
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/reject', {
         approved: false,
         rejectionReason: undefined,
       });
@@ -379,7 +379,7 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
         locale: 'en',
       });
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/chat', {
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat', {
         message: 'Hi',
         conversationId: 'session-123',
         locale: 'en',
@@ -423,7 +423,7 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       await multiAgentApi.getPendingActions();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/ai/actions/pending');
+      expect(apiClient.get).toHaveBeenCalledWith('/ai/actions/pending');
     });
   });
 
@@ -434,7 +434,7 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       await multiAgentApi.approveAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/actions/exec-1/approve', {
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/approve', {
         payload: undefined,
       });
     });
@@ -447,7 +447,7 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       await multiAgentApi.rejectAction('exec-1', 'Not needed');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/actions/exec-1/reject', {
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/reject', {
         approved: false,
         rejectionReason: 'Not needed',
       });

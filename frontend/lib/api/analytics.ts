@@ -44,7 +44,7 @@ export const analyticsApi = {
    * GET /api/v1/ai/analytics/email
    */
   async getEmailAnalytics(): Promise<EmailAnalyticsDataPoint[]> {
-    const response = await apiClient.get('/api/v1/ai/analytics/email');
+    const response = await apiClient.get('/ai/analytics/email');
     // Backend returns { success, analytics } - extract the data array
     const analytics = response.data?.analytics;
     if (analytics?.volumeTrends) {

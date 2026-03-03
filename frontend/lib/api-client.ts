@@ -22,7 +22,7 @@ if (!apiBaseURL) {
 }
 
 export const apiClient = axios.create({
-  baseURL: apiBaseURL,
+  baseURL: `${apiBaseURL}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
@@ -47,8 +47,8 @@ export async function getCsrfToken(): Promise<string> {
     return csrfTokenPromise;
   }
 
-  csrfTokenPromise = axios
-    .get(`${apiBaseURL}/auth/csrf-token`, { withCredentials: true })
+  csrfTokenPromise = apiClient
+    .get('/auth/csrf-token')
     .then((res) => {
       csrfToken = res.data.csrfToken;
       csrfTokenPromise = null;
@@ -78,13 +78,21 @@ export function clearCsrfToken(): void {
  */
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    // Check for server error message
+    // Check for new envelope error shape first: { error: { code, message, details } }
+    const envelopeMessage = error.response?.data?.error?.message;
+    if (envelopeMessage) {
+      return typeof envelopeMessage === 'string' ? envelopeMessage : JSON.stringify(envelopeMessage);
+    }
+    // Fallback: legacy error shape { message }
     const serverMessage = error.response?.data?.message;
     if (serverMessage) {
       return typeof serverMessage === 'string' ? serverMessage : JSON.stringify(serverMessage);
     }
-    // Check for validation errors array
-    const validationErrors = error.response?.data?.errors;
+    // Check for validation errors: new shape first, then legacy
+    const envelopeValidationErrors = error.response?.data?.error?.details?.fields;
+    const validationErrors = Array.isArray(envelopeValidationErrors)
+      ? envelopeValidationErrors
+      : error.response?.data?.errors;
     if (Array.isArray(validationErrors) && validationErrors.length > 0) {
       return validationErrors.map((e: { message?: string }) => e.message || String(e)).join(', ');
     }
@@ -124,6 +132,39 @@ apiClient.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+// Phase 33: Auto-unwrap API response envelope { data, meta } -> data
+// MUST be registered BEFORE the 401/403 error handler
+apiClient.interceptors.response.use(
+  (response) => {
+    // Unwrap envelope: { data, meta } -> data
+    if (
+      response.data &&
+      typeof response.data === 'object' &&
+      'data' in response.data &&
+      'meta' in response.data
+    ) {
+      // Store meta for optional access
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (response as any)._meta = response.data.meta;
+      response.data = response.data.data;
+    }
+    return response;
+  },
+  (error) => {
+    // Structured console logging on API errors (Phase 33: PERF-04)
+    if (error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      const meta = error.response.data.meta;
+      console.error('[API Error]', {
+        code: apiError.code,
+        requestId: meta?.requestId,
+        endpoint: `${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+      });
+    }
+    return Promise.reject(error);
+  },
+);
 
 // Handle token expiration and CSRF errors
 apiClient.interceptors.response.use(
