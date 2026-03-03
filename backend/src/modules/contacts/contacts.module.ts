@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { ContactsController } from './controllers/contacts.controller';
 import { ContactsWebhookController } from './controllers/contacts-webhook.controller';
 import { ContactsService } from './services/contacts.service';
@@ -18,8 +18,18 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for SyncAuthService
 import { AiModule } from '../ai/ai.module';
 import { AlertingService } from '../../common/services/alerting.service';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../common/interfaces/tool-registry.interface';
+import { ContactsTool } from './tools/contacts.tool';
 // DeadLetterQueueService is available globally from CacheModule
 
+/**
+ * ContactsModule - Contacts management with provider sync.
+ *
+ * Phase 32: Self-registers ContactsTool via ToolRegistryService OnModuleInit.
+ */
 @Module({
   imports: [
     PrismaModule,
@@ -28,6 +38,7 @@ import { AlertingService } from '../../common/services/alerting.service';
     forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
     // VoltAgentModule deleted. CRM Relationship Intelligence rebuilt as RelationshipScoreService (Phase 26).
     forwardRef(() => AiModule), // ContactEmbeddingQueueService for RAG
+    // ToolRegistryModule is @Global() -- no import needed
   ],
   controllers: [
     ContactsController,
@@ -46,6 +57,8 @@ import { AlertingService } from '../../common/services/alerting.service';
     RelationshipScoreService, // CRM scoring: recency/frequency/reciprocity/trend
     ContactsSyncWorker, // Worker to process sync jobs (extends BaseWorker with DLQ/Alerting)
     AlertingService, // Required by ContactsSyncWorker for critical failure alerts
+    // Phase 32: IAiTool wrapper for ToolRegistry self-registration
+    ContactsTool,
   ],
   exports: [
     ContactsService,
@@ -60,4 +73,17 @@ import { AlertingService } from '../../common/services/alerting.service';
     RelationshipScoreService,
   ],
 })
-export class ContactsModule { }
+export class ContactsModule implements OnModuleInit {
+  private readonly logger = new Logger(ContactsModule.name);
+
+  constructor(
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
+    private readonly contactsTool: ContactsTool,
+  ) {}
+
+  onModuleInit() {
+    this.toolRegistry.registerTool(this.contactsTool);
+    this.logger.log('Registered ContactsTool with ToolRegistry');
+  }
+}

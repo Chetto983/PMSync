@@ -34,6 +34,10 @@ import {
 } from '../tools/index';
 import { IntentRouterService } from '../tools/intent-router.service';
 import { MemoryService } from './memory.service';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 /**
  * Parameters for streamChat method.
@@ -79,6 +83,9 @@ export class AiChatService {
     // Phase 25 Plan 02: Intent routing + memory injection
     private readonly intentRouterService: IntentRouterService,
     private readonly memoryService: MemoryService,
+    // Phase 32: Tool discovery via registry (domain modules self-register)
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,

@@ -315,6 +315,8 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       ragToolsService,
       intentRouterService,
       memoryService,
+      // Phase 32: ToolRegistryService stub for tool discovery
+      { getAllTools: () => [], getToolNames: () => [], getTool: () => undefined, registerTool: () => {} } as any,
       undefined,
     );
   }, 30_000);

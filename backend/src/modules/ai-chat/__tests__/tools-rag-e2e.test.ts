@@ -190,6 +190,8 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       toolsServiceStub, // RagToolsService
       intentRouterService, // REAL -- will be spied on
       memoryService, // REAL -- will be spied on
+      // Phase 32: ToolRegistryService stub for tool discovery
+      { getAllTools: () => [], getToolNames: () => [], getTool: () => undefined, registerTool: () => {} } as any,
       undefined, // UsageTrackingService is @Optional
     );
   }, 30_000);

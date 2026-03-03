@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ComplianceModule } from '../compliance/compliance.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
@@ -32,9 +32,11 @@ import { HybridSearchService } from './services/hybrid-search.service';
  * Replaces the old VoltAgent chat pipeline (deleted in Phase 23).
  * MistralModule is @Global() so no import needed for MistralProviderService.
  * CacheModule is @Global() so no import needed for CacheService (used by PiiResolutionService).
+ * ToolRegistryModule is @Global() so no import needed for TOOL_REGISTRY_SERVICE.
  *
- * Phase 25: Added domain module imports (forwardRef for circular deps)
- *           and 5 ToolsService classes for tool execution.
+ * Phase 32: Removed circular-ref wrappers from domain module imports.
+ *           Tools are now discovered via ToolRegistryService (domain modules
+ *           self-register via OnModuleInit). Direct imports kept for DI resolution.
  */
 @Module({
   imports: [
@@ -42,11 +44,11 @@ import { HybridSearchService } from './services/hybrid-search.service';
     ComplianceModule, // ConsentGuard, ConsentEnforcementService
     SubscriptionModule, // QuotaGuard, UsageTrackingService, CostProtectionService
     AuditModule, // AuditService
-    // Phase 25: Domain modules for tool execution
-    forwardRef(() => EmailModule), // EmailSearchService, EmailCrudService, EmailSendService, etc.
-    forwardRef(() => CalendarModule), // CalendarEventsService
-    forwardRef(() => ContactsModule), // ContactsService
-    forwardRef(() => AiModule), // EmbeddingsService, KnowledgeBaseService
+    // Phase 32: Direct imports (no circular-ref wrappers) -- domain modules for ToolsService DI
+    EmailModule, // EmailSearchService, EmailCrudService, EmailSendService, etc.
+    CalendarModule, // CalendarEventsService
+    ContactsModule, // ContactsService
+    AiModule, // EmbeddingsService, KnowledgeBaseService
   ],
   controllers: [AiChatController, HitlController],
   providers: [
@@ -57,7 +59,7 @@ import { HybridSearchService } from './services/hybrid-search.service';
     PiiDetectionService,
     PiiResolutionService,
     RedisRateLimiterService,
-    // Phase 25: Tool services
+    // Phase 25: Tool services (AI SDK adapter layer with PII closures)
     EmailToolsService,
     CalendarToolsService,
     ContactToolsService,

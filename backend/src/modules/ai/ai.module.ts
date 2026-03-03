@@ -1,4 +1,4 @@
-import { Module, forwardRef, OnModuleInit, Logger } from '@nestjs/common';
+import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MistralService } from './services/mistral.service';
 import { MistralEmbeddingService } from './services/mistral-embedding.service';
@@ -37,13 +37,25 @@ import { PromptGuardService } from './guards';
 import { BriefingService } from './services/briefing.service';
 import { FollowUpDetectionService } from './services/follow-up-detection.service';
 import { DraftGenerationService } from './services/draft-generation.service';
+// Phase 32: ToolRegistry self-registration
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../common/interfaces/tool-registry.interface';
+import { RagTool } from './tools/rag.tool';
 
+/**
+ * AiModule - AI/ML services, embeddings, triage, and RAG.
+ *
+ * Phase 32: Self-registers RagTool via ToolRegistryService OnModuleInit.
+ */
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
     ComplianceModule, // Phase 28: ConsentGuard + ConsentEnforcementService for @RequiresConsent
+    // ToolRegistryModule is @Global() -- no import needed
   ],
   providers: [
     MistralEmbeddingService,
@@ -75,6 +87,8 @@ import { DraftGenerationService } from './services/draft-generation.service';
     BriefingService,
     FollowUpDetectionService,
     DraftGenerationService,
+    // Phase 32: IAiTool wrapper for ToolRegistry self-registration
+    RagTool,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -103,9 +117,18 @@ import { DraftGenerationService } from './services/draft-generation.service';
 export class AiModule implements OnModuleInit {
   private readonly logger = new Logger(AiModule.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
+    private readonly ragTool: RagTool,
+  ) {}
 
   onModuleInit() {
+    // Phase 32: Register RAG tool with ToolRegistry
+    this.toolRegistry.registerTool(this.ragTool);
+    this.logger.log('Registered RagTool with ToolRegistry');
+
     // Validate MISTRAL_API_KEY at startup in production
     const nodeEnv = this.configService.get<string>('NODE_ENV');
     const mistralApiKey = this.configService.get<string>('MISTRAL_API_KEY');

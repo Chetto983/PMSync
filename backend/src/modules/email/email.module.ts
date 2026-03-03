@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { EmailService } from './services/email.service';
 import { EmailsService } from './services/emails.service';
 import { EmailCrudService } from './services/email-crud.service';
@@ -30,6 +30,12 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
 import { ProviderTokenService } from '../email-sync/services/provider-token.service';
 import { CalendarModule } from '../calendar/calendar.module';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../common/interfaces/tool-registry.interface';
+import { STORAGE_SERVICE } from '../../common/interfaces/storage.interface';
+import { EmailSearchTool } from './tools/email-search.tool';
 
 /**
  * EmailModule - Core email functionality with observability
@@ -39,6 +45,9 @@ import { CalendarModule } from '../calendar/calendar.module';
  * - AttachmentStorageService: S3 storage with SHA-256 content-addressable deduplication
  * - AttachmentOnDemandService: Lazy download from providers (Gmail, Microsoft, IMAP)
  * - EmailCleanupService: Retention policies with orphan S3 tracking
+ *
+ * Phase 32: Self-registers EmailSearchTool via ToolRegistryService OnModuleInit.
+ *           Provides STORAGE_SERVICE for cross-module attachment access.
  *
  * @see docs/EMAIL_MODULE_ROADMAP.md for implementation details
  */
@@ -50,7 +59,8 @@ import { CalendarModule } from '../calendar/calendar.module';
     forwardRef(() => EmailSyncModule),
     forwardRef(() => CalendarModule),
     RealtimeModule,
-    // ScheduledJobsModule is @Global() — no need to import, available everywhere
+    // ToolRegistryModule is @Global() -- no import needed
+    // ScheduledJobsModule is @Global() -- no need to import, available everywhere
   ],
   providers: [
     // Core services
@@ -81,6 +91,11 @@ import { CalendarModule } from '../calendar/calendar.module';
     EmailSignatureService,
     // Template service
     EmailTemplateService,
+    // Phase 32: IAiTool wrapper for ToolRegistry self-registration
+    EmailSearchTool,
+    // Phase 32: STORAGE_SERVICE alias for cross-module access (Plan 03 AiModule decoupling)
+    // Uses StorageService (S3 wrapper) -- Plan 03 will adapt as needed
+    { provide: STORAGE_SERVICE, useExisting: StorageService },
   ],
   // CRITICAL: SignaturesController and TemplatesController MUST be before EmailsController
   // because EmailsController has @Get(':id') which would catch /emails/signatures as /emails/:id
@@ -110,6 +125,21 @@ import { CalendarModule } from '../calendar/calendar.module';
     EmailSignatureService,
     // Template service
     EmailTemplateService,
+    // Phase 32: STORAGE_SERVICE for cross-module attachment access
+    STORAGE_SERVICE,
   ],
 })
-export class EmailModule { }
+export class EmailModule implements OnModuleInit {
+  private readonly logger = new Logger(EmailModule.name);
+
+  constructor(
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
+    private readonly emailSearchTool: EmailSearchTool,
+  ) {}
+
+  onModuleInit() {
+    this.toolRegistry.registerTool(this.emailSearchTool);
+    this.logger.log('Registered EmailSearchTool with ToolRegistry');
+  }
+}

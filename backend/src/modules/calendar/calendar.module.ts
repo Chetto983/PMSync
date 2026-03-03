@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { CalendarController } from './controllers/calendar.controller';
 import { CalendarWebhookController } from './controllers/calendar-webhook.controller';
 import { CalendarService } from './services/calendar.service';
@@ -21,14 +21,25 @@ import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for SyncAuthService
 import { AlertingService } from '../../common/services/alerting.service';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../common/interfaces/tool-registry.interface';
+import { CalendarTool } from './tools/calendar.tool';
 // DeadLetterQueueService is available globally from CacheModule
 
+/**
+ * CalendarModule - Calendar functionality with provider sync.
+ *
+ * Phase 32: Self-registers CalendarTool via ToolRegistryService OnModuleInit.
+ */
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => ProvidersModule),
     RealtimeModule, // WebSocket events
     forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
+    // ToolRegistryModule is @Global() -- no import needed
   ],
   controllers: [
     CalendarController,
@@ -51,6 +62,8 @@ import { AlertingService } from '../../common/services/alerting.service';
     FocusTimeService, // Focus time block suggestions
     MeetingPrepService, // Pre-meeting briefing assembly
     AlertingService, // Required by CalendarSyncWorker (DLQ is global from CacheModule)
+    // Phase 32: IAiTool wrapper for ToolRegistry self-registration
+    CalendarTool,
   ],
   exports: [
     CalendarService,
@@ -69,4 +82,17 @@ import { AlertingService } from '../../common/services/alerting.service';
     MeetingPrepService,
   ],
 })
-export class CalendarModule {}
+export class CalendarModule implements OnModuleInit {
+  private readonly logger = new Logger(CalendarModule.name);
+
+  constructor(
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
+    private readonly calendarTool: CalendarTool,
+  ) {}
+
+  onModuleInit() {
+    this.toolRegistry.registerTool(this.calendarTool);
+    this.logger.log('Registered CalendarTool with ToolRegistry');
+  }
+}
