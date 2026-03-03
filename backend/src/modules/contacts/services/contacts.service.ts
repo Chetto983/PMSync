@@ -17,6 +17,7 @@
 
 import { Injectable, Logger, NotFoundException, BadRequestException, Optional, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Contact, Prisma } from '@prisma/client';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
@@ -25,6 +26,7 @@ import { ContactsCacheService } from './contacts-cache.service';
 import { ContactsImportService } from './contacts-import.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ContactEmbeddingQueueService } from '../../ai/services/contact-embedding.queue';
+import { ContactUpdatedEvent } from '../../../common/events/contact.events';
 // TODO Phase 24: Rebuild AttentionScoreService with new AiChatService
 // import { AttentionScoreService } from '../../ai/voltagent/services/attention-score.service';
 type AttentionScoreService = any;
@@ -63,6 +65,7 @@ export class ContactsService {
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly configService: ConfigService,
     private readonly contactEmbeddingQueue: ContactEmbeddingQueueService,
+    private readonly eventEmitter: EventEmitter2,
     // TODO Phase 24: Rebuild AttentionScoreService with new AiChatService
     @Optional() @Inject('AttentionScoreService') private readonly attentionScoreService?: AttentionScoreService,
   ) {
@@ -364,6 +367,12 @@ export class ContactsService {
 
     this.logger.log(`Contact created: ${contact.id}`);
 
+    // Phase 32: Emit ContactUpdatedEvent (scaffolding -- no consumer yet, future modules can subscribe)
+    this.eventEmitter.emit(
+      ContactUpdatedEvent.eventName,
+      new ContactUpdatedEvent(tenantId, '', contact.id, ['created'], new Date()),
+    );
+
     // Emit updated counts
     void this.updateContactCounts(tenantId);
 
@@ -471,6 +480,13 @@ export class ContactsService {
     });
 
     this.logger.log(`Contact updated: ${contactId}`);
+
+    // Phase 32: Emit ContactUpdatedEvent (scaffolding -- no consumer yet, future modules can subscribe)
+    const changedFields = Object.keys(data).filter((k) => data[k as keyof typeof data] !== undefined);
+    this.eventEmitter.emit(
+      ContactUpdatedEvent.eventName,
+      new ContactUpdatedEvent(tenantId, '', contactId, changedFields, new Date()),
+    );
 
     // Emit updated counts (in case company/email/phone changed)
     void this.updateContactCounts(tenantId);

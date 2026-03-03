@@ -1,15 +1,22 @@
-import { Inject, Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { GdprService } from '../../compliance/services/gdpr.service';
+import { TenantDeletedEvent } from '../../../common/events/tenant.events';
 
+/**
+ * TenantService - Manages tenant CRUD and lifecycle.
+ *
+ * Phase 32: Decoupled from ComplianceModule via TenantDeletedEvent.
+ * - deleteTenant/hardDeleteTenant emit TenantDeletedEvent
+ * - GdprEventHandlerService in ComplianceModule handles cleanup
+ */
 @Injectable()
 export class TenantService {
   private logger = new Logger(TenantService.name);
 
   constructor(
     private prisma: PrismaService,
-    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
-    @Optional() @Inject(GdprService) private gdprService?: GdprService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -84,31 +91,16 @@ export class TenantService {
 
   /**
    * Delete tenant (soft delete)
-   * Also triggers GDPR cleanup for external services (Mistral agents, etc.)
+   * Phase 32: Emits TenantDeletedEvent for GDPR cleanup instead of direct GdprService call.
    */
   async deleteTenant(tenantId: string) {
-    // 1. Clean up external service data (Mistral agents, etc.)
-    // This must happen BEFORE the soft delete to ensure we can still find tenant data
-    if (this.gdprService) {
-      try {
-        const purgeResult = await this.gdprService.purgeExternalTenantData(tenantId);
-        if (!purgeResult.success) {
-          this.logger.warn(
-            `[GDPR] External data purge had errors for tenant ${tenantId}: ${purgeResult.errors.join(', ')}`,
-          );
-        } else {
-          this.logger.log(
-            `[GDPR] External data purge complete for tenant ${tenantId}: ${purgeResult.deletedCounts.mistralAgents} Mistral agents deleted`,
-          );
-        }
-      } catch (error) {
-        // Don't fail the delete if external cleanup fails
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`[GDPR] External data purge failed for tenant ${tenantId}: ${msg}`);
-      }
-    }
+    // Emit event BEFORE soft delete so handlers can access tenant data
+    this.eventEmitter.emit(
+      TenantDeletedEvent.eventName,
+      new TenantDeletedEvent(tenantId, new Date()),
+    );
 
-    // 2. Soft delete the tenant (Prisma cascade will handle PostgreSQL data)
+    // Soft delete the tenant (Prisma cascade will handle PostgreSQL data)
     return this.prisma.tenant.update({
       where: { id: tenantId },
       data: { deletedAt: new Date() },
@@ -119,24 +111,17 @@ export class TenantService {
    * Permanently delete tenant and all associated data.
    * Use with caution - this is irreversible!
    *
+   * Phase 32: Emits TenantDeletedEvent for GDPR cleanup instead of direct GdprService call.
    * @param tenantId - Tenant ID to permanently delete
    */
   async hardDeleteTenant(tenantId: string) {
-    // 1. Clean up external service data (Mistral agents, etc.)
-    if (this.gdprService) {
-      try {
-        const purgeResult = await this.gdprService.purgeExternalTenantData(tenantId);
-        this.logger.log(
-          `[GDPR] External data purge for hard delete: ${purgeResult.deletedCounts.mistralAgents} Mistral agents deleted`,
-        );
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`[GDPR] External data purge failed during hard delete for tenant ${tenantId}: ${msg}`);
-        // Continue with hard delete even if external cleanup fails
-      }
-    }
+    // Emit event BEFORE hard delete so handlers can access tenant data
+    this.eventEmitter.emit(
+      TenantDeletedEvent.eventName,
+      new TenantDeletedEvent(tenantId, new Date()),
+    );
 
-    // 2. Hard delete tenant (Prisma cascade onDelete will handle related records)
+    // Hard delete tenant (Prisma cascade onDelete will handle related records)
     this.logger.warn(`[GDPR] Hard deleting tenant ${tenantId} - this is irreversible!`);
     return this.prisma.tenant.delete({
       where: { id: tenantId },

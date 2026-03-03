@@ -1,4 +1,4 @@
-import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
+import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MistralService } from './services/mistral.service';
 import { MistralEmbeddingService } from './services/mistral-embedding.service';
@@ -53,7 +53,7 @@ import { AiProviderEventHandlerService } from './services/provider-event-handler
 @Module({
   imports: [
     PrismaModule,
-    forwardRef(() => EmailModule), // For StorageService (attachment downloads)
+    EmailModule, // Phase 32: Direct import for STORAGE_SERVICE (forwardRef removed -- EmailModule uses forwardRef to AiModule)
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
     ComplianceModule, // Phase 28: ConsentGuard + ConsentEnforcementService for @RequiresConsent
     // ToolRegistryModule is @Global() -- no import needed

@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CryptoService } from '../../../../common/services/crypto.service';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
 import { SyncOrchestrationService } from '../sync-orchestration.service';
@@ -47,6 +48,8 @@ export class ImapSyncService extends BaseEmailSyncService {
     syncOrchestration: SyncOrchestrationService,
     messageProcessor: SyncMessageProcessorService,
     tokenService: SyncTokenService,
+    // Phase 32: EventEmitter2 for domain events
+    eventEmitter: EventEmitter2,
   ) {
     super(
       prisma,
@@ -60,6 +63,8 @@ export class ImapSyncService extends BaseEmailSyncService {
     this.setRedisLockService(redisLockService);
     // Also set for attachment handler
     this.imapAttachmentHandler.setRedisLockService(redisLockService);
+    // Phase 32: Set EventEmitter2 for domain events
+    this.setEventEmitter(eventEmitter);
   }
 
   onModuleInit() {

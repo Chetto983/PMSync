@@ -1,4 +1,4 @@
-import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
+import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { ContactsController } from './controllers/contacts.controller';
 import { ContactsWebhookController } from './controllers/contacts-webhook.controller';
 import { ContactsService } from './services/contacts.service';
@@ -36,9 +36,9 @@ import { ContactsProviderEventHandlerService } from './services/provider-event-h
     PrismaModule,
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports ContactsModule)
     RealtimeModule, // WebSocket events
-    forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
+    EmailSyncModule, // Phase 32: Direct import for SyncAuthService (no circular -- EmailSyncModule doesn't import ContactsModule)
     // VoltAgentModule deleted. CRM Relationship Intelligence rebuilt as RelationshipScoreService (Phase 26).
-    forwardRef(() => AiModule), // ContactEmbeddingQueueService for RAG
+    AiModule, // Phase 32: Direct import for ContactEmbeddingQueueService (no circular -- AiModule doesn't import ContactsModule)
     // ToolRegistryModule is @Global() -- no import needed
   ],
   controllers: [

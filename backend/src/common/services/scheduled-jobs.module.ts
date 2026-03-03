@@ -1,4 +1,4 @@
-import { Global, Module, forwardRef } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ScheduledJobsQueueService } from './scheduled-jobs.queue';
 import { RedisLockService } from './redis-lock.service';
 import { DataCleanupService } from './data-cleanup.service';
@@ -14,12 +14,15 @@ import { ComplianceModule } from '../../modules/compliance/compliance.module';
  *
  * DataCleanupService: Daily cleanup of expired data (AIMemory, Learning, Actions)
  * AccountDeletionService: Purge expired account deletion requests (2 AM daily)
+ *
+ * Phase 32: Changed forwardRef(() => ComplianceModule) to direct import.
+ * ComplianceModule does NOT import ScheduledJobsModule, so no circular dependency exists.
  */
 @Global()
 @Module({
   imports: [
     PrismaModule,
-    forwardRef(() => ComplianceModule), // For AccountDeletionService (purge expired deletions)
+    ComplianceModule, // Phase 32: Direct import (no circular -- ComplianceModule doesn't import ScheduledJobsModule)
   ],
   providers: [ScheduledJobsQueueService, RedisLockService, DataCleanupService],
   exports: [ScheduledJobsQueueService, RedisLockService, DataCleanupService],

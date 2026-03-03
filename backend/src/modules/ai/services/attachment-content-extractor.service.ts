@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { StorageService } from '../../email/services/storage.service';
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import { IStorageService, STORAGE_SERVICE } from '../../../common/interfaces/storage.interface';
 
 // Lazy loader to support pdf-parse v2.x (exports PDFParse class)
 const loadPdfParse = () => {
@@ -37,7 +37,9 @@ export class AttachmentContentExtractorService {
   private readonly logger = new Logger(AttachmentContentExtractorService.name);
   private readonly MAX_ATTACHMENT_TEXT: number;
 
-  constructor(private readonly storageService: StorageService) {
+  constructor(
+    @Inject(STORAGE_SERVICE) private readonly storageService: IStorageService,
+  ) {
     // Limit attachment text to 50K chars per attachment
     // This prevents extremely large files from bloating embeddings
     this.MAX_ATTACHMENT_TEXT = 50000;

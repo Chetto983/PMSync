@@ -1,13 +1,20 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TenantService } from './services/tenant.service';
 import { TenantsController } from './controllers/tenants.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { ComplianceModule } from '../compliance/compliance.module';
 
+/**
+ * TenantsModule - Tenant CRUD and lifecycle management.
+ *
+ * Phase 32: Decoupled from ComplianceModule.
+ * - TenantDeletedEvent replaces direct GdprService injection
+ * - GdprEventHandlerService in ComplianceModule consumes the event
+ */
 @Module({
   imports: [
     PrismaModule,
-    forwardRef(() => ComplianceModule), // For GDPR cleanup on tenant deletion
+    // Phase 32: No forwardRef to ComplianceModule. Uses TenantDeletedEvent instead.
+    // EventEmitterModule is globally available via AppModule.
   ],
   providers: [TenantService],
   controllers: [TenantsController],

@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { StorageService } from '../../email/services/storage.service';
+import { IStorageService, STORAGE_SERVICE } from '../../../common/interfaces/storage.interface';
 
 /**
  * Result of OCR extraction
@@ -58,7 +58,7 @@ export class MistralOcrService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly storageService: StorageService,
+    @Inject(STORAGE_SERVICE) private readonly storageService: IStorageService,
   ) {
     this.apiKey = this.configService.get<string>('MISTRAL_API_KEY');
   }

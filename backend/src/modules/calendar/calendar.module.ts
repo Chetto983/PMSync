@@ -1,4 +1,4 @@
-import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
+import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { CalendarController } from './controllers/calendar.controller';
 import { CalendarWebhookController } from './controllers/calendar-webhook.controller';
 import { CalendarService } from './services/calendar.service';
@@ -39,7 +39,7 @@ import { CalendarTool } from './tools/calendar.tool';
     PrismaModule,
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports CalendarModule)
     RealtimeModule, // WebSocket events
-    forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
+    EmailSyncModule, // Phase 32: Direct import for SyncAuthService (no circular -- EmailSyncModule doesn't import CalendarModule)
     // ToolRegistryModule is @Global() -- no import needed
   ],
   controllers: [

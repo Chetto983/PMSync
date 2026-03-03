@@ -1,5 +1,6 @@
 import { Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
@@ -16,6 +17,7 @@ import {
 } from './sync-orchestration.service';
 import { SyncTokenService } from './sync-token.service';
 import { MessageProcessorContext } from '../interfaces/sync-context.interface';
+import { EmailSyncedEvent } from '../../../common/events/email.events';
 
 /**
  * Abstract base class for email sync services (Google, Microsoft, IMAP)
@@ -48,6 +50,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   // RACE CONDITION FIX: Redis lock service for distributed locking
   protected redisLock: RedisLockService | null = null;
 
+  // Phase 32: EventEmitter2 for domain events (scaffolding -- set via setter to avoid breaking child constructors)
+  protected eventEmitter: EventEmitter2 | null = null;
+
   // CRIT-3 FIX: Token refresh threshold (refresh if less than 2 min remaining)
   protected readonly TOKEN_REFRESH_THRESHOLD_MS = 2 * 60 * 1000;
 
@@ -69,6 +74,14 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     this.redisLock = redisLock;
     // Also set on message processor
     this.messageProcessor.setRedisLockService(redisLock);
+  }
+
+  /**
+   * Phase 32: Set EventEmitter2 for domain events (injected by child classes)
+   * Scaffolding -- emits EmailSyncedEvent after successful sync
+   */
+  setEventEmitter(eventEmitter: EventEmitter2): void {
+    this.eventEmitter = eventEmitter;
   }
 
   /**
@@ -206,6 +219,18 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
             status: 'in_progress',
             processed: messagesProcessed,
           });
+        }
+
+        // Phase 32: Emit EmailSyncedEvent (scaffolding -- no consumer yet, future modules can subscribe)
+        if (this.eventEmitter && messagesProcessed > 0) {
+          try {
+            this.eventEmitter.emit(
+              EmailSyncedEvent.eventName,
+              new EmailSyncedEvent(tenantId, userId || '', providerId, providerId, new Date()),
+            );
+          } catch (err) {
+            this.logger.error(`Failed to emit EmailSyncedEvent: ${err}`);
+          }
         }
 
         return {
