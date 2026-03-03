@@ -1,7 +1,7 @@
 # Requirements: MailAgent v4.0 Enterprise Stabilization
 
 **Defined:** 2026-03-03
-**Core Value:** The best professional AI mail client — fast, intelligent, and secure
+**Core Value:** The best professional AI mail client -- fast, intelligent, and secure
 **Source:** Enterprise Platform PRD Phase 1 (Stabilization & Debt Reduction) + v3.2 carry-forward items
 
 ## v4.0 Requirements
@@ -10,7 +10,7 @@ Requirements for enterprise stabilization. Each maps to roadmap phases.
 
 ### Architecture
 
-- [ ] **ARCH-01**: Circular dependencies reduced from 17 forwardRef edges to ≤5 using event bus, interface injection, and ToolRegistry
+- [ ] **ARCH-01**: Circular dependencies reduced from 17 forwardRef edges to <=5 using event bus, interface injection, and ToolRegistry
 - [ ] **ARCH-02**: Typed domain event contracts defined and wired (EmailSynced, ProviderConnected, ContactUpdated, CalendarIcsDetected)
 - [ ] **ARCH-03**: dependency-cruiser enforces module boundary rules in CI, blocking forbidden imports on PR merge
 
@@ -56,7 +56,7 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ### AI Governance (PRD Phase 3)
 
-- **OTEL-01**: OpenTelemetry distributed tracing (API → queue → worker → AI tool call)
+- **OTEL-01**: OpenTelemetry distributed tracing (API -> queue -> worker -> AI tool call)
 - **AIUI-01**: AI Run Ledger UI (run timeline, cost panel, replay)
 - **AIPOL-01**: Deterministic workflow mode for high-stakes automations
 - **AIPOL-02**: Policy gates per tool/action with mandatory pre/post-conditions
@@ -85,31 +85,31 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | TBD | Pending |
-| ARCH-02 | TBD | Pending |
-| ARCH-03 | TBD | Pending |
-| API-01 | TBD | Pending |
-| API-02 | TBD | Pending |
-| API-03 | TBD | Pending |
-| API-04 | TBD | Pending |
-| API-05 | TBD | Pending |
-| SEC-01 | TBD | Pending |
-| SEC-02 | TBD | Pending |
-| SEC-03 | TBD | Pending |
-| AIOBS-01 | TBD | Pending |
-| AIOBS-02 | TBD | Pending |
-| AIOBS-03 | TBD | Pending |
-| AIOBS-04 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
+| ARCH-01 | Phase 32 | Pending |
+| ARCH-02 | Phase 32 | Pending |
+| ARCH-03 | Phase 32 | Pending |
+| API-01 | Phase 33 | Pending |
+| API-02 | Phase 33 | Pending |
+| API-03 | Phase 33 | Pending |
+| API-04 | Phase 33 | Pending |
+| API-05 | Phase 33 | Pending |
+| SEC-01 | Phase 34 | Pending |
+| SEC-02 | Phase 36 | Pending |
+| SEC-03 | Phase 34 | Pending |
+| AIOBS-01 | Phase 35 | Pending |
+| AIOBS-02 | Phase 35 | Pending |
+| AIOBS-03 | Phase 35 | Pending |
+| AIOBS-04 | Phase 35 | Pending |
+| PERF-01 | Phase 37 | Pending |
+| PERF-02 | Phase 37 | Pending |
+| PERF-03 | Phase 31 | Pending |
+| PERF-04 | Phase 33 | Pending |
 
 **Coverage:**
 - v4.0 requirements: 19 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 19 ⚠️
+- Mapped to phases: 19/19
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after initial definition*
+*Last updated: 2026-03-03 -- traceability updated after roadmap creation*

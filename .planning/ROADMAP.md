@@ -7,7 +7,8 @@
 - ✅ **v2.1 Optimization & Polish** - Phases 11-13 (shipped 2026-02-05)
 - ✅ **v3.0 AI Intelligence & Scalability** - Phases 1-12 (shipped 2026-02-09)
 - ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-22 (shipped 2026-02-27)
-- 🚧 **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (in progress)
+- ✅ **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (shipped 2026-03-03, partial)
+- 🚧 **v4.0 Enterprise Stabilization** - Phases 31-37 (in progress)
 
 ## Phases
 
@@ -21,191 +22,176 @@ Phases 1-12: VoltAgent audit, modern chat UI, priority scoring, follow-ups refac
 <details>
 <summary>✅ v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) - SHIPPED 2026-02-27</summary>
 
-Phases 13-22: PII tokenization, database encryption at rest, GDPR core compliance, data rights & legal, rich artifacts UI, AI triage & bulk ops, AI draft generation, GDPR guard mounting, triage prompt enrichment, bug audit. 10 phases, 31/32 requirements (ENC-03 deferred to v3.2).
+Phases 13-22: PII tokenization, database encryption at rest, GDPR core compliance, data rights & legal, rich artifacts UI, AI triage & bulk ops, AI draft generation, GDPR guard mounting, triage prompt enrichment, bug audit. 10 phases, 31/32 requirements (ENC-03 deferred).
+
+</details>
+
+<details>
+<summary>✅ v3.2 AI Rebuild & Cleanup (Phases 23-30) - SHIPPED 2026-03-03 (partial)</summary>
+
+Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, chat frontend, cleanup & VoltAgent deletion. 6 phases complete (20 plans). Phases 29-30 (architecture hardening, performance & debt) carried forward to v4.0 as ARCH-01/02/03 and PERF-01/02.
 
 </details>
 
 ---
 
-## 🚧 v3.2 AI Rebuild & Cleanup (Phases 23-30)
+## 🚧 v4.0 Enterprise Stabilization (Phases 31-37)
 
-**Milestone Goal:** Full rebuild of the AI layer -- drop VoltAgent (33K LOC, 167 files), rewrite clean AI module with AI SDK v6 + assistant-ui. Consolidate services, tools, and frontend. Fix accumulated debt.
+**Milestone Goal:** Stabilize architecture for enterprise readiness -- break circular dependencies, standardize API contracts, harden auth, add AI observability, fix encrypted search, and resolve performance debt. Based on Enterprise Platform PRD Phase 1 (Stabilization & Debt Reduction) plus v3.2 carry-forward items.
 
-**Strategy:** Parallel construction. Build new pipeline alongside old, verify with real LLM calls, then delete old code. Every AI phase passes a real E2E validation gate (actual Mistral API, not mocked) before the next phase begins.
+**Strategy:** Sequential dependency chain for foundational work (Phases 31-34), then partially parallel workstreams (Phases 35-37). Module boundaries must be stable before API standardization; API contracts must be locked before auth hardening; correlation IDs (from API phase) needed for AI Run Ledger entries.
 
 **Phase Numbering:**
-- Integer phases (23-30): Planned milestone work
-- Decimal phases (e.g., 24.1): Urgent insertions if needed
+- Integer phases (31-37): Planned milestone work
+- Decimal phases (e.g., 33.1): Urgent insertions if needed
 
-- [x] **Phase 23: SDK Foundation & Test Infrastructure** - Route all LLM calls through @ai-sdk/mistral, set up MSW v2 SSE mocking, establish E2E validation gate (completed 2026-02-27)
-- [x] **Phase 24: Backend Core Pipeline** - New AiChatService with streamText, conversation history via Prisma, HITL via onStepFinish, GDPR guards, rate limiting (completed 2026-03-02)
-- [x] **Phase 25: Tools & RAG** - ~20 tools as @Injectable ToolsService classes with AI SDK v6 tool(), intent routing, embedding pipeline and hybrid search preserved, triage data exposed through tools (completed 2026-03-02)
-- [x] **Phase 26: Non-Chat AI & Backend Testing** - Briefing/follow-ups/drafts via generateText + Output.object(), integration tests for chat and non-chat pipelines (completed 2026-03-02)
-- [x] **Phase 27: Chat Frontend** - assistant-ui runtime, Thread/Composer primitives, tool renderers via makeAssistantToolUI, HITL inline, mobile layout (completed 2026-03-03)
-- [x] **Phase 28: Cleanup & VoltAgent Deletion** - Delete old ai-elements and voltagent code, remove @voltagent/* packages, bundle analysis, Playwright E2E (completed 2026-03-03)
-- [ ] **Phase 29: Architecture Hardening** - Module boundaries with explicit interfaces, AI module decoupled via service contracts, memory profiling, lazy loading
-- [ ] **Phase 30: Performance & Debt** - LCP <2.5s, TTI <3.5s, ENC-03 hash indexes on encrypted fields, 7 deferred bugs from v3.1
+- [ ] **Phase 31: Foundation & Stability Verification** - Verify v3.2 baseline, close Phase 28 gaps, install foundation infrastructure
+- [ ] **Phase 32: Architecture Decoupling** - Break circular dependencies (17 to 5), wire domain events, enforce module boundaries in CI
+- [ ] **Phase 33: API Contract Standardization** - Global response envelope, unified error filter, API versioning, correlation IDs, OpenAPI linting, silent fallback elimination
+- [ ] **Phase 34: Auth Security Hardening** - httpOnly cookie migration with dual-mode transition, AES-GCM standardization
+- [ ] **Phase 35: AI Observability & Permissions** - AI Run Ledger telemetry, cost reporting endpoints, permission taxonomy
+- [ ] **Phase 36: Encrypted Search** - HMAC blind indexes on encrypted fields for exact-match sender lookup
+- [ ] **Phase 37: Performance & Debt Closure** - LCP <2.5s / TTI <3.5s, resolve 7 deferred v3.1 bugs
 
 ## Phase Details
 
-### Phase 23: SDK Foundation & Test Infrastructure
-**Goal**: All LLM calls route through a single SDK provider and test infrastructure exists for deterministic AI pipeline testing
-**Depends on**: Nothing (first v3.2 phase)
-**Requirements**: MSDK-01, MSDK-02, TEST-01
+### Phase 31: Foundation & Stability Verification
+**Goal**: Verified working baseline with Phase 28 gaps closed and all foundation infrastructure installed (zero existing behavior changes)
+**Depends on**: Nothing (first v4.0 phase)
+**Requirements**: PERF-03
 **Success Criteria** (what must be TRUE):
-  1. Every chat/completion call in the codebase goes through `@ai-sdk/mistral` provider -- zero direct `@mistralai/mistralai` SDK usage for LLM calls
-  2. All embedding generation uses AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral` -- existing BullMQ queues and pgvector storage still work, existing embeddings remain queryable
-  3. MSW v2 test infrastructure can intercept and mock SSE streaming responses from the Mistral endpoint, enabling deterministic pipeline tests in CI
-  4. E2E validation gate: a real Mistral API call through the consolidated provider returns a coherent response (not mocked), validating the full SDK path end-to-end
-**Plans**: 3 plans in 3 waves
-
-Plans:
-- [x] 23-01: MistralModule provider + SDK consolidation + embedding rewiring (wave 1)
-- [x] 23-02: VoltAgent deletion + Vitest real-API tests + re-embed script + E2E gate (wave 2)
-- [x] 23-03: MSW v2 SSE streaming handlers + deterministic test + MSDK-03 tracking fix (wave 3)
-
-### Phase 24: Backend Core Pipeline
-**Goal**: A new AiChatService handles chat orchestration end-to-end with conversation persistence, HITL safety, GDPR compliance, and rate limiting -- atomic replacement of old chat endpoint
-**Depends on**: Phase 23
-**Requirements**: AI-01, AI-04, AI-05, AI-06, AI-08
-**Success Criteria** (what must be TRUE):
-  1. New `POST /api/v1/ai/chat` endpoint replaces old chat handler and streams a coherent AI response via a 3-hop pipeline (Controller -> AiChatService -> streamText) -- old chat code deleted from AiController
-  2. Conversation history loads from new AiConversation/AiMessage Prisma tables -- new conversations created, rolling summary for long histories
-  3. Destructive tool calls (send, delete, move) create a pending HITL action via `onStepFinish` callback -- the action does NOT execute without user approval
-  4. PII tokenization and audit logging are wired into the new pipeline -- a message containing PII is tokenized before reaching the LLM, and the interaction is audit-logged
-  5. Rate limiting and circuit breaker reject requests when thresholds are exceeded, matching existing behavior
-  6. E2E validation gate: send a real message through the new endpoint, verify streaming response, verify conversation persisted, verify HITL action created for a write tool call
-**Plans**: 3 plans in 3 waves
-
-Plans:
-- [x] 24-01: Prisma models, AiChatModule, ConversationService, AiChatService, streaming controller (wave 1)
-- [x] 24-02: HITL via needsApproval + ActionQueue, GDPR guards (PII, consent, audit), rate limiting, circuit breaker (wave 2)
-- [x] 24-03: E2E validation with real Mistral calls, old endpoint cleanup (wave 3)
-
-### Phase 25: Tools & RAG
-**Goal**: All chat tools defined as AI SDK v6 tool() in @Injectable ToolsService classes with NestJS DI, intent-based routing, and preserved RAG pipeline
-**Depends on**: Phase 24
-**Requirements**: AI-02, AI-03, RAG-01, RAG-02
-**Success Criteria** (what must be TRUE):
-  1. ~20 tools defined in ToolsService classes using AI SDK v6 `tool()` with NestJS DI via closures -- no factory functions, no parameter threading
-  2. Intent routing serves 6-8 relevant tools per request based on query analysis, not all 20 every time
-  3. Embedding pipeline (BullMQ queues, KnowledgeBase ingestion, pgvector storage) works end-to-end -- new emails get embedded, existing embeddings remain queryable
-  4. Hybrid search (vector + keyword with RRF fusion) returns relevant results for both semantic and exact-match queries
-  5. Duplicate tools eliminated (manage_email x2, bulk_email_actions x2) and overlapping tools merged (search_emails + semantic_search_emails)
-  6. E2E validation gate: send a real query that triggers tool execution (e.g., "search my emails from John"), verify correct tool selected via intent routing, verify RAG results returned with relevant content
-**Plans**: 4 plans in 4 waves
-
-Plans:
-- [x] 25-01-PLAN.md -- 5 ToolsService classes (~20 tools: email, calendar, contacts, folders, RAG/memory) wired into AiChatModule (wave 1)
-- [x] 25-02-PLAN.md -- Intent routing via prepareStep + activeTools, memory auto-inject into system prompt (wave 2)
-- [x] 25-03-PLAN.md -- tsvector FTS migration, RRF hybrid search functions, HybridSearchService (wave 3)
-- [x] 25-04-PLAN.md -- E2E validation gate with real Mistral calls (wave 4)
-
-### Phase 26: Non-Chat AI & Backend Testing
-**Goal**: Non-chat AI features use direct generateText calls instead of agent loops, domain services relocated to proper modules, and integration tests cover both chat and non-chat pipelines
-**Depends on**: Phase 25
-**Requirements**: AI-07, TEST-02, TEST-03
-**Success Criteria** (what must be TRUE):
-  1. Daily briefing generates via single `generateText + Output.object()` call with pre-fetched data -- no agent loop, no tool calls during generation, output matches structured schema
-  2. Follow-up detection and draft generation both use `generateText + Output.object()` with pre-fetched context -- output quality verified against existing agent loop output (50+ case comparison)
-  3. Domain services relocated: CRM/relationship services -> contacts module, calendar conflict/focus/meeting-prep -> calendar module, with proper NestJS DI wiring
-  4. Integration tests for chat pipeline: message -> tool execution -> streaming response, with MSW-mocked LLM responses
-  5. Integration tests for non-chat AI: briefing generation, follow-up detection, draft generation, with MSW-mocked LLM responses
-  6. E2E validation gate: generate a real daily briefing via Mistral, verify structured output matches schema and contains relevant data; send a real chat message requiring multi-step tool use, verify response quality
+  1. Chat 403 error resolved -- user can open AI chat and send a message without authentication failures
+  2. Dead action-counts polling disabled -- browser network tab shows zero recurring failed requests to removed endpoints
+  3. E2E mobile viewport tests pass in CI -- Playwright chat tests run at 375px breakpoint without skips
+  4. `@nestjs/event-emitter` installed and `EventEmitterModule.forRoot()` registered in AppModule -- app boots without errors
+  5. `dependency-cruiser` installed in warn-only mode with baseline config -- `npx depcruise --validate` runs and reports current violations without blocking
 **Plans**: TBD
 
 Plans:
-- [ ] 26-01: Non-chat AI migration (briefing, follow-ups, drafts to generateText + Output.object)
-- [ ] 26-02: Domain service relocation (CRM -> contacts, calendar services -> calendar)
-- [ ] 26-03: Integration test suite for chat and non-chat AI pipelines
+- [ ] 31-01: Phase 28 gap closure (chat 403, dead polling, E2E mobile)
+- [ ] 31-02: Foundation infrastructure installation (event-emitter, dependency-cruiser, domain event types, interface contracts, AiRunLedger schema)
 
-### Phase 27: Chat Frontend
-**Goal**: AI chat UI rebuilt with assistant-ui primitives replacing all custom MUI chat components, with tool rendering, HITL inline, and mobile support
-**Depends on**: Phase 26
-**Requirements**: CHAT-01, CHAT-02, CHAT-03, CHAT-04, CHAT-05
+### Phase 32: Architecture Decoupling
+**Goal**: Circular dependencies reduced from 17 forwardRef edges to 5 or fewer, with typed domain events wired and module boundary rules enforced in CI
+**Depends on**: Phase 31
+**Requirements**: ARCH-01, ARCH-02, ARCH-03
 **Success Criteria** (what must be TRUE):
-  1. assistant-ui runtime connects to new streaming endpoint via `useChatRuntime` + `AssistantChatTransport` -- chat messages stream token-by-token in real time
-  2. Thread, Composer, and Messages use assistant-ui primitives -- auto-scroll, message editing, regeneration all work; no custom MUI chat components remain in the chat panel
-  3. Domain tool renderers (email search, calendar, contacts, briefing, etc.) built with `makeAssistantToolUI` showing running/complete/error states -- tool results render as rich cards, not raw JSON
-  4. HITL approval renders inline in the chat stream -- poll-based approach functional now (useAiActions), native requires_action code path present and ready pending backend update (Phase 28)
-  5. Mobile-responsive chat layout works on 375px viewport with touch-friendly interactions -- verified at mobile, tablet, and desktop breakpoints
-  6. E2E validation gate (Playwright against running backend with real LLM): send a message, verify streaming response renders, verify tool result card appears, verify HITL card shows for write action, verify mobile layout at 375px
-**Plans**: 4 plans in 3 waves
-
-Plans:
-- [x] 27-01-PLAN.md -- Runtime provider + transport wiring + Thread/Composer/Messages primitives + conversation sidebar + i18n (wave 1)
-- [x] 27-02-PLAN.md -- Email/data tool renderers via makeAssistantToolUI + partial barrel (wave 2)
-- [x] 27-03-PLAN.md -- Analysis/AI tool renderers + fallback JSON viewer + HITL inline approval card + barrel completion (wave 2, parallel with 27-02)
-- [x] 27-04-PLAN.md -- Mobile/desktop responsive layouts + page integration + visual checkpoint (wave 3)
-
-### Phase 28: Cleanup & VoltAgent Deletion
-**Goal**: All old VoltAgent code, unused ai-elements, and dead frontend components deleted; bundle size reduced; full Playwright E2E coverage
-**Depends on**: Phase 27
-**Requirements**: FECLEAN-01, FECLEAN-02, FECLEAN-03, MSDK-03, TEST-04
-**Success Criteria** (what must be TRUE):
-  1. `npm ls @voltagent/core @voltagent/postgres @mistralai/mistralai` returns empty -- all three packages removed from dependencies
-  2. Old ai-elements chat files deleted (~35 files that assistant-ui replaces) -- ChatArea, ChatMessages, ChatInput, useChatController, TypingIndicator, StreamingMessage, etc.
-  3. Dead components and orphaned files removed across entire frontend -- verified by import tracing, no unused exports ship
-  4. Bundle analysis performed and documented: main JS chunks sized, largest offenders identified, tree-shaking verified for ai-elements removal
-  5. Playwright E2E test suite covers: full chat flow (send message -> tool execution -> HITL approval -> response), daily briefing widget, and mobile viewport
-  6. `npm run type-check` and `npm run lint` pass with zero errors after all deletions
-**Plans**: 5 plans in 2 waves
-
-Plans:
-- [x] 28-01-PLAN.md -- Type inlining + ai-elements/AiDashboard deletion + old hooks + cross-reference cleanup (wave 1)
-- [x] 28-02-PLAN.md -- Voltagent reference cleanup in E2E/swagger + bundle analysis (wave 2)
-- [x] 28-03-PLAN.md -- Playwright E2E test suite for chat frontend (wave 2)
-- [ ] 28-04-PLAN.md -- UAT gap closure: fix chat 403, disable dead action-counts polling, fix thread detail layout (wave 1, gap closure)
-- [ ] 28-05-PLAN.md -- UAT gap closure: fix E2E mobile viewport test skips (wave 1, gap closure)
-
-### Phase 29: Architecture Hardening
-**Goal**: Clean modular monolith with explicit interface contracts, validated memory efficiency, and lazy-loadable AI module
-**Depends on**: Phase 28
-**Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04
-**Success Criteria** (what must be TRUE):
-  1. Each NestJS module exports a defined service contract (TypeScript interface) -- no cross-module internal imports exist (verified by import path analysis)
-  2. AI module communicates with domain modules via interfaces (EmailServiceInterface, CalendarServiceInterface, ContactsServiceInterface) -- not direct service class imports
-  3. Memory profiling under simulated 1000-user load shows no unbounded cache growth, connection pool exhaustion, or large payload retention in BullMQ queues
-  4. AI module loads lazily on demand -- application startup time measured with and without AI module shows measurable improvement; users who never open chat do not pay the AI module initialization cost
+  1. `madge --circular` reports 5 or fewer circular dependency edges -- down from 17 forwardRef calls
+  2. Domain events fire and are consumed correctly -- an email sync triggers `EmailSyncedEvent`, a provider connect triggers `ProviderConnectedEvent`, and consumers react without direct module imports
+  3. AiChatModule has zero forwardRef imports to domain modules -- all tools discovered via ToolRegistryService where domain modules self-register
+  4. `dependency-cruiser` runs in error mode in CI -- a PR introducing a forbidden cross-module import is blocked from merging
 **Plans**: TBD
 
 Plans:
-- [ ] 29-01: Module boundary enforcement and interface contracts
-- [ ] 29-02: Memory profiling and lazy loading
+- [ ] 32-01: Interface contracts and event bus wiring (IStorageService, ISyncAuthService, IProviderTokenService, ToolRegistryModule)
+- [ ] 32-02: forwardRef elimination (ProvidersModule cluster, AiChatModule cluster, remaining edges)
+- [ ] 32-03: dependency-cruiser enforcement mode in CI
 
-### Phase 30: Performance & Debt
-**Goal**: Performance targets hit, encrypted field search works, and all v3.1 deferred bugs resolved
-**Depends on**: Phase 29
-**Requirements**: PERF-01, PERF-02, PERF-03, PERF-04
+### Phase 33: API Contract Standardization
+**Goal**: Every API endpoint returns uniform response/error shapes with correlation IDs, versioning is enforced, and frontend silent fallbacks are replaced with explicit degraded states
+**Depends on**: Phase 32
+**Requirements**: API-01, API-02, API-03, API-04, API-05, PERF-04
 **Success Criteria** (what must be TRUE):
-  1. Lighthouse LCP on email list page < 2.5s (production build, 4G throttled) -- down from 4.1s
-  2. TTI on email list page < 3.5s (production build, 4G throttled) -- down from 4.1s
-  3. ENC-03 hash-based search indexes implemented on all 17+ encrypted field query sites -- indexed lookups replace full-table scans
-  4. All 7 deferred bugs from v3.1 audit resolved and verified (RC-A1/A8 race conditions and remaining BUG-REPORT items)
-  5. Lighthouse CI budget gates enforced in CI pipeline, blocking PRs that regress LCP/TTI/CLS beyond thresholds
+  1. Every non-streaming API response is wrapped in `{ data, meta: { requestId, timestamp } }` -- verified by hitting 5+ endpoints from different domains and checking response shape
+  2. Every API error returns `{ error: { code, message, details }, meta: { requestId } }` with machine-readable error codes -- no raw exception payloads leak to the client
+  3. All controller routes resolve under `api/v1/` prefix -- no bare routes exist outside webhook exclusions
+  4. Every HTTP response includes a `x-request-id` header populated by CorrelationInterceptor -- BullMQ job payloads include the originating `requestId`
+  5. OpenAPI spec passes Spectral linting in CI -- `frontend/types/api.generated.ts` exists and is importable
+  6. Silent frontend fallbacks (dashboard mock data on API failure) replaced with explicit error/degraded states -- browser console shows no suppressed API errors
 **Plans**: TBD
 
 Plans:
-- [ ] 30-01: LCP and TTI optimization (profiling, code splitting, waterfall elimination)
-- [ ] 30-02: ENC-03 hash indexes on encrypted fields
-- [ ] 30-03: Deferred bug fixes from v3.1 audit
+- [ ] 33-01: ResponseEnvelopeInterceptor + ApiExceptionFilter + global prefix
+- [ ] 33-02: CorrelationInterceptor global wiring + BullMQ propagation
+- [ ] 33-03: Frontend apiClient envelope unwrap + silent fallback elimination
+- [ ] 33-04: OpenAPI Spectral linting + openapi-typescript type generation
+
+### Phase 34: Auth Security Hardening
+**Goal**: Frontend auth uses httpOnly secure cookies instead of localStorage, all encryption paths use AES-GCM
+**Depends on**: Phase 33
+**Requirements**: SEC-01, SEC-03
+**Success Criteria** (what must be TRUE):
+  1. After login, no JWT token exists in localStorage or sessionStorage -- httpOnly cookie is the sole auth credential, verified via browser DevTools Application tab
+  2. User stays logged in across browser sessions (cookie persists) and can log out cleanly (cookie cleared)
+  3. WebSocket connections authenticate via cookie -- Socket.IO chat and notification channels work without Bearer header
+  4. All E2E test fixtures use a single `authHelper` that authenticates via cookie flow -- no test directly manipulates localStorage tokens
+  5. All encryption in the codebase uses AES-GCM -- audit confirms zero remaining AES-CBC usage (or documented migration plan for any edge cases)
+**Plans**: TBD
+
+Plans:
+- [ ] 34-01: Backend dual-mode cookie auth (set httpOnly cookies while accepting Bearer)
+- [ ] 34-02: Frontend migration (auth-store, apiClient, WebSocket, Next.js proxies)
+- [ ] 34-03: AES-GCM standardization audit + E2E test fixture migration
+
+### Phase 35: AI Observability & Permissions
+**Goal**: Every AI call is recorded in the Run Ledger with cost and latency data, queryable via API; permission taxonomy documented with PolicyService interface
+**Depends on**: Phase 33 (needs correlation IDs for requestId in ledger entries)
+**Requirements**: AIOBS-01, AIOBS-02, AIOBS-03, AIOBS-04
+**Success Criteria** (what must be TRUE):
+  1. After sending a chat message, an AiRunLedger record exists with runType, model, token counts, estimatedCostUsd, latencyMs, toolCallCount, and requestId -- verified via database query
+  2. Non-chat AI calls (briefing, follow-up detection, draft generation) each create their own ledger entries -- all AI paths are instrumented
+  3. `GET /api/v1/ai/runs` returns paginated run records filtered by tenant and date range; `GET /api/v1/ai/runs/cost-summary` returns aggregate cost per tenant
+  4. Chat streaming latency is not regressed -- first-token-time measured before and after ledger integration, difference is less than 50ms
+  5. Permission taxonomy document exists with resource:action pairs and PolicyService TypeScript interface defined -- ready for RBAC implementation in v4.1
+**Plans**: TBD
+
+Plans:
+- [ ] 35-01: AiRunLedgerService implementation + fire-and-forget telemetry wiring
+- [ ] 35-02: AI runs query endpoints + cost summary + permission taxonomy
+
+### Phase 36: Encrypted Search
+**Goal**: Exact-match sender lookup works on encrypted `from` field via HMAC blind indexes, with architecture decision formally recorded
+**Depends on**: Phase 31 (foundation infrastructure only)
+**Requirements**: SEC-02
+**Success Criteria** (what must be TRUE):
+  1. Architecture decision recorded: `subject` stays plaintext in v4.0; only `from` gets blind index for exact sender matching -- document explains why substring search is incompatible with deterministic hashing
+  2. Searching for an exact sender email address returns correct results using the `fromHash` index -- no plaintext `from` value is queried
+  3. Background backfill job has processed all existing emails -- dual-path search (hash if populated, plaintext fallback) works during and after backfill
+  4. Threat model documented: blind indexes protect against offline DB theft; frequency analysis risk acknowledged
+**Plans**: TBD
+
+Plans:
+- [ ] 36-01: HMAC blind index schema + HashSearchService + backfill job
+- [ ] 36-02: Query site migration (17+ sites audited, exact-match sites migrated)
+
+### Phase 37: Performance & Debt Closure
+**Goal**: Frontend performance meets enterprise targets and all deferred v3.1 bugs are resolved
+**Depends on**: Phase 31 (no architectural dependency, independent workstream)
+**Requirements**: PERF-01, PERF-02
+**Success Criteria** (what must be TRUE):
+  1. Lighthouse LCP on email list page < 2.5s in production build with 4G throttling -- down from current ~4.1s
+  2. Lighthouse TTI on email list page < 3.5s in production build with 4G throttling
+  3. All 7 deferred bugs from v3.1 audit resolved -- RC-A1/A8 race conditions fixed with Redis locks on folder CRUD, remaining BUG-REPORT items closed
+  4. Lighthouse CI budget gates enforced in CI pipeline -- PRs that regress LCP/TTI/CLS beyond thresholds are blocked
+  5. Memory profiling under simulated load shows no unbounded cache growth or connection pool exhaustion
+**Plans**: TBD
+
+Plans:
+- [ ] 37-01: Bundle analysis baseline + dynamic imports + code splitting
+- [ ] 37-02: Deferred v3.1 bug fixes (RC-A1/A8, BUG-REPORT items)
+- [ ] 37-03: Lighthouse CI enforcement + memory profiling
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
+Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can execute in parallel after their dependencies are met.
+31 -> 32 -> 33 -> 34
+                33 -> 35
+31 -> 36 (parallel after Phase 31)
+31 -> 37 (parallel after Phase 31)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 23. SDK Foundation & Test Infrastructure | 3/3 | Complete   | 2026-02-27 |
-| 24. Backend Core Pipeline | 3/3 | Complete    | 2026-03-02 |
-| 25. Tools & RAG | 4/4 | Complete    | 2026-03-02 |
-| 26. Non-Chat AI & Backend Testing | 3/3 | Complete    | 2026-03-02 |
-| 27. Chat Frontend | 4/4 | Complete | 2026-03-03 |
-| 28. Cleanup & VoltAgent Deletion | 3/5 | Gap closure | 2026-03-03 |
-| 29. Architecture Hardening | 0/2 | Not started | - |
-| 30. Performance & Debt | 0/3 | Not started | - |
+| 31. Foundation & Stability Verification | 0/2 | Not started | - |
+| 32. Architecture Decoupling | 0/3 | Not started | - |
+| 33. API Contract Standardization | 0/4 | Not started | - |
+| 34. Auth Security Hardening | 0/3 | Not started | - |
+| 35. AI Observability & Permissions | 0/2 | Not started | - |
+| 36. Encrypted Search | 0/2 | Not started | - |
+| 37. Performance & Debt Closure | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
 *v3.2 phases added: 2026-02-27 -- 8 phases, 25 plans, 33 requirements mapped*
+*v3.2 closed (partial): 2026-03-03 -- 20/25 plans complete, carry-forward to v4.0*
+*v4.0 phases added: 2026-03-03 -- 7 phases, 19 plans (est), 19 requirements mapped*
