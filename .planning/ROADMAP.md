@@ -80,12 +80,13 @@ Plans:
   2. Domain events fire and are consumed correctly -- an email sync triggers `EmailSyncedEvent`, a provider connect triggers `ProviderConnectedEvent`, and consumers react without direct module imports
   3. AiChatModule has zero forwardRef imports to domain modules -- all tools discovered via ToolRegistryService where domain modules self-register
   4. `dependency-cruiser` runs in error mode in CI -- a PR introducing a forbidden cross-module import is blocked from merging
-**Plans**: 3 plans (Wave 1 -> Wave 2 -> Wave 3, sequential dependency chain)
+**Plans**: 4 plans (Wave 1 -> Wave 2 -> Wave 3 -> Wave 4, sequential dependency chain)
 
 Plans:
 - [ ] 32-01-PLAN.md -- ToolRegistryModule implementation, IProviderTokenService + ICryptoService contracts, TenantDeleted + DeletionExpired events, unit + integration tests (Wave 1)
-- [ ] 32-02-PLAN.md -- forwardRef elimination: AiChatModule via ToolRegistry self-registration, ProvidersModule via events + interface injection, Compliance edges via domain events (Wave 2, depends on 32-01)
-- [ ] 32-03-PLAN.md -- dependency-cruiser circular rule to error severity, known-violations baseline, madge install, CI pipeline step (Wave 3, depends on 32-02)
+- [ ] 32-02-PLAN.md -- AiChatModule cluster decoupling: IAiTool wrappers, OnModuleInit self-registration, forwardRef removal, STORAGE_SERVICE registration (Wave 2, depends on 32-01)
+- [ ] 32-03-PLAN.md -- ProvidersModule + Compliance cluster decoupling: interface injection, ProviderConnectedEvent consumer handlers, all Phase 31 event wiring, remaining edges (Wave 3, depends on 32-02)
+- [ ] 32-04-PLAN.md -- dependency-cruiser circular rule to error severity, known-violations baseline, madge install, CI pipeline step (Wave 4, depends on 32-03)
 
 ### Phase 33: API Contract Standardization
 **Goal**: Every API endpoint returns uniform response/error shapes with correlation IDs, versioning is enforced, and frontend silent fallbacks are replaced with explicit degraded states
