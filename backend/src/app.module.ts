@@ -35,6 +35,7 @@ import { LabelsModule } from './modules/labels/labels.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { MistralModule } from './modules/mistral/mistral.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry.module';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
 @Module({
@@ -70,6 +71,8 @@ import { AiChatModule } from './modules/ai-chat/ai-chat.module';
     CacheModule, // Redis-based caching for horizontal scaling
     ScheduledJobsModule, // BullMQ-based scheduled jobs for horizontal scaling
     PrismaModule,
+    // Phase 32: @Global() tool registry -- must load before domain modules
+    ToolRegistryModule,
     AuthModule,
     UsersModule,
     TenantsModule,
