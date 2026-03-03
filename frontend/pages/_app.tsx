@@ -19,7 +19,6 @@ import { lightTheme, darkTheme } from '@/theme/appTheme';
 import { useAuth } from '@/lib/hooks/use-auth';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
-import '@assistant-ui/react/styles/index.css';
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
