@@ -279,11 +279,16 @@ export class EmailFolderService {
       if (filters.isFlagged !== undefined) {
         where.isFlagged = filters.isFlagged;
       }
+      // Collect OR groups so they don't clobber each other (was BUG-1)
+      const orGroups: Prisma.EmailWhereInput[] = [];
+
       if (filters.isImportant !== undefined) {
-        where.OR = [
-          { isStarred: filters.isImportant },
-          { isFlagged: filters.isImportant },
-        ];
+        orGroups.push({
+          OR: [
+            { isStarred: filters.isImportant },
+            { isFlagged: filters.isImportant },
+          ],
+        });
       }
       if (filters.hasAttachments) {
         where.attachments = { some: {} };
@@ -301,11 +306,13 @@ export class EmailFolderService {
         where.emailLabels = { some: { labelId: { in: filters.labelIds } } };
       }
       if (filters.search) {
-        where.OR = [
-          { subject: { contains: filters.search, mode: 'insensitive' } },
-          { from: { contains: filters.search, mode: 'insensitive' } },
-          { bodyText: { contains: filters.search, mode: 'insensitive' } },
-        ];
+        orGroups.push({
+          OR: [
+            { subject: { contains: filters.search, mode: 'insensitive' } },
+            { from: { contains: filters.search, mode: 'insensitive' } },
+            { bodyText: { contains: filters.search, mode: 'insensitive' } },
+          ],
+        });
       }
       if (filters.startDate || filters.endDate) {
         where.receivedAt = {
@@ -315,6 +322,13 @@ export class EmailFolderService {
       }
       // VIP filter is handled in emails.service.ts via the fromVip return value
       // since Email doesn't have a direct relation to Contact
+
+      // Merge OR groups into AND so all conditions apply together
+      if (orGroups.length > 0) {
+        const existing = where.AND;
+        const prev = Array.isArray(existing) ? existing : existing ? [existing] : [];
+        where.AND = [...prev, ...orGroups];
+      }
     }
 
     return {

@@ -151,3 +151,4 @@ docs/screenshots/*
 .agents/*
 frontend/e2e/screenshots/*
 frontend/docs/screenshots/*
+backend/tmp/*

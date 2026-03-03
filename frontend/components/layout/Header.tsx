@@ -4,8 +4,6 @@ import {
   Toolbar,
   Box,
   IconButton,
-  TextField,
-  InputAdornment,
   Badge,
   Avatar,
   Menu,
@@ -23,7 +21,6 @@ import {
   Button,
 } from '@mui/material';
 import {
-  Search,
   Bell,
   User,
   LogOut,
@@ -32,9 +29,6 @@ import {
   Languages,
   Sparkles,
   Mail,
-  Calendar,
-  Users,
-  X,
   Check,
   XCircle,
   AlertTriangle,
@@ -96,8 +90,6 @@ export function Header({
   const { user } = useAuth();
   const t = useTranslations();
 
-  const [searchValue, setSearchValue] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null);
   const [languageAnchor, setLanguageAnchor] = useState<null | HTMLElement>(null);
@@ -229,13 +221,6 @@ export function Header({
     handleUserMenuClose();
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchValue.trim()) {
-      router.push(`/dashboard/email?search=${encodeURIComponent(searchValue)}`);
-      setSearchFocused(false);
-    }
-  };
 
   // Fix race condition: use useRef instead of local variable for mounted check
   const mountedRef = useRef(true);
@@ -290,13 +275,6 @@ export function Header({
       .join('')
       .slice(0, 2) || 'A';
 
-  // Quick navigation items for search suggestions
-  const quickNavItems = [
-    { icon: <Mail size={16} />, label: t.nav?.mail || 'Email', path: '/dashboard/email' },
-    { icon: <Calendar size={16} />, label: t.nav?.calendar || 'Calendar', path: '/dashboard/calendar' },
-    { icon: <Users size={16} />, label: t.nav?.contacts || 'Contacts', path: '/dashboard/contacts' },
-    { icon: <Sparkles size={16} />, label: t.ai?.title || 'AI Assistant', path: '/dashboard/ai' },
-  ];
 
   return (
     <AppBar
@@ -326,106 +304,8 @@ export function Header({
           </IconButton>
         )}
 
-        {/* Search Bar - Modern Design */}
-        <Box
-          component="form"
-          onSubmit={handleSearch}
-          sx={{
-            flexGrow: 1,
-            display: 'flex',
-            justifyContent: 'center',
-            maxWidth: isMobile ? 'calc(100% - 130px)' : 500,
-            mx: isMobile ? 0.5 : 'auto',
-            position: 'relative',
-          }}
-        >
-          <TextField
-            fullWidth
-            size="small"
-            placeholder={t.nav.searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={18} style={{ opacity: 0.5 }} />
-                </InputAdornment>
-              ),
-              endAdornment: searchValue && (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchValue('')}>
-                    <X size={14} />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: (theme) => alpha(theme.palette.action.hover, 0.5),
-                borderRadius: 2,
-                transition: 'all 0.2s',
-                border: '1px solid transparent',
-                '&:hover': {
-                  backgroundColor: (theme) => alpha(theme.palette.action.hover, 0.8),
-                },
-                '&.Mui-focused': {
-                  backgroundColor: 'background.paper',
-                  borderColor: 'primary.main',
-                  boxShadow: (theme) => `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
-                },
-                '& fieldset': {
-                  border: 'none',
-                },
-              },
-            }}
-          />
-
-          {/* Search Suggestions Dropdown */}
-          {searchFocused && !searchValue && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                mt: 1,
-                bgcolor: 'background.paper',
-                borderRadius: 2,
-                boxShadow: 3,
-                border: 1,
-                borderColor: 'divider',
-                p: 1,
-                zIndex: 1000,
-              }}
-            >
-              <Typography variant="caption" color="text.secondary" sx={{ px: 1, mb: 1, display: 'block' }}>
-                Quick navigation
-              </Typography>
-              {quickNavItems.map((item) => (
-                <Box
-                  key={item.path}
-                  onClick={() => router.push(item.path)}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                    p: 1,
-                    borderRadius: 1,
-                    cursor: 'pointer',
-                    '&:hover': {
-                      bgcolor: 'action.hover',
-                    },
-                  }}
-                >
-                  {item.icon}
-                  <Typography variant="body2">{item.label}</Typography>
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Box>
+        {/* Spacer */}
+        <Box sx={{ flexGrow: 1 }} />
 
         {/* Right Side Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

@@ -118,6 +118,9 @@ export interface ListEmailsParams {
   isImportant?: boolean; // CONSOLIDATED: replaces isStarred/isFlagged
   hasAttachments?: boolean;
   search?: string;
+  from?: string;
+  to?: string;
+  subject?: string;
   labelIds?: string;
   startDate?: string;
   endDate?: string;

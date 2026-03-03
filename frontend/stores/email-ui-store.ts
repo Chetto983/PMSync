@@ -73,6 +73,9 @@ export interface EmailFilters {
   isImportant?: boolean;
   hasAttachments?: boolean;
   search?: string;
+  from?: string;
+  to?: string;
+  subject?: string;
   startDate?: string;
   endDate?: string;
   /** Filter emails from VIP contacts only */

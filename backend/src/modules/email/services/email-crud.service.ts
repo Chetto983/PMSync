@@ -103,10 +103,15 @@ export class EmailCrudService {
         };
       }
 
-      // Add filter: email.from must contain one of the VIP emails
-      where.OR = vipEmails.map((vipEmail) => ({
-        from: { contains: vipEmail, mode: 'insensitive' as const },
-      }));
+      // Add VIP filter into AND to avoid clobbering existing OR conditions (was BUG-2)
+      const vipCondition: Prisma.EmailWhereInput = {
+        OR: vipEmails.map((vipEmail) => ({
+          from: { contains: vipEmail, mode: 'insensitive' as const },
+        })),
+      };
+      const existing = where.AND;
+      const prev = Array.isArray(existing) ? existing : existing ? [existing] : [];
+      where.AND = [...prev, vipCondition];
     }
 
     // Get total count and emails

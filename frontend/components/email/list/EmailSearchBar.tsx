@@ -56,6 +56,9 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
     // Also update structured filters for backend API
     setFilters({
       hasAttachments: parsed.hasAttachment,
+      from: parsed.from,
+      to: parsed.to,
+      subject: parsed.subject,
       startDate: parsed.startDate,
       endDate: parsed.endDate,
     });
@@ -81,9 +84,10 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
     [debouncedUpdateStore]
   );
 
-  // Handle filter removal from chip
+  // Handle filter removal from chip — cancel pending debounce to avoid race
   const handleRemoveFilter = useCallback(
     (key: keyof ParsedFilters) => {
+      debouncedUpdateStore.cancel();
       const newFilters = { ...parsedFilters, [key]: undefined };
       const newSearchString = filtersToSearchString(newFilters);
       setInputValue(newSearchString);
@@ -91,25 +95,32 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
       setSearch(newSearchString);
       setFilters({
         hasAttachments: newFilters.hasAttachment,
+        from: newFilters.from,
+        to: newFilters.to,
+        subject: newFilters.subject,
         startDate: newFilters.startDate,
         endDate: newFilters.endDate,
       });
       inputRef.current?.focus();
     },
-    [parsedFilters, setSearch, setFilters]
+    [debouncedUpdateStore, parsedFilters, setSearch, setFilters]
   );
 
-  // Clear search
+  // Clear search — cancel pending debounce first to prevent race condition
   const handleClear = useCallback(() => {
+    debouncedUpdateStore.cancel();
     setInputValue('');
     setSearch('');
     setFilters({
       hasAttachments: undefined,
+      from: undefined,
+      to: undefined,
+      subject: undefined,
       startDate: undefined,
       endDate: undefined,
     });
     inputRef.current?.focus();
-  }, [setSearch, setFilters]);
+  }, [debouncedUpdateStore, setSearch, setFilters]);
 
   // Keyboard shortcuts
   useEffect(() => {

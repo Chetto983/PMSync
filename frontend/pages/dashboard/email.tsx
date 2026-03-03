@@ -137,35 +137,8 @@ export default function EmailPage() {
   // Get folder filters from store (sidebar sets these)
   const filters = useEmailFilters();
 
-  // Get setSearch from store for URL sync
-  const setSearch = useEmailUIStore((state) => state.setSearch);
-
-  // Track if we're currently syncing to avoid loops
-  const isSyncingRef = React.useRef(false);
-
-  // Bidirectional sync between URL ?search= and store
-  useEffect(() => {
-    if (isSyncingRef.current) return;
-
-    const searchParam = router.query.search as string | undefined;
-    const storeSearch = filters.search;
-
-    // URL has search, store doesn't or is different -> sync URL to store
-    if (searchParam && searchParam !== storeSearch) {
-      isSyncingRef.current = true;
-      setSearch(searchParam);
-      isSyncingRef.current = false;
-    }
-    // Store has search (or cleared), URL is different -> sync store to URL
-    else if (storeSearch !== searchParam) {
-      isSyncingRef.current = true;
-      const newUrl = storeSearch
-        ? `/dashboard/email?search=${encodeURIComponent(storeSearch)}`
-        : '/dashboard/email';
-      router.replace(newUrl, undefined, { shallow: true });
-      isSyncingRef.current = false;
-    }
-  }, [router.query.search, filters.search, setSearch, router]);
+  // Search state lives in Zustand store only (no URL sync — was causing
+  // race conditions where URL restored cleared search values).
 
   // Get clearSelection from store for bulk action completion
   const { clearSelection } = useEmailUIStore();
@@ -208,7 +181,12 @@ export default function EmailPage() {
     isImportant: filters.isImportant,
     hasAttachments: filters.hasAttachments,
     search: filters.search,
+    from: filters.from,
+    to: filters.to,
+    subject: filters.subject,
     labelIds: filters.labelId,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
     fromVip: filters.fromVip,
     limit: 50,
   }), [filters, selectedFolderPath, getApiSpecialUse]);

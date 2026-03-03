@@ -137,7 +137,8 @@
       "WebFetch(domain:m3.material.io)",
       "WebFetch(domain:vercel.com)",
       "WebFetch(domain:flowbite.com)",
-      "WebFetch(domain:ordinarycoders.com)"
+      "WebFetch(domain:ordinarycoders.com)",
+      "Bash(E2E_NO_WEB_SERVER=1 npx playwright test e2e/search-clear.spec.ts --project=chromium --reporter=list)"
     ],
     "deny": [],
     "ask": []
