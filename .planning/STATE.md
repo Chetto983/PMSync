@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
 status: executing
-last_updated: "2026-03-03T14:47:36.000Z"
+last_updated: "2026-03-03T15:15:58.254Z"
 progress:
   total_phases: 18
   completed_phases: 15
   total_plans: 61
-  completed_plans: 59
+  completed_plans: 60
 ---
 
 # Project State
@@ -24,15 +24,15 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Phase: 32 of 37 (Architecture Decoupling)
 Plan: 4 of 4 in current phase
-Status: Plan 32-02 complete (32-03 may still be executing)
-Last activity: 2026-03-03 -- Plan 32-02 completed (AiChatModule forwardRef elimination via ToolRegistry self-registration)
+Status: Phase 32 complete (all 4 plans done)
+Last activity: 2026-03-03 -- Plan 32-03 completed (domain event wiring and forwardRef elimination)
 
-Progress: [##░░░░░░░░] 16%
+Progress: [######░░░░] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (v4.0)
+- Total plans completed: 5 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -40,7 +40,7 @@ Progress: [##░░░░░░░░] 16%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 31 | 2/2 | 20min | 10min |
-| 32 | 3/4 | 22min | 7min |
+| 32 | 4/4 | 44min | 11min |
 
 ## Accumulated Context
 
@@ -64,6 +64,10 @@ Recent decisions affecting current work:
 - [32-04]: 1013 known violations baselined for CI comparison
 - [32-02]: Direct module imports replace forwardRef in AiChatModule -- not part of Email<->Ai circular chain
 - [32-02]: IAiTool wrappers for discovery; existing ToolsService classes stay as AI SDK adapter layer with PII closures
+- [32-03]: ProviderConfigService rewritten with EventEmitter2 (13 injected services -> 6 local + events)
+- [32-03]: 5 surviving forwardRef edges are all in Email/EmailSync core cluster (true bidirectional)
+- [32-03]: madge 8 circulars = 5 pre-existing internal + 3 module-level in Email core cluster
+- [32-03]: CalendarIcsDetectedEvent is scaffolding-only; emit added when ICS detection is built
 
 ### Pending Todos
 
@@ -73,13 +77,13 @@ None yet.
 
 - LCP/TTI at 4.1s (deferred since v2.1, target <2.5s/<3.5s) -- Phase 37
 - ENC-03 hash indexes deferred since v3.1 (17+ query sites) -- Phase 36
-- 17 circular dependencies (forwardRef edges) -- Phase 32
+- 5 forwardRef edges remaining (Email/EmailSync core cluster) -- down from 17+
 - Enterprise readiness score: 58/100 (PRD baseline)
 - Phase 28 gap items CLOSED (Plan 31-01): chat 403 documented, dead polling removed, E2E mobile passing
 
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 32-02-PLAN.md
+Stopped at: Completed 32-03-PLAN.md
 Resume file: .planning/phases/32-architecture-decoupling/
-Next action: Plan 32-03 may still be executing in parallel; once complete, phase 32 is done
+Next action: Phase 32 complete; proceed to Phase 33 or next milestone phase

@@ -46,7 +46,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - Decimal phases (e.g., 33.1): Urgent insertions if needed
 
 - [x] **Phase 31: Foundation & Stability Verification** - Verify v3.2 baseline, close Phase 28 gaps, install foundation infrastructure (completed 2026-03-03)
-- [ ] **Phase 32: Architecture Decoupling** - Break circular dependencies (17 to 5), wire domain events, enforce module boundaries in CI
+- [x] **Phase 32: Architecture Decoupling** - Break circular dependencies (17 to 5), wire domain events, enforce module boundaries in CI (completed 2026-03-03)
 - [ ] **Phase 33: API Contract Standardization** - Global response envelope, unified error filter, API versioning, correlation IDs, OpenAPI linting, silent fallback elimination
 - [ ] **Phase 34: Auth Security Hardening** - httpOnly cookie migration with dual-mode transition, AES-GCM standardization
 - [ ] **Phase 35: AI Observability & Permissions** - AI Run Ledger telemetry, cost reporting endpoints, permission taxonomy
@@ -184,7 +184,7 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 31. Foundation & Stability Verification | 2/2 | Complete    | 2026-03-03 |
-| 32. Architecture Decoupling | 3/4 | In Progress|  |
+| 32. Architecture Decoupling | 4/4 | Complete   | 2026-03-03 |
 | 33. API Contract Standardization | 0/4 | Not started | - |
 | 34. Auth Security Hardening | 0/3 | Not started | - |
 | 35. AI Observability & Permissions | 0/2 | Not started | - |
