@@ -38,6 +38,13 @@ jobs:
       - name: Jest unit tests
         run: npx jest --passWithNoTests --ci --forceExit
 
+      - name: Dependency boundary check
+        run: |
+          npx depcruise --config .dependency-cruiser.cjs \
+            --ignore-known .dependency-cruiser-known-violations.json src
+          echo "--- Circular dependency report ---"
+          npx madge --circular --extensions ts --ts-config tsconfig.json src || true
+
   frontend:
     name: Frontend (type-check, lint, test)
     runs-on: ubuntu-latest
