@@ -30,7 +30,7 @@ import {
 
 @ApiTags('AI Knowledge Base')
 @ApiBearerAuth()
-@Controller('ai/knowledge-base')
+@Controller(['ai/knowledge-base', 'api/v1/ai/knowledge-base'])
 @UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
 @UsePipes(
   new ValidationPipe({

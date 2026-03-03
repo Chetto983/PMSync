@@ -77,27 +77,35 @@ export class SubscriptionService {
    * Get or create subscription for tenant
    */
   async getOrCreateSubscription(tenantId: string): Promise<Subscription> {
-    let subscription = await this.prisma.subscription.findUnique({
-      where: { tenantId },
-    });
-
-    if (!subscription) {
-      this.logger.log(`Creating FREE subscription for tenant ${tenantId}`);
-      // Destructure to exclude 'features' which is used for runtime checks only
-      // (not stored in database - see hasFeature() method)
-      const { features: _features, ...freePlanLimits } = PLAN_LIMITS.FREE;
-      subscription = await this.prisma.subscription.create({
-        data: {
-          tenantId,
-          plan: SubscriptionPlan.FREE,
-          status: SubscriptionStatus.ACTIVE,
-          ...freePlanLimits,
-          usageResetAt: this.getNextResetDate(),
-        },
+    try {
+      let subscription = await this.prisma.subscription.findUnique({
+        where: { tenantId },
       });
-    }
 
-    return subscription;
+      if (!subscription) {
+        this.logger.log(`Creating FREE subscription for tenant ${tenantId}`);
+        // Destructure to exclude 'features' which is used for runtime checks only
+        // (not stored in database - see hasFeature() method)
+        const { features: _features, ...freePlanLimits } = PLAN_LIMITS.FREE;
+        subscription = await this.prisma.subscription.create({
+          data: {
+            tenantId,
+            plan: SubscriptionPlan.FREE,
+            status: SubscriptionStatus.ACTIVE,
+            ...freePlanLimits,
+            usageResetAt: this.getNextResetDate(),
+          },
+        });
+      }
+
+      return subscription;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to load/create subscription for tenant ${tenantId}. Falling back to transient FREE plan. ${message}`,
+      );
+      return this.buildFallbackSubscription(tenantId);
+    }
   }
 
   /**
@@ -107,7 +115,16 @@ export class SubscriptionService {
     const subscription = await this.getOrCreateSubscription(tenantId);
 
     // Get real-time usage from Redis
-    const { emailsProcessed, aiCallsUsed } = await this.usageTracking.getUsage(tenantId);
+    let emailsProcessed = 0;
+    let aiCallsUsed = 0;
+    try {
+      const usage = await this.usageTracking.getUsage(tenantId);
+      emailsProcessed = usage.emailsProcessed;
+      aiCallsUsed = usage.aiCallsUsed;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Usage tracking unavailable for tenant ${tenantId}: ${message}`);
+    }
 
     // Calculate remaining and percentages
     const emailsRemaining = subscription.monthlyEmailLimit === -1
@@ -279,5 +296,28 @@ export class SubscriptionService {
   private getNextResetDate(): Date {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  }
+
+  private buildFallbackSubscription(tenantId: string): Subscription {
+    const now = new Date();
+    return {
+      id: `transient-${tenantId}`,
+      tenantId,
+      autumnCustomerId: null,
+      autumnSubscriptionId: null,
+      plan: SubscriptionPlan.FREE,
+      status: SubscriptionStatus.ACTIVE,
+      monthlyEmailLimit: PLAN_LIMITS.FREE.monthlyEmailLimit,
+      monthlyAICallLimit: PLAN_LIMITS.FREE.monthlyAICallLimit,
+      maxUsers: PLAN_LIMITS.FREE.maxUsers,
+      emailsProcessed: 0,
+      aiCallsUsed: 0,
+      usageResetAt: this.getNextResetDate(),
+      currentPeriodStart: now,
+      currentPeriodEnd: this.getNextResetDate(),
+      cancelAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
   }
 }

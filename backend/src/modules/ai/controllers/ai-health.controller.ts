@@ -32,7 +32,7 @@ export interface AiHealthResponse {
 }
 
 @ApiTags('AI')
-@Controller('ai')
+@Controller(['ai', 'api/v1/ai'])
 export class AiHealthController {
   constructor(
     private readonly mistralService: MistralService,

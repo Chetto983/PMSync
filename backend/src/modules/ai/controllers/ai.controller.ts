@@ -21,6 +21,7 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
+import { ActionStatus, FollowUpStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
@@ -62,7 +63,7 @@ import {
  */
 @ApiTags('AI')
 @ApiBearerAuth()
-@Controller('ai')
+@Controller(['ai', 'api/v1/ai'])
 @UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiController {
@@ -462,6 +463,324 @@ export class AiController {
     return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
   }
 
+  @Get('actions/pending')
+  @ApiOperation({ summary: 'List pending actions', description: 'Returns pending HITL actions for current user' })
+  @ApiResponse({ status: 200, description: 'Pending actions listed' })
+  async getPendingActions(
+    @Request() req: AuthenticatedRequest,
+    @Query('conversationId') conversationId?: string,
+  ) {
+    const now = new Date();
+    const actions = await this.prisma.actionQueue.findMany({
+      where: {
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        status: ActionStatus.PENDING_APPROVAL,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        actionType: true,
+        actionPayload: true,
+        confidence: true,
+        reasoning: true,
+        createdAt: true,
+      },
+    });
+
+    const filtered = conversationId
+      ? actions.filter((action) => {
+          const payload = (action.actionPayload || {}) as Record<string, unknown>;
+          return payload.conversationId === conversationId;
+        })
+      : actions;
+
+    const mapped = filtered.map((action) => ({
+      id: action.id,
+      executionId: action.id,
+      actionType: action.actionType,
+      severity: this.mapActionSeverity(action.actionType),
+      payload: action.actionPayload || {},
+      summary: action.reasoning || `${action.actionType} requires approval`,
+      suspendReason: 'requires_approval',
+      suspendedAt: action.createdAt,
+      userId: req.user.userId,
+      agentName: 'ai-chat',
+      confidence: action.confidence ?? undefined,
+      status: 'PENDING' as const,
+    }));
+
+    return { success: true, actions: mapped, total: mapped.length };
+  }
+
+  @Get('follow-ups/pending')
+  @ApiOperation({ summary: 'List pending follow-ups', description: 'Returns pending/overdue follow-ups' })
+  @ApiResponse({ status: 200, description: 'Pending follow-ups listed' })
+  async getPendingFollowUps(
+    @Request() req: AuthenticatedRequest,
+    @Query('limit') limitParam?: string,
+  ) {
+    const limit = Math.min(Math.max(parseInt(limitParam || '10', 10) || 10, 1), 50);
+
+    const followUps = await this.prisma.emailFollowUp.findMany({
+      where: {
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] },
+      },
+      include: {
+        email: {
+          select: {
+            id: true,
+            subject: true,
+            from: true,
+          },
+        },
+      },
+      orderBy: { dueDate: 'asc' },
+      take: limit,
+    });
+
+    const items = followUps.map((followUp) => ({
+      id: followUp.id,
+      emailId: followUp.emailId,
+      dueDate: followUp.dueDate,
+      status: followUp.status,
+      reason: followUp.reason,
+      subject: followUp.email?.subject || null,
+      contactName: followUp.email?.from || null,
+      contactEmail: followUp.email?.from || null,
+      email: followUp.email
+        ? {
+            id: followUp.email.id,
+            subject: followUp.email.subject,
+            from: followUp.email.from,
+          }
+        : null,
+    }));
+
+    return {
+      success: true,
+      followUps: items,
+      count: items.length,
+    };
+  }
+
+  @Get('deadlines')
+  @ApiOperation({ summary: 'Get upcoming deadlines', description: 'Deadlines extracted from follow-ups' })
+  @ApiResponse({ status: 200, description: 'Upcoming deadlines listed' })
+  async getUpcomingDeadlines(
+    @Request() req: AuthenticatedRequest,
+    @Query('days') daysParam?: string,
+  ) {
+    const days = Math.min(Math.max(parseInt(daysParam || '7', 10) || 7, 1), 90);
+    const now = new Date();
+    const end = new Date(now);
+    end.setDate(end.getDate() + days);
+
+    const followUps = await this.prisma.emailFollowUp.findMany({
+      where: {
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] },
+        dueDate: {
+          gte: now,
+          lte: end,
+        },
+      },
+      include: {
+        email: {
+          select: {
+            subject: true,
+          },
+        },
+      },
+      orderBy: { dueDate: 'asc' },
+      take: 50,
+    });
+
+    const deadlines = followUps.map((followUp) => ({
+      id: followUp.id,
+      title: followUp.email?.subject || followUp.reason || 'Follow-up deadline',
+      description: followUp.reason || undefined,
+      deadline: followUp.dueDate.toISOString(),
+      sourceType: 'email',
+      sourceId: followUp.emailId,
+      status: followUp.status.toLowerCase(),
+      confidence: followUp.confidence ?? undefined,
+      remindBefore: [1],
+      createdAt: followUp.createdAt.toISOString(),
+    }));
+
+    return {
+      success: true,
+      enabled: true,
+      count: deadlines.length,
+      deadlines,
+    };
+  }
+
+  @Get('analytics/email')
+  @ApiOperation({ summary: 'Get email analytics', description: 'Returns email volume trends for dashboard' })
+  @ApiResponse({ status: 200, description: 'Email analytics returned' })
+  async getEmailAnalytics(
+    @Request() req: AuthenticatedRequest,
+    @Query('period') period: 'day' | 'week' | 'month' = 'week',
+  ) {
+    const daysByPeriod: Record<'day' | 'week' | 'month', number> = {
+      day: 1,
+      week: 7,
+      month: 30,
+    };
+    const dayCount = daysByPeriod[period] ?? 7;
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (dayCount - 1));
+
+    const emails = await this.prisma.email.findMany({
+      where: {
+        tenantId: req.user.tenantId,
+        isDeleted: false,
+        OR: [
+          { receivedAt: { gte: start } },
+          { sentAt: { gte: start } },
+        ],
+      },
+      select: {
+        receivedAt: true,
+        sentAt: true,
+      },
+    });
+
+    const buckets = new Map<string, { date: string; sent: number; received: number }>();
+    const formatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
+
+    for (let i = 0; i < dayCount; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      const dateKey = date.toISOString().slice(0, 10);
+      buckets.set(dateKey, { date: dateKey, sent: 0, received: 0 });
+    }
+
+    for (const email of emails) {
+      const receivedKey = email.receivedAt?.toISOString().slice(0, 10);
+      if (receivedKey && buckets.has(receivedKey)) {
+        const bucket = buckets.get(receivedKey)!;
+        bucket.received += 1;
+      }
+
+      const sentKey = email.sentAt?.toISOString().slice(0, 10);
+      if (sentKey && buckets.has(sentKey)) {
+        const bucket = buckets.get(sentKey)!;
+        bucket.sent += 1;
+      }
+    }
+
+    const volumeTrends = Array.from(buckets.values()).map((bucket) => {
+      const date = new Date(`${bucket.date}T00:00:00.000Z`);
+      return {
+        date: bucket.date,
+        name: formatter.format(date),
+        emails: bucket.sent + bucket.received,
+        sent: bucket.sent,
+        received: bucket.received,
+      };
+    });
+
+    const totals = volumeTrends.reduce(
+      (acc, item) => {
+        acc.totalEmails += item.emails;
+        acc.totalSent += item.sent;
+        acc.totalReceived += item.received;
+        return acc;
+      },
+      { totalEmails: 0, totalSent: 0, totalReceived: 0 },
+    );
+
+    return {
+      success: true,
+      analytics: {
+        period,
+        volumeTrends,
+        ...totals,
+      },
+    };
+  }
+
+  @Get('crm/stale-contacts')
+  @ApiOperation({ summary: 'Get stale contacts', description: 'Returns contacts with stale interactions' })
+  @ApiResponse({ status: 200, description: 'Stale contacts listed' })
+  async getStaleContacts(
+    @Request() req: AuthenticatedRequest,
+    @Query('days') daysParam?: string,
+    @Query('limit') limitParam?: string,
+  ) {
+    const thresholdDays = Math.min(Math.max(parseInt(daysParam || '60', 10) || 60, 7), 365);
+    const limit = Math.min(Math.max(parseInt(limitParam || '20', 10) || 20, 1), 100);
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - thresholdDays);
+
+    const contacts = await this.prisma.contact.findMany({
+      where: {
+        tenantId: req.user.tenantId,
+        isDeleted: false,
+        OR: [
+          { lastInteractedAt: { lt: thresholdDate } },
+          { lastInteractedAt: null },
+        ],
+      },
+      select: {
+        id: true,
+        displayName: true,
+        emails: true,
+        lastInteractedAt: true,
+        totalInteractions: true,
+        sentCount: true,
+        receivedCount: true,
+        relationshipScore: true,
+      },
+      orderBy: [
+        { lastInteractedAt: 'asc' },
+        { relationshipScore: 'asc' },
+      ],
+      take: limit,
+    });
+
+    const now = new Date();
+    const staleContacts = contacts.map((contact) => {
+      const email = this.extractPrimaryEmail(contact.emails);
+      const lastInteraction = contact.lastInteractedAt;
+      const daysSince = lastInteraction
+        ? Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24))
+        : thresholdDays + 1;
+
+      return {
+        contactId: contact.id,
+        email,
+        displayName: contact.displayName || email,
+        lastInteraction: lastInteraction ? lastInteraction.toISOString() : null,
+        totalInteractions: contact.totalInteractions ?? 0,
+        emailsSent: contact.sentCount ?? 0,
+        emailsReceived: contact.receivedCount ?? 0,
+        relationshipScore: contact.relationshipScore ?? 0,
+        recencyScore: null,
+        frequencyScore: null,
+        reciprocityScore: null,
+        trendScore: null,
+        isStale: true,
+        daysSinceLastContact: daysSince,
+      };
+    });
+
+    return {
+      success: true,
+      staleContacts,
+      count: staleContacts.length,
+      thresholdDays,
+    };
+  }
+
   @Post('follow-ups/detect')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
@@ -485,5 +804,36 @@ export class AiController {
   ) {
     const result = await this.draftGenerationService.generateDraft(req.user.tenantId, dto);
     return { success: true, draft: result.data, ...(result.error ? { error: result.error } : {}) };
+  }
+
+  private mapActionSeverity(actionType: string): 'LOW' | 'MEDIUM' | 'HIGH' {
+    const highSeverity = new Set(['SEND_EMAIL', 'DELETE_EMAIL', 'DELETE_CONTACT']);
+    const mediumSeverity = new Set(['SCHEDULE_MEETING', 'REPLY_EMAIL', 'FORWARD_EMAIL']);
+
+    if (highSeverity.has(actionType)) return 'HIGH';
+    if (mediumSeverity.has(actionType)) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  private extractPrimaryEmail(rawEmails: unknown): string {
+    if (!rawEmails) return '';
+
+    if (Array.isArray(rawEmails)) {
+      for (const entry of rawEmails) {
+        if (typeof entry === 'string' && entry.length > 0) {
+          return entry;
+        }
+        if (
+          entry &&
+          typeof entry === 'object' &&
+          'value' in entry &&
+          typeof (entry as { value?: unknown }).value === 'string'
+        ) {
+          return (entry as { value: string }).value;
+        }
+      }
+    }
+
+    return '';
   }
 }
