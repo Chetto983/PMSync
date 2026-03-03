@@ -23,8 +23,6 @@ import { EmailModule } from '../email/email.module';
 import { AlertingService } from '../../common/services/alerting.service';
 // Phase 23: VoltAgent module deleted. Chat pipeline rebuilt in Phase 24.
 // DeadLetterQueueService is available globally from CacheModule
-// Phase 23: BatchIndexingService is now a no-op stub (Batch API removed with @mistralai/mistralai)
-import { BatchIndexingService } from './services/batch-indexing.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
 import { IntentClassifierService } from './nlp';
@@ -71,7 +69,6 @@ import { DraftGenerationService } from './services/draft-generation.service';
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
-    BatchIndexingService, // No-op stub (Phase 23: Batch API removed)
     CachePrewarmingService, // Pre-warm query cache for common searches
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)

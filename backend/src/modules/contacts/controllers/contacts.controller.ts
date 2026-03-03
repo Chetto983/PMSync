@@ -149,7 +149,7 @@ export class ContactsController {
   async getContactHistory(@Req() req: any, @Param('id') contactId: string, @Query('limit') limit?: number) {
     const tenantId = req.user.tenantId;
     const parsedLimit = limit ? parseInt(String(limit), 10) : 50;
-    // Contact history: relies on ContactInteraction records; CRM scoring now in RelationshipScoreService
+    // Stub: ContactInteraction model removed (dead code)
     return { interactions: [], total: 0, message: 'Contact interaction history not yet implemented' };
   }
 

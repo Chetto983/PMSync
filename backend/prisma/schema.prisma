@@ -20,7 +20,6 @@ model Tenant {
   learningProfiles         AgentLearningProfile[]
   auditLogs                AuditLog[]
   calendarEvents           CalendarEvent[]
-  deals                    Deal[]
   emailAnalyses            EmailAnalysis[]
   emailSignatures          EmailSignature[]
   emailTemplates           EmailTemplate[]
@@ -46,14 +45,12 @@ model Tenant {
   sessions                 Session[]
   trustedDevices           TrustedDevice[]
   webauthnCredentials      WebAuthnCredential[]
-  aiMemoryHistory          AIMemoryHistory[]
-  libraryDocuments         LibraryDocument[]
-  dealActivities           DealActivity[]
   mistralAgents            MistralAgent[]
   userConsents             UserConsent[]
   legalAcceptances         LegalAcceptance[]
   dataExportRequests       DataExportRequest[]
   aiConversations          AiConversation[]
+  aiMemories               AIMemory[]
 
   @@map("tenants")
 }
@@ -78,7 +75,6 @@ model User {
   learningProfiles    AgentLearningProfile[]
   auditLogs           AuditLog[]
   dashboardPreference DashboardPreference?
-  deals               Deal[]
   emailSignatures     EmailSignature[]
   emailTemplates      EmailTemplate[]
   mfaBackupCodes      MfaBackupCode[]
@@ -368,7 +364,6 @@ model Email {
   size                 Int?
   headers              Json?
   metadata             Json?
-  crossProviderLinkId  String?
   hasCalendarInvite    Boolean                 @default(false)
   calendarInviteData   Json?
   calendarInviteStatus String?
@@ -388,7 +383,6 @@ model Email {
   attachments          EmailAttachment[]
   followUp             EmailFollowUp?
   emailLabels          EmailLabel[]
-  crossProviderLink    EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
   provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   embeddings           Embedding[]
@@ -400,7 +394,6 @@ model Email {
   @@index([tenantId, isRead])
   @@index([tenantId, threadId])
   @@index([sentAt])
-  @@index([crossProviderLinkId])
   @@index([tenantId, hasCalendarInvite])
   @@index([tenantId, providerId, folder, receivedAt])
   @@index([tenantId, isStarred, receivedAt])
@@ -548,29 +541,6 @@ model EmailAttachment {
   @@index([emailId])
   @@index([tenantId])
   @@map("email_attachments")
-}
-
-model EmailCrossProviderLink {
-  id               String    @id @default(cuid())
-  tenantId         String
-  contentHash      String
-  conflictStrategy String    @default("LAST_WRITE_WINS")
-  mergedIsRead     Boolean   @default(false)
-  mergedIsStarred  Boolean   @default(false)
-  mergedFolder     String    @default("INBOX")
-  mergedLabels     String[]  @default([])
-  providerCount    Int       @default(0)
-  lastSyncedAt     DateTime  @default(now())
-  lastConflictAt   DateTime?
-  lastConflict     Json?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  emails           Email[]
-
-  @@unique([tenantId, contentHash])
-  @@index([tenantId, lastSyncedAt])
-  @@index([contentHash])
-  @@map("email_cross_provider_links")
 }
 
 /// Citus distributed table - composite PK for horizontal sharding
@@ -753,8 +723,6 @@ model Contact {
   relationshipScore   Float?
   sentCount           Int                  @default(0)
   totalInteractions   Int                  @default(0)
-  contactInteractions ContactInteraction[]
-  deals               Deal[]
   providerContacts    ProviderContact[]
   embeddings          Embedding[]
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
@@ -898,26 +866,6 @@ model DataExportRequest {
   @@map("data_export_requests")
 }
 
-model JobQueue {
-  id          String    @id @default(cuid())
-  tenantId    String
-  jobId       String
-  jobType     String
-  status      String    @default("pending")
-  data        Json
-  result      Json?
-  error       String?
-  retries     Int       @default(0)
-  maxRetries  Int       @default(3)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  completedAt DateTime?
-
-  @@index([tenantId, status])
-  @@index([createdAt])
-  @@map("job_queue")
-}
-
 model WebhookSubscription {
   id                 String         @id @default(cuid())
   providerId         String
@@ -947,17 +895,6 @@ model WebhookSubscription {
   @@index([providerType])
   @@index([subscriptionId])
   @@map("webhook_subscriptions")
-}
-
-model HealthCheck {
-  id            String   @id @default(cuid())
-  service       String   @unique
-  status        String   @default("up")
-  lastCheckedAt DateTime @default(now())
-  responseTime  Int?
-  error         String?
-
-  @@map("health_checks")
 }
 
 model WritingStyleProfile {
@@ -1080,7 +1017,7 @@ model AIMemory {
   updatedAt  DateTime               @updatedAt
   /// Semantic vector for similarity search (mistral-embed: 1024 dimensions)
   vector     Unsupported("vector")?
-  history    AIMemoryHistory[]
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, memoryType])
@@ -1088,24 +1025,6 @@ model AIMemory {
   @@index([content(ops: raw("gin_trgm_ops"))], map: "ai_memories_content_gin_idx", type: Gin)
   @@index([vector], map: "ai_memories_vector_hnsw_idx")
   @@map("ai_memories")
-}
-
-/// Change history for memories (audit trail)
-model AIMemoryHistory {
-  id        String   @id @default(cuid())
-  tenantId  String
-  memoryId  String
-  action    String
-  oldValue  String?
-  newValue  String?
-  changedBy String?
-  createdAt DateTime @default(now())
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  memory    AIMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([memoryId])
-  @@map("ai_memory_history")
 }
 
 /// Stores Mistral agent IDs for reuse across sessions
@@ -1202,75 +1121,6 @@ model EmailFollowUp {
   @@index([tenantId, userId, followUpType])
   @@index([dueDate])
   @@map("email_follow_ups")
-}
-
-/// Tracks contact interaction history for relationship intelligence (P1.7)
-model ContactInteraction {
-  id           String                 @id @default(cuid())
-  tenantId     String
-  contactId    String
-  type         ContactInteractionType
-  date         DateTime
-  summary      String?
-  sentiment    String?
-  sourceType   String?
-  sourceId     String?
-  createdAt    DateTime               @default(now())
-  contactEmail String?
-  contactName  String?
-  emailId      String?                @unique
-  userId       String
-  contact      Contact                @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
-
-  @@index([tenantId, contactId])
-  @@index([tenantId, contactId, date])
-  @@index([tenantId, userId])
-  @@index([tenantId, userId, date])
-  @@index([emailId])
-  @@map("contact_interactions")
-}
-
-/// User document libraries for RAG queries
-model DocumentLibrary {
-  id               String            @id @default(cuid())
-  tenantId         String
-  name             String
-  description      String?
-  documentCount    Int               @default(0)
-  totalSize        Int               @default(0)
-  isDeleted        Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  mistralLibraryId String?
-  documents        LibraryDocument[]
-
-  @@unique([tenantId, name])
-  @@index([tenantId, isDeleted])
-  @@index([mistralLibraryId])
-  @@map("document_libraries")
-}
-
-/// Documents within a library (stored in Mistral Libraries API)
-model LibraryDocument {
-  id                String          @id @default(cuid())
-  tenantId          String
-  libraryId         String
-  filename          String
-  mimeType          String?
-  size              Int
-  status            String          @default("processing")
-  isDeleted         Boolean         @default(false)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  mistralDocumentId String?
-  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  library           DocumentLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([libraryId, isDeleted])
-  @@index([status])
-  @@index([mistralDocumentId])
-  @@map("library_documents")
 }
 
 /// Unified email analysis from single LLM call (replaces 11 agents)
@@ -1394,56 +1244,6 @@ model AgentActionFeedback {
   @@index([actionId])
   @@index([expiresAt])
   @@map("agent_action_feedback")
-}
-
-/// CRM Deal pipeline for sellers
-model Deal {
-  id                String         @id @default(cuid())
-  tenantId          String
-  userId            String
-  contactId         String
-  name              String
-  value             Float          @default(0)
-  currency          String         @default("USD")
-  stage             String         @default("LEAD")
-  probability       Float          @default(0)
-  expectedCloseDate DateTime?
-  actualCloseDate   DateTime?
-  sourceEmailId     String?
-  sourceChannel     String         @default("email")
-  status            DealStatus     @default(OPEN)
-  lostReason        String?
-  notes             String?
-  customFields      Json           @default("{}")
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  activities        DealActivity[]
-  contact           Contact        @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
-  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId])
-  @@index([tenantId, stage])
-  @@index([tenantId, status])
-  @@map("deals")
-}
-
-/// Deal activity log
-model DealActivity {
-  id           String           @id @default(cuid())
-  tenantId     String
-  dealId       String
-  emailId      String?
-  activityType DealActivityType
-  description  String?
-  metadata     Json             @default("{}")
-  createdAt    DateTime         @default(now())
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  deal         Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([dealId])
-  @@map("deal_activities")
 }
 
 /// Subscription management (Autumn integration)
@@ -1571,14 +1371,6 @@ enum FollowUpStatus {
   EXPIRED
 }
 
-enum ContactInteractionType {
-  EMAIL_SENT
-  EMAIL_RECEIVED
-  MEETING
-  CALL
-  NOTE
-}
-
 enum EmailPriority {
   URGENT
   HIGH
@@ -1640,24 +1432,6 @@ enum ActionStatus {
   EXECUTED
   FAILED
   EXPIRED
-}
-
-enum DealStatus {
-  OPEN
-  WON
-  LOST
-}
-
-enum DealActivityType {
-  EMAIL_RECEIVED
-  EMAIL_SENT
-  CALL_LOGGED
-  MEETING_SCHEDULED
-  STAGE_CHANGED
-  NOTE_ADDED
-  DEAL_CREATED
-  DEAL_WON
-  DEAL_LOST
 }
 
 enum SubscriptionPlan {
