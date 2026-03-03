@@ -1,383 +1,237 @@
-# Feature Landscape: v3.2 AI Rebuild & Cleanup
+# Feature Research: v4.0 Enterprise Stabilization
 
-**Domain:** AI layer rebuild for professional email client (chat UI, tool consolidation, backend simplification)
-**Researched:** 2026-02-27
-**Overall confidence:** HIGH (core patterns verified via official docs and production examples)
+**Domain:** Enterprise platform stabilization (architecture, API contracts, auth, performance, encryption, AI governance, authorization)
+**Researched:** 2026-03-03
+**Confidence:** HIGH (codebase audit verified against PRD gap analysis + current ecosystem research)
 
-## Executive Summary
+## Feature Landscape
 
-The v3.2 rebuild targets four domains: (1) replacing the custom chat UI with assistant-ui, a production-grade React library built on Radix/shadcn primitives; (2) migrating from VoltAgent to raw AI SDK v6 with the new ToolLoopAgent abstraction; (3) consolidating 28 tools down to ~15 using domain-action merging and replacing agent loops with `generateText` + `Output.object()` for non-chat features; (4) killing dead frontend components and reducing the 67-file ai-elements directory to what assistant-ui does not already provide.
+### Table Stakes (Enterprise Buyers Expect These)
 
-The critical insight: assistant-ui already handles streaming, auto-scroll, tool rendering, message branching, accessibility, and composability. Building this from scratch was the original mistake. The rebuild should be about *adopting* not *rebuilding*.
-
----
-
-## Table Stakes
-
-Features users expect. Missing = product feels incomplete.
-
-### Chat UI: Core Experience
+Features that enterprise procurement, security reviews, and SOC2 audits assume exist. Missing any of these blocks enterprise sales or fails security review.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Token-by-token streaming** | Users perceive streaming responses as 40-60% faster than equivalent non-streaming (verified by UX research). Any "waiting for response" spinner is unacceptable in 2026. | Low | assistant-ui handles this natively. AI SDK v6 `streamText` provides the backend. SSE transport is standard. |
-| **Auto-scroll with scroll-to-bottom anchor** | Every chat product (ChatGPT, Claude, Cursor) does this. Users expect content to follow as it streams, with a "jump to bottom" button when they scroll up. | Low | assistant-ui `ThreadPrimitive.Viewport` provides this out of the box. Current custom `useChatScroll` hook can be deleted. |
-| **Message editing and regeneration** | ChatGPT established this pattern. Users expect to edit a previous message and get a new response, or click "regenerate" on an AI response. | Low | assistant-ui supports message editing natively via Composer-inside-Message pattern. Message branching (exploring different paths) included. |
-| **Tool call visualization** | When AI searches emails, lists calendars, etc., users need to see what is happening. A spinning icon with "Searching emails..." is the minimum. Progress states (running/complete/error) are expected. | Medium | assistant-ui `makeAssistantToolUI` provides `status.type` ("running", "complete", "incomplete", "requires_action") with full args/result access. Maps directly to existing SmartToolOutput pattern but with better API. |
-| **Keyboard-driven input** | Enter to send, Shift+Enter for newline, Cmd+K for command palette. Superhuman's entire UX is built on keyboard shortcuts (100+ shortcuts, users 2x faster). | Low | assistant-ui `ComposerPrimitive` handles basic input. Command palette remains custom (keep existing `CommandPalette` component). |
-| **Mobile-responsive chat** | 40%+ of email usage is mobile. Chat must work on small screens. Shortwave's mobile experience is a key differentiator. | Medium | assistant-ui components are responsive by default (Tailwind-based). Replace existing MUI MobileChatDialog/MobileLayout with assistant-ui primitives. |
-| **Typing/thinking indicator** | Psychological cue that AI is working. Every chat product shows this. | Low | assistant-ui handles streaming state natively. Can add shimmer effect during tool execution. |
-| **Conversation history** | Users expect to resume previous conversations. ChatGPT sidebar with conversation list is the established pattern. | Medium | assistant-ui supports thread management via `AssistantRuntime`. Backend already has conversation management service. |
+| **Standardized API response envelope** | Every enterprise integration team expects consistent `{ data, error, meta, requestId }` shape across all endpoints. Current state: ~50% of controllers return `{ success: true, ... }`, remainder return raw payloads. Two exception filters exist (`HttpExceptionFilter` returns `{ statusCode, message, timestamp }`, `AllExceptionsFilter` returns `{ statusCode, message, timestamp, path }`) -- neither includes `requestId` or structured error codes. | MEDIUM | Global response interceptor wraps all success responses. Unified exception filter wraps all errors. ~32 controllers to verify. Must be additive -- existing clients that parse `success` field still work. |
+| **API error taxonomy with machine-readable codes** | Enterprise clients need error codes (not just HTTP status + freeform string) for retry logic, alerting, support ticket correlation. Current: `message` is the only error discriminator. | MEDIUM | Define error code enum per domain (e.g., `AUTH_TOKEN_EXPIRED`, `EMAIL_NOT_FOUND`, `AI_RATE_LIMITED`, `TENANT_FORBIDDEN`). Wire into exception filters. Must ship with envelope -- they're the same contract. |
+| **API versioning policy enforcement** | Enterprise integrations need deprecation windows and version guarantees. Current: 7 controllers use `api/v1/` prefix, 25 controllers are unversioned (`/auth`, `/emails`, `/folders`, `/calendar`, `/contacts`, `/compliance/*`, `/webhooks/*`, etc.). No deprecation headers, no sunset dates. | MEDIUM | Global prefix strategy. Route existing unversioned paths under `/api/v1/` with redirects or aliases. Document deprecation policy (minimum 6-month sunset). Low risk if done as additive routing. |
+| **httpOnly cookie auth (off localStorage)** | Every enterprise security audit flags localStorage JWT as XSS blast radius expansion. Current: `auth-store.ts` persists token via Zustand `persist` middleware to localStorage. Also sets a **non-httpOnly** cookie via `document.cookie` for attachment inline images. Both are exploitable by any XSS vector. | HIGH | Backend sets httpOnly+Secure+SameSite cookie on login/refresh. Frontend stops managing tokens entirely. CSRF protection required (double-submit or synchronizer token). Attachment proxy needs rework -- current pattern reads token from JS-accessible cookie for `<img src>` tags. Likely needs signed URL or backend proxy approach. |
+| **Circular dependency reduction (15 cycles to <=5)** | Not customer-facing, but blocks testability, module isolation, lazy loading, and future service extraction. Codebase has **26 `forwardRef()` calls across 12 modules**. `ProvidersModule` alone has 5 forwardRefs. `AiChatModule` has 4 forwardRefs. `EmailModule` has 4 forwardRefs. The dependency graph is a hairball. | HIGH | Three-pronged: (1) Extract shared interfaces into domain contracts module, (2) Replace direct cross-module imports with EventEmitter2 domain events, (3) Introduce facade services at module boundaries. Each cycle break touches module wiring + integration tests. |
+| **Module boundary formalization** | AI module directly imports concrete services from Email, Calendar, Contacts via forwardRef. No interface contracts. Enterprise architecture reviews flag concrete cross-module coupling as maintainability risk. Also blocks lazy loading and independent testing. | HIGH | Define TypeScript interfaces per domain boundary (e.g., `IEmailSearchService`, `ICalendarQueryService`). AI module consumes interfaces, not implementations. Providers module publishes events instead of importing consumers. |
+| **Frontend performance (LCP <2.5s, TTI <3.5s)** | Current ~4.1s TTI fails Core Web Vitals "Good" threshold. Enterprise buyers run Lighthouse as part of vendor evaluation. Lighthouse CI config exists at `lighthouserc.js` with correct thresholds but they're being violated. | MEDIUM | Route-level bundle analysis via `@next/bundle-analyzer`. Dynamic imports for heavy modules (TipTap editor, assistant-ui chat, calendar). Server Component migration where applicable. Image/font optimization. Lighthouse CI already configured -- just need to actually pass the thresholds. |
+| **ENC-03: Hash-based search on encrypted fields** | 17+ query sites search fields that are now encrypted at rest (from v3.1 GDPR work). Without blind indexes, these queries either silently fail, return no results, or require full-table decrypt-then-filter (O(n)). The `hashForSearch()` utility already exists in `field-encryption.utils.ts` but is explicitly commented as "reserved for future Tier 2 implementation." | HIGH | Create blind index columns per searchable encrypted field (from, subject, displayName at minimum). Backfill HMAC hashes for all existing encrypted data. Rewrite 17+ query sites to use blind index lookup instead of plaintext `contains`. Add migration script. Crypto foundation is solid (AES-256-GCM encryption, SHA-256 HMAC hashing with tenant-scoped salt). |
 
-### Chat UI: Tool Rendering
+### Differentiators (Competitive Advantage)
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| **Rich tool result cards** | Users expect structured data (email lists, calendar events, contacts) rendered as cards, not raw JSON. Shortwave and ChatGPT both render structured results inline. | Medium | Migrate existing 10 custom renderers (EmailSearchRenderer, BriefingRenderer, etc.) to `makeAssistantToolUI` pattern. The API is cleaner: `render: ({ args, result, status }) => <Component />`. |
-| **Error state handling** | When a tool fails, show a clear error with retry option, not a cryptic message. | Low | `makeAssistantToolUI` provides `isError` flag and `status.type === "incomplete"` with `reason` property. |
-| **Human-in-the-loop approval** | For destructive actions (send email, delete, move), users expect a confirmation step. Superhuman requires explicit send confirmation. | Medium | AI SDK v6 has `needsApproval: true` on tools with conditional approval. assistant-ui provides `status.type === "requires_action"` with `addResult` callback for inline approval. Current HITL service maps directly. |
-| **Chain-of-thought display** | Users want to see the AI's reasoning process. Claude and ChatGPT both show "thinking" sections. | Low | Keep existing ChainOfThought component, render inside assistant-ui message. The existing pattern works well. |
-
-### Backend: AI Pipeline
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| **Structured output for non-chat features** | Briefing, follow-up detection, email analysis should return typed JSON, not free text. This is faster, cheaper, more reliable than agent loops. | Medium | AI SDK v6 `generateText` + `Output.object({ schema })` replaces `generateObject` (deprecated). Zod schemas for validation. `Output.array({ element })` for lists. |
-| **Reusable agent definition** | The same AI configuration (model, instructions, tools) should work across chat UI, API endpoints, and background jobs. | Medium | AI SDK v6 `ToolLoopAgent` encapsulates model + instructions + tools. Define once, use via `.generate()`, `.stream()`, or `createAgentUIStreamResponse()`. Type-safe with `InferAgentUIMessage`. |
-| **Tool timeout and error handling** | Tools must not hang indefinitely. Existing `withToolTimeout` pattern is correct but needs migration to AI SDK v6 tool format. | Low | AI SDK v6 `ToolLoopAgent` supports `timeout` parameter (totalMs/stepMs/chunkMs) natively. Keep existing timeout logic inside tool execute functions. |
-| **Rate limiting and circuit breaker** | LLM APIs fail. Must degrade gracefully. | Low | Existing `rate-limiter.service.ts` and circuit breaker pattern stay. Wrap AI SDK v6 model calls with existing infrastructure. |
-
----
-
-## Differentiators
-
-Features that set product apart. Not expected, but valued.
+Features that go beyond what enterprises minimally require and position MailAgent as architecturally superior to competitors.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Artifact panel (side-by-side)** | Claude's artifact pattern: AI generates structured content (email draft, analysis, briefing) displayed in a side panel. Users can edit, export, or iterate. This is the #1 UX differentiator in AI chat interfaces in 2026. | High | assistant-ui does not provide this natively. Keep and improve existing `ArtifactPanel` component. Render tool results that are "viewable" (drafts, analyses, briefings) in the side panel. |
-| **Contextual AI in email view** | Instead of requiring users to switch to chat, surface AI actions inline: "Summarize this thread", "Draft reply", "Add follow-up". Shortwave's inline AI actions and Superhuman's Auto Drafts are the gold standard. | High | This is beyond assistant-ui scope. Build as custom components that call `generateText` + `Output.object()` directly (no chat loop needed). |
-| **Smart tool routing** | Instead of giving the LLM 28 tools and hoping it picks right, pre-filter tools based on query intent. Research shows tool selection accuracy drops significantly past ~10 tools. | Medium | Use existing `nlp-intent-classifier.service.ts` to detect intent, then pass only relevant tools to `ToolLoopAgent` via `activeTools` parameter. AI SDK v6 supports `prepareStep` to dynamically adjust available tools per step. |
-| **Streaming structured data** | For array outputs (email lists, follow-ups), stream each element as it completes rather than waiting for the full array. | Medium | AI SDK v6 `streamText` with `Output.array({ element })` provides `elementStream` -- each element arrives complete and validated as it generates. Enables progressive rendering. |
-| **Suggested prompts with context** | After tool results, suggest follow-up questions based on what was found. "Found 3 emails from John -- ask: 'What are the action items from John's emails?'" | Low | Existing `suggested-prompts.service.ts` stays. Wire into assistant-ui via custom message parts. |
-| **Writing style learning** | Ghostwriter pattern (Shortwave): learn user's writing style from sent emails, generate drafts that sound like the user. | Already built | Existing `learning.service.ts` and draft generation. Keep as-is, just migrate the LLM call to `generateText` + `Output.object()`. |
+| **AI Run Ledger (explainability foundation)** | Most AI email tools are black boxes. A normalized run ledger (run ID, tool calls, decisions, approvals, token costs, model, latency per step) gives enterprise compliance teams what they need for regulated industries. No competitor in the AI email space (Superhuman, Shortwave, Front) has run-level audit. Token usage is already partially tracked in `ai-chat.service.ts` (promptTokens, completionTokens). | MEDIUM | New Prisma models: `AiRunLedger` (run_id, conversation_id, user_id, tenant_id, model, total_tokens, total_cost, duration_ms, status) and `AiRunStep` (step_id, run_id, step_type [tool_call/generation/approval], tool_name, input_hash, output_hash, tokens, latency_ms). Wire into existing `AiChatService.streamChat()` via `onStepFinish` / `onFinish` callbacks. Schema + telemetry plumbing only -- no UI in v4.0. |
+| **Permission taxonomy definition (RBAC to RBAC+ABAC prep)** | Current auth is role-string based (`admin`, `super-admin`) with `RolesGuard` on only **3 of 32 controllers** (tenants, email-sync, gdpr). Defining the taxonomy now -- resource:action pairs, permission enum, `PolicyService` interface -- lets enterprise customers see a credible authorization roadmap during procurement evaluation, even before full ABAC ships. | MEDIUM | Define permission enum (e.g., `email:read`, `email:send`, `calendar:manage`, `ai:chat`, `admin:tenant`, `compliance:export`). Create `PolicyService` interface contract with `canAccess(user, resource, action): boolean`. Map existing role strings to permission sets. Document which endpoints require which permissions. No runtime enforcement change yet -- that's Phase 2 per PRD. |
+| **Silent fallback elimination with degraded-state telemetry** | Frontend query hooks in `use-dashboard.ts` silently fall back to empty/default data when APIs fail ("Graceful fallbacks when APIs fail"). This hides backend contract drift and gives false confidence. Replacing with explicit error boundaries + telemetry makes the platform self-diagnosing. Enterprise ops teams value platforms that surface their own issues. | LOW | Audit all query hooks for patterns like `catch(() => defaultValue)` or `fallback` patterns. Replace with typed error states that render explicit degraded UI. Optionally emit client-side telemetry for failed API calls. Low effort, high diagnostic value. |
+| **Event-driven domain decoupling (outbox pattern prep)** | Beyond just breaking circular deps: introducing typed domain events (`EmailSynced`, `ContactUpdated`, `AiRunCompleted`, `FolderRenamed`) creates the foundation for future webhook/automation/marketplace features that enterprise customers expect. EventEmitter2 is the standard NestJS approach. | MEDIUM | Define typed event contracts per domain as TypeScript interfaces. Publish events from domain services. Subscribe from cross-domain consumers. Replace direct imports where possible. This is the architectural investment that compounds in PRD Phase 2 (workflow builder, marketplace). |
+| **Encryption standardization (AES-GCM everywhere)** | PRD flagged mixed encryption modes: `field-encryption.utils.ts` uses AES-256-GCM (correct), but provider token encryption paths may use legacy CBC. Standardizing to authenticated encryption with rotation policy is both security hygiene and SOC2 audit evidence. | LOW | Audit all encryption call sites in `backend/src`. Verify provider-config.service.ts (9 forwardRef occurrences suggests complex crypto wiring). Migrate any legacy CBC paths to GCM. Document rotation policy. Low blast radius since GCM is already the primary path. |
+| **Correlation ID global propagation** | `CorrelationInterceptor` exists but PRD notes it's "not globally wired." Propagating requestId across API -> BullMQ worker -> AI tool call -> WebSocket enables enterprise-grade incident triage without full OpenTelemetry investment. | LOW | Wire existing `CorrelationInterceptor` globally in `app.module.ts`. Pass `requestId` through BullMQ job data. Include in AI run ledger steps. Include in API response envelope `meta.requestId`. |
 
----
+### Anti-Features (Commonly Requested, Often Problematic at This Stage)
 
-## Anti-Features
+Features that seem like they belong in enterprise stabilization but create more problems than they solve if attempted now.
 
-Features to explicitly NOT build.
-
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| **Custom streaming infrastructure** | assistant-ui + AI SDK v6 handle streaming, auto-scroll, partial rendering, interruption, and retry. Building custom versions is the mistake we made in v3.0. | Use assistant-ui `ThreadPrimitive` + AI SDK v6 `streamText`. Delete custom `useChatScroll`, `StreamingMessage`, `TypingIndicator`. |
-| **Custom message state management** | Current `useChatController` + `useVoltagentChat` hooks manage complex message state manually. This is what assistant-ui's runtime was built to replace. | Use assistant-ui `AssistantRuntimeProvider` with AI SDK runtime adapter. Single source of truth for all chat state. |
-| **Agent pool / multi-agent orchestration** | VoltAgent's `AgentPoolService` and supervisor agent add complexity without proportional value. The LLM does not need an "agent supervisor" for an email client. | Single `ToolLoopAgent` with domain tools. For complex multi-step tasks, use `prepareStep` to adjust tools between steps. |
-| **65+ AI elements library** | Current `ai-elements/` has 67 files. Many are generic chat primitives (loader, shimmer, message, tool, conversation) that duplicate what assistant-ui provides. | Keep only domain-specific renderers (10 tool renderers + artifact panel). Delete everything assistant-ui replaces: message, tool, conversation, loader, shimmer, controls, prompt-input, suggestion. |
-| **Separate read-only and write tool files** | Current split between `email.tools.ts` (read) and `email-write.tools.ts` (write) creates duplicate tool names (`manage_email`, `bulk_email_actions`). | Merge into single `email.tools.ts` with all email operations. Use `needsApproval: true` for write operations. |
-| **Agent metrics and observability hooks** | VoltAgent's observability layer (hooks.ts, metrics.ts, agent-metrics.service.ts) adds overhead for metrics nobody checks. | Use AI SDK v6's built-in `onStepFinish` / `onFinish` callbacks for essential logging. Delete custom observability layer. |
-| **Task complexity classifier** | `task-complexity-classifier.service.ts` classifies prompts as simple/medium/complex to route to different agent configs. Unnecessary with a single well-configured ToolLoopAgent. | Delete. Single agent handles all complexity levels. Use `stopWhen: stepCountIs(20)` default, which is sufficient. |
-
----
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| **Full ABAC policy engine** | PRD recommends RBAC+ABAC. Enterprise customers ask for fine-grained permissions. | Implementing a full policy engine (Cerbos/OPA integration, policy DSL, attribute evaluation) is 3-6 months of work. Doing it before the CRM object model exists (Accounts, Deals, Activities -- PRD Phase 2) means designing policies for objects that don't exist yet. Classic premature abstraction. | Define the taxonomy and `PolicyService` interface NOW. Implement the engine in Phase 2 when CRM objects exist to authorize against. |
+| **AI Run Ledger UI (run timeline, cost panel, replay)** | PRD Section 3.5 recommends agent execution trace timeline in UI. Looks great in demos. | Backend schema doesn't exist yet. Building UI on an unstable data model means throwaway work. The ledger needs to bake for at least one sprint of real production data before anyone knows what the right UI is. | Ship schema + telemetry contract in v4.0. Collect data. Build UI in Phase 3 per PRD timeline. |
+| **OpenTelemetry distributed tracing** | PRD Section 2.6 recommends it. Ops teams want trace correlation across API/queue/AI/WebSocket. | Full OTel integration is large surface area: instrument all HTTP handlers, BullMQ workers, AI SDK calls, Prisma queries, WebSocket events. Requires collector infrastructure (Jaeger/Tempo). The existing `CorrelationInterceptor` + `ResponseTimeInterceptor` provide 80% of the triage value at 10% of the cost. | Wire correlation interceptor globally. Add requestId to all log lines and API responses. Full OTel in Phase 3 alongside ops dashboard. |
+| **Database-level Row-Level Security (RLS)** | PRD Section 2.3 recommends DB-level tenant isolation. Security purists prefer it. | PostgreSQL RLS with Prisma is notoriously painful. Prisma doesn't support `SET` session variables natively, requiring raw SQL or middleware hacks. Prisma 7 hasn't solved this. Current `TenantGuard` app-level enforcement works, is tested, and is consistent. Breaking it for RLS introduces new failure modes. | Keep TenantGuard. Add automated tenant-leak negative tests in CI (query as tenant A, verify no tenant B data). Revisit RLS when/if migrating to multi-database per tenant. |
+| **Consumer-driven contract testing (Pact)** | PRD Section 8.5 mentions 100% contract test pass rate for releases. | Pact infrastructure (broker, provider verification, consumer stubs, CI pipeline) is significant investment. Zero contract tests exist today. The gap from 0 to Pact is too large for a stabilization milestone. | Start with OpenAPI schema validation in CI -- already have Swagger/OpenAPI decorators on 51+ files (684 decorator occurrences). Validate response shapes match OpenAPI spec. Graduate to Pact when multiple frontend teams exist. |
+| **Per-route bundle budgets with CI gates** | PRD Section 3.8 recommends strict bundle budgets per route. | Setting wrong budget thresholds blocks deployments with false positives. No per-route baseline data exists. Need at least one sprint of measurement before setting thresholds. | Run `@next/bundle-analyzer`, establish baselines for each route. Set budgets after collecting data. Lighthouse CI already exists for aggregate performance gating. |
+| **Compliance evidence pipeline (SOC2/GDPR/ISO controls matrix)** | PRD Section 2.8 mentions procurement-grade compliance evidence. | Building a full compliance evidence pipeline (control mapping, automated evidence collection, reporting) is a project unto itself. Current audit logging and GDPR endpoints are the foundation, not the ceiling. | Document existing controls informally. Build the evidence pipeline when pursuing actual SOC2 certification (likely Phase 2-3). |
 
 ## Feature Dependencies
 
 ```
-assistant-ui adoption ──> Tool renderer migration (makeAssistantToolUI)
-                     ──> Chat state migration (delete custom hooks)
-                     ──> Delete duplicate ai-elements components
+API Response Envelope
+    |-- requires --> Error Taxonomy (error codes go inside envelope)
+    |-- requires --> API Versioning Policy (envelope shape is the per-version contract)
+    |-- requires --> Correlation ID Propagation (requestId goes in envelope meta)
+    |-- enables --> Silent Fallback Elimination (frontend can parse typed errors)
+    |-- enables --> OpenAPI Schema Validation (envelope shape is testable)
 
-AI SDK v6 migration  ──> Tool definition rewrite (createTool -> tool())
-                     ──> ToolLoopAgent definition
-                     ──> generateText + Output.object() for non-chat features
-                     ──> Delete VoltAgent dependency
+Module Boundary Formalization
+    |-- enables --> Circular Dependency Breaking (interfaces before decoupling)
+    |-- enables --> Lazy-loadable AI Module (can't lazy-load circular deps)
+    |-- enables --> Event-Driven Domain Decoupling (events replace direct imports)
+    |-- enables --> Independent Module Testing
 
-Tool consolidation   ──> Merge email read/write tools
-                     ──> Merge search_emails + semantic_search_emails
-                     ──> Merge list_emails + list_email_index
-                     ──> Smart tool routing (activeTools)
+Circular Dependency Breaking
+    |-- requires --> Module Boundary Formalization (define interfaces first)
+    |-- uses ----> Event-Driven Domain Decoupling (events are the mechanism)
 
-Non-chat AI migration ──> Briefing: generateText + Output.object()
-                      ──> Follow-up detection: generateText + Output.array()
-                      ──> Email analysis: generateText + Output.object()
-                      ──> Writing style: generateText + Output.object()
+httpOnly Cookie Auth
+    |-- independent (no upstream deps, but changes CORS/CSRF globally)
+    |-- conflicts with --> Current Attachment Proxy (reads token from JS cookie)
+    |-- requires --> CSRF Protection (new requirement when using cookies)
+
+ENC-03 Blind Indexes
+    |-- requires --> hashForSearch() (already exists, unused)
+    |-- requires --> Schema Migration (new columns per searchable field)
+    |-- requires --> Backfill Script (hash all existing encrypted data)
+    |-- blocks  --> Any new encrypted field search capability
+
+AI Run Ledger
+    |-- requires --> ConversationService (already exists)
+    |-- requires --> Correlation ID Propagation (requestId links HTTP to AI run)
+    |-- enhances --> Existing Audit Logging (run-level granularity on top)
+    |-- enables --> Future: AI cost dashboard, run replay, policy gates per tool
+
+Permission Taxonomy
+    |-- requires --> Nothing (pure definition work, no implementation)
+    |-- enables --> Future: PolicyGuard decorator, ABAC engine, admin permission UI
+    |-- enhances --> Existing RolesGuard (taxonomy maps roles to permission sets)
+
+Frontend Performance
+    |-- independent (parallel workstream)
+    |-- benefits from --> API Response Envelope (fewer retry/fallback code paths)
+    |-- benefits from --> Silent Fallback Elimination (less dead code in bundles)
+
+Encryption Standardization
+    |-- independent (audit + migrate existing paths)
+    |-- enhances --> ENC-03 (ensures consistent crypto primitives everywhere)
 ```
 
----
+### Dependency Notes
 
-## Tool Consolidation Plan
+- **API Envelope requires Error Taxonomy:** The envelope shape includes the error object structure. Designing them separately leads to mismatched contracts. They MUST ship as one unit.
+- **Circular Dep Breaking requires Module Boundaries:** You cannot decouple modules until you define what the interface contracts ARE. Formalization is the prerequisite. Attempting to break cycles without interfaces is random refactoring that creates new, different coupling.
+- **httpOnly Cookie conflicts with Attachment Proxy:** Current inline attachment images use `<img src="/api/attachments/...">` with a non-httpOnly cookie set by `document.cookie` in `auth-store.ts`. Migration to httpOnly means JS cannot set the cookie. Options: (a) backend proxy that reads httpOnly cookie and forwards to storage, (b) short-lived signed URLs generated server-side, (c) Next.js API route proxy.
+- **AI Run Ledger requires Correlation IDs:** Without requestId propagation, run steps can't be correlated to the triggering HTTP request. Wire correlation globally before or alongside ledger work.
+- **Permission Taxonomy is pure definition:** No code changes to existing auth flow. TypeScript enum + interface + documentation. Zero risk to existing functionality. Can be done by a single person in 2-3 days.
+- **ENC-03 and Frontend Performance are parallelizable:** They touch completely different codebases (Prisma/backend vs Next.js/frontend) and have no dependencies on each other.
 
-### Current State: 28 tools
+## Stabilization Priority (v4.0)
 
-```
-Email Domain (9):     list_emails, manage_email (x2), search_emails,
-                      count_emails, bulk_email_actions (x2), list_email_index,
-                      get_email_content
-Insights (3):         compose_reply, analyze_email, semantic_search_emails
-Calendar (2):         get_events, manage_event
-Contacts (2):         search_contacts, manage_contact
-Folders (2):          list_folders, manage_folder
-Briefing (1):         get_daily_briefing
-CRM (1):              get_relationship_stats
-Attachments (2):      list_email_attachments, get_attachment_content
-Memory (2):           search_memory, store_memory
-Documents (1):        manage_document_library
-Analytics (1):        analyze_data
-Web Search (1):       web_search
-Follow-ups (1):       list_follow_ups
-Utility (1):          ask_user_clarification
-```
+### Wave 1: Contracts & Boundaries (Ship First)
 
-### Target State: ~15 tools
+These establish the contracts everything else depends on. Without them, later work lacks stable foundations.
 
-| New Tool | Merges | Rationale |
-|----------|--------|-----------|
-| `email_search` | search_emails + semantic_search_emails + list_email_index | Three tools that find emails. LLM should not choose between "keyword search" and "semantic search" -- the backend should decide (hybrid RRF already does this). |
-| `email_read` | list_emails + get_email_content + count_emails | Reading operations. Action parameter: list/get/count. Reduces 3 tools to 1. |
-| `email_write` | manage_email (write) + compose_reply + bulk_email_actions | Writing operations. Action: send/reply/forward/archive/trash/label/bulk. `needsApproval: true`. |
-| `calendar` | get_events + manage_event | Already consolidated pattern (action parameter). Keep as-is. |
-| `contacts` | search_contacts + manage_contact | Already consolidated pattern. Keep as-is. |
-| `folders` | list_folders + manage_folder | Already consolidated pattern. Keep as-is. |
-| `attachments` | list_email_attachments + get_attachment_content | Merge to single tool with action: list/get. |
-| `memory` | search_memory + store_memory | Merge to single tool with action: search/store. |
-| `web_search` | web_search | Keep as-is. |
-| `documents` | manage_document_library | Keep as-is. |
-| `analytics` | analyze_data | Keep as-is. |
-| `ask_user` | ask_user_clarification | Keep as-is. Human-in-the-loop is critical. |
-| `relationship_stats` | get_relationship_stats | Keep as-is. |
+- [ ] **Module boundary formalization** -- Define interface contracts for all cross-domain service access points. Prerequisite for circular dep breaking.
+- [ ] **API response envelope + error taxonomy + versioning** -- Ship as one unit. Global interceptor + exception filter + prefix policy. All downstream work (frontend error handling, contract validation, fallback removal) depends on this.
+- [ ] **Correlation ID global wiring** -- Wire existing `CorrelationInterceptor` globally. Include requestId in response envelope. Prerequisite for AI Run Ledger.
 
-**Removed from chat tools (moved to generateText + Output.object):**
-- `get_daily_briefing` -- becomes a direct API call, not a chat tool
-- `list_follow_ups` -- becomes a direct API call, not a chat tool
-- `analyze_email` -- available in chat but also used standalone via generateText
+### Wave 2: Security & Architecture (Ship After Wave 1)
 
-**Result: 13 chat tools + 3 non-chat generateText features = 16 total AI functions**
+These depend on Wave 1 contracts or touch security-critical paths.
 
-### Why ~15 is the Right Number
+- [ ] **Circular dependency breaking** -- With interfaces defined, replace forwardRef chains with events + interface injection. Target: 15 cycles to <=5.
+- [ ] **httpOnly cookie migration** -- Backend sets cookie, frontend stops managing tokens. CSRF protection. Attachment proxy rework.
+- [ ] **Encryption standardization** -- Audit all crypto paths, migrate legacy CBC to GCM. Low effort, high security review value.
+- [ ] **Permission taxonomy definition** -- Document resource:action pairs, create `PolicyService` interface. Prep for PRD Phase 2.
 
-Research consensus (HIGH confidence, multiple sources):
-- Tool selection accuracy degrades past ~10 tools given to an LLM at once
-- With smart routing (pre-filtering by intent), sending 5-8 relevant tools per request is optimal
-- 13 chat tools with intent-based routing means the LLM sees ~6-8 tools per request
-- Fewer tools = faster inference (LLM reads less in system prompt), cheaper (fewer tokens), more accurate selection
+### Wave 3: Data & Performance (Parallelizable After Wave 1)
 
----
+These are parallelizable with each other and with Wave 2. They benefit from stable API contracts but don't strictly require Wave 2 completion.
 
-## generateText vs ToolLoopAgent Decision Matrix
+- [ ] **ENC-03 blind indexes** -- Schema migration, backfill, 17+ query site rewrites. Most complex single feature by line count. Start as soon as schema team is available.
+- [ ] **AI Run Ledger schema + telemetry** -- New Prisma models, wire into AiChatService onStepFinish/onFinish. Requires correlation IDs from Wave 1.
+- [ ] **Frontend performance optimization** -- Bundle analysis, dynamic imports, Server Component migration. Lighthouse CI enforcement. Fully independent workstream.
+- [ ] **Silent fallback elimination** -- Depends on API envelope being stable (Wave 1). Replace graceful degradation with explicit error states + telemetry.
+- [ ] **Event-driven domain decoupling** -- EventEmitter2 typed events. Can progress alongside circular dep breaking in Wave 2 or ship as Wave 3 investment.
 
-### Use generateText + Output.object() when:
+### Deferred (v4.1+ / PRD Phase 2-3)
 
-| Scenario | Pattern | Example |
-|----------|---------|---------|
-| Pre-fetched data, structured output | `generateText({ output: Output.object({ schema }) })` | **Daily briefing**: fetch unread emails + calendar + follow-ups from DB, pass as prompt context, get structured briefing JSON back. No tools needed -- data is already available. |
-| Array of typed items | `generateText({ output: Output.array({ element }) })` | **Follow-up detection**: pass email thread text, get array of `{ description, dueDate, priority }` items. Streaming via `elementStream` for progressive rendering. |
-| Classification / extraction | `generateText({ output: Output.choice({ options }) })` | **Email intent**: classify as "needs_reply", "informational", "action_required", "spam". |
-| Single-shot analysis | `generateText({ output: Output.object({ schema }) })` | **Email analysis**: summarize thread, extract action items, identify sentiment. Pre-fetch email content, pass as context. |
+- [ ] **Full ABAC policy engine** -- Needs CRM object model first (PRD Phase 2)
+- [ ] **AI Run Ledger UI** -- Needs schema to stabilize + production data (PRD Phase 3)
+- [ ] **OpenTelemetry distributed tracing** -- Correlation IDs first, full OTel with ops dashboard later (PRD Phase 3)
+- [ ] **Database RLS** -- Keep app-level TenantGuard, add negative leak tests
+- [ ] **Consumer-driven contract testing (Pact)** -- Start with OpenAPI validation, graduate later
+- [ ] **Compliance evidence pipeline** -- Document existing controls, build pipeline when pursuing certification
 
-### Use ToolLoopAgent when:
+## Feature Prioritization Matrix
 
-| Scenario | Pattern | Example |
-|----------|---------|---------|
-| User asks open-ended question | `agent.stream({ prompt, messages })` | "What did John email me about last week?" -- agent calls `email_search`, reads results, may call `email_read` for details, then responds. |
-| Multi-step task requiring real-time data | `agent.stream({ prompt })` | "Schedule a meeting with everyone in the Q3 review thread" -- agent searches emails, extracts attendees, checks calendar, creates event. |
-| Interactive conversation with tool use | `createAgentUIStreamResponse()` | General chat with AI assistant where user iterates ("also check my calendar", "draft a reply"). |
-| Actions requiring approval | Agent with `needsApproval` tools | "Send a reply to Maria saying I accept" -- agent drafts, user approves, agent sends. |
+| Feature | Enterprise Value | Implementation Cost | Risk if Deferred | Priority |
+|---------|-----------------|---------------------|-------------------|----------|
+| API response envelope + error taxonomy | HIGH | MEDIUM | HIGH -- every integration broken differently | P1 |
+| API versioning policy | HIGH | LOW | HIGH -- breaking changes without deprecation window | P1 |
+| Module boundary formalization | MEDIUM | MEDIUM | HIGH -- blocks all architecture refactoring | P1 |
+| Correlation ID global propagation | MEDIUM | LOW | MEDIUM -- blocks AI Run Ledger, degrades incident triage | P1 |
+| httpOnly cookie migration | HIGH | HIGH | HIGH -- security audit blocker for enterprise deals | P1 |
+| Circular dependency breaking | MEDIUM | HIGH | MEDIUM -- blocks testability, lazy loading, service extraction | P1 |
+| ENC-03 blind indexes | HIGH | HIGH | HIGH -- encrypted field search is currently broken | P1 |
+| AI Run Ledger schema + telemetry | MEDIUM | MEDIUM | MEDIUM -- blocks explainability roadmap for regulated industries | P2 |
+| Permission taxonomy definition | MEDIUM | LOW | LOW -- prep work, unblocks Phase 2 but doesn't block v4.0 | P2 |
+| Frontend performance (LCP/TTI) | HIGH | MEDIUM | MEDIUM -- fails Lighthouse thresholds, visible in vendor evals | P2 |
+| Silent fallback elimination | MEDIUM | LOW | LOW -- hidden bugs, not customer-facing but ops-impactful | P2 |
+| Encryption standardization | MEDIUM | LOW | LOW -- limited blast radius, mostly audit hygiene | P2 |
+| Event-driven domain decoupling | MEDIUM | MEDIUM | LOW -- architectural investment, compounds in Phase 2 | P3 |
 
-### Concrete Migration Examples
+**Priority key:**
+- P1: Must ship in v4.0 -- blocks enterprise readiness, security compliance, or foundational for other work
+- P2: Should ship in v4.0 -- high value relative to cost, strengthens enterprise story
+- P3: Nice to have in v4.0 -- architectural investment that pays off later, can defer without blocking
 
-**Daily Briefing (currently: agent loop with get_daily_briefing tool)**
-```typescript
-// BEFORE: Agent calls get_daily_briefing tool, which calls service, which calls LLM
-// Two LLM calls: one for tool selection, one for briefing generation
+## Competitor Feature Analysis
 
-// AFTER: Direct generateText, one LLM call
-const { output } = await generateText({
-  model: mistral('mistral-large-latest'),
-  output: Output.object({
-    schema: z.object({
-      summary: z.string(),
-      urgentEmails: z.array(z.object({ id: z.string(), subject: z.string(), reason: z.string() })),
-      todayEvents: z.array(z.object({ title: z.string(), time: z.string(), attendees: z.number() })),
-      pendingFollowUps: z.array(z.object({ description: z.string(), dueDate: z.string() })),
-      suggestedActions: z.array(z.string()),
-    }),
-  }),
-  prompt: `Generate daily briefing from this data:\n${JSON.stringify(prefetchedData)}`,
-});
-```
-
-**Follow-up Detection (currently: follow-up-extraction.service calls LLM via VoltAgent)**
-```typescript
-// AFTER: Direct generateText with array output
-const { elementStream } = streamText({
-  model: mistral('mistral-large-latest'),
-  output: Output.array({
-    element: z.object({
-      description: z.string(),
-      dueDate: z.string().nullable(),
-      priority: z.enum(['high', 'medium', 'low']),
-      sourceEmailId: z.string(),
-    }),
-  }),
-  prompt: `Extract follow-up items from these emails:\n${emailTexts}`,
-});
-
-for await (const followUp of elementStream) {
-  // Each follow-up arrives validated and complete
-  await saveFollowUp(followUp);
-}
-```
-
----
-
-## Frontend Component Deletion Plan
-
-### Components assistant-ui Replaces (DELETE)
-
-| Current Component | assistant-ui Replacement | Confidence |
-|-------------------|-------------------------|------------|
-| `StreamingMessage.tsx` | ThreadPrimitive.Messages + streaming | HIGH |
-| `TypingIndicator.tsx` (both copies) | Built-in streaming state | HIGH |
-| `useChatScroll.ts` | ThreadPrimitive.Viewport (auto-scroll) | HIGH |
-| `useChatController.ts` | AssistantRuntime | HIGH |
-| `ChatMessages.tsx` | ThreadPrimitive.Messages + MessagePrimitive | HIGH |
-| `ChatInput.tsx` | ComposerPrimitive | HIGH |
-| `MentionInput.tsx` | ComposerPrimitive with custom input | MEDIUM |
-| `ChatArea.tsx` | ThreadPrimitive.Root | HIGH |
-| `MobileChatDialog.tsx` | Responsive Thread component | HIGH |
-| `DesktopLayout.tsx` / `MobileLayout.tsx` | Custom layout wrapping Thread | MEDIUM |
-| `ai-elements/message.tsx` | MessagePrimitive | HIGH |
-| `ai-elements/tool.tsx` | makeAssistantToolUI | HIGH |
-| `ai-elements/conversation.tsx` | Thread primitives | HIGH |
-| `ai-elements/loader.tsx` | Built-in streaming state | HIGH |
-| `ai-elements/shimmer.tsx` | Custom (keep for loading states) | MEDIUM |
-| `ai-elements/prompt-input.tsx` | ComposerPrimitive | HIGH |
-| `ai-elements/suggestion.tsx` | Custom (assistant-ui has no equivalent) | -- |
-| `ai-elements/controls.tsx` | ComposerPrimitive actions | HIGH |
-
-### Components to KEEP (domain-specific, no assistant-ui equivalent)
-
-| Component | Reason |
-|-----------|--------|
-| `ArtifactPanel.tsx` | Side-panel for structured results. assistant-ui has no artifact concept. |
-| `tool-renderers/*.tsx` (10 renderers) | Domain-specific rendering (EmailSearchRenderer, BriefingRenderer, etc.). Migrate to `makeAssistantToolUI` format. |
-| `ChainOfThought.tsx` | Reasoning display. Keep, render inside messages. |
-| `Sources.tsx` | Citation display for RAG results. Keep. |
-| `CommandPalette/` | Cmd+K palette. Independent of chat. |
-| `DailyBriefing/` | Standalone briefing widget. Will use generateText directly. |
-| `FollowUpTracker/` | Standalone follow-up widget. Independent of chat. |
-| `MemoryBrowser/` | Memory management UI. Independent of chat. |
-| `ai-elements/code-block.tsx` | Syntax highlighting for code. Keep. |
-| `ai-elements/inline-citation.tsx` | RAG citation rendering. Keep. |
-
-### Estimated Deletion: ~35 files from ai-elements + ~10 files from AiDashboard
-
----
-
-## MVP Recommendation
-
-Prioritize (in order):
-
-1. **AI SDK v6 migration** (backend) -- Foundation for everything else. Define ToolLoopAgent, migrate tool definitions from `createTool` (VoltAgent) to `tool()` (AI SDK v6). Wire `streamText` endpoint. This unblocks the frontend.
-
-2. **assistant-ui adoption** (frontend) -- Replace custom chat UI. Install `@assistant-ui/react`, set up `AssistantRuntimeProvider` with AI SDK runtime adapter. Port Thread/Composer/Message primitives. Delete custom hooks and state management.
-
-3. **Tool consolidation** (backend) -- Merge 28 tools to ~15. Write smart tool router. This improves response quality immediately.
-
-4. **generateText migration for non-chat features** -- Move briefing, follow-ups, email analysis to `generateText` + `Output.object()`. Cheaper, faster, more reliable.
-
-5. **Frontend cleanup** -- Delete dead components, unused ai-elements, VoltAgent artifacts.
-
-**Defer:**
-- Artifact panel redesign: Works well enough. Improve incrementally.
-- Contextual AI in email view: High value but high complexity. v3.3.
-- Advanced streaming (elementStream for arrays): Nice-to-have, not blocking.
-
----
-
-## assistant-ui Integration Architecture
-
-### Runtime Stack
-
-```
-AssistantRuntimeProvider (root)
-  |
-  +-- useAssistantRuntime() -- AI SDK runtime adapter
-  |     connects to: POST /api/v1/ai/chat (streamText endpoint)
-  |
-  +-- ThreadPrimitive.Root
-  |     +-- ThreadPrimitive.Viewport (auto-scroll)
-  |     |     +-- ThreadPrimitive.Messages
-  |     |           +-- MessagePrimitive.Root (per message)
-  |     |                 +-- MessagePrimitive.Content (text + tool parts)
-  |     |                       +-- [makeAssistantToolUI renderers]
-  |     |
-  |     +-- ComposerPrimitive.Root (input area)
-  |           +-- ComposerPrimitive.Input
-  |           +-- ComposerPrimitive.Send
-  |
-  +-- [Custom: ArtifactPanel] (side panel)
-  +-- [Custom: ConversationList] (sidebar)
-```
-
-### makeAssistantToolUI Migration Pattern
-
-```typescript
-// Current pattern (SmartToolOutput.tsx):
-function SmartToolOutput({ toolName, args, result }: Props) {
-  const Renderer = TOOL_REGISTRY[toolName] ?? FallbackRenderer;
-  return <Renderer args={args} result={result} />;
-}
-
-// New pattern (assistant-ui):
-const EmailSearchToolUI = makeAssistantToolUI({
-  toolName: 'email_search',
-  render: ({ args, result, status }) => {
-    if (status.type === 'running') return <SearchingSkeleton query={args.query} />;
-    if (status.type === 'incomplete') return <ErrorState reason={status.reason} />;
-    return <EmailSearchRenderer results={result} />;
-  },
-});
-
-// Register all tool UIs inside AssistantRuntimeProvider:
-<AssistantRuntimeProvider runtime={runtime}>
-  <EmailSearchToolUI />
-  <EmailReadToolUI />
-  <CalendarToolUI />
-  {/* ... */}
-  <Thread />
-</AssistantRuntimeProvider>
-```
-
-### Styling Approach
-
-assistant-ui is built on shadcn/ui + Tailwind CSS with CSS variable theming (`--primary`, `--background`, `--foreground`). MailAgent already uses Tailwind in ai-elements. The integration path:
-
-1. Map existing theme tokens to CSS variables
-2. Use assistant-ui's default shadcn styling as base
-3. Override with existing brand colors via CSS variables
-4. No MUI in chat components (Tailwind only, matching existing ai-elements pattern)
-
----
+| Feature | Superhuman / Shortwave | Front (enterprise email) | HubSpot CRM | Our Approach |
+|---------|------------------------|--------------------------|--------------|--------------|
+| API contracts | Private API, no public contracts | Public REST API with versioned envelope and typed errors | Public API v3 with standard error codes, rate limit headers | Standardize envelope + error taxonomy + versioning. Match Front/HubSpot contract quality. |
+| Auth security | httpOnly cookies + OAuth | httpOnly cookies, SSO, SAML | httpOnly cookies, SSO, OAuth, MFA | Migrate to httpOnly in v4.0. SSO/SAML deferred to Phase 2. MFA already exists. |
+| AI explainability | None (black box AI) | Limited (AI suggestions with no audit trail) | None for email AI features | AI Run Ledger is a genuine differentiator. No competitor in AI email has run-level audit. |
+| Permission model | Simple roles (no granular permissions) | RBAC with team-level scopes and per-inbox permissions | RBAC + custom permissions per CRM object | Define taxonomy now. Match Front's team scoping in Phase 2 when org model exists. |
+| Encrypted search | N/A (cloud-hosted, trust the vendor) | N/A (cloud-hosted) | N/A (cloud-hosted) | Self-hosted advantage: ENC-03 blind indexes prove we handle data sovereignty correctly for regulated industries. |
+| Performance | Sub-100ms everything (native-feel) | Fast but heavy enterprise UI | Heavy CRM, accepts slower UX | Target <2.5s LCP. Won't match Superhuman speed but must pass Lighthouse "Good" threshold. |
+| Module architecture | Unknown (closed source) | Unknown (closed source) | Monolith with clear domain boundaries (public knowledge) | Break circular deps, formalize boundaries. Match HubSpot-level modularity. |
 
 ## Sources
 
-### HIGH Confidence (Official Documentation)
-- [AI SDK 6 Announcement](https://vercel.com/blog/ai-sdk-6) -- ToolLoopAgent, Output.object, migration path
-- [AI SDK Structured Data Generation](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data) -- Output.object, Output.array, streaming patterns
-- [AI SDK Building Agents](https://ai-sdk.dev/docs/agents/building-agents) -- ToolLoopAgent usage, lifecycle callbacks
-- [AI SDK ToolLoopAgent Reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent) -- Full API documentation
-- [AI SDK Migration Guide 5.x to 6.0](https://ai-sdk.dev/docs/migration-guides/migration-guide-6-0) -- Breaking changes, codemod
-- [assistant-ui Documentation](https://www.assistant-ui.com/docs) -- Architecture, runtime, primitives
-- [assistant-ui makeAssistantToolUI](https://www.assistant-ui.com/docs/copilots/make-assistant-tool-ui) -- Tool rendering API
+### Primary Sources (Codebase + PRD)
+- [Enterprise Platform PRD](D:/MailAgent/docs/Enterprise-Platform-PRD.md) -- Sections 1-8, primary gap analysis
+- [PROJECT.md](D:/MailAgent/.planning/PROJECT.md) -- v4.0 scope definition and current state
+- Codebase audit: 26 forwardRef() calls across 12 modules, 32 controllers with mixed versioning, `auth-store.ts` localStorage persistence, `field-encryption.utils.ts` with unused hashForSearch(), `lighthouserc.js` with violated thresholds
 
-### MEDIUM Confidence (Verified by Multiple Sources)
-- [SaaStr: assistant-ui Market Analysis](https://www.saastr.com/ai-app-of-the-week-assistant-ui-the-react-library-thats-eating-the-ai-chat-interface-market/) -- Adoption, market position
-- [Shortwave AI Design Patterns](https://www.shortwave.com/) -- Ghostwriter, RAG search, inline AI
-- [Superhuman UX Philosophy](https://help.superhuman.com/hc/en-us/articles/45191759067411-Speed-Up-With-Shortcuts) -- Keyboard-driven design, Cmd+K pattern
-- [Tool Calling Optimization Research](https://www.useparagon.com/learn/rag-best-practices-optimizing-tool-calling/) -- Tool count impact on accuracy
-- [Streaming UX Research](https://www.keyvalue.systems/blog/powering-ai-chatbots-with-real-time-streaming-a-developers-guide/) -- 40-60% perceived latency reduction
+### Architecture & Circular Dependencies
+- [NestJS Circular Dependency docs](https://docs.nestjs.com/fundamentals/circular-dependency) -- Official guidance (HIGH confidence)
+- [Trilon: Avoiding Circular Dependencies in NestJS](https://trilon.io/blog/avoiding-circular-dependencies-in-nestjs) -- Event-driven patterns (MEDIUM confidence)
+- [NestJS EventEmitter module patterns](https://dev.to/ezilemdodana/event-driven-architecture-with-nestjs-using-the-eventemitter-module-35fe) -- EventEmitter2 integration (MEDIUM confidence)
+- [NestJS Modular Monolith + DDD template](https://github.com/jsantanders/modular-monolith-nestjs) -- Reference architecture (MEDIUM confidence)
+- [NestJS Modular Monolith + Event-Driven template](https://github.com/deadislove/nestJS-modular-monolith-event-driven-architecture-template) -- Reference architecture (MEDIUM confidence)
 
-### LOW Confidence (Single Source, Needs Validation)
-- Tool count threshold (~10 tools max per request) -- multiple informal sources agree but no rigorous benchmark found
-- assistant-ui exact npm download numbers -- could not fetch from npmjs.com
+### API Standardization
+- [Standardizing API Responses in NestJS - Stackademic](https://blog.stackademic.com/standardizing-api-responses-in-nestjs-with-interceptors-and-exception-filters-cf65efd27d04) -- Interceptor + filter pattern (MEDIUM confidence)
+- [nest-standard-response library](https://github.com/simioni/nest-standard-response) -- Reference implementation (MEDIUM confidence)
+- [NestJS Error Handling - Better Stack](https://betterstack.com/community/guides/scaling-nodejs/error-handling-nestjs/) -- Error taxonomy patterns (MEDIUM confidence)
+- [DEV.to: Consistent NestJS responses via Interceptors](https://dev.to/refifauzan/make-your-response-consistent-in-nestjs-using-interceptors-511c) -- Implementation guide (MEDIUM confidence)
+
+### Auth & Security
+- [Next.js v16 httpOnly cookies with NestJS backend](https://github.com/vercel/next.js/discussions/85600) -- Next.js 16 specific (HIGH confidence, official discussion)
+- [Refresh tokens via httpOnly Cookie - NestJS + React](https://dev.to/zenstok/part-33-how-to-implement-refresh-tokens-through-http-only-cookie-in-nestjs-and-react-265e) -- Implementation pattern (MEDIUM confidence)
+- [Next.js httpOnly Cookie Auth - Max Schmitt](https://maxschmitt.me/posts/next-js-http-only-cookie-auth-tokens) -- Pattern guide (MEDIUM confidence)
+
+### Encrypted Search
+- [Blind Index for encrypted search - ankane](https://github.com/ankane/blind_index) -- Reference implementation, Ruby but pattern applies (HIGH confidence)
+- [Searchable Encryption - Cossack Labs](https://docs.cossacklabs.com/acra/security-controls/searchable-encryption/) -- HMAC blind index theory (HIGH confidence)
+- [Encrypted Records Searchability (Feb 2026)](https://maciej.litwiniuk.net/posts/2026-02-25-searchability-for-encrypted-records/) -- Recent practical guide (MEDIUM confidence)
+- [Blind Indexes in 3 Minutes - Medium](https://medium.com/@joshuakelly/blind-indexes-in-3-minutes-making-encrypted-personal-data-searchable-b26bce99ce7c) -- Quick explainer (MEDIUM confidence)
+- [SitePoint: Search on Encrypted Fields](https://www.sitepoint.com/how-to-search-on-securely-encrypted-database-fields/) -- Implementation patterns (MEDIUM confidence)
+
+### AI Governance & Observability
+- [LLM Observability Guide 2026 - Portkey](https://portkey.ai/blog/the-complete-guide-to-llm-observability/) -- AI run ledger patterns (MEDIUM confidence)
+- [AI Audit Logging - Medium](https://medium.com/@pranavprakash4777/audit-logging-for-ai-what-should-you-track-and-where-3de96bbf171b) -- What to track (MEDIUM confidence)
+- [AI Observability - Kore.ai](https://www.kore.ai/blog/what-is-ai-observability) -- Enterprise AI monitoring (MEDIUM confidence)
+- [Enterprise AI Compliance 2025 - FutureAGI](https://futureagi.com/blogs/ai-compliance-guardrails-enterprise-llms-2025) -- Compliance requirements (MEDIUM confidence)
+
+### Authorization Models
+- [Enterprise Authorization Models - Cerbos](https://www.cerbos.dev/blog/designing-an-authorization-model-for-an-enterprise) -- RBAC+ABAC design (HIGH confidence)
+- [RBAC vs ABAC vs PBAC - Oso](https://www.osohq.com/learn/rbac-vs-abac-vs-pbac) -- Permission model comparison (HIGH confidence)
+- [3 Common Authorization Designs for SaaS - Cerbos](https://www.cerbos.dev/blog/3-most-common-authorization-designs-for-saas-products) -- SaaS patterns (MEDIUM confidence)
+- [Enterprise Access Control Types - AWS](https://docs.aws.amazon.com/prescriptive-guidance/latest/saas-multitenant-api-access-authorization/access-control-types.html) -- AWS guidance (HIGH confidence)
+
+### Frontend Performance
+- [Next.js Performance Tuning - QED42](https://www.qed42.com/insights/next-js-performance-tuning-practical-fixes-for-better-lighthouse-scores) -- Practical LCP/TTI fixes (MEDIUM confidence)
+- [React & Next.js Best Practices 2026 - FAB Web Studio](https://fabwebstudio.com/blog/react-nextjs-best-practices-2026-performance-scale) -- Current patterns (MEDIUM confidence)
+- [Core Web Vitals Optimization Guide 2025](https://www.digitalapplied.com/blog/core-web-vitals-optimization-guide-2025) -- Metrics guide (MEDIUM confidence)
+- [Optimize Web Vitals in Next.js App Router 2025 - Makers Den](https://makersden.io/blog/optimize-web-vitals-in-nextjs-2025) -- App Router specific (MEDIUM confidence)
+
+---
+*Feature research for: MailAgent v4.0 Enterprise Stabilization*
+*Researched: 2026-03-03*

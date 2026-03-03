@@ -1,562 +1,467 @@
-# Domain Pitfalls: v3.2 AI Layer Rebuild
+# Domain Pitfalls: v4.0 Enterprise Stabilization
 
-**Domain:** Brownfield AI layer rebuild in production email client
-**Researched:** 2026-02-27
-**Confidence:** HIGH (codebase-verified, official docs, community evidence)
+**Domain:** Enterprise stabilization of existing NestJS/Next.js AI email platform
+**Researched:** 2026-03-03
+**Confidence:** HIGH (codebase-verified circular deps, auth store, encryption config, module graph; community patterns from NestJS docs, security research)
 
 ---
 
 ## Executive Summary
 
-Rebuilding the AI layer of a production email client with real users is a minefield with six distinct blast zones. After analyzing the MailAgent codebase (167 AI module files, 46 VoltAgent services, 19 tool files, ~25 `@voltagent/core` import sites) and cross-referencing with the AI SDK v6 migration guide, assistant-ui documentation, and industry post-mortems, these are the pitfalls ranked by likelihood of causing production regressions.
+v4.0 is a stabilization milestone on a brownfield codebase with real users. Every task -- circular dep breaking, API contract standardization, auth migration, encrypted search, AI Run Ledger -- is a surgery-on-a-running-patient problem. The system currently works (v3.2 shipped, AI chat functional, email sync stable). The danger is that stabilization work *destabilizes* what is already working.
 
-The single most dangerous mistake is doing a "big bang" migration -- replacing VoltAgent, redesigning the chat UI, consolidating services, and reducing tools all at once. Each change amplifies the risk of the others. The second most dangerous mistake is merging tools without re-evaluating prompt engineering -- the LLM "sees" tools differently when their names, descriptions, and parameter shapes change.
+After auditing the actual codebase (15+ `forwardRef` chains across 12 modules, 18+ files importing `useAuthStore`, 17+ `contains+insensitive` query sites on unencrypted fields, zero `EventEmitter` usage, token passed via `auth` object in Socket.IO, mock data fallbacks in dashboard queries), here are the pitfalls ranked by likelihood of causing production regressions during stabilization.
+
+The single most dangerous mistake: breaking NestJS module injection order by removing `forwardRef` calls without understanding the full dependency chain. The second most dangerous: migrating auth from localStorage to httpOnly cookies without a dual-read transition period -- this will immediately lock out all active sessions.
 
 ---
 
 ## Critical Pitfalls (Severity: PRODUCTION BREAKAGE)
 
-### CP-1: VoltAgent Framework Removal Destroys Hidden Dependencies
+### CP-1: forwardRef Removal Breaks Runtime Injection Order
 
 **What goes wrong:**
-You `npm uninstall @voltagent/core @voltagent/postgres` and the app compiles. Then you discover at runtime that conversation history is gone, tool execution errors are swallowed, HITL actions stop appearing, and the RAG retriever returns empty arrays.
+You identify a circular dependency (e.g., `EmailModule <-> ProvidersModule <-> EmailSyncModule`) and refactor to break it using events or shared interfaces. You remove the `forwardRef` wrappers. The app compiles. At runtime, NestJS throws `Nest can't resolve dependencies of <ServiceX>` because the DI container initialization order changed.
 
 **Why it happens:**
-VoltAgent is not just a wrapper around AI SDK. It provides at least 5 distinct capabilities that are deeply wired into the codebase:
+NestJS resolves dependencies eagerly during module initialization. `forwardRef` delays resolution, allowing circular references to resolve. When you remove `forwardRef` and restructure modules, the initialization order changes. Services that were registered early (because their module was imported first) may now be registered late, causing injection failures in services that depended on the old order.
 
-1. **Memory + PostgreSQLMemoryAdapter** (`voltagent.service.ts:196`) -- All conversation persistence lives in `voltagent_memory_*` tables via this adapter. Removing VoltAgent means these tables become orphaned and the conversation management service (`conversation-management.service.ts:22`) loses its `Memory` type entirely.
-
-2. **createTool() format** -- Every tool file (19 files, ~65+ tools) uses `createTool()` from `@voltagent/core`. AI SDK v6's `tool()` has a different signature: `execute` receives a parameter object `{ ...params }` vs VoltAgent's destructured params. The Zod schemas are compatible but the wrapper is not.
-
-3. **Agent class + hooks system** -- `unified.agent.ts:19` imports `Agent, AgentHooks, Memory, Tool` from `@voltagent/core`. The hooks system (`observability/hooks.ts`) drives metrics, learning, and HITL action capture. `createHooks()` is VoltAgent-specific.
-
-4. **BaseRetriever** -- `unified-retriever.ts:3` extends `BaseRetriever` from `@voltagent/core`. This is the entire RAG pipeline's base class.
-
-5. **createWorkflow/andThen** -- `approval.workflow.ts:7` uses VoltAgent's workflow primitives for the HITL approval flow.
+**Evidence from codebase:**
+- `ProvidersModule` has `forwardRef` to 5 modules: EmailSyncModule, EmailModule, AiModule, CalendarModule, ContactsModule
+- `ProviderConfigService` has 6 `@Inject(forwardRef(...))` decorators pointing to services across 4 modules
+- `EmailModule` imports `forwardRef(() => ProvidersModule)`, `forwardRef(() => AiModule)`, `forwardRef(() => EmailSyncModule)`, `forwardRef(() => CalendarModule)`
+- `AiChatModule` imports `forwardRef(() => EmailModule)`, `forwardRef(() => CalendarModule)`, `forwardRef(() => ContactsModule)`, `forwardRef(() => AiModule)`
+- These form a dense mesh, not isolated cycles. Touching one edge shifts load to others.
 
 **Consequences:**
-- Conversation history silently disappears (users see empty chat)
-- HITL approval workflow breaks (dangerous actions execute without approval)
-- RAG retriever fails silently (AI gives empty/hallucinated answers)
-- Tool execution errors lose structured error handling
-- Observability/metrics collection stops
+- App fails to start. Zero functionality.
+- Error manifests only at bootstrap time, not at compile time.
+- NestJS error messages are notoriously vague about *which* dependency in a chain failed.
 
 **Prevention:**
-
-| VoltAgent Feature | AI SDK v6 Replacement | Migration Effort |
-|---|---|---|
-| `createTool()` | `tool()` from `ai` | Mechanical: change signature in 19 files |
-| `Memory` + `PostgreSQLMemoryAdapter` | Custom Prisma-based message store | HIGH: must design schema, migrate data |
-| `Agent` class | `streamText()` + tool loop | MEDIUM: rewrite `createUnifiedAgent()` |
-| `AgentHooks` / `createHooks()` | Custom middleware/callbacks on `streamText` options | MEDIUM: `onStepFinish`, `onFinish` callbacks |
-| `BaseRetriever` | Plain async function returning string[] | LOW: remove class, keep logic |
-| `createWorkflow` / `andThen` | Plain async function chain | LOW: already simple |
+1. Map the complete dependency graph with `madge --circular` BEFORE touching any module.
+2. Break ONE cycle at a time. Test app bootstrap after each removal.
+3. Use NestJS `EventEmitter2` module to decouple event-producing side from event-consuming side. The producer module emits; the consumer module listens. Neither imports the other.
+4. Create `SharedContractsModule` for interface types that both sides reference. Interfaces have no runtime weight.
+5. NEVER remove a `forwardRef` without replacing the dependency with an alternative mechanism (event, interface injection, shared module).
+6. Keep a rollback commit for each forwardRef removal.
 
 **Detection:**
-- Compile errors on import removal (immediate)
-- Runtime: empty conversation list, missing HITL cards, degraded search quality
-- Monitor: track conversation message count, HITL action creation rate, RAG result count
+- Integration test: `app = await NestFactory.create(AppModule)` must pass before any other test.
+- Add a CI step that boots the full app (not just compiles).
 
-**Phase assignment:** Phase 1 (Backend Foundation) -- must complete memory migration before anything else touches conversations
+**Phase:** Architecture Stabilization, first task. Must be done incrementally over multiple sub-phases.
 
 ---
 
-### CP-2: Tool Consolidation Breaks LLM Tool Selection Behavior
+### CP-2: localStorage-to-Cookie Auth Migration Locks Out All Active Users
 
 **What goes wrong:**
-You merge 65+ tools down to ~30 by combining related tools into multi-mode tools (like the existing `list_emails` which already consolidates 3 operations). The LLM starts calling the wrong tool modes, passes incorrect parameters, or fails to discover capabilities that existed in the old separate tools.
+You switch the backend to issue httpOnly cookies and stop reading the `Authorization: Bearer` header. Every user with an active session (token in localStorage) gets a 401 on their next request. The Zustand persist store still has their token, but it is never sent because the backend expects a cookie it never set.
 
 **Why it happens:**
-LLMs select tools based on three signals: **tool name**, **tool description**, and **parameter schema**. When you change any of these, you change the LLM's behavior unpredictably. Specific failure modes:
+The current auth flow is deeply entangled across 18+ files:
+- `auth-store.ts`: Zustand persist with `createJSONStorage(() => localStorage)` under key `auth-storage`
+- `api-client.ts`: Interceptor reads token via `getAuthToken()` from localStorage and sets `Authorization: Bearer`
+- `auth-context.tsx`: Rehydrates Zustand on mount, validates token via `GET /auth/me`
+- `websocket-client.ts`: Passes token in `auth: { token: this.token }` to Socket.IO
+- `auth-token.ts`: Utility that parses localStorage's `auth-storage` JSON
+- `pages/api/email/attachments/[id]/download.ts`: Next.js API route reads from cookie OR Authorization header (already dual-path)
+- E2E test fixtures: `localStorage.setItem('auth-storage', ...)` for test setup (5+ test files)
+- `auth-store.ts` also sets a non-httpOnly `auth-token` cookie via `document.cookie` for img src auth
 
-1. **Description inflation** -- When a consolidated tool's description covers too many capabilities, the LLM gets confused about which mode to use. The existing `list_emails` tool already has a 10-line description. Merging more modes makes it worse.
-
-2. **Parameter explosion** -- Optional parameters that only apply to certain modes create ambiguity. The LLM may pass `emailId` when using `mode="accounts"` because the parameter is visible.
-
-3. **Name semantic drift** -- Renaming `search_emails` + `get_email_content` into a single `email_query` tool means the LLM must learn a new mental model. This is especially brittle with Mistral models (smaller context windows, less tool-calling training data than GPT-4/Claude).
-
-4. **Loss of specificity** -- Separate tools with focused descriptions give the LLM clear intent signals. "search_emails: Search emails by query" is unambiguous. "email_operations: Multi-mode email tool supporting search, read, list, triage..." is ambiguous.
-
-**Real evidence:**
-- Anthropic's tool search research shows 85% token reduction is possible but requires careful description engineering
-- The existing `list_emails` consolidation in `email.tools.ts:122-148` already shows the pattern working -- but it took explicit mode examples in the description to make it reliable
-- MailAgent v3.0 pitfalls research documented "tools not consolidated" as a symptom of agent confusion when too many overlapping tools existed
+Changing any one of these without the others creates a split-brain auth state.
 
 **Consequences:**
-- AI gives wrong answers ("I couldn't find that email" when it exists)
-- AI calls tools with wrong parameters (silent failures or crashes)
-- AI makes multiple unnecessary tool calls (slower, more expensive)
-- Regression is invisible until users complain -- no compile-time safety
+- All active sessions invalidated (no graceful transition).
+- WebSocket connections fail (they use Bearer token, not cookies).
+- Next.js API routes that proxy to backend lose their auth mechanism.
+- E2E tests break immediately.
+- CSRF flow must change because cookies are now the auth bearer, making CSRF protection more critical, not less.
 
 **Prevention:**
+1. Phase 1 (Backend): Accept BOTH `Authorization: Bearer` header AND httpOnly cookie. Set cookie on login response. Keep reading header as fallback.
+2. Phase 2 (Frontend): On login success, store token in memory only (not localStorage). Backend sets httpOnly cookie. Zustand store keeps user state but NOT token. API client switches to cookie-based auth (`withCredentials: true` already set).
+3. Phase 3 (WebSocket): Socket.IO supports cookie auth. Switch `auth: { token }` to cookie-based handshake on the server's WsGuard.
+4. Phase 4 (Next.js API routes): Already partially cookie-aware (`req.cookies['auth-token']`). Consolidate to read the new httpOnly cookie name.
+5. Phase 5 (Cleanup): Remove localStorage token persistence, `getAuthToken()` utility, old cookie `auth-token` set by `document.cookie`.
+6. Phase 6 (E2E): Rewrite test fixtures to use login flow that sets cookies, not `localStorage.setItem`.
 
-1. **Golden rule: 1 tool = 1 cognitive concept.** Merge tools that operate on the same noun with the same verb. Do NOT merge `search_emails` with `send_email` just because both involve emails.
-
-2. **Test tool selection with frozen prompts.** Before deploying merged tools, replay 50+ real user queries against the new tool set and verify the LLM selects the correct tool with correct parameters. Log discrepancies.
-
-3. **Keep description length under 200 chars per mode.** Use structured examples in descriptions (the existing `list_emails` pattern is good).
-
-4. **Never merge tools that have different safety levels.** Read-only tools and write tools should remain separate so HITL can gate writes without blocking reads.
-
-5. **Preserve tool names where possible.** If `search_emails` worked before, keep `search_emails` as a name even if the implementation changes.
+**CSRF interaction warning:** The existing CSRF implementation (`GET /auth/csrf-token` -> memory-cached token -> `X-CSRF-Token` header) works with the current setup. With httpOnly cookies carrying auth, CSRF protection becomes essential (currently it is defense-in-depth; with cookies it becomes the primary CSRF defense). Verify CSRF is enforced on ALL mutation endpoints before switching to cookie auth.
 
 **Detection:**
-- A/B test: run old tools and new tools side by side on same prompts, compare tool selection
-- Monitor: tool call error rate, tool call count per conversation (should decrease, not increase)
-- User reports: "the AI can't find my emails anymore"
+- Write a canary test: login, verify cookie is set, make authenticated request without `Authorization` header, verify it succeeds.
+- Monitor 401 rates during rollout.
 
-**Phase assignment:** Phase 2 (Tool Migration) -- after backend foundation is stable, before chat UI redesign
+**Phase:** Auth & Security Hardening. Requires minimum 3 sub-phases with backward-compatible transition.
 
 ---
 
-### CP-3: Memory/Conversation Data Loss During Migration
+### CP-3: API Response Contract Migration Breaks Frontend Silently
 
 **What goes wrong:**
-Existing conversation history stored in `voltagent_memory_*` PostgreSQL tables becomes inaccessible after removing VoltAgent's `PostgreSQLMemoryAdapter`. Users open the chat and see zero history. Or worse: the new system creates duplicate conversations because it cannot read old ones.
+You standardize the backend response envelope from the current inconsistent mix (`{ success: true, ...data }` in ~half of controllers, raw payload in the rest) to a uniform `{ data, error, meta, requestId }` shape. The frontend keeps working because TanStack Query catches errors, but the data extraction path changes. Components that did `response.data.analytics` now need `response.data.data.analytics`. Some components break visibly; others return undefined and render empty states that look like "no data" rather than "broken."
 
 **Why it happens:**
-VoltAgent's `PostgreSQLMemoryAdapter` uses its own table schema (`voltagent_memory_*` prefix, as configured in `voltagent.service.ts:198`). When you replace this with a custom Prisma-based message store, you must:
+The frontend has silent fallback patterns that mask backend contract drift. Evidence from codebase:
+- `use-dashboard.ts:707`: `emailTrendsOptions()` catches ALL errors and generates mock data (`// Generate mock data from email stats for last 7 days`). If the new envelope changes the shape, it silently falls back to fake data.
+- `use-dashboard.ts:317,526,739`: Three dashboard queries with `retry: 0` -- they fail silently on contract mismatch.
+- `use-signatures.ts:36`: Returns `[]` on error.
+- `use-writing-style.ts:31-32`: Returns `null` on 404 instead of throwing.
 
-1. Understand VoltAgent's table schema (not publicly documented in detail)
-2. Write a data migration to convert old format to new format
-3. Handle the transition period where both old and new systems coexist
-
-The `conversation-management.service.ts` is entirely built on the `Memory` type from VoltAgent. Every method -- list conversations, get messages, delete conversation -- goes through this abstraction.
+These are the exact "silent frontend API fallbacks" the PRD flagged. But removing them BEFORE fixing the backend makes the app fragile. Fixing the backend BEFORE removing them means the fallbacks mask whether the new contract actually works.
 
 **Consequences:**
-- Users lose all conversation history (trust-destroying)
-- Duplicate conversation IDs cause data corruption
-- ConversationAtomicityService's saga pattern breaks if it assumed VoltAgent Memory API semantics
+- Dashboard shows mock data while developers think real data is flowing.
+- Empty states that look like "user has no data" rather than "API broke."
+- Regression goes undetected for days or weeks until someone notices data looks wrong.
 
 **Prevention:**
-
-1. **Read-first migration:** Before removing VoltAgent, write a script that reads all conversations from `voltagent_memory_*` tables and exports them to a format your new system can import. Do NOT rely on the adapter -- query the tables directly.
-
-2. **Dual-read period:** For the first release after migration, keep VoltAgent tables read-only. New conversations go to the new system. Old conversations are served from VoltAgent tables via a thin read adapter. Gradually migrate old data.
-
-3. **Conversation ID preservation:** Whatever new storage you use must preserve the same conversation IDs so frontend links, bookmarks, and the HITL session references continue working.
-
-4. **Test with production-like data volume:** The conversation table may have thousands of entries per tenant. Test migration with realistic data, not empty test databases.
+1. Add telemetry BEFORE changing contracts: every silent fallback should log a warning to console/telemetry when it triggers. `console.warn('[FALLBACK] emailTrends using mock data, API response:', response)`.
+2. Standardize backend contract with a NestJS interceptor that wraps ALL responses. Do NOT change individual controllers.
+3. Frontend migration: update `apiClient` response interceptor to unwrap the new envelope globally, so individual query hooks do not need changes.
+4. Contract tests (Pact or equivalent): define expected request/response pairs for each endpoint, run against both old and new contract.
+5. Remove silent fallbacks LAST, after confirming real data flows through the new contract.
 
 **Detection:**
-- Pre-migration: count conversations per tenant, snapshot for comparison
-- Post-migration: verify same counts, spot-check message content
-- Monitor: conversation list API 404 rate, empty conversation responses
+- Add a response interceptor in `apiClient` that checks if response has both `success` and `data` fields (old format) and logs a deprecation warning.
+- Pact contract tests in CI.
 
-**Phase assignment:** Phase 1 (Backend Foundation) -- this is the FIRST thing to migrate, before touching tools or agents
-
----
-
-## High Severity Pitfalls (Severity: MAJOR REGRESSION)
-
-### HP-1: Chat Frontend Replacement Creates State Management Conflicts
-
-**What goes wrong:**
-You replace the custom chat UI with assistant-ui components, but the existing app already has state management (TanStack Query for server state, Zustand stores, MUI theme context) that conflicts with assistant-ui's internal state. The chat works in isolation but breaks when integrated into the three-panel email layout.
-
-**Why it happens:**
-Assistant-ui v0.12 (`@assistant-ui/react@0.12.9` already in `package.json`) has its own state management via `AssistantRuntimeProvider`. It manages:
-- Message list state
-- Streaming state (`isRunning`)
-- Tool call state
-- Thread state
-
-Conflicts arise when:
-
-1. **Dual source of truth** -- If you also store chat messages in TanStack Query (for persistence/sync), you have two sources of truth. Assistant-ui's runtime and your query cache will drift.
-
-2. **Provider nesting** -- assistant-ui requires `AssistantRuntimeProvider` wrapping the chat components. If this wraps too much of the app (e.g., at the layout level), it can interfere with other providers. If it wraps too little, child components lose access.
-
-3. **Styling collisions** -- MailAgent uses both MUI and shadcn/ui with Tailwind. Assistant-ui components are Tailwind-based. MUI's CSS-in-JS (emotion) and Tailwind can produce specificity wars. The `ai-elements/` directory already uses Tailwind (per CLAUDE.md: "ai-elements use Tailwind, not MUI"), but the parent layout is MUI.
-
-4. **React version sensitivity** -- assistant-ui v0.12 has known issues with React 19.2.3 and Next.js 16 Turbopack (GitHub issue #2925: "Resource updated before mount error"). If MailAgent upgrades React, this will hit.
-
-5. **ExternalStoreRuntime bugs** -- If you use ExternalStoreRuntime to connect assistant-ui to your own backend, `isRunning` has a known bug where it reports false even during active streaming (GitHub issue #2603).
-
-**Consequences:**
-- Chat shows stale messages after navigation
-- Streaming indicator does not work (user thinks AI is broken)
-- CSS breaks in specific components (MUI dialog inside assistant-ui thread)
-- Memory leaks from unmounted providers
-
-**Prevention:**
-
-1. **Use LocalRuntime, not ExternalStoreRuntime.** LocalRuntime manages state internally and connects to your REST/streaming backend via a clean adapter. Avoids the `isRunning` bug.
-
-2. **Scope AssistantRuntimeProvider tightly.** Wrap ONLY the chat panel, not the entire layout. Pass data in via props, not context.
-
-3. **Do not duplicate message state.** Choose one source of truth: either assistant-ui manages messages (and you sync to server on demand) or TanStack Query manages messages (and you use ExternalStoreRuntime). Not both.
-
-4. **Create a CSS isolation boundary.** Use a Tailwind `@layer` or a CSS scope wrapper around the chat panel to prevent MUI styles from leaking in and Tailwind utilities from leaking out.
-
-5. **Pin React and assistant-ui versions.** Do not upgrade React or assistant-ui in the same PR as the chat redesign. Test the chat with current versions first.
-
-**Detection:**
-- Visual: messages flicker, duplicate, or disappear on navigation
-- Console: React warnings about state updates on unmounted components
-- Network: duplicate API calls for same conversation
-- Lighthouse: memory leak warnings in long sessions
-
-**Phase assignment:** Phase 3 (Chat Frontend) -- after backend is stable, tools are migrated
+**Phase:** API Standardization. Must happen AFTER circular dep breaking (so modules are stable) and BEFORE auth migration (so contract tests cover auth endpoints).
 
 ---
 
-### HP-2: Service Consolidation Introduces Silent Regressions
+## High Pitfalls (Severity: MAJOR FEATURE BREAKAGE)
+
+### HP-1: Encrypted Field Hash Indexes Leak Information via Frequency Analysis
 
 **What goes wrong:**
-You merge 46 VoltAgent services into ~20, and one of the merged services subtly changes behavior -- wrong default values, missing edge case handling, or broken dependency injection. The app compiles, tests pass, but production users hit errors in specific scenarios (e.g., follow-up extraction fails for emails in Italian, or daily briefing misses calendar conflicts).
+You implement ENC-03 (hash-based search on encrypted fields like `from`, `subject`, `displayName`) using deterministic SHA-256 hashes. The hash is stored alongside the encrypted value. An attacker with DB access can observe that hash `a1b2c3...` appears 47 times while hash `d4e5f6...` appears 3 times. Cross-referencing with public knowledge (e.g., "the CEO sends more emails than interns"), they identify which hash maps to which sender.
 
 **Why it happens:**
-The current service architecture has 46 files in `voltagent/services/` (excluding tests). Many share state or depend on initialization order:
-
-1. **Follow-up services (5 files):** `follow-up.service.ts`, `follow-up-crud.service.ts`, `follow-up-extraction.service.ts`, `follow-up-queue.service.ts`, `follow-up-scanner.service.ts`. These have subtle interdependencies: the scanner queues items, the queue processes them, extraction parses email content, CRUD persists results, and the main service orchestrates. Merging them risks losing the queue's rate limiting or the scanner's scheduling logic.
-
-2. **Chat pipeline (3 files):** `chat-request-processor.service.ts`, `chat-context-builder.service.ts`, `chat-response-processor.service.ts`. These form a pipeline: request -> context -> response. Each has distinct error handling. Merging them into one service means one massive try/catch instead of three specific ones.
-
-3. **Domain services in wrong module:** Calendar-conflict, CRM, writing-style services live in `voltagent/` but belong in `calendar/`, `crm/`, `email/` modules. Moving them changes their NestJS module context, which can break dependency injection if the target module does not import the required providers.
-
-**Consequences:**
-- Specific features silently degrade (follow-ups stop being detected, briefings lose data)
-- DI errors at startup (NestJS `Nest could not resolve dependency` errors)
-- Increased coupling makes future changes harder
-- Testing surface area drops if merged service tests cover fewer edge cases
-
-**Prevention:**
-
-1. **Write characterization tests BEFORE merging.** For each service you plan to merge, write tests that capture its current behavior -- including edge cases. These become your regression safety net. You currently have only 3 test files in `services/__tests__/`.
-
-2. **Merge in dependency order.** Start with leaf services (no downstream dependents), then work inward. Follow-up CRUD before follow-up orchestrator. Chat response processor before chat pipeline.
-
-3. **One merge per PR.** Each consolidation is a separate, reviewable commit. If follow-ups break, you can revert the follow-up merge without touching the chat pipeline merge.
-
-4. **Preserve method signatures.** When merging service A into service B, keep A's public method names as-is. The callers should not need to change. Rename internally if needed, but the public API stays stable.
-
-5. **Use NestJS `forwardRef()` for circular deps.** When moving domain services between modules, you will hit circular dependency errors. Solve with `forwardRef(() => TargetModule)` in module imports, not by flattening the module structure.
-
-**Detection:**
-- CI: NestJS bootstrap fails (DI errors caught immediately)
-- Integration tests: existing test suite catches behavioral regressions
-- Production: monitor feature-specific metrics (follow-up creation rate, briefing generation success rate, chat response time)
-
-**Phase assignment:** Phase 2 (Service Consolidation) -- after memory migration, before tool reduction
-
----
-
-### HP-3: generateObject() for Non-Chat AI Silently Degrades Output Quality
-
-**What goes wrong:**
-You replace agent loops (used for briefing, follow-up generation) with `generateObject()` as planned, and the output quality drops because `generateObject()` does not have access to tools -- it just generates a structured object from a prompt. Features that previously used tool calls to fetch live data (e.g., briefing checking calendar for conflicts) now rely on pre-fetched data being complete.
-
-**Why it happens:**
-The current `daily-briefing.service.ts` and `follow-up-extraction.service.ts` likely use agent loops where the LLM can call tools to gather information iteratively. With `generateObject()`, you must:
-
-1. Pre-fetch ALL relevant data before the LLM call
-2. Include it in the prompt
-3. Hope the prompt is comprehensive enough
-
-If you miss a data source (e.g., forget to include calendar events when generating the briefing), the LLM cannot compensate by calling a tool. It will either hallucinate or produce incomplete output.
-
-**Consequences:**
-- Daily briefing misses important information (calendar conflicts, urgent follow-ups)
-- Follow-up extraction accuracy drops because it cannot query for additional context
-- Users lose trust in AI features ("the AI used to catch this, now it doesn't")
-
-**Prevention:**
-
-1. **Audit every agent loop you plan to replace.** For each one, list every tool call the agent makes during a typical execution. This is your "data requirements" list. ALL of that data must be pre-fetched.
-
-2. **Use `generateObject()` with explicit Zod schemas.** The schema forces structured output, which is actually more reliable than parsing agent text output. But the quality depends entirely on input completeness.
-
-3. **Add fallback tool access.** For complex features like briefing, consider using `streamText()` with tools instead of `generateObject()`. The overhead is small (one extra round-trip) but the quality improvement is significant.
-
-4. **Compare outputs.** Before switching, run both approaches on the same inputs for 50+ cases and compare. If `generateObject()` output quality is within 90% of agent loop output, proceed. If not, keep the tool loop for that specific feature.
-
-**Detection:**
-- User feedback: "briefing is missing X"
-- Metrics: briefing content length drops, follow-up detection rate drops
-- A/B comparison of old agent loop vs new generateObject on same inputs
-
-**Phase assignment:** Phase 2 (Backend Rebuild) -- after service consolidation, can be done incrementally per feature
-
----
-
-## Moderate Pitfalls (Severity: DEGRADED EXPERIENCE)
-
-### MP-1: Streaming Behavior Changes Between VoltAgent Agent and AI SDK streamText
-
-**What goes wrong:**
-The chat streaming works but behaves differently: tool call results appear at wrong times, streaming pauses during tool execution (where VoltAgent showed a loading indicator), or the `maxSteps` default change causes infinite tool loops.
-
-**Why it happens:**
-VoltAgent's `Agent` class wraps AI SDK's `streamText` but adds its own streaming behavior:
-- Custom step management (currently `maxSteps: 8` in `unified.agent.ts:379`)
-- Hook callbacks between steps (`onStepFinish`)
-- Tool result formatting
-
-AI SDK v6's `streamText` changed the default `maxSteps` from 1 to 20 (via `ToolLoopAgent` replacement). If you switch from VoltAgent's `Agent(maxSteps: 8)` to raw `streamText()` without setting `maxSteps`, the LLM will loop up to 20 times, calling tools repeatedly.
-
-**Consequences:**
-- LLM calls 20 tools instead of 8 (cost explosion, latency spike)
-- Streaming UX changes (pauses, different chunk sizes)
-- HITL actions captured at wrong points in the stream
-
-**Prevention:**
-- Explicitly set `maxSteps: 8` in `streamText()` options
-- Implement `onStepFinish` callback to replicate VoltAgent's hook behavior
-- Test streaming with tools that trigger multi-step execution (e.g., search then summarize)
-- Compare streaming chunk timing between VoltAgent and raw streamText
-
-**Phase assignment:** Phase 1 (Backend Foundation)
-
----
-
-### MP-2: HITL (Human-in-the-Loop) Approval Flow Breaks Silently
-
-**What goes wrong:**
-The HITL service (`hitl.service.ts`, 929 lines) is robust and framework-agnostic -- it uses Prisma directly. But the integration point where VoltAgent hooks capture pending actions during tool execution will break when VoltAgent is removed.
-
-**Why it happens:**
-Looking at `voltagent.service.ts:233-234`:
-```
-// CRITICAL: onPendingAction captures HITL actions from sub-agent tools
-// that would otherwise be lost during delegate_task execution
+The codebase already has the hash function (`hashForSearch` in `field-encryption.utils.ts:69`):
+```typescript
+export function hashForSearch(value: string, tenantId: string, salt: string): string {
+  const normalized = `${salt}:${tenantId}:${value.toLowerCase().trim()}`;
+  return createHash('sha256').update(normalized).digest('hex');
+}
 ```
 
-The observability hooks (`hooks.ts:13`) use VoltAgent's `createHooks()` to intercept tool executions and detect when a tool returns a pending action. Without these hooks, tool results that contain HITL payloads are silently discarded.
+This is per-tenant salted, which prevents cross-tenant rainbow tables. But within a single tenant, frequency analysis still works because identical inputs produce identical hashes.
+
+**The 17+ query sites** currently doing `contains+insensitive` on plaintext fields include:
+- `email-folder.service.ts`: 15+ locations for `from`, `subject`, `bodyText`, folder path matching
+- `contacts.service.ts`: `firstName`, `lastName`, `displayName`, `company` search
+- `email-crud.service.ts`: VIP email matching on `from`
+- `folder-lookup.service.ts`: folder name/path/specialUse matching
 
 **Consequences:**
-- Dangerous actions (send email, delete contact) execute without user approval
-- HITL cards stop appearing in chat UI
-- Users cannot review AI-proposed actions before execution
+- Encryption provides false sense of security -- "we encrypt at rest" but hash indexes leak patterns.
+- Regulatory risk: GDPR/SOC2 auditors may flag deterministic hashes on PII as insufficient.
+- `contains` (substring) search is IMPOSSIBLE with hash indexes. You can only do exact-match. This breaks 12+ query sites that use substring `contains` on `from` and `subject`.
 
 **Prevention:**
-1. Map the exact hook callback that captures HITL actions (read `hooks.ts` and `learning.ts` in detail)
-2. Implement equivalent logic in `streamText`'s `onStepFinish` callback
-3. Write an integration test: "when tool returns HITL payload, verify ActionQueue row is created"
-4. Add a safety net: if a tool's result contains an `actionId` field, always create a pending action regardless of hook state
+1. Accept that hash indexes only support EXACT MATCH, not substring search. Redesign the 12+ `contains` query sites to use alternative search methods (full-text search on a separate search index, or encrypted search via blind indexes with HMAC-based tokens).
+2. For exact-match use cases (VIP email lookup, folder specialUse matching), deterministic hashes are acceptable with per-tenant salt.
+3. For substring/fuzzy search (email search, contact search), use a separate search layer: either an encrypted search engine (CipherStash Protect was rejected for cloud dependency; consider local blind index approach) or keep a trigram GIN index on a separate non-encrypted search column that contains only non-PII searchable tokens.
+4. Document the threat model: "hash indexes protect against offline DB theft; they do not protect against a compromised application server with query access."
+5. Never hash fields with low cardinality (e.g., boolean flags, enum status) -- the hash becomes trivially reversible.
 
-**Phase assignment:** Phase 1 (Backend Foundation) -- this is safety-critical
+**Detection:**
+- Security review before deploying hash indexes.
+- Automated test: verify that no `contains` query is applied to a hash-indexed field (it would always return zero results).
+
+**Phase:** Performance & Debt (ENC-03). Must be preceded by a search architecture decision: what replaces `contains` queries?
 
 ---
 
-### MP-3: Frontend Bundle Size Increases Instead of Decreasing
+### HP-2: AI Run Ledger Adds Latency to Chat Streaming Pipeline
 
 **What goes wrong:**
-You add assistant-ui components for the new chat, add new tool renderer components, but forget to remove the 65+ old `ai-elements/` components that are no longer used. Bundle size increases instead of the planned decrease.
+You insert AI Run Ledger writes into the chat pipeline's `onStepFinish` callback. Each tool call now triggers a Prisma write to the ledger table. The streaming response stutters because the writer is blocked waiting for DB operations.
 
 **Why it happens:**
-The `frontend/src/components/ai-elements/` directory has 65+ component files. Many are generic UI primitives (canvas, edge, node, file-tree, terminal, etc.) that may not be used by the email client at all. Without a dead code audit, they persist in the bundle.
+The current `onStepFinish` callback in `ai-chat.service.ts:241` already does:
+1. `conversationService.saveAssistantMessage()` -- await with catch
+2. `auditService.logToolExecution()` -- fire-and-forget with catch
+3. `hitlService.createPendingAction()` -- await for HITL actions
 
-Additionally, if you import assistant-ui and keep the old custom chat components, you are shipping two chat implementations.
+Adding Run Ledger writes here adds another DB operation per step. With 5 max steps and 2-3 tool calls per step, that is 10-15 additional Prisma operations per chat interaction. Each one is ~5-20ms, adding up to 50-300ms of total latency on a streaming response.
 
 **Consequences:**
-- LCP/TTI gets worse, not better (contradicts the <2.5s target)
-- Bundle analyzer shows two chat libraries
-- Users on mobile experience worse performance
+- Visible stutter in AI chat responses between tool calls.
+- Under load (multiple concurrent chat sessions), DB connection pool pressure increases.
+- If ledger write fails, the chat response is interrupted or partially lost.
 
 **Prevention:**
-1. **Before adding assistant-ui:** Run `npx next-bundle-analyzer` and document current bundle size per chunk
-2. **Audit ai-elements/ usage:** Use tree-shaking analysis or `grep` to find which components are actually imported. Remove unused ones.
-3. **Lazy-load the entire chat panel:** The chat is not on the critical path for email viewing. Lazy-load it with `React.lazy()` + `Suspense`. Currently NO lazy loading exists in the frontend (0 `React.lazy` calls found).
-4. **Remove old chat components in the same PR** as adding assistant-ui components. No transition period where both exist.
+1. AI Run Ledger writes MUST be fire-and-forget (same pattern as current `auditService.logToolExecution()`). Never `await` a ledger write in the streaming path.
+2. Better: use BullMQ to enqueue ledger writes. The `onStepFinish` callback emits a lightweight event; a background worker persists it. This decouples chat latency from ledger persistence.
+3. Batch ledger writes: collect all step data during the stream, write a single `AiRun` record with nested `AiRunStep` records after the stream completes (in `onStreamFinish` or equivalent).
+4. Add a circuit breaker on ledger writes. If the ledger table is slow (migration, index build), the chat pipeline should not degrade.
+5. Latency budget: measure chat first-token-time and inter-step-time before and after ledger integration. Regression >50ms is a bug.
 
-**Phase assignment:** Phase 3 (Frontend Cleanup) -- tied to chat redesign
+**Detection:**
+- Benchmark: measure `onStepFinish` callback duration before and after ledger code.
+- Alert on p95 chat response time regression.
+
+**Phase:** Enterprise Prep (AI Run Ledger). Schema and contract first; integration with chat pipeline last.
 
 ---
 
-### MP-4: LCP/TTI Optimization Targets Wrong Bottleneck
+### HP-3: Module Boundary Enforcement Blocks Legitimate Cross-Module Needs
 
 **What goes wrong:**
-You invest heavily in code splitting and bundle optimization but the 4.1s LCP is actually caused by waterfall API calls on page load, not bundle size. Or you optimize the dashboard page but the email list page (the most visited) is still slow.
+You enforce strict module boundaries by creating interface contracts and forbidding direct cross-module service imports. Then you discover that `ProviderConfigService` legitimately needs 6 services from 4 different modules (`SyncSchedulerService`, `WebhookLifecycleService`, `QueueService`, `GoogleCalendarSyncService`, `MicrosoftCalendarSyncService`, `GoogleCalendarWebhookService`, `MicrosoftCalendarWebhookService`, `StorageService`). The "clean architecture" refactoring either (a) creates a massive interface layer that mirrors the implementation, or (b) blocks the service from functioning.
 
 **Why it happens:**
-Common Next.js performance optimization mistakes:
+`ProviderConfigService` is an orchestrator. When a provider is added/removed/updated, it needs to touch sync scheduling, webhook lifecycle, queues, calendar sync, and storage. This is genuine cross-cutting orchestration, not a dependency smell. Forcing it through event-driven patterns means you need to guarantee event ordering and transactional consistency across 6 operations -- which is harder than the original coupling.
 
-1. **Optimizing dev mode, not production.** Dev mode is intentionally slower (hot reload, debugging). Always measure production builds.
-
-2. **Optimizing bundle but not network.** If the page makes 5 sequential API calls before rendering (auth -> user -> folders -> emails -> unread counts), no amount of bundle splitting helps. The waterfall is the bottleneck.
-
-3. **Over-using next/image.** Adding `next/image` everywhere can actually hurt performance via hydration overhead and CLS if dimensions are not specified.
-
-4. **Barrel file imports.** If `import { something } from '@/components'` pulls in an index file that re-exports 100 components, tree-shaking may fail and load everything. The current `ai-elements/` exports pattern needs checking.
-
-5. **Testing on fast networks.** LCP at <2.5s on gigabit is meaningless. Test on 4G throttled connections.
+**Evidence:**
+- `provider-config.service.ts` has 8 `@Inject(forwardRef(...))` decorators
+- `ai-chat.service.ts` legitimately needs `EmailModule`, `CalendarModule`, `ContactsModule`, `AiModule` services because AI tools operate across all domains
+- `email-sync.module.ts` legitimately needs `ProvidersModule`, `EmailModule`, `AiModule` for sync orchestration
 
 **Consequences:**
-- Performance budget met in CI but not for real users
-- Effort wasted on wrong optimizations
-- LCP target missed despite significant work
+- Over-abstraction: interfaces that add indirection without reducing coupling.
+- Event ordering bugs: events fire but arrive in wrong order, causing race conditions in provider setup.
+- Developer velocity drops: every cross-module call requires an interface update, an event definition, and a handler registration.
 
 **Prevention:**
-1. **Profile first, optimize second.** Use Chrome DevTools Performance tab on a production build with 4G throttling. Identify the actual bottleneck (JS execution? Network? Layout shift?).
-2. **Measure the right page.** The email list page, not the dashboard, is likely the most visited. Optimize that first.
-3. **Prefetch API data.** Use Next.js `getServerSideProps` or React Server Components to start data fetching before the client JS loads.
-4. **Set a performance budget in CI.** Use Lighthouse CI (already set up per v2.1 OPT-02) with real thresholds that block PRs.
+1. Distinguish between "accidental coupling" and "essential coupling." Use events for accidental coupling (e.g., AI module updating embeddings after email sync). Keep direct injection for essential coupling (e.g., `ProviderConfigService` orchestrating provider lifecycle).
+2. Define a "module interface" as the explicit list of services a module exports. Anything not exported is internal. This is already partially done in `email.module.ts:exports`.
+3. Create "Orchestrator Services" that are allowed to import from multiple modules. Document them explicitly. They are the exception, not a violation.
+4. Lint rule: no non-orchestrator service may import from more than 2 foreign modules.
+5. Avoid the "event for everything" anti-pattern. Events are for decoupling independently-evolvable modules. Direct calls are for tightly-coordinated operations.
 
-**Phase assignment:** Phase 4 (Performance) -- after functional changes are stable
+**Detection:**
+- Dependency graph analysis in CI: flag NEW cross-module imports, but allow existing orchestrators.
+- Architecture decision record (ADR) required for any new cross-module dependency.
+
+**Phase:** Module Boundaries (v3.2 carry-forward). Define the boundary policy BEFORE enforcing it.
 
 ---
 
-## Minor Pitfalls (Severity: ANNOYANCE/TECH DEBT)
-
-### MiP-1: Test Infrastructure Bootstrap Cost
+### HP-4: v3.2 VoltAgent Deletion Left Behind Unstable Wiring
 
 **What goes wrong:**
-You need integration tests for the AI layer but there is no test infrastructure. Setting up mocks for Mistral API, conversation persistence, and tool execution takes longer than the actual feature work.
+v3.2 deleted 167 VoltAgent files and 33K LOC. The new AI SDK v6 layer was built and tested for chat functionality. But edge paths (error recovery, session timeout, HITL action execution after approval, memory/embedding queues triggered by chat context) may have lost wiring that was silently handled by VoltAgent's framework.
 
 **Why it happens:**
-The AI layer currently has only 3 test files (`hitl.service.spec.ts`, `action-executor.service.spec.ts`, `pii-integration.spec.ts`). None test the chat pipeline end-to-end. None mock LLM responses.
+When you delete a framework and rebuild, you reproduce the features you know about. The features you do not know about -- the ones that "just worked" because the framework handled them -- are the ones that break weeks later.
+
+**Evidence:**
+- v3.2 closed "partial" (20/25 plans). 5 plans were carried to v4.0.
+- Phase 28 gap closure items: "chat 403, dead polling cleanup" -- these are symptoms of incomplete wiring.
+- `AiChatModule` imports 4 modules via `forwardRef` -- these dependency chains were rebuilt, but may have subtle ordering differences from the VoltAgent era.
+
+**Consequences:**
+- Intermittent 403 errors in chat (already observed in Phase 28 gaps).
+- Embedding queue stops processing after chat service restart.
+- HITL actions approved by user but never executed (wiring between approval and execution lost).
 
 **Prevention:**
-1. **Use AI SDK's `simulateReadableStream` or mock provider.** AI SDK v6 has testing utilities for mocking LLM responses without hitting real APIs.
-2. **Build a shared test fixture factory.** Create a `createMockChatContext()` that provides all the services the chat pipeline needs, with sensible defaults.
-3. **Test tools independently of the LLM.** Each tool's `execute` function is a pure function of its parameters. Test it directly with known inputs.
-4. **Use recorded LLM responses for integration tests.** Record real Mistral responses once, replay them in tests. Framework: `nock` for HTTP interception or a custom provider that replays stored responses.
+1. Comprehensive smoke test suite for ALL AI paths: chat, HITL approve/reject, embedding triggers, memory retrieval, rate limiting, circuit breaker trip and recovery.
+2. Monitor HITL action execution rate: approved actions should have >99% execution rate. Drop below 95% = alarm.
+3. Test chat session persistence: create session, send 5 messages, restart backend, verify history loads.
+4. Dead polling audit: identify any polling loops from pre-v3.2 that were not cleaned up.
 
-**Phase assignment:** Phase 1 (Test Foundation) -- build infrastructure first, write tests throughout
+**Detection:**
+- E2E test: full chat flow with tool call -> HITL approval -> action execution.
+- Health check endpoint that verifies AI pipeline connectivity (model reachable, embedding queue active, conversation table writable).
+
+**Phase:** Phase 28 gap closure (immediate). Must be resolved BEFORE adding AI Run Ledger.
 
 ---
 
-### MiP-2: Locale System Fragility During Tool Migration
+## Moderate Pitfalls (Severity: FUNCTIONALITY DEGRADED)
+
+### MP-1: WebSocket Auth Migration Breaks Realtime for Connected Users
 
 **What goes wrong:**
-Tool descriptions include locale-specific text (via `getToolTranslations(locale)` in every tool file). When migrating tools from VoltAgent `createTool` to AI SDK `tool()`, the locale wiring gets lost or the translations stop loading.
+You migrate auth to httpOnly cookies. WebSocket connections currently pass the JWT via `auth: { token: this.token }` in the Socket.IO handshake. If the frontend stops storing the token in memory/localStorage, it cannot pass it to Socket.IO. The WebSocket gateway's auth guard expects a token in the handshake.
+
+**Why it happens:**
+Socket.IO over WebSocket does NOT automatically send cookies during the WebSocket upgrade handshake (only during the initial HTTP polling transport). If `transports: ['websocket', 'polling']` is configured (it is, in `websocket-client.ts:338`), the polling transport sends cookies, but the WebSocket upgrade does not.
+
+**Consequences:**
+- Realtime email notifications stop.
+- Sync status updates invisible.
+- AI action events not delivered.
+- Users see stale data until they manually refresh.
 
 **Prevention:**
-- Keep the locale system as-is during tool migration. Change only the tool wrapper, not the description content.
-- Verify both `en` and `it` locales work after migration (MailAgent supports both).
+1. Socket.IO polling transport DOES send cookies. Configure the WebSocket gateway to read auth from cookie (same httpOnly cookie) during the polling handshake phase.
+2. Alternatively, the backend can issue a short-lived WebSocket-specific token via an API call, which the frontend passes in the handshake `auth` object. This decouples WebSocket auth from cookie auth.
+3. Test with `transports: ['polling']` first to verify cookie-based auth works, then re-enable WebSocket transport.
 
-**Phase assignment:** Phase 2 (Tool Migration)
+**Phase:** Auth & Security Hardening (sub-phase 3 of auth migration).
 
 ---
 
-### MiP-3: Prisma Schema Migration Coordination
+### MP-2: Performance Optimization Regresses Functionality
 
 **What goes wrong:**
-The new conversation storage (replacing VoltAgent Memory tables) requires Prisma schema changes. If these migrations run before the application code is updated to use them, or after VoltAgent tables are dropped, there is a window where neither system works.
+You optimize LCP/TTI by aggressive code-splitting, removing unused imports, or deferring component hydration. A component that was eagerly loaded now loads lazily. The component's initialization code (e.g., WebSocket connection setup in Layout, auth rehydration in `_app.tsx`) runs later than expected, causing a race condition where data-fetching components mount before auth is ready.
+
+**Why it happens:**
+The auth flow has a precise timing requirement:
+1. `_app.tsx` renders `AuthProvider`
+2. `AuthProvider` calls `useAuthStore.persist.rehydrate()` to load token from localStorage
+3. Auth context validates token via `GET /auth/me`
+4. Only then do data-fetching components have a valid token
+
+If code-splitting moves `AuthProvider` or the Layout component to a lazy chunk, the rehydration happens later. Components that mount during the initial server-render or first client paint will not have auth context.
+
+**Consequences:**
+- Flash of unauthenticated content followed by redirect to login.
+- Race condition: API calls fire before token is available, get 401, trigger logout.
+- Lighthouse metrics improve but user experience degrades.
 
 **Prevention:**
-- Schema migration deploys BEFORE application code (add new tables first)
-- Application code uses new tables but falls back to VoltAgent tables during transition
-- VoltAgent tables are dropped LAST, only after data migration is verified
+1. Auth provider, layout shell, and route guard MUST be in the critical path (not lazy-loaded).
+2. Performance optimization must target leaf components (widgets, charts, editors), not infrastructure.
+3. Before/after testing: measure LCP/TTI AND functional correctness. Performance PR must include E2E test passing, not just Lighthouse score.
 
-**Phase assignment:** Phase 1 (Backend Foundation)
+**Phase:** Performance & Debt. Must have E2E regression gate.
 
 ---
 
-## Integration Pitfalls (Cross-Cutting Concerns)
-
-### IP-1: GDPR Compliance Regression
+### MP-3: CSRF Flow Becomes Critical After Cookie Migration
 
 **What goes wrong:**
-v3.1 just shipped GDPR compliance (PII tokenization, encryption at rest, audit logging, consent management). The AI rebuild touches the same code paths. If the PII detection interceptor, audit logging interceptor, or consent guards are bypassed by the new code paths, you have a compliance regression.
+Currently, CSRF protection is defense-in-depth: the JWT is in the `Authorization` header, so a CSRF attack cannot forge a request because it cannot set custom headers from a cross-origin form submission. After migrating to httpOnly cookies, the browser automatically attaches the auth cookie to all same-site requests. A cross-origin form submission now carries valid auth credentials.
 
-**Specific risks:**
-- New `streamText()` call bypasses the PII detection that was wired into VoltAgent hooks
-- New conversation storage bypasses encryption-at-rest annotations
-- New tool execution bypasses audit logging interceptor
-- New chat endpoints bypass `@RequireConsent('ai_analysis')` decorator
+**Why it happens:**
+The existing CSRF implementation (`GET /auth/csrf-token` -> cached in memory -> `X-CSRF-Token` header on mutations) works, but it has a silent failure mode: if `getCsrfToken()` fails (line 57-61 in `api-client.ts`), it returns `''`, and the request proceeds WITHOUT a CSRF token. If the backend does not enforce CSRF on all mutation endpoints, the request succeeds. Currently this is acceptable because Bearer token auth prevents CSRF. After cookie migration, it is not.
+
+**Consequences:**
+- CSRF attacks become viable if any mutation endpoint lacks CSRF enforcement.
+- Silent CSRF token fetch failures (`catch => return ''`) mean the app works but is unprotected.
 
 **Prevention:**
-1. Create a compliance checklist: for EVERY new code path that handles user data, verify PII detection, encryption, audit logging, and consent checks are in place
-2. Write a compliance integration test: "send a message containing PII -> verify it is tokenized before reaching LLM"
-3. The PII detection service (`guards/pii-detection-sentinel.service.ts`) and prompt guard (`guards/prompt-guard-sentinel.service.ts`) must be wired into the new `streamText()` pipeline, not just VoltAgent hooks
+1. BEFORE cookie migration: audit every mutation endpoint for CSRF guard.
+2. Make CSRF token fetch failure a hard error (throw, not swallow).
+3. Backend: enforce CSRF on ALL POST/PUT/DELETE/PATCH endpoints, no exceptions.
+4. Backend: validate CSRF token strictly -- reject requests with missing or empty token.
 
-**Phase assignment:** Every phase -- this is a cross-cutting concern
+**Phase:** Auth & Security Hardening. Must be completed BEFORE switching auth to cookies.
 
 ---
 
-### IP-2: WebSocket/Realtime Event Compatibility
+### MP-4: Event-Driven Decoupling Without EventEmitter Infrastructure
 
 **What goes wrong:**
-The HITL service emits WebSocket events via `RealtimeEventsService` (`realtimeEvents.emitAiActionCreated/Approved/Rejected/Executed`). The chat UI consumes these events. If the new chat frontend expects different event formats or connects via a different mechanism, HITL cards stop updating in real time.
+The plan to break circular deps recommends "replace cyclic imports with event contracts." You add `@nestjs/event-emitter` and start emitting domain events. But the codebase has ZERO existing `EventEmitter` usage. Every developer needs to learn a new pattern. Events that require transactional consistency (e.g., "email synced -> trigger embedding") lose their transactional guarantees because the event fires after the transaction commits, but the consumer may fail.
+
+**Evidence:**
+- `grep EventEmitter backend/src` returns zero results.
+- `grep @OnEvent backend/src` returns zero results.
+- All current cross-module communication is synchronous service injection.
+
+**Consequences:**
+- Inconsistent adoption: some modules use events, others use direct calls, creating TWO dependency patterns.
+- Lost events: if the event handler throws, the emitter does not know and the operation appears to succeed.
+- Debugging difficulty: stack traces stop at the event emission point.
 
 **Prevention:**
-- Document the current WebSocket event contract (event names, payload shapes)
-- New chat frontend must subscribe to the same events with the same handlers
-- Add an integration test: "approve HITL action -> verify WebSocket event fires -> verify UI updates"
+1. Start with `@nestjs/event-emitter` for non-critical, fire-and-forget operations: embedding triggers, audit logging, analytics updates.
+2. Keep synchronous service injection for operations requiring transactional consistency.
+3. Adopt the "outbox pattern" for events that must be reliably delivered: write event to an outbox table in the same transaction, then a background worker processes the outbox.
+4. Create a shared `DomainEvent` base class with `eventId`, `timestamp`, `tenantId`, `sourceModule`.
+5. Add event handler error logging at the infrastructure level (global `@OnEvent('**')` handler that catches unhandled errors).
 
-**Phase assignment:** Phase 3 (Chat Frontend)
+**Phase:** Architecture Stabilization. Introduce EventEmitter as part of the circular dep breaking, but only for non-critical paths first.
+
+---
+
+## Minor Pitfalls (Severity: DEVELOPER FRICTION / DELAYED DELIVERY)
+
+### mP-1: Madge Circular Dependency Count is Misleading
+
+**What goes wrong:**
+The target is "reduce from 15 to <=5 circular dependencies." You run `madge --circular` and it reports 15 cycles. You break 10 of them. Then you discover that the remaining 5 are the hardest ones (the dense mesh around Email/Providers/EmailSync), and they account for 80% of the `forwardRef` usage.
+
+**Prevention:** Prioritize by impact, not count. The Email/Providers/EmailSync/AiModule mesh is the critical cluster. Breaking even 2 cycles in that mesh is worth more than breaking 10 peripheral cycles.
+
+---
+
+### mP-2: E2E Test Suite Assumes localStorage Auth
+
+**What goes wrong:**
+All Playwright E2E tests set auth via `localStorage.setItem('auth-storage', ...)`. After auth migration, these tests fail because the app no longer reads from localStorage. Rewriting all test fixtures is a multi-day effort that blocks E2E CI.
+
+**Evidence:** 5+ test files (`auth.setup.ts`, `fixtures.ts`, `compose.spec.ts`, `email-list.spec.ts`) use this pattern.
+
+**Prevention:** Create a test helper that abstracts auth setup. Initially it uses localStorage; later it uses cookie injection. Change one helper, all tests work.
+
+---
+
+### mP-3: Mixed Component Library Creates Theme Conflicts
+
+**What goes wrong:**
+The codebase uses MUI for dashboard and shadcn/ui (Tailwind) for email views. Performance optimization or module boundary work may merge component boundaries, causing MUI's CSS-in-JS to conflict with Tailwind's utility classes, or theme tokens to desync.
+
+**Prevention:** Keep the component library boundary explicit: MUI components NEVER import Tailwind utilities and vice versa. Use `ai-elements/` (Tailwind) and `dashboard/` (MUI) as hard boundaries.
+
+---
+
+### mP-4: Hash Migration for Encrypted Fields Requires Data Backfill
+
+**What goes wrong:**
+You add `fromHash`, `subjectHash` columns to the `Email` table and create hash indexes. But existing emails (potentially millions of rows) do not have hash values populated. Every search on the new hash index returns zero results until the backfill completes.
+
+**Prevention:**
+1. Background backfill job with rate limiting (similar to existing `EmbeddingBackfillService` pattern).
+2. Dual-path search: if hash column is null, fall back to plaintext `contains` search. Only use hash index when the column is populated.
+3. Backfill progress tracking with health endpoint.
 
 ---
 
 ## Phase-Specific Warnings
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|---|---|---|
-| Memory migration | Data loss, conversation orphaning | Dual-read period, data export before migration |
-| VoltAgent removal | 25+ import sites break simultaneously | Replace one import at a time, keep adapter shim |
-| Tool format change | 19 files need mechanical changes | Script the `createTool` -> `tool()` conversion, test each |
-| Tool consolidation | LLM behavior changes unpredictably | Freeze prompts, replay test queries, compare tool selection |
-| Service merging | DI errors, subtle behavioral changes | Characterization tests first, one merge per PR |
-| generateObject switch | Missing data in pre-fetched context | Audit tool calls per feature, compare output quality |
-| Chat UI replacement | State management conflicts, CSS wars | Scope providers tightly, CSS isolation boundary |
-| Bundle reduction | Adding more than removing | Dead code audit first, lazy load chat panel |
-| LCP/TTI optimization | Wrong bottleneck targeted | Profile production build on 4G, waterfall analysis |
-| Test infrastructure | Takes longer than expected | Build shared fixtures first, mock LLM with recorded responses |
-| GDPR compliance | New code paths bypass protections | Compliance checklist per code path, integration tests |
-| HITL integrity | Actions execute without approval | Safety net in tool result processing, integration test |
+| Phase Topic | Likely Pitfall | Severity | Mitigation |
+|-------------|---------------|----------|------------|
+| Circular dep breaking | Runtime injection failure after forwardRef removal (CP-1) | Critical | One cycle at a time, boot test after each change |
+| Circular dep breaking | Event-driven pattern without EventEmitter infrastructure (MP-4) | Moderate | Start with fire-and-forget events only |
+| API standardization | Silent frontend fallbacks mask contract drift (CP-3) | Critical | Add telemetry to fallbacks BEFORE changing contracts |
+| API standardization | Response envelope change breaks 50% of query hooks | High | Global interceptor on backend, global unwrap on frontend |
+| Auth migration | Session lockout during transition (CP-2) | Critical | Dual-read transition period (header + cookie) |
+| Auth migration | WebSocket auth breaks (MP-1) | Moderate | Polling transport reads cookies; test first |
+| Auth migration | CSRF becomes mandatory (MP-3) | Moderate | Audit all mutation endpoints BEFORE cookie switch |
+| Auth migration | E2E tests break (mP-2) | Minor | Abstract auth setup into helper |
+| ENC-03 hash search | Substring search impossible with hash (HP-1) | High | Search architecture decision first |
+| ENC-03 hash search | Frequency analysis leaks patterns (HP-1) | High | Document threat model, accept for exact-match |
+| ENC-03 hash search | Backfill gap during migration (mP-4) | Minor | Dual-path search with plaintext fallback |
+| AI Run Ledger | Streaming latency from synchronous writes (HP-2) | High | Fire-and-forget or BullMQ for writes |
+| Module boundaries | Over-abstraction kills developer velocity (HP-3) | High | Allow orchestrator exceptions |
+| Module boundaries | Madge count is misleading metric (mP-1) | Minor | Prioritize by impact, not count |
+| v3.2 carry-forward | VoltAgent deletion left broken wiring (HP-4) | High | Smoke test all AI paths before adding features |
+| Performance optimization | Auth race condition from lazy loading (MP-2) | Moderate | Never lazy-load auth infrastructure |
+| Performance optimization | Functionality regression masked by better metrics (MP-2) | Moderate | E2E must pass alongside Lighthouse |
 
 ---
 
-## Testing Strategy for AI Layer
+## Recommended Pitfall Resolution Order
 
-### What to Test and How
-
-| Layer | What to Test | How to Test | LLM Required? |
-|---|---|---|---|
-| Tool execution | Each tool's `execute()` with known inputs | Unit test, mock Prisma | No |
-| Tool selection | LLM picks correct tool for a query | Recorded LLM response + assertion | Recorded |
-| Chat pipeline | Request -> context -> response flow | Integration test, mock LLM provider | Mock |
-| HITL flow | Tool returns action -> ActionQueue row created | Integration test, real Prisma | No |
-| Streaming | Chunks arrive in order, tool results inline | Integration test, mock LLM stream | Mock |
-| Memory | Conversation persists and loads correctly | Integration test, real Prisma | No |
-| RAG retrieval | Query -> relevant results returned | Integration test, seeded embeddings | No |
-| GDPR compliance | PII tokenized before LLM, audit logged | Integration test, real pipeline | Mock |
-
-### Mock LLM Strategy
-
-Use AI SDK v6's test utilities or build a `MockLanguageModel` that:
-1. Returns predefined text for specific system prompts
-2. Returns predefined tool calls for specific user messages
-3. Supports streaming via `simulateReadableStream`
-4. Records all calls for assertion
-
-This avoids Mistral API costs in CI while testing the full pipeline.
+1. **HP-4 first** (v3.2 stability verification) -- verify what is working before changing anything
+2. **CP-1** (circular deps) -- foundational architecture must be stable before other changes
+3. **CP-3** (API contracts) -- standardize the contract layer that all other features depend on
+4. **CP-2** (auth migration) -- requires stable API contracts for testing
+5. **HP-1** (encrypted search) -- needs search architecture decision that informs API contracts
+6. **HP-2** (AI Run Ledger) -- needs stable AI pipeline (depends on HP-4) and stable module boundaries
 
 ---
 
 ## Sources
 
-### AI SDK v6 Migration
-- [AI SDK 6 Migration Guide](https://ai-sdk.dev/docs/migration-guides/migration-guide-6-0) -- Official breaking changes documentation
-- [AI SDK 6 Blog Post](https://vercel.com/blog/ai-sdk-6) -- ToolLoopAgent, tool() changes
-- [Vercel Chatbot SDK v6 Upgrade Issue](https://github.com/vercel/chatbot/issues/1366) -- Community migration pain points
-
-### assistant-ui
-- [assistant-ui v0.12 Migration](https://www.assistant-ui.com/docs/migrations/v0-12) -- State management rewrite
-- [assistant-ui Runtime Docs](https://www.assistant-ui.com/docs/runtimes/pick-a-runtime) -- LocalRuntime vs ExternalStoreRuntime
-- [ExternalStoreRuntime isRunning Bug](https://github.com/assistant-ui/assistant-ui/issues/2603) -- Known state bug
-- [React 19 + Turbopack Issue](https://github.com/assistant-ui/assistant-ui/issues/2925) -- Runtime error in dev mode
-
-### Tool Engineering
-- [Lakera: Prompt Engineering Guide 2026](https://www.lakera.ai/blog/prompt-engineering-guide) -- Tool description best practices
-- [Best Practices for LLM Tools 2025](https://techinfotech.tech.blog/2025/06/09/best-practices-to-build-llm-tools-in-2025/) -- Tool consolidation patterns
-
-### Testing AI Systems
-- [Scenario: Mocking External APIs in Agent Tests](https://langwatch.ai/scenario/testing-guides/mocks/) -- Tool function mocking with real LLM
-- [Langfuse: Testing LLM Applications](https://langfuse.com/blog/2025-10-21-testing-llm-applications) -- Recorded response testing
-- [Confident AI: LLM Testing 2026](https://www.confident-ai.com/blog/llm-testing-in-2024-top-methods-and-strategies) -- Evaluation frameworks
-
-### Next.js Performance
-- [Pagepro: Next.js Performance Optimization 2025](https://pagepro.co/blog/nextjs-performance-optimization-in-9-steps/) -- Common mistakes
-- [QED42: Next.js Lighthouse Fixes](https://www.qed42.com/insights/next-js-performance-tuning-practical-fixes-for-better-lighthouse-scores) -- Practical tuning
-- [Blazity: Expert Guide to Next.js Performance 2025](https://blazity.com/the-expert-guide-to-nextjs-performance-optimization) -- Bundle and waterfall optimization
-
-### NestJS Refactoring
-- [Nexumo: 7 NestJS Architecture Habits That Kill Refactors](https://medium.com/@Nexumo_/7-nestjs-architecture-habits-that-kill-refactors-aa2298d592e9) -- Module boundaries
-- [NestJS Factory Method Pattern](https://michaelguay.dev/nestjs-factory-method-pattern/) -- Service consolidation patterns
-
-### Brownfield Migration
-- [IBM: Brownfield Application Modernization](https://www.ibm.com/think/insights/reimagining-brownfield-application-modernization) -- Migration strategies
-- [D3 Framework for AI-Driven Productivity in Brownfield](https://arxiv.org/abs/2512.01155) -- Structured migration approach
+- NestJS circular dependency docs: [NestJS Circular Dependency](https://docs.nestjs.com/fundamentals/circular-dependency)
+- LogRocket guide: [How to avoid circular dependencies in NestJS](https://blog.logrocket.com/avoid-circular-dependencies-nestjs/)
+- DEV.to event-driven decoupling: [Get Rid of Tightly Coupled Modules and Circular Dependencies in NestJS](https://dev.to/kishieel/get-rid-of-tightly-coupled-modules-and-circular-dependencies-in-nestjs-3do1)
+- Next.js httpOnly cookie auth: [Next.js: Using HTTP-Only Cookies for Secure Authentication](https://maxschmitt.me/posts/next-js-http-only-cookie-auth-tokens)
+- NestJS + Next.js auth guide: [Complete Authentication Guide with Nest.js](https://www.wisp.blog/blog/how-to-use-nextjs-as-a-front-end-framework-a-complete-authentication-guide-with-nestjs)
+- Encrypted search leakage: [Understanding Leakage in Searchable Encryption](https://eprint.iacr.org/2024/1558.pdf)
+- Searchable encryption pitfalls: [Attack of the week: searchable encryption](https://blog.cryptographyengineering.com/2019/02/11/attack-of-the-week-searchable-encryption-and-the-ever-expanding-leakage-function/)
+- IronCore encrypted search: [IronCore Labs Encrypted Search](https://ironcorelabs.com/docs/data-control-platform/concepts/encrypted-search/)
+- API contract management: [Managing API Changes: 8 Strategies (2026)](https://www.theneo.io/blog/managing-api-changes-strategies)
+- API versioning best practices: [Best practices for versioning API contracts](https://proteinshaikh.medium.com/best-practices-for-versioning-api-contracts-to-avoid-breaking-changes-a54fbc6d469d)
+- Codebase evidence: direct audit of `backend/src/modules/*/`, `frontend/stores/auth-store.ts`, `frontend/lib/api-client.ts`, `frontend/hooks/queries/use-dashboard.ts`, `backend/src/prisma/encryption/`
