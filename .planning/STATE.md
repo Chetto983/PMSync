@@ -68,6 +68,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: v4.0 roadmap created
-Resume file: --
+Stopped at: Phase 31 context gathered
+Resume file: .planning/phases/31-foundation-stability-verification/31-CONTEXT.md
 Next action: `/gsd:plan-phase 31`
