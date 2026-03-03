@@ -41,7 +41,7 @@ Progress: [######░░░░] 64%
 |-------|-------|-------|----------|
 | 31 | 2/2 | 20min | 10min |
 | 32 | 4/4 | 44min | 11min |
-| 33 | 3/3 | 21min+ | 7min |
+| 33 | 3/3 | 50min | 17min |
 
 ## Accumulated Context
 
@@ -73,6 +73,10 @@ Recent decisions affecting current work:
 - [33-01]: ThrottlerExceptionFilter absorbed into ApiExceptionFilter (3 filters -> 1)
 - [33-01]: ResponseEnvelopeInterceptor as APP_INTERCEPTOR (DI), CorrelationInterceptor via useGlobalInterceptors (no DI)
 - [33-01]: Webhook exclusion uses wildcard pattern for forward-compatibility
+- [33-02]: Envelope unwrap interceptor registered as first response interceptor (before 401/403 handler)
+- [33-02]: rawError prop on BaseWidget for backward-compatible enhanced error display
+- [33-02]: Fallback cascades preserved (deadlines, staleContacts) but final empty-return catches removed
+- [33-02]: getCsrfToken migrated from raw axios to apiClient (auth routes under /api/v1)
 - [33-03]: Used getContext()?.correlationId instead of getCorrelationId() to get undefined (not 'no-context' sentinel) when outside HTTP context
 - [33-03]: Added requestId?: string to all BullMQ job data interfaces for type safety
 - [33-03]: OpenAPI generation step is continue-on-error in CI (requires database); lint blocks when spec exists
