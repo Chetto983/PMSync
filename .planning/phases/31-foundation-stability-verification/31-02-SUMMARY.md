@@ -79,7 +79,7 @@ Each task was committed atomically:
 1. **Task 1: Install EventEmitterModule + domain event types + interface contracts** - `3faede16` (feat)
 2. **Task 2: Install dependency-cruiser baseline + AiRunLedger Prisma schema** - `9dd3457b` (feat)
 
-**Plan metadata:** TBD (docs: complete plan)
+**Plan metadata:** `11ed5929` (docs: complete plan)
 
 ## Files Created/Modified
 - `backend/src/app.module.ts` - Added EventEmitterModule.forRoot() import and registration
