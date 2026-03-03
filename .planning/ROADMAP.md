@@ -149,12 +149,14 @@ Plans:
   4. Bundle analysis performed and documented: main JS chunks sized, largest offenders identified, tree-shaking verified for ai-elements removal
   5. Playwright E2E test suite covers: full chat flow (send message -> tool execution -> HITL approval -> response), daily briefing widget, and mobile viewport
   6. `npm run type-check` and `npm run lint` pass with zero errors after all deletions
-**Plans**: 3 plans in 2 waves
+**Plans**: 5 plans in 2 waves
 
 Plans:
-- [ ] 28-01-PLAN.md -- Type inlining + ai-elements/AiDashboard deletion + old hooks + cross-reference cleanup (wave 1)
-- [ ] 28-02-PLAN.md -- Voltagent reference cleanup in E2E/swagger + bundle analysis (wave 2)
-- [ ] 28-03-PLAN.md -- Playwright E2E test suite for chat frontend (wave 2)
+- [x] 28-01-PLAN.md -- Type inlining + ai-elements/AiDashboard deletion + old hooks + cross-reference cleanup (wave 1)
+- [x] 28-02-PLAN.md -- Voltagent reference cleanup in E2E/swagger + bundle analysis (wave 2)
+- [x] 28-03-PLAN.md -- Playwright E2E test suite for chat frontend (wave 2)
+- [ ] 28-04-PLAN.md -- UAT gap closure: fix chat 403, disable dead action-counts polling, fix thread detail layout (wave 1, gap closure)
+- [ ] 28-05-PLAN.md -- UAT gap closure: fix E2E mobile viewport test skips (wave 1, gap closure)
 
 ### Phase 29: Architecture Hardening
 **Goal**: Clean modular monolith with explicit interface contracts, validated memory efficiency, and lazy-loadable AI module
@@ -200,7 +202,7 @@ Phases execute in numeric order: 23 -> 24 -> 25 -> 26 -> 27 -> 28 -> 29 -> 30
 | 25. Tools & RAG | 4/4 | Complete    | 2026-03-02 |
 | 26. Non-Chat AI & Backend Testing | 3/3 | Complete    | 2026-03-02 |
 | 27. Chat Frontend | 4/4 | Complete | 2026-03-03 |
-| 28. Cleanup & VoltAgent Deletion | 3/3 | Complete    | 2026-03-03 |
+| 28. Cleanup & VoltAgent Deletion | 3/5 | Gap closure | 2026-03-03 |
 | 29. Architecture Hardening | 0/2 | Not started | - |
 | 30. Performance & Debt | 0/3 | Not started | - |
 
