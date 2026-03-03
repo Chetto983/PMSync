@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: unknown
-last_updated: "2026-03-03T15:21:28.418Z"
+status: in-progress
+last_updated: "2026-03-03T17:57:08.913Z"
 progress:
-  total_phases: 18
+  total_phases: 19
   completed_phases: 16
-  total_plans: 61
-  completed_plans: 60
+  total_plans: 64
+  completed_plans: 61
 ---
 
 # Project State
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 32 - Architecture Decoupling
+**Current focus:** Phase 33 - API Contract Standardization
 
 ## Current Position
 
-Phase: 32 of 37 (Architecture Decoupling)
-Plan: 4 of 4 in current phase
-Status: Phase 32 complete (all 4 plans done)
-Last activity: 2026-03-03 -- Plan 32-03 completed (domain event wiring and forwardRef elimination)
+Phase: 33 of 37 (API Contract Standardization)
+Plan: 1 of 3 complete in current phase
+Status: Plan 33-01 complete (API contract infrastructure)
+Last activity: 2026-03-03 -- Plan 33-01 completed (ResponseEnvelopeInterceptor, ApiExceptionFilter, setGlobalPrefix)
 
-Progress: [######░░░░] 60%
+Progress: [######░░░░] 62%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (v4.0)
+- Total plans completed: 6 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -41,6 +41,7 @@ Progress: [######░░░░] 60%
 |-------|-------|-------|----------|
 | 31 | 2/2 | 20min | 10min |
 | 32 | 4/4 | 44min | 11min |
+| 33 | 1/3 | 9min | 9min |
 
 ## Accumulated Context
 
@@ -68,6 +69,10 @@ Recent decisions affecting current work:
 - [32-03]: 5 surviving forwardRef edges are all in Email/EmailSync core cluster (true bidirectional)
 - [32-03]: madge 8 circulars = 5 pre-existing internal + 3 module-level in Email core cluster
 - [32-03]: CalendarIcsDetectedEvent is scaffolding-only; emit added when ICS detection is built
+- [33-01]: ApiExceptionFilter duck-types PrismaClientKnownRequestError via constructor name check
+- [33-01]: ThrottlerExceptionFilter absorbed into ApiExceptionFilter (3 filters -> 1)
+- [33-01]: ResponseEnvelopeInterceptor as APP_INTERCEPTOR (DI), CorrelationInterceptor via useGlobalInterceptors (no DI)
+- [33-01]: Webhook exclusion uses wildcard pattern for forward-compatibility
 
 ### Pending Todos
 
@@ -84,6 +89,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Phase 33 context gathered
-Resume file: .planning/phases/33-api-contract-standardization/33-CONTEXT.md
-Next action: /gsd:plan-phase 33
+Stopped at: Completed 33-01-PLAN.md
+Resume file: .planning/phases/33-api-contract-standardization/33-01-SUMMARY.md
+Next action: /gsd:execute-phase 33 (plan 02)
