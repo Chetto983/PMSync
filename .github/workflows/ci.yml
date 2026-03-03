@@ -45,6 +45,23 @@ jobs:
           echo "--- Circular dependency report ---"
           npx madge --circular --extensions ts --ts-config tsconfig.json src || true
 
+      - name: Generate OpenAPI spec
+        id: openapi-gen
+        run: |
+          npx ts-node scripts/generate-openapi.ts || echo "OpenAPI generation requires database -- skipping in CI for now"
+        continue-on-error: true
+
+      - name: Lint OpenAPI spec
+        if: steps.openapi-gen.outcome == 'success' && hashFiles('backend/openapi-spec.json') != ''
+        run: |
+          npx spectral lint ./openapi-spec.json --ruleset .spectral.yaml
+
+      - name: Generate frontend types from OpenAPI
+        if: steps.openapi-gen.outcome == 'success' && hashFiles('backend/openapi-spec.json') != ''
+        run: |
+          cd ../frontend
+          npx openapi-typescript ../backend/openapi-spec.json -o types/api.generated.ts
+
   frontend:
     name: Frontend (type-check, lint, test)
     runs-on: ubuntu-latest

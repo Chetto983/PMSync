@@ -90,6 +90,7 @@ docker-compose.override.yml
 backend/dist/
 backend/uploads/
 backend/node_modules/
+backend/openapi-spec.json
 
 # Frontend specific
 frontend/.next/

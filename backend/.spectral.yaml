@@ -1,0 +1,14 @@
+extends:
+  - "spectral:oas"
+
+rules:
+  # Relax rules that are too strict for an existing codebase
+  oas3-api-servers: warn
+  info-contact: off
+  info-description: off
+  operation-description: off
+  operation-operationId: warn
+  operation-tags: warn
+  # Keep structural correctness rules as errors
+  oas3-valid-schema-example: error
+  no-$ref-siblings: error

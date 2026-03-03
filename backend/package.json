@@ -30,7 +30,9 @@
     "vitest:watch": "vitest",
     "dep:check": "depcruise --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json src",
     "dep:circular": "madge --circular --extensions ts --ts-config tsconfig.json src",
-    "dep:baseline": "depcruise --config .dependency-cruiser.cjs --output-type baseline --output-to .dependency-cruiser-known-violations.json src"
+    "dep:baseline": "depcruise --config .dependency-cruiser.cjs --output-type baseline --output-to .dependency-cruiser-known-violations.json src",
+    "openapi:generate": "ts-node scripts/generate-openapi.ts",
+    "openapi:lint": "spectral lint ./openapi-spec.json --ruleset .spectral.yaml"
   },
   "dependencies": {
     "@ai-sdk/mistral": "^3.0.19",
@@ -116,6 +118,7 @@
     "@jest/globals": "^30.2.0",
     "@nestjs/cli": "^11.0.16",
     "@nestjs/testing": "^11.1.13",
+    "@stoplight/spectral-cli": "^6.15.0",
     "@swc/core": "^1.15.17",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
