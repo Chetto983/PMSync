@@ -1,144 +1,115 @@
-# Requirements: MailAgent v3.2
+# Requirements: MailAgent v4.0 Enterprise Stabilization
 
-**Defined:** 2026-02-27
-**Core Value:** The best professional AI mail client -- fast, intelligent, and secure
+**Defined:** 2026-03-03
+**Core Value:** The best professional AI mail client — fast, intelligent, and secure
+**Source:** Enterprise Platform PRD Phase 1 (Stabilization & Debt Reduction) + v3.2 carry-forward items
 
-## v3.2 Requirements
+## v4.0 Requirements
 
-Requirements for AI Rebuild & Cleanup milestone. **Strategy: delete `voltagent/` (33K LOC), rewrite clean AI module from scratch with AI SDK v6 + assistant-ui.**
+Requirements for enterprise stabilization. Each maps to roadmap phases.
 
-### Cross-Cutting: Real E2E Validation Gate
+### Architecture
 
-**Every phase MUST pass real E2E validation before proceeding to the next phase.** No phase is considered complete until:
+- [ ] **ARCH-01**: Circular dependencies reduced from 17 forwardRef edges to ≤5 using event bus, interface injection, and ToolRegistry
+- [ ] **ARCH-02**: Typed domain event contracts defined and wired (EmailSynced, ProviderConnected, ContactUpdated, CalendarIcsDetected)
+- [ ] **ARCH-03**: dependency-cruiser enforces module boundary rules in CI, blocking forbidden imports on PR merge
 
-1. **Real LLM calls** -- integration tests hit actual Mistral API (not mocked), validating the full pipeline end-to-end
-2. **Quality validation** -- LLM responses are checked for correctness, not just "did it return 200"
-3. **Phase gate** -- failing E2E blocks the next phase; no skipping ahead with TODO stubs
-4. **MSW mocking is for unit/CI only** -- fast feedback during development, but the phase gate requires real calls
+### API Contracts
 
-This applies to every phase that touches AI functionality (chat, tools, non-chat AI, RAG). Frontend-only and cleanup phases validate with Playwright E2E against a running backend with real LLM.
+- [ ] **API-01**: Global ResponseEnvelopeInterceptor wraps all success responses in `{ data, meta: { requestId, timestamp } }` with @SkipEnvelope for streaming
+- [ ] **API-02**: Unified ApiExceptionFilter emits `{ error: { code, message, details }, meta }` with machine-readable error codes per domain
+- [ ] **API-03**: Global API prefix `api/v1` enforced via setGlobalPrefix, manual prefixes removed from 8 controllers
+- [ ] **API-04**: CorrelationInterceptor registered globally, correlation IDs propagated through BullMQ jobs and AI run records
+- [ ] **API-05**: OpenAPI spec linted via Spectral in CI, frontend types generated via openapi-typescript
 
-### New AI Module (AI-01 to AI-08)
+### Security
 
-- [x] **AI-01**: Clean AI module with `AiChatService` using AI SDK v6 `streamText` + `pipeUIMessageStreamToResponse` -- single service handles chat orchestration, context building, and streaming
-- [x] **AI-02**: ~20 tools defined as AI SDK v6 `tool()` in `@Injectable()` ToolsService classes with NestJS DI -- no factory functions, no parameter threading
-- [x] **AI-03**: Intent-based tool routing serves 6-8 relevant tools per request (not all 20)
-- [x] **AI-04**: `ConversationService` with direct Prisma queries for chat history -- preserves existing conversation data
-- [x] **AI-05**: HITL approval for destructive actions via AI SDK v6 `needsApproval` + `onStepFinish` callback
-- [x] **AI-06**: PII tokenization, audit logging, and consent guards wired into new chat pipeline (GDPR compliance preserved)
-- [x] **AI-07**: Non-chat AI (daily briefing, follow-up detection, draft generation, email analysis) uses `generateText + Output.object()` -- single LLM call per operation, no agent loops
-- [x] **AI-08**: Rate limiting and circuit breaker preserved in new module
+- [ ] **SEC-01**: Frontend auth migrated from localStorage JWT to httpOnly secure cookies with dual-mode transition period
+- [ ] **SEC-02**: HMAC-SHA256 blind indexes on `from` field for exact-match sender lookup, with backfill job and dual-path search
+- [ ] **SEC-03**: All encryption paths standardized to AES-GCM, legacy AES-CBC usage audited and migrated
 
-### Mistral SDK Consolidation (MSDK-01 to MSDK-03)
+### AI Observability
 
-- [x] **MSDK-01**: All LLM chat/completion calls routed through `@ai-sdk/mistral` provider -- no direct `@mistralai/mistralai` SDK usage
-- [x] **MSDK-02**: All embedding generation routed through AI SDK `embed()`/`embedMany()` via `@ai-sdk/mistral`
-- [x] **MSDK-03**: `@mistralai/mistralai` and `@voltagent/core` packages removed from dependencies
+- [ ] **AIOBS-01**: AiRunLedger Prisma model captures runType, model, token counts, estimatedCostUsd, latencyMs, toolCallCount, hitlRequired, requestId
+- [ ] **AIOBS-02**: Fire-and-forget telemetry wiring across AiChatService, BriefingService, FollowUpDetectionService, DraftGenerationService
+- [ ] **AIOBS-03**: GET /api/v1/ai/runs and /cost-summary endpoints with tenant and date filters
+- [ ] **AIOBS-04**: Permission taxonomy documented (resource:action pairs) with PolicyService interface defined
 
-### RAG & Embeddings (RAG-01 to RAG-02)
+### Performance & Debt
 
-- [x] **RAG-01**: Embedding pipeline (BullMQ queues, KnowledgeBase, pgvector storage) preserved and rewired to new AI module -- existing embeddings data intact
-- [x] **RAG-02**: Hybrid search (vector + keyword with RRF fusion) preserved -- `UnifiedRetriever` logic survives in new module
+- [ ] **PERF-01**: Lighthouse LCP <2.5s and TTI <3.5s on email list page (production build, 4G throttled)
+- [ ] **PERF-02**: All 7 deferred v3.1 bugs resolved (RC-A1/A8 race conditions + BUG-REPORT items)
+- [ ] **PERF-03**: Phase 28 gap closure complete (chat 403 fix, dead polling disabled, E2E mobile tests passing)
+- [ ] **PERF-04**: Silent frontend API fallbacks replaced with explicit degraded states and telemetry
 
-### Chat Frontend (CHAT-01 to CHAT-05)
+## v4.1+ Requirements
 
-- [x] **CHAT-01**: assistant-ui runtime wired with `useChatRuntime` + `AssistantChatTransport` pointing at new streaming endpoint
-- [x] **CHAT-02**: Thread, Composer, and Messages use assistant-ui primitives -- no custom MUI chat components
-- [x] **CHAT-03**: Domain tool renderers built with `makeAssistantToolUI` with running/complete/error states
-- [x] **CHAT-04**: HITL approval rendered inline via assistant-ui `requires_action` status
-- [x] **CHAT-05**: Mobile-responsive chat layout using assistant-ui responsive primitives
+Deferred to future release. Tracked but not in current roadmap.
 
-### Frontend Cleanup (FECLEAN-01 to FECLEAN-03)
+### Enterprise Foundation (PRD Phase 2)
 
-- [x] **FECLEAN-01**: Old ai-elements chat files deleted (assistant-ui replaces them)
-- [x] **FECLEAN-02**: Bundle analysis performed and largest offenders addressed
-- [x] **FECLEAN-03**: Dead components and orphaned files removed across entire frontend
+- **RBAC-01**: Policy-based authorization service (RBAC+ABAC) with fine-grained object/action/field permissions
+- **RBAC-02**: Workspace/org model and tenant switching UX
+- **CRM-01**: CRM canonical objects (Account, Deal, Activity) with timeline and saved views
+- **CRM-02**: Object-centric activity feed and global timeline
+- **CONTRACT-01**: Pact contract testing pipeline with broker infrastructure and CI integration
 
-### Testing (TEST-01 to TEST-04)
+### AI Governance (PRD Phase 3)
 
-- [x] **TEST-01**: MSW v2 infrastructure with SSE handlers for mocking LLM streaming responses
-- [x] **TEST-02**: Integration tests for new AI chat pipeline (message -> tool execution -> streaming response)
-- [x] **TEST-03**: Integration tests for non-chat AI (briefing, follow-ups, drafts via generateText)
-- [x] **TEST-04**: Playwright E2E tests for assistant-ui chat frontend
+- **OTEL-01**: OpenTelemetry distributed tracing (API → queue → worker → AI tool call)
+- **AIUI-01**: AI Run Ledger UI (run timeline, cost panel, replay)
+- **AIPOL-01**: Deterministic workflow mode for high-stakes automations
+- **AIPOL-02**: Policy gates per tool/action with mandatory pre/post-conditions
 
-### Modular Monolith Architecture (ARCH-01 to ARCH-04)
+### Advanced (PRD Phase 4)
 
-- [ ] **ARCH-01**: Clean module boundaries with explicit public interfaces -- each NestJS module exports a defined service contract, no cross-module internal imports
-- [ ] **ARCH-02**: AI module decoupled from domain modules -- communicates via interfaces (EmailServiceInterface, CalendarServiceInterface) not direct imports
-- [ ] **ARCH-03**: Memory profiling under 1000-user simulation -- identify and fix RAM bloat sources (unbounded caches, connection pools, large payloads in queues)
-- [ ] **ARCH-04**: Lazy module loading for AI features -- AI module loaded on demand, not at startup for users who don't use AI chat
-
-### Performance & Debt (PERF-01 to PERF-04)
-
-- [ ] **PERF-01**: LCP reduced from 4.1s to <2.5s
-- [ ] **PERF-02**: TTI reduced from 4.1s to <3.5s
-- [ ] **PERF-03**: ENC-03 -- hash-based search indexes on encrypted fields (17+ query sites)
-- [ ] **PERF-04**: 7 deferred bugs from v3.1 audit fixed
-
-## Future Requirements (v3.3+)
-
-### Deferred
-
-- **CTX-01**: Contextual AI inline in email view
-- **ART-01**: Artifact panel redesign
-- **STREAM-01**: Advanced streaming array output via `elementStream`
-- **ZK-01**: Zero-knowledge architecture
+- **WF-01**: Workflow builder with reusable templates
+- **MKTPL-01**: Plugin/marketplace extension framework
+- **I18N-01**: Full locale pack strategy + enterprise i18n
+- **BRAND-01**: Tenant branding profile (logo, palette, typography)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Mastra framework | Explicitly no NestJS support |
-| VoltAgent (any version) | Removed -- AI SDK v6 replaces it entirely |
-| Multi-agent orchestration | Single ToolLoopAgent is sufficient |
-| Custom streaming infrastructure | assistant-ui handles natively |
-| Vitest migration | Jest 30 already configured, cost > benefit |
-| Direct @mistralai/mistralai SDK | Consolidated to @ai-sdk/mistral |
+| Full ABAC policy engine | Needs CRM object model first (PRD Phase 2); premature without domain objects |
+| AI Run Ledger UI | No production data yet; collect first, then design the right UI |
+| OpenTelemetry tracing | Wire CorrelationInterceptor first; full OTel needs infrastructure (Jaeger/Tempo) |
+| Database RLS | Prisma 7 + PostgreSQL RLS interaction is problematic; keep TenantGuard + add negative tests |
+| Subject field encryption | Substring search on subject is critical for UX; HMAC only supports exact-match |
+| Compliance evidence pipeline | Document controls first; build pipeline when pursuing SOC2 certification |
 | Mobile app | Web-first, responsive |
+| Offline support | Service worker complexity deferred |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MSDK-01 | Phase 23 | Complete |
-| MSDK-02 | Phase 23 | Complete |
-| TEST-01 | Phase 23 | Complete |
-| AI-01 | Phase 24 | Complete |
-| AI-04 | Phase 24 | Complete |
-| AI-05 | Phase 24 | Complete |
-| AI-06 | Phase 24 | Complete |
-| AI-08 | Phase 24 | Complete |
-| AI-02 | Phase 25 | Complete |
-| AI-03 | Phase 25 | Complete |
-| RAG-01 | Phase 25 | Complete |
-| RAG-02 | Phase 25 | Complete |
-| AI-07 | Phase 26 | Complete |
-| TEST-02 | Phase 26 | Complete |
-| TEST-03 | Phase 26 | Complete |
-| CHAT-01 | Phase 27 | Complete |
-| CHAT-02 | Phase 27 | Complete |
-| CHAT-03 | Phase 27 | Complete |
-| CHAT-04 | Phase 27 | Complete |
-| CHAT-05 | Phase 27 | Complete |
-| FECLEAN-01 | Phase 28 | Complete |
-| FECLEAN-02 | Phase 28 | Complete |
-| FECLEAN-03 | Phase 28 | Complete |
-| MSDK-03 | Phase 23 | Complete |
-| TEST-04 | Phase 28 | Complete |
-| ARCH-01 | Phase 29 | Pending |
-| ARCH-02 | Phase 29 | Pending |
-| ARCH-03 | Phase 29 | Pending |
-| ARCH-04 | Phase 29 | Pending |
-| PERF-01 | Phase 30 | Pending |
-| PERF-02 | Phase 30 | Pending |
-| PERF-03 | Phase 30 | Pending |
-| PERF-04 | Phase 30 | Pending |
+| ARCH-01 | TBD | Pending |
+| ARCH-02 | TBD | Pending |
+| ARCH-03 | TBD | Pending |
+| API-01 | TBD | Pending |
+| API-02 | TBD | Pending |
+| API-03 | TBD | Pending |
+| API-04 | TBD | Pending |
+| API-05 | TBD | Pending |
+| SEC-01 | TBD | Pending |
+| SEC-02 | TBD | Pending |
+| SEC-03 | TBD | Pending |
+| AIOBS-01 | TBD | Pending |
+| AIOBS-02 | TBD | Pending |
+| AIOBS-03 | TBD | Pending |
+| AIOBS-04 | TBD | Pending |
+| PERF-01 | TBD | Pending |
+| PERF-02 | TBD | Pending |
+| PERF-03 | TBD | Pending |
+| PERF-04 | TBD | Pending |
 
 **Coverage:**
-- v3.2 requirements: 33 total
-- Mapped to phases: 33/33
-- Unmapped: 0
+- v4.0 requirements: 19 total
+- Mapped to phases: 0 (pending roadmap creation)
+- Unmapped: 19 ⚠️
 
 ---
-*Requirements defined: 2026-02-27*
-*Last updated: 2026-03-03 -- CHAT-05 marked complete (Phase 27 Plan 04)*
+*Requirements defined: 2026-03-03*
+*Last updated: 2026-03-03 after initial definition*
