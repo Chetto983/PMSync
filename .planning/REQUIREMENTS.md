@@ -39,7 +39,7 @@ Requirements for enterprise stabilization. Each maps to roadmap phases.
 
 - [ ] **PERF-01**: Lighthouse LCP <2.5s and TTI <3.5s on email list page (production build, 4G throttled)
 - [ ] **PERF-02**: All 7 deferred v3.1 bugs resolved (RC-A1/A8 race conditions + BUG-REPORT items)
-- [ ] **PERF-03**: Phase 28 gap closure complete (chat 403 fix, dead polling disabled, E2E mobile tests passing)
+- [x] **PERF-03**: Phase 28 gap closure complete (chat 403 fix, dead polling disabled, E2E mobile tests passing)
 - [ ] **PERF-04**: Silent frontend API fallbacks replaced with explicit degraded states and telemetry
 
 ## v4.1+ Requirements
@@ -102,7 +102,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | AIOBS-04 | Phase 35 | Pending |
 | PERF-01 | Phase 37 | Pending |
 | PERF-02 | Phase 37 | Pending |
-| PERF-03 | Phase 31 | Pending |
+| PERF-03 | Phase 31 | Complete |
 | PERF-04 | Phase 33 | Pending |
 
 **Coverage:**

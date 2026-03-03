@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: ready_to_execute
-last_updated: "2026-03-03T16:00:00.000Z"
+status: executing
+last_updated: "2026-03-03T13:35:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 19
-  completed_plans: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,23 +23,23 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 31 of 37 (Foundation & Stability Verification)
-Plan: 0 of 2 in current phase
-Status: Ready to execute
-Last activity: 2026-03-03 -- Phase 31 plans created (2 plans, Wave 1 parallel)
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-03-03 -- Plan 31-01 completed (gap closure: action-counts cleanup, chat 403 doc, mobile E2E)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [#░░░░░░░░░] 5%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (v4.0)
+- Total plans completed: 1 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 31 | 1/2 | 7min | 7min |
 
 ## Accumulated Context
 
@@ -52,6 +52,8 @@ Recent decisions affecting current work:
 - [v4.0]: v3.2 closed partial (20/25 plans) -- carry-forward items fit into enterprise stabilization
 - [v4.0]: 7-phase dependency chain: Foundation -> Architecture -> API -> Auth, with AI Obs/Encrypted Search/Perf parallel
 - [v4.0]: ENC-03 scoped to exact-match only (HMAC on `from` field); substring search deferred to v5.0
+- [31-01]: Chat 403 is expected QuotaGuard behavior (FREE tier cost/quota cap), not a bug -- documented on controller
+- [31-01]: Dead action-counts polling fully cleaned: 7 invalidation calls removed, E2E mock removed
 
 ### Pending Todos
 
@@ -63,11 +65,11 @@ None yet.
 - ENC-03 hash indexes deferred since v3.1 (17+ query sites) -- Phase 36
 - 17 circular dependencies (forwardRef edges) -- Phase 32
 - Enterprise readiness score: 58/100 (PRD baseline)
-- Phase 28 gap items still open (chat 403, dead polling, E2E mobile) -- Phase 31
+- Phase 28 gap items CLOSED (Plan 31-01): chat 403 documented, dead polling removed, E2E mobile passing
 
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Phase 31 plans created
-Resume file: .planning/phases/31-foundation-stability-verification/31-01-PLAN.md
-Next action: `/gsd:execute-phase 31`
+Stopped at: Completed 31-01-PLAN.md
+Resume file: .planning/phases/31-foundation-stability-verification/31-02-PLAN.md
+Next action: `/gsd:execute-phase 31` (Plan 31-02 remaining)
