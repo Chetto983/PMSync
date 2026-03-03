@@ -35,7 +35,7 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  */
 @ApiTags('AI Chat - HITL')
 @ApiBearerAuth()
-@Controller(['ai/chat', 'api/v1/ai/chat'])
+@Controller('ai/chat')
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class HitlController {

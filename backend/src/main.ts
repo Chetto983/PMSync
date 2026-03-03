@@ -1,13 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, RequestMethod } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ApiExceptionFilter } from './common/filters/api-exception.filter';
+import { CorrelationInterceptor } from './common/interceptors/correlation.interceptor';
 import { getConfiguration } from './config/configuration';
 import { csrfMiddleware } from './common/middleware/csrf.middleware';
 
@@ -108,6 +108,14 @@ async function bootstrap() {
   // CSRF Protection (SEC-04) - must be after cookieParser
   app.use(csrfMiddleware);
 
+  // Phase 33: API versioning -- all routes under api/v1/ except webhooks and health
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      { path: 'health', method: RequestMethod.ALL },
+      { path: 'webhooks/(.*)', method: RequestMethod.ALL },
+    ],
+  });
+
   // Global pipes
   app.useGlobalPipes(
     new ValidationPipe({
@@ -117,8 +125,11 @@ async function bootstrap() {
     }),
   );
 
-  // Global filters
-  app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
+  // Global filters -- Phase 33: unified ApiExceptionFilter replaces AllExceptionsFilter + HttpExceptionFilter
+  app.useGlobalFilters(new ApiExceptionFilter());
+
+  // Phase 33: CorrelationInterceptor globally -- sets correlation context for all requests
+  app.useGlobalInterceptors(new CorrelationInterceptor());
 
   // Swagger documentation - disabled in production unless explicitly enabled
   // ENABLE_SWAGGER=true can be set to enable in staging/production (not recommended)

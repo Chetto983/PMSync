@@ -4,8 +4,8 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LoggerModule } from 'nestjs-pino';
-import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
-import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
 import { validate } from './config/env.validation';
 import aiConfig from './config/ai.config';
 import { pinoLoggerConfig } from './config/logger.config';
@@ -106,6 +106,11 @@ import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry
       provide: APP_GUARD,
       useClass: ConsentGuard,
     },
+    // Phase 33: Wrap all responses in { data, meta } envelope (outermost interceptor)
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseEnvelopeInterceptor,
+    },
     // Apply response time logging globally
     {
       provide: APP_INTERCEPTOR,
@@ -116,11 +121,7 @@ import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry
       provide: APP_INTERCEPTOR,
       useClass: AuditLogInterceptor,
     },
-    // Custom 429 response format with Retry-After header (SEC-05)
-    {
-      provide: APP_FILTER,
-      useClass: ThrottlerExceptionFilter,
-    },
+    // Phase 33: ThrottlerExceptionFilter absorbed into ApiExceptionFilter (registered globally in main.ts)
     // Log rotation service - gestione FIFO 2 giorni
     LogRotationService,
   ],

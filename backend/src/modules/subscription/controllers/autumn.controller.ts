@@ -53,7 +53,7 @@ function getUserName(user: AuthenticatedRequest['user']): string {
 }
 
 @ApiTags('Billing')
-@Controller('api/v1/autumn')
+@Controller('autumn')
 export class AutumnController {
   constructor(
     private readonly autumnService: AutumnService,

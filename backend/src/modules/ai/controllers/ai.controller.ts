@@ -64,7 +64,7 @@ import {
  */
 @ApiTags('AI')
 @ApiBearerAuth()
-@Controller(['ai', 'api/v1/ai'])
+@Controller('ai')
 @UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard, ConsentGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiController {

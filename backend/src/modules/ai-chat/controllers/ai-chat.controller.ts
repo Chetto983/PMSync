@@ -29,6 +29,7 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ConsentGuard } from '../../compliance/guards/consent.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
+import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
 import { ChatRequestDto } from '../dto/chat-request.dto';
@@ -59,7 +60,7 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  */
 @ApiTags('AI Chat')
 @ApiBearerAuth()
-@Controller(['ai', 'api/v1/ai'])
+@Controller('ai')
 @UseGuards(JwtAuthGuard, TenantGuard, ConsentGuard, QuotaGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiChatController {
@@ -76,6 +77,7 @@ export class AiChatController {
    * Do NOT call res.json() or return a value.
    */
   @Post('chat')
+  @SkipEnvelope()
   @HttpCode(HttpStatus.OK)
   // TODO: Re-enable when consent onboarding UI exists. ai_chat is declared in CONSENT_FEATURES.
   // @RequiresConsent('ai_chat')
