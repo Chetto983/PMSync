@@ -99,13 +99,12 @@ Plans:
   4. Every HTTP response includes a `x-request-id` header populated by CorrelationInterceptor -- BullMQ job payloads include the originating `requestId`
   5. OpenAPI spec passes Spectral linting in CI -- `frontend/types/api.generated.ts` exists and is importable
   6. Silent frontend fallbacks (dashboard mock data on API failure) replaced with explicit error/degraded states -- browser console shows no suppressed API errors
-**Plans**: TBD
+**Plans**: 3 plans (Wave 1 -> Wave 2 parallel pair)
 
 Plans:
-- [ ] 33-01: ResponseEnvelopeInterceptor + ApiExceptionFilter + global prefix
-- [ ] 33-02: CorrelationInterceptor global wiring + BullMQ propagation
-- [ ] 33-03: Frontend apiClient envelope unwrap + silent fallback elimination
-- [ ] 33-04: OpenAPI Spectral linting + openapi-typescript type generation
+- [ ] 33-01-PLAN.md -- Backend core: ResponseEnvelopeInterceptor + ApiExceptionFilter + setGlobalPrefix('api/v1') + controller prefix cleanup + CorrelationInterceptor global registration
+- [ ] 33-02-PLAN.md -- Frontend adaptation: apiClient baseURL + envelope unwrap interceptor + /api/v1/ path strip + silent fallback elimination
+- [ ] 33-03-PLAN.md -- BullMQ correlation ID propagation + OpenAPI Spectral linting + openapi-typescript type generation
 
 ### Phase 34: Auth Security Hardening
 **Goal**: Frontend auth uses httpOnly secure cookies instead of localStorage, all encryption paths use AES-GCM
@@ -185,7 +184,7 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 |-------|----------------|--------|-----------|
 | 31. Foundation & Stability Verification | 2/2 | Complete    | 2026-03-03 |
 | 32. Architecture Decoupling | 4/4 | Complete    | 2026-03-03 |
-| 33. API Contract Standardization | 0/4 | Not started | - |
+| 33. API Contract Standardization | 0/3 | Not started | - |
 | 34. Auth Security Hardening | 0/3 | Not started | - |
 | 35. AI Observability & Permissions | 0/2 | Not started | - |
 | 36. Encrypted Search | 0/2 | Not started | - |
