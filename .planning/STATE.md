@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: AI Rebuild & Cleanup
-status: unknown
-last_updated: "2026-03-02T20:08:06.914Z"
+status: in_progress
+last_updated: "2026-03-03T08:18:12Z"
 progress:
   total_phases: 15
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 50
-  completed_plans: 48
+  completed_plans: 49
 ---
 
 # Project State
@@ -22,19 +22,19 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 
 ## Current Position
 
-Phase: 27 of 30 (Chat Frontend)
-Plan: 3 of 4 complete in current phase
-Status: In Progress
-Last activity: 2026-03-02 -- Completed 27-03-PLAN.md (Analysis/AI Tool UIs + HITL)
+Phase: 27 of 30 (Chat Frontend) -- COMPLETE
+Plan: 4 of 4 complete in current phase
+Status: Phase 27 Complete -- Ready for Phase 28
+Last activity: 2026-03-03 -- Completed 27-04-PLAN.md (Responsive Layouts + Route Integration)
 
-Progress: [######░░░░] 67% (16/24 plans)
+Progress: [#######░░░] 71% (17/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16 (v3.2)
+- Total plans completed: 17 (v3.2)
 - Average duration: 11min
-- Total execution time: 148min
+- Total execution time: 193min
 
 **By Phase:**
 
@@ -56,6 +56,7 @@ Progress: [######░░░░] 67% (16/24 plans)
 | Phase 27 P01 | 24min | 2 tasks | 16 files |
 | Phase 27 P02 | 8min | 1 task | 9 files |
 | Phase 27 P03 | 11min | 2 tasks | 9 files |
+| Phase 27 P04 | 45min | 2 tasks | 40+ files |
 
 ## Accumulated Context
 
@@ -127,6 +128,10 @@ Recent decisions affecting current work:
 - [27-03]: Poll-based HITL is the functional mechanism; native requires_action code path gated on backend update
 - [27-03]: FallbackToolUI uses wildcard toolName '*' for catch-all matching
 - [27-03]: HitlPendingActions rendered unconditionally in AssistantMessage
+- [27-04]: CSS split into 3 files (layout/sidebar/thread) to stay under 500-line limit
+- [27-04]: CSS variable design system with --chat-* tokens for light/dark mode theming
+- [27-04]: CSS-only responsive switching (hidden md:flex / flex md:hidden), no JS breakpoint detection
+- [27-04]: ChatPage skeleton loading guard prevents flash of unstyled content
 
 ### Pending Todos
 
@@ -139,7 +144,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-02
-Stopped at: Completed 27-03-PLAN.md (Analysis/AI Tool UIs + HITL)
+Last session: 2026-03-03
+Stopped at: Completed 27-04-PLAN.md (Responsive Layouts + Route Integration) -- Phase 27 COMPLETE
 Resume file: None
-Next action: Execute 27-04-PLAN.md
+Next action: Execute Phase 28 (Cleanup & VoltAgent Deletion)
