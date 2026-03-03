@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: unknown
-last_updated: "2026-03-03T14:33:25.475Z"
+status: executing
+last_updated: "2026-03-03T14:33:01.000Z"
 progress:
   total_phases: 18
   completed_phases: 15
   total_plans: 61
-  completed_plans: 57
+  completed_plans: 58
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 32 of 37 (Architecture Decoupling)
-Plan: 1 of 4 in current phase
-Status: Plan 32-01 complete
-Last activity: 2026-03-03 -- Plan 32-01 completed (ToolRegistryModule, interface contracts, domain events)
+Plan: 4 of 4 in current phase
+Status: Plan 32-04 complete
+Last activity: 2026-03-03 -- Plan 32-04 completed (CI dependency enforcement with dep-cruiser error mode + madge)
 
-Progress: [##░░░░░░░░] 12%
+Progress: [##░░░░░░░░] 14%
 
 ## Performance Metrics
 
@@ -40,7 +40,7 @@ Progress: [##░░░░░░░░] 12%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 31 | 2/2 | 20min | 10min |
-| 32 | 1/4 | 5min | 5min |
+| 32 | 2/4 | 11min | 6min |
 
 ## Accumulated Context
 
@@ -59,6 +59,9 @@ Recent decisions affecting current work:
 - [31-02]: dependency-cruiser baseline: 989 cross-module, 21 circular, 3 orphan violations (all warn-only)
 - [Phase 32]: ToolRegistryModule placed after PrismaModule/CacheModule but before domain modules in AppModule imports
 - [Phase 32]: useExisting provider pattern for ToolRegistryService: injectable by class and by TOOL_REGISTRY_SERVICE symbol
+- [32-04]: no-circular at error severity, cross-module deep imports stay as warnings
+- [32-04]: CI-only enforcement (no pre-commit hooks), madge informational only, dep-cruiser is the gate
+- [32-04]: 1013 known violations baselined for CI comparison
 
 ### Pending Todos
 
@@ -75,6 +78,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 32-01-PLAN.md
-Resume file: .planning/phases/32-architecture-decoupling/32-02-PLAN.md
-Next action: Execute 32-02-PLAN.md (forwardRef elimination)
+Stopped at: Completed 32-04-PLAN.md
+Resume file: .planning/phases/32-architecture-decoupling/
+Next action: Continue Phase 32 (plans 02, 03 may still be executing in parallel)

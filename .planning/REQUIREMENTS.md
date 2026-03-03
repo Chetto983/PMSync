@@ -12,7 +12,7 @@ Requirements for enterprise stabilization. Each maps to roadmap phases.
 
 - [x] **ARCH-01**: Circular dependencies reduced from 17 forwardRef edges to <=5 using event bus, interface injection, and ToolRegistry
 - [x] **ARCH-02**: Typed domain event contracts defined and wired (EmailSynced, ProviderConnected, ContactUpdated, CalendarIcsDetected)
-- [ ] **ARCH-03**: dependency-cruiser enforces module boundary rules in CI, blocking forbidden imports on PR merge
+- [x] **ARCH-03**: dependency-cruiser enforces module boundary rules in CI, blocking forbidden imports on PR merge
 
 ### API Contracts
 
@@ -87,7 +87,7 @@ Deferred to future release. Tracked but not in current roadmap.
 |-------------|-------|--------|
 | ARCH-01 | Phase 32 | Complete |
 | ARCH-02 | Phase 32 | Complete |
-| ARCH-03 | Phase 32 | Pending |
+| ARCH-03 | Phase 32 | Complete |
 | API-01 | Phase 33 | Pending |
 | API-02 | Phase 33 | Pending |
 | API-03 | Phase 33 | Pending |
