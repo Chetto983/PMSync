@@ -292,7 +292,6 @@ onModuleInit() {
 | Swagger config | Adjusts automatically (global prefix applies) |
 | Legacy `/email-configs` watchdog | KEEP at root (excluded from prefix) |
 
-**Webhook exclusion rationale:** Provider webhooks (Gmail, Microsoft, Autumn) use registered callback URLs. Changing them requires re-registration with providers. Exclude from prefix.
 
 ### Component 3: httpOnly Cookie Auth
 

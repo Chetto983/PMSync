@@ -14,11 +14,8 @@ import { useAuthStore } from '@/stores/auth-store';
 jest.mock('@/lib/api/ai', () => ({
   voltAgentApi: {
     getPendingActions: jest.fn(),
-    getPendingAction: jest.fn(),
     approveAction: jest.fn(),
     rejectAction: jest.fn(),
-    getActionCounts: jest.fn(),
-    // NOTE: getAggregateStats removed - endpoint doesn't exist on backend
   },
 }));
 
@@ -108,9 +105,7 @@ describe('useAiActions', () => {
       (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
-      (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, counts: { PENDING: 2 } },
-      });
+            // getActionCounts removed — no mock needed
 
       const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
         wrapper: createWrapper(),
@@ -139,9 +134,7 @@ describe('useAiActions', () => {
       (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
-      (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, counts: {} },
-      });
+            // getActionCounts removed — no mock needed
 
       const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
         wrapper: createWrapper(),
@@ -159,9 +152,7 @@ describe('useAiActions', () => {
       (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
-      (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, counts: {} },
-      });
+            // getActionCounts removed — no mock needed
 
       const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
         wrapper: createWrapper(),
@@ -176,41 +167,7 @@ describe('useAiActions', () => {
     });
   });
 
-  describe('fetchAction', () => {
-    it('should fetch a single action', async () => {
-      const mockAction = mockPendingActions[0];
-      (voltAgentApi.getPendingAction as jest.Mock).mockResolvedValueOnce({
-        data: mockAction,
-      });
-
-      const { result } = renderHook(() => useAiActions({ autoFetch: false }), {
-        wrapper: createWrapper(),
-      });
-
-      let action;
-      await act(async () => {
-        action = await result.current.fetchAction('exec-1');
-      });
-
-      expect(action).toEqual(mockAction);
-      expect(voltAgentApi.getPendingAction).toHaveBeenCalledWith('exec-1');
-    });
-
-    it('should return undefined on error', async () => {
-      (voltAgentApi.getPendingAction as jest.Mock).mockRejectedValueOnce(new Error('Not found'));
-
-      const { result } = renderHook(() => useAiActions({ autoFetch: false }), {
-        wrapper: createWrapper(),
-      });
-
-      let action;
-      await act(async () => {
-        action = await result.current.fetchAction('invalid-id');
-      });
-
-      expect(action).toBeUndefined();
-    });
-  });
+  // fetchAction tests removed — getPendingAction endpoint removed, fetchAction now uses cached list
 
   describe('approveAction', () => {
     it('should approve action successfully', async () => {
@@ -292,30 +249,7 @@ describe('useAiActions', () => {
     });
   });
 
-  describe('action counts', () => {
-    it('should fetch action counts', async () => {
-      const mockCounts = {
-        PENDING: 5,
-        APPROVED: 10,
-        REJECTED: 2,
-        EXECUTED: 8,
-      };
-      (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
-        data: { actions: [], total: 0 },
-      });
-      (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, counts: mockCounts },
-      });
-
-      const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.actionCounts).toEqual(mockCounts);
-      });
-    });
-  });
+  // action counts tests removed — getActionCounts endpoint removed
 
   // NOTE: learning stats tests removed - getLearningStats endpoint doesn't exist
   // NOTE: aggregate stats tests removed - getAggregateStats endpoint doesn't exist

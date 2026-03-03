@@ -311,22 +311,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
     });
   });
 
-  describe('getPendingAction', () => {
-    it('should call correct endpoint with executionId', async () => {
-      const mockResponse = {
-        data: {
-          id: 'action-1',
-          executionId: 'exec-1',
-          actionType: 'SEND_EMAIL',
-        },
-      };
-      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
-
-      await voltAgentApi.getPendingAction('exec-1');
-
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/ai/actions/exec-1');
-    });
-  });
+  // getPendingAction test removed — endpoint removed
 
   describe('approveAction', () => {
     it('should call correct endpoint', async () => {
@@ -368,48 +353,8 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
     });
   });
 
-  describe('getActionCounts', () => {
-    it('should call correct endpoint', async () => {
-      const mockResponse = {
-        data: {
-          success: true,
-          counts: { PENDING: 5, APPROVED: 10, REJECTED: 2, EXECUTED: 8 },
-        },
-      };
-      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
-
-      const result = await voltAgentApi.getActionCounts();
-
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/ai/stats/action-counts');
-      expect(result.data.counts.PENDING).toBe(5);
-    });
-  });
-
-  // NOTE: getLearningStats tests removed - endpoint doesn't exist
-  // NOTE: getAggregateStats tests removed - endpoint doesn't exist on backend
-  // NOTE: getFeedback tests removed - endpoint doesn't exist on backend
-
-  describe('resetLearning', () => {
-    it('should call correct endpoint without params', async () => {
-      const mockResponse = { data: { success: true, message: 'All learning profiles reset' } };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
-
-      await voltAgentApi.resetLearning();
-
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/learning/reset', {});
-    });
-
-    it('should pass agentName and actionType', async () => {
-      (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true, message: 'Reset' } });
-
-      await voltAgentApi.resetLearning({ agentName: 'EmailAgent', actionType: 'SEND_EMAIL' });
-
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/ai/learning/reset', {
-        agentName: 'EmailAgent',
-        actionType: 'SEND_EMAIL',
-      });
-    });
-  });
+  // getActionCounts, resetLearning, getLearningStats, getAggregateStats, getFeedback
+  // tests removed — endpoints removed from voltAgentApi
 });
 
 describe('multiAgentApi (Backwards Compatibility)', () => {

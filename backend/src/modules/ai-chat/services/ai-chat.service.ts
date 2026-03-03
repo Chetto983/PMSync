@@ -24,7 +24,7 @@ import {
   getAiCircuitBreaker,
   CircuitBreakerOpenError,
 } from '../../ai/utils/index';
-import { SYSTEM_PROMPT } from '../constants/system-prompt';
+import { buildSystemPrompt } from '../constants/system-prompt';
 import {
   EmailToolsService,
   CalendarToolsService,
@@ -185,7 +185,8 @@ export class AiChatService {
         this.logger.warn(`Audit log failed: ${err.message}`),
       );
 
-    // 8. Memory auto-inject: search relevant memories, prepend to system prompt
+    // 8. Build dynamic system prompt with current date/timezone + memory injection
+    const basePrompt = buildSystemPrompt(); // Injects current date/time
     const memories = await this.memoryService.getRelevantMemories(
       tenantId,
       userId,
@@ -194,10 +195,11 @@ export class AiChatService {
     );
     const memoryBlock = this.memoryService.formatMemoriesForPrompt(memories);
     const systemPromptWithMemory = memoryBlock
-      ? SYSTEM_PROMPT + '\n\n' + memoryBlock
-      : SYSTEM_PROMPT;
+      ? basePrompt + '\n\n' + memoryBlock
+      : basePrompt;
 
     // 9. Create UI message stream
+    // Note: conversationId continuity is handled by backend auto-resolve in ConversationService
     return createUIMessageStream({
       execute: async ({ writer }) => {
         const tools = this.createToolSet(tenantId, conversation.id);

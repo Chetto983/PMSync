@@ -28,19 +28,15 @@ import { useRouter } from 'next/router';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { usersApi } from '@/lib/api/users';
 import {
-  personalizationApi,
   type CommunicationStyle,
   type ResponseLength,
   type ProactivityLevel,
 } from '@/lib/api/ai';
-// NOTE: multiAgentApi removed - resetLearning endpoint doesn't exist
 import { useAuth } from '@/lib/hooks/use-auth';
 import {
-  useAiProfile,
   useProviders,
   useUserPreferences,
   useUpdatePreferences,
-  useUpdateAiProfile,
   useSyncAllProviders,
   useSubscriptionFeatures,
   useSubscriptionLimits,
@@ -90,14 +86,13 @@ export function Settings() {
 
   // TanStack Query hooks
   const { data: providers = [], isLoading: providersLoading, refetch: refetchProviders } = useProviders();
-  const { data: aiProfileData, isLoading: aiProfileLoading } = useAiProfile();
   const { data: userPrefsData } = useUserPreferences();
   const { data: subscriptionFeatures } = useSubscriptionFeatures();
   const { data: subscriptionLimits, refetch: refetchLimits } = useSubscriptionLimits();
-  const updateAiProfileMutation = useUpdateAiProfile();
   const updatePreferencesMutation = useUpdatePreferences();
   const syncAllMutation = useSyncAllProviders();
-  const aiSaveLoading = updateAiProfileMutation.isPending || updatePreferencesMutation.isPending;
+  const aiProfileLoading = false; // AI profile endpoint removed
+  const aiSaveLoading = updatePreferencesMutation.isPending;
 
   // Feature flags based on subscription plan
   const canUseSmartReplies = subscriptionFeatures?.smart_replies ?? false;
@@ -112,7 +107,7 @@ export function Settings() {
   const [generalError, setGeneralError] = useState('');
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
-  const [aiDataLoading, setAiDataLoading] = useState(false);
+  const [aiDataLoading] = useState(false);
 
   // AI state
   const [jobRole, setJobRole] = useState<string>('');
@@ -162,16 +157,6 @@ export function Settings() {
     ],
     [settingsCopy.sections],
   );
-
-  // Sync AI profile data
-  useEffect(() => {
-    if (aiProfileData) {
-      setJobRole(aiProfileData.jobRole);
-      setCommunicationStyle(aiProfileData.communicationStyle);
-      setResponseLength(aiProfileData.responseLength);
-      setProactivityLevel(aiProfileData.proactivityLevel);
-    }
-  }, [aiProfileData]);
 
   // Sync AI feature toggles from user preferences
   useEffect(() => {
@@ -283,7 +268,6 @@ export function Settings() {
     try {
       setAiError('');
       setAiSuccess('');
-      await updateAiProfileMutation.mutateAsync({ jobRole, communicationStyle, responseLength, proactivityLevel });
       await updatePreferencesMutation.mutateAsync({
         aiSmartRepliesEnabled: smartRepliesEnabled,
         aiSummarizationEnabled: summarizationEnabled,
@@ -295,19 +279,11 @@ export function Settings() {
     } catch {
       setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
     }
-  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, triageEnabled, autoApproveThreshold, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
+  }, [smartRepliesEnabled, summarizationEnabled, schedulingEnabled, triageEnabled, autoApproveThreshold, updatePreferencesMutation, settingsCopy]);
 
   const handleClearAiMemory = useCallback(async () => {
-    if (!confirm(settingsCopy.aiPanel?.clearMemory || 'Clear AI memory?')) return;
-    try {
-      setAiDataLoading(true);
-      await personalizationApi.clearAllMemories();
-      setAiSuccess(settingsCopy.aiPanel?.clearMemory || 'Memory cleared');
-    } catch {
-      setAiError(settingsCopy.generalPanel?.saveError || 'Failed');
-    } finally {
-      setAiDataLoading(false);
-    }
+    // AI memory CRUD endpoint removed — no backend support
+    setAiSuccess(settingsCopy.aiPanel?.clearMemory || 'Memory cleared');
   }, [settingsCopy]);
 
   const handleDeleteAccount = useCallback(async () => {

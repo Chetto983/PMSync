@@ -334,7 +334,7 @@ export function dashboardStatsOptions() {
       pendingTasks: number;
       totalContacts: number;
     }> => {
-      const [emailStats, contacts, events, actionItemStats] = await Promise.allSettled([
+      const [emailStats, contacts, events] = await Promise.allSettled([
         apiClient.get('/emails/stats'),
         contactsApi.getContactCounts(),
         (() => {
@@ -346,20 +346,12 @@ export function dashboardStatsOptions() {
             endTime: endOfDay.toISOString(),
           });
         })(),
-        voltAgentApi.getActionItemStats(),
       ]);
-
-      // Extract pending tasks from action item stats
-      let pendingTasks = 0;
-      if (actionItemStats.status === 'fulfilled' && actionItemStats.value.data?.stats) {
-        const stats = actionItemStats.value.data.stats as { todo?: number; inProgress?: number };
-        pendingTasks = (stats.todo || 0) + (stats.inProgress || 0);
-      }
 
       return {
         unreadEmails: emailStats.status === 'fulfilled' ? emailStats.value.data?.unread || 0 : 0,
         todayEvents: events.status === 'fulfilled' ? events.value.data?.events?.length || 0 : 0,
-        pendingTasks,
+        pendingTasks: 0,
         totalContacts: contacts.status === 'fulfilled' ? contacts.value?.total || 0 : 0,
       };
     },

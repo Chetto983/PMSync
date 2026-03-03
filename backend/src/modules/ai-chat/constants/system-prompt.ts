@@ -6,7 +6,8 @@
  *
  * Phase 24: Backend Core Pipeline
  */
-export const SYSTEM_PROMPT = `You are an AI-powered professional email assistant. Your role is to help users manage their email, calendar, and contacts efficiently.
+
+const BASE_PROMPT = `You are an AI-powered professional email assistant. Your role is to help users manage their email, calendar, and contacts efficiently.
 
 ## Core Capabilities
 - Summarize and search emails
@@ -36,3 +37,27 @@ export const SYSTEM_PROMPT = `You are an AI-powered professional email assistant
 - If asked to perform an action that seems risky, explain the risks first
 
 If the "Known Facts" section below contains relevant information about the user, incorporate it naturally into your responses.`;
+
+/**
+ * Build the system prompt with current date/time context.
+ * Called on every request so the LLM always knows the real date.
+ */
+export function buildSystemPrompt(timezone?: string): string {
+  const tz = timezone || 'Europe/Rome';
+  const now = new Date();
+  const formatted = now.toLocaleString('en-US', {
+    timeZone: tz,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  return `${BASE_PROMPT}\n\n## Current Context\n- Current date and time: ${formatted}\n- Timezone: ${tz}`;
+}
+
+/** @deprecated Use buildSystemPrompt() instead */
+export const SYSTEM_PROMPT = BASE_PROMPT;

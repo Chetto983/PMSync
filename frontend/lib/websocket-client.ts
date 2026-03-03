@@ -173,7 +173,6 @@ export type AiAgentType =
   | 'websearch'
   | 'analytics'
   | 'unified-knowledge'
-  | 'document-library'
   | 'response';
 
 /**

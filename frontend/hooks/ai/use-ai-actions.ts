@@ -111,18 +111,9 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     staleTime,
   });
 
-  // DISABLED: /api/v1/ai/stats/action-counts endpoint does not exist on backend.
-  // Was served by old voltagent proxy deleted in Phase 28. TODO: Create backend endpoint or remove entirely.
-  const countsQuery = useQuery({
-    queryKey: aiActionsKeys.counts(),
-    queryFn: async () => {
-      const response = await voltAgentApi.getActionCounts();
-      if (!response.data.success) throw new Error('Failed to get action counts');
-      return response.data.counts;
-    },
-    enabled: false,
-    staleTime,
-  });
+  // Action counts endpoint removed — no backend support.
+  // Counts can be derived from pending actions list if needed.
+  const countsQuery = { data: undefined, isLoading: false };
 
   // NOTE: Learning Stats Query REMOVED - endpoint returns 404 (in-memory only, no persistence)
   // See CONSOLIDATION-PLAN.md for details
@@ -209,14 +200,10 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
 
   const fetchAction = useCallback(
     async (id: string): Promise<PendingAction | undefined> => {
-      try {
-        const response = await voltAgentApi.getPendingAction(id);
-        return response.data;
-      } catch {
-        return undefined;
-      }
+      // getPendingAction endpoint removed — find from cached pending list
+      return getAction(id);
     },
-    [],
+    [getAction],
   );
 
   const approveAction = useCallback(

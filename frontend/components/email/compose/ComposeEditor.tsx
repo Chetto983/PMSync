@@ -22,7 +22,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { aiApi, type CommunicationStyle } from '@/lib/api/ai';
 import { useAuthStore } from '@/stores/auth-store';
-import { useAiProfile } from '@/hooks/queries/use-settings';
+// AI profile endpoint removed — use default communication style
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
 import logger from '@/lib/logger';
@@ -77,7 +77,7 @@ export default function ComposeEditor({
   const { locale } = useLocale();
   const composer = t.email.composer;
   const user = useAuthStore((state) => state.user);
-  const { data: aiProfile } = useAiProfile();
+  const aiProfile = undefined as { communicationStyle?: CommunicationStyle } | undefined;
 
   // Build sender name from user info
   const senderName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || undefined;

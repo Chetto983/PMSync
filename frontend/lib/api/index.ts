@@ -115,28 +115,7 @@ export type { GdprStatus } from './compliance';
 export { usersApi } from './users';
 
 export { crmApi } from './crm';
-export type {
-  InteractionType,
-  ContactRelationshipStats,
-  ContactInteraction,
-  RelationshipGraphNode,
-  StaleContactsParams,
-  ReconnectCandidatesParams,
-  TopContactsParams,
-  InteractionHistoryParams,
-  RecordInteractionPayload,
-  RelationshipGraphParams,
-} from './crm';
-
-export { documentLibraryApi } from './document-library';
-export type {
-  DocumentLibrary,
-  LibraryDocument,
-  DocumentCitation,
-  DocumentQueryResult,
-  CreateLibraryPayload,
-  QueryDocumentsPayload,
-} from './document-library';
+export type { ContactRelationshipStats, StaleContactsParams } from './crm';
 
 // Export the base API client for custom requests
 export { apiClient } from '../api-client';

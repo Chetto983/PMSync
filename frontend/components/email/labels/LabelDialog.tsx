@@ -169,7 +169,7 @@ export function LabelDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="xs"
+      maxWidth="sm"
       fullWidth
       slotProps={{
         paper: { sx: { borderRadius: 2 } },
@@ -187,7 +187,7 @@ export function LabelDialog({
         </Box>
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ overflowX: 'visible' }}>
         {error && (
           <Alert
             severity="error"
@@ -201,6 +201,7 @@ export function LabelDialog({
         <TextField
           autoFocus
           fullWidth
+          size="medium"
           label={t.email?.labels?.nameLabel || 'Name'}
           placeholder={
             t.email?.labels?.namePlaceholder || 'e.g. Work, Personal...'

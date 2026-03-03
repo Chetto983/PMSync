@@ -191,7 +191,7 @@ export function FollowUpCard({
             {followUp.emailType && (
               <Chip
                 size="small"
-                label={t.ai.followUpTracker.emailTypes?.[followUp.emailType] ?? followUp.emailType}
+                label={(t.ai.followUpTracker.emailTypes as Record<string, string> | undefined)?.[followUp.emailType] ?? followUp.emailType}
                 variant="outlined"
                 sx={{
                   height: 24,

@@ -15,8 +15,6 @@ import {
   Bell,
   Clock,
   AlertTriangle,
-  Brain,
-  FileSearch,
   Settings,
   Home,
   BarChart3,
@@ -283,23 +281,7 @@ export function CommandPalette() {
       keywords: ['stale', 'inactive', 'reconnect'],
     },
 
-    // AI Knowledge
-    {
-      id: 'search-memories',
-      name: t.commandPalette.commands.searchAiMemories,
-      icon: Brain,
-      action: () => router.push('/dashboard/ai/memories'),
-      group: 'ai',
-      keywords: ['memory', 'remember', 'knowledge'],
-    },
-    {
-      id: 'search-docs',
-      name: t.commandPalette.commands.searchDocuments,
-      icon: FileSearch,
-      action: () => router.push('/dashboard/ai/documents'),
-      group: 'ai',
-      keywords: ['documents', 'files', 'rag'],
-    },
+    // AI Knowledge commands removed — no backend for memories/documents pages
 
     // System
     {

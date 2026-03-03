@@ -31,7 +31,6 @@ export type {
   PendingActionSummary,
   ActionCounts,
   LearningProfileStats,
-  AggregateStats,
   SentimentResult,
   PriorityResult,
   EmailAnalysisResult,

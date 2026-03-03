@@ -37,11 +37,7 @@ import { Search, Bell, Clock, AlertTriangle, CheckCircle, Calendar, Keyboard } f
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
-  useFollowUpsList,
-  useFollowUpStats,
-  useSnoozeFollowUp,
-  useUpdateFollowUpStatus,
-  useDeleteFollowUp,
+  usePendingFollowUps,
   type EmailFollowUp,
 } from '@/hooks/queries';
 import type { Theme } from '@mui/material';
@@ -86,14 +82,15 @@ export function FollowupsKanbanBoard() {
   const [selectedColumnIdx, setSelectedColumnIdx] = useState(0);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
-  // Queries
-  const { data, isLoading, error } = useFollowUpsList(undefined, typeFilter, 200);
-  const { data: stats } = useFollowUpStats();
+  // Queries — only pending follow-ups supported by backend
+  const { data: pendingData, isLoading, error } = usePendingFollowUps(200);
+  const data = pendingData ? { followUps: pendingData.followUps as unknown as EmailFollowUp[], count: pendingData.count } : undefined;
+  const stats = null; // Follow-up stats endpoint removed
 
-  // Mutations
-  const updateStatus = useUpdateFollowUpStatus();
-  const snoozeFollowUp = useSnoozeFollowUp();
-  const deleteFollowUp = useDeleteFollowUp();
+  // Mutations — follow-up CRUD endpoints removed, stub as no-ops
+  const updateStatus = { mutateAsync: async (_p: { id: string; status: string }) => {} };
+  const snoozeFollowUp = { mutateAsync: async (_p: { id: string; dueDate: string }) => {} };
+  const deleteFollowUp = { mutateAsync: async (_id: string) => {} };
 
   // Sensors for pointer (mouse/touch) and keyboard
   const sensors = useSensors(

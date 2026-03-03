@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { Calendar, Sparkles, Clock } from 'lucide-react';
 import { format, addDays, addWeeks } from 'date-fns';
-import { useSmartTiming } from '@/hooks/queries';
+// Smart timing endpoint removed — no backend support
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface SnoozeDialogProps {
@@ -32,7 +32,8 @@ interface SnoozeDialogProps {
 export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDialogProps) {
   const t = useTranslations();
   const [customDateStr, setCustomDateStr] = useState<string>('');
-  const { data: smartTiming, isLoading } = useSmartTiming(followUpId || '');
+  const smartTiming = null as { suggestedDate?: string; reason?: string } | null;
+  const isLoading = false;
 
   // Min date for custom picker (today)
   const minDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
