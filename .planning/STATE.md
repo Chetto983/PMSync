@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
 status: executing
-last_updated: "2026-03-03T14:33:01.000Z"
+last_updated: "2026-03-03T14:47:36.000Z"
 progress:
   total_phases: 18
   completed_phases: 15
   total_plans: 61
-  completed_plans: 58
+  completed_plans: 59
 ---
 
 # Project State
@@ -24,15 +24,15 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 Phase: 32 of 37 (Architecture Decoupling)
 Plan: 4 of 4 in current phase
-Status: Plan 32-04 complete
-Last activity: 2026-03-03 -- Plan 32-04 completed (CI dependency enforcement with dep-cruiser error mode + madge)
+Status: Plan 32-02 complete (32-03 may still be executing)
+Last activity: 2026-03-03 -- Plan 32-02 completed (AiChatModule forwardRef elimination via ToolRegistry self-registration)
 
-Progress: [##░░░░░░░░] 14%
+Progress: [##░░░░░░░░] 16%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v4.0)
+- Total plans completed: 4 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -40,7 +40,7 @@ Progress: [##░░░░░░░░] 14%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 31 | 2/2 | 20min | 10min |
-| 32 | 2/4 | 11min | 6min |
+| 32 | 3/4 | 22min | 7min |
 
 ## Accumulated Context
 
@@ -62,6 +62,8 @@ Recent decisions affecting current work:
 - [32-04]: no-circular at error severity, cross-module deep imports stay as warnings
 - [32-04]: CI-only enforcement (no pre-commit hooks), madge informational only, dep-cruiser is the gate
 - [32-04]: 1013 known violations baselined for CI comparison
+- [32-02]: Direct module imports replace forwardRef in AiChatModule -- not part of Email<->Ai circular chain
+- [32-02]: IAiTool wrappers for discovery; existing ToolsService classes stay as AI SDK adapter layer with PII closures
 
 ### Pending Todos
 
@@ -78,6 +80,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 32-04-PLAN.md
+Stopped at: Completed 32-02-PLAN.md
 Resume file: .planning/phases/32-architecture-decoupling/
-Next action: Continue Phase 32 (plans 02, 03 may still be executing in parallel)
+Next action: Plan 32-03 may still be executing in parallel; once complete, phase 32 is done
