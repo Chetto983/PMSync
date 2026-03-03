@@ -1,12 +1,9 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { CryptoService } from '../../common/services/crypto.service';
-import { EmailSyncModule } from '../email-sync/email-sync.module';
-import { EmailModule } from '../email/email.module';
-import { CalendarModule } from '../calendar/calendar.module';
-import { ContactsModule } from '../contacts/contacts.module';
-import { AiModule } from '../ai/ai.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { PROVIDER_TOKEN_SERVICE } from '../../common/interfaces/provider-token.interface';
+import { CRYPTO_SERVICE } from '../../common/interfaces/crypto.interface';
 
 // Services
 import { GoogleOAuthService } from './services/google-oauth.service';
@@ -22,19 +19,32 @@ import { AuthDebugMiddleware } from '../../common/middleware/auth-debug.middlewa
 import { ProvidersController } from './controllers/providers.controller';
 import { OAuthCallbackController } from './controllers/oauth-callback.controller';
 
+/**
+ * ProvidersModule - OAuth, IMAP, CalDAV provider management.
+ *
+ * Phase 32: All forwardRef to domain modules eliminated.
+ * - ProviderConnectedEvent replaces direct triggerInitialSync (consumed by EmailSync, Calendar)
+ * - ProviderDisconnectedEvent replaces direct cleanup calls (consumed by EmailSync, Calendar, Contacts, Ai)
+ * - PROVIDER_TOKEN_SERVICE symbol exported for interface injection
+ * - CRYPTO_SERVICE symbol exported for interface injection
+ *
+ * NOTE: PROVIDER_TOKEN_SERVICE actually resolves to ProviderTokenService in
+ * EmailSyncModule (where it lives). ProvidersModule exports CryptoService and
+ * the CRYPTO_SERVICE symbol for modules that need encryption without direct imports.
+ */
 @Module({
   imports: [
     PrismaModule,
-    forwardRef(() => EmailSyncModule),
-    forwardRef(() => EmailModule),
-    forwardRef(() => AiModule),
-    forwardRef(() => CalendarModule),
-    forwardRef(() => ContactsModule),
     SubscriptionModule,
+    // Phase 32: No forwardRef imports to domain modules.
+    // EventEmitterModule is globally available via AppModule.
   ],
   providers: [
     // Common services
     CryptoService,
+
+    // Phase 32: Interface injection providers
+    { provide: CRYPTO_SERVICE, useExisting: CryptoService },
 
     // OAuth security services
     OAuthStateService,
@@ -50,6 +60,7 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
   controllers: [ProvidersController, OAuthCallbackController],
   exports: [
     CryptoService,
+    CRYPTO_SERVICE, // Phase 32: Symbol export for interface injection
     OAuthStateService,
     GoogleOAuthService,
     MicrosoftOAuthService,

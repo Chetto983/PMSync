@@ -4,29 +4,19 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { GoogleOAuthService } from './google-oauth.service';
 import { MicrosoftOAuthService } from './microsoft-oauth.service';
 import { ImapService } from './imap.service';
 import { CalDavService } from './caldav.service';
-import { SyncSchedulerService } from '../../email-sync/services/sync-scheduler.service';
-import { WebhookLifecycleService } from '../../email-sync/services/webhook-lifecycle.service';
-import { QueueService } from '../../email-sync/services/queue.service';
-import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
-import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
-import { SyncJobData } from '../../email-sync/interfaces/sync-job.interface';
-import { GoogleCalendarSyncService } from '../../calendar/services/google-calendar-sync.service';
-import { MicrosoftCalendarSyncService } from '../../calendar/services/microsoft-calendar-sync.service';
-import { GoogleCalendarWebhookService } from '../../calendar/services/google-calendar-webhook.service';
-import { MicrosoftCalendarWebhookService } from '../../calendar/services/microsoft-calendar-webhook.service';
-import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
-import { ContactsService } from '../../contacts/services/contacts.service';
-import { StorageService } from '../../email/services/storage.service';
 import { SubscriptionService, PLAN_LIMITS } from '../../subscription/services/subscription.service';
+import {
+  ProviderConnectedEvent,
+  ProviderDisconnectedEvent,
+} from '../../../common/events/provider.events';
 import type { ProviderConfig } from '@prisma/client';
 import {
   ConnectGoogleProviderDto,
@@ -40,6 +30,14 @@ export interface ProviderAlias {
   providerId: string;
 }
 
+/**
+ * ProviderConfigService - Manages provider CRUD and lifecycle.
+ *
+ * Phase 32: Decoupled from domain modules via domain events.
+ * - ProviderConnectedEvent replaces direct triggerInitialSync calls
+ * - ProviderDisconnectedEvent replaces direct cleanup service calls
+ * - Only depends on ProvidersModule-internal services + Prisma + EventEmitter2
+ */
 @Injectable()
 export class ProviderConfigService {
   private readonly logger = new Logger(ProviderConfigService.name);
@@ -51,27 +49,8 @@ export class ProviderConfigService {
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly imap: ImapService,
     private readonly caldav: CalDavService,
-    @Inject(forwardRef(() => SyncSchedulerService))
-    private readonly syncScheduler: SyncSchedulerService,
-    @Inject(forwardRef(() => WebhookLifecycleService))
-    private readonly webhookLifecycle: WebhookLifecycleService,
-    @Inject(forwardRef(() => QueueService))
-    private readonly queueService: QueueService,
-    private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
-    private readonly knowledgeBaseService: KnowledgeBaseService,
-    @Inject(forwardRef(() => GoogleCalendarSyncService))
-    private readonly googleCalendarSync: GoogleCalendarSyncService,
-    @Inject(forwardRef(() => MicrosoftCalendarSyncService))
-    private readonly microsoftCalendarSync: MicrosoftCalendarSyncService,
-    @Inject(forwardRef(() => GoogleCalendarWebhookService))
-    private readonly googleCalendarWebhook: GoogleCalendarWebhookService,
-    @Inject(forwardRef(() => MicrosoftCalendarWebhookService))
-    private readonly microsoftCalendarWebhook: MicrosoftCalendarWebhookService,
-    private readonly folderSync: FolderSyncService,
-    private readonly contactsService: ContactsService,
-    @Inject(forwardRef(() => StorageService))
-    private readonly storageService: StorageService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -224,7 +203,8 @@ export class ProviderConfigService {
 
       const sanitized = this.sanitizeProviderConfig(providerConfig);
 
-      await this.triggerInitialSync(providerConfig);
+      // Phase 32: Emit event instead of calling sync services directly
+      this.emitProviderConnected(providerConfig, userId);
 
       this.logger.log(`Google provider connected for ${email}`);
 
@@ -304,7 +284,8 @@ export class ProviderConfigService {
 
       const sanitized = this.sanitizeProviderConfig(providerConfig);
 
-      await this.triggerInitialSync(providerConfig);
+      // Phase 32: Emit event instead of calling sync services directly
+      this.emitProviderConnected(providerConfig, userId);
 
       this.logger.log(`Microsoft provider connected for ${email}`);
 
@@ -474,7 +455,8 @@ export class ProviderConfigService {
 
       const sanitized = this.sanitizeProviderConfig(providerConfig);
 
-      await this.triggerInitialSync(providerConfig);
+      // Phase 32: Emit event instead of calling sync services directly
+      this.emitProviderConnected(providerConfig, userId);
 
       this.logger.log(`Generic provider connected for ${dto.email}`);
 
@@ -552,7 +534,11 @@ export class ProviderConfigService {
   }
 
   /**
-   * Delete a provider config
+   * Delete a provider config.
+   *
+   * Phase 32: External cleanup (queues, webhooks, contacts, embeddings, storage)
+   * is handled by @OnEvent(ProviderDisconnectedEvent) handlers in consuming modules.
+   * This method only handles: token revocation (local), DB deletion (Prisma), event emission.
    */
   async deleteProviderConfig(tenantId: string, configId: string) {
     const provider = await this.prisma.providerConfig.findFirst({
@@ -563,116 +549,22 @@ export class ProviderConfigService {
       throw new NotFoundException('Provider config not found');
     }
 
-    // SEC-02: Revoke OAuth tokens before deleting provider
+    // SEC-02: Revoke OAuth tokens before deleting provider (local to ProvidersModule)
     await this.revokeProviderTokens(provider);
 
-    await this.queueService.removeJobsForProvider(provider.id).catch((error) => {
-      this.logger.warn(
-        `Failed to remove queued jobs for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    });
-
-    await this.emailEmbeddingQueue.removeJobsForProvider(provider.id).catch((error) => {
-      this.logger.warn(
-        `Failed to remove embedding jobs for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    });
-
-    await this.webhookLifecycle.removeWebhookForProvider(provider.id).catch((error) => {
-      this.logger.warn(
-        `Failed to remove email webhook for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    });
-
-    // Cleanup calendar webhooks (Google/Microsoft)
-    if (provider.providerType === 'google') {
-      await this.googleCalendarWebhook.stopWatch(provider.id).catch((error) => {
-        this.logger.warn(
-          `Failed to stop Google Calendar watch for provider ${provider.id}: ${
-            error instanceof Error ? error.message : error
-          }`,
-        );
-      });
-    } else if (provider.providerType === 'microsoft') {
-      await this.microsoftCalendarWebhook.deleteSubscription(provider.id).catch((error) => {
-        this.logger.warn(
-          `Failed to delete Microsoft Calendar subscription for provider ${provider.id}: ${
-            error instanceof Error ? error.message : error
-          }`,
-        );
-      });
-    }
-
-    // Cleanup provider contacts before deleting emails
-    await this.contactsService.deleteProviderContacts(provider.id, tenantId).catch((error) => {
-      this.logger.warn(
-        `Failed to cleanup contacts for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    });
-
-    const providerEmails = await this.prisma.email.findMany({
-      where: { providerId: provider.id },
-      select: { id: true },
-    });
-
-    const emailsToPurge = providerEmails.map((email) => email.id);
-    if (emailsToPurge.length > 0) {
-      await this.knowledgeBaseService.deleteEmbeddingsForEmails(provider.tenantId, emailsToPurge);
-    }
-
-    // Get all attachment storage paths for this provider's emails BEFORE deleting
-    const attachmentsToClean = await this.prisma.emailAttachment.findMany({
-      where: { emailId: { in: emailsToPurge } },
-      select: { storagePath: true, contentHash: true },
-    });
-
-    // Find storage paths that are NOT used by other emails (respect deduplication)
-    // Use bulk query to find all contentHashes still in use by other providers
-    const uniqueHashes = [...new Set(attachmentsToClean.map((a) => a.contentHash).filter(Boolean))] as string[];
-
-    const hashesStillInUse = uniqueHashes.length > 0
-      ? await this.prisma.emailAttachment.findMany({
-          where: {
-            contentHash: { in: uniqueHashes },
-            email: {
-              providerId: { not: provider.id },
-            },
-          },
-          select: { contentHash: true },
-          distinct: ['contentHash'],
-        })
-      : [];
-
-    const hashesInUseSet = new Set(hashesStillInUse.map((a) => a.contentHash));
-
-    // Only delete storage paths whose contentHash is NOT used elsewhere
-    const storagePathsToDelete = attachmentsToClean
-      .filter((a) => a.storagePath && a.contentHash && !hashesInUseSet.has(a.contentHash))
-      .map((a) => a.storagePath!);
-
-    // Delete orphaned S3/MinIO objects
-    if (storagePathsToDelete.length > 0) {
-      try {
-        const result = await this.storageService.deleteObjects(storagePathsToDelete);
-        this.logger.log(
-          `Cleaned up ${result.deleted} attachment files from storage for provider ${provider.id}`,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Failed to clean up attachment files for provider ${provider.id}: ${
-            error instanceof Error ? error.message : error
-          }`,
-        );
-      }
-    }
+    // Phase 32: Emit disconnect event BEFORE DB deletion so consumers can cleanup
+    // Event handlers are fire-and-forget with try/catch -- non-blocking
+    this.eventEmitter.emit(
+      ProviderDisconnectedEvent.eventName,
+      new ProviderDisconnectedEvent(
+        provider.tenantId,
+        provider.id,
+        provider.providerType,
+        provider.supportsCalendar,
+        provider.supportsContacts,
+        new Date(),
+      ),
+    );
 
     // CRITICAL: All DB deletions must be atomic to prevent inconsistent state
     // If any operation fails, the entire deletion should be rolled back
@@ -906,183 +798,24 @@ export class ProviderConfigService {
   }
 
   /**
-   * Immediately queue a sync job and set up webhooks when supported.
-   * Order of operations: Folders → Contacts → Emails → Embeddings
+   * Emit ProviderConnectedEvent to trigger initial sync in consuming modules.
+   * Replaces the old triggerInitialSync() that directly called domain services.
    */
-  private async triggerInitialSync(provider: ProviderConfig) {
+  private emitProviderConnected(provider: ProviderConfig, userId: string): void {
     if (!provider?.id) {
       return;
     }
 
-    // STEP 1: Sync folders/labels first
-    this.logger.log(`[Initial Sync] Step 1/4: Syncing folders for provider ${provider.email}`);
-    try {
-      await this.folderSync.syncProviderFolders(provider.tenantId, provider.id);
-      this.logger.log(`✅ [Initial Sync] Folders synced successfully for ${provider.email}`);
-    } catch (error) {
-      this.logger.error(
-        `❌ [Initial Sync] Failed to sync folders for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-      // Continue even if folder sync fails
-    }
-
-    // STEP 2: Sync contacts (if supported) - run in background, don't block
-    if (provider.supportsContacts) {
-      this.logger.log(`[Initial Sync] Step 2/4: Queuing contacts sync for provider ${provider.email}`);
-      // Fire and forget - don't await, let it run in background
-      this.contactsService
-        .syncContacts(provider.id)
-        .then((contactsCount) => {
-          this.logger.log(`✅ [Initial Sync] ${contactsCount} contacts synced successfully for ${provider.email}`);
-        })
-        .catch((error) => {
-          this.logger.error(
-            `❌ [Initial Sync] Failed to sync contacts for provider ${provider.id}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          );
-        });
-    } else {
-      this.logger.log(`[Initial Sync] Step 2/4: Skipping contacts (not supported by provider)`);
-    }
-
-    // STEP 3: Sync emails
-    this.logger.log(`[Initial Sync] Step 3/4: Syncing emails for provider ${provider.email}`);
-    let queuedViaScheduler = false;
-    try {
-      await this.syncScheduler.syncProviderNow(provider.id, 'high');
-      queuedViaScheduler = true;
-      this.logger.log(`✅ [Initial Sync] Email sync queued successfully for ${provider.email}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to queue initial sync via scheduler for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    }
-
-    if (!queuedViaScheduler) {
-      await this.enqueueFallbackSyncJob(provider);
-    }
-
-    // STEP 4: Embeddings will be queued automatically as emails are processed
-    this.logger.log(`[Initial Sync] Step 4/4: Embeddings will be queued as emails are processed`);
-
-    // Setup webhooks for real-time updates (Google/Microsoft only)
-    if (!['google', 'microsoft'].includes(provider.providerType)) {
-      return;
-    }
-
-    try {
-      await this.webhookLifecycle.autoCreateWebhook(provider.id);
-    } catch (error) {
-      this.logger.warn(
-        `Failed to auto-create webhook for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    }
-
-    try {
-      await this.bootstrapCalendarIntegrations(provider);
-    } catch (error) {
-      this.logger.warn(
-        `Failed to bootstrap calendar integrations for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    }
-  }
-
-  private async bootstrapCalendarIntegrations(provider: ProviderConfig): Promise<void> {
-    if (!provider.supportsCalendar) {
-      return;
-    }
-
-    if (provider.providerType === 'google') {
-      this.googleCalendarSync
-        .syncCalendar(provider.id)
-        .then(() => this.logger.log(`Completed initial Google Calendar sync for ${provider.email}`))
-        .catch((error) =>
-          this.logger.error(
-            `Failed initial Google Calendar sync for ${provider.id}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          ),
-        );
-
-      try {
-        await this.googleCalendarWebhook.setupWatch(provider.id);
-      } catch (error) {
-        this.logger.error(
-          `Failed to setup Google Calendar webhook for ${provider.id}: ${
-            error instanceof Error ? error.message : error
-          }`,
-        );
-      }
-      return;
-    }
-
-    if (provider.providerType === 'microsoft') {
-      this.microsoftCalendarSync
-        .syncCalendar(provider.id)
-        .then(() =>
-          this.logger.log(`Completed initial Microsoft Calendar sync for ${provider.email}`),
-        )
-        .catch((error) =>
-          this.logger.error(
-            `Failed initial Microsoft Calendar sync for ${provider.id}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          ),
-        );
-
-      try {
-        await this.microsoftCalendarWebhook.setupSubscription(provider.id);
-      } catch (error) {
-        this.logger.error(
-          `Failed to setup Microsoft Calendar webhook for ${provider.id}: ${
-            error instanceof Error ? error.message : error
-          }`,
-        );
-      }
-    }
-  }
-
-  private async enqueueFallbackSyncJob(
-    provider: {
-      id: string;
-      tenantId: string;
-      providerType: string;
-      email: string;
-      lastSyncedAt?: Date | null;
-    } | null,
-  ): Promise<void> {
-    if (!provider) {
-      return;
-    }
-
-    const job: SyncJobData = {
-      tenantId: provider.tenantId,
-      providerId: provider.id,
-      providerType: provider.providerType as SyncJobData['providerType'],
-      email: provider.email,
-      priority: 'high',
-      syncType: 'full',
-      lastSyncedAt: provider.lastSyncedAt ?? undefined,
-    };
-
-    try {
-      await this.queueService.addSyncJob(job);
-      this.logger.log(`Queued fallback sync job for provider ${provider.email}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to enqueue fallback sync for provider ${provider.id}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      );
-    }
+    this.logger.log(`Emitting ProviderConnectedEvent for provider ${provider.email}`);
+    this.eventEmitter.emit(
+      ProviderConnectedEvent.eventName,
+      new ProviderConnectedEvent(
+        provider.tenantId,
+        userId,
+        provider.id,
+        provider.providerType,
+        new Date(),
+      ),
+    );
   }
 }

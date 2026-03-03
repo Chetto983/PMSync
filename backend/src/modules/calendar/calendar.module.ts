@@ -16,6 +16,7 @@ import { CalendarConflictService } from './services/calendar-conflict.service';
 import { FocusTimeService } from './services/focus-time.service';
 import { MeetingPrepService } from './services/meeting-prep.service';
 import { CalendarProviderFactory } from './calendar-provider.factory';
+import { CalendarProviderEventHandlerService } from './services/provider-event-handler.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
@@ -36,7 +37,7 @@ import { CalendarTool } from './tools/calendar.tool';
 @Module({
   imports: [
     PrismaModule,
-    forwardRef(() => ProvidersModule),
+    ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports CalendarModule)
     RealtimeModule, // WebSocket events
     forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
     // ToolRegistryModule is @Global() -- no import needed
@@ -64,6 +65,8 @@ import { CalendarTool } from './tools/calendar.tool';
     AlertingService, // Required by CalendarSyncWorker (DLQ is global from CacheModule)
     // Phase 32: IAiTool wrapper for ToolRegistry self-registration
     CalendarTool,
+    // Phase 32: Event handler for ProviderConnected/ProviderDisconnected
+    CalendarProviderEventHandlerService,
   ],
   exports: [
     CalendarService,

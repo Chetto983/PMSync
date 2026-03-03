@@ -43,6 +43,7 @@ import {
   IToolRegistryService,
 } from '../../common/interfaces/tool-registry.interface';
 import { RagTool } from './tools/rag.tool';
+import { AiProviderEventHandlerService } from './services/provider-event-handler.service';
 
 /**
  * AiModule - AI/ML services, embeddings, triage, and RAG.
@@ -89,6 +90,8 @@ import { RagTool } from './tools/rag.tool';
     DraftGenerationService,
     // Phase 32: IAiTool wrapper for ToolRegistry self-registration
     RagTool,
+    // Phase 32: Event handler for ProviderDisconnected (embedding cleanup)
+    AiProviderEventHandlerService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [

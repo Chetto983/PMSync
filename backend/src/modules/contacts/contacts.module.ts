@@ -23,6 +23,7 @@ import {
   IToolRegistryService,
 } from '../../common/interfaces/tool-registry.interface';
 import { ContactsTool } from './tools/contacts.tool';
+import { ContactsProviderEventHandlerService } from './services/provider-event-handler.service';
 // DeadLetterQueueService is available globally from CacheModule
 
 /**
@@ -33,7 +34,7 @@ import { ContactsTool } from './tools/contacts.tool';
 @Module({
   imports: [
     PrismaModule,
-    forwardRef(() => ProvidersModule),
+    ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports ContactsModule)
     RealtimeModule, // WebSocket events
     forwardRef(() => EmailSyncModule), // Import for SyncAuthService (webhook authentication)
     // VoltAgentModule deleted. CRM Relationship Intelligence rebuilt as RelationshipScoreService (Phase 26).
@@ -59,6 +60,8 @@ import { ContactsTool } from './tools/contacts.tool';
     AlertingService, // Required by ContactsSyncWorker for critical failure alerts
     // Phase 32: IAiTool wrapper for ToolRegistry self-registration
     ContactsTool,
+    // Phase 32: Event handler for ProviderConnected/ProviderDisconnected
+    ContactsProviderEventHandlerService,
   ],
   exports: [
     ContactsService,

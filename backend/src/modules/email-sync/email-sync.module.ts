@@ -27,6 +27,7 @@ import { ImapSyncService } from './services/imap/imap-sync.service';
 import { FolderSyncService } from './services/folder-sync.service';
 import { FolderSyncQueryService } from './services/folder-sync-query.service';
 import { EmailEmbeddingCleanupService } from './services/email-embedding-cleanup.service';
+import { ProviderEventHandlerService } from './services/provider-event-handler.service';
 
 // Gmail-specific services (pluggable adapters)
 import { GmailAttachmentHandler } from './services/gmail/gmail-attachment-handler';
@@ -72,7 +73,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     ConfigModule,
     ScheduleModule.forRoot(),
     PrismaModule,
-    forwardRef(() => ProvidersModule), // For OAuth services and crypto
+    ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailSyncModule)
     forwardRef(() => EmailModule), // For AttachmentStorageService
     forwardRef(() => AiModule),
     RealtimeModule, // WebSocket events
@@ -107,6 +108,9 @@ import { FoldersController } from '../email/controllers/folders.controller';
     FolderSyncQueryService, // Must be before FolderSyncService for DI ordering
     FolderSyncService,
     EmailEmbeddingCleanupService,
+
+    // Phase 32: Event handler for ProviderConnected/ProviderDisconnected
+    ProviderEventHandlerService,
 
     // Gmail-specific services (pluggable adapters)
     GmailAttachmentHandler,

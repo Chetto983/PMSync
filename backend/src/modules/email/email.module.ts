@@ -36,6 +36,7 @@ import {
 } from '../../common/interfaces/tool-registry.interface';
 import { STORAGE_SERVICE } from '../../common/interfaces/storage.interface';
 import { EmailSearchTool } from './tools/email-search.tool';
+import { EmailProviderEventHandlerService } from './services/provider-event-handler.service';
 
 /**
  * EmailModule - Core email functionality with observability
@@ -54,7 +55,7 @@ import { EmailSearchTool } from './tools/email-search.tool';
 @Module({
   imports: [
     PrismaModule,
-    forwardRef(() => ProvidersModule),
+    ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailModule)
     forwardRef(() => AiModule),
     forwardRef(() => EmailSyncModule),
     forwardRef(() => CalendarModule),
@@ -93,6 +94,8 @@ import { EmailSearchTool } from './tools/email-search.tool';
     EmailTemplateService,
     // Phase 32: IAiTool wrapper for ToolRegistry self-registration
     EmailSearchTool,
+    // Phase 32: Event handler for ProviderDisconnected (S3 attachment cleanup)
+    EmailProviderEventHandlerService,
     // Phase 32: STORAGE_SERVICE alias for cross-module access (Plan 03 AiModule decoupling)
     // Uses StorageService (S3 wrapper) -- Plan 03 will adapt as needed
     { provide: STORAGE_SERVICE, useExisting: StorageService },
