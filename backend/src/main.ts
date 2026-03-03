@@ -113,6 +113,8 @@ async function bootstrap() {
     exclude: [
       { path: 'health', method: RequestMethod.ALL },
       { path: 'webhooks/(.*)', method: RequestMethod.ALL },
+      { path: 'auth/gmail/callback', method: RequestMethod.GET },
+      { path: 'auth/microsoft/callback', method: RequestMethod.GET },
     ],
   });
 
