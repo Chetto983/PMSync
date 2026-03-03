@@ -87,7 +87,7 @@ interface ThreadListItemProps {
   onMouseLeave: () => void;
 }
 
-export const ThreadListItem = memo(function ThreadListItem({
+export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem({
   thread, isSelected, isHovered, isFocused = false,
   onSelect, onClick, onFlag, onArchive, onDelete, onMove,
   onMouseEnter, onMouseLeave,
@@ -392,6 +392,23 @@ export const ThreadListItem = memo(function ThreadListItem({
       </Fade>
     </Box>
   );
-});
+}, (prev, next) => (
+  prev.thread.id === next.thread.id &&
+  prev.thread.from === next.thread.from &&
+  prev.thread.subject === next.thread.subject &&
+  prev.thread.snippet === next.thread.snippet &&
+  prev.thread.date === next.thread.date &&
+  prev.thread.isUnread === next.thread.isUnread &&
+  prev.thread.isFlagged === next.thread.isFlagged &&
+  prev.thread.hasAttachments === next.thread.hasAttachments &&
+  prev.thread.threadCount === next.thread.threadCount &&
+  prev.thread.aiPriority === next.thread.aiPriority &&
+  prev.thread.aiSentiment === next.thread.aiSentiment &&
+  prev.isSelected === next.isSelected &&
+  prev.isHovered === next.isHovered &&
+  prev.isFocused === next.isFocused
+));
+
+ThreadListItem.displayName = 'ThreadListItem';
 
 export default ThreadListItem;

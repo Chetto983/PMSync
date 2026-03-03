@@ -11,6 +11,7 @@
  * - Smooth opacity transition
  */
 
+import React, { memo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Box } from '@mui/material';
@@ -36,7 +37,7 @@ interface DraggableThreadListItemProps {
 /**
  * Makes ThreadListItem draggable with provider validation metadata
  */
-export function DraggableThreadListItem({
+export const DraggableThreadListItem = memo<DraggableThreadListItemProps>(function DraggableThreadListItem({
   thread,
   isSelected,
   isHovered,
@@ -93,6 +94,21 @@ export function DraggableThreadListItem({
       />
     </Box>
   );
-}
+}, (prev, next) => (
+  prev.thread.id === next.thread.id &&
+  prev.thread.from === next.thread.from &&
+  prev.thread.subject === next.thread.subject &&
+  prev.thread.date === next.thread.date &&
+  prev.thread.isUnread === next.thread.isUnread &&
+  prev.thread.isFlagged === next.thread.isFlagged &&
+  prev.thread.hasAttachments === next.thread.hasAttachments &&
+  prev.thread.threadCount === next.thread.threadCount &&
+  prev.thread.providerId === next.thread.providerId &&
+  prev.isSelected === next.isSelected &&
+  prev.isHovered === next.isHovered &&
+  prev.isFocused === next.isFocused
+));
+
+DraggableThreadListItem.displayName = 'DraggableThreadListItem';
 
 export default DraggableThreadListItem;

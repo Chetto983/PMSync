@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
-import { EmailLayout } from '@/components/email';
 import { ThreadView } from '@/components/email/thread';
 import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
 import { LabelPickerDialog } from '@/components/email/labels/LabelPickerDialog';
@@ -260,23 +259,22 @@ export default function ThreadDetailPage() {
   if (isLoading || !router.isReady) {
     return (
       <Layout>
-        <EmailLayout>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 400,
-              gap: 2,
-            }}
-          >
-            <CircularProgress size={40} />
-            <Typography variant="body2" color="text.secondary">
-              {t.threadView?.loading || 'Loading thread...'}
-            </Typography>
-          </Box>
-        </EmailLayout>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            minHeight: 400,
+            gap: 2,
+          }}
+        >
+          <CircularProgress size={40} />
+          <Typography variant="body2" color="text.secondary">
+            {t.threadView?.loading || 'Loading thread...'}
+          </Typography>
+        </Box>
       </Layout>
     );
   }
@@ -285,28 +283,27 @@ export default function ThreadDetailPage() {
   if (error) {
     return (
       <Layout>
-        <EmailLayout>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 400,
-              gap: 2,
-            }}
-          >
-            <Typography color="error">{t.common.genericError}</Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button variant="outlined" startIcon={<ArrowLeft />} onClick={handleBack}>
-                {t.email?.view?.back || 'Back'}
-              </Button>
-              <Button variant="contained" onClick={() => refetch()}>
-                {t.common.retry || 'Retry'}
-              </Button>
-            </Box>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            minHeight: 400,
+            gap: 2,
+          }}
+        >
+          <Typography color="error">{t.common.genericError}</Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button variant="outlined" startIcon={<ArrowLeft />} onClick={handleBack}>
+              {t.email?.view?.back || 'Back'}
+            </Button>
+            <Button variant="contained" onClick={() => refetch()}>
+              {t.common.retry || 'Retry'}
+            </Button>
           </Box>
-        </EmailLayout>
+        </Box>
       </Layout>
     );
   }
@@ -315,23 +312,22 @@ export default function ThreadDetailPage() {
   if (!messages.length) {
     return (
       <Layout>
-        <EmailLayout>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 400,
-              gap: 2,
-            }}
-          >
-            <Typography color="text.secondary">No messages in this thread</Typography>
-            <Button variant="outlined" startIcon={<ArrowLeft />} onClick={handleBack}>
-              {t.email?.view?.back || 'Back'}
-            </Button>
-          </Box>
-        </EmailLayout>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            minHeight: 400,
+            gap: 2,
+          }}
+        >
+          <Typography color="text.secondary">No messages in this thread</Typography>
+          <Button variant="outlined" startIcon={<ArrowLeft />} onClick={handleBack}>
+            {t.email?.view?.back || 'Back'}
+          </Button>
+        </Box>
       </Layout>
     );
   }
@@ -339,7 +335,7 @@ export default function ThreadDetailPage() {
   return (
     <PageErrorBoundary pageName="Thread">
       <Layout>
-        <EmailLayout>
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', minHeight: 0, overflow: 'hidden' }}>
           <ThreadView
             threadId={threadId}
             subject={subject}
@@ -378,7 +374,7 @@ export default function ThreadDetailPage() {
             emailIds={emailIds}
           />
 
-        </EmailLayout>
+        </Box>
       </Layout>
     </PageErrorBoundary>
   );

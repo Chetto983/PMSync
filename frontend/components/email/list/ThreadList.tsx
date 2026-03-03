@@ -17,7 +17,7 @@
  * - <50KB bundle size
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 // DragOverlay is centralized in EmailLayout
@@ -122,7 +122,7 @@ export function ThreadList({
     count: threads.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56, // Compact 2-line layout (~52-72px actual)
-    overscan: 5, // Render 5 extra items above/below viewport
+    overscan: 10, // Production standard: 10 items above/below viewport
   });
 
   // Selection helpers
@@ -344,8 +344,10 @@ export function ThreadList({
         ref={parentRef}
         sx={{
           flex: 1,
+          minHeight: 0, // CRITICAL: Allow flex shrinking for virtualizer
           overflow: 'auto',
-          position: 'relative',
+          contain: 'layout',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {/* Virtual list with proper sizing */}
@@ -446,4 +448,4 @@ export function ThreadList({
   );
 }
 
-export default ThreadList;
+export default React.memo(ThreadList);

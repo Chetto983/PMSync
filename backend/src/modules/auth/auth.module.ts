@@ -16,6 +16,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../email/services/email.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
+import { ComplianceModule } from '../compliance/compliance.module';
 
 /**
  * AuthModule - Secure authentication with fail-fast configuration
@@ -43,6 +44,7 @@ import { UsersModule } from '../users/users.module';
     PrismaModule,
     UsersModule,
     ConfigModule,
+    ComplianceModule, // LegalAcceptanceService for registration-time legal acceptance
     PassportModule.register({ defaultStrategy: 'jwt' }),
     // JWT configuration with fail-fast validation
     JwtModule.registerAsync({

@@ -12,7 +12,7 @@
  * @see https://tanstack.com/query/v5/docs/framework/react/guides/queries
  */
 
-import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, queryOptions, keepPreviousData } from '@tanstack/react-query';
 import {
   emailsApi,
   type ListEmailsParams,
@@ -40,8 +40,9 @@ export function emailsListOptions(params?: ListEmailsParams) {
     queryFn: async () => {
       return await emailsApi.listEmails(params);
     },
-    staleTime: 1 * 60 * 1000, // 1 minute - emails change frequently
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes - keep list fresh without constant refetching
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache longer for back-navigation
+    placeholderData: keepPreviousData, // Show old list while new data loads (no skeleton flash)
   });
 }
 
@@ -84,8 +85,9 @@ export function emailConversationsOptions(params?: ListEmailsParams) {
     queryFn: async () => {
       return await emailsApi.getConversations(params);
     },
-    staleTime: 1 * 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -112,9 +114,10 @@ export function emailSearchOptions(query: string) {
     queryFn: async () => {
       return await emailsApi.searchEmails(query);
     },
-    staleTime: 1 * 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     enabled: query.length >= 2,
+    placeholderData: keepPreviousData,
   });
 }
 

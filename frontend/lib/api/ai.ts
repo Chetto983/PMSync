@@ -713,6 +713,7 @@ export const voltAgentApi = {
 
   // ============ Stats & Learning ============
 
+  // DEPRECATED: endpoint /api/v1/ai/stats/action-counts does not exist on backend. Disabled in use-ai-actions.ts.
   getActionCounts() {
     return apiClient.get<{ success: boolean; counts: ActionCounts }>(
       '/api/v1/ai/stats/action-counts',

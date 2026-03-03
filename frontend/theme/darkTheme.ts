@@ -505,10 +505,14 @@ export const createPmSyncDarkTheme = (): ThemeOptions => ({
     MuiSwitch: {
       styleOverrides: {
         root: { padding: 8 },
-        track: { borderRadius: borderRadius.full, backgroundColor: darkColors.background.subtle, opacity: 1 },
-        thumb: { boxShadow: shadows.dark.sm },
+        track: { borderRadius: borderRadius.full, backgroundColor: darkColors.border.strong, opacity: 1 },
+        thumb: { backgroundColor: '#ffffff', boxShadow: shadows.dark.sm },
         switchBase: {
-          '&.Mui-checked': { '& + .MuiSwitch-track': { backgroundColor: darkColors.primary.main, opacity: 1 } },
+          color: '#ffffff',
+          '&.Mui-checked': {
+            color: '#ffffff',
+            '& + .MuiSwitch-track': { backgroundColor: darkColors.primary.main, opacity: 1 },
+          },
         },
       },
     },

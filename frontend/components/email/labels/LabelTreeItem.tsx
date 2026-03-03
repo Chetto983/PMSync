@@ -11,6 +11,7 @@ import React, { forwardRef, useState } from 'react';
 import {
   ListItemButton,
   ListItemText,
+  Tooltip,
   Typography,
   IconButton,
   Box,
@@ -157,16 +158,18 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
           )}
 
           {/* Label name */}
-          <ListItemText
-            primary={label.name}
-            slotProps={{
-              primary: {
-                variant: 'body2',
-                noWrap: true,
-                fontSize: '0.8125rem',
-              },
-            }}
-          />
+          <Tooltip title={label.name} enterDelay={600} disableInteractive>
+            <ListItemText
+              primary={label.name}
+              slotProps={{
+                primary: {
+                  variant: 'body2',
+                  noWrap: true,
+                  fontSize: '0.8125rem',
+                },
+              }}
+            />
+          </Tooltip>
 
           {/* Aggregate email count */}
           {aggregateCount > 0 && (

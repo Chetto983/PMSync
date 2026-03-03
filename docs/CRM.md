@@ -243,7 +243,7 @@ Define measurable metrics:
 DELIVERABLE
 ---------------------------------------------------------------------
 
-Generate a single Enterprise Platform PRD.
+Generate a single Enterprise Platform PRD in docs folder
 
 FORMAT:
 Professional Markdown.

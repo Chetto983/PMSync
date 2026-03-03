@@ -47,8 +47,8 @@ export function UpgradeDialog({
         },
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+      <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+        <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
           {t.billing?.actions?.upgrade || 'Upgrade Plan'}
         </Typography>
         <IconButton

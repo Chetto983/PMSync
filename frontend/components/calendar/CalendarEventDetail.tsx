@@ -11,7 +11,8 @@
  * @see https://fullcalendar.io/docs
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import {
   Dialog,
   DialogTitle,
@@ -29,6 +30,7 @@ import {
   CircularProgress,
   alpha,
   useTheme,
+  type Theme,
 } from '@mui/material';
 import {
   Edit2,
@@ -123,6 +125,39 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const HTML_TAG_RE = /<\/?[a-z][\s\S]*?>/i;
+
+function DescriptionContent({ description, theme }: { description: string; theme: Theme }) {
+  const isHtml = HTML_TAG_RE.test(description);
+  const sanitized = useMemo(
+    () => (isHtml ? DOMPurify.sanitize(description, { ADD_ATTR: ['target'] }) : ''),
+    [description, isHtml],
+  );
+
+  return (
+    <Box
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        bgcolor: alpha(theme.palette.background.default, 0.5),
+        border: '1px solid',
+        borderColor: alpha(theme.palette.divider, 0.08),
+      }}
+    >
+      {isHtml ? (
+        <Box
+          sx={{ '& a': { color: 'primary.main' }, '& img': { maxWidth: '100%' }, fontSize: '0.875rem', lineHeight: 1.6 }}
+          dangerouslySetInnerHTML={{ __html: sanitized }}
+        />
+      ) : (
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+          {description}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -189,6 +224,7 @@ export function CalendarEventDetail({
       }}
     >
       <DialogTitle
+        component="div"
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -198,7 +234,7 @@ export function CalendarEventDetail({
           borderColor: alpha(theme.palette.divider, 0.08),
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+        <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
           {isEditMode ? calendarCopy.editEvent : calendarCopy.eventDetails}
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -326,19 +362,7 @@ export function CalendarEventDetail({
               )}
 
               {selectedEvent.description && (
-                <Box
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: alpha(theme.palette.background.default, 0.5),
-                    border: '1px solid',
-                    borderColor: alpha(theme.palette.divider, 0.08),
-                  }}
-                >
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                    {selectedEvent.description}
-                  </Typography>
-                </Box>
+                <DescriptionContent description={selectedEvent.description} theme={theme} />
               )}
 
               {selectedEvent.calendarName && (

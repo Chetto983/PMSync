@@ -7,6 +7,7 @@ import { AiController } from './controllers/ai.controller';
 import { AiHealthController } from './controllers/ai-health.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { ComplianceModule } from '../compliance/compliance.module';
 import { EmbeddingsService } from './services/embeddings.service';
 import { KnowledgeBaseService } from './services/knowledge-base.service';
 import { KnowledgeBaseController } from './controllers/knowledge-base.controller';
@@ -47,6 +48,7 @@ import { DraftGenerationService } from './services/draft-generation.service';
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
     // Phase 23: VoltAgentModule removed (deleted). Chat pipeline rebuilt in Phase 24.
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
+    ComplianceModule, // Phase 28: ConsentGuard + ConsentEnforcementService for @RequiresConsent
   ],
   providers: [
     // Core AI services (not in VoltAgent)

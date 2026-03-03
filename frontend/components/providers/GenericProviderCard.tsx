@@ -292,8 +292,8 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
         PaperProps={{ sx: { maxHeight: '90vh' } }}
       >
         <form onSubmit={handleSubmit}>
-          <DialogTitle>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          <DialogTitle component="div">
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
               {genericCopy.dialogTitle}
             </Typography>
             <Typography variant="body2" color="text.secondary">

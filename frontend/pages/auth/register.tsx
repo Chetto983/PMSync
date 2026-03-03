@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { Eye, EyeOff } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
-import { complianceApi } from '@/lib/api/compliance';
+// Legal acceptance moved server-side (AuthService.register)
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 const REGISTER_FORM_STORAGE_KEY = 'pmsync-register-form';
@@ -133,19 +133,8 @@ export default function RegisterPage() {
       });
 
       if (response.data.success) {
-        // Record legal acceptance server-side (GDPR compliance)
-        // Must match CURRENT_TOS_VERSION / CURRENT_PP_VERSION in backend legal.constants.ts
-        try {
-          await Promise.all([
-            complianceApi.acceptLegalDocument({ documentType: 'TOS', documentVersion: '1.0' }),
-            complianceApi.acceptLegalDocument({ documentType: 'PRIVACY_POLICY', documentVersion: '1.0' }),
-          ]);
-        } catch {
-          // If legal acceptance fails, don't block registration.
-          // The LegalAcceptanceGuard will catch it on next API call.
-          console.warn('Failed to record legal acceptance during registration');
-        }
-
+        // Legal acceptance (ToS + Privacy Policy) is now handled server-side during registration.
+        // See AuthService.register() — no need for a separate frontend call.
         sessionStorage.removeItem(REGISTER_FORM_STORAGE_KEY);
         router.push({
           pathname: '/auth/login',

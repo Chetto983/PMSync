@@ -65,7 +65,8 @@ export class AiChatController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
-  @RequiresConsent('ai_chat')
+  // TODO: Re-enable when consent onboarding UI exists. ai_chat is declared in CONSENT_FEATURES.
+  // @RequiresConsent('ai_chat')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'AI chat (streaming)',

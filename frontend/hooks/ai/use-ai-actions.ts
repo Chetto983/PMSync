@@ -111,7 +111,8 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     staleTime,
   });
 
-  // Action Counts Query
+  // DISABLED: /api/v1/ai/stats/action-counts endpoint does not exist on backend.
+  // Was served by old voltagent proxy deleted in Phase 28. TODO: Create backend endpoint or remove entirely.
   const countsQuery = useQuery({
     queryKey: aiActionsKeys.counts(),
     queryFn: async () => {
@@ -119,7 +120,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
       if (!response.data.success) throw new Error('Failed to get action counts');
       return response.data.counts;
     },
-    enabled: autoFetch,
+    enabled: false,
     staleTime,
   });
 

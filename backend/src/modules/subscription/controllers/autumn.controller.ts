@@ -106,10 +106,14 @@ export class AutumnController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: AttachProductDto,
   ): Promise<AttachResponseDto> {
-    return this.autumnService.attach(req.user.tenantId, dto.productId, {
-      name: dto.name || getUserName(req.user),
-      email: dto.email || req.user.email,
-    });
+    try {
+      return await this.autumnService.attach(req.user.tenantId, dto.productId, {
+        name: dto.name || getUserName(req.user),
+        email: dto.email || req.user.email,
+      });
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
   }
 
   // ==========================================================================

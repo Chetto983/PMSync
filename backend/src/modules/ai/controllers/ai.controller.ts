@@ -31,6 +31,7 @@ import { EmailInsightsService } from '../services/email-insights.service';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
 import { EmailTriageService } from '../services/email-triage.service';
 import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
+import { ConsentGuard } from '../../compliance/guards/consent.guard';
 import { TriageBackfillSchedulerService } from '../services/triage-backfill-scheduler.service';
 // Phase 26: Non-chat AI services
 import { BriefingService } from '../services/briefing.service';
@@ -64,7 +65,7 @@ import {
 @ApiTags('AI')
 @ApiBearerAuth()
 @Controller(['ai', 'api/v1/ai'])
-@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard, ConsentGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiController {
   private readonly logger = new Logger(AiController.name);
@@ -341,6 +342,7 @@ export class AiController {
 
   /** Trigger auto-triage for untriaged emails */
   @Post('triage')
+  @RequiresConsent('ai_auto_triage')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
   @ApiOperation({
@@ -422,6 +424,7 @@ export class AiController {
 
   /** Manually trigger triage backfill */
   @Post('triage/backfill')
+  @RequiresConsent('ai_auto_triage')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Trigger triage backfill',
@@ -622,6 +625,7 @@ export class AiController {
   }
 
   @Get('analytics/email')
+  @RequiresConsent('email_analytics')
   @ApiOperation({ summary: 'Get email analytics', description: 'Returns email volume trends for dashboard' })
   @ApiResponse({ status: 200, description: 'Email analytics returned' })
   async getEmailAnalytics(
@@ -804,6 +808,85 @@ export class AiController {
   ) {
     const result = await this.draftGenerationService.generateDraft(req.user.tenantId, dto);
     return { success: true, draft: result.data, ...(result.error ? { error: result.error } : {}) };
+  }
+
+  // ==========================================
+  // Writing Style Profile
+  // ==========================================
+
+  @Get('stats/writing-style')
+  @RequiresConsent('ai_email_processing')
+  @ApiOperation({ summary: 'Get writing style profile', description: 'Returns the user writing style profile' })
+  @ApiResponse({ status: 200, description: 'Writing style profile' })
+  async getWritingStyle(@Request() req: AuthenticatedRequest) {
+    const profile = await this.prisma.writingStyleProfile.findFirst({
+      where: { tenantId: req.user.tenantId, userId: req.user.userId },
+    });
+    return { success: true, profile: profile ?? null };
+  }
+
+  @Get('draft-stats')
+  @RequiresConsent('ai_email_processing')
+  @ApiOperation({ summary: 'Get AI draft quality statistics' })
+  @ApiResponse({ status: 200, description: 'Draft stats' })
+  async getDraftStats(@Request() req: AuthenticatedRequest) {
+    const feedbacks = await this.prisma.aiDraftFeedback.findMany({
+      where: { tenantId: req.user.tenantId, userId: req.user.userId },
+      select: { action: true, editDistance: true },
+    });
+    const total = feedbacks.length;
+    if (total === 0) {
+      return { success: true, stats: { totalDrafts: 0, acceptRate: 0, editRate: 0, rejectRate: 0, avgEditDistance: 0 } };
+    }
+    const accepted = feedbacks.filter(f => f.action === 'accepted').length;
+    const edited = feedbacks.filter(f => f.action === 'edited').length;
+    const rejected = feedbacks.filter(f => f.action === 'rejected').length;
+    const editDistances = feedbacks.filter(f => f.editDistance != null).map(f => f.editDistance!);
+    const avgEditDistance = editDistances.length > 0 ? editDistances.reduce((a, b) => a + b, 0) / editDistances.length : 0;
+    return {
+      success: true,
+      stats: {
+        totalDrafts: total,
+        acceptRate: accepted / total,
+        editRate: edited / total,
+        rejectRate: rejected / total,
+        avgEditDistance,
+      },
+    };
+  }
+
+  @Post('writing-style/manual-samples')
+  @HttpCode(HttpStatus.OK)
+  @RequiresConsent('ai_email_processing')
+  @ApiOperation({ summary: 'Update manual writing samples' })
+  @ApiResponse({ status: 200, description: 'Samples saved' })
+  async updateManualSamples(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: { samples: string; providerId?: string },
+  ) {
+    const existing = await this.prisma.writingStyleProfile.findFirst({
+      where: {
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        providerId: body.providerId ?? null,
+      },
+    });
+    if (existing) {
+      await this.prisma.writingStyleProfile.update({
+        where: { id: existing.id },
+        data: { manualSamples: body.samples },
+      });
+    } else {
+      await this.prisma.writingStyleProfile.create({
+        data: {
+          tenantId: req.user.tenantId,
+          userId: req.user.userId,
+          providerId: body.providerId ?? null,
+          manualSamples: body.samples,
+        },
+      });
+    }
+    return { success: true };
   }
 
   private mapActionSeverity(actionType: string): 'LOW' | 'MEDIUM' | 'HIGH' {

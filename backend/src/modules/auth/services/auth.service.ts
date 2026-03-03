@@ -18,6 +18,7 @@ import { TrustedDeviceService } from './trusted-device.service';
 import { WebAuthnService } from './webauthn.service';
 import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { LegalAcceptanceService } from '../../compliance/services/legal-acceptance.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
 
@@ -56,6 +57,7 @@ export class AuthService {
     private webauthnService: WebAuthnService,
     private rateLimiter: RedisRateLimiterService,
     private cacheService: CacheService,
+    private legalAcceptanceService: LegalAcceptanceService,
   ) {
     // Get password reset secret (must be different from JWT secret)
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
@@ -215,6 +217,22 @@ export class AuthService {
         role: isNewTenant ? 'admin' : 'user', // First user is admin
       },
     });
+
+    // Record legal acceptance server-side (user checked ToS + Privacy boxes on register form)
+    try {
+      await Promise.all([
+        this.legalAcceptanceService.accept(user.id, tenant.id, 'TOS', '1.0'),
+        this.legalAcceptanceService.accept(user.id, tenant.id, 'PRIVACY_POLICY', '1.0'),
+      ]);
+    } catch (error) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'register_legal_acceptance_failed',
+          userId: user.id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
 
     // Send OTP for email verification using secure OTP service
     try {

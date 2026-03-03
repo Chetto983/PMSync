@@ -180,6 +180,9 @@ export function useAttachProduct() {
       options?: { name?: string; email?: string };
     }) => billingApi.attachProduct(productId, options),
     onSuccess: (data) => {
+      if (!data.success) {
+        throw new Error(data.error || 'Checkout failed');
+      }
       // If checkout URL returned, redirect
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;

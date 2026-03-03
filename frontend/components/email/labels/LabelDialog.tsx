@@ -270,9 +270,11 @@ export function LabelDialog({
               borderRadius: 1,
               fontSize: '0.75rem',
               fontWeight: 500,
+              maxWidth: '100%',
+              wordBreak: 'break-word',
             }}
           >
-            <Tag size={12} />
+            <Tag size={12} style={{ flexShrink: 0 }} />
             {name.trim() || t.email?.labels?.namePlaceholder || 'Label name'}
           </Box>
         </Box>

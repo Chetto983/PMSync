@@ -190,28 +190,17 @@ export class UsersService {
    * Accepts all fields from UpdatePreferencesDto including AI settings
    */
   async updateUserPreferences(tenantId: string, userId: string, data: UpdatePreferencesDto) {
-    // Check if preferences exist
-    const existing = await this.prisma.userPreferences.findUnique({
+    // Use upsert to avoid race conditions (multiple concurrent PATCH requests
+    // from different hook instances can both see no record and try to create)
+    const result = await this.prisma.userPreferences.upsert({
       where: { userId },
+      update: data,
+      create: {
+        tenantId,
+        userId,
+        ...data,
+      },
     });
-
-    let result;
-    if (existing) {
-      // Update existing preferences
-      result = await this.prisma.userPreferences.update({
-        where: { userId },
-        data,
-      });
-    } else {
-      // Create new preferences with provided data
-      result = await this.prisma.userPreferences.create({
-        data: {
-          tenantId,
-          userId,
-          ...data,
-        },
-      });
-    }
 
     // Invalidate cached user context so AI agent picks up new preferences immediately
     if (this.cacheService) {

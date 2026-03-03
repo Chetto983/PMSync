@@ -142,6 +142,9 @@ test.describe('AI Chat E2E', () => {
   });
 
   test('sends message and receives streaming response', async ({ authedPage: page }) => {
+    const vp = page.viewportSize();
+    test.skip(!vp || vp.width < 768, 'Desktop-only test: .chat-desktop-thread hidden on mobile');
+
     // Mock chat endpoint with text-only SSE response
     await page.route('**/localhost:3000/api/v1/ai/chat', async (route) => {
       if (route.request().method() !== 'POST') {
@@ -166,6 +169,9 @@ test.describe('AI Chat E2E', () => {
   });
 
   test('displays tool result card for search_emails', async ({ authedPage: page }) => {
+    const vp = page.viewportSize();
+    test.skip(!vp || vp.width < 768, 'Desktop-only test: .chat-desktop-thread hidden on mobile');
+
     // Mock chat endpoint with tool call + tool result + text
     await page.route('**/localhost:3000/api/v1/ai/chat', async (route) => {
       if (route.request().method() !== 'POST') {
@@ -217,6 +223,9 @@ test.describe('AI Chat E2E', () => {
   });
 
   test('shows HITL approval card for destructive action', async ({ authedPage: page }) => {
+    const vp = page.viewportSize();
+    test.skip(!vp || vp.width < 768, 'Desktop-only test: .chat-desktop-thread hidden on mobile');
+
     // Mock chat endpoint with text response
     await page.route('**/localhost:3000/api/v1/ai/chat', async (route) => {
       if (route.request().method() !== 'POST') {

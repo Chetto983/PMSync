@@ -62,6 +62,29 @@ export interface PmSyncHeaderProps {
   isDarkMode?: boolean;
 }
 
+// Module-level throttle to prevent duplicate getPendingActions calls (React StrictMode double-fires effects)
+let lastPendingActionsFetch = 0;
+let pendingActionsFetchPromise: Promise<{ total: number }> | null = null;
+const PENDING_ACTIONS_THROTTLE = 10_000; // 10 seconds
+
+async function throttledGetPendingActions(): Promise<{ total: number }> {
+  if (pendingActionsFetchPromise) return pendingActionsFetchPromise;
+  if (Date.now() - lastPendingActionsFetch < PENDING_ACTIONS_THROTTLE) {
+    return { total: -1 }; // -1 = skip update
+  }
+  pendingActionsFetchPromise = (async () => {
+    const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
+    lastPendingActionsFetch = Date.now();
+    const data = response.data;
+    return { total: data?.total ?? data?.actions?.length ?? 0 };
+  })();
+  try {
+    return await pendingActionsFetchPromise;
+  } finally {
+    pendingActionsFetchPromise = null;
+  }
+}
+
 export function Header({
   onMenuClick,
 }: PmSyncHeaderProps) {
@@ -220,14 +243,13 @@ export function Header({
   useEffect(() => {
     mountedRef.current = true;
 
-    // Initial fetch with mount check
+    // Initial fetch with mount check + throttle to prevent StrictMode double-fire
     const initFetch = async () => {
       fetchNotifications();
       try {
-        const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-        if (mountedRef.current) {
-          const data = response.data;
-          setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
+        const result = await throttledGetPendingActions();
+        if (mountedRef.current && result.total >= 0) {
+          setPendingAiActions(result.total);
         }
       } catch {
         // Silently fail - AI stats are not critical
@@ -240,10 +262,9 @@ export function Header({
     const interval = setInterval(async () => {
       if (!mountedRef.current) return;
       try {
-        const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-        if (mountedRef.current) {
-          const data = response.data;
-          setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
+        const result = await throttledGetPendingActions();
+        if (mountedRef.current && result.total >= 0) {
+          setPendingAiActions(result.total);
         }
       } catch {
         // Silently fail

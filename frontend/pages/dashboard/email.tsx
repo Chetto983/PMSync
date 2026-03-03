@@ -197,8 +197,8 @@ export default function EmailPage() {
     []
   );
 
-  // Build query params for emails API
-  const emailQueryParams: ListEmailsParams = useMemo(() => ({
+  // Build query params for emails API (page is separate — accumulated in state)
+  const baseEmailParams: Omit<ListEmailsParams, 'page'> = useMemo(() => ({
     specialUse: filters.labelId || filters.folderId
       ? undefined
       : getApiSpecialUse(filters.specialUse),
@@ -211,17 +211,25 @@ export default function EmailPage() {
     labelIds: filters.labelId,
     fromVip: filters.fromVip,
     limit: 50,
-    page,
-  }), [filters, selectedFolderPath, getApiSpecialUse, page]);
+  }), [filters, selectedFolderPath, getApiSpecialUse]);
 
-  // Reset page when filters change
-  const filterKey = useMemo(() => {
-    const { page: _, ...filtersWithoutPage } = emailQueryParams;
-    return JSON.stringify(filtersWithoutPage);
-  }, [emailQueryParams]);
+  const emailQueryParams: ListEmailsParams = useMemo(
+    () => ({ ...baseEmailParams, page }),
+    [baseEmailParams, page],
+  );
+
+  // Reset page AND accumulated emails when filters change
+  const filterKey = useMemo(
+    () => JSON.stringify(baseEmailParams),
+    [baseEmailParams],
+  );
+
+  // Accumulated emails across pages (like Contacts page pattern)
+  const [accumulatedEmails, setAccumulatedEmails] = useState<Email[]>([]);
 
   useEffect(() => {
     setPage(1);
+    setAccumulatedEmails([]);
   }, [filterKey]);
 
   // ============================================================================
@@ -234,13 +242,31 @@ export default function EmailPage() {
     refetch,
   } = useEmails(emailQueryParams);
 
-  // Derive emails and pagination from query response (memoized for stable reference)
-  const emails = useMemo(() => emailsResponse?.emails ?? [], [emailsResponse?.emails]);
+  // Accumulate emails across pages (append, don't replace)
+  useEffect(() => {
+    const newEmails = emailsResponse?.emails;
+    if (!newEmails?.length) return;
+
+    if (page === 1) {
+      setAccumulatedEmails(newEmails);
+    } else {
+      setAccumulatedEmails((prev) => {
+        // Deduplicate by ID (handles keepPreviousData placeholder emissions)
+        const existingIds = new Set(prev.map((e) => e.id));
+        const fresh = newEmails.filter((e) => !existingIds.has(e.id));
+        if (fresh.length === 0) return prev; // No change — stable reference
+        return [...prev, ...fresh];
+      });
+    }
+  }, [emailsResponse?.emails, page]);
+
+  // Use accumulated emails as the source of truth
+  const emails = accumulatedEmails;
   const responsePagination = emailsResponse?.pagination;
   const hasMore = responsePagination ? responsePagination.page < responsePagination.totalPages : false;
   const loadingMore = isFetching && page > 1;
 
-  // Load more emails (infinite scroll)
+  // Load more emails (infinite scroll — appends to accumulated list)
   const handleLoadMore = useCallback(() => {
     if (!isFetching && hasMore) {
       setPage((p) => p + 1);
@@ -629,9 +655,10 @@ export default function EmailPage() {
     t.threadView?.loading,
   ]);
 
-  // Refresh emails - refetch from server
+  // Refresh emails - refetch from server (reset accumulation)
   const handleRefresh = useCallback(() => {
     setPage(1);
+    setAccumulatedEmails([]);
     refetch();
   }, [refetch]);
 
