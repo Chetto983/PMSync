@@ -2,6 +2,7 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LoggerModule } from 'nestjs-pino';
 import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
@@ -48,6 +49,8 @@ import { AiChatModule } from './modules/ai-chat/ai-chat.module';
     LoggerModule.forRoot(pinoLoggerConfig),
     // Schedule Module - Per cron job di rotazione log
     ScheduleModule.forRoot(),
+    // Phase 31: In-process event bus for domain event decoupling (Phase 32)
+    EventEmitterModule.forRoot(),
     // Rate limiting: dual tiers for read (100/min) and write (30/min) operations (SEC-05)
     ThrottlerModule.forRoot({
       throttlers: [

@@ -44,6 +44,18 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  * Guards: JwtAuthGuard, TenantGuard, ConsentGuard, QuotaGuard
  *
  * Phase 24: Backend Core Pipeline
+ *
+ * CHAT 403 ROOT CAUSE (Phase 31 investigation):
+ * The guard chain is: JwtAuthGuard -> TenantGuard -> ConsentGuard -> QuotaGuard.
+ * ConsentGuard: @RequiresConsent('ai_chat') is commented out, so it passes.
+ * QuotaGuard: calls subscriptionService.getOrCreateSubscription() which auto-creates
+ * a FREE subscription with ACTIVE status if none exists (with a transient fallback
+ * on DB error). The 403 occurs when QuotaGuard detects:
+ *   - FREE tier daily cost cap hit ($0.10/day via CostProtectionService)
+ *   - FREE tier monthly AI quota exceeded (50 calls/month)
+ *   - Subscription status is CANCELED or PAST_DUE (explicit admin action)
+ * This is expected guard behavior, not a bug. Fix: ensure E2E tests mock subscription
+ * as pro/active. For production: upgrade plan or wait for daily/monthly reset.
  */
 @ApiTags('AI Chat')
 @ApiBearerAuth()

@@ -128,17 +128,7 @@ test.describe('AI Chat E2E', () => {
       });
     });
 
-    // Mock action counts
-    await page.route('**/localhost:3000/api/v1/ai/stats/action-counts', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          counts: { pending: 0, approved: 0, rejected: 0, executed: 0 },
-        }),
-      });
-    });
+    // NOTE: action-counts mock removed (Phase 31) -- endpoint is dead, no backend support
   });
 
   test('sends message and receives streaming response', async ({ authedPage: page }) => {

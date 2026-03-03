@@ -130,7 +130,6 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     onSuccess: (result) => {
       // Invalidate pending actions
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
-      queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
       // Pass execution result to callback for user feedback (success/error message)
       onApprove?.(result.executionId, result.executionResult);
     },
@@ -148,7 +147,6 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     onSuccess: (result) => {
       // Invalidate pending actions
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
-      queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
       onReject?.(result.executionId);
     },
     onError: (error: Error) => {
@@ -162,24 +160,20 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
 
     const unsubCreated = websocketClient.onAiActionCreated(() => {
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
-      queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
     });
 
     const unsubApproved = websocketClient.onAiActionApproved(() => {
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
-      queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.learning() });
     });
 
     const unsubRejected = websocketClient.onAiActionRejected(() => {
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
-      queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.learning() });
     });
 
     const unsubExecuted = websocketClient.onAiActionExecuted(() => {
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
-      queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
     });
 
     return () => {
@@ -249,7 +243,8 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     // Statistics
     actionCounts: countsQuery.data ?? null,
     countsLoading: countsQuery.isLoading,
-    refetchCounts: () => queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() }),
+    // action-counts endpoint is dead -- refetchCounts is a no-op for interface stability
+    refetchCounts: () => {},
 
     // NOTE: Learning Stats REMOVED - endpoint returns 404 (in-memory only)
     learningStats: [], // Always empty - learning is in-memory only
