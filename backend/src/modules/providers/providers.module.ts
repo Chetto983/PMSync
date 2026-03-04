@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { CryptoService } from '../../common/services/crypto.service';
 import { SubscriptionModule } from '../subscription/subscription.module';
-import { PROVIDER_TOKEN_SERVICE } from '../../common/interfaces/provider-token.interface';
 import { CRYPTO_SERVICE } from '../../common/interfaces/crypto.interface';
 
 // Services
@@ -25,12 +24,7 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
  * Phase 32: All forwardRef to domain modules eliminated.
  * - ProviderConnectedEvent replaces direct triggerInitialSync (consumed by EmailSync, Calendar)
  * - ProviderDisconnectedEvent replaces direct cleanup calls (consumed by EmailSync, Calendar, Contacts, Ai)
- * - PROVIDER_TOKEN_SERVICE symbol exported for interface injection
  * - CRYPTO_SERVICE symbol exported for interface injection
- *
- * NOTE: PROVIDER_TOKEN_SERVICE actually resolves to ProviderTokenService in
- * EmailSyncModule (where it lives). ProvidersModule exports CryptoService and
- * the CRYPTO_SERVICE symbol for modules that need encryption without direct imports.
  */
 @Module({
   imports: [
