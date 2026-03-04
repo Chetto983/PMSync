@@ -52,6 +52,8 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 35: AI Observability & Permissions** - AI Run Ledger telemetry, cost reporting endpoints, permission taxonomy (completed 2026-03-04)
 - [x] **Phase 36: Encrypted Search** - HMAC blind indexes on encrypted fields for exact-match sender lookup (completed 2026-03-04)
 - [x] **Phase 37: Performance & Debt Closure** - LCP <2.5s / TTI <3.5s, resolve 7 deferred v3.1 bugs (completed 2026-03-04)
+- [ ] **Phase 38: Attachment Proxy Path Fix** - Fix broken attachment download proxy URL missing /api/v1 prefix (gap closure)
+- [ ] **Phase 39: Code Quality & CI Hygiene** - Split email.tsx, fix Lighthouse CI mixed-PR gap, fix OpenAPI CI masking, remove auth-token stub (gap closure)
 
 ## Phase Details
 
@@ -169,6 +171,34 @@ Plans:
 - [ ] 37-01-PLAN.md -- Bundle analysis baseline, dynamic imports for email.tsx dialogs, optimizePackageImports expansion (PERF-01)
 - [ ] 37-02-PLAN.md -- Deferred v3.1 bug closure (BUG-011/012/018/029/038/039/044), Lighthouse CI enforcement (PERF-02)
 
+### Phase 38: Attachment Proxy Path Fix
+**Goal**: Fix broken email attachment download — proxy URL missing `/api/v1` prefix after Phase 33 setGlobalPrefix
+**Depends on**: Phase 33, Phase 34 (fixes cross-phase integration gap)
+**Requirements**: API-03, SEC-01
+**Gap Closure:** Closes 2 partial requirements, 1 integration gap, 1 broken E2E flow from v4.0 audit
+**Success Criteria** (what must be TRUE):
+  1. `frontend/pages/api/email/attachments/[id]/download.ts` proxy URL includes `/api/v1` prefix — attachment downloads return 200, not 404
+  2. E2E flow "Email Attachment Download" passes — user can click download on an email attachment and receive the file
+**Plans**: 1 plan
+
+Plans:
+- [ ] 38-01-PLAN.md -- Fix attachment proxy backend URL to include /api/v1 prefix, verify download flow
+
+### Phase 39: Code Quality & CI Hygiene
+**Goal**: Resolve tech debt items flagged by milestone audit — file size violation, CI coverage gaps, dead code
+**Depends on**: Phase 37 (builds on performance/CI work)
+**Requirements**: None (tech debt closure, no new requirements)
+**Gap Closure:** Closes 4 tech debt items from v4.0 audit
+**Success Criteria** (what must be TRUE):
+  1. `email.tsx` split to under 500 lines per file — CLAUDE.md limit respected
+  2. Lighthouse CI triggers on ALL PRs touching frontend code, including mixed backend+frontend PRs
+  3. CI OpenAPI generation step fails the pipeline on real errors (continue-on-error removed or scoped correctly)
+  4. `frontend/lib/utils/auth-token.ts` deprecation stub removed — no dead auth code remains
+**Plans**: 1 plan
+
+Plans:
+- [ ] 39-01-PLAN.md -- Split email.tsx, fix Lighthouse CI trigger scope, fix OpenAPI CI masking, remove auth-token.ts stub
+
 ## Progress
 
 **Execution Order:**
@@ -187,9 +217,12 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | 35. AI Observability & Permissions | 2/2 | Complete    | 2026-03-04 |
 | 36. Encrypted Search | 2/2 | Complete    | 2026-03-04 |
 | 37. Performance & Debt Closure | 2/2 | Complete    | 2026-03-04 |
+| 38. Attachment Proxy Path Fix | 0/1 | Pending     | — |
+| 39. Code Quality & CI Hygiene | 0/1 | Pending     | — |
 
 ---
 *Roadmap created: 2026-02-09*
 *v3.2 phases added: 2026-02-27 -- 8 phases, 25 plans, 33 requirements mapped*
 *v3.2 closed (partial): 2026-03-03 -- 20/25 plans complete, carry-forward to v4.0*
 *v4.0 phases added: 2026-03-03 -- 7 phases, 19 plans (est), 19 requirements mapped*
+*v4.0 gap closure phases added: 2026-03-04 -- 2 phases (38-39), closes 1 broken E2E flow + 4 tech debt items*
