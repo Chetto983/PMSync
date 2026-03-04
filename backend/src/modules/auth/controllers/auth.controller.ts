@@ -25,6 +25,7 @@ import { SendOtpDto } from '../dtos/send-otp.dto';
 import { MfaChallengeDto, MfaChallengeResponseDto, WebAuthnLoginOptionsDto, WebAuthnLoginVerifyDto } from '../dtos/mfa.dto';
 import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { generateCsrfToken } from '../../../common/middleware/csrf.middleware';
+import { setAuthCookie, clearAuthCookie } from '../helpers/cookie.helper';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -63,10 +64,15 @@ export class AuthController {
   async verifyOtp(
     @Body() body: VerifyOtpDto,
     @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ) {
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.verifyOtpCode(body.email, body.code, body.tenantSlug, ipAddress, userAgent);
+    const result = await this.authService.verifyOtpCode(body.email, body.code, body.tenantSlug, ipAddress, userAgent);
+    if (result.accessToken) {
+      setAuthCookie(res, result.accessToken);
+    }
+    return result;
   }
 
   /**
@@ -85,11 +91,16 @@ export class AuthController {
   async login(
     @Body() body: LoginDto,
     @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ) {
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     const deviceToken = req.cookies?.['mfa_device_token'] || req.headers['x-device-token'] as string;
-    return this.authService.login(body.email, body.password, body.tenantSlug, ipAddress, userAgent, deviceToken, req);
+    const result = await this.authService.login(body.email, body.password, body.tenantSlug, ipAddress, userAgent, deviceToken, req);
+    if ('accessToken' in result && result.accessToken) {
+      setAuthCookie(res, result.accessToken);
+    }
+    return result;
   }
 
   /**
@@ -106,10 +117,11 @@ export class AuthController {
   async verifyMfaChallenge(
     @Body() body: MfaChallengeDto,
     @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ) {
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.verifyMfaChallenge(
+    const result = await this.authService.verifyMfaChallenge(
       body.mfaToken,
       body.method,
       body.code,
@@ -118,6 +130,10 @@ export class AuthController {
       ipAddress,
       userAgent,
     );
+    if (result.accessToken) {
+      setAuthCookie(res, result.accessToken);
+    }
+    return result;
   }
 
   // ==================== WEBAUTHN / PASSKEY LOGIN ====================
@@ -150,10 +166,15 @@ export class AuthController {
   async verifyWebAuthnLogin(
     @Body() body: WebAuthnLoginVerifyDto,
     @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: ExpressResponse,
   ) {
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.loginWithPasskey(body.response, body.sessionId, ipAddress, userAgent);
+    const result = await this.authService.loginWithPasskey(body.response, body.sessionId, ipAddress, userAgent);
+    if (result.accessToken) {
+      setAuthCookie(res, result.accessToken);
+    }
+    return result;
   }
 
   // ==================== PASSWORD RESET ====================
@@ -215,7 +236,12 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  async logout(@Request() req: AuthenticatedRequest) {
+  async logout(
+    @Request() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ) {
+    // SEC-01: Clear httpOnly auth cookie before invalidating session
+    clearAuthCookie(res);
     // SECURITY: Pass tenantId and userId for proper tenant-isolated cache invalidation
     await this.authService.logout(req.user.sessionId, req.user.tenantId, req.user.id);
     return { message: 'Successfully logged out' };

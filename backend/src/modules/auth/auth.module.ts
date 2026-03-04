@@ -33,7 +33,7 @@ import { ComplianceModule } from '../compliance/compliance.module';
  * - PASSWORD_RESET_SECRET: Separate secret for password reset (min 32 chars)
  *
  * Optional environment variables:
- * - ACCESS_TOKEN_EXPIRES_IN: Token TTL (default: 15m)
+ * - ACCESS_TOKEN_EXPIRES_IN: Token TTL (default: 7d, aligned to session TTL)
  * - OTP_EXPIRATION: OTP TTL in ms (default: 300000 = 5 min)
  * - OTP_MAX_ATTEMPTS: Max failed OTP attempts before lockout (default: 5)
  *
@@ -60,9 +60,10 @@ import { ComplianceModule } from '../compliance/compliance.module';
           );
         }
 
-        // Parse expiration - convert string like '15m' to seconds for JWT
-        const expiresInConfig = config.get<string>('ACCESS_TOKEN_EXPIRES_IN') || '15m';
-        const expiresIn = expiresInConfig; // JWT library handles '15m' format
+        // Parse expiration - aligned to 7d session TTL (SEC-01)
+        // Session validation handles revocation; env var override still works
+        const expiresInConfig = config.get<string>('ACCESS_TOKEN_EXPIRES_IN') || '7d';
+        const expiresIn = expiresInConfig; // JWT library handles '7d' format
 
         return {
           secret,
