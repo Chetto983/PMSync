@@ -159,11 +159,10 @@ Plans:
 **Depends on**: Phase 31 (no architectural dependency, independent workstream)
 **Requirements**: PERF-01, PERF-02
 **Success Criteria** (what must be TRUE):
-  1. Lighthouse LCP on email list page < 2.5s in production build with 4G throttling -- down from current ~4.1s
-  2. Lighthouse TTI on email list page < 3.5s in production build with 4G throttling
-  3. All 7 deferred bugs from v3.1 audit resolved -- RC-A1/A8 race conditions fixed with Redis locks on folder CRUD, remaining BUG-REPORT items closed
-  4. Lighthouse CI budget gates enforced in CI pipeline -- PRs that regress LCP/TTI/CLS beyond thresholds are blocked
-  5. Memory profiling under simulated load shows no unbounded cache growth or connection pool exhaustion
+  1. Bundle analysis shows email list page initial chunk reduced (dialog components split out via dynamic imports) -- evidence captured in before/after comparison
+  2. Lighthouse TTI on email list page < 3.5s in production build (CI-measurable without backend)
+  3. All 7 deferred bugs from v3.1 audit resolved -- RC-A1/A8 confirmed still fixed from Phase 22 (Redis locks present), remaining BUG-REPORT items (BUG-011/012/018/029/038/039/044) closed or accepted with rationale
+  4. Lighthouse CI budget gates enforced in CI pipeline -- PRs that regress LCP/TTI/CLS beyond thresholds are blocked (continue-on-error removed)
 **Plans**: 2 plans (Wave 1 -> Wave 2, sequential)
 
 Plans:
