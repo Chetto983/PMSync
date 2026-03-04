@@ -1,24 +1,15 @@
 /**
- * Shared auth token extraction from Zustand persist storage.
+ * DEPRECATED: Auth now uses httpOnly cookies set by the backend.
  *
- * The auth-store uses Zustand's persist middleware which stores
- * state in localStorage under the 'auth-storage' key as:
- *   {"state":{"token":"..."},"version":0}
+ * This stub exists so that any remaining import sites don't crash.
+ * It always returns an empty string. The httpOnly cookie is sent
+ * automatically by the browser via `withCredentials: true` / `credentials: 'include'`.
  *
- * This utility centralises the extraction so callers don't
- * duplicate the parsing logic or hard-code the storage key.
+ * TODO: Remove this file once all callers are confirmed migrated.
  */
-
-const AUTH_STORAGE_KEY = 'auth-storage';
-
 export function getAuthToken(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!stored) return '';
-    const parsed = JSON.parse(stored);
-    return parsed?.state?.token || '';
-  } catch {
-    return '';
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[DEPRECATED] getAuthToken() is deprecated. Auth uses httpOnly cookies now.');
   }
+  return '';
 }

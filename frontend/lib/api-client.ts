@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth-store';
-import { getAuthToken } from '@/lib/utils/auth-token';
 
 // =============================================================================
 // CSRF Token Management (SEC-04)
@@ -113,14 +112,10 @@ export function getApiErrorMessage(error: unknown): string {
   return 'An unexpected error occurred';
 }
 
-// Add token and CSRF header to requests
+// Add CSRF header to mutation requests (SEC-04)
+// Auth is handled by httpOnly cookie sent automatically via withCredentials: true
 apiClient.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
-    const token = getAuthToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
     // CSRF token for mutations (SEC-04)
     const method = config.method?.toUpperCase();
     if (method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {

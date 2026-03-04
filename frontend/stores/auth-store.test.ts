@@ -6,7 +6,6 @@ beforeEach(() => {
     token: null,
     user: null,
   });
-  localStorage.clear();
   jest.clearAllMocks();
 });
 
@@ -21,7 +20,7 @@ describe('useAuthStore', () => {
   };
 
   describe('initial state', () => {
-    it('should have null token when no localStorage value', () => {
+    it('should have null token (httpOnly cookie handles auth)', () => {
       const state = useAuthStore.getState();
       expect(state.token).toBeNull();
     });
@@ -33,22 +32,10 @@ describe('useAuthStore', () => {
   });
 
   describe('setToken', () => {
-    it('should set the token in state', () => {
+    it('should be a no-op (httpOnly cookie handles auth)', () => {
       useAuthStore.getState().setToken('test-token');
-      expect(useAuthStore.getState().token).toBe('test-token');
-    });
-
-    it('should persist token via persist middleware', () => {
-      useAuthStore.getState().setToken('persisted-token');
-      // Persist middleware uses 'auth-storage' key with JSON format
-      expect(localStorage.setItem).toHaveBeenCalled();
-      const calls = (localStorage.setItem as jest.Mock).mock.calls;
-      const storageCall = calls.find((c: string[]) => c[0] === 'auth-storage');
-      expect(storageCall).toBeDefined();
-      if (storageCall) {
-        const stored = JSON.parse(storageCall[1]);
-        expect(stored.state.token).toBe('persisted-token');
-      }
+      // Token stays null -- httpOnly cookie is the auth credential
+      expect(useAuthStore.getState().token).toBeNull();
     });
   });
 
@@ -67,7 +54,6 @@ describe('useAuthStore', () => {
 
   describe('logout', () => {
     it('should clear token from state', () => {
-      useAuthStore.getState().setToken('test-token');
       useAuthStore.getState().logout();
       expect(useAuthStore.getState().token).toBeNull();
     });
@@ -80,21 +66,22 @@ describe('useAuthStore', () => {
   });
 
   describe('integration', () => {
-    it('should handle login flow', () => {
+    it('should handle login flow (user set in memory, token from cookie)', () => {
       const { setToken, setUser } = useAuthStore.getState();
 
+      // setToken is a no-op; the httpOnly cookie handles auth
       setToken('auth-token-123');
       setUser(mockUser);
 
       const state = useAuthStore.getState();
-      expect(state.token).toBe('auth-token-123');
+      // Token stays null -- frontend never stores JWT
+      expect(state.token).toBeNull();
       expect(state.user).toEqual(mockUser);
     });
 
     it('should handle logout after login', () => {
-      const { setToken, setUser, logout } = useAuthStore.getState();
+      const { setUser, logout } = useAuthStore.getState();
 
-      setToken('auth-token-123');
       setUser(mockUser);
       logout();
 

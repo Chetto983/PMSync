@@ -32,25 +32,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Detect hydration using useSyncExternalStore (no cascading renders)
   const isHydrated = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 
-  // Rehydrate Zustand store from localStorage on client (one-time)
+  // Validate session via /auth/me using httpOnly cookie after hydration.
+  // No localStorage rehydration needed -- auth is cookie-based.
   useEffect(() => {
-    if (!hasRehydratedRef.current) {
-      useAuthStore.persist.rehydrate();
-      hasRehydratedRef.current = true;
-    }
-  }, []);
+    if (hasRehydratedRef.current) return;
+    hasRehydratedRef.current = true;
 
-  // Validate token after hydration
-  useEffect(() => {
     // Wait for hydration before checking auth
     if (!isHydrated) {
       return;
     }
 
     let isActive = true;
-
-    // Re-read token after hydration
-    const currentToken = useAuthStore.getState().token;
 
     // Helper to safely set loading state
     const safeSetLoading = (value: boolean) => {
@@ -62,19 +55,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    if (!currentToken) {
-      const existingUser = useAuthStore.getState().user;
-      if (existingUser) {
-        setStoreUser(null);
-      }
-      safeSetLoading(false);
-      return () => {
-        isActive = false;
-      };
-    }
-
     safeSetLoading(true);
 
+    // The httpOnly cookie is sent automatically via withCredentials: true.
+    // If cookie is missing or invalid, backend returns 401 -> logout.
     apiClient
       .get('/auth/me')
       .then((response) => {
@@ -98,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!isActive) {
           return;
         }
+        // No valid session cookie -- clear any stale user data
         logout();
       })
       .finally(() => {
@@ -107,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isActive = false;
     };
-  }, [isHydrated, token, setStoreUser, logout]);
+  }, [isHydrated, setStoreUser, logout]);
 
   const value = useMemo(
     () => ({

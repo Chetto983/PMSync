@@ -1,5 +1,4 @@
 import { apiClient, API_BASE_URL } from '../api-client';
-import { getAuthToken } from '../utils/auth-token';
 
 // ============ Types (kept for Settings/component compatibility) ============
 
@@ -422,8 +421,8 @@ export const voltAgentApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${getAuthToken()}`,
       },
+      credentials: 'include',
       body: JSON.stringify(payload),
       signal: controller.signal,
     })
