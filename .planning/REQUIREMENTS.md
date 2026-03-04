@@ -19,11 +19,11 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 ### Auth Hardening
 
-- [ ] **AUTH-01**: Access token lifetime reduced to 15 minutes (from 24h)
-- [ ] **AUTH-02**: Refresh token rotation with one-time-use refresh tokens
-- [ ] **AUTH-03**: /auth/refresh endpoint for token renewal
-- [ ] **AUTH-04**: Frontend auto-refresh via axios interceptor on 401
-- [ ] **AUTH-05**: All refresh tokens invalidated on password change
+- [x] **AUTH-01**: Access token lifetime reduced to 15 minutes (from 24h)
+- [x] **AUTH-02**: Refresh token rotation with one-time-use refresh tokens
+- [x] **AUTH-03**: /auth/refresh endpoint for token renewal
+- [x] **AUTH-04**: Frontend auto-refresh via axios interceptor on 401
+- [x] **AUTH-05**: All refresh tokens invalidated on password change
 
 ### API Safety
 
@@ -77,7 +77,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 - [x] **TEST-01**: Tenant-scoping negative tests — cross-tenant query returns zero records, missing context throws error
 - [x] **TEST-02**: RolesGuard integration tests — each role level (admin, manager, member, viewer) verified against guarded endpoints
-- [ ] **TEST-03**: Refresh token rotation tests — reuse of consumed token fails, rotation chain works, password-change invalidation works
+- [x] **TEST-03**: Refresh token rotation tests — reuse of consumed token fails, rotation chain works, password-change invalidation works
 - [ ] **TEST-04**: Contract tests for ≥5 critical APIs (auth login, emails list, contacts list, AI chat stream, briefing)
 - [ ] **TEST-05**: Attachment proxy test with large file (≥50MB) — no OOM, stream completes, Content-Length correct
 - [ ] **TEST-06**: Backend god-file split regression tests — write tests for each file BEFORE splitting, verify identical behavior after
@@ -145,11 +145,11 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TSEC-05 | Phase 42 | Complete |
 | TSEC-06 | Phase 42 | Complete |
 | TSEC-07 | Phase 42 | Complete |
-| AUTH-01 | Phase 42 | Pending |
-| AUTH-02 | Phase 42 | Pending |
-| AUTH-03 | Phase 42 | Pending |
-| AUTH-04 | Phase 42 | Pending |
-| AUTH-05 | Phase 42 | Pending |
+| AUTH-01 | Phase 42 | Complete |
+| AUTH-02 | Phase 42 | Complete |
+| AUTH-03 | Phase 42 | Complete |
+| AUTH-04 | Phase 42 | Complete |
+| AUTH-05 | Phase 42 | Complete |
 | APIS-01 | Phase 43 | Pending |
 | APIS-02 | Phase 43 | Pending |
 | APIS-03 | Phase 43 | Pending |
@@ -182,7 +182,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | INFRA-03 | Phase 47 | Pending |
 | TEST-01 | Phase 42 | Complete |
 | TEST-02 | Phase 42 | Complete |
-| TEST-03 | Phase 42 | Pending |
+| TEST-03 | Phase 42 | Complete |
 | TEST-04 | Phase 43 | Pending |
 | TEST-05 | Phase 43 | Pending |
 | TEST-06 | Phase 43 | Pending |
