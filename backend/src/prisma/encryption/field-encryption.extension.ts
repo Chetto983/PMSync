@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
-import { getEncryptedFieldsForModel } from './encryption.config';
-import { encryptFieldValue, decryptFieldValue } from './field-encryption.utils';
+import { getEncryptedFieldsForModel, getBlindIndexFieldsForModel } from './encryption.config';
+import { encryptFieldValue, decryptFieldValue, hmacForBlindIndex } from './field-encryption.utils';
 
 /**
  * Operations that include writable data (args.data exists).
@@ -106,53 +106,110 @@ function decryptResult(
 }
 
 /**
+ * Inject blind index hash fields into write operation args.
+ * Exported for unit testing; called internally by the extension.
+ *
+ * @param typedArgs - The Prisma operation args object (mutated in-place)
+ * @param modelName - Prisma model name (e.g., 'Email')
+ * @param operation - Prisma operation name (e.g., 'create', 'update', 'upsert', 'createMany')
+ * @param hmacKey - Per-tenant HMAC key for blind index computation
+ */
+export function injectBlindIndexFields(
+  typedArgs: Record<string, unknown>,
+  modelName: string,
+  operation: string,
+  hmacKey: Buffer,
+): void {
+  const blindIndexFields = getBlindIndexFieldsForModel(modelName);
+  if (blindIndexFields.length === 0) return;
+
+  for (const { field, hashField } of blindIndexFields) {
+    if (operation === 'upsert') {
+      const create = typedArgs.create as Record<string, unknown> | undefined;
+      const update = typedArgs.update as Record<string, unknown> | undefined;
+      if (create && typeof create[field] === 'string') {
+        create[hashField] = hmacForBlindIndex(create[field] as string, hmacKey);
+      }
+      if (update && typeof update[field] === 'string') {
+        update[hashField] = hmacForBlindIndex(update[field] as string, hmacKey);
+      }
+    } else if (operation === 'createMany' && Array.isArray(typedArgs.data)) {
+      for (const record of typedArgs.data as Record<string, unknown>[]) {
+        if (typeof record[field] === 'string') {
+          record[hashField] = hmacForBlindIndex(record[field] as string, hmacKey);
+        }
+      }
+    } else if (
+      typedArgs.data &&
+      typeof (typedArgs.data as Record<string, unknown>)[field] === 'string'
+    ) {
+      (typedArgs.data as Record<string, unknown>)[hashField] = hmacForBlindIndex(
+        (typedArgs.data as Record<string, unknown>)[field] as string,
+        hmacKey,
+      );
+    }
+  }
+}
+
+/**
  * Create a Prisma client extension that transparently encrypts and decrypts
- * configured fields on all model operations.
+ * configured fields on all model operations, and injects blind index hashes
+ * on write operations.
  *
  * @param getKeyForTenant - Returns the current encryption key for a tenant
  * @param getDecryptionKeys - Returns all decryption keys (current + old) for a tenant
+ * @param getHmacKeyForTenant - Returns the HMAC key for blind index computation
  */
 export function createFieldEncryptionExtension(
   getKeyForTenant: (tenantId: string) => Buffer,
   getDecryptionKeys: (tenantId: string) => Buffer[],
+  getHmacKeyForTenant?: (tenantId: string) => Buffer,
 ) {
   return Prisma.defineExtension({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          const fields = getEncryptedFieldsForModel(model ?? '');
-          if (fields.length === 0) {
+          const modelName = model ?? '';
+          const encFields = getEncryptedFieldsForModel(modelName);
+          const blindFields = getBlindIndexFieldsForModel(modelName);
+
+          if (encFields.length === 0 && blindFields.length === 0) {
             return query(args);
           }
 
-          const modelName = model ?? '';
           const typedArgs = args as Record<string, unknown>;
 
-          // --- Write path: encrypt configured fields ---
-          if (WRITE_OPS.has(operation) && typedArgs.data !== undefined) {
+          // --- Write path: encrypt configured fields + inject blind indexes ---
+          if (WRITE_OPS.has(operation)) {
             const tenantId = extractTenantId(typedArgs);
 
             if (tenantId) {
-              const key = getKeyForTenant(tenantId);
+              // Encrypt fields (bodyText, bodyHtml, snippet, etc.)
+              if (encFields.length > 0 && typedArgs.data !== undefined) {
+                const key = getKeyForTenant(tenantId);
 
-              if (operation === 'createMany' && Array.isArray(typedArgs.data)) {
-                // createMany: encrypt each record in the array
-                for (const record of typedArgs.data as Record<string, unknown>[]) {
-                  encryptDataFields(record, modelName, key);
+                if (operation === 'createMany' && Array.isArray(typedArgs.data)) {
+                  for (const record of typedArgs.data as Record<string, unknown>[]) {
+                    encryptDataFields(record, modelName, key);
+                  }
+                } else if (operation === 'upsert') {
+                  const create = typedArgs.create as Record<string, unknown> | undefined;
+                  const update = typedArgs.update as Record<string, unknown> | undefined;
+                  if (create) encryptDataFields(create, modelName, key);
+                  if (update) encryptDataFields(update, modelName, key);
+                } else {
+                  encryptDataFields(
+                    typedArgs.data as Record<string, unknown>,
+                    modelName,
+                    key,
+                  );
                 }
-              } else if (operation === 'upsert') {
-                // upsert: encrypt both create and update blocks
-                const create = typedArgs.create as Record<string, unknown> | undefined;
-                const update = typedArgs.update as Record<string, unknown> | undefined;
-                if (create) encryptDataFields(create, modelName, key);
-                if (update) encryptDataFields(update, modelName, key);
-              } else {
-                // create, update, updateMany: encrypt args.data
-                encryptDataFields(
-                  typedArgs.data as Record<string, unknown>,
-                  modelName,
-                  key,
-                );
+              }
+
+              // Inject blind index hashes (fromHash, etc.)
+              if (blindFields.length > 0 && getHmacKeyForTenant) {
+                const hmacKey = getHmacKeyForTenant(tenantId);
+                injectBlindIndexFields(typedArgs, modelName, operation, hmacKey);
               }
             }
           }
@@ -161,10 +218,12 @@ export function createFieldEncryptionExtension(
           const result = await query(args);
 
           // --- Read path: decrypt configured fields in result ---
-          const tenantId = extractTenantId(typedArgs);
-          if (tenantId) {
-            const keys = getDecryptionKeys(tenantId);
-            return decryptResult(result, modelName, keys);
+          if (encFields.length > 0) {
+            const tenantId = extractTenantId(typedArgs);
+            if (tenantId) {
+              const keys = getDecryptionKeys(tenantId);
+              return decryptResult(result, modelName, keys);
+            }
           }
 
           return result;

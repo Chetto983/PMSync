@@ -4,11 +4,13 @@ import {
   encryptDataFields,
   decryptResultFields,
   createFieldEncryptionExtension,
+  injectBlindIndexFields,
 } from '../field-encryption.extension';
 import {
   encryptFieldValue,
   decryptFieldValue,
   isEncrypted,
+  hmacForBlindIndex,
 } from '../field-encryption.utils';
 import { getEncryptedFieldsForModel } from '../encryption.config';
 
@@ -255,9 +257,21 @@ describe('field-encryption.extension', () => {
       const extension = createFieldEncryptionExtension(
         () => testKey,
         () => [testKey],
+        () => testKey, // getHmacKeyForTenant
       );
       // Prisma.defineExtension returns a callable function
       expect(typeof extension).toBe('function');
+    });
+
+    it('accepts third getHmacKeyForTenant parameter', () => {
+      // Verify the function signature accepts 3 args without error
+      expect(() =>
+        createFieldEncryptionExtension(
+          () => testKey,
+          () => [testKey],
+          () => testKey,
+        ),
+      ).not.toThrow();
     });
 
     it('config recognizes Email model fields', () => {
@@ -274,6 +288,94 @@ describe('field-encryption.extension', () => {
       expect(getEncryptedFieldsForModel('User')).toEqual([]);
       expect(getEncryptedFieldsForModel('Contact')).toEqual([]);
       expect(getEncryptedFieldsForModel('NonExistent')).toEqual([]);
+    });
+  });
+
+  describe('injectBlindIndexFields (blind index injection)', () => {
+    const hmacKey = randomBytes(32);
+
+    it('injects fromHash on Email create (data.from present)', () => {
+      const args: Record<string, unknown> = {
+        data: { tenantId, from: 'test@example.com', subject: 'Hello' },
+      };
+      injectBlindIndexFields(args, 'Email', 'create', hmacKey);
+
+      const data = args.data as Record<string, unknown>;
+      expect(data.fromHash).toBe(hmacForBlindIndex('test@example.com', hmacKey));
+      // subject should not be touched
+      expect(data.subject).toBe('Hello');
+    });
+
+    it('injects fromHash on Email update (data.from present)', () => {
+      const args: Record<string, unknown> = {
+        data: { from: 'new@example.com' },
+      };
+      injectBlindIndexFields(args, 'Email', 'update', hmacKey);
+
+      const data = args.data as Record<string, unknown>;
+      expect(data.fromHash).toBe(hmacForBlindIndex('new@example.com', hmacKey));
+    });
+
+    it('injects fromHash on Email upsert (both create and update blocks)', () => {
+      const args: Record<string, unknown> = {
+        create: { tenantId, from: 'create@x.com', subject: 'New' },
+        update: { from: 'update@x.com' },
+      };
+      injectBlindIndexFields(args, 'Email', 'upsert', hmacKey);
+
+      const create = args.create as Record<string, unknown>;
+      const update = args.update as Record<string, unknown>;
+      expect(create.fromHash).toBe(hmacForBlindIndex('create@x.com', hmacKey));
+      expect(update.fromHash).toBe(hmacForBlindIndex('update@x.com', hmacKey));
+    });
+
+    it('injects fromHash on Email createMany (array of records)', () => {
+      const args: Record<string, unknown> = {
+        data: [
+          { tenantId, from: 'a@b.com', subject: 'A' },
+          { tenantId, from: 'c@d.com', subject: 'C' },
+        ],
+      };
+      injectBlindIndexFields(args, 'Email', 'createMany', hmacKey);
+
+      const records = args.data as Record<string, unknown>[];
+      expect(records[0].fromHash).toBe(hmacForBlindIndex('a@b.com', hmacKey));
+      expect(records[1].fromHash).toBe(hmacForBlindIndex('c@d.com', hmacKey));
+    });
+
+    it('does nothing for models without blind index config', () => {
+      const args: Record<string, unknown> = {
+        data: { tenantId, name: 'Test Contact', email: 'test@x.com' },
+      };
+      injectBlindIndexFields(args, 'Contact', 'create', hmacKey);
+
+      const data = args.data as Record<string, unknown>;
+      expect(data.fromHash).toBeUndefined();
+    });
+
+    it('does nothing when from field is not a string', () => {
+      const args: Record<string, unknown> = {
+        data: { tenantId, from: null, subject: 'Test' },
+      };
+      injectBlindIndexFields(args, 'Email', 'create', hmacKey);
+
+      const data = args.data as Record<string, unknown>;
+      expect(data.fromHash).toBeUndefined();
+    });
+
+    it('normalizes email case when computing hash', () => {
+      const args1: Record<string, unknown> = {
+        data: { tenantId, from: 'TEST@EXAMPLE.COM' },
+      };
+      const args2: Record<string, unknown> = {
+        data: { tenantId, from: 'test@example.com' },
+      };
+      injectBlindIndexFields(args1, 'Email', 'create', hmacKey);
+      injectBlindIndexFields(args2, 'Email', 'create', hmacKey);
+
+      const data1 = args1.data as Record<string, unknown>;
+      const data2 = args2.data as Record<string, unknown>;
+      expect(data1.fromHash).toBe(data2.fromHash);
     });
   });
 });

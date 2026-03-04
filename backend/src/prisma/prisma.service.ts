@@ -23,6 +23,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
           createFieldEncryptionExtension(
             (tenantId) => tenantKeyService.getCurrentKey(tenantId),
             (tenantId) => tenantKeyService.getDecryptionKeys(tenantId),
+            (tenantId) => tenantKeyService.getHmacKey(tenantId),
           ),
         );
         Object.assign(this, extended);
