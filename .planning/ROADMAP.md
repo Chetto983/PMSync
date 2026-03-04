@@ -148,11 +148,11 @@ Plans:
   2. Searching for an exact sender email address returns correct results using the `fromHash` index -- no plaintext `from` value is queried
   3. Background backfill job has processed all existing emails -- dual-path search (hash if populated, plaintext fallback) works during and after backfill
   4. Threat model documented: blind indexes protect against offline DB theft; frequency analysis risk acknowledged
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 -> Wave 2, sequential)
 
 Plans:
-- [ ] 36-01: HMAC blind index schema + HashSearchService + backfill job
-- [ ] 36-02: Query site migration (17+ sites audited, exact-match sites migrated)
+- [ ] 36-01-PLAN.md -- HMAC blind index infrastructure: hmacForBlindIndex function, TenantKeyService.getHmacKey, fromHash schema column, Prisma extension write-path injection, HashSearchService, backfill script, ADR-036
+- [ ] 36-02-PLAN.md -- Query site migration: migrate 2 exact-match sender queries (meeting-prep, relationship-score) to HashSearchService, full suite verification, codebase audit
 
 ### Phase 37: Performance & Debt Closure
 **Goal**: Frontend performance meets enterprise targets and all deferred v3.1 bugs are resolved
@@ -164,7 +164,7 @@ Plans:
   3. All 7 deferred bugs from v3.1 audit resolved -- RC-A1/A8 race conditions fixed with Redis locks on folder CRUD, remaining BUG-REPORT items closed
   4. Lighthouse CI budget gates enforced in CI pipeline -- PRs that regress LCP/TTI/CLS beyond thresholds are blocked
   5. Memory profiling under simulated load shows no unbounded cache growth or connection pool exhaustion
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 -> Wave 2, sequential)
 
 Plans:
 - [ ] 37-01: Bundle analysis baseline + dynamic imports + code splitting
