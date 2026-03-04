@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: in-progress
-stopped_at: Completed 37-01-PLAN.md
-last_updated: "2026-03-04T11:28:01.749Z"
-last_activity: 2026-03-04 -- Plan 37-01 completed (email page bundle optimization with dynamic imports)
+status: completed
+stopped_at: Completed 37-02-PLAN.md (v4.0 milestone complete)
+last_updated: "2026-03-04T11:33:00Z"
+last_activity: 2026-03-04 -- Plan 37-02 completed (deferred bug closure + Lighthouse CI gates)
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 18
-  completed_plans: 17
-  percent: 99
+  completed_plans: 18
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 37 of 37 (Performance & Debt Closure)
-Plan: 1 of 2 complete in current phase
-Status: Plan 37-01 complete (email page bundle optimization)
-Last activity: 2026-03-04 -- Plan 37-01 completed (email page bundle optimization with dynamic imports)
+Plan: 2 of 2 complete in current phase
+Status: Phase 37 COMPLETE -- v4.0 Enterprise Stabilization milestone delivered
+Last activity: 2026-03-04 -- Plan 37-02 completed (deferred bug closure + Lighthouse CI gates)
 
-Progress: [██████████] 97%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████████] 97%
 | Phase 36 P01 | 14min | 3 tasks | 13 files |
 | Phase 36 P02 | 5min | 2 tasks | 2 files |
 | Phase 37 P01 | 4min | 2 tasks | 2 files |
+| Phase 37 P02 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 36]: hashForSearch kept deprecated, not deleted -- JSDoc directs to hmacForBlindIndex
 - [37-01]: 4 dialog components converted to next/dynamic (ExpandedMessage, LabelPicker, FolderPicker, KeyboardShortcuts)
 - [37-01]: lucide-react added to optimizePackageImports; @radix-ui/@tiptap excluded (glob/barrel unsupported)
+- [37-02]: BUG-029 (en.ts/it.ts >500 lines) accepted: splitting breaks TypeScript type inference
+- [37-02]: BUG-044 (ESLint ai-elements warnings) accepted: Tailwind dir intentionally outside MUI lint rules
+- [37-02]: Lighthouse CI now blocks PRs on LCP/TTI/CLS regression (continue-on-error removed)
 
 ### Pending Todos
 
@@ -136,7 +140,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T11:27:18Z
-Stopped at: Completed 37-01-PLAN.md
-Resume file: .planning/phases/37-performance-debt-closure/37-01-SUMMARY.md
-Next action: Execute Plan 37-02
+Last session: 2026-03-04T11:33:00Z
+Stopped at: Completed 37-02-PLAN.md (v4.0 milestone complete)
+Resume file: .planning/phases/37-performance-debt-closure/37-02-SUMMARY.md
+Next action: v4.0 Enterprise Stabilization milestone delivered -- all 18 plans across 7 phases complete
