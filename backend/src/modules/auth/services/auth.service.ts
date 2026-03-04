@@ -18,6 +18,7 @@ import { WebAuthnService } from './webauthn.service';
 import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { LegalAcceptanceService } from '../../compliance/services/legal-acceptance.service';
+import { AuthConfigService } from './auth-config.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
 
@@ -57,6 +58,7 @@ export class AuthService {
     private rateLimiter: RedisRateLimiterService,
     private cacheService: CacheService,
     private legalAcceptanceService: LegalAcceptanceService,
+    private authConfigService: AuthConfigService,
   ) {
     // Get password reset secret (must be different from JWT secret)
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
@@ -669,11 +671,15 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
+    // Create refresh token for token rotation (AUTH-02)
+    const refreshResult = await this.createRefreshToken(user.id, tenant.id);
+
     this.logger.log(`User logged in: ${user.email}`);
 
     return {
       success: true,
       accessToken: token,
+      refreshToken: refreshResult.token,
       sessionId: session.id,
       user: {
         id: user.id,
@@ -1127,12 +1133,16 @@ export class AuthService {
       where: { userId: user.id },
     });
 
+    // AUTH-05: Delete all refresh tokens on password reset
+    const deletedRefreshTokens = await this.deleteAllRefreshTokens(user.id, user.tenantId);
+
     this.logger.log(
       JSON.stringify({
         event: 'password_reset_completed',
         userId: user.id,
         email: this.redactEmail(user.email),
         sessionsInvalidated: deletedSessions.count,
+        refreshTokensInvalidated: deletedRefreshTokens,
         cacheEntriesInvalidated: sessionsToInvalidate.length + 1,
       }),
     );
@@ -1177,6 +1187,160 @@ export class AuthService {
     });
 
     this.logger.log(`User logged out: ${sessionId}`);
+  }
+
+  // ==================== REFRESH TOKEN ROTATION (AUTH-02) ====================
+
+  /** Grace period for token reuse (10 seconds) to handle network retries */
+  private readonly REFRESH_GRACE_PERIOD_MS = 10_000;
+
+  /**
+   * Hash a refresh token using HMAC-SHA256 with the dedicated refresh secret
+   */
+  private hashRefreshToken(token: string): string {
+    return crypto
+      .createHmac('sha256', this.authConfigService.refreshTokenSecret)
+      .update(token)
+      .digest('hex');
+  }
+
+  /**
+   * Create a new refresh token for a user (AUTH-02)
+   * Generates an opaque 64-char token, hashes it, and stores in DB.
+   * Returns the raw token (for cookie) and familyId (for tracking).
+   */
+  async createRefreshToken(
+    userId: string,
+    tenantId: string,
+    familyId?: string,
+  ): Promise<{ token: string; familyId: string }> {
+    const rawToken = nanoid(64);
+    const tokenHash = this.hashRefreshToken(rawToken);
+    const family = familyId || nanoid(32);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        tenantId,
+        userId,
+        familyId: family,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    return { token: rawToken, familyId: family };
+  }
+
+  /**
+   * Rotate a refresh token (AUTH-02, AUTH-03)
+   *
+   * 1. Hash the incoming raw token and look up in DB
+   * 2. If token is used AND within grace period -> return same replacement (idempotent)
+   * 3. If token is used AND outside grace period -> theft detected, kill family
+   * 4. If token is valid -> mark as used, create new pair, return both
+   */
+  async rotateRefreshToken(
+    rawToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const tokenHash = this.hashRefreshToken(rawToken);
+
+    const existing = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      include: { user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } } },
+    });
+
+    if (!existing) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (existing.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    // Token already used -- check grace period or theft
+    if (existing.isUsed) {
+      const timeSinceCreation = Date.now() - existing.createdAt.getTime();
+      if (timeSinceCreation <= this.REFRESH_GRACE_PERIOD_MS && existing.replacedBy) {
+        // Grace period: return the same replacement token pair
+        const replacement = await this.prisma.refreshToken.findUnique({
+          where: { tokenHash: existing.replacedBy },
+        });
+        if (replacement) {
+          // Re-generate access token for this user
+          const accessToken = this.jwtService.sign({
+            sessionId: nanoid(),
+            userId: existing.userId,
+            tenantId: existing.tenantId,
+            email: existing.user.email,
+            role: existing.user.role,
+          });
+          // We cannot recover the raw refresh token from the hash,
+          // so we create a fresh one in the same family
+          const newRefresh = await this.createRefreshToken(
+            existing.userId,
+            existing.tenantId,
+            existing.familyId,
+          );
+          return { accessToken, refreshToken: newRefresh.token };
+        }
+      }
+
+      // Theft detected: invalidate entire token family
+      this.logger.warn(
+        JSON.stringify({
+          event: 'refresh_token_theft_detected',
+          userId: existing.userId,
+          familyId: existing.familyId,
+        }),
+      );
+      await this.prisma.refreshToken.deleteMany({
+        where: { familyId: existing.familyId },
+      });
+      throw new UnauthorizedException('Token reuse detected');
+    }
+
+    // Valid token: rotate
+    const newRefresh = await this.createRefreshToken(
+      existing.userId,
+      existing.tenantId,
+      existing.familyId,
+    );
+    const newTokenHash = this.hashRefreshToken(newRefresh.token);
+
+    // Mark old token as used and record replacement
+    await this.prisma.refreshToken.update({
+      where: { id: existing.id },
+      data: { isUsed: true, replacedBy: newTokenHash },
+    });
+
+    // Generate new access token
+    const accessToken = this.jwtService.sign({
+      sessionId: nanoid(),
+      userId: existing.userId,
+      tenantId: existing.tenantId,
+      email: existing.user.email,
+      role: existing.user.role,
+    });
+
+    return { accessToken, refreshToken: newRefresh.token };
+  }
+
+  /**
+   * Delete all refresh tokens for a user (AUTH-05)
+   * Called on password change/reset and logout.
+   */
+  async deleteAllRefreshTokens(userId: string, tenantId: string): Promise<number> {
+    const result = await this.prisma.refreshToken.deleteMany({
+      where: { userId, tenantId },
+    });
+    this.logger.log(
+      JSON.stringify({
+        event: 'refresh_tokens_deleted',
+        userId,
+        count: result.count,
+      }),
+    );
+    return result.count;
   }
 
   /**

@@ -44,6 +44,7 @@ model Tenant {
   calendarEventAttachments CalendarEventAttachment[] @relation("CalendarEventAttachmentToTenant")
   calendarSyncStates       CalendarSyncState[]       @relation("CalendarSyncStateToTenant")
   sessions                 Session[]
+  refreshTokens            RefreshToken[]
   trustedDevices           TrustedDevice[]
   webauthnCredentials      WebAuthnCredential[]
   mistralAgents            MistralAgent[]
@@ -81,6 +82,7 @@ model User {
   mfaBackupCodes      MfaBackupCode[]
   mfaSecret           MfaSecret?
   sessions            Session[]
+  refreshTokens       RefreshToken[]
   trustedDevices      TrustedDevice[]
   userPreferences     UserPreferences?
   tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -249,6 +251,26 @@ model Session {
   @@index([tenantId])
   @@index([userId, token])
   @@map("sessions")
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  familyId   String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  isUsed     Boolean  @default(false)
+  replacedBy String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }
 
 model PasswordResetToken {

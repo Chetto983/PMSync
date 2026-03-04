@@ -40,6 +40,7 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   'MistralAgent',
   'PasswordResetToken',
   'ProviderConfig',
+  'RefreshToken',
   'ProviderContact',
   'ScheduledEmail',
   'Session',

@@ -10,6 +10,7 @@ import {
   GoneException,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from '../services/auth.service';
@@ -25,7 +26,13 @@ import { SendOtpDto } from '../dtos/send-otp.dto';
 import { MfaChallengeDto, MfaChallengeResponseDto, WebAuthnLoginOptionsDto, WebAuthnLoginVerifyDto } from '../dtos/mfa.dto';
 import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { generateCsrfToken } from '../../../common/middleware/csrf.middleware';
-import { setAuthCookie, clearAuthCookie } from '../helpers/cookie.helper';
+import {
+  setAuthCookie,
+  clearAuthCookie,
+  setRefreshCookie,
+  clearRefreshCookie,
+  REFRESH_COOKIE_NAME,
+} from '../helpers/cookie.helper';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -72,6 +79,9 @@ export class AuthController {
     if (result.accessToken) {
       setAuthCookie(res, result.accessToken);
     }
+    if ('refreshToken' in result && result.refreshToken) {
+      setRefreshCookie(res, result.refreshToken as string);
+    }
     return result;
   }
 
@@ -99,6 +109,9 @@ export class AuthController {
     const result = await this.authService.login(body.email, body.password, body.tenantSlug, ipAddress, userAgent, deviceToken, req);
     if ('accessToken' in result && result.accessToken) {
       setAuthCookie(res, result.accessToken);
+    }
+    if ('refreshToken' in result && result.refreshToken) {
+      setRefreshCookie(res, result.refreshToken as string);
     }
     return result;
   }
@@ -132,6 +145,9 @@ export class AuthController {
     );
     if (result.accessToken) {
       setAuthCookie(res, result.accessToken);
+    }
+    if ('refreshToken' in result && result.refreshToken) {
+      setRefreshCookie(res, result.refreshToken as string);
     }
     return result;
   }
@@ -173,6 +189,9 @@ export class AuthController {
     const result = await this.authService.loginWithPasskey(body.response, body.sessionId, ipAddress, userAgent);
     if (result.accessToken) {
       setAuthCookie(res, result.accessToken);
+    }
+    if ('refreshToken' in result && result.refreshToken) {
+      setRefreshCookie(res, result.refreshToken as string);
     }
     return result;
   }
@@ -240,11 +259,44 @@ export class AuthController {
     @Request() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: ExpressResponse,
   ) {
-    // SEC-01: Clear httpOnly auth cookie before invalidating session
+    // SEC-01: Clear httpOnly auth + refresh cookies before invalidating session
     clearAuthCookie(res);
+    clearRefreshCookie(res);
     // SECURITY: Pass tenantId and userId for proper tenant-isolated cache invalidation
     await this.authService.logout(req.user.sessionId, req.user.tenantId, req.user.id);
+    // AUTH-05: Delete all refresh tokens for this user+tenant from DB
+    await this.authService.deleteAllRefreshTokens(req.user.userId, req.user.tenantId);
     return { message: 'Successfully logged out' };
+  }
+
+  // ==================== TOKEN REFRESH (AUTH-03) ====================
+
+  /**
+   * Refresh access token using refresh token cookie
+   * POST /auth/refresh
+   *
+   * SECURITY: No JwtAuthGuard -- the access token is expired when this is called.
+   * Authenticates via refresh_token httpOnly cookie only.
+   * Rate limited: 10 requests per 60 seconds to prevent abuse.
+   */
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
+  @ApiResponse({ status: 200, description: 'Tokens refreshed successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async refresh(
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: ExpressResponse,
+  ) {
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token');
+    }
+    const result = await this.authService.rotateRefreshToken(refreshToken);
+    setAuthCookie(res, result.accessToken);
+    setRefreshCookie(res, result.refreshToken);
+    return { success: true };
   }
 
   /**

@@ -62,10 +62,10 @@ import { ComplianceModule } from '../compliance/compliance.module';
           );
         }
 
-        // Parse expiration - aligned to 7d session TTL (SEC-01)
-        // Session validation handles revocation; env var override still works
-        const expiresInConfig = config.get<string>('ACCESS_TOKEN_EXPIRES_IN') || '7d';
-        const expiresIn = expiresInConfig; // JWT library handles '7d' format
+        // Parse expiration - aligned to 15m for short-lived access tokens (AUTH-01)
+        // Refresh token rotation handles session continuity; env var override still works
+        const expiresInConfig = config.get<string>('ACCESS_TOKEN_EXPIRES_IN') || '15m';
+        const expiresIn = expiresInConfig; // JWT library handles '15m' format
 
         return {
           secret,
