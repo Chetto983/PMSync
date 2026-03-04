@@ -4,13 +4,28 @@ milestone: v4.0
 milestone_name: Enterprise Stabilization
 status: completed
 stopped_at: Completed 38-01-PLAN.md (attachment proxy path fix)
-last_updated: "2026-03-04T13:38:15.456Z"
+last_updated: "2026-03-04T14:19:50.921Z"
 last_activity: 2026-03-04 -- Plan 38-01 completed (attachment proxy path fix)
 progress:
-  total_phases: 10
+  total_phases: 9
   completed_phases: 9
   total_plans: 20
   completed_plans: 20
+---
+
+---
+gsd_state_version: 1.0
+milestone: v4.0
+milestone_name: Enterprise Stabilization
+status: completed
+stopped_at: Completed 38-01-PLAN.md (attachment proxy path fix)
+last_updated: "2026-03-04T13:38:15.456Z"
+last_activity: 2026-03-04 -- Plan 38-01 completed (attachment proxy path fix)
+progress:
+  total_phases: 9
+  completed_phases: 8
+  total_plans: 19
+  completed_plans: 19
   percent: 100
 ---
 
@@ -21,14 +36,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 39 - Code Quality and CI Hygiene
+**Current focus:** Phase 38 - Attachment Proxy Path Fix
 
 ## Current Position
 
-Phase: 39 of 39 (Code Quality and CI Hygiene)
+Phase: 38 of 38 (Attachment Proxy Path Fix)
 Plan: 1 of 1 complete in current phase
-Status: Phase 39 COMPLETE -- email.tsx split, CI fixes, auth-token.ts removed
-Last activity: 2026-03-04 -- Plan 39-01 completed (code quality and CI hygiene)
+Status: Phase 38 COMPLETE -- attachment proxy /api/v1 prefix fix
+Last activity: 2026-03-04 -- Plan 38-01 completed (attachment proxy path fix)
 
 Progress: [██████████] 100%
 
@@ -58,7 +73,6 @@ Progress: [██████████] 100%
 | Phase 37 P01 | 4min | 2 tasks | 2 files |
 | Phase 37 P02 | 3min | 2 tasks | 2 files |
 | Phase 38 P01 | 1min | 1 tasks | 1 files |
-| Phase 39 P01 | 16min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -128,9 +142,6 @@ Recent decisions affecting current work:
 - [37-02]: BUG-044 (ESLint ai-elements warnings) accepted: Tailwind dir intentionally outside MUI lint rules
 - [37-02]: Lighthouse CI now blocks PRs on LCP/TTI/CLS regression (continue-on-error removed)
 - [38-01]: No architectural changes needed for attachment proxy fix -- single-line URL fix plus comment updates
-- [39-01]: selectedEmailData computation moved into useEmailPageActions hook to keep email.tsx under 500 lines
-- [39-01]: eslint-disable for react-hooks/set-state-in-effect on 3 legitimate setState-in-useEffect patterns
-- [39-01]: auth-token.ts deleted after zero-caller grep confirmation
 
 ### Pending Todos
 
@@ -146,7 +157,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T14:11:00Z
-Stopped at: Completed 39-01-PLAN.md (code quality and CI hygiene)
-Resume file: .planning/phases/39-code-quality-ci-hygiene/39-01-SUMMARY.md
-Next action: Phase 39 complete -- all v4.0 milestone audit gap items closed
+Last session: 2026-03-04T13:30:00Z
+Stopped at: Completed 38-01-PLAN.md (attachment proxy path fix)
+Resume file: .planning/phases/38-attachment-proxy-path-fix/38-01-SUMMARY.md
+Next action: Phase 38 complete -- attachment downloads should work end-to-end now
