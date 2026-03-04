@@ -38,6 +38,7 @@ import {
   TOOL_REGISTRY_SERVICE,
   IToolRegistryService,
 } from '../../../common/interfaces/tool-registry.interface';
+import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 
 /**
  * Parameters for streamChat method.
@@ -89,6 +90,8 @@ export class AiChatService {
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,
+    // Phase 35: AI Run Ledger telemetry
+    @Optional() private readonly ledgerService?: AiRunLedgerService,
   ) {}
 
   /**
@@ -207,9 +210,10 @@ export class AiChatService {
 
     // 9. Create UI message stream
     // Note: conversationId continuity is handled by backend auto-resolve in ConversationService
+    const chatStartTime = Date.now();
     return createUIMessageStream({
       execute: async ({ writer }) => {
-        const tools = this.createToolSet(tenantId, conversation.id);
+        const tools = this.createToolSet(tenantId, userId, conversation.id);
         const allToolNames = Object.keys(tools);
 
         const result = streamText({
@@ -358,8 +362,21 @@ export class AiChatService {
                 );
             }
 
+            // Phase 35: Fire-and-forget ledger write
+            this.ledgerService?.recordRun({
+              tenantId,
+              userId,
+              runType: 'chat',
+              model: model || 'mistral-small-latest',
+              promptTokens: usage?.inputTokens ?? 0,
+              completionTokens: usage?.outputTokens ?? 0,
+              totalTokens: usage?.totalTokens ?? 0,
+              latencyMs: Date.now() - chatStartTime,
+              toolCallCount: 0,
+            }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
             // Check if summary generation is needed (> 20 messages)
-            this.maybeTriggerSummaryGeneration(conversation.id).catch(
+            this.maybeTriggerSummaryGeneration(conversation.id, tenantId).catch(
               (err) =>
                 this.logger.warn(
                   `Summary generation failed: ${err.message}`,
@@ -399,7 +416,7 @@ export class AiChatService {
    * Each service's getTools() receives tenantId, conversationId, and piiResolve closure.
    * Tools get PII-resolved args automatically -- no static getToolSet() export.
    */
-  private createToolSet(tenantId: string, conversationId: string) {
+  private createToolSet(tenantId: string, userId: string, conversationId: string) {
     const piiResolve = async (
       payload: Record<string, unknown>,
     ): Promise<Record<string, unknown>> =>
@@ -414,7 +431,7 @@ export class AiChatService {
       ...this.calendarToolsService.getTools(tenantId, conversationId, piiResolve),
       ...this.contactToolsService.getTools(tenantId, conversationId, piiResolve),
       ...this.folderToolsService.getTools(tenantId, conversationId, piiResolve),
-      ...this.ragToolsService.getTools(tenantId, conversationId, piiResolve),
+      ...this.ragToolsService.getTools(tenantId, userId, conversationId, piiResolve),
     };
 
     // Runtime duplicate check -- fail fast if tool names collide
@@ -462,6 +479,7 @@ export class AiChatService {
    */
   private async maybeTriggerSummaryGeneration(
     conversationId: string,
+    tenantId = 'system',
   ): Promise<void> {
     const messageCount =
       await this.conversationService.getMessageCount(conversationId);
@@ -486,7 +504,8 @@ export class AiChatService {
       })
       .join('\n');
 
-    const { text: summary } = await generateText({
+    const summaryStart = Date.now();
+    const { text: summary, usage } = await generateText({
       model: this.mistralProvider.getChatModel(),
       system:
         'Summarize the following conversation history in 2-3 concise paragraphs. ' +
@@ -494,6 +513,18 @@ export class AiChatService {
         'Write in the same language as the conversation.',
       messages: [{ role: 'user', content: messageText }],
     });
+
+    // Phase 35: Fire-and-forget ledger for summary generation
+    this.ledgerService?.recordRun({
+      tenantId,
+      userId: 'system',
+      runType: 'chat-summary',
+      model: 'mistral-small-latest',
+      promptTokens: usage?.inputTokens ?? 0,
+      completionTokens: usage?.outputTokens ?? 0,
+      totalTokens: usage?.totalTokens ?? 0,
+      latencyMs: Date.now() - summaryStart,
+    }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
     await this.conversationService.updateConversationSummary(
       conversationId,

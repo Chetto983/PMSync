@@ -20,6 +20,7 @@ import { UsageTrackingService } from '../../subscription/services/usage-tracking
 import { CostProtectionService } from '../../subscription/services/cost-protection.service';
 import { MistralEmbeddingService } from './mistral-embedding.service';
 import { MistralRagService } from './mistral-rag.service';
+import { AiRunLedgerService } from './ai-run-ledger.service';
 
 /** Simple circuit breaker for LLM API calls (RACE-04). */
 class LlmCircuitBreaker {
@@ -57,6 +58,7 @@ export class MistralService implements OnModuleInit {
     private ragService: MistralRagService,
     @Optional() @Inject(UsageTrackingService) private usageTrackingService?: UsageTrackingService,
     @Optional() @Inject(CostProtectionService) private costProtectionService?: CostProtectionService,
+    @Optional() private readonly ledgerService?: AiRunLedgerService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -134,7 +136,8 @@ export class MistralService implements OnModuleInit {
               : `${systemPrompt}\n\n${defensivePrompt}`;
           }
 
-          const { text } = await generateText({
+          const callStart = Date.now();
+          const { text, usage } = await generateText({
             model: this.mistralProvider.getChatModel(modelId),
             system: fullSystemPrompt,
             prompt: userPrompt,
@@ -148,6 +151,18 @@ export class MistralService implements OnModuleInit {
               },
             },
           });
+
+          // Phase 35: Fire-and-forget ledger write
+          this.ledgerService?.recordRun({
+            tenantId: _telemetryContext?.tenantId ?? 'unknown',
+            userId: _telemetryContext?.userId ?? 'system',
+            runType: _telemetryContext?.promptName ?? 'completion',
+            model: modelId,
+            promptTokens: usage?.inputTokens ?? 0,
+            completionTokens: usage?.outputTokens ?? 0,
+            totalTokens: usage?.totalTokens ?? 0,
+            latencyMs: Date.now() - callStart,
+          }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
           if (!text) throw new AiError('Empty response from AI service', AiErrorCode.EMPTY_RESPONSE);
 
@@ -188,7 +203,8 @@ export class MistralService implements OnModuleInit {
       const recentMessages = messages.slice(-6);
       const transcript = recentMessages.map((m) => `${m.role === 'assistant' ? t.mistral.roles.assistant : t.mistral.roles.user}: ${m.content}`).join('\n');
 
-      const { text } = await generateText({
+      const titleStart = Date.now();
+      const { text, usage } = await generateText({
         model: this.mistralProvider.getChatModel(this.getModel('fast')),
         system: t.mistral.title.system,
         prompt: `${t.mistral.title.conversationLabel}:\n${transcript}\n\n${t.mistral.title.titleLabel}:`,
@@ -197,6 +213,18 @@ export class MistralService implements OnModuleInit {
         abortSignal: AbortSignal.timeout(15_000),
         providerOptions: { mistral: { safePrompt: true } },
       });
+
+      // Phase 35: Fire-and-forget ledger for title generation
+      this.ledgerService?.recordRun({
+        tenantId: 'system',
+        userId: 'system',
+        runType: 'title-gen',
+        model: this.getModel('fast'),
+        promptTokens: usage?.inputTokens ?? 0,
+        completionTokens: usage?.outputTokens ?? 0,
+        totalTokens: usage?.totalTokens ?? 0,
+        latencyMs: Date.now() - titleStart,
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
       const rawTitle = text || this.buildFallbackTitle(messages, supportedLocale);
       return this.sanitiseTitle(rawTitle, supportedLocale);
