@@ -29,8 +29,8 @@ type BatchResponse = { customId: string; error?: string; response?: Record<strin
 type AttentionScoreService = any;
 
 // Cost control constants
-const MAX_TRIAGE_PER_BATCH = 500; // Temporarily 500 for PST dataset validation (was 50)
-const TRIAGE_MAX_AGE_HOURS = 168; // Temporarily 1 week for PST dataset validation (was 24)
+const MAX_TRIAGE_PER_BATCH = 50;
+const TRIAGE_MAX_AGE_HOURS = 24;
 // Skip folders for auto-triage (based on actual DB values - all UPPERCASE)
 const SKIP_FOLDERS = [
   'SPAM',       // Spam folder

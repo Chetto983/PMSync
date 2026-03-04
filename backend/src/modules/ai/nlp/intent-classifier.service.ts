@@ -139,7 +139,7 @@ export class IntentClassifierService implements OnModuleInit {
       // Dynamic import - fasttext is optional dependency
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { Classifier } = require('fasttext') as typeof import('fasttext');
+        const { Classifier } = require('fasttext') as any;
         const classifier = new Classifier();
         await classifier.loadModel(this.modelPath);
         this.classifier = classifier as unknown as FastTextClassifier;

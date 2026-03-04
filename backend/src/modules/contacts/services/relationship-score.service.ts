@@ -10,6 +10,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { HashSearchService } from '../../../common/services/hash-search.service';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -67,7 +68,10 @@ interface EmailInteraction {
 export class RelationshipScoreService {
   private readonly logger = new Logger(RelationshipScoreService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly hashSearchService: HashSearchService,
+  ) {}
 
   /**
    * Compute weighted relationship scores for contacts.
@@ -130,7 +134,7 @@ export class RelationshipScoreService {
         tenantId,
         receivedAt: { gte: ninetyDaysAgo },
         OR: [
-          { from: { in: allEmails } },
+          this.hashSearchService.buildExactSenderFilter(tenantId, allEmails),
           { to: { hasSome: allEmails } },
         ],
       },

@@ -226,26 +226,22 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
 
       await this.applyAllPostSyncUpdates(providerId, tenantId, metadataUpdates);
 
-      // Week 3 Task 4: Trigger auto-triage for new emails (Superhuman-like feature)
-      // Fire-and-forget: don't block sync completion, let triage run in background
-      // Only for incremental syncs with new messages (avoid storm on full sync)
+      // Auto-triage for new emails (Superhuman-like feature).
+      // Awaited so BullMQ manages backpressure — prevents OOM from floating promises.
       if (syncType === 'incremental' && result.newMessages > 0 && provider.userId) {
-        this.emailTriageService
-          .processUntriagedEmails({
+        try {
+          const triageResult = await this.emailTriageService.processUntriagedEmails({
             tenantId,
             userId: provider.userId,
-          })
-          .then((triageResult) => {
-            if (triageResult.processed > 0) {
-              this.logger.log(
-                `Auto-triage: ${triageResult.successful}/${triageResult.processed} emails triaged for ${email}`,
-              );
-            }
-          })
-          .catch((err) => {
-            // Fire-and-forget: log error but don't fail sync
-            this.logger.warn(`Auto-triage failed for ${email}: ${err.message}`);
           });
+          if (triageResult.processed > 0) {
+            this.logger.log(
+              `Auto-triage: ${triageResult.successful}/${triageResult.processed} emails triaged for ${email}`,
+            );
+          }
+        } catch (err) {
+          this.logger.warn(`Auto-triage failed for ${email}: ${(err as Error).message}`);
+        }
       }
 
       return {

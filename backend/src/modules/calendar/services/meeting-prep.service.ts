@@ -8,6 +8,7 @@
 
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { HashSearchService } from '../../../common/services/hash-search.service';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -46,7 +47,10 @@ interface ParsedAttendee {
 export class MeetingPrepService {
   private readonly logger = new Logger(MeetingPrepService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly hashSearchService: HashSearchService,
+  ) {}
 
   /**
    * Assemble pre-meeting briefing for a calendar event.
@@ -233,7 +237,7 @@ export class MeetingPrepService {
         receivedAt: { gte: since },
         isDeleted: false,
         OR: [
-          { from: { in: emails } },
+          this.hashSearchService.buildExactSenderFilter(tenantId, emails),
           { to: { hasSome: emails } },
         ],
       },

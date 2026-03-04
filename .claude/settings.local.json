@@ -138,7 +138,12 @@
       "WebFetch(domain:vercel.com)",
       "WebFetch(domain:flowbite.com)",
       "WebFetch(domain:ordinarycoders.com)",
-      "Bash(E2E_NO_WEB_SERVER=1 npx playwright test e2e/search-clear.spec.ts --project=chromium --reporter=list)"
+      "Bash(E2E_NO_WEB_SERVER=1 npx playwright test e2e/search-clear.spec.ts --project=chromium --reporter=list)",
+      "Bash(awk '/^model Email/,/^}/' /d/MailAgent/backend/prisma/schema.prisma)",
+      "Bash(awk '/^model Contact/,/^}/' /d/MailAgent/backend/prisma/schema.prisma)",
+      "Bash(timeout 30 npx nest start)",
+      "Bash(npx nest build)",
+      "Bash(docker build -f Dockerfile.railway -t pmsync-backend .)"
     ],
     "deny": [],
     "ask": []
