@@ -116,12 +116,12 @@ Plans:
   3. WebSocket connections authenticate via cookie -- Socket.IO chat and notification channels work without Bearer header
   4. All E2E test fixtures use a single `authHelper` that authenticates via cookie flow -- no test directly manipulates localStorage tokens
   5. All encryption in the codebase uses AES-GCM -- audit confirms zero remaining AES-CBC usage (or documented migration plan for any edge cases)
-**Plans**: TBD
+**Plans**: 3 plans (Wave 1 parallel pair + Wave 2)
 
 Plans:
-- [ ] 34-01: Backend dual-mode cookie auth (set httpOnly cookies while accepting Bearer)
-- [ ] 34-02: Frontend migration (auth-store, apiClient, WebSocket, Next.js proxies)
-- [ ] 34-03: AES-GCM standardization audit + E2E test fixture migration
+- [ ] 34-01-PLAN.md -- Backend dual-mode cookie auth: cookie.helper.ts, auth controller cookie setting on all success paths, logout clearing, WS cookie extraction, JWT expiry alignment to 7d
+- [ ] 34-02-PLAN.md -- Frontend cookie migration: auth-store localStorage removal, apiClient Bearer removal, WebSocket withCredentials, ChatRuntimeProvider, attachment proxy, E2E fixture migration
+- [ ] 34-03-PLAN.md -- AES-GCM standardization: CryptoService upgrade from CBC to GCM with CBC fallback decryption, unit tests, audit
 
 ### Phase 35: AI Observability & Permissions
 **Goal**: Every AI call is recorded in the Run Ledger with cost and latency data, queryable via API; permission taxonomy documented with PolicyService interface
