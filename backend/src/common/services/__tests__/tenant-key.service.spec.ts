@@ -64,4 +64,42 @@ describe('TenantKeyService', () => {
       'must decode to >= 32 bytes',
     );
   });
+
+  describe('getHmacKey', () => {
+    it('returns a 32-byte Buffer', () => {
+      const svc = createServiceWithConfig(TEST_MASTER_KEY);
+      const hmacKey = svc.getHmacKey('tenant-1');
+      expect(Buffer.isBuffer(hmacKey)).toBe(true);
+      expect(hmacKey.length).toBe(32);
+    });
+
+    it('returns a key distinct from the encryption key', () => {
+      const svc = createServiceWithConfig(TEST_MASTER_KEY);
+      const encKey = svc.getCurrentKey('tenant-1');
+      const hmacKey = svc.getHmacKey('tenant-1');
+      expect(encKey.equals(hmacKey)).toBe(false);
+    });
+
+    it('is cached (same reference on repeated calls)', () => {
+      const svc = createServiceWithConfig(TEST_MASTER_KEY);
+      const k1 = svc.getHmacKey('tenant-1');
+      const k2 = svc.getHmacKey('tenant-1');
+      expect(k1).toBe(k2); // same object reference (cached)
+    });
+
+    it('derives different keys per tenant', () => {
+      const svc = createServiceWithConfig(TEST_MASTER_KEY);
+      const k1 = svc.getHmacKey('tenant-1');
+      const k2 = svc.getHmacKey('tenant-2');
+      expect(k1.equals(k2)).toBe(false);
+    });
+
+    it('clearCache also clears hmac cache', () => {
+      const svc = createServiceWithConfig(TEST_MASTER_KEY);
+      svc.getHmacKey('tenant-1');
+      expect((svc as any).hmacCache.size).toBe(1);
+      svc.clearCache();
+      expect((svc as any).hmacCache.size).toBe(0);
+    });
+  });
 });

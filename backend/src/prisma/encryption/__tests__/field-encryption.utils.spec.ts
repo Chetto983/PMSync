@@ -4,6 +4,7 @@ import {
   decryptFieldValue,
   isEncrypted,
   hashForSearch,
+  hmacForBlindIndex,
   ENCRYPTION_PREFIX,
 } from '../field-encryption.utils';
 
@@ -95,6 +96,47 @@ describe('field-encryption.utils', () => {
     it('isolates by tenant', () => {
       const h1 = hashForSearch('john@test.com', 'tenant-1', 'salt1');
       const h2 = hashForSearch('john@test.com', 'tenant-2', 'salt1');
+      expect(h1).not.toBe(h2);
+    });
+  });
+
+  describe('hmacForBlindIndex', () => {
+    const hmacKeyA = randomBytes(32);
+    const hmacKeyB = randomBytes(32);
+
+    it('produces a 64-char hex string', () => {
+      const result = hmacForBlindIndex('john@test.com', hmacKeyA);
+      expect(result).toHaveLength(64);
+      expect(result).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('is deterministic (same input + same key = same output)', () => {
+      const h1 = hmacForBlindIndex('john@test.com', hmacKeyA);
+      const h2 = hmacForBlindIndex('john@test.com', hmacKeyA);
+      expect(h1).toBe(h2);
+    });
+
+    it('normalizes case (uppercase = lowercase)', () => {
+      const h1 = hmacForBlindIndex('JOHN@TEST.COM', hmacKeyA);
+      const h2 = hmacForBlindIndex('john@test.com', hmacKeyA);
+      expect(h1).toBe(h2);
+    });
+
+    it('trims whitespace', () => {
+      const h1 = hmacForBlindIndex(' john@test.com ', hmacKeyA);
+      const h2 = hmacForBlindIndex('john@test.com', hmacKeyA);
+      expect(h1).toBe(h2);
+    });
+
+    it('produces different hashes for different keys', () => {
+      const h1 = hmacForBlindIndex('john@test.com', hmacKeyA);
+      const h2 = hmacForBlindIndex('john@test.com', hmacKeyB);
+      expect(h1).not.toBe(h2);
+    });
+
+    it('produces different hashes for different values', () => {
+      const h1 = hmacForBlindIndex('john@test.com', hmacKeyA);
+      const h2 = hmacForBlindIndex('jane@test.com', hmacKeyA);
       expect(h1).not.toBe(h2);
     });
   });

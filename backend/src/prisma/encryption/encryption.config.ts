@@ -38,3 +38,28 @@ export function getEncryptedFieldsForModel(
 ): EncryptedFieldConfig[] {
   return ENCRYPTED_FIELDS[modelName] ?? [];
 }
+
+/**
+ * Blind index configuration — defines which model fields get HMAC blind indexes
+ * for exact-match search on plaintext fields.
+ *
+ * NOTE: This is SEPARATE from ENCRYPTED_FIELDS. The `from` field is NOT encrypted;
+ * it gets a companion blind index column for hash-based exact-match lookup.
+ */
+export interface BlindIndexConfig {
+  /** Source field containing the plaintext value (e.g., 'from'). */
+  field: string;
+  /** Target column for the HMAC hash (e.g., 'fromHash'). */
+  hashField: string;
+}
+
+export const BLIND_INDEX_FIELDS: Record<string, BlindIndexConfig[]> = {
+  Email: [{ field: 'from', hashField: 'fromHash' }],
+};
+
+/** Get blind index field configs for a given Prisma model name. */
+export function getBlindIndexFieldsForModel(
+  modelName: string,
+): BlindIndexConfig[] {
+  return BLIND_INDEX_FIELDS[modelName] ?? [];
+}

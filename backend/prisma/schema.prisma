@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -341,6 +342,7 @@ model Email {
   inReplyTo            String?
   references           String?
   from                 String
+  fromHash             String?
   to                   String[]
   cc                   String[]                @default([])
   bcc                  String[]                @default([])
@@ -400,6 +402,7 @@ model Email {
   @@index([tenantId, providerId, isDeleted])
   @@index([providerId, folder, isRead])
   @@index([tenantId, from])
+  @@index([tenantId, fromHash])
   @@index([tenantId, isBodyFetched])
   @@index([tenantId, isFlagged])
   @@index([tenantId, aiPriority])

@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'crypto';
 
 /** Prefix marker to distinguish encrypted values from plaintext. */
 export const ENCRYPTION_PREFIX = 'enc:';
@@ -65,8 +65,27 @@ export function isEncrypted(value: string): boolean {
  * Generate a deterministic SHA-256 hash for exact-match search on encrypted fields.
  * NOTE: Reserved for future Tier 2 implementation (from/subject/displayName).
  * Not used in Phase 14 Tier 1 (body fields don't need search).
+ *
+ * @deprecated Use {@link hmacForBlindIndex} instead. hmacForBlindIndex uses HMAC-SHA256
+ * with per-tenant HKDF-derived keys for cryptographically stronger blind indexes.
  */
 export function hashForSearch(value: string, tenantId: string, salt: string): string {
   const normalized = `${salt}:${tenantId}:${value.toLowerCase().trim()}`;
   return createHash('sha256').update(normalized).digest('hex');
+}
+
+/**
+ * Compute a deterministic HMAC-SHA256 blind index for exact-match search.
+ *
+ * Normalizes input (lowercase + trim) before hashing to ensure consistent
+ * lookups regardless of case or whitespace. Uses HMAC with a per-tenant
+ * HKDF-derived key for cryptographic isolation between tenants.
+ *
+ * @param value - The plaintext value to hash (e.g., sender email address)
+ * @param hmacKey - Per-tenant HMAC key (from TenantKeyService.getHmacKey)
+ * @returns 64-character lowercase hex string (HMAC-SHA256 digest)
+ */
+export function hmacForBlindIndex(value: string, hmacKey: Buffer): string {
+  const normalized = value.toLowerCase().trim();
+  return createHmac('sha256', hmacKey).update(normalized).digest('hex');
 }

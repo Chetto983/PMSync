@@ -11,6 +11,8 @@ export class TenantKeyService {
   private readonly masterKey: Buffer;
   private readonly oldMasterKeys: Buffer[];
   private readonly cache = new Map<string, Buffer>();
+  private readonly hmacCache = new Map<string, Buffer>();
+  private readonly HMAC_INFO_LABEL = 'mailagent-blind-index-v1';
 
   constructor() {
     const config = getConfiguration();
@@ -68,9 +70,26 @@ export class TenantKeyService {
     return keys;
   }
 
+  /**
+   * Get (or cache) the HMAC key for a tenant's blind indexes.
+   * Uses a DIFFERENT HKDF info label from the encryption key,
+   * ensuring cryptographic separation between encryption and indexing.
+   */
+  getHmacKey(tenantId: string): Buffer {
+    const cached = this.hmacCache.get(tenantId);
+    if (cached) return cached;
+
+    const key = Buffer.from(
+      hkdfSync('sha256', this.masterKey, tenantId, this.HMAC_INFO_LABEL, 32),
+    );
+    this.hmacCache.set(tenantId, key);
+    return key;
+  }
+
   /** Clear the in-memory key cache (call after key rotation). */
   clearCache(): void {
     this.cache.clear();
+    this.hmacCache.clear();
   }
 
   /** Whether encryption is enabled (master key configured). */
