@@ -185,6 +185,26 @@ export class AccountDeletionService {
   }
 
   /**
+   * Purge a single user whose deletion grace period has expired.
+   * Called by event handler (scoped to event payload), NOT the daily cron.
+   */
+  async purgeUserDeletion(userId: string, tenantId: string): Promise<boolean> {
+    const cutoff = new Date(Date.now() - GRACE_PERIOD_MS);
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId, deletedAt: { not: null, lt: cutoff } },
+      select: { id: true },
+    });
+
+    if (!user) {
+      this.logger.debug(`User ${userId} not found or deletion not yet expired, skipping`);
+      return false;
+    }
+
+    return this.hardDeleteUser(userId, tenantId);
+  }
+
+  /**
    * Hard-delete a user via Prisma cascade.
    *
    * Prisma schema has onDelete: Cascade on all User relations,

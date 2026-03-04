@@ -1,7 +1,6 @@
-import { INestApplication, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, INestApplication, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from './prisma-client.factory';
-import { getConfiguration } from '../config/configuration';
 import { TenantKeyService } from '../common/services/tenant-key.service';
 import { createFieldEncryptionExtension } from './encryption/field-encryption.extension';
 
@@ -9,30 +8,24 @@ import { createFieldEncryptionExtension } from './encryption/field-encryption.ex
 export class PrismaService extends PrismaClient implements OnModuleInit {
   private logger = new Logger(PrismaService.name);
 
-  constructor() {
+  constructor(
+    @Inject(TenantKeyService) private readonly tenantKeyService: TenantKeyService,
+  ) {
     super({ adapter: createPrismaAdapter() });
-
-    const config = getConfiguration();
-    const masterKey = config.fieldEncryption.masterKey;
-
-    if (masterKey) {
-      const tenantKeyService = new TenantKeyService();
-
-      if (tenantKeyService.isEnabled) {
-        const extended = this.$extends(
-          createFieldEncryptionExtension(
-            (tenantId) => tenantKeyService.getCurrentKey(tenantId),
-            (tenantId) => tenantKeyService.getDecryptionKeys(tenantId),
-            (tenantId) => tenantKeyService.getHmacKey(tenantId),
-          ),
-        );
-        Object.assign(this, extended);
-        this.logger.log('Field encryption extension applied');
-      }
-    }
   }
 
   async onModuleInit() {
+    if (this.tenantKeyService.isEnabled) {
+      const extended = this.$extends(
+        createFieldEncryptionExtension(
+          (tenantId) => this.tenantKeyService.getCurrentKey(tenantId),
+          (tenantId) => this.tenantKeyService.getDecryptionKeys(tenantId),
+          (tenantId) => this.tenantKeyService.getHmacKey(tenantId),
+        ),
+      );
+      Object.assign(this, extended);
+      this.logger.log('Field encryption extension applied');
+    }
     await this.$connect();
     this.logger.log('Prisma connected to database');
   }

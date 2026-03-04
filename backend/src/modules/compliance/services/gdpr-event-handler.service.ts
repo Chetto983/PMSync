@@ -63,8 +63,8 @@ export class GdprEventHandlerService {
       const { tenantId, userId } = event;
       this.logger.log(`[DeletionExpired] Processing expired deletion for user ${userId} in tenant ${tenantId}`);
 
-      // Individual account purge triggered by event
-      await this.accountDeletionService.purgeExpiredDeletions();
+      // Scoped purge for the specific user from the event payload
+      await this.accountDeletionService.purgeUserDeletion(userId, tenantId);
     } catch (error) {
       this.logger.error(
         `[DeletionExpired] Handler error for user ${event.userId}: ${
