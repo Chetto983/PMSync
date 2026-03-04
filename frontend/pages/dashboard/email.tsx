@@ -748,7 +748,7 @@ export default function EmailPage() {
 
   // Bulk move - show folder picker
   const handleBulkMove = useCallback((_ids: string[]) => {
-    // DEBT: Show folder picker dialog (tracked in BUG-039)
+    // DEBT: Bulk move via folder picker deferred to v4.1+ (single-email move uses FolderPickerDialog above)
     toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
   }, [toast, t]);
 
@@ -940,7 +940,7 @@ export default function EmailPage() {
           >
             <CircularProgress size={40} />
             <Typography variant="body2" color="text.secondary">
-              Loading emails...
+              {t.emailList?.loading || 'Loading emails...'}
             </Typography>
           </Box>
         </EmailLayout>
