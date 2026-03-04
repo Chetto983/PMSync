@@ -1,5 +1,37 @@
 services:
+  # =============================================
+  # CORE SERVICES (always running for local dev)
+  # =============================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: pmsync-redis
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-pmsync_dev_redis}
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+      --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-pmsync_dev_redis}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pmsync-net
+
+  # =============================================
+  # OPTIONAL: Local PostgreSQL (profile: db)
+  # Use when NOT connecting to Neon cloud DB
+  # Start with: docker compose -f docker-compose.dev.yml --profile db up
+  # =============================================
+
   postgres:
+    profiles: ["db"]
     build:
       context: ./database
       dockerfile: Dockerfile.postgres
@@ -15,47 +47,15 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mailuser}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mailuser}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - pmsync-net
-
-  redis:
-    image: redis:7-alpine
-    container_name: pmsync-redis
-    # Enable authentication and secure defaults
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD:-pmsync_dev_redis}
-      --maxmemory 256mb
-      --maxmemory-policy noeviction
-      --appendonly yes
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-pmsync_dev_redis}
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-pmsync_dev_redis}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - pmsync-net
-
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: pmsync-mailhog
-    ports:
-      - "1025:1025"  # SMTP port
-      - "8025:8025"  # Web UI port
     networks:
       - pmsync-net
 
   pgadmin:
+    profiles: ["db"]
     image: dpage/pgadmin4:latest
     container_name: pmsync-pgadmin
     environment:
@@ -69,48 +69,50 @@ services:
     networks:
       - pmsync-net
 
-  rgrock:
+  # =============================================
+  # OPTIONAL: SMTP testing (profile: mail)
+  # Start with: docker compose -f docker-compose.dev.yml --profile mail up
+  # =============================================
+
+  mailhog:
+    profiles: ["mail"]
+    image: mailhog/mailhog:latest
+    container_name: pmsync-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - pmsync-net
+
+  # =============================================
+  # OPTIONAL: Ngrok tunnel (profile: tunnel)
+  # Start with: docker compose -f docker-compose.dev.yml --profile tunnel up
+  # =============================================
+
+  ngrok:
+    profiles: ["tunnel"]
     image: ngrok/ngrok:latest
-    container_name: pmsync-rgrock
+    container_name: pmsync-ngrok
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    # Use dynamic URL (free plan) - check logs for actual URL
-    # For paid plans with custom domain, use: http --url=${NGROK_URL} host.docker.internal:3000
     command: >
       http host.docker.internal:3000
     ports:
-      - "4040:4040"  # ngrok web interface to see the URL
+      - "4040:4040"
     networks:
       - pmsync-net
 
-  minio:
-    image: minio/minio:latest
-    container_name: pmsync-minio
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      MINIO_REGION_NAME: ${MINIO_REGION_NAME:-us-east-1}
-      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
-      MINIO_SERVER_URL: ${MINIO_SERVER_URL:-http://localhost:9000}
-    command: server /data --console-address ":9001"
-    ports:
-      - "9100:9000"  # S3 API (shifted to avoid local conflicts)
-      - "9101:9001"  # Console UI
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    networks:
-      - pmsync-net
+  # =============================================
+  # OPTIONAL: Monitoring (profile: monitoring)
+  # Start with: docker compose -f docker-compose.dev.yml --profile monitoring up
+  # =============================================
 
   prometheus:
+    profiles: ["monitoring"]
     image: prom/prometheus:latest
     container_name: pmsync-prometheus
     ports:
-      - "9090:9090"  # Prometheus UI
+      - "9090:9090"
     volumes:
       - prometheus_data:/prometheus
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -130,10 +132,11 @@ services:
       - "host.docker.internal:host-gateway"
 
   grafana:
+    profiles: ["monitoring"]
     image: grafana/grafana:latest
     container_name: pmsync-grafana
     ports:
-      - "3030:3000"  # Grafana UI (shifted to avoid conflict with backend)
+      - "3030:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
@@ -153,9 +156,8 @@ services:
       - pmsync-net
 
 volumes:
-  postgres_data:
   redis_data:
-  minio_data:
+  postgres_data:
   prometheus_data:
   grafana_data:
 

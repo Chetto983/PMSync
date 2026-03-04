@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { hkdfSync } from 'crypto';
 import { getConfiguration } from '../../config/configuration';
 
-const INFO_LABEL = 'pmsync-field-enc-v1';
+const INFO_LABEL = 'mailagent-field-enc-v1';
 const MIN_KEY_BYTES = 32;
 
 @Injectable()
@@ -12,7 +12,7 @@ export class TenantKeyService {
   private readonly oldMasterKeys: Buffer[];
   private readonly cache = new Map<string, Buffer>();
   private readonly hmacCache = new Map<string, Buffer>();
-  private readonly HMAC_INFO_LABEL = 'pmsync-blind-index-v1';
+  private readonly HMAC_INFO_LABEL = 'mailagent-blind-index-v1';
 
   constructor() {
     const config = getConfiguration();

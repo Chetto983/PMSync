@@ -144,7 +144,15 @@
       "Bash(timeout 30 npx nest start)",
       "Bash(npx nest build)",
       "Bash(docker build -f Dockerfile.railway -t pmsync-backend .)",
-      "Bash(gh repo rename PMSync --yes)"
+      "Bash(gh repo rename PMSync --yes)",
+      "Bash(cmd.exe /c \"winget list GitHub.cli 2>NUL\")",
+      "Bash(cmd.exe /c \"winget install --id GitHub.cli --accept-package-agreements --accept-source-agreements\")",
+      "Bash(gh --version)",
+      "Bash(gh auth status)",
+      "Bash(gh api repos/chetto1983/PMSync --jq '.name')",
+      "Bash(npx vercel ls)",
+      "Bash(docker compose -f docker-compose.dev.yml up -d redis)",
+      "Bash(docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")"
     ],
     "deny": [],
     "ask": []

@@ -28,7 +28,7 @@ import {
  */
 function deriveKey(masterKey: Buffer, tenantId: string): Buffer {
   return Buffer.from(
-    hkdfSync('sha256', masterKey, tenantId, 'pmsync-field-enc-v1', 32),
+    hkdfSync('sha256', masterKey, tenantId, 'mailagent-field-enc-v1', 32),
   );
 }
 
