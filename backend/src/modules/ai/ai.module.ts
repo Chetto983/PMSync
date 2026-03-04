@@ -46,6 +46,8 @@ import { RagTool } from './tools/rag.tool';
 import { AiProviderEventHandlerService } from './services/provider-event-handler.service';
 // Phase 35: AI Run Ledger -- fire-and-forget telemetry for all AI calls
 import { AiRunLedgerService } from './services/ai-run-ledger.service';
+// Phase 35 Plan 02: AI Observability endpoints (runs query + cost summary)
+import { AiObservabilityController } from './controllers/ai-observability.controller';
 
 /**
  * AiModule - AI/ML services, embeddings, triage, and RAG.
@@ -97,7 +99,7 @@ import { AiRunLedgerService } from './services/ai-run-ledger.service';
     // Phase 35: AI Run Ledger telemetry
     AiRunLedgerService,
   ],
-  controllers: [AiController, AiHealthController, KnowledgeBaseController],
+  controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController],
   exports: [
     // Core AI services
     MistralService,
