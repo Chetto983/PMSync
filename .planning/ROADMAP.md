@@ -54,6 +54,8 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 37: Performance & Debt Closure** - LCP <2.5s / TTI <3.5s, resolve 7 deferred v3.1 bugs (completed 2026-03-04)
 - [x] **Phase 38: Attachment Proxy Path Fix** - Fix broken attachment download proxy URL missing /api/v1 prefix (gap closure) (completed 2026-03-04)
 - [x] **Phase 39: Code Quality & CI Hygiene** - Split email.tsx, fix Lighthouse CI mixed-PR gap, fix OpenAPI CI masking, remove auth-token stub (gap closure) (completed 2026-03-04)
+- [ ] **Phase 40: Fix CI Regressions (4a911f38)** - Remove re-added paths filter, OpenAPI echo fallback, and auth-token.ts dead stub (gap closure)
+- [ ] **Phase 41: Backend Code Hygiene** - Fix TenantKeyService double-init, GDPR purge scoping, migration drift, remove dead scaffolding (gap closure)
 
 ## Phase Details
 
@@ -199,6 +201,35 @@ Plans:
 Plans:
 - [ ] 39-01-PLAN.md -- Split email.tsx, fix Lighthouse CI trigger scope, fix OpenAPI CI masking, remove auth-token.ts stub
 
+### Phase 40: Fix CI Regressions (4a911f38)
+**Goal**: Revert 3 silent regressions from commit 4a911f38 that broke Phase 39's CI fixes
+**Depends on**: Phase 39
+**Requirements**: None (tech debt / regression fix)
+**Gap Closure:** Closes integration gap API-05-CI-REGRESSION, flow gap Lighthouse CI mixed PRs, 3 Phase 39 tech debt regressions
+**Success Criteria** (what must be TRUE):
+  1. `.github/workflows/frontend-ci.yml` has no `paths:` stanzas — Lighthouse CI triggers on ALL PRs
+  2. `.github/workflows/ci.yml` OpenAPI step has no `|| echo` fallback — real generation failures break the pipeline
+  3. `frontend/lib/utils/auth-token.ts` does not exist — zero dead auth code
+**Plans**: 1 plan
+
+Plans:
+- [ ] 40-01-PLAN.md -- Remove frontend-ci.yml paths filter, ci.yml OpenAPI echo fallback, and auth-token.ts dead stub
+
+### Phase 41: Backend Code Hygiene
+**Goal**: Fix 4 code quality issues and remove dead scaffolding flagged by milestone re-audit
+**Depends on**: Phase 40 (sequential for clean audit)
+**Requirements**: None (tech debt closure)
+**Gap Closure:** Closes 6 tech debt items across Phases 31, 32, 36
+**Success Criteria** (what must be TRUE):
+  1. `TenantKeyService` instantiated only via NestJS DI — no `new TenantKeyService()` in PrismaService constructor
+  2. `GdprEventHandlerService.purgeExpiredDeletions()` scoped to event payload userId — not a global purge
+  3. `AiRunLedger` migration aligned with `prisma migrate dev` — no direct SQL drift
+  4. Dead scaffolding removed: `ISyncAuthService`/`SYNC_AUTH_SERVICE`, `CalendarIcsDetectedEvent` (no producer/consumer), `PROVIDER_TOKEN_SERVICE` comment-only import
+**Plans**: 1 plan
+
+Plans:
+- [ ] 41-01-PLAN.md -- Fix TenantKeyService double-init, GDPR purge scoping, migration drift, remove dead scaffolding
+
 ## Progress
 
 **Execution Order:**
@@ -219,6 +250,8 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | 37. Performance & Debt Closure | 2/2 | Complete    | 2026-03-04 |
 | 38. Attachment Proxy Path Fix | 1/1 | Complete    | 2026-03-04 |
 | 39. Code Quality & CI Hygiene | 0/1 | Complete    | 2026-03-04 |
+| 40. Fix CI Regressions (4a911f38) | 0/1 | Pending     | — |
+| 41. Backend Code Hygiene | 0/1 | Pending     | — |
 
 ---
 *Roadmap created: 2026-02-09*
@@ -226,3 +259,4 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 *v3.2 closed (partial): 2026-03-03 -- 20/25 plans complete, carry-forward to v4.0*
 *v4.0 phases added: 2026-03-03 -- 7 phases, 19 plans (est), 19 requirements mapped*
 *v4.0 gap closure phases added: 2026-03-04 -- 2 phases (38-39), closes 1 broken E2E flow + 4 tech debt items*
+*v4.0 re-audit gap closure: 2026-03-04 -- 2 phases (40-41), closes 1 integration gap + 1 flow gap + 9 tech debt items*
