@@ -3,7 +3,7 @@
  * Delegates all operations to: ImapConnectionPoolService, ImapFolderService,
  * ImapMessageService, ImapIdleService, ImapSendService
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import {
   BaseEmailDriver,
   DriverCredentials,
@@ -28,7 +28,7 @@ import { ImapIdleService } from './services/imap-idle.service';
 import { ImapSendService } from './services/imap-send.service';
 import { ImapConfig, SmtpConfig, ImapDriverContext } from './interfaces/imap-internal.interface';
 
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class IMAPDriver extends BaseEmailDriver {
   readonly providerType: ProviderType = 'imap';
   private readonly logger = new Logger(IMAPDriver.name);

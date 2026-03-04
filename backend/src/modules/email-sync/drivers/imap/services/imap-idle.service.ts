@@ -12,7 +12,7 @@
  * - Memory leak prevention with explicit listener cleanup
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { ImapFlow } from 'imapflow';
 import { ImapFolderService } from './imap-folder.service';
 import {
@@ -43,7 +43,7 @@ interface IdleState {
   shouldReconnect: boolean;
 }
 
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class ImapIdleService {
   private readonly logger = new Logger(ImapIdleService.name);
 

@@ -1,7 +1,3 @@
--- Enable Citus extension for horizontal sharding
--- Must be first to use shared_preload_libraries
-CREATE EXTENSION IF NOT EXISTS citus;
-
 -- Enable pgvector extension for embeddings/RAG
 CREATE EXTENSION IF NOT EXISTS vector;
 

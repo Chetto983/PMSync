@@ -70,6 +70,12 @@ async function bootstrap() {
   );
 
   // CORS configuration - allowlist + regex + optional allow-all
+  // SEC: CORS_ALLOW_ALL is forcibly disabled in production to prevent open CORS
+  const corsAllowAll = config.api.corsAllowAll && config.nodeEnv !== 'production';
+  if (config.api.corsAllowAll && config.nodeEnv === 'production') {
+    logger.warn('[SECURITY] CORS_ALLOW_ALL is ignored in production environment');
+  }
+
   app.enableCors({
     origin: (origin, callback) => {
       // Allow same-origin/SSR calls without origin
@@ -77,7 +83,7 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      if (config.api.corsAllowAll) {
+      if (corsAllowAll) {
         return callback(null, true);
       }
 

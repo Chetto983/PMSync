@@ -91,12 +91,13 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
    * Get driver credentials for Microsoft OAuth2
    * DC-4 consolidation: Provider-specific credential fetching
    */
-  protected async getDriverCredentials(providerId: string): Promise<{
+  // P0-5 FIX: Added tenantId for tenant isolation enforcement
+  protected async getDriverCredentials(providerId: string, tenantId?: string): Promise<{
     provider: any;
     credentials: any;
     driverType: 'google' | 'microsoft' | 'imap';
   }> {
-    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(providerId, tenantId);
     return {
       provider,
       credentials: {

@@ -141,6 +141,14 @@ export class CircuitBreaker {
         this.logger.log('Circuit breaker manually reset');
     }
 
+    /**
+     * Manually record a failure (e.g. from a stream error callback that runs
+     * outside the execute() wrapper).
+     */
+    recordFailure(error?: unknown): void {
+        this.onFailure(error ?? new Error('Manual failure recorded'));
+    }
+
     private onSuccess(): void {
         this.lastSuccessAt = new Date();
         this.successes++;

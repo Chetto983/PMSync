@@ -11,7 +11,7 @@
  * - Canonical type resolution
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { ImapConnectionPoolService } from './imap-connection-pool.service';
 import {
   CanonicalFolder,
@@ -20,7 +20,7 @@ import {
   folderNameToCanonical,
 } from '../../interfaces/canonical.types';
 
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class ImapFolderService {
   private readonly logger = new Logger(ImapFolderService.name);
   private readonly FOLDER_CACHE_TTL = 300000; // 5 minutes

@@ -131,7 +131,7 @@ export class KnowledgeBaseService {
 
       const chunks = this.composerService.chunkContentForEmbedding(contentResult.content);
       const receivedAtIso = options.receivedAt instanceof Date ? options.receivedAt.toISOString() : options.receivedAt || undefined;
-      await this.crudService.deleteEmbeddingsForEmail(options.tenantId, options.emailId);
+      // NOTE: old embeddings are deleted after successful batch generation below — not here
 
       for (const chunk of chunks) {
         allChunksData.push({
@@ -154,13 +154,23 @@ export class KnowledgeBaseService {
 
     try {
       const allContents = allChunksData.map((c) => c.content);
+      // Generate ALL embeddings first — if this throws, no old data is deleted
       const embeddings = await this.mistralService.generateBulkEmbeddings(allContents);
+
+      // Track which emails have had their old embeddings deleted (swap pattern)
+      const deletedEmailIds = new Set<string>();
 
       for (let i = 0; i < allChunksData.length; i++) {
         const chunkData = allChunksData[i];
         const embedding = embeddings[i];
 
         try {
+          // Delete old embeddings for this email once, right before saving new ones
+          if (!deletedEmailIds.has(chunkData.emailId)) {
+            await this.crudService.deleteEmbeddingsForEmail(chunkData.tenantId, chunkData.emailId);
+            deletedEmailIds.add(chunkData.emailId);
+          }
+
           await this.embeddingsService.saveEmbedding({
             tenantId: chunkData.tenantId,
             embedding,
@@ -225,7 +235,7 @@ export class KnowledgeBaseService {
 
     try {
       const chunks = this.composerService.chunkContentForEmbedding(contentResult.content);
-      await this.crudService.deleteEmbeddingsForEmail(options.tenantId, options.emailId);
+      // Generate embeddings BEFORE deleting old ones — prevents data loss on API failure
       const receivedAtIso = options.receivedAt instanceof Date ? options.receivedAt.toISOString() : options.receivedAt || undefined;
 
       let successfulChunks = 0;
@@ -233,6 +243,8 @@ export class KnowledgeBaseService {
       try {
         const chunkContents = chunks.map((chunk) => chunk.content);
         const embeddings = await this.mistralService.generateBulkEmbeddings(chunkContents);
+        // Only delete old embeddings after successful generation
+        await this.crudService.deleteEmbeddingsForEmail(options.tenantId, options.emailId);
 
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
@@ -267,9 +279,17 @@ export class KnowledgeBaseService {
       } catch (bulkError) {
         this.logger.warn(`Bulk failed for ${options.emailId}, fallback: ${bulkError instanceof Error ? bulkError.message : String(bulkError)}`);
 
+        // Swap pattern: generate first chunk to prove the API works before deleting old data
+        let deletedOld = false;
         for (const chunk of chunks) {
           try {
             const embedding = await this.mistralService.generateEmbedding(chunk.content, undefined, { tenantId: options.tenantId });
+
+            // Only delete old embeddings when the first new one is ready
+            if (!deletedOld) {
+              await this.crudService.deleteEmbeddingsForEmail(options.tenantId, options.emailId);
+              deletedOld = true;
+            }
 
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
@@ -411,14 +431,14 @@ export class KnowledgeBaseService {
         );
       }
 
-      // Delegate delete to crudService
-      await this.crudService.deleteEmbeddingsForContact(options.tenantId, options.contactId);
-
       let successfulChunks = 0;
 
       try {
         const chunkContents = chunks.map((chunk) => chunk.content);
+        // Generate embeddings BEFORE deleting old ones — prevents data loss on API failure
         const embeddings = await this.mistralService.generateBulkEmbeddings(chunkContents);
+        // Only delete old embeddings after successful generation
+        await this.crudService.deleteEmbeddingsForContact(options.tenantId, options.contactId);
 
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
@@ -450,6 +470,8 @@ export class KnowledgeBaseService {
           }
         }
       } catch (_bulkError) {
+        // Swap pattern: generate first chunk to prove API works before deleting old data
+        let deletedOld = false;
         for (const chunk of chunks) {
           try {
             const embedding = await this.mistralService.generateEmbedding(
@@ -457,6 +479,12 @@ export class KnowledgeBaseService {
               undefined,
               { tenantId: options.tenantId },
             );
+
+            // Only delete old embeddings when the first new one is ready
+            if (!deletedOld) {
+              await this.crudService.deleteEmbeddingsForContact(options.tenantId, options.contactId);
+              deletedOld = true;
+            }
 
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,

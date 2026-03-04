@@ -90,14 +90,20 @@ export class ImapSyncService extends BaseEmailSyncService {
    * Get driver credentials for IMAP basic auth
    * DC-4 consolidation: Provider-specific credential fetching
    */
-  protected async getDriverCredentials(providerId: string): Promise<{
+  // P0-5 FIX: Added tenantId for tenant isolation enforcement
+  protected async getDriverCredentials(providerId: string, tenantId?: string): Promise<{
     provider: any;
     credentials: any;
     driverType: 'google' | 'microsoft' | 'imap';
   }> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
-    });
+    // P0-5 FIX: When tenantId is provided, enforce tenant isolation in the query
+    const provider = tenantId
+      ? await this.prisma.providerConfig.findFirst({
+          where: { id: providerId, tenantId },
+        })
+      : await this.prisma.providerConfig.findUnique({
+          where: { id: providerId },
+        });
 
     if (!provider || !provider.imapPassword) {
       throw new Error('Provider not found or missing IMAP credentials');

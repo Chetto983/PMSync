@@ -125,7 +125,7 @@ export class EmailSendService {
       const isImapProvider = providerType === 'imap';
       const accessToken = isImapProvider
         ? await this.getSmtpPassword(provider)
-        : await this.getAccessToken(provider);
+        : await this.getAccessToken(provider, data.tenantId);
 
       // Create driver credentials
       const credentials: DriverCredentials = isImapProvider
@@ -275,8 +275,9 @@ export class EmailSendService {
   /**
    * Get decrypted access token from provider
    */
-  private async getAccessToken(provider: ProviderConfig): Promise<string> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(provider.id);
+  private async getAccessToken(provider: ProviderConfig, tenantId?: string): Promise<string> {
+    // P0-5 FIX: Pass tenantId to enforce tenant isolation
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(provider.id, tenantId);
     return accessToken;
   }
 

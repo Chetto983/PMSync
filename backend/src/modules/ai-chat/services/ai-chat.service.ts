@@ -367,7 +367,7 @@ export class AiChatService {
             );
           },
           onError: (error) => {
-            // Circuit breaker: record failure
+            // Circuit breaker: record failure so the breaker can open on repeated errors
             if (
               error instanceof Error &&
               !(error instanceof CircuitBreakerOpenError)
@@ -375,6 +375,7 @@ export class AiChatService {
               this.logger.warn(
                 `Stream error, recording circuit breaker failure: ${error.message}`,
               );
+              circuitBreaker.recordFailure();
             }
           },
         });

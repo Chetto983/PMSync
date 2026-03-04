@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { AxiosInstance } from 'axios';
 import { ComposeMessage, EmailAddress } from '../../interfaces/canonical.types';
 import { withRetry, RetryOptions } from '../../../../../common/utils';
@@ -12,7 +12,7 @@ import { withRetry, RetryOptions } from '../../../../../common/utils';
  * Wave 2 extraction - send operations extracted after message operations
  * to maintain dependency order (send operations need message operations).
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class MicrosoftSendService {
   private readonly logger = new Logger(MicrosoftSendService.name);
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';

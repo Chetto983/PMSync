@@ -316,7 +316,8 @@ export class GmailFolderService {
    * @param providerId - Provider config ID
    */
   async syncFolders(tenantId: string, providerId: string): Promise<void> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+    // P0-5 FIX: Pass tenantId to enforce tenant isolation
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId, tenantId);
 
     // Create OAuth2 client with access token
     const oauth2Client = new google.auth.OAuth2();

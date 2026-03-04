@@ -106,7 +106,8 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
           let result: FolderJobResult;
 
           // Create connected driver using factory
-          const credentials = await this.getDriverCredentials(providerId, providerType);
+          // P0-5 FIX: Pass tenantId for tenant isolation
+          const credentials = await this.getDriverCredentials(providerId, providerType, tenantId);
           const driver = await this.driverFactory.createConnectedDriver(
             providerType === 'generic' ? 'imap' : providerType,
             credentials
@@ -162,7 +163,7 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
   /**
    * Get credentials for driver
    */
-  private async getDriverCredentials(providerId: string, providerType: string): Promise<DriverCredentials> {
+  private async getDriverCredentials(providerId: string, providerType: string, tenantId?: string): Promise<DriverCredentials> {
     // Basic credential object
     const _creds: DriverCredentials = {
       type: 'oauth2'
@@ -186,7 +187,8 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
     }
 
     // For OAuth (Google/Microsoft), get token
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+    // P0-5 FIX: Pass tenantId to enforce tenant isolation
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId, tenantId);
     return {
       type: 'oauth2',
       accessToken

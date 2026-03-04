@@ -112,7 +112,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
     try {
       // Get provider credentials (provider-specific)
-      const { provider, credentials, driverType } = await this.getDriverCredentials(providerId);
+      // P0-5 FIX: Pass tenantId for tenant isolation enforcement
+      const { provider, credentials, driverType } = await this.getDriverCredentials(providerId, tenantId);
 
       // Create connected driver
       let driver = await this.createDriver(driverType, credentials);
@@ -260,7 +261,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
    * Get driver credentials for connecting to provider
    * Must be implemented by each provider (Google, Microsoft, IMAP)
    */
-  protected abstract getDriverCredentials(providerId: string): Promise<{
+  // P0-5 FIX: Added optional tenantId for tenant isolation enforcement
+  protected abstract getDriverCredentials(providerId: string, tenantId?: string): Promise<{
     provider: any;
     credentials: any;
     driverType: 'google' | 'microsoft' | 'imap';

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { google, gmail_v1 } from 'googleapis';
 import {
   BaseEmailDriver,
@@ -33,7 +33,7 @@ import { GmailSyncService } from './services/gmail-sync.service';
  *
  * Follows IMAP driver pattern exactly.
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class GoogleDriver extends BaseEmailDriver {
   readonly providerType: ProviderType = 'google';
   private readonly logger = new Logger(GoogleDriver.name);

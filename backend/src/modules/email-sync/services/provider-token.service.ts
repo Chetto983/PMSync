@@ -54,10 +54,17 @@ export class ProviderTokenService {
     private readonly config: ConfigService,
   ) {}
 
-  async getProviderWithToken(providerId: string): Promise<ProviderWithToken> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
-    });
+  async getProviderWithToken(providerId: string, tenantId?: string): Promise<ProviderWithToken> {
+    // P0-5 FIX: When tenantId is provided, enforce tenant isolation in the query
+    // to prevent cross-tenant data access. Uses findFirst with composite WHERE
+    // instead of findUnique to include tenantId constraint.
+    const provider = tenantId
+      ? await this.prisma.providerConfig.findFirst({
+          where: { id: providerId, tenantId },
+        })
+      : await this.prisma.providerConfig.findUnique({
+          where: { id: providerId },
+        });
 
     if (!provider) {
       throw new NotFoundException(`Provider not found: ${providerId}`);

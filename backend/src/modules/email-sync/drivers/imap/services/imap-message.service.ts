@@ -12,7 +12,7 @@
  * - Multi-folder sync token format
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { MailboxObject } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { ImapConnectionPoolService } from './imap-connection-pool.service';
@@ -32,7 +32,7 @@ import {
   ChangesResult,
 } from '../../interfaces/email-driver.interface';
 
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class ImapMessageService {
   private readonly logger = new Logger(ImapMessageService.name);
   private readonly SYNC_FOLDERS = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'ARCHIVE', 'SPAM'];

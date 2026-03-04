@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { gmail_v1 } from 'googleapis';
 import { ChangesResult } from '../../interfaces/email-driver.interface';
 import { ProviderChange } from '../../interfaces/canonical.types';
@@ -16,7 +16,7 @@ import { withRetry, RetryOptions } from '../../../../../common/utils';
  * - 429: rate limited → throw retriable error with retryAfter from header
  * - 5xx: server error → throw retriable error with 5s retry
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class GmailSyncService {
   private readonly logger = new Logger(GmailSyncService.name);
   private gmail: gmail_v1.Gmail | null = null;

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import {
   BaseEmailDriver,
@@ -34,7 +34,7 @@ import { MicrosoftSyncService } from './services/microsoft-sync.service';
  *
  * Follows IMAP driver pattern exactly.
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class MicrosoftDriver extends BaseEmailDriver {
   readonly providerType: ProviderType = 'microsoft';
   private readonly logger = new Logger(MicrosoftDriver.name);

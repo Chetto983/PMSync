@@ -157,7 +157,8 @@ export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobRe
   ): Promise<DriverCredentials> {
     if (providerType === 'google' || providerType === 'microsoft') {
       // OAuth providers: get refreshed access token
-      const { accessToken } = await this.providerTokenService.getProviderWithToken(provider.id);
+      // P0-5 FIX: Pass tenantId to enforce tenant isolation
+      const { accessToken } = await this.providerTokenService.getProviderWithToken(provider.id, provider.tenantId);
 
       return {
         type: 'oauth2',

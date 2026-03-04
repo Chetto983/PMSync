@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { AxiosInstance } from 'axios';
 import {
   ListMessagesOptions,
@@ -23,7 +23,7 @@ import { withRetry, RetryOptions } from '../../../../../common/utils';
  *
  * Wave 1 extraction - establishes pattern for subsequent service splits.
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class MicrosoftMessageService {
   private readonly logger = new Logger(MicrosoftMessageService.name);
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';

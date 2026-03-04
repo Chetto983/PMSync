@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { AxiosInstance, AxiosResponse } from 'axios';
 import { ChangesResult } from '../../interfaces/email-driver.interface';
 import { ProviderChange } from '../../interfaces/canonical.types';
@@ -17,7 +17,7 @@ import { withRetry, RetryOptions } from '../../../../../common/utils';
  * - Delta link validation (graph.microsoft.com and delta in URL)
  * - MAX_PAGES = 50 limit per folder
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class MicrosoftSyncService {
   private readonly logger = new Logger(MicrosoftSyncService.name);
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';

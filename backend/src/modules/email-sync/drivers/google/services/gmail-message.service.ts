@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { gmail_v1 } from 'googleapis';
 import {
   ListMessagesOptions,
@@ -22,7 +22,7 @@ import { withRetry, RetryOptions } from '../../../../../common/utils';
  *
  * Wave 1 extraction - establishes pattern for subsequent service splits.
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class GmailMessageService {
   private readonly logger = new Logger(GmailMessageService.name);
 

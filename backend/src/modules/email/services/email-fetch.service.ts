@@ -58,10 +58,10 @@ export class EmailFetchService {
       // Fetch from appropriate provider
       switch (email.provider.providerType) {
         case 'google':
-          fetchedContent = await this.fetchFromGmail(email, email.provider);
+          fetchedContent = await this.fetchFromGmail(email, email.provider, tenantId);
           break;
         case 'microsoft':
-          fetchedContent = await this.fetchFromMicrosoft(email, email.provider);
+          fetchedContent = await this.fetchFromMicrosoft(email, email.provider, tenantId);
           break;
         case 'imap':
         case 'generic':
@@ -134,9 +134,10 @@ export class EmailFetchService {
     }
   }
 
-  private async fetchFromGmail(email: Email, provider: ProviderConfig) {
+  private async fetchFromGmail(email: Email, provider: ProviderConfig, tenantId?: string) {
+    // P0-5 FIX: Pass tenantId to enforce tenant isolation
     const { provider: freshProvider, accessToken } =
-      await this.providerTokenService.getProviderWithToken(provider.id);
+      await this.providerTokenService.getProviderWithToken(provider.id, tenantId);
     if (freshProvider.providerType !== 'google') {
       throw new Error(`Provider ${provider.id} is not a Gmail provider`);
     }
@@ -185,9 +186,10 @@ export class EmailFetchService {
     };
   }
 
-  private async fetchFromMicrosoft(email: Email, provider: ProviderConfig) {
+  private async fetchFromMicrosoft(email: Email, provider: ProviderConfig, tenantId?: string) {
+    // P0-5 FIX: Pass tenantId to enforce tenant isolation
     const { provider: freshProvider, accessToken } =
-      await this.providerTokenService.getProviderWithToken(provider.id);
+      await this.providerTokenService.getProviderWithToken(provider.id, tenantId);
     if (freshProvider.providerType !== 'microsoft') {
       throw new Error(`Provider ${provider.id} is not a Microsoft provider`);
     }

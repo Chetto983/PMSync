@@ -13,6 +13,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { embed } from 'ai';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
@@ -62,21 +63,19 @@ export class MemoryService {
       const vectorStr = `[${queryVector.join(',')}]`;
 
       // Vector similarity search on AIMemory
-      const results = await this.prisma.$queryRawUnsafe<
+      // SEC: Use $queryRaw tagged template (parameterized) instead of $queryRawUnsafe
+      const vectorParam = Prisma.raw(`'${vectorStr}'::vector`);
+      const results = await this.prisma.$queryRaw<
         Array<{ content: string; category: string | null; createdAt: Date }>
       >(
-        `SELECT content, category, "createdAt"
+        Prisma.sql`SELECT content, category, "createdAt"
          FROM ai_memories
-         WHERE "tenantId" = $1
-           AND "userId" = $2
+         WHERE "tenantId" = ${tenantId}
+           AND "userId" = ${userId}
            AND vector IS NOT NULL
-           AND (vector <-> $3::vector) < 0.5
-         ORDER BY (vector <-> $3::vector) ASC
-         LIMIT $4`,
-        tenantId,
-        userId,
-        vectorStr,
-        limit,
+           AND (vector <-> ${vectorParam}) < 0.5
+         ORDER BY (vector <-> ${vectorParam}) ASC
+         LIMIT ${limit}`,
       );
 
       return results;

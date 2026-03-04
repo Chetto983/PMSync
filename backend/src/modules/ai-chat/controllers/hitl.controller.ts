@@ -10,6 +10,8 @@ import {
   HttpStatus,
   UsePipes,
   ValidationPipe,
+  Inject,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +26,10 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { HitlService } from '../services/hitl.service';
 import { ApproveActionDto } from '../dto/hitl.dto';
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 /**
  * HitlController -- HITL approval endpoints for AI chat actions.
@@ -39,7 +45,13 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class HitlController {
-  constructor(private readonly hitlService: HitlService) {}
+  private readonly logger = new Logger(HitlController.name);
+
+  constructor(
+    private readonly hitlService: HitlService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
+  ) {}
 
   /**
    * Approve, reject, or modify a pending HITL action.
@@ -72,12 +84,13 @@ export class HitlController {
           tenantId,
           userId,
         );
-        // Phase 25: Execute the approved action here
-        // For now, mark as executed with stub result
-        await this.hitlService.markExecuted(dto.actionId, {
-          stub: true,
-          message: 'Phase 25 will implement real tool execution',
-        });
+        await this.executeApprovedAction(
+          dto.actionId,
+          action.actionPayload as Record<string, unknown>,
+          action.actionType as string,
+          tenantId,
+          userId,
+        );
         break;
 
       case 'modify':
@@ -87,11 +100,14 @@ export class HitlController {
           userId,
           dto.modifiedPayload,
         );
-        // Phase 25: Execute with modified payload
-        await this.hitlService.markExecuted(dto.actionId, {
-          stub: true,
-          modified: true,
-        });
+        // Use the modified payload stored by approveAction
+        await this.executeApprovedAction(
+          dto.actionId,
+          (dto.modifiedPayload ?? action.actionPayload) as Record<string, unknown>,
+          action.actionType as string,
+          tenantId,
+          userId,
+        );
         break;
 
       case 'reject':
@@ -133,5 +149,58 @@ export class HitlController {
     );
 
     return { success: true, actions, total: actions.length };
+  }
+
+  /**
+   * Execute an approved action via the tool registry.
+   * Maps ActionType back to a tool name, locates the registered tool,
+   * and invokes it. Marks the action EXECUTED on success, FAILED on error.
+   */
+  private async executeApprovedAction(
+    actionId: string,
+    payload: Record<string, unknown>,
+    actionType: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    // Map ActionType enum value -> tool name registered in ToolRegistry
+    const actionTypeToTool: Record<string, string> = {
+      SEND_EMAIL: 'send_email',
+      REPLY_EMAIL: 'reply_email',
+      FORWARD_EMAIL: 'forward_email',
+      DELETE_EMAIL: 'delete_email',
+      SCHEDULE_MEETING: 'delete_event',
+      DELETE_CONTACT: 'delete_contact',
+    };
+
+    const toolName = actionTypeToTool[actionType];
+    if (!toolName) {
+      const msg = `No tool mapping for actionType ${actionType}`;
+      this.logger.warn(`HITL execution skipped: ${msg}`);
+      await this.hitlService.markFailed(actionId, msg);
+      return;
+    }
+
+    const tool = this.toolRegistry.getTool(toolName);
+    if (!tool) {
+      const msg = `Tool '${toolName}' not found in registry for actionType ${actionType}`;
+      this.logger.warn(`HITL execution skipped: ${msg}`);
+      await this.hitlService.markFailed(actionId, msg);
+      return;
+    }
+
+    try {
+      const result = await tool.execute(payload, { tenantId, userId });
+      await this.hitlService.markExecuted(actionId, {
+        result: result as Record<string, unknown>,
+        toolName,
+        executedAt: new Date().toISOString(),
+      });
+      this.logger.log(`HITL action ${actionId} executed via tool '${toolName}'`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`HITL action ${actionId} execution failed: ${errorMsg}`);
+      await this.hitlService.markFailed(actionId, errorMsg);
+    }
   }
 }

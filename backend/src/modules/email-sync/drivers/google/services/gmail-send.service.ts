@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { gmail_v1 } from 'googleapis';
 import { ComposeMessage } from '../../interfaces/canonical.types';
 import { MimeBuilder, withRetry, RetryOptions } from '../../../../../common/utils';
@@ -12,7 +12,7 @@ import { MimeBuilder, withRetry, RetryOptions } from '../../../../../common/util
  * Wave 2 extraction - send operations extracted after message operations
  * to maintain dependency order (send operations need message operations).
  */
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class GmailSendService {
   private readonly logger = new Logger(GmailSendService.name);
   private gmail: gmail_v1.Gmail | null = null;

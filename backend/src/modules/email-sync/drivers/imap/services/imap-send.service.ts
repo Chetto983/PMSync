@@ -12,7 +12,7 @@
  * - Proper MIME message building
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ImapConnectionPoolService } from './imap-connection-pool.service';
 import { ImapFolderService } from './imap-folder.service';
@@ -26,7 +26,7 @@ import {
 } from '../../interfaces/canonical.types';
 import { MimeBuilder } from '../../../../../common/utils';
 
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class ImapSendService {
   private readonly logger = new Logger(ImapSendService.name);
 

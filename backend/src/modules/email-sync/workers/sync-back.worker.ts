@@ -118,7 +118,8 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
           }
 
           // Get provider with valid tokens
-          const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+          // P0-5 FIX: Pass tenantId to enforce tenant isolation
+          const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId, tenantId);
 
           // Process in batches
           for (let i = 0; i < messageExternalIds.length; i += this.BATCH_SIZE) {

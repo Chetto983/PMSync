@@ -173,17 +173,23 @@ export class TrustedDeviceService {
     const userAgent = request.headers['user-agent'] || 'Unknown';
     const currentHash = this.hashDeviceFingerprint(userAgent, this.extractIp(request));
 
-    // We allow some fingerprint drift for UX (e.g., IP changes on mobile)
-    // But log suspicious changes
+    // SEC: Fingerprint mismatch = potential device theft/replay attack.
+    // Invalidate the trusted device record and require MFA re-verification.
     if (device.deviceHash !== currentHash) {
       this.logger.warn(
         JSON.stringify({
-          event: 'trusted_device_fingerprint_changed',
+          event: 'trusted_device_fingerprint_mismatch_invalidated',
           userId,
           deviceId: device.id,
+          message: 'Device fingerprint changed; trusted device invalidated, MFA required',
         }),
       );
-      // For now, still allow but log. Could add stricter validation.
+
+      await this.prisma.trustedDevice.delete({
+        where: { id: device.id },
+      });
+
+      return false;
     }
 
     // Update last used timestamp and renew expiry

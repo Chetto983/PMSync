@@ -11,7 +11,7 @@
  * - Server capability detection (CONDSTORE, QRESYNC, IDLE, SPECIAL-USE)
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { ImapFlow } from 'imapflow';
 import { Semaphore, SemaphoreInterface, withTimeout, E_TIMEOUT } from 'async-mutex';
 import {
@@ -21,7 +21,7 @@ import {
   POOL_CONFIG,
 } from '../interfaces/imap-internal.interface';
 
-@Injectable()
+@Injectable({ scope: Scope.TRANSIENT })
 export class ImapConnectionPoolService {
   private readonly logger = new Logger(ImapConnectionPoolService.name);
 
