@@ -9,8 +9,8 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 ### Tenant Security
 
-- [ ] **TSEC-01**: Prisma client extension auto-injects tenantId from AsyncLocalStorage on all operations (findMany, findFirst, create, update, delete)
-- [ ] **TSEC-02**: Queries without tenant context throw TenantContextRequired error (negative security tests in CI)
+- [x] **TSEC-01**: Prisma client extension auto-injects tenantId from AsyncLocalStorage on all operations (findMany, findFirst, create, update, delete)
+- [x] **TSEC-02**: Queries without tenant context throw TenantContextRequired error (negative security tests in CI)
 - [x] **TSEC-03**: RolesGuard applied to ≥50% of controller methods (from current 7%)
 - [x] **TSEC-04**: Admin-only endpoints guarded with @Roles('admin') — tenants, users controllers
 - [x] **TSEC-05**: Write operations guarded with @Roles('admin', 'manager') — contacts, emails controllers
@@ -75,7 +75,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 ### Testing
 
-- [ ] **TEST-01**: Tenant-scoping negative tests — cross-tenant query returns zero records, missing context throws error
+- [x] **TEST-01**: Tenant-scoping negative tests — cross-tenant query returns zero records, missing context throws error
 - [x] **TEST-02**: RolesGuard integration tests — each role level (admin, manager, member, viewer) verified against guarded endpoints
 - [ ] **TEST-03**: Refresh token rotation tests — reuse of consumed token fails, rotation chain works, password-change invalidation works
 - [ ] **TEST-04**: Contract tests for ≥5 critical APIs (auth login, emails list, contacts list, AI chat stream, briefing)
@@ -138,8 +138,8 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TSEC-01 | Phase 42 | Pending |
-| TSEC-02 | Phase 42 | Pending |
+| TSEC-01 | Phase 42 | Complete |
+| TSEC-02 | Phase 42 | Complete |
 | TSEC-03 | Phase 42 | Complete |
 | TSEC-04 | Phase 42 | Complete |
 | TSEC-05 | Phase 42 | Complete |
@@ -180,7 +180,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | INFRA-01 | Phase 47 | Pending |
 | INFRA-02 | Phase 47 | Pending |
 | INFRA-03 | Phase 47 | Pending |
-| TEST-01 | Phase 42 | Pending |
+| TEST-01 | Phase 42 | Complete |
 | TEST-02 | Phase 42 | Complete |
 | TEST-03 | Phase 42 | Pending |
 | TEST-04 | Phase 43 | Pending |
