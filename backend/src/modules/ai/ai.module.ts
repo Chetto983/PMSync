@@ -44,6 +44,8 @@ import {
 } from '../../common/interfaces/tool-registry.interface';
 import { RagTool } from './tools/rag.tool';
 import { AiProviderEventHandlerService } from './services/provider-event-handler.service';
+// Phase 35: AI Run Ledger -- fire-and-forget telemetry for all AI calls
+import { AiRunLedgerService } from './services/ai-run-ledger.service';
 
 /**
  * AiModule - AI/ML services, embeddings, triage, and RAG.
@@ -92,6 +94,8 @@ import { AiProviderEventHandlerService } from './services/provider-event-handler
     RagTool,
     // Phase 32: Event handler for ProviderDisconnected (embedding cleanup)
     AiProviderEventHandlerService,
+    // Phase 35: AI Run Ledger telemetry
+    AiRunLedgerService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -115,6 +119,8 @@ import { AiProviderEventHandlerService } from './services/provider-event-handler
     BriefingService,
     FollowUpDetectionService,
     DraftGenerationService,
+    // Phase 35: AI Run Ledger (exported for AiChatModule)
+    AiRunLedgerService,
   ],
 })
 export class AiModule implements OnModuleInit {
