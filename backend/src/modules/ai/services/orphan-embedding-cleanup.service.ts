@@ -47,7 +47,7 @@ export class OrphanEmbeddingCleanupService implements OnModuleInit {
 
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.ORPHAN_EMBEDDING_CLEANUP,
-      () => withoutTenantScopingAsync(() => this.cleanupOrphanEmbeddings()),
+      () => withoutTenantScopingAsync(async () => { await this.cleanupOrphanEmbeddings(); }),
     );
 
     this.logger.log(
