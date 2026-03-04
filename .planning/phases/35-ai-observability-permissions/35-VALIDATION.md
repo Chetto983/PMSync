@@ -2,8 +2,8 @@
 phase: 35
 slug: ai-observability-permissions
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-04
 ---
 
@@ -27,36 +27,50 @@ created: 2026-03-04
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && npx vitest run src/modules/ai/services/__tests__/ai-run-ledger.test.ts`
+- **After every task commit:** Run task-specific verify command
 - **After every plan wave:** Run `cd backend && npx vitest run`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 30 seconds
 
 ---
 
-## Per-Task Verification Map
+## Wave 0 Strategy: TDD Inline
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 35-01-01 | 01 | 1 | AIOBS-01 | unit | `cd backend && npx vitest run src/modules/ai/services/__tests__/ai-run-ledger.test.ts -t "creates ledger entry"` | ❌ W0 | ⬜ pending |
-| 35-01-02 | 01 | 1 | AIOBS-01 | unit | `cd backend && npx vitest run src/modules/ai/services/__tests__/ai-run-ledger.test.ts -t "estimates cost"` | ❌ W0 | ⬜ pending |
-| 35-01-03 | 01 | 1 | AIOBS-02 | integration | `cd backend && npx vitest run src/modules/ai-chat/__tests__/chat-ledger.test.ts` | ❌ W0 | ⬜ pending |
-| 35-01-04 | 01 | 1 | AIOBS-02 | integration | `cd backend && npx vitest run src/modules/ai/services/__tests__/briefing-ledger.test.ts` | ❌ W0 | ⬜ pending |
-| 35-02-01 | 02 | 2 | AIOBS-03 | integration | `cd backend && npx vitest run src/modules/ai/__tests__/ai-observability.controller.test.ts -t "list runs"` | ❌ W0 | ⬜ pending |
-| 35-02-02 | 02 | 2 | AIOBS-03 | integration | `cd backend && npx vitest run src/modules/ai/__tests__/ai-observability.controller.test.ts -t "cost summary"` | ❌ W0 | ⬜ pending |
-| 35-02-03 | 02 | 2 | AIOBS-04 | unit | `cd backend && npx vitest run src/common/__tests__/policy-service.test.ts` | ❌ W0 | ⬜ pending |
+All plans use `tdd="true"` on tasks. Tests are written as part of each task's RED-GREEN cycle -- no separate Wave 0 stub creation step is needed. Each task creates its own test file and writes failing tests before implementing.
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+**Rationale:** The TDD-inline approach is more efficient for this phase because:
+1. Each task has clear `<behavior>` blocks defining test expectations
+2. Test files are listed in each task's `<files>` section
+3. The `<verify>` command for each task runs the specific tests it creates
 
 ---
 
-## Wave 0 Requirements
+## Per-Task Verification Map
 
-- [ ] `backend/src/modules/ai/services/__tests__/ai-run-ledger.test.ts` — stubs for AIOBS-01 (service unit tests)
-- [ ] `backend/src/modules/ai-chat/__tests__/chat-ledger.test.ts` — stubs for AIOBS-02 (chat integration)
-- [ ] `backend/src/modules/ai/services/__tests__/briefing-ledger.test.ts` — stubs for AIOBS-02 (briefing integration)
-- [ ] `backend/src/modules/ai/__tests__/ai-observability.controller.test.ts` — stubs for AIOBS-03 (endpoint tests)
-- [ ] `backend/src/common/__tests__/policy-service.test.ts` — stubs for AIOBS-04 (interface validation)
+| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | TDD Inline | Status |
+|---------|------|------|-------------|-----------|-------------------|------------|--------|
+| 35-01-01 | 01 | 1 | AIOBS-01 | unit | `cd backend && npx vitest run src/modules/ai/services/__tests__/ai-run-ledger.test.ts` | yes | pending |
+| 35-01-02 | 01 | 1 | AIOBS-02 | integration | `cd backend && npx vitest run src/modules/ai/services/__tests__/briefing-ledger.test.ts && npm run type-check` | yes | pending |
+| 35-01-03 | 01 | 1 | AIOBS-02 | integration | `cd backend && npx vitest run src/modules/ai-chat/__tests__/chat-ledger.test.ts src/modules/ai/services/__tests__/mistral-ledger.test.ts && npm run type-check` | yes | pending |
+| 35-02-01 | 02 | 2 | AIOBS-03 | integration | `cd backend && npx vitest run src/modules/ai/__tests__/ai-observability.controller.test.ts && npm run type-check` | yes | pending |
+| 35-02-02 | 02 | 2 | AIOBS-04 | unit | `cd backend && npx vitest run src/common/__tests__/policy-service.test.ts && npm run type-check` | yes | pending |
+
+*Status: pending · green · red · flaky*
+
+---
+
+## Test File Creation Map
+
+Each task creates its own test file as part of TDD inline:
+
+| Test File | Created By Task | Requirement |
+|-----------|----------------|-------------|
+| `backend/src/modules/ai/services/__tests__/ai-run-ledger.test.ts` | 35-01 Task 1 | AIOBS-01 |
+| `backend/src/modules/ai/services/__tests__/briefing-ledger.test.ts` | 35-01 Task 2 | AIOBS-02 |
+| `backend/src/modules/ai-chat/__tests__/chat-ledger.test.ts` | 35-01 Task 3 | AIOBS-02 |
+| `backend/src/modules/ai/services/__tests__/mistral-ledger.test.ts` | 35-01 Task 3 | AIOBS-02 |
+| `backend/src/modules/ai/__tests__/ai-observability.controller.test.ts` | 35-02 Task 1 | AIOBS-03 |
+| `backend/src/common/__tests__/policy-service.test.ts` | 35-02 Task 2 | AIOBS-04 |
 
 ---
 
@@ -70,11 +84,11 @@ created: 2026-03-04
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify commands
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] TDD inline covers all test file creation (no Wave 0 stubs needed)
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved (TDD inline strategy)
