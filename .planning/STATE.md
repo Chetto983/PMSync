@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: in_progress
-stopped_at: Completed 36-01-PLAN.md
-last_updated: "2026-03-04T10:24:55Z"
-last_activity: 2026-03-04 -- Plan 36-01 completed (HMAC blind index infrastructure)
+status: completed
+stopped_at: Completed 36-02-PLAN.md
+last_updated: "2026-03-04T10:45:27.092Z"
+last_activity: 2026-03-04 -- Plan 36-02 completed (query site migration to HashSearchService)
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 94
 ---
 
@@ -25,17 +25,17 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 ## Current Position
 
-Phase: 36 of 37 (Encrypted Search) -- IN PROGRESS
-Plan: 1 of 2 complete in current phase
-Status: Plan 36-01 complete (HMAC blind index infrastructure), 36-02 next
-Last activity: 2026-03-04 -- Plan 36-01 completed (HMAC blind index infrastructure)
+Phase: 36 of 37 (Encrypted Search) -- COMPLETE
+Plan: 2 of 2 complete in current phase
+Status: Phase 36 complete (HMAC blind index infrastructure + query migration)
+Last activity: 2026-03-04 -- Plan 36-02 completed (query site migration to HashSearchService)
 
-Progress: [█████████░] 94%
+Progress: [██████████] 99%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14 (v4.0)
+- Total plans completed: 16 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -52,8 +52,9 @@ Progress: [█████████░] 94%
 | 35 | 2/2 | 17min | 9min |
 | Phase 35 P01 | 12min | 3 tasks | 11 files |
 | Phase 35 P02 | 5min | 2 tasks | 7 files |
-| 36 | 1/2 | 14min | 14min |
+| 36 | 2/2 | 19min | 10min |
 | Phase 36 P01 | 14min | 3 tasks | 13 files |
+| Phase 36 P02 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,7 @@ Recent decisions affecting current work:
 - [36-01]: HashSearchService in common/services (not modules/email) to avoid circular dependency
 - [36-01]: Dual TenantKeyService instantiation intentional -- PrismaService new(), DI injected; both deterministic
 - [36-01]: Prisma migration created manually (baseline shadow DB issue); CONCURRENTLY note for production
+- [Phase 36]: hashForSearch kept deprecated, not deleted -- JSDoc directs to hmacForBlindIndex
 
 ### Pending Todos
 
@@ -124,14 +126,14 @@ None yet.
 ### Blockers/Concerns
 
 - LCP/TTI at 4.1s (deferred since v2.1, target <2.5s/<3.5s) -- Phase 37
-- ENC-03 hash indexes: Phase 36-01 infrastructure complete; 36-02 query migration pending
+- ENC-03 hash indexes: Phase 36 COMPLETE (infrastructure + query migration, SEC-02 satisfied)
 - 5 forwardRef edges remaining (Email/EmailSync core cluster) -- down from 17+
 - Enterprise readiness score: 58/100 (PRD baseline)
 - Phase 28 gap items CLOSED (Plan 31-01): chat 403 documented, dead polling removed, E2E mobile passing
 
 ## Session Continuity
 
-Last session: 2026-03-04T10:24:55Z
-Stopped at: Completed 36-01-PLAN.md
-Resume file: .planning/phases/36-encrypted-search/36-01-SUMMARY.md
-Next action: Execute Phase 36 Plan 02 (query site migration to HashSearchService)
+Last session: 2026-03-04T10:45:27.084Z
+Stopped at: Completed 36-02-PLAN.md
+Resume file: .planning/phases/36-encrypted-search/36-02-SUMMARY.md
+Next action: Execute Phase 37 (Performance Optimization)

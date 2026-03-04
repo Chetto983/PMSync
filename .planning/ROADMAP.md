@@ -50,7 +50,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 33: API Contract Standardization** - Global response envelope, unified error filter, API versioning, correlation IDs, OpenAPI linting, silent fallback elimination (completed 2026-03-03)
 - [x] **Phase 34: Auth Security Hardening** - httpOnly cookie migration with dual-mode transition, AES-GCM standardization (completed 2026-03-04)
 - [x] **Phase 35: AI Observability & Permissions** - AI Run Ledger telemetry, cost reporting endpoints, permission taxonomy (completed 2026-03-04)
-- [ ] **Phase 36: Encrypted Search** - HMAC blind indexes on encrypted fields for exact-match sender lookup
+- [x] **Phase 36: Encrypted Search** - HMAC blind indexes on encrypted fields for exact-match sender lookup (completed 2026-03-04)
 - [ ] **Phase 37: Performance & Debt Closure** - LCP <2.5s / TTI <3.5s, resolve 7 deferred v3.1 bugs
 
 ## Phase Details
@@ -187,7 +187,7 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | 33. API Contract Standardization | 3/3 | Complete    | 2026-03-03 |
 | 34. Auth Security Hardening | 3/3 | Complete    | 2026-03-04 |
 | 35. AI Observability & Permissions | 2/2 | Complete    | 2026-03-04 |
-| 36. Encrypted Search | 1/2 | In progress | - |
+| 36. Encrypted Search | 2/2 | Complete   | 2026-03-04 |
 | 37. Performance & Debt Closure | 0/3 | Not started | - |
 
 ---
