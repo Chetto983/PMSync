@@ -1,5 +1,38 @@
 # Project Milestones: PMSync
 
+## v4.0 Enterprise Stabilization (Shipped: 2026-03-04)
+
+**Delivered:** Enterprise-grade stabilization -- broke circular dependencies (17+ to 5), standardized all API contracts with response envelopes and correlation IDs, migrated auth to httpOnly cookies, added AI cost observability, enabled encrypted sender search via HMAC blind indexes, and closed all performance debt.
+
+**Phases completed:** 31-41 (11 phases, 22 plans)
+
+**Key accomplishments:**
+
+- Circular dependencies reduced from 17+ forwardRef to 5 (Email core cluster only), ToolRegistryModule for decoupled AI tool discovery, domain events wired, dependency-cruiser CI enforcement
+- Global ResponseEnvelopeInterceptor + ApiExceptionFilter + setGlobalPrefix('api/v1') + CorrelationInterceptor with BullMQ propagation
+- httpOnly cookie auth migration (localStorage JWT eliminated), WebSocket cookie extraction, AES-GCM encryption standardization
+- AiRunLedger telemetry across all 6 AI call paths, cost reporting endpoints, permission taxonomy (21 entries) for v4.1 RBAC
+- HMAC-SHA256 blind indexes on `from` field with per-tenant HKDF key derivation, dual-path HashSearchService
+- Dynamic imports for email page dialogs, 7 deferred v3.1 bugs resolved, Lighthouse CI budget gates enforced
+- Gap closure: attachment proxy /api/v1 fix, email.tsx split (1035 -> 360 lines), CI regression reverts, dead scaffolding removal
+
+**Stats:**
+
+- 11 phases, 22 plans
+- 100 commits, 359 files changed
+- +24,804 / -3,287 lines
+- 2 days (2026-03-03 -> 2026-03-04)
+- Requirements: 19/19 satisfied
+
+**Git tag:** `v4.0`
+
+**Known Tech Debt (accepted):**
+- 5 forwardRef in Email/EmailSync core cluster (true bidirectional dependency)
+- `api.generated.ts` placeholder (resolves when CI runs against live DB)
+- `IPolicyService`/`Permission` enum zero consumers (v4.1 RBAC scaffolding)
+
+---
+
 ## v3.2 AI Rebuild & Cleanup (Shipped: 2026-03-03, partial)
 
 **Delivered:** Complete AI layer rebuild — dropped VoltAgent framework (167 files, 33K LOC), rewrote AI backend on raw AI SDK v6, rebuilt chat frontend with assistant-ui, added comprehensive E2E testing. Phases 29-30 (module boundaries, performance, encrypted search) carried forward to v4.0.

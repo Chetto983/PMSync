@@ -15,7 +15,6 @@ export enum CacheNamespace {
   USER_SESSION = 'user:session',
   WEBHOOK_NONCE = 'webhook:nonce',
   RATE_LIMIT = 'ratelimit',
-  VOLTAGENT_METRICS = 'voltagent:metrics',
   MULTIAGENT_METRICS = 'multiagent:metrics',
   OAUTH_STATE = 'oauth:state',
   /** Idempotency keys for action executor to prevent duplicate execution */
@@ -38,8 +37,6 @@ export enum CacheNamespace {
   AI_ANALYTICS = 'ai:analytics',
   /** PII resolution mappings for agent tool execution (session-scoped) */
   PII_RESOLUTION = 'pii:resolution',
-  /** VoltAgent agent pool cache (tenant-scoped, for horizontal scaling) */
-  AGENT_POOL = 'agent:pool',
 }
 
 /**

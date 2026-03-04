@@ -148,17 +148,6 @@ export class UsersService {
   }
 
   /**
-   * Get user's VoltAgent messages
-   * VoltAgentMessage model removed - AI refactor v2.0
-   * Returns empty array until feature is restored
-   */
-  async getUserMessages(_userId: string, _tenantId: string, _limit: number = 100) {
-    // VoltAgentMessage model removed - AI refactor v2.0
-    // Conversations are now stateless
-    return [];
-  }
-
-  /**
    * Get user preferences
    */
   async getUserPreferences(tenantId: string, userId: string) {

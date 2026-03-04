@@ -65,15 +65,6 @@ export class UsersController {
   }
 
   /**
-   * Get user's messages
-   * GET /users/me/messages
-   */
-  @Get('me/messages')
-  async getMyMessages(@Request() req: AuthenticatedRequest) {
-    return this.usersService.getUserMessages(req.user.userId, req.user.tenantId);
-  }
-
-  /**
    * Get user preferences
    * GET /users/me/preferences
    */

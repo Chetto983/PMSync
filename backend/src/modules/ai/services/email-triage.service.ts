@@ -13,20 +13,10 @@
  * (thread-summary.service.ts) to maintain Single Responsibility Principle.
  */
 
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
-// TODO Phase 24: Rebuild MistralBatchService and AttentionScoreService with new AiChatService
-// import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
-// import { AttentionScoreService } from '../voltagent/services/attention-score.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
-import { type SupportedLocale } from '../locales';
-
-// Stub types for deleted voltagent services (Phase 23)
-type MistralBatchService = any;
-type BatchResponse = { customId: string; error?: string; response?: Record<string, unknown> };
-type AttentionScoreService = any;
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 50;
@@ -44,17 +34,12 @@ const SKIP_FOLDERS = [
 // Prevents 1000 users syncing = 20000 LLM calls storm
 const MAX_CONCURRENT_TRIAGE_OPERATIONS = 5; // Max 5 tenants triaging simultaneously
 
-// P11 Phase 4: Default threshold (overridden by MISTRAL_BATCH_TRIAGE_MIN_SIZE env var)
-const DEFAULT_BATCH_TRIAGE_THRESHOLD = 10;
-
 interface TriageResult {
   emailId: string;
   success: boolean;
   aiPriority?: number;
   aiLabels?: string[];
   error?: string;
-  batchJobId?: string; // P11: Track batch job
-  mode?: 'realtime' | 'batch'; // P11: Indicate processing mode
 
   // Extended fields from unified analysis (2025-01 consolidation)
   summary?: string;
@@ -64,10 +49,6 @@ interface TriageResult {
   escalationRisk?: boolean;
   hasDeadline?: boolean;
   needsFollowUp?: boolean;
-
-  // Phase 4.1: Attention Score pre-filter fields
-  attentionScore?: number;
-  attentionDecision?: 'archive' | 'keep' | 'spam';
 }
 
 interface TriageOptions {
@@ -93,25 +74,11 @@ export class EmailTriageService {
   private static currentOperations = 0;
   private static waitQueue: Array<() => void> = [];
 
-  // P11 Phase 4: Configurable thresholds
-  private readonly batchEnabled: boolean;
-  private readonly batchTriageMinSize: number;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
     private readonly subscriptionService: SubscriptionService,
-    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
-    @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
-    // TODO Phase 24: Rebuild MistralBatchService and AttentionScoreService
-    @Optional() @Inject('MistralBatchService') private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
-    @Optional() @Inject('AttentionScoreService') private readonly attentionScore?: AttentionScoreService, // P4.1: Pre-filter
-  ) {
-    // P11 Phase 4: Load batch config (with fallback defaults)
-    this.batchEnabled = this.configService?.get<boolean>('ai.batch.enabled') ?? true;
-    this.batchTriageMinSize =
-      this.configService?.get<number>('ai.batch.triageMinSize') ?? DEFAULT_BATCH_TRIAGE_THRESHOLD;
-  }
+  ) {}
 
   /**
    * SCALE PROTECTION: Acquire semaphore slot before processing
@@ -225,9 +192,6 @@ export class EmailTriageService {
    * CONSOLIDATED (2025-01): Now uses single LLM call via analyzeEmailUnified()
    * instead of 2 separate calls (calculatePriority + categorizeEmail)
    *
-   * PHASE 4.1 (2026-01): Added AttentionScore pre-filter to skip LLM for low-priority
-   * emails. Saves 30-50% of LLM API calls.
-   *
    * Returns ALL insights: summary, sentiment, priority, labels, topics, escalationRisk
    */
   async triageEmail(
@@ -237,18 +201,6 @@ export class EmailTriageService {
     const { tenantId, locale } = options;
 
     try {
-      // PHASE 4.1: Attention Score Pre-filter
-      // Check if we should skip expensive LLM analysis for low-priority emails
-      if (this.attentionScore) {
-        const preFilterResult = await this.preFilterWithAttentionScore(emailId, tenantId, locale as SupportedLocale);
-        if (preFilterResult) {
-          this.logger.debug(
-            `Pre-filtered email ${emailId}: score=${preFilterResult.attentionScore}, decision=${preFilterResult.attentionDecision}`,
-          );
-          return preFilterResult;
-        }
-      }
-
       // UNIFIED ANALYSIS: Single LLM call for all insights
       // analyzeEmailUnified() also saves to EmailAnalysis + Email tables
       const analysis = await this.emailInsights.analyzeEmailUnified(
@@ -289,150 +241,6 @@ export class EmailTriageService {
   }
 
   /**
-   * PHASE 4.1: Pre-filter email using AttentionScore
-   * Returns TriageResult if email should skip LLM analysis, null otherwise
-   */
-  private async preFilterWithAttentionScore(
-    emailId: string,
-    tenantId: string,
-    locale?: SupportedLocale,
-  ): Promise<TriageResult | null> {
-    // Fetch email data for attention score calculation
-    const email = await this.prisma.email.findFirst({
-      where: { id: emailId, tenantId },
-      select: {
-        subject: true,
-        snippet: true,
-        bodyText: true,
-        from: true,
-        receivedAt: true,
-        threadId: true,
-        inReplyTo: true,
-      },
-    });
-
-    if (!email) return null;
-
-    // Parse sender from "Name <email@example.com>" format
-    const senderParts = this.parseSenderFromField(email.from);
-
-    // Get thread message count for context scoring
-    let threadMessageCount = 1;
-    if (email.threadId) {
-      threadMessageCount = await this.prisma.email.count({
-        where: { tenantId, threadId: email.threadId },
-      });
-    }
-
-    // Calculate attention score
-    const scoreResult = await this.attentionScore!.calculateScore({
-      subject: email.subject || '',
-      body: email.bodyText || email.snippet || '',
-      senderEmail: senderParts.email,
-      senderName: senderParts.name || undefined,
-      receivedAt: email.receivedAt || new Date(),
-      threadId: email.threadId || undefined,
-      threadMessageCount,
-      isReply: !!email.inReplyTo,
-      tenantId,
-      locale,
-    });
-
-    // If score is above threshold OR decision is 'keep', proceed with full LLM analysis
-    // Only skip LLM for clear spam/archive decisions - 'keep' needs proper labels
-    if (!scoreResult.skipLlmAnalysis || scoreResult.autoTriageDecision === 'keep') {
-      return null;
-    }
-
-    // Auto-triage based on attention score (no LLM call needed)
-    const aiPriority = this.mapAutoTriageToDefaultPriority(scoreResult.autoTriageDecision);
-    const aiLabels = this.mapAutoTriageToLabels(scoreResult.autoTriageDecision);
-
-    // Persist the auto-triage result
-    await this.prisma.email.updateMany({
-      where: { id: emailId, tenantId },
-      data: {
-        aiPriority,
-        aiPriorityReason: `AttentionScore: ${scoreResult.reasoning}`,
-        aiLabels,
-        isAutoTriaged: true,
-        autoTriagedAt: new Date(),
-      },
-    });
-
-    return {
-      emailId,
-      success: true,
-      aiPriority,
-      aiLabels,
-      mode: 'realtime',
-      // Minimal analysis for pre-filtered emails
-      summary: undefined, // No summary for pre-filtered emails
-      sentiment: 'neutral',
-      urgency: 'low',
-      keyTopics: [],
-      escalationRisk: false,
-      hasDeadline: false,
-      needsFollowUp: false,
-      // Phase 4.1: Include attention score data
-      attentionScore: scoreResult.score,
-      attentionDecision: scoreResult.autoTriageDecision,
-    };
-  }
-
-  /**
-   * Parse sender email and name from "Name <email@example.com>" format
-   */
-  private parseSenderFromField(from: string): { email: string; name: string | null } {
-    if (!from) return { email: '', name: null };
-
-    // Try to match "Name <email@example.com>" format
-    const match = from.match(/^(.+?)\s*<([^>]+)>$/);
-    if (match) {
-      return {
-        name: match[1].trim().replace(/^["']|["']$/g, ''), // Remove quotes
-        email: match[2].trim().toLowerCase(),
-      };
-    }
-
-    // If no match, assume the whole string is an email
-    return {
-      email: from.trim().toLowerCase(),
-      name: null,
-    };
-  }
-
-  /**
-   * Map auto-triage decision to default priority
-   */
-  private mapAutoTriageToDefaultPriority(decision?: 'archive' | 'keep' | 'spam'): number {
-    switch (decision) {
-      case 'spam':
-        return 5; // Lowest priority
-      case 'archive':
-        return 4; // Low priority
-      case 'keep':
-      default:
-        return 3; // Medium priority (will get full analysis next time)
-    }
-  }
-
-  /**
-   * Map auto-triage decision to default labels
-   */
-  private mapAutoTriageToLabels(decision?: 'archive' | 'keep' | 'spam'): string[] {
-    switch (decision) {
-      case 'spam':
-        return ['promotional'];
-      case 'archive':
-        return ['low-priority'];
-      case 'keep':
-      default:
-        return [];
-    }
-  }
-
-  /**
    * Process untriaged emails for a user (on-demand)
    *
    * COST CONTROLS APPLIED:
@@ -465,17 +273,6 @@ export class EmailTriageService {
         skipped: 0,
         skippedReason: 'No eligible emails to triage',
       };
-    }
-
-    // P11 Phase 3+4: Batch path for N+ emails (50% cost savings)
-    // Uses async Mistral Batch API with @Cron(EVERY_5_MINUTES) polling
-    // Threshold configurable via MISTRAL_BATCH_TRIAGE_MIN_SIZE env var (default: 10)
-    if (
-      this.batchEnabled &&
-      emailIds.length >= this.batchTriageMinSize &&
-      this.mistralBatch?.isEnabled()
-    ) {
-      return this.processBatchTriage(options.tenantId, emailIds, options);
     }
 
     // SCALE PROTECTION: Acquire semaphore before LLM-intensive processing
@@ -522,199 +319,6 @@ export class EmailTriageService {
       // SCALE PROTECTION: Always release semaphore
       this.releaseSemaphore();
     }
-  }
-
-  /**
-   * P11 Phase 3: Batch sentiment analysis for 10+ emails (50% cost savings)
-   * Uses MistralBatchService with @Cron(EVERY_5_MINUTES) polling
-   *
-   * @returns BatchTriageResult with mode='batch' and batchJobId
-   */
-  private async processBatchTriage(
-    tenantId: string,
-    emailIds: string[],
-    options: TriageOptions,
-  ): Promise<BatchTriageResult> {
-    // Fetch email content for batch processing
-    const emails = await this.prisma.email.findMany({
-      where: { id: { in: emailIds }, tenantId },
-      select: { id: true, subject: true, snippet: true },
-    });
-
-    if (emails.length === 0) {
-      return {
-        processed: 0,
-        successful: 0,
-        failed: 0,
-        skipped: emailIds.length,
-        skippedReason: 'No emails found for batch processing',
-      };
-    }
-
-    // Prepare batch request
-    const batchEmails = emails.map((e) => ({
-      id: e.id,
-      subject: e.subject || '',
-      body: e.snippet || '',
-    }));
-
-    // Create batch job
-    const jobId = await this.mistralBatch!.batchSentimentAnalysis(tenantId, batchEmails);
-
-    if (!jobId) {
-      this.logger.warn('Batch sentiment job creation failed, falling back to sequential');
-      // Fall back to sequential processing
-      return this.processSequentialTriage(emailIds, options);
-    }
-
-    // Track with completion handler (GDPR: tenant-isolated)
-    this.mistralBatch!.trackJob(jobId, tenantId, 'sentiment', async (results: BatchResponse[]) => {
-      await this.processBatchSentimentResults(results, tenantId);
-    });
-
-    this.logger.log(
-      `P11 Batch triage job ${jobId} created for ${emails.length} emails (tenant: ${tenantId})`,
-    );
-
-    // Return async result - actual processing happens via @Cron polling
-    return {
-      processed: emails.length,
-      successful: 0, // Will be updated when batch completes
-      failed: 0,
-      skipped: 0,
-      skippedReason: `Batch job ${jobId} queued - results via @Cron(EVERY_5_MINUTES)`,
-    };
-  }
-
-  /**
-   * P11: Process completed batch sentiment results
-   * Called automatically by MistralBatchService via @Cron polling
-   */
-  private async processBatchSentimentResults(
-    results: BatchResponse[],
-    tenantId: string,
-  ): Promise<void> {
-    this.logger.log(
-      `Processing ${results.length} batch sentiment results for tenant ${tenantId}`,
-    );
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const result of results) {
-      if (result.error) {
-        this.logger.warn(`Sentiment failed for email ${result.customId}: ${result.error}`);
-        failCount++;
-        continue;
-      }
-
-      try {
-        // Parse sentiment response from batch API
-        const responseBody = result.response;
-        if (!responseBody) {
-          failCount++;
-          continue;
-        }
-
-        // Handle different response formats
-        let sentiment = 'neutral';
-        let confidence = 0.5;
-
-        // Format 1: Direct response object
-        if (responseBody.sentiment && typeof responseBody.sentiment === 'string') {
-          sentiment = responseBody.sentiment;
-          confidence = typeof responseBody.confidence === 'number'
-            ? responseBody.confidence
-            : 0.5;
-        }
-        // Format 2: Chat completion response
-        else if (responseBody.choices) {
-          const choices = responseBody.choices as Array<{
-            message?: { content?: string };
-          }>;
-          const content = choices[0]?.message?.content;
-          if (content) {
-            try {
-              const parsed = JSON.parse(content);
-              sentiment = parsed.sentiment || 'neutral';
-              confidence = parsed.confidence || 0.5;
-            } catch {
-              // If not JSON, try to extract sentiment from text
-              const lowerContent = content.toLowerCase();
-              if (lowerContent.includes('negative')) sentiment = 'negative';
-              else if (lowerContent.includes('positive')) sentiment = 'positive';
-            }
-          }
-        }
-
-        // Map sentiment to priority (1-5 scale)
-        const aiPriority = this.mapSentimentToPriority(sentiment, confidence);
-
-        // Update email with AI triage data
-        await this.prisma.email.updateMany({
-          where: { id: result.customId, tenantId },
-          data: {
-            aiPriority,
-            aiPriorityReason: `Batch sentiment: ${sentiment} (${Math.round(confidence * 100)}%)`,
-            isAutoTriaged: true,
-            autoTriagedAt: new Date(),
-          },
-        });
-
-        successCount++;
-      } catch (err) {
-        this.logger.error(`Failed to process sentiment for ${result.customId}: ${err}`);
-        failCount++;
-      }
-    }
-
-    this.logger.log(
-      `Batch sentiment processing complete: ${successCount} successful, ${failCount} failed`,
-    );
-  }
-
-  /**
-   * P11: Map sentiment to priority (1-5 scale)
-   * negative → high priority (1-2), neutral → medium (3), positive → low (4-5)
-   */
-  private mapSentimentToPriority(sentiment: string, confidence: number): number {
-    const normalizedSentiment = sentiment.toLowerCase();
-    if (normalizedSentiment === 'negative' || normalizedSentiment === 'urgent') {
-      return confidence > 0.7 ? 1 : 2;
-    }
-    if (normalizedSentiment === 'neutral' || normalizedSentiment === 'mixed') {
-      return 3;
-    }
-    if (normalizedSentiment === 'positive') {
-      return confidence > 0.7 ? 5 : 4;
-    }
-    return 3; // Default to medium priority
-  }
-
-  /**
-   * P11: Sequential triage fallback (for <10 emails or when batch fails)
-   */
-  private async processSequentialTriage(
-    emailIds: string[],
-    options: TriageOptions,
-  ): Promise<BatchTriageResult> {
-    const results: TriageResult[] = [];
-    for (const emailId of emailIds) {
-      const result = await this.triageEmail(emailId, options);
-      results.push(result);
-
-      // Small delay between calls
-      if (emailIds.indexOf(emailId) < emailIds.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-    }
-
-    return {
-      processed: results.length,
-      successful: results.filter((r) => r.success).length,
-      failed: results.filter((r) => !r.success).length,
-      skipped: 0,
-    };
   }
 
   /**

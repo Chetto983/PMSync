@@ -2,47 +2,19 @@
 
 ## What This Is
 
-A professional AI-powered email and productivity platform evolving toward enterprise CRM capabilities. Backend built on NestJS/Prisma/BullMQ, frontend on Next.js/React/assistant-ui. AI layer rebuilt on raw AI SDK v6 with tool orchestration, HITL, and hybrid RAG. Currently at 58/100 enterprise readiness per full-stack audit — v4.0 targets stabilization and debt reduction to establish enterprise foundations.
+A professional AI-powered email and productivity platform with enterprise-grade architecture. Backend built on NestJS/Prisma/BullMQ with standardized API contracts (response envelopes, correlation IDs, unified error handling), httpOnly cookie auth, encrypted fields with HMAC blind indexes, and AI cost observability. Frontend on Next.js/React/TanStack Query/shadcn/ui/Tailwind CSS with Lighthouse CI budget enforcement. AI layer on raw AI SDK v6 with tool orchestration, HITL, and hybrid RAG.
 
 ## Core Value
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v4.0 Enterprise Stabilization
-
-**Goal:** Stabilize architecture for enterprise readiness — break circular dependencies, standardize API contracts, harden auth, fix performance debt, and formalize module boundaries. Based on Enterprise Platform PRD Phase 1 (Stabilization & Debt Reduction) plus v3.2 carry-forward items.
-
-**Target features:**
-
-**Architecture Stabilization (from PRD Phase 1):**
-- Break top circular dependencies (15 → ≤5) and formalize domain boundaries
-- Standardize API response/error contracts and enforce version policy
-- Remove silent frontend API fallbacks that hide backend contract drift
-- Migrate frontend token handling off localStorage to secure httpOnly cookies
-
-**Module Boundaries (v3.2 carry-forward):**
-- Module boundary enforcement with explicit interface contracts
-- AI module decoupled via service contracts (not direct imports)
-- Memory profiling under simulated load (no unbounded growth)
-- Lazy-loadable AI module (startup time improvement)
-
-**Performance & Debt (v3.2 carry-forward):**
-- LCP <2.5s / TTI <3.5s (currently 4.1s)
-- ENC-03: Hash-based search indexes on encrypted fields (17+ query sites)
-- 7 deferred bugs from v3.1 audit (RC-A1/A8 race conditions, BUG-REPORT items)
-- Phase 28 gap closure: chat 403, dead polling cleanup, E2E mobile tests
-
-**Enterprise Prep (PRD immediate recommendations):**
-- Define enterprise authorization model (permission taxonomy + policy service contract)
-- Stand up AI Run Ledger schema and telemetry contract (explainability foundation)
-
-**Previous:** v3.2 AI Rebuild & Cleanup shipped 2026-03-03 (partial — 20/25 plans, phases 23-28 core complete).
-
 ## Current State
 
-**Version:** v3.2 shipped (partial)
-**Status:** Starting v4.0 Enterprise Stabilization
-**Base:** v3.2 shipped (2026-03-03)
+**Version:** v4.0 shipped (2026-03-04)
+**Status:** Milestone complete, planning next milestone
+**Base:** v4.0 Enterprise Stabilization (11 phases, 22 plans, 19/19 requirements)
+
+**Previous:** v3.2 AI Rebuild & Cleanup shipped 2026-03-03 (partial -- 20/25 plans, phases 23-28 core complete).
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
@@ -50,6 +22,8 @@ A professional AI-powered email and productivity platform evolving toward enterp
 - AI: Mistral via AI SDK v6 (streamText + tool()), assistant-ui chat frontend
 - Editor: TipTap for rich email compose
 - Virtualization: VList for 1000+ email performance
+- Security: httpOnly cookies, AES-256-GCM, HMAC blind indexes, per-tenant HKDF
+- Observability: AiRunLedger (cost/latency telemetry), correlation IDs, Lighthouse CI
 
 ## Requirements
 
@@ -108,7 +82,13 @@ A professional AI-powered email and productivity platform evolving toward enterp
 - ✓ assistant-ui chat frontend with tool renderers and HITL inline
 - ✓ Old VoltAgent code deleted (167 files, 33K LOC)
 - ✓ Playwright E2E for chat frontend
-- ⚠️ Module boundaries, performance, ENC-03, deferred bugs carried to v4.0
+
+**v4.0 - Enterprise Stabilization (shipped 2026-03-04):**
+- ✓ ARCH-01/02/03: Circular deps 17+ to 5, domain events wired, dependency-cruiser CI enforcement
+- ✓ API-01/02/03/04/05: Response envelopes, unified errors, api/v1 prefix, correlation IDs, OpenAPI linting
+- ✓ SEC-01/02/03: httpOnly cookie auth, HMAC blind indexes, AES-GCM standardization
+- ✓ AIOBS-01/02/03/04: AiRunLedger telemetry, cost endpoints, permission taxonomy
+- ✓ PERF-01/02/03/04: LCP/TTI targets, v3.1 bug closure, Phase 28 gaps, silent fallback elimination
 
 **v3.1 - GDPR Compliance & Chatbot Enhancement (shipped 2026-02-27):**
 - ✓ PII-01/02/03/04: PII tokenization for AI calls
@@ -124,43 +104,20 @@ A professional AI-powered email and productivity platform evolving toward enterp
 
 ### Active
 
-<!-- v4.0 Enterprise Stabilization -->
+<!-- Next milestone TBD -- use /gsd:new-milestone to define -->
 
-**Architecture Stabilization:**
-- [ ] Break circular dependencies (15 → ≤5)
-- [ ] Formalize domain boundaries with event contracts + interfaces
-- [ ] Standardize API response/error contracts globally
-- [ ] Enforce API versioning policy across all controllers
-- [ ] Remove silent frontend API fallbacks
-
-**Auth & Security Hardening:**
-- [ ] Migrate frontend auth off localStorage to httpOnly cookies
-- [ ] Standardize all encryption to AES-GCM with rotation policy
-
-**Module Boundaries (v3.2 carry-forward):**
-- [ ] Module boundary enforcement with explicit interface contracts
-- [ ] AI module decoupled via service contracts
-- [ ] Memory profiling (no unbounded cache growth under load)
-- [ ] Lazy-loadable AI module
-
-**Performance & Debt (v3.2 carry-forward):**
-- [ ] LCP <2.5s / TTI <3.5s
-- [ ] ENC-03: Hash-based search on encrypted fields (17+ sites)
-- [ ] Fix 7 deferred bugs from v3.1 audit
-- [ ] Phase 28 gap closure (chat 403, dead polling, E2E mobile)
-
-**Enterprise Prep:**
-- [ ] Define permission taxonomy and policy service contract
-- [ ] Stand up AI Run Ledger schema + telemetry contract
+No active requirements. Run `/gsd:new-milestone` to define v4.1+ scope.
 
 ### Out of Scope
 
 - Mobile app (web-first, responsive)
 - Offline support (requires service worker complexity)
 - End-to-end encryption (separate security audit)
-- Zero-knowledge architecture (deferred to v4.0+)
 - Custom email provider (focus on Gmail, Outlook, IMAP)
-- Mastra framework (NestJS incompatible — explicitly no NestJS support)
+- Mastra framework (NestJS incompatible -- explicitly no NestJS support)
+- Subject field encryption (substring search incompatible with deterministic hashing -- v4.0 ADR)
+- Database RLS (Prisma 7 + PostgreSQL RLS interaction problematic; TenantGuard sufficient)
+- Full ABAC policy engine (needs CRM object model first; v4.1+ scope)
 
 ## UI Vision
 
@@ -185,16 +142,23 @@ A professional AI-powered email and productivity platform evolving toward enterp
 
 ## Context
 
-**Brownfield project:** This is an existing, working codebase with real users. All changes must maintain backward compatibility.
+**Brownfield project:** Existing, working codebase with real users. All changes maintain backward compatibility.
 
-**v1 Results:**
-- 77% reduction in large service file sizes
-- 500+ tests passing (zero regressions)
-- 6/6 production stress test criteria met
-- Documented tech debt for future optimization
+**v4.0 Results:**
+- 19/19 requirements satisfied (architecture, API, security, AI observability, performance)
+- 100 commits, 359 files changed, +24.8K/-3.3K lines
+- Circular dependencies: 17+ -> 5 (Email core cluster only)
+- All API responses wrapped in envelopes with correlation IDs
+- Auth fully on httpOnly cookies (zero localStorage JWT)
+- AI cost observability across all 6 call paths
+- Lighthouse CI budget gates enforced in CI pipeline
 
-**Frontend Base:** Existing Next.js app at `frontend/` with MUI components — will migrate to shadcn/ui for email views while keeping MUI for existing dashboard.
+**Remaining tech debt (3 items, all accepted):**
+- 5 forwardRef in Email/EmailSync core cluster (true bidirectional)
+- api.generated.ts placeholder (resolves with CI against live DB)
+- IPolicyService/Permission enum zero consumers (v4.1 RBAC scaffolding)
 
+**Codebase:** ~16K LOC TypeScript across backend + frontend
 **Codebase map:** `.planning/codebase/` contains detailed analysis (STACK.md, ARCHITECTURE.md, CONCERNS.md)
 
 ## Constraints
@@ -229,8 +193,16 @@ A professional AI-powered email and productivity platform evolving toward enterp
 | Nanobot as design inspiration only | Different problem (single-user agent vs multi-tenant email client); design discipline is the lesson, not the architecture | v3.2 |
 | generateObject for non-chat AI | Direct LLM call with pre-fetched data is faster, cheaper, more reliable than agent loop for briefing/follow-ups | v3.2 |
 
-| v4.0 milestone scoped from Enterprise Platform PRD | PRD audit scored 58/100 enterprise readiness; Phase 1 (stabilization) is prerequisite for all enterprise features | v4.0 |
-| v3.2 closed partial (20/25 plans) | Core AI rebuild complete; carry-forward items (perf, modules, debt) fit naturally into enterprise stabilization | v4.0 |
+| v4.0 milestone scoped from Enterprise Platform PRD | PRD audit scored 58/100 enterprise readiness; Phase 1 (stabilization) is prerequisite for all enterprise features | ✓ Good |
+| v3.2 closed partial (20/25 plans) | Core AI rebuild complete; carry-forward items (perf, modules, debt) fit naturally into enterprise stabilization | ✓ Good |
+| ToolRegistryModule for AI tool discovery | Decouples AiChatModule from domain modules; tools self-register via OnModuleInit | ✓ Good |
+| Domain events via EventEmitter2 | Replaces 12+ direct cross-module imports with typed async events | ✓ Good |
+| ResponseEnvelopeInterceptor + ApiExceptionFilter | 3 filters consolidated to 1; uniform response/error shape across all endpoints | ✓ Good |
+| httpOnly cookie auth (sameSite=lax) | Eliminates localStorage XSS vector; lax preserves OAuth callback flows | ✓ Good |
+| AES-GCM with CBC fallback decryption | No data migration needed; transparent upgrade on read | ✓ Good |
+| HMAC blind index on `from` only (not `subject`) | Substring search incompatible with deterministic hashing; exact-match sufficient for sender lookup | ✓ Good |
+| AiRunLedger fire-and-forget telemetry | Never affects user response latency; per-retry entries for accurate cost tracking | ✓ Good |
+| 5 forwardRef accepted in Email core cluster | True bidirectional dependency; forced extraction would split natural cohesion | ✓ Good |
 
 ---
-*Last updated: 2026-03-03 — v4.0 started: Enterprise Stabilization*
+*Last updated: 2026-03-04 after v4.0 milestone*

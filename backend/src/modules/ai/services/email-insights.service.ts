@@ -12,8 +12,6 @@ import {
 import { AiError, AiErrorCode } from '../errors';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
-// TODO Phase 24: Rebuild WritingStyleService with new AiChatService
-// import { WritingStyleService } from '../voltagent/services/writing-style.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
 import {
@@ -114,10 +112,6 @@ export class EmailInsightsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
-    // TODO Phase 24: Rebuild WritingStyleService with new AiChatService
-    @Optional() @Inject('WritingStyleService')
-    private readonly writingStyle?: any,
-    // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(PiiDetectionService) private readonly piiDetection?: PiiDetectionService,
   ) {}
 
@@ -473,17 +467,7 @@ export class EmailInsightsService {
     const supportedLocale = getLocale(payload.locale);
     const t = getToolTranslations(supportedLocale);
 
-    // Fetch user's writing style if available
-    let styleSection = '';
-    if (userId) {
-      try {
-        const style = await this.writingStyle?.getStylePromptSection(tenantId, userId, lang);
-        styleSection = style ?? '';
-      } catch (error) {
-        this.logger.debug(`No writing style found for user ${userId}: ${this.getErrorMessage(error)}`);
-      }
-    }
-
+    const styleSection = '';
     const memoryContext = '';
 
     const toneInstruction = t.insights.tones[toneKey];
