@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: completed
-stopped_at: Completed 40-01-PLAN.md (CI regression fixes)
-last_updated: "2026-03-04T14:59:58.990Z"
-last_activity: 2026-03-04 -- Plan 38-01 completed (attachment proxy path fix)
+status: in-progress
+stopped_at: Completed 41-01-PLAN.md (backend code hygiene)
+last_updated: "2026-03-04T15:26:18Z"
+last_activity: 2026-03-04 -- Plan 41-01 completed (backend code hygiene)
 progress:
-  total_phases: 11
-  completed_phases: 10
-  total_plans: 21
-  completed_plans: 21
+  total_phases: 12
+  completed_phases: 11
+  total_plans: 22
+  completed_plans: 22
 ---
 
 ---
@@ -36,14 +36,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 38 - Attachment Proxy Path Fix
+**Current focus:** Phase 41 - Backend Code Hygiene
 
 ## Current Position
 
-Phase: 38 of 38 (Attachment Proxy Path Fix)
+Phase: 41 of 41 (Backend Code Hygiene)
 Plan: 1 of 1 complete in current phase
-Status: Phase 38 COMPLETE -- attachment proxy /api/v1 prefix fix
-Last activity: 2026-03-04 -- Plan 38-01 completed (attachment proxy path fix)
+Status: Phase 41 COMPLETE -- DI fix, GDPR scope fix, dead scaffolding removed
+Last activity: 2026-03-04 -- Plan 41-01 completed (backend code hygiene)
 
 Progress: [██████████] 100%
 
@@ -74,6 +74,7 @@ Progress: [██████████] 100%
 | Phase 37 P02 | 3min | 2 tasks | 2 files |
 | Phase 38 P01 | 1min | 1 tasks | 1 files |
 | Phase 40 P01 | 2min | 2 tasks | 3 files |
+| Phase 41 P01 | 9min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,9 @@ Recent decisions affecting current work:
 - [37-02]: Lighthouse CI now blocks PRs on LCP/TTI/CLS regression (continue-on-error removed)
 - [38-01]: No architectural changes needed for attachment proxy fix -- single-line URL fix plus comment updates
 - [Phase 40]: Surgical revert of 3 CI regressions from commit 4a911f38 -- no other changes
+- [41-01]: TenantKeyService injected via @Inject() in PrismaService; $extends moved to onModuleInit before $connect
+- [41-01]: purgeUserDeletion scoped to single userId/tenantId; purgeExpiredDeletions unchanged for daily cron
+- [41-01]: Decision [36-01] about dual TenantKeyService instantiation superseded -- PrismaService now uses DI only
 
 ### Pending Todos
 
@@ -159,7 +163,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T14:57:02.055Z
-Stopped at: Completed 40-01-PLAN.md (CI regression fixes)
+Last session: 2026-03-04T15:26:18Z
+Stopped at: Completed 41-01-PLAN.md (backend code hygiene)
 Resume file: None
-Next action: Phase 38 complete -- attachment downloads should work end-to-end now
+Next action: Phase 41 complete -- backend codebase clean (DI, GDPR scope, dead code)
