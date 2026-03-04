@@ -13,13 +13,15 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { EmailSignatureService } from '../services/email-signature.service';
 import { CreateSignatureDto, UpdateSignatureDto, SignatureResponseDto } from '../dto/signature.dto';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Email Signatures')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @Controller('emails/signatures')
 export class SignaturesController {
   constructor(private signatureService: EmailSignatureService) {}
@@ -48,6 +50,7 @@ export class SignaturesController {
   }
 
   @Post()
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Create a new signature' })
   @ApiResponse({ status: 201, type: SignatureResponseDto })
   async create(@Request() req: AuthenticatedRequest, @Body() dto: CreateSignatureDto) {
@@ -55,6 +58,7 @@ export class SignaturesController {
   }
 
   @Patch(':id')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Update a signature' })
   @ApiResponse({ status: 200, type: SignatureResponseDto })
   async update(
@@ -66,6 +70,7 @@ export class SignaturesController {
   }
 
   @Delete(':id')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Delete a signature' })
   @ApiResponse({ status: 200 })
   async delete(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
@@ -73,6 +78,7 @@ export class SignaturesController {
   }
 
   @Post(':id/set-default')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Set signature as default' })
   @ApiResponse({ status: 200, type: SignatureResponseDto })
   async setDefault(@Request() req: AuthenticatedRequest, @Param('id') id: string) {

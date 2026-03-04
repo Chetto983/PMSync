@@ -23,6 +23,8 @@ import { ContactsSyncQueueService } from '../services/contacts-sync-queue.servic
 import { RelationshipScoreService } from '../services/relationship-score.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -38,7 +40,7 @@ import {
 @ApiTags('Contacts')
 @ApiBearerAuth()
 @Controller('contacts')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class ContactsController {
   constructor(
     private readonly contactsService: ContactsService,
@@ -183,6 +185,7 @@ export class ContactsController {
    * Returns a map of email address -> { contactId, photoUrl, displayName }
    */
   @Post('lookup-by-emails')
+  @Roles('admin', 'manager')
   @HttpCode(HttpStatus.OK)
   @SkipThrottle()
   @ApiOperation({
@@ -201,6 +204,7 @@ export class ContactsController {
    * POST /api/contacts
    */
   @Post()
+  @Roles('admin', 'super-admin')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create contact', description: 'Creates a new contact' })
   @ApiBody({ type: CreateContactDto })
@@ -215,6 +219,7 @@ export class ContactsController {
    * PATCH /api/contacts/:id
    */
   @Patch(':id')
+  @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Update contact', description: 'Updates an existing contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiBody({ type: UpdateContactDto })
@@ -233,6 +238,7 @@ export class ContactsController {
    * DELETE /api/contacts/:id
    */
   @Delete(':id')
+  @Roles('admin', 'super-admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete contact', description: 'Deletes a contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
@@ -247,6 +253,7 @@ export class ContactsController {
    * POST /api/contacts/:id/vip
    */
   @Post(':id/vip')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Toggle VIP status', description: 'Toggles VIP status for a contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiResponse({ status: 200, description: 'VIP status toggled successfully' })
@@ -273,6 +280,7 @@ export class ContactsController {
    * POST /api/contacts/local
    */
   @Post('local')
+  @Roles('admin', 'super-admin')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create local contact', description: 'Creates a local-only contact (no provider sync)' })
   @ApiBody({ type: CreateLocalContactDto })
@@ -288,6 +296,7 @@ export class ContactsController {
    * Works for any provider, especially useful for generic IMAP
    */
   @Post('extract-from-emails')
+  @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Extract contacts from emails', description: 'Extracts contacts from email headers' })
   @ApiBody({ type: ExtractContactsDto })
   @ApiResponse({ status: 200, description: 'Contacts extracted successfully' })
@@ -310,6 +319,7 @@ export class ContactsController {
    * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
    */
   @Post('import/vcard')
+  @Roles('admin', 'super-admin')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: {
@@ -368,6 +378,7 @@ export class ContactsController {
    * POST /api/contacts/sync/:providerId
    */
   @Post('sync/:providerId')
+  @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Sync provider contacts', description: 'Triggers manual sync for a provider' })
   @ApiParam({ name: 'providerId', description: 'Provider ID' })
   @ApiResponse({ status: 200, description: 'Sync started successfully' })
@@ -403,6 +414,7 @@ export class ContactsController {
    * ✅ TENANT ISOLATED: Only queues jobs for the authenticated user's providers
    */
   @Post('sync-all')
+  @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Sync all providers', description: 'Queues sync jobs for all contact-enabled providers' })
   @ApiResponse({ status: 200, description: 'Sync jobs queued successfully' })
   async syncAllProviders(@Req() req: any) {

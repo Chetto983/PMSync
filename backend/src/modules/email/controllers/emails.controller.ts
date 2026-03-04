@@ -3,7 +3,7 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
+
   Get,
   HttpCode,
   HttpStatus,
@@ -28,6 +28,8 @@ import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { EmailsService, EmailListFilters } from '../services/emails.service';
 import { EmailRetentionService } from '../services/email-retention.service';
 import { EmailFetchService } from '../services/email-fetch.service';
@@ -92,7 +94,7 @@ const decodeAttachments = (attachments?: EmailAttachmentDto[]): DecodedAttachmen
 @ApiTags('Emails')
 @ApiBearerAuth()
 @Controller('emails')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class EmailsController {
   private readonly maxEmailListLimit: number;
   private readonly logger = new Logger(EmailsController.name);
@@ -368,6 +370,7 @@ export class EmailsController {
    * POST /emails/:id/calendar-invite/respond - Respond to calendar invite
    */
   @Post(':id/calendar-invite/respond')
+  @Roles('admin', 'manager')
   async respondToCalendarInvite(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
@@ -571,6 +574,7 @@ export class EmailsController {
    * Rate limited: 10 emails per minute per user to prevent spam/abuse
    */
   @Post('calendar-invite/send')
+  @Roles('admin', 'manager')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendCalendarInvite(
     @Req() req: AuthenticatedRequest,
@@ -665,6 +669,7 @@ export class EmailsController {
    * POST /emails/calendar-invite/:eventId/cancel - Send meeting cancellation (CANCEL)
    */
   @Post('calendar-invite/:eventId/cancel')
+  @Roles('admin', 'manager')
   async cancelCalendarInvite(
     @Req() req: AuthenticatedRequest,
     @Param('eventId') eventId: string,
@@ -761,6 +766,7 @@ export class EmailsController {
    * Rate limited: 10 emails per minute per user to prevent spam/abuse
    */
   @Post('send')
+  @Roles('admin', 'manager')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendEmail(@Req() req: AuthenticatedRequest, @Body() body: SendEmailRequestDto) {
     const tenantId = req.user.tenantId;
@@ -793,6 +799,7 @@ export class EmailsController {
    * Rate limited: 10 emails per minute per user to prevent spam/abuse
    */
   @Post(':id/reply')
+  @Roles('admin', 'manager')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async replyToEmail(
     @Req() req: AuthenticatedRequest,
@@ -837,6 +844,7 @@ export class EmailsController {
    * This endpoint is for quick API forwards. Signature is appended after forwarded content.
    */
   @Post(':id/forward')
+  @Roles('admin', 'manager')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async forwardEmail(
     @Req() req: AuthenticatedRequest,
@@ -874,6 +882,7 @@ export class EmailsController {
    * PATCH /emails/:id - Update email flags
    */
   @Patch(':id')
+  @Roles('admin', 'manager')
   async updateEmail(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
@@ -888,6 +897,7 @@ export class EmailsController {
    * IMPORTANT: Must come before @Delete(':id') to avoid route conflict
    */
   @Delete('bulk')
+  @Roles('admin', 'manager')
   async bulkDelete(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkDeleteDto,
@@ -900,6 +910,7 @@ export class EmailsController {
    * DELETE /emails/:id - Delete email
    */
   @Delete(':id')
+  @Roles('admin', 'manager')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
@@ -911,6 +922,7 @@ export class EmailsController {
    * POST /emails/drafts
    */
   @Post('drafts')
+  @Roles('admin', 'manager')
   async saveDraft(
     @Req() req: AuthenticatedRequest,
     @Body()
@@ -950,6 +962,7 @@ export class EmailsController {
    * DELETE /emails/drafts/:id
    */
   @Delete('drafts/:id')
+  @Roles('admin', 'manager')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteDraft(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
@@ -960,6 +973,7 @@ export class EmailsController {
    * PATCH /emails/bulk/read - Mark multiple emails as read/unread
    */
   @Patch('bulk/read')
+  @Roles('admin', 'manager')
   async bulkUpdateRead(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkUpdateReadDto,
@@ -975,6 +989,7 @@ export class EmailsController {
    * PATCH /emails/bulk/star - Bulk star/unstar emails
    */
   @Patch('bulk/star')
+  @Roles('admin', 'manager')
   async bulkUpdateStar(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkUpdateStarDto,
@@ -991,6 +1006,7 @@ export class EmailsController {
    * PATCH /emails/bulk/flag - Bulk flag/unflag emails (mark as important)
    */
   @Patch('bulk/flag')
+  @Roles('admin', 'manager')
   async bulkUpdateFlag(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkUpdateFlagDto,
@@ -1007,6 +1023,7 @@ export class EmailsController {
    * PATCH /emails/bulk/move - Bulk move emails to folder
    */
   @Patch('bulk/move')
+  @Roles('admin', 'manager')
   async bulkMoveToFolder(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkMoveToFolderDto,
@@ -1023,6 +1040,7 @@ export class EmailsController {
    * PATCH /emails/bulk/labels/add - Bulk add labels to emails
    */
   @Patch('bulk/labels/add')
+  @Roles('admin', 'manager')
   async bulkAddLabels(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkLabelsDto,
@@ -1039,6 +1057,7 @@ export class EmailsController {
    * PATCH /emails/bulk/labels/remove - Bulk remove labels from emails
    */
   @Patch('bulk/labels/remove')
+  @Roles('admin', 'manager')
   async bulkRemoveLabels(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkLabelsDto,
@@ -1055,6 +1074,7 @@ export class EmailsController {
    * POST /emails/:id/fetch-archived - Fetch archived email from server
    */
   @Post(':id/fetch-archived')
+  @Roles('admin', 'manager')
   async fetchArchivedEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.fetchService.fetchArchivedEmail(id, tenantId);
@@ -1064,11 +1084,8 @@ export class EmailsController {
    * POST /emails/maintenance/cleanup - Remove duplicates and purge deleted emails for current tenant
    */
   @Post('maintenance/cleanup')
+  @Roles('admin', 'super-admin')
   async runTenantCleanup(@Req() req: any) {
-    if (req.user.role !== 'admin' && req.user.role !== 'super-admin') {
-      throw new ForbiddenException('Administrator access required');
-    }
-
     return this.cleanupService.runTenantMaintenance(req.user.tenantId);
   }
 
@@ -1077,14 +1094,9 @@ export class EmailsController {
    * SECURITY: Requires admin role, returns stats for user's tenant only
    */
   @Get('retention/stats')
+  @Roles('admin', 'super-admin')
   async getRetentionStats(@Req() req: any) {
     const tenantId = req.user.tenantId;
-
-    // Require admin or super-admin role
-    if (req.user.role !== 'admin' && req.user.role !== 'super-admin') {
-      throw new ForbiddenException('Administrator access required for retention statistics');
-    }
-
     return this.retentionService.getRetentionStats(tenantId);
   }
 
@@ -1093,16 +1105,9 @@ export class EmailsController {
    * SECURITY: SUPER-ADMIN ONLY - Archives old emails for current tenant
    */
   @Post('retention/run')
+  @Roles('super-admin')
   async runRetentionPolicy(@Req() req: AuthenticatedRequest, @Body() data?: { retentionDays?: number }) {
     const tenantId = req.user.tenantId;
-
-    // CRITICAL: Only super-admin can trigger retention policy
-    if (req.user.role !== 'super-admin') {
-      throw new ForbiddenException(
-        'Super administrator access required to run retention policy',
-      );
-    }
-
     return this.retentionService.runManualRetention(tenantId, data?.retentionDays);
   }
 

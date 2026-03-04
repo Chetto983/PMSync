@@ -13,6 +13,8 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { EmailTemplateService } from '../services/email-template.service';
 import {
   CreateTemplateDto,
@@ -24,7 +26,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 @ApiTags('Email Templates')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @Controller('emails/templates')
 export class TemplatesController {
   constructor(private templateService: EmailTemplateService) {}
@@ -59,6 +61,7 @@ export class TemplatesController {
   }
 
   @Post()
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Create a new email template' })
   @ApiResponse({ status: 201, type: TemplateResponseDto })
   async create(@Request() req: AuthenticatedRequest, @Body() dto: CreateTemplateDto) {
@@ -66,6 +69,7 @@ export class TemplatesController {
   }
 
   @Patch(':id')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Update a template' })
   @ApiResponse({ status: 200, type: TemplateResponseDto })
   async update(
@@ -77,6 +81,7 @@ export class TemplatesController {
   }
 
   @Delete(':id')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Delete a template' })
   @ApiResponse({ status: 200 })
   async delete(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
@@ -84,6 +89,7 @@ export class TemplatesController {
   }
 
   @Post(':id/set-default')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Set template as default' })
   @ApiResponse({ status: 200, type: TemplateResponseDto })
   async setDefault(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
@@ -91,6 +97,7 @@ export class TemplatesController {
   }
 
   @Post(':id/duplicate')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Duplicate a template' })
   @ApiQuery({ name: 'name', required: false, description: 'Name for the duplicated template' })
   @ApiResponse({ status: 201, type: TemplateResponseDto })

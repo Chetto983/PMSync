@@ -24,6 +24,8 @@ import {
 import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
 import { FolderOperationsQueueService } from '../../email-sync/services/folder-operations-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -162,7 +164,7 @@ export const LOCALIZED_FOLDER_NAMES: Record<string, keyof typeof CANONICAL_FOLDE
 
 @ApiTags('Folders')
 @Controller('folders')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @ApiBearerAuth()
 export class FoldersController {
   constructor(
@@ -358,6 +360,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Post('sync/:providerId')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Sync folders for a specific provider' })
   @ApiResponse({ status: 200, description: 'Folders synced successfully' })
   async syncFolders(
@@ -394,6 +397,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Post('sync-all')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Sync folders for all providers' })
   @ApiResponse({ status: 200, description: 'Folders synced for all providers' })
   async syncAllFolders(@Request() req: AuthenticatedRequest) {
@@ -443,6 +447,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Post('update-counts/:providerId')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Update folder counts for a provider' })
   @ApiResponse({
     status: 200,
@@ -509,6 +514,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Post('cleanup/:providerId')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Clean up orphaned folders for a provider' })
   @ApiResponse({ status: 200, description: 'Orphaned folders cleaned up' })
   async cleanupOrphanedFolders(
@@ -545,6 +551,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
    * SEC-4 FIX: Rate limiting on folder operations to prevent resource exhaustion
    */
   @Post()
+  @Roles('admin', 'manager')
   @Throttle({ default: { ttl: 60000, limit: 10 } }) // 10 requests per minute
   @ApiOperation({ summary: 'Create a new folder' })
   @ApiBody({ type: CreateFolderDto })
@@ -616,6 +623,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Patch(':folderId')
+  @Roles('admin', 'manager')
   @Throttle({ default: { ttl: 60000, limit: 10 } }) // SEC-4: 10 requests per minute
   @ApiOperation({ summary: 'Rename or move a folder' })
   @ApiBody({
@@ -718,6 +726,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Delete(':folderId')
+  @Roles('admin', 'manager')
   @Throttle({ default: { ttl: 60000, limit: 10 } }) // SEC-4: 10 requests per minute
   @ApiOperation({ summary: 'Delete a folder' })
   @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
