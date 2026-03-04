@@ -161,17 +161,59 @@ apiClient.interceptors.response.use(
   },
 );
 
-// Handle token expiration and CSRF errors
+// ==================== 401 REFRESH INTERCEPTOR (AUTH-04) ====================
+// On 401, attempt to refresh the access token via POST /auth/refresh.
+// Concurrent 401s are queued behind a single refresh call.
+// If refresh fails, logout the user (no infinite loop).
+
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (v?: unknown) => void; reject: (e?: unknown) => void }> = [];
+
+const processQueue = (error: unknown) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve();
+  });
+  failedQueue = [];
+};
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        useAuthStore.getState().logout();
-        // Don't redirect here - let the RouteGuard in _app.tsx handle it
-        // This preserves the 'next' parameter for OAuth callbacks
+    const originalRequest = error.config;
+
+    // 401 handling: refresh-then-retry (AUTH-04)
+    // Skip refresh for the refresh endpoint itself to prevent infinite loops (Pitfall 5)
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/refresh')
+    ) {
+      if (isRefreshing) {
+        // Queue this request behind the in-progress refresh
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => apiClient(originalRequest));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await apiClient.post('/auth/refresh');
+        processQueue(null);
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError);
+        if (typeof window !== 'undefined') {
+          useAuthStore.getState().logout();
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
+
     // Auto-retry once on CSRF 403: clear stale token, refetch, replay request (SEC-04)
     if (error.response?.status === 403 && !error.config._csrfRetried) {
       clearCsrfToken();
@@ -182,6 +224,7 @@ apiClient.interceptors.response.use(
       }
       return apiClient.request(error.config);
     }
+
     return Promise.reject(error);
   },
 );
