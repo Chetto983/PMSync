@@ -348,11 +348,12 @@ export class OtpSecurityService implements OnModuleInit, OnModuleDestroy {
         resetAt,
       };
     } catch (error) {
-      // On Redis error, allow the request (fail open)
-      this.logger.error(`Rate limit check failed: ${error instanceof Error ? error.message : String(error)}`);
+      // SECURITY: Fail CLOSED on Redis error — deny the request
+      // This prevents brute force attacks when Redis is unavailable
+      this.logger.error(`Rate limit check failed (denying request): ${error instanceof Error ? error.message : String(error)}`);
       return {
-        allowed: true,
-        attemptsRemaining: this.rateLimitMax,
+        allowed: false,
+        attemptsRemaining: 0,
         resetAt: new Date(now + this.rateLimitWindowMs),
       };
     }

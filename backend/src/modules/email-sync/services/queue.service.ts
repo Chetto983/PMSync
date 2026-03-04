@@ -616,7 +616,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     const counts: Record<string, number> = {};
 
     for (const queue of queues) {
-      const jobs = await queue.getJobs(states, 0, -1);
+      const jobs = await queue.getJobs(states, 0, 100);
       for (const job of jobs) {
         const providerId = job.data?.providerId;
         if (!providerId) continue;
@@ -656,7 +656,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     let removed = 0;
 
     for (const { name, queue } of queues) {
-      const jobs = await queue.getJobs(removableStates, 0, -1);
+      const jobs = await queue.getJobs(removableStates, 0, 100);
       let removedFromQueue = 0;
 
       for (const job of jobs) {
@@ -688,7 +688,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     let removed = 0;
 
     for (const { name, queue } of queues) {
-      const jobs = await queue.getJobs(removableStates, 0, -1);
+      const jobs = await queue.getJobs(removableStates, 0, 100);
       let removedFromQueue = 0;
 
       for (const job of jobs) {

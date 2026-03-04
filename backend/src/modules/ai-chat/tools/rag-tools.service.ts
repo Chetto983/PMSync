@@ -1,10 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { tool } from 'ai';
-import { embed } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from '../../ai/services/embeddings.service';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
 
 /**
@@ -32,7 +31,7 @@ export class RagToolsService {
 
   constructor(
     private readonly embeddingsService: EmbeddingsService,
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralEmbeddingService: MistralEmbeddingService,
     private readonly prisma: PrismaService,
     private readonly hybridSearchService: HybridSearchService,
   ) {}
@@ -42,12 +41,13 @@ export class RagToolsService {
    */
   getTools(
     tenantId: string,
+    userId: string,
     _conversationId: string,
     piiResolve: PiiResolveFn,
   ) {
     return {
       semantic_search: this.buildSemanticSearch(tenantId, piiResolve),
-      save_memory: this.buildSaveMemory(tenantId, piiResolve),
+      save_memory: this.buildSaveMemory(tenantId, userId, piiResolve),
     };
   }
 
@@ -91,7 +91,7 @@ export class RagToolsService {
     });
   }
 
-  private buildSaveMemory(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildSaveMemory(tenantId: string, userId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
         'Save a memory note that the AI can recall later. ' +
@@ -117,18 +117,18 @@ export class RagToolsService {
           args as unknown as Record<string, unknown>,
         )) as typeof args;
 
-        // Generate embedding for the memory content
-        const embeddingModel = this.mistralProvider.getEmbeddingModel();
-        const { embedding: vector } = await embed({
-          model: embeddingModel,
-          value: resolved.content,
-        });
+        // Generate embedding for the memory content -- routes through MistralEmbeddingService for cost protection
+        const vector = await this.mistralEmbeddingService.generateEmbedding(
+          resolved.content,
+          undefined,
+          { tenantId },
+        );
 
         // Save memory to AIMemory table
         const memory = await this.prisma.aIMemory.create({
           data: {
             tenantId,
-            userId: tenantId, // Will be replaced with actual userId in Phase 26
+            userId,
             content: resolved.content,
             category: resolved.category,
             tags: resolved.tags,

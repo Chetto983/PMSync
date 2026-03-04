@@ -275,7 +275,7 @@ export class ConversationService {
    */
   private formatMessagesAsModelMessages(messages: AiMessage[]): ModelMessage[] {
     return messages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'tool')
       .map((m): ModelMessage => {
         const content = m.content as Record<string, unknown>;
 
@@ -285,6 +285,20 @@ export class ConversationService {
               ? content
               : (content as { text?: string })?.text ?? '';
           return { role: 'user', content: text };
+        }
+
+        if (m.role === 'tool') {
+          return {
+            role: 'tool',
+            content: [
+              {
+                type: 'tool-result',
+                toolCallId: m.toolCallId ?? 'unknown',
+                toolName: (content as any)?.toolName ?? 'unknown',
+                result: (content as any)?.result ?? content,
+              },
+            ],
+          } as any; // ModelMessage union type needs cast for tool
         }
 
         // assistant

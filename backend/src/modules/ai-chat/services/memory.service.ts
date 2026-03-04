@@ -14,9 +14,8 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { embed } from 'ai';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 
 /** Memory result from vector search */
 export interface MemoryResult {
@@ -31,7 +30,7 @@ export class MemoryService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralEmbeddingService: MistralEmbeddingService,
   ) {}
 
   /**
@@ -53,11 +52,12 @@ export class MemoryService {
     limit: number = 3,
   ): Promise<MemoryResult[]> {
     try {
-      // Generate embedding for the query
-      const { embedding: queryVector } = await embed({
-        model: this.mistralProvider.getEmbeddingModel(),
-        value: query,
-      });
+      // Generate embedding for the query -- routes through MistralEmbeddingService for cost protection
+      const queryVector = await this.mistralEmbeddingService.generateEmbedding(
+        query,
+        undefined,
+        { tenantId },
+      );
 
       // Convert to pgvector format: [0.1, 0.2, ...]
       const vectorStr = `[${queryVector.join(',')}]`;

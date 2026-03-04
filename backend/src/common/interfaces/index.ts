@@ -12,3 +12,5 @@ export type { IProviderTokenService } from './provider-token.interface';
 export { PROVIDER_TOKEN_SERVICE } from './provider-token.interface';
 export type { ICryptoService } from './crypto.interface';
 export { CRYPTO_SERVICE } from './crypto.interface';
+export { Permission, POLICY_SERVICE } from './policy-service.interface';
+export type { PolicyEvaluation, IPolicyService } from './policy-service.interface';

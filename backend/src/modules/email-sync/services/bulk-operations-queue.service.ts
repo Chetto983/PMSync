@@ -285,7 +285,7 @@ export class BulkOperationsQueueService extends BaseQueueService<BulkOperationJo
     tenantId: string,
   ): Promise<Array<{ jobId: string; operation: BulkOperationType; emailCount: number; state: string }>> {
     const states: JobType[] = ['waiting', 'active', 'delayed'];
-    const jobs = await this.queue.getJobs(states, 0, -1);
+    const jobs = await this.queue.getJobs(states, 0, 100);
 
     const results: Array<{ jobId: string; operation: BulkOperationType; emailCount: number; state: string }> = [];
 

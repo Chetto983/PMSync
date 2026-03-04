@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { embed } from 'ai';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 
 // ─── Result types ───────────────────────────────────────────
 
@@ -90,7 +89,7 @@ export class HybridSearchService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralEmbeddingService: MistralEmbeddingService,
   ) {}
 
   /**
@@ -140,7 +139,7 @@ export class HybridSearchService {
     limit: number = 10,
   ): Promise<EmailSearchResult[]> {
     try {
-      const embeddingVector = await this.generateEmbedding(query);
+      const embeddingVector = await this.generateEmbedding(query, tenantId);
       const vectorLiteral = Prisma.raw(
         `'[${embeddingVector.join(',')}]'::vector`,
       );
@@ -180,7 +179,7 @@ export class HybridSearchService {
     limit: number = 10,
   ): Promise<ContactSearchResult[]> {
     try {
-      const embeddingVector = await this.generateEmbedding(query);
+      const embeddingVector = await this.generateEmbedding(query, tenantId);
       const vectorLiteral = Prisma.raw(
         `'[${embeddingVector.join(',')}]'::vector`,
       );
@@ -259,14 +258,13 @@ export class HybridSearchService {
 
   /**
    * Generate embedding vector for a query string.
-   * Uses Mistral embed model (1024 dimensions).
+   * Routes through MistralEmbeddingService for cost protection checks.
    */
-  private async generateEmbedding(query: string): Promise<number[]> {
-    const embeddingModel = this.mistralProvider.getEmbeddingModel();
-    const { embedding } = await embed({
-      model: embeddingModel,
-      value: query,
-    });
-    return embedding;
+  private async generateEmbedding(query: string, tenantId?: string): Promise<number[]> {
+    return this.mistralEmbeddingService.generateEmbedding(
+      query,
+      undefined,
+      tenantId ? { tenantId } : undefined,
+    );
   }
 }

@@ -257,7 +257,7 @@ export abstract class BaseQueueService<TJobData, TJobResult>
     filter: (job: Job<TJobData, TJobResult>) => boolean,
   ): Promise<number> {
     const states: JobType[] = ['waiting', 'delayed', 'paused'];
-    const jobs = await this.queue.getJobs(states, 0, -1);
+    const jobs = await this.queue.getJobs(states, 0, 100);
     let removed = 0;
 
     for (const job of jobs) {

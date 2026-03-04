@@ -299,7 +299,7 @@ export class EmailSendQueueService extends BaseQueueService<EmailSendJobData, Em
    * Get all scheduled sends for a tenant.
    */
   async getScheduledSendsForTenant(tenantId: string): Promise<EmailSendJobData[]> {
-    const delayedJobs = await this.queue.getJobs(['delayed'], 0, -1);
+    const delayedJobs = await this.queue.getJobs(['delayed'], 0, 100);
     return delayedJobs.filter((job) => job?.data?.tenantId === tenantId).map((job) => job.data);
   }
 
@@ -308,7 +308,7 @@ export class EmailSendQueueService extends BaseQueueService<EmailSendJobData, Em
    */
   async getQueueStatus(): Promise<EmailSendQueueMetrics> {
     const baseMetrics = await this.getBaseMetrics();
-    const delayedJobs = await this.queue.getJobs(['delayed'], 0, -1);
+    const delayedJobs = await this.queue.getJobs(['delayed'], 0, 100);
 
     return {
       ...baseMetrics,

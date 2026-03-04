@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -14,6 +14,7 @@ import { WebAuthnService } from './services/webauthn.service';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../email/services/email.service';
+import { EmailModule } from '../email/email.module';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
 import { ComplianceModule } from '../compliance/compliance.module';
@@ -45,6 +46,7 @@ import { ComplianceModule } from '../compliance/compliance.module';
     UsersModule,
     ConfigModule,
     ComplianceModule, // LegalAcceptanceService for registration-time legal acceptance
+    forwardRef(() => EmailModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     // JWT configuration with fail-fast validation
     JwtModule.registerAsync({
@@ -87,7 +89,7 @@ import { ComplianceModule } from '../compliance/compliance.module';
     WebAuthnService,
     RedisRateLimiterService,
     JwtStrategy,
-    EmailService,
+    // EmailService removed — provided by EmailModule (forwardRef import above)
   ],
   controllers: [AuthController, MfaController],
   exports: [

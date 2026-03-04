@@ -294,7 +294,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Invalidate all keys in a namespace
-   * Note: Uses KEYS command - for small namespaces only
+   * Uses SCAN for production safety (non-blocking, iterative)
    */
   async invalidateNamespace(namespace: CacheNamespace): Promise<number> {
     if (!this.isConnected) {
@@ -303,16 +303,27 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const pattern = `${namespace}:*`;
-      const keys = await this.client.keys(pattern);
+      let cursor = '0';
+      let totalDeleted = 0;
 
-      if (keys.length === 0) {
-        return 0;
+      do {
+        const result = await this.client.scan(cursor, {
+          MATCH: pattern,
+          COUNT: 100,
+        });
+        cursor = String(result.cursor);
+
+        if (result.keys.length > 0) {
+          await this.client.del(result.keys);
+          totalDeleted += result.keys.length;
+          this.stats.deletes += result.keys.length;
+        }
+      } while (cursor !== '0');
+
+      if (totalDeleted > 0) {
+        this.logger.log(`Invalidated ${totalDeleted} keys in namespace ${namespace}`);
       }
-
-      await this.client.del(keys);
-      this.stats.deletes += keys.length;
-      this.logger.log(`Invalidated ${keys.length} keys in namespace ${namespace}`);
-      return keys.length;
+      return totalDeleted;
     } catch (error) {
       this.logger.error(`Cache invalidateNamespace error for ${namespace}:`, error);
       this.stats.errors++;

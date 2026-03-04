@@ -32,6 +32,7 @@ import { HitlService } from '../services/hitl.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { IntentRouterService } from '../tools/intent-router.service';
 import { IntentClassifierService } from '../../ai/nlp/intent-classifier.service';
 import { MemoryService } from '../services/memory.service';
@@ -108,6 +109,7 @@ async function drainStream(s: ReadableStream): Promise<string> {
 describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
   let prisma: PrismaClient;
   let mistralProvider: MistralProviderService;
+  let mistralEmbeddingService: MistralEmbeddingService;
 
   // SPIED domain stubs — vi.fn() wrapping real Prisma queries
   let emailSearchSpy: ReturnType<typeof vi.fn>;
@@ -203,6 +205,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       },
     } as unknown as ConfigService;
     mistralProvider = new MistralProviderService(configService);
+    mistralEmbeddingService = new MistralEmbeddingService(mistralProvider);
 
     // ── SPIED domain stubs backed by real Prisma ──
     // Split query on spaces/dots so "federico leggiero" matches "federico.leggiero@..."
@@ -286,10 +289,10 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       prisma as any,
     );
     folderToolsService = new FolderToolsService(prisma as any);
-    hybridSearchService = new HybridSearchService(prisma as any, mistralProvider);
+    hybridSearchService = new HybridSearchService(prisma as any, mistralEmbeddingService);
     ragToolsService = new RagToolsService(
       { saveEmbedding: vi.fn() } as any,
-      mistralProvider,
+      mistralEmbeddingService,
       prisma as any,
       hybridSearchService,
     );
@@ -297,7 +300,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
     // ── Phase 25 services ──
     const ic = new IntentClassifierService(configService);
     intentRouterService = new IntentRouterService(ic, mistralProvider);
-    memoryService = new MemoryService(prisma as any, mistralProvider);
+    memoryService = new MemoryService(prisma as any, mistralEmbeddingService);
 
     // ── AiChatService with REAL ToolsServices ──
     aiChatService = new AiChatService(
@@ -433,7 +436,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
 
     it('A6: semantic_search returns hybrid RRF with real scores', async () => {
       const t0 = Date.now();
-      const tools = ragToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const tools = ragToolsService.getTools(testTenantId, testUserId, 't', identityPiiResolve);
       const r = await (tools.semantic_search as any).execute({
         query: 'conversione Inverter', // real subject from emails
         sources: ['emails'],
@@ -622,7 +625,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
         ...calendarToolsService.getTools(testTenantId, 't', identityPiiResolve),
         ...contactToolsService.getTools(testTenantId, 't', identityPiiResolve),
         ...folderToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...ragToolsService.getTools(testTenantId, 't', identityPiiResolve),
+        ...ragToolsService.getTools(testTenantId, testUserId, 't', identityPiiResolve),
       };
       expect(Object.keys(all).length).toBe(20);
     });

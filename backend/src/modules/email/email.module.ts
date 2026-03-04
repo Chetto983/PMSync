@@ -28,7 +28,6 @@ import { TemplatesController } from './controllers/templates.controller';
 import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
-import { ProviderTokenService } from '../email-sync/services/provider-token.service';
 import { CalendarModule } from '../calendar/calendar.module';
 import {
   TOOL_REGISTRY_SERVICE,
@@ -83,7 +82,7 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     AttachmentOnDemandService,
     AttachmentMetricsService, // Centralized metrics for attachments
     StorageService,
-    ProviderTokenService,
+    // ProviderTokenService removed — provided and exported by EmailSyncModule (forwardRef import)
     // Shared utility services (Phase 3 consolidation)
     ProviderValidationService,
     FolderLookupService,

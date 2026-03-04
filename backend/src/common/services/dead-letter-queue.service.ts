@@ -350,7 +350,7 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    const jobs = await this.dlqQueue.getJobs(['completed', 'waiting'], 0, -1);
+    const jobs = await this.dlqQueue.getJobs(['completed', 'waiting'], 0, 200);
     let removedCount = 0;
 
     for (const job of jobs) {

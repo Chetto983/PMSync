@@ -336,7 +336,7 @@ export class FolderOperationsQueueService extends BaseQueueService<FolderJobData
    */
   async getPendingJobsForProvider(providerId: string): Promise<FolderJobData[]> {
     const states: JobType[] = ['waiting', 'active', 'delayed'];
-    const jobs = await this.queue.getJobs(states, 0, -1);
+    const jobs = await this.queue.getJobs(states, 0, 100);
 
     return jobs
       .filter((job) => job?.data?.providerId === providerId)
@@ -347,7 +347,7 @@ export class FolderOperationsQueueService extends BaseQueueService<FolderJobData
    * Clear all failed jobs
    */
   async clearFailedJobs(): Promise<number> {
-    const failed = await this.queue.getJobs(['failed'], 0, -1);
+    const failed = await this.queue.getJobs(['failed'], 0, 200);
     let cleared = 0;
 
     for (const job of failed) {
