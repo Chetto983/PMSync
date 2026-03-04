@@ -61,7 +61,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - Integer phases (42, 43, ...): Planned milestone work
 - Decimal phases (42.1, 42.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 42: Tenant Isolation & Auth Hardening** - Prisma tenant-scoping middleware, RolesGuard expansion, JWT refresh rotation
+- [ ] **Phase 42: Tenant Isolation & Auth Hardening** - ~~Prisma tenant-scoping~~ (DONE), RolesGuard expansion, JWT refresh rotation
 - [ ] **Phase 43: Contract Tests & Backend God-File Splits** - API contract tests in CI, attachment streaming, 5 backend god-files decomposed
 - [ ] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification
 - [ ] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to ≤12 via domain events and shared interfaces
@@ -80,7 +80,19 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. Access tokens expire after 15 minutes; the frontend seamlessly refreshes without user interaction
   4. Reusing a consumed refresh token fails and invalidates the entire token family
   5. Changing password invalidates all active sessions across all devices
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 42-02-PLAN.md -- RolesGuard expansion to >=50% controllers + integration tests
+- [ ] 42-03-PLAN.md -- Refresh token rotation + dual cookie + frontend interceptor
+- [ ] 42-04-PLAN.md -- Negative security tests + password-change invalidation
+
+**Completed work (pre-plan, Sprint 1):**
+  - Prisma 7.3.0 → 7.4.2 upgrade
+  - Dead code cleanup (~830 lines removed)
+  - Tenant-scoping extension created (42 models, 5 composite PK)
+  - AUDIT_MODE flipped to enforce (TSEC-01, TSEC-02 done)
+  - 12 cron/scheduler services wrapped with withoutTenantScopingAsync
+  - 13 unit tests passing
 
 ### Phase 43: Contract Tests & Backend God-File Splits
 **Goal**: Frontend-backend API contracts are CI-enforced; backend god-files are decomposed below 400 lines with zero behavior change
@@ -154,14 +166,24 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 | 39. Code Quality & CI Hygiene | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 40. Fix CI Regressions | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 41. Backend Code Hygiene | v4.0 | 1/1 | Complete | 2026-03-04 |
-| 42. Tenant Isolation & Auth Hardening | v4.1 | 0/TBD | Not started | - |
+| 42. Tenant Isolation & Auth Hardening | v4.1 | 1/4 | In progress | - |
 | 43. Contract Tests & Backend God-File Splits | v4.1 | 0/TBD | Not started | - |
 | 44. Frontend God-File Splits | v4.1 | 0/TBD | Not started | - |
 | 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
 | 46. Observability | v4.1 | 0/TBD | Not started | - |
 | 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
 
+**v4.1 Requirement Status (Phase 42):**
+- ✅ TSEC-01: Prisma extension auto-injects tenantId (done)
+- ✅ TSEC-02: Queries without context throw TenantContextRequiredError (enforce mode active)
+- ⬜ TSEC-03..06: RolesGuard expansion (plan 42-02)
+- ⬜ TSEC-07: Integration test non-admin → 403 (plan 42-02)
+- ⬜ AUTH-01..05: Refresh token rotation + short-lived access tokens (plan 42-03)
+- ⬜ TEST-01..03: Negative security tests (plan 42-04)
+
 ---
 *Roadmap created: 2026-02-09*
 *v4.0 completed: 2026-03-04 -- 11 phases, 22 plans, 19/19 requirements*
 *v4.1 roadmap added: 2026-03-04 -- 6 phases, 61 requirements mapped*
+*Phase 42 tenant-scoping work started: 2026-03-04 -- TSEC-01/02 complete, enforce mode active*
+*Phase 42 plans created: 2026-03-04 -- 3 plans (42-02, 42-03, 42-04) in 2 waves*
