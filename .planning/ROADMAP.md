@@ -167,9 +167,8 @@ Plans:
 **Plans**: 2 plans (Wave 1 -> Wave 2, sequential)
 
 Plans:
-- [ ] 37-01: Bundle analysis baseline + dynamic imports + code splitting
-- [ ] 37-02: Deferred v3.1 bug fixes (RC-A1/A8, BUG-REPORT items)
-- [ ] 37-03: Lighthouse CI enforcement + memory profiling
+- [ ] 37-01-PLAN.md -- Bundle analysis baseline, dynamic imports for email.tsx dialogs, optimizePackageImports expansion (PERF-01)
+- [ ] 37-02-PLAN.md -- Deferred v3.1 bug closure (BUG-011/012/018/029/038/039/044), Lighthouse CI enforcement (PERF-02)
 
 ## Progress
 
@@ -188,7 +187,7 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | 34. Auth Security Hardening | 3/3 | Complete    | 2026-03-04 |
 | 35. AI Observability & Permissions | 2/2 | Complete    | 2026-03-04 |
 | 36. Encrypted Search | 2/2 | Complete    | 2026-03-04 |
-| 37. Performance & Debt Closure | 0/3 | Not started | - |
+| 37. Performance & Debt Closure | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
