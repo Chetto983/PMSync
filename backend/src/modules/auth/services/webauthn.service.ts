@@ -1,8 +1,8 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -88,7 +88,7 @@ interface ChallengeSession {
  * @see MFA_ENHANCEMENT_ROADMAP.md Phase 8
  */
 @Injectable()
-export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
+export class WebAuthnService implements OnModuleInit {
   private readonly logger = new Logger(WebAuthnService.name);
   private redis!: Redis;
 
@@ -107,6 +107,7 @@ export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly redisConnection: RedisConnectionService,
   ) {
     // Configure Relying Party (RP) settings
     // Derive from FRONTEND_URL if not explicitly set (avoids config duplication)
@@ -118,29 +119,8 @@ export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
     this.origin = this.config.get<string>('WEBAUTHN_ORIGIN') || frontendUrl;
   }
 
-  async onModuleInit() {
-    const options = getRedisConnectionOptions();
-    this.redis = new Redis({
-      ...options,
-      connectionName: 'webauthn',
-      lazyConnect: false,
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis WebAuthn service error: ${err.message}`);
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.log('Redis WebAuthn service connected');
-    });
-  }
-
-  async onModuleDestroy() {
-    if (this.redis) {
-      await this.redis.quit().catch(() => {
-        // Ignore quit errors during shutdown
-      });
-    }
+  onModuleInit() {
+    this.redis = this.redisConnection.client;
   }
 
   /**

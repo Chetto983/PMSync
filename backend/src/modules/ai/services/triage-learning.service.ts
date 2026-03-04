@@ -16,8 +16,8 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
-import Redis from 'ioredis';
-import { getRedisConnectionOptions } from '../../../common/config';
+import { Redis } from 'ioredis';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 
 // ============================================================================
 // Interfaces
@@ -142,7 +142,7 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TriageLearningService.name);
 
   /** Redis client for persistent storage */
-  private readonly redis: Redis;
+  private redis!: Redis;
 
   /** In-memory buffer keyed by `${tenantId}:${senderEmail}` */
   private readonly signalBuffer = new Map<string, TriageSignal[]>();
@@ -153,30 +153,10 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
   /** Periodic flush interval handle */
   private flushIntervalHandle: ReturnType<typeof setInterval> | null = null;
 
-  constructor() {
-    const redisOptions = getRedisConnectionOptions();
-    this.redis = new Redis({
-      host: redisOptions.host,
-      port: redisOptions.port,
-      password: redisOptions.password,
-      db: redisOptions.db ?? 0,
-      maxRetriesPerRequest: redisOptions.maxRetriesPerRequest,
-      enableReadyCheck: redisOptions.enableReadyCheck,
-      lazyConnect: true,
-    });
-
-    this.redis.on('error', (error) => {
-      this.logger.error(`Redis connection error: ${error.message}`);
-    });
-
-    this.redis.connect().catch((error) => {
-      this.logger.warn(
-        `Failed to connect to Redis on startup: ${error.message}. Learning signals will buffer in-memory only.`,
-      );
-    });
-  }
+  constructor(private readonly redisConnection: RedisConnectionService) {}
 
   onModuleInit() {
+    this.redis = this.redisConnection.client;
     // Start periodic flush interval
     this.flushIntervalHandle = setInterval(() => {
       this.flushAllBuffers().catch((err) => {
@@ -201,17 +181,7 @@ export class TriageLearningService implements OnModuleInit, OnModuleDestroy {
     // Flush all remaining buffered signals
     await this.flushAllBuffers();
 
-    // Close Redis connection
-    try {
-      if (this.redis.status !== 'end' && this.redis.status !== 'close') {
-        await this.redis.quit();
-        this.logger.debug('Redis connection closed gracefully');
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Failed to close Redis: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    // Redis lifecycle is managed by RedisConnectionService
   }
 
   // --------------------------------------------------------------------------
