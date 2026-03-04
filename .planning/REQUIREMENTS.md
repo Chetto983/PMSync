@@ -18,13 +18,13 @@ Requirements for enterprise stabilization. Each maps to roadmap phases.
 
 - [x] **API-01**: Global ResponseEnvelopeInterceptor wraps all success responses in `{ data, meta: { requestId, timestamp } }` with @SkipEnvelope for streaming
 - [x] **API-02**: Unified ApiExceptionFilter emits `{ error: { code, message, details }, meta }` with machine-readable error codes per domain
-- [ ] **API-03**: Global API prefix `api/v1` enforced via setGlobalPrefix, manual prefixes removed from 8 controllers
+- [x] **API-03**: Global API prefix `api/v1` enforced via setGlobalPrefix, manual prefixes removed from 8 controllers
 - [x] **API-04**: CorrelationInterceptor registered globally, correlation IDs propagated through BullMQ jobs and AI run records
 - [x] **API-05**: OpenAPI spec linted via Spectral in CI, frontend types generated via openapi-typescript
 
 ### Security
 
-- [ ] **SEC-01**: Frontend auth migrated from localStorage JWT to httpOnly secure cookies with dual-mode transition period
+- [x] **SEC-01**: Frontend auth migrated from localStorage JWT to httpOnly secure cookies with dual-mode transition period
 - [x] **SEC-02**: HMAC-SHA256 blind indexes on `from` field for exact-match sender lookup, with backfill job and dual-path search
 - [x] **SEC-03**: All encryption paths standardized to AES-GCM, legacy AES-CBC usage audited and migrated
 
@@ -90,10 +90,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | ARCH-03 | Phase 32 | Complete |
 | API-01 | Phase 33 | Complete |
 | API-02 | Phase 33 | Complete |
-| API-03 | Phase 38 | Pending |
+| API-03 | Phase 38 | Complete |
 | API-04 | Phase 33 | Complete |
 | API-05 | Phase 33 | Complete |
-| SEC-01 | Phase 38 | Pending |
+| SEC-01 | Phase 38 | Complete |
 | SEC-02 | Phase 36 | Complete |
 | SEC-03 | Phase 34 | Complete |
 | AIOBS-01 | Phase 35 | Complete (35-01) |

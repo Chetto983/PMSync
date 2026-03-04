@@ -52,7 +52,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 35: AI Observability & Permissions** - AI Run Ledger telemetry, cost reporting endpoints, permission taxonomy (completed 2026-03-04)
 - [x] **Phase 36: Encrypted Search** - HMAC blind indexes on encrypted fields for exact-match sender lookup (completed 2026-03-04)
 - [x] **Phase 37: Performance & Debt Closure** - LCP <2.5s / TTI <3.5s, resolve 7 deferred v3.1 bugs (completed 2026-03-04)
-- [ ] **Phase 38: Attachment Proxy Path Fix** - Fix broken attachment download proxy URL missing /api/v1 prefix (gap closure)
+- [x] **Phase 38: Attachment Proxy Path Fix** - Fix broken attachment download proxy URL missing /api/v1 prefix (gap closure) (completed 2026-03-04)
 - [ ] **Phase 39: Code Quality & CI Hygiene** - Split email.tsx, fix Lighthouse CI mixed-PR gap, fix OpenAPI CI masking, remove auth-token stub (gap closure)
 
 ## Phase Details
@@ -217,7 +217,7 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | 35. AI Observability & Permissions | 2/2 | Complete    | 2026-03-04 |
 | 36. Encrypted Search | 2/2 | Complete    | 2026-03-04 |
 | 37. Performance & Debt Closure | 2/2 | Complete    | 2026-03-04 |
-| 38. Attachment Proxy Path Fix | 0/1 | Pending     | — |
+| 38. Attachment Proxy Path Fix | 1/1 | Complete   | 2026-03-04 |
 | 39. Code Quality & CI Hygiene | 0/1 | Pending     | — |
 
 ---
