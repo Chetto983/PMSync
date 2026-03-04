@@ -217,7 +217,7 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | 35. AI Observability & Permissions | 2/2 | Complete    | 2026-03-04 |
 | 36. Encrypted Search | 2/2 | Complete    | 2026-03-04 |
 | 37. Performance & Debt Closure | 2/2 | Complete    | 2026-03-04 |
-| 38. Attachment Proxy Path Fix | 1/1 | Complete   | 2026-03-04 |
+| 38. Attachment Proxy Path Fix | 1/1 | Complete    | 2026-03-04 |
 | 39. Code Quality & CI Hygiene | 0/1 | Pending     | — |
 
 ---
