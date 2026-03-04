@@ -75,4 +75,3 @@ jobs:
 
       - name: Run Lighthouse CI
         run: npx @lhci/cli autorun
-        continue-on-error: true  # Don't block PRs until budgets verified
