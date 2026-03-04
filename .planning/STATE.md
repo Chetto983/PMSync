@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: completed
-stopped_at: Completed 35-02-PLAN.md (Phase 35 complete)
-last_updated: "2026-03-04T09:23:21.643Z"
-last_activity: 2026-03-04 -- Plan 35-02 completed (AI runs query endpoints + permission taxonomy)
+status: in_progress
+stopped_at: Completed 36-01-PLAN.md
+last_updated: "2026-03-04T10:24:55Z"
+last_activity: 2026-03-04 -- Plan 36-01 completed (HMAC blind index infrastructure)
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 14
-  completed_plans: 14
-  percent: 93
+  total_plans: 16
+  completed_plans: 15
+  percent: 94
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 35 - AI Observability & Permissions
+**Current focus:** Phase 36 - Encrypted Search
 
 ## Current Position
 
-Phase: 35 of 37 (AI Observability & Permissions) -- COMPLETE
-Plan: 2 of 2 complete in current phase
-Status: Phase 35 complete (AI observability endpoints + permission taxonomy)
-Last activity: 2026-03-04 -- Plan 35-02 completed (AI runs query endpoints + permission taxonomy)
+Phase: 36 of 37 (Encrypted Search) -- IN PROGRESS
+Plan: 1 of 2 complete in current phase
+Status: Plan 36-01 complete (HMAC blind index infrastructure), 36-02 next
+Last activity: 2026-03-04 -- Plan 36-01 completed (HMAC blind index infrastructure)
 
-Progress: [█████████░] 93%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -52,6 +52,8 @@ Progress: [█████████░] 93%
 | 35 | 2/2 | 17min | 9min |
 | Phase 35 P01 | 12min | 3 tasks | 11 files |
 | Phase 35 P02 | 5min | 2 tasks | 7 files |
+| 36 | 1/2 | 14min | 14min |
+| Phase 36 P01 | 14min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -109,6 +111,11 @@ Recent decisions affecting current work:
 - [35-02]: Thin controller pattern -- PrismaService injected directly for 2 query endpoints (no service layer)
 - [35-02]: Permission enum has 21 entries (4 email + 6 AI + 3 calendar + 4 contacts + 4 admin)
 - [35-02]: IPolicyService is interface-only scaffolding -- no implementation until v4.1 RBAC
+- [36-01]: fromHash uses HMAC-SHA256 with per-tenant HKDF-derived key (info label: mailagent-blind-index-v1)
+- [36-01]: subject stays plaintext in v4.0 -- substring search incompatible with deterministic hashing
+- [36-01]: HashSearchService in common/services (not modules/email) to avoid circular dependency
+- [36-01]: Dual TenantKeyService instantiation intentional -- PrismaService new(), DI injected; both deterministic
+- [36-01]: Prisma migration created manually (baseline shadow DB issue); CONCURRENTLY note for production
 
 ### Pending Todos
 
@@ -117,14 +124,14 @@ None yet.
 ### Blockers/Concerns
 
 - LCP/TTI at 4.1s (deferred since v2.1, target <2.5s/<3.5s) -- Phase 37
-- ENC-03 hash indexes deferred since v3.1 (17+ query sites) -- Phase 36
+- ENC-03 hash indexes: Phase 36-01 infrastructure complete; 36-02 query migration pending
 - 5 forwardRef edges remaining (Email/EmailSync core cluster) -- down from 17+
 - Enterprise readiness score: 58/100 (PRD baseline)
 - Phase 28 gap items CLOSED (Plan 31-01): chat 403 documented, dead polling removed, E2E mobile passing
 
 ## Session Continuity
 
-Last session: 2026-03-04T09:17:07Z
-Stopped at: Completed 35-02-PLAN.md (Phase 35 complete)
-Resume file: .planning/phases/35-ai-observability-permissions/35-02-SUMMARY.md
-Next action: Execute Phase 36 (Encrypted Search) or Phase 37 (Performance) -- both can start independently
+Last session: 2026-03-04T10:24:55Z
+Stopped at: Completed 36-01-PLAN.md
+Resume file: .planning/phases/36-encrypted-search/36-01-SUMMARY.md
+Next action: Execute Phase 36 Plan 02 (query site migration to HashSearchService)

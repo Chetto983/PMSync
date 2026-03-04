@@ -25,7 +25,7 @@ Requirements for enterprise stabilization. Each maps to roadmap phases.
 ### Security
 
 - [x] **SEC-01**: Frontend auth migrated from localStorage JWT to httpOnly secure cookies with dual-mode transition period
-- [ ] **SEC-02**: HMAC-SHA256 blind indexes on `from` field for exact-match sender lookup, with backfill job and dual-path search
+- [x] **SEC-02**: HMAC-SHA256 blind indexes on `from` field for exact-match sender lookup, with backfill job and dual-path search
 - [x] **SEC-03**: All encryption paths standardized to AES-GCM, legacy AES-CBC usage audited and migrated
 
 ### AI Observability
@@ -94,7 +94,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | API-04 | Phase 33 | Complete |
 | API-05 | Phase 33 | Complete |
 | SEC-01 | Phase 34 | Complete |
-| SEC-02 | Phase 36 | Pending |
+| SEC-02 | Phase 36 | Complete |
 | SEC-03 | Phase 34 | Complete |
 | AIOBS-01 | Phase 35 | Complete (35-01) |
 | AIOBS-02 | Phase 35 | Complete (35-01) |
