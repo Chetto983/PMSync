@@ -9,10 +9,12 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
+import { AiRunLedgerService } from './ai-run-ledger.service';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -66,6 +68,7 @@ export class DraftGenerationService {
     private readonly mistralProvider: MistralProviderService,
     private readonly prisma: PrismaService,
     @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
+    @Optional() private readonly ledgerService?: AiRunLedgerService,
   ) {}
 
   /**
@@ -131,12 +134,14 @@ export class DraftGenerationService {
     }, null, 0);
 
     // 4. Generate with graceful fallback
-    return this.generateWithFallback(replyContext);
+    return this.generateWithFallback(replyContext, tenantId);
   }
 
   private async generateWithFallback(
     replyContext: string,
+    tenantId = 'system',
   ): Promise<{ data: DraftGenerationOutput; error?: string }> {
+    const startTime = Date.now();
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(),
@@ -145,11 +150,34 @@ export class DraftGenerationService {
         prompt: replyContext,
       });
 
+      this.ledgerService?.recordRun({
+        tenantId,
+        userId: 'system',
+        runType: 'draft-generation',
+        model: 'mistral-small-latest',
+        promptTokens: result.usage?.inputTokens ?? 0,
+        completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0,
+        latencyMs: Date.now() - startTime,
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
       await this.trackUsage();
       return { data: result.output };
     } catch (firstError) {
       if (NoObjectGeneratedError.isInstance(firstError)) {
+        this.ledgerService?.recordRun({
+          tenantId,
+          userId: 'system',
+          runType: 'draft-generation',
+          model: 'mistral-small-latest',
+          promptTokens: 0, completionTokens: 0, totalTokens: 0,
+          latencyMs: Date.now() - startTime,
+          status: AiRunStatus.FAILED,
+          errorMessage: 'Schema validation failed',
+        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
         this.logger.warn(`Draft generation schema validation failed, retrying`);
+        const retryStart = Date.now();
         try {
           const retryResult = await generateText({
             model: this.mistralProvider.getChatModel(),
@@ -158,6 +186,17 @@ export class DraftGenerationService {
             prompt: replyContext,
           });
 
+          this.ledgerService?.recordRun({
+            tenantId,
+            userId: 'system',
+            runType: 'draft-generation',
+            model: 'mistral-small-latest',
+            promptTokens: retryResult.usage?.inputTokens ?? 0,
+            completionTokens: retryResult.usage?.outputTokens ?? 0,
+            totalTokens: retryResult.usage?.totalTokens ?? 0,
+            latencyMs: Date.now() - retryStart,
+          }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
           await this.trackUsage();
           return { data: retryResult.output };
         } catch (retryError) {
@@ -165,6 +204,18 @@ export class DraftGenerationService {
           return { data: SAFE_FALLBACK, error: 'Schema validation failed after retry' };
         }
       }
+
+      this.ledgerService?.recordRun({
+        tenantId,
+        userId: 'system',
+        runType: 'draft-generation',
+        model: 'mistral-small-latest',
+        promptTokens: 0, completionTokens: 0, totalTokens: 0,
+        latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED,
+        errorMessage: firstError instanceof Error ? firstError.message : String(firstError),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
       this.logger.error(`Draft generation failed: ${firstError}`);
       return { data: SAFE_FALLBACK, error: 'Draft generation failed' };
     }

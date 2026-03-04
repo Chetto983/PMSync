@@ -9,10 +9,12 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
+import { AiRunLedgerService } from './ai-run-ledger.service';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -116,6 +118,7 @@ export class BriefingService {
     private readonly mistralProvider: MistralProviderService,
     private readonly prisma: PrismaService,
     @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
+    @Optional() private readonly ledgerService?: AiRunLedgerService,
   ) {}
 
   /**
@@ -212,12 +215,14 @@ export class BriefingService {
     }, null, 0);
 
     // 3. Generate briefing with graceful fallback
-    return this.generateWithFallback(dataContext);
+    return this.generateWithFallback(dataContext, tenantId);
   }
 
   private async generateWithFallback(
     dataContext: string,
+    tenantId = 'system',
   ): Promise<{ data: BriefingOutput; error?: string }> {
+    const startTime = Date.now();
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(),
@@ -226,11 +231,38 @@ export class BriefingService {
         prompt: dataContext,
       });
 
+      // Phase 35: fire-and-forget ledger write
+      this.ledgerService?.recordRun({
+        tenantId,
+        userId: 'system',
+        runType: 'briefing',
+        model: 'mistral-small-latest',
+        promptTokens: result.usage?.inputTokens ?? 0,
+        completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0,
+        latencyMs: Date.now() - startTime,
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
       await this.trackUsage();
       return { data: result.output };
     } catch (firstError) {
       if (NoObjectGeneratedError.isInstance(firstError)) {
+        // Log first attempt failure to ledger
+        this.ledgerService?.recordRun({
+          tenantId,
+          userId: 'system',
+          runType: 'briefing',
+          model: 'mistral-small-latest',
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs: Date.now() - startTime,
+          status: AiRunStatus.FAILED,
+          errorMessage: 'Schema validation failed',
+        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
         this.logger.warn(`Briefing schema validation failed, retrying with tighter prompt`);
+        const retryStart = Date.now();
         try {
           const retryResult = await generateText({
             model: this.mistralProvider.getChatModel(),
@@ -239,6 +271,18 @@ export class BriefingService {
             prompt: dataContext,
           });
 
+          // Retry success ledger
+          this.ledgerService?.recordRun({
+            tenantId,
+            userId: 'system',
+            runType: 'briefing',
+            model: 'mistral-small-latest',
+            promptTokens: retryResult.usage?.inputTokens ?? 0,
+            completionTokens: retryResult.usage?.outputTokens ?? 0,
+            totalTokens: retryResult.usage?.totalTokens ?? 0,
+            latencyMs: Date.now() - retryStart,
+          }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
           await this.trackUsage();
           return { data: retryResult.output };
         } catch (retryError) {
@@ -246,6 +290,21 @@ export class BriefingService {
           return { data: SAFE_FALLBACK, error: 'Schema validation failed after retry' };
         }
       }
+
+      // Non-schema failure ledger
+      this.ledgerService?.recordRun({
+        tenantId,
+        userId: 'system',
+        runType: 'briefing',
+        model: 'mistral-small-latest',
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED,
+        errorMessage: firstError instanceof Error ? firstError.message : String(firstError),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
       this.logger.error(`Briefing generation failed: ${firstError}`);
       return { data: SAFE_FALLBACK, error: 'Briefing generation failed' };
     }

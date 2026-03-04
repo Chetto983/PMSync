@@ -33,6 +33,7 @@ import { HitlService } from '../services/hitl.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { IntentRouterService } from '../tools/intent-router.service';
 import { IntentClassifierService } from '../../ai/nlp/intent-classifier.service';
 import { MemoryService } from '../services/memory.service';
@@ -110,6 +111,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
   let auditService: AuditService;
   let piiDetectionService: PiiDetectionService;
   let mistralProvider: MistralProviderService;
+  let mistralEmbeddingService: MistralEmbeddingService;
   let intentRouterService: IntentRouterService;
   let memoryService: MemoryService;
   let hybridSearchService: HybridSearchService;
@@ -154,6 +156,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
     } as unknown as ConfigService;
 
     mistralProvider = new MistralProviderService(configService);
+    mistralEmbeddingService = new MistralEmbeddingService(mistralProvider);
 
     // 4. Create real service instances
     conversationService = new ConversationService(prisma as any);
@@ -168,10 +171,10 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       intentClassifier,
       mistralProvider,
     );
-    memoryService = new MemoryService(prisma as any, mistralProvider);
+    memoryService = new MemoryService(prisma as any, mistralEmbeddingService);
     hybridSearchService = new HybridSearchService(
       prisma as any,
-      mistralProvider,
+      mistralEmbeddingService,
     );
 
     // 6. Compose AiChatService with real Phase 25 services
