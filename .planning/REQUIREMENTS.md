@@ -32,8 +32,8 @@ Requirements for enterprise stabilization. Each maps to roadmap phases.
 
 - [x] **AIOBS-01**: AiRunLedger Prisma model captures runType, model, token counts, estimatedCostUsd, latencyMs, toolCallCount, hitlRequired, requestId
 - [x] **AIOBS-02**: Fire-and-forget telemetry wiring across AiChatService, BriefingService, FollowUpDetectionService, DraftGenerationService
-- [ ] **AIOBS-03**: GET /api/v1/ai/runs and /cost-summary endpoints with tenant and date filters
-- [ ] **AIOBS-04**: Permission taxonomy documented (resource:action pairs) with PolicyService interface defined
+- [x] **AIOBS-03**: GET /api/v1/ai/runs and /cost-summary endpoints with tenant and date filters
+- [x] **AIOBS-04**: Permission taxonomy documented (resource:action pairs) with PolicyService interface defined
 
 ### Performance & Debt
 
@@ -98,8 +98,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | SEC-03 | Phase 34 | Complete |
 | AIOBS-01 | Phase 35 | Complete (35-01) |
 | AIOBS-02 | Phase 35 | Complete (35-01) |
-| AIOBS-03 | Phase 35 | Pending |
-| AIOBS-04 | Phase 35 | Pending |
+| AIOBS-03 | Phase 35 | Complete |
+| AIOBS-04 | Phase 35 | Complete |
 | PERF-01 | Phase 37 | Pending |
 | PERF-02 | Phase 37 | Pending |
 | PERF-03 | Phase 31 | Complete |

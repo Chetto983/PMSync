@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
 status: in_progress
-stopped_at: Completed 35-01-PLAN.md
-last_updated: "2026-03-04T09:07:17Z"
-last_activity: 2026-03-04 -- Plan 35-01 completed (AI Run Ledger telemetry)
+stopped_at: Completed 35-02-PLAN.md
+last_updated: "2026-03-04T09:17:07Z"
+last_activity: 2026-03-04 -- Plan 35-02 completed (AI runs query endpoints + permission taxonomy)
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 15
-  completed_plans: 13
-  percent: 87
+  completed_plans: 14
+  percent: 93
 ---
 
 # Project State
@@ -25,17 +25,17 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 ## Current Position
 
-Phase: 35 of 37 (AI Observability & Permissions)
-Plan: 1 of 3 complete in current phase
-Status: Plan 35-01 complete (AI Run Ledger telemetry wired into all 6 AI call paths)
-Last activity: 2026-03-04 -- Plan 35-01 completed (AI Run Ledger telemetry)
+Phase: 35 of 37 (AI Observability & Permissions) -- COMPLETE
+Plan: 2 of 2 complete in current phase
+Status: Phase 35 complete (AI observability endpoints + permission taxonomy)
+Last activity: 2026-03-04 -- Plan 35-02 completed (AI runs query endpoints + permission taxonomy)
 
-Progress: [████████░░] 87%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12 (v4.0)
+- Total plans completed: 14 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -49,8 +49,9 @@ Progress: [████████░░] 87%
 | Phase 34 P01 | 8min | 2 tasks | 6 files |
 | Phase 34 P03 | 5min | 1 tasks | 2 files |
 | Phase 34 P02 | 5min | 2 tasks | 14 files |
-| 35 | 1/3 | 12min | 12min |
+| 35 | 2/2 | 17min | 9min |
 | Phase 35 P01 | 12min | 3 tasks | 11 files |
+| Phase 35 P02 | 5min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,9 @@ Recent decisions affecting current work:
 - [35-01]: COST_MAP with 4 Mistral models, unknown models fall back to mistral-small-latest pricing
 - [35-01]: All ledger writes fire-and-forget with .catch() -- never affect user response
 - [35-01]: Each retry attempt creates separate ledger entry for accurate per-call cost tracking
+- [35-02]: Thin controller pattern -- PrismaService injected directly for 2 query endpoints (no service layer)
+- [35-02]: Permission enum has 21 entries (4 email + 6 AI + 3 calendar + 4 contacts + 4 admin)
+- [35-02]: IPolicyService is interface-only scaffolding -- no implementation until v4.1 RBAC
 
 ### Pending Todos
 
@@ -120,7 +124,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T09:07:17Z
-Stopped at: Completed 35-01-PLAN.md
-Resume file: .planning/phases/35-ai-observability-permissions/35-01-SUMMARY.md
-Next action: Execute 35-02-PLAN.md (next plan in Phase 35)
+Last session: 2026-03-04T09:17:07Z
+Stopped at: Completed 35-02-PLAN.md (Phase 35 complete)
+Resume file: .planning/phases/35-ai-observability-permissions/35-02-SUMMARY.md
+Next action: Execute Phase 36 (Encrypted Search) or Phase 37 (Performance) -- both can start independently
