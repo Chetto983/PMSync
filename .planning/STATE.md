@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: completed
-stopped_at: Completed 34-03-PLAN.md
-last_updated: "2026-03-04T07:39:52.954Z"
-last_activity: 2026-03-04 -- Plan 34-03 completed (CryptoService AES-GCM upgrade with CBC fallback)
+status: in-progress
+stopped_at: Completed 34-01-PLAN.md
+last_updated: "2026-03-04T07:40:59Z"
+last_activity: 2026-03-04 -- Plan 34-01 completed (backend dual-mode cookie auth)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 12
-  completed_plans: 10
-  percent: 96
+  completed_plans: 11
+  percent: 97
 ---
 
 # Project State
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 34 of 37 (Auth Security Hardening)
-Plan: 1 of 3 complete in current phase
-Status: Plan 34-03 complete (AES-GCM standardization)
-Last activity: 2026-03-04 -- Plan 34-03 completed (CryptoService AES-GCM upgrade with CBC fallback)
+Plan: 2 of 3 complete in current phase
+Status: Plan 34-01 complete (backend dual-mode cookie auth); Plan 34-03 also complete
+Last activity: 2026-03-04 -- Plan 34-01 completed (backend dual-mode cookie auth)
 
-Progress: [██████████] 96%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (v4.0)
+- Total plans completed: 11 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -45,7 +45,8 @@ Progress: [██████████] 96%
 | 31 | 2/2 | 20min | 10min |
 | 32 | 4/4 | 44min | 11min |
 | 33 | 3/3 | 50min | 17min |
-| 34 | 1/3 | 5min | 5min |
+| 34 | 2/3 | 13min | 7min |
+| Phase 34 P01 | 8min | 2 tasks | 6 files |
 | Phase 34 P03 | 5min | 1 tasks | 2 files |
 
 ## Accumulated Context
@@ -86,6 +87,10 @@ Recent decisions affecting current work:
 - [33-03]: Added requestId?: string to all BullMQ job data interfaces for type safety
 - [33-03]: OpenAPI generation step is continue-on-error in CI (requires database); lint blocks when spec exists
 - [33-03]: frontend/types/api.generated.ts committed as placeholder; CI overwrites with real types
+- [34-01]: sameSite=lax (not strict) on auth cookie to avoid breaking OAuth callback flows
+- [34-01]: JWT default expiry changed from 15m to 7d to align with session TTL; session validation handles revocation
+- [34-01]: mfa.controller.ts unchanged -- passkey login is in auth.controller (webauthn/login/verify), not mfa.controller
+- [34-01]: Simple split-based cookie parser in WS handshake -- no library needed for JWT values
 - [34-03]: GCM ciphertext format: gcm:<ciphertextHex>:<authTagHex> -- colon-delimited prefix as version discriminator
 - [34-03]: No data migration: existing CBC data transparently decrypted via fallback on access
 - [34-03]: IV length change (16->12 bytes) implicit -- stored hex strings, decrypt handles any length
@@ -104,7 +109,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T07:39:52.949Z
-Stopped at: Completed 34-03-PLAN.md
-Resume file: None
-Next action: Execute remaining Phase 34 plans (34-01, 34-02)
+Last session: 2026-03-04T07:40:59Z
+Stopped at: Completed 34-01-PLAN.md
+Resume file: .planning/phases/34-auth-security-hardening/34-01-SUMMARY.md
+Next action: Execute 34-02-PLAN.md (frontend cookie migration)
