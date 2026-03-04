@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: completed
-stopped_at: Completed 36-02-PLAN.md
-last_updated: "2026-03-04T10:49:42.360Z"
-last_activity: 2026-03-04 -- Plan 36-02 completed (query site migration to HashSearchService)
+status: in-progress
+stopped_at: Completed 37-01-PLAN.md
+last_updated: "2026-03-04T11:28:01.749Z"
+last_activity: 2026-03-04 -- Plan 37-01 completed (email page bundle optimization with dynamic imports)
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 18
+  completed_plans: 17
   percent: 99
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 36 - Encrypted Search
+**Current focus:** Phase 37 - Performance & Debt Closure
 
 ## Current Position
 
-Phase: 36 of 37 (Encrypted Search) -- COMPLETE
-Plan: 2 of 2 complete in current phase
-Status: Phase 36 complete (HMAC blind index infrastructure + query migration)
-Last activity: 2026-03-04 -- Plan 36-02 completed (query site migration to HashSearchService)
+Phase: 37 of 37 (Performance & Debt Closure)
+Plan: 1 of 2 complete in current phase
+Status: Plan 37-01 complete (email page bundle optimization)
+Last activity: 2026-03-04 -- Plan 37-01 completed (email page bundle optimization with dynamic imports)
 
-Progress: [██████████] 99%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 99%
 | 36 | 2/2 | 19min | 10min |
 | Phase 36 P01 | 14min | 3 tasks | 13 files |
 | Phase 36 P02 | 5min | 2 tasks | 2 files |
+| Phase 37 P01 | 4min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,8 @@ Recent decisions affecting current work:
 - [36-01]: Dual TenantKeyService instantiation intentional -- PrismaService new(), DI injected; both deterministic
 - [36-01]: Prisma migration created manually (baseline shadow DB issue); CONCURRENTLY note for production
 - [Phase 36]: hashForSearch kept deprecated, not deleted -- JSDoc directs to hmacForBlindIndex
+- [37-01]: 4 dialog components converted to next/dynamic (ExpandedMessage, LabelPicker, FolderPicker, KeyboardShortcuts)
+- [37-01]: lucide-react added to optimizePackageImports; @radix-ui/@tiptap excluded (glob/barrel unsupported)
 
 ### Pending Todos
 
@@ -133,7 +136,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T10:45:27.084Z
-Stopped at: Completed 36-02-PLAN.md
-Resume file: .planning/phases/36-encrypted-search/36-02-SUMMARY.md
-Next action: Execute Phase 37 (Performance Optimization)
+Last session: 2026-03-04T11:27:18Z
+Stopped at: Completed 37-01-PLAN.md
+Resume file: .planning/phases/37-performance-debt-closure/37-01-SUMMARY.md
+Next action: Execute Plan 37-02
