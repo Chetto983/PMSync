@@ -58,6 +58,3 @@ export function buildSystemPrompt(timezone?: string): string {
 
   return `${BASE_PROMPT}\n\n## Current Context\n- Current date and time: ${formatted}\n- Timezone: ${tz}`;
 }
-
-/** @deprecated Use buildSystemPrompt() instead */
-export const SYSTEM_PROMPT = BASE_PROMPT;

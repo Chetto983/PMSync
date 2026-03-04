@@ -27,13 +27,12 @@ import { SignaturesController } from './controllers/signatures.controller';
 import { TemplatesController } from './controllers/templates.controller';
 import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
-import { StorageService } from './services/storage.service';
 import { CalendarModule } from '../calendar/calendar.module';
+import { StorageModule } from './storage.module';
 import {
   TOOL_REGISTRY_SERVICE,
   IToolRegistryService,
 } from '../../common/interfaces/tool-registry.interface';
-import { STORAGE_SERVICE } from '../../common/interfaces/storage.interface';
 import { EmailSearchTool } from './tools/email-search.tool';
 import { EmailProviderEventHandlerService } from './services/provider-event-handler.service';
 
@@ -54,8 +53,9 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
 @Module({
   imports: [
     PrismaModule,
+    StorageModule, // Shared STORAGE_SERVICE/StorageService providers
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailModule)
-    forwardRef(() => AiModule),
+    AiModule, // Direct import: AiModule no longer imports EmailModule
     forwardRef(() => EmailSyncModule),
     forwardRef(() => CalendarModule),
     RealtimeModule,
@@ -81,7 +81,6 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     AttachmentStorageService,
     AttachmentOnDemandService,
     AttachmentMetricsService, // Centralized metrics for attachments
-    StorageService,
     // ProviderTokenService removed — provided and exported by EmailSyncModule (forwardRef import)
     // Shared utility services (Phase 3 consolidation)
     ProviderValidationService,
@@ -95,9 +94,6 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     EmailSearchTool,
     // Phase 32: Event handler for ProviderDisconnected (S3 attachment cleanup)
     EmailProviderEventHandlerService,
-    // Phase 32: STORAGE_SERVICE alias for cross-module access (Plan 03 AiModule decoupling)
-    // Uses StorageService (S3 wrapper) -- Plan 03 will adapt as needed
-    { provide: STORAGE_SERVICE, useExisting: StorageService },
   ],
   // CRITICAL: SignaturesController and TemplatesController MUST be before EmailsController
   // because EmailsController has @Get(':id') which would catch /emails/signatures as /emails/:id
@@ -117,7 +113,7 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     AttachmentStorageService,
     AttachmentOnDemandService,
     AttachmentMetricsService, // Export for cross-module access
-    StorageService,
+    StorageModule, // Re-export StorageService + STORAGE_SERVICE
     ScheduledEmailService,
     // Shared utility services (Phase 3 consolidation)
     ProviderValidationService,
@@ -127,8 +123,6 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     EmailSignatureService,
     // Template service
     EmailTemplateService,
-    // Phase 32: STORAGE_SERVICE for cross-module attachment access
-    STORAGE_SERVICE,
   ],
 })
 export class EmailModule implements OnModuleInit {

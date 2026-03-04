@@ -445,38 +445,75 @@ export class EmailFolderService {
         if (folderRecord.specialUse) folderMap.set(folderRecord.specialUse.toUpperCase(), folderRecord);
       }
 
-      // OPTIMIZATION: Run all folder count queries in parallel
-      const countPromises = uniqueFolders.map(async (folder) => {
+      // OPTIMIZATION: 2 groupBy queries instead of 2N individual COUNT queries
+      // Resolve which folder values to query and build lookup structures
+      const queryFolders = new Set<string>();
+      const folderMeta = new Map<string, { folderRecord: (typeof folderRecords)[number] | undefined; queryFolder: string; isTrash: boolean }>();
+
+      for (const folder of uniqueFolders) {
         const folderKey = folder.toUpperCase();
         const folderRecord = folderMap.get(folderKey);
         const queryFolder = folderRecord?.path || folderRecord?.name || folder;
-        const useExactFolder = !!(folderRecord?.path || folderRecord?.name);
-        const isTrashFolder = folderRecord?.specialUse?.toUpperCase() === 'TRASH' || folderKey === 'TRASH';
+        const isTrash = folderRecord?.specialUse?.toUpperCase() === 'TRASH' || folderKey === 'TRASH';
+        queryFolders.add(queryFolder);
+        folderMeta.set(folder, { folderRecord, queryFolder, isTrash });
+      }
 
-        const [totalCount, unreadCount] = await Promise.all([
-          this.prisma.email.count({
-            where: {
-              tenantId,
-              providerId,
-              folder: useExactFolder ? { equals: queryFolder } : { equals: queryFolder, mode: 'insensitive' },
-              isDeleted: isTrashFolder ? undefined : false,
-            },
-          }),
-          this.prisma.email.count({
-            where: {
-              tenantId,
-              providerId,
-              folder: useExactFolder ? { equals: queryFolder } : { equals: queryFolder, mode: 'insensitive' },
-              isDeleted: isTrashFolder ? undefined : false,
-              isRead: false,
-            },
-          }),
-        ]);
+      // 2 groupBy queries total (down from 2*N individual counts)
+      const queryFolderArray = Array.from(queryFolders);
+      const [totalGroups, unreadGroups] = await Promise.all([
+        this.prisma.email.groupBy({
+          by: ['folder'],
+          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' } },
+          _count: { id: true },
+        }),
+        this.prisma.email.groupBy({
+          by: ['folder'],
+          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isRead: false },
+          _count: { id: true },
+        }),
+      ]);
 
-        return { folder, folderRecord, totalCount, unreadCount };
+      // Also get counts excluding deleted emails (for non-Trash folders)
+      const [totalNonDeleted, unreadNonDeleted] = await Promise.all([
+        this.prisma.email.groupBy({
+          by: ['folder'],
+          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isDeleted: false },
+          _count: { id: true },
+        }),
+        this.prisma.email.groupBy({
+          by: ['folder'],
+          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isDeleted: false, isRead: false },
+          _count: { id: true },
+        }),
+      ]);
+
+      // Build case-insensitive lookup maps, summing across case variants
+      const accumulate = (groups: { folder: string; _count: { id: number } }[]) => {
+        const map = new Map<string, number>();
+        for (const g of groups) {
+          const key = g.folder.toUpperCase();
+          map.set(key, (map.get(key) ?? 0) + g._count.id);
+        }
+        return map;
+      };
+      const allTotalMap = accumulate(totalGroups);
+      const allUnreadMap = accumulate(unreadGroups);
+      const nonDelTotalMap = accumulate(totalNonDeleted);
+      const nonDelUnreadMap = accumulate(unreadNonDeleted);
+
+      // Resolve counts per folder, using Trash-aware logic
+      const results = uniqueFolders.map((folder) => {
+        const meta = folderMeta.get(folder)!;
+        const key = meta.queryFolder.toUpperCase();
+        const totalCount = meta.isTrash
+          ? (allTotalMap.get(key) ?? 0)
+          : (nonDelTotalMap.get(key) ?? 0);
+        const unreadCount = meta.isTrash
+          ? (allUnreadMap.get(key) ?? 0)
+          : (nonDelUnreadMap.get(key) ?? 0);
+        return { folder, folderRecord: meta.folderRecord, totalCount, unreadCount };
       });
-
-      const results = await Promise.all(countPromises);
 
       const timestamp = new Date().toISOString();
       for (const { folder, folderRecord, totalCount, unreadCount } of results) {

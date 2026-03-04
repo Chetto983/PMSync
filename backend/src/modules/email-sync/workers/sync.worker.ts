@@ -386,31 +386,46 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
         },
       });
 
-      // 3. Update folder counts atomically using raw SQL for efficiency
+      // 3. Update folder counts atomically using GROUP BY join (2 queries instead of 2N correlated subqueries)
       // CITUS: tenantId in WHERE clause for shard routing
+
+      // 3a. Update folders that have matching emails (GROUP BY produces counts)
       await tx.$executeRaw`
-        UPDATE "folders"
+        UPDATE "folders" f
         SET
-          "totalCount" = (
-            SELECT COUNT(*)
-            FROM "emails"
-            WHERE "emails"."providerId" = "folders"."providerId"
-              AND "emails"."tenantId" = "folders"."tenantId"
-              AND "emails"."folder" = "folders"."name"
-              AND "emails"."isDeleted" = false
-          ),
-          "unreadCount" = (
-            SELECT COUNT(*)
-            FROM "emails"
-            WHERE "emails"."providerId" = "folders"."providerId"
-              AND "emails"."tenantId" = "folders"."tenantId"
-              AND "emails"."folder" = "folders"."name"
-              AND "emails"."isDeleted" = false
-              AND "emails"."isRead" = false
-          ),
+          "totalCount" = COALESCE(c.total, 0),
+          "unreadCount" = COALESCE(c.unread, 0),
           "updatedAt" = NOW()
-        WHERE "folders"."tenantId" = ${tenantId}
-          AND "folders"."providerId" = ${providerId}
+        FROM (
+          SELECT "folder",
+            COUNT(*) FILTER (WHERE "isDeleted" = false) AS total,
+            COUNT(*) FILTER (WHERE "isDeleted" = false AND "isRead" = false) AS unread
+          FROM "emails"
+          WHERE "providerId" = ${providerId}
+            AND "tenantId" = ${tenantId}
+          GROUP BY "folder"
+        ) c
+        WHERE f."tenantId" = ${tenantId}
+          AND f."providerId" = ${providerId}
+          AND f."name" = c."folder"
+      `;
+
+      // 3b. Zero out counts for folders with no emails (not matched by the join above)
+      await tx.$executeRaw`
+        UPDATE "folders" f
+        SET
+          "totalCount" = 0,
+          "unreadCount" = 0,
+          "updatedAt" = NOW()
+        WHERE f."tenantId" = ${tenantId}
+          AND f."providerId" = ${providerId}
+          AND NOT EXISTS (
+            SELECT 1 FROM "emails" e
+            WHERE e."providerId" = f."providerId"
+              AND e."tenantId" = f."tenantId"
+              AND e."folder" = f."name"
+              AND e."isDeleted" = false
+          )
       `;
     });
 

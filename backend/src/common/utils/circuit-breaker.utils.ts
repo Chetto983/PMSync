@@ -134,6 +134,14 @@ export class CircuitBreaker {
   }
 
   /**
+   * Manually record a failure (e.g. from a stream error callback that runs
+   * outside the execute() wrapper).
+   */
+  recordFailure(error?: unknown): void {
+    this.onFailure(error ?? new Error('Manual failure recorded'));
+  }
+
+  /**
    * Force reset the circuit breaker
    */
   reset(): void {

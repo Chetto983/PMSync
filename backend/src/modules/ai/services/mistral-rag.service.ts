@@ -131,12 +131,6 @@ export class MistralRagService {
             // Generate embedding for user prompt
             const userEmbedding = await this.generateEmbeddingFn(userPrompt, { tenantId, userId });
 
-            // GDPR-compliant: ephemeral embedding for RAG retrieval
-            await this.embeddingsService.saveEmbedding({
-              tenantId, embedding: userEmbedding, model: this.getEmbeddingModelFn(),
-              documentName: 'user_prompt', metadata: { source: 'user_prompt', createdBy: userId },
-            });
-
             // Search for similar content in knowledge base
             const similarContent = await this.searchSimilarContent(tenantId, userEmbedding);
 

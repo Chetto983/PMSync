@@ -3,7 +3,6 @@ import {
   UnauthorizedException,
   BadRequestException,
   Logger,
-  GoneException,
   ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -1210,29 +1209,4 @@ export class AuthService {
     };
   }
 
-  /**
-   * Handle Google OAuth
-   *
-   * @deprecated Use /providers/google/auth-url and /providers/google/connect instead
-   */
-  async handleGoogleOAuth(_code: string, _tenantSlug?: string) {
-    throw new GoneException({
-      message:
-        'This method has been deprecated. Request the OAuth URL via /providers/google/auth-url and complete the flow with /providers/google/connect.',
-      documentation: 'docs/implementation/PROVIDER_INTEGRATION_GUIDE.md',
-    });
-  }
-
-  /**
-   * Handle Microsoft OAuth
-   *
-   * @deprecated Use /providers/microsoft/auth-url and /providers/microsoft/connect instead
-   */
-  async handleMicrosoftOAuth(_code: string, _tenantSlug?: string) {
-    throw new GoneException({
-      message:
-        'This method has been deprecated. Use /providers/microsoft/auth-url and /providers/microsoft/connect to complete the OAuth flow.',
-      documentation: 'docs/implementation/PROVIDER_INTEGRATION_GUIDE.md',
-    });
-  }
 }

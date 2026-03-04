@@ -4,7 +4,7 @@
  * Re-exports resilience utilities for shared use.
  */
 
-// Re-export core utilities from calendar module (shared location)
+// Re-export core utilities from common/utils (consolidated location)
 export {
     CircuitBreaker,
     CircuitBreakerOpenError,
@@ -12,7 +12,7 @@ export {
     circuitBreakerRegistry,
     type CircuitBreakerConfig,
     type CircuitBreakerStats,
-} from '../../calendar/utils/circuit-breaker';
+} from '../../../common/utils/circuit-breaker.utils';
 
 export {
     withRetry,
@@ -20,10 +20,10 @@ export {
     Retryable,
     RateLimiter,
     type RetryOptions,
-} from '../../calendar/utils/retry';
+} from '../../../common/utils/retry.utils';
 
-import { circuitBreakerRegistry, type CircuitBreakerConfig } from '../../calendar/utils/circuit-breaker';
-import { RateLimiter } from '../../calendar/utils/retry';
+import { circuitBreakerRegistry, type CircuitBreakerConfig } from '../../../common/utils/circuit-breaker.utils';
+import { RateLimiter } from '../../../common/utils/retry.utils';
 
 /**
  * Default circuit breaker config for AI operations

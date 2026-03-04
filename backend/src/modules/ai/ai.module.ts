@@ -19,7 +19,7 @@ import { QueryEmbeddingCacheService } from './services/query-embedding-cache.ser
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
 import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill-scheduler.service';
 import { TriageBackfillSchedulerService } from './services/triage-backfill-scheduler.service';
-import { EmailModule } from '../email/email.module';
+import { StorageModule } from '../email/storage.module';
 import { AlertingService } from '../../common/services/alerting.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
@@ -57,7 +57,7 @@ import { AiObservabilityController } from './controllers/ai-observability.contro
 @Module({
   imports: [
     PrismaModule,
-    EmailModule, // Phase 32: Direct import for STORAGE_SERVICE (forwardRef removed -- EmailModule uses forwardRef to AiModule)
+    StorageModule, // Provides STORAGE_SERVICE without pulling EmailModule into AI graph
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
     ComplianceModule, // Phase 28: ConsentGuard + ConsentEnforcementService for @RequiresConsent
     // ToolRegistryModule is @Global() -- no import needed
@@ -103,6 +103,7 @@ import { AiObservabilityController } from './controllers/ai-observability.contro
   exports: [
     // Core AI services
     MistralService,
+    MistralEmbeddingService, // Used by AiChatModule (RagToolsService, HybridSearchService, MemoryService)
     EmbeddingsService,
     KnowledgeBaseService,
     EmailEmbeddingQueueService,
