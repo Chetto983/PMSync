@@ -7,7 +7,7 @@
  * Flow:
  * 1. img src="/api/email/attachments/{id}/download" (frontend route)
  * 2. This route reads auth token from cookie/localStorage
- * 3. Forwards request to backend: http://localhost:3000/email/attachments/{id}/download
+ * 3. Forwards request to backend: http://localhost:3000/api/v1/email/attachments/{id}/download
  * 4. Streams response back to client with proper headers
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -54,8 +54,8 @@ export default async function handler(
 
   try {
     // Forward request to backend with auth
-    // Backend route: /email/attachments/:id/download (no api/v1 prefix)
-    const backendUrl = `${API_BASE_URL}/email/attachments/${id}/download`;
+    // Backend route: /api/v1/email/attachments/:id/download
+    const backendUrl = `${API_BASE_URL}/api/v1/email/attachments/${id}/download`;
 
     const response = await fetch(backendUrl, {
       method: 'GET',
