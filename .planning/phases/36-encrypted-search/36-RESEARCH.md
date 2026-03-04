@@ -60,8 +60,7 @@ backend/
 │   │   ├── field-encryption.utils.ts          # Upgrade hashForSearch -> hmacForBlindIndex
 │   │   └── encryption.config.ts              # Add fromHash to Email config
 │   ├── common/services/
-│   │   └── tenant-key.service.ts             # Add getHmacKey() with different HKDF info label
-│   ├── modules/email/services/
+│   │   ├── tenant-key.service.ts             # Add getHmacKey() with different HKDF info label
 │   │   └── hash-search.service.ts            # NEW: HashSearchService (compute hash, dual-path query)
 │   ├── scripts/
 │   │   └── backfill-from-hash.ts             # NEW: Backfill job (modeled on backfill-encryption.ts)
@@ -434,7 +433,7 @@ still needed for `contains` queries.
 - [ ] `backend/src/prisma/encryption/__tests__/field-encryption.utils.spec.ts` -- add hmacForBlindIndex tests (SEC-02a, SEC-02b, SEC-02c)
 - [ ] `backend/src/common/services/__tests__/tenant-key.service.spec.ts` -- add getHmacKey test (SEC-02d)
 - [ ] `backend/src/scripts/__tests__/backfill-from-hash.spec.ts` -- covers SEC-02e
-- [ ] `backend/src/modules/email/services/__tests__/hash-search.service.spec.ts` -- covers SEC-02f, SEC-02g
+- [ ] `backend/src/common/services/__tests__/hash-search.service.spec.ts` -- covers SEC-02f, SEC-02g
 
 ## Sources
 
