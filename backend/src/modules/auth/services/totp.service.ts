@@ -1,8 +1,8 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
 import * as QRCode from 'qrcode';
 import * as crypto from 'crypto';
@@ -49,7 +49,7 @@ export interface TotpVerifyResult {
  * @see MFA_ENHANCEMENT_ROADMAP.md Phase 1
  */
 @Injectable()
-export class TotpService implements OnModuleInit, OnModuleDestroy {
+export class TotpService implements OnModuleInit {
   private readonly logger = new Logger(TotpService.name);
   private redis!: Redis;
 
@@ -70,6 +70,7 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly redisConnection: RedisConnectionService,
   ) {
     // Configure otplib
     this.issuer = this.config.get<string>('TOTP_ISSUER') || 'PMSync';
@@ -86,29 +87,8 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
     // Note: otplib v13 uses functional API - no instance needed
   }
 
-  async onModuleInit() {
-    const options = getRedisConnectionOptions();
-    this.redis = new Redis({
-      ...options,
-      connectionName: 'totp',
-      lazyConnect: false,
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis TOTP service error: ${err.message}`);
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.log('Redis TOTP service connected');
-    });
-  }
-
-  async onModuleDestroy() {
-    if (this.redis) {
-      await this.redis.quit().catch(() => {
-        // Ignore quit errors during shutdown
-      });
-    }
+  onModuleInit() {
+    this.redis = this.redisConnection.client;
   }
 
   /**

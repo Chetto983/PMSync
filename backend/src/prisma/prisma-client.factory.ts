@@ -12,10 +12,19 @@ import { PrismaPg } from '@prisma/adapter-pg';
  * Use this for scripts and standalone utilities
  */
 export function createPrismaAdapter() {
-  const connectionString = process.env.DATABASE_URL;
+  let connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error('DATABASE_URL is not set for Prisma client');
   }
+
+  // Ensure connection pool configuration for production.
+  // Neon free tier + 54 BullMQ workers need explicit pool sizing to avoid
+  // connection starvation with the default pool (~5-9 connections).
+  if (!connectionString.includes('connection_limit')) {
+    const separator = connectionString.includes('?') ? '&' : '?';
+    connectionString += `${separator}connection_limit=20&pool_timeout=20`;
+  }
+
   return new PrismaPg({ connectionString });
 }
 

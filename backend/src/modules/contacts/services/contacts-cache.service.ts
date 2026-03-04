@@ -9,21 +9,24 @@
  * Extracted from contacts.service.ts for single responsibility.
  */
 
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
-import { getRedisConnectionOptions } from '../../../common/config';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 import { CONTACTS_DEFAULTS, CONTACTS_CACHE_KEYS } from '../contacts.constants';
 import type { CachedContactCounts } from '../contacts.types';
 
 @Injectable()
-export class ContactsCacheService implements OnModuleInit, OnModuleDestroy {
+export class ContactsCacheService implements OnModuleInit {
   private readonly logger = new Logger(ContactsCacheService.name);
   private redis: Redis | null = null;
   private readonly contactCountsCacheTtl: number;
   private readonly syncLockTtl: number;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly redisConnection: RedisConnectionService,
+  ) {
     this.contactCountsCacheTtl = this.configService.get<number>(
       'CONTACTS_COUNTS_CACHE_TTL',
       CONTACTS_DEFAULTS.CACHE_TTL_SECONDS,
@@ -34,22 +37,8 @@ export class ContactsCacheService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  async onModuleInit(): Promise<void> {
-    try {
-      const redisOptions = getRedisConnectionOptions();
-      this.redis = new Redis(redisOptions);
-      this.logger.log('Redis connection established for ContactsCacheService');
-    } catch (error) {
-      this.logger.warn(`Failed to connect to Redis, running without caching: ${error}`);
-      this.redis = null;
-    }
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (this.redis && this.redis.status !== 'end') {
-      await this.redis.quit();
-      this.logger.log('Redis connection closed for ContactsCacheService');
-    }
+  onModuleInit(): void {
+    this.redis = this.redisConnection.client;
   }
 
   /**

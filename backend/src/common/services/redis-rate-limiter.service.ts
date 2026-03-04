@@ -13,10 +13,10 @@
  * @see OWASP Brute Force Prevention
  */
 
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
-import { getRedisConnectionOptions } from '../../config/configuration';
+import { RedisConnectionService } from './redis-connection.service';
 
 /**
  * RC-NEW-1 FIX: Atomic rate limit Lua script
@@ -79,7 +79,7 @@ export interface LockoutResult {
 }
 
 @Injectable()
-export class RedisRateLimiterService implements OnModuleInit, OnModuleDestroy {
+export class RedisRateLimiterService implements OnModuleInit {
   private readonly logger = new Logger(RedisRateLimiterService.name);
   private redis!: Redis;
 
@@ -89,7 +89,10 @@ export class RedisRateLimiterService implements OnModuleInit, OnModuleDestroy {
   private readonly defaultLockoutSeconds: number;
   private readonly lockoutThreshold: number;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly redisConnection: RedisConnectionService,
+  ) {
     // Load defaults from config
     this.defaultMaxAttempts = parseInt(
       this.config.get<string>('RATE_LIMIT_MAX') || '10',
@@ -109,29 +112,8 @@ export class RedisRateLimiterService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  async onModuleInit() {
-    const options = getRedisConnectionOptions();
-    this.redis = new Redis({
-      ...options,
-      connectionName: 'rate-limiter',
-      lazyConnect: false,
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis rate limiter error: ${err.message}`);
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.log('Redis rate limiter connected');
-    });
-  }
-
-  async onModuleDestroy() {
-    if (this.redis) {
-      await this.redis.quit().catch(() => {
-        // Ignore quit errors during shutdown
-      });
-    }
+  onModuleInit() {
+    this.redis = this.redisConnection.client;
   }
 
   /**

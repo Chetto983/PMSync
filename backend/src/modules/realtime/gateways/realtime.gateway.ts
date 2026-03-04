@@ -71,7 +71,6 @@ export class RealtimeGateway
   server: Server;
 
   private readonly logger = new Logger(RealtimeGateway.name);
-  private heartbeatInterval: NodeJS.Timeout;
 
   /**
    * Traccia esplicito dei tenant con connessioni attive
@@ -90,13 +89,10 @@ export class RealtimeGateway
     this.realtimeEvents.setGateway(this);
   }
 
-  afterInit(server: Server) {
+  afterInit(_server: Server) {
     this.logger.log('WebSocket Gateway initialized');
-
-    // Heartbeat ogni 30 secondi per mantenere connessioni attive
-    this.heartbeatInterval = setInterval(() => {
-      server.emit('heartbeat', { timestamp: new Date().toISOString() });
-    }, 30000);
+    // Socket.IO built-in pingInterval/pingTimeout (default 25s/20s) keeps connections alive.
+    // No custom heartbeat needed.
   }
 
   /**
@@ -250,8 +246,6 @@ export class RealtimeGateway
    * Cleanup quando il gateway viene distrutto
    */
   onModuleDestroy() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
+    // No resources to clean up; Socket.IO handles its own lifecycle.
   }
 }

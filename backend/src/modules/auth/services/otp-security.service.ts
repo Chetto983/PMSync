@@ -1,8 +1,8 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import * as crypto from 'crypto';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import { RedisConnectionService } from '../../../common/services/redis-connection.service';
 
 /**
  * OTP verification result
@@ -55,7 +55,7 @@ interface StoredOtp {
  * @see https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html
  */
 @Injectable()
-export class OtpSecurityService implements OnModuleInit, OnModuleDestroy {
+export class OtpSecurityService implements OnModuleInit {
   private readonly logger = new Logger(OtpSecurityService.name);
   private redis!: Redis;
 
@@ -73,7 +73,10 @@ export class OtpSecurityService implements OnModuleInit, OnModuleDestroy {
   private readonly KEY_PREFIX_ATTEMPTS = 'otp:attempts:';
   private readonly KEY_PREFIX_LOCKOUT = 'otp:lockout:';
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly redisConnection: RedisConnectionService,
+  ) {
     // Get HMAC secret for OTP hashing (derived from JWT secret if not set)
     const jwtSecret = this.config.get<string>('JWT_SECRET');
     const otpSecret = this.config.get<string>('OTP_HMAC_SECRET');
@@ -94,29 +97,8 @@ export class OtpSecurityService implements OnModuleInit, OnModuleDestroy {
     this.rateLimitMax = this.safeParseInt(this.config.get<string>('OTP_RATE_LIMIT_MAX'), 3);
   }
 
-  async onModuleInit() {
-    const options = getRedisConnectionOptions();
-    this.redis = new Redis({
-      ...options,
-      connectionName: 'otp-security',
-      lazyConnect: false,
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis OTP service error: ${err.message}`);
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.log('Redis OTP service connected');
-    });
-  }
-
-  async onModuleDestroy() {
-    if (this.redis) {
-      await this.redis.quit().catch(() => {
-        // Ignore quit errors during shutdown
-      });
-    }
+  onModuleInit() {
+    this.redis = this.redisConnection.client;
   }
 
   /**

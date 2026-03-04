@@ -3,6 +3,7 @@ import { CacheService } from './cache.service';
 import { WebhookValidationService } from './webhook-validation.service';
 import { DeadLetterQueueService } from './dead-letter-queue.service';
 import { MemoryManagerService } from './memory-manager.service';
+import { RedisConnectionService } from './redis-connection.service';
 
 /**
  * CacheModule
@@ -37,7 +38,7 @@ import { MemoryManagerService } from './memory-manager.service';
  */
 @Global()
 @Module({
-  providers: [CacheService, WebhookValidationService, DeadLetterQueueService, MemoryManagerService],
-  exports: [CacheService, WebhookValidationService, DeadLetterQueueService, MemoryManagerService],
+  providers: [RedisConnectionService, CacheService, WebhookValidationService, DeadLetterQueueService, MemoryManagerService],
+  exports: [RedisConnectionService, CacheService, WebhookValidationService, DeadLetterQueueService, MemoryManagerService],
 })
 export class CacheModule {}

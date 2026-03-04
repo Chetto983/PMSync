@@ -467,6 +467,9 @@ export class SyncMessageProcessorService {
       },
     });
 
+    // Derive existing email IDs from the first query (eliminates second DB roundtrip)
+    const existingEmailIds = new Set(existingEmails.map((e) => e.externalId));
+
     // Build lookup map: `externalId:folder` -> userModifiedAt
     const userModifiedMap = new Map<string, Date | null>();
     for (const email of existingEmails) {
@@ -535,23 +538,6 @@ export class SyncMessageProcessorService {
         },
       });
     });
-
-    // HIGH-1 FIX (2025-01-05): Query existing emails BEFORE upsert for reliable wasNew detection
-    // The timestamp comparison (createdAt vs updatedAt) is unreliable due to:
-    // 1. Database clock skew
-    // 2. Race conditions between createdAt and updatedAt
-    // 3. Arbitrary 1-second threshold may not work in all environments
-    const existingEmailIds = new Set(
-      (
-        await this.prisma.email.findMany({
-          where: {
-            providerId,
-            externalId: { in: messages.map((m) => m.id) },
-          },
-          select: { externalId: true },
-        })
-      ).map((e) => e.externalId),
-    );
 
     // Execute all upserts in a single transaction with P2002/P2034 retry logic
     // Per Prisma best practices: handle P2002 (unique constraint) and P2034 (deadlock) and retry

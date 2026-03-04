@@ -38,9 +38,9 @@
  * @see https://redis.io/topics/distlock
  */
 
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { getRedisConnectionOptions } from '../config';
+import { RedisConnectionService } from './redis-connection.service';
 
 export interface LockOptions {
   /** Maximum retries before giving up (default: 5) */
@@ -52,7 +52,7 @@ export interface LockOptions {
 }
 
 @Injectable()
-export class RedisLockService implements OnModuleInit, OnModuleDestroy {
+export class RedisLockService implements OnModuleInit {
   private readonly logger = new Logger(RedisLockService.name);
   private redis!: Redis;
 
@@ -62,34 +62,14 @@ export class RedisLockService implements OnModuleInit, OnModuleDestroy {
   // Unique identifier for this instance
   private readonly instanceId: string;
 
-  constructor() {
+  constructor(private readonly redisConnection: RedisConnectionService) {
     // Generate unique instance ID (PID + timestamp + random suffix)
     this.instanceId = `${process.pid}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   }
 
-  async onModuleInit() {
-    const options = getRedisConnectionOptions();
-    this.redis = new Redis({
-      ...options,
-      connectionName: 'redis-lock',
-      lazyConnect: false,
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis lock service error: ${err.message}`);
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.debug(`Redis lock service connected (instance: ${this.instanceId})`);
-    });
-  }
-
-  async onModuleDestroy() {
-    if (this.redis) {
-      await this.redis.quit().catch(() => {
-        // Ignore quit errors during shutdown
-      });
-    }
+  onModuleInit() {
+    this.redis = this.redisConnection.client;
+    this.logger.debug(`Redis lock service ready (instance: ${this.instanceId})`);
   }
 
   /**
