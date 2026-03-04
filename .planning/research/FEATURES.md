@@ -23,7 +23,7 @@ Features that enterprise procurement, security reviews, and SOC2 audits assume e
 
 ### Differentiators (Competitive Advantage)
 
-Features that go beyond what enterprises minimally require and position MailAgent as architecturally superior to competitors.
+Features that go beyond what enterprises minimally require and position PMSync as architecturally superior to competitors.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
@@ -185,8 +185,8 @@ These are parallelizable with each other and with Wave 2. They benefit from stab
 ## Sources
 
 ### Primary Sources (Codebase + PRD)
-- [Enterprise Platform PRD](D:/MailAgent/docs/Enterprise-Platform-PRD.md) -- Sections 1-8, primary gap analysis
-- [PROJECT.md](D:/MailAgent/.planning/PROJECT.md) -- v4.0 scope definition and current state
+- [Enterprise Platform PRD](D:/PMSync/docs/Enterprise-Platform-PRD.md) -- Sections 1-8, primary gap analysis
+- [PROJECT.md](D:/PMSync/.planning/PROJECT.md) -- v4.0 scope definition and current state
 - Codebase audit: 26 forwardRef() calls across 12 modules, 32 controllers with mixed versioning, `auth-store.ts` localStorage persistence, `field-encryption.utils.ts` with unused hashForSearch(), `lighthouserc.js` with violated thresholds
 
 ### Architecture & Circular Dependencies
@@ -233,5 +233,5 @@ These are parallelizable with each other and with Wave 2. They benefit from stab
 - [Optimize Web Vitals in Next.js App Router 2025 - Makers Den](https://makersden.io/blog/optimize-web-vitals-in-nextjs-2025) -- App Router specific (MEDIUM confidence)
 
 ---
-*Feature research for: MailAgent v4.0 Enterprise Stabilization*
+*Feature research for: PMSync v4.0 Enterprise Stabilization*
 *Researched: 2026-03-03*

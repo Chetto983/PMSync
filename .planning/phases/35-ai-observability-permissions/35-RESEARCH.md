@@ -337,7 +337,7 @@ async listRuns(
 ```typescript
 // backend/src/common/interfaces/policy-service.interface.ts
 
-/** Resource:action pairs for MailAgent platform */
+/** Resource:action pairs for PMSync platform */
 export enum Permission {
   // Email
   EMAIL_READ = 'email:read',

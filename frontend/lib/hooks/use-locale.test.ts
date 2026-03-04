@@ -33,8 +33,8 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 const originalNavigator = window.navigator;
 
 describe('useLocale', () => {
-  const LOCALE_STORAGE_KEY = 'mailagent:locale';
-  const LOCALE_CHANGE_EVENT = 'mailagent:locale-change';
+  const LOCALE_STORAGE_KEY = 'pmsync:locale';
+  const LOCALE_CHANGE_EVENT = 'pmsync:locale-change';
 
   beforeEach(() => {
     jest.clearAllMocks();

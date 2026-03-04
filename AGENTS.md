@@ -1,11 +1,11 @@
-# AI Agent Guidelines - MailAgent
+# AI Agent Guidelines - PMSync
 
 ## Project Overview
 
-MailAgent is a multi-tenant email management platform with AI-powered features. It supports Gmail, Microsoft Outlook, and IMAP providers with unified email sync, calendar, and contacts integration.
+PMSync is a multi-tenant email management platform with AI-powered features. It supports Gmail, Microsoft Outlook, and IMAP providers with unified email sync, calendar, and contacts integration.
 
 **Framework:** NestJS (Backend) + Next.js (Frontend)
-**Repository:** MailAgent Monorepo
+**Repository:** PMSync Monorepo
 
 ## Project Knowledge Base
 
@@ -85,7 +85,7 @@ npx ts-node src/modules/email-sync/drivers/test-microsoft-sync-modes.script.ts
 ## Project Structure
 
 ```
-MailAgent/
+PMSync/
 ├── backend/               # NestJS API (port 3000)
 │   ├── src/modules/
 │   │   ├── ai/            # AI agents, LLM, embeddings

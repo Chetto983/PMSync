@@ -14,7 +14,7 @@ import {
 import { X, Cookie, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
-const COOKIE_CONSENT_KEY = 'mailagent:cookie-consent';
+const COOKIE_CONSENT_KEY = 'pmsync:cookie-consent';
 
 interface CookiePreferences {
   necessary: boolean;

@@ -34,13 +34,13 @@ async function main() {
     where: {
       tenantId_email: {
         tenantId: defaultTenant.id,
-        email: 'admin@mailagent.local',
+        email: 'admin@pmsync.local',
       },
     },
     update: {},
     create: {
       tenantId: defaultTenant.id,
-      email: 'admin@mailagent.local',
+      email: 'admin@pmsync.local',
       passwordHash: adminPassword,
       firstName: 'Admin',
       lastName: 'User',
@@ -57,13 +57,13 @@ async function main() {
     where: {
       tenantId_email: {
         tenantId: defaultTenant.id,
-        email: 'test@mailagent.local',
+        email: 'test@pmsync.local',
       },
     },
     update: {},
     create: {
       tenantId: defaultTenant.id,
-      email: 'test@mailagent.local',
+      email: 'test@pmsync.local',
       passwordHash: userPassword,
       firstName: 'Test',
       lastName: 'User',
@@ -118,12 +118,12 @@ async function main() {
   console.log('📋 Test Accounts Created:');
   console.log('─────────────────────────────────────────');
   console.log('  Admin Account:');
-  console.log('    • Email: admin@mailagent.local');
+  console.log('    • Email: admin@pmsync.local');
   console.log('    • Password: TestPassword123!');
   console.log('    • Role: Administrator');
   console.log('');
   console.log('  Regular User Account:');
-  console.log('    • Email: test@mailagent.local');
+  console.log('    • Email: test@pmsync.local');
   console.log('    • Password: UserPassword123!');
   console.log('    • Role: User');
   console.log('');
@@ -138,7 +138,7 @@ async function main() {
   console.log('');
   console.log('🚀 Next Steps:');
   console.log('  1. Visit: http://localhost:3001/auth/login');
-  console.log('  2. Use admin@mailagent.local or test@mailagent.local');
+  console.log('  2. Use admin@pmsync.local or test@pmsync.local');
   console.log('  3. Enter password');
   console.log('  4. Enter OTP (check docker logs for code)');
   console.log('');

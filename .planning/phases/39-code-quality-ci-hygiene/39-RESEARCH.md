@@ -270,11 +270,11 @@ None -- no new test infrastructure needed. Validation is via type-check, lint, l
 ## Sources
 
 ### Primary (HIGH confidence)
-- `D:/MailAgent/frontend/pages/dashboard/email.tsx` -- actual file content, 1035 lines confirmed
-- `D:/MailAgent/.github/workflows/ci.yml` -- actual CI config, continue-on-error on line 52
-- `D:/MailAgent/.github/workflows/frontend-ci.yml` -- actual CI config, paths filter on lines 9-11/14-16
-- `D:/MailAgent/frontend/lib/utils/auth-token.ts` -- 16-line stub, zero import sites confirmed via grep
-- `D:/MailAgent/.planning/v4.0-MILESTONE-AUDIT.md` -- audit document defining all 4 items
+- `D:/PMSync/frontend/pages/dashboard/email.tsx` -- actual file content, 1035 lines confirmed
+- `D:/PMSync/.github/workflows/ci.yml` -- actual CI config, continue-on-error on line 52
+- `D:/PMSync/.github/workflows/frontend-ci.yml` -- actual CI config, paths filter on lines 9-11/14-16
+- `D:/PMSync/frontend/lib/utils/auth-token.ts` -- 16-line stub, zero import sites confirmed via grep
+- `D:/PMSync/.planning/v4.0-MILESTONE-AUDIT.md` -- audit document defining all 4 items
 
 ### Secondary (MEDIUM confidence)
 - GitHub Actions `paths` documentation -- filter behavior on workflow triggers

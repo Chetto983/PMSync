@@ -6,7 +6,7 @@
 
 ## Summary
 
-This research investigates how to implement comprehensive PII tokenization for all AI interactions in MailAgent. The codebase already has significant PII infrastructure in place - detection via `@sentinelseed/voltagent`, resolution via Redis with session-scoped mappings, and integration in chat request processing. However, **critical gaps exist**:
+This research investigates how to implement comprehensive PII tokenization for all AI interactions in PMSync. The codebase already has significant PII infrastructure in place - detection via `@sentinelseed/voltagent`, resolution via Redis with session-scoped mappings, and integration in chat request processing. However, **critical gaps exist**:
 
 1. **RAG embeddings are NOT sanitized** - PII flows directly into vector database
 2. **Tool call restoration is partial** - `resolvePayload` exists but isn't wired everywhere

@@ -1,4 +1,4 @@
-# Requirements: MailAgent v4.0 Enterprise Stabilization
+# Requirements: PMSync v4.0 Enterprise Stabilization
 
 **Defined:** 2026-03-03
 **Core Value:** The best professional AI mail client -- fast, intelligent, and secure

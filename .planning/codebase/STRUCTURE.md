@@ -5,7 +5,7 @@
 ## Directory Layout
 
 ```
-MailAgent/
+PMSync/
 ├── backend/                    # NestJS backend API server
 │   ├── src/
 │   │   ├── main.ts            # Bootstrap entry point (port 3000)

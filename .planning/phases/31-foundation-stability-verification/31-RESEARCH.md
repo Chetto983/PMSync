@@ -333,7 +333,7 @@ export const test = base.extend<{ authedPage: Page }>({
         version: 0,
       }));
       document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
-      localStorage.setItem('mailagent:cookie-consent', JSON.stringify({
+      localStorage.setItem('pmsync:cookie-consent', JSON.stringify({
         necessary: true, analytics: false, marketing: false
       }));
     });

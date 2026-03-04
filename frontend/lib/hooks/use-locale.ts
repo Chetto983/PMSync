@@ -1,8 +1,8 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
 const FALLBACK_LOCALE = 'en';
-const LOCALE_STORAGE_KEY = 'mailagent:locale';
-const LOCALE_CHANGE_EVENT = 'mailagent:locale-change';
+const LOCALE_STORAGE_KEY = 'pmsync:locale';
+const LOCALE_CHANGE_EVENT = 'pmsync:locale-change';
 
 const normalizeLocale = (value?: string | null) => {
   if (!value) {

@@ -15,7 +15,7 @@ A well-refactored codebase exhibits three characteristics: **elimination of dupl
 - Utility functions consolidated in dedicated `utils/` directories
 - Shared logic extracted to common modules (`backend/src/common/`)
 
-**MailAgent-Specific:**
+**PMSync-Specific:**
 - Consolidate 3 sanitization functions into `backend/src/modules/ai/voltagent/utils/sanitize.utils.ts`
 - Single source of truth for LLM response cleaning patterns
 
@@ -33,7 +33,7 @@ A well-refactored codebase exhibits three characteristics: **elimination of dupl
 - No commented-out code blocks in production files
 - No unreachable code after `return`, `throw`, or `process.exit()`
 
-**MailAgent-Specific:**
+**PMSync-Specific:**
 - Remove all `DEPRECATED TOOLS` blocks in `email.tools.ts`, `folder.tools.ts`, etc.
 - Delete deprecated `MEDIUM` model mapping in Mistral provider
 - Remove `extractPlainText` dead code in `base-email-sync.service.ts` (lines 1314-1346)
@@ -52,7 +52,7 @@ A well-refactored codebase exhibits three characteristics: **elimination of dupl
 - Complex files split by single-responsibility principle
 - Each file has one primary export/class/concern
 
-**MailAgent-Specific Violations (from CONCERNS.md):**
+**PMSync-Specific Violations (from CONCERNS.md):**
 | File | Lines | Target |
 |------|-------|--------|
 | `imap.driver.ts` | 2,249 | Split: `imap-connection.ts`, `imap-folder.ts`, `imap-email.ts` |
@@ -79,7 +79,7 @@ find backend/src -name "*.ts" -exec wc -l {} \; | awk '$1 > 500 {print}'
 - All function parameters and return types explicitly typed
 - Interface-driven contracts between modules
 
-**MailAgent-Specific:**
+**PMSync-Specific:**
 - Run `npm run type-check` as CI gate
 - Audit existing `any` usage in AI modules (service wrappers)
 
@@ -98,7 +98,7 @@ find backend/src -name "*.ts" -exec wc -l {} \; | awk '$1 > 500 {print}'
 - Constants: UPPER_SNAKE_CASE
 - Boolean variables: `is*`, `has*`, `can*` prefixes
 
-**MailAgent-Specific:**
+**PMSync-Specific:**
 - Already enforced per CONVENTIONS.md
 - Verify new utility files follow naming
 
@@ -116,7 +116,7 @@ find backend/src -name "*.ts" -exec wc -l {} \; | awk '$1 > 500 {print}'
 - Integration tests for cross-module refactors
 - No refactor merged without corresponding test additions
 
-**MailAgent-Specific:**
+**PMSync-Specific:**
 - Add tests for consolidated `sanitize.utils.ts`
 - Test file size: mirrors source file (e.g., `sanitize.utils.spec.ts`)
 
@@ -139,7 +139,7 @@ find backend/src -name "*.ts" -exec wc -l {} \; | awk '$1 > 500 {print}'
 - ESLint `complexity` rule set to `["error", 10]`
 - `ts-complexity` CLI for pre-commit checks
 
-**MailAgent Opportunity:**
+**PMSync Opportunity:**
 - IMAP driver has complex state machines - extract to finite state automata
 - Folder sync conditional logic - use provider-specific strategy classes
 
@@ -165,7 +165,7 @@ find backend/src -name "*.ts" -exec wc -l {} \; | awk '$1 > 500 {print}'
 - Dependencies injected, not instantiated internally
 - Side effects isolated to edges (controllers, gateways)
 
-**MailAgent Excellence Pattern:**
+**PMSync Excellence Pattern:**
 ```
 email-sync/
 ├── drivers/
@@ -222,7 +222,7 @@ email-sync/
 
 **Definition:** Files over 500 lines handling multiple concerns
 
-**MailAgent Examples:**
+**PMSync Examples:**
 - `emails.service.ts` (1,705 lines) - handles CRUD, bulk ops, cleanup, threading
 - `imap.driver.ts` (2,249 lines) - handles auth, folders, emails, attachments
 
@@ -237,7 +237,7 @@ email-sync/
 
 **Definition:** Nearly identical code in multiple locations
 
-**MailAgent Example:**
+**PMSync Example:**
 ```typescript
 // Three locations with similar regex-based sanitization:
 // 1. chat-context-builder.service.ts - sanitizeLlmResponse()
@@ -256,7 +256,7 @@ email-sync/
 
 **Definition:** Code marked deprecated but never removed, or commented blocks
 
-**MailAgent Examples:**
+**PMSync Examples:**
 - `DEPRECATED TOOLS` blocks in 5+ tool files (consolidated but not deleted)
 - `MEDIUM` model mapping in Mistral (deprecated comment but still executed)
 - `extractPlainText` function never called
@@ -403,7 +403,7 @@ quality-gates:
 - ts-prune (dead code): https://github.com/nadeesha/ts-prune
 - ESLint complexity rule: https://eslint.org/docs/rules/complexity
 
-**MailAgent Context:**
+**PMSync Context:**
 - `.planning/codebase/CONCERNS.md` - Identified issues
 - `.planning/codebase/CONVENTIONS.md` - Naming patterns
 - `.planning/codebase/TESTING.md` - Test patterns

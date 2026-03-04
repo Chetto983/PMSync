@@ -313,6 +313,6 @@ export class IcsGeneratorService {
   private generateUid(): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 11);
-    return `${timestamp}-${random}@mailagent.app`;
+    return `${timestamp}-${random}@pmsync.app`;
   }
 }

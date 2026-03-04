@@ -1,4 +1,4 @@
-# MailAgent — Enterprise Transformation Roadmap
+# PMSync — Enterprise Transformation Roadmap
 
 **Date:** 2026-03-04
 **Baseline Score:** 42/100 Enterprise Readiness

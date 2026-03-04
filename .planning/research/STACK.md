@@ -1,6 +1,6 @@
 # Technology Stack: v4.0 Enterprise Stabilization
 
-**Project:** MailAgent v4.0
+**Project:** PMSync v4.0
 **Researched:** 2026-03-03
 **Confidence:** HIGH (all versions verified via `npm view`, peer dependencies checked, codebase audited)
 
@@ -268,8 +268,8 @@ Pact is consumer-driven. The frontend is the consumer. Contract files are genera
 import { PactV4 } from '@pact-foundation/pact';
 
 const provider = new PactV4({
-  consumer: 'mailagent-frontend',
-  provider: 'mailagent-backend',
+  consumer: 'pmsync-frontend',
+  provider: 'pmsync-backend',
   dir: './pacts',
 });
 

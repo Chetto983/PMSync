@@ -270,12 +270,12 @@ async function auditRailwayConfig() {
 
   // Check Dockerfile exists
   const fs = await import('fs');
-  const dockerfilePath = 'd:/MailAgent/backend/Dockerfile.railway';
+  const dockerfilePath = 'd:/PMSync/backend/Dockerfile.railway';
   record('Railway', 'Dockerfile.railway exists',
     fs.existsSync(dockerfilePath) ? 'PASS' : 'FAIL', dockerfilePath);
 
   // Check railway.toml
-  const tomlPath = 'd:/MailAgent/backend/railway.toml';
+  const tomlPath = 'd:/PMSync/backend/railway.toml';
   record('Railway', 'railway.toml exists',
     fs.existsSync(tomlPath) ? 'PASS' : 'FAIL', tomlPath);
 

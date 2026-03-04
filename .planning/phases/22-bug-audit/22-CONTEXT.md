@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Comprehensive audit and remediation of all bugs across the entire MailAgent codebase (v3.0 + v3.1 features). Covers backend APIs, frontend UI/UX, database, email sync engine, AI chat, GDPR features, security, accessibility, i18n, performance, and dependency health. Two-pass approach: audit/report first, then fix everything found. Also completes unfinished plans from Phase 19 (19-04 WritingStyleSettings) and Phase 21 (21-01 Triage Prompt enrichment).
+Comprehensive audit and remediation of all bugs across the entire PMSync codebase (v3.0 + v3.1 features). Covers backend APIs, frontend UI/UX, database, email sync engine, AI chat, GDPR features, security, accessibility, i18n, performance, and dependency health. Two-pass approach: audit/report first, then fix everything found. Also completes unfinished plans from Phase 19 (19-04 WritingStyleSettings) and Phase 21 (21-01 Triage Prompt enrichment).
 
 </domain>
 

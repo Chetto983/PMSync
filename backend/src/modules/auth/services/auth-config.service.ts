@@ -21,8 +21,8 @@ export class AuthConfigService implements OnModuleInit {
   // JWT Access Token Configuration
   readonly jwtSecret: string;
   readonly jwtAlgorithm: string = 'HS256';
-  readonly jwtIssuer: string = 'mailagent-auth';
-  readonly jwtAudience: string = 'mailagent-api';
+  readonly jwtIssuer: string = 'pmsync-auth';
+  readonly jwtAudience: string = 'pmsync-api';
   readonly accessTokenExpiresIn: string;
   readonly accessTokenTtlMs: number;
 

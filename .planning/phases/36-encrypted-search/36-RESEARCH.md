@@ -123,7 +123,7 @@ async findByExactSender(
 **Example:**
 ```typescript
 // In TenantKeyService
-private readonly HMAC_INFO_LABEL = 'mailagent-blind-index-v1';
+private readonly HMAC_INFO_LABEL = 'pmsync-blind-index-v1';
 
 getHmacKey(tenantId: string): Buffer {
   const cacheKey = `hmac:${tenantId}`;

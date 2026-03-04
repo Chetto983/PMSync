@@ -6,15 +6,15 @@ and large-scale AI SaaS platforms.
 
 OBJECTIVE:
 Perform a full-stack architectural, product, security, 
-and enterprise-readiness audit of the MailAgent platform.
+and enterprise-readiness audit of the PMSync platform.
 
 This includes BOTH:
 
 BACKEND:
-D:\MailAgent\backend
+D:\PMSync\backend
 
 FRONTEND:
-D:\MailAgent\frontend
+D:\PMSync\frontend
 
 Do NOT modify source code.
 Only analyze and produce documentation.

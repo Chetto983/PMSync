@@ -25,7 +25,7 @@ export class StorageService {
     @Optional() @Inject(RedisLockService) private readonly redisLock?: RedisLockService,
   ) {
     const endpoint = this.config.get<string>('S3_ENDPOINT');
-    this.bucket = this.config.get<string>('S3_BUCKET', 'mailagent-attachments');
+    this.bucket = this.config.get<string>('S3_BUCKET', 'pmsync-attachments');
 
     this.client = new S3Client({
       region: this.config.get<string>('S3_REGION', 'us-east-1'),

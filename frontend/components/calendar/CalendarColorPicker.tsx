@@ -4,7 +4,7 @@
  * Wrapper around the reusable ColorPicker for calendar-specific styling.
  * Uses ColorPickerPopover with calendar translations and apply button.
  *
- * @see D:\MailAgent\frontend\components\common\ColorPicker.tsx
+ * @see frontend/components\common\ColorPicker.tsx
  */
 
 import React from 'react';

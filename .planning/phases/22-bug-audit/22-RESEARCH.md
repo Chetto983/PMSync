@@ -6,7 +6,7 @@
 
 ## Summary
 
-Phase 22 is a comprehensive burn-down audit of the entire MailAgent codebase. The application has accumulated technical debt and bugs across 21 prior phases spanning v2.0 through v3.1. The user explicitly stated the app is "full of bugs" and wants every single one found and fixed -- zero known bugs when done. This is not a selective audit; it is a scorched-earth remediation phase.
+Phase 22 is a comprehensive burn-down audit of the entire PMSync codebase. The application has accumulated technical debt and bugs across 21 prior phases spanning v2.0 through v3.1. The user explicitly stated the app is "full of bugs" and wants every single one found and fixed -- zero known bugs when done. This is not a selective audit; it is a scorched-earth remediation phase.
 
 The codebase currently has: 518 backend TypeScript files, ~70 frontend source files plus ~550 frontend component/page/hook files. Backend TypeScript compiles clean (0 errors). Frontend TypeScript compiles clean (0 errors). However, frontend ESLint is **completely broken** (ESLint 10 + incompatible eslint-plugin-react 7.37.5 throws runtime errors), backend ESLint has a flat config issue, frontend Jest has 3 failing tests across 2 suites, and there are significant file-size violations (>500 lines per CLAUDE.md rules). There are 24 npm audit vulnerabilities in the backend, 16 in the frontend, and 5 in the root.
 

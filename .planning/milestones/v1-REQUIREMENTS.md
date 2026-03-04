@@ -8,7 +8,7 @@ For current requirements, see `.planning/REQUIREMENTS.md` (created for next mile
 
 ---
 
-# Requirements: MailAgent Stability & Code Quality Refactor
+# Requirements: PMSync Stability & Code Quality Refactor
 
 **Defined:** 2026-01-31
 **Core Value:** Stable, maintainable email sync that doesn't corrupt user data under concurrent load

@@ -443,6 +443,6 @@ export class IcsParserService {
    * Generate a unique UID
    */
   private generateUid(): string {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}@mailagent`;
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}@pmsync`;
   }
 }

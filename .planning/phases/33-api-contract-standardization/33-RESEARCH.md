@@ -6,7 +6,7 @@
 
 ## Summary
 
-Phase 33 standardizes the API contract layer across the entire MailAgent stack. The backend work centers on NestJS 11.1.13 interceptors/filters and `setGlobalPrefix`, all of which are well-documented, stable APIs with existing codebase patterns to follow. The frontend work is a disciplined find-and-replace audit of silent catch-and-return-empty patterns in query hooks. The tooling work (Spectral + openapi-typescript) involves standard npm packages with straightforward CI integration.
+Phase 33 standardizes the API contract layer across the entire PMSync stack. The backend work centers on NestJS 11.1.13 interceptors/filters and `setGlobalPrefix`, all of which are well-documented, stable APIs with existing codebase patterns to follow. The frontend work is a disciplined find-and-replace audit of silent catch-and-return-empty patterns in query hooks. The tooling work (Spectral + openapi-typescript) involves standard npm packages with straightforward CI integration.
 
 The codebase is already 80% of the way there -- `RequestIdMiddleware` already generates request IDs and sets the `X-Request-ID` response header, `CorrelationInterceptor` exists but is not globally registered, and the existing filter/interceptor registration pattern in `app.module.ts` and `main.ts` is clear. The main risk is the hard cutover of `setGlobalPrefix('api/v1')` which will break any client hitting bare routes, plus the frontend path adjustments for the ~40+ call sites in `frontend/lib/api/*.ts` that already use explicit `/api/v1/` prefixes (these will double-prefix unless stripped).
 

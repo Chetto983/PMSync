@@ -112,7 +112,7 @@ Frontend rendering of tool results is Phase 27 scope. Non-chat AI (briefing, fol
 - **Supabase hybrid search** — native PostgreSQL function with RRF, K=50, equal weights, FULL OUTER JOIN fusion
   - Source: https://supabase.com/docs/guides/ai/hybrid-search
 - **RRF best practice** — pull 20 from each source, fuse to 10. Hybrid improves accuracy 8-15% over pure vector (62% → 84%)
-- **System prompts reference** — D:\MailAgent\esempio\system-prompts-and-models-of-ai-tools-main (Manus, Anthropic, Google patterns)
+- **System prompts reference** — D:\PMSync\esempio\system-prompts-and-models-of-ai-tools-main (Manus, Anthropic, Google patterns)
 
 </specifics>
 

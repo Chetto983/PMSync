@@ -71,8 +71,8 @@ import { ComplianceModule } from '../compliance/compliance.module';
           secret,
           signOptions: {
             expiresIn: expiresIn as any, // Cast to any for flexibility with string format
-            issuer: 'mailagent-auth',
-            audience: 'mailagent-api',
+            issuer: 'pmsync-auth',
+            audience: 'pmsync-api',
           },
         };
       },

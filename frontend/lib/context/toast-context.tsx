@@ -104,7 +104,7 @@ export function getGlobalToast(): ToastContextType {
 }
 
 // Locale storage key (must match use-locale.ts)
-const LOCALE_STORAGE_KEY = 'mailagent:locale';
+const LOCALE_STORAGE_KEY = 'pmsync:locale';
 
 /**
  * Get translations for use in non-React contexts (TanStack Query callbacks, etc.)

@@ -8,7 +8,7 @@
 
 Privacy-focused email clients in 2026 face dual pressures: **mandatory GDPR compliance** (Articles 15-22) with enforcement fines reaching €5.88 billion since 2018, and **user expectations for rich AI interactions** without compromising data privacy. The winning pattern combines **PII tokenization** (data never reaches LLM raw), **automated DSAR workflows** (2-4 week implementation), and **Claude-style artifacts** for structured data visualization.
 
-**Key Finding:** Privacy is now a competitive differentiator, not just legal compliance. Proton Mail's zero-access encryption and Tuta's subject-line encryption show users will pay premium for privacy guarantees. MailAgent must implement GDPR as **privacy-by-design**, not bolt-on compliance.
+**Key Finding:** Privacy is now a competitive differentiator, not just legal compliance. Proton Mail's zero-access encryption and Tuta's subject-line encryption show users will pay premium for privacy guarantees. PMSync must implement GDPR as **privacy-by-design**, not bolt-on compliance.
 
 **AI Chat Evolution:** Pure chat interfaces peaked in 2024. By 2026, the standard is **rich artifacts** (Claude pattern): structured data rendered as interactive components, not markdown. Email lists, calendar views, and contact cards as UI components within chat, not text descriptions.
 
@@ -59,8 +59,8 @@ Privacy-focused email clients in 2026 face dual pressures: **mandatory GDPR comp
 | **Privacy-by-Design Architecture** | All tables support **per-tenant encryption at rest**. Each tenant has unique encryption key in AWS KMS/HashiCorp Vault. | High | Prisma middleware encrypts PII fields (email content, contact notes) before write, decrypts on read. Performance: +50ms per query (acceptable for privacy guarantee). Encrypted fields: `Email.body`, `Email.snippet`, `Contact.notes`, `Conversation.messages`. |
 | **Automated Privacy Impact Assessment (PIA)** | Admin dashboard shows **GDPR compliance score**: consent coverage, DSAR response time, retention policy adherence. | Medium | Backend: weekly job calculates metrics. Front: Admin dashboard with traffic-light indicators (green = compliant, yellow = warning, red = violation). |
 | **Transparent Data Processing** | User sees **what AI knows**: "VoltAgent accessed 12 emails, 3 contacts, 1 calendar event to answer this query." Cite sources in chat. | Medium | UnifiedRetriever tracks all queries. Chat UI shows "Sources used" panel with links to original emails/contacts. IVO pattern (Immediately Validatable Output). |
-| **Zero-Knowledge Architecture (Future)** | End-to-end encryption where MailAgent **cannot read user data**. Only user's device has decryption key. | Very High (out of scope for v3.1) | Proton Mail pattern: encrypt on client, store encrypted blobs on server. Requires WebCrypto API, key management UX, breaks server-side search/AI. Defer to v4.0+. |
-| **GDPR Compliance Certificate** | Auto-generated PDF certificate for enterprise customers: "MailAgent processes your data in compliance with GDPR Articles 5-22." | Low | Marketing feature. Backend: Generate PDF with compliance checklist. Front: Download button in settings. |
+| **Zero-Knowledge Architecture (Future)** | End-to-end encryption where PMSync **cannot read user data**. Only user's device has decryption key. | Very High (out of scope for v3.1) | Proton Mail pattern: encrypt on client, store encrypted blobs on server. Requires WebCrypto API, key management UX, breaks server-side search/AI. Defer to v4.0+. |
+| **GDPR Compliance Certificate** | Auto-generated PDF certificate for enterprise customers: "PMSync processes your data in compliance with GDPR Articles 5-22." | Low | Marketing feature. Backend: Generate PDF with compliance checklist. Front: Download button in settings. |
 
 **Inspiration Sources:**
 - **Proton Mail:** Zero-access encryption, subject line encryption, Swiss jurisdiction (strong privacy laws)
@@ -198,7 +198,7 @@ Email management is **task-oriented**, not conversational. Pure chat interfaces 
 **Critical Insight:**
 Artifacts are **not just pretty renderings**. They are **interactive components** that replace traditional UI for AI-generated data. User should be able to complete tasks (label emails, schedule meetings, update contacts) entirely within artifact panel, with AI available for assistance, not required for every action.
 
-**MailAgent Strategy:**
+**PMSync Strategy:**
 - **Artifacts for data visualization** (email lists, calendars, contacts)
 - **Direct manipulation for actions** (drag-drop, click buttons)
 - **AI for complex operations** (bulk triage, draft generation, suggestions)
@@ -311,7 +311,7 @@ v3.1 is **large** (7 GDPR features + 6 AI features). Consider splitting into v3.
 
 ## Competitor Analysis: Privacy-Focused Email Clients (2026)
 
-| Feature | Proton Mail | Tuta | MailAgent Target |
+| Feature | Proton Mail | Tuta | PMSync Target |
 |---------|-------------|------|------------------|
 | **Encryption** | Zero-access E2E, subject lines encrypted | E2E including subject lines | PII tokenization for AI (E2E in v4.0) |
 | **GDPR Compliance** | ✅ Swiss jurisdiction, GDPR-first design | ✅ Germany jurisdiction, open-source | ✅ Full Articles 15-22 compliance |
@@ -324,14 +324,14 @@ v3.1 is **large** (7 GDPR features + 6 AI features). Consider splitting into v3.
 
 **Key Takeaways:**
 1. **Proton/Tuta = Privacy-first, no AI** (encryption blocks server-side processing)
-2. **MailAgent = AI-first with privacy** (tokenization enables both)
+2. **PMSync = AI-first with privacy** (tokenization enables both)
 3. **Competitive Edge:** Only email client with **full AI features + GDPR compliance** via PII tokenization
 
 **Market Positioning:**
 **"The best professional AI mail client — fast, intelligent, and private."**
 
-Proton/Tuta users who want AI → MailAgent
-Superhuman/Shortwave users who need privacy → MailAgent
+Proton/Tuta users who want AI → PMSync
+Superhuman/Shortwave users who need privacy → PMSync
 
 ---
 

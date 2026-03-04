@@ -101,7 +101,7 @@
 - **S3-compatible (AWS S3, Cloudflare R2, MinIO)**
   - Endpoint: `S3_ENDPOINT`
   - Auth: `S3_ACCESS_KEY`, `S3_SECRET_KEY`
-  - Bucket: `S3_BUCKET` (default: mailagent-attachments)
+  - Bucket: `S3_BUCKET` (default: pmsync-attachments)
   - Region: `S3_REGION`
   - SSL: `S3_USE_SSL`
   - Path style: `S3_FORCE_PATH_STYLE` (for MinIO)
@@ -136,7 +136,7 @@
 
 - **WebAuthn/Passkeys**
   - Library: `@simplewebauthn/server` v13.2.2, `@simplewebauthn/browser` v13.2.2
-  - RP Name: `WEBAUTHN_RP_NAME` (default: MailAgent)
+  - RP Name: `WEBAUTHN_RP_NAME` (default: PMSync)
   - RP ID: `WEBAUTHN_RP_ID` (default: localhost)
   - Origin: `WEBAUTHN_ORIGIN` (default: http://localhost:3001)
   - Storage: WebAuthnCredential model in database

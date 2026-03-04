@@ -19,7 +19,7 @@ const CALENDAR_FILE = path.join(DATA_DIR, 'calendar-events.jsonl');
 const ATTACHMENTS_FILE = path.join(DATA_DIR, 'attachments.jsonl');
 
 const TENANT_ID = 'cmm8zoftn0000rcyhu770d2ub';
-const USER_ID = 'cmm8zofxp0002rcyh1h1fydvl'; // test@mailagent.local
+const USER_ID = 'cmm8zofxp0002rcyh1h1fydvl'; // test@pmsync.local
 
 async function readJsonl(filePath) {
   if (!fs.existsSync(filePath)) {

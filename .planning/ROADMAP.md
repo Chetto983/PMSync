@@ -1,4 +1,4 @@
-# Roadmap: MailAgent
+# Roadmap: PMSync
 
 ## Milestones
 

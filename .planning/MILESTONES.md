@@ -1,4 +1,4 @@
-# Project Milestones: MailAgent
+# Project Milestones: PMSync
 
 ## v3.2 AI Rebuild & Cleanup (Shipped: 2026-03-03, partial)
 

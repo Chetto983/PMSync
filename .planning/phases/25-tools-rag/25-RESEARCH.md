@@ -418,7 +418,7 @@ const INTENT_TOOL_MAP: Record<string, string[]> = {
 ### Hybrid Search RRF SQL Function
 
 ```sql
--- Source: Supabase hybrid search pattern adapted for MailAgent schema
+-- Source: Supabase hybrid search pattern adapted for PMSync schema
 CREATE OR REPLACE FUNCTION hybrid_email_search(
   p_tenant_id TEXT,
   p_query TEXT,

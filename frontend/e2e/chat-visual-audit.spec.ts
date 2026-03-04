@@ -18,7 +18,7 @@ test('login and audit chat UI', async ({ browser }) => {
   });
   const dPage = await desktop.newPage();
   await dPage.goto('/auth/login', { waitUntil: 'networkidle' });
-  await dPage.fill('input[name="email"], input[type="email"]', 'admin@mailagent.local');
+  await dPage.fill('input[name="email"], input[type="email"]', 'admin@pmsync.local');
   await dPage.fill('input[name="password"], input[type="password"]', 'TestPassword123!');
   await dPage.click('button[type="submit"]');
   await dPage.waitForURL('**/dashboard**', { timeout: 15000 });

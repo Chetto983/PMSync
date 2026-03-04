@@ -74,7 +74,7 @@ completed: 2026-03-04
 ## Accomplishments
 
 - hmacForBlindIndex function with case normalization and HMAC-SHA256 produces deterministic, key-isolated 64-char hex hashes
-- TenantKeyService.getHmacKey derives keys with distinct HKDF info label (mailagent-blind-index-v1), cached per-tenant
+- TenantKeyService.getHmacKey derives keys with distinct HKDF info label (pmsync-blind-index-v1), cached per-tenant
 - Prisma extension automatically injects fromHash on all Email write operations (create, update, upsert, createMany)
 - HashSearchService provides dual-path WHERE clause builder for exact-match sender search, registered globally via PrismaModule
 - Backfill script populates fromHash for existing emails per-tenant with idempotent skip+take pagination

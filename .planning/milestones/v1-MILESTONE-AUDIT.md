@@ -33,7 +33,7 @@ tech_debt:
       - "BaseEmailSyncService exceeds 350-line target (511 lines) - syncProvider must stay"
 ---
 
-# Milestone Audit: MailAgent Stability & Code Quality Refactor (v1)
+# Milestone Audit: PMSync Stability & Code Quality Refactor (v1)
 
 **Audited:** 2026-02-02
 **Status:** TECH DEBT (No Blockers)

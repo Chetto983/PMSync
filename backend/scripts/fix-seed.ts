@@ -5,11 +5,11 @@ const prisma = createPrismaClient();
 
 async function fix() {
   const tenant = await prisma.tenant.upsert({
-    where: { slug: 'admin@mailagent.local' },
+    where: { slug: 'admin@pmsync.local' },
     update: {},
     create: {
       name: 'Admin Workspace',
-      slug: 'admin@mailagent.local',
+      slug: 'admin@pmsync.local',
       description: 'Admin dev workspace',
       isActive: true,
     },
@@ -18,11 +18,11 @@ async function fix() {
 
   const hash = await bcrypt.hash('TestPassword123!', 10);
   const user = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: 'admin@mailagent.local' } },
+    where: { tenantId_email: { tenantId: tenant.id, email: 'admin@pmsync.local' } },
     update: { isMfaEnabled: false },
     create: {
       tenantId: tenant.id,
-      email: 'admin@mailagent.local',
+      email: 'admin@pmsync.local',
       passwordHash: hash,
       firstName: 'Admin',
       lastName: 'User',

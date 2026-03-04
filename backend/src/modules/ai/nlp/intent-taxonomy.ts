@@ -1,5 +1,5 @@
 /**
- * Intent Taxonomy for MailAgent NLP
+ * Intent Taxonomy for PMSync NLP
  *
  * Defines all possible user intents and their variations.
  * Used for synthetic dataset generation and intent classification.

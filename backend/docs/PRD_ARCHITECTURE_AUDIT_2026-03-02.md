@@ -1,14 +1,14 @@
-# MailAgent Backend -- PRD & Architecture Audit
+# PMSync Backend -- PRD & Architecture Audit
 
 **Date:** 2026-03-02
-**Scope:** `D:\MailAgent\backend\src\` (434 files, 20,523 LOC across 22 NestJS modules)
+**Scope:** `D:\PMSync\backend\src\` (434 files, 20,523 LOC across 22 NestJS modules)
 **Auditors:** 9 specialized AI agents (architecture, security, performance, code quality, CRM/data, AI layer)
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-MailAgent's backend is a **NestJS monolith** with 22 modules covering email sync (Gmail, Microsoft, IMAP), AI chat (Mistral), calendar, contacts/CRM, compliance, and real-time. The core email sync pipeline is battle-hardened with distributed locks, backpressure, and optimistic locking. The AI layer (post-VoltAgent rewrite) is structurally sound but has critical gaps.
+PMSync's backend is a **NestJS monolith** with 22 modules covering email sync (Gmail, Microsoft, IMAP), AI chat (Mistral), calendar, contacts/CRM, compliance, and real-time. The core email sync pipeline is battle-hardened with distributed locks, backpressure, and optimistic locking. The AI layer (post-VoltAgent rewrite) is structurally sound but has critical gaps.
 
 **Overall Production Readiness: 5/10**
 

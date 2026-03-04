@@ -38,7 +38,7 @@ MSW v2 mocking (TEST-01) is explicitly deferred — all tests use real Mistral A
 - Keep existing BullMQ queue architecture (batching 50 items, 200ms flush, 2 req/s rate limit)
 - Bulk re-embed triggered via CLI script: `npx ts-node scripts/re-embed-all.ts`
 - Script processes both emails AND contacts
-- 3301 emails available in `D:\MailAgent\data\posta_extracted.jsonl` (PST extract, JSONL format)
+- 3301 emails available in `D:\PMSync\data\posta_extracted.jsonl` (PST extract, JSONL format)
 
 ### Test Data & Seeding
 - Test data flow: JSONL → embedding pipeline (BullMQ → AI SDK embed() → pgvector)
@@ -73,7 +73,7 @@ MSW v2 mocking (TEST-01) is explicitly deferred — all tests use real Mistral A
 ## Specific Ideas
 
 - "We are in dev, we can purge the database" — no migration concerns, clean slate approach throughout
-- 3301 real work emails in `D:\MailAgent\data\posta_extracted.jsonl` — already extracted from PST, JSONL format with subject, body, from, to, folder, threadId, etc.
+- 3301 real work emails in `D:\PMSync\data\posta_extracted.jsonl` — already extracted from PST, JSONL format with subject, body, from, to, folder, threadId, etc.
 - Data is for LLM pipeline testing only, not for app account/sync functionality
 - Existing `extract_pst.py` scripts in data/ already handle PST extraction
 

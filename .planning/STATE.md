@@ -130,7 +130,7 @@ Recent decisions affecting current work:
 - [35-02]: Thin controller pattern -- PrismaService injected directly for 2 query endpoints (no service layer)
 - [35-02]: Permission enum has 21 entries (4 email + 6 AI + 3 calendar + 4 contacts + 4 admin)
 - [35-02]: IPolicyService is interface-only scaffolding -- no implementation until v4.1 RBAC
-- [36-01]: fromHash uses HMAC-SHA256 with per-tenant HKDF-derived key (info label: mailagent-blind-index-v1)
+- [36-01]: fromHash uses HMAC-SHA256 with per-tenant HKDF-derived key (info label: pmsync-blind-index-v1)
 - [36-01]: subject stays plaintext in v4.0 -- substring search incompatible with deterministic hashing
 - [36-01]: HashSearchService in common/services (not modules/email) to avoid circular dependency
 - [36-01]: Dual TenantKeyService instantiation intentional -- PrismaService new(), DI injected; both deterministic

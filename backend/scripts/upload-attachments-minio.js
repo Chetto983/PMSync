@@ -24,7 +24,7 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   // Init S3/MinIO client
-  const bucket = process.env.S3_BUCKET || 'mailagent-attachments';
+  const bucket = process.env.S3_BUCKET || 'pmsync-attachments';
   const s3 = new S3Client({
     region: process.env.S3_REGION || 'us-east-1',
     endpoint: process.env.S3_ENDPOINT,

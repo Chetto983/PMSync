@@ -25,7 +25,7 @@ Add an **HMAC-SHA256 blind index** (`fromHash`) on the Email `from` field only. 
 | Aspect | Decision | Rationale |
 |--------|----------|-----------|
 | Hash algorithm | HMAC-SHA256 | Keyed hash prevents rainbow table attacks; 256-bit output |
-| Key derivation | HKDF-SHA256 per tenant | Same master key, distinct info label (`mailagent-blind-index-v1`) from encryption key (`mailagent-field-enc-v1`) |
+| Key derivation | HKDF-SHA256 per tenant | Same master key, distinct info label (`pmsync-blind-index-v1`) from encryption key (`pmsync-field-enc-v1`) |
 | Scope | `from` field only | Only field with exact-match query pattern; `subject` needs substring search |
 | Column | `fromHash String?` (nullable) | Nullable for backward compatibility during backfill |
 | Index | B-tree on `[tenantId, fromHash]` | Composite index for tenant-scoped exact-match lookups |

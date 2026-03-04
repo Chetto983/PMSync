@@ -6,7 +6,7 @@
 
 ## Project Context
 
-You are working on **MailAgent** - A modern web application
+You are working on **PMSync** - A modern web application
 
 **Framework:** Generic Project  
 **Setup Date:** December 14, 2025  

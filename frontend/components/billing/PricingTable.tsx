@@ -178,7 +178,7 @@ function PlanCard({ plan, isCurrent, isRecommended, onSelect, isAttaching, t }: 
             sx={{ alignSelf: 'center' }}
           />
         ) : plan.price === null ? (
-          <Button variant="outlined" fullWidth sx={{ borderRadius: 2 }} href="mailto:sales@mailagent.io">
+          <Button variant="outlined" fullWidth sx={{ borderRadius: 2 }} href="mailto:sales@pmsync.io">
             {t.billing?.pricing?.contactSales || 'Contact Sales'}
           </Button>
         ) : (

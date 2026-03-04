@@ -104,7 +104,7 @@ describe('AuditService', () => {
         tenantId: 'tenant-1',
         userId: 'user-1',
         toolName: 'get_email_content',
-        agentName: 'MailAgent',
+        agentName: 'PMSync',
         inputSummary: 'emailId',
         outputSummary: '{"subject": "Meeting"}',
         durationMs: 150,
@@ -119,7 +119,7 @@ describe('AuditService', () => {
           userId: 'user-1',
           action: 'AI_TOOL:get_email_content',
           entity: 'VoltAgent',
-          entityId: 'MailAgent',
+          entityId: 'PMSync',
           changes: {
             inputSummary: 'emailId',
             outputSummary: '{"subject": "Meeting"}',
@@ -139,7 +139,7 @@ describe('AuditService', () => {
       await service.logToolExecution({
         tenantId: 'tenant-1',
         toolName: 'search_emails',
-        agentName: 'MailAgent',
+        agentName: 'PMSync',
         inputSummary: longInput,
         outputSummary: longOutput,
         durationMs: 500,

@@ -49,7 +49,7 @@ export const DEFAULT_USER_SETTINGS: StoredUserSettings = {
 const isBrowser = typeof window !== 'undefined';
 
 // Locale storage key used by useLocale hook
-const LOCALE_STORAGE_KEY_READ = 'mailagent:locale';
+const LOCALE_STORAGE_KEY_READ = 'pmsync:locale';
 
 export const getStoredUserSettings = (): StoredUserSettings => {
   if (!isBrowser) {
@@ -58,7 +58,7 @@ export const getStoredUserSettings = (): StoredUserSettings => {
 
   const raw = window.localStorage.getItem(USER_SETTINGS_STORAGE_KEY);
   if (!raw) {
-    // Also check if mailagent:locale exists and use it
+    // Also check if pmsync:locale exists and use it
     const existingLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY_READ);
     const settings = {
       ...DEFAULT_USER_SETTINGS,
@@ -105,7 +105,7 @@ export const resolveThemePreference = (
   return preference;
 };
 
-const LOCALE_CHANGE_EVENT = 'mailagent:locale-change';
+const LOCALE_CHANGE_EVENT = 'pmsync:locale-change';
 
 export const persistUserSettings = (updates: Partial<StoredUserSettings>): StoredUserSettings => {
   if (!isBrowser) {
@@ -121,7 +121,7 @@ export const persistUserSettings = (updates: Partial<StoredUserSettings>): Store
 
   window.localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify(next));
 
-  // Sync language to mailagent:locale key used by useLocale hook
+  // Sync language to pmsync:locale key used by useLocale hook
   if (updates.language) {
     window.localStorage.setItem(LOCALE_STORAGE_KEY_READ, updates.language);
     window.dispatchEvent(new CustomEvent(LOCALE_CHANGE_EVENT, { detail: updates.language }));

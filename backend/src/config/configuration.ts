@@ -183,7 +183,7 @@ export function loadConfiguration(): Configuration {
   const dbPort = parseInt(process.env.DB_PORT || '5432');
   const dbUser = process.env.DB_USER || 'mailuser';
   const dbPassword = process.env.DB_PASSWORD || 'mailpass';
-  const dbName = process.env.DB_NAME || 'mailagent';
+  const dbName = process.env.DB_NAME || 'pmsync';
 
   const databaseUrl = `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
 
@@ -273,7 +273,7 @@ export function loadConfiguration(): Configuration {
 
   // SMTP config
   const smtpFromEmail = process.env.SMTP_FROM_EMAIL || 'noreply';
-  const smtpFromDomain = process.env.SMTP_FROM_DOMAIN || 'mailagent.local';
+  const smtpFromDomain = process.env.SMTP_FROM_DOMAIN || 'pmsync.local';
 
   // Rate limiting
   const rateLimitTtlMs = parseInt(process.env.RATE_LIMIT_TTL_MS || '60000');

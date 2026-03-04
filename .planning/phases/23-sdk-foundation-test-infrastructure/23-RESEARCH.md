@@ -24,7 +24,7 @@
 - Keep existing BullMQ queue architecture (batching 50 items, 200ms flush, 2 req/s rate limit)
 - Bulk re-embed triggered via CLI script: `npx ts-node scripts/re-embed-all.ts`
 - Script processes both emails AND contacts
-- 3301 emails available in `D:\MailAgent\data\posta_extracted.jsonl` (PST extract, JSONL format)
+- 3301 emails available in `D:\PMSync\data\posta_extracted.jsonl` (PST extract, JSONL format)
 - Test data flow: JSONL -> embedding pipeline (BullMQ -> AI SDK embed() -> pgvector)
 - No app accounts/folders created -- data is purely for LLM pipeline validation
 - Full pipeline test: streaming chat response + DB persistence + tool detection + embedding query
@@ -510,7 +510,7 @@ The `MistralBatchProvider` and `mistral-batch.service.ts` use Mistral's Batch AP
 
 ## JSONL Data File Structure
 
-The file at `D:\MailAgent\data\posta_extracted.jsonl` contains 3301 email records. Each line is a JSON object with fields:
+The file at `D:\PMSync\data\posta_extracted.jsonl` contains 3301 email records. Each line is a JSON object with fields:
 ```json
 {
   "subject": "string",

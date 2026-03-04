@@ -4,7 +4,7 @@
  * Uses MUI theme-friendly colors with both light and dark variants.
  * Includes support for custom color picker.
  *
- * @see D:\MailAgent\frontend\components\calendar\CalendarColorPicker.tsx
+ * @see frontend/components\calendar\CalendarColorPicker.tsx
  */
 
 export interface LabelColor {

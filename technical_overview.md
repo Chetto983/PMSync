@@ -1,8 +1,8 @@
-# Technical Overview - MailAgent
+# Technical Overview - PMSync
 
 ## Project Architecture
 
-MailAgent is a multi-tenant email management platform with AI-powered features built on a modern NestJS + Next.js stack.
+PMSync is a multi-tenant email management platform with AI-powered features built on a modern NestJS + Next.js stack.
 
 **Framework:** NestJS 11 (Backend) + Next.js 16 (Frontend)
 

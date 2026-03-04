@@ -23,7 +23,7 @@ re_verification: false
 |---|-------|--------|----------|
 | 1 | Exact sender search returns correct emails via fromHash index — no plaintext from in WHERE | VERIFIED | `buildExactSenderFilter` builds `{ OR: [{ fromHash: hash }, { fromHash: null, from: value }] }` — hash path is the primary indexed path |
 | 2 | hmacForBlindIndex produces consistent HMAC-SHA256 hashes with case normalization | VERIFIED | `field-encryption.utils.ts:88-91` — `value.toLowerCase().trim()` then `createHmac('sha256', hmacKey).update(normalized).digest('hex')` |
-| 3 | TenantKeyService.getHmacKey derives key with distinct HKDF info label from encryption key | VERIFIED | `tenant-key.service.ts:15` — `HMAC_INFO_LABEL = 'mailagent-blind-index-v1'` vs existing `'mailagent-field-enc-v1'` |
+| 3 | TenantKeyService.getHmacKey derives key with distinct HKDF info label from encryption key | VERIFIED | `tenant-key.service.ts:15` — `HMAC_INFO_LABEL = 'pmsync-blind-index-v1'` vs existing `'pmsync-field-enc-v1'` |
 | 4 | Prisma extension auto-computes fromHash on Email create/update/upsert/createMany | VERIFIED | `field-encryption.extension.ts:11-12,127,136,146` — all four write operations covered via `injectBlindIndexFields` |
 | 5 | HashSearchService builds dual-path WHERE clause (hash + plaintext fallback) | VERIFIED | `hash-search.service.ts:36-61` — OR clause with `fromHash: hash` and `{ fromHash: null, from: value }` |
 | 6 | Backfill script populates fromHash for existing emails per-tenant with skip+take pagination | VERIFIED | `backfill-from-hash.ts:38-50` — per-tenant loop, idempotent `fromHash: null` filter, skip+take confirmed |

@@ -13,7 +13,7 @@ requires:
 provides:
   - AiObservabilityController with GET /ai/runs and GET /ai/runs/cost-summary endpoints
   - AiRunsQueryDto with class-validator pagination and filter decorators
-  - Permission enum with 21 resource:action pairs covering all MailAgent domains
+  - Permission enum with 21 resource:action pairs covering all PMSync domains
   - IPolicyService interface with evaluate, checkAll, listPermissions methods
   - POLICY_SERVICE injection symbol for NestJS DI
 affects: [36-encrypted-search, 37-performance, rbac-v4.1, ai-dashboard]

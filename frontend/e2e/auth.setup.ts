@@ -17,7 +17,7 @@ setup('authenticate', async ({ page }) => {
   // Pre-accept cookie consent to avoid modal blocking UI
   await page.addInitScript(() => {
     localStorage.setItem(
-      'mailagent:cookie-consent',
+      'pmsync:cookie-consent',
       JSON.stringify({ necessary: true, analytics: false, marketing: false })
     );
   });

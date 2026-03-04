@@ -2,12 +2,12 @@
  * Permission Taxonomy & PolicyService Interface
  *
  * Phase 35 Plan 02 -- RBAC foundation for v4.1.
- * Defines all MailAgent resource:action permission pairs and the
+ * Defines all PMSync resource:action permission pairs and the
  * PolicyService contract for evaluating user access.
  */
 
 /**
- * Permission enum covering all MailAgent resource:action pairs.
+ * Permission enum covering all PMSync resource:action pairs.
  * Format: resource:action (lowercase, colon-separated).
  */
 export enum Permission {

@@ -31,7 +31,7 @@ human_verification: []
 | 6  | Chat summary generation creates a separate ledger record with runType='chat-summary' | VERIFIED | `ai-chat.service.ts:521` — `this.ledgerService?.recordRun({ runType: 'chat-summary', ... })` in maybeTriggerSummaryGeneration |
 | 7  | GET /api/v1/ai/runs returns paginated ledger records filtered by tenant, date range, and runType | VERIFIED | `ai-observability.controller.ts:28-51` — findMany + count with buildWhere; AiRunsQueryDto validates filters; tests confirm pagination shape |
 | 8  | GET /api/v1/ai/runs/cost-summary returns aggregate cost, token counts, and run count | VERIFIED | `ai-observability.controller.ts:53-79` — prisma.aiRunLedger.aggregate with _sum and _count; null coalescence to 0 |
-| 9  | Permission enum covers all MailAgent resource:action pairs and IPolicyService interface defines evaluate, checkAll, listPermissions | VERIFIED | `policy-service.interface.ts` — 21 Permission entries (email:4, ai:6, calendar:3, contacts:4, admin:4); IPolicyService with all 3 methods; POLICY_SERVICE symbol exported |
+| 9  | Permission enum covers all PMSync resource:action pairs and IPolicyService interface defines evaluate, checkAll, listPermissions | VERIFIED | `policy-service.interface.ts` — 21 Permission entries (email:4, ai:6, calendar:3, contacts:4, admin:4); IPolicyService with all 3 methods; POLICY_SERVICE symbol exported |
 
 **Score:** 9/9 truths verified
 
@@ -142,7 +142,7 @@ Phase 35 goal is fully achieved. Both sub-goals — AI observability and permiss
 
 **AI Observability (AIOBS-01, AIOBS-02, AIOBS-03):** AiRunLedgerService exists with real cost estimation logic (COST_MAP, safeInt, CorrelationContext fallback). All 6 AI call paths are instrumented with fire-and-forget ledger writes: chat, chat-summary, briefing, follow-up-detection, draft-generation, and MistralService.completePrompt/generateChatTitle. The two query endpoints are live, guarded, and query prisma.aiRunLedger directly with tenant isolation and date/runType filters.
 
-**Permissions Taxonomy (AIOBS-04):** Permission enum has 21 resource:action entries covering all MailAgent domains (email, AI, calendar, contacts, admin). IPolicyService interface with evaluate/checkAll/listPermissions is defined and barrel-exported. POLICY_SERVICE injection symbol is ready for NestJS DI when v4.1 RBAC implementation begins.
+**Permissions Taxonomy (AIOBS-04):** Permission enum has 21 resource:action entries covering all PMSync domains (email, AI, calendar, contacts, admin). IPolicyService interface with evaluate/checkAll/listPermissions is defined and barrel-exported. POLICY_SERVICE injection symbol is ready for NestJS DI when v4.1 RBAC implementation begins.
 
 Test coverage is solid: 17 tests across Plan 01 (6 ledger unit + 5 briefing integration + 2 chat integration + 4 mistral integration) and 13 tests across Plan 02 (8 controller + 5 taxonomy). All artifacts exceed minimum line requirements. No placeholders, stubs, or wiring gaps found.
 

@@ -6,7 +6,7 @@
 
 ## Summary
 
-This research investigates implementing field-level encryption at rest for all PII fields in the MailAgent database using `prisma-field-encryption`. The findings reveal **three showstopper-level issues** that fundamentally challenge the original plan:
+This research investigates implementing field-level encryption at rest for all PII fields in the PMSync database using `prisma-field-encryption`. The findings reveal **three showstopper-level issues** that fundamentally challenge the original plan:
 
 1. **`prisma-field-encryption` is BROKEN on Prisma 7.x** -- The library depends on Prisma's DMMF (Data Model Meta Format) which changed structure in Prisma 6.16.0 and is essentially absent in Prisma 7. Issue #143 is unresolved, PR #144 is unmerged, and the maintainer has stated limited capacity. This project runs Prisma 7.3.0.
 
@@ -180,7 +180,7 @@ export class TenantKeyService {
         'sha256',         // digest
         this.masterKey,   // input keying material
         tenantId,         // salt (tenant isolation)
-        'mailagent-field-encryption-v1', // info (purpose binding)
+        'pmsync-field-encryption-v1', // info (purpose binding)
         32,               // keylen (256 bits for AES-256)
       ),
     );
@@ -431,7 +431,7 @@ export class TenantKeyService {
 
   deriveKey(masterKey: Buffer, tenantId: string): Buffer {
     return Buffer.from(
-      hkdfSync('sha256', masterKey, tenantId, 'mailagent-field-enc-v1', 32),
+      hkdfSync('sha256', masterKey, tenantId, 'pmsync-field-enc-v1', 32),
     );
   }
 

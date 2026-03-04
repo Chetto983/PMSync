@@ -178,7 +178,7 @@ test.describe('Email List - Empty States', () => {
     await injectAuthCookie(page.context(), 'test-jwt-token');
     await page.addInitScript(() => {
       localStorage.setItem(
-        'mailagent:cookie-consent',
+        'pmsync:cookie-consent',
         JSON.stringify({ necessary: true, analytics: false, marketing: false })
       );
     });
@@ -218,7 +218,7 @@ test.describe('Email List - Loading States', () => {
     await injectAuthCookie(page.context(), 'test-jwt-token');
     await page.addInitScript(() => {
       localStorage.setItem(
-        'mailagent:cookie-consent',
+        'pmsync:cookie-consent',
         JSON.stringify({ necessary: true, analytics: false, marketing: false })
       );
     });

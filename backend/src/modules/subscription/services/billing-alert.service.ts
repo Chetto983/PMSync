@@ -272,7 +272,7 @@ export class BillingAlertService {
         </tr>
       </table>
       <p><strong>Next Steps:</strong> ${actionMap[alert.level]}</p>
-      <p><a href="${this.config.get('FRONTEND_URL', 'https://app.mailagent.com')}/settings/billing">Manage Subscription</a></p>
+      <p><a href="${this.config.get('FRONTEND_URL', 'https://app.pmsync.com')}/settings/billing">Manage Subscription</a></p>
     `;
   }
 }

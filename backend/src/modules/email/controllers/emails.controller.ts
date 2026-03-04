@@ -599,7 +599,7 @@ export class EmailsController {
     const provider = await this.getProviderForTenant(tenantId, body.providerId);
     const organizerEmail = provider.email;
 
-    const uid = `${Date.now()}-${Math.random().toString(36).slice(2)}@mailagent`;
+    const uid = `${Date.now()}-${Math.random().toString(36).slice(2)}@pmsync`;
     const eventData = {
       uid,
       summary: body.summary,

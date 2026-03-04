@@ -1,13 +1,13 @@
 # Project Research Summary
 
-**Project:** MailAgent v4.0 Enterprise Stabilization
+**Project:** PMSync v4.0 Enterprise Stabilization
 **Domain:** Brownfield enterprise stabilization of a NestJS/Next.js AI email platform
 **Researched:** 2026-03-03
 **Confidence:** HIGH (codebase-verified findings, all npm versions confirmed, official NestJS/Next.js docs cross-referenced)
 
 ## Executive Summary
 
-MailAgent v4.0 is a surgical stabilization milestone, not a feature expansion. The platform scored 58/100 on the March 2026 enterprise readiness audit. The v3.2 AI rebuild shipped functional AI chat but carried forward three categories of debt that block enterprise sales: architectural coupling (17 circular `forwardRef` edges across 12 modules), security gaps (localStorage JWT storage, mixed AES cipher modes, plaintext searchable PII fields), and API contract inconsistency (mixed response shapes across 32 controllers, 24 of 32 routes unversioned). The recommended approach applies three decoupling mechanisms in sequence — event bus for fire-and-forget cross-module notifications, interface injection tokens for return-value queries, and a global tool registry for AI chat — followed by API standardization, auth hardening, and data layer corrections. No framework swaps, no major version bumps. The stack (NestJS 11, Prisma 7, Next.js 16, AI SDK v6) is correct and stable. The work is wiring discipline.
+PMSync v4.0 is a surgical stabilization milestone, not a feature expansion. The platform scored 58/100 on the March 2026 enterprise readiness audit. The v3.2 AI rebuild shipped functional AI chat but carried forward three categories of debt that block enterprise sales: architectural coupling (17 circular `forwardRef` edges across 12 modules), security gaps (localStorage JWT storage, mixed AES cipher modes, plaintext searchable PII fields), and API contract inconsistency (mixed response shapes across 32 controllers, 24 of 32 routes unversioned). The recommended approach applies three decoupling mechanisms in sequence — event bus for fire-and-forget cross-module notifications, interface injection tokens for return-value queries, and a global tool registry for AI chat — followed by API standardization, auth hardening, and data layer corrections. No framework swaps, no major version bumps. The stack (NestJS 11, Prisma 7, Next.js 16, AI SDK v6) is correct and stable. The work is wiring discipline.
 
 The biggest technical risks are (1) removing `forwardRef` calls without understanding the full DI initialization graph, which can silently crash the app at bootstrap with vague "can't resolve dependencies" errors, and (2) migrating auth from localStorage to httpOnly cookies without a dual-read transition period, which will lock out all active sessions immediately. Both are solved by incrementalism: break one cycle at a time with a boot test after each removal, and run auth in dual-mode for two weeks before cutting over. The secondary risks are API contract drift masked by frontend silent fallbacks (three dashboard queries silently generate mock data on API failure), and the ENC-03 encrypted search implementation being technically limited to exact-match only — substring search on encrypted fields requires a full searchable encryption infrastructure that is out of scope for v4.0.
 
@@ -282,7 +282,7 @@ Phases with standard patterns (no additional research needed):
 - [NestJS Events official docs](https://docs.nestjs.com/techniques/events) — EventEmitter2 integration patterns
 - [NestJS Circular Dependency official docs](https://docs.nestjs.com/fundamentals/circular-dependency) — forwardRef guidance and alternatives
 - npm registry (verified 2026-03-03) — all 5 new package versions and peer dependencies confirmed
-- [Enterprise Platform PRD](D:/MailAgent/docs/Enterprise-Platform-PRD.md) — gap analysis, phase definitions, priority ratings
+- [Enterprise Platform PRD](D:/PMSync/docs/Enterprise-Platform-PRD.md) — gap analysis, phase definitions, priority ratings
 
 ### Secondary (MEDIUM confidence)
 - [Trilon: Avoiding Circular Dependencies in NestJS](https://trilon.io/blog/avoiding-circular-dependencies-in-nestjs) — event-driven decoupling patterns

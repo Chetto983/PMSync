@@ -1,5 +1,5 @@
 /**
- * Export tenant data from database to D:\MailAgent\data\export\
+ * Export tenant data from database to D:\PMSync\data\export\
  * - Last 500 emails with attachments
  * - All calendar events
  * - All contacts

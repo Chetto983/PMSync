@@ -4,7 +4,7 @@
  * Wrapper around the reusable ColorPicker for label-specific functionality.
  * Converts between LabelColor objects and hex strings.
  *
- * @see D:\MailAgent\frontend\components\common\ColorPicker.tsx
+ * @see frontend/components\common\ColorPicker.tsx
  */
 
 import React from 'react';

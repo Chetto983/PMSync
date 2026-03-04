@@ -6021,7 +6021,7 @@
     }
   },
   "info": {
-    "title": "MailAgent API",
+    "title": "PMSync API",
     "description": "AI-powered multi-tenant email assistant API",
     "version": "1.0",
     "contact": {}

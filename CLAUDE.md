@@ -200,26 +200,26 @@ npx claude-flow memory store gmail-folders-fix-2025-12-30 '{
   "solution": "How it was fixed",
   "files": ["file1.ts", "file2.tsx"],
   "status": "RESOLVED"
-}' --namespace mailagent
+}' --namespace pmsync
 
 # Query memory (semantic search)
-npx claude-flow memory query "Gmail folders" --namespace mailagent
+npx claude-flow memory query "Gmail folders" --namespace pmsync
 
 # List all stored memories
-npx claude-flow memory list --namespace mailagent --sort recent --limit 20
+npx claude-flow memory list --namespace pmsync --sort recent --limit 20
 
 # Export for backup
-npx claude-flow memory export memory-backup.json --namespace mailagent
+npx claude-flow memory export memory-backup.json --namespace pmsync
 
 # Check memory statistics
-npx claude-flow memory stats --namespace mailagent
+npx claude-flow memory stats --namespace pmsync
 ```
 
 ### Namespace Organization
 
 | Namespace   | Purpose                               |
 | ----------- | ------------------------------------- |
-| `mailagent` | MailAgent project fixes and patterns  |
+| `pmsync` | PMSync project fixes and patterns  |
 | `frontend`  | Frontend-specific solutions           |
 | `backend`   | Backend-specific solutions            |
 | `sparc`     | SPARC workflow patterns               |
@@ -435,7 +435,7 @@ Message 4: Write "file.js"
 6. Enable hooks automation
 7. Use GitHub tools first
 
-## 🎨 FRONTEND DEVELOPMENT PROCEDURE (PMSync/MailAgent)
+## 🎨 FRONTEND DEVELOPMENT PROCEDURE (PMSync/PMSync)
 
 ### ⚠️ MANDATORY CHECKLIST FOR EVERY FRONTEND COMPONENT
 
@@ -745,7 +745,7 @@ mcp__playwright__browser_close()
 
 ### TailAdmin Reference
 
-TailAdmin components available at: `D:\MailAgent\free-nextjs-admin-dashboard-main`
+TailAdmin components available at: `D:\PMSync\free-nextjs-admin-dashboard-main`
 - GitHub: https://github.com/TailAdmin
 - Use for responsive design patterns and component inspiration
 
@@ -997,7 +997,7 @@ const delay = Math.min(100 * Math.pow(2, attempt), 2000); // Exponential backoff
 
 ```bash
 # Query email consolidation memory
-npx claude-flow@alpha memory query "email-consolidation" --namespace mailagent
+npx claude-flow@alpha memory query "email-consolidation" --namespace pmsync
 
 # Key memories stored:
 # - email-consolidation-roadmap-2025-01-04

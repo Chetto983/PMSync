@@ -1,4 +1,4 @@
-# MailAgent — Enterprise Platform PRD
+# PMSync — Enterprise Platform PRD
 
 **Document Type:** Architecture Audit & Transformation Strategy
 **Date:** 2026-03-04 (Consolidated from multiple audit passes, codebase-verified)
@@ -26,7 +26,7 @@
 
 ### Overall Architecture Maturity
 
-MailAgent is a **well-engineered growth-stage SaaS** with broad functional depth (email, calendar, contacts, AI chat, queues, compliance). It has significantly outgrown its startup roots in several areas (AI orchestration, security, database design) while remaining immature in others (RBAC, CRM primitives, frontend permission enforcement). It is **not yet enterprise-grade CRM architecture** — governance, control-plane separation, and AI run observability are partial.
+PMSync is a **well-engineered growth-stage SaaS** with broad functional depth (email, calendar, contacts, AI chat, queues, compliance). It has significantly outgrown its startup roots in several areas (AI orchestration, security, database design) while remaining immature in others (RBAC, CRM primitives, frontend permission enforcement). It is **not yet enterprise-grade CRM architecture** — governance, control-plane separation, and AI run observability are partial.
 
 **Maturity Level:** 2.8 / 5 (Growth platform, pre-enterprise control plane)
 
@@ -914,4 +914,4 @@ User Request
 
 ---
 
-*Generated: 2026-03-04 | MailAgent Enterprise Platform Audit — Consolidated*
+*Generated: 2026-03-04 | PMSync Enterprise Platform Audit — Consolidated*
