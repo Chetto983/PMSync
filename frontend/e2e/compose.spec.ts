@@ -11,7 +11,7 @@
  */
 
 import { test as base, Page, expect } from '@playwright/test';
-import { mockEmails, mockFolders, mockUser } from './fixtures';
+import { mockEmails, mockFolders, mockUser, injectAuthCookie } from './fixtures';
 
 // Override storage state for compose tests
 base.use({ storageState: { cookies: [], origins: [] } });
@@ -32,20 +32,11 @@ const mockProviders = [
 // Extended compose test fixture
 const test = base.extend<{ composePage: Page }>({
   composePage: async ({ page }, use) => {
-    // Mock authentication - use Zustand persist format for auth-storage
-    // The app uses zustand persist middleware with name: 'auth-storage'
+    // Inject httpOnly cookie for auth (Phase 34 -- no localStorage)
+    await injectAuthCookie(page.context(), 'test-jwt-token');
+
+    // Pre-accept cookie consent to avoid modal blocking UI
     await page.addInitScript(() => {
-      // Zustand persist format: { state: { token, ... }, version: 0 }
-      localStorage.setItem(
-        'auth-storage',
-        JSON.stringify({
-          state: { token: 'test-jwt-token' },
-          version: 0,
-        })
-      );
-      // Also set auth-token cookie for API routes that read from cookie
-      document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
-      // Pre-accept cookie consent to avoid modal blocking UI
       localStorage.setItem(
         'mailagent:cookie-consent',
         JSON.stringify({ necessary: true, analytics: false, marketing: false })

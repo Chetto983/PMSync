@@ -221,7 +221,6 @@ function isAuthError(error: Error): boolean {
 
 class WebSocketClient {
   private socket: Socket | null = null;
-  private token: string | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private isConnecting = false;
@@ -301,7 +300,11 @@ class WebSocketClient {
   /**
    * Inizializza la connessione WebSocket
    */
-  connect(token: string): Promise<void> {
+  /**
+   * Connect to the WebSocket server.
+   * Auth is handled by httpOnly cookie sent via withCredentials: true.
+   */
+  connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.socket?.connected) {
         logger.debug('[WebSocket] Already connected');
@@ -316,7 +319,6 @@ class WebSocketClient {
       }
 
       this.isConnecting = true;
-      this.token = token;
 
       // CRITICAL: Only fallback to localhost in development mode
       // In production, NEXT_PUBLIC_API_URL must be set
@@ -331,9 +333,7 @@ class WebSocketClient {
       }
 
       this.socket = io(`${backendUrl}/realtime`, {
-        auth: {
-          token: this.token,
-        },
+        withCredentials: true,
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,

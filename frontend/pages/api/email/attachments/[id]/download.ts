@@ -31,27 +31,20 @@ export default async function handler(
     return res.status(400).json({ error: 'Missing attachment ID' });
   }
 
-  // Get auth token from Authorization header or cookie
+  // Get auth token from httpOnly access_token cookie (set by backend on login).
+  // Next.js API routes run server-side and CAN read httpOnly cookies.
   let token: string | undefined;
 
-  // Check Authorization header first (for authenticated fetch requests)
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith('Bearer ')) {
-    token = authHeader.slice(7);
+  // Primary: read from httpOnly access_token cookie (Phase 34 cookie auth)
+  if (req.cookies['access_token']) {
+    token = req.cookies['access_token'];
   }
 
-  // Read from auth-token cookie (set by auth-store for img src authentication)
-  if (!token && req.cookies['auth-token']) {
-    token = decodeURIComponent(req.cookies['auth-token']);
-  }
-
-  // Fall back to reading from auth-storage cookie (legacy)
-  if (!token && req.cookies['auth-storage']) {
-    try {
-      const parsed = JSON.parse(req.cookies['auth-storage']);
-      token = parsed?.state?.token;
-    } catch {
-      // Invalid JSON, skip
+  // Fallback: Authorization header (for authenticated fetch requests)
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
     }
   }
 

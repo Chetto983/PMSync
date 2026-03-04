@@ -7,7 +7,7 @@
  * - Test data factories
  */
 
-import { test as base, Page } from '@playwright/test';
+import { test as base, Page, BrowserContext } from '@playwright/test';
 
 // Mock email data
 export const mockEmails = [
@@ -83,23 +83,29 @@ export const mockUser = {
   tenantId: 'tenant-1',
 };
 
+/**
+ * Inject httpOnly access_token cookie for E2E test authentication.
+ * Mirrors the backend's cookie.helper.ts format.
+ */
+export async function injectAuthCookie(context: BrowserContext, token: string) {
+  await context.addCookies([{
+    name: 'access_token',
+    value: token,
+    domain: 'localhost',
+    path: '/',
+    httpOnly: true,
+    secure: false, // localhost in test
+  }]);
+}
+
 // Extend base test with authenticated page
 export const test = base.extend<{ authedPage: Page }>({
   authedPage: async ({ page }, use) => {
-    // Mock authentication - use Zustand persist format for auth-storage
-    // The app uses zustand persist middleware with name: 'auth-storage'
+    // Inject httpOnly cookie for auth (Phase 34 -- no localStorage)
+    await injectAuthCookie(page.context(), 'test-jwt-token');
+
+    // Pre-accept cookie consent to avoid modal blocking UI
     await page.addInitScript(() => {
-      // Zustand persist format: { state: { token, ... }, version: 0 }
-      localStorage.setItem(
-        'auth-storage',
-        JSON.stringify({
-          state: { token: 'test-jwt-token' },
-          version: 0,
-        })
-      );
-      // Also set auth-token cookie for API routes that read from cookie
-      document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
-      // Pre-accept cookie consent to avoid modal blocking UI
       localStorage.setItem(
         'mailagent:cookie-consent',
         JSON.stringify({ necessary: true, analytics: false, marketing: false })

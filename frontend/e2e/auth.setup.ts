@@ -2,28 +2,20 @@
  * Authentication Setup Project
  *
  * Creates reusable storageState for other tests.
- * Uses mocked authentication pattern (localStorage token + API mocking).
+ * Uses httpOnly cookie injection (Phase 34 -- no localStorage token).
  */
 
 import { test as setup, expect } from '@playwright/test';
+import { injectAuthCookie } from './fixtures';
 
 const authFile = 'playwright/.auth/user.json';
 
 setup('authenticate', async ({ page }) => {
-  // Mock authentication - use Zustand persist format for auth-storage
-  // The app uses zustand persist middleware with name: 'auth-storage'
+  // Inject httpOnly access_token cookie for auth (Phase 34)
+  await injectAuthCookie(page.context(), 'test-jwt-token');
+
+  // Pre-accept cookie consent to avoid modal blocking UI
   await page.addInitScript(() => {
-    // Zustand persist format: { state: { token, ... }, version: 0 }
-    localStorage.setItem(
-      'auth-storage',
-      JSON.stringify({
-        state: { token: 'test-jwt-token' },
-        version: 0,
-      })
-    );
-    // Also set auth-token cookie for API routes that read from cookie
-    document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
-    // Pre-accept cookie consent to avoid modal blocking UI
     localStorage.setItem(
       'mailagent:cookie-consent',
       JSON.stringify({ necessary: true, analytics: false, marketing: false })
@@ -56,12 +48,14 @@ setup('authenticate', async ({ page }) => {
     });
   });
 
-  // Navigate to trigger localStorage population
+  // Navigate to trigger auth check via /auth/me
   await page.goto('/');
 
-  // Verify auth was set (check zustand persist format)
-  const authStorage = await page.evaluate(() => localStorage.getItem('auth-storage'));
-  expect(authStorage).toContain('test-jwt-token');
+  // Verify auth cookie was set via context cookies
+  const cookies = await page.context().cookies();
+  const authCookie = cookies.find(c => c.name === 'access_token');
+  expect(authCookie).toBeDefined();
+  expect(authCookie!.value).toBe('test-jwt-token');
 
   // Save auth state for other tests
   await page.context().storageState({ path: authFile });

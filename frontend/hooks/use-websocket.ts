@@ -54,7 +54,7 @@ interface UseWebSocketReturn {
  */
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
   const { autoConnect = true, refetchOnReconnect = true } = options;
-  const { token, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
 
@@ -62,17 +62,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Track if we've attempted connection for this token
+  // Track if we've attempted connection for this auth state
   const connectionAttemptedRef = useRef(false);
-  const currentTokenRef = useRef<string | null>(null);
+  const wasAuthenticatedRef = useRef(false);
 
-  // Connect function
+  // Connect function -- cookie sent via withCredentials, no token param needed
   const connect = useCallback(async () => {
-    if (!token) {
-      setError(new Error('No auth token available'));
-      return;
-    }
-
     if (websocketClient.isConnected()) {
       setIsConnected(true);
       return;
@@ -82,18 +77,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     setError(null);
 
     try {
-      await websocketClient.connect(token);
+      await websocketClient.connect();
       setIsConnected(true);
       logger.debug('[useWebSocket] Connected successfully');
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      setError(error);
+      const connectError = err instanceof Error ? err : new Error(String(err));
+      setError(connectError);
       setIsConnected(false);
-      logger.error('[useWebSocket] Connection failed', { error: error.message });
+      logger.error('[useWebSocket] Connection failed', { error: connectError.message });
     } finally {
       setIsConnecting(false);
     }
-  }, [token]);
+  }, []);
 
   // Disconnect function
   const disconnect = useCallback(() => {
@@ -160,21 +155,21 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     };
   }, []);
 
-  // Auto-connect when authenticated
+  // Auto-connect when authenticated (cookie-based)
   useEffect(() => {
     // Skip if auto-connect is disabled
     if (!autoConnect) {
       return;
     }
 
-    // If token changed, reset connection attempt flag
-    if (token !== currentTokenRef.current) {
+    // If auth state changed, reset connection attempt flag
+    if (isAuthenticated !== wasAuthenticatedRef.current) {
       connectionAttemptedRef.current = false;
-      currentTokenRef.current = token;
+      wasAuthenticatedRef.current = isAuthenticated;
     }
 
     // Connect if authenticated and not yet attempted
-    if (isAuthenticated && token && !connectionAttemptedRef.current) {
+    if (isAuthenticated && !connectionAttemptedRef.current) {
       connectionAttemptedRef.current = true;
       connect();
     }
@@ -183,7 +178,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     if (!isAuthenticated && websocketClient.isConnected()) {
       disconnect();
     }
-  }, [autoConnect, isAuthenticated, token, connect, disconnect]);
+  }, [autoConnect, isAuthenticated, connect, disconnect]);
 
   // Note: We intentionally don't disconnect on unmount because:
   // 1. WebSocket connection is managed at Layout level (singleton)

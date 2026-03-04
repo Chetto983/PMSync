@@ -6,7 +6,6 @@ import {
   AssistantChatTransport,
 } from '@assistant-ui/react-ai-sdk';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
-import { getAuthToken } from '@/lib/utils/auth-token';
 import { getCsrfToken } from '@/lib/api-client';
 import type { UIMessage } from 'ai';
 
@@ -32,8 +31,9 @@ function extractLastUserText(messages: UIMessage[]): string {
 let csrfCache = '';
 
 function getHeaders(): Record<string, string> {
+  // Auth is handled by httpOnly cookie (credentials: 'include' on transport).
+  // Only CSRF token needs to be set explicitly.
   return {
-    Authorization: `Bearer ${getAuthToken()}`,
     'X-CSRF-Token': csrfCache,
   };
 }

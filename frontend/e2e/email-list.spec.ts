@@ -8,7 +8,7 @@
  * - Selection and bulk actions
  */
 
-import { test, expect, mockEmails } from './fixtures';
+import { test, expect, mockEmails, injectAuthCookie } from './fixtures';
 
 test.describe('Email List', () => {
   test.beforeEach(async ({ authedPage }) => {
@@ -174,17 +174,9 @@ test.describe('Email List - Empty States', () => {
       });
     });
 
-    // Mock auth - use Zustand persist format
+    // Inject httpOnly cookie for auth (Phase 34 -- no localStorage)
+    await injectAuthCookie(page.context(), 'test-jwt-token');
     await page.addInitScript(() => {
-      localStorage.setItem(
-        'auth-storage',
-        JSON.stringify({
-          state: { token: 'test-jwt-token' },
-          version: 0,
-        })
-      );
-      document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
-      // Pre-accept cookie consent to avoid modal blocking UI
       localStorage.setItem(
         'mailagent:cookie-consent',
         JSON.stringify({ necessary: true, analytics: false, marketing: false })
@@ -222,17 +214,9 @@ test.describe('Email List - Empty States', () => {
 
 test.describe('Email List - Loading States', () => {
   test('shows loading indicator while fetching emails', async ({ page }) => {
-    // Mock auth FIRST - before setting up routes, so addInitScript runs before navigation
+    // Inject httpOnly cookie for auth (Phase 34 -- no localStorage)
+    await injectAuthCookie(page.context(), 'test-jwt-token');
     await page.addInitScript(() => {
-      localStorage.setItem(
-        'auth-storage',
-        JSON.stringify({
-          state: { token: 'test-jwt-token' },
-          version: 0,
-        })
-      );
-      document.cookie = 'auth-token=test-jwt-token; path=/; SameSite=Lax';
-      // Pre-accept cookie consent to avoid modal blocking UI
       localStorage.setItem(
         'mailagent:cookie-consent',
         JSON.stringify({ necessary: true, analytics: false, marketing: false })
