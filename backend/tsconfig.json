@@ -10,6 +10,8 @@
     "strictPropertyInitialization": false,
     "esModuleInterop": true,
     "isolatedModules": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,

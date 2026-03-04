@@ -61,7 +61,8 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - Integer phases (42, 43, ...): Planned milestone work
 - Decimal phases (42.1, 42.2): Urgent insertions (marked with INSERTED)
 
-- [x] **Phase 42: Tenant Isolation & Auth Hardening** - ~~Prisma tenant-scoping~~ (DONE), RolesGuard expansion, JWT refresh rotation (completed 2026-03-04)
+- [x] **Phase 42: Tenant Isolation & Auth Hardening** - ~~Prisma tenant-scoping~~ (DONE), RolesGuard expansion, JWT refresh rotation
+ (completed 2026-03-04)
 - [ ] **Phase 43: Contract Tests & Backend God-File Splits** - API contract tests in CI, attachment streaming, 5 backend god-files decomposed
 - [ ] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification
 - [ ] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to ≤12 via domain events and shared interfaces
@@ -116,7 +117,7 @@ Plans:
 **Plans**: TBD
 
 ### Phase 45: forwardRef Burn-Down
-**Goal**: NestJS circular dependency count reduced from 24 to ≤12 files via domain events, shared interfaces, and provider injection
+**Goal**: NestJS circular dependency count reduced from 24 to 0 files via domain events, shared interfaces, and provider injection
 **Depends on**: Phase 43 (backend splits may affect module boundaries)
 **Requirements**: DEBT-01, DEBT-02, DEBT-03, DEBT-04, DEBT-05, TEST-08
 **Success Criteria** (what must be TRUE):

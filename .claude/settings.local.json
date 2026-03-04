@@ -152,7 +152,9 @@
       "Bash(gh api repos/chetto1983/PMSync --jq '.name')",
       "Bash(npx vercel ls)",
       "Bash(docker compose -f docker-compose.dev.yml up -d redis)",
-      "Bash(docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")"
+      "Bash(docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")",
+      "Bash(du -sh /d/MailAgent/backend/node_modules/@types/*)",
+      "Bash(sort -t: -k2 -nr)"
     ],
     "deny": [],
     "ask": []
