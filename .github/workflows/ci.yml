@@ -47,8 +47,7 @@ jobs:
 
       - name: Generate OpenAPI spec
         id: openapi-gen
-        run: |
-          npx ts-node scripts/generate-openapi.ts || echo "OpenAPI generation requires database -- skipping in CI for now"
+        run: npx ts-node scripts/generate-openapi.ts
         continue-on-error: true
 
       - name: Lint OpenAPI spec
