@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from './prisma-client.factory';
 import { TenantKeyService } from '../common/services/tenant-key.service';
 import { createFieldEncryptionExtension } from './encryption/field-encryption.extension';
+import { createTenantScopingExtension } from './tenant-scoping/tenant-scoping.extension';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
@@ -15,17 +16,25 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   async onModuleInit() {
+    // Tenant scoping runs first — injects tenantId into args
+    // so field encryption can read it for key derivation.
+    let client: PrismaClient = this.$extends(
+      createTenantScopingExtension(),
+    ) as unknown as PrismaClient;
+    this.logger.log('Tenant-scoping extension applied (audit mode)');
+
     if (this.tenantKeyService.isEnabled) {
-      const extended = this.$extends(
+      client = client.$extends(
         createFieldEncryptionExtension(
           (tenantId) => this.tenantKeyService.getCurrentKey(tenantId),
           (tenantId) => this.tenantKeyService.getDecryptionKeys(tenantId),
           (tenantId) => this.tenantKeyService.getHmacKey(tenantId),
         ),
-      );
-      Object.assign(this, extended);
+      ) as unknown as PrismaClient;
       this.logger.log('Field encryption extension applied');
     }
+
+    Object.assign(this, client);
     await this.$connect();
     this.logger.log('Prisma connected to database');
   }
