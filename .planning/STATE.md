@@ -2,13 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
-status: unknown
-last_updated: "2026-03-03T18:38:42.774Z"
+status: completed
+stopped_at: Completed 34-03-PLAN.md
+last_updated: "2026-03-04T07:39:52.954Z"
+last_activity: 2026-03-04 -- Plan 34-03 completed (CryptoService AES-GCM upgrade with CBC fallback)
 progress:
-  total_phases: 19
-  completed_phases: 17
-  total_plans: 64
-  completed_plans: 63
+  total_phases: 7
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 10
+  percent: 96
 ---
 
 # Project State
@@ -18,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 33 - API Contract Standardization
+**Current focus:** Phase 34 - Auth Security Hardening
 
 ## Current Position
 
-Phase: 33 of 37 (API Contract Standardization)
-Plan: 3 of 3 complete in current phase
-Status: Phase 33 complete -- all 3 plans done
-Last activity: 2026-03-03 -- Plan 33-03 completed (BullMQ correlation ID propagation, OpenAPI Spectral linting, type generation)
+Phase: 34 of 37 (Auth Security Hardening)
+Plan: 1 of 3 complete in current phase
+Status: Plan 34-03 complete (AES-GCM standardization)
+Last activity: 2026-03-04 -- Plan 34-03 completed (CryptoService AES-GCM upgrade with CBC fallback)
 
-Progress: [######░░░░] 64%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (v4.0)
+- Total plans completed: 10 (v4.0)
 - Previous milestone (v3.2): 20 plans, 227min total, 11min avg
 
 **By Phase:**
@@ -42,6 +45,8 @@ Progress: [######░░░░] 64%
 | 31 | 2/2 | 20min | 10min |
 | 32 | 4/4 | 44min | 11min |
 | 33 | 3/3 | 50min | 17min |
+| 34 | 1/3 | 5min | 5min |
+| Phase 34 P03 | 5min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -81,6 +86,9 @@ Recent decisions affecting current work:
 - [33-03]: Added requestId?: string to all BullMQ job data interfaces for type safety
 - [33-03]: OpenAPI generation step is continue-on-error in CI (requires database); lint blocks when spec exists
 - [33-03]: frontend/types/api.generated.ts committed as placeholder; CI overwrites with real types
+- [34-03]: GCM ciphertext format: gcm:<ciphertextHex>:<authTagHex> -- colon-delimited prefix as version discriminator
+- [34-03]: No data migration: existing CBC data transparently decrypted via fallback on access
+- [34-03]: IV length change (16->12 bytes) implicit -- stored hex strings, decrypt handles any length
 
 ### Pending Todos
 
@@ -96,7 +104,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: Completed 33-03-PLAN.md (Phase 33 complete)
-Resume file: .planning/phases/33-api-contract-standardization/33-03-SUMMARY.md
-Next action: /gsd:execute-phase 34 (Auth Security Hardening)
+Last session: 2026-03-04T07:39:52.949Z
+Stopped at: Completed 34-03-PLAN.md
+Resume file: None
+Next action: Execute remaining Phase 34 plans (34-01, 34-02)

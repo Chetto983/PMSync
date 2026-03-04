@@ -3,6 +3,7 @@ import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedSocket, buildTenantRoom } from '../types/realtime.types';
+import { AUTH_COOKIE_NAME } from '../../auth/helpers/cookie.helper';
 
 interface HandshakeResult {
   userId: string;
@@ -52,6 +53,16 @@ export class RealtimeHandshakeService {
   }
 
   extractToken(client: AuthenticatedSocket): string | null {
+    // SEC-01: Check httpOnly cookie first (set by auth.controller on login)
+    const cookieHeader = client.handshake.headers?.cookie;
+    if (cookieHeader) {
+      const cookieToken = this.parseCookieValue(cookieHeader, AUTH_COOKIE_NAME);
+      if (cookieToken) {
+        return cookieToken;
+      }
+    }
+
+    // Fallback: Bearer header or auth.token (dual-mode transition)
     const headerToken =
       client.handshake.headers?.authorization?.replace(/Bearer\s+/i, '') ||
       client.handshake.auth?.token;
@@ -60,12 +71,32 @@ export class RealtimeHandshakeService {
       return headerToken;
     }
 
+    // Fallback: query.token
     const queryToken = client.handshake.query?.token;
     if (!queryToken) {
       return null;
     }
 
     return Array.isArray(queryToken) ? queryToken[0] : String(queryToken);
+  }
+
+  /**
+   * Parse a specific cookie value from a raw cookie header string.
+   * Simple split-based parser -- no library needed for JWT values (no special chars).
+   */
+  private parseCookieValue(cookieHeader: string, name: string): string | null {
+    const cookies = cookieHeader.split(';');
+    for (const cookie of cookies) {
+      const trimmed = cookie.trim();
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = trimmed.substring(0, eqIdx).trim();
+      const value = trimmed.substring(eqIdx + 1).trim();
+      if (key === name) {
+        return value || null;
+      }
+    }
+    return null;
   }
 
   private async validateToken(token: string): Promise<any> {
