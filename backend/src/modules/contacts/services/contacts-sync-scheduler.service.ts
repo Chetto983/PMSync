@@ -4,6 +4,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ContactsSyncQueueService, ContactsSyncJobData } from './contacts-sync-queue.service';
 import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
 import { ProviderConfig } from '@prisma/client';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 @Injectable()
 export class ContactsSyncSchedulerService {
@@ -34,21 +35,22 @@ export class ContactsSyncSchedulerService {
    * This is intended for admin/manual triggering, not automatic scheduling
    */
   async syncAllProviders() {
-    if (this.isRunning) {
-      this.logger.warn('Previous contacts sync still running, skipping...');
-      return {
-        success: false,
-        message: 'Sync already in progress',
-      };
-    }
+    return withoutTenantScopingAsync(async () => {
+      if (this.isRunning) {
+        this.logger.warn('Previous contacts sync still running, skipping...');
+        return {
+          success: false,
+          message: 'Sync already in progress',
+        };
+      }
 
-    this.isRunning = true;
+      this.isRunning = true;
 
-    try {
-      this.logger.log('Starting manual bulk contacts sync...');
+      try {
+        this.logger.log('Starting manual bulk contacts sync...');
 
-      // Get providers that support contacts
-      const providers = await this.getProvidersToSync();
+        // Get providers that support contacts
+        const providers = await this.getProvidersToSync();
 
       if (providers.length === 0) {
         this.logger.log('No providers available for contacts sync');
@@ -82,6 +84,7 @@ export class ContactsSyncSchedulerService {
     } finally {
       this.isRunning = false;
     }
+    });
   }
 
   /**

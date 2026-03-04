@@ -9,6 +9,7 @@ import {
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 @Injectable()
 export class SyncSchedulerService implements OnModuleInit {
@@ -113,9 +114,10 @@ export class SyncSchedulerService implements OnModuleInit {
       return;
     }
 
-    // BUG-2 FIX: Use tryWithLock to skip if another instance is running
-    // This ensures only one scheduler runs across the entire cluster
-    const result = await this.redisLock.tryWithLock(
+    await withoutTenantScopingAsync(async () => {
+      // BUG-2 FIX: Use tryWithLock to skip if another instance is running
+      // This ensures only one scheduler runs across the entire cluster
+      const result = await this.redisLock.tryWithLock(
       this.SCHEDULER_LOCK_KEY,
       this.SCHEDULER_LOCK_TTL_MS,
       async () => {
@@ -141,9 +143,10 @@ export class SyncSchedulerService implements OnModuleInit {
       { maxRetries: 1 }, // Don't wait long - just skip if locked
     );
 
-    if (result === undefined) {
-      this.logger.warn('Previous sync schedule still running on another instance, skipping...');
-    }
+      if (result === undefined) {
+        this.logger.warn('Previous sync schedule still running on another instance, skipping...');
+      }
+    });
   }
 
   /**
@@ -585,6 +588,7 @@ export class SyncSchedulerService implements OnModuleInit {
    * Get sync statistics
    */
   async getSyncStats() {
+    return withoutTenantScopingAsync(async () => {
     const queueStatus = await this.queueService.getQueueStatus();
 
     const activeProviders = await this.prisma.providerConfig.count({
@@ -685,6 +689,7 @@ export class SyncSchedulerService implements OnModuleInit {
         providersWithDeltaFallback,
       },
     };
+    });
   }
 
   /**

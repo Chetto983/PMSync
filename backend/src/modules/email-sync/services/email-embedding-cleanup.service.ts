@@ -6,6 +6,7 @@ import {
   ScheduledJobsQueueService,
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 interface DeletedEmailRecord {
   id: string;
@@ -42,7 +43,7 @@ export class EmailEmbeddingCleanupService implements OnModuleInit {
 
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.EMAIL_EMBEDDING_CLEANUP,
-      async () => this.cleanupDeletedEmailEmbeddings(),
+      () => withoutTenantScopingAsync(() => this.cleanupDeletedEmailEmbeddings()),
     );
 
     this.logger.log('EmailEmbeddingCleanupService registered with BullMQ scheduler');

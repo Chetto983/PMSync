@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AccountDeletionService } from '../../modules/compliance/services/account-deletion.service';
 import { DataExportService } from '../../modules/compliance/services/data-export.service';
+import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping';
 
 /**
  * Data Cleanup Service
@@ -43,6 +44,7 @@ export class DataCleanupService implements OnModuleInit {
    */
   @Cron('0 3 * * *')
   async cleanupExpiredData(): Promise<CleanupResult> {
+    return withoutTenantScopingAsync(async () => {
     this.logger.log('Starting daily data cleanup...');
     const startTime = Date.now();
     const now = new Date();
@@ -124,6 +126,7 @@ export class DataCleanupService implements OnModuleInit {
       this.logger.error(`Data cleanup failed: ${error}`);
       throw error;
     }
+    });
   }
 
   /**
@@ -132,6 +135,7 @@ export class DataCleanupService implements OnModuleInit {
    */
   @Cron('0 4 * * 0')
   async cleanupOldAuditLogs(): Promise<number> {
+    return withoutTenantScopingAsync(async () => {
     this.logger.log('Starting audit log retention cleanup (3-year policy)...');
     try {
       const threeYearsAgo = new Date();
@@ -147,6 +151,7 @@ export class DataCleanupService implements OnModuleInit {
       this.logger.error(`Audit retention cleanup failed: ${error}`);
       return 0;
     }
+    });
   }
 
   /**
@@ -158,20 +163,22 @@ export class DataCleanupService implements OnModuleInit {
    */
   @Cron('0 2 * * *')
   async purgeExpiredAccountDeletions(): Promise<number> {
-    if (!this.accountDeletionService) {
-      this.logger.debug('AccountDeletionService not available, skipping purge');
-      return 0;
-    }
+    return withoutTenantScopingAsync(async () => {
+      if (!this.accountDeletionService) {
+        this.logger.debug('AccountDeletionService not available, skipping purge');
+        return 0;
+      }
 
-    this.logger.log('Starting expired account deletion purge...');
-    try {
-      const purgedCount = await this.accountDeletionService.purgeExpiredDeletions();
-      this.logger.log(`Account deletion purge complete: ${purgedCount} accounts purged`);
-      return purgedCount;
-    } catch (error) {
-      this.logger.error(`Account deletion purge failed: ${error}`);
-      return 0;
-    }
+      this.logger.log('Starting expired account deletion purge...');
+      try {
+        const purgedCount = await this.accountDeletionService.purgeExpiredDeletions();
+        this.logger.log(`Account deletion purge complete: ${purgedCount} accounts purged`);
+        return purgedCount;
+      } catch (error) {
+        this.logger.error(`Account deletion purge failed: ${error}`);
+        return 0;
+      }
+    });
   }
 
   /**
@@ -183,20 +190,22 @@ export class DataCleanupService implements OnModuleInit {
    */
   @Cron('30 3 * * *')
   async cleanupExpiredDataExports(): Promise<number> {
-    if (!this.dataExportService) {
-      this.logger.debug('DataExportService not available, skipping export cleanup');
-      return 0;
-    }
+    return withoutTenantScopingAsync(async () => {
+      if (!this.dataExportService) {
+        this.logger.debug('DataExportService not available, skipping export cleanup');
+        return 0;
+      }
 
-    this.logger.log('Starting expired data export cleanup...');
-    try {
-      const cleaned = await this.dataExportService.cleanupExpiredExports();
-      this.logger.log(`Data export cleanup complete: ${cleaned} exports cleaned`);
-      return cleaned;
-    } catch (error) {
-      this.logger.error(`Data export cleanup failed: ${error}`);
-      return 0;
-    }
+      this.logger.log('Starting expired data export cleanup...');
+      try {
+        const cleaned = await this.dataExportService.cleanupExpiredExports();
+        this.logger.log(`Data export cleanup complete: ${cleaned} exports cleaned`);
+        return cleaned;
+      } catch (error) {
+        this.logger.error(`Data export cleanup failed: ${error}`);
+        return 0;
+      }
+    });
   }
 
   /**

@@ -10,6 +10,7 @@ import {
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
 import { formatBytes } from '../../../common/utils';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 /**
  * Result of a cleanup operation with detailed metrics
@@ -93,13 +94,13 @@ export class EmailCleanupService implements OnModuleInit {
     // Register handler for trash cleanup (twice daily)
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.EMAIL_CLEANUP_TRASH,
-      async () => this.purgeDeletedEmailsCron(),
+      () => withoutTenantScopingAsync(() => this.purgeDeletedEmailsCron()),
     );
 
     // Register handler for orphan cleanup (daily at 3:30 AM)
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.EMAIL_CLEANUP_ORPHANS,
-      async () => this.removeDuplicateEmailsCron(),
+      () => withoutTenantScopingAsync(() => this.removeDuplicateEmailsCron()),
     );
 
     this.logger.log('EmailCleanupService registered with BullMQ scheduler');

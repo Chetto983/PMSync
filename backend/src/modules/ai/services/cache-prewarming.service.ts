@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
 import { MistralService } from './mistral.service';
 import { getAllQueries } from '../config/search-queries.config';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 /**
  * Cache Pre-Warming Service
@@ -49,6 +50,7 @@ export class CachePrewarmingService implements OnModuleInit {
   @Cron('0 6 * * *')
   async warmCommonQueries(): Promise<{ warmed: number; skipped: number }> {
     if (!this.enabled) return { warmed: 0, skipped: 0 };
+    return withoutTenantScopingAsync(async () => {
 
     this.logger.log('Starting cache pre-warming for common queries (GDPR: per-tenant)...');
     let warmed = 0;
@@ -95,6 +97,7 @@ export class CachePrewarmingService implements OnModuleInit {
 
     this.logger.log(`Cache pre-warming complete: ${warmed} warmed, ${skipped} skipped for ${activeTenants.length} tenants`);
     return { warmed, skipped };
+    });
   }
 
   /**
@@ -104,6 +107,7 @@ export class CachePrewarmingService implements OnModuleInit {
   @Cron(CronExpression.EVERY_4_HOURS)
   async warmTenantQueries(): Promise<{ warmed: number; tenants: number }> {
     if (!this.enabled) return { warmed: 0, tenants: 0 };
+    return withoutTenantScopingAsync(async () => {
 
     this.logger.log('Warming tenant-specific frequent queries...');
     let totalWarmed = 0;
@@ -136,6 +140,7 @@ export class CachePrewarmingService implements OnModuleInit {
 
     this.logger.log(`Tenant warming complete: ${totalWarmed} queries for ${tenantsProcessed} tenants`);
     return { warmed: totalWarmed, tenants: tenantsProcessed };
+    });
   }
 
   /**

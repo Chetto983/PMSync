@@ -45,7 +45,7 @@ const UNIQUE_OPS = new Set([
  * When true, unscoped queries log a warning instead of throwing.
  * Set to false for enforce mode (Stage 2).
  */
-const AUDIT_MODE = true;
+const AUDIT_MODE = false;
 
 /**
  * Create the tenant-scoping Prisma extension.

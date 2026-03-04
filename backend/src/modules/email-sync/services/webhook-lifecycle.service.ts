@@ -8,6 +8,7 @@ import {
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 @Injectable()
 export class WebhookLifecycleService implements OnModuleInit, OnApplicationBootstrap {
@@ -43,19 +44,19 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
     // Register handler for webhook renewal (daily at 2 AM)
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.WEBHOOK_RENEWAL,
-      async () => this.renewExpiringWebhooks(),
+      () => withoutTenantScopingAsync(() => this.renewExpiringWebhooks()),
     );
 
     // Register handler for deep check (daily at 3 AM)
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.WEBHOOK_DEEP_CHECK,
-      async () => this.performDeepCheck(),
+      () => withoutTenantScopingAsync(() => this.performDeepCheck()),
     );
 
     // Register handler for webhook cleanup (weekly)
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.WEBHOOK_CLEANUP,
-      async () => this.cleanupInactiveWebhooks(),
+      () => withoutTenantScopingAsync(() => this.cleanupInactiveWebhooks()),
     );
 
     this.logger.log('WebhookLifecycleService registered with BullMQ scheduler');
@@ -380,6 +381,7 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
    * Manually trigger webhook creation for all eligible providers
    */
   async createAllWebhooks(): Promise<{ created: number; failed: number }> {
+    return withoutTenantScopingAsync(async () => {
     let created = 0;
     let failed = 0;
 
@@ -404,6 +406,7 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
     );
 
     return { created, failed };
+    });
   }
 
   /**

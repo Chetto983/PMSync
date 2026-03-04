@@ -13,6 +13,7 @@
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   ScheduledJobsQueueService,
@@ -46,9 +47,7 @@ export class OrphanEmbeddingCleanupService implements OnModuleInit {
 
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.ORPHAN_EMBEDDING_CLEANUP,
-      async () => {
-        await this.cleanupOrphanEmbeddings();
-      },
+      () => withoutTenantScopingAsync(() => this.cleanupOrphanEmbeddings()),
     );
 
     this.logger.log(

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 import { ActionStatus, ActionType } from '@prisma/client';
 
 /** Pending actions expire after 1 hour */
@@ -178,21 +179,23 @@ export class HitlService {
    */
   @Cron('0 */5 * * * *')
   async expireStaleActions(): Promise<void> {
-    const now = new Date();
+    await withoutTenantScopingAsync(async () => {
+      const now = new Date();
 
-    const result = await this.prisma.actionQueue.updateMany({
-      where: {
-        status: ActionStatus.PENDING_APPROVAL,
-        expiresAt: { lt: now },
-      },
-      data: {
-        status: ActionStatus.EXPIRED,
-      },
+      const result = await this.prisma.actionQueue.updateMany({
+        where: {
+          status: ActionStatus.PENDING_APPROVAL,
+          expiresAt: { lt: now },
+        },
+        data: {
+          status: ActionStatus.EXPIRED,
+        },
+      });
+
+      if (result.count > 0) {
+        this.logger.log(`Expired ${result.count} stale HITL actions`);
+      }
     });
-
-    if (result.count > 0) {
-      this.logger.log(`Expired ${result.count} stale HITL actions`);
-    }
   }
 
   /**

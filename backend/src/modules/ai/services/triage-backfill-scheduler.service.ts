@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailTriageService } from './email-triage.service';
 import { TriageLearningService } from './triage-learning.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 interface BackfillJobData {
   type: 'scheduled' | 'manual' | 'recalculation';
@@ -79,10 +80,12 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     this.worker = new Worker<BackfillJobData, BackfillResult>(
       QUEUE_NAMES.TRIAGE_BACKFILL || 'triage-backfill',
       async (job: Job<BackfillJobData>) => {
-        if (job.data.type === 'recalculation') {
-          return this.processRecalculation(job);
-        }
-        return this.processBackfillJob(job);
+        return withoutTenantScopingAsync(async () => {
+          if (job.data.type === 'recalculation') {
+            return this.processRecalculation(job);
+          }
+          return this.processBackfillJob(job);
+        });
       },
       {
         connection,

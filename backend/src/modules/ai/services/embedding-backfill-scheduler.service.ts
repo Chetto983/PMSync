@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { EmailEmbeddingQueueService } from './email-embedding.queue';
 import { EmbeddingsService } from './embeddings.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 interface BackfillJobData {
   type: 'scheduled' | 'manual';
@@ -91,7 +92,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     this.worker = new Worker<BackfillJobData, BackfillResult>(
       'embedding-backfill',
       async (job: Job<BackfillJobData>) => {
-        return this.processBackfillJob(job);
+        return withoutTenantScopingAsync(() => this.processBackfillJob(job));
       },
       {
         connection,

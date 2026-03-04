@@ -7,6 +7,7 @@ import { QueueService, QueueMetricsSummary } from '../../email-sync/services/que
 import { SyncSchedulerService } from '../../email-sync/services/sync-scheduler.service';
 import { getConfiguration } from '../../../config/configuration';
 import { Prisma } from '@prisma/client';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 @Injectable()
 export class HealthService {
@@ -178,6 +179,7 @@ export class HealthService {
   }
 
   async getPrometheusMetrics(): Promise<string> {
+    return withoutTenantScopingAsync(async () => {
     const metrics = this.getQueueMetrics();
     const lines: string[] = [];
 
@@ -401,5 +403,6 @@ export class HealthService {
     }
 
     return `${lines.join('\n')}\n`;
+    });
   }
 }
