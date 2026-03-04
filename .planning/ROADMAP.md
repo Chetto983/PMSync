@@ -133,11 +133,11 @@ Plans:
   3. `GET /api/v1/ai/runs` returns paginated run records filtered by tenant and date range; `GET /api/v1/ai/runs/cost-summary` returns aggregate cost per tenant
   4. Chat streaming latency is not regressed -- first-token-time measured before and after ledger integration, difference is less than 50ms
   5. Permission taxonomy document exists with resource:action pairs and PolicyService TypeScript interface defined -- ready for RBAC implementation in v4.1
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 -> Wave 2)
 
 Plans:
-- [ ] 35-01: AiRunLedgerService implementation + fire-and-forget telemetry wiring
-- [ ] 35-02: AI runs query endpoints + cost summary + permission taxonomy
+- [ ] 35-01-PLAN.md -- AiRunLedgerService + fire-and-forget telemetry wiring across all 6 AI call paths
+- [ ] 35-02-PLAN.md -- AI runs query endpoints (GET /runs, GET /runs/cost-summary) + permission taxonomy (Permission enum, IPolicyService interface)
 
 ### Phase 36: Encrypted Search
 **Goal**: Exact-match sender lookup works on encrypted `from` field via HMAC blind indexes, with architecture decision formally recorded
