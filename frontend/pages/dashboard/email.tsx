@@ -1,13 +1,31 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { EmailLayout } from '@/components/email';
 import { ThreadList, ThreadListItemData } from '@/components/email/list';
-import { ExpandedMessage } from '@/components/email/thread';
-import { LabelPickerDialog } from '@/components/email/labels';
-import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
-import { KeyboardShortcutsDialog } from '@/components/email/keyboard';
+
+// Dynamic imports: interaction-gated dialogs and reading pane (not needed on initial render)
+const ExpandedMessage = dynamic(
+  () => import('@/components/email/thread').then(m => ({ default: m.ExpandedMessage })),
+  { ssr: false, loading: () => null }
+);
+
+const LabelPickerDialog = dynamic(
+  () => import('@/components/email/labels').then(m => ({ default: m.LabelPickerDialog })),
+  { ssr: false, loading: () => null }
+);
+
+const FolderPickerDialog = dynamic(
+  () => import('@/components/email/folders/FolderPickerDialog').then(m => ({ default: m.FolderPickerDialog })),
+  { ssr: false, loading: () => null }
+);
+
+const KeyboardShortcutsDialog = dynamic(
+  () => import('@/components/email/keyboard').then(m => ({ default: m.KeyboardShortcutsDialog })),
+  { ssr: false, loading: () => null }
+);
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';

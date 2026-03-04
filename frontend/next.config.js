@@ -19,7 +19,7 @@ const nextConfig = {
   },
   // Skip static optimization for error pages to avoid SSR issues with MUI
   experimental: {
-    optimizePackageImports: ['@mui/material', '@mui/icons-material'],
+    optimizePackageImports: ['@mui/material', '@mui/icons-material', 'lucide-react'],
   },
   // Skip build errors for error pages (they work fine at runtime)
   typescript: {
