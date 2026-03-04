@@ -81,11 +81,12 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. Access tokens expire after 15 minutes; the frontend seamlessly refreshes without user interaction
   4. Reusing a consumed refresh token fails and invalidates the entire token family
   5. Changing password invalidates all active sessions across all devices
-**Plans**: 3 plans
+**Plans**: 4 plans
 Plans:
-- [ ] 42-02-PLAN.md -- RolesGuard expansion to >=50% controllers + integration tests
-- [ ] 42-03-PLAN.md -- Refresh token rotation + dual cookie + frontend interceptor
-- [ ] 42-04-PLAN.md -- Negative security tests + password-change invalidation
+- [x] 42-02-PLAN.md -- RolesGuard expansion to >=50% controllers + integration tests
+- [x] 42-03-PLAN.md -- Refresh token rotation + dual cookie + frontend interceptor
+- [x] 42-04-PLAN.md -- Negative security tests + password-change invalidation
+- [ ] 42-05-PLAN.md -- Gap closure: model count fix, UsersController docs, cross-tenant DB test, role mapping
 
 **Completed work (pre-plan, Sprint 1):**
   - Prisma 7.3.0 → 7.4.2 upgrade
@@ -167,7 +168,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 | 39. Code Quality & CI Hygiene | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 40. Fix CI Regressions | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 41. Backend Code Hygiene | v4.0 | 1/1 | Complete | 2026-03-04 |
-| 42. Tenant Isolation & Auth Hardening | 3/3 | Complete   | 2026-03-04 | - |
+| 42. Tenant Isolation & Auth Hardening | v4.1 | 3/4 | Gap closure | - |
 | 43. Contract Tests & Backend God-File Splits | v4.1 | 0/TBD | Not started | - |
 | 44. Frontend God-File Splits | v4.1 | 0/TBD | Not started | - |
 | 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
@@ -177,10 +178,11 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 **v4.1 Requirement Status (Phase 42):**
 - ✅ TSEC-01: Prisma extension auto-injects tenantId (done)
 - ✅ TSEC-02: Queries without context throw TenantContextRequiredError (enforce mode active)
-- ⬜ TSEC-03..06: RolesGuard expansion (plan 42-02)
-- ⬜ TSEC-07: Integration test non-admin → 403 (plan 42-02)
-- ⬜ AUTH-01..05: Refresh token rotation + short-lived access tokens (plan 42-03)
-- ⬜ TEST-01..03: Negative security tests (plan 42-04)
+- ✅ TSEC-03..06: RolesGuard expansion (plan 42-02 complete)
+- ✅ TSEC-07: Integration test non-admin → 403 (plan 42-02 complete)
+- ✅ AUTH-01..05: Refresh token rotation + short-lived access tokens (plan 42-03 complete)
+- ✅ TEST-01..03: Negative security tests (plan 42-04 complete)
+- ⬜ Gap closure: model count fix, UsersController docs, cross-tenant DB test (plan 42-05)
 
 ---
 *Roadmap created: 2026-02-09*
@@ -188,3 +190,4 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 *v4.1 roadmap added: 2026-03-04 -- 6 phases, 61 requirements mapped*
 *Phase 42 tenant-scoping work started: 2026-03-04 -- TSEC-01/02 complete, enforce mode active*
 *Phase 42 plans created: 2026-03-04 -- 3 plans (42-02, 42-03, 42-04) in 2 waves*
+*Phase 42 gap closure plan added: 2026-03-04 -- 42-05 addresses 4 verification gaps*
