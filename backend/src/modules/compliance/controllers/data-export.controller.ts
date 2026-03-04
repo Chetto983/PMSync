@@ -19,6 +19,8 @@ import { Response } from 'express';
 import { createReadStream } from 'fs';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { DataExportService } from '../services/data-export.service';
 import { DataExportResponseDto, DataExportListDto } from '../dto/data-export.dto';
@@ -39,7 +41,8 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 @ApiBearerAuth()
 @SkipLegalCheck()
 @Controller('compliance/data-export')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@Roles('admin')
 export class DataExportController {
   constructor(private readonly dataExportService: DataExportService) {}
 

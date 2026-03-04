@@ -2,6 +2,8 @@ import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { LegalAcceptanceService } from '../services/legal-acceptance.service';
 import { AcceptLegalDocumentDto, LegalStatusDto } from '../dto/legal-acceptance.dto';
@@ -21,7 +23,8 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 @ApiBearerAuth()
 @SkipLegalCheck()
 @Controller('compliance/legal')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@Roles('admin')
 export class LegalController {
   constructor(private readonly legalAcceptanceService: LegalAcceptanceService) {}
 

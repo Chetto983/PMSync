@@ -8,6 +8,8 @@ import {
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AiRunsQueryDto } from '../dto/ai-runs-query.dto';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
@@ -21,7 +23,8 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
  */
 @ApiTags('AI Observability')
 @Controller('ai')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@Roles('admin')
 export class AiObservabilityController {
   constructor(private readonly prisma: PrismaService) {}
 

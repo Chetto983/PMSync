@@ -3,12 +3,13 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { UsersService } from '../services/users.service';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
+import { RolesGuard } from '../../../modules/auth/guards/roles.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { UpdatePreferencesDto } from '../dtos/update-preferences.dto';
 
 @ApiTags('Users')
 @Controller('users')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @ApiBearerAuth()
 export class UsersController {
   constructor(private usersService: UsersService) { }
