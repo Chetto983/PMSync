@@ -10,8 +10,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ## Current State
 
-**Version:** v4.0 shipped (2026-03-04)
-**Status:** Milestone complete, planning next milestone
+**Version:** v4.1 in progress (started 2026-03-04)
+**Status:** Defining requirements
 **Base:** v4.0 Enterprise Stabilization (11 phases, 22 plans, 19/19 requirements)
 
 **Previous:** v3.2 AI Rebuild & Cleanup shipped 2026-03-03 (partial -- 20/25 plans, phases 23-28 core complete).
@@ -104,9 +104,26 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- Next milestone TBD -- use /gsd:new-milestone to define -->
+<!-- v4.1 Security Hardening & Debt Reduction -->
 
-No active requirements. Run `/gsd:new-milestone` to define v4.1+ scope.
+See `.planning/REQUIREMENTS.md` for detailed REQ-IDs.
+
+## Current Milestone: v4.1 Security Hardening & Debt Reduction
+
+**Goal:** Eliminate P0 security risks, enforce code quality gates, and reduce structural debt to reach 55/100 enterprise readiness.
+
+**Target features:**
+- Prisma tenant-scoping middleware with negative security tests
+- RolesGuard expansion to ≥50% of controller methods
+- JWT refresh token rotation (15min access tokens)
+- Attachment proxy streaming (fix OOM risk)
+- Frontend-backend contract tests (≥5 critical APIs)
+- God-file decomposition: backend top 5 + frontend top 7
+- Prometheus metrics upgrade
+- Silent CSRF catch fix
+- WebSocket Redis adapter for horizontal scaling
+- Dead code & dependency cleanup with bundle size budget
+- forwardRef burn-down from 24 → ≤12 files
 
 ### Out of Scope
 
@@ -205,4 +222,4 @@ No active requirements. Run `/gsd:new-milestone` to define v4.1+ scope.
 | 5 forwardRef accepted in Email core cluster | True bidirectional dependency; forced extraction would split natural cohesion | ✓ Good |
 
 ---
-*Last updated: 2026-03-04 after v4.0 milestone*
+*Last updated: 2026-03-04 after v4.1 milestone start*
