@@ -48,6 +48,15 @@ function createMockContext(
   return { context, reflector };
 }
 
+/**
+ * Role mapping note (TEST-02):
+ * The system uses 'user' as the default non-privileged role. The requirement
+ * mentions 'member' and 'viewer' as role names, but the actual role values
+ * in the database are: 'super-admin', 'admin', 'manager', 'user'.
+ * 'user' is functionally equivalent to member/viewer — it represents any
+ * authenticated user without elevated privileges. If 'member' or 'viewer'
+ * are introduced as distinct roles in the future, tests must be added here.
+ */
 describe('RolesGuard Integration', () => {
   const adminUser = { userId: 'u-admin-1', tenantId: 't-1', role: 'admin' };
   const managerUser = { userId: 'u-mgr-1', tenantId: 't-1', role: 'manager' };

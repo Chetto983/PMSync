@@ -45,8 +45,8 @@ describe('Tenant-Scoped Models', () => {
   });
 
   it('has correct count of tenant-scoped models', () => {
-    // 42 models derived from schema.prisma audit
-    expect(TENANT_SCOPED_MODELS.size).toBe(42);
+    // 43 models (42 original + 1 added in Phase 42: RefreshToken)
+    expect(TENANT_SCOPED_MODELS.size).toBe(43);
   });
 });
 

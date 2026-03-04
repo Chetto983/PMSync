@@ -7,6 +7,16 @@ import { RolesGuard } from '../../../modules/auth/guards/roles.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { UpdatePreferencesDto } from '../dtos/update-preferences.dto';
 
+/**
+ * UsersController — Self-service user profile endpoints only.
+ *
+ * SECURITY NOTE (TSEC-04): This controller has RolesGuard in the guard chain
+ * but intentionally has NO @Roles decorator. All endpoints operate exclusively
+ * on the authenticated user's own data via req.user.userId (/users/me/*).
+ * There are no admin-management endpoints (no user listing, no bulk ops).
+ * If admin user-management endpoints are added in the future, they MUST
+ * have @Roles('admin') applied.
+ */
 @ApiTags('Users')
 @Controller('users')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
