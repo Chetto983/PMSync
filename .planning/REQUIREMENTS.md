@@ -11,11 +11,11 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 - [ ] **TSEC-01**: Prisma client extension auto-injects tenantId from AsyncLocalStorage on all operations (findMany, findFirst, create, update, delete)
 - [ ] **TSEC-02**: Queries without tenant context throw TenantContextRequired error (negative security tests in CI)
-- [ ] **TSEC-03**: RolesGuard applied to ≥50% of controller methods (from current 7%)
-- [ ] **TSEC-04**: Admin-only endpoints guarded with @Roles('admin') — tenants, users controllers
-- [ ] **TSEC-05**: Write operations guarded with @Roles('admin', 'manager') — contacts, emails controllers
-- [ ] **TSEC-06**: Compliance/audit endpoints guarded — GDPR, consent, data-rights, legal, compliance-dashboard controllers
-- [ ] **TSEC-07**: Integration test: non-admin calling admin endpoint returns 403
+- [x] **TSEC-03**: RolesGuard applied to ≥50% of controller methods (from current 7%)
+- [x] **TSEC-04**: Admin-only endpoints guarded with @Roles('admin') — tenants, users controllers
+- [x] **TSEC-05**: Write operations guarded with @Roles('admin', 'manager') — contacts, emails controllers
+- [x] **TSEC-06**: Compliance/audit endpoints guarded — GDPR, consent, data-rights, legal, compliance-dashboard controllers
+- [x] **TSEC-07**: Integration test: non-admin calling admin endpoint returns 403
 
 ### Auth Hardening
 
@@ -76,7 +76,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 ### Testing
 
 - [ ] **TEST-01**: Tenant-scoping negative tests — cross-tenant query returns zero records, missing context throws error
-- [ ] **TEST-02**: RolesGuard integration tests — each role level (admin, manager, member, viewer) verified against guarded endpoints
+- [x] **TEST-02**: RolesGuard integration tests — each role level (admin, manager, member, viewer) verified against guarded endpoints
 - [ ] **TEST-03**: Refresh token rotation tests — reuse of consumed token fails, rotation chain works, password-change invalidation works
 - [ ] **TEST-04**: Contract tests for ≥5 critical APIs (auth login, emails list, contacts list, AI chat stream, briefing)
 - [ ] **TEST-05**: Attachment proxy test with large file (≥50MB) — no OOM, stream completes, Content-Length correct
@@ -140,11 +140,11 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 |-------------|-------|--------|
 | TSEC-01 | Phase 42 | Pending |
 | TSEC-02 | Phase 42 | Pending |
-| TSEC-03 | Phase 42 | Pending |
-| TSEC-04 | Phase 42 | Pending |
-| TSEC-05 | Phase 42 | Pending |
-| TSEC-06 | Phase 42 | Pending |
-| TSEC-07 | Phase 42 | Pending |
+| TSEC-03 | Phase 42 | Complete |
+| TSEC-04 | Phase 42 | Complete |
+| TSEC-05 | Phase 42 | Complete |
+| TSEC-06 | Phase 42 | Complete |
+| TSEC-07 | Phase 42 | Complete |
 | AUTH-01 | Phase 42 | Pending |
 | AUTH-02 | Phase 42 | Pending |
 | AUTH-03 | Phase 42 | Pending |
@@ -181,7 +181,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | INFRA-02 | Phase 47 | Pending |
 | INFRA-03 | Phase 47 | Pending |
 | TEST-01 | Phase 42 | Pending |
-| TEST-02 | Phase 42 | Pending |
+| TEST-02 | Phase 42 | Complete |
 | TEST-03 | Phase 42 | Pending |
 | TEST-04 | Phase 43 | Pending |
 | TEST-05 | Phase 43 | Pending |
