@@ -1,5 +1,3 @@
-Loaded Prisma config from prisma.config.ts.
-
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -1830,10 +1828,4 @@ ALTER TABLE "voltagent_memory_messages" ADD CONSTRAINT "voltagent_memory_message
 
 -- AddForeignKey
 ALTER TABLE "voltagent_memory_steps" ADD CONSTRAINT "voltagent_memory_steps_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "voltagent_memory_conversations"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
-┌─────────────────────────────────────────────────────────┐
-│  Update available 7.4.1 -> 7.4.2                        │
-│  Run the following to update                            │
-│    npm i --save-dev prisma@latest                       │
-│    npm i @prisma/client@latest                          │
-└─────────────────────────────────────────────────────────┘
 
