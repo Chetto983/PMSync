@@ -136,17 +136,75 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| TSEC-01 | Phase 42 | Pending |
+| TSEC-02 | Phase 42 | Pending |
+| TSEC-03 | Phase 42 | Pending |
+| TSEC-04 | Phase 42 | Pending |
+| TSEC-05 | Phase 42 | Pending |
+| TSEC-06 | Phase 42 | Pending |
+| TSEC-07 | Phase 42 | Pending |
+| AUTH-01 | Phase 42 | Pending |
+| AUTH-02 | Phase 42 | Pending |
+| AUTH-03 | Phase 42 | Pending |
+| AUTH-04 | Phase 42 | Pending |
+| AUTH-05 | Phase 42 | Pending |
+| APIS-01 | Phase 43 | Pending |
+| APIS-02 | Phase 43 | Pending |
+| APIS-03 | Phase 43 | Pending |
+| APIS-04 | Phase 43 | Pending |
+| QUAL-01 | Phase 43 | Pending |
+| QUAL-02 | Phase 43 | Pending |
+| QUAL-03 | Phase 43 | Pending |
+| QUAL-04 | Phase 43 | Pending |
+| QUAL-05 | Phase 43 | Pending |
+| QUAL-06 | Phase 43 | Pending |
+| QUAL-07 | Phase 44 | Pending |
+| QUAL-08 | Phase 44 | Pending |
+| QUAL-09 | Phase 44 | Pending |
+| QUAL-10 | Phase 44 | Pending |
+| QUAL-11 | Phase 44 | Pending |
+| QUAL-12 | Phase 44 | Pending |
+| QUAL-13 | Phase 44 | Pending |
+| QUAL-14 | Phase 44 | Pending |
+| DEBT-01 | Phase 45 | Pending |
+| DEBT-02 | Phase 45 | Pending |
+| DEBT-03 | Phase 45 | Pending |
+| DEBT-04 | Phase 45 | Pending |
+| DEBT-05 | Phase 45 | Pending |
+| OBS-01 | Phase 46 | Pending |
+| OBS-02 | Phase 46 | Pending |
+| OBS-03 | Phase 46 | Pending |
+| OBS-04 | Phase 46 | Pending |
+| INFRA-01 | Phase 47 | Pending |
+| INFRA-02 | Phase 47 | Pending |
+| INFRA-03 | Phase 47 | Pending |
+| TEST-01 | Phase 42 | Pending |
+| TEST-02 | Phase 42 | Pending |
+| TEST-03 | Phase 42 | Pending |
+| TEST-04 | Phase 43 | Pending |
+| TEST-05 | Phase 43 | Pending |
+| TEST-06 | Phase 43 | Pending |
+| TEST-07 | Phase 44 | Pending |
+| TEST-08 | Phase 45 | Pending |
+| TEST-09 | Phase 46 | Pending |
+| TEST-10 | Phase 47 | Pending |
+| TEST-11 | Phase 47 | Pending |
+| TEST-12 | Phase 47 | Pending |
+| TEST-13 | Phase 47 | Pending |
+| CLN-01 | Phase 47 | Pending |
+| CLN-02 | Phase 47 | Pending |
+| CLN-03 | Phase 47 | Pending |
+| CLN-04 | Phase 47 | Pending |
+| CLN-05 | Phase 47 | Pending |
+| CLN-06 | Phase 47 | Pending |
 
 **Coverage:**
-- v4.1 requirements: 55 total
-- Mapped to phases: 0
-- Unmapped: 55 ⚠️
+- v4.1 requirements: 61 total
+- Mapped to phases: 61
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-04 after initial definition*
+*Last updated: 2026-03-04 after roadmap creation -- all 61 requirements mapped to phases 42-47*

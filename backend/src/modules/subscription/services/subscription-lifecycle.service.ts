@@ -21,6 +21,7 @@ import {
   SCHEDULED_JOB_PATTERNS,
 } from '../../../common/services/scheduled-jobs.queue';
 import { SubscriptionStatus, SubscriptionPlan } from '@prisma/client';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 // Extend ScheduledJobType enum (must match declaration in scheduled-jobs.queue.ts)
 // Note: TypeScript enums can't be extended, so we register handlers for new jobs here
@@ -54,12 +55,12 @@ export class SubscriptionLifecycleService implements OnModuleInit {
     // Handlers must return void, so we wrap and ignore the return value
     this.scheduledJobs.registerHandler(
       SUBSCRIPTION_JOB_TYPES.USAGE_RESET,
-      async () => { await this.runMonthlyUsageReset(); },
+      () => withoutTenantScopingAsync(async () => { await this.runMonthlyUsageReset(); }),
     );
 
     this.scheduledJobs.registerHandler(
       SUBSCRIPTION_JOB_TYPES.EXPIRY_CHECK,
-      async () => { await this.runExpiryCheck(); },
+      () => withoutTenantScopingAsync(async () => { await this.runExpiryCheck(); }),
     );
 
     // Register the cron patterns (will be picked up on next initializeRepeatableJobs call)
