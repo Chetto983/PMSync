@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Enterprise Stabilization
 status: completed
-stopped_at: Completed 38-01-PLAN.md (attachment proxy path fix)
-last_updated: "2026-03-04T14:19:50.921Z"
+stopped_at: Completed 40-01-PLAN.md (CI regression fixes)
+last_updated: "2026-03-04T14:57:02.063Z"
 last_activity: 2026-03-04 -- Plan 38-01 completed (attachment proxy path fix)
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 20
-  completed_plans: 20
+  total_phases: 11
+  completed_phases: 10
+  total_plans: 21
+  completed_plans: 21
 ---
 
 ---
@@ -73,6 +73,7 @@ Progress: [██████████] 100%
 | Phase 37 P01 | 4min | 2 tasks | 2 files |
 | Phase 37 P02 | 3min | 2 tasks | 2 files |
 | Phase 38 P01 | 1min | 1 tasks | 1 files |
+| Phase 40 P01 | 2min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,7 @@ Recent decisions affecting current work:
 - [37-02]: BUG-044 (ESLint ai-elements warnings) accepted: Tailwind dir intentionally outside MUI lint rules
 - [37-02]: Lighthouse CI now blocks PRs on LCP/TTI/CLS regression (continue-on-error removed)
 - [38-01]: No architectural changes needed for attachment proxy fix -- single-line URL fix plus comment updates
+- [Phase 40]: Surgical revert of 3 CI regressions from commit 4a911f38 -- no other changes
 
 ### Pending Todos
 
@@ -157,7 +159,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04T13:30:00Z
-Stopped at: Completed 38-01-PLAN.md (attachment proxy path fix)
-Resume file: .planning/phases/38-attachment-proxy-path-fix/38-01-SUMMARY.md
+Last session: 2026-03-04T14:57:02.055Z
+Stopped at: Completed 40-01-PLAN.md (CI regression fixes)
+Resume file: None
 Next action: Phase 38 complete -- attachment downloads should work end-to-end now

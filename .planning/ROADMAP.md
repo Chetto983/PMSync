@@ -54,7 +54,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 37: Performance & Debt Closure** - LCP <2.5s / TTI <3.5s, resolve 7 deferred v3.1 bugs (completed 2026-03-04)
 - [x] **Phase 38: Attachment Proxy Path Fix** - Fix broken attachment download proxy URL missing /api/v1 prefix (gap closure) (completed 2026-03-04)
 - [x] **Phase 39: Code Quality & CI Hygiene** - Split email.tsx, fix Lighthouse CI mixed-PR gap, fix OpenAPI CI masking, remove auth-token stub (gap closure) (completed 2026-03-04)
-- [ ] **Phase 40: Fix CI Regressions (4a911f38)** - Remove re-added paths filter, OpenAPI echo fallback, and auth-token.ts dead stub (gap closure)
+- [x] **Phase 40: Fix CI Regressions (4a911f38)** - Remove re-added paths filter, OpenAPI echo fallback, and auth-token.ts dead stub (gap closure) (completed 2026-03-04)
 - [ ] **Phase 41: Backend Code Hygiene** - Fix TenantKeyService double-init, GDPR purge scoping, migration drift, remove dead scaffolding (gap closure)
 
 ## Phase Details
@@ -250,7 +250,7 @@ Phases 31-34 execute sequentially (dependency chain). Phases 35, 36, 37 can exec
 | 37. Performance & Debt Closure | 2/2 | Complete    | 2026-03-04 |
 | 38. Attachment Proxy Path Fix | 1/1 | Complete    | 2026-03-04 |
 | 39. Code Quality & CI Hygiene | 0/1 | Complete    | 2026-03-04 |
-| 40. Fix CI Regressions (4a911f38) | 0/1 | Pending     | — |
+| 40. Fix CI Regressions (4a911f38) | 1/1 | Complete   | 2026-03-04 |
 | 41. Backend Code Hygiene | 0/1 | Pending     | — |
 
 ---
