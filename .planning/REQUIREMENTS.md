@@ -27,10 +27,10 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 ### API Safety
 
-- [ ] **APIS-01**: ≥5 critical API contract tests validating FE API modules against OpenAPI spec
-- [ ] **APIS-02**: Contract tests run as required CI gate
-- [ ] **APIS-03**: Attachment proxy uses piped stream instead of arrayBuffer + Buffer.from
-- [ ] **APIS-04**: Content-Length header passthrough from S3 on attachment proxy
+- [x] **APIS-01**: ≥5 critical API contract tests validating FE API modules against OpenAPI spec
+- [x] **APIS-02**: Contract tests run as required CI gate
+- [x] **APIS-03**: Attachment proxy uses piped stream instead of arrayBuffer + Buffer.from
+- [x] **APIS-04**: Content-Length header passthrough from S3 on attachment proxy
 
 ### Code Quality — Backend
 
@@ -78,7 +78,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **TEST-01**: Tenant-scoping negative tests — cross-tenant query returns zero records, missing context throws error
 - [x] **TEST-02**: RolesGuard integration tests — each role level (admin, manager, member, viewer) verified against guarded endpoints
 - [x] **TEST-03**: Refresh token rotation tests — reuse of consumed token fails, rotation chain works, password-change invalidation works
-- [ ] **TEST-04**: Contract tests for ≥5 critical APIs (auth login, emails list, contacts list, AI chat stream, briefing)
+- [x] **TEST-04**: Contract tests for ≥5 critical APIs (auth login, emails list, contacts list, AI chat stream, briefing)
 - [ ] **TEST-05**: Attachment proxy test with large file (≥50MB) — no OOM, stream completes, Content-Length correct (NOTE: automated test verifies streaming mechanism; 50MB memory profiling is manual verification)
 - [ ] **TEST-06**: Backend god-file split regression tests — write tests for each file BEFORE splitting, verify identical behavior after
 - [ ] **TEST-07**: Frontend god-file split visual regression — Playwright screenshot comparison before/after each split
@@ -150,10 +150,10 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | AUTH-03 | Phase 42 | Complete |
 | AUTH-04 | Phase 42 | Complete |
 | AUTH-05 | Phase 42 | Complete |
-| APIS-01 | Phase 43 | Pending |
-| APIS-02 | Phase 43 | Pending |
-| APIS-03 | Phase 43 | Pending |
-| APIS-04 | Phase 43 | Pending |
+| APIS-01 | Phase 43 | Complete |
+| APIS-02 | Phase 43 | Complete |
+| APIS-03 | Phase 43 | Complete |
+| APIS-04 | Phase 43 | Complete |
 | QUAL-01 | Phase 43 | Pending |
 | QUAL-02 | Phase 43 | Pending |
 | QUAL-03 | Phase 43 | Pending |
@@ -183,7 +183,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-01 | Phase 42 | Complete |
 | TEST-02 | Phase 42 | Complete |
 | TEST-03 | Phase 42 | Complete |
-| TEST-04 | Phase 43 | Pending |
+| TEST-04 | Phase 43 | Complete |
 | TEST-05 | Phase 43 | Pending |
 | TEST-06 | Phase 43 | Pending |
 | TEST-07 | Phase 44 | Pending |

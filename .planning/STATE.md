@@ -3,30 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: Completed 42-05-PLAN.md
-last_updated: "2026-03-04T16:58:59.582Z"
-last_activity: 2026-03-04 -- 42-03 refresh token rotation complete (10 tests, AUTH-01-05)
+stopped_at: "Completed 43-01-PLAN.md"
+last_updated: "2026-03-05T14:56:11Z"
+last_activity: "2026-03-05 -- 43-01 contract tests + attachment streaming (45 tests, APIS-01/02/03/04, TEST-04)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 4
-  completed_plans: 4
-  percent: 100
----
-
----
-gsd_state_version: 1.0
-milestone: v4.1
-milestone_name: Security Hardening & Debt Reduction
-status: executing
-stopped_at: "Completed 42-03-PLAN.md"
-last_updated: "2026-03-04T16:37:00.000Z"
-last_activity: "2026-03-04 -- 42-03 refresh token rotation complete (10 tests, AUTH-01/02/03/04/05)"
-progress:
-  [██████████] 100%
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 3
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -36,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 42 complete (3/3 plans)
+**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 43 in progress (1/4 plans)
 
 ## Current Position
 
-Phase: 42 of 47 (Tenant Isolation & Auth Hardening)
-Plan: 3 of 3 complete
-Status: Phase complete
-Last activity: 2026-03-04 -- 42-03 refresh token rotation complete (10 tests, AUTH-01-05)
+Phase: 43 of 47 (Contract Tests & Backend God-File Splits)
+Plan: 1 of 4 complete
+Status: Executing
+Last activity: 2026-03-05 -- 43-01 contract tests + attachment streaming (45 tests, APIS-01/02/03/04, TEST-04)
 
-Progress: [##########] 100% (Phase 42: 3/3 plans)
+Progress: [##--------] 25% (Phase 43: 1/4 plans)
 
 ## Performance Metrics
 
@@ -59,9 +44,9 @@ Progress: [##########] 100% (Phase 42: 3/3 plans)
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 42 | 3/3 | ~35min | ~12min |
+| 43 | 1/4 | 5min | 5min |
 
 *Updated after each plan completion*
-| Phase 42 P05 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -82,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 42]: Model count is 43 not 48: only RefreshToken was added to TENANT_SCOPED_MODELS in Phase 42
 - [Phase 42]: UsersController is purely self-service (/users/me/*) -- documented with JSDoc, no @Roles needed
 - [Phase 42]: withTenantContext does not exist -- tenant context set via CorrelationContext (AsyncLocalStorage)
+- 43-01: Contract tests skip gracefully when OpenAPI spec unavailable (no DB in CI fallback)
+- 43-01: Used pipeline() + Readable.fromWeb() for streaming (proper backpressure + error cleanup)
+- 43-01: Contract tests validate path/method existence + response schema fields, not deep type matching
 
 ### Pending Todos
 
@@ -95,7 +83,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-04T16:58:59.579Z
-Stopped at: Completed 42-05-PLAN.md
+Last session: 2026-03-05
+Stopped at: Completed 43-01-PLAN.md
 Resume file: None
-Next action: Start Phase 43 planning
+Next action: Execute 43-02-PLAN.md (god-file splits wave 1)
