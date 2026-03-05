@@ -88,6 +88,21 @@ describe('Tenant Context', () => {
     expect(isTenantScopingBypassed()).toBe(false);
   });
 
+  it('withoutTenantScopingAsync keeps bypass for lazy thenables', async () => {
+    const lazyThenable = {
+      then: (resolve: (value: boolean) => void) => {
+        resolve(isTenantScopingBypassed());
+      },
+    } as unknown as Promise<boolean>;
+
+    const bypassedInside = await withoutTenantScopingAsync(
+      async () => lazyThenable,
+    );
+
+    expect(bypassedInside).toBe(true);
+    expect(isTenantScopingBypassed()).toBe(false);
+  });
+
   it('withoutTenantScoping returns the callback result', () => {
     const result = withoutTenantScoping(() => 42);
     expect(result).toBe(42);

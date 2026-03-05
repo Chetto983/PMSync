@@ -51,7 +51,7 @@ async function main() {
 
   console.log('✅ Created admin user:', adminUser.email);
 
-  // Create regular test user
+  // Create secondary test user (admin - single-user-per-tenant policy)
   const userPassword = await bcrypt.hash('UserPassword123!', 10);
   const regularUser = await prisma.user.upsert({
     where: {
@@ -67,12 +67,12 @@ async function main() {
       passwordHash: userPassword,
       firstName: 'Test',
       lastName: 'User',
-      role: 'user',
+      role: 'admin',
       isMfaEnabled: true,
     },
   });
 
-  console.log('✅ Created regular user:', regularUser.email);
+  console.log('✅ Created secondary admin user:', regularUser.email);
 
   console.log('✅ Skipped sample messages (schema changed)');
 
@@ -86,10 +86,10 @@ async function main() {
   console.log('    • Password: TestPassword123!');
   console.log('    • Role: Administrator');
   console.log('');
-  console.log('  Regular User Account:');
+  console.log('  Secondary Admin Account:');
   console.log('    • Email: test@pmsync.local');
   console.log('    • Password: UserPassword123!');
-  console.log('    • Role: User');
+  console.log('    • Role: Administrator');
   console.log('');
   console.log('🔐 Security Notes:');
   console.log('  • MFA is ENABLED for both accounts');

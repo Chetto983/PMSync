@@ -81,7 +81,7 @@ export class MfaController {
     const [totpEnabled, backupCodesRemaining, trustedDevicesCount, webauthnCredentials] = await Promise.all([
       this.totpService.isEnabled(userId),
       this.backupCodesService.getRemainingCount(tenantId, userId),
-      this.trustedDeviceService.listDevices(userId).then((devices) => devices.length),
+      this.trustedDeviceService.listDevices(tenantId, userId).then((devices) => devices.length),
       this.webauthnService.listCredentials(userId),
     ]);
 
@@ -191,7 +191,7 @@ export class MfaController {
     await this.totpService.disable(userId);
 
     // Also delete backup codes when disabling MFA
-    await this.backupCodesService.deleteAll(userId);
+    await this.backupCodesService.deleteAll(req.user.tenantId, userId);
 
     return {
       success: true,
@@ -293,7 +293,11 @@ export class MfaController {
     const userId = req.user.userId;
     const currentToken = this.extractDeviceToken(expressReq);
 
-    const devices = await this.trustedDeviceService.listDevices(userId, currentToken);
+    const devices = await this.trustedDeviceService.listDevices(
+      req.user.tenantId,
+      userId,
+      currentToken,
+    );
 
     // Map to response DTO
     return devices.map((device) => ({
@@ -320,7 +324,7 @@ export class MfaController {
     @Request() req: AuthenticatedRequest,
     @Param('id') deviceId: string,
   ): Promise<{ success: boolean; message: string }> {
-    await this.trustedDeviceService.revokeDevice(req.user.userId, deviceId);
+    await this.trustedDeviceService.revokeDevice(req.user.tenantId, req.user.userId, deviceId);
     return {
       success: true,
       message: 'Device revoked successfully.',
@@ -336,7 +340,7 @@ export class MfaController {
   @ApiOperation({ summary: 'Revoke all trusted devices' })
   @ApiResponse({ status: 200, description: 'All devices revoked' })
   async revokeAllDevices(@Request() req: AuthenticatedRequest): Promise<{ success: boolean; message: string }> {
-    await this.trustedDeviceService.revokeAllDevices(req.user.userId);
+    await this.trustedDeviceService.revokeAllDevices(req.user.tenantId, req.user.userId);
     return {
       success: true,
       message: 'All trusted devices revoked.',

@@ -383,7 +383,12 @@ export class AuthLoginService {
 
     if (user.isMfaEnabled) {
       if (deviceToken && request) {
-        const isTrusted = await this.trustedDeviceService.verifyDevice(user.id, deviceToken, request);
+        const isTrusted = await this.trustedDeviceService.verifyDevice(
+          tenant.id,
+          user.id,
+          deviceToken,
+          request,
+        );
         if (isTrusted) {
           this.logger.log(JSON.stringify({ event: 'mfa_skipped_trusted_device', userId: user.id }));
           return { ...await this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn), passwordPolicyWarning };
@@ -514,6 +519,9 @@ export class AuthLoginService {
 
     const tenant = await this.prisma.tenant.findUnique({ where: { id: payload.tenantId } });
     if (!tenant) throw new UnauthorizedException('Tenant not found');
+    if (user.tenantId !== tenant.id) {
+      throw new UnauthorizedException('Invalid MFA token context');
+    }
     if (!user.isActive) throw new ForbiddenException('Account is disabled');
     if (!tenant.isActive) throw new ForbiddenException('Organization is disabled');
 

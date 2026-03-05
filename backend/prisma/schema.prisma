@@ -65,7 +65,7 @@ model User {
   firstName           String?
   lastName            String?
   avatarUrl           String?
-  role                String                 @default("user")
+  role                String                 @default("admin")
   isActive            Boolean                @default(true)
   isMfaEnabled        Boolean                @default(true)
   lastLogin           DateTime?

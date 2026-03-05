@@ -84,6 +84,7 @@ describe('AuthService (Pre-Split Characterization)', () => {
       },
       user: {
         findUnique: jest.fn().mockResolvedValue(mockUser),
+        findFirst: jest.fn().mockResolvedValue(mockUser),
         create: jest.fn().mockResolvedValue(mockUser),
         update: jest.fn().mockResolvedValue(mockUser),
       },
@@ -448,7 +449,7 @@ describe('AuthService (Pre-Split Characterization)', () => {
   // ===== PROFILE =====
   describe('getCurrentUserProfile', () => {
     it('should return user profile with tenantId', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.user.findFirst.mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
         firstName: 'Test',
@@ -465,7 +466,7 @@ describe('AuthService (Pre-Split Characterization)', () => {
     });
 
     it('should throw when user not found', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
       await expect(
         service.getCurrentUserProfile('bad-id', 'tenant-1'),
       ).rejects.toThrow('User not found');

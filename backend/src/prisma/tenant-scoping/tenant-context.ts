@@ -55,5 +55,7 @@ export function withoutTenantScoping<T>(fn: () => T): T {
 export async function withoutTenantScopingAsync<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
-  return bypassStorage.run(true, fn);
+  // Keep resolution inside the ALS scope so lazy thenables (e.g. PrismaPromise)
+  // still execute with bypass enabled.
+  return bypassStorage.run(true, async () => fn());
 }

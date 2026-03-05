@@ -130,7 +130,7 @@ export class AuthRegistrationService {
         lastName: data.lastName,
         isMfaEnabled: true,
         isActive: true,
-        role: isNewTenant ? 'admin' : 'user',
+        role: 'admin',
       },
     });
 

@@ -197,12 +197,12 @@ describe('Password Change Invalidation (AUTH-05)', () => {
     await authService.resetPassword(validResetToken, 'NewSecureP@ss123');
 
     expect(prisma.session.findMany).toHaveBeenCalledWith({
-      where: { userId: USER_A_ID },
+      where: { userId: USER_A_ID, tenantId: TENANT_A_ID },
       select: { id: true },
     });
 
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({
-      where: { userId: USER_A_ID },
+      where: { userId: USER_A_ID, tenantId: TENANT_A_ID },
     });
   });
 
@@ -237,11 +237,13 @@ describe('Password Change Invalidation (AUTH-05)', () => {
     const sessionQueryCall = prisma.session.findMany.mock.calls[0][0];
     expect(sessionQueryCall.where.userId).toBe(USER_A_ID);
     expect(sessionQueryCall.where.userId).not.toBe(USER_B_ID);
+    expect(sessionQueryCall.where.tenantId).toBe(TENANT_A_ID);
 
     // Session deletion was scoped to User A only
     const sessionDeleteCall = prisma.session.deleteMany.mock.calls[0][0];
     expect(sessionDeleteCall.where.userId).toBe(USER_A_ID);
     expect(sessionDeleteCall.where.userId).not.toBe(USER_B_ID);
+    expect(sessionDeleteCall.where.tenantId).toBe(TENANT_A_ID);
   });
 
   it('should update password hash before deleting sessions', async () => {

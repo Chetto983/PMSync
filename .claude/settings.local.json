@@ -170,7 +170,12 @@
       "Bash(rm -rf dist)",
       "Bash(taskkill //PID 44988 //F)",
       "Bash(while read line)",
-      "Bash(do echo \"$line\")"
+      "Bash(do echo \"$line\")",
+      "Bash(taskkill //PID 46364 //F)",
+      "Bash(printf '{\"\"email\"\":\"\"admin@pmsync.local\"\",\"\"password\"\":\"\"Admin123!\"\"}')",
+      "Bash(xxd /tmp/login.json)",
+      "Bash(taskkill //PID 44488 //F)",
+      "Bash(taskkill //PID 38556 //F)"
     ],
     "deny": [],
     "ask": []

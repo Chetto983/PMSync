@@ -128,11 +128,11 @@ export class TrustedDeviceService {
    * @param request - Express request (for fingerprint validation)
    * @returns true if device is trusted and valid
    */
-  async verifyDevice(userId: string, token: string, request: Request): Promise<boolean> {
+  async verifyDevice(tenantId: string, userId: string, token: string, request: Request): Promise<boolean> {
     if (!token) return false;
 
     const device = await this.prisma.trustedDevice.findFirst({
-      where: { deviceToken: token, userId },
+      where: { tenantId, deviceToken: token, userId },
     });
 
     if (!device) {
@@ -222,9 +222,13 @@ export class TrustedDeviceService {
    * @param userId - User ID
    * @param currentToken - Current device token (to mark as current)
    */
-  async listDevices(userId: string, currentToken?: string): Promise<TrustedDeviceInfo[]> {
+  async listDevices(
+    tenantId: string,
+    userId: string,
+    currentToken?: string,
+  ): Promise<TrustedDeviceInfo[]> {
     const devices = await this.prisma.trustedDevice.findMany({
-      where: { userId },
+      where: { tenantId, userId },
       orderBy: { lastUsedAt: 'desc' },
     });
 
@@ -244,10 +248,11 @@ export class TrustedDeviceService {
    * @param userId - User ID
    * @param deviceId - Device ID to revoke
    */
-  async revokeDevice(userId: string, deviceId: string): Promise<void> {
+  async revokeDevice(tenantId: string, userId: string, deviceId: string): Promise<void> {
     const device = await this.prisma.trustedDevice.findFirst({
       where: {
         id: deviceId,
+        tenantId,
         userId,
       },
     });
@@ -274,9 +279,9 @@ export class TrustedDeviceService {
    *
    * @param userId - User ID
    */
-  async revokeAllDevices(userId: string): Promise<void> {
+  async revokeAllDevices(tenantId: string, userId: string): Promise<void> {
     const result = await this.prisma.trustedDevice.deleteMany({
-      where: { userId },
+      where: { tenantId, userId },
     });
 
     this.logger.log(

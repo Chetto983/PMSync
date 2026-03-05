@@ -234,14 +234,15 @@ export class BackupCodesService {
    *
    * @param userId - User ID
    */
-  async deleteAll(userId: string): Promise<void> {
+  async deleteAll(tenantId: string, userId: string): Promise<void> {
     await this.prisma.mfaBackupCode.deleteMany({
-      where: { userId },
+      where: { tenantId, userId },
     });
 
     this.logger.log(
       JSON.stringify({
         event: 'backup_codes_deleted',
+        tenantId,
         userId,
       }),
     );
