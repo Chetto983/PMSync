@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /**
  * Extract JWT from cookie (httpOnly secure cookie)
@@ -90,6 +91,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * 6. Role consistency (token role matches current role)
    */
   async validate(payload: any) {
+    // JWT validation runs in Passport guard (BEFORE CorrelationInterceptor),
+    // so no tenant context exists in AsyncLocalStorage yet.
+    // Bypass tenant scoping for all Prisma queries in this method.
+    return withoutTenantScopingAsync(() => this._validate(payload));
+  }
+
+  private async _validate(payload: any) {
     // 1. Validate payload structure
     if (!payload) {
       this.rejectToken('empty_payload', { message: 'Empty JWT payload' });
@@ -172,6 +180,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // 3. Cache miss - validate session if sessionId is present
+    let sessionExpiresAtFromDb: string | undefined;
     if (payload.sessionId) {
       const session = await this.prisma.session.findUnique({
         where: { id: payload.sessionId },
@@ -194,15 +203,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return null;
       }
 
-      // Check if session is revoked (if we add a revoked field)
-      if ((session as any).isRevoked) {
-        this.rejectToken('session_revoked', {
-          sessionId: payload.sessionId,
-          userId: payload.userId,
-        });
-        return null;
-      }
-
       // Verify session belongs to the claimed user
       if (session.userId !== payload.userId) {
         this.rejectToken('session_revoked', {
@@ -212,6 +212,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         });
         return null;
       }
+
+      // Save for caching in step 10 (avoids duplicate DB query)
+      sessionExpiresAtFromDb = session.expiresAt.toISOString();
     }
 
     // 4. Get user with tenant
@@ -277,20 +280,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // 10. PERFORMANCE: Cache the validated session (5 min TTL)
     // This eliminates DB queries on subsequent requests
-    let sessionExpiresAt: string | undefined;
-    if (payload.sessionId) {
-      const sessionData = await this.prisma.session.findUnique({
-        where: { id: payload.sessionId },
-        select: { expiresAt: true },
-      });
-      sessionExpiresAt = sessionData?.expiresAt?.toISOString();
-    }
-
+    // Reuse session.expiresAt from step 3 (no duplicate DB query)
     await this.cacheService.set(
       cacheKey,
       {
         ...validatedUser,
-        sessionExpiresAt,
+        sessionExpiresAt: sessionExpiresAtFromDb,
       },
       {
         namespace: CacheNamespace.USER_SESSION,

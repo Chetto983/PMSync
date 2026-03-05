@@ -16,6 +16,7 @@ import { WebAuthnService } from './webauthn.service';
 import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /**
  * Handles login, passkey auth, MFA challenge, and session creation.
@@ -52,12 +53,22 @@ export class AuthLoginService {
     userAgent?: string,
     createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
   ) {
+    // Auth runs pre-login: no tenant context in AsyncLocalStorage yet
+    return withoutTenantScopingAsync(() => this._createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn));
+  }
+
+  private async _createSession(
+    user: { id: string; email: string; firstName: string | null; lastName: string | null; role: string },
+    tenant: { id: string },
+    ipAddress?: string,
+    userAgent?: string,
+    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
+  ) {
     const sessionId = nanoid();
     const token = this.jwtService.sign({
       sessionId,
       userId: user.id,
       tenantId: tenant.id,
-      email: user.email,
       role: user.role,
     });
 
@@ -85,7 +96,7 @@ export class AuthLoginService {
       refreshToken = refreshResult.token;
     }
 
-    this.logger.log(`User logged in: ${user.email}`);
+    this.logger.log(JSON.stringify({ event: 'user_logged_in', userId: user.id, email: this.redactEmail(user.email) }));
 
     return {
       success: true,
@@ -112,6 +123,18 @@ export class AuthLoginService {
     tenantSlug?: string,
     ipAddress?: string,
     userAgent?: string,
+    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
+  ) {
+    return withoutTenantScopingAsync(() => this._verifyOtpCode(email, code, tenantSlug, ipAddress, userAgent, createRefreshTokenFn));
+  }
+
+  private async _verifyOtpCode(
+    email: string,
+    code: string,
+    tenantSlug?: string,
+    ipAddress?: string,
+    userAgent?: string,
+    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
   ) {
     const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
@@ -151,31 +174,30 @@ export class AuthLoginService {
       );
     }
 
-    // OTP-verified sessions use 7-day expiry (vs 24h for password login)
-    const sessionId = nanoid();
-    const token = this.jwtService.sign({
-      sessionId, userId: user.id, tenantId: tenant.id, email: user.email, role: user.role,
-    });
-    const session = await this.prisma.session.create({
-      data: {
-        id: sessionId, tenantId: tenant.id, userId: user.id, token,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        ipAddress: ipAddress || 'unknown', userAgent: userAgent || 'unknown',
-      },
-    });
-    await this.prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
-    this.logger.log(JSON.stringify({ event: 'otp_verified', userId: user.id, sessionId: session.id, email: this.redactEmail(user.email) }));
+    // OTP verified — create session with refresh token (same path as password login)
+    this.logger.log(JSON.stringify({ event: 'otp_verified', userId: user.id, email: this.redactEmail(user.email) }));
 
-    return {
-      success: true, message: 'OTP verified successfully', accessToken: token, sessionId: session.id,
-      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, tenantId: tenant.id },
-    };
+    return this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn);
   }
 
   /**
    * Login user with MFA flow
    */
   async login(
+    email: string,
+    password: string,
+    tenantSlug?: string,
+    ipAddress?: string,
+    userAgent?: string,
+    deviceToken?: string,
+    request?: ExpressRequest,
+    sendOtpCodeFn?: (email: string, slug: string) => Promise<any>,
+    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
+  ) {
+    return withoutTenantScopingAsync(() => this._login(email, password, tenantSlug, ipAddress, userAgent, deviceToken, request, sendOtpCodeFn, createRefreshTokenFn));
+  }
+
+  private async _login(
     email: string,
     password: string,
     tenantSlug?: string,
@@ -291,6 +313,16 @@ export class AuthLoginService {
     userAgent?: string,
     createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
   ) {
+    return withoutTenantScopingAsync(() => this._loginWithPasskey(response, sessionId, ipAddress, userAgent, createRefreshTokenFn));
+  }
+
+  private async _loginWithPasskey(
+    response: Record<string, unknown>,
+    sessionId: string,
+    ipAddress?: string,
+    userAgent?: string,
+    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
+  ) {
     const result = await this.webauthnService.verifyLogin(
       response as unknown as Parameters<typeof this.webauthnService.verifyLogin>[0],
       sessionId,
@@ -323,15 +355,30 @@ export class AuthLoginService {
    * Get WebAuthn login options
    */
   async getWebAuthnLoginOptions(email: string, tenantSlug?: string) {
-    const result = await this.webauthnService.generateLoginOptions(email, tenantSlug);
-    if (!result) throw new BadRequestException('Unable to generate passkey options');
-    return result;
+    return withoutTenantScopingAsync(async () => {
+      const result = await this.webauthnService.generateLoginOptions(email, tenantSlug);
+      if (!result) throw new BadRequestException('Unable to generate passkey options');
+      return result;
+    });
   }
 
   /**
    * Verify MFA challenge (TOTP, backup code, or email OTP)
    */
   async verifyMfaChallenge(
+    mfaToken: string,
+    method: 'totp' | 'backup' | 'email',
+    code: string,
+    trustDevice: boolean = false,
+    request?: ExpressRequest,
+    ipAddress?: string,
+    userAgent?: string,
+    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
+  ) {
+    return withoutTenantScopingAsync(() => this._verifyMfaChallenge(mfaToken, method, code, trustDevice, request, ipAddress, userAgent, createRefreshTokenFn));
+  }
+
+  private async _verifyMfaChallenge(
     mfaToken: string,
     method: 'totp' | 'backup' | 'email',
     code: string,

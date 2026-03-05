@@ -1,6 +1,7 @@
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { EmailService } from '../../email/services/email.service';
 import { OtpSecurityService } from './otp-security.service';
 import { LegalAcceptanceService } from '../../compliance/services/legal-acceptance.service';
@@ -30,6 +31,17 @@ export class AuthRegistrationService {
    * Register a new user
    */
   async register(data: {
+    email: string;
+    password: string;
+    firstName?: string;
+    lastName?: string;
+    tenantSlug?: string;
+  }) {
+    // Auth runs pre-login: no tenant context in AsyncLocalStorage yet
+    return withoutTenantScopingAsync(() => this._register(data));
+  }
+
+  private async _register(data: {
     email: string;
     password: string;
     firstName?: string;
@@ -151,6 +163,11 @@ export class AuthRegistrationService {
    * Generate and send OTP code
    */
   async sendOtpCode(email: string, tenantSlug?: string) {
+    // Auth runs pre-login: no tenant context in AsyncLocalStorage yet
+    return withoutTenantScopingAsync(() => this._sendOtpCode(email, tenantSlug));
+  }
+
+  private async _sendOtpCode(email: string, tenantSlug?: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 

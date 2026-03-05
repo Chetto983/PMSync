@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { EmailService } from '../../email/services/email.service';
 
 /**
@@ -69,6 +70,10 @@ export class AuthPasswordResetService {
    * Request password reset
    */
   async requestPasswordReset(email: string, tenantSlug?: string) {
+    return withoutTenantScopingAsync(() => this._requestPasswordReset(email, tenantSlug));
+  }
+
+  private async _requestPasswordReset(email: string, tenantSlug?: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
@@ -129,6 +134,16 @@ export class AuthPasswordResetService {
    * Reset password with token
    */
   async resetPassword(
+    token: string,
+    newPassword: string,
+    _tenantSlug?: string,
+    deleteAllRefreshTokensFn?: (userId: string, tenantId: string) => Promise<number>,
+    invalidateAllSessionsFn?: (userId: string, tenantId: string) => Promise<{ sessionCount: number; cacheCount: number }>,
+  ) {
+    return withoutTenantScopingAsync(() => this._resetPassword(token, newPassword, _tenantSlug, deleteAllRefreshTokensFn, invalidateAllSessionsFn));
+  }
+
+  private async _resetPassword(
     token: string,
     newPassword: string,
     _tenantSlug?: string,

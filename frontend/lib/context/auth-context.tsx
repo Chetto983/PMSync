@@ -35,13 +35,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Validate session via /auth/me using httpOnly cookie after hydration.
   // No localStorage rehydration needed -- auth is cookie-based.
   useEffect(() => {
-    if (hasRehydratedRef.current) return;
-    hasRehydratedRef.current = true;
-
     // Wait for hydration before checking auth
     if (!isHydrated) {
       return;
     }
+
+    // Only run once after hydration
+    if (hasRehydratedRef.current) return;
+    hasRehydratedRef.current = true;
 
     let isActive = true;
 

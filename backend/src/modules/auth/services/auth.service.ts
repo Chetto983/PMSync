@@ -35,7 +35,10 @@ export class AuthService {
   // ===== LOGIN / MFA =====
 
   async verifyOtpCode(email: string, code: string, tenantSlug?: string, ipAddress?: string, userAgent?: string) {
-    return this.loginService.verifyOtpCode(email, code, tenantSlug, ipAddress, userAgent);
+    return this.loginService.verifyOtpCode(
+      email, code, tenantSlug, ipAddress, userAgent,
+      (uid, tid) => this.createRefreshToken(uid, tid),
+    );
   }
 
   async login(

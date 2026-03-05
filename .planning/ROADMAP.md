@@ -9,7 +9,7 @@
 - ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-22 (shipped 2026-02-27)
 - ✅ **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (shipped 2026-03-03, partial)
 - ✅ **v4.0 Enterprise Stabilization** - Phases 31-41 (shipped 2026-03-04)
-- 🚧 **v4.1 Security Hardening & Debt Reduction** - Phases 42-47 (in progress)
+- 🚧 **v4.1 Security Hardening & Debt Reduction** - Phases 42-48 (in progress)
 
 ## Phases
 
@@ -68,6 +68,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [ ] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to ≤12 via domain events and shared interfaces
 - [ ] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters
 - [ ] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget
+- [ ] **Phase 48: Auth Fix 2026 Best Practice** - Argon2id, asymmetric JWT, password policy, dual-key rate limiting, enumeration hardening
 
 ## Phase Details
 
@@ -158,7 +159,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
+Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -179,6 +180,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 | 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
 | 46. Observability | v4.1 | 0/TBD | Not started | - |
 | 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
+| 48. Auth Fix 2026 Best Practice | v4.1 | 0/TBD | Not started | - |
 
 **v4.1 Requirement Status (Phase 42):**
 - ✅ TSEC-01: Prisma extension auto-injects tenantId (done)
@@ -189,6 +191,16 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 - ✅ TEST-01..03: Negative security tests (plan 42-04 complete)
 - ⬜ Gap closure: model count fix, UsersController docs, cross-tenant DB test (plan 42-05)
 
+### Phase 48: auth fix 2026 best practice
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 47
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 48 to break down)
+
 ---
 *Roadmap created: 2026-02-09*
 *v4.0 completed: 2026-03-04 -- 11 phases, 22 plans, 19/19 requirements*
@@ -197,3 +209,4 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 *Phase 42 plans created: 2026-03-04 -- 3 plans (42-02, 42-03, 42-04) in 2 waves*
 *Phase 42 gap closure plan added: 2026-03-04 -- 42-05 addresses 4 verification gaps*
 *Phase 43 plans revised: 2026-03-05 -- 4 plans in 2 waves (01+02+03 parallel Wave 1, 04 Wave 2 depends on 02+03)*
+*Phase 48 added: 2026-03-05 -- Auth 2026 best practices (Argon2id, asymmetric JWT, password policy, enumeration hardening)*

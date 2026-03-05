@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { AuthConfigService } from './auth-config.service';
 import { nanoid } from 'nanoid';
@@ -82,6 +83,10 @@ export class AuthTokenService {
    * Rotate a refresh token (AUTH-02, AUTH-03)
    */
   async rotateRefreshToken(rawToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    return withoutTenantScopingAsync(() => this._rotateRefreshToken(rawToken));
+  }
+
+  private async _rotateRefreshToken(rawToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const tokenHash = this.hashRefreshToken(rawToken);
 
     const existing = await this.prisma.refreshToken.findUnique({
@@ -93,26 +98,22 @@ export class AuthTokenService {
     if (existing.expiresAt < new Date()) throw new UnauthorizedException('Refresh token expired');
 
     if (existing.isUsed) {
+      // Grace period: tolerate a single reuse within a short window for network retries.
+      // SECURITY: Do NOT create new tokens — just reject. Client should retry with the new token.
+      this.logger.warn(
+        JSON.stringify({ event: 'refresh_token_reuse', userId: existing.userId, familyId: existing.familyId }),
+      );
+
       const timeSinceCreation = Date.now() - existing.createdAt.getTime();
-      if (timeSinceCreation <= this.REFRESH_GRACE_PERIOD_MS && existing.replacedBy) {
-        const replacement = await this.prisma.refreshToken.findUnique({
-          where: { tokenHash: existing.replacedBy },
-        });
-        if (replacement) {
-          const accessToken = this.jwtService.sign({
-            sessionId: nanoid(), userId: existing.userId, tenantId: existing.tenantId,
-            email: existing.user.email, role: existing.user.role,
-          });
-          const newRefresh = await this.createRefreshToken(existing.userId, existing.tenantId, existing.familyId);
-          return { accessToken, refreshToken: newRefresh.token };
-        }
+      if (timeSinceCreation > this.REFRESH_GRACE_PERIOD_MS) {
+        // Outside grace period — treat as theft
+        this.logger.warn(
+          JSON.stringify({ event: 'refresh_token_theft_detected', userId: existing.userId, familyId: existing.familyId }),
+        );
+        await this.prisma.refreshToken.deleteMany({ where: { familyId: existing.familyId } });
       }
 
-      this.logger.warn(
-        JSON.stringify({ event: 'refresh_token_theft_detected', userId: existing.userId, familyId: existing.familyId }),
-      );
-      await this.prisma.refreshToken.deleteMany({ where: { familyId: existing.familyId } });
-      throw new UnauthorizedException('Token reuse detected');
+      throw new UnauthorizedException('Token already rotated');
     }
 
     const newRefresh = await this.createRefreshToken(existing.userId, existing.tenantId, existing.familyId);
@@ -123,9 +124,23 @@ export class AuthTokenService {
       data: { isUsed: true, replacedBy: newTokenHash },
     });
 
+    // Create a real session row so jwt.strategy.ts can validate the sessionId
+    const newSessionId = nanoid();
     const accessToken = this.jwtService.sign({
-      sessionId: nanoid(), userId: existing.userId, tenantId: existing.tenantId,
-      email: existing.user.email, role: existing.user.role,
+      sessionId: newSessionId, userId: existing.userId, tenantId: existing.tenantId,
+      role: existing.user.role,
+    });
+
+    await this.prisma.session.create({
+      data: {
+        id: newSessionId,
+        tenantId: existing.tenantId,
+        userId: existing.userId,
+        token: accessToken,
+        expiresAt: new Date(Date.now() + this.authConfigService.sessionTtlMs),
+        ipAddress: 'token-refresh',
+        userAgent: 'token-refresh',
+      },
     });
 
     return { accessToken, refreshToken: newRefresh.token };
