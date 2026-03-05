@@ -17,6 +17,8 @@ import { BackupCodesService } from './services/backup-codes.service';
 import { TrustedDeviceService } from './services/trusted-device.service';
 import { WebAuthnService } from './services/webauthn.service';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
+import { PasswordHashingService } from './services/password-hashing.service';
+import { PasswordPolicyService } from './services/password-policy.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../email/services/email.service';
 import { EmailModule } from '../email/email.module';
@@ -115,6 +117,8 @@ import { ComplianceModule } from '../compliance/compliance.module';
     TrustedDeviceService,
     WebAuthnService,
     RedisRateLimiterService,
+    PasswordHashingService,
+    PasswordPolicyService,
     JwtStrategy,
     // EmailService removed — provided by EmailModule (forwardRef import above)
   ],

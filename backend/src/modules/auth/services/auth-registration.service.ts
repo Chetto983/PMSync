@@ -1,14 +1,22 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import { Injectable, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { EmailService } from '../../email/services/email.service';
 import { OtpSecurityService } from './otp-security.service';
 import { LegalAcceptanceService } from '../../compliance/services/legal-acceptance.service';
+import { PasswordHashingService } from './password-hashing.service';
+import { PasswordPolicyService } from './password-policy.service';
 
 /**
  * Handles user registration and OTP send/verify flows.
  * Extracted from AuthService for maintainability.
+ *
+ * Phase 48 hardening:
+ * - Argon2id hashing via PasswordHashingService (replaces bcrypt)
+ * - Password policy validation before user creation
+ * - Identical response for existing/new users (anti-enumeration)
+ * - Dummy hash when user exists (timing protection)
+ * - OTP fake delay for non-existent user
  */
 @Injectable()
 export class AuthRegistrationService {
@@ -19,6 +27,8 @@ export class AuthRegistrationService {
     private emailService: EmailService,
     private otpSecurity: OtpSecurityService,
     private legalAcceptanceService: LegalAcceptanceService,
+    private passwordHashingService: PasswordHashingService,
+    private passwordPolicyService: PasswordPolicyService,
   ) {}
 
   private redactEmail(email: string): string {
@@ -85,6 +95,8 @@ export class AuthRegistrationService {
     });
 
     if (existingUser) {
+      // Timing protection: run dummy hash to match real registration timing
+      await this.passwordHashingService.dummyHash();
       this.logger.warn(
         JSON.stringify({
           event: 'register_user_exists',
@@ -92,14 +104,22 @@ export class AuthRegistrationService {
           tenantId: tenant.id,
         }),
       );
+      // Return SAME message as new user path (anti-enumeration)
       return {
         success: true,
-        message: 'Registration initiated. Check your email for verification code.',
+        message: 'User registered successfully. Check your email for verification code.',
         requiresOtp: true,
       };
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    // Validate password policy before creating user
+    const policyResult = await this.passwordPolicyService.validate(data.password);
+    if (!policyResult.valid) {
+      throw new BadRequestException(policyResult.errors.join('; '));
+    }
+
+    // Hash with Argon2id via PasswordHashingService
+    const passwordHash = await this.passwordHashingService.hashPassword(data.password);
 
     const user = await this.prisma.user.create({
       data: {
@@ -189,6 +209,8 @@ export class AuthRegistrationService {
     });
 
     if (!user) {
+      // Fake delay to prevent timing side-channel (matches real OTP creation ~100-300ms)
+      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
       this.logger.warn(
         JSON.stringify({ event: 'otp_user_not_found', email: this.redactEmail(normalizedEmail) }),
       );

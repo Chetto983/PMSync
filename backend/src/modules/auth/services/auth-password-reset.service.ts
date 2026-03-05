@@ -5,15 +5,21 @@ import {
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { EmailService } from '../../email/services/email.service';
+import { PasswordHashingService } from './password-hashing.service';
+import { PasswordPolicyService } from './password-policy.service';
 
 /**
  * Handles password reset request and execution flows.
  * Extracted from AuthService for maintainability.
+ *
+ * Phase 48 hardening:
+ * - Dual-algo verify via PasswordHashingService for same-password check
+ * - Argon2id hashing for new password
+ * - Password policy validation before saving
  */
 @Injectable()
 export class AuthPasswordResetService {
@@ -26,6 +32,8 @@ export class AuthPasswordResetService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private passwordHashingService: PasswordHashingService,
+    private passwordPolicyService: PasswordPolicyService,
   ) {
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
     const jwtSecret = process.env.JWT_SECRET;
@@ -187,14 +195,23 @@ export class AuthPasswordResetService {
     if (!user) throw new BadRequestException('User not found');
 
     if (user.passwordHash) {
-      const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+      const { valid: isSamePassword } = await this.passwordHashingService.verifyPassword(
+        newPassword,
+        user.passwordHash,
+      );
       if (isSamePassword) {
         this.logger.warn(JSON.stringify({ event: 'password_reset_same_password', userId: user.id }));
         throw new BadRequestException('New password must be different from your current password');
       }
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    // Validate password policy before saving
+    const policyResult = await this.passwordPolicyService.validate(newPassword);
+    if (!policyResult.valid) {
+      throw new BadRequestException(policyResult.errors.join('; '));
+    }
+
+    const passwordHash = await this.passwordHashingService.hashPassword(newPassword);
     await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
     await this.prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { isUsed: true } });
 
