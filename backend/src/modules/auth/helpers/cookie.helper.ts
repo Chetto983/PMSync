@@ -25,7 +25,7 @@ const isCrossSiteDev =
 
 // ==================== ACCESS TOKEN COOKIE (15m) ====================
 
-export const AUTH_COOKIE_NAME = 'access_token';
+export const AUTH_COOKIE_NAME = isProduction ? '__Host-access_token' : 'access_token';
 
 export const AUTH_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,

@@ -10,7 +10,10 @@ import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant
  * Extract JWT from cookie (httpOnly secure cookie)
  */
 const cookieExtractor = (req: any): string | null => {
-  if (req?.cookies?.access_token) return req.cookies.access_token as string;
+  if (!req?.cookies) return null;
+  // Check __Host- prefixed name first (production), fall back to unprefixed (dev/migration)
+  if (req.cookies['__Host-access_token']) return req.cookies['__Host-access_token'] as string;
+  if (req.cookies['access_token']) return req.cookies['access_token'] as string;
   const bearerCookie = req?.cookies?.Authorization || req?.cookies?.authorization;
   if (typeof bearerCookie === 'string' && bearerCookie.startsWith('Bearer ')) {
     return bearerCookie.replace(/^Bearer\s+/i, '');
