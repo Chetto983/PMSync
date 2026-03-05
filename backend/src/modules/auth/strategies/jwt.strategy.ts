@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { AuthConfigService } from '../services/auth-config.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /**
@@ -56,27 +57,63 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
+    private authConfig: AuthConfigService,
   ) {
-    // Fail fast if JWT_SECRET is not properly configured
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret || jwtSecret === 'secret' || jwtSecret.length < 32) {
-      throw new Error(
-        'FATAL: JWT_SECRET is missing, too short, or using unsafe default. ' +
-          'Set a secure JWT_SECRET environment variable.',
-      );
-    }
-
-    super({
+    const strategyOptions: any = {
       jwtFromRequest: ExtractJwt.fromExtractors([
         cookieExtractor,
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
-      secretOrKey: jwtSecret,
-      // Validate issuer/audience if set
       issuer: process.env.JWT_ISSUER || undefined,
       audience: process.env.JWT_AUDIENCE || undefined,
-    });
+    };
+
+    if (authConfig.isEs256Enabled) {
+      // ES256 mode: use secretOrKeyProvider for dual-algo grace period
+      strategyOptions.secretOrKeyProvider = (
+        _request: any,
+        rawJwtToken: string,
+        done: (err: any, key?: string) => void,
+      ) => {
+        try {
+          const headerB64 = rawJwtToken.split('.')[0];
+          const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
+
+          if (header.alg === 'HS256' && authConfig.jwtLegacyHmacSecret) {
+            done(null, authConfig.jwtLegacyHmacSecret);
+          } else if (header.alg === 'ES256' && authConfig.jwtPublicKey) {
+            done(null, authConfig.jwtPublicKey);
+          } else {
+            done(new Error(`Unsupported JWT algorithm: ${header.alg}`));
+          }
+        } catch (err) {
+          done(err);
+        }
+      };
+      strategyOptions.algorithms = authConfig.jwtLegacyHmacSecret
+        ? ['ES256', 'HS256']
+        : ['ES256'];
+    } else {
+      // HS256 mode: use static secret
+      const jwtSecret = authConfig.jwtSecret;
+      if (!jwtSecret || jwtSecret === 'secret' || jwtSecret.length < 32) {
+        throw new Error(
+          'FATAL: JWT_SECRET is missing, too short, or using unsafe default. ' +
+            'Set a secure JWT_SECRET environment variable.',
+        );
+      }
+      strategyOptions.secretOrKey = jwtSecret;
+    }
+
+    super(strategyOptions);
+
+    if (authConfig.isEs256Enabled && authConfig.jwtLegacyHmacSecret) {
+      this.logger.warn(
+        'JWT grace period active: accepting both HS256 and ES256 tokens. ' +
+          'Remove JWT_LEGACY_HMAC_SECRET after migration.',
+      );
+    }
   }
 
   /**

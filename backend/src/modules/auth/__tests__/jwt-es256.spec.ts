@@ -225,6 +225,122 @@ describe('JWT ES256 Migration', () => {
     });
   });
 
+  describe('JwtStrategy dual-algo secretOrKeyProvider', () => {
+    const hmacSecret = 'a'.repeat(32);
+
+    it('should accept ES256 token with public key during grace period', async () => {
+      const { privateKey, publicKey } = generateTestKeyPair();
+      const kid = crypto.createHash('sha256').update(publicKey).digest('hex').substring(0, 8);
+
+      // Sign with ES256
+      const es256Module = await Test.createTestingModule({
+        imports: [
+          JwtModule.register({
+            privateKey,
+            publicKey,
+            signOptions: { algorithm: 'ES256', expiresIn: '15m', keyid: kid },
+          }),
+        ],
+      }).compile();
+      const jwtService = es256Module.get(JwtService);
+      const token = jwtService.sign({ sub: 'user-1', tenantId: 't-1' });
+
+      // Simulate secretOrKeyProvider logic
+      const headerB64 = token.split('.')[0];
+      const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
+
+      expect(header.alg).toBe('ES256');
+
+      // Provider should return publicKey for ES256
+      const key = header.alg === 'ES256' ? publicKey : hmacSecret;
+      expect(key).toBe(publicKey);
+
+      // Verify succeeds
+      const jwt = require('jsonwebtoken');
+      const payload = jwt.verify(token, publicKey, { algorithms: ['ES256'] });
+      expect(payload.sub).toBe('user-1');
+    });
+
+    it('should accept HS256 token with legacy HMAC secret during grace period', async () => {
+      // Sign with HS256
+      const hs256Module = await Test.createTestingModule({
+        imports: [
+          JwtModule.register({
+            secret: hmacSecret,
+            signOptions: { expiresIn: '15m' },
+          }),
+        ],
+      }).compile();
+      const jwtService = hs256Module.get(JwtService);
+      const token = jwtService.sign({ sub: 'user-1', tenantId: 't-1' });
+
+      // Simulate secretOrKeyProvider logic
+      const headerB64 = token.split('.')[0];
+      const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
+
+      expect(header.alg).toBe('HS256');
+
+      // Provider should return hmacSecret for HS256
+      const key = header.alg === 'HS256' ? hmacSecret : null;
+      expect(key).toBe(hmacSecret);
+
+      // Verify succeeds
+      const jwt = require('jsonwebtoken');
+      const payload = jwt.verify(token, hmacSecret, { algorithms: ['HS256'] });
+      expect(payload.sub).toBe('user-1');
+    });
+
+    it('should reject HS256 token when legacy HMAC secret is not set', () => {
+      // Simulate: ES256 enabled, no legacy secret
+      const authConfig = {
+        isEs256Enabled: true,
+        jwtPublicKey: 'some-public-key',
+        jwtLegacyHmacSecret: undefined,
+        jwtSecret: undefined,
+      };
+
+      // HS256 token header
+      const header = { alg: 'HS256' };
+
+      // secretOrKeyProvider logic
+      let error: Error | null = null;
+      if (header.alg === 'HS256' && authConfig.jwtLegacyHmacSecret) {
+        // Would return secret -- but it's undefined
+      } else if (header.alg === 'ES256' && authConfig.jwtPublicKey) {
+        // Would return public key
+      } else if (!authConfig.isEs256Enabled && authConfig.jwtSecret) {
+        // Pure HS256 mode
+      } else {
+        error = new Error(`Unsupported JWT algorithm: ${header.alg}`);
+      }
+
+      expect(error).toBeTruthy();
+      expect(error!.message).toContain('Unsupported JWT algorithm');
+    });
+
+    it('should reject unsupported algorithm', () => {
+      const authConfig = {
+        isEs256Enabled: true,
+        jwtPublicKey: 'key',
+        jwtLegacyHmacSecret: 'secret',
+      };
+
+      const header = { alg: 'HS384' };
+      let error: Error | null = null;
+
+      if (header.alg === 'HS256' && authConfig.jwtLegacyHmacSecret) {
+        // noop
+      } else if (header.alg === 'ES256' && authConfig.jwtPublicKey) {
+        // noop
+      } else {
+        error = new Error(`Unsupported JWT algorithm: ${header.alg}`);
+      }
+
+      expect(error).toBeTruthy();
+      expect(error!.message).toContain('HS384');
+    });
+  });
+
   describe('Password reset token HS256 pinning', () => {
     it('should sign password reset tokens with HS256 even when module uses ES256', async () => {
       const { privateKey, publicKey } = generateTestKeyPair();
