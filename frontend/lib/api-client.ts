@@ -24,7 +24,6 @@ export const apiClient = axios.create({
   baseURL: `${apiBaseURL}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
   },
   withCredentials: true,
   // CRITICAL FIX: Add timeout to prevent requests hanging indefinitely

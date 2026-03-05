@@ -103,7 +103,6 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'X-Requested-With',
-      'ngrok-skip-browser-warning',
       'x-webhook-token',
       'X-CSRF-Token', // SEC-04: CSRF protection header
     ],

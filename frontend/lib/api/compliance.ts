@@ -71,6 +71,29 @@ export interface DataExportResponse {
   updatedAt: string;
 }
 
+interface RawDataExportResponse {
+  exportId?: string;
+  id?: string;
+  status: DataExportStatus;
+  filePath?: string | null;
+  fileSize?: number | null;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+function normalizeDataExportResponse(raw: RawDataExportResponse): DataExportResponse {
+  return {
+    id: raw.id ?? raw.exportId ?? '',
+    status: raw.status,
+    filePath: raw.filePath ?? null,
+    fileSize: raw.fileSize ?? null,
+    expiresAt: raw.expiresAt ?? null,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt ?? raw.createdAt,
+  };
+}
+
 // ===== DELETION TYPES =====
 
 export type DeletionAccountStatus = 'ACTIVE' | 'SCHEDULED';
@@ -150,8 +173,8 @@ export const complianceApi = {
    * POST /compliance/data-export
    */
   async requestExport(): Promise<DataExportResponse> {
-    const response = await apiClient.post('/compliance/data-export');
-    return response.data;
+    const response = await apiClient.post<RawDataExportResponse>('/compliance/data-export');
+    return normalizeDataExportResponse(response.data);
   },
 
   /**
@@ -159,9 +182,12 @@ export const complianceApi = {
    * GET /compliance/data-export
    */
   async listExports(): Promise<DataExportResponse[]> {
-    const response = await apiClient.get('/compliance/data-export');
+    const response = await apiClient.get<
+      RawDataExportResponse[] | { exports?: RawDataExportResponse[] }
+    >('/compliance/data-export');
     const data = response.data;
-    return Array.isArray(data) ? data : data?.exports ?? [];
+    const exports = Array.isArray(data) ? data : data?.exports ?? [];
+    return exports.map(normalizeDataExportResponse);
   },
 
   /**
@@ -169,8 +195,8 @@ export const complianceApi = {
    * GET /compliance/data-export/:id
    */
   async getExportStatus(id: string): Promise<DataExportResponse> {
-    const response = await apiClient.get(`/compliance/data-export/${id}`);
-    return response.data;
+    const response = await apiClient.get<RawDataExportResponse>(`/compliance/data-export/${id}`);
+    return normalizeDataExportResponse(response.data);
   },
 
   /**
@@ -178,6 +204,10 @@ export const complianceApi = {
    * GET /compliance/data-export/:id/download
    */
   async downloadExport(id: string): Promise<Blob> {
+    if (!id) {
+      throw new Error('Missing export ID');
+    }
+
     const response = await apiClient.get(`/compliance/data-export/${id}/download`, {
       responseType: 'blob',
     });

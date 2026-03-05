@@ -6029,8 +6029,8 @@
   "tags": [],
   "servers": [
     {
-      "url": "https://vivisectional-robbie-nonsacrilegiously.ngrok-free.dev",
-      "description": "Current server"
+      "url": "http://localhost:3000",
+      "description": "Local development server"
     }
   ],
   "components": {

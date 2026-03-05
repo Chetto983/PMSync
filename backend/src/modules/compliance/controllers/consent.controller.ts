@@ -2,8 +2,6 @@ import { Body, Controller, Get, Post, Query, Request, UseGuards } from '@nestjs/
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { ConsentService } from '../services/consent.service';
 import { ConsentHistoryDto, ConsentStateDto, UpdateConsentDto } from '../dto/consent.dto';
@@ -23,8 +21,7 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 @ApiBearerAuth()
 @SkipLegalCheck()
 @Controller('compliance/consent')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class ConsentController {
   constructor(private readonly consentService: ConsentService) {}
 

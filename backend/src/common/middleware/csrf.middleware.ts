@@ -14,7 +14,7 @@ if (!CSRF_SECRET) {
  * Uses HMAC-signed cookies for stateless CSRF validation.
  * Token is sent in X-CSRF-Token header, cookie is httpOnly.
  */
-// Cross-site dev mode: when API is behind a public proxy (ngrok) and frontend
+// Cross-site dev mode: when API is behind a public proxy and frontend
 // is on localhost, sameSite must be 'none' + secure for cookies to travel.
 const isProduction = process.env.NODE_ENV === 'production';
 const isCrossSiteDev = !isProduction && (

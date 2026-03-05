@@ -232,7 +232,7 @@ export function loadConfiguration(): Configuration {
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
-  // Regex origins (e.g. ngrok, vercel preview)
+  // Regex origins (e.g. vercel preview)
   const allowedOriginRegexes = (process.env.CORS_ALLOWED_REGEX || '')
     .split(',')
     .map((origin) => origin.trim())
@@ -252,9 +252,6 @@ export function loadConfiguration(): Configuration {
     // Localhost with any port
     /^https?:\/\/localhost(?::\d+)?$/i,
     /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i,
-    // Common tunneling domains
-    /^https?:\/\/([a-z0-9-]+\.)?ngrok\.io$/i,
-    /^https?:\/\/([a-z0-9-]+\.)?ngrok-free\.app$/i,
     // Vercel previews
     /^https?:\/\/([a-z0-9-]+\.)?vercel\.app$/i,
     // Custom user-provided regex

@@ -11,7 +11,7 @@ import { Response, CookieOptions } from 'express';
  * Backend sets httpOnly cookies on auth success; frontend never touches tokens.
  *
  * sameSite: 'lax' (not 'strict') to avoid breaking OAuth callback flows.
- * In cross-site dev mode (ngrok/HTTPS proxy), uses 'none' + secure.
+ * In cross-site dev mode (HTTPS proxy), uses 'none' + secure.
  */
 
 // Cross-site dev detection: reuse same pattern as csrf.middleware.ts

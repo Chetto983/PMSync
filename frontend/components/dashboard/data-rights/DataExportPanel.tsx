@@ -68,6 +68,8 @@ export function DataExportPanel() {
   );
 
   const handleDownload = async (id: string) => {
+    if (!id) return;
+
     try {
       const blob = await complianceApi.downloadExport(id);
       const url = window.URL.createObjectURL(blob);
@@ -139,7 +141,7 @@ export function DataExportPanel() {
       ) : (
         <List disablePadding>
           {exportList.map((exp: DataExportResponse, index: number) => (
-            <React.Fragment key={exp.id}>
+            <React.Fragment key={exp.id || `export-${index}`}>
               {index > 0 && <Divider />}
               <ListItem
                 disablePadding
@@ -161,8 +163,12 @@ export function DataExportPanel() {
                       )}
                     </Box>
                   }
+                  secondaryTypographyProps={{ component: 'span' }}
                   secondary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                    <Box
+                      component="span"
+                      sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, mt: 0.5 }}
+                    >
                       <Clock size={14} />
                       <Typography variant="caption" color="text.secondary">
                         {formatDate(exp.createdAt)}
@@ -175,7 +181,7 @@ export function DataExportPanel() {
                     </Box>
                   }
                 />
-                {exp.status === 'READY' && (
+                {exp.status === 'READY' && !!exp.id && (
                   <Button
                     variant="outlined"
                     size="small"

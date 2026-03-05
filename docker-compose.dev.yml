@@ -84,23 +84,6 @@ services:
     networks:
       - pmsync-net
 
-  # =============================================
-  # OPTIONAL: Ngrok tunnel (profile: tunnel)
-  # Start with: docker compose -f docker-compose.dev.yml --profile tunnel up
-  # =============================================
-
-  ngrok:
-    profiles: ["tunnel"]
-    image: ngrok/ngrok:latest
-    container_name: pmsync-ngrok
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    command: >
-      http host.docker.internal:3000
-    ports:
-      - "4040:4040"
-    networks:
-      - pmsync-net
 
   # =============================================
   # OPTIONAL: Monitoring (profile: monitoring)
