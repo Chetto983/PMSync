@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
   ProviderConnectedEvent,
   ProviderDisconnectedEvent,
@@ -43,9 +44,12 @@ export class ProviderEventHandlerService {
       this.logger.log(`[ProviderConnected] Starting email sync pipeline for provider ${providerId}`);
 
       // Load provider to get email for logging
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
+      // @OnEvent runs outside HTTP request context — no AsyncLocalStorage tenant
+      const provider = await withoutTenantScopingAsync(() =>
+        this.prisma.providerConfig.findUnique({
+          where: { id: providerId },
+        }),
+      );
       if (!provider) {
         this.logger.warn(`[ProviderConnected] Provider ${providerId} not found, skipping`);
         return;

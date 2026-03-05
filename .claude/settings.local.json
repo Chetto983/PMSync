@@ -161,7 +161,13 @@
       "Bash(npx prisma:*)",
       "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"ok\" npx prisma migrate reset --force)",
       "Bash(npm run start:dev)",
-      "Bash(redis-cli -a pmsync_dev_redis keys \"otp:*\")"
+      "Bash(node -e \"process.stdin.on\\(''data'',d=>{try{console.log\\(JSON.parse\\(d\\).data.status\\)}catch\\(e\\){console.log\\(d.toString\\(\\)\\)}}\\)\")",
+      "Bash(wmic process where \"name=''node.exe''\" get ProcessId,CommandLine)",
+      "Bash(npx nest build --webpack)",
+      "Bash(taskkill //PID 19940 //F)",
+      "Bash(taskkill //PID 40068 //F)",
+      "Bash(rm -f .tsbuildinfo)",
+      "Bash(rm -rf dist)"
     ],
     "deny": [],
     "ask": []

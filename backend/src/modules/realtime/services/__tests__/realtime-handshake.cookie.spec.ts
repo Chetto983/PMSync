@@ -1,11 +1,12 @@
 import { RealtimeHandshakeService } from '../realtime-handshake.service';
 import { AUTH_COOKIE_NAME } from '../../../auth/helpers/cookie.helper';
+import { UnauthorizedException } from '@nestjs/common';
 
 /**
  * Unit tests for WebSocket handshake cookie extraction (SEC-01)
  *
  * Tests that extractToken checks cookies FIRST, then falls back to
- * existing auth.token/header/query extraction methods.
+ * existing auth.token/header extraction methods.
  */
 describe('RealtimeHandshakeService - Cookie Extraction', () => {
   let service: RealtimeHandshakeService;
@@ -88,13 +89,13 @@ describe('RealtimeHandshakeService - Cookie Extraction', () => {
       expect(token).toBe('jwt-from-header');
     });
 
-    it('should fall back to query.token when nothing else present', () => {
+    it('should ignore query.token when no cookie/header/auth token is present', () => {
       const client = createMockClient({
         queryToken: 'jwt-from-query',
       });
 
       const token = service.extractToken(client);
-      expect(token).toBe('jwt-from-query');
+      expect(token).toBeNull();
     });
 
     it('should return null when nothing present', () => {
@@ -140,5 +141,125 @@ describe('RealtimeHandshakeService - Cookie Extraction', () => {
       const token = service.extractToken(client);
       expect(token).toBe('jwt-with-spaces');
     });
+  });
+});
+
+describe('RealtimeHandshakeService - Authenticate Security', () => {
+  function createService(overrides: {
+    decodedToken?: any;
+    session?: any;
+    user?: any;
+  } = {}) {
+    const hasSessionOverride = Object.prototype.hasOwnProperty.call(overrides, 'session');
+    const hasUserOverride = Object.prototype.hasOwnProperty.call(overrides, 'user');
+    const hasDecodedOverride = Object.prototype.hasOwnProperty.call(overrides, 'decodedToken');
+
+    const mockJwtService = {
+      verifyAsync: jest.fn().mockResolvedValue(
+        hasDecodedOverride ? overrides.decodedToken : {
+          userId: 'user-1',
+          tenantId: 'tenant-1',
+          sessionId: 'sess-1',
+          type: 'access',
+        },
+      ),
+    } as any;
+
+    const mockConfigService = {
+      get: jest.fn().mockReturnValue('a'.repeat(32)),
+    } as any;
+
+    const mockPrisma = {
+      session: {
+        findUnique: jest.fn().mockResolvedValue(
+          hasSessionOverride ? overrides.session : {
+            id: 'sess-1',
+            userId: 'user-1',
+            tenantId: 'tenant-1',
+            expiresAt: new Date(Date.now() + 60_000),
+          },
+        ),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          hasUserOverride ? overrides.user : {
+            id: 'user-1',
+            email: 'user@example.com',
+            tenantId: 'tenant-1',
+            isActive: true,
+            tenant: { isActive: true },
+          },
+        ),
+      },
+    } as any;
+
+    return {
+      service: new RealtimeHandshakeService(mockJwtService, mockConfigService, mockPrisma),
+      mockPrisma,
+      mockJwtService,
+    };
+  }
+
+  function createMockJwt(alg: 'HS256' | 'ES256' = 'HS256'): string {
+    const header = Buffer.from(JSON.stringify({ alg, typ: 'JWT' })).toString('base64url');
+    return `${header}.payload.signature`;
+  }
+
+  function createAuthClient(token: string = createMockJwt()): any {
+    return {
+      id: 'test-client',
+      handshake: {
+        headers: { authorization: `Bearer ${token}` },
+        auth: {},
+        query: {},
+      },
+    };
+  }
+
+  it('rejects non-access token types (e.g. mfa-challenge)', async () => {
+    const { service } = createService({
+      decodedToken: {
+        userId: 'user-1',
+        tenantId: 'tenant-1',
+        sessionId: 'sess-1',
+        type: 'mfa-challenge',
+      },
+    });
+
+    await expect(service.authenticate(createAuthClient())).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('rejects token payload without sessionId', async () => {
+    const { service } = createService({
+      decodedToken: {
+        userId: 'user-1',
+        tenantId: 'tenant-1',
+        type: 'access',
+      },
+    });
+
+    await expect(service.authenticate(createAuthClient())).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('rejects when session is not found', async () => {
+    const { service } = createService({ session: null });
+
+    await expect(service.authenticate(createAuthClient())).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('authenticates when token, session and user checks pass', async () => {
+    const { service } = createService();
+
+    const result = await service.authenticate(createAuthClient());
+
+    expect(result.userId).toBe('user-1');
+    expect(result.tenantId).toBe('tenant-1');
+    expect(result.tenantRoom).toBe('tenant:tenant-1');
   });
 });

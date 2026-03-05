@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { AuthenticatedSocket, buildTenantRoom } from '../types/realtime.types';
 import { AUTH_COOKIE_NAME } from '../../auth/helpers/cookie.helper';
 
@@ -28,6 +29,10 @@ interface HandshakeResult {
 export class RealtimeHandshakeService {
   private readonly logger = new Logger(RealtimeHandshakeService.name);
   private readonly jwtSecret: string;
+  private readonly jwtPublicKey?: string;
+  private readonly jwtLegacyHmacSecret: string;
+  private readonly jwtIssuer: string;
+  private readonly jwtAudience: string;
 
   constructor(
     private readonly jwtService: JwtService,
@@ -41,6 +46,15 @@ export class RealtimeHandshakeService {
       throw new Error('JWT_SECRET is required for WebSocket handshake');
     }
     this.jwtSecret = secret;
+
+    // ES256 support (with optional HS256 grace period)
+    this.jwtPublicKey = this.configService.get<string>('JWT_PUBLIC_KEY')?.replace(/\\n/g, '\n');
+    this.jwtLegacyHmacSecret =
+      this.configService.get<string>('JWT_LEGACY_HMAC_SECRET') || this.jwtSecret;
+
+    // Match auth module defaults for token verification consistency
+    this.jwtIssuer = this.configService.get<string>('JWT_ISSUER') || 'pmsync-auth';
+    this.jwtAudience = this.configService.get<string>('JWT_AUDIENCE') || 'pmsync-api';
   }
 
   /**
@@ -71,13 +85,7 @@ export class RealtimeHandshakeService {
       return headerToken;
     }
 
-    // Fallback: query.token
-    const queryToken = client.handshake.query?.token;
-    if (!queryToken) {
-      return null;
-    }
-
-    return Array.isArray(queryToken) ? queryToken[0] : String(queryToken);
+    return null;
   }
 
   /**
@@ -99,11 +107,46 @@ export class RealtimeHandshakeService {
     return null;
   }
 
+  private decodeJwtHeader(token: string): { alg?: string } {
+    try {
+      const [headerB64] = token.split('.');
+      if (!headerB64) {
+        throw new Error('Missing JWT header');
+      }
+      return JSON.parse(Buffer.from(headerB64, 'base64url').toString()) as {
+        alg?: string;
+      };
+    } catch {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  private resolveVerificationKey(algorithm?: string): { secret: string; algorithms: string[] } {
+    if (algorithm === 'ES256') {
+      if (!this.jwtPublicKey) {
+        throw new UnauthorizedException('Unsupported token algorithm');
+      }
+      return { secret: this.jwtPublicKey, algorithms: ['ES256'] };
+    }
+
+    if (algorithm === 'HS256' || !algorithm) {
+      return { secret: this.jwtLegacyHmacSecret, algorithms: ['HS256'] };
+    }
+
+    throw new UnauthorizedException('Unsupported token algorithm');
+  }
+
   private async validateToken(token: string): Promise<any> {
     try {
+      const header = this.decodeJwtHeader(token);
+      const verifyConfig = this.resolveVerificationKey(header.alg);
+
       return await this.jwtService.verifyAsync(token, {
-        secret: this.jwtSecret,
-      });
+        secret: verifyConfig.secret,
+        algorithms: verifyConfig.algorithms as any,
+        issuer: this.jwtIssuer,
+        audience: this.jwtAudience,
+      } as any);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(
@@ -113,6 +156,71 @@ export class RealtimeHandshakeService {
         }),
       );
       throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  /**
+   * Validate session truth for WebSocket connections.
+   * Prevents use of revoked/expired access tokens after logout.
+   */
+  private async validateSession(decoded: { sessionId?: string; userId?: string; tenantId?: string }) {
+    if (!decoded.sessionId) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_auth_missing_session_id',
+          userId: decoded.userId,
+          tenantId: decoded.tenantId,
+        }),
+      );
+      throw new UnauthorizedException('Invalid token payload');
+    }
+
+    const session = await withoutTenantScopingAsync(() =>
+      this.prisma.session.findUnique({
+        where: { id: decoded.sessionId },
+        select: {
+          id: true,
+          userId: true,
+          tenantId: true,
+          expiresAt: true,
+        },
+      }),
+    );
+
+    if (!session) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_auth_session_not_found',
+          sessionId: decoded.sessionId,
+          userId: decoded.userId,
+        }),
+      );
+      throw new UnauthorizedException('Session not found');
+    }
+
+    if (session.expiresAt < new Date()) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_auth_session_expired',
+          sessionId: session.id,
+          expiredAt: session.expiresAt.toISOString(),
+        }),
+      );
+      throw new UnauthorizedException('Session expired');
+    }
+
+    if (session.userId !== decoded.userId || session.tenantId !== decoded.tenantId) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_auth_session_mismatch',
+          sessionId: session.id,
+          sessionUserId: session.userId,
+          tokenUserId: decoded.userId,
+          sessionTenantId: session.tenantId,
+          tokenTenantId: decoded.tenantId,
+        }),
+      );
+      throw new UnauthorizedException('Session mismatch');
     }
   }
 
@@ -139,30 +247,50 @@ export class RealtimeHandshakeService {
     }
 
     const decoded = await this.validateToken(token);
-    if (!decoded?.userId || !decoded?.tenantId) {
+
+    // SECURITY: Reject non-access tokens (e.g., MFA challenge tokens)
+    // Legacy tokens without explicit type are treated as access tokens.
+    const tokenType = decoded?.type || 'access';
+    if (tokenType !== 'access') {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'ws_auth_invalid_token_type',
+          tokenType,
+        }),
+      );
+      throw new UnauthorizedException('Invalid token type');
+    }
+
+    if (!decoded?.userId || !decoded?.tenantId || !decoded?.sessionId) {
       this.logger.warn(
         JSON.stringify({
           event: 'ws_auth_invalid_payload',
           hasUserId: !!decoded?.userId,
           hasTenantId: !!decoded?.tenantId,
+          hasSessionId: !!decoded?.sessionId,
         }),
       );
       throw new UnauthorizedException('Invalid token payload');
     }
 
+    await this.validateSession(decoded);
+
     // Fetch user with tenant to check active status
-    const user = await this.prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true,
-        tenantId: true,
-        isActive: true,
-        tenant: {
-          select: { isActive: true },
+    // WS handshake runs outside HTTP request context — no AsyncLocalStorage tenant
+    const user = await withoutTenantScopingAsync(() =>
+      this.prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          email: true,
+          tenantId: true,
+          isActive: true,
+          tenant: {
+            select: { isActive: true },
+          },
         },
-      },
-    });
+      }),
+    );
 
     if (!user) {
       this.logger.warn(

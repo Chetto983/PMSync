@@ -26,6 +26,7 @@ const cookieExtractor = (req: any): string | null => {
  */
 type RejectionReason =
   | 'empty_payload'
+  | 'invalid_token_type'
   | 'missing_claims'
   | 'session_not_found'
   | 'session_expired'
@@ -145,7 +146,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return null;
     }
 
-    if (!payload.userId || !payload.tenantId) {
+    // SECURITY: Reject non-access tokens (e.g., MFA challenge tokens)
+    // Legacy tokens without explicit type are treated as access tokens.
+    const tokenType = payload.type || 'access';
+    if (tokenType !== 'access') {
+      this.rejectToken('invalid_token_type', {
+        message: 'Only access tokens are allowed',
+        tokenType,
+      });
+      return null;
+    }
+
+    if (!payload.userId || !payload.tenantId || !payload.sessionId) {
       this.rejectToken('missing_claims', {
         message: 'Missing required claims',
         keys: Object.keys(payload).join(','),
@@ -155,9 +167,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // 2. PERFORMANCE: Check Redis cache first (reduces DB queries from 2 to 0)
     // SECURITY: Include tenantId in cache key for proper tenant isolation
-    const cacheKey = payload.sessionId
-      ? `${payload.tenantId}:${payload.sessionId}`
-      : `${payload.tenantId}:user:${payload.userId}`;
+    const cacheKey = `${payload.tenantId}:${payload.sessionId}`;
 
     const cachedUser = await this.cacheService.get<{
       id: string;
@@ -252,69 +262,67 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       };
     }
 
-    // 3. Cache miss - validate session if sessionId is present
+    // 3. Cache miss - validate session truth
     let sessionExpiresAtFromDb: string | undefined;
     let sessionLastActivityAtFromDb: string | undefined;
-    if (payload.sessionId) {
-      const session = await this.prisma.session.findUnique({
-        where: { id: payload.sessionId },
+    const session = await this.prisma.session.findUnique({
+      where: { id: payload.sessionId },
+    });
+
+    if (!session) {
+      this.rejectToken('session_not_found', {
+        sessionId: payload.sessionId,
+        userId: payload.userId,
       });
-
-      if (!session) {
-        this.rejectToken('session_not_found', {
-          sessionId: payload.sessionId,
-          userId: payload.userId,
-        });
-        return null;
-      }
-
-      // Check session expiry
-      if (session.expiresAt < new Date()) {
-        this.rejectToken('session_expired', {
-          sessionId: payload.sessionId,
-          expiredAt: session.expiresAt.toISOString(),
-        });
-        return null;
-      }
-
-      // Verify session belongs to the claimed user
-      if (session.userId !== payload.userId) {
-        this.rejectToken('session_revoked', {
-          sessionId: payload.sessionId,
-          sessionUserId: session.userId,
-          claimedUserId: payload.userId,
-        });
-        return null;
-      }
-
-      // Idle session timeout check (OWASP ASVS V3.3.2)
-      const idleMs = Date.now() - session.lastActivityAt.getTime();
-      if (idleMs > this.authConfig.idleTimeoutMs) {
-        this.prisma.session.delete({ where: { id: session.id } }).catch(() => {});
-        this.rejectToken('session_idle_timeout', {
-          userId: payload.userId,
-          idleMinutes: Math.round(idleMs / 60000),
-        });
-        return null;
-      }
-
-      // Debounced lastActivityAt update (avoid DB write on every request)
-      let lastActivityAtForCache = session.lastActivityAt.toISOString();
-      if (idleMs > this.authConfig.lastActivityDebounceMs) {
-        const now = new Date();
-        lastActivityAtForCache = now.toISOString();
-        this.prisma.session.update({
-          where: { id: session.id },
-          data: { lastActivityAt: now },
-        }).catch((err) => {
-          this.logger.warn(`Failed to update lastActivityAt: ${err.message}`);
-        });
-      }
-
-      // Save for caching in step 10 (avoids duplicate DB query)
-      sessionExpiresAtFromDb = session.expiresAt.toISOString();
-      sessionLastActivityAtFromDb = lastActivityAtForCache;
+      return null;
     }
+
+    // Check session expiry
+    if (session.expiresAt < new Date()) {
+      this.rejectToken('session_expired', {
+        sessionId: payload.sessionId,
+        expiredAt: session.expiresAt.toISOString(),
+      });
+      return null;
+    }
+
+    // Verify session belongs to the claimed user
+    if (session.userId !== payload.userId) {
+      this.rejectToken('session_revoked', {
+        sessionId: payload.sessionId,
+        sessionUserId: session.userId,
+        claimedUserId: payload.userId,
+      });
+      return null;
+    }
+
+    // Idle session timeout check (OWASP ASVS V3.3.2)
+    const idleMs = Date.now() - session.lastActivityAt.getTime();
+    if (idleMs > this.authConfig.idleTimeoutMs) {
+      this.prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+      this.rejectToken('session_idle_timeout', {
+        userId: payload.userId,
+        idleMinutes: Math.round(idleMs / 60000),
+      });
+      return null;
+    }
+
+    // Debounced lastActivityAt update (avoid DB write on every request)
+    let lastActivityAtForCache = session.lastActivityAt.toISOString();
+    if (idleMs > this.authConfig.lastActivityDebounceMs) {
+      const now = new Date();
+      lastActivityAtForCache = now.toISOString();
+      this.prisma.session.update({
+        where: { id: session.id },
+        data: { lastActivityAt: now },
+      }).catch((err) => {
+        this.logger.warn(`Failed to update lastActivityAt: ${err.message}`);
+      });
+    }
+
+    // Save for caching in step 10 (avoids duplicate DB query)
+    sessionExpiresAtFromDb = session.expiresAt.toISOString();
+    sessionLastActivityAtFromDb = lastActivityAtForCache;
 
     // 4. Get user with tenant
     const user = await this.prisma.user.findUnique({

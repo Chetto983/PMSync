@@ -11,6 +11,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Subscription, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 import { UsageTrackingService } from './usage-tracking.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /**
  * Plan limits configuration
@@ -78,24 +79,29 @@ export class SubscriptionService {
    */
   async getOrCreateSubscription(tenantId: string): Promise<Subscription> {
     try {
-      let subscription = await this.prisma.subscription.findUnique({
-        where: { tenantId },
-      });
+      // Uses withoutTenantScopingAsync because this is called from guards/interceptors
+      // that may run before CorrelationInterceptor sets AsyncLocalStorage context.
+      // tenantId is explicitly provided in where clause, so scoping is safe.
+      let subscription = await withoutTenantScopingAsync(() =>
+        this.prisma.subscription.findUnique({
+          where: { tenantId },
+        }),
+      );
 
       if (!subscription) {
         this.logger.log(`Creating FREE subscription for tenant ${tenantId}`);
-        // Destructure to exclude 'features' which is used for runtime checks only
-        // (not stored in database - see hasFeature() method)
-        const { features: _features, ...freePlanLimits } = PLAN_LIMITS.FREE;
-        subscription = await this.prisma.subscription.create({
-          data: {
-            tenantId,
-            plan: SubscriptionPlan.FREE,
-            status: SubscriptionStatus.ACTIVE,
-            ...freePlanLimits,
-            usageResetAt: this.getNextResetDate(),
-          },
-        });
+        const { features: _features, maxProviders: _maxProviders, ...freePlanLimits } = PLAN_LIMITS.FREE;
+        subscription = await withoutTenantScopingAsync(() =>
+          this.prisma.subscription.create({
+            data: {
+              tenantId,
+              plan: SubscriptionPlan.FREE,
+              status: SubscriptionStatus.ACTIVE,
+              ...freePlanLimits,
+              usageResetAt: this.getNextResetDate(),
+            },
+          }),
+        );
       }
 
       return subscription;

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { ProviderDisconnectedEvent } from '../../../common/events/provider.events';
 import { EmailEmbeddingQueueService } from './email-embedding.queue';
 import { KnowledgeBaseService } from './knowledge-base.service';
@@ -42,10 +43,13 @@ export class AiProviderEventHandlerService {
       });
 
       // Delete embeddings for provider's emails
-      const providerEmails = await this.prisma.email.findMany({
-        where: { providerId },
-        select: { id: true },
-      });
+      // @OnEvent runs outside HTTP request context — no AsyncLocalStorage tenant
+      const providerEmails = await withoutTenantScopingAsync(() =>
+        this.prisma.email.findMany({
+          where: { providerId },
+          select: { id: true },
+        }),
+      );
 
       const emailsToPurge = providerEmails.map((email) => email.id);
       if (emailsToPurge.length > 0) {

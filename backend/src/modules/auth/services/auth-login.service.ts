@@ -106,6 +106,7 @@ export class AuthLoginService {
 
     const sessionId = nanoid();
     const token = this.jwtService.sign({
+      type: 'access',
       sessionId,
       userId: user.id,
       tenantId: tenant.id,
@@ -332,6 +333,28 @@ export class AuthLoginService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Block disabled accounts/orgs after credential verification
+    if (!user.isActive) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'login_failed_user_inactive',
+          userId: user.id,
+        }),
+      );
+      throw new ForbiddenException('Account is disabled');
+    }
+
+    if (!tenant.isActive) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'login_failed_tenant_inactive',
+          tenantId: tenant.id,
+          userId: user.id,
+        }),
+      );
+      throw new ForbiddenException('Organization is disabled');
+    }
+
     // Clear rate limits on both dimensions
     await Promise.all([
       this.rateLimiter.clearFailedAttempts(ipKey),
@@ -487,6 +510,8 @@ export class AuthLoginService {
 
     const tenant = await this.prisma.tenant.findUnique({ where: { id: payload.tenantId } });
     if (!tenant) throw new UnauthorizedException('Tenant not found');
+    if (!user.isActive) throw new ForbiddenException('Account is disabled');
+    if (!tenant.isActive) throw new ForbiddenException('Organization is disabled');
 
     switch (method) {
       case 'totp': {

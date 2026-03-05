@@ -8,6 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /**
  * Tenant Guard: Ensures tenant is properly identified and user has access
@@ -42,14 +43,17 @@ export class TenantGuard implements CanActivate {
     }
 
     // Look up tenant by id or slug
-    const tenant = await this.prisma.tenant.findFirst({
-      where: {
-        OR: [
-          { id: providedTenantIdentifier },
-          { slug: providedTenantIdentifier },
-        ],
-      },
-    });
+    // Guard runs before CorrelationInterceptor — no AsyncLocalStorage context yet
+    const tenant = await withoutTenantScopingAsync(() =>
+      this.prisma.tenant.findFirst({
+        where: {
+          OR: [
+            { id: providedTenantIdentifier },
+            { slug: providedTenantIdentifier },
+          ],
+        },
+      }),
+    );
 
     if (!tenant) {
       this.logger.warn(

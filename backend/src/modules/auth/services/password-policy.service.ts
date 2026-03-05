@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 
-const MIN_LENGTH = 8;
+const MIN_LENGTH = 15;
 const MAX_LENGTH = 128;
 const HIBP_BREACH_THRESHOLD = 3;
 const HIBP_TIMEOUT_MS = 3000;
@@ -39,7 +39,7 @@ export class PasswordPolicyService {
     const errors: string[] = [];
 
     if (password.length < MIN_LENGTH) {
-      errors.push('Password must be at least 8 characters');
+      errors.push('Password must be at least 15 characters');
     }
 
     if (password.length > MAX_LENGTH) {

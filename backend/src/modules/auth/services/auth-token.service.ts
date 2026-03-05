@@ -127,6 +127,7 @@ export class AuthTokenService {
     // Create a real session row so jwt.strategy.ts can validate the sessionId
     const newSessionId = nanoid();
     const accessToken = this.jwtService.sign({
+      type: 'access',
       sessionId: newSessionId, userId: existing.userId, tenantId: existing.tenantId,
       role: existing.user.role,
     });
