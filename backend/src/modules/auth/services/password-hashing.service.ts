@@ -1,14 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { hash, verify } from '@node-rs/argon2';
-import { compare } from 'bcrypt';
 import { AuthConfigService } from './auth-config.service';
 
 /**
- * Dual-algorithm password hashing service.
- *
- * Hashes new passwords with Argon2id (2026 best practice, OWASP recommended).
- * Verifies existing passwords against both Argon2id and bcrypt hashes,
- * flagging bcrypt hashes for transparent rehashing on next login.
+ * Argon2id password hashing service (OWASP recommended).
  *
  * @see NIST SP 800-63B-4 (July 2025)
  * @see OWASP Password Storage Cheat Sheet (2025)
@@ -42,16 +37,7 @@ export class PasswordHashingService {
   }
 
   /**
-   * Verify a password against a stored hash.
-   *
-   * Detects algorithm by hash prefix:
-   * - $argon2id$ -> Argon2id verification
-   * - $2b$ or $2a$ -> bcrypt verification (flags needsRehash=true on success)
-   * - Other -> returns invalid
-   *
-   * @param password - Plaintext password to verify
-   * @param storedHash - Stored hash string
-   * @returns { valid, needsRehash } where needsRehash=true only for successful bcrypt verify
+   * Verify a password against a stored Argon2id hash.
    */
   async verifyPassword(
     password: string,
@@ -61,21 +47,6 @@ export class PasswordHashingService {
       if (storedHash.startsWith('$argon2id$')) {
         const valid = await verify(storedHash, password);
         return { valid, needsRehash: false };
-      }
-
-      if (storedHash.startsWith('$2b$') || storedHash.startsWith('$2a$')) {
-        const valid = await compare(password, storedHash);
-        if (valid) {
-          this.logger.log(
-            JSON.stringify({
-              event: 'password_rehash_needed',
-              algorithm: 'bcrypt',
-              reason: 'migrating to argon2id',
-            }),
-          );
-          return { valid: true, needsRehash: true };
-        }
-        return { valid: false, needsRehash: false };
       }
 
       // Unrecognized hash format

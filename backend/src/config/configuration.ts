@@ -8,7 +8,14 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 
 // Load environment files before computing configuration to avoid missing values
-const envPaths = ['.env', '../.env', '../../.env'];
+// Priority: .env.{NODE_ENV} > .env (environment-specific overrides base)
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envPaths = [
+  `.env.${nodeEnv}`, // highest priority: .env.development or .env.production
+  '.env',            // base defaults
+  '../.env',         // root docker-compose vars
+  '../../.env',
+];
 for (const envPath of envPaths) {
   const resolved = path.resolve(process.cwd(), envPath);
   if (fs.existsSync(resolved)) {
@@ -212,7 +219,7 @@ export function loadConfiguration(): Configuration {
 
   // API configuration - built from components
   const apiHost = process.env.API_HOST || 'localhost';
-  const apiPort = parseInt(process.env.API_PORT || '3000');
+  const apiPort = parseInt(process.env.PORT || process.env.API_PORT || '3000');
   const defaultApiUrl = `http://${apiHost}:${apiPort}`;
   const apiUrl = process.env.API_PUBLIC_URL || defaultApiUrl;
   const trustProxyOverride = process.env.TRUST_PROXY;

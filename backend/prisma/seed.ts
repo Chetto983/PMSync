@@ -5,7 +5,7 @@
  */
 
 import 'dotenv/config';
-import * as bcrypt from 'bcrypt';
+import { hash } from '@node-rs/argon2';
 import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 
 const prisma = createPrismaClient();
@@ -29,7 +29,7 @@ async function main() {
   console.log('✅ Created default tenant:', defaultTenant.name);
 
   // Create test user (admin)
-  const adminPassword = await bcrypt.hash('TestPassword123!', 10);
+  const adminPassword = await hash('TestPassword123!', { memoryCost: 65536, timeCost: 3, parallelism: 4 });
   const adminUser = await prisma.user.upsert({
     where: {
       tenantId_email: {
@@ -52,7 +52,7 @@ async function main() {
   console.log('✅ Created admin user:', adminUser.email);
 
   // Create secondary test user (admin - single-user-per-tenant policy)
-  const userPassword = await bcrypt.hash('UserPassword123!', 10);
+  const userPassword = await hash('UserPassword123!', { memoryCost: 65536, timeCost: 3, parallelism: 4 });
   const regularUser = await prisma.user.upsert({
     where: {
       tenantId_email: {

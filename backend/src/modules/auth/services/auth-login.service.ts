@@ -28,8 +28,7 @@ const PASSWORD_POLICY_MIN_LENGTH = 8;
  * Extracted from AuthService for maintainability.
  *
  * Phase 48 hardening:
- * - Dual-algo password verify via PasswordHashingService (bcrypt + Argon2id)
- * - Transparent Argon2id rehash on successful bcrypt login
+ * - Argon2id password verification via PasswordHashingService
  * - Timing-safe dummy hash on user-not-found
  * - Unified "Invalid credentials" error messages
  * - Per-email rate limiting alongside per-IP
@@ -319,8 +318,7 @@ export class AuthLoginService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Dual-algo password verification via PasswordHashingService
-    const { valid: isPasswordValid, needsRehash } =
+    const { valid: isPasswordValid } =
       await this.passwordHashingService.verifyPassword(password, user.passwordHash);
 
     if (!isPasswordValid) {
@@ -364,19 +362,6 @@ export class AuthLoginService {
       this.rateLimiter.clearFailedAttempts(ipKey),
       this.rateLimiter.clearFailedAttempts(emailKey),
     ]);
-
-    // Transparent bcrypt -> Argon2id rehash (non-blocking to login flow)
-    if (needsRehash) {
-      const newHash = await this.passwordHashingService.hashPassword(password);
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: newHash },
-      });
-      this.logger.log(JSON.stringify({
-        event: 'password_rehashed_to_argon2id',
-        userId: user.id,
-      }));
-    }
 
     // Soft password policy warning (non-blocking, length-only check)
     const passwordPolicyWarning = password.length < PASSWORD_POLICY_MIN_LENGTH;
