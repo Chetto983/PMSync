@@ -34,8 +34,8 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 ### Code Quality — Backend
 
-- [ ] **QUAL-01**: email-sync-back.service.ts (1429 lines) split into gmail-sync-back, microsoft-sync-back, imap-sync-back, sync-back-orchestrator (provider-based split per research)
-- [ ] **QUAL-02**: auth.service.ts (1376 lines) split into auth-registration, auth-login, auth-token, auth-password-reset (domain-based split per research)
+- [x] **QUAL-01**: email-sync-back.service.ts (1429 lines) split into gmail-sync-back, microsoft-sync-back, imap-sync-back, sync-back-orchestrator (provider-based split per research)
+- [x] **QUAL-02**: auth.service.ts (1376 lines) split into auth-registration, auth-login, auth-token, auth-password-reset (domain-based split per research)
 - [ ] **QUAL-03**: emails.controller.ts (1188 lines) split into email-query, email-calendar-invite, email-actions controllers
 - [ ] **QUAL-04**: email-insights.service.ts (1072 lines) split into email-analysis, email-compose, insight-utils services
 - [ ] **QUAL-05**: contacts.service.ts (1049 lines) split into contact-crud, contact-provider-ops, contact-sync services
@@ -80,7 +80,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **TEST-03**: Refresh token rotation tests — reuse of consumed token fails, rotation chain works, password-change invalidation works
 - [x] **TEST-04**: Contract tests for ≥5 critical APIs (auth login, emails list, contacts list, AI chat stream, briefing)
 - [ ] **TEST-05**: Attachment proxy test with large file (≥50MB) — no OOM, stream completes, Content-Length correct (NOTE: automated test verifies streaming mechanism; 50MB memory profiling is manual verification)
-- [ ] **TEST-06**: Backend god-file split regression tests — write tests for each file BEFORE splitting, verify identical behavior after
+- [x] **TEST-06**: Backend god-file split regression tests — write tests for each file BEFORE splitting, verify identical behavior after
 - [ ] **TEST-07**: Frontend god-file split visual regression — Playwright screenshot comparison before/after each split
 - [ ] **TEST-08**: forwardRef removal regression — NestJS module bootstrap succeeds, all dependency injection chains resolve
 - [ ] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
@@ -154,8 +154,8 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | APIS-02 | Phase 43 | Complete |
 | APIS-03 | Phase 43 | Complete |
 | APIS-04 | Phase 43 | Complete |
-| QUAL-01 | Phase 43 | Pending |
-| QUAL-02 | Phase 43 | Pending |
+| QUAL-01 | Phase 43 | Complete |
+| QUAL-02 | Phase 43 | Complete |
 | QUAL-03 | Phase 43 | Pending |
 | QUAL-04 | Phase 43 | Pending |
 | QUAL-05 | Phase 43 | Pending |
@@ -185,7 +185,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-03 | Phase 42 | Complete |
 | TEST-04 | Phase 43 | Complete |
 | TEST-05 | Phase 43 | Pending |
-| TEST-06 | Phase 43 | Pending |
+| TEST-06 | Phase 43 | Complete |
 | TEST-07 | Phase 44 | Pending |
 | TEST-08 | Phase 45 | Pending |
 | TEST-09 | Phase 46 | Pending |

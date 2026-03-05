@@ -174,7 +174,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 | 40. Fix CI Regressions | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 41. Backend Code Hygiene | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 42. Tenant Isolation & Auth Hardening | 4/4 | Complete   | 2026-03-04 | - |
-| 43. Contract Tests & Backend God-File Splits | 1/4 | In Progress|  | - |
+| 43. Contract Tests & Backend God-File Splits | 3/4 | In Progress|  | - |
 | 44. Frontend God-File Splits | v4.1 | 0/TBD | Not started | - |
 | 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
 | 46. Observability | v4.1 | 0/TBD | Not started | - |

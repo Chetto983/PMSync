@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: "Completed 43-01-PLAN.md"
-last_updated: "2026-03-05T14:56:11Z"
-last_activity: "2026-03-05 -- 43-01 contract tests + attachment streaming (45 tests, APIS-01/02/03/04, TEST-04)"
+stopped_at: "Completed 43-02-PLAN.md"
+last_updated: "2026-03-05T15:05:00Z"
+last_activity: "2026-03-05 -- 43-02 god-file splits: email-sync-back + auth (54 tests, QUAL-01/02, TEST-06)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 4
-  completed_plans: 1
-  percent: 25
+  completed_plans: 2
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 43 in progress (1/4 plans)
+**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 43 in progress (2/4 plans)
 
 ## Current Position
 
 Phase: 43 of 47 (Contract Tests & Backend God-File Splits)
-Plan: 1 of 4 complete
+Plan: 2 of 4 complete
 Status: Executing
-Last activity: 2026-03-05 -- 43-01 contract tests + attachment streaming (45 tests, APIS-01/02/03/04, TEST-04)
+Last activity: 2026-03-05 -- 43-02 god-file splits: email-sync-back + auth (54 tests, QUAL-01/02, TEST-06)
 
-Progress: [##--------] 25% (Phase 43: 1/4 plans)
+Progress: [#####-----] 50% (Phase 43: 2/4 plans)
 
 ## Performance Metrics
 
@@ -44,7 +44,7 @@ Progress: [##--------] 25% (Phase 43: 1/4 plans)
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 42 | 3/3 | ~35min | ~12min |
-| 43 | 1/4 | 5min | 5min |
+| 43 | 2/4 | 19min | 10min |
 
 *Updated after each plan completion*
 
@@ -70,6 +70,9 @@ Recent decisions affecting current work:
 - 43-01: Contract tests skip gracefully when OpenAPI spec unavailable (no DB in CI fallback)
 - 43-01: Used pipeline() + Readable.fromWeb() for streaming (proper backpressure + error cleanup)
 - 43-01: Contract tests validate path/method existence + response schema fields, not deep type matching
+- 43-02: Facade keeps same class name (EmailSyncBackService, AuthService) -- zero consumer changes
+- 43-02: Function-passing pattern for cross-sub-service calls avoids circular DI
+- 43-02: executeWithRetry duplicated in provider sub-services (acceptable: avoids shared base class coupling)
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 43-01-PLAN.md
+Stopped at: Completed 43-02-PLAN.md
 Resume file: None
-Next action: Execute 43-02-PLAN.md (god-file splits wave 1)
+Next action: Execute 43-03-PLAN.md (god-file splits wave 2)
