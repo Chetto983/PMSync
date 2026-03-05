@@ -65,10 +65,10 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
  (completed 2026-03-04)
 - [x] **Phase 43: Contract Tests & Backend God-File Splits** - API contract tests in CI, attachment streaming, 5 backend god-files decomposed (completed 2026-03-05)
 - [ ] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification
-- [ ] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to ≤12 via domain events and shared interfaces
+- [ ] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to 0 files via domain events and shared interfaces
 - [ ] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters
 - [ ] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget
-- [ ] **Phase 48: Auth Fix 2026 Best Practice** - Argon2id, asymmetric JWT, password policy, dual-key rate limiting, enumeration hardening
+- [ ] **Phase 48: Auth Fix 2026 Best Practice** - Argon2id, asymmetric JWT, password policy, dual-key rate limiting, enumeration hardening, session concurrency, idle timeout, cookie hardening
 
 ## Phase Details
 
@@ -157,9 +157,9 @@ Plans:
 **Plans**: TBD
 
 ### Phase 48: Auth Fix 2026 Best Practice
-**Goal**: Upgrade auth to 2026 standards: Argon2id password hashing with transparent bcrypt migration, ES256 asymmetric JWT signing with dual-algo grace period, NIST-compliant password policy with HIBP breach check, and enumeration hardening across all auth endpoints
+**Goal**: Upgrade auth to 2026 standards: Argon2id password hashing with transparent bcrypt migration, ES256 asymmetric JWT signing with dual-algo grace period, NIST-compliant password policy with HIBP breach check, enumeration hardening across all auth endpoints, session concurrency enforcement, idle session timeout, and __Host- cookie prefix
 **Depends on**: Phase 47
-**Requirements**: P48-01, P48-02, P48-03, P48-04, P48-05, P48-06, P48-07, P48-08, P48-09, P48-10, P48-11
+**Requirements**: P48-01, P48-02, P48-03, P48-04, P48-05, P48-06, P48-07, P48-08, P48-09, P48-10, P48-11, P48-12, P48-13, P48-14
 **Success Criteria** (what must be TRUE):
   1. New user passwords are hashed with Argon2id ($argon2id$ prefix)
   2. Login with bcrypt hash succeeds and transparently rehashes to Argon2id
@@ -169,12 +169,16 @@ Plans:
   6. Login returns "Invalid credentials" for ALL failure reasons (no enumeration)
   7. Non-existent user login takes same time as existing user (timing protection)
   8. Per-email rate limiting active alongside per-IP
-**Plans**: 3 plans
+  9. Session N+1 evicts oldest session when user is at maxSessionsPerUser limit
+  10. Sessions idle for >30 minutes are rejected (sliding inactivity timeout)
+  11. Access cookie uses __Host- prefix in production (Secure, Path=/, no Domain)
+**Plans**: 4 plans
 
 Plans:
 - [ ] 48-01-PLAN.md -- PasswordHashingService (Argon2id + bcrypt) + PasswordPolicyService (length + HIBP) + DTO updates
 - [ ] 48-02-PLAN.md -- ES256 JWT migration (auth-config, JwtModule, JwtStrategy dual-algo, key gen script)
 - [ ] 48-03-PLAN.md -- Wire new services into auth sub-services + enumeration hardening + per-email rate limiting
+- [ ] 48-04-PLAN.md -- Session concurrency enforcement + idle timeout + __Host- cookie prefix
 
 ## Progress
 
@@ -200,7 +204,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 | 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
 | 46. Observability | v4.1 | 0/TBD | Not started | - |
 | 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
-| 48. Auth Fix 2026 Best Practice | v4.1 | 0/3 | Not started | - |
+| 48. Auth Fix 2026 Best Practice | v4.1 | 0/4 | Not started | - |
 
 **v4.1 Requirement Status (Phase 42):**
 - ✅ TSEC-01: Prisma extension auto-injects tenantId (done)
@@ -221,3 +225,4 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 *Phase 43 plans revised: 2026-03-05 -- 4 plans in 2 waves (01+02+03 parallel Wave 1, 04 Wave 2 depends on 02+03)*
 *Phase 48 added: 2026-03-05 -- Auth 2026 best practices (Argon2id, asymmetric JWT, password policy, enumeration hardening)*
 *Phase 48 plans created: 2026-03-05 -- 3 plans in 2 waves (01+02 parallel Wave 1, 03 Wave 2 depends on 01+02)*
+*Phase 48 plans revised: 2026-03-05 -- 4 plans in 3 waves (added 48-04 for session concurrency, idle timeout, cookie hardening; added P48-12/13/14)*
