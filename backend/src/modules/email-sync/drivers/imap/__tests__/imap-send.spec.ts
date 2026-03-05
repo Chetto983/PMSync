@@ -72,8 +72,8 @@ describe('ImapSendService', () => {
       ],
     }).compile();
 
-    service = module.get<ImapSendService>(ImapSendService);
-    folderService = module.get<ImapFolderService>(ImapFolderService);
+    service = await module.resolve<ImapSendService>(ImapSendService);
+    folderService = await module.resolve<ImapFolderService>(ImapFolderService);
   });
 
   describe('initialize', () => {

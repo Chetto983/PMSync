@@ -109,7 +109,7 @@ describe('ImapMessageService', () => {
       ],
     }).compile();
 
-    service = module.get<ImapMessageService>(ImapMessageService);
+    service = await module.resolve<ImapMessageService>(ImapMessageService);
   });
 
   describe('listMessages', () => {

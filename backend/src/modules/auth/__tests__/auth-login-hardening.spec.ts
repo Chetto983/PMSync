@@ -12,12 +12,13 @@ import { UnauthorizedException, ForbiddenException, BadRequestException } from '
 import { AuthLoginService } from '../services/auth-login.service';
 import { PasswordHashingService } from '../services/password-hashing.service';
 import { PasswordPolicyService } from '../services/password-policy.service';
+import { AuthConfigService } from '../services/auth-config.service';
 
 // Minimal mocks
 const mockPrisma = {
   tenant: { findUnique: jest.fn() },
   user: { findUnique: jest.fn(), update: jest.fn() },
-  session: { create: jest.fn() },
+  session: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), deleteMany: jest.fn() },
 };
 const mockJwtService = { sign: jest.fn().mockReturnValue('jwt-token'), verify: jest.fn() };
 const mockOtpSecurity = { verifyOtp: jest.fn() };
@@ -39,6 +40,18 @@ const mockPasswordHashing = {
 const mockPasswordPolicy = {
   validate: jest.fn().mockResolvedValue({ valid: true, errors: [] }),
   checkBreached: jest.fn().mockResolvedValue({ breached: false, count: 0 }),
+};
+const mockAuthConfig = {
+  maxSessionsPerUser: 5,
+  accessTokenExpiresIn: '15m',
+  accessTokenTtlMs: 900_000,
+  jwtSecret: 'x'.repeat(32),
+  jwtAlgorithm: 'HS256',
+  jwtIssuer: 'pmsync-auth',
+  jwtAudience: 'pmsync-api',
+  sessionTtlMs: 86_400_000,
+  idleTimeoutMs: 1_800_000,
+  lastActivityDebounceMs: 60_000,
 };
 
 // Bypass withoutTenantScopingAsync so we can test the private methods directly
@@ -74,6 +87,7 @@ describe('AuthLoginService - Hardening', () => {
         { provide: RedisRateLimiterService, useValue: mockRateLimiter },
         { provide: PasswordHashingService, useValue: mockPasswordHashing },
         { provide: PasswordPolicyService, useValue: mockPasswordPolicy },
+        { provide: AuthConfigService, useValue: mockAuthConfig },
       ],
     }).compile();
 

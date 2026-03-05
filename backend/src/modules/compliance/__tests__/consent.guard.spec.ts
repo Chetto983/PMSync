@@ -103,13 +103,17 @@ describe('ConsentGuard', () => {
     );
   });
 
-  it('throws ForbiddenException when user is missing from request', async () => {
+  it('returns true (skips) when user is missing from request (APP_GUARD pre-auth pass-through)', async () => {
+    // ConsentGuard runs as both APP_GUARD (global) and controller-level.
+    // When running as APP_GUARD, request.user is not yet set because
+    // JwtAuthGuard hasn't executed. Guard must return true to let the
+    // controller-level instance re-check after authentication.
     reflector.get.mockReturnValue('ai_smart_replies');
     const context = createMockExecutionContext(undefined);
 
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      'Authentication required for consent check',
-    );
+    const result = await guard.canActivate(context);
+    expect(result).toBe(true);
+    // Should NOT call consentEnforcementService — no user to check
+    expect(consentEnforcementService.hasConsent).not.toHaveBeenCalled();
   });
 });

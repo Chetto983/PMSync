@@ -27,7 +27,7 @@ describe('ImapConnectionPoolService', () => {
       providers: [ImapConnectionPoolService],
     }).compile();
 
-    service = module.get<ImapConnectionPoolService>(ImapConnectionPoolService);
+    service = await module.resolve<ImapConnectionPoolService>(ImapConnectionPoolService);
   });
 
   afterEach(async () => {

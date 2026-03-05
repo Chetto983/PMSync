@@ -66,8 +66,8 @@ describe('ImapIdleService', () => {
       ],
     }).compile();
 
-    service = module.get<ImapIdleService>(ImapIdleService);
-    folderService = module.get<ImapFolderService>(ImapFolderService);
+    service = await module.resolve<ImapIdleService>(ImapIdleService);
+    folderService = await module.resolve<ImapFolderService>(ImapFolderService);
   });
 
   afterEach(async () => {

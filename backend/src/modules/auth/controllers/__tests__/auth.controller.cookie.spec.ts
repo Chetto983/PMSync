@@ -20,8 +20,8 @@ describe('Cookie Helper', () => {
       expect(AUTH_COOKIE_OPTIONS.path).toBe('/');
     });
 
-    it('should have maxAge set to 7 days in milliseconds', () => {
-      expect(AUTH_COOKIE_OPTIONS.maxAge).toBe(7 * 24 * 60 * 60 * 1000);
+    it('should have maxAge set to 15 minutes (short-lived access token per AUTH-01)', () => {
+      expect(AUTH_COOKIE_OPTIONS.maxAge).toBe(15 * 60 * 1000);
     });
 
     it('should use sameSite=lax (not strict, to avoid breaking OAuth callbacks)', () => {

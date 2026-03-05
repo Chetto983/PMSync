@@ -40,7 +40,7 @@ describe('ImapFolderService', () => {
       ],
     }).compile();
 
-    service = module.get<ImapFolderService>(ImapFolderService);
+    service = await module.resolve<ImapFolderService>(ImapFolderService);
   });
 
   describe('listFolders', () => {

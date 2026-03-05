@@ -163,21 +163,41 @@ describe('AuthService (Pre-Split Characterization)', () => {
 
     mockAuthConfigService = {
       refreshTokenSecret: 'c'.repeat(32),
+      maxSessionsPerUser: 5,
+      accessTokenExpiresIn: '15m',
+      accessTokenTtlMs: 900_000,
+      sessionTtlMs: 86_400_000,
+      idleTimeoutMs: 1_800_000,
+      lastActivityDebounceMs: 60_000,
+    };
+
+    const mockPasswordHashingService = {
+      hashPassword: jest.fn().mockResolvedValue('hashed-password'),
+      verifyPassword: jest.fn().mockResolvedValue({ valid: true, needsRehash: false }),
+      dummyHash: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockPasswordPolicyService = {
+      validate: jest.fn().mockResolvedValue({ valid: true, errors: [] }),
+      checkBreached: jest.fn().mockResolvedValue({ breached: false, count: 0 }),
     };
 
     // Create real sub-services with shared mocks
     const registrationService = new AuthRegistrationService(
       mockPrisma, mockEmailService, mockOtpSecurity, mockLegalAcceptanceService,
+      mockPasswordHashingService as any, mockPasswordPolicyService as any,
     );
     const loginService = new AuthLoginService(
       mockPrisma, mockJwtService, mockOtpSecurity, mockTotpService,
       mockBackupCodesService, mockTrustedDeviceService, mockWebauthnService, mockRateLimiter,
+      mockPasswordHashingService as any, mockPasswordPolicyService as any, mockAuthConfigService as any,
     );
     const tokenService = new AuthTokenService(
       mockPrisma, mockJwtService, mockCacheService, mockAuthConfigService,
     );
     const passwordResetService = new AuthPasswordResetService(
       mockPrisma, mockJwtService, mockEmailService,
+      mockPasswordHashingService as any, mockPasswordPolicyService as any,
     );
 
     service = new AuthService(

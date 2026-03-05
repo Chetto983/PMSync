@@ -385,7 +385,7 @@ describe('GmailFolderService', () => {
 
       await service.syncFolders(tenantId, providerId);
 
-      expect(mockProviderTokenService.getProviderWithToken).toHaveBeenCalledWith(providerId);
+      expect(mockProviderTokenService.getProviderWithToken).toHaveBeenCalledWith(providerId, tenantId);
       expect(mockLabelsListFn).toHaveBeenCalledWith({ userId: 'me' });
     });
   });

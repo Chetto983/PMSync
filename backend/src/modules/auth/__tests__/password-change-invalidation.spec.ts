@@ -24,6 +24,10 @@ jest.mock('@simplewebauthn/server', () => ({}));
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from '../services/auth.service';
+import { AuthRegistrationService } from '../services/auth-registration.service';
+import { AuthLoginService } from '../services/auth-login.service';
+import { AuthTokenService } from '../services/auth-token.service';
+import { AuthPasswordResetService } from '../services/auth-password-reset.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailService } from '../../email/services/email.service';
 import { OtpSecurityService } from '../services/otp-security.service';
@@ -35,6 +39,8 @@ import { RedisRateLimiterService } from '../../../common/services/redis-rate-lim
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { LegalAcceptanceService } from '../../compliance/services/legal-acceptance.service';
 import { AuthConfigService } from '../services/auth-config.service';
+import { PasswordHashingService } from '../services/password-hashing.service';
+import { PasswordPolicyService } from '../services/password-policy.service';
 
 // Mock bcrypt
 jest.mock('bcrypt', () => ({
@@ -94,21 +100,49 @@ describe('Password Change Invalidation (AUTH-05)', () => {
       del: jest.fn().mockResolvedValue(undefined),
     };
 
+    const mockPasswordHashing = {
+      hashPassword: jest.fn().mockResolvedValue('hashed-new-password'),
+      verifyPassword: jest.fn().mockResolvedValue({ valid: false, needsRehash: false }),
+      dummyHash: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockPasswordPolicy = {
+      validate: jest.fn().mockResolvedValue({ valid: true, errors: [] }),
+      checkBreached: jest.fn().mockResolvedValue({ breached: false, count: 0 }),
+    };
+
+    const mockAuthConfig = {
+      accessTokenExpiresIn: '15m',
+      accessTokenTtlMs: 900_000,
+      refreshTokenSecret: 'x'.repeat(32),
+      maxSessionsPerUser: 5,
+      sessionTtlMs: 86_400_000,
+      idleTimeoutMs: 1_800_000,
+      lastActivityDebounceMs: 60_000,
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        AuthRegistrationService,
+        AuthLoginService,
+        AuthTokenService,
+        AuthPasswordResetService,
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwtService },
         { provide: EmailService, useValue: {} },
+        { provide: CacheService, useValue: cacheService },
+        { provide: AuthConfigService, useValue: mockAuthConfig },
+        { provide: PasswordHashingService, useValue: mockPasswordHashing },
+        { provide: PasswordPolicyService, useValue: mockPasswordPolicy },
+        // Sub-service deps not exercised in these tests but required for DI
         { provide: OtpSecurityService, useValue: {} },
         { provide: TotpService, useValue: {} },
         { provide: BackupCodesService, useValue: {} },
         { provide: TrustedDeviceService, useValue: {} },
         { provide: WebAuthnService, useValue: {} },
         { provide: RedisRateLimiterService, useValue: {} },
-        { provide: CacheService, useValue: cacheService },
         { provide: LegalAcceptanceService, useValue: {} },
-        { provide: AuthConfigService, useValue: { accessTokenTtl: '15m', refreshTokenTtlMs: 604800000 } },
       ],
     }).compile();
 
