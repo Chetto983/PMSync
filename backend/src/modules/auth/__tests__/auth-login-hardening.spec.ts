@@ -214,7 +214,7 @@ describe('AuthLoginService - Hardening', () => {
     });
   });
 
-  describe('Per-email rate limiting', () => {
+  describe('Per-tenant-email rate limiting', () => {
     it('should check both IP and email lockout in parallel', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue(TENANT);
       mockPrisma.user.findUnique.mockResolvedValue(USER);
@@ -225,7 +225,9 @@ describe('AuthLoginService - Hardening', () => {
 
       // isLockedOut should be called for both IP and email keys
       expect(mockRateLimiter.isLockedOut).toHaveBeenCalledWith('login:1.2.3.4');
-      expect(mockRateLimiter.isLockedOut).toHaveBeenCalledWith('login:email:test@example.com');
+      expect(mockRateLimiter.isLockedOut).toHaveBeenCalledWith(
+        'login:email:test@example.com:test@example.com',
+      );
     });
 
     it('should block when email is locked out', async () => {
@@ -248,7 +250,11 @@ describe('AuthLoginService - Hardening', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(mockRateLimiter.recordFailedAttempt).toHaveBeenCalledWith('login:1.2.3.4', 5, 900);
-      expect(mockRateLimiter.recordFailedAttempt).toHaveBeenCalledWith('login:email:test@example.com', 10, 900);
+      expect(mockRateLimiter.recordFailedAttempt).toHaveBeenCalledWith(
+        'login:email:test@example.com:test@example.com',
+        10,
+        900,
+      );
     });
 
     it('should clear both IP and email rate limits on successful login', async () => {
@@ -260,19 +266,21 @@ describe('AuthLoginService - Hardening', () => {
       await service.login('test@example.com', 'password123456789', undefined, '1.2.3.4');
 
       expect(mockRateLimiter.clearFailedAttempts).toHaveBeenCalledWith('login:1.2.3.4');
-      expect(mockRateLimiter.clearFailedAttempts).toHaveBeenCalledWith('login:email:test@example.com');
+      expect(mockRateLimiter.clearFailedAttempts).toHaveBeenCalledWith(
+        'login:email:test@example.com:test@example.com',
+      );
     });
   });
 
   describe('Password policy warning', () => {
-    it('should include passwordPolicyWarning=true when password fails new 15-char policy', async () => {
+    it('should include passwordPolicyWarning=true when password fails min-8 policy', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue(TENANT);
       mockPrisma.user.findUnique.mockResolvedValue(USER);
       mockPasswordHashing.verifyPassword.mockResolvedValue({ valid: true, needsRehash: false });
       mockPrisma.session.create.mockResolvedValue({ id: 'sess-1' });
 
-      // Simulate short password (< 15 chars)
-      const result = await service.login('test@example.com', 'short1234567', undefined, '1.2.3.4');
+      // Simulate short password (< 8 chars)
+      const result = await service.login('test@example.com', 'short12', undefined, '1.2.3.4');
 
       // Should include warning flag
       expect(result).toHaveProperty('passwordPolicyWarning', true);
