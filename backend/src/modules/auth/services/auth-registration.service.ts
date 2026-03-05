@@ -151,11 +151,21 @@ export class AuthRegistrationService {
 
     try {
       const { code } = await this.otpSecurity.createOtp(user.id, 'email');
-      await this.emailService.sendOtp(normalizedEmail, code);
+      try {
+        await this.emailService.sendOtp(normalizedEmail, code);
+      } catch (emailErr) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'register_otp_send_failed',
+            userId: user.id,
+            error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+          }),
+        );
+      }
     } catch (error) {
       this.logger.warn(
         JSON.stringify({
-          event: 'register_otp_send_failed',
+          event: 'register_otp_create_failed',
           userId: user.id,
           error: error instanceof Error ? error.message : String(error),
         }),
@@ -223,14 +233,24 @@ export class AuthRegistrationService {
 
     try {
       const { code } = await this.otpSecurity.createOtp(user.id, 'email');
-      await this.emailService.sendOtp(user.email, code);
-      this.logger.log(
-        JSON.stringify({ event: 'otp_sent', userId: user.id, email: this.redactEmail(user.email) }),
-      );
+      try {
+        await this.emailService.sendOtp(user.email, code);
+        this.logger.log(
+          JSON.stringify({ event: 'otp_sent', userId: user.id, email: this.redactEmail(user.email) }),
+        );
+      } catch (emailErr) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'otp_send_failed',
+            userId: user.id,
+            error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+          }),
+        );
+      }
     } catch (error) {
       this.logger.warn(
         JSON.stringify({
-          event: 'otp_send_failed',
+          event: 'otp_create_failed',
           userId: user.id,
           error: error instanceof Error ? error.message : String(error),
         }),
