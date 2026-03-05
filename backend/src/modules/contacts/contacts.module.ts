@@ -2,6 +2,10 @@ import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { ContactsController } from './controllers/contacts.controller';
 import { ContactsWebhookController } from './controllers/contacts-webhook.controller';
 import { ContactsService } from './services/contacts.service';
+// Phase 43: Contacts sub-services (must be before facade for DI ordering)
+import { ContactCrudService } from './services/contact-crud.service';
+import { ContactProviderOpsService } from './services/contact-provider-ops.service';
+import { ContactSyncService } from './services/contact-sync.service';
 import { ContactsCacheService } from './services/contacts-cache.service';
 import { ContactsImportService } from './services/contacts-import.service';
 import { GoogleContactsSyncService } from './services/google-contacts-sync.service';
@@ -46,7 +50,11 @@ import { ContactsProviderEventHandlerService } from './services/provider-event-h
     ContactsWebhookController,
   ],
   providers: [
-    ContactsService,
+    // Phase 43: Contacts sub-services (must be before facade for DI ordering)
+    ContactCrudService,
+    ContactProviderOpsService,
+    ContactSyncService,
+    ContactsService, // Facade - delegates to sub-services above
     ContactsCacheService, // Redis caching and distributed locking
     ContactsImportService, // vCard and email extraction
     GoogleContactsSyncService,
