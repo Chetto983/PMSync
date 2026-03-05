@@ -5,6 +5,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './controllers/auth.controller';
 import { MfaController } from './controllers/mfa.controller';
 import { AuthService } from './services/auth.service';
+import { AuthRegistrationService } from './services/auth-registration.service';
+import { AuthLoginService } from './services/auth-login.service';
+import { AuthTokenService } from './services/auth-token.service';
+import { AuthPasswordResetService } from './services/auth-password-reset.service';
 import { AuthConfigService } from './services/auth-config.service';
 import { OtpSecurityService } from './services/otp-security.service';
 import { TotpService } from './services/totp.service';
@@ -80,6 +84,11 @@ import { ComplianceModule } from '../compliance/compliance.module';
     }),
   ],
   providers: [
+    // Phase 43: Auth sub-services (must be before facade for DI ordering)
+    AuthRegistrationService,
+    AuthLoginService,
+    AuthTokenService,
+    AuthPasswordResetService,
     AuthService,
     AuthConfigService,
     OtpSecurityService,
