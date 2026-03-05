@@ -17,7 +17,7 @@ export interface SubscriptionLimits {
 }
 
 async function fetchLimits(): Promise<SubscriptionLimits> {
-  const response = await apiClient.get<{ limits: SubscriptionLimits }>('/api/v1/subscription/limits');
+  const response = await apiClient.get<{ limits: SubscriptionLimits }>('/subscription/limits');
   return response.data.limits;
 }
 

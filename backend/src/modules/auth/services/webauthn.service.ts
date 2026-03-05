@@ -123,6 +123,12 @@ export class WebAuthnService implements OnModuleInit {
     this.redis = this.redisConnection.client;
   }
 
+  private redactEmail(email: string): string {
+    const [local, domain] = email.split('@');
+    if (!domain) return '***@***';
+    return `${local.substring(0, 2)}***@${domain}`;
+  }
+
   /**
    * Generate registration options for creating a new passkey
    *
@@ -595,10 +601,20 @@ export class WebAuthnService implements OnModuleInit {
     email: string,
     tenantSlug?: string,
   ): Promise<{ options: PublicKeyCredentialRequestOptionsJSON; sessionId: string } | null> {
-    // Find user by email (with optional tenant)
-    const whereClause: { email: string; tenant?: { slug: string } } = { email };
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Find active user by email (with optional tenant), and only for active tenants.
+    const whereClause: {
+      email: string;
+      isActive: boolean;
+      tenant: { isActive: boolean; slug?: string };
+    } = {
+      email: normalizedEmail,
+      isActive: true,
+      tenant: { isActive: true },
+    };
     if (tenantSlug) {
-      whereClause.tenant = { slug: tenantSlug };
+      whereClause.tenant.slug = tenantSlug.toLowerCase();
     }
 
     const user = await this.prisma.user.findFirst({
@@ -610,7 +626,7 @@ export class WebAuthnService implements OnModuleInit {
       this.logger.warn(
         JSON.stringify({
           event: 'webauthn_login_user_not_found',
-          email,
+          email: this.redactEmail(normalizedEmail),
         }),
       );
       return null;
@@ -716,6 +732,7 @@ export class WebAuthnService implements OnModuleInit {
         email: true,
         tenantId: true,
         isActive: true,
+        tenant: { select: { isActive: true } },
       },
     });
 
@@ -733,6 +750,16 @@ export class WebAuthnService implements OnModuleInit {
         }),
       );
       return { success: false, error: 'Account is not active' };
+    }
+
+    if (!user.tenant.isActive) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'webauthn_login_tenant_not_active',
+          userId: credential.userId,
+        }),
+      );
+      return { success: false, error: 'Organization is not active' };
     }
 
     // Retrieve stored challenge from Redis

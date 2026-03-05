@@ -18,10 +18,10 @@ describe('PasswordPolicyService', () => {
   });
 
   describe('validate - length checks', () => {
-    it('should reject password shorter than 15 characters', async () => {
+    it('should reject password shorter than 8 characters', async () => {
       const result = await service.validate('short');
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Password must be at least 15 characters');
+      expect(result.errors).toContain('Password must be at least 8 characters');
     });
 
     it('should reject password longer than 128 characters', async () => {
@@ -30,10 +30,10 @@ describe('PasswordPolicyService', () => {
       expect(result.errors).toContain('Password must be at most 128 characters');
     });
 
-    it('should accept password with exactly 15 characters (HIBP mocked as clean)', async () => {
+    it('should accept password with exactly 8 characters (HIBP mocked as clean)', async () => {
       // Override checkBreached to avoid real network call
       jest.spyOn(service, 'checkBreached').mockResolvedValueOnce({ breached: false, count: 0 });
-      const result = await service.validate('a'.repeat(15));
+      const result = await service.validate('a'.repeat(8));
       expect(result.valid).toBe(true);
       expect(result.errors).toEqual([]);
     });
@@ -49,21 +49,21 @@ describe('PasswordPolicyService', () => {
   describe('validate - HIBP breach check', () => {
     it('should reject password found in >3 breaches', async () => {
       jest.spyOn(service, 'checkBreached').mockResolvedValueOnce({ breached: true, count: 5000 });
-      const result = await service.validate('a'.repeat(15));
+      const result = await service.validate('a'.repeat(8));
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('This password has appeared in data breaches and cannot be used');
     });
 
     it('should accept password found in <=3 breaches', async () => {
       jest.spyOn(service, 'checkBreached').mockResolvedValueOnce({ breached: false, count: 2 });
-      const result = await service.validate('a'.repeat(15));
+      const result = await service.validate('a'.repeat(8));
       expect(result.valid).toBe(true);
       expect(result.errors).toEqual([]);
     });
 
     it('should accept password when HIBP API is unreachable (best-effort)', async () => {
       jest.spyOn(service, 'checkBreached').mockResolvedValueOnce({ breached: false, count: 0 });
-      const result = await service.validate('a'.repeat(15));
+      const result = await service.validate('a'.repeat(8));
       expect(result.valid).toBe(true);
       expect(result.errors).toEqual([]);
     });
@@ -84,12 +84,12 @@ describe('PasswordPolicyService', () => {
   });
 });
 
-describe('DTO Validation - MinLength(15) and MaxLength(128)', () => {
+describe('DTO Validation - MinLength(8) and MaxLength(128)', () => {
   describe('RegisterDto', () => {
-    it('should reject password with 14 chars', async () => {
+    it('should reject password with 7 chars', async () => {
       const dto = plainToInstance(RegisterDto, {
         email: 'test@example.com',
-        password: 'a'.repeat(14),
+        password: 'a'.repeat(7),
       });
       const errors = await validate(dto);
       const pwError = errors.find((e) => e.property === 'password');
@@ -106,10 +106,10 @@ describe('DTO Validation - MinLength(15) and MaxLength(128)', () => {
       expect(pwError).toBeDefined();
     });
 
-    it('should accept password with 15 chars', async () => {
+    it('should accept password with 8 chars', async () => {
       const dto = plainToInstance(RegisterDto, {
         email: 'test@example.com',
-        password: 'a'.repeat(15),
+        password: 'a'.repeat(8),
       });
       const errors = await validate(dto);
       const pwError = errors.find((e) => e.property === 'password');
@@ -128,10 +128,10 @@ describe('DTO Validation - MinLength(15) and MaxLength(128)', () => {
   });
 
   describe('ResetPasswordDto', () => {
-    it('should reject newPassword with 14 chars', async () => {
+    it('should reject newPassword with 7 chars', async () => {
       const dto = plainToInstance(ResetPasswordDto, {
         token: 'some-token',
-        newPassword: 'a'.repeat(14),
+        newPassword: 'a'.repeat(7),
       });
       const errors = await validate(dto);
       const pwError = errors.find((e) => e.property === 'newPassword');
@@ -148,10 +148,10 @@ describe('DTO Validation - MinLength(15) and MaxLength(128)', () => {
       expect(pwError).toBeDefined();
     });
 
-    it('should accept newPassword with 15 chars', async () => {
+    it('should accept newPassword with 8 chars', async () => {
       const dto = plainToInstance(ResetPasswordDto, {
         token: 'some-token',
-        newPassword: 'a'.repeat(15),
+        newPassword: 'a'.repeat(8),
       });
       const errors = await validate(dto);
       const pwError = errors.find((e) => e.property === 'newPassword');
@@ -159,11 +159,11 @@ describe('DTO Validation - MinLength(15) and MaxLength(128)', () => {
     });
   });
 
-  describe('LoginDto - CPU DoS prevention', () => {
-    it('should reject password with 14 chars', async () => {
+  describe('LoginDto - min 8 and length cap', () => {
+    it('should reject password with 7 chars', async () => {
       const dto = plainToInstance(LoginDto, {
         email: 'test@example.com',
-        password: 'a'.repeat(14),
+        password: 'a'.repeat(7),
       });
       const errors = await validate(dto);
       const pwError = errors.find((e) => e.property === 'password');
@@ -180,10 +180,10 @@ describe('DTO Validation - MinLength(15) and MaxLength(128)', () => {
       expect(pwError).toBeDefined();
     });
 
-    it('should accept password with 15 chars', async () => {
+    it('should accept password with 8 chars', async () => {
       const dto = plainToInstance(LoginDto, {
         email: 'test@example.com',
-        password: 'a'.repeat(15),
+        password: 'a'.repeat(8),
       });
       const errors = await validate(dto);
       const pwError = errors.find((e) => e.property === 'password');

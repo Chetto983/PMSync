@@ -40,8 +40,7 @@ import {
 
 @ApiTags('Subscription')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('subscription')
 export class SubscriptionController {
   constructor(
@@ -187,6 +186,8 @@ export class SubscriptionController {
   }
 
   @Post('cancel')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel subscription' })
   @ApiResponse({

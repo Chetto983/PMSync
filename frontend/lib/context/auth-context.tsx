@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useMemo, useState, useSyncExternalStore, useRef } from 'react';
+import React, { createContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore, User } from '@/stores/auth-store';
 
@@ -27,7 +27,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setStoreUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const hasRehydratedRef = useRef(false);
 
   // Detect hydration using useSyncExternalStore (no cascading renders)
   const isHydrated = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
@@ -40,32 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Only run once after hydration
-    if (hasRehydratedRef.current) return;
-    hasRehydratedRef.current = true;
-
     let isActive = true;
 
-    // Helper to safely set loading state
-    const safeSetLoading = (value: boolean) => {
-      if (isActive) {
-        // Use queueMicrotask to avoid sync setState in effect (eslint react-hooks/set-state-in-effect)
-        queueMicrotask(() => {
-          if (isActive) setIsLoading(value);
-        });
-      }
-    };
-
-    safeSetLoading(true);
+    setIsLoading(true); // eslint-disable-line react-hooks/set-state-in-effect
 
     // The httpOnly cookie is sent automatically via withCredentials: true.
     // If cookie is missing or invalid, backend returns 401 -> logout.
     apiClient
       .get('/auth/me')
       .then((response) => {
-        if (!isActive) {
-          return;
-        }
+        if (!isActive) return;
 
         const apiUser: User = {
           id: response.data.id ?? response.data.userId,
@@ -80,14 +63,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setStoreUser(apiUser);
       })
       .catch(() => {
-        if (!isActive) {
-          return;
-        }
+        if (!isActive) return;
         // No valid session cookie -- clear any stale user data
         logout();
       })
       .finally(() => {
-        safeSetLoading(false);
+        if (isActive) setIsLoading(false); // eslint-disable-line react-hooks/set-state-in-effect
       });
 
     return () => {

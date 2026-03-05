@@ -29,13 +29,12 @@ const {
 } = doubleCsrf({
   getSecret: () => CSRF_SECRET,
   // Session identifier: always IP-based for consistency.
+  // Use req.ip (trust-proxy aware) instead of raw X-Forwarded-For header.
   // The /auth/csrf-token endpoint runs without JwtAuthGuard, so req.user
   // is never set during token generation. Using userId here would cause a
   // mismatch between generation (IP) and validation (userId) = "invalid csrf token".
   getSessionIdentifier: (req: Request) => {
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim()
-      || req.socket?.remoteAddress
-      || 'anonymous';
+    const ip = req.ip || req.socket?.remoteAddress || 'anonymous';
     return ip;
   },
   cookieName: isProduction ? '__Host-csrf' : 'csrf',
@@ -60,7 +59,7 @@ const CSRF_EXCLUDED_PATHS = [
   '/api/v1/auth/register',   // Pre-auth: no session yet to protect
   '/api/v1/auth/send-otp',   // Pre-auth: OTP flow before session
   '/api/v1/auth/verify-otp', // Pre-auth: OTP verification before session
-  '/api/v1/auth/mfa',        // Pre-auth: MFA challenge/verify before session
+  '/api/v1/auth/mfa/verify', // Pre-auth: MFA challenge verify before session
   '/api/v1/auth/forgot-password', // Pre-auth: password reset request
   '/api/v1/auth/reset-password',  // Pre-auth: password reset with token
   '/api/v1/auth/refresh',    // Token refresh uses httpOnly cookie, not session
@@ -82,7 +81,7 @@ function shouldSkipCsrf(req: Request): boolean {
   // Skip excluded paths
   const path = req.path || req.url;
   return CSRF_EXCLUDED_PATHS.some(
-    (excluded) => path === excluded || path.startsWith(excluded),
+    (excluded) => path === excluded || path.startsWith(`${excluded}/`),
   );
 }
 

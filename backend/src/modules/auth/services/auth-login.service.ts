@@ -21,7 +21,7 @@ import { Request as ExpressRequest } from 'express';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /** Minimum password length for soft policy warning (matches PasswordPolicyService) */
-const PASSWORD_POLICY_MIN_LENGTH = 15;
+const PASSWORD_POLICY_MIN_LENGTH = 8;
 
 /**
  * Handles login, passkey auth, MFA challenge, and session creation.
@@ -82,7 +82,11 @@ export class AuthLoginService {
   ) {
     // Enforce session concurrency limit (OWASP ASVS V3)
     const existingSessions = await this.prisma.session.findMany({
-      where: { userId: user.id, expiresAt: { gt: new Date() } },
+      where: {
+        userId: user.id,
+        tenantId: tenant.id,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: 'asc' },
       select: { id: true },
     });
@@ -119,7 +123,7 @@ export class AuthLoginService {
         tenantId: tenant.id,
         userId: user.id,
         token,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + this.authConfig.sessionTtlMs),
         ipAddress: ipAddress || 'unknown',
         userAgent: userAgent || 'unknown',
         lastActivityAt: new Date(),
@@ -254,7 +258,7 @@ export class AuthLoginService {
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
     const ipKey = `login:${ipAddress || 'unknown'}`;
-    const emailKey = `login:email:${normalizedEmail}`;
+    const emailKey = `login:email:${slug}:${normalizedEmail}`;
 
     // Check both IP and email lockout in parallel
     const [ipLockout, emailLockout] = await Promise.all([

@@ -70,13 +70,13 @@ export class TrustedDeviceService {
 
     // Check device limit and remove oldest if needed
     const existingDevices = await this.prisma.trustedDevice.count({
-      where: { userId },
+      where: { tenantId, userId },
     });
 
     if (existingDevices >= this.maxDevices) {
       // Remove oldest device
       const oldest = await this.prisma.trustedDevice.findFirst({
-        where: { userId },
+        where: { tenantId, userId },
         orderBy: { lastUsedAt: 'asc' },
       });
 
@@ -132,7 +132,7 @@ export class TrustedDeviceService {
     if (!token) return false;
 
     const device = await this.prisma.trustedDevice.findFirst({
-      where: { deviceToken: token },
+      where: { deviceToken: token, userId },
     });
 
     if (!device) {
@@ -314,10 +314,6 @@ export class TrustedDeviceService {
    * Extract IP address from request
    */
   private extractIp(request: Request): string {
-    const forwarded = request.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      return forwarded.split(',')[0].trim();
-    }
     return request.ip || request.socket.remoteAddress || 'unknown';
   }
 

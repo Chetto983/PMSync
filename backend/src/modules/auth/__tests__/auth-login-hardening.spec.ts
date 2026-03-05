@@ -192,6 +192,28 @@ describe('AuthLoginService - Hardening', () => {
     });
   });
 
+  describe('Active status enforcement', () => {
+    it('blocks login for inactive users after credential verification', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue(TENANT);
+      mockPrisma.user.findUnique.mockResolvedValue({ ...USER, isActive: false });
+      mockPasswordHashing.verifyPassword.mockResolvedValue({ valid: true, needsRehash: false });
+
+      await expect(
+        service.login('test@example.com', 'password123456789', undefined, '1.2.3.4'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('blocks login for inactive tenants after credential verification', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue({ ...TENANT, isActive: false });
+      mockPrisma.user.findUnique.mockResolvedValue(USER);
+      mockPasswordHashing.verifyPassword.mockResolvedValue({ valid: true, needsRehash: false });
+
+      await expect(
+        service.login('test@example.com', 'password123456789', undefined, '1.2.3.4'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('Per-email rate limiting', () => {
     it('should check both IP and email lockout in parallel', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue(TENANT);

@@ -11,7 +11,7 @@ export interface SubscriptionFeatures {
 }
 
 async function fetchFeatures(): Promise<SubscriptionFeatures> {
-  const response = await apiClient.get<{ features: SubscriptionFeatures }>('/api/v1/subscription/features');
+  const response = await apiClient.get<{ features: SubscriptionFeatures }>('/subscription/features');
   return response.data.features;
 }
 

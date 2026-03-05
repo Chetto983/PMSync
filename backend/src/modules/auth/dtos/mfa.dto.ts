@@ -1,4 +1,4 @@
-import { IsString, Length, IsOptional, IsBoolean, Matches, IsObject, IsNotEmpty } from 'class-validator';
+import { IsString, Length, IsOptional, IsBoolean, Matches, IsObject, IsNotEmpty, IsEmail } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
@@ -208,8 +208,7 @@ export class WebAuthnCredentialResponseDto {
  */
 export class WebAuthnLoginOptionsDto {
   @ApiProperty({ description: 'User email address' })
-  @IsString()
-  @IsNotEmpty()
+  @IsEmail()
   email!: string;
 
   @ApiPropertyOptional({ description: 'Tenant slug for multi-tenant support' })

@@ -167,7 +167,10 @@
       "Bash(taskkill //PID 19940 //F)",
       "Bash(taskkill //PID 40068 //F)",
       "Bash(rm -f .tsbuildinfo)",
-      "Bash(rm -rf dist)"
+      "Bash(rm -rf dist)",
+      "Bash(taskkill //PID 44988 //F)",
+      "Bash(while read line)",
+      "Bash(do echo \"$line\")"
     ],
     "deny": [],
     "ask": []

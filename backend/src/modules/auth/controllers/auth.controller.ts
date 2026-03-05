@@ -40,6 +40,14 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   /**
+   * Resolve client IP using Express trust-proxy semantics.
+   * Avoid reading X-Forwarded-For directly (spoofable when proxy chain is misconfigured).
+   */
+  private getClientIp(req: ExpressRequest): string {
+    return req.ip || req.socket.remoteAddress || 'unknown';
+  }
+
+  /**
    * Register a new user
    * POST /auth/register
    */
@@ -74,7 +82,7 @@ export class AuthController {
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: ExpressResponse,
   ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    const ipAddress = this.getClientIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
     const result = await this.authService.verifyOtpCode(body.email, body.code, body.tenantSlug, ipAddress, userAgent);
     if (result.accessToken) {
@@ -104,7 +112,7 @@ export class AuthController {
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: ExpressResponse,
   ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    const ipAddress = this.getClientIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
     const deviceToken = req.cookies?.['mfa_device_token'] || req.headers['x-device-token'] as string;
     const result = await this.authService.login(body.email, body.password, body.tenantSlug, ipAddress, userAgent, deviceToken, req);
@@ -133,7 +141,7 @@ export class AuthController {
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: ExpressResponse,
   ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    const ipAddress = this.getClientIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
     const result = await this.authService.verifyMfaChallenge(
       body.mfaToken,
@@ -185,7 +193,7 @@ export class AuthController {
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: ExpressResponse,
   ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    const ipAddress = this.getClientIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
     const result = await this.authService.loginWithPasskey(body.response, body.sessionId, ipAddress, userAgent);
     if (result.accessToken) {
@@ -215,6 +223,7 @@ export class AuthController {
    * POST /auth/reset-password
    */
   @Post('reset-password')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body.token, body.newPassword);
   }

@@ -83,7 +83,7 @@ describe('AuthRegistrationService - Hardening', () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPasswordPolicy.validate.mockResolvedValue({
         valid: false,
-        errors: ['Password must be at least 15 characters'],
+        errors: ['Password must be at least 8 characters'],
       });
 
       await expect(
@@ -296,7 +296,7 @@ describe('AuthPasswordResetService - Hardening', () => {
       mockPasswordHashing.verifyPassword.mockResolvedValue({ valid: false, needsRehash: false });
       mockPasswordPolicy.validate.mockResolvedValue({
         valid: false,
-        errors: ['Password must be at least 15 characters'],
+        errors: ['Password must be at least 8 characters'],
       });
 
       await expect(

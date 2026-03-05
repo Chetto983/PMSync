@@ -91,21 +91,47 @@ export class AuthTokenService {
 
     const existing = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
-      include: { user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            isActive: true,
+            tenant: { select: { isActive: true } },
+          },
+        },
+      },
     });
 
     if (!existing) throw new UnauthorizedException('Invalid refresh token');
     if (existing.expiresAt < new Date()) throw new UnauthorizedException('Refresh token expired');
+    if (!existing.user.isActive) throw new UnauthorizedException('Account disabled');
+    if (!existing.user.tenant.isActive) throw new UnauthorizedException('Organization disabled');
 
     if (existing.isUsed) {
       // Grace period: tolerate a single reuse within a short window for network retries.
-      // SECURITY: Do NOT create new tokens — just reject. Client should retry with the new token.
+      // Determine grace window from replacement token creation time (not original token creation).
+      // Using original createdAt would falsely trigger "theft" for normal long-lived tokens.
       this.logger.warn(
         JSON.stringify({ event: 'refresh_token_reuse', userId: existing.userId, familyId: existing.familyId }),
       );
 
-      const timeSinceCreation = Date.now() - existing.createdAt.getTime();
-      if (timeSinceCreation > this.REFRESH_GRACE_PERIOD_MS) {
+      let isWithinGrace = false;
+      if (existing.replacedBy) {
+        const replacement = await this.prisma.refreshToken.findUnique({
+          where: { tokenHash: existing.replacedBy },
+          select: { createdAt: true },
+        });
+        if (replacement) {
+          const ageMs = Date.now() - replacement.createdAt.getTime();
+          isWithinGrace = ageMs <= this.REFRESH_GRACE_PERIOD_MS;
+        }
+      }
+
+      if (!isWithinGrace) {
         // Outside grace period — treat as theft
         this.logger.warn(
           JSON.stringify({ event: 'refresh_token_theft_detected', userId: existing.userId, familyId: existing.familyId }),
@@ -116,35 +142,71 @@ export class AuthTokenService {
       throw new UnauthorizedException('Token already rotated');
     }
 
-    const newRefresh = await this.createRefreshToken(existing.userId, existing.tenantId, existing.familyId);
-    const newTokenHash = this.hashRefreshToken(newRefresh.token);
-
-    await this.prisma.refreshToken.update({
-      where: { id: existing.id },
-      data: { isUsed: true, replacedBy: newTokenHash },
-    });
-
-    // Create a real session row so jwt.strategy.ts can validate the sessionId
+    const newRawRefreshToken = nanoid(64);
+    const newRefreshTokenHash = this.hashRefreshToken(newRawRefreshToken);
     const newSessionId = nanoid();
     const accessToken = this.jwtService.sign({
       type: 'access',
-      sessionId: newSessionId, userId: existing.userId, tenantId: existing.tenantId,
+      sessionId: newSessionId,
+      userId: existing.userId,
+      tenantId: existing.tenantId,
       role: existing.user.role,
     });
 
-    await this.prisma.session.create({
-      data: {
-        id: newSessionId,
-        tenantId: existing.tenantId,
-        userId: existing.userId,
-        token: accessToken,
-        expiresAt: new Date(Date.now() + this.authConfigService.sessionTtlMs),
-        ipAddress: 'token-refresh',
-        userAgent: 'token-refresh',
-      },
+    await this.prisma.$transaction(async (tx) => {
+      // Atomic "mark used" gate closes refresh-race windows.
+      const markUsed = await tx.refreshToken.updateMany({
+        where: { id: existing.id, isUsed: false },
+        data: { isUsed: true, replacedBy: newRefreshTokenHash },
+      });
+      if (markUsed.count !== 1) {
+        throw new UnauthorizedException('Token already rotated');
+      }
+
+      await tx.refreshToken.create({
+        data: {
+          tenantId: existing.tenantId,
+          userId: existing.userId,
+          familyId: existing.familyId,
+          tokenHash: newRefreshTokenHash,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      // Enforce session concurrency limit on refresh-issued sessions too.
+      const existingSessions = await tx.session.findMany({
+        where: {
+          userId: existing.userId,
+          tenantId: existing.tenantId,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      if (existingSessions.length >= this.authConfigService.maxSessionsPerUser) {
+        const sessionsToDelete = existingSessions.slice(
+          0,
+          existingSessions.length - this.authConfigService.maxSessionsPerUser + 1,
+        );
+        await tx.session.deleteMany({
+          where: { id: { in: sessionsToDelete.map((s) => s.id) } },
+        });
+      }
+
+      await tx.session.create({
+        data: {
+          id: newSessionId,
+          tenantId: existing.tenantId,
+          userId: existing.userId,
+          token: accessToken,
+          expiresAt: new Date(Date.now() + this.authConfigService.sessionTtlMs),
+          ipAddress: 'token-refresh',
+          userAgent: 'token-refresh',
+        },
+      });
     });
 
-    return { accessToken, refreshToken: newRefresh.token };
+    return { accessToken, refreshToken: newRawRefreshToken };
   }
 
   /**
@@ -160,8 +222,8 @@ export class AuthTokenService {
    * Get current user profile
    */
   async getCurrentUserProfile(userId: string, tenantId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId },
       select: {
         id: true, email: true, firstName: true, lastName: true,
         avatarUrl: true, role: true, isMfaEnabled: true, lastLogin: true, createdAt: true,
@@ -177,7 +239,7 @@ export class AuthTokenService {
    */
   async invalidateAllSessions(userId: string, tenantId: string): Promise<{ sessionCount: number; cacheCount: number }> {
     const sessionsToInvalidate = await this.prisma.session.findMany({
-      where: { userId },
+      where: { userId, tenantId },
       select: { id: true },
     });
 
@@ -188,7 +250,9 @@ export class AuthTokenService {
     );
     await this.cacheService.del(`${tenantId}:user:${userId}`, { namespace: CacheNamespace.USER_SESSION });
 
-    const deletedSessions = await this.prisma.session.deleteMany({ where: { userId } });
+    const deletedSessions = await this.prisma.session.deleteMany({
+      where: { userId, tenantId },
+    });
 
     return { sessionCount: deletedSessions.count, cacheCount: sessionsToInvalidate.length + 1 };
   }
