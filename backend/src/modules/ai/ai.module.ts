@@ -14,6 +14,10 @@ import { KnowledgeBaseController } from './controllers/knowledge-base.controller
 import { EmailEmbeddingQueueService } from './services/email-embedding.queue';
 import { ContactEmbeddingQueueService } from './services/contact-embedding.queue';
 import { EmailInsightsService } from './services/email-insights.service';
+// Phase 43: EmailInsights sub-services (must be before facade for DI ordering)
+import { InsightUtilsService } from './services/insight-utils.service';
+import { EmailAnalysisService } from './services/email-analysis.service';
+import { EmailComposeService } from './services/email-compose.service';
 import { EmailTriageService } from './services/email-triage.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
@@ -75,7 +79,11 @@ import { AiObservabilityController } from './controllers/ai-observability.contro
     KnowledgeBaseService, // Facade - delegates to sub-services above
     EmailEmbeddingQueueService,
     ContactEmbeddingQueueService,
-    EmailInsightsService,
+    // Phase 43: EmailInsights sub-services (must be before facade for DI ordering)
+    InsightUtilsService,
+    EmailAnalysisService,
+    EmailComposeService,
+    EmailInsightsService, // Facade - delegates to sub-services above
     EmailTriageService, // Auto-triage new emails (Superhuman-like feature)
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
