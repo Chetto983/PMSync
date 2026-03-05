@@ -56,6 +56,8 @@ export class AuthConfigService implements OnModuleInit {
   // Session Configuration
   readonly sessionTtlMs: number;
   readonly maxSessionsPerUser: number;
+  readonly idleTimeoutMs: number;
+  readonly lastActivityDebounceMs: number;
 
   // Rate Limiting Configuration
   readonly loginRateLimitWindow: number;
@@ -165,6 +167,14 @@ export class AuthConfigService implements OnModuleInit {
       this.config.get<string>('MAX_SESSIONS_PER_USER'),
       5,
     );
+    this.idleTimeoutMs = this.safeParseInt(
+      this.config.get<string>('IDLE_TIMEOUT_MS'),
+      30 * 60 * 1000, // 30 minutes default (OWASP ASVS V3.3.2)
+    );
+    this.lastActivityDebounceMs = this.safeParseInt(
+      this.config.get<string>('LAST_ACTIVITY_DEBOUNCE_MS'),
+      60 * 1000, // 1 minute debounce
+    );
 
     // === Rate Limiting Configuration ===
     this.loginRateLimitWindow = this.safeParseInt(
@@ -217,6 +227,8 @@ export class AuthConfigService implements OnModuleInit {
         otpMaxAttempts: this.otpMaxAttempts,
         sessionTtlMs: this.sessionTtlMs,
         maxSessionsPerUser: this.maxSessionsPerUser,
+        idleTimeoutMs: this.idleTimeoutMs,
+        lastActivityDebounceMs: this.lastActivityDebounceMs,
       }),
     );
     if (this.isEs256Enabled && this.jwtLegacyHmacSecret) {

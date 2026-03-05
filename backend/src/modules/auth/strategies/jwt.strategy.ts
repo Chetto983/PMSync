@@ -30,6 +30,7 @@ type RejectionReason =
   | 'session_not_found'
   | 'session_expired'
   | 'session_revoked'
+  | 'session_idle_timeout'
   | 'user_not_found'
   | 'user_inactive'
   | 'tenant_inactive'
@@ -168,6 +169,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       role: string;
       sessionId?: string;
       sessionExpiresAt?: string;
+      lastActivityAt?: string;
     }>(cacheKey, { namespace: CacheNamespace.USER_SESSION });
 
     if (cachedUser) {
@@ -206,6 +208,37 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return null;
       }
 
+      // Idle session timeout check on cached data (OWASP ASVS V3.3.2)
+      if (cachedUser.lastActivityAt && payload.sessionId) {
+        const cachedIdleMs = Date.now() - new Date(cachedUser.lastActivityAt).getTime();
+        if (cachedIdleMs > this.authConfig.idleTimeoutMs) {
+          await this.cacheService.del(cacheKey, { namespace: CacheNamespace.USER_SESSION });
+          this.prisma.session.delete({ where: { id: payload.sessionId } }).catch(() => {});
+          this.rejectToken('session_idle_timeout', {
+            userId: payload.userId,
+            idleMinutes: Math.round(cachedIdleMs / 60000),
+          });
+          return null;
+        }
+
+        // Debounced lastActivityAt update from cache
+        if (cachedIdleMs > this.authConfig.lastActivityDebounceMs) {
+          const now = new Date();
+          this.prisma.session.update({
+            where: { id: payload.sessionId },
+            data: { lastActivityAt: now },
+          }).catch((err) => {
+            this.logger.warn(`Failed to update lastActivityAt: ${err.message}`);
+          });
+          // Update cache with new lastActivityAt
+          this.cacheService.set(
+            cacheKey,
+            { ...cachedUser, lastActivityAt: now.toISOString() },
+            { namespace: CacheNamespace.USER_SESSION, ttl: this.SESSION_CACHE_TTL },
+          ).catch(() => {});
+        }
+      }
+
       // Cache hit - return cached user context (no DB queries!)
       return {
         id: cachedUser.id,
@@ -221,6 +254,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // 3. Cache miss - validate session if sessionId is present
     let sessionExpiresAtFromDb: string | undefined;
+    let sessionLastActivityAtFromDb: string | undefined;
     if (payload.sessionId) {
       const session = await this.prisma.session.findUnique({
         where: { id: payload.sessionId },
@@ -253,8 +287,33 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return null;
       }
 
+      // Idle session timeout check (OWASP ASVS V3.3.2)
+      const idleMs = Date.now() - session.lastActivityAt.getTime();
+      if (idleMs > this.authConfig.idleTimeoutMs) {
+        this.prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+        this.rejectToken('session_idle_timeout', {
+          userId: payload.userId,
+          idleMinutes: Math.round(idleMs / 60000),
+        });
+        return null;
+      }
+
+      // Debounced lastActivityAt update (avoid DB write on every request)
+      let lastActivityAtForCache = session.lastActivityAt.toISOString();
+      if (idleMs > this.authConfig.lastActivityDebounceMs) {
+        const now = new Date();
+        lastActivityAtForCache = now.toISOString();
+        this.prisma.session.update({
+          where: { id: session.id },
+          data: { lastActivityAt: now },
+        }).catch((err) => {
+          this.logger.warn(`Failed to update lastActivityAt: ${err.message}`);
+        });
+      }
+
       // Save for caching in step 10 (avoids duplicate DB query)
       sessionExpiresAtFromDb = session.expiresAt.toISOString();
+      sessionLastActivityAtFromDb = lastActivityAtForCache;
     }
 
     // 4. Get user with tenant
@@ -326,6 +385,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       {
         ...validatedUser,
         sessionExpiresAt: sessionExpiresAtFromDb,
+        lastActivityAt: sessionLastActivityAtFromDb,
       },
       {
         namespace: CacheNamespace.USER_SESSION,

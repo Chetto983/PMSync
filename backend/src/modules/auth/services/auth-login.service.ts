@@ -14,6 +14,7 @@ import { TrustedDeviceService } from './trusted-device.service';
 import { WebAuthnService } from './webauthn.service';
 import { PasswordHashingService } from './password-hashing.service';
 import { PasswordPolicyService } from './password-policy.service';
+import { AuthConfigService } from './auth-config.service';
 import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
@@ -49,6 +50,7 @@ export class AuthLoginService {
     private rateLimiter: RedisRateLimiterService,
     private passwordHashingService: PasswordHashingService,
     private passwordPolicyService: PasswordPolicyService,
+    private authConfig: AuthConfigService,
   ) {}
 
   private redactEmail(email: string): string {
@@ -78,6 +80,30 @@ export class AuthLoginService {
     userAgent?: string,
     createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
   ) {
+    // Enforce session concurrency limit (OWASP ASVS V3)
+    const existingSessions = await this.prisma.session.findMany({
+      where: { userId: user.id, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+
+    if (existingSessions.length >= this.authConfig.maxSessionsPerUser) {
+      const sessionsToDelete = existingSessions.slice(
+        0,
+        existingSessions.length - this.authConfig.maxSessionsPerUser + 1,
+      );
+      await this.prisma.session.deleteMany({
+        where: { id: { in: sessionsToDelete.map((s) => s.id) } },
+      });
+      this.logger.log(
+        JSON.stringify({
+          event: 'session_eviction',
+          userId: user.id,
+          evictedCount: sessionsToDelete.length,
+        }),
+      );
+    }
+
     const sessionId = nanoid();
     const token = this.jwtService.sign({
       sessionId,
@@ -95,6 +121,7 @@ export class AuthLoginService {
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         ipAddress: ipAddress || 'unknown',
         userAgent: userAgent || 'unknown',
+        lastActivityAt: new Date(),
       },
     });
 
