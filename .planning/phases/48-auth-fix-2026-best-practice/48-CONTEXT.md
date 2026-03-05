@@ -6,7 +6,16 @@
 <domain>
 ## Phase Boundary
 
-Upgrade auth security to 2026 best practices: migrate password hashing from bcrypt to Argon2id, switch JWT signing from symmetric HS256 to asymmetric algorithm, enforce password policy with breach checking, and harden all auth endpoints against user/email enumeration.
+Upgrade auth security to 2026 best practices: migrate password hashing from bcrypt to Argon2id, switch JWT signing from symmetric HS256 to asymmetric algorithm, enforce password policy with breach checking, harden all auth endpoints against user/email enumeration, harden cookie security, enforce session concurrency limits, and add idle session timeout.
+
+### Standards Compliance Targets
+- NIST SP 800-63B-4 (July 2025) — password policy, memorized secret requirements
+- OWASP ASVS 5.0 (May 2025) — V2 Authentication, V3 Session Management (Level 2)
+- OWASP Password Storage Cheat Sheet (2025) — Argon2id params
+- IETF RFC 7518 / RFC 7515 — ES256 "Recommended+", `kid` header
+- IETF RFC 9700 (Jan 2025) — OAuth 2.0 Security Best Current Practice, refresh token rotation
+- ISO 27001:2022 Annex A 8.5 — secure authentication, no enumeration leaks
+- SOC 2 Type II — MFA, RBAC, session audit logging, tenant isolation
 
 </domain>
 
@@ -35,6 +44,10 @@ Upgrade auth security to 2026 best practices: migrate password hashing from bcry
 - No complexity rules (NIST SP 800-63B-4: length-only, no forced uppercase/number/special)
 - Breach check: HaveIBeenPwned k-anonymity API on registration + password change. Block passwords found in >3 breaches.
 - HIBP check is best-effort: if API unreachable, allow password (don't block user for external service failure)
+- No password truncation or case transformation (NIST SP 800-63B-4 / ASVS 5.0: verify password exactly as received). Current code is compliant — no trimming/slicing found.
+- Allow all Unicode characters including spaces (NIST SP 800-63B-4). No regex restrictions in current DTOs — compliant.
+- MaxLength validation on DTOs: currently MISSING. No `@MaxLength()` on password fields in `register.dto.ts`, `reset-password.dto.ts`, `login.dto.ts`. Without it, an attacker can submit a 1MB password and Argon2id will happily hash it → CPU DoS. Add `@MaxLength(128)` on all password DTO fields.
+- DTO MinLength update: currently `@MinLength(8)` in all 3 DTOs — must change to `@MinLength(15)` to match the 15-char policy.
 - Existing user enforcement: soft — show warning banner on login if password fails new policy, don't block access
 - Password policy service: standalone injectable, reusable by registration + password-reset + future change-password
 
@@ -46,6 +59,14 @@ Upgrade auth security to 2026 best practices: migrate password hashing from bcry
 - Rate limiting: add per-email dimension alongside existing per-IP. Both dimensions enforced on login, register, send-otp endpoints.
 - Idle session timeout: add 30-min sliding inactivity timeout (OWASP ASVS V3.3.2). Current sessions live 24h with no idle check — a stolen token works the full window even if the user stops activity. Track `lastActivityAt` on session row, reject in `jwt.strategy.ts` if stale.
 
+### Cookie Hardening
+- `__Host-` prefix: rename `access_token` → `__Host-access_token` and `refresh_token` → `__Host-refresh_token` (OWASP ASVS 5.0 V3 cookie setup). The `__Host-` prefix enforces: `Secure` must be true, `Path` must be `/`, no `Domain` attribute — prevents cookie injection via subdomain takeover. BREAKING: refresh cookie currently uses `path: '/api/v1/auth/refresh'` which is incompatible with `__Host-` (requires `path: '/'`). Options: (a) drop `__Host-` on refresh cookie and keep path-scoping, or (b) use `__Host-` with `path: '/'` and accept that the refresh cookie is sent on all requests. Recommendation: (a) — path-scoping is a stronger defense for refresh tokens than the `__Host-` prefix benefit.
+- `sameSite`: current `lax` is correct for OAuth callback compatibility. `Strict` would break OAuth redirects.
+- Current config is otherwise good: `httpOnly: true`, `secure: true` in production, path-scoped refresh cookie.
+
+### Session Concurrency Enforcement
+- `maxSessionsPerUser` is configured in `AuthConfigService` (default: 5) but NEVER ENFORCED in `createSession()`. The config value is read and logged but no code checks session count before creating a new one. Fix: in `_createSession()`, count existing sessions for user, if >= max, delete oldest session before creating new one. (OWASP ASVS 5.0 V3: document and enforce concurrent session limits.)
+
 ### Claude's Discretion
 - Argon2id library choice (argon2 vs @node-rs/argon2 vs built-in crypto.hash)
 - Exact Prometheus metric names for migration counters
@@ -56,6 +77,8 @@ Upgrade auth security to 2026 best practices: migrate password hashing from bcry
 - `kid` format (truncated hash length, encoding)
 - Idle timeout duration (30 min recommended, configurable via env)
 - `lastActivityAt` update strategy (every request vs debounced)
+- `__Host-` prefix on access cookie vs both cookies (see Cookie Hardening trade-off)
+- Session eviction strategy when max reached (delete oldest vs reject new)
 
 </decisions>
 
@@ -71,8 +94,9 @@ Upgrade auth security to 2026 best practices: migrate password hashing from bcry
 ### Established Patterns
 - `withoutTenantScopingAsync()` wrapper on all auth operations (pre-login, no tenant context)
 - Function-passing pattern for cross-sub-service calls (e.g., `createRefreshTokenFn`) avoids circular DI
-- Cookie helpers (`setAuthCookie`, `setRefreshCookie`) centralized in `helpers/cookie.helper.ts`
+- Cookie helpers (`setAuthCookie`, `setRefreshCookie`) centralized in `helpers/cookie.helper.ts` — names `access_token` / `refresh_token`, httpOnly, secure, sameSite lax, refresh scoped to `/api/v1/auth/refresh`
 - bcrypt used in 3 files: `auth-login.service.ts` (compare), `auth-registration.service.ts` (hash), `auth-password-reset.service.ts` (compare + hash)
+- Password DTOs: `@MinLength(8)` with no `@MaxLength` in `register.dto.ts:8`, `reset-password.dto.ts:8`, `login.dto.ts:8` — all need updating
 
 ### Integration Points
 - `auth-login.service.ts:258`: bcrypt.compare — primary migration point for Argon2id verify + rehash
@@ -88,6 +112,9 @@ Upgrade auth security to 2026 best practices: migrate password hashing from bcry
 - `auth-password-reset.service.ts:102`: `jwtService.sign()` for reset tokens — uses explicit `{ secret }` but NO explicit algorithm; when JwtModule defaults switch to ES256 this call will inherit ES256 and break (symmetric secret ≠ EC key). Must pin `algorithm: 'HS256'` explicitly.
 - `auth-login.service.ts:393`: `jwtService.verify(mfaToken)` — uses module default, affected by ES256 switch
 - `auth-password-reset.service.ts:155`: `jwtService.verify(token, { secret })` — needs explicit `algorithms: ['HS256']` pin to match the sign call
+- `cookie.helper.ts:28,57`: cookie names `access_token` / `refresh_token` — rename to `__Host-access_token` (access) while keeping path-scoped refresh as-is
+- `register.dto.ts:8`, `reset-password.dto.ts:8`, `login.dto.ts:8`: `@MinLength(8)` → `@MinLength(15)` + add `@MaxLength(128)` on all password fields
+- `auth-login.service.ts:75` (`_createSession`): no session count check — `maxSessionsPerUser` config exists but is never enforced. Add eviction logic before `prisma.session.create()`.
 
 </code_context>
 
@@ -107,6 +134,8 @@ Upgrade auth security to 2026 best practices: migrate password hashing from bcry
 - Re-authentication for sensitive operations (password change, MFA disable, account deletion) — OWASP ASVS V3.7. Important but distinct scope, better as its own phase.
 - Immutable audit trail table (`AuditEvent`) for authentication events — SOC 2 Type II requires tamper-proof logs. Current structured logging to stdout is not immutable. Defer to compliance phase.
 - DORA TLS 1.3 enforcement — verify minimum TLS version in production config. Low effort but separate from auth logic.
+- DPoP (Demonstrating Proof of Possession) for refresh tokens — IETF RFC 9449 / RFC 9700 (Jan 2025) recommends sender-constrained tokens. Current refresh token rotation is compliant as an alternative per RFC 9700, but DPoP would be stronger. Significant complexity — defer.
+- Passkey-first authentication promotion — 63% of IT professionals rank passkeys as top auth investment for 2026. WebAuthn is already implemented; a UI push to encourage passkey registration could be a separate UX phase.
 
 </deferred>
 

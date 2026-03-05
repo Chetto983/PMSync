@@ -26,6 +26,13 @@ export class AuthConfigService implements OnModuleInit {
   readonly accessTokenExpiresIn: string;
   readonly accessTokenTtlMs: number;
 
+  // ES256 Asymmetric Signing (2026 best practice)
+  readonly jwtPrivateKey?: string;
+  readonly jwtPublicKey?: string;
+  readonly jwtLegacyHmacSecret?: string;
+  readonly jwtKeyId?: string;
+  readonly isEs256Enabled: boolean;
+
   // Refresh Token Configuration (for future implementation)
   readonly refreshTokenSecret: string;
   readonly refreshTokenExpiresIn: string = '7d';
@@ -61,6 +68,30 @@ export class AuthConfigService implements OnModuleInit {
       );
     }
     this.jwtSecret = jwtSecret;
+
+    // === ES256 Asymmetric Signing Setup ===
+    const privateKeyRaw = this.config.get<string>('JWT_PRIVATE_KEY');
+    const publicKeyRaw = this.config.get<string>('JWT_PUBLIC_KEY');
+    const privateKeyPem = privateKeyRaw?.replace(/\\n/g, '\n');
+    const publicKeyPem = publicKeyRaw?.replace(/\\n/g, '\n');
+
+    if (privateKeyPem && publicKeyPem) {
+      this.jwtPrivateKey = privateKeyPem;
+      this.jwtPublicKey = publicKeyPem;
+      this.isEs256Enabled = true;
+      this.jwtAlgorithm = 'ES256';
+      this.jwtKeyId = crypto
+        .createHash('sha256')
+        .update(publicKeyPem)
+        .digest('hex')
+        .substring(0, 8);
+
+      // Grace period: legacy HMAC secret for accepting old HS256 tokens
+      const legacyHmac = this.config.get<string>('JWT_LEGACY_HMAC_SECRET');
+      this.jwtLegacyHmacSecret = legacyHmac || jwtSecret;
+    } else {
+      this.isEs256Enabled = false;
+    }
 
     // === REQUIRED: Password Reset Secret (fail fast if missing) ===
     // Must be different from JWT secret for security
@@ -239,6 +270,14 @@ export class AuthConfigService implements OnModuleInit {
    * Get JWT sign options for access tokens
    */
   getAccessTokenOptions() {
+    if (this.isEs256Enabled) {
+      return {
+        algorithm: 'ES256' as const,
+        expiresIn: this.accessTokenExpiresIn,
+        issuer: this.jwtIssuer,
+        audience: this.jwtAudience,
+      };
+    }
     return {
       secret: this.jwtSecret,
       expiresIn: this.accessTokenExpiresIn,
