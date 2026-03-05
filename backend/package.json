@@ -31,7 +31,8 @@
     "dep:circular": "madge --circular --extensions ts --ts-config tsconfig.json src",
     "dep:baseline": "depcruise --config .dependency-cruiser.cjs --output-type baseline --output-to .dependency-cruiser-known-violations.json src",
     "openapi:generate": "ts-node scripts/generate-openapi.ts",
-    "openapi:lint": "spectral lint ./openapi-spec.json --ruleset .spectral.yaml"
+    "openapi:lint": "spectral lint ./openapi-spec.json --ruleset .spectral.yaml",
+    "contract-test": "jest --testPathPatterns=contract --forceExit"
   },
   "dependencies": {
     "@ai-sdk/mistral": "^3.0.19",

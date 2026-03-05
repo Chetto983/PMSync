@@ -144,6 +144,7 @@ frontend/screenshots/*
 
 free-nextjs-admin-dashboard-main/*
 backend/test/*
+!backend/test/contract/
 data/*
 frontend/test-results/*
 frontend/.lighthouseci/
