@@ -16,6 +16,8 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { Response } from 'express';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -123,12 +125,10 @@ export class AttachmentsController {
         res.setHeader('Content-Length', contentLength);
       }
 
-      // Stream the file from S3 to client (efficient memory usage)
+      // Stream the file from S3 to client (piped streaming -- constant memory usage)
       if (s3Response.body) {
-        // DEBUG: Buffer the whole response to avoid streaming issues and guarantee integrity
-        const arrayBuffer = await s3Response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        res.send(buffer);
+        const nodeStream = Readable.fromWeb(s3Response.body as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        await pipeline(nodeStream, res);
       } else {
         throw new Error('No response body from S3');
       }
