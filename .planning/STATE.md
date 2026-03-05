@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: "Completed 43-02-PLAN.md"
-last_updated: "2026-03-05T15:05:00Z"
-last_activity: "2026-03-05 -- 43-02 god-file splits: email-sync-back + auth (54 tests, QUAL-01/02, TEST-06)"
+stopped_at: "Completed 43-03-PLAN.md"
+last_updated: "2026-03-05T15:06:00Z"
+last_activity: "2026-03-05 -- 43-03 god-file splits: controllers + AI + contacts (57 tests, QUAL-03/04/05, TEST-06)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 43 in progress (2/4 plans)
+**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 43 in progress (3/4 plans)
 
 ## Current Position
 
 Phase: 43 of 47 (Contract Tests & Backend God-File Splits)
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: Executing
-Last activity: 2026-03-05 -- 43-02 god-file splits: email-sync-back + auth (54 tests, QUAL-01/02, TEST-06)
+Last activity: 2026-03-05 -- 43-03 god-file splits: controllers + AI + contacts (57 tests, QUAL-03/04/05, TEST-06)
 
-Progress: [#####-----] 50% (Phase 43: 2/4 plans)
+Progress: [########--] 75% (Phase 43: 3/4 plans)
 
 ## Performance Metrics
 
@@ -44,7 +44,7 @@ Progress: [#####-----] 50% (Phase 43: 2/4 plans)
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 42 | 3/3 | ~35min | ~12min |
-| 43 | 2/4 | 19min | 10min |
+| 43 | 3/4 | 34min | 11min |
 
 *Updated after each plan completion*
 
@@ -73,6 +73,8 @@ Recent decisions affecting current work:
 - 43-02: Facade keeps same class name (EmailSyncBackService, AuthService) -- zero consumer changes
 - 43-02: Function-passing pattern for cross-sub-service calls avoids circular DI
 - 43-02: executeWithRetry duplicated in provider sub-services (acceptable: avoids shared base class coupling)
+- 43-03: Controller ordering critical: specific-path controllers before catch-all @Get(':id') in module
+- 43-03: Facade pattern preserves public API -- zero consumer changes after god-file split
 
 ### Pending Todos
 
@@ -87,6 +89,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 43-02-PLAN.md
+Stopped at: Completed 43-03-PLAN.md
 Resume file: None
-Next action: Execute 43-03-PLAN.md (god-file splits wave 2)
+Next action: Execute 43-04-PLAN.md (verification plan)

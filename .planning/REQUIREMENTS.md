@@ -36,9 +36,9 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 - [x] **QUAL-01**: email-sync-back.service.ts (1429 lines) split into gmail-sync-back, microsoft-sync-back, imap-sync-back, sync-back-orchestrator (provider-based split per research)
 - [x] **QUAL-02**: auth.service.ts (1376 lines) split into auth-registration, auth-login, auth-token, auth-password-reset (domain-based split per research)
-- [ ] **QUAL-03**: emails.controller.ts (1188 lines) split into email-query, email-calendar-invite, email-actions controllers
-- [ ] **QUAL-04**: email-insights.service.ts (1072 lines) split into email-analysis, email-compose, insight-utils services
-- [ ] **QUAL-05**: contacts.service.ts (1049 lines) split into contact-crud, contact-provider-ops, contact-sync services
+- [x] **QUAL-03**: emails.controller.ts (1188 lines) split into email-query, email-calendar-invite, email-actions controllers
+- [x] **QUAL-04**: email-insights.service.ts (1072 lines) split into email-analysis, email-compose, insight-utils services
+- [x] **QUAL-05**: contacts.service.ts (1049 lines) split into contact-crud, contact-provider-ops, contact-sync services
 - [ ] **QUAL-06**: All resulting backend files < 400 lines
 
 ### Code Quality — Frontend
@@ -156,9 +156,9 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | APIS-04 | Phase 43 | Complete |
 | QUAL-01 | Phase 43 | Complete |
 | QUAL-02 | Phase 43 | Complete |
-| QUAL-03 | Phase 43 | Pending |
-| QUAL-04 | Phase 43 | Pending |
-| QUAL-05 | Phase 43 | Pending |
+| QUAL-03 | Phase 43 | Complete |
+| QUAL-04 | Phase 43 | Complete |
+| QUAL-05 | Phase 43 | Complete |
 | QUAL-06 | Phase 43 | Pending |
 | QUAL-07 | Phase 44 | Pending |
 | QUAL-08 | Phase 44 | Pending |
