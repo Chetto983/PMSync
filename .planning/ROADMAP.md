@@ -53,7 +53,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 
 </details>
 
-### 🚧 v4.1 Security Hardening & Debt Reduction (In Progress)
+### v4.1 Security Hardening & Debt Reduction (In Progress)
 
 **Milestone Goal:** Eliminate P0 security risks, enforce code quality gates, reduce structural debt. Enterprise readiness 42 to 55/100.
 
@@ -105,7 +105,11 @@ Plans:
   2. Downloading a 50MB+ attachment completes without OOM -- memory stays flat (piped stream)
   3. Each of the 5 split backend services has its own test file that passes before AND after the split
   4. No backend file in the split set exceeds 400 lines
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 43-01-PLAN.md -- 5 API contract tests + CI gate + attachment streaming fix
+- [ ] 43-02-PLAN.md -- Split email-sync-back.service.ts + auth.service.ts (characterization tests + facade delegation)
+- [ ] 43-03-PLAN.md -- Split emails.controller.ts + email-insights.service.ts + contacts.service.ts + QUAL-06 verification
 
 ### Phase 44: Frontend God-File Splits
 **Goal**: 7 frontend god-files decomposed into focused components below 400 lines with pixel-identical rendering
@@ -169,7 +173,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 | 40. Fix CI Regressions | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 41. Backend Code Hygiene | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 42. Tenant Isolation & Auth Hardening | 4/4 | Complete   | 2026-03-04 | - |
-| 43. Contract Tests & Backend God-File Splits | v4.1 | 0/TBD | Not started | - |
+| 43. Contract Tests & Backend God-File Splits | v4.1 | 0/3 | Not started | - |
 | 44. Frontend God-File Splits | v4.1 | 0/TBD | Not started | - |
 | 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
 | 46. Observability | v4.1 | 0/TBD | Not started | - |
@@ -191,3 +195,4 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47
 *Phase 42 tenant-scoping work started: 2026-03-04 -- TSEC-01/02 complete, enforce mode active*
 *Phase 42 plans created: 2026-03-04 -- 3 plans (42-02, 42-03, 42-04) in 2 waves*
 *Phase 42 gap closure plan added: 2026-03-04 -- 42-05 addresses 4 verification gaps*
+*Phase 43 plans created: 2026-03-05 -- 3 plans in 1 wave (all parallel, no file overlap)*
