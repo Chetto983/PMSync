@@ -48,6 +48,11 @@ export class AuthConfigService implements OnModuleInit {
   readonly otpMaxAttempts: number;
   readonly otpLockoutDurationMs: number;
 
+  // Argon2id Configuration
+  readonly argon2MemoryCost: number;
+  readonly argon2TimeCost: number;
+  readonly argon2Parallelism: number;
+
   // Session Configuration
   readonly sessionTtlMs: number;
   readonly maxSessionsPerUser: number;
@@ -177,6 +182,20 @@ export class AuthConfigService implements OnModuleInit {
     this.otpRateLimitMax = this.safeParseInt(
       this.config.get<string>('OTP_RATE_LIMIT_MAX'),
       3, // 3 OTP sends per minute
+    );
+
+    // === Argon2id Configuration (OWASP 2025: minimum 19 MiB, we use 64 MiB) ===
+    this.argon2MemoryCost = this.safeParseInt(
+      this.config.get<string>('ARGON2_MEMORY_COST'),
+      65536, // 64 MiB
+    );
+    this.argon2TimeCost = this.safeParseInt(
+      this.config.get<string>('ARGON2_TIME_COST'),
+      3,
+    );
+    this.argon2Parallelism = this.safeParseInt(
+      this.config.get<string>('ARGON2_PARALLELISM'),
+      1,
     );
   }
 
