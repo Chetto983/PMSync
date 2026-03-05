@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import { AuthController } from './controllers/auth.controller';
 import { MfaController } from './controllers/mfa.controller';
 import { AuthService } from './services/auth.service';
@@ -52,29 +53,46 @@ import { ComplianceModule } from '../compliance/compliance.module';
     ComplianceModule, // LegalAcceptanceService for registration-time legal acceptance
     forwardRef(() => EmailModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    // JWT configuration with fail-fast validation
+    // JWT configuration with ES256 support and HS256 fallback
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService): JwtModuleOptions => {
-        const secret = config.get<string>('JWT_SECRET');
+        const privateKeyRaw = config.get<string>('JWT_PRIVATE_KEY');
+        const publicKeyRaw = config.get<string>('JWT_PUBLIC_KEY');
 
-        // SECURITY: Fail fast if JWT_SECRET is missing or weak
-        if (!secret || secret === 'secret' || secret.length < 32) {
-          throw new Error(
-            'FATAL: JWT_SECRET is missing, too short (<32 chars), or using unsafe default. ' +
-              'Set a secure JWT_SECRET environment variable.',
-          );
+        // Handle PEM newline escaping from env vars
+        const privateKey = privateKeyRaw?.replace(/\\n/g, '\n');
+        const publicKey = publicKeyRaw?.replace(/\\n/g, '\n');
+
+        const expiresIn = config.get<string>('ACCESS_TOKEN_EXPIRES_IN') || '15m';
+
+        if (privateKey && publicKey) {
+          // ES256 mode (2026 best practice: asymmetric signing)
+          return {
+            privateKey,
+            publicKey,
+            signOptions: {
+              algorithm: 'ES256',
+              expiresIn: expiresIn as any,
+              issuer: 'pmsync-auth',
+              audience: 'pmsync-api',
+              keyid: crypto.createHash('sha256').update(publicKey).digest('hex').substring(0, 8),
+            },
+          };
         }
 
-        // Parse expiration - aligned to 15m for short-lived access tokens (AUTH-01)
-        // Refresh token rotation handles session continuity; env var override still works
-        const expiresInConfig = config.get<string>('ACCESS_TOKEN_EXPIRES_IN') || '15m';
-        const expiresIn = expiresInConfig; // JWT library handles '15m' format
-
+        // HS256 fallback (dev/test without ES256 keys)
+        const secret = config.get<string>('JWT_SECRET');
+        if (!secret || secret === 'secret' || secret.length < 32) {
+          throw new Error(
+            'FATAL: JWT_SECRET or JWT_PRIVATE_KEY/JWT_PUBLIC_KEY must be configured. ' +
+              'Set a secure JWT_SECRET (min 32 chars) or provide ES256 keypair.',
+          );
+        }
         return {
           secret,
           signOptions: {
-            expiresIn: expiresIn as any, // Cast to any for flexibility with string format
+            expiresIn: expiresIn as any,
             issuer: 'pmsync-auth',
             audience: 'pmsync-api',
           },

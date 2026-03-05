@@ -101,7 +101,7 @@ export class AuthPasswordResetService {
 
     const token = this.jwtService.sign(
       { email: user.email, type: 'password-reset', userId: user.id, tenantId: tenant.id },
-      { secret: this.passwordResetSecret, expiresIn: '15m' },
+      { secret: this.passwordResetSecret, expiresIn: '15m', algorithm: 'HS256' as any },
     );
 
     const tokenHash = this.hashResetToken(token);
@@ -152,7 +152,7 @@ export class AuthPasswordResetService {
   ) {
     let payload: { email: string; type: string; userId?: string; tenantId?: string };
     try {
-      payload = this.jwtService.verify(token, { secret: this.passwordResetSecret });
+      payload = this.jwtService.verify(token, { secret: this.passwordResetSecret, algorithms: ['HS256'] } as any);
     } catch (error) {
       this.logger.warn(JSON.stringify({
         event: 'password_reset_jwt_invalid',

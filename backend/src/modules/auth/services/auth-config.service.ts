@@ -188,6 +188,10 @@ export class AuthConfigService implements OnModuleInit {
     this.logger.log(
       JSON.stringify({
         event: 'auth_config_loaded',
+        jwtAlgorithm: this.jwtAlgorithm,
+        isEs256Enabled: this.isEs256Enabled,
+        jwtKeyId: this.jwtKeyId ?? null,
+        hasLegacyHmacSecret: !!this.jwtLegacyHmacSecret,
         accessTokenTtl: this.accessTokenExpiresIn,
         passwordResetTtl: this.passwordResetExpiresIn,
         otpExpirationMs: this.otpExpirationMs,
@@ -196,6 +200,12 @@ export class AuthConfigService implements OnModuleInit {
         maxSessionsPerUser: this.maxSessionsPerUser,
       }),
     );
+    if (this.isEs256Enabled && this.jwtLegacyHmacSecret) {
+      this.logger.warn(
+        'JWT grace period active: accepting both HS256 and ES256 tokens. ' +
+          'Remove JWT_LEGACY_HMAC_SECRET after migration.',
+      );
+    }
   }
 
   /**
@@ -294,7 +304,7 @@ export class AuthConfigService implements OnModuleInit {
     return {
       secret: this.passwordResetSecret,
       expiresIn: this.passwordResetExpiresIn,
-      algorithm: this.jwtAlgorithm as any,
+      algorithm: 'HS256' as const,
       issuer: this.jwtIssuer,
       audience: 'password-reset',
     };
