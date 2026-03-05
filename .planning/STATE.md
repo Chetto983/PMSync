@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: Phase 48 context gathered
-last_updated: "2026-03-05T16:16:54.903Z"
-last_activity: "2026-03-05 -- 43-04 QUAL-06 cross-plan verification: all 22 split files under 400 lines, 111 characterization tests pass"
+stopped_at: Completed 48-01-PLAN.md
+last_updated: "2026-03-05T17:41:53.416Z"
+last_activity: 2026-03-05 -- 48-02 ES256 JWT migration with dual-algo grace period
 progress:
   total_phases: 7
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 12
+  completed_plans: 10
+  percent: 83
 ---
 
 ---
@@ -18,15 +19,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: "Completed 43-04-PLAN.md"
-last_updated: "2026-03-05T15:10:30Z"
-last_activity: "2026-03-05 -- 43-04 QUAL-06 cross-plan verification: all 22 split files under 400 lines, 111 characterization tests pass"
+stopped_at: "Completed 48-02-PLAN.md"
+last_updated: "2026-03-05T17:39:30Z"
+last_activity: "2026-03-05 -- 48-02 ES256 JWT migration with dual-algo grace period"
 progress:
-  total_phases: 7
+  [████████░░] 83%
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_plans: 11
+  completed_plans: 10
 ---
 
 # Project State
@@ -36,16 +36,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 43 complete (4/4 plans)
+**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 48 in progress (2/3 plans)
 
 ## Current Position
 
-Phase: 43 of 48 (Contract Tests & Backend God-File Splits)
-Plan: 4 of 4 complete
-Status: Phase Complete
-Last activity: 2026-03-05 -- 43-04 QUAL-06 cross-plan verification: all 22 split files under 400 lines, 111 characterization tests pass
+Phase: 48 of 48 (Auth Fix 2026 Best Practice)
+Plan: 2 of 3 complete
+Status: Executing
+Last activity: 2026-03-05 -- 48-02 ES256 JWT migration with dual-algo grace period
 
-Progress: [##########] 100% (Phase 43: 4/4 plans)
+Progress: [######----] 67% (Phase 48: 2/3 plans)
 
 ## Performance Metrics
 
@@ -60,8 +60,10 @@ Progress: [##########] 100% (Phase 43: 4/4 plans)
 |-------|-------|-------|----------|
 | 42 | 3/3 | ~35min | ~12min |
 | 43 | 4/4 | 36min | 9min |
+| 48 | 2/3 | ~12min | ~6min |
 
 *Updated after each plan completion*
+| Phase 48 P01 | 7min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -91,6 +93,12 @@ Recent decisions affecting current work:
 - 43-03: Controller ordering critical: specific-path controllers before catch-all @Get(':id') in module
 - 43-03: Facade pattern preserves public API -- zero consumer changes after god-file split
 - [Phase 43]: QUAL-06 verified: all 22 split files under 400 lines (max 399); 10 failing test suites confirmed pre-existing
+- 48-02: MFA tokens not pinned to HS256 -- module-level config switches sign+verify together; 5m TTL makes grace irrelevant
+- 48-02: jwtLegacyHmacSecret auto-populated from JWT_SECRET when ES256 enabled (simplifies migration)
+- 48-02: secretOrKeyProvider decodes header base64url to determine algorithm -- standard passport-jwt dual-algo pattern
+- [Phase 48]: Argon2id params configurable via env (ARGON2_MEMORY_COST/TIME_COST/PARALLELISM) with OWASP 2025 defaults (64MiB/3/1)
+- [Phase 48]: HIBP breach threshold >3 (not >0) to reduce false positives from padding noise
+- [Phase 48]: LoginDto @MaxLength(128) is the primary CPU DoS prevention gate for Argon2id
 
 ### Pending Todos
 
@@ -104,7 +112,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05T16:16:54.900Z
-Stopped at: Phase 48 context gathered
-Resume file: .planning/phases/48-auth-fix-2026-best-practice/48-CONTEXT.md
-Next action: Begin Phase 44 planning or execution
+Last session: 2026-03-05T17:41:53.410Z
+Stopped at: Completed 48-01-PLAN.md
+Resume file: None
+Next action: Execute Phase 48 Plan 03
