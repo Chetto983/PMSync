@@ -8,6 +8,10 @@ import { EmailFetchService } from './services/email-fetch.service';
 import { EmailRetentionService } from './services/email-retention.service';
 import { EmailSendService } from './services/email-send.service';
 import { EmailSyncBackService } from './services/email-sync-back.service';
+import { GmailSyncBackService } from './services/gmail-sync-back.service';
+import { MicrosoftSyncBackService } from './services/microsoft-sync-back.service';
+import { ImapSyncBackService } from './services/imap-sync-back.service';
+import { SyncBackOrchestratorService } from './services/sync-back-orchestrator.service';
 import { EmailCleanupService } from './services/email-cleanup.service';
 import { EmailFolderService } from './services/email-folder.service';
 import { AttachmentStorageService } from './services/attachment.storage';
@@ -22,6 +26,9 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { AiModule } from '../ai/ai.module';
 import { EmailsController } from './controllers/emails.controller';
+import { EmailQueryController } from './controllers/email-query.controller';
+import { EmailCalendarInviteController } from './controllers/email-calendar-invite.controller';
+import { EmailActionsController } from './controllers/email-actions.controller';
 import { AttachmentsController } from './controllers/attachments.controller';
 import { SignaturesController } from './controllers/signatures.controller';
 import { TemplatesController } from './controllers/templates.controller';
@@ -74,6 +81,11 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     EmailRetentionService,
     EmailFetchService,
     EmailSendService,
+    // Phase 43: Sync-back sub-services (must be before facade for DI ordering)
+    GmailSyncBackService,
+    MicrosoftSyncBackService,
+    ImapSyncBackService,
+    SyncBackOrchestratorService,
     EmailSyncBackService,
     EmailCleanupService,
     ScheduledEmailService,
@@ -95,9 +107,18 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     // Phase 32: Event handler for ProviderDisconnected (S3 attachment cleanup)
     EmailProviderEventHandlerService,
   ],
-  // CRITICAL: SignaturesController and TemplatesController MUST be before EmailsController
+  // CRITICAL: Controllers with specific paths MUST be before EmailsController
   // because EmailsController has @Get(':id') which would catch /emails/signatures as /emails/:id
-  controllers: [SignaturesController, TemplatesController, AttachmentsController, EmailsController],
+  // Order: specific-path controllers first, then query/calendar/actions, then core read (has :id catch-all) last
+  controllers: [
+    SignaturesController,
+    TemplatesController,
+    AttachmentsController,
+    EmailQueryController,        // GET /emails (list), /emails/stats, /emails/search
+    EmailCalendarInviteController, // GET/POST /emails/:id/calendar-invite/*, /emails/calendar-invite/*
+    EmailActionsController,      // POST/PATCH/DELETE on sends, bulk ops, drafts, retention, attachments
+    EmailsController,            // GET /emails/conversations, /emails/thread/:id, /emails/:id (catch-all LAST)
+  ],
   exports: [
     EmailService,
     EmailsService,
