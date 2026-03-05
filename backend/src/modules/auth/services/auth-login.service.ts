@@ -6,21 +6,33 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { OtpSecurityService } from './otp-security.service';
 import { TotpService } from './totp.service';
 import { BackupCodesService } from './backup-codes.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { WebAuthnService } from './webauthn.service';
+import { PasswordHashingService } from './password-hashing.service';
+import { PasswordPolicyService } from './password-policy.service';
 import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
+/** Minimum password length for soft policy warning (matches PasswordPolicyService) */
+const PASSWORD_POLICY_MIN_LENGTH = 15;
+
 /**
  * Handles login, passkey auth, MFA challenge, and session creation.
  * Extracted from AuthService for maintainability.
+ *
+ * Phase 48 hardening:
+ * - Dual-algo password verify via PasswordHashingService (bcrypt + Argon2id)
+ * - Transparent Argon2id rehash on successful bcrypt login
+ * - Timing-safe dummy hash on user-not-found
+ * - Unified "Invalid credentials" error messages
+ * - Per-email rate limiting alongside per-IP
+ * - Soft password policy warning on login
  */
 @Injectable()
 export class AuthLoginService {
@@ -35,6 +47,8 @@ export class AuthLoginService {
     private trustedDeviceService: TrustedDeviceService,
     private webauthnService: WebAuthnService,
     private rateLimiter: RedisRateLimiterService,
+    private passwordHashingService: PasswordHashingService,
+    private passwordPolicyService: PasswordPolicyService,
   ) {}
 
   private redactEmail(email: string): string {
@@ -211,22 +225,31 @@ export class AuthLoginService {
     const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
-    const lockoutKey = `login:${ipAddress || 'unknown'}`;
-    const lockoutResult = await this.rateLimiter.isLockedOut(lockoutKey);
-    if (lockoutResult.isLockedOut) {
+    const ipKey = `login:${ipAddress || 'unknown'}`;
+    const emailKey = `login:email:${normalizedEmail}`;
+
+    // Check both IP and email lockout in parallel
+    const [ipLockout, emailLockout] = await Promise.all([
+      this.rateLimiter.isLockedOut(ipKey),
+      this.rateLimiter.isLockedOut(emailKey),
+    ]);
+
+    if (ipLockout.isLockedOut || emailLockout.isLockedOut) {
+      const lockout = ipLockout.isLockedOut ? ipLockout : emailLockout;
       this.logger.warn(
         JSON.stringify({
           event: 'login_locked_out', ip: ipAddress,
           email: this.redactEmail(normalizedEmail),
-          lockoutEndsAt: lockoutResult.lockoutEndsAt?.toISOString(),
+          dimension: ipLockout.isLockedOut ? 'ip' : 'email',
+          lockoutEndsAt: lockout.lockoutEndsAt?.toISOString(),
         }),
       );
       throw new ForbiddenException(
-        `Account temporarily locked. Please try again in ${lockoutResult.retryAfterSeconds} seconds.`,
+        'Account temporarily locked due to too many failed attempts.',
       );
     }
 
-    const rateLimit = await this.rateLimiter.checkRateLimit(lockoutKey, 10, 60);
+    const rateLimit = await this.rateLimiter.checkRateLimit(ipKey, 10, 60);
     if (!rateLimit.allowed) {
       this.logger.warn(
         JSON.stringify({
@@ -241,41 +264,75 @@ export class AuthLoginService {
     }
 
     const tenant = await this.prisma.tenant.findUnique({ where: { slug } });
-    if (!tenant) throw new BadRequestException('Tenant not found');
+    if (!tenant) {
+      // Unified error: do NOT reveal tenant existence
+      await this.passwordHashingService.dummyHash();
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } },
     });
 
     if (!user) {
-      await this.rateLimiter.recordFailedAttempt(lockoutKey, 5, 900);
+      // Timing-safe: run dummy Argon2id hash before returning error
+      await this.passwordHashingService.dummyHash();
+      await Promise.all([
+        this.rateLimiter.recordFailedAttempt(ipKey, 5, 900),
+        this.rateLimiter.recordFailedAttempt(emailKey, 10, 900),
+      ]);
       this.logger.warn(
         JSON.stringify({ event: 'login_failed_user_not_found', ip: ipAddress, email: this.redactEmail(normalizedEmail) }),
       );
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    // Dual-algo password verification via PasswordHashingService
+    const { valid: isPasswordValid, needsRehash } =
+      await this.passwordHashingService.verifyPassword(password, user.passwordHash);
+
     if (!isPasswordValid) {
-      const failResult = await this.rateLimiter.recordFailedAttempt(lockoutKey, 5, 900);
+      await Promise.all([
+        this.rateLimiter.recordFailedAttempt(ipKey, 5, 900),
+        this.rateLimiter.recordFailedAttempt(emailKey, 10, 900),
+      ]);
       this.logger.warn(
         JSON.stringify({
           event: 'login_failed_invalid_password', ip: ipAddress,
-          userId: user.id, isLockedOut: failResult.isLockedOut,
-          retryAfterSeconds: failResult.retryAfterSeconds,
+          userId: user.id,
         }),
       );
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    await this.rateLimiter.clearFailedAttempts(lockoutKey);
+    // Clear rate limits on both dimensions
+    await Promise.all([
+      this.rateLimiter.clearFailedAttempts(ipKey),
+      this.rateLimiter.clearFailedAttempts(emailKey),
+    ]);
+
+    // Transparent bcrypt -> Argon2id rehash (non-blocking to login flow)
+    if (needsRehash) {
+      const newHash = await this.passwordHashingService.hashPassword(password);
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: newHash },
+      });
+      this.logger.log(JSON.stringify({
+        event: 'password_rehashed_to_argon2id',
+        userId: user.id,
+      }));
+    }
+
+    // Soft password policy warning (non-blocking, length-only check)
+    const passwordPolicyWarning = password.length < PASSWORD_POLICY_MIN_LENGTH;
 
     if (user.isMfaEnabled) {
       if (deviceToken && request) {
         const isTrusted = await this.trustedDeviceService.verifyDevice(user.id, deviceToken, request);
         if (isTrusted) {
           this.logger.log(JSON.stringify({ event: 'mfa_skipped_trusted_device', userId: user.id }));
-          return this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn);
+          return { ...await this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn), passwordPolicyWarning };
         }
       }
 
@@ -291,16 +348,17 @@ export class AuthLoginService {
           mfaRequired: true, mfaToken,
           availableMethods: ['totp', ...(backupCodesRemaining > 0 ? ['backup'] : []), 'email'],
           message: 'Multi-factor authentication required',
+          passwordPolicyWarning,
         };
       }
 
       if (sendOtpCodeFn) {
         await sendOtpCodeFn(normalizedEmail, slug);
       }
-      return { mfaRequired: true, availableMethods: ['email'], message: 'OTP code has been sent to your email' };
+      return { mfaRequired: true, availableMethods: ['email'], message: 'OTP code has been sent to your email', passwordPolicyWarning };
     }
 
-    return this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn);
+    return { ...await this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn), passwordPolicyWarning };
   }
 
   /**
