@@ -26,7 +26,7 @@ The riskiest change is ES256 JWT migration because it touches token signing (3 c
 - JWKS endpoint: not now -- add later when multi-service architecture arrives
 - Migration: grace period accepting both HS256 and ES256 for 15-30 minutes after deploy. Access tokens are 15min TTL, so natural expiry handles migration. Dual-verification in JwtStrategy during grace window.
 - AuthConfigService gets new fields: `jwtPrivateKey`, `jwtPublicKey`, algorithm switches to ES256
-- Minimum length: 12 characters, Maximum length: 128 characters
+- Minimum length: 15 characters, Maximum length: 128 characters
 - No complexity rules (NIST SP 800-63B 2024: length-only, no forced uppercase/number/special)
 - Breach check: HaveIBeenPwned k-anonymity API on registration + password change. Block passwords found in >3 breaches.
 - HIBP check is best-effort: if API unreachable, allow password
