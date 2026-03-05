@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
+stopped_at: Completed 48-04-PLAN.md
+last_updated: "2026-03-05T18:04:12.068Z"
+last_activity: 2026-03-05 -- 48-03 enumeration hardening + service wiring
+progress:
+  total_phases: 7
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 12
+  percent: 100
+---
+
+---
+gsd_state_version: 1.0
+milestone: v4.1
+milestone_name: Security Hardening & Debt Reduction
+status: executing
 stopped_at: Completed 48-03-PLAN.md
 last_updated: "2026-03-05T17:54:26.769Z"
 last_activity: 2026-03-05 -- 48-03 enumeration hardening + service wiring
 progress:
-  total_phases: 7
+  [██████████] 100%
   completed_phases: 3
   total_plans: 12
   completed_plans: 12
@@ -65,6 +81,7 @@ Progress: [##########] 100% (Phase 48: 3/3 plans)
 *Updated after each plan completion*
 | Phase 48 P01 | 7min | 3 tasks | 9 files |
 | Phase 48 P03 | 9min | 2 tasks | 6 files |
+| Phase 48 P04 | 7min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -102,6 +119,8 @@ Recent decisions affecting current work:
 - [Phase 48]: LoginDto @MaxLength(128) is the primary CPU DoS prevention gate for Argon2id
 - [Phase 48]: Soft password policy warning uses length check (not HIBP) to keep login fast
 - [Phase 48]: Per-email rate limit 10/15min (vs per-IP 5/15min) due to shared IP commonality
+- [Phase 48]: Refresh cookie keeps refresh_token name (no __Host-) because path-scoping incompatible with __Host- requirement
+- [Phase 48]: lastActivityAt debounced at 1min to avoid DB write on every authenticated request
 
 ### Pending Todos
 
@@ -115,7 +134,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05T17:54:26.765Z
-Stopped at: Completed 48-03-PLAN.md
+Last session: 2026-03-05T18:04:12.064Z
+Stopped at: Completed 48-04-PLAN.md
 Resume file: None
 Next action: Execute Phase 48 Plan 03
