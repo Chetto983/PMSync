@@ -74,43 +74,7 @@ async function main() {
 
   console.log('✅ Created regular user:', regularUser.email);
 
-  // Create sample conversation messages
-  await prisma.message.deleteMany({
-    where: { tenantId: defaultTenant.id },
-  });
-
-  await prisma.message.createMany({
-    data: [
-      {
-        tenantId: defaultTenant.id,
-        userId: adminUser.id,
-        role: 'user',
-        content: 'Hello, can you help me organize my emails?',
-      },
-      {
-        tenantId: defaultTenant.id,
-        userId: adminUser.id,
-        role: 'assistant',
-        content:
-          'Of course! I can help you organize your emails by creating filters, archiving old messages, and setting up smart categories. What would you like to focus on first?',
-      },
-      {
-        tenantId: defaultTenant.id,
-        userId: adminUser.id,
-        role: 'user',
-        content: 'I get way too many emails. Can you set up automatic filtering?',
-      },
-      {
-        tenantId: defaultTenant.id,
-        userId: adminUser.id,
-        role: 'assistant',
-        content:
-          'Absolutely! I can help you set up filters based on sender, subject, keywords, or folders. Once connected to your email, I can automatically sort incoming messages. What types of emails would you like to filter?',
-      },
-    ],
-  });
-
-  console.log('✅ Created sample conversation');
+  console.log('✅ Skipped sample messages (schema changed)');
 
   console.log('');
   console.log('🎉 Database seeding completed successfully!');

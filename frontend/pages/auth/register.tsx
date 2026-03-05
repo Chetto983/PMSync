@@ -142,8 +142,8 @@ export default function RegisterPage() {
         });
       }
     } catch (err) {
-      const errorResponse = err as { response?: { data?: { message?: string } } };
-      setError(errorResponse.response?.data?.message || translations.common.genericError);
+      const errorResponse = err as { response?: { data?: { error?: { message?: string }; message?: string } } };
+      setError(errorResponse.response?.data?.error?.message || errorResponse.response?.data?.message || translations.common.genericError);
     } finally {
       setLoading(false);
     }

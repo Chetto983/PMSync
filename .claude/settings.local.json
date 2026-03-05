@@ -157,7 +157,9 @@
       "Bash(sort -t: -k2 -nr)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:saas-ui.dev)",
-      "Bash(npm view @saas-ui/core peerDependencies version description)"
+      "Bash(npm view @saas-ui/core peerDependencies version description)",
+      "Bash(npx prisma:*)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"ok\" npx prisma migrate reset --force)"
     ],
     "deny": [],
     "ask": []

@@ -56,6 +56,14 @@ const CSRF_EXCLUDED_PATHS = [
   '/health',
   '/health/ready',
   '/api/v1/auth/csrf-token', // Token fetch endpoint itself
+  '/api/v1/auth/login',      // Pre-auth: no session yet to protect
+  '/api/v1/auth/register',   // Pre-auth: no session yet to protect
+  '/api/v1/auth/send-otp',   // Pre-auth: OTP flow before session
+  '/api/v1/auth/verify-otp', // Pre-auth: OTP verification before session
+  '/api/v1/auth/mfa',        // Pre-auth: MFA challenge/verify before session
+  '/api/v1/auth/forgot-password', // Pre-auth: password reset request
+  '/api/v1/auth/reset-password',  // Pre-auth: password reset with token
+  '/api/v1/auth/refresh',    // Token refresh uses httpOnly cookie, not session
   '/api/v1/webhooks',        // Webhook endpoints use signatures
   '/api/v1/providers/oauth', // OAuth callbacks
   '/auth/gmail/callback',    // OAuth callbacks (excluded from global prefix)

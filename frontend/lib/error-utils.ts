@@ -164,17 +164,21 @@ export function getErrorMessage(error: unknown, t?: AppTranslations): string {
   if (isAxiosError(error) && error.response?.data) {
     const data = error.response.data;
 
-    // Backend returns { message: string } or { error: string }
-    if (typeof data.message === 'string' && data.message.length > 0) {
+    // Backend returns { error: { code, message, details } } OR legacy { message }
+    const backendMessage =
+      (data as { error?: { message?: string } }).error?.message
+      || (typeof data.message === 'string' ? data.message : undefined);
+
+    if (backendMessage && backendMessage.length > 0) {
       // Map known backend error messages to i18n keys
       const knownMessages: Record<string, string> = {
         'Invalid credentials': 'invalidCredentials',
       };
-      const i18nKey = knownMessages[data.message];
+      const i18nKey = knownMessages[backendMessage];
       if (i18nKey && translations.errors && typeof (translations.errors as Record<string, unknown>)[i18nKey] === 'string') {
         return (translations.errors as Record<string, unknown>)[i18nKey] as string;
       }
-      return data.message;
+      return backendMessage;
     }
     if (typeof data.error === 'string' && data.error.length > 0) {
       return data.error;
