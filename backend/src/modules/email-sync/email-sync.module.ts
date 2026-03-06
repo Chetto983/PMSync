@@ -1,9 +1,8 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
-import { EmailModule } from '../email/email.module';
 import { AiModule } from '../ai/ai.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RetryService } from '../../common/services/retry.service';
@@ -74,9 +73,9 @@ import { FoldersController } from '../email/controllers/folders.controller';
     ScheduleModule.forRoot(),
     PrismaModule,
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailSyncModule)
-    forwardRef(() => EmailModule), // For AttachmentStorageService
-    forwardRef(() => AiModule), // SyncWorker needs EmailTriageService
+    AiModule, // SyncWorker needs EmailTriageService (no forwardRef -- AiModule doesn't import EmailSyncModule)
     RealtimeModule, // WebSocket events
+    // Phase 49-03: StorageModule is @Global() -- provides AttachmentStorageService, StorageService without EmailModule import
     DriversModule, // Email Drivers (Phase 2)
     // ScheduledJobsModule is @Global() — no need to import, available everywhere
   ],

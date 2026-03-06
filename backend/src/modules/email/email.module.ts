@@ -1,4 +1,4 @@
-import { Module, forwardRef, OnModuleInit, Inject, Logger } from '@nestjs/common';
+import { Module, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { EmailService } from './services/email.service';
 import { EmailsService } from './services/emails.service';
 import { EmailCrudService } from './services/email-crud.service';
@@ -63,7 +63,7 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     StorageModule, // Shared STORAGE_SERVICE/StorageService providers
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailModule)
     AiModule, // Direct import: AiModule no longer imports EmailModule
-    forwardRef(() => EmailSyncModule),
+    EmailSyncModule, // Phase 49-03: Direct import (forwardRef removed -- StorageModule @Global() breaks cycle)
     CalendarModule, // Phase 45-03: Direct import (forwardRef removed -- cycle broken at EmailSync edge)
     RealtimeModule,
     // ToolRegistryModule is @Global() -- no import needed
@@ -89,10 +89,8 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     EmailSyncBackService,
     EmailCleanupService,
     ScheduledEmailService,
-    // Attachment services with observability
-    AttachmentStorageService,
+    // Phase 49-03: AttachmentStorageService + AttachmentMetricsService moved to @Global() StorageModule
     AttachmentOnDemandService,
-    AttachmentMetricsService, // Centralized metrics for attachments
     // ProviderTokenService removed — provided and exported by EmailSyncModule (forwardRef import)
     // Shared utility services (Phase 3 consolidation)
     ProviderValidationService,
@@ -131,9 +129,8 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     EmailSendService,
     EmailSyncBackService,
     EmailCleanupService,
-    AttachmentStorageService,
+    // Phase 49-03: AttachmentStorageService + AttachmentMetricsService now from @Global() StorageModule
     AttachmentOnDemandService,
-    AttachmentMetricsService, // Export for cross-module access
     StorageModule, // Re-export StorageService + STORAGE_SERVICE
     ScheduledEmailService,
     // Shared utility services (Phase 3 consolidation)
