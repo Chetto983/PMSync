@@ -64,7 +64,7 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailModule)
     AiModule, // Direct import: AiModule no longer imports EmailModule
     forwardRef(() => EmailSyncModule),
-    forwardRef(() => CalendarModule),
+    CalendarModule, // Phase 45-03: Direct import (forwardRef removed -- cycle broken at EmailSync edge)
     RealtimeModule,
     // ToolRegistryModule is @Global() -- no import needed
     // ScheduledJobsModule is @Global() -- no need to import, available everywhere
