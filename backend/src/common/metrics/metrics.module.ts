@@ -5,6 +5,7 @@ import {
   makeGaugeProvider,
   makeCounterProvider,
 } from '@willsoto/nestjs-prometheus';
+import { QueueMetricsCollector } from './queue-metrics.collector';
 
 /**
  * Phase 46-01: Global metrics module providing Prometheus exposition endpoint
@@ -58,6 +59,9 @@ import {
       help: 'Total AI requests',
       labelNames: ['model', 'run_type', 'status'],
     }),
+
+    // Phase 46-02: Scheduled queue depth collector
+    QueueMetricsCollector,
   ],
   exports: [PrometheusModule],
 })
