@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["pages/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
+  "project": ["**/*.{ts,tsx}"],
+  "ignoreDependencies": [
+    "@next/bundle-analyzer"
+  ]
+}

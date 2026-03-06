@@ -92,3 +92,22 @@ jobs:
 
       - name: Jest unit tests
         run: npx jest --passWithNoTests --ci
+
+      - name: Build Next.js
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000
+
+      - name: Bundle size budget check
+        run: |
+          SIZE=$(du -sb .next/static/chunks/ | cut -f1)
+          SIZE_MB=$(echo "scale=2; $SIZE / 1048576" | bc)
+          echo "Bundle size: ${SIZE_MB}MB"
+          WARN_LIMIT=9437184
+          FAIL_LIMIT=10485760
+          if [ "$SIZE" -gt "$FAIL_LIMIT" ]; then
+            echo "::error::Bundle size ${SIZE_MB}MB exceeds 10MB budget"
+            exit 1
+          elif [ "$SIZE" -gt "$WARN_LIMIT" ]; then
+            echo "::warning::Bundle size ${SIZE_MB}MB approaching 10MB budget"
+          fi
