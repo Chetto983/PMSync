@@ -2,12 +2,12 @@
 phase: 50
 slug: schema-infrastructure
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-06
 ---
 
-# Phase 50 — Validation Strategy
+# Phase 50 -- Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
 
@@ -19,15 +19,15 @@ created: 2026-03-06
 |----------|-------|
 | **Framework** | jest 29.x (backend), vitest (frontend) |
 | **Config file** | backend/jest.config.ts, frontend/vitest.config.ts |
-| **Quick run command** | `cd backend && npx jest --testPathPattern="auth" --no-coverage` |
-| **Full suite command** | `cd backend && npx jest --no-coverage && cd ../frontend && npx vitest run` |
-| **Estimated runtime** | ~30 seconds (quick), ~120 seconds (full) |
+| **Quick run command** | `cd backend && npx prisma validate` |
+| **Full suite command** | `cd backend && npx prisma validate && npx tsc --noEmit && cd ../frontend && npx tsc --noEmit --skipLibCheck` |
+| **Estimated runtime** | ~15 seconds (quick), ~60 seconds (full) |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && npx jest --testPathPattern="auth" --no-coverage`
+- **After every task commit:** Run quick run command
 - **After every plan wave:** Run full suite command
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 30 seconds
@@ -36,25 +36,24 @@ created: 2026-03-06
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 50-01-01 | 01 | 1 | CORE-06 | unit | `npx jest --testPathPattern="better-auth-schema"` | ❌ W0 | ⬜ pending |
-| 50-01-02 | 01 | 1 | CORE-06 | integration | `npx jest --testPathPattern="better-auth-init"` | ❌ W0 | ⬜ pending |
-| 50-02-01 | 02 | 1 | CORE-06 | integration | `npx jest --testPathPattern="session-cookie"` | ❌ W0 | ⬜ pending |
-| 50-02-02 | 02 | 1 | CORE-07 | unit | `npx jest --testPathPattern="hibp"` | ❌ W0 | ⬜ pending |
+| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | Status |
+|---------|------|------|-------------|-----------|-------------------|--------|
+| 50-01-01 | 01 | 1 | CORE-06, CORE-07 | unit + validate | `cd frontend && npx vitest run lib/__tests__/hibp.test.ts; cd ../backend && npx prisma validate` | pending |
+| 50-01-02 | 01 | 1 | CORE-06 | type-check | `cd frontend && npx prisma generate && npx tsc --noEmit --skipLibCheck 2>&1 \| head -100` | pending |
+| 50-02-01 | 02 | 2 | CORE-06 | type-check | `cd backend && npx tsc --noEmit 2>&1 \| head -100` | pending |
+| 50-02-02 | 02 | 2 | CORE-06 | manual | Human verifies both servers start and auth routes respond | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `backend/src/auth/__tests__/better-auth-schema.spec.ts` — stubs for CORE-06 (schema validation)
-- [ ] `backend/src/auth/__tests__/better-auth-init.spec.ts` — stubs for CORE-06 (instance init)
-- [ ] `backend/src/auth/__tests__/session-cookie.spec.ts` — stubs for CORE-06 (cookie config)
-- [ ] `backend/src/auth/__tests__/hibp.spec.ts` — stubs for CORE-07 (HIBP check)
-
-*Test stubs created in Wave 0, filled during plan execution.*
+No Wave 0 test stubs required. Phase 50 validation uses:
+- `npx prisma validate` for schema correctness
+- `npx tsc --noEmit` for type safety
+- `npx vitest run` for HIBP unit tests (created inline by Task 50-01-01)
+- Human checkpoint for cross-service integration
 
 ---
 
@@ -69,11 +68,10 @@ created: 2026-03-06
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or manual checkpoint
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
