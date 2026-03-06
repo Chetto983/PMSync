@@ -121,7 +121,13 @@ Plans:
   1. Calendar, Contacts, Header, ContactDetail, Dashboard, Settings pages render identically (Playwright screenshot diff < 0.5%)
   2. No frontend file in the split set exceeds 400 lines
   3. email-ui-store split preserves all existing store consumers without API changes
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
+- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
+- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
+- [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
 
 ### Phase 45: forwardRef Burn-Down
 **Goal**: NestJS circular dependency count reduced from 24 to 0 files via domain events, shared interfaces, and provider injection
@@ -131,7 +137,13 @@ Plans:
   1. `grep -r forwardRef backend/src | wc -l` returns twelve or fewer hits
   2. NestJS application bootstraps successfully with zero circular dependency warnings
   3. All existing E2E and integration tests pass without modification
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
+- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
+- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
+- [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
 
 ### Phase 46: Observability
 **Goal**: Production metrics available via standard Prometheus /metrics endpoint covering HTTP, queues, and AI costs
@@ -142,7 +154,13 @@ Plans:
   2. Request duration histogram shows p50/p95/p99 latencies per route
   3. BullMQ queue depths for all queues visible in metrics output
   4. AI token usage and cost counters increment on every LLM call
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
+- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
+- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
+- [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
 
 ### Phase 47: Infrastructure & Cleanup
 **Goal**: WebSocket scales horizontally via Redis adapter; CSRF errors are visible; dead code and unused deps removed with CI bundle budget
@@ -154,7 +172,13 @@ Plans:
   3. `npm ls --all` shows zero unused production dependencies; bundle size stays within CI budget
   4. Zero CBC-encoded records remain in the database -- all re-encrypted to GCM
   5. Dead filter files (all-exceptions, http-exception, throttler-exception) are deleted
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
+- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
+- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
+- [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
 
 ### Phase 48: Auth Fix 2026 Best Practice
 **Goal**: Upgrade auth to 2026 standards: Argon2id password hashing with transparent bcrypt migration, ES256 asymmetric JWT signing with dual-algo grace period, NIST-compliant password policy with HIBP breach check, enumeration hardening across all auth endpoints, session concurrency enforcement, idle session timeout, and __Host- cookie prefix
