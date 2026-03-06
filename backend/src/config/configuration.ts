@@ -187,14 +187,41 @@ export interface Configuration {
  * Load and build configuration from environment variables
  */
 export function loadConfiguration(): Configuration {
-  // Database configuration - built from components
-  const dbHost = process.env.DB_HOST || 'localhost';
-  const dbPort = parseInt(process.env.DB_PORT || '5432');
-  const dbUser = process.env.DB_USER || 'mailuser';
-  const dbPassword = process.env.DB_PASSWORD || 'mailpass';
-  const dbName = process.env.DB_NAME || 'pmsync';
+  // Database configuration
+  // Priority:
+  // 1) DATABASE_URL (Railway/Neon style)
+  // 2) Explicit DB_* components
+  // 3) Development defaults
+  const rawDatabaseUrl = (process.env.DATABASE_URL || '').trim();
+  let dbHost = process.env.DB_HOST || 'localhost';
+  let dbPort = parseInt(process.env.DB_PORT || '5432', 10);
+  let dbUser = process.env.DB_USER || 'mailuser';
+  let dbPassword = process.env.DB_PASSWORD || 'mailpass';
+  let dbName = process.env.DB_NAME || 'pmsync';
+  let databaseUrl = rawDatabaseUrl || `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
 
-  const databaseUrl = `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+  // If DATABASE_URL is present, derive components from it so production
+  // security checks and logs use real credentials instead of defaults.
+  if (rawDatabaseUrl) {
+    try {
+      const parsed = new URL(rawDatabaseUrl);
+      if (parsed.protocol === 'postgres:' || parsed.protocol === 'postgresql:') {
+        if (parsed.hostname) dbHost = parsed.hostname;
+        if (parsed.port) {
+          const parsedPort = parseInt(parsed.port, 10);
+          if (!isNaN(parsedPort)) dbPort = parsedPort;
+        }
+        if (parsed.username) dbUser = decodeURIComponent(parsed.username);
+        // Keep empty string if password is intentionally omitted in URL
+        dbPassword = decodeURIComponent(parsed.password || '');
+        const pathname = parsed.pathname.replace(/^\/+/, '');
+        if (pathname) dbName = pathname;
+      }
+    } catch {
+      // Preserve existing fallback behavior if DATABASE_URL is malformed.
+      databaseUrl = `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+    }
+  }
 
   // Redis configuration - built from components
   const redisHost = process.env.REDIS_HOST || 'localhost';
@@ -290,6 +317,7 @@ export function loadConfiguration(): Configuration {
   const jwtSecret = process.env.JWT_SECRET;
   const aesSecretKey = process.env.AES_SECRET_KEY;
   const debugAuthLog = (process.env.DEBUG_AUTH_LOG || 'false').toLowerCase() === 'true';
+  const aesSecretKeyBytes = aesSecretKey ? Buffer.from(aesSecretKey, 'base64') : null;
 
   // Weak password detection patterns
   const weakPasswords = ['mailpass', 'password', 'admin', '123456', 'postgres', 'root'];
@@ -308,8 +336,8 @@ export function loadConfiguration(): Configuration {
     if (!aesSecretKey || aesSecretKey === 'default-key-change-in-production') {
       throw new Error('SECURITY ERROR: AES_SECRET_KEY must be set to a strong secret in production. Generate one with: openssl rand -base64 32');
     }
-    if (aesSecretKey.length < 32) {
-      throw new Error('SECURITY ERROR: AES_SECRET_KEY must be at least 32 characters long for AES-256 encryption');
+    if (!aesSecretKeyBytes || aesSecretKeyBytes.length !== 32) {
+      throw new Error('SECURITY ERROR: AES_SECRET_KEY must be a base64-encoded 32-byte key for AES-256. Generate one with: openssl rand -base64 32');
     }
     if (isWeakDbPassword) {
       throw new Error('SECURITY ERROR: DB_PASSWORD is too weak for production. Use a strong, unique password.');
