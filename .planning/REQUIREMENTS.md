@@ -54,11 +54,11 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 ### Structural Debt
 
-- [ ] **DEBT-01**: forwardRef reduced from 24 → ≤12 files
+- [x] **DEBT-01**: forwardRef reduced from 24 → ≤12 files
 - [ ] **DEBT-02**: email.module.ts forwardRef (4 refs) reduced to 1 via EventEmitter2 domain events
 - [x] **DEBT-03**: email-sync.module.ts forwardRef (3 refs) reduced to 1 via shared interfaces in common/
 - [ ] **DEBT-04**: auth.module.ts forwardRef (3 refs) reduced to 1 via shared user lookup service
-- [ ] **DEBT-05**: Worker file forwardRef removed via module provider injection
+- [x] **DEBT-05**: Worker file forwardRef removed via module provider injection
 
 ### Observability
 
@@ -82,7 +82,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [ ] **TEST-05**: Attachment proxy test with large file (≥50MB) — no OOM, stream completes, Content-Length correct (NOTE: automated test verifies streaming mechanism; 50MB memory profiling is manual verification)
 - [x] **TEST-06**: Backend god-file split regression tests — write tests for each file BEFORE splitting, verify identical behavior after
 - [x] **TEST-07**: Frontend god-file split visual regression — Playwright screenshot comparison before/after each split
-- [ ] **TEST-08**: forwardRef removal regression — NestJS module bootstrap succeeds, all dependency injection chains resolve
+- [x] **TEST-08**: forwardRef removal regression — NestJS module bootstrap succeeds, all dependency injection chains resolve
 - [ ] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
 - [ ] **TEST-10**: WebSocket Redis adapter test — message published on instance A received by client on instance B
 - [ ] **TEST-11**: CSRF error surfacing test — invalid/expired token returns meaningful error, retry logic succeeds
@@ -168,11 +168,11 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | QUAL-12 | Phase 44 | Complete |
 | QUAL-13 | Phase 44 | Complete |
 | QUAL-14 | Phase 44 | Complete |
-| DEBT-01 | Phase 45 | Pending |
+| DEBT-01 | Phase 45 | Complete |
 | DEBT-02 | Phase 45 | Pending |
 | DEBT-03 | Phase 45 | Complete |
 | DEBT-04 | Phase 45 | Pending |
-| DEBT-05 | Phase 45 | Pending |
+| DEBT-05 | Phase 45 | Complete |
 | OBS-01 | Phase 46 | Pending |
 | OBS-02 | Phase 46 | Pending |
 | OBS-03 | Phase 46 | Pending |
@@ -187,7 +187,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-05 | Phase 43 | Pending |
 | TEST-06 | Phase 43 | Complete |
 | TEST-07 | Phase 44 | Complete |
-| TEST-08 | Phase 45 | Pending |
+| TEST-08 | Phase 45 | Complete |
 | TEST-09 | Phase 46 | Pending |
 | TEST-10 | Phase 47 | Pending |
 | TEST-11 | Phase 47 | Pending |
