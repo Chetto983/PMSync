@@ -9,203 +9,34 @@
  *
  * NOTE: Email data is managed by TanStack Query, not this store.
  * This store only handles ephemeral UI state.
+ *
+ * Implementation split into domain slices under ./email-ui/
  */
 
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
+import type { EmailUIState } from './email-ui/email-ui-types';
+import { initialComposeState, initialFilters, initialSidebar } from './email-ui/email-ui-types';
+import { createSelectionSlice } from './email-ui/selection-slice';
+import { createFilterSlice } from './email-ui/filter-slice';
+import { createViewSlice } from './email-ui/view-slice';
+import { createComposeSlice } from './email-ui/compose-slice';
+import { createSidebarSlice } from './email-ui/sidebar-slice';
+import { createKanbanSlice } from './email-ui/kanban-slice';
 
-// =============================================================================
-// Kanban Types
-// =============================================================================
-
-export type KanbanColumnId = 'inbox' | 'to-reply' | 'following-up' | 'done';
-
-/**
- * Kanban column assignments - LOCAL ONLY state
- * Maps emailId -> columnId
- * NOTE: Backend persistence for kanban status is out of scope for this phase
- */
-export type KanbanColumnAssignments = Record<string, KanbanColumnId>;
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export type EmailViewMode = 'list' | 'thread' | 'kanban';
-export type EmailDensity = 'compact' | 'comfortable' | 'spacious';
-
-/**
- * Canonical folder types - matches backend CANONICAL_FOLDER_TYPES
- * Sources:
- * - RFC 6154 (IMAP LIST Extension for Special-Use Mailboxes)
- * - RFC 8457 (IMAP "$Important" Keyword)
- * - Microsoft Graph API wellKnownName
- * - Gmail API system labels
- *
- * @see https://www.rfc-editor.org/rfc/rfc6154.html
- * @see https://learn.microsoft.com/en-us/graph/api/resources/mailfolder
- * @see https://developers.google.com/workspace/gmail/api/guides/labels
- */
-export type SpecialFolder =
-  // RFC 6154 standard special-use attributes
-  | 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'JUNK' | 'ARCHIVE'
-  | 'ALL' | 'FLAGGED' | 'STARRED' | 'IMPORTANT'
-  // Common aliases
-  | 'SCHEDULED' | 'SNOOZED'
-  // Microsoft Graph wellKnownName values
-  | 'OUTBOX' | 'CONVERSATIONHISTORY' | 'CONVERSATION HISTORY'
-  | 'CLUTTER' | 'CONFLICTS' | 'LOCALFAILURES' | 'SERVERFAILURES' | 'SYNCISSUES'
-  | 'DELETEDITEMS' | 'DELETED ITEMS' | 'SENTITEMS' | 'SENT ITEMS'
-  | 'JUNKEMAIL' | 'JUNK EMAIL'
-  // Gmail categories
-  | 'CATEGORY_PERSONAL' | 'CATEGORY_SOCIAL' | 'CATEGORY_PROMOTIONS'
-  | 'CATEGORY_UPDATES' | 'CATEGORY_FORUMS'
-  // Gmail system labels
-  | 'CHAT' | 'UNREAD';
-
-export interface EmailFilters {
-  specialUse?: SpecialFolder;
-  providerId?: string;
-  folderId?: string; // Track specific folder selection
-  labelId?: string;
-  isRead?: boolean;
-  isImportant?: boolean;
-  hasAttachments?: boolean;
-  search?: string;
-  from?: string;
-  to?: string;
-  subject?: string;
-  startDate?: string;
-  endDate?: string;
-  /** Filter emails from VIP contacts only */
-  fromVip?: boolean;
-  /** Kanban column status filter (local state only) */
-  kanbanStatus?: 'inbox' | 'to-reply' | 'following-up' | 'done';
-}
-
-// Sidebar configuration
-export interface SidebarConfig {
-  width: number;
-  minWidth: number;
-  maxWidth: number;
-  collapsedProviders: Set<string>; // Provider IDs that are collapsed
-}
-
-export interface ComposeState {
-  isOpen: boolean;
-  mode: 'new' | 'reply' | 'replyAll' | 'forward' | 'draft';
-  replyToEmailId?: string;
-  draftId?: string;
-  initialTo?: string[];
-  initialSubject?: string;
-  initialBody?: string;
-}
-
-interface EmailUIState {
-  // Selection
-  selectedIds: Set<string>;
-  lastSelectedId: string | null;
-
-  // View
-  viewMode: EmailViewMode;
-  density: EmailDensity;
-  previewPanelOpen: boolean;
-  activeEmailId: string | null;
-  activeThreadId: string | null;
-
-  // Sidebar
-  sidebar: SidebarConfig;
-
-  // Filters
-  filters: EmailFilters;
-
-  // Compose
-  compose: ComposeState;
-
-  // Loading states (for optimistic UI)
-  pendingActions: Set<string>; // emailIds with pending actions
-
-  // AI prompt bridge (ephemeral, not persisted)
-  pendingAiPrompt: string | null;
-
-  // Kanban state (LOCAL ONLY - not persisted to backend)
-  kanbanAssignments: KanbanColumnAssignments;
-
-  // Actions - Selection
-  selectEmail: (id: string) => void;
-  selectMultiple: (ids: string[]) => void;
-  toggleSelection: (id: string) => void;
-  selectRange: (fromId: string, toId: string, allIds: string[]) => void;
-  selectAll: (ids: string[]) => void;
-  clearSelection: () => void;
-
-  // Actions - View
-  setViewMode: (mode: EmailViewMode) => void;
-  setDensity: (density: EmailDensity) => void;
-  togglePreviewPanel: () => void;
-  setActiveEmail: (id: string | null) => void;
-  setActiveThread: (threadId: string | null) => void;
-
-  // Actions - Filters
-  setFilters: (filters: Partial<EmailFilters>) => void;
-  setFolder: (folder: SpecialFolder) => void;
-  setSearch: (search: string) => void;
-  clearFilters: () => void;
-
-  // Actions - Compose
-  openCompose: (options?: Partial<ComposeState>) => void;
-  openReply: (emailId: string, replyAll?: boolean) => void;
-  openForward: (emailId: string) => void;
-  openDraft: (draftId: string) => void;
-  closeCompose: () => void;
-  updateCompose: (updates: Partial<ComposeState>) => void;
-
-  // Actions - Pending
-  addPendingAction: (emailId: string) => void;
-  removePendingAction: (emailId: string) => void;
-  clearPendingActions: () => void;
-
-  // Actions - AI prompt bridge
-  setPendingAiPrompt: (prompt: string) => void;
-  clearPendingAiPrompt: () => void;
-
-  // Actions - Sidebar
-  setSidebarWidth: (width: number) => void;
-  toggleProviderCollapse: (providerId: string) => void;
-  setProviderCollapsed: (providerId: string, collapsed: boolean) => void;
-
-  // Actions - Kanban
-  setEmailKanbanColumn: (emailId: string, columnId: KanbanColumnId) => void;
-  moveEmailToColumn: (emailId: string, columnId: KanbanColumnId) => void;
-  getEmailColumn: (emailId: string) => KanbanColumnId;
-  clearKanbanAssignments: () => void;
-  /** Remove kanban assignments for emails that no longer exist */
-  pruneKanbanAssignments: (validEmailIds: Set<string>) => void;
-
-  // Reset
-  reset: () => void;
-}
-
-// =============================================================================
-// Initial State
-// =============================================================================
-
-const initialComposeState: ComposeState = {
-  isOpen: false,
-  mode: 'new',
-};
-
-const initialFilters: EmailFilters = {
-  specialUse: 'INBOX',
-};
-
-const initialSidebar: SidebarConfig = {
-  width: 220,
-  minWidth: 180,
-  maxWidth: 350,
-  collapsedProviders: new Set<string>(),
-};
+// Re-export all types for consumer compatibility
+export type {
+  KanbanColumnId,
+  KanbanColumnAssignments,
+  EmailViewMode,
+  EmailDensity,
+  SpecialFolder,
+  EmailFilters,
+  SidebarConfig,
+  ComposeState,
+  EmailUIState,
+} from './email-ui/email-ui-types';
 
 // =============================================================================
 // Store
@@ -215,275 +46,51 @@ export const useEmailUIStore = create<EmailUIState>()(
   devtools(
     persist(
       (set, get) => ({
-        // Initial state
-        selectedIds: new Set<string>(),
-        lastSelectedId: null,
-        viewMode: 'list',
-        density: 'comfortable',
-        previewPanelOpen: true,
-        activeEmailId: null,
-        activeThreadId: null,
-        sidebar: initialSidebar,
-        filters: initialFilters,
-        compose: initialComposeState,
+        ...createSelectionSlice(set),
+        ...createFilterSlice(set, get),
+        ...createViewSlice(set),
+        ...createComposeSlice(set),
+        ...createSidebarSlice(set),
+        ...createKanbanSlice(set, get),
+
+        // Pending actions
         pendingActions: new Set<string>(),
-        kanbanAssignments: {},
+        addPendingAction: (emailId: string) =>
+          set((state) => {
+            const newPending = new Set(state.pendingActions);
+            newPending.add(emailId);
+            return { pendingActions: newPending };
+          }),
+        removePendingAction: (emailId: string) =>
+          set((state) => {
+            const newPending = new Set(state.pendingActions);
+            newPending.delete(emailId);
+            return { pendingActions: newPending };
+          }),
+        clearPendingActions: () => set({ pendingActions: new Set<string>() }),
+
+        // AI prompt bridge
         pendingAiPrompt: null,
+        setPendingAiPrompt: (prompt: string) => set({ pendingAiPrompt: prompt }),
+        clearPendingAiPrompt: () => set({ pendingAiPrompt: null }),
 
-      // Selection actions
-      selectEmail: (id) =>
-        set({
-          selectedIds: new Set([id]),
-          lastSelectedId: id,
-          activeEmailId: id,
-        }),
-
-      selectMultiple: (ids) =>
-        set({
-          selectedIds: new Set(ids),
-          lastSelectedId: ids[ids.length - 1] ?? null,
-        }),
-
-      toggleSelection: (id) =>
-        set((state) => {
-          const newSelected = new Set(state.selectedIds);
-          if (newSelected.has(id)) {
-            newSelected.delete(id);
-          } else {
-            newSelected.add(id);
-          }
-          return {
-            selectedIds: newSelected,
-            lastSelectedId: id,
-          };
-        }),
-
-      selectRange: (fromId, toId, allIds) =>
-        set((state) => {
-          const fromIndex = allIds.indexOf(fromId);
-          const toIndex = allIds.indexOf(toId);
-          if (fromIndex === -1 || toIndex === -1) return state;
-
-          const start = Math.min(fromIndex, toIndex);
-          const end = Math.max(fromIndex, toIndex);
-          const rangeIds = allIds.slice(start, end + 1);
-
-          return {
-            selectedIds: new Set([...state.selectedIds, ...rangeIds]),
-            lastSelectedId: toId,
-          };
-        }),
-
-      selectAll: (ids) =>
-        set({
-          selectedIds: new Set(ids),
-          lastSelectedId: ids[ids.length - 1] ?? null,
-        }),
-
-      clearSelection: () =>
-        set({
-          selectedIds: new Set<string>(),
-          lastSelectedId: null,
-        }),
-
-      // View actions
-      setViewMode: (mode) => set({ viewMode: mode }),
-
-      setDensity: (density) => set({ density }),
-
-      togglePreviewPanel: () =>
-        set((state) => ({ previewPanelOpen: !state.previewPanelOpen })),
-
-      setActiveEmail: (id) =>
-        set({
-          activeEmailId: id,
-          selectedIds: id ? new Set([id]) : new Set<string>(),
-        }),
-
-      setActiveThread: (threadId) =>
-        set({
-          activeThreadId: threadId,
-          viewMode: threadId ? 'thread' : 'list',
-        }),
-
-      // Filter actions
-      setFilters: (filters) =>
-        set((state) => ({
-          filters: { ...state.filters, ...filters },
-          // Clear selection when filters change
-          selectedIds: new Set<string>(),
-          activeEmailId: null,
-        })),
-
-      setFolder: (folder) =>
-        set({
-          filters: { ...get().filters, specialUse: folder, labelId: undefined },
-          selectedIds: new Set<string>(),
-          activeEmailId: null,
-        }),
-
-      setSearch: (search) =>
-        set((state) => ({
-          filters: { ...state.filters, search: search || undefined },
-        })),
-
-      clearFilters: () =>
-        set({
-          filters: initialFilters,
-          selectedIds: new Set<string>(),
-          activeEmailId: null,
-        }),
-
-      // Compose actions
-      openCompose: (options) =>
-        set({
-          compose: {
-            ...initialComposeState,
-            ...options,
-            isOpen: true,
-          },
-        }),
-
-      openReply: (emailId, replyAll = false) =>
-        set({
-          compose: {
-            isOpen: true,
-            mode: replyAll ? 'replyAll' : 'reply',
-            replyToEmailId: emailId,
-          },
-        }),
-
-      openForward: (emailId) =>
-        set({
-          compose: {
-            isOpen: true,
-            mode: 'forward',
-            replyToEmailId: emailId,
-          },
-        }),
-
-      openDraft: (draftId) =>
-        set({
-          compose: {
-            isOpen: true,
-            mode: 'draft',
-            draftId,
-          },
-        }),
-
-      closeCompose: () =>
-        set({
-          compose: initialComposeState,
-        }),
-
-      updateCompose: (updates) =>
-        set((state) => ({
-          compose: { ...state.compose, ...updates },
-        })),
-
-      // Pending actions
-      addPendingAction: (emailId) =>
-        set((state) => {
-          const newPending = new Set(state.pendingActions);
-          newPending.add(emailId);
-          return { pendingActions: newPending };
-        }),
-
-      removePendingAction: (emailId) =>
-        set((state) => {
-          const newPending = new Set(state.pendingActions);
-          newPending.delete(emailId);
-          return { pendingActions: newPending };
-        }),
-
-      clearPendingActions: () => set({ pendingActions: new Set<string>() }),
-
-      // AI prompt bridge actions
-      setPendingAiPrompt: (prompt) => set({ pendingAiPrompt: prompt }),
-      clearPendingAiPrompt: () => set({ pendingAiPrompt: null }),
-
-      // Sidebar actions
-      setSidebarWidth: (width) =>
-        set((state) => ({
-          sidebar: {
-            ...state.sidebar,
-            width: Math.max(state.sidebar.minWidth, Math.min(state.sidebar.maxWidth, width)),
-          },
-        })),
-
-      toggleProviderCollapse: (providerId) =>
-        set((state) => {
-          const newCollapsed = new Set(state.sidebar.collapsedProviders);
-          if (newCollapsed.has(providerId)) {
-            newCollapsed.delete(providerId);
-          } else {
-            newCollapsed.add(providerId);
-          }
-          return {
-            sidebar: { ...state.sidebar, collapsedProviders: newCollapsed },
-          };
-        }),
-
-      setProviderCollapsed: (providerId, collapsed) =>
-        set((state) => {
-          const newCollapsed = new Set(state.sidebar.collapsedProviders);
-          if (collapsed) {
-            newCollapsed.add(providerId);
-          } else {
-            newCollapsed.delete(providerId);
-          }
-          return {
-            sidebar: { ...state.sidebar, collapsedProviders: newCollapsed },
-          };
-        }),
-
-      // Kanban actions
-      setEmailKanbanColumn: (emailId, columnId) =>
-        set((state) => ({
-          kanbanAssignments: { ...state.kanbanAssignments, [emailId]: columnId },
-        })),
-
-      moveEmailToColumn: (emailId, columnId) =>
-        set((state) => ({
-          kanbanAssignments: { ...state.kanbanAssignments, [emailId]: columnId },
-        })),
-
-      getEmailColumn: (emailId) => {
-        const assignments = get().kanbanAssignments;
-        return assignments[emailId] || 'inbox';
-      },
-
-      clearKanbanAssignments: () =>
-        set({ kanbanAssignments: {} }),
-
-      pruneKanbanAssignments: (validEmailIds) =>
-        set((state) => {
-          const pruned: KanbanColumnAssignments = {};
-          for (const [id, col] of Object.entries(state.kanbanAssignments)) {
-            if (validEmailIds.has(id)) {
-              pruned[id] = col;
-            }
-          }
-          return { kanbanAssignments: pruned };
-        }),
-
-      // Reset
-      reset: () =>
-        set({
-          selectedIds: new Set<string>(),
-          lastSelectedId: null,
-          viewMode: 'list',
-          density: 'comfortable',
-          previewPanelOpen: true,
-          activeEmailId: null,
-          activeThreadId: null,
-          sidebar: initialSidebar,
-          filters: initialFilters,
-          compose: initialComposeState,
-          pendingActions: new Set<string>(),
-          kanbanAssignments: {},
-          pendingAiPrompt: null,
-        }),
+        // Reset (touches all slices)
+        reset: () =>
+          set({
+            selectedIds: new Set<string>(),
+            lastSelectedId: null,
+            viewMode: 'list',
+            density: 'comfortable',
+            previewPanelOpen: true,
+            activeEmailId: null,
+            activeThreadId: null,
+            sidebar: initialSidebar,
+            filters: initialFilters,
+            compose: initialComposeState,
+            pendingActions: new Set<string>(),
+            kanbanAssignments: {},
+            pendingAiPrompt: null,
+          }),
       }),
       {
         name: 'email-ui-storage',
