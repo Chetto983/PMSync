@@ -48,8 +48,8 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [ ] **QUAL-09**: Header.tsx (799 lines) split into SearchBar, UserMenu, NotificationBell, NavTabs
 - [ ] **QUAL-10**: ContactDetail.tsx (720 lines) split into ContactDetailTabs, ContactActivityFeed, ContactInfoPanel
 - [x] **QUAL-11**: DashboardContainer.tsx (674 lines) split into DashboardGrid, DashboardWidgetWrapper
-- [ ] **QUAL-12**: Settings.tsx (661 lines) split into per-section SettingsSection components
-- [ ] **QUAL-13**: email-ui-store.ts (552 lines) split into email-selection-store, email-filter-store
+- [x] **QUAL-12**: Settings.tsx (661 lines) split into per-section SettingsSection components
+- [x] **QUAL-13**: email-ui-store.ts (552 lines) split into email-selection-store, email-filter-store
 - [ ] **QUAL-14**: All resulting frontend files < 400 lines
 
 ### Structural Debt
@@ -165,8 +165,8 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | QUAL-09 | Phase 44 | Pending |
 | QUAL-10 | Phase 44 | Pending |
 | QUAL-11 | Phase 44 | Complete |
-| QUAL-12 | Phase 44 | Pending |
-| QUAL-13 | Phase 44 | Pending |
+| QUAL-12 | Phase 44 | Complete |
+| QUAL-13 | Phase 44 | Complete |
 | QUAL-14 | Phase 44 | Pending |
 | DEBT-01 | Phase 45 | Pending |
 | DEBT-02 | Phase 45 | Pending |
