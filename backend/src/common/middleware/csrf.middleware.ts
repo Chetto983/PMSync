@@ -64,6 +64,7 @@ const CSRF_EXCLUDED_PATHS = [
   '/api/v1/auth/reset-password',  // Pre-auth: password reset with token
   '/api/v1/auth/refresh',    // Token refresh uses httpOnly cookie, not session
   '/api/v1/webhooks',        // Webhook endpoints use signatures
+  '/webhooks',               // Webhook endpoints excluded from global prefix
   '/api/v1/providers/oauth', // OAuth callbacks
   '/auth/gmail/callback',    // OAuth callbacks (excluded from global prefix)
   '/auth/microsoft/callback', // OAuth callbacks (excluded from global prefix)
