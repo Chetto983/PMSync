@@ -156,8 +156,7 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
   const skipAuth = Component.skipAuthGuard || false;
   const mounted = useHasMounted();
   const router = useRouter();
-  const isPrivateRoute =
-    router.pathname.startsWith('/dashboard') || router.pathname.startsWith('/auth');
+  const isPrivateRoute = router.pathname.startsWith('/dashboard');
   const shouldShowHydrationSkeleton = !mounted && isPrivateRoute;
 
   // Keep SEO-critical public pages SSR-rendered; only hold private routes during hydration.
