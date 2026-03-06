@@ -13,7 +13,7 @@ import {
   CardHeader,
   Alert,
 } from '@mui/material';
-import { apiClient } from '@/lib/api-client';
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export default function ForgotPasswordPage() {
@@ -44,14 +44,15 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/forgot-password', { email: trimmedEmail });
-
-      if (response.data.success) {
-        setSuccess(true);
-      }
-    } catch (err) {
-      const errorResponse = err as { response?: { data?: { message?: string } } };
-      setError(errorResponse.response?.data?.message || translations.common.genericError);
+      await authClient.requestPasswordReset({
+        email: trimmedEmail,
+        redirectTo: '/auth/reset-password',
+      });
+      // Always show success regardless of result (prevent email enumeration)
+      setSuccess(true);
+    } catch {
+      // Only catch unexpected errors (network failure)
+      setSuccess(true);
     } finally {
       setLoading(false);
     }

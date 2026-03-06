@@ -17,7 +17,7 @@ import {
   Alert,
 } from '@mui/material';
 import { Eye, EyeOff } from 'lucide-react';
-import { apiClient } from '@/lib/api-client';
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export default function ResetPasswordPage() {
@@ -69,26 +69,25 @@ export default function ResetPasswordPage() {
     }
 
     try {
-      const response = await apiClient.post('/auth/reset-password', {
-        token: Array.isArray(token) ? token[0] : token,
+      const { error: resetError } = await authClient.resetPassword({
         newPassword: trimmedPassword,
+        token: (Array.isArray(token) ? token[0] : token) as string,
       });
 
-      if (response.data.success) {
+      if (resetError) {
+        const msg = resetError.message?.toLowerCase() || '';
+        if (msg.includes('different') || msg.includes('same')) {
+          setError(translations.common.passwordSameAsOld);
+        } else if (msg.includes('invalid') || msg.includes('expired')) {
+          setError(translations.common.invalidToken);
+        } else {
+          setError(resetError.message || translations.common.genericError);
+        }
+      } else {
         setSuccess(true);
       }
-    } catch (err) {
-      const errorResponse = err as { response?: { data?: { message?: string } } };
-      const backendMessage = errorResponse.response?.data?.message || '';
-
-      // Map backend error messages to localized translations
-      if (backendMessage.toLowerCase().includes('different from your current password')) {
-        setError(translations.common.passwordSameAsOld);
-      } else if (backendMessage.toLowerCase().includes('invalid') || backendMessage.toLowerCase().includes('expired')) {
-        setError(translations.common.invalidToken);
-      } else {
-        setError(backendMessage || translations.common.genericError);
-      }
+    } catch {
+      setError(translations.common.genericError);
     } finally {
       setLoading(false);
     }
