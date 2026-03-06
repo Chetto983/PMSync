@@ -39,6 +39,7 @@ import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { HttpMetricsInterceptor } from './common/metrics/http-metrics.interceptor';
+import { BetterAuthModule } from './common/auth/better-auth.module';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
 @Module({
@@ -79,6 +80,7 @@ import { HttpMetricsInterceptor } from './common/metrics/http-metrics.intercepto
     // Phase 32: @Global() tool registry -- must load before domain modules
     ToolRegistryModule,
     TransactionalEmailModule, // Phase 45-03: @Global() nodemailer service (before AuthModule)
+    BetterAuthModule, // Phase 50-02: better-auth consumer for session validation (coexists with old AuthModule)
     AuthModule,
     UsersModule,
     TenantsModule,
