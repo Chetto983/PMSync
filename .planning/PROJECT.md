@@ -8,11 +8,24 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
+## Current Milestone: v5.0 better-auth Migration
+
+**Goal:** Replace broken custom auth with better-auth — full enterprise auth (email/password, social login, 2FA, organizations/roles, admin panel) with clean slate migration.
+
+**Target features:**
+- better-auth as auth provider (Next.js side)
+- NestJS backend session validation (best 2026 integration pattern)
+- Social login (Google OAuth)
+- Two-factor authentication (TOTP/passkeys)
+- Organization & roles support
+- Admin panel
+- Clean slate: existing users re-register
+
 ## Current State
 
-**Version:** v4.1 shipped (2026-03-06)
-**Status:** Milestone complete, ready for next milestone
-**Base:** v4.0 Enterprise Stabilization (11 phases, 22 plans, 19/19 requirements)
+**Version:** v5.0 in progress
+**Status:** Defining requirements
+**Base:** v4.1 Security Hardening & Debt Reduction (shipped 2026-03-06)
 
 **Previous:** v4.1 Security Hardening & Debt Reduction shipped 2026-03-06 (8 phases, 28 plans, 65/66 requirements).
 
@@ -115,7 +128,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- Next milestone requirements will go here -->
+<!-- v5.0 requirements - defined during milestone planning -->
 
 ### Out of Scope
 
@@ -224,4 +237,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | Type extraction for circular dependency breaks | Shared interface to types/ dir with re-export from original; zero runtime impact | ✓ Good |
 
 ---
-*Last updated: 2026-03-06 after v4.1 milestone*
+*Last updated: 2026-03-06 after v5.0 milestone start*
