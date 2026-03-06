@@ -37,6 +37,8 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { MistralModule } from './modules/mistral/mistral.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry.module';
+import { MetricsModule } from './common/metrics/metrics.module';
+import { HttpMetricsInterceptor } from './common/metrics/http-metrics.interceptor';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
 @Module({
@@ -72,6 +74,8 @@ import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry
     CacheModule, // Redis-based caching for horizontal scaling
     ScheduledJobsModule, // BullMQ-based scheduled jobs for horizontal scaling
     PrismaModule,
+    // Phase 46: @Global() Prometheus metrics -- /metrics endpoint + metric providers
+    MetricsModule,
     // Phase 32: @Global() tool registry -- must load before domain modules
     ToolRegistryModule,
     TransactionalEmailModule, // Phase 45-03: @Global() nodemailer service (before AuthModule)
@@ -122,6 +126,11 @@ import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditLogInterceptor,
+    },
+    // Phase 46: Record HTTP request duration and in-flight count for Prometheus
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpMetricsInterceptor,
     },
     // Phase 33: ThrottlerExceptionFilter absorbed into ApiExceptionFilter (registered globally in main.ts)
     // Log rotation service - gestione FIFO 2 giorni
