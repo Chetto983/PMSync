@@ -120,12 +120,12 @@ export class UsersService {
       let tenantDeleted = false;
 
       if (otherUsers === 0) {
-        await tx.tenant.delete({ where: { id: user.tenantId } });
+        await tx.tenant.delete({ where: { id: user.tenantId! } });
         tenantDeleted = true;
       }
 
       return {
-        tenantId: user.tenantId,
+        tenantId: user.tenantId!,
         tenantDeleted,
       };
     });

@@ -328,7 +328,7 @@ export class RealtimeHandshakeService {
     }
 
     // SECURITY: Check tenant is active
-    if (!user.tenant.isActive) {
+    if (!user.tenant?.isActive) {
       this.logger.warn(
         JSON.stringify({
           event: 'ws_auth_tenant_inactive',
@@ -350,9 +350,9 @@ export class RealtimeHandshakeService {
 
     return {
       userId: user.id,
-      tenantId: user.tenantId,
+      tenantId: user.tenantId!,
       email: user.email,
-      tenantRoom: buildTenantRoom(user.tenantId),
+      tenantRoom: buildTenantRoom(user.tenantId!),
     };
   }
 }

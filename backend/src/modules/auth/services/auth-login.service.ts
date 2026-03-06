@@ -319,7 +319,7 @@ export class AuthLoginService {
     }
 
     const { valid: isPasswordValid } =
-      await this.passwordHashingService.verifyPassword(password, user.passwordHash);
+      await this.passwordHashingService.verifyPassword(password, user.passwordHash!);
 
     if (!isPasswordValid) {
       await Promise.all([
@@ -441,7 +441,7 @@ export class AuthLoginService {
     if (!user || !user.isActive) throw new UnauthorizedException('Account not active');
 
     const tenant = await this.prisma.tenant.findUnique({
-      where: { id: user.tenantId },
+      where: { id: user.tenantId! },
       select: { id: true, isActive: true },
     });
     if (!tenant || !tenant.isActive) throw new UnauthorizedException('Tenant not active');

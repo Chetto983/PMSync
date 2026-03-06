@@ -109,7 +109,7 @@ export class AuthTokenService {
     if (!existing) throw new UnauthorizedException('Invalid refresh token');
     if (existing.expiresAt < new Date()) throw new UnauthorizedException('Refresh token expired');
     if (!existing.user.isActive) throw new UnauthorizedException('Account disabled');
-    if (!existing.user.tenant.isActive) throw new UnauthorizedException('Organization disabled');
+    if (!existing.user.tenant?.isActive) throw new UnauthorizedException('Organization disabled');
 
     if (existing.isUsed) {
       // Grace period: tolerate a single reuse within a short window for network retries.

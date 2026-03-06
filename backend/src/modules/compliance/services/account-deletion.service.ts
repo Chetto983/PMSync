@@ -176,7 +176,7 @@ export class AccountDeletionService {
 
     let purgedCount = 0;
     for (const user of expiredUsers) {
-      const success = await this.hardDeleteUser(user.id, user.tenantId);
+      const success = await this.hardDeleteUser(user.id, user.tenantId!);
       if (success) purgedCount++;
     }
 

@@ -59,15 +59,20 @@ model Tenant {
 
 model User {
   id                  String                 @id @default(cuid())
-  tenantId            String
-  email               String
-  passwordHash        String
+  tenantId            String?
+  email               String                 @unique
+  name                String                 @default("")
+  emailVerified       Boolean                @default(false)
+  image               String?
+  /// @deprecated Legacy field -- password now lives in Account table. Remove in Phase 58.
+  passwordHash        String?
   firstName           String?
   lastName            String?
   avatarUrl           String?
-  role                String                 @default("admin")
+  role                String                 @default("member")
   isActive            Boolean                @default(true)
-  isMfaEnabled        Boolean                @default(true)
+  /// @deprecated Legacy field -- better-auth 2FA plugin manages this. Remove in Phase 58.
+  isMfaEnabled        Boolean                @default(false)
   lastLogin           DateTime?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
@@ -82,10 +87,11 @@ model User {
   mfaBackupCodes      MfaBackupCode[]
   mfaSecret           MfaSecret?
   sessions            Session[]
+  accounts            Account[]
   refreshTokens       RefreshToken[]
   trustedDevices      TrustedDevice[]
   userPreferences     UserPreferences?
-  tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant              Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webauthnCredentials WebAuthnCredential[]
   writingStyleProfiles WritingStyleProfile[]
   userConsents        UserConsent[]
@@ -93,6 +99,7 @@ model User {
   dataExportRequests  DataExportRequest[]
   aiConversations     AiConversation[]
 
+  /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("users")
@@ -236,22 +243,54 @@ model WebAuthnCredential {
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  tenantId  String
-  userId    String
-  token     String
-  expiresAt DateTime
-  ipAddress String?
-  userAgent String?
-  createdAt      DateTime @default(now())
-  lastActivityAt DateTime @default(now())
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(cuid())
+  /// @deprecated Legacy field -- Session no longer scoped to tenant. Remove in Phase 58.
+  tenantId             String?
+  userId               String
+  token                String   @unique
+  expiresAt            DateTime
+  ipAddress            String?
+  userAgent            String?
+  activeOrganizationId String?
+  /// @deprecated Legacy field -- better-auth uses updatedAt. Remove in Phase 58.
+  lastActivityAt       DateTime? @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  tenant               Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, token])
-  @@index([tenantId])
-  @@index([userId, token])
+  @@index([userId])
   @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
 }
 
 model RefreshToken {

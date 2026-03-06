@@ -297,7 +297,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Idle session timeout check (OWASP ASVS V3.3.2)
-    const idleMs = Date.now() - session.lastActivityAt.getTime();
+    const idleMs = Date.now() - (session.lastActivityAt ?? session.updatedAt).getTime();
     if (idleMs > this.authConfig.idleTimeoutMs) {
       this.prisma.session.delete({ where: { id: session.id } }).catch(() => {});
       this.rejectToken('session_idle_timeout', {
@@ -308,7 +308,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Debounced lastActivityAt update (avoid DB write on every request)
-    let lastActivityAtForCache = session.lastActivityAt.toISOString();
+    let lastActivityAtForCache = (session.lastActivityAt ?? session.updatedAt).toISOString();
     if (idleMs > this.authConfig.lastActivityDebounceMs) {
       const now = new Date();
       lastActivityAtForCache = now.toISOString();
@@ -345,7 +345,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // 6. Check tenant is active
-    if (!user.tenant.isActive) {
+    if (!user.tenant?.isActive) {
       this.rejectToken('tenant_inactive', {
         userId: user.id,
         tenantId: user.tenantId,

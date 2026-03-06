@@ -752,7 +752,7 @@ export class WebAuthnService implements OnModuleInit {
       return { success: false, error: 'Account is not active' };
     }
 
-    if (!user.tenant.isActive) {
+    if (!user.tenant?.isActive) {
       this.logger.warn(
         JSON.stringify({
           event: 'webauthn_login_tenant_not_active',
@@ -832,7 +832,7 @@ export class WebAuthnService implements OnModuleInit {
         user: {
           id: user.id,
           email: user.email,
-          tenantId: user.tenantId,
+          tenantId: user.tenantId!,
         },
       };
     } catch (error) {

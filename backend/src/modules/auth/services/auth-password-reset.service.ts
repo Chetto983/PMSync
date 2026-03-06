@@ -218,14 +218,14 @@ export class AuthPasswordResetService {
     let sessionsInvalidated = 0;
     let cacheEntriesInvalidated = 0;
     if (invalidateAllSessionsFn) {
-      const result = await invalidateAllSessionsFn(user.id, user.tenantId);
+      const result = await invalidateAllSessionsFn(user.id, user.tenantId!);
       sessionsInvalidated = result.sessionCount;
       cacheEntriesInvalidated = result.cacheCount;
     }
 
     let refreshTokensInvalidated = 0;
     if (deleteAllRefreshTokensFn) {
-      refreshTokensInvalidated = await deleteAllRefreshTokensFn(user.id, user.tenantId);
+      refreshTokensInvalidated = await deleteAllRefreshTokensFn(user.id, user.tenantId!);
     }
 
     this.logger.log(JSON.stringify({
