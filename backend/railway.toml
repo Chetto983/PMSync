@@ -9,4 +9,4 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
 healthcheckPath = "/health"
 healthcheckTimeout = 120
-startCommand = "npx prisma migrate deploy && node dist/main"
+startCommand = "node node_modules/.bin/prisma migrate deploy && node dist/main"
