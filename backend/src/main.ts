@@ -589,8 +589,8 @@ async function bootstrap() {
     // Enable graceful shutdown
     app.enableShutdownHooks();
 
-    await runStartupStep(trap, `app.listen(${config.api.port})`, () =>
-      app.listen(config.api.port),
+    await runStartupStep(trap, `app.listen(${config.api.port}, 0.0.0.0)`, () =>
+      app.listen(config.api.port, '0.0.0.0'),
     );
     logger.log(`Application is running on ${config.api.url}`);
     if (enableSwagger) {
