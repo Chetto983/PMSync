@@ -56,7 +56,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 - [ ] **DEBT-01**: forwardRef reduced from 24 → ≤12 files
 - [ ] **DEBT-02**: email.module.ts forwardRef (4 refs) reduced to 1 via EventEmitter2 domain events
-- [ ] **DEBT-03**: email-sync.module.ts forwardRef (3 refs) reduced to 1 via shared interfaces in common/
+- [x] **DEBT-03**: email-sync.module.ts forwardRef (3 refs) reduced to 1 via shared interfaces in common/
 - [ ] **DEBT-04**: auth.module.ts forwardRef (3 refs) reduced to 1 via shared user lookup service
 - [ ] **DEBT-05**: Worker file forwardRef removed via module provider injection
 
@@ -170,7 +170,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | QUAL-14 | Phase 44 | Complete |
 | DEBT-01 | Phase 45 | Pending |
 | DEBT-02 | Phase 45 | Pending |
-| DEBT-03 | Phase 45 | Pending |
+| DEBT-03 | Phase 45 | Complete |
 | DEBT-04 | Phase 45 | Pending |
 | DEBT-05 | Phase 45 | Pending |
 | OBS-01 | Phase 46 | Pending |

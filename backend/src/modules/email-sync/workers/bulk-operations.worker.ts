@@ -14,7 +14,7 @@
  *
  * PHASE 4 CONSOLIDATION: Now extends BaseWorker for shared lifecycle management.
  */
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -42,9 +42,7 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => BulkOperationsQueueService))
     private readonly queueService: BulkOperationsQueueService,
-    @Inject(forwardRef(() => ProviderSyncBackQueueService))
     private readonly syncBackQueue: ProviderSyncBackQueueService,
     private readonly redisLock: RedisLockService,
   ) {

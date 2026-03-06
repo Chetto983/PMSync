@@ -14,7 +14,7 @@
  * - Rate limiting per provider
  * - Error handling with DLQ integration
  */
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -40,7 +40,6 @@ export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobRe
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => EmailSendQueueService))
     private readonly queueService: EmailSendQueueService,
     private readonly providerTokenService: ProviderTokenService,
     private readonly cryptoService: CryptoService,

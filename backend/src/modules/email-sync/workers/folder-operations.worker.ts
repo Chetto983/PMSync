@@ -1,8 +1,6 @@
 import {
   Injectable,
   Logger,
-  Inject,
-  forwardRef,
   ConflictException,
 } from '@nestjs/common';
 import { Job } from 'bullmq';
@@ -51,7 +49,6 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
     private readonly prisma: PrismaService,
     private readonly driverFactory: EmailDriverFactory,
     private readonly providerTokenService: ProviderTokenService,
-    @Inject(forwardRef(() => RealtimeEventsService))
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly syncAuth: SyncAuthService,
     private readonly redisLock: RedisLockService,

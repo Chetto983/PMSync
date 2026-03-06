@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ProviderConfig } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
@@ -39,7 +39,6 @@ export class EmailSendService {
     private crypto: CryptoService,
     private attachmentStorage: AttachmentStorageService,
     private providerTokenService: ProviderTokenService,
-    @Inject(forwardRef(() => EmailSendQueueService))
     private emailSendQueue: EmailSendQueueService,
     private driverFactory: EmailDriverFactory,
   ) {}

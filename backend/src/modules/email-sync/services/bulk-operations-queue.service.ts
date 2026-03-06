@@ -13,7 +13,7 @@
  *
  * CONSOLIDATION DC-5: Extends BaseQueueService to eliminate ~150 lines of boilerplate
  */
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JobType, JobsOptions } from 'bullmq';
 import { QUEUE_NAMES } from '../../../common/config';
@@ -120,7 +120,6 @@ export class BulkOperationsQueueService extends BaseQueueService<BulkOperationJo
 
   constructor(
     configService: ConfigService,
-    @Inject(forwardRef(() => DeadLetterQueueService))
     deadLetterQueue: DeadLetterQueueService,
   ) {
     super(configService, deadLetterQueue);

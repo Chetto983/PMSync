@@ -15,7 +15,7 @@
  * - Auth error detection and handling
  * - Atomic post-sync updates (RC-3 fix)
  */
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -51,7 +51,6 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => SyncSchedulerService))
     private readonly syncScheduler: SyncSchedulerService,
     private readonly folderSyncService: FolderSyncService,
     private readonly syncAuth: SyncAuthService,

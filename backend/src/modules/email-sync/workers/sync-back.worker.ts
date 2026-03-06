@@ -14,7 +14,7 @@
  *
  * PHASE 4 CONSOLIDATION: Now extends BaseWorker for shared lifecycle management.
  */
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { ImapFlow } from 'imapflow';
@@ -42,7 +42,6 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => ProviderSyncBackQueueService))
     private readonly queueService: ProviderSyncBackQueueService,
     private readonly providerTokenService: ProviderTokenService,
     private readonly cryptoService: CryptoService,
