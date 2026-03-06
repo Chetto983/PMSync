@@ -2,7 +2,7 @@
  * Italian translations for VoltAgent - UI strings only
  * Agent prompts use English (locale instruction appended for response language)
  */
-import type { VoltAgentTranslations } from './index';
+import type { VoltAgentTranslations } from './types';
 import { en } from './en';
 
 export const it: VoltAgentTranslations = {

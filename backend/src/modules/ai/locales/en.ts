@@ -3,7 +3,7 @@
  *
  * To add a new language, copy this file and translate all strings.
  */
-import type { VoltAgentTranslations } from './index';
+import type { VoltAgentTranslations } from './types';
 // Phase 23: Agent prompts removed with VoltAgent deletion. Stub values for type compatibility.
 // TODO Phase 24: Rebuild agent prompts with new AiChatService
 const SUPERVISOR_PROMPT = 'Phase 24: Supervisor prompt pending rebuild';
