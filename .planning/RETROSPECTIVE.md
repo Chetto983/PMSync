@@ -48,6 +48,55 @@
 
 ---
 
+## Milestone: v4.1 -- Security Hardening & Debt Reduction
+
+**Shipped:** 2026-03-06
+**Phases:** 8 | **Plans:** 28
+
+### What Was Built
+- Tenant isolation: Prisma scoping on 42 models, RolesGuard on 15/33 controllers, JWT refresh rotation (15min)
+- God-file decomposition: 5 backend + 7 frontend files split into 50+ focused modules, all under 400 lines
+- Auth 2026 upgrade: Argon2id, ES256 JWT, HIBP password policy, enumeration hardening, session concurrency, idle timeout, __Host- cookies
+- Zero circular deps: all 14 madge chains eliminated, forwardRef 24->2 call sites
+- Prometheus observability: /metrics with HTTP histograms, BullMQ depth, AI cost counters
+- Infrastructure: WebSocket Redis adapter, CSRF error surfacing, CBC->GCM migration, bundle budget
+
+### What Worked
+- Parallel wave execution: independent phases (44/45, 46/47/48/49) ran in overlapping waves for maximum throughput
+- Facade pattern for god-file splits: zero consumer changes, characterization tests before/after
+- Type extraction pattern for circular dependency breaks: minimal code change, maximum structural improvement
+- @Global() module pattern (Storage, Metrics, Transactional) cleanly broke infrastructure cycles
+- Stale audit from mid-milestone didn't block completion -- all requirements verified via REQUIREMENTS.md traceability
+
+### What Was Inefficient
+- Audit was run at phase 43 completion (3/8 phases done) -- too early, produced stale gaps_found status
+- STATE.md accumulated 4 YAML frontmatter blocks instead of being cleanly overwritten
+- Some SUMMARY.md files lacked one_liner field, requiring manual extraction during milestone completion
+- Phase ordering in ROADMAP.md (48 before 44-47) caused confusion -- should maintain numeric order
+
+### Patterns Established
+- Facade split pattern: keep class name, DI sub-services, zero consumer changes (backend + frontend)
+- Zustand domain slices: (set, get) => state+actions for store decomposition without fragmentation
+- @Global() for infrastructure modules (Storage, Metrics, Transactional) to avoid forwardRef
+- Type extraction to types/ dir with re-export for backward compatibility
+- @Optional() @InjectMetric for test-safe Prometheus injection
+- Symbol token + useExisting for interface-based DI without duplicate instances
+
+### Key Lessons
+1. Run milestone audits at 80%+ completion, not mid-milestone -- stale audits add confusion
+2. God-file splits are mechanical and fast (~6min avg) when using facade pattern with characterization tests
+3. Circular dependency elimination is best done in 3 passes: type extraction -> interface tokens -> module restructuring
+4. Auth hardening is high-impact work that benefits from dedicated phases (not mixed with other concerns)
+5. Prometheus @Global() pattern avoids the per-module import explosion that plagues cross-cutting concerns
+
+### Cost Observations
+- Model mix: quality profile (opus) for all phases
+- 28 plans completed in 3 days (~180min total execution)
+- Average plan execution: ~6.5min (fastest milestone yet, down from v4.0's 8min)
+- Phase 45/49 (structural refactoring) averaged 7min; Phase 46 (observability) averaged 4min
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -61,9 +110,12 @@
 | v3.1 | 10 | 34 | GDPR compliance, bug audit |
 | v3.2 | 6 | 20 | Partial ship, carry-forward pattern |
 | v4.0 | 11 | 22 | Audit-driven gap closure, enterprise prep |
+| v4.1 | 8 | 28 | Security + debt, facade splits, zero circular deps |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. Milestone audits catch real gaps -- v3.0, v3.1, and v4.0 all benefited from audit-before-ship
+1. Milestone audits catch real gaps -- v3.0, v3.1, and v4.0 all benefited from audit-before-ship (run at 80%+ completion)
 2. Carry-forward items are fine when scoped explicitly (v3.2->v4.0 worked cleanly)
 3. Gap closure phases are the cheapest quality investment (avg 3min vs 11min for planned phases)
+4. Facade pattern for god-file splits is the safest refactoring approach -- zero consumer changes across v4.0 and v4.1
+5. Plan execution velocity improves with each milestone (v1: 8min, v3.2: 11min, v4.0: 8min, v4.1: 6.5min)

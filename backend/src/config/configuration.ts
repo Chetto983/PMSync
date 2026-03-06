@@ -111,22 +111,27 @@ export interface RedisNodeSocketOptions {
   host: string;
   port: number;
   reconnectStrategy?: (retries: number) => number | Error;
-  tls?: boolean;
+}
+
+export interface RedisNodeTlsSocketOptions extends RedisNodeSocketOptions {
+  tls: true;
   rejectUnauthorized?: boolean;
   ca?: string;
   cert?: string;
   key?: string;
 }
 
+export type RedisNodeResolvedSocketOptions = RedisNodeSocketOptions | RedisNodeTlsSocketOptions;
+
 export interface RedisNodeConnectionOptions {
-  socket: RedisNodeSocketOptions;
+  socket: RedisNodeResolvedSocketOptions;
   password?: string;
   database?: number;
 }
 
 export function getRedisNodeConnectionOptions(config?: RedisConfig): RedisNodeConnectionOptions {
   const redisConfig = config || getConfiguration().redis;
-  const socket: RedisNodeSocketOptions = {
+  const baseSocket: RedisNodeSocketOptions = {
     host: redisConfig.host,
     port: redisConfig.port,
     reconnectStrategy: (retries: number) => {
@@ -136,19 +141,24 @@ export function getRedisNodeConnectionOptions(config?: RedisConfig): RedisNodeCo
       return redisConfig.retryDelayMs;
     },
   };
+  let socket: RedisNodeResolvedSocketOptions = baseSocket;
 
   if (redisConfig.tls?.enabled) {
-    socket.tls = true;
-    socket.rejectUnauthorized = redisConfig.tls.rejectUnauthorized;
+    const tlsSocket: RedisNodeTlsSocketOptions = {
+      ...baseSocket,
+      tls: true,
+      rejectUnauthorized: redisConfig.tls.rejectUnauthorized,
+    };
     if (redisConfig.tls.ca) {
-      socket.ca = redisConfig.tls.ca;
+      tlsSocket.ca = redisConfig.tls.ca;
     }
     if (redisConfig.tls.cert) {
-      socket.cert = redisConfig.tls.cert;
+      tlsSocket.cert = redisConfig.tls.cert;
     }
     if (redisConfig.tls.key) {
-      socket.key = redisConfig.tls.key;
+      tlsSocket.key = redisConfig.tls.key;
     }
+    socket = tlsSocket;
   }
 
   return {

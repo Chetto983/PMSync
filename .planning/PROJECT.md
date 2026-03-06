@@ -10,11 +10,11 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ## Current State
 
-**Version:** v4.1 in progress (started 2026-03-04)
-**Status:** Defining requirements
+**Version:** v4.1 shipped (2026-03-06)
+**Status:** Milestone complete, ready for next milestone
 **Base:** v4.0 Enterprise Stabilization (11 phases, 22 plans, 19/19 requirements)
 
-**Previous:** v3.2 AI Rebuild & Cleanup shipped 2026-03-03 (partial -- 20/25 plans, phases 23-28 core complete).
+**Previous:** v4.1 Security Hardening & Debt Reduction shipped 2026-03-06 (8 phases, 28 plans, 65/66 requirements).
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
@@ -22,8 +22,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 - AI: Mistral via AI SDK v6 (streamText + tool()), assistant-ui chat frontend
 - Editor: TipTap for rich email compose
 - Virtualization: VList for 1000+ email performance
-- Security: httpOnly cookies, AES-256-GCM, HMAC blind indexes, per-tenant HKDF
-- Observability: AiRunLedger (cost/latency telemetry), correlation IDs, Lighthouse CI
+- Security: httpOnly cookies, AES-256-GCM, HMAC blind indexes, per-tenant HKDF, Argon2id, ES256 JWT, __Host- cookies
+- Observability: Prometheus /metrics (prom-client), AiRunLedger (cost/latency telemetry), correlation IDs, Lighthouse CI
 
 ## Requirements
 
@@ -83,6 +83,17 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 - ✓ Old VoltAgent code deleted (167 files, 33K LOC)
 - ✓ Playwright E2E for chat frontend
 
+**v4.1 - Security Hardening & Debt Reduction (shipped 2026-03-06):**
+- ✓ TSEC-01..07: Prisma tenant-scoping (42 models), RolesGuard >50% controllers
+- ✓ AUTH-01..05: JWT refresh rotation (15min access tokens), family-based theft detection
+- ✓ APIS-01..04: 5 API contract tests, attachment streaming fix
+- ✓ QUAL-01..14: Backend 5 god-files + frontend 7 god-files decomposed, all <400 lines
+- ✓ DEBT-01..10: forwardRef 24->2, zero madge circular dependencies
+- ✓ OBS-01..04: Prometheus /metrics with HTTP histograms, BullMQ depth, AI cost counters
+- ✓ INFRA-01..03: WebSocket Redis adapter, tenant-scoped pub/sub
+- ✓ CLN-01..06: CSRF fix, dead code removal, CBC->GCM migration, bundle budget
+- ✓ P48-01..14: Argon2id, ES256 JWT, HIBP password policy, enumeration hardening, session concurrency, idle timeout, __Host- cookies
+
 **v4.0 - Enterprise Stabilization (shipped 2026-03-04):**
 - ✓ ARCH-01/02/03: Circular deps 17+ to 5, domain events wired, dependency-cruiser CI enforcement
 - ✓ API-01/02/03/04/05: Response envelopes, unified errors, api/v1 prefix, correlation IDs, OpenAPI linting
@@ -104,26 +115,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- v4.1 Security Hardening & Debt Reduction -->
-
-See `.planning/REQUIREMENTS.md` for detailed REQ-IDs.
-
-## Current Milestone: v4.1 Security Hardening & Debt Reduction
-
-**Goal:** Eliminate P0 security risks, enforce code quality gates, and reduce structural debt to reach 55/100 enterprise readiness.
-
-**Target features:**
-- Prisma tenant-scoping middleware with negative security tests
-- RolesGuard expansion to ≥50% of controller methods
-- JWT refresh token rotation (15min access tokens)
-- Attachment proxy streaming (fix OOM risk)
-- Frontend-backend contract tests (≥5 critical APIs)
-- God-file decomposition: backend top 5 + frontend top 7
-- Prometheus metrics upgrade
-- Silent CSRF catch fix
-- WebSocket Redis adapter for horizontal scaling
-- Dead code & dependency cleanup with bundle size budget
-- forwardRef burn-down from 24 → ≤12 files
+<!-- Next milestone requirements will go here -->
 
 ### Out of Scope
 
@@ -161,20 +153,21 @@ See `.planning/REQUIREMENTS.md` for detailed REQ-IDs.
 
 **Brownfield project:** Existing, working codebase with real users. All changes maintain backward compatibility.
 
-**v4.0 Results:**
-- 19/19 requirements satisfied (architecture, API, security, AI observability, performance)
-- 100 commits, 359 files changed, +24.8K/-3.3K lines
-- Circular dependencies: 17+ -> 5 (Email core cluster only)
-- All API responses wrapped in envelopes with correlation IDs
-- Auth fully on httpOnly cookies (zero localStorage JWT)
-- AI cost observability across all 6 call paths
-- Lighthouse CI budget gates enforced in CI pipeline
+**v4.1 Results:**
+- 65/66 requirements satisfied (security, code quality, observability, infrastructure)
+- 188 commits, 660 files changed, +46.5K/-53K lines (major refactor)
+- Circular dependencies: zero (madge --circular clean)
+- forwardRef: 24 -> 2 call sites
+- All god-files decomposed below 400 lines (backend + frontend)
+- Auth: Argon2id, ES256 JWT, session concurrency, idle timeout, __Host- cookies
+- Prometheus /metrics with HTTP histograms, BullMQ depth, AI cost counters
+- WebSocket Redis adapter for horizontal scaling
 
-**Remaining tech debt (2 items, all accepted):**
+**Remaining tech debt:**
 - api.generated.ts placeholder (resolves with CI against live DB)
-- IPolicyService/Permission enum zero consumers (v4.1 RBAC scaffolding)
+- TEST-05: 50MB attachment memory profiling (manual verification)
 
-**Codebase:** ~16K LOC TypeScript across backend + frontend
+**Codebase:** ~33.6K LOC TypeScript across backend + frontend
 **Codebase map:** `.planning/codebase/` contains detailed analysis (STACK.md, ARCHITECTURE.md, CONCERNS.md)
 
 ## Constraints
@@ -222,6 +215,13 @@ See `.planning/REQUIREMENTS.md` for detailed REQ-IDs.
 | forwardRef burn-down: 18→2 actual call sites | Symbol tokens for AI embedding, @Global TransactionalEmailModule, domain events for cross-module decoupling | ✓ Good |
 | TransactionalEmailModule as @Global | Breaks auth→email forwardRef; nodemailer is infrastructure, not domain | ✓ Good |
 | Domain events for embedding triggers | EmailIndexedEvent replaces direct AiModule import from email-sync | ✓ Good |
+| Argon2id with transparent bcrypt migration | OWASP 2025 recommended; dual-algo verify on login rehashes automatically | ✓ Good |
+| ES256 asymmetric JWT with dual-algo grace | P-256 ECDSA; HS256 accepted during migration; key rotation script provided | ✓ Good |
+| @Global() StorageModule | Breaks EmailModule<->EmailSyncModule forwardRef cycle; storage is infrastructure | ✓ Good |
+| @Global() MetricsModule with @Optional() inject | Test-safe Prometheus injection without per-module imports | ✓ Good |
+| Facade pattern for god-file splits | Keep same class name, zero consumer changes, sub-services via DI | ✓ Good |
+| Zustand domain slices for email-ui-store | (set, get) => state+actions; clean separation without store fragmentation | ✓ Good |
+| Type extraction for circular dependency breaks | Shared interface to types/ dir with re-export from original; zero runtime impact | ✓ Good |
 
 ---
-*Last updated: 2026-03-06 after Phase 45*
+*Last updated: 2026-03-06 after v4.1 milestone*

@@ -5,16 +5,14 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { QueueService, QueueMetricsSummary } from '../../email-sync/services/queue.service';
 import { SyncSchedulerService } from '../../email-sync/services/sync-scheduler.service';
-import { getConfiguration } from '../../../config/configuration';
+import { getConfiguration, getRedisNodeConnectionOptions } from '../../../config/configuration';
 import { Prisma } from '@prisma/client';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 @Injectable()
 export class HealthService {
   private logger = new Logger(HealthService.name);
-  private redisClient = createClient({
-    url: getConfiguration().redis.url,
-  });
+  private redisClient = createClient(getRedisNodeConnectionOptions(getConfiguration().redis));
 
   constructor(
     private prisma: PrismaService,

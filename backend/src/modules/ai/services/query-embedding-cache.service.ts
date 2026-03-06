@@ -32,13 +32,10 @@ export class QueryEmbeddingCacheService implements OnModuleDestroy {
     const queryCacheDb = this.config.get<number>('REDIS_QUERY_CACHE_DB', defaultDb);
 
     this.redis = new Redis({
-      host: redisOptions.host,
-      port: redisOptions.port,
-      password: redisOptions.password,
+      ...redisOptions,
       db: queryCacheDb,
-      maxRetriesPerRequest: redisOptions.maxRetriesPerRequest,
-      enableReadyCheck: redisOptions.enableReadyCheck,
       lazyConnect: true, // Don't connect immediately, allow error handling
+      connectionName: 'query-embedding-cache',
     });
 
     // Handle connection errors gracefully

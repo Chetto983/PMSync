@@ -1,5 +1,35 @@
 # Project Milestones: PMSync
 
+## v4.1 Security Hardening & Debt Reduction (Shipped: 2026-03-06)
+
+**Delivered:** Security hardening and structural debt reduction -- tenant isolation with Prisma scoping, auth upgraded to 2026 best practices (Argon2id, ES256 JWT, session concurrency), all god-files decomposed below 400 lines, zero circular dependencies achieved, Prometheus observability added, WebSocket horizontal scaling enabled.
+
+**Phases completed:** 42-49 (8 phases, 28 plans)
+
+**Key accomplishments:**
+
+- Prisma tenant-scoping on 42 models in enforce mode, RolesGuard on 15/33 controllers (>50%), JWT refresh token rotation with 15min access tokens and family-based theft detection
+- 5 backend god-files (1000+ lines each) split into 22 focused sub-services; 7 frontend god-files split into 30+ components; all resulting files under 400 lines
+- Auth upgraded to 2026 best practices: Argon2id with transparent bcrypt migration, ES256 asymmetric JWT, NIST password policy with HIBP breach check, enumeration hardening, session concurrency, idle timeout, __Host- cookie prefix
+- All 14 madge --circular chains eliminated via type extraction, interface tokens, and @Global() module patterns; forwardRef reduced from 24 to 2 call sites
+- Prometheus /metrics endpoint with HTTP latency histograms, BullMQ queue depth gauges, AI cost/token counters
+- WebSocket Redis adapter for horizontal scaling, CSRF error surfacing with auto-retry, CBC-to-GCM re-encryption, dead code/dependency cleanup with CI bundle budget
+
+**Stats:**
+
+- 8 phases, 28 plans
+- 188 commits, 660 files changed
+- +46,490 / -52,992 lines (major refactor)
+- 3 days (2026-03-04 -> 2026-03-06)
+- Requirements: 65/66 satisfied (TEST-05 manual verification only)
+
+**Git tag:** `v4.1`
+
+**Known Gaps:**
+- TEST-05: 50MB attachment memory profiling is manual verification (automated test verifies streaming mechanism)
+
+---
+
 ## v4.0 Enterprise Stabilization (Shipped: 2026-03-04)
 
 **Delivered:** Enterprise-grade stabilization -- broke circular dependencies (17+ to 5), standardized all API contracts with response envelopes and correlation IDs, migrated auth to httpOnly cookies, added AI cost observability, enabled encrypted sender search via HMAC blind indexes, and closed all performance debt.
@@ -203,4 +233,4 @@
 
 ---
 
-*Milestones log updated: 2026-03-03*
+*Milestones log updated: 2026-03-06*

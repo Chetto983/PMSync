@@ -36,9 +36,12 @@ export {
 export {
   getConfiguration,
   loadConfiguration,
+  getRedisNodeConnectionOptions,
   type Configuration,
   type RedisConfig,
   type RedisConnectionOptions,
+  type RedisNodeConnectionOptions,
+  type RedisNodeSocketOptions,
   type DatabaseConfig,
   type ApiConfig,
   type AuthConfig,
