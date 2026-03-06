@@ -290,6 +290,10 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   /**
    * Export metrics in Prometheus text format
    */
+  /**
+   * @deprecated Use /metrics endpoint (prom-client) instead. Phase 46.
+   * This hand-rolled Prometheus text generation will be removed in Phase 47 cleanup.
+   */
   async exportPrometheusText(): Promise<string> {
     const metrics = await this.getPrometheusMetrics();
     const lines: string[] = [];

@@ -91,6 +91,8 @@ export class HealthController {
 
   /**
    * Prometheus-compatible metrics
+   * @deprecated Use /metrics endpoint (prom-client) instead. Phase 46.
+   * This hand-rolled Prometheus text endpoint will be removed in Phase 47 cleanup.
    */
   @Get('metrics')
   @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')

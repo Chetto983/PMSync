@@ -178,6 +178,10 @@ export class HealthService {
     return this.queueService.getQueueMetricsSummary();
   }
 
+  /**
+   * @deprecated Use /metrics endpoint (prom-client) instead. Phase 46.
+   * This hand-rolled Prometheus text generation will be removed in Phase 47 cleanup.
+   */
   async getPrometheusMetrics(): Promise<string> {
     return withoutTenantScopingAsync(async () => {
     const metrics = this.getQueueMetrics();
