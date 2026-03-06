@@ -127,11 +127,12 @@ Plans:
   3. RolesGuard enforces role-based access using roles from better-auth session (existing RBAC decorators still work)
   4. bodyParser is disabled only for `/api/auth/*` proxy routes; all other NestJS routes parse bodies normally
   5. BullMQ jobs created during a request carry the correct tenantId from the new auth context
-**Plans:** 2/2 plans complete
+**Plans:** 3 plans (2 complete + 1 gap closure)
 
 Plans:
 - [ ] 52-01-PLAN.md — BetterAuthGuard + @Public() decorator + global guard registration
 - [ ] 52-02-PLAN.md — Controller cleanup (remove JwtAuthGuard) + TenantGuard/RolesGuard verification
+- [ ] 52-03-PLAN.md — Gap closure: fix stale test + update JwtAuthGuard references in JSDoc
 
 ### Phase 53: Frontend Auth UI
 **Goal**: Users interact with polished login/signup pages and the app manages sessions entirely through better-auth client
