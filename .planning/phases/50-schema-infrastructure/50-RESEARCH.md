@@ -10,9 +10,11 @@ Phase 50 establishes the foundation for the better-auth migration: Prisma schema
 
 The primary challenge is schema collision. better-auth expects to own `user`, `session`, `account`, and `verification` tables with specific field names. PMSync's existing `User` model has 42+ FK chains, uses `tenantId` (foreign to better-auth), and stores `passwordHash` directly (better-auth puts password in the `Account` table under `providerId: "credential"`). The clean-slate migration decision (users re-register) simplifies this -- we can reshape the User/Session models without data migration concerns.
 
-better-auth uses scrypt for password hashing by default. The current codebase uses Argon2id via `@node-rs/argon2`. better-auth provides `emailAndPassword.password.hash` and `verify` config hooks to swap in a custom hashing algorithm, so Argon2id can be preserved. HIBP checking is not built into better-auth but can be implemented via the `hooks.before` mechanism using `createAuthMiddleware`, intercepting the `/sign-up/email` path and validating the password against the HIBP k-anonymity API before better-auth processes the request.
+better-auth uses scrypt for password hashing by default (Node.js native, no external dependencies). The project recently switched from Argon2id to bcrypt (commit `6d12f0e2`) because `@node-rs/argon2` used WASM fallback on Alpine/Railway causing 30+ second registration timeouts. Since this is a clean-slate migration, use better-auth's default scrypt -- it is Node.js native (no WASM, no native binaries), OWASP-approved when Argon2id is unavailable, and avoids the exact deployment issue that prompted the bcrypt switch. No custom hash/verify config needed.
 
-**Primary recommendation:** Manually adapt the existing Prisma schema to match better-auth's required fields (do NOT run `npx auth generate` blindly). Use `additionalFields` for `tenantId` on User. Configure custom Argon2id hash/verify functions. Wire HIBP as a before-hook.
+HIBP checking is not built into better-auth but can be implemented via the `hooks.before` mechanism using `createAuthMiddleware`, intercepting the `/sign-up/email` path and validating the password against the HIBP k-anonymity API before better-auth processes the request.
+
+**Primary recommendation:** Manually adapt the existing Prisma schema to match better-auth's required fields (do NOT run `npx auth generate` blindly). Use `additionalFields` for `tenantId` on User. Accept better-auth's default scrypt hashing (no custom config). Wire HIBP as a before-hook.
 
 <phase_requirements>
 ## Phase Requirements
@@ -30,7 +32,6 @@ better-auth uses scrypt for password hashing by default. The current codebase us
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
 | `better-auth` | latest (>=1.4) | Auth provider: login, register, session management | Replaces 17 custom auth services; plugin ecosystem; official Prisma adapter |
-| `@node-rs/argon2` | (existing) | Password hashing | Already in project; OWASP 2025 recommended; better-auth's scrypt default is overridden via `emailAndPassword.password` config |
 
 ### Supporting
 
@@ -43,6 +44,8 @@ better-auth uses scrypt for password hashing by default. The current codebase us
 
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
+| scrypt (better-auth default) | Argon2id via `@node-rs/argon2` | Argon2id is theoretically superior but caused WASM timeout issues on Railway/Alpine. scrypt is Node.js native, zero-dep, OWASP-approved. Accept the default. |
+| scrypt (better-auth default) | bcrypt (current project) | bcrypt is the current interim fix. scrypt is better-auth's default, Node.js native, and stronger than bcrypt. No reason to override. |
 | `@thallesp/nestjs-better-auth` | Custom guard calling `auth.api.getSession()` | Custom guard = more boilerplate but full control over tenant mapping. Use community package as baseline, extend if needed. |
 | `toNodeHandler` (Pages Router) | `toNextJsHandler` (App Router) | Project uses Pages Router exclusively. No App Router directory exists. Use `toNodeHandler`. |
 | Custom HIBP hook | No HIBP (accept regression) | CORE-07 requires HIBP. Must implement as before-hook since better-auth has no built-in HIBP support. |
@@ -94,8 +97,9 @@ backend/
 // frontend/lib/auth.ts
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { createAuthMiddleware, APIError } from "better-auth/api";
 import { PrismaClient } from "@prisma/client";
-import { hash, verify } from "@node-rs/argon2";
+import { checkHIBP } from "./hibp";
 
 const prisma = new PrismaClient();
 
@@ -105,18 +109,8 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   emailAndPassword: {
     enabled: true,
-    password: {
-      hash: async (password: string) => {
-        return hash(password, {
-          memoryCost: 65536,
-          timeCost: 3,
-          parallelism: 1,
-        });
-      },
-      verify: async ({ hash: storedHash, password }: { hash: string; password: string }) => {
-        return verify(storedHash, password);
-      },
-    },
+    // Use better-auth's default scrypt hashing (Node.js native, no WASM issues)
+    // No custom hash/verify needed
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7,  // 7 days
@@ -219,7 +213,9 @@ export class AppModule {}
 **When to use:** Password validation during signup and password change.
 
 ```typescript
-// Shared or duplicated in both frontend/lib and backend/src/common/auth
+// frontend/lib/hibp.ts (or backend/src/common/auth/hibp.util.ts)
+import * as crypto from "crypto";
+
 export async function checkHIBP(
   password: string,
   threshold = 3,
@@ -263,17 +259,18 @@ export async function checkHIBP(
 - **Keeping JWT infrastructure alongside better-auth:** Two auth systems = confusion, security gaps. Delete JWT/Passport infrastructure completely (Phase 58 handles final cleanup, but Phase 50 should NOT wire both).
 - **Using `toNextJsHandler` with Pages Router:** This project uses Pages Router exclusively. Use `toNodeHandler` from `better-auth/node`.
 - **Hardcoding cookie names in downstream code:** better-auth uses `better-auth.session_token` by default. Do not reference `__Host-access_token` or `access_token` anywhere in new code.
+- **Overriding password hashing with Argon2id:** `@node-rs/argon2` caused WASM timeout on Railway/Alpine (30+ seconds). better-auth's default scrypt is Node.js native and avoids this. Accept the default.
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
 | Session management | Custom session table + cookie logic | better-auth's built-in session with cookieCache | Cookie signing, expiry, refresh, DB storage, cache invalidation -- all handled |
-| Password hashing orchestration | Custom hash/verify/rehash pipeline | better-auth's `emailAndPassword.password` config | Provide Argon2id hash/verify functions; better-auth calls them at the right time |
+| Password hashing | Custom hash/verify/rehash pipeline | better-auth's default scrypt | Node.js native, OWASP-approved, no deployment issues |
 | Session validation in NestJS | Custom guard with raw DB queries | `@thallesp/nestjs-better-auth` AuthGuard | Handles header conversion, cookie parsing, cache check, session refresh |
 | CSRF for auth routes | Custom CSRF middleware for better-auth | better-auth has built-in CSRF protection | better-auth handles CSRF internally for its own endpoints |
 
-**Key insight:** better-auth is opinionated about owning the auth lifecycle. Fighting its conventions (custom session tables, custom cookie names, custom CSRF for auth routes) creates maintenance burden. Accept its defaults where possible, customize only where PMSync requirements demand it (Argon2id, HIBP, tenantId).
+**Key insight:** better-auth is opinionated about owning the auth lifecycle. Fighting its conventions (custom session tables, custom cookie names, custom CSRF for auth routes, custom hashing algorithms) creates maintenance burden. Accept its defaults where possible, customize only where PMSync requirements demand it (HIBP, tenantId).
 
 ## Common Pitfalls
 
@@ -298,25 +295,25 @@ export async function checkHIBP(
 **How to avoid:** In dev, ensure CORS `credentials: true` on both services, and better-auth cookie config uses `sameSite: "lax"` (not "strict") with appropriate domain. In production, both services share the same domain (e.g., `pmsync.com`). Test cookie presence by logging `req.headers.cookie` in the NestJS guard early.
 **Warning signs:** All NestJS requests return 401. `req.cookies` is empty in NestJS.
 
-### Pitfall 4: Scrypt vs Argon2id Regression
-
-**What goes wrong:** better-auth defaults to scrypt. If you forget to configure custom hash/verify, all new passwords are hashed with scrypt instead of Argon2id.
-**Why it happens:** better-auth's default hashing algorithm is scrypt (Node.js native). The project standard is Argon2id via `@node-rs/argon2`.
-**How to avoid:** Always configure `emailAndPassword.password.hash` and `emailAndPassword.password.verify` with `@node-rs/argon2` functions. Write a test that verifies a newly created user's password hash starts with `$argon2id$`.
-**Warning signs:** New user passwords stored with `$scrypt$` prefix in Account table.
-
-### Pitfall 5: CSRF Middleware Interference with Auth Routes
+### Pitfall 4: CSRF Middleware Interference with Auth Routes
 
 **What goes wrong:** The existing CSRF middleware (`csrf.middleware.ts`) runs on all POST routes. better-auth handles its own CSRF internally. If the existing CSRF middleware runs on `/api/auth/*` routes proxied through NestJS (if any), it will reject better-auth requests.
 **How to avoid:** better-auth auth routes run through Next.js, not NestJS. Ensure no NestJS proxy forwards to better-auth. The CSRF excluded paths list in `csrf.middleware.ts` already excludes auth paths -- but these are NestJS auth paths (`/api/v1/auth/*`). If NestJS no longer handles auth, this is moot. But if any NestJS route proxies to better-auth, add those paths to the exclusion list.
 **Warning signs:** 403 CSRF errors on auth endpoints.
 
-### Pitfall 6: Shared PrismaClient Between Next.js and NestJS
+### Pitfall 5: Shared PrismaClient Between Next.js and NestJS
 
 **What goes wrong:** Both Next.js and NestJS instantiate separate PrismaClient instances connecting to the same database. If Prisma schema is out of sync between the two, one side fails.
 **Why it happens:** The Prisma schema lives in `backend/prisma/schema.prisma`. Next.js needs access to the same schema and generated client.
 **How to avoid:** Either: (a) share the Prisma client package via workspace symlink, or (b) copy/reference the schema from backend and generate a separate client for frontend. Option (a) is cleaner. Ensure `prisma generate` is run for both.
 **Warning signs:** "Unknown model" errors in Next.js; "column does not exist" in one but not the other.
+
+### Pitfall 6: Password Hash Algorithm Confusion
+
+**What goes wrong:** Project has THREE hash formats in history: `$argon2id$` (old), `$2b$` (current bcrypt), and scrypt (better-auth default). If old data exists, verification fails.
+**Why it happens:** Multiple migration steps changed hashing algorithms.
+**How to avoid:** Clean-slate migration means no old hashes to worry about. All new users get scrypt via better-auth. Do NOT try to verify old `$argon2id$` or `$2b$` hashes -- those users re-register. The existing `PasswordHashingService` multi-format verification code gets deleted in Phase 58.
+**Warning signs:** Only relevant if clean-slate is not enforced. Verify the DB is wiped of old user/account data before deploying.
 
 ## Code Examples
 
@@ -415,6 +412,7 @@ model Verification {
 | `User.emailVerified` | Does not exist | Required `Boolean` | better-auth core field |
 | `Session.tenantId` | Required FK | Removed (use `activeOrganizationId` later) | Session scoping via org plugin, not direct tenantId |
 | `Session.token` | `@@unique([tenantId, token])` | `@unique` (token alone) | better-auth expects simple unique token |
+| `Session.lastActivityAt` | Exists | Removed (better-auth uses `updatedAt`) | better-auth tracks activity via session update |
 | `Account` table | Does not exist | New table | Stores credential/OAuth provider info |
 | `Verification` table | Does not exist | New table | Email verification, password reset tokens |
 | `RefreshToken` table | Exists | DELETE | better-auth manages session refresh internally |
@@ -432,23 +430,23 @@ Alternative: Use a custom guard that calls `auth.api.getSession()` with `fromNod
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
 | Passport + JWT | better-auth sessions | 2024-2025 | No more JWT signing/verification; cookie-based sessions |
-| bcrypt hashing | Argon2id (OWASP 2025) | 2025 | `@node-rs/argon2` already in use; preserve via better-auth config |
+| Argon2id -> bcrypt (interim) | scrypt (better-auth default) | 2026-03-06 | Argon2id had WASM issues on Railway; bcrypt was interim; scrypt is Node.js native default |
 | Custom session table with tenantId | better-auth Session + Organization plugin | 2025-2026 | Session no longer carries tenantId directly; uses activeOrganizationId |
-| Custom HIBP service | better-auth before-hook | N/A | Extract existing HIBP logic into pure function, wire as hook |
-| scrypt (better-auth default) | Argon2id (override) | Project decision | Must configure `emailAndPassword.password` to use Argon2id |
+| Custom HIBP service in NestJS | better-auth before-hook in Next.js | v5.0 | Extract existing HIBP logic into pure function, wire as hook |
 
 **Deprecated/outdated:**
 - `RefreshToken` table: better-auth does not use refresh tokens; sessions are extended via `updateAge`
 - `MfaSecret`, `MfaBackupCode` tables: replaced by better-auth 2FA plugin (Phase 55)
 - `TrustedDevice`, `WebAuthnCredential` tables: replaced by better-auth plugins (Phase 55)
 - `JwtStrategy`, `PassportModule`: no more JWT/Passport
+- `PasswordHashingService` multi-format verification: clean slate means no legacy hashes
 
 ## Open Questions
 
 1. **Shared Prisma Client Strategy**
    - What we know: Both Next.js and NestJS need the same Prisma schema and generated client. Schema lives in `backend/prisma/schema.prisma`.
    - What's unclear: Best way to share the generated client. Options: (a) npm workspace symlink, (b) separate prisma schema copy in frontend, (c) publish as internal package.
-   - Recommendation: For v5.0, option (b) -- add a `prisma/schema.prisma` reference in the frontend that points to the backend schema, or generate the client in a shared location. Keep it simple.
+   - Recommendation: For v5.0, option (b) -- add a `prisma/schema.prisma` in the frontend that references the same DB, or symlink the backend schema. Keep it simple. The frontend only needs PrismaClient for the better-auth server instance.
 
 2. **`@@unique([tenantId, email])` Removal**
    - What we know: better-auth requires `email @unique` globally. Current schema has `@@unique([tenantId, email])`, allowing same email across tenants.
@@ -459,6 +457,11 @@ Alternative: Use a custom guard that calls `auth.api.getSession()` with `fromNod
    - What we know: Next.js on 3001, NestJS on 3000. Cookies set by Next.js must be readable by NestJS.
    - What's unclear: Exact better-auth cookie config needed for cross-port dev.
    - Recommendation: Test with `sameSite: "lax"`, no explicit domain (defaults to current host). Both ports share `localhost` so cookies should work. If not, configure a dev reverse proxy.
+
+4. **`@thallesp/nestjs-better-auth` bodyParser behavior in consumer-only mode**
+   - What we know: The package requires `bodyParser: false`. But in our case NestJS does NOT handle auth routes.
+   - What's unclear: Does `AuthModule.forRoot()` work without `bodyParser: false` if we only call `auth.api.getSession()`?
+   - Recommendation: Test both approaches. If `bodyParser: false` is required even for consumer-only mode, use a custom guard instead of the community package to avoid breaking existing middleware. Flag this as highest-risk item during implementation.
 
 ## Validation Architecture
 
@@ -497,7 +500,7 @@ Alternative: Use a custom guard that calls `auth.api.getSession()` with `fromNod
 
 ### Primary (HIGH confidence)
 
-- [better-auth Official Docs - Email/Password](https://better-auth.com/docs/authentication/email-password) -- custom hash/verify, password config
+- [better-auth Official Docs - Email/Password](https://better-auth.com/docs/authentication/email-password) -- custom hash/verify, scrypt default, password config
 - [better-auth Hooks](https://better-auth.com/docs/concepts/hooks) -- createAuthMiddleware, before hooks, ctx properties
 - [better-auth Database Schema](https://better-auth.com/docs/concepts/database) -- core table fields, additionalFields, table name customization
 - [better-auth Prisma Adapter](https://better-auth.com/docs/adapters/prisma) -- prismaAdapter config, schema generation
@@ -513,15 +516,15 @@ Alternative: Use a custom guard that calls `auth.api.getSession()` with `fromNod
 
 ### Tertiary (LOW confidence)
 
-- `@thallesp/nestjs-better-auth` bodyParser auto-re-add behavior -- stated in README but exact middleware re-addition behavior not verified in source code. Need to test.
+- `@thallesp/nestjs-better-auth` bodyParser auto-re-add behavior -- stated in README but exact middleware re-addition behavior not verified in source code. Need to test during implementation.
 
 ## Metadata
 
 **Confidence breakdown:**
 
-- Standard stack: HIGH -- better-auth is well-documented, Prisma adapter is official, `@node-rs/argon2` already in project
+- Standard stack: HIGH -- better-auth is well-documented, Prisma adapter is official, scrypt is zero-config default
 - Architecture: MEDIUM-HIGH -- dual-instance pattern documented in official better-auth NestJS docs and community package; Pages Router support confirmed
-- Pitfalls: HIGH -- based on codebase analysis (42 FK chains, CSRF middleware, bodyParser in main.ts, Argon2id usage) and official docs
+- Pitfalls: HIGH -- based on codebase analysis (42 FK chains, CSRF middleware, bodyParser in main.ts, hashing history) and official docs
 - HIBP integration: MEDIUM -- hooks.before with createAuthMiddleware is documented but HIBP specifically is not a documented use case; the pattern is straightforward
 
 **Research date:** 2026-03-06
