@@ -19,8 +19,7 @@ import {
   Alert,
 } from '@mui/material';
 import { Eye, EyeOff } from 'lucide-react';
-import { apiClient } from '@/lib/api-client';
-// Legal acceptance moved server-side (AuthService.register)
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 const REGISTER_FORM_STORAGE_KEY = 'pmsync-register-form';
@@ -125,25 +124,23 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/register', {
+      // firstName/lastName are additionalFields on the server; the typed client
+      // doesn't know about them, so we spread them via a cast.
+      const { error: signUpError } = await authClient.signUp.email({
+        name: `${trimmed.firstName} ${trimmed.lastName}`.trim() || trimmed.email.split('@')[0],
         email: trimmed.email,
         password: trimmed.password,
-        firstName: trimmed.firstName,
-        lastName: trimmed.lastName,
+        ...({ firstName: trimmed.firstName, lastName: trimmed.lastName } as Record<string, string>),
       });
 
-      if (response.data.success) {
-        // Legal acceptance (ToS + Privacy Policy) is now handled server-side during registration.
-        // See AuthService.register() — no need for a separate frontend call.
+      if (signUpError) {
+        setError(signUpError.message || translations.common.genericError);
+      } else {
         sessionStorage.removeItem(REGISTER_FORM_STORAGE_KEY);
-        router.push({
-          pathname: '/auth/login',
-          query: { email: formData.email, step: 'email-otp', from: 'register' },
-        });
+        router.push('/auth/verify-email?sent=1');
       }
-    } catch (err) {
-      const errorResponse = err as { response?: { data?: { error?: { message?: string }; message?: string } } };
-      setError(errorResponse.response?.data?.error?.message || errorResponse.response?.data?.message || translations.common.genericError);
+    } catch {
+      setError(translations.common.genericError);
     } finally {
       setLoading(false);
     }
