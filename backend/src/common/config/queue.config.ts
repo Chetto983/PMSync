@@ -36,7 +36,7 @@ export function getSharedRedisConnection(): Redis {
     const options = getRedisConnectionOptions();
     sharedRedisConnection = new Redis({
       ...options,
-      lazyConnect: false, // Connect immediately
+      lazyConnect: true, // Lazy connect - don't block app startup
       // Connection name for debugging in Redis CLIENT LIST
       connectionName: 'bullmq-shared',
     });

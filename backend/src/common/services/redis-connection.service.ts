@@ -28,7 +28,7 @@ export class RedisConnectionService implements OnModuleInit, OnModuleDestroy {
     const options = getRedisConnectionOptions();
     this._client = new Redis({
       ...options,
-      lazyConnect: false,
+      lazyConnect: true,
       connectionName: 'shared-service',
       maxRetriesPerRequest: 3,
     });

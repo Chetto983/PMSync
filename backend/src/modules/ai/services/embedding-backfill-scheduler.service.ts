@@ -72,6 +72,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       host: this.configService.get<string>('REDIS_HOST', 'localhost'),
       port: Number(this.configService.get<number>('REDIS_PORT', 6379)),
       password: this.configService.get<string>('REDIS_PASSWORD'),
+      lazyConnect: true,
     };
 
     // Create queue

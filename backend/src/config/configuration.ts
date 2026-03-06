@@ -62,6 +62,7 @@ export interface RedisConnectionOptions {
   db?: number;
   maxRetriesPerRequest?: null;
   enableReadyCheck?: boolean;
+  lazyConnect?: boolean;
   tls?: {
     rejectUnauthorized?: boolean;
     ca?: string;
@@ -79,6 +80,7 @@ export function getRedisConnectionOptions(config?: RedisConfig): RedisConnection
     db: redisConfig.db,
     maxRetriesPerRequest: null, // Required for BullMQ
     enableReadyCheck: false,
+    lazyConnect: true, // Don't block app startup waiting for Redis
   };
 
   // Add TLS options if enabled (AUDIT-06)
