@@ -11,7 +11,14 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /**
- * Tenant Guard: Ensures tenant is properly identified and user has access
+ * Tenant Guard: Ensures tenant is properly identified and user has access.
+ *
+ * Phase 52: Verified compatible with BetterAuthGuard -- reads request.user.tenantId,
+ * request.user.userId, and request.user.role, all of which BetterAuthGuard sets
+ * in the same shape as the former JWT payload. No code changes required.
+ *
+ * BullMQ tenantId propagation is also unaffected: controllers pass
+ * req.user.tenantId to services, which embed it in job.data -- same shape.
  */
 @Injectable()
 export class TenantGuard implements CanActivate {

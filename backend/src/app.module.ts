@@ -40,6 +40,7 @@ import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry
 import { MetricsModule } from './common/metrics/metrics.module';
 import { HttpMetricsInterceptor } from './common/metrics/http-metrics.interceptor';
 import { BetterAuthModule } from './common/auth/better-auth.module';
+import { BetterAuthGuard } from './common/auth/better-auth.guard';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
 @Module({
@@ -103,6 +104,12 @@ import { BetterAuthModule } from './common/auth/better-auth.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // Phase 52: Global session validation via better-auth (replaces per-controller JwtAuthGuard)
+    // MUST be before Legal/Consent guards so unauthenticated requests are rejected first
+    {
+      provide: APP_GUARD,
+      useClass: BetterAuthGuard,
     },
     // LEGAL-01/02: Block users who haven't accepted TOS/Privacy Policy
     {

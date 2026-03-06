@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { createBetterAuthInstance } from './better-auth.instance';
 
@@ -13,6 +13,7 @@ export const BETTER_AUTH = 'BETTER_AUTH';
  * The old AuthModule is NOT touched -- both coexist until Phase 52
  * replaces the guards.
  */
+@Global()
 @Module({
   providers: [
     {

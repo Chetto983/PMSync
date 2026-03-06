@@ -7,7 +7,7 @@
  * - Manager users can access write-guarded endpoints
  * - Regular users cannot access write-guarded endpoints
  * - Regular users CAN access read endpoints (pass-through)
- * - Unauthenticated requests receive 401 (JwtAuthGuard fires first)
+ * - Unauthenticated requests receive 401 (BetterAuthGuard fires first, global)
  *
  * Approach: Unit-test the RolesGuard canActivate method directly with
  * mocked ExecutionContext, simulating the NestJS guard chain behavior.
@@ -23,7 +23,7 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
  * Helper: Create a mock ExecutionContext with a user object and required roles.
  */
 function createMockContext(
-  user: { userId: string; tenantId: string; role: string } | null,
+  user: { id: string; userId: string; tenantId: string; email: string; role: string; sessionId: string; firstName: string | null; lastName: string | null } | null,
   requiredRoles: string[] | undefined,
 ): { context: ExecutionContext; reflector: Reflector } {
   const request = { user };
@@ -58,9 +58,10 @@ function createMockContext(
  * are introduced as distinct roles in the future, tests must be added here.
  */
 describe('RolesGuard Integration', () => {
-  const adminUser = { userId: 'u-admin-1', tenantId: 't-1', role: 'admin' };
-  const managerUser = { userId: 'u-mgr-1', tenantId: 't-1', role: 'manager' };
-  const regularUser = { userId: 'u-user-1', tenantId: 't-1', role: 'user' };
+  // Mock users match BetterAuthGuard's request.user shape (Phase 52)
+  const adminUser = { id: 'u-admin-1', userId: 'u-admin-1', tenantId: 't-1', email: 'admin@test.com', role: 'admin', sessionId: 's-1', firstName: 'Admin', lastName: 'User' };
+  const managerUser = { id: 'u-mgr-1', userId: 'u-mgr-1', tenantId: 't-1', email: 'mgr@test.com', role: 'manager', sessionId: 's-2', firstName: 'Manager', lastName: 'User' };
+  const regularUser = { id: 'u-user-1', userId: 'u-user-1', tenantId: 't-1', email: 'user@test.com', role: 'user', sessionId: 's-3', firstName: 'Regular', lastName: 'User' };
 
   describe('Admin-only endpoints (@Roles("admin"))', () => {
     it('admin user can access admin-only endpoint (200 path)', () => {
@@ -136,7 +137,7 @@ describe('RolesGuard Integration', () => {
 
   describe('Unauthenticated requests', () => {
     it('missing user context throws ForbiddenException', () => {
-      // JwtAuthGuard normally handles 401, but if somehow bypassed,
+      // BetterAuthGuard (global) normally handles 401, but if somehow bypassed,
       // RolesGuard should throw Forbidden for missing user context
       const { context, reflector } = createMockContext(null, ['admin']);
       const guard = new RolesGuard(reflector);
@@ -145,7 +146,7 @@ describe('RolesGuard Integration', () => {
     });
 
     it('user with no role throws ForbiddenException', () => {
-      const userNoRole = { userId: 'u-1', tenantId: 't-1', role: '' };
+      const userNoRole = { id: 'u-1', userId: 'u-1', tenantId: 't-1', email: 'norole@test.com', role: '', sessionId: 's-x', firstName: null, lastName: null };
       // RolesGuard checks !user.role
       const { context, reflector } = createMockContext(
         userNoRole as any,
@@ -159,7 +160,7 @@ describe('RolesGuard Integration', () => {
 
   describe('Guard coverage verification', () => {
     it('super-admin can access admin-only endpoint', () => {
-      const superAdmin = { userId: 'u-sa-1', tenantId: 't-1', role: 'super-admin' };
+      const superAdmin = { id: 'u-sa-1', userId: 'u-sa-1', tenantId: 't-1', email: 'sa@test.com', role: 'super-admin', sessionId: 's-sa', firstName: 'Super', lastName: 'Admin' };
       // admin-only requires ['admin'] -- super-admin is NOT in the list
       // This verifies that the guard does exact role matching, not hierarchy
       const { context, reflector } = createMockContext(superAdmin, ['admin']);
@@ -170,7 +171,7 @@ describe('RolesGuard Integration', () => {
     });
 
     it('super-admin can access endpoints that include super-admin role', () => {
-      const superAdmin = { userId: 'u-sa-1', tenantId: 't-1', role: 'super-admin' };
+      const superAdmin = { id: 'u-sa-1', userId: 'u-sa-1', tenantId: 't-1', email: 'sa@test.com', role: 'super-admin', sessionId: 's-sa', firstName: 'Super', lastName: 'Admin' };
       const { context, reflector } = createMockContext(superAdmin, ['admin', 'super-admin']);
       const guard = new RolesGuard(reflector);
 

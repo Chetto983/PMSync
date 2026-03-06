@@ -11,11 +11,14 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 /**
  * Role-Based Access Control Guard
  *
- * Enforces role requirements on endpoints using @Roles() decorator
- * Prevents unauthorized access to admin/super-admin endpoints
+ * Enforces role requirements on endpoints using @Roles() decorator.
+ * Prevents unauthorized access to admin/super-admin endpoints.
+ *
+ * Phase 52: Verified compatible with BetterAuthGuard -- reads request.user.role
+ * which BetterAuthGuard sets identically to the former JWT payload. No changes needed.
  *
  * Usage:
- * @UseGuards(JwtAuthGuard, RolesGuard)
+ * @UseGuards(TenantGuard, RolesGuard)
  * @Roles('super-admin', 'admin')
  * async someEndpoint() { ... }
  */
@@ -37,7 +40,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    // Get user from request (set by JwtAuthGuard)
+    // Get user from request (set by BetterAuthGuard, global)
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
