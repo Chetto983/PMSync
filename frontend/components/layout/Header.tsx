@@ -6,41 +6,30 @@ import {
   IconButton,
   Badge,
   Avatar,
-  Menu,
-  MenuItem,
-  Divider,
-  Typography,
-  ListItemIcon,
-  ListItemText,
   Tooltip,
   useTheme,
   useMediaQuery,
-  CircularProgress,
-  alpha,
   Chip,
-  Button,
+  alpha,
 } from '@mui/material';
 import {
   Bell,
-  User,
-  LogOut,
-  Settings,
   Menu as MenuIcon,
-  Languages,
   Sparkles,
-  Mail,
-  Check,
-  XCircle,
-  AlertTriangle,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAuth } from '@/lib/hooks/use-auth';
-// Email notifications disabled during rebuild
 import { multiAgentApi, type PendingAction } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThemeToggle } from './ThemeToggle';
+import { throttledGetPendingActions } from './header/header-utils';
+import { UserMenu } from './header/UserMenu';
+import { NotificationBell } from './header/NotificationBell';
+import { AiActionsBell } from './header/AiActionsBell';
+import { LanguageMenu } from './header/LanguageMenu';
+
 interface HeaderNotification {
   id: string;
   subject: string;
@@ -54,29 +43,6 @@ export interface PmSyncHeaderProps {
   onThemeToggle?: () => void;
   /** @deprecated Use ThemeToggle component directly - kept for backwards compat */
   isDarkMode?: boolean;
-}
-
-// Module-level throttle to prevent duplicate getPendingActions calls (React StrictMode double-fires effects)
-let lastPendingActionsFetch = 0;
-let pendingActionsFetchPromise: Promise<{ total: number }> | null = null;
-const PENDING_ACTIONS_THROTTLE = 10_000; // 10 seconds
-
-async function throttledGetPendingActions(): Promise<{ total: number }> {
-  if (pendingActionsFetchPromise) return pendingActionsFetchPromise;
-  if (Date.now() - lastPendingActionsFetch < PENDING_ACTIONS_THROTTLE) {
-    return { total: -1 }; // -1 = skip update
-  }
-  pendingActionsFetchPromise = (async () => {
-    const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-    lastPendingActionsFetch = Date.now();
-    const data = response.data;
-    return { total: data?.total ?? data?.actions?.length ?? 0 };
-  })();
-  try {
-    return await pendingActionsFetchPromise;
-  } finally {
-    pendingActionsFetchPromise = null;
-  }
 }
 
 export function Header({
@@ -104,57 +70,10 @@ export function Header({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const { locale, changeLocale } = useLocale();
 
-  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleUserMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const formatRelativeTime = useCallback((isoDate?: string) => {
-    if (!isoDate) {
-      return '';
-    }
-    const date = new Date(isoDate);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMinutes = Math.floor(diffMs / 60000);
-    if (diffMinutes < 1) return t.timeAgo.justNow;
-    if (diffMinutes < 60) return t.timeAgo.minutesAgo.replace('{minutes}', diffMinutes.toString());
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return t.timeAgo.hoursAgo.replace('{hours}', diffHours.toString());
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return t.timeAgo.daysAgo.replace('{days}', diffDays.toString());
-    return date.toLocaleDateString();
-  }, [t.timeAgo]);
-
   // Notifications disabled during email rebuild - no-op function
   const fetchNotifications = useCallback(() => {
     // Disabled during rebuild - state already initialized to empty
   }, []);
-
-  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setNotificationAnchor(event.currentTarget);
-    fetchNotifications();
-  };
-
-  const handleNotificationClose = () => {
-    setNotificationAnchor(null);
-  };
-
-  const handleLanguageOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setLanguageAnchor(event.currentTarget);
-  };
-
-  const handleLanguageClose = () => {
-    setLanguageAnchor(null);
-  };
-
-  const handleLanguageChange = (newLocale: string) => {
-    changeLocale(newLocale);
-    handleLanguageClose();
-  };
 
   // AI Actions Menu handlers
   const handleAiActionsOpen = async (event: React.MouseEvent<HTMLElement>) => {
@@ -172,15 +91,10 @@ export function Header({
     }
   };
 
-  const handleAiActionsClose = () => {
-    setAiActionsAnchor(null);
-  };
-
   const handleApproveAction = async (executionId: string) => {
     setApprovingId(executionId);
     try {
       await multiAgentApi.approveAction(executionId);
-      // Remove from list and update count
       setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
       setPendingAiActions((prev) => Math.max(0, prev - 1));
     } catch {
@@ -194,7 +108,6 @@ export function Header({
     setRejectingId(executionId);
     try {
       await multiAgentApi.rejectAction(executionId);
-      // Remove from list and update count
       setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
       setPendingAiActions((prev) => Math.max(0, prev - 1));
     } catch {
@@ -204,23 +117,16 @@ export function Header({
     }
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      default:
-        return 'info';
-    }
-  };
-
   const handleLogout = () => {
     logout();
     router.push('/auth/login');
-    handleUserMenuClose();
+    setAnchorEl(null);
   };
 
+  const handleLanguageChange = (newLocale: string) => {
+    changeLocale(newLocale);
+    setLanguageAnchor(null);
+  };
 
   // Fix race condition: use useRef instead of local variable for mounted check
   const mountedRef = useRef(true);
@@ -228,7 +134,6 @@ export function Header({
   useEffect(() => {
     mountedRef.current = true;
 
-    // Initial fetch with mount check + throttle to prevent StrictMode double-fire
     const initFetch = async () => {
       fetchNotifications();
       try {
@@ -243,7 +148,6 @@ export function Header({
 
     initFetch();
 
-    // Refresh AI actions periodically
     const interval = setInterval(async () => {
       if (!mountedRef.current) return;
       try {
@@ -275,14 +179,12 @@ export function Header({
       .join('')
       .slice(0, 2) || 'A';
 
-
   return (
     <AppBar
       position="static"
       elevation={0}
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        // Glassmorphism effect
         backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.7),
         backdropFilter: 'blur(12px)',
         color: 'text.primary',
@@ -309,7 +211,7 @@ export function Header({
 
         {/* Right Side Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {/* AI Actions Quick Access - Shows pending HITL actions */}
+          {/* AI Actions Quick Access */}
           <Tooltip title={pendingAiActions > 0 ? (t.ai?.pendingActions || 'Pending Actions') : (t.ai?.title || 'AI Assistant')}>
             <IconButton
               onClick={pendingAiActions > 0 ? handleAiActionsOpen : () => router.push('/dashboard/ai')}
@@ -347,7 +249,7 @@ export function Header({
           {/* Language Selector */}
           {!isTablet && !isMobile && (
             <Tooltip title={t.nav.language}>
-              <IconButton onClick={handleLanguageOpen} color="inherit" size="small">
+              <IconButton onClick={(e) => setLanguageAnchor(e.currentTarget)} color="inherit" size="small">
                 <Chip
                   size="small"
                   label={locale.toUpperCase()}
@@ -362,12 +264,12 @@ export function Header({
             </Tooltip>
           )}
 
-          {/* Theme Toggle - Three-way selector (light/dark/system) */}
+          {/* Theme Toggle */}
           {!isMobile && <ThemeToggle />}
 
           {/* Notifications */}
           <Tooltip title={t.nav.notifications}>
-            <IconButton color="inherit" onClick={handleNotificationOpen}>
+            <IconButton color="inherit" onClick={(e) => { setNotificationAnchor(e.currentTarget); fetchNotifications(); }}>
               <Badge
                 badgeContent={Math.min(99, unreadCount)}
                 color="error"
@@ -387,7 +289,7 @@ export function Header({
 
           {/* User Menu */}
           <Tooltip title={t.nav.account}>
-            <IconButton onClick={handleUserMenuOpen} sx={{ p: 0.5, ml: 0.5 }}>
+            <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: 0.5, ml: 0.5 }}>
               <Avatar
                 src={user?.avatarUrl || undefined}
                 sx={{
@@ -405,394 +307,51 @@ export function Header({
           </Tooltip>
         </Box>
 
-        {/* User Menu Dropdown - Modern Design */}
-        <Menu
+        {/* Dropdown Menus */}
+        <UserMenu
           anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleUserMenuClose}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              minWidth: 220,
-              borderRadius: 2,
-              boxShadow: 3,
-            },
-          }}
-        >
-          {/* User Info Header */}
-          <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Avatar
-                src={user?.avatarUrl || undefined}
-                sx={{
-                  width: 40,
-                  height: 40,
-                  background: (theme) =>
-                    user?.avatarUrl ? 'transparent' : `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-                }}
-              >
-                {avatarInitials}
-              </Avatar>
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {displayName}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {displayEmail}
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-          <Divider />
+          onClose={() => setAnchorEl(null)}
+          displayName={displayName}
+          displayEmail={displayEmail}
+          avatarInitials={avatarInitials}
+          avatarUrl={user?.avatarUrl}
+          isMobile={isMobile}
+          locale={locale}
+          onProfile={() => router.push('/dashboard/profile')}
+          onSettings={() => router.push('/dashboard/settings')}
+          onLogout={handleLogout}
+          onLanguageOpen={(e) => setLanguageAnchor(e.currentTarget)}
+        />
 
-          <MenuItem
-            onClick={() => {
-              router.push('/dashboard/profile');
-              handleUserMenuClose();
-            }}
-            sx={{ py: 1.25 }}
-          >
-            <ListItemIcon>
-              <User size={18} />
-            </ListItemIcon>
-            <ListItemText>{t.nav.profile}</ListItemText>
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              router.push('/dashboard/settings');
-              handleUserMenuClose();
-            }}
-            sx={{ py: 1.25 }}
-          >
-            <ListItemIcon>
-              <Settings size={18} />
-            </ListItemIcon>
-            <ListItemText>{t.nav.settings}</ListItemText>
-          </MenuItem>
-
-          {/* Mobile-only options */}
-          {isMobile && <Divider />}
-          {isMobile && (
-            <MenuItem onClick={handleLanguageOpen} sx={{ py: 1.25 }}>
-              <ListItemIcon>
-                <Languages size={18} />
-              </ListItemIcon>
-              <ListItemText>
-                {t.nav.language}: {locale === 'en' ? 'EN' : 'IT'}
-              </ListItemText>
-            </MenuItem>
-          )}
-          {/* Mobile Theme Toggle - Three-way selector (light/dark/system) */}
-          {isMobile && (
-            <Box sx={{ px: 2, py: 1 }}>
-              <ThemeToggle />
-            </Box>
-          )}
-
-          <Divider />
-          <MenuItem onClick={handleLogout} sx={{ py: 1.25, color: 'error.main' }}>
-            <ListItemIcon>
-              <LogOut size={18} color="currentColor" />
-            </ListItemIcon>
-            <ListItemText>{t.nav.logout}</ListItemText>
-          </MenuItem>
-        </Menu>
-
-        {/* Notifications Menu - Modern Design */}
-        <Menu
+        <NotificationBell
           anchorEl={notificationAnchor}
-          open={Boolean(notificationAnchor)}
-          onClose={handleNotificationClose}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              minWidth: 340,
-              maxHeight: 420,
-              borderRadius: 2,
-              boxShadow: 3,
-            },
-          }}
-        >
-          {/* Header */}
-          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {t.nav.notifications}
-            </Typography>
-            {unreadCount > 0 && (
-              <Chip
-                size="small"
-                label={`${unreadCount} ${t.ai?.unread || 'new'}`}
-                color="primary"
-                sx={{ height: 22, fontSize: '0.7rem' }}
-              />
-            )}
-          </Box>
-          <Divider />
+          onClose={() => setNotificationAnchor(null)}
+          notifications={notifications}
+          notificationsLoading={notificationsLoading}
+          unreadCount={unreadCount}
+          onViewAll={() => router.push('/dashboard/email')}
+          onNotificationClick={() => router.push('/dashboard/email')}
+        />
 
-          {/* Content */}
-          {notificationsLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-          {!notificationsLoading && notifications.length === 0 && (
-            <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
-              <Mail size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-              <Typography variant="body2" color="text.secondary">
-                {t.common.allCaughtUp}
-              </Typography>
-            </Box>
-          )}
-          {!notificationsLoading &&
-            notifications.map((notification) => (
-              <MenuItem
-                key={notification.id}
-                onClick={() => {
-                  handleNotificationClose();
-                  router.push('/dashboard/email');
-                }}
-                sx={{
-                  py: 1.5,
-                  px: 2,
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  '&:last-of-type': { borderBottom: 0 },
-                }}
-              >
-                <Box sx={{ width: '100%' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, mr: 1 }} noWrap>
-                      {notification.sender}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatRelativeTime(notification.receivedAt)}
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {notification.subject}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            ))}
-
-          {/* Footer */}
-          <Divider />
-          <MenuItem
-            onClick={() => {
-              router.push('/dashboard/email');
-              handleNotificationClose();
-            }}
-            sx={{
-              justifyContent: 'center',
-              py: 1.5,
-              color: 'primary.main',
-              fontWeight: 600,
-            }}
-          >
-            {t.dashboard?.home?.sections?.viewAllEmails || 'View All Emails'}
-          </MenuItem>
-        </Menu>
-
-        {/* Language Menu */}
-        <Menu
-          anchorEl={languageAnchor}
-          open={Boolean(languageAnchor)}
-          onClose={handleLanguageClose}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              minWidth: 160,
-              borderRadius: 2,
-              boxShadow: 3,
-            },
-          }}
-        >
-          <MenuItem
-            onClick={() => handleLanguageChange('en')}
-            selected={locale === 'en'}
-            sx={{ py: 1.25 }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box
-                component="span"
-                role="img"
-                aria-label="British flag"
-                sx={{
-                  width: 24,
-                  height: 16,
-                  borderRadius: 0.5,
-                  display: 'inline-block',
-                  fontSize: '0.875rem',
-                }}
-              >
-                🇬🇧
-              </Box>
-              <Typography variant="body2">English</Typography>
-            </Box>
-          </MenuItem>
-          <MenuItem
-            onClick={() => handleLanguageChange('it')}
-            selected={locale === 'it'}
-            sx={{ py: 1.25 }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box
-                component="span"
-                role="img"
-                aria-label="Italian flag"
-                sx={{
-                  width: 24,
-                  height: 16,
-                  borderRadius: 0.5,
-                  display: 'inline-block',
-                  fontSize: '0.875rem',
-                }}
-              >
-                🇮🇹
-              </Box>
-              <Typography variant="body2">Italiano</Typography>
-            </Box>
-          </MenuItem>
-        </Menu>
-
-        {/* AI Pending Actions Menu - HITL Review */}
-        <Menu
+        <AiActionsBell
           anchorEl={aiActionsAnchor}
-          open={Boolean(aiActionsAnchor)}
-          onClose={handleAiActionsClose}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              minWidth: 380,
-              maxHeight: 480,
-              borderRadius: 2,
-              boxShadow: 3,
-            },
-          }}
-        >
-          {/* Header */}
-          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AlertTriangle size={18} color={theme.palette.warning.main} />
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                {t.ai?.needsReview || 'Needs Review'}
-              </Typography>
-            </Box>
-            {pendingAiActions > 0 && (
-              <Chip
-                size="small"
-                label={`${pendingAiActions} ${t.ai?.pending || 'pending'}`}
-                color="warning"
-                sx={{ height: 22, fontSize: '0.7rem' }}
-              />
-            )}
-          </Box>
-          <Divider />
+          onClose={() => setAiActionsAnchor(null)}
+          pendingAiActions={pendingAiActions}
+          pendingActionsList={pendingActionsList}
+          actionsLoading={actionsLoading}
+          approvingId={approvingId}
+          rejectingId={rejectingId}
+          onApprove={handleApproveAction}
+          onReject={handleRejectAction}
+          onViewAll={() => router.push('/dashboard/ai')}
+        />
 
-          {/* Content */}
-          {actionsLoading && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-          {!actionsLoading && pendingActionsList.length === 0 && (
-            <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
-              <Sparkles size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-              <Typography variant="body2" color="text.secondary">
-                {t.ai?.noPendingActions || 'No pending actions'}
-              </Typography>
-            </Box>
-          )}
-          {!actionsLoading && pendingActionsList.slice(0, 5).map((action) => (
-            <Box
-              key={action.executionId}
-              sx={{
-                px: 2,
-                py: 1.5,
-                borderBottom: 1,
-                borderColor: 'divider',
-                '&:last-of-type': { borderBottom: 0 },
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-                <Chip
-                  size="small"
-                  label={action.severity}
-                  color={getSeverityColor(action.severity) as 'error' | 'warning' | 'info'}
-                  sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600 }}
-                />
-                <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-                  {action.actionType.replace(/_/g, ' ')}
-                </Typography>
-              </Box>
-              <Typography variant="body2" sx={{ mb: 1.5, lineHeight: 1.4 }}>
-                {action.summary.length > 100 ? action.summary.slice(0, 100) + '...' : action.summary}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  startIcon={<XCircle size={14} />}
-                  onClick={() => handleRejectAction(action.executionId)}
-                  disabled={rejectingId === action.executionId || approvingId === action.executionId}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25 }}
-                >
-                  {rejectingId === action.executionId ? <CircularProgress size={12} /> : (t.ai?.reject || 'Reject')}
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="success"
-                  startIcon={<Check size={14} />}
-                  onClick={() => handleApproveAction(action.executionId)}
-                  disabled={approvingId === action.executionId || rejectingId === action.executionId}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25 }}
-                >
-                  {approvingId === action.executionId ? <CircularProgress size={12} color="inherit" /> : (t.ai?.approve || 'Approve')}
-                </Button>
-              </Box>
-            </Box>
-          ))}
-
-          {/* Footer - View All */}
-          {pendingActionsList.length > 0 && (
-            <>
-              <Divider />
-              <MenuItem
-                onClick={() => {
-                  router.push('/dashboard/ai');
-                  handleAiActionsClose();
-                }}
-                sx={{
-                  justifyContent: 'center',
-                  py: 1.5,
-                  color: 'primary.main',
-                  fontWeight: 600,
-                }}
-              >
-                {t.ai?.viewAllActions || 'View All in AI Assistant'}
-              </MenuItem>
-            </>
-          )}
-        </Menu>
+        <LanguageMenu
+          anchorEl={languageAnchor}
+          onClose={() => setLanguageAnchor(null)}
+          locale={locale}
+          onLanguageChange={handleLanguageChange}
+        />
       </Toolbar>
     </AppBar>
   );
