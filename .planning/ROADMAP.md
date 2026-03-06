@@ -111,11 +111,11 @@ Plans:
   2. User can sign in with existing email/password and land on the dashboard
   3. User receives verification email after signup and can verify their address
   4. User can request password reset, receive email link, and set a new password
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 51-01: TBD
-- [ ] 51-02: TBD
+- [ ] 51-01-PLAN.md — Server-side: nodemailer, auth-client, email callbacks, HIBP on reset
+- [ ] 51-02-PLAN.md — Client-side: rewire 4 auth pages + create verify-email page
 
 ### Phase 52: NestJS Session Validation
 **Goal**: NestJS backend validates better-auth sessions and enforces tenant/role isolation on all API requests
@@ -238,7 +238,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 51. Core Email/Password Auth | v5.0 | 0/TBD | Not started | - |
+| 51. Core Email/Password Auth | v5.0 | 0/2 | Planned | - |
 | 52. NestJS Session Validation | v5.0 | 0/TBD | Not started | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
 | 54. WebSocket Auth | v5.0 | 0/TBD | Not started | - |
