@@ -154,13 +154,12 @@ Plans:
   2. Request duration histogram shows p50/p95/p99 latencies per route
   3. BullMQ queue depths for all queues visible in metrics output
   4. AI token usage and cost counters increment on every LLM call
-**Plans**: 4 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
-- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
-- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
-- [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
+- [ ] 46-01-PLAN.md -- MetricsModule + HTTP metrics interceptor + /metrics endpoint wiring
+- [ ] 46-02-PLAN.md -- BullMQ queue depth collector + AI cost/token counters
+- [ ] 46-03-PLAN.md -- Integration tests + hand-rolled metrics deprecation
 
 ### Phase 47: Infrastructure & Cleanup
 **Goal**: WebSocket scales horizontally via Redis adapter; CSRF errors are visible; dead code and unused deps removed with CI bundle budget
@@ -172,13 +171,7 @@ Plans:
   3. `npm ls --all` shows zero unused production dependencies; bundle size stays within CI budget
   4. Zero CBC-encoded records remain in the database -- all re-encrypted to GCM
   5. Dead filter files (all-exceptions, http-exception, throttler-exception) are deleted
-**Plans**: 4 plans
-
-Plans:
-- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
-- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
-- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
-- [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
+**Plans**: TBD
 
 ### Phase 48: Auth Fix 2026 Best Practice
 **Goal**: Upgrade auth to 2026 standards: Argon2id password hashing with transparent bcrypt migration, ES256 asymmetric JWT signing with dual-algo grace period, NIST-compliant password policy with HIBP breach check, enumeration hardening across all auth endpoints, session concurrency enforcement, idle session timeout, and __Host- cookie prefix
@@ -242,7 +235,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48 -> 49
 | 43. Contract Tests & Backend God-File Splits | 4/4 | Complete   | 2026-03-05 | - |
 | 44. Frontend God-File Splits | 4/4 | Complete    | 2026-03-06 | - |
 | 45. forwardRef Burn-Down | 3/3 | Complete    | 2026-03-06 | - |
-| 46. Observability | v4.1 | 0/TBD | Not started | - |
+| 46. Observability | v4.1 | 0/3 | Planned | - |
 | 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
 | 48. Auth Fix 2026 Best Practice | 4/4 | Complete    | 2026-03-06 | - |
 | 49. Zero Circular Dependencies | 3/3 | Complete    | 2026-03-06 | - |
@@ -268,3 +261,4 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48 -> 49
 *Phase 48 plans created: 2026-03-05 -- 3 plans in 2 waves (01+02 parallel Wave 1, 03 Wave 2 depends on 01+02)*
 *Phase 48 plans revised: 2026-03-05 -- 4 plans in 3 waves (added 48-04 for session concurrency, idle timeout, cookie hardening; added P48-12/13/14)*
 *Phase 49 plans created: 2026-03-06 -- 3 plans in 2 waves (01+02 parallel Wave 1, 03 Wave 2 depends on 01+02)*
+*Phase 46 plans created: 2026-03-06 -- 3 plans in 2 waves (01 Wave 1, 02+03 parallel Wave 2)*
