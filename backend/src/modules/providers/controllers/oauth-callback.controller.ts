@@ -2,6 +2,7 @@ import { Controller, Get, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { Response } from 'express';
 import { getConfiguration } from '../../../config/configuration';
+import { Public } from '../../../common/auth/public.decorator';
 
 /**
  * OAuth2 callback controller
@@ -9,6 +10,7 @@ import { getConfiguration } from '../../../config/configuration';
  * These endpoints are called by the OAuth provider after user authorization
  */
 @ApiTags('OAuth Callbacks')
+@Public()
 @Controller('auth')
 export class OAuthCallbackController {
   private config = getConfiguration();

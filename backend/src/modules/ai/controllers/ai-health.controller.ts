@@ -8,6 +8,7 @@
  */
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Public } from '../../../common/auth/public.decorator';
 import { MistralService } from '../services/mistral.service';
 import { CacheService } from '../../../common/services/cache.service';
 
@@ -32,6 +33,7 @@ export interface AiHealthResponse {
 }
 
 @ApiTags('AI')
+@Public()
 @Controller('ai')
 export class AiHealthController {
   constructor(

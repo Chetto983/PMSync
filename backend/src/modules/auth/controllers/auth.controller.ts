@@ -3,7 +3,6 @@ import {
   Post,
   Body,
   Get,
-  UseGuards,
   Request,
   Req,
   Res,
@@ -14,8 +13,8 @@ import {
 } from '@nestjs/common';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from '../services/auth.service';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Public } from '../../../common/auth/public.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
@@ -51,6 +50,7 @@ export class AuthController {
    * Register a new user
    * POST /auth/register
    */
+  @Public()
   @Post('register')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   async register(@Body() body: RegisterDto) {
@@ -62,6 +62,7 @@ export class AuthController {
    * POST /auth/send-otp
    * Rate limited: 5 requests per 60 seconds to prevent OTP spam
    */
+  @Public()
   @Post('send-otp')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async sendOtp(@Body() body: SendOtpDto) {
@@ -75,6 +76,7 @@ export class AuthController {
    * 6-digit OTP = 1M combinations, 10/min = 100K min (~70 days) to brute force
    * Increased from 3 to 10 for better UX (typo tolerance) while maintaining security
    */
+  @Public()
   @Post('verify-otp')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async verifyOtp(
@@ -102,6 +104,7 @@ export class AuthController {
    * MFA Response: If MFA is enabled, returns { mfaRequired: true, mfaToken, availableMethods }
    * Use POST /auth/mfa/verify with mfaToken to complete login
    */
+  @Public()
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login with email and password' })
@@ -130,6 +133,7 @@ export class AuthController {
    * POST /auth/mfa/verify
    * SECURITY: Rate limited to 5 attempts per 60 seconds
    */
+  @Public()
   @Post('mfa/verify')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -168,6 +172,7 @@ export class AuthController {
    * POST /auth/webauthn/login/options
    * Rate limited: 5 requests per 60 seconds
    */
+  @Public()
   @Post('webauthn/login/options')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Get WebAuthn authentication options for passkey login' })
@@ -182,6 +187,7 @@ export class AuthController {
    * POST /auth/webauthn/login/verify
    * Rate limited: 5 requests per 60 seconds
    */
+  @Public()
   @Post('webauthn/login/verify')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -212,6 +218,7 @@ export class AuthController {
    * POST /auth/forgot-password
    * Rate limited: 3 requests per 60 seconds to prevent email bombing
    */
+  @Public()
   @Post('forgot-password')
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   async forgotPassword(@Body() body: ForgotPasswordDto) {
@@ -222,6 +229,7 @@ export class AuthController {
    * Reset password with token
    * POST /auth/reset-password
    */
+  @Public()
   @Post('reset-password')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async resetPassword(@Body() body: ResetPasswordDto) {
@@ -235,6 +243,7 @@ export class AuthController {
    * GET /auth/csrf-token
    * Frontend should call this on page load and include token in X-CSRF-Token header
    */
+  @Public()
   @Get('csrf-token')
   @SkipThrottle() // Don't rate limit token fetches
   @ApiOperation({ summary: 'Get CSRF token for form submissions' })
@@ -251,7 +260,6 @@ export class AuthController {
    * GET /auth/me
    */
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   async getCurrentUser(@Request() req: AuthenticatedRequest) {
     // Return full user profile including avatarUrl (not stored in JWT)
@@ -263,7 +271,6 @@ export class AuthController {
    * POST /auth/logout
    */
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   async logout(
     @Request() req: AuthenticatedRequest,
@@ -289,6 +296,7 @@ export class AuthController {
    * Authenticates via refresh_token httpOnly cookie only.
    * Rate limited: 10 requests per 60 seconds to prevent abuse.
    */
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -313,6 +321,7 @@ export class AuthController {
    * Google OAuth callback
    * POST /auth/google/callback
    */
+  @Public()
   @Post('google/callback')
   async googleCallback(@Body() _body: { code: string; tenantSlug?: string }) {
     throw new GoneException({
@@ -325,6 +334,7 @@ export class AuthController {
    * Microsoft OAuth callback
    * POST /auth/microsoft/callback
    */
+  @Public()
   @Post('microsoft/callback')
   async microsoftCallback(@Body() _body: { code: string; tenantSlug?: string }) {
     throw new GoneException({

@@ -15,8 +15,10 @@ import { GoogleCalendarWebhookService } from '../services/google-calendar-webhoo
 import { MicrosoftCalendarWebhookService, MicrosoftCalendarNotification } from '../services/microsoft-calendar-webhook.service';
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
 import { getErrorDetails } from '../../../common/utils';
+import { Public } from '../../../common/auth/public.decorator';
 
 @ApiTags('Webhooks - Calendar')
+@Public()
 @Controller('webhooks/calendar')
 export class CalendarWebhookController {
   private readonly logger = new Logger(CalendarWebhookController.name);

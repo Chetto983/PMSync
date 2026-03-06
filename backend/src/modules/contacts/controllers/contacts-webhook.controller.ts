@@ -19,8 +19,10 @@ import {
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
 import { GoogleContactsSyncDto } from '../dto/contact.dto';
 import { getErrorDetails } from '../../../common/utils';
+import { Public } from '../../../common/auth/public.decorator';
 
 @ApiTags('Webhooks - Contacts')
+@Public()
 @Controller('webhooks/contacts')
 export class ContactsWebhookController {
   private readonly logger = new Logger(ContactsWebhookController.name);

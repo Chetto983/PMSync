@@ -47,7 +47,10 @@ interface AutumnWebhookEvent {
   };
 }
 
+import { Public } from '../../../common/auth/public.decorator';
+
 @ApiTags('Webhooks')
+@Public()
 @Controller('webhooks/autumn')
 export class AutumnWebhookController {
   private readonly logger = new Logger(AutumnWebhookController.name);

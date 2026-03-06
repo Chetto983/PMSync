@@ -20,8 +20,10 @@ import {
   MicrosoftGraphWebhookPayload,
 } from '../interfaces/webhook.interface';
 import { SyncAuthService } from '../services/sync-auth.service';
+import { Public } from '../../../common/auth/public.decorator';
 
 @ApiTags('Webhooks - Email Sync')
+@Public()
 @Controller('webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
