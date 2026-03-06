@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 50-01-PLAN.md
+stopped_at: Completed 50-02-PLAN.md
 last_updated: "2026-03-06"
-last_activity: 2026-03-06 -- 50-01 schema reshape + better-auth Next.js instance
+last_activity: 2026-03-06 -- 50-02 NestJS better-auth consumer instance
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 5
+  completed_plans: 2
+  percent: 11
 ---
 
 # Project State
@@ -25,25 +25,25 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 
 ## Current Position
 
-Phase: 50 of 58 (Schema & Infrastructure)
-Plan: 1 of 2
-Status: Executing
-Last activity: 2026-03-06 -- 50-01 complete (schema reshape + better-auth instance)
+Phase: 50 of 58 (Schema & Infrastructure) -- COMPLETE
+Plan: 2 of 2
+Status: Phase 50 complete, ready for Phase 51
+Last activity: 2026-03-06 -- 50-02 complete (NestJS better-auth consumer)
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [█░░░░░░░░░] 11%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 15 min
-- Total execution time: 0.25 hours
+- Total plans completed: 2
+- Average duration: 9 min
+- Total execution time: 0.28 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 50 - Schema & Infrastructure | 1/2 | 15 min | 15 min |
+| 50 - Schema & Infrastructure | 2/2 | 17 min | 8.5 min |
 
 *Updated after each plan completion*
 
@@ -59,6 +59,8 @@ Progress: [█░░░░░░░░░] 5%
 - [50-01] Keep passwordHash, isMfaEnabled, lastActivityAt as deprecated optional for backward compat
 - [50-01] Session.tenantId kept optional (not removed) to avoid breaking NestJS auth services
 - [50-01] Compound unique @@unique([tenantId, email]) retained alongside @unique on email
+- [50-02] Custom minimal BetterAuthModule instead of @thallesp/nestjs-better-auth (bodyParser uncertainty)
+- [50-02] Consumer instance is read-only: no emailAndPassword, no hooks -- all mutations in Next.js only
 
 ### Pending Todos
 
@@ -73,6 +75,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 50-01-PLAN.md (schema reshape + better-auth Next.js instance)
+Stopped at: Completed 50-02-PLAN.md (NestJS better-auth consumer instance)
 Resume file: None
-Next action: Execute 50-02-PLAN.md (NestJS consumer instance)
+Next action: Plan Phase 51 (Core Email/Password Auth)
