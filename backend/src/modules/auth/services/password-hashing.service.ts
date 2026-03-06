@@ -1,55 +1,44 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { hash, verify } from '@node-rs/argon2';
-import { AuthConfigService } from './auth-config.service';
+import * as bcrypt from 'bcrypt';
+
+const BCRYPT_ROUNDS = 12;
 
 /**
- * Argon2id password hashing service (OWASP recommended).
+ * Password hashing service using bcrypt.
  *
- * @see NIST SP 800-63B-4 (July 2025)
- * @see OWASP Password Storage Cheat Sheet (2025)
+ * Temporary: will be replaced by better-auth in v5.0.
+ * Supports verifying old Argon2id hashes for backward compatibility.
  */
 @Injectable()
 export class PasswordHashingService {
   private readonly logger = new Logger(PasswordHashingService.name);
 
-  private readonly memoryCost: number;
-  private readonly timeCost: number;
-  private readonly parallelism: number;
-
-  constructor(private readonly authConfig: AuthConfigService) {
-    this.memoryCost = authConfig.argon2MemoryCost;
-    this.timeCost = authConfig.argon2TimeCost;
-    this.parallelism = authConfig.argon2Parallelism;
-  }
-
-  /**
-   * Hash a password using Argon2id with configured parameters.
-   *
-   * @param password - Plaintext password to hash
-   * @returns Argon2id hash string (starts with $argon2id$)
-   */
   async hashPassword(password: string): Promise<string> {
-    return hash(password, {
-      memoryCost: this.memoryCost,
-      timeCost: this.timeCost,
-      parallelism: this.parallelism,
-    });
+    return bcrypt.hash(password, BCRYPT_ROUNDS);
   }
 
-  /**
-   * Verify a password against a stored Argon2id hash.
-   */
   async verifyPassword(
     password: string,
     storedHash: string,
   ): Promise<{ valid: boolean; needsRehash: boolean }> {
     try {
-      if (storedHash.startsWith('$argon2id$')) {
-        const valid = await verify(storedHash, password);
+      if (storedHash.startsWith('$2b$') || storedHash.startsWith('$2a$')) {
+        const valid = await bcrypt.compare(password, storedHash);
         return { valid, needsRehash: false };
       }
 
-      // Unrecognized hash format
+      if (storedHash.startsWith('$argon2id$')) {
+        // Lazy-load argon2 only for legacy hash verification
+        try {
+          const { verify } = await import('@node-rs/argon2');
+          const valid = await verify(storedHash, password);
+          return { valid, needsRehash: true };
+        } catch {
+          this.logger.warn('Argon2 verification failed — user must reset password');
+          return { valid: false, needsRehash: false };
+        }
+      }
+
       this.logger.warn(
         JSON.stringify({
           event: 'password_verify_unknown_format',
@@ -68,18 +57,7 @@ export class PasswordHashingService {
     }
   }
 
-  /**
-   * Run a real Argon2id hash on a dummy string.
-   *
-   * Used for timing protection: when a user is not found during login,
-   * call this to consume the same CPU time as a real verification,
-   * preventing user-enumeration via timing side-channel.
-   */
   async dummyHash(): Promise<void> {
-    await hash('dummy-timing-protection-string', {
-      memoryCost: this.memoryCost,
-      timeCost: this.timeCost,
-      parallelism: this.parallelism,
-    });
+    await bcrypt.hash('dummy-timing-protection', BCRYPT_ROUNDS);
   }
 }
