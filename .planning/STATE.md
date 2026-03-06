@@ -33,17 +33,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-04)
+See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 45 (forwardRef Burn-Down) -- COMPLETE
+**Current focus:** Phase 48 (Auth Fix 2026 Best Practice) -- next after Phase 45 forwardRef burn-down
 
 ## Current Position
 
-Phase: 45 (forwardRef Burn-Down)
-Plan: 3 of 3 complete
-Status: Complete
-Last activity: 2026-03-06 -- 45-03 module-level forwardRef elimination via @Global() + domain events
+Phase: 48 (Auth Fix 2026 Best Practice)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-06 -- Phase 45 forwardRef burn-down complete (18→2 call sites)
 
 Progress: [██████████] 100% (Phase 45: 3/3 plans)
 
@@ -131,13 +131,13 @@ None.
 
 ### Blockers/Concerns
 
-- forwardRef reduced to 5 files total (from 18 original) -- Phase 45 COMPLETE
 - api.generated.ts placeholder (resolves with CI against live DB)
 - Compliance GDPR endpoints (consent, data-export, data-deletion, legal) now admin-only -- may need revisiting for user self-service GDPR rights
+- ROADMAP grep criterion for forwardRef yields 17 (15 are comments) -- actual call sites are 2; wording issue, not implementation gap
 
 ## Session Continuity
 
-Last session: 2026-03-06T09:01:00Z
-Stopped at: Completed 45-03-PLAN.md
+Last session: 2026-03-06
+Stopped at: Phase 45 complete, ready to plan Phase 48
 Resume file: None
-Next action: Phase 45 complete -- all 3 plans executed
+Next action: Plan Phase 48 (Auth Fix 2026 Best Practice)

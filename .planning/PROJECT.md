@@ -170,8 +170,7 @@ See `.planning/REQUIREMENTS.md` for detailed REQ-IDs.
 - AI cost observability across all 6 call paths
 - Lighthouse CI budget gates enforced in CI pipeline
 
-**Remaining tech debt (3 items, all accepted):**
-- 5 forwardRef in Email/EmailSync core cluster (true bidirectional)
+**Remaining tech debt (2 items, all accepted):**
 - api.generated.ts placeholder (resolves with CI against live DB)
 - IPolicyService/Permission enum zero consumers (v4.1 RBAC scaffolding)
 
@@ -220,6 +219,9 @@ See `.planning/REQUIREMENTS.md` for detailed REQ-IDs.
 | HMAC blind index on `from` only (not `subject`) | Substring search incompatible with deterministic hashing; exact-match sufficient for sender lookup | ✓ Good |
 | AiRunLedger fire-and-forget telemetry | Never affects user response latency; per-retry entries for accurate cost tracking | ✓ Good |
 | 5 forwardRef accepted in Email core cluster | True bidirectional dependency; forced extraction would split natural cohesion | ✓ Good |
+| forwardRef burn-down: 18→2 actual call sites | Symbol tokens for AI embedding, @Global TransactionalEmailModule, domain events for cross-module decoupling | ✓ Good |
+| TransactionalEmailModule as @Global | Breaks auth→email forwardRef; nodemailer is infrastructure, not domain | ✓ Good |
+| Domain events for embedding triggers | EmailIndexedEvent replaces direct AiModule import from email-sync | ✓ Good |
 
 ---
-*Last updated: 2026-03-04 after v4.1 milestone start*
+*Last updated: 2026-03-06 after Phase 45*
