@@ -18,13 +18,14 @@ import 'pino-roll'; // ensure dependency is detected/available for transports
 const LOG_DIR = process.env.LOG_DIR || join(process.cwd(), 'logs');
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
+const isRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_SERVICE_ID);
 
 /**
  * Stream per rotazione file con retention di 2 giorni
  */
 function createRotatingFileStream() {
   // In produzione usa pino.destination per file rotating
-  if (isProduction) {
+  if (isProduction && !isRailway) {
     return pino.destination({
       dest: join(LOG_DIR, 'app.log'),
       sync: false, // Async per performance
@@ -66,13 +67,21 @@ export const pinoLoggerConfig: Params = {
             },
           ],
         }
-      : {
-          target: 'pino/file',
-          options: {
-            destination: join(LOG_DIR, 'app.log'),
-            mkdir: true,
+      : isRailway
+        ? {
+            // On Railway, logs must go to stdout/stderr to be visible in platform logs.
+            target: 'pino/file',
+            options: {
+              destination: 1,
+            },
+          }
+        : {
+            target: 'pino/file',
+            options: {
+              destination: join(LOG_DIR, 'app.log'),
+              mkdir: true,
+            },
           },
-        },
 
     // Configurazione base Pino
     base: {
@@ -208,7 +217,7 @@ export function createPinoLogger() {
   }
 
   // Stream file (produzione)
-  if (isProduction) {
+  if (isProduction && !isRailway) {
     const fileStream = createRotatingFileStream();
     if (fileStream) {
       streams.push({
