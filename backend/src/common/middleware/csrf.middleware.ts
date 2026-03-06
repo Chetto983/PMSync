@@ -92,7 +92,18 @@ export function csrfMiddleware(req: Request, res: Response, next: NextFunction) 
   if (shouldSkipCsrf(req)) {
     return next();
   }
-  return doubleCsrfProtection(req, res, next);
+  return doubleCsrfProtection(req, res, (err?: unknown) => {
+    if (err) {
+      if (err === invalidCsrfTokenError || (err as { code?: string })?.code === 'EBADCSRFTOKEN') {
+        const csrfErr: Error & { statusCode?: number; code?: string } = new Error('Security token expired. Please retry.');
+        csrfErr.statusCode = 403;
+        csrfErr.code = 'CSRF_TOKEN_INVALID';
+        return next(csrfErr);
+      }
+      return next(err);
+    }
+    next();
+  });
 }
 
 // Re-export with explicit types for TypeScript declaration files

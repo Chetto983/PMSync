@@ -214,14 +214,18 @@ apiClient.interceptors.response.use(
     }
 
     // Auto-retry once on CSRF 403: clear stale token, refetch, replay request (SEC-04)
+    // Only retry if error code is CSRF_TOKEN_INVALID -- non-CSRF 403s (authorization) pass through
     if (error.response?.status === 403 && !error.config._csrfRetried) {
-      clearCsrfToken();
-      error.config._csrfRetried = true;
-      const freshToken = await getCsrfToken();
-      if (freshToken) {
-        error.config.headers['X-CSRF-Token'] = freshToken;
+      const errorCode = error.response?.data?.error?.code;
+      if (errorCode === 'CSRF_TOKEN_INVALID') {
+        clearCsrfToken();
+        error.config._csrfRetried = true;
+        const freshToken = await getCsrfToken();
+        if (freshToken) {
+          error.config.headers['X-CSRF-Token'] = freshToken;
+        }
+        return apiClient.request(error.config);
       }
-      return apiClient.request(error.config);
     }
 
     return Promise.reject(error);

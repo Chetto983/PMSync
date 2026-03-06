@@ -49,18 +49,21 @@ export class CryptoService {
   }
 
   /**
-   * Decrypt data -- handles both GCM (prefixed) and legacy CBC (unprefixed) ciphertext.
+   * Decrypt AES-256-GCM ciphertext.
    *
-   * GCM path: parses "gcm:<ciphertext>:<authTag>" format.
-   * CBC path: legacy fallback for data encrypted before the GCM migration.
+   * Only GCM is supported. Legacy CBC data must be migrated first using:
+   *   npx ts-node scripts/re-encrypt-cbc-to-gcm.ts
    *
    * Method signature unchanged -- all 30+ consumers continue to work without modification.
    */
   decrypt(encrypted: string, ivHex: string): string {
-    if (encrypted.startsWith(this.GCM_PREFIX)) {
-      return this.decryptGcm(encrypted, ivHex);
+    if (!encrypted.startsWith(this.GCM_PREFIX)) {
+      throw new Error(
+        'Legacy CBC-encrypted data detected. Run re-encryption script first: ' +
+          'npx ts-node scripts/re-encrypt-cbc-to-gcm.ts',
+      );
     }
-    return this.decryptCbc(encrypted, ivHex);
+    return this.decryptGcm(encrypted, ivHex);
   }
 
   /**
@@ -88,17 +91,4 @@ export class CryptoService {
     return decrypted;
   }
 
-  /**
-   * Decrypt legacy AES-256-CBC ciphertext (backward compatibility).
-   * Used for data encrypted before the GCM migration. No auth tag -- CBC without HMAC.
-   */
-  private decryptCbc(encrypted: string, ivHex: string): string {
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', this.secretKey, iv);
-
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    return decrypted;
-  }
 }

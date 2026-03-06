@@ -81,6 +81,19 @@ export class ApiExceptionFilter {
       return this.resolvePrismaError(exception);
     }
 
+    // 4a. CSRF token error (from csrf.middleware.ts)
+    if (
+      exception instanceof Error &&
+      (exception as { code?: string }).code === 'CSRF_TOKEN_INVALID'
+    ) {
+      return {
+        status: 403,
+        code: 'CSRF_TOKEN_INVALID',
+        message: exception.message || 'Security token expired. Please retry.',
+        details: null,
+      };
+    }
+
     // 4. Error with statusCode (e.g. http-errors from csrf-csrf)
     if (exception instanceof Error) {
       const statusCode = (exception as { statusCode?: number }).statusCode;
