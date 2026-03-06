@@ -182,13 +182,13 @@ describe('AiObservabilityController', () => {
   });
 
   describe('Auth guards', () => {
-    it('has UseGuards decorator with JwtAuthGuard and TenantGuard on the controller class', () => {
+    it('has UseGuards decorator with TenantGuard and RolesGuard on the controller class', () => {
       const guards = getGuardMetadata(AiObservabilityController);
       expect(guards.length).toBeGreaterThanOrEqual(2);
 
       // Verify guard names (NestJS stores constructor references)
       const guardNames = guards.map((g: any) => g.name || g.constructor?.name);
-      expect(guardNames).toContain('JwtAuthGuard');
+      expect(guardNames).toContain('RolesGuard');
       expect(guardNames).toContain('TenantGuard');
     });
   });
