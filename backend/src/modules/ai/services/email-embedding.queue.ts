@@ -1,7 +1,12 @@
 import { Job, Queue, Worker } from 'bullmq';
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { KNOWLEDGE_BASE, IKnowledgeBase, type EmailEmbeddingJob } from '../../../common/interfaces/embedding-queue.interface';
+import { ModuleRef } from '@nestjs/core';
+import {
+  KNOWLEDGE_BASE,
+  IKnowledgeBase,
+  type EmailEmbeddingJob,
+} from '../../../common/interfaces/embedding-queue.interface';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
 import { isRateLimitError } from '../../../common/utils/error.utils';
@@ -20,6 +25,7 @@ const MAX_ATTEMPTS = 6;
 @Injectable()
 export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmailEmbeddingQueueService.name);
+  private knowledgeBaseService?: IKnowledgeBase;
   private queue!: Queue<EmailEmbeddingJob>;
   private worker!: Worker<EmailEmbeddingJob, boolean>;
   private pending: EmailEmbeddingJob[] = [];
@@ -39,8 +45,7 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
 
   constructor(
     private readonly config: ConfigService,
-    @Inject(KNOWLEDGE_BASE)
-    private readonly knowledgeBaseService: IKnowledgeBase,
+    private readonly moduleRef: ModuleRef,
     private readonly dlqService: DeadLetterQueueService,
     private readonly alertingService: AlertingService,
   ) {
@@ -68,6 +73,8 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
   }
 
   onModuleInit() {
+    this.knowledgeBaseService = this.resolveKnowledgeBaseService();
+
     // Use centralized Redis connection options (includes maxRetriesPerRequest: null for BullMQ)
     const connection = getRedisConnectionOptions();
 
@@ -87,7 +94,7 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       async (job: Job<EmailEmbeddingJob>) => {
         this.logger.debug(`Processing email embedding job ${job.id}`);
         try {
-          return await this.knowledgeBaseService.createEmbeddingForEmail(job.data);
+          return await this.resolveKnowledgeBaseService().createEmbeddingForEmail(job.data);
         } catch (error) {
           if (isRateLimitError(error)) {
             const delayMs = this.computeBackoffDelay(job.attemptsMade, error);
@@ -377,5 +384,21 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       return asNumber;
     }
     return fallback;
+  }
+
+  private resolveKnowledgeBaseService(): IKnowledgeBase {
+    if (this.knowledgeBaseService) {
+      return this.knowledgeBaseService;
+    }
+
+    const knowledgeBaseService = this.moduleRef.get<IKnowledgeBase>(KNOWLEDGE_BASE, {
+      strict: false,
+    });
+    if (!knowledgeBaseService) {
+      throw new Error('KNOWLEDGE_BASE provider is unavailable for EmailEmbeddingQueueService');
+    }
+
+    this.knowledgeBaseService = knowledgeBaseService;
+    return knowledgeBaseService;
   }
 }

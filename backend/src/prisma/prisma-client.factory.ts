@@ -25,7 +25,11 @@ export function createPrismaAdapter() {
     connectionString += `${separator}connection_limit=20&pool_timeout=20`;
   }
 
-  return new PrismaPg({ connectionString });
+  return new PrismaPg({
+    connectionString,
+    // Prevent infinite hang when Neon is cold-starting (default is 0 = no timeout)
+    connectionTimeoutMillis: 15_000,
+  });
 }
 
 export function createPrismaClient(): PrismaClient {

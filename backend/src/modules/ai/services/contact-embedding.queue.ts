@@ -1,6 +1,7 @@
 import { Job, Queue, Worker } from 'bullmq';
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ModuleRef } from '@nestjs/core';
 import { KNOWLEDGE_BASE, IKnowledgeBase } from '../../../common/interfaces/embedding-queue.interface';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
@@ -32,6 +33,7 @@ export interface ContactEmbeddingJob {
 @Injectable()
 export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ContactEmbeddingQueueService.name);
+  private knowledgeBaseService?: IKnowledgeBase;
   private queue!: Queue<ContactEmbeddingJob>;
   private worker!: Worker<ContactEmbeddingJob, boolean>;
   private pending: ContactEmbeddingJob[] = [];
@@ -50,8 +52,7 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
 
   constructor(
     private readonly config: ConfigService,
-    @Inject(KNOWLEDGE_BASE)
-    private readonly knowledgeBaseService: IKnowledgeBase,
+    private readonly moduleRef: ModuleRef,
     private readonly dlqService: DeadLetterQueueService,
     private readonly alertingService: AlertingService,
   ) {
@@ -74,6 +75,8 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
   }
 
   onModuleInit() {
+    this.knowledgeBaseService = this.resolveKnowledgeBaseService();
+
     const connection = getRedisConnectionOptions();
     const jobDefaults = getDefaultJobOptions('AI_EMBEDDING');
 
@@ -90,7 +93,7 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
       async (job: Job<ContactEmbeddingJob>) => {
         this.logger.debug(`Processing contact embedding job ${job.id}`);
         try {
-          return await this.knowledgeBaseService.createEmbeddingForContact(job.data);
+          return await this.resolveKnowledgeBaseService().createEmbeddingForContact(job.data);
         } catch (error) {
           if (isRateLimitError(error)) {
             const delayMs = this.computeBackoffDelay(job.attemptsMade, error);
@@ -327,5 +330,21 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
       return asNumber;
     }
     return fallback;
+  }
+
+  private resolveKnowledgeBaseService(): IKnowledgeBase {
+    if (this.knowledgeBaseService) {
+      return this.knowledgeBaseService;
+    }
+
+    const knowledgeBaseService = this.moduleRef.get<IKnowledgeBase>(KNOWLEDGE_BASE, {
+      strict: false,
+    });
+    if (!knowledgeBaseService) {
+      throw new Error('KNOWLEDGE_BASE provider is unavailable for ContactEmbeddingQueueService');
+    }
+
+    this.knowledgeBaseService = knowledgeBaseService;
+    return knowledgeBaseService;
   }
 }

@@ -16,6 +16,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   async onModuleInit() {
+    console.log('[TRACE] PrismaService.onModuleInit ENTERED');
     // Tenant scoping runs first — injects tenantId into args
     // so field encryption can read it for key derivation.
     let client: PrismaClient = this.$extends(

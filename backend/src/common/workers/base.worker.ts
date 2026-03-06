@@ -137,8 +137,15 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
       return;
     }
 
+    const configs = this.getWorkerConfig();
+    const configArray = Array.isArray(configs) ? configs : [configs];
+    const queueNames = configArray.map((config) => config.queueName);
+
     // Initialize Redis connection
-    const redisOptions = getRedisConnectionOptions();
+    const redisOptions = {
+      ...getRedisConnectionOptions(),
+      connectionName: `${this.workerName}-worker`,
+    };
     this.redisConnection = new Redis(redisOptions);
 
     // Add Redis error handler to prevent unhandled errors
@@ -147,11 +154,7 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
     });
 
     // Wait for Redis connection to be ready with timeout
-    await this.waitForRedisConnection();
-
-    // Get configuration(s) and start worker(s)
-    const configs = this.getWorkerConfig();
-    const configArray = Array.isArray(configs) ? configs : [configs];
+    await this.waitForRedisConnection(queueNames);
 
     for (const config of configArray) {
       this.startWorker(config);
@@ -164,26 +167,74 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
    * Wait for Redis connection to be ready
    * Prevents starting workers before Redis is connected
    */
-  private async waitForRedisConnection(): Promise<void> {
+  private async waitForRedisConnection(queueNames: string[]): Promise<void> {
     if (this.redisConnection.status === 'ready') {
       return;
     }
 
+    const timeoutMs = this.getRedisConnectTimeoutMs();
+    const queueLabel =
+      queueNames.length > 0 ? ` [queues=${queueNames.join(', ')}]` : '';
+
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (callback: () => void) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        this.redisConnection.off('ready', handleReady);
+        this.redisConnection.off('error', handleError);
+        callback();
+      };
+
+      const handleReady = () => {
+        finish(() => {
+          this.logger.debug(
+            `${this.workerName} Redis connection ready${queueLabel}`,
+          );
+          resolve();
+        });
+      };
+
+      const handleError = (err: Error) => {
+        finish(() => {
+          reject(
+            new Error(
+              `${this.workerName} Redis connection failed${queueLabel}: ${err.message}`,
+            ),
+          );
+        });
+      };
+
       const timeout = setTimeout(() => {
-        reject(new Error(`Redis connection timeout after ${REDIS_CONNECT_TIMEOUT}ms`));
-      }, REDIS_CONNECT_TIMEOUT);
+        finish(() => {
+          reject(
+            new Error(
+              `${this.workerName} Redis connection timeout after ${timeoutMs}ms${queueLabel}; status=${this.redisConnection.status}`,
+            ),
+          );
+        });
+      }, timeoutMs);
+      timeout.unref?.();
 
-      this.redisConnection.once('ready', () => {
-        clearTimeout(timeout);
-        this.logger.debug(`${this.workerName} Redis connection ready`);
-        resolve();
-      });
+      this.redisConnection.once('ready', handleReady);
+      this.redisConnection.once('error', handleError);
 
-      this.redisConnection.once('error', (err) => {
-        clearTimeout(timeout);
-        reject(new Error(`Redis connection failed: ${err.message}`));
-      });
+      if (this.redisConnection.status === 'wait') {
+        void this.redisConnection.connect().catch((err) => {
+          finish(() => {
+            reject(
+              new Error(
+                `${this.workerName} Redis connect() failed${queueLabel}: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              ),
+            );
+          });
+        });
+      }
     });
   }
 
@@ -359,5 +410,14 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
         `Provider type mismatch${contextStr}: job claims '${expectedType}' but provider is '${actualType}'`,
       );
     }
+  }
+
+  private getRedisConnectTimeoutMs(): number {
+    const raw =
+      this.configService.get<string>('BASE_WORKER_REDIS_CONNECT_TIMEOUT_MS') ??
+      process.env.BASE_WORKER_REDIS_CONNECT_TIMEOUT_MS ??
+      String(REDIS_CONNECT_TIMEOUT);
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : REDIS_CONNECT_TIMEOUT;
   }
 }

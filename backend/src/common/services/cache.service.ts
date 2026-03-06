@@ -1,6 +1,14 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { createClient, RedisClientType } from 'redis';
-import { getConfiguration, getRedisNodeConnectionOptions } from '../../config/configuration';
+import {
+  getConfiguration,
+  getRedisNodeConnectionOptions,
+} from '../../config/configuration';
 
 /**
  * Cache namespace prefixes for different data types
@@ -91,6 +99,10 @@ export interface CacheStats {
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
+  private readonly connectTimeoutMs = parseInt(
+    process.env.CACHE_REDIS_CONNECT_TIMEOUT_MS || '5000',
+    10,
+  );
   private client: RedisClientType;
   private isConnected = false;
   private stats: CacheStats = {
@@ -104,9 +116,12 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   constructor() {}
 
   async onModuleInit() {
+    console.log('[TRACE] CacheService.onModuleInit ENTERED');
     const redisConfig = getConfiguration().redis;
 
-    this.logger.log(`Connecting to Redis at ${redisConfig.host}:${redisConfig.port}...`);
+    this.logger.log(
+      `Connecting to Redis at ${redisConfig.host}:${redisConfig.port} (timeout=${this.connectTimeoutMs}ms)...`,
+    );
 
     try {
       this.client = createClient(
@@ -134,11 +149,24 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         this.isConnected = false;
       });
 
-      await this.client.connect();
+      await Promise.race([
+        this.client.connect(),
+        new Promise<never>((_, reject) => {
+          const timer = setTimeout(() => {
+            reject(
+              new Error(
+                `Redis cache connect timed out after ${this.connectTimeoutMs}ms`,
+              ),
+            );
+          }, this.connectTimeoutMs);
+          timer.unref?.();
+        }),
+      ]);
       this.logger.log('✅ Redis cache service initialized');
     } catch (error) {
       this.logger.error('Failed to connect to Redis:', error);
       this.isConnected = false;
+      this.client?.destroy();
       // Don't throw - allow app to start without Redis (graceful degradation)
     }
   }
@@ -172,7 +200,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
    * Get a value from cache
    * @returns The cached value or null if not found/error
    */
-  async get<T = any>(key: string, options?: { namespace?: CacheNamespace }): Promise<T | null> {
+  async get<T = any>(
+    key: string,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<T | null> {
     if (!this.isConnected) {
       this.logger.warn('Redis not connected, cache miss');
       this.stats.misses++;
@@ -200,7 +231,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Set a value in cache with optional TTL
    */
-  async set(key: string, value: any, options?: CacheSetOptions): Promise<boolean> {
+  async set(
+    key: string,
+    value: any,
+    options?: CacheSetOptions,
+  ): Promise<boolean> {
     if (!this.isConnected) {
       this.logger.warn('Redis not connected, skipping cache set');
       return false;
@@ -228,7 +263,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Delete a value from cache
    */
-  async del(key: string, options?: { namespace?: CacheNamespace }): Promise<boolean> {
+  async del(
+    key: string,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<boolean> {
     if (!this.isConnected) {
       return false;
     }
@@ -248,7 +286,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Check if a key exists in cache
    */
-  async exists(key: string, options?: { namespace?: CacheNamespace }): Promise<boolean> {
+  async exists(
+    key: string,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<boolean> {
     if (!this.isConnected) {
       return false;
     }
@@ -268,7 +309,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
    * Get time to live for a key in seconds
    * @returns TTL in seconds, -1 if no expiry, -2 if key doesn't exist
    */
-  async ttl(key: string, options?: { namespace?: CacheNamespace }): Promise<number> {
+  async ttl(
+    key: string,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<number> {
     if (!this.isConnected) {
       return -2;
     }
@@ -312,11 +356,16 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       } while (cursor !== '0');
 
       if (totalDeleted > 0) {
-        this.logger.log(`Invalidated ${totalDeleted} keys in namespace ${namespace}`);
+        this.logger.log(
+          `Invalidated ${totalDeleted} keys in namespace ${namespace}`,
+        );
       }
       return totalDeleted;
     } catch (error) {
-      this.logger.error(`Cache invalidateNamespace error for ${namespace}:`, error);
+      this.logger.error(
+        `Cache invalidateNamespace error for ${namespace}:`,
+        error,
+      );
       this.stats.errors++;
       return 0;
     }
@@ -330,7 +379,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
    * @param namespace - The cache namespace
    * @returns Number of keys deleted
    */
-  async invalidatePattern(pattern: string, namespace: CacheNamespace): Promise<number> {
+  async invalidatePattern(
+    pattern: string,
+    namespace: CacheNamespace,
+  ): Promise<number> {
     if (!this.isConnected) {
       return 0;
     }
@@ -356,11 +408,16 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       } while (cursor !== '0');
 
       if (totalDeleted > 0) {
-        this.logger.log(`Invalidated ${totalDeleted} keys matching ${fullPattern}`);
+        this.logger.log(
+          `Invalidated ${totalDeleted} keys matching ${fullPattern}`,
+        );
       }
       return totalDeleted;
     } catch (error) {
-      this.logger.error(`Pattern invalidation failed for ${namespace}:${pattern}:`, error);
+      this.logger.error(
+        `Pattern invalidation failed for ${namespace}:${pattern}:`,
+        error,
+      );
       this.stats.errors++;
       return 0;
     }
@@ -373,7 +430,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
    * @param namespace - The cache namespace
    * @returns Number of keys deleted
    */
-  async invalidateTenantPattern(tenantId: string, namespace: CacheNamespace): Promise<number> {
+  async invalidateTenantPattern(
+    tenantId: string,
+    namespace: CacheNamespace,
+  ): Promise<number> {
     return this.invalidatePattern(`${tenantId}:*`, namespace);
   }
 
@@ -405,7 +465,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const fullKeys = keys.map((key) => this.buildKey(key, options?.namespace));
+      const fullKeys = keys.map((key) =>
+        this.buildKey(key, options?.namespace),
+      );
       const values = await this.client.mGet(fullKeys);
 
       return values.map((value) => {
@@ -461,7 +523,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Increment a numeric value
    */
-  async incr(key: string, options?: { namespace?: CacheNamespace }): Promise<number> {
+  async incr(
+    key: string,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<number> {
     if (!this.isConnected) {
       return 0;
     }
@@ -539,7 +604,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Decrement a numeric value
    */
-  async decr(key: string, options?: { namespace?: CacheNamespace }): Promise<number> {
+  async decr(
+    key: string,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<number> {
     if (!this.isConnected) {
       return 0;
     }
@@ -625,7 +693,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
    * Push values to the left of a list (newest first)
    * Ideal for time-series data like metrics
    */
-  async lpush(key: string, values: any[], options?: { namespace?: CacheNamespace }): Promise<number> {
+  async lpush(
+    key: string,
+    values: any[],
+    options?: { namespace?: CacheNamespace },
+  ): Promise<number> {
     if (!this.isConnected || values.length === 0) {
       return 0;
     }
@@ -695,7 +767,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get the length of a list
    */
-  async llen(key: string, options?: { namespace?: CacheNamespace }): Promise<number> {
+  async llen(
+    key: string,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<number> {
     if (!this.isConnected) {
       return 0;
     }
