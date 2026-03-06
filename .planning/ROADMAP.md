@@ -9,7 +9,7 @@
 - ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-22 (shipped 2026-02-27)
 - ✅ **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (shipped 2026-03-03, partial)
 - ✅ **v4.0 Enterprise Stabilization** - Phases 31-41 (shipped 2026-03-04)
-- 🚧 **v4.1 Security Hardening & Debt Reduction** - Phases 42-48 (in progress)
+- 🚧 **v4.1 Security Hardening & Debt Reduction** - Phases 42-49 (in progress)
 
 ## Phases
 
@@ -68,7 +68,8 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to 0 files via domain events and shared interfaces (completed 2026-03-06)
 - [ ] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters
 - [ ] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget
-- [x] **Phase 48: Auth Fix 2026 Best Practice** - Argon2id, asymmetric JWT, password policy, dual-key rate limiting, enumeration hardening, session concurrency, idle timeout, cookie hardening (completed 2026-03-05)
+- [x] **Phase 48: Auth Fix 2026 Best Practice** - Argon2id, asymmetric JWT, password policy, dual-key rate limiting, enumeration hardening, session concurrency, idle timeout, cookie hardening (completed 2026-03-05)
+- [ ] **Phase 49: Zero Circular Dependencies** - Eliminate all 14 madge --circular chains via type extraction, interface abstraction, and module decoupling
 
 ## Phase Details
 
@@ -203,10 +204,26 @@ Plans:
 - [ ] 48-03-PLAN.md -- Wire new services into auth sub-services + enumeration hardening + per-email rate limiting
 - [ ] 48-04-PLAN.md -- Session concurrency enforcement + idle timeout + __Host- cookie prefix
 
+### Phase 49: Zero Circular Dependencies
+**Goal:** Eliminate all 14 circular dependency chains reported by madge --circular, achieving zero cycles across the entire backend codebase
+**Requirements**: DEBT-06, DEBT-07, DEBT-08, DEBT-09, DEBT-10
+**Depends on:** Phase 48
+**Success Criteria** (what must be TRUE):
+  1. `madge --circular --extensions ts backend/src/` reports zero circular dependencies
+  2. Zero `forwardRef` calls remain in production module files
+  3. NestJS application bootstraps without circular dependency warnings
+  4. TypeScript compiles with zero errors
+**Plans:** 3 plans
+
+Plans:
+- [ ] 49-01-PLAN.md -- Extract shared types for subscription, realtime, email sync-back, AI insights (8 cycles)
+- [ ] 49-02-PLAN.md -- Inline embedding interface types + extract locale type definitions (6 cycles)
+- [ ] 49-03-PLAN.md -- Break EmailModule/EmailSyncModule forwardRef cycle + full verification (2 cycles)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
+Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48 -> 49
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -228,6 +245,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 | 46. Observability | v4.1 | 0/TBD | Not started | - |
 | 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
 | 48. Auth Fix 2026 Best Practice | 4/4 | Complete    | 2026-03-06 | - |
+| 49. Zero Circular Dependencies | v4.1 | 0/3 | Not started | - |
 
 **v4.1 Requirement Status (Phase 42):**
 - ✅ TSEC-01: Prisma extension auto-injects tenantId (done)
@@ -237,16 +255,6 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 - ✅ AUTH-01..05: Refresh token rotation + short-lived access tokens (plan 42-03 complete)
 - ✅ TEST-01..03: Negative security tests (plan 42-04 complete)
 - ⬜ Gap closure: model count fix, UsersController docs, cross-tenant DB test (plan 42-05)
-
-### Phase 49: Zero Circular Dependencies
-
-**Goal:** Eliminate all 14 circular dependency chains reported by madge --circular, achieving zero cycles across the entire backend codebase
-**Requirements**: DEBT-06, DEBT-07, DEBT-08, DEBT-09, DEBT-10
-**Depends on:** Phase 48
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 49 to break down)
 
 ---
 *Roadmap created: 2026-02-09*
@@ -259,3 +267,4 @@ Plans:
 *Phase 48 added: 2026-03-05 -- Auth 2026 best practices (Argon2id, asymmetric JWT, password policy, enumeration hardening)*
 *Phase 48 plans created: 2026-03-05 -- 3 plans in 2 waves (01+02 parallel Wave 1, 03 Wave 2 depends on 01+02)*
 *Phase 48 plans revised: 2026-03-05 -- 4 plans in 3 waves (added 48-04 for session concurrency, idle timeout, cookie hardening; added P48-12/13/14)*
+*Phase 49 plans created: 2026-03-06 -- 3 plans in 2 waves (01+02 parallel Wave 1, 03 Wave 2 depends on 01+02)*
