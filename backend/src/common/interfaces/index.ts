@@ -10,3 +10,11 @@ export type { ICryptoService } from './crypto.interface';
 export { CRYPTO_SERVICE } from './crypto.interface';
 export { Permission, POLICY_SERVICE } from './policy-service.interface';
 export type { PolicyEvaluation, IPolicyService } from './policy-service.interface';
+export {
+  EMAIL_EMBEDDING_QUEUE,
+  KNOWLEDGE_BASE,
+} from './embedding-queue.interface';
+export type {
+  IEmailEmbeddingQueue,
+  IKnowledgeBase,
+} from './embedding-queue.interface';

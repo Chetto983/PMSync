@@ -46,6 +46,11 @@ import {
   TOOL_REGISTRY_SERVICE,
   IToolRegistryService,
 } from '../../common/interfaces/tool-registry.interface';
+// Phase 45: Interface tokens for embedding cycle-breaking
+import {
+  EMAIL_EMBEDDING_QUEUE,
+  KNOWLEDGE_BASE,
+} from '../../common/interfaces/embedding-queue.interface';
 import { RagTool } from './tools/rag.tool';
 import { AiProviderEventHandlerService } from './services/provider-event-handler.service';
 // Phase 35: AI Run Ledger -- fire-and-forget telemetry for all AI calls
@@ -79,6 +84,9 @@ import { AiObservabilityController } from './controllers/ai-observability.contro
     KnowledgeBaseService, // Facade - delegates to sub-services above
     EmailEmbeddingQueueService,
     ContactEmbeddingQueueService,
+    // Phase 45: Token-to-class bindings for embedding cycle-breaking
+    { provide: EMAIL_EMBEDDING_QUEUE, useExisting: EmailEmbeddingQueueService },
+    { provide: KNOWLEDGE_BASE, useExisting: KnowledgeBaseService },
     // Phase 43: EmailInsights sub-services (must be before facade for DI ordering)
     InsightUtilsService,
     EmailAnalysisService,
