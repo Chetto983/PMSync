@@ -103,6 +103,61 @@ export function getRedisConnectionOptions(config?: RedisConfig): RedisConnection
   return options;
 }
 
+/**
+ * Get Redis connection options for node-redis clients.
+ * Keep TLS behavior aligned with ioredis/BullMQ options.
+ */
+export interface RedisNodeSocketOptions {
+  host: string;
+  port: number;
+  reconnectStrategy?: (retries: number) => number | Error;
+  tls?: boolean;
+  rejectUnauthorized?: boolean;
+  ca?: string;
+  cert?: string;
+  key?: string;
+}
+
+export interface RedisNodeConnectionOptions {
+  socket: RedisNodeSocketOptions;
+  password?: string;
+  database?: number;
+}
+
+export function getRedisNodeConnectionOptions(config?: RedisConfig): RedisNodeConnectionOptions {
+  const redisConfig = config || getConfiguration().redis;
+  const socket: RedisNodeSocketOptions = {
+    host: redisConfig.host,
+    port: redisConfig.port,
+    reconnectStrategy: (retries: number) => {
+      if (retries >= redisConfig.maxRetries) {
+        return new Error(`Redis reconnect failed after ${redisConfig.maxRetries} attempts`);
+      }
+      return redisConfig.retryDelayMs;
+    },
+  };
+
+  if (redisConfig.tls?.enabled) {
+    socket.tls = true;
+    socket.rejectUnauthorized = redisConfig.tls.rejectUnauthorized;
+    if (redisConfig.tls.ca) {
+      socket.ca = redisConfig.tls.ca;
+    }
+    if (redisConfig.tls.cert) {
+      socket.cert = redisConfig.tls.cert;
+    }
+    if (redisConfig.tls.key) {
+      socket.key = redisConfig.tls.key;
+    }
+  }
+
+  return {
+    socket,
+    password: redisConfig.password || undefined,
+    database: redisConfig.db,
+  };
+}
+
 export interface ApiConfig {
   host: string;
   port: number;
@@ -232,7 +287,19 @@ export function loadConfiguration(): Configuration {
   const redisRetryDelayMs = parseInt(process.env.REDIS_RETRY_DELAY_MS || '1000');
 
   // Redis TLS configuration (AUDIT-06)
-  const redisTlsEnabled = ['1', 'true', 'yes'].includes((process.env.REDIS_TLS_ENABLED || '').toLowerCase());
+  const redisTlsRequested = ['1', 'true', 'yes'].includes((process.env.REDIS_TLS_ENABLED || '').toLowerCase());
+  const redisHostLower = redisHost.toLowerCase();
+  const isRailwayRedisHost =
+    redisHostLower.endsWith('.railway.internal') ||
+    redisHostLower.endsWith('.proxy.rlwy.net');
+
+  // Railway Redis private/proxy endpoints are plain TCP; forcing TLS there can stall startup.
+  const redisTlsEnabled = redisTlsRequested && !isRailwayRedisHost;
+  if (redisTlsRequested && isRailwayRedisHost) {
+    console.warn(
+      '\x1b[33m⚠️  WARNING: REDIS_TLS_ENABLED=true ignored for Railway Redis host. Using plain TCP.\x1b[0m',
+    );
+  }
   const redisTlsRejectUnauthorized = !['0', 'false', 'no'].includes(
     (process.env.REDIS_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase(),
   );

@@ -1,7 +1,6 @@
  import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
-import { getConfiguration } from '../../config/configuration';
+import { getConfiguration, getRedisNodeConnectionOptions } from '../../config/configuration';
 
 /**
  * Cache namespace prefixes for different data types
@@ -102,7 +101,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     errors: 0,
   };
 
-  constructor(private readonly config: ConfigService) {}
+  constructor() {}
 
   async onModuleInit() {
     const redisConfig = getConfiguration().redis;
@@ -110,14 +109,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Connecting to Redis at ${redisConfig.host}:${redisConfig.port}...`);
 
     try {
-      this.client = createClient({
-        socket: {
-          host: redisConfig.host,
-          port: redisConfig.port,
-        },
-        password: redisConfig.password,
-        database: redisConfig.db,
-      }) as RedisClientType;
+      this.client = createClient(
+        getRedisNodeConnectionOptions(redisConfig),
+      ) as RedisClientType;
 
       this.client.on('error', (err) => {
         this.logger.error('Redis client error:', err);

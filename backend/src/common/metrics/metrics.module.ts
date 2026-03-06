@@ -4,6 +4,7 @@ import {
   makeHistogramProvider,
   makeGaugeProvider,
   makeCounterProvider,
+  getToken,
 } from '@willsoto/nestjs-prometheus';
 import { QueueMetricsCollector } from './queue-metrics.collector';
 
@@ -63,6 +64,15 @@ import { QueueMetricsCollector } from './queue-metrics.collector';
     // Phase 46-02: Scheduled queue depth collector
     QueueMetricsCollector,
   ],
-  exports: [PrometheusModule],
+  exports: [
+    PrometheusModule,
+    // Export metric providers so global interceptors/services outside this module can inject them.
+    getToken('http_request_duration_seconds'),
+    getToken('http_requests_in_flight'),
+    getToken('bullmq_queue_depth'),
+    getToken('ai_tokens_total'),
+    getToken('ai_cost_usd_total'),
+    getToken('ai_requests_total'),
+  ],
 })
 export class MetricsModule {}
