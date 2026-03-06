@@ -14,12 +14,12 @@ export const ROLES_KEY = 'roles';
  * @param roles - Array of role names (e.g., 'admin', 'super-admin', 'user')
  *
  * @example
- * @UseGuards(JwtAuthGuard, RolesGuard)
+ * @UseGuards(TenantGuard, RolesGuard)
  * @Roles('super-admin')
  * async deleteAllData() { ... }
  *
  * @example
- * @UseGuards(JwtAuthGuard, RolesGuard)
+ * @UseGuards(TenantGuard, RolesGuard)
  * @Roles('admin', 'super-admin')  // Either role allowed
  * async viewAnalytics() { ... }
  */

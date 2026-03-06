@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```typescript
- * @UseGuards(JwtAuthGuard, QuotaGuard)
+ * @UseGuards(TenantGuard, QuotaGuard)
  * @RequiresQuota('ai')  // or 'email'
  * @Post('smart-reply')
  * async smartReply() { ... }

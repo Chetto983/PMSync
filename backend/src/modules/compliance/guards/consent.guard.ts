@@ -9,7 +9,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
  * Applied via @RequiresConsent('feature_id') decorator on route handlers.
  *
  * NOTE: This guard is registered as both APP_GUARD (global) and controller-level.
- * When running as global guard, request.user may not yet be set (JwtAuthGuard
+ * When running as global guard, request.user may not yet be set (BetterAuthGuard
  * hasn't run). In that case we skip — the controller-level instance will
  * re-check after authentication.
  *
@@ -32,7 +32,7 @@ export class ConsentGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     // When running as APP_GUARD (global), request.user is not yet set because
-    // JwtAuthGuard hasn't executed. Skip gracefully — the controller-level
+    // BetterAuthGuard hasn't executed. Skip gracefully — the controller-level
     // ConsentGuard will enforce after authentication.
     if (!request.user) {
       return true;
