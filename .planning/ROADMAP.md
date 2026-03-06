@@ -67,7 +67,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification (3/4 plans) (completed 2026-03-06)
 - [x] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to 0 files via domain events and shared interfaces (completed 2026-03-06)
 - [x] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters (completed 2026-03-06)
-- [ ] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget
+- [x] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget (completed 2026-03-06)
 - [x] **Phase 48: Auth Fix 2026 Best Practice** - Argon2id, asymmetric JWT, password policy, dual-key rate limiting, enumeration hardening, session concurrency, idle timeout, cookie hardening (completed 2026-03-05)
 - [x] **Phase 49: Zero Circular Dependencies** - Eliminate all 14 madge --circular chains via type extraction, interface abstraction, and module decoupling (completed 2026-03-06)
 
@@ -211,7 +211,7 @@ Plans:
   2. Zero `forwardRef` calls remain in production module files
   3. NestJS application bootstraps without circular dependency warnings
   4. TypeScript compiles with zero errors
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 49-01-PLAN.md -- Extract shared types for subscription, realtime, email sync-back, AI insights (8 cycles)
@@ -241,7 +241,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48 -> 49
 | 44. Frontend God-File Splits | 4/4 | Complete    | 2026-03-06 | - |
 | 45. forwardRef Burn-Down | 3/3 | Complete    | 2026-03-06 | - |
 | 46. Observability | 3/3 | Complete    | 2026-03-06 | - |
-| 47. Infrastructure & Cleanup | 2/3 | In Progress|  | - |
+| 47. Infrastructure & Cleanup | 3/3 | Complete   | 2026-03-06 | - |
 | 48. Auth Fix 2026 Best Practice | 4/4 | Complete    | 2026-03-06 | - |
 | 49. Zero Circular Dependencies | 3/3 | Complete    | 2026-03-06 | - |
 

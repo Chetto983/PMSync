@@ -91,17 +91,17 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
 - [x] **TEST-10**: WebSocket Redis adapter test -- message published on instance A received by client on instance B
 - [x] **TEST-11**: CSRF error surfacing test -- invalid/expired token returns meaningful error, retry logic succeeds
-- [ ] **TEST-12**: Bundle size CI gate -- build exceeding budget fails CI
-- [ ] **TEST-13**: CBC->GCM migration verification -- all encrypted fields readable, no CBC-encoded records remain
+- [x] **TEST-12**: Bundle size CI gate -- build exceeding budget fails CI
+- [x] **TEST-13**: CBC->GCM migration verification -- all encrypted fields readable, no CBC-encoded records remain
 
 ### Cleanup
 
 - [x] **CLN-01**: CSRF error properly surfaced (not empty string)
 - [x] **CLN-02**: CSRF token refresh retry logic
 - [x] **CLN-03**: Dead filter files deleted (all-exceptions, http-exception, throttler-exception)
-- [ ] **CLN-04**: Frontend dependency audit -- unused packages removed
-- [ ] **CLN-05**: Bundle size budget in CI
-- [ ] **CLN-06**: CBC->GCM re-encryption backfill verified
+- [x] **CLN-04**: Frontend dependency audit -- unused packages removed
+- [x] **CLN-05**: Bundle size budget in CI
+- [x] **CLN-06**: CBC->GCM re-encryption backfill verified
 
 ## Future Requirements
 
@@ -201,14 +201,14 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-09 | Phase 46 | Complete |
 | TEST-10 | Phase 47 | Complete |
 | TEST-11 | Phase 47 | Complete |
-| TEST-12 | Phase 47 | Pending |
-| TEST-13 | Phase 47 | Pending |
+| TEST-12 | Phase 47 | Complete |
+| TEST-13 | Phase 47 | Complete |
 | CLN-01 | Phase 47 | Complete |
 | CLN-02 | Phase 47 | Complete |
 | CLN-03 | Phase 47 | Complete |
-| CLN-04 | Phase 47 | Pending |
-| CLN-05 | Phase 47 | Pending |
-| CLN-06 | Phase 47 | Pending |
+| CLN-04 | Phase 47 | Complete |
+| CLN-05 | Phase 47 | Complete |
+| CLN-06 | Phase 47 | Complete |
 
 **Coverage:**
 - v4.1 requirements: 66 total

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: Completed 47-02-PLAN.md
-last_updated: "2026-03-06T11:09:18.599Z"
+stopped_at: Completed 47-03-PLAN.md
+last_updated: "2026-03-06T11:13:49.927Z"
 last_activity: 2026-03-06 -- Phase 45 forwardRef burn-down complete (18→2 call sites)
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 28
-  completed_plans: 27
+  completed_plans: 28
   percent: 91
 ---
 
@@ -112,6 +112,7 @@ Progress: [██████████] 100% (Phase 45: 3/3 plans)
 | Phase 46 P03 | 6min | 2 tasks | 4 files |
 | Phase 47 P01 | 6min | 2 tasks | 9 files |
 | Phase 47 P02 | 7min | 2 tasks | 4 files |
+| Phase 47 P03 | 12min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,8 @@ Recent decisions affecting current work:
 - [Phase 46]: Single shared NestJS app for /metrics integration tests (prom-client global registry constraint)
 - [Phase 47]: hasTenantConnections async (Promise<boolean>) for Redis-backed distributed counters
 - [Phase 47]: CSRF_TOKEN_INVALID error code distinguishes CSRF 403 from auth 403; frontend retries only on this code
+- [Phase 47]: Conservative frontend package removal: only packages with zero imports removed (11 of 46 flagged)
+- [Phase 47]: CBC fallback throws explicit error with migration instructions rather than silent failure
 
 ### Roadmap Evolution
 
@@ -189,7 +192,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-06T11:09:18.594Z
-Stopped at: Completed 47-02-PLAN.md
+Last session: 2026-03-06T11:13:49.918Z
+Stopped at: Completed 47-03-PLAN.md
 Resume file: None
 Next action: Plan Phase 48 (Auth Fix 2026 Best Practice)
