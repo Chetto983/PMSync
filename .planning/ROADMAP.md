@@ -96,7 +96,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. better-auth instance initializes in NestJS for session validation (read-only consumer)
   4. Sessions are DB-backed httpOnly cookies (no JWT anywhere in the new auth path)
   5. HIBP password check rejects known-breached passwords during signup attempt
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 50-01-PLAN.md — Prisma schema reshape + HIBP utility + better-auth Next.js instance
@@ -237,7 +237,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 50. Schema & Infrastructure | v5.0 | 2/2 | Complete | 2026-03-06 |
+| 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
 | 51. Core Email/Password Auth | v5.0 | 0/TBD | Not started | - |
 | 52. NestJS Session Validation | v5.0 | 0/TBD | Not started | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
