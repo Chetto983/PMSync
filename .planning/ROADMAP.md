@@ -130,20 +130,19 @@ Plans:
 - [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
 
 ### Phase 45: forwardRef Burn-Down
-**Goal**: NestJS circular dependency count reduced from 24 to 0 files via domain events, shared interfaces, and provider injection
+**Goal**: Reduce NestJS forwardRef from 18 call sites to <=12 via removing unnecessary refs, interface tokens, domain events, and shared service extraction
 **Depends on**: Phase 43 (backend splits may affect module boundaries)
 **Requirements**: DEBT-01, DEBT-02, DEBT-03, DEBT-04, DEBT-05, TEST-08
 **Success Criteria** (what must be TRUE):
   1. `grep -r forwardRef backend/src | wc -l` returns twelve or fewer hits
   2. NestJS application bootstraps successfully with zero circular dependency warnings
   3. All existing E2E and integration tests pass without modification
-**Plans**: 4 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
-- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
-- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
-- [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
+- [ ] 45-01-PLAN.md -- Bootstrap smoke test + remove 10 unnecessary forwardRef (DLQ + workers)
+- [ ] 45-02-PLAN.md -- AI embedding interface tokens (4 forwardRef eliminated)
+- [ ] 45-03-PLAN.md -- Module-level decoupling: auth + email-sync via shared service + domain events
 
 ### Phase 46: Observability
 **Goal**: Production metrics available via standard Prometheus /metrics endpoint covering HTTP, queues, and AI costs
@@ -225,7 +224,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 | 42. Tenant Isolation & Auth Hardening | 4/4 | Complete   | 2026-03-04 | - |
 | 43. Contract Tests & Backend God-File Splits | 4/4 | Complete   | 2026-03-05 | - |
 | 44. Frontend God-File Splits | 4/4 | Complete    | 2026-03-06 | - |
-| 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
+| 45. forwardRef Burn-Down | v4.1 | 0/3 | Not started | - |
 | 46. Observability | v4.1 | 0/TBD | Not started | - |
 | 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
 | 48. Auth Fix 2026 Best Practice | 4/4 | Complete    | 2026-03-05 | - |
