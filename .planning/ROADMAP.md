@@ -70,7 +70,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 
 </details>
 
-### 🚧 v5.0 better-auth Migration (In Progress)
+### v5.0 better-auth Migration (In Progress)
 
 **Milestone Goal:** Replace broken custom auth with better-auth -- full enterprise auth (email/password, social login, 2FA, organizations/roles, admin panel) with clean slate migration.
 
@@ -96,11 +96,11 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. better-auth instance initializes in NestJS for session validation (read-only consumer)
   4. Sessions are DB-backed httpOnly cookies (no JWT anywhere in the new auth path)
   5. HIBP password check rejects known-breached passwords during signup attempt
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 50-01: TBD
-- [ ] 50-02: TBD
+- [ ] 50-01-PLAN.md — Prisma schema reshape + HIBP utility + better-auth Next.js instance
+- [ ] 50-02-PLAN.md — NestJS better-auth consumer instance + cross-service verification
 
 ### Phase 51: Core Email/Password Auth
 **Goal**: Users can create accounts, sign in, verify email, and reset passwords through better-auth
@@ -237,7 +237,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 50. Schema & Infrastructure | v5.0 | 0/TBD | Not started | - |
+| 50. Schema & Infrastructure | v5.0 | 0/2 | Not started | - |
 | 51. Core Email/Password Auth | v5.0 | 0/TBD | Not started | - |
 | 52. NestJS Session Validation | v5.0 | 0/TBD | Not started | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
