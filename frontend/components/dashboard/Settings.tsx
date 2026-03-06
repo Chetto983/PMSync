@@ -1,17 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   FormControl,
   Select,
   MenuItem,
   CircularProgress,
-  Avatar,
-  alpha,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -24,33 +18,8 @@ import {
   ShieldCheck,
   DatabaseZap,
 } from 'lucide-react';
-import { useRouter } from 'next/router';
-import { useThemePersistence } from '@/hooks/use-theme-persistence';
-import { usersApi } from '@/lib/api/users';
-import {
-  type CommunicationStyle,
-  type ResponseLength,
-  type ProactivityLevel,
-} from '@/lib/api/ai';
-import { useAuth } from '@/lib/hooks/use-auth';
-import {
-  useProviders,
-  useUserPreferences,
-  useUpdatePreferences,
-  useSyncAllProviders,
-  useSubscriptionFeatures,
-  useSubscriptionLimits,
-} from '@/hooks/queries';
-import { useAuthStore } from '@/stores/auth-store';
-import { logger } from '@/lib/logger';
-import { useTranslations } from '@/lib/hooks/use-translations';
 import { WritingStyleSettings } from '@/components/email/compose/WritingStyleSettings';
 import { MfaSettings } from '@/components/mfa';
-import {
-  DEFAULT_USER_SETTINGS,
-  getStoredUserSettings,
-  persistUserSettings,
-} from '@/lib/utils/user-settings';
 import {
   GeneralSettings,
   AiSettings,
@@ -62,86 +31,16 @@ import { ConsentSettings } from '@/components/dashboard/consent/ConsentSettings'
 import { DataExportPanel } from '@/components/dashboard/data-rights/DataExportPanel';
 import { AccountDeletionPanel } from '@/components/dashboard/data-rights/AccountDeletionPanel';
 import { BillingPanel } from '@/components/billing';
-import {
-  useSignatures,
-  useCreateSignature,
-  useUpdateSignature,
-  useDeleteSignature,
-  useSetDefaultSignature,
-} from '@/hooks/queries/use-signatures';
-
-type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'dataRights' | 'account' | 'billing';
+import { useSettingsState } from './settings/useSettingsState';
+import type { SettingsSection } from './settings/useSettingsState';
+import { useSettingsCopy } from './settings/useSettingsCopy';
+import { useSettingsHandlers } from './settings/useSettingsHandlers';
+import { SettingsSidebar } from './settings/SettingsSidebar';
 
 export function Settings() {
-  const router = useRouter();
-  const { user } = useAuth();
-  const t = useTranslations();
-  const { theme, setTheme } = useThemePersistence();
-  const settingsCopy = useMemo(() => t.settings, [t]);
-  const [hydrated, setHydrated] = useState(false);
-  const [selectedSection, setSelectedSection] = useState<SettingsSection>('general');
-  const [language, setLanguage] = useState(DEFAULT_USER_SETTINGS.language);
-  const [timezone, setTimezone] = useState(DEFAULT_USER_SETTINGS.timezone);
-  const [emailNotifications, setEmailNotifications] = useState(DEFAULT_USER_SETTINGS.emailNotifications);
-
-  // TanStack Query hooks
-  const { data: providers = [], isLoading: providersLoading, refetch: refetchProviders } = useProviders();
-  const { data: userPrefsData } = useUserPreferences();
-  const { data: subscriptionFeatures } = useSubscriptionFeatures();
-  const { data: subscriptionLimits, refetch: refetchLimits } = useSubscriptionLimits();
-  const updatePreferencesMutation = useUpdatePreferences();
-  const syncAllMutation = useSyncAllProviders();
-  const aiProfileLoading = false; // AI profile endpoint removed
-  const aiSaveLoading = updatePreferencesMutation.isPending;
-
-  // Feature flags based on subscription plan
-  const canUseSmartReplies = subscriptionFeatures?.smart_replies ?? false;
-  const canUseSummaries = subscriptionFeatures?.summaries ?? false;
-  const canUseTriage = subscriptionFeatures?.auto_triage ?? false;
-
-  // UI state
-  const [providerError, setProviderError] = useState('');
-  const [providerSuccess, setProviderSuccess] = useState('');
-  const [saveLoading, setSaveLoading] = useState(false);
-  const [generalSuccess, setGeneralSuccess] = useState('');
-  const [generalError, setGeneralError] = useState('');
-  const [aiError, setAiError] = useState('');
-  const [aiSuccess, setAiSuccess] = useState('');
-  const [aiDataLoading] = useState(false);
-
-  // AI state
-  const [jobRole, setJobRole] = useState<string>('');
-  const [communicationStyle, setCommunicationStyle] = useState<CommunicationStyle>('CASUAL');
-  const [responseLength, setResponseLength] = useState<ResponseLength>('MODERATE');
-  const [proactivityLevel, setProactivityLevel] = useState<ProactivityLevel>('MEDIUM');
-  const [autoApproveThreshold, setAutoApproveThreshold] = useState<number>(85);
-  const [smartRepliesEnabled, setSmartRepliesEnabled] = useState(true);
-  const [summarizationEnabled, setSummarizationEnabled] = useState(true);
-  const [schedulingEnabled, setSchedulingEnabled] = useState(true);
-  const [triageEnabled, setTriageEnabled] = useState(false);
-  // Display state (email density moved here per roadmap Phase A2)
-  const [emailDensity, setEmailDensity] = useState<string>('comfortable');
-
-  // Delete account state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
-
-  // Avatar state
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-
-  const logout = useAuthStore((state) => state.logout);
-  const setUser = useAuthStore((state) => state.setUser);
-
-  // Signature hooks
-  const { data: signaturesData = [], isLoading: signaturesLoading } = useSignatures();
-  const createSignatureMutation = useCreateSignature();
-  const updateSignatureMutation = useUpdateSignature();
-  const deleteSignatureMutation = useDeleteSignature();
-  const setDefaultSignatureMutation = useSetDefaultSignature();
-  const [signatureError, setSignatureError] = useState('');
+  const s = useSettingsState();
+  const { t, settingsCopy, generalCopy, aiCopy, accountsCopy, accountCopy, signaturesCopy } = useSettingsCopy();
+  const h = useSettingsHandlers(s, settingsCopy);
 
   const sections = useMemo(
     () => [
@@ -158,412 +57,33 @@ export function Settings() {
     [settingsCopy.sections],
   );
 
-  // Sync AI feature toggles from user preferences
-  useEffect(() => {
-    if (userPrefsData) {
-      // Load AI feature toggles from backend (with fallback to defaults)
-      setSmartRepliesEnabled(userPrefsData.aiSmartRepliesEnabled ?? true);
-      setSummarizationEnabled(userPrefsData.aiSummarizationEnabled ?? true);
-      setSchedulingEnabled(userPrefsData.aiSchedulingEnabled ?? true);
-      setTriageEnabled(userPrefsData.aiAutoTriageEnabled ?? false);
-      // Convert threshold from 0-1 to 0-100 for slider
-      setAutoApproveThreshold((userPrefsData.aiAutoApproveThreshold ?? 0.85) * 100);
-      // Load display preference
-      setEmailDensity(userPrefsData.emailDensity ?? 'comfortable');
-    }
-  }, [userPrefsData]);
-
-  // Load settings from localStorage
-  useEffect(() => {
-    const saved = getStoredUserSettings();
-    setLanguage(saved.language);
-    setTimezone(saved.timezone);
-    setEmailNotifications(saved.emailNotifications);
-    setHydrated(true);
-  }, []);
-
-  // Load avatar from user profile
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const profile = await usersApi.getProfile();
-        setAvatarUrl(profile.avatarUrl);
-      } catch {
-        // Ignore errors, avatar is optional
-      }
-    };
-    loadProfile();
-  }, []);
-
   // Handle URL section param
   useEffect(() => {
-    if (!router.isReady) return;
-    const sectionParam = router.query.section;
-    if (typeof sectionParam === 'string' && sections.some((s) => s.id === sectionParam)) {
-      setSelectedSection(sectionParam as SettingsSection);
+    if (!s.router.isReady) return;
+    const sectionParam = s.router.query.section;
+    if (typeof sectionParam === 'string' && sections.some((sec) => sec.id === sectionParam)) {
+      s.setSelectedSection(sectionParam as SettingsSection);
     }
-  }, [router.isReady, router.query.section, sections]);
+  }, [s.router.isReady, s.router.query.section, sections, s.setSelectedSection]);
 
   // Handle OAuth callback
   useEffect(() => {
-    if (!router.isReady) return;
-    const { success, error } = router.query;
+    if (!s.router.isReady) return;
+    const { success, error } = s.router.query;
     if (success) {
-      setSelectedSection('accounts');
-      setProviderSuccess('Account connected successfully');
-      refetchProviders();
-      router.replace({ pathname: router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
+      s.setSelectedSection('accounts');
+      s.setProviderSuccess('Account connected successfully');
+      s.refetchProviders();
+      s.router.replace({ pathname: s.router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
     }
     if (error && typeof error === 'string') {
-      setSelectedSection('accounts');
-      setProviderError(error);
-      router.replace({ pathname: router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
+      s.setSelectedSection('accounts');
+      s.setProviderError(error);
+      s.router.replace({ pathname: s.router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
     }
-  }, [router, refetchProviders]);
+  }, [s.router, s.refetchProviders, s.setSelectedSection, s.setProviderSuccess, s.setProviderError]);
 
-  const handleSectionSelect = useCallback(
-    (sectionId: SettingsSection) => {
-      setSelectedSection(sectionId);
-      if (!router.isReady) return;
-      router.replace({ pathname: router.pathname, query: { section: sectionId } }, undefined, { shallow: true });
-    },
-    [router],
-  );
-
-  // Handlers
-  const handleSaveSettings = async () => {
-    try {
-      setSaveLoading(true);
-      setGeneralError('');
-      setGeneralSuccess('');
-      // CRITICAL FIX: Send timezone to API (was only sending language!)
-      await usersApi.updatePreferences({ language, timezone, emailDensity });
-      persistUserSettings({ language, timezone, emailNotifications });
-      setGeneralSuccess(settingsCopy.generalPanel?.saveSuccess || 'Settings saved');
-    } catch {
-      setGeneralError(settingsCopy.generalPanel?.saveError || 'Failed to save');
-    } finally {
-      setSaveLoading(false);
-    }
-  };
-
-  const handleSyncAll = useCallback(async () => {
-    if (!confirm(settingsCopy.mailAccountsPanel?.syncConfirm || 'Sync all accounts?')) {
-      return;
-    }
-    try {
-      const result = await syncAllMutation.mutateAsync();
-      if (result.success) {
-        setProviderSuccess(result.message || settingsCopy.mailAccountsPanel?.syncStarted || 'Sync started');
-      } else {
-        setProviderError(result.message || 'Sync returned unsuccessful');
-      }
-    } catch {
-
-      setProviderError(settingsCopy.mailAccountsPanel?.syncFailed || 'Sync failed');
-    }
-  }, [syncAllMutation, settingsCopy.mailAccountsPanel]);
-
-  const handleSaveAiProfile = useCallback(async () => {
-    try {
-      setAiError('');
-      setAiSuccess('');
-      await updatePreferencesMutation.mutateAsync({
-        aiSmartRepliesEnabled: smartRepliesEnabled,
-        aiSummarizationEnabled: summarizationEnabled,
-        aiSchedulingEnabled: schedulingEnabled,
-        aiAutoTriageEnabled: triageEnabled,
-        aiAutoApproveThreshold: autoApproveThreshold / 100,
-      });
-      setAiSuccess(settingsCopy.aiPanel?.savePreferences || 'Saved');
-    } catch {
-      setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
-    }
-  }, [smartRepliesEnabled, summarizationEnabled, schedulingEnabled, triageEnabled, autoApproveThreshold, updatePreferencesMutation, settingsCopy]);
-
-  const handleClearAiMemory = useCallback(async () => {
-    // AI memory CRUD endpoint removed — no backend support
-    setAiSuccess(settingsCopy.aiPanel?.clearMemory || 'Memory cleared');
-  }, [settingsCopy]);
-
-  const handleDeleteAccount = useCallback(async () => {
-    const confirmWord = language === 'it' ? 'ELIMINA' : 'DELETE';
-    if (deleteConfirmText !== confirmWord) return;
-    try {
-      setDeleteLoading(true);
-      setDeleteError('');
-      await usersApi.deleteAccount();
-      logout();
-      router.push('/login');
-    } catch (error) {
-      logger.error('Failed to delete account', { error });
-      setDeleteError(settingsCopy.accountPanel?.deleteDialogError || 'Failed to delete');
-    } finally {
-      setDeleteLoading(false);
-    }
-  }, [deleteConfirmText, language, router, logout, settingsCopy]);
-
-  const handleProviderInitiated = useCallback(() => setProviderSuccess('Redirecting...'), []);
-  const handleProviderConnected = useCallback(() => { setProviderSuccess('Connected'); refetchProviders(); }, [refetchProviders]);
-  const handleProviderDeleted = useCallback(() => { setProviderSuccess('Disconnected'); refetchProviders(); }, [refetchProviders]);
-  const handleCloseDeleteDialog = useCallback(() => { setDeleteDialogOpen(false); setDeleteConfirmText(''); setDeleteError(''); }, []);
-
-  // Avatar handlers
-  // Resize and compress image before upload (max 256x256, JPEG 85% quality)
-  const resizeImage = useCallback((file: File, maxSize = 256): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        // Calculate new dimensions maintaining aspect ratio
-        if (width > height) {
-          if (width > maxSize) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
-          }
-        } else {
-          if (height > maxSize) {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
-
-        // Draw with high quality
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Export as JPEG with 85% quality (good balance of size/quality)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        resolve(dataUrl);
-      };
-      img.onerror = reject;
-    });
-  }, []);
-
-  const handleAvatarUpload = useCallback(async (file: File) => {
-    try {
-      setAvatarUploading(true);
-      // Resize and compress image before upload
-      const resizedDataUrl = await resizeImage(file);
-      const result = await usersApi.uploadAvatar(resizedDataUrl);
-      setAvatarUrl(result.avatarUrl);
-      // Update auth store so Header shows new avatar
-      if (user) {
-        setUser({ ...user, avatarUrl: result.avatarUrl });
-      }
-    } catch (error) {
-      logger.error('Failed to upload avatar', { error });
-    } finally {
-      setAvatarUploading(false);
-    }
-  }, [resizeImage, user, setUser]);
-
-  const handleAvatarRemove = useCallback(async () => {
-    try {
-      setAvatarUploading(true);
-      await usersApi.deleteAvatar();
-      setAvatarUrl(null);
-      // Update auth store so Header removes avatar
-      if (user) {
-        setUser({ ...user, avatarUrl: null });
-      }
-    } catch (error) {
-      logger.error('Failed to remove avatar', { error });
-    } finally {
-      setAvatarUploading(false);
-    }
-  }, [user, setUser]);
-
-  // New handler for avatar editor (accepts data URL directly)
-  const handleAvatarSave = useCallback(async (dataUrl: string) => {
-    try {
-      setAvatarUploading(true);
-      const result = await usersApi.uploadAvatar(dataUrl);
-      setAvatarUrl(result.avatarUrl);
-      // Update auth store so Header shows new avatar
-      if (user) {
-        setUser({ ...user, avatarUrl: result.avatarUrl });
-      }
-    } catch (error) {
-      logger.error('Failed to save avatar', { error });
-      throw error; // Re-throw so dialog knows save failed
-    } finally {
-      setAvatarUploading(false);
-    }
-  }, [user, setUser]);
-
-  const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
-
-  // Build copy objects for child components
-  const generalCopy = useMemo(() => ({
-    title: settingsCopy.generalPanel?.title || 'General',
-    description: settingsCopy.generalPanel?.description || '',
-    appearanceTitle: settingsCopy.generalPanel?.appearanceTitle || 'Appearance',
-    themeLabel: settingsCopy.generalPanel?.themeLabel || 'Theme',
-    themeOptions: settingsCopy.generalPanel?.themeOptions || { light: 'Light', dark: 'Dark', system: 'System' },
-    emailDensityLabel: settingsCopy.generalPanel?.emailDensityLabel || 'Email List Density',
-    emailDensityDescription: settingsCopy.generalPanel?.emailDensityDescription || 'Adjust spacing in email lists',
-    emailDensities: settingsCopy.generalPanel?.emailDensities || { comfortable: 'Comfortable', compact: 'Compact', spacious: 'Spacious' },
-    languageTitle: settingsCopy.generalPanel?.languageTitle || 'Language',
-    languageLabel: settingsCopy.generalPanel?.languageLabel || 'Language',
-    timezoneLabel: settingsCopy.generalPanel?.timezoneLabel || 'Timezone',
-    saveSuccess: settingsCopy.generalPanel?.saveSuccess || 'Saved',
-    saveError: settingsCopy.generalPanel?.saveError || 'Failed',
-    saving: settingsCopy.aiPanel?.saving || 'Saving...',
-    save: 'Save',
-  }), [settingsCopy]);
-
-  const aiCopy = useMemo(() => ({
-    title: settingsCopy.aiPanel?.title || 'AI',
-    description: settingsCopy.aiPanel?.description || '',
-    featuresTitle: settingsCopy.aiPanel?.featuresTitle || 'Features',
-    featuresDescription: settingsCopy.aiPanel?.featuresDescription || '',
-    smartRepliesTitle: settingsCopy.aiPanel?.smartRepliesTitle || 'Smart Replies',
-    smartRepliesDescription: settingsCopy.aiPanel?.smartRepliesDescription || '',
-    smartRepliesRequiresStarter: settingsCopy.aiPanel?.smartRepliesRequiresStarter || 'Requires Starter plan or higher',
-    summarizationTitle: settingsCopy.aiPanel?.summarizationTitle || 'Summarization',
-    summarizationDescription: settingsCopy.aiPanel?.summarizationDescription || '',
-    summarizationRequiresStarter: settingsCopy.aiPanel?.summarizationRequiresStarter || 'Requires Starter plan or higher',
-    schedulingTitle: settingsCopy.aiPanel?.schedulingTitle || 'Scheduling',
-    schedulingDescription: settingsCopy.aiPanel?.schedulingDescription || '',
-    triageTitle: settingsCopy.aiPanel?.triageTitle || 'Auto-Triage',
-    triageDescription: settingsCopy.aiPanel?.triageDescription || 'Automatically prioritize and label incoming emails',
-    triageRequiresPro: settingsCopy.aiPanel?.triageRequiresPro || 'Requires Professional plan',
-    personalizationTitle: settingsCopy.aiPanel?.personalizationTitle || 'Personalization',
-    personalizationDescription: settingsCopy.aiPanel?.personalizationDescription || '',
-    roleLabel: settingsCopy.aiPanel?.roleLabel || 'Role',
-    communicationLabel: settingsCopy.aiPanel?.communicationLabel || 'Communication',
-    responseLengthLabel: settingsCopy.aiPanel?.responseLengthLabel || 'Length',
-    proactivityLabel: settingsCopy.aiPanel?.proactivityLabel || 'Proactivity',
-    autoApproveLabel: settingsCopy.aiPanel?.autoApproveLabel || 'Auto-Approve',
-    autoApproveHint: settingsCopy.aiPanel?.autoApproveHint || '',
-    savePreferences: settingsCopy.aiPanel?.savePreferences || 'Save',
-    saving: settingsCopy.aiPanel?.saving || 'Saving...',
-    openAssistant: settingsCopy.aiPanel?.openAssistant || 'Open AI',
-    dataManagementTitle: settingsCopy.aiPanel?.dataManagementTitle || 'Data',
-    dataManagementDescription: settingsCopy.aiPanel?.dataManagementDescription || '',
-    clearMemory: settingsCopy.aiPanel?.clearMemory || 'Clear',
-    // Toggle button labels (must match backend enums)
-    styles: settingsCopy.aiPanel?.personalization?.styles || { FORMAL: 'Formal', CASUAL: 'Casual', TECHNICAL: 'Technical', CREATIVE: 'Creative' },
-    lengths: settingsCopy.aiPanel?.personalization?.lengths || { BRIEF: 'Brief', MODERATE: 'Moderate', DETAILED: 'Detailed' },
-    proactivityLevels: settingsCopy.aiPanel?.personalization?.proactivityLevels || { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' },
-  }), [settingsCopy]);
-
-  const accountsCopy = useMemo(() => ({
-    title: settingsCopy.mailAccountsPanel?.title || 'Accounts',
-    description: settingsCopy.mailAccountsPanel?.description || '',
-    connectedTitle: settingsCopy.mailAccountsPanel?.connectedTitle || 'Connected',
-    refreshTooltip: settingsCopy.mailAccountsPanel?.refreshTooltip || 'Refresh',
-    syncAll: settingsCopy.mailAccountsPanel?.syncAll || 'Sync All',
-    syncing: settingsCopy.mailAccountsPanel?.syncing || 'Syncing...',
-    addTitle: settingsCopy.mailAccountsPanel?.addTitle || 'Add',
-    addDescription: settingsCopy.mailAccountsPanel?.addDescription || '',
-    // Provider limits
-    limitTitle: t.providers.limits?.title || 'Account Limit',
-    limitCurrent: t.providers.limits?.current || '{current} of {max} accounts',
-    limitReachedTitle: t.providers.limits?.reachedTitle || 'Account Limit Reached',
-    limitReachedMessage: t.providers.limits?.reachedMessage || 'You have reached the maximum email accounts on your plan.',
-    limitUpgradePrompt: t.providers.limits?.upgradePrompt || 'Upgrade your plan to add more email accounts.',
-    limitUpgradeButton: t.providers.limits?.upgradeButton || 'Upgrade Plan',
-  }), [settingsCopy, t.providers.limits]);
-
-  const accountCopy = useMemo(() => ({
-    title: settingsCopy.accountPanel?.title || 'Account',
-    description: settingsCopy.accountPanel?.description || '',
-    profileTitle: settingsCopy.accountPanel?.profileTitle || 'Profile',
-    fullName: settingsCopy.accountPanel?.fullName || 'Name',
-    email: settingsCopy.accountPanel?.email || 'Email',
-    role: settingsCopy.accountPanel?.role || 'Role',
-    contactAdmin: settingsCopy.accountPanel?.contactAdmin || '',
-    dangerZoneTitle: settingsCopy.accountPanel?.dangerZoneTitle || 'Danger',
-    dangerZoneDescription: settingsCopy.accountPanel?.dangerZoneDescription || '',
-    deleteAccount: settingsCopy.accountPanel?.deleteAccount || 'Delete',
-    deleteDialogTitle: settingsCopy.accountPanel?.deleteDialogTitle || 'Delete',
-    deleteDialogDescription: settingsCopy.accountPanel?.deleteDialogDescription || '',
-    deleteDialogConfirmLabel: settingsCopy.accountPanel?.deleteDialogConfirmLabel || 'Type DELETE',
-    deleteDialogCancel: settingsCopy.accountPanel?.deleteDialogCancel || 'Cancel',
-    deleteDialogConfirm: settingsCopy.accountPanel?.deleteDialogConfirm || 'Delete',
-    deleteDialogDeleting: settingsCopy.accountPanel?.deleteDialogDeleting || 'Deleting...',
-    deleteDialogError: settingsCopy.accountPanel?.deleteDialogError || 'Error',
-    avatar: settingsCopy.accountPanel?.avatar,
-  }), [settingsCopy]);
-
-  const signaturesCopy = useMemo(() => ({
-    title: settingsCopy.signaturesPanel?.title || 'Email Signatures',
-    description: settingsCopy.signaturesPanel?.description || 'Create and manage email signatures.',
-    addSignature: settingsCopy.signaturesPanel?.addSignature || 'Add Signature',
-    editSignature: settingsCopy.signaturesPanel?.editSignature || 'Edit Signature',
-    deleteSignature: settingsCopy.signaturesPanel?.deleteSignature || 'Delete',
-    signatureName: settingsCopy.signaturesPanel?.signatureName || 'Signature Name',
-    signatureNamePlaceholder: settingsCopy.signaturesPanel?.signatureNamePlaceholder || 'e.g., Work, Personal',
-    signatureContent: settingsCopy.signaturesPanel?.signatureContent || 'Signature Content',
-    setAsDefault: settingsCopy.signaturesPanel?.setAsDefault || 'Set as Default',
-    defaultBadge: settingsCopy.signaturesPanel?.defaultBadge || 'Default',
-    save: settingsCopy.signaturesPanel?.save || 'Save',
-    cancel: settingsCopy.signaturesPanel?.cancel || 'Cancel',
-    deleteConfirmTitle: settingsCopy.signaturesPanel?.deleteConfirmTitle || 'Delete Signature',
-    deleteConfirmMessage: settingsCopy.signaturesPanel?.deleteConfirmMessage || 'Are you sure you want to delete this signature?',
-    noSignatures: settingsCopy.signaturesPanel?.noSignatures || 'No signatures yet.',
-    previewTitle: settingsCopy.signaturesPanel?.previewTitle || 'Preview',
-    provider: settingsCopy.signaturesPanel?.provider || 'Account',
-    allProviders: settingsCopy.signaturesPanel?.allProviders || 'All accounts',
-  }), [settingsCopy]);
-
-  // Signature handlers
-  const handleSaveSignature = useCallback(async (signature: { id?: string; name: string; content: string; providerId: string | null; isDefault: boolean }) => {
-    try {
-      setSignatureError('');
-      const providerId = signature.providerId ?? undefined;
-      if (signature.id) {
-        await updateSignatureMutation.mutateAsync({ id: signature.id, dto: { name: signature.name, content: signature.content, providerId, isDefault: signature.isDefault } });
-      } else {
-        await createSignatureMutation.mutateAsync({ name: signature.name, content: signature.content, providerId, isDefault: signature.isDefault });
-      }
-    } catch {
-      setSignatureError('Failed to save signature');
-    }
-  }, [createSignatureMutation, updateSignatureMutation]);
-
-  const handleDeleteSignature = useCallback(async (id: string) => {
-    try {
-      setSignatureError('');
-      await deleteSignatureMutation.mutateAsync(id);
-    } catch {
-      setSignatureError('Failed to delete signature');
-    }
-  }, [deleteSignatureMutation]);
-
-  const handleSetDefaultSignature = useCallback(async (id: string) => {
-    try {
-      setSignatureError('');
-      await setDefaultSignatureMutation.mutateAsync(id);
-    } catch {
-      setSignatureError('Failed to set default signature');
-    }
-  }, [setDefaultSignatureMutation]);
-
-  if (!hydrated) {
+  if (!s.hydrated) {
     return (
       <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', p: 3 }}>
         <CircularProgress size={28} />
@@ -573,36 +93,16 @@ export function Settings() {
 
   return (
     <Box sx={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      {/* Sidebar - matches email page pattern */}
-      <Box sx={{ width: 280, flexShrink: 0, display: { xs: 'none', md: 'flex' }, flexDirection: 'column', borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper', overflow: 'auto' }}>
-        <Box sx={{ p: 2 }}>
-          <List disablePadding>
-            {sections.map((section) => (
-              <ListItemButton key={section.id} selected={selectedSection === section.id} onClick={() => handleSectionSelect(section.id as SettingsSection)} sx={{ borderRadius: 2, mb: 0.5, py: 1, '&.Mui-selected': { bgcolor: (th) => alpha(th.palette.primary.main, 0.08), '&:hover': { bgcolor: (th) => alpha(th.palette.primary.main, 0.12) } } }}>
-                <ListItemIcon sx={{ minWidth: 36, color: selectedSection === section.id ? 'primary.main' : 'text.secondary' }}>{section.icon}</ListItemIcon>
-                <ListItemText primary={section.label} primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: selectedSection === section.id ? 600 : 400 }} />
-              </ListItemButton>
-            ))}
-          </List>
-        </Box>
-        <Box sx={{ mt: 'auto', p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.main', fontSize: '0.875rem' }}>{accountName.charAt(0).toUpperCase()}</Avatar>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{accountName}</Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>{user?.email}</Typography>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+      {/* Sidebar */}
+      <SettingsSidebar sections={sections} selectedSection={s.selectedSection} onSelect={h.handleSectionSelect} accountName={s.accountName} email={s.user?.email || ''} />
 
       {/* Main Content */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         {/* Mobile nav */}
         <Box sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 1.5, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', alignItems: 'center', gap: 2 }}>
           <FormControl size="small" fullWidth>
-            <Select value={selectedSection} onChange={(e) => handleSectionSelect(e.target.value as SettingsSection)}>
-              {sections.map((s) => <MenuItem key={s.id} value={s.id}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>{s.icon}{s.label}</Box></MenuItem>)}
+            <Select value={s.selectedSection} onChange={(e) => h.handleSectionSelect(e.target.value as SettingsSection)}>
+              {sections.map((sec) => <MenuItem key={sec.id} value={sec.id}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>{sec.icon}{sec.label}</Box></MenuItem>)}
             </Select>
           </FormControl>
         </Box>
@@ -610,34 +110,34 @@ export function Settings() {
         {/* Content */}
         <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 3 } }}>
           <Box sx={{ maxWidth: 1200 }}>
-            {selectedSection === 'general' && (
-              <GeneralSettings theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} timezone={timezone} setTimezone={setTimezone} emailDensity={emailDensity} setEmailDensity={setEmailDensity} saveLoading={saveLoading} onSave={handleSaveSettings} success={generalSuccess} error={generalError} onClearSuccess={() => setGeneralSuccess('')} onClearError={() => setGeneralError('')} copy={generalCopy} />
+            {s.selectedSection === 'general' && (
+              <GeneralSettings theme={s.theme} setTheme={s.setTheme} language={s.language} setLanguage={s.setLanguage} timezone={s.timezone} setTimezone={s.setTimezone} emailDensity={s.emailDensity} setEmailDensity={s.setEmailDensity} saveLoading={s.saveLoading} onSave={h.handleSaveSettings} success={s.generalSuccess} error={s.generalError} onClearSuccess={() => s.setGeneralSuccess('')} onClearError={() => s.setGeneralError('')} copy={generalCopy} />
             )}
-            {selectedSection === 'security' && <MfaSettings />}
-            {selectedSection === 'ai' && (
+            {s.selectedSection === 'security' && <MfaSettings />}
+            {s.selectedSection === 'ai' && (
               <>
-                <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} canUseSmartReplies={canUseSmartReplies} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} canUseSummaries={canUseSummaries} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} canUseTriage={canUseTriage} triageEnabled={triageEnabled} setTriageEnabled={setTriageEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
+                <AiSettings loading={s.aiProfileLoading} saveLoading={s.aiSaveLoading} dataLoading={s.aiDataLoading} success={s.aiSuccess} error={s.aiError} onClearSuccess={() => s.setAiSuccess('')} onClearError={() => s.setAiError('')} canUseSmartReplies={s.canUseSmartReplies} smartRepliesEnabled={s.smartRepliesEnabled} setSmartRepliesEnabled={s.setSmartRepliesEnabled} canUseSummaries={s.canUseSummaries} summarizationEnabled={s.summarizationEnabled} setSummarizationEnabled={s.setSummarizationEnabled} schedulingEnabled={s.schedulingEnabled} setSchedulingEnabled={s.setSchedulingEnabled} canUseTriage={s.canUseTriage} triageEnabled={s.triageEnabled} setTriageEnabled={s.setTriageEnabled} jobRole={s.jobRole} setJobRole={s.setJobRole} communicationStyle={s.communicationStyle} setCommunicationStyle={s.setCommunicationStyle} responseLength={s.responseLength} setResponseLength={s.setResponseLength} proactivityLevel={s.proactivityLevel} setProactivityLevel={s.setProactivityLevel} autoApproveThreshold={s.autoApproveThreshold} setAutoApproveThreshold={s.setAutoApproveThreshold} onSave={h.handleSaveAiProfile} onClearMemory={h.handleClearAiMemory} onOpenAssistant={() => s.router.push('/dashboard/ai')} copy={aiCopy} />
                 <WritingStyleSettings />
               </>
             )}
-            {selectedSection === 'accounts' && (
-              <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={() => { handleProviderInitiated(); refetchLimits(); }} onProviderConnected={() => { handleProviderConnected(); refetchLimits(); }} onProviderDeleted={() => { handleProviderDeleted(); refetchLimits(); }} copy={accountsCopy} limits={subscriptionLimits} />
+            {s.selectedSection === 'accounts' && (
+              <AccountsSettings providers={s.providers} providersLoading={s.providersLoading} syncLoading={s.syncAllMutation.isPending} success={s.providerSuccess} error={s.providerError} onClearSuccess={() => s.setProviderSuccess('')} onClearError={() => s.setProviderError('')} onRefresh={() => s.refetchProviders()} onSyncAll={h.handleSyncAll} onProviderInitiated={() => { h.handleProviderInitiated(); s.refetchLimits(); }} onProviderConnected={() => { h.handleProviderConnected(); s.refetchLimits(); }} onProviderDeleted={() => { h.handleProviderDeleted(); s.refetchLimits(); }} copy={accountsCopy} limits={s.subscriptionLimits} />
             )}
-            {selectedSection === 'signatures' && (
+            {s.selectedSection === 'signatures' && (
               <SignatureSettings
-                signatures={signaturesData.map(s => ({ id: s.id, name: s.name, content: s.content, providerId: s.providerId ?? null, isDefault: s.isDefault, createdAt: s.createdAt, updatedAt: s.updatedAt }))}
-                providers={providers.map(p => ({ id: p.id, email: p.email, providerType: p.providerType, isDefault: p.isDefault }))}
-                onSave={handleSaveSignature}
-                onDelete={handleDeleteSignature}
-                onSetDefault={handleSetDefaultSignature}
-                loading={signaturesLoading || createSignatureMutation.isPending || updateSignatureMutation.isPending || deleteSignatureMutation.isPending}
-                error={signatureError}
-                onClearError={() => setSignatureError('')}
+                signatures={s.signaturesData.map(sig => ({ id: sig.id, name: sig.name, content: sig.content, providerId: sig.providerId ?? null, isDefault: sig.isDefault, createdAt: sig.createdAt, updatedAt: sig.updatedAt }))}
+                providers={s.providers.map(p => ({ id: p.id, email: p.email, providerType: p.providerType, isDefault: p.isDefault }))}
+                onSave={h.handleSaveSignature}
+                onDelete={h.handleDeleteSignature}
+                onSetDefault={h.handleSetDefaultSignature}
+                loading={s.signaturesLoading || s.createSignatureMutation.isPending || s.updateSignatureMutation.isPending || s.deleteSignatureMutation.isPending}
+                error={s.signatureError}
+                onClearError={() => s.setSignatureError('')}
                 copy={signaturesCopy}
               />
             )}
-            {selectedSection === 'consent' && <ConsentSettings />}
-            {selectedSection === 'dataRights' && (
+            {s.selectedSection === 'consent' && <ConsentSettings />}
+            {s.selectedSection === 'dataRights' && (
               <Box>
                 <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
                   {settingsCopy.dataRights?.title || 'Data & Privacy'}
@@ -649,10 +149,10 @@ export function Settings() {
                 <AccountDeletionPanel />
               </Box>
             )}
-            {selectedSection === 'account' && (
-              <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarSave={handleAvatarSave} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
+            {s.selectedSection === 'account' && (
+              <AccountSettings accountName={s.accountName} email={s.user?.email || ''} role={s.user?.role || ''} language={s.language} avatarUrl={s.avatarUrl} avatarUploading={s.avatarUploading} onAvatarUpload={h.handleAvatarUpload} onAvatarSave={h.handleAvatarSave} onAvatarRemove={h.handleAvatarRemove} deleteDialogOpen={s.deleteDialogOpen} deleteConfirmText={s.deleteConfirmText} deleteLoading={s.deleteLoading} deleteError={s.deleteError} onOpenDeleteDialog={() => s.setDeleteDialogOpen(true)} onCloseDeleteDialog={h.handleCloseDeleteDialog} onDeleteConfirmTextChange={s.setDeleteConfirmText} onDeleteAccount={h.handleDeleteAccount} copy={accountCopy} />
             )}
-            {selectedSection === 'billing' && <BillingPanel />}
+            {s.selectedSection === 'billing' && <BillingPanel />}
           </Box>
         </Box>
       </Box>
