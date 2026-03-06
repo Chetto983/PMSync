@@ -76,7 +76,8 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 
 - [x] **Phase 50: Schema & Infrastructure** - Prisma models for better-auth, dual instances (Next.js + NestJS), cookie/session config
 - [x] **Phase 51: Core Email/Password Auth** - Sign up, sign in, email verification, password reset via better-auth
-- [x] **Phase 52: NestJS Session Validation** - Guards rewrite, tenant bridge, bodyParser fix, BullMQ context (completed 2026-03-06)
+- [x] **Phase 52: NestJS Session Validation** - Guards rewrite, tenant bridge, bodyParser fix, BullMQ context
+ (completed 2026-03-06)
 - [ ] **Phase 53: Frontend Auth UI** - Login/signup pages, session hooks, protected routes with better-auth client
 - [ ] **Phase 54: WebSocket Auth** - Handshake service rewrite for DB-backed session tokens
 - [ ] **Phase 55: Social Login & MFA** - Google OAuth, TOTP 2FA, passkeys, backup codes, security settings
@@ -163,11 +164,11 @@ Plans:
 - [ ] 54-01: TBD
 
 ### Phase 55: Social Login & MFA
-**Goal**: Users can sign in with Google and protect their accounts with TOTP or passkeys
+**Goal**: Users can sign in with Google or Microsoft and protect their accounts with TOTP or passkeys
 **Depends on**: Phase 53
 **Requirements**: CORE-03, SEC-01, SEC-02, SEC-03, SEC-04
 **Success Criteria** (what must be TRUE):
-  1. User can sign in with Google OAuth and land on the dashboard with a valid session
+  1. User can sign in with Google or Microsoft OAuth and land on the dashboard with a valid session
   2. User can enable TOTP 2FA, scan QR code, and is prompted for TOTP code on subsequent logins
   3. User can use backup codes to bypass TOTP when their device is unavailable
   4. User can register a passkey (WebAuthn) and use it as primary or second-factor authentication
@@ -239,7 +240,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 |-------|-----------|----------------|--------|-----------|
 | 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
 | 51. Core Email/Password Auth | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 52. NestJS Session Validation | 3/3 | Complete   | 2026-03-06 | - |
+| 52. NestJS Session Validation | 3/3 | Complete    | 2026-03-06 | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
 | 54. WebSocket Auth | v5.0 | 0/TBD | Not started | - |
 | 55. Social Login & MFA | v5.0 | 0/TBD | Not started | - |
