@@ -93,13 +93,47 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| CORE-01 | Phase 51 | Pending |
+| CORE-02 | Phase 51 | Pending |
+| CORE-03 | Phase 55 | Pending |
+| CORE-04 | Phase 51 | Pending |
+| CORE-05 | Phase 51 | Pending |
+| CORE-06 | Phase 50 | Pending |
+| CORE-07 | Phase 50 | Pending |
+| NEST-01 | Phase 52 | Pending |
+| NEST-02 | Phase 52 | Pending |
+| NEST-03 | Phase 52 | Pending |
+| NEST-04 | Phase 52 | Pending |
+| NEST-05 | Phase 54 | Pending |
+| NEST-06 | Phase 52 | Pending |
+| FEUI-01 | Phase 53 | Pending |
+| FEUI-02 | Phase 53 | Pending |
+| FEUI-03 | Phase 53 | Pending |
+| FEUI-04 | Phase 53 | Pending |
+| SEC-01 | Phase 55 | Pending |
+| SEC-02 | Phase 55 | Pending |
+| SEC-03 | Phase 55 | Pending |
+| SEC-04 | Phase 55 | Pending |
+| ORG-01 | Phase 56 | Pending |
+| ORG-02 | Phase 56 | Pending |
+| ORG-03 | Phase 56 | Pending |
+| ORG-04 | Phase 56 | Pending |
+| ORG-05 | Phase 56 | Pending |
+| ADM-01 | Phase 57 | Pending |
+| ADM-02 | Phase 57 | Pending |
+| ADM-03 | Phase 57 | Pending |
+| ADM-04 | Phase 57 | Pending |
+| CLN-01 | Phase 58 | Pending |
+| CLN-02 | Phase 58 | Pending |
+| CLN-03 | Phase 58 | Pending |
+| CLN-04 | Phase 58 | Pending |
+| CLN-05 | Phase 58 | Pending |
 
 **Coverage:**
-- v5.0 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30
+- v5.0 requirements: 35 total
+- Mapped to phases: 35
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-06 after initial definition*
+*Last updated: 2026-03-06 after roadmap creation (traceability populated)*
