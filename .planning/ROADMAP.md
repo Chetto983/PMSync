@@ -64,7 +64,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 42: Tenant Isolation & Auth Hardening** - ~~Prisma tenant-scoping~~ (DONE), RolesGuard expansion, JWT refresh rotation
  (completed 2026-03-04)
 - [x] **Phase 43: Contract Tests & Backend God-File Splits** - API contract tests in CI, attachment streaming, 5 backend god-files decomposed (completed 2026-03-05)
-- [ ] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification
+- [ ] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification (3/4 plans)
 - [ ] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to 0 files via domain events and shared interfaces
 - [ ] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters
 - [ ] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget
@@ -124,9 +124,9 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
-- [ ] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
-- [ ] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
+- [x] 44-01-PLAN.md -- Playwright visual regression scaffold + DashboardContainer split
+- [x] 44-02-PLAN.md -- Header + ContactDetail inline component extraction
+- [x] 44-03-PLAN.md -- email-ui-store Zustand slices + Settings hook extraction
 - [ ] 44-04-PLAN.md -- Contacts + Calendar hook extraction + QUAL-14 line count verification
 
 ### Phase 45: forwardRef Burn-Down

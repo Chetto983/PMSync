@@ -45,8 +45,8 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 - [ ] **QUAL-07**: Calendar.tsx (1180 lines) split into CalendarGrid, CalendarSidebar, CalendarEventModal, CalendarToolbar
 - [ ] **QUAL-08**: Contacts.tsx (1021 lines) split into ContactList, ContactListItem, ContactFilters
-- [ ] **QUAL-09**: Header.tsx (799 lines) split into SearchBar, UserMenu, NotificationBell, NavTabs
-- [ ] **QUAL-10**: ContactDetail.tsx (720 lines) split into ContactDetailTabs, ContactActivityFeed, ContactInfoPanel
+- [x] **QUAL-09**: Header.tsx (799 lines) split into SearchBar, UserMenu, NotificationBell, NavTabs
+- [x] **QUAL-10**: ContactDetail.tsx (720 lines) split into ContactDetailTabs, ContactActivityFeed, ContactInfoPanel
 - [x] **QUAL-11**: DashboardContainer.tsx (674 lines) split into DashboardGrid, DashboardWidgetWrapper
 - [x] **QUAL-12**: Settings.tsx (661 lines) split into per-section SettingsSection components
 - [x] **QUAL-13**: email-ui-store.ts (552 lines) split into email-selection-store, email-filter-store
@@ -162,8 +162,8 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | QUAL-06 | Phase 43 | Complete |
 | QUAL-07 | Phase 44 | Pending |
 | QUAL-08 | Phase 44 | Pending |
-| QUAL-09 | Phase 44 | Pending |
-| QUAL-10 | Phase 44 | Pending |
+| QUAL-09 | Phase 44 | Complete |
+| QUAL-10 | Phase 44 | Complete |
 | QUAL-11 | Phase 44 | Complete |
 | QUAL-12 | Phase 44 | Complete |
 | QUAL-13 | Phase 44 | Complete |
