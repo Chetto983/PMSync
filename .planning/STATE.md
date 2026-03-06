@@ -68,6 +68,11 @@ Progress: [██████████] 100%
 - [51-02] Used requestPasswordReset (not forgetPassword) -- better-auth v1.5 typed client
 - [51-02] Spread firstName/lastName via Record<string,string> cast for additionalFields compatibility
 - [51-02] Always show success on forgot-password to prevent email enumeration
+- [52-01] Global @Public() opt-out pattern instead of per-controller @UseGuards opt-in
+- [52-01] BetterAuthGuard order: Throttler -> BetterAuth -> Legal -> Consent
+- [52-01] BetterAuthModule @Global() for guard DI without explicit imports
+- [52-01] AuthController per-route @Public() (not class-level) to keep me/logout protected
+- [52-01] No bodyParser changes (NEST-04) -- NestJS is session consumer only
 - [52-02] TenantGuard requires zero code changes -- BetterAuthGuard maps session to identical request.user shape
 - [52-02] RolesGuard requires zero code changes -- already reads request.user.role
 - [52-02] BullMQ tenantId propagation unaffected -- same req.user.tenantId shape
