@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import Redis from 'ioredis';
 import { RealtimeEventsService } from '../services/realtime-events.service';
 import { RealtimeHandshakeService } from '../services/realtime-handshake.service';
 import type { IRealtimeGateway } from '../types/realtime-gateway.interface';
@@ -17,6 +18,7 @@ import {
   AuthenticatedSocket,
   buildTenantScopedRoom,
 } from '../types/realtime.types';
+import { getRedisConnectionOptions } from '../../../config/configuration';
 
 // Room name validation constants
 const ROOM_NAME_MAX_LENGTH = 100;
@@ -63,7 +65,7 @@ function validateRoomName(room: unknown): string | null {
     credentials: true,
   },
   namespace: '/realtime',
-  transports: ['websocket', 'polling'],
+  transports: ['websocket'],
 })
 export class RealtimeGateway
   implements IRealtimeGateway, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
@@ -74,16 +76,27 @@ export class RealtimeGateway
   private readonly logger = new Logger(RealtimeGateway.name);
 
   /**
-   * Traccia esplicito dei tenant con connessioni attive
-   * Map: tenantId -> numero di connessioni
-   * Più affidabile del controllo delle rooms
+   * Redis client for tenant connection counters.
+   * Key pattern: ws:tenant:{tenantId}:conns
+   * Enables accurate counts across multiple backend instances.
    */
-  private activeTenantConnections = new Map<string, number>();
+  private redisCounter: Redis;
 
   constructor(
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly handshakeService: RealtimeHandshakeService,
-  ) {}
+  ) {
+    const opts = getRedisConnectionOptions();
+    this.redisCounter = new Redis({
+      ...opts,
+      connectionName: 'ws-counter',
+      lazyConnect: false,
+    });
+  }
+
+  private tenantKey(tenantId: string): string {
+    return `ws:tenant:${tenantId}:conns`;
+  }
 
   onModuleInit() {
     // Injetta il gateway nel service per evitare circular dependency
@@ -110,11 +123,10 @@ export class RealtimeGateway
 
       await client.join(authContext.tenantRoom);
 
-      // Traccia il tenant come attivo - incrementa il counter
-      const currentCount = this.activeTenantConnections.get(client.tenantId) || 0;
-      this.activeTenantConnections.set(client.tenantId, currentCount + 1);
+      // Traccia il tenant come attivo - incrementa il counter in Redis
+      const count = await this.redisCounter.incr(this.tenantKey(client.tenantId));
 
-      this.logger.log(`[WS] Client connected: ${client.id} | User: ${client.email} | Tenant: ${client.tenantId} | Room: ${authContext.tenantRoom} | Connections: ${this.activeTenantConnections.get(client.tenantId)}`);
+      this.logger.log(`[WS] Client connected: ${client.id} | User: ${client.email} | Tenant: ${client.tenantId} | Room: ${authContext.tenantRoom} | Connections: ${count}`);
 
       // Notifica il client della connessione riuscita
       client.emit('connected', {
@@ -134,21 +146,21 @@ export class RealtimeGateway
   /**
    * Gestisce disconnessioni
    */
-  handleDisconnect(client: AuthenticatedSocket) {
-    // Decrementa il counter delle connessioni per questo tenant
+  async handleDisconnect(client: AuthenticatedSocket) {
+    // Decrementa il counter delle connessioni per questo tenant in Redis
     if (client.tenantId) {
-      const currentCount = this.activeTenantConnections.get(client.tenantId) || 0;
-      if (currentCount <= 1) {
-        // Ultima connessione, rimuovi il tenant
-        this.activeTenantConnections.delete(client.tenantId);
+      const key = this.tenantKey(client.tenantId);
+      const remaining = await this.redisCounter.decr(key);
+
+      if (remaining <= 0) {
+        // Cleanup the key when no connections remain
+        await this.redisCounter.del(key);
         this.logger.log(
           `[WS] Client disconnected: ${client.id} | User: ${client.email || 'unknown'} | Tenant: ${client.tenantId} | Last connection - tenant removed`,
         );
       } else {
-        // Ancora altre connessioni, decrementa
-        this.activeTenantConnections.set(client.tenantId, currentCount - 1);
         this.logger.log(
-          `[WS] Client disconnected: ${client.id} | User: ${client.email || 'unknown'} | Tenant: ${client.tenantId} | Remaining connections: ${currentCount - 1}`,
+          `[WS] Client disconnected: ${client.id} | User: ${client.email || 'unknown'} | Tenant: ${client.tenantId} | Remaining connections: ${remaining}`,
         );
       }
     } else {
@@ -232,8 +244,9 @@ export class RealtimeGateway
    * @param tenantId ID del tenant
    * @returns true se ci sono client connessi per questo tenant
    */
-  hasTenantConnections(tenantId: string): boolean {
-    const count = this.activeTenantConnections.get(tenantId) || 0;
+  async hasTenantConnections(tenantId: string): Promise<boolean> {
+    const raw = await this.redisCounter.get(this.tenantKey(tenantId));
+    const count = parseInt(raw || '0', 10);
     const hasConnections = count > 0;
 
     this.logger.debug(
@@ -246,7 +259,8 @@ export class RealtimeGateway
   /**
    * Cleanup quando il gateway viene distrutto
    */
-  onModuleDestroy() {
-    // No resources to clean up; Socket.IO handles its own lifecycle.
+  async onModuleDestroy() {
+    await this.redisCounter.quit();
+    this.logger.log('Redis counter client disconnected');
   }
 }

@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "prepare": "cd .. && husky install .husky",
-    "prebuild": "prisma generate && rimraf dist",
+    "prebuild": "prisma generate && rimraf dist .tsbuildinfo",
     "prestart:dev": "rimraf .tsbuildinfo",
     "prestart:debug": "rimraf .tsbuildinfo",
     "build": "nest build",
@@ -63,6 +63,7 @@
     "@prisma/client": "^7.4.2",
     "@sentinelseed/voltagent": "^0.2.2",
     "@simplewebauthn/server": "^13.2.2",
+    "@socket.io/redis-adapter": "^8.3.0",
     "@types/archiver": "^7.0.0",
     "@willsoto/nestjs-prometheus": "^6.0.2",
     "ai": "^6.0.77",

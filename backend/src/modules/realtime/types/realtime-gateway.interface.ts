@@ -6,5 +6,5 @@ import type { Server } from 'socket.io';
 
 export interface IRealtimeGateway {
   server: Server;
-  hasTenantConnections(tenantId: string): boolean;
+  hasTenantConnections(tenantId: string): Promise<boolean>;
 }

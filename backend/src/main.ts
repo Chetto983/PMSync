@@ -10,6 +10,7 @@ import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { CorrelationInterceptor } from './common/interceptors/correlation.interceptor';
 import { getConfiguration } from './config/configuration';
 import { csrfMiddleware } from './common/middleware/csrf.middleware';
+import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 
 /**
  * Bootstraps and starts the NestJS HTTP server with configured middleware, docs, legacy-route handling, and graceful shutdown.
@@ -180,6 +181,11 @@ async function bootstrap() {
       });
     });
   }
+
+  // Wire Redis-backed WebSocket adapter for horizontal scaling (INFRA-01)
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
 
   // Enable graceful shutdown
   app.enableShutdownHooks();

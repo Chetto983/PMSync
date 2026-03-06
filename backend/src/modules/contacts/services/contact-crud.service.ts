@@ -87,7 +87,7 @@ export class ContactCrudService {
 
   async updateContactCounts(tenantId: string): Promise<void> {
     try {
-      if (!this.realtimeEvents.hasTenantConnections(tenantId)) return;
+      if (!(await this.realtimeEvents.hasTenantConnections(tenantId))) return;
       const counts = await this.getContactCounts(tenantId);
       this.realtimeEvents.emitContactCounts(tenantId, counts);
     } catch (error: any) { this.logger.warn(`Failed to update contact counts: ${error?.message}`); }

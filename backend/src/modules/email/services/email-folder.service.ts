@@ -421,7 +421,7 @@ export class EmailFolderService {
     this.logger.debug(`Processing folder counts for ${uniqueFolders.length} folders (Tenant: ${tenantId})`);
 
     try {
-      if (!this.realtimeEvents.hasTenantConnections(tenantId)) {
+      if (!(await this.realtimeEvents.hasTenantConnections(tenantId))) {
         this.logger.debug(`Skipping folder count update for inactive tenant: ${tenantId}`);
         return;
       }
