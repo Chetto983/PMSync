@@ -1,0 +1,358 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useMediaQuery, useTheme } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
+import { type Contact, type ContactCounts } from '@/lib/api/contacts';
+import {
+  useContactCounts,
+  useCreateContact,
+  useUpdateContact,
+  useDeleteContact,
+  useSyncAllContacts,
+  contactsListOptions,
+  contactDetailOptions,
+} from '@/hooks/queries/use-contacts';
+import { logger } from '@/lib/logger';
+import { providersApi, type ProviderConfig } from '@/lib/api/providers';
+import { useContactStore } from '@/stores/contact-store';
+import {
+  websocketClient,
+  type RealtimeContactEvent,
+  type RealtimeSyncStatus,
+  type RealtimeContactCountsEvent,
+} from '@/lib/websocket-client';
+import { type ProviderFilter } from '@/components/contacts';
+
+export function useContactsPageData() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Store state
+  const {
+    contacts: storeContacts,
+    setContacts: setStoreContacts,
+    selectedIds,
+    toggleSelection,
+    clearSelection,
+    setSelectedIds,
+  } = useContactStore();
+
+  // TanStack Query client for imperative fetching
+  const queryClient = useQueryClient();
+
+  // TanStack Query hooks for data fetching and mutations
+  const { data: contactCountsData, refetch: refetchContactCounts } = useContactCounts();
+  const createContactMutation = useCreateContact();
+  const updateContactMutation = useUpdateContact();
+  const deleteContactMutation = useDeleteContact();
+  const syncAllMutation = useSyncAllContacts();
+
+  // Local state
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [syncingProviders, setSyncingProviders] = useState<Set<string>>(new Set());
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({ offset: 0, limit: 50, hasMore: true, total: 0 });
+
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'warning' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
+  // Dialog state
+  const [actionLoading, setActionLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
+
+  // Contact counts from TanStack Query (with fallback for initial render)
+  const contactCounts: ContactCounts = contactCountsData ?? {
+    total: 0,
+    withEmail: 0,
+    withPhone: 0,
+    withCompany: 0,
+    byProvider: [],
+  };
+
+  // Refs
+  const selectedContactIdRef = useRef<string | null>(null);
+  const paginationRef = useRef({ offset: 0, limit: 200, hasMore: true, total: 0 });
+
+  // Sync refs with state
+  useEffect(() => {
+    selectedContactIdRef.current = selectedContact?.id ?? null;
+  }, [selectedContact]);
+
+  useEffect(() => {
+    paginationRef.current = pagination;
+  }, [pagination]);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Load contacts using TanStack Query
+  const loadContacts = useCallback(async (reset: boolean = true) => {
+    try {
+      if (reset) {
+        setLoading(true);
+        const newPagination = { offset: 0, limit: 200, hasMore: true, total: 0 };
+        paginationRef.current = newPagination;
+        setPagination(newPagination);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const offset = reset ? 0 : paginationRef.current.offset;
+      const response = await queryClient.fetchQuery(
+        contactsListOptions({
+          search: debouncedSearchQuery || undefined,
+          limit: paginationRef.current.limit,
+          offset,
+        })
+      );
+      const contactsData = response.contacts || [];
+
+      if (reset) {
+        setStoreContacts(contactsData);
+      } else {
+        const currentContacts = useContactStore.getState().contacts;
+        const merged = [...currentContacts, ...contactsData];
+        setStoreContacts(merged);
+      }
+
+      const newPagination = {
+        offset: offset + contactsData.length,
+        limit: paginationRef.current.limit,
+        hasMore: contactsData.length === paginationRef.current.limit,
+        total: response.total,
+      };
+      paginationRef.current = newPagination;
+      setPagination(newPagination);
+
+      if (contactsData.length === 0 && reset) {
+        setSelectedContact(null);
+        return;
+      }
+
+      const previouslySelectedId = selectedContactIdRef.current;
+      const currentContactsForSelection = useContactStore.getState().contacts;
+
+      if (previouslySelectedId) {
+        const previousContact = (reset ? contactsData : currentContactsForSelection).find(
+          (c) => c.id === previouslySelectedId
+        );
+        if (previousContact) {
+          setSelectedContact(previousContact);
+        } else if (!isMobile) {
+          setSelectedContact(reset ? contactsData[0] : currentContactsForSelection[0] || contactsData[0]);
+        }
+      } else if (!isMobile && reset) {
+        setSelectedContact(contactsData[0]);
+      }
+    } catch (error) {
+      logger.error('Failed to load contacts', { error });
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [debouncedSearchQuery, setStoreContacts, setPagination, queryClient, isMobile]);
+
+  // Keep selection in sync with store updates
+  useEffect(() => {
+    if (!storeContacts.length) {
+      setSelectedContact(null);
+      return;
+    }
+    if (selectedContact && !storeContacts.find((c) => c.id === selectedContact.id)) {
+      setSelectedContact(storeContacts[0]);
+    }
+  }, [storeContacts, selectedContact]);
+
+  // Load more contacts (infinite scroll)
+  const loadMore = useCallback(() => {
+    if (!loadingMore && pagination.hasMore) {
+      loadContacts(false);
+    }
+  }, [loadContacts, loadingMore, pagination.hasMore]);
+
+  // Initial load
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
+
+  // WebSocket event handling
+  useEffect(() => {
+    const handleContactNew = async (event: RealtimeContactEvent) => {
+      logger.debug('[Contacts] WebSocket: contact:new', { event });
+      if (event.contactId) {
+        try {
+          const contact = await queryClient.fetchQuery(contactDetailOptions(event.contactId));
+          useContactStore.getState().addContact(contact);
+        } catch (error) {
+          logger.error('Failed to fetch new contact', { error });
+        }
+      }
+    };
+
+    const handleContactUpdate = async (event: RealtimeContactEvent) => {
+      logger.debug('[Contacts] WebSocket: contact:update', { event });
+      if (event.contactId) {
+        try {
+          const contact = await queryClient.fetchQuery(contactDetailOptions(event.contactId));
+          useContactStore.getState().updateContact(event.contactId, contact);
+        } catch (error) {
+          logger.error('Failed to fetch updated contact', { error });
+        }
+      }
+    };
+
+    const handleContactDelete = (event: RealtimeContactEvent) => {
+      logger.debug('[Contacts] WebSocket: contact:delete', { event });
+      if (event.contactId) {
+        useContactStore.getState().deleteContact(event.contactId);
+      }
+    };
+
+    const handleSyncStatus = (event: RealtimeSyncStatus) => {
+      if (event.status === 'completed') {
+        logger.info('[Contacts] WebSocket: sync completed', { providerId: event.providerId });
+        setSyncingProviders((prev) => {
+          const next = new Set(prev);
+          next.delete(event.providerId);
+          return next;
+        });
+      }
+    };
+
+    const handleContactCounts = (_event: RealtimeContactCountsEvent) => {
+      logger.debug('[Contacts] WebSocket: contact:counts - refetching via TanStack Query');
+      void refetchContactCounts();
+    };
+
+    const unsubNew = websocketClient.onContactNew(handleContactNew);
+    const unsubUpdate = websocketClient.onContactUpdate(handleContactUpdate);
+    const unsubDelete = websocketClient.onContactDelete(handleContactDelete);
+    const unsubSync = websocketClient.onSyncStatus(handleSyncStatus);
+    const unsubCounts = websocketClient.onContactCounts(handleContactCounts);
+
+    return () => {
+      unsubNew();
+      unsubUpdate();
+      unsubDelete();
+      unsubSync();
+      unsubCounts();
+    };
+  }, [queryClient, refetchContactCounts]);
+
+  // Load providers
+  const loadProviders = useCallback(async () => {
+    try {
+      const providerData = await providersApi.getProviders();
+      setProviders(providerData || []);
+      return providerData || [];
+    } catch (error) {
+      logger.error('Failed to load providers', { error });
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProviders();
+  }, [loadProviders]);
+
+  // Filter contacts based on selected provider and quick filter
+  const filteredContacts = useMemo(() => {
+    let result = storeContacts;
+
+    if (selectedProviderId) {
+      result = result.filter((c) =>
+        c.providerContacts?.some((pc) => pc.providerId === selectedProviderId)
+      );
+    }
+
+    if (selectedFilter === 'hasEmail') {
+      result = result.filter((c) => c.emails && c.emails.length > 0);
+    } else if (selectedFilter === 'hasPhone') {
+      result = result.filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0);
+    } else if (selectedFilter === 'hasCompany') {
+      result = result.filter((c) => !!c.company);
+    }
+
+    return result;
+  }, [storeContacts, selectedProviderId, selectedFilter]);
+
+  // Provider filters for sidebar
+  const providerFilters: ProviderFilter[] = useMemo(() => {
+    return providers
+      .filter((p) => p.supportsContacts)
+      .map((p) => {
+        const dbCount = contactCounts.byProvider.find((bp) => bp.providerId === p.id);
+        return {
+          id: p.id,
+          label: p.email,
+          count: dbCount?.count ?? 0,
+        };
+      });
+  }, [providers, contactCounts.byProvider]);
+
+  return {
+    // State
+    isMobile,
+    loading,
+    loadingMore,
+    selectedContact,
+    setSelectedContact,
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
+    searchQuery,
+    setSearchQuery,
+    providers,
+    syncingProviders,
+    setSyncingProviders,
+    selectedProviderId,
+    setSelectedProviderId,
+    selectedFilter,
+    setSelectedFilter,
+    pagination,
+    snackbar,
+    setSnackbar,
+    actionLoading,
+    setActionLoading,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    contactToDelete,
+    setContactToDelete,
+    // Computed
+    contactCounts,
+    filteredContacts,
+    providerFilters,
+    selectedIds,
+    toggleSelection,
+    clearSelection,
+    setSelectedIds,
+    storeContacts,
+    // Mutations
+    createContactMutation,
+    updateContactMutation,
+    deleteContactMutation,
+    syncAllMutation,
+    // Actions
+    loadContacts,
+    loadMore,
+  };
+}

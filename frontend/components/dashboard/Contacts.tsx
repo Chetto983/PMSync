@@ -1,691 +1,96 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useRouter } from 'next/router';
+import React from 'react';
 import {
   Box,
-  Button,
   TextField,
   InputAdornment,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Snackbar,
   Alert as MuiAlert,
-  DialogContentText,
-  Typography,
-  Switch,
-  FormControlLabel,
   IconButton,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import { Search, Menu } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { type Contact, type ContactCounts } from '@/lib/api/contacts';
-import {
-  useContactCounts,
-  useCreateContact,
-  useUpdateContact,
-  useDeleteContact,
-  useSyncAllContacts,
-  contactsListOptions,
-  contactDetailOptions,
-} from '@/hooks/queries/use-contacts';
-import { logger } from '@/lib/logger';
-import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useContactStore } from '@/stores/contact-store';
-import { websocketClient, type RealtimeContactEvent, type RealtimeSyncStatus, type RealtimeContactCountsEvent } from '@/lib/websocket-client';
 import {
   ContactLayout,
   ContactList,
   ContactSidebar,
   ContactDetail,
   ContactBulkActionBar,
-  type ProviderFilter,
 } from '@/components/contacts';
+import { useContactsPageData } from './contacts-page/useContactsPageData';
+import { useContactsPageHandlers } from './contacts-page/useContactsPageHandlers';
+import { useContactForm } from './contacts-page/useContactForm';
+import { ContactFormDialog, DeleteContactDialog } from './contacts-page/ContactDialogs';
 // ComposeDialog removed during email rebuild
 
-type ContactFormState = {
-  firstName: string;
-  lastName: string;
-  displayName: string;
-  email: string;
-  phone: string;
-  company: string;
-  jobTitle: string;
-  department: string;
-  birthday: string;
-  website: string;
-  notes: string;
-  providerId?: string;
-  isVip: boolean;
-};
-
-const getPrimaryEmail = (contact?: Contact | null) =>
-  contact?.emails?.find((email) => email.primary)?.value ||
-  contact?.emails?.[0]?.value ||
-  '';
-
-const getPrimaryPhone = (contact?: Contact | null) =>
-  contact?.phoneNumbers?.find((phone) => phone.primary)?.value ||
-  contact?.phoneNumbers?.[0]?.value ||
-  '';
-
 export function Contacts() {
-  const router = useRouter();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const translations = useTranslations();
   const contactsCopy = translations.contacts;
 
-  // Store state
+  const data = useContactsPageData();
+  const form = useContactForm();
+  const handlers = useContactsPageHandlers(data, form, contactsCopy);
+
   const {
-    contacts: storeContacts,
-    setContacts: setStoreContacts,
+    isMobile,
+    loading,
+    loadingMore,
+    selectedContact,
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
+    searchQuery,
+    setSearchQuery,
+    providers,
+    syncingProviders,
+    selectedProviderId,
+    setSelectedProviderId,
+    selectedFilter,
+    setSelectedFilter,
+    pagination,
+    snackbar,
+    setSnackbar,
+    actionLoading,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    contactCounts,
+    filteredContacts,
+    providerFilters,
     selectedIds,
     toggleSelection,
     clearSelection,
-    setSelectedIds,
-  } = useContactStore();
+    loadMore,
+  } = data;
 
-  // TanStack Query client for imperative fetching
-  const queryClient = useQueryClient();
+  const {
+    contactForm,
+    contactDialogOpen,
+    setContactDialogOpen,
+    contactDialogMode,
+    handleContactFormChange,
+  } = form;
 
-  // TanStack Query hooks for data fetching and mutations
-  const { data: contactCountsData, refetch: refetchContactCounts } = useContactCounts();
-  const createContactMutation = useCreateContact();
-  const updateContactMutation = useUpdateContact();
-  const deleteContactMutation = useDeleteContact();
-  const syncAllMutation = useSyncAllContacts();
+  const {
+    openCreateContactDialog,
+    openEditContactDialog,
+    handleSubmitContact,
+    openDeleteDialog,
+    handleDeleteContact,
+    handleBulkDelete,
+    handleSyncContacts,
+    handleContactClick,
+    handleCloseDetail,
+    handleEmail,
+    handleToggleVip,
+    handleSelectAll,
+  } = handlers;
 
-  // Local state
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
-  const [syncingProviders, setSyncingProviders] = useState<Set<string>>(new Set());
-  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({ offset: 0, limit: 50, hasMore: true, total: 0 });
-
-  // Dialog state
-  const [contactDialogOpen, setContactDialogOpen] = useState(false);
-  const [contactDialogMode, setContactDialogMode] = useState<'create' | 'edit'>('create');
-  const [contactForm, setContactForm] = useState<ContactFormState>({
-    firstName: '',
-    lastName: '',
-    displayName: '',
-    email: '',
-    phone: '',
-    company: '',
-    jobTitle: '',
-    department: '',
-    birthday: '',
-    website: '',
-    notes: '',
-    providerId: undefined,
-    isVip: false,
-  });
-  const [actionLoading, setActionLoading] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
-
-  // Snackbar state
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'warning' | 'info';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
-
-  // Contact counts from TanStack Query (with fallback for initial render)
-  const contactCounts: ContactCounts = contactCountsData ?? {
-    total: 0,
-    withEmail: 0,
-    withPhone: 0,
-    withCompany: 0,
-    byProvider: [],
-  };
-
-  // Compose disabled during email rebuild
-
-  // Refs
-  const selectedContactIdRef = useRef<string | null>(null);
-  const paginationRef = useRef({ offset: 0, limit: 200, hasMore: true, total: 0 });
-
-  // Sync refs with state
-  useEffect(() => {
-    selectedContactIdRef.current = selectedContact?.id ?? null;
-  }, [selectedContact]);
-
-  useEffect(() => {
-    paginationRef.current = pagination;
-  }, [pagination]);
-
-  // Debounce search query
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Load contacts using TanStack Query - larger batch size for faster bulk loading
-  const loadContacts = useCallback(async (reset: boolean = true) => {
-    try {
-      if (reset) {
-        setLoading(true);
-        const newPagination = { offset: 0, limit: 200, hasMore: true, total: 0 };
-        paginationRef.current = newPagination;
-        setPagination(newPagination);
-      } else {
-        setLoadingMore(true);
-      }
-
-      const offset = reset ? 0 : paginationRef.current.offset;
-      const response = await queryClient.fetchQuery(
-        contactsListOptions({
-          search: debouncedSearchQuery || undefined,
-          limit: paginationRef.current.limit,
-          offset,
-        })
-      );
-      const contactsData = response.contacts || [];
-
-      if (reset) {
-        setStoreContacts(contactsData);
-      } else {
-        const currentContacts = useContactStore.getState().contacts;
-        const merged = [...currentContacts, ...contactsData];
-        setStoreContacts(merged);
-      }
-
-      const newPagination = {
-        offset: offset + contactsData.length,
-        limit: paginationRef.current.limit,
-        hasMore: contactsData.length === paginationRef.current.limit,
-        total: response.total,
-      };
-      paginationRef.current = newPagination;
-      setPagination(newPagination);
-
-      if (contactsData.length === 0 && reset) {
-        setSelectedContact(null);
-        return;
-      }
-
-      // On mobile, don't auto-select first contact on initial load
-      // Only restore previous selection if it still exists
-      const previouslySelectedId = selectedContactIdRef.current;
-      const currentContactsForSelection = useContactStore.getState().contacts;
-
-      if (previouslySelectedId) {
-        // Restore previous selection if still exists
-        const previousContact = (reset ? contactsData : currentContactsForSelection).find(
-          (c) => c.id === previouslySelectedId
-        );
-        if (previousContact) {
-          setSelectedContact(previousContact);
-        } else if (!isMobile) {
-          // On desktop, select first contact if previous was deleted
-          setSelectedContact(reset ? contactsData[0] : currentContactsForSelection[0] || contactsData[0]);
-        }
-      } else if (!isMobile && reset) {
-        // On desktop, auto-select first contact on initial load
-        setSelectedContact(contactsData[0]);
-      }
-    } catch (error) {
-      logger.error('Failed to load contacts', { error });
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
+  // Update provider on form when providers load
+  React.useEffect(() => {
+    if (providers[0]?.id) {
+      form.updateProviderIdIfEmpty(providers[0].id);
     }
-  }, [debouncedSearchQuery, setStoreContacts, setPagination, queryClient, isMobile]);
+  }, [providers, form]);
 
-  // Keep selection in sync with store updates
-  // Only auto-select if the selected contact was deleted/not found
-  // Don't auto-select when user manually closes the detail panel (selectedContact is null)
-  useEffect(() => {
-    if (!storeContacts.length) {
-      setSelectedContact(null);
-      return;
-    }
-    // Only auto-select if contact exists but is no longer in the store (was deleted)
-    if (selectedContact && !storeContacts.find((c) => c.id === selectedContact.id)) {
-      setSelectedContact(storeContacts[0]);
-    }
-  }, [storeContacts, selectedContact]);
-
-  // Load more contacts (infinite scroll)
-  const loadMore = useCallback(() => {
-    if (!loadingMore && pagination.hasMore) {
-      loadContacts(false);
-    }
-  }, [loadContacts, loadingMore, pagination.hasMore]);
-
-  // Initial load
-  useEffect(() => {
-    loadContacts();
-  }, [loadContacts]);
-
-  // WebSocket event handling using TanStack Query for data fetching
-  useEffect(() => {
-    const handleContactNew = async (event: RealtimeContactEvent) => {
-      logger.debug('[Contacts] WebSocket: contact:new', { event });
-      if (event.contactId) {
-        try {
-          const contact = await queryClient.fetchQuery(contactDetailOptions(event.contactId));
-          useContactStore.getState().addContact(contact);
-        } catch (error) {
-          logger.error('Failed to fetch new contact', { error });
-        }
-      }
-    };
-
-    const handleContactUpdate = async (event: RealtimeContactEvent) => {
-      logger.debug('[Contacts] WebSocket: contact:update', { event });
-      if (event.contactId) {
-        try {
-          const contact = await queryClient.fetchQuery(contactDetailOptions(event.contactId));
-          useContactStore.getState().updateContact(event.contactId, contact);
-        } catch (error) {
-          logger.error('Failed to fetch updated contact', { error });
-        }
-      }
-    };
-
-    const handleContactDelete = (event: RealtimeContactEvent) => {
-      logger.debug('[Contacts] WebSocket: contact:delete', { event });
-      if (event.contactId) {
-        useContactStore.getState().deleteContact(event.contactId);
-      }
-    };
-
-    const handleSyncStatus = (event: RealtimeSyncStatus) => {
-      if (event.status === 'completed') {
-        logger.info('[Contacts] WebSocket: sync completed', { providerId: event.providerId });
-        setSyncingProviders((prev) => {
-          const next = new Set(prev);
-          next.delete(event.providerId);
-          return next;
-        });
-      }
-    };
-
-    // Real-time contact counts updates - refetch via TanStack Query
-    const handleContactCounts = (_event: RealtimeContactCountsEvent) => {
-      logger.debug('[Contacts] WebSocket: contact:counts - refetching via TanStack Query');
-      void refetchContactCounts();
-    };
-
-    const unsubNew = websocketClient.onContactNew(handleContactNew);
-    const unsubUpdate = websocketClient.onContactUpdate(handleContactUpdate);
-    const unsubDelete = websocketClient.onContactDelete(handleContactDelete);
-    const unsubSync = websocketClient.onSyncStatus(handleSyncStatus);
-    const unsubCounts = websocketClient.onContactCounts(handleContactCounts);
-
-    return () => {
-      unsubNew();
-      unsubUpdate();
-      unsubDelete();
-      unsubSync();
-      unsubCounts();
-    };
-  }, [queryClient, refetchContactCounts]);
-
-  // Load providers
-  const loadProviders = useCallback(async () => {
-    try {
-      const providerData = await providersApi.getProviders();
-      setProviders(providerData || []);
-      setContactForm((prev) => ({
-        ...prev,
-        providerId: prev.providerId || providerData?.[0]?.id,
-      }));
-    } catch (error) {
-      logger.error('Failed to load providers', { error });
-    }
-  }, []);
-
-  useEffect(() => {
-    loadProviders();
-  }, [loadProviders]);
-
-  // Filter contacts based on selected provider and quick filter
-  const filteredContacts = useMemo(() => {
-    let result = storeContacts;
-
-    // Filter by provider
-    if (selectedProviderId) {
-      result = result.filter((c) =>
-        c.providerContacts?.some((pc) => pc.providerId === selectedProviderId)
-      );
-    }
-
-    // Filter by quick filters
-    if (selectedFilter === 'hasEmail') {
-      result = result.filter((c) => c.emails && c.emails.length > 0);
-    } else if (selectedFilter === 'hasPhone') {
-      result = result.filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0);
-    } else if (selectedFilter === 'hasCompany') {
-      result = result.filter((c) => !!c.company);
-    }
-
-    return result;
-  }, [storeContacts, selectedProviderId, selectedFilter]);
-
-  // Provider filters for sidebar - use DB counts for efficiency
-  const providerFilters: ProviderFilter[] = useMemo(() => {
-    return providers
-      .filter((p) => p.supportsContacts)
-      .map((p) => {
-        // Use DB count from byProvider if available, otherwise fallback to client-side
-        const dbCount = contactCounts.byProvider.find((bp) => bp.providerId === p.id);
-        return {
-          id: p.id,
-          label: p.email,
-          count: dbCount?.count ?? 0,
-        };
-      });
-  }, [providers, contactCounts.byProvider]);
-
-  // Dialog handlers
-  const openCreateContactDialog = () => {
-    setContactDialogMode('create');
-    setContactForm({
-      firstName: '',
-      lastName: '',
-      displayName: '',
-      email: '',
-      phone: '',
-      company: '',
-      jobTitle: '',
-      department: '',
-      birthday: '',
-      website: '',
-      notes: '',
-      providerId: providers[0]?.id,
-      isVip: false,
-    });
-    setContactDialogOpen(true);
-  };
-
-  const openEditContactDialog = () => {
-    if (!selectedContact) return;
-    setContactDialogMode('edit');
-    setContactForm({
-      firstName: selectedContact.firstName || '',
-      lastName: selectedContact.lastName || '',
-      displayName: selectedContact.displayName || '',
-      email: getPrimaryEmail(selectedContact),
-      phone: getPrimaryPhone(selectedContact),
-      company: selectedContact.company || '',
-      jobTitle: selectedContact.jobTitle || '',
-      department: selectedContact.department || '',
-      birthday: selectedContact.birthday ? new Date(selectedContact.birthday).toISOString().split('T')[0] : '',
-      website: selectedContact.websites?.[0]?.url || '',
-      notes: selectedContact.notes || '',
-      providerId: selectedContact.providerContacts?.[0]?.providerId || providers[0]?.id,
-      isVip: selectedContact.isVip || false,
-    });
-    setContactDialogOpen(true);
-  };
-
-  const handleContactFormChange = (field: keyof ContactFormState, value: string | boolean) => {
-    setContactForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmitContact = async () => {
-    if (!contactForm.providerId) {
-      setSnackbar({
-        open: true,
-        message: contactsCopy.alerts?.selectProvider || 'Please select a provider',
-        severity: 'warning',
-      });
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      if (contactDialogMode === 'create') {
-        await createContactMutation.mutateAsync({
-          providerId: contactForm.providerId,
-          firstName: contactForm.firstName || undefined,
-          lastName: contactForm.lastName || undefined,
-          displayName: contactForm.displayName ||
-            (contactForm.firstName || contactForm.lastName
-              ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
-              : undefined),
-          company: contactForm.company || undefined,
-          jobTitle: contactForm.jobTitle || undefined,
-          notes: contactForm.notes || undefined,
-          isVip: contactForm.isVip,
-          emails: contactForm.email
-            ? [{ value: contactForm.email, primary: true }]
-            : undefined,
-          phoneNumbers: contactForm.phone
-            ? [{ value: contactForm.phone, primary: true }]
-            : undefined,
-        });
-      } else if (selectedContact) {
-        await updateContactMutation.mutateAsync({
-          id: selectedContact.id,
-          data: {
-            firstName: contactForm.firstName || undefined,
-            lastName: contactForm.lastName || undefined,
-            displayName: contactForm.displayName ||
-              (contactForm.firstName || contactForm.lastName
-                ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
-                : undefined),
-            company: contactForm.company || undefined,
-            jobTitle: contactForm.jobTitle || undefined,
-            notes: contactForm.notes || undefined,
-            isVip: contactForm.isVip,
-            emails: contactForm.email
-              ? [{ value: contactForm.email, primary: true }]
-              : undefined,
-            phoneNumbers: contactForm.phone
-              ? [{ value: contactForm.phone, primary: true }]
-              : undefined,
-          },
-        });
-      }
-
-      await loadContacts();
-      setContactDialogOpen(false);
-      setSnackbar({
-        open: true,
-        message: contactDialogMode === 'create'
-          ? `${contactsCopy.createDialog?.create || 'Create Contact'} ✓`
-          : contactsCopy.editDialog?.success || 'Contact updated successfully.',
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to save contact', { error });
-      setSnackbar({
-        open: true,
-        message: contactsCopy.alerts?.failedToSave || 'Failed to save contact. Please try again.',
-        severity: 'error',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const openDeleteDialog = (contact: Contact) => {
-    setContactToDelete(contact);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteContact = async () => {
-    if (!contactToDelete) return;
-
-    try {
-      setActionLoading(true);
-      await deleteContactMutation.mutateAsync(contactToDelete.id);
-      await loadContacts();
-      setDeleteDialogOpen(false);
-      setContactToDelete(null);
-      if (selectedContact?.id === contactToDelete.id) {
-        setSelectedContact(null);
-      }
-      setSnackbar({
-        open: true,
-        message: contactsCopy.alerts?.deleteSuccess || 'Contact deleted successfully.',
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to delete contact', { error });
-      setSnackbar({
-        open: true,
-        message: contactsCopy.alerts?.deleteError || 'Unable to delete this contact. Please try again.',
-        severity: 'error',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Bulk delete handler
-  const handleBulkDelete = async () => {
-    const idsToDelete = Array.from(selectedIds);
-    if (idsToDelete.length === 0) return;
-
-    try {
-      setActionLoading(true);
-      // Delete contacts one by one using TanStack Query mutation
-      await Promise.all(idsToDelete.map((id) => deleteContactMutation.mutateAsync(id)));
-      clearSelection();
-      await loadContacts();
-      setSnackbar({
-        open: true,
-        message: (contactsCopy.alerts?.deletedCount || 'Deleted {count} contacts').replace('{count}', String(idsToDelete.length)),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to delete contacts', { error });
-      setSnackbar({
-        open: true,
-        message: contactsCopy.alerts?.deleteError || 'Unable to delete contacts',
-        severity: 'error',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Sync handler
-  const handleSyncContacts = async () => {
-    if (providers.length === 0) {
-      setSnackbar({
-        open: true,
-        message: 'No providers connected. Please connect a provider first.',
-        severity: 'warning',
-      });
-      return;
-    }
-
-    try {
-      const contactProviders = providers.filter((p) => p.supportsContacts);
-
-      if (contactProviders.length === 0) {
-        setSnackbar({
-          open: true,
-          message: 'No connected providers support contacts.',
-          severity: 'warning',
-        });
-        return;
-      }
-
-      setSyncingProviders(new Set(contactProviders.map((p) => p.id)));
-
-      const result = await syncAllMutation.mutateAsync();
-
-      if (result.success) {
-        setSnackbar({
-          open: true,
-          message: result.message || `Queued ${result.queued} sync job(s). Syncing in background...`,
-          severity: 'info',
-        });
-
-        setTimeout(() => {
-          setSyncingProviders((prev) => {
-            if (prev.size > 0) {
-              loadContacts();
-              return new Set();
-            }
-            return prev;
-          });
-        }, 60000);
-      } else {
-        setSnackbar({
-          open: true,
-          message: result.message || 'Failed to queue sync',
-          severity: 'error',
-        });
-        setSyncingProviders(new Set());
-      }
-    } catch (error) {
-      logger.error('Failed to sync contacts', { error });
-      setSnackbar({
-        open: true,
-        message: 'Failed to sync contacts from providers.',
-        severity: 'error',
-      });
-      setSyncingProviders(new Set());
-    }
-  };
-
-  // Contact click handler
-  const handleContactClick = (contact: Contact) => {
-    setSelectedContact(contact);
-  };
-
-  // Close detail panel handler (mobile back button)
-  const handleCloseDetail = () => {
-    setSelectedContact(null);
-  };
-
-  // Email handler - opens internal compose
-  const handleEmail = (email: string) => {
-    if (email) {
-      router.push(`/dashboard/email/compose?to=${encodeURIComponent(email)}`);
-    }
-  };
-
-  // VIP toggle handler - quick toggle from list item action bar
-  const handleToggleVip = async (id: string, isVip: boolean) => {
-    // Optimistic update in Zustand store for instant UI feedback
-    useContactStore.getState().updateContact(id, { isVip });
-
-    try {
-      await updateContactMutation.mutateAsync({
-        id,
-        data: { isVip },
-      });
-    } catch {
-      // Rollback on error
-      useContactStore.getState().updateContact(id, { isVip: !isVip });
-    }
-  };
-
-  // Select all handler for bulk action bar
-  const handleSelectAll = () => {
-    setSelectedIds(new Set(filteredContacts.map((c) => c.id)));
-  };
-
-  // Render sidebar - use DB counts for fast, accurate display
+  // Render sidebar
   const renderSidebar = () => (
     <ContactSidebar
       providers={providerFilters}
@@ -706,9 +111,7 @@ export function Contacts() {
   // Render list
   const renderList = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Search Header with hamburger menu on mobile */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
-        {/* Hamburger menu button - mobile only */}
         {isMobile && (
           <IconButton
             size="small"
@@ -737,18 +140,16 @@ export function Contacts() {
         />
       </Box>
 
-      {/* Bulk Action Bar */}
       {selectedIds.size > 0 && (
         <ContactBulkActionBar
           selectedCount={selectedIds.size}
           totalCount={filteredContacts.length}
           onSelectAll={handleSelectAll}
           onClearSelection={clearSelection}
-          onDelete={handleBulkDelete}
+          onDelete={() => handleBulkDelete()}
         />
       )}
 
-      {/* Contact List */}
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         <ContactList
           contacts={filteredContacts}
@@ -761,7 +162,7 @@ export function Contacts() {
           onEdit={(id) => {
             const contact = filteredContacts.find((c) => c.id === id);
             if (contact) {
-              setSelectedContact(contact);
+              data.setSelectedContact(contact);
               openEditContactDialog();
             }
           }}
@@ -807,198 +208,26 @@ export function Contacts() {
         />
       </Box>
 
-      {/* Create/Edit Contact Dialog */}
-      <Dialog
+      <ContactFormDialog
         open={contactDialogOpen}
         onClose={() => setContactDialogOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>
-          {contactDialogMode === 'create' ? contactsCopy.createDialog?.title || 'New Contact' : contactsCopy.editDialog?.title || 'Edit Contact'}
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            {/* Provider Selection */}
-            <FormControl fullWidth disabled={contactDialogMode === 'edit'}>
-              <InputLabel>{contactsCopy.createDialog?.provider || 'Provider'}</InputLabel>
-              <Select
-                label={contactsCopy.createDialog?.provider || 'Provider'}
-                value={contactForm.providerId || ''}
-                onChange={(event) =>
-                  handleContactFormChange('providerId', String(event.target.value))
-                }
-              >
-                {providers.map((provider) => (
-                  <MenuItem key={provider.id} value={provider.id}>
-                    {provider.email}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+        mode={contactDialogMode}
+        form={contactForm}
+        onFormChange={handleContactFormChange}
+        onSubmit={handleSubmitContact}
+        providers={providers}
+        actionLoading={actionLoading}
+        contactsCopy={contactsCopy}
+      />
 
-            {/* Personal Information */}
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                {contactsCopy.createDialog?.personalInformation || 'Personal Information'}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                  <TextField
-                    label={contactsCopy.createDialog?.firstName || 'First Name'}
-                    value={contactForm.firstName}
-                    onChange={(event) => handleContactFormChange('firstName', event.target.value)}
-                    fullWidth
-                  />
-                  <TextField
-                    label={contactsCopy.createDialog?.lastName || 'Last Name'}
-                    value={contactForm.lastName}
-                    onChange={(event) => handleContactFormChange('lastName', event.target.value)}
-                    fullWidth
-                  />
-                </Box>
-                <TextField
-                  label={contactsCopy.createDialog?.name || 'Name'}
-                  value={contactForm.displayName}
-                  onChange={(event) => handleContactFormChange('displayName', event.target.value)}
-                  fullWidth
-                  helperText={contactsCopy.createDialog?.displayNameHelper || 'Display name'}
-                />
-                <TextField
-                  label={contactsCopy.createDialog?.birthday || 'Birthday'}
-                  type="date"
-                  value={contactForm.birthday}
-                  onChange={(event) => handleContactFormChange('birthday', event.target.value)}
-                  fullWidth
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-                {/* VIP Toggle */}
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={contactForm.isVip}
-                      onChange={(event) => handleContactFormChange('isVip', event.target.checked)}
-                      color="warning"
-                    />
-                  }
-                  label={contactsCopy.details?.vipLabel || 'VIP Contact'}
-                />
-              </Box>
-            </Box>
-
-            {/* Contact Information */}
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                {contactsCopy.createDialog?.contactInformation || 'Contact Information'}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField
-                  label={contactsCopy.createDialog?.email || 'Email'}
-                  type="email"
-                  value={contactForm.email}
-                  onChange={(event) => handleContactFormChange('email', event.target.value)}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  label={contactsCopy.createDialog?.phoneNumber || 'Phone Number'}
-                  type="tel"
-                  value={contactForm.phone}
-                  onChange={(event) => handleContactFormChange('phone', event.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  label={contactsCopy.createDialog?.website || 'Website'}
-                  type="url"
-                  value={contactForm.website}
-                  onChange={(event) => handleContactFormChange('website', event.target.value)}
-                  fullWidth
-                  placeholder={contactsCopy.createDialog?.websitePlaceholder || 'https://example.com'}
-                />
-              </Box>
-            </Box>
-
-            {/* Professional Information */}
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                {contactsCopy.createDialog?.professionalInformation || 'Professional Information'}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField
-                  label={contactsCopy.createDialog?.company || 'Company'}
-                  value={contactForm.company}
-                  onChange={(event) => handleContactFormChange('company', event.target.value)}
-                  fullWidth
-                />
-                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                  <TextField
-                    label={contactsCopy.createDialog?.jobTitle || 'Job Title'}
-                    value={contactForm.jobTitle}
-                    onChange={(event) => handleContactFormChange('jobTitle', event.target.value)}
-                    fullWidth
-                  />
-                  <TextField
-                    label={contactsCopy.createDialog?.department || 'Department'}
-                    value={contactForm.department}
-                    onChange={(event) => handleContactFormChange('department', event.target.value)}
-                    fullWidth
-                  />
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Notes */}
-            <TextField
-              label={contactsCopy.createDialog?.notes || 'Notes'}
-              value={contactForm.notes}
-              onChange={(event) => handleContactFormChange('notes', event.target.value)}
-              fullWidth
-              multiline
-              minRows={3}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setContactDialogOpen(false)}>{contactsCopy.createDialog?.cancel || 'Cancel'}</Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmitContact}
-            disabled={actionLoading || (contactDialogMode === 'create' && !contactForm.providerId)}
-          >
-            {contactDialogMode === 'create' ? contactsCopy.createDialog?.create || 'Create' : contactsCopy.editDialog?.save || 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
+      <DeleteContactDialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>{contactsCopy.alerts?.deleteConfirmTitle || 'Delete'}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {contactsCopy.alerts?.deleteConfirmDescription || 'Are you sure?'}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={actionLoading}>
-            {contactsCopy.createDialog.cancel}
-          </Button>
-          <Button
-            onClick={handleDeleteContact}
-            color="error"
-            variant="contained"
-            disabled={actionLoading}
-          >
-            {contactsCopy.alerts.deleteConfirmTitle}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onDelete={handleDeleteContact}
+        actionLoading={actionLoading}
+        contactsCopy={contactsCopy}
+      />
 
-      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
