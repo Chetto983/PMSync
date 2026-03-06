@@ -505,9 +505,9 @@ async function bootstrap() {
     // Phase 33: API versioning -- all routes under api/v1/ except webhooks and health
     app.setGlobalPrefix('api/v1', {
       exclude: [
-        { path: 'health/(.*)', method: RequestMethod.ALL },
+        { path: 'health/{*path}', method: RequestMethod.ALL },
         { path: 'health', method: RequestMethod.ALL },
-        { path: 'webhooks/(.*)', method: RequestMethod.ALL },
+        { path: 'webhooks/{*path}', method: RequestMethod.ALL },
         { path: 'auth/gmail/callback', method: RequestMethod.GET },
         { path: 'auth/microsoft/callback', method: RequestMethod.GET },
         { path: 'metrics', method: RequestMethod.ALL },

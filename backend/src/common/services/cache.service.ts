@@ -116,7 +116,6 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   constructor() {}
 
   async onModuleInit() {
-    console.log('[TRACE] CacheService.onModuleInit ENTERED');
     const redisConfig = getConfiguration().redis;
 
     this.logger.log(
