@@ -324,6 +324,7 @@ async function enableNestDiTrace(trap: StartupTrap): Promise<void> {
   patchAsyncMethod(Injector.prototype as unknown as Record<string, unknown>, 'loadInjectable', 'injectable');
   patchAsyncMethod(Injector.prototype as unknown as Record<string, unknown>, 'loadController', 'controller');
 
+  // eslint-disable-next-line @typescript-eslint/unbound-method
   const originalCreateInstances = InstanceLoader.prototype.createInstancesOfDependencies;
   if (typeof originalCreateInstances === 'function') {
     InstanceLoader.prototype.createInstancesOfDependencies = async function patchedCreateInstances(
