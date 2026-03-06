@@ -14,8 +14,8 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 - [ ] **CORE-03**: User can sign in with Google OAuth
 - [ ] **CORE-04**: User receives email verification after signup
 - [ ] **CORE-05**: User can reset password via email link
-- [ ] **CORE-06**: User session persists via httpOnly cookie (DB-backed, no JWT)
-- [ ] **CORE-07**: Compromised passwords blocked via HIBP check on signup/change
+- [x] **CORE-06**: User session persists via httpOnly cookie (DB-backed, no JWT)
+- [x] **CORE-07**: Compromised passwords blocked via HIBP check on signup/change
 
 ### NestJS Integration
 
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-03 | Phase 55 | Pending |
 | CORE-04 | Phase 51 | Pending |
 | CORE-05 | Phase 51 | Pending |
-| CORE-06 | Phase 50 | Pending |
-| CORE-07 | Phase 50 | Pending |
+| CORE-06 | Phase 50 | Complete |
+| CORE-07 | Phase 50 | Complete |
 | NEST-01 | Phase 52 | Pending |
 | NEST-02 | Phase 52 | Pending |
 | NEST-03 | Phase 52 | Pending |

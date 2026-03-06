@@ -99,7 +99,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 **Plans:** 2 plans
 
 Plans:
-- [ ] 50-01-PLAN.md — Prisma schema reshape + HIBP utility + better-auth Next.js instance
+- [x] 50-01-PLAN.md — Prisma schema reshape + HIBP utility + better-auth Next.js instance
 - [ ] 50-02-PLAN.md — NestJS better-auth consumer instance + cross-service verification
 
 ### Phase 51: Core Email/Password Auth
@@ -237,7 +237,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 50. Schema & Infrastructure | v5.0 | 0/2 | Not started | - |
+| 50. Schema & Infrastructure | v5.0 | 1/2 | In progress | - |
 | 51. Core Email/Password Auth | v5.0 | 0/TBD | Not started | - |
 | 52. NestJS Session Validation | v5.0 | 0/TBD | Not started | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
