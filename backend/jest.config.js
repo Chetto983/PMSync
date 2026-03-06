@@ -26,6 +26,7 @@ module.exports = {
     '^jsdom$': '<rootDir>/test/mocks/jsdom.mock.ts',
     '^p-retry$': '<rootDir>/test/mocks/p-retry.mock.ts',
     '^is-network-error$': '<rootDir>/test/mocks/is-network-error.mock.ts',
+    '^better-auth/node$': '<rootDir>/test/mocks/better-auth-node.mock.ts',
   },
   transform: {
     '^.+\\.ts$': ['ts-jest', {
