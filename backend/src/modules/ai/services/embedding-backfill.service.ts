@@ -1,7 +1,7 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { EmailEmbeddingQueueService } from './email-embedding.queue';
+import { EMAIL_EMBEDDING_QUEUE, IEmailEmbeddingQueue } from '../../../common/interfaces/embedding-queue.interface';
 import { HtmlContentExtractor } from './html-content-extractor';
 
 // ============================================================================
@@ -101,8 +101,8 @@ export class EmbeddingBackfillService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => EmailEmbeddingQueueService))
-    private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
+    @Inject(EMAIL_EMBEDDING_QUEUE)
+    private readonly emailEmbeddingQueue: IEmailEmbeddingQueue,
   ) {}
 
   // ============================================================================

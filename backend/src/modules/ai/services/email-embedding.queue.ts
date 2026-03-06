@@ -1,7 +1,7 @@
 import { Job, Queue, Worker } from 'bullmq';
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { KnowledgeBaseService } from './knowledge-base.service';
+import { KNOWLEDGE_BASE, IKnowledgeBase } from '../../../common/interfaces/embedding-queue.interface';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
 import { isRateLimitError } from '../../../common/utils/error.utils';
@@ -48,8 +48,8 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
 
   constructor(
     private readonly config: ConfigService,
-    @Inject(forwardRef(() => KnowledgeBaseService))
-    private readonly knowledgeBaseService: KnowledgeBaseService,
+    @Inject(KNOWLEDGE_BASE)
+    private readonly knowledgeBaseService: IKnowledgeBase,
     private readonly dlqService: DeadLetterQueueService,
     private readonly alertingService: AlertingService,
   ) {

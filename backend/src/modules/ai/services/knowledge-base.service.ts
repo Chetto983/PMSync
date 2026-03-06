@@ -1,9 +1,9 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
-import { EmailEmbeddingQueueService } from './email-embedding.queue';
+import { EMAIL_EMBEDDING_QUEUE, IEmailEmbeddingQueue } from '../../../common/interfaces/embedding-queue.interface';
 import { AiError } from '../errors';
 // Phase 7: Extracted sub-services
 import { EmbeddingComposerService } from './embedding-composer.service';
@@ -50,8 +50,8 @@ export class KnowledgeBaseService {
     private readonly prisma: PrismaService,
     private readonly mistralService: MistralService,
     private readonly embeddingsService: EmbeddingsService,
-    @Inject(forwardRef(() => EmailEmbeddingQueueService))
-    private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
+    @Inject(EMAIL_EMBEDDING_QUEUE)
+    private readonly emailEmbeddingQueue: IEmailEmbeddingQueue,
     private readonly configService: ConfigService,
     // Phase 7: Extracted sub-services
     private readonly composerService: EmbeddingComposerService,
