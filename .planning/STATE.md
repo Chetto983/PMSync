@@ -3,93 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: Completed 45-02-PLAN.md
-last_updated: "2026-03-06T08:44:54.844Z"
-last_activity: 2026-03-06 -- 44-04 Contacts + Calendar god-file splits + QUAL-14 verification
+stopped_at: Completed 45-03-PLAN.md
+last_updated: "2026-03-06T09:01:00Z"
+last_activity: 2026-03-06 -- 45-03 module-level forwardRef elimination
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 19
-  completed_plans: 17
----
-
----
-gsd_state_version: 1.0
-milestone: v4.1
-milestone_name: Security Hardening & Debt Reduction
-status: executing
-stopped_at: Completed 44-04-PLAN.md
-last_updated: "2026-03-06T08:05:57.479Z"
-last_activity: 2026-03-06 -- 44-02 Header + ContactDetail god-file splits
-progress:
-  total_phases: 7
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
+  completed_plans: 19
   percent: 100
----
-
----
-gsd_state_version: 1.0
-milestone: v4.1
-milestone_name: Security Hardening & Debt Reduction
-status: executing
-stopped_at: Completed 44-02-PLAN.md
-last_updated: "2026-03-06T07:52:36Z"
-last_activity: 2026-03-06 -- 44-02 Header + ContactDetail god-file splits
-progress:
-  [██████████] 100%
-  completed_phases: 3
-  total_plans: 16
-  completed_plans: 15
-  percent: 94
----
-
----
-gsd_state_version: 1.0
-milestone: v4.1
-milestone_name: Security Hardening & Debt Reduction
-status: executing
-stopped_at: Completed 48-04-PLAN.md
-last_updated: "2026-03-06T07:44:36.463Z"
-last_activity: 2026-03-05 -- 48-03 enumeration hardening + service wiring
-progress:
-  [█████████░] 88%
-  completed_phases: 3
-  total_plans: 16
-  completed_plans: 13
-  percent: 100
----
-
----
-gsd_state_version: 1.0
-milestone: v4.1
-milestone_name: Security Hardening & Debt Reduction
-status: executing
-stopped_at: Completed 48-03-PLAN.md
-last_updated: "2026-03-05T17:54:26.769Z"
-last_activity: 2026-03-05 -- 48-03 enumeration hardening + service wiring
-progress:
-  [██████████] 100%
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
----
-
----
-gsd_state_version: 1.0
-milestone: v4.1
-milestone_name: Security Hardening & Debt Reduction
-status: executing
-stopped_at: "Completed 48-02-PLAN.md"
-last_updated: "2026-03-05T17:39:30Z"
-last_activity: "2026-03-05 -- 48-02 ES256 JWT migration with dual-algo grace period"
-progress:
-  [████████░░] 83%
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 10
 ---
 
 # Project State
@@ -99,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 45 (forwardRef Burn-Down) -- removing unnecessary forwardRef calls
+**Current focus:** Phase 45 (forwardRef Burn-Down) -- COMPLETE
 
 ## Current Position
 
 Phase: 45 (forwardRef Burn-Down)
-Plan: 1 of 3 complete
-Status: Executing
-Last activity: 2026-03-06 -- 45-01 DLQ + worker/queue forwardRef removal + bootstrap smoke test
+Plan: 3 of 3 complete
+Status: Complete
+Last activity: 2026-03-06 -- 45-03 module-level forwardRef elimination via @Global() + domain events
 
-Progress: [███░░░░░░░] 33% (Phase 45: 1/3 plans)
+Progress: [██████████] 100% (Phase 45: 3/3 plans)
 
 ## Performance Metrics
 
@@ -135,6 +57,7 @@ Progress: [███░░░░░░░] 33% (Phase 45: 1/3 plans)
 | Phase 44 P04 | 9min | 3 tasks | 11 files |
 | Phase 45 P01 | 6min | 2 tasks | 10 files |
 | Phase 45 P02 | 4min | 2 tasks | 7 files |
+| Phase 45 P03 | 12min | 2 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -182,6 +105,10 @@ Recent decisions affecting current work:
 - [Phase 44]: Zustand slice creator pattern: (set, get) => state+actions spread into single store
 - [Phase 44]: Contacts handlers receive translations via hook parameter; dialogs extracted to ContactDialogs.tsx
 - [Phase 45]: useExisting (not useClass) for Symbol token bindings to avoid duplicate service instances
+- 45-03: @Global() TransactionalEmailModule for standalone nodemailer -- auth no longer imports EmailModule
+- 45-03: Domain event (email.indexed) over interface token for EmailSync->AI -- eliminates module import entirely
+- 45-03: EmailEmbeddingCleanupService moved to AiModule -- AI concern, not sync concern
+- 45-03: CalendarModule direct import in email.module.ts -- cycle broken at EmailSync edge
 
 ### Pending Todos
 
@@ -189,13 +116,13 @@ None.
 
 ### Blockers/Concerns
 
-- 5 forwardRef in Email/EmailSync core cluster (target: reduce in Phase 45)
+- forwardRef reduced to 5 files total (from 18 original) -- Phase 45 COMPLETE
 - api.generated.ts placeholder (resolves with CI against live DB)
 - Compliance GDPR endpoints (consent, data-export, data-deletion, legal) now admin-only -- may need revisiting for user self-service GDPR rights
 
 ## Session Continuity
 
-Last session: 2026-03-06T08:46:25Z
-Stopped at: Completed 45-01-PLAN.md
+Last session: 2026-03-06T09:01:00Z
+Stopped at: Completed 45-03-PLAN.md
 Resume file: None
-Next action: Execute Phase 45 Plan 03
+Next action: Phase 45 complete -- all 3 plans executed
