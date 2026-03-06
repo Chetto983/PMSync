@@ -111,7 +111,7 @@ Plans:
   2. User can sign in with existing email/password and land on the dashboard
   3. User receives verification email after signup and can verify their address
   4. User can request password reset, receive email link, and set a new password
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 51-01-PLAN.md — Server-side: nodemailer, auth-client, email callbacks, HIBP on reset
@@ -238,7 +238,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 51. Core Email/Password Auth | v5.0 | 0/2 | Planned | - |
+| 51. Core Email/Password Auth | 1/2 | In Progress|  | - |
 | 52. NestJS Session Validation | v5.0 | 0/TBD | Not started | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
 | 54. WebSocket Auth | v5.0 | 0/TBD | Not started | - |
