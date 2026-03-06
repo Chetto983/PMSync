@@ -59,8 +59,8 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **DEBT-03**: email-sync.module.ts forwardRef (3 refs) reduced to 1 via shared interfaces in common/
 - [x] **DEBT-04**: auth.module.ts forwardRef (3 refs) reduced to 1 via shared user lookup service
 - [x] **DEBT-05**: Worker file forwardRef removed via module provider injection
-- [ ] **DEBT-06**: Service-level circular dependencies eliminated -- subscription, realtime, email sync-back type cycles broken via type extraction
-- [ ] **DEBT-07**: AI insights circular dependency broken -- UnifiedEmailAnalysis type extracted to dedicated file
+- [x] **DEBT-06**: Service-level circular dependencies eliminated -- subscription, realtime, email sync-back type cycles broken via type extraction
+- [x] **DEBT-07**: AI insights circular dependency broken -- UnifiedEmailAnalysis type extracted to dedicated file
 - [ ] **DEBT-08**: AI embedding interface and locale barrel cycles eliminated -- types inlined/extracted to break import chains
 - [ ] **DEBT-09**: EmailModule/EmailSyncModule forwardRef cycle eliminated via @Global() module extraction
 - [ ] **DEBT-10**: madge --circular reports zero circular dependencies across entire backend/src
@@ -178,8 +178,8 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | DEBT-03 | Phase 45 | Complete |
 | DEBT-04 | Phase 45 | Complete |
 | DEBT-05 | Phase 45 | Complete |
-| DEBT-06 | Phase 49 | Pending |
-| DEBT-07 | Phase 49 | Pending |
+| DEBT-06 | Phase 49 | Complete |
+| DEBT-07 | Phase 49 | Complete |
 | DEBT-08 | Phase 49 | Pending |
 | DEBT-09 | Phase 49 | Pending |
 | DEBT-10 | Phase 49 | Pending |

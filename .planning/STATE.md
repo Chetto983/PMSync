@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
+stopped_at: Completed 49-01-PLAN.md
+last_updated: "2026-03-06T09:40:36.385Z"
+last_activity: 2026-03-06 -- Phase 45 forwardRef burn-down complete (18→2 call sites)
+progress:
+  total_phases: 8
+  completed_phases: 5
+  total_plans: 22
+  completed_plans: 20
+  percent: 91
+---
+
+---
+gsd_state_version: 1.0
+milestone: v4.1
+milestone_name: Security Hardening & Debt Reduction
+status: executing
 stopped_at: Phase 45 complete, ready to plan Phase 48
 last_updated: "2026-03-06T09:09:57.430Z"
 last_activity: 2026-03-06 -- Phase 45 forwardRef burn-down complete (18→2 call sites)
 progress:
-  total_phases: 7
+  [█████████░] 91%
   completed_phases: 5
   total_plans: 19
   completed_plans: 19
@@ -88,6 +104,7 @@ Progress: [██████████] 100% (Phase 45: 3/3 plans)
 | Phase 45 P01 | 6min | 2 tasks | 10 files |
 | Phase 45 P02 | 4min | 2 tasks | 7 files |
 | Phase 45 P03 | 12min | 2 tasks | 18 files |
+| Phase 49 P01 | 5min | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -139,6 +156,7 @@ Recent decisions affecting current work:
 - 45-03: Domain event (email.indexed) over interface token for EmailSync->AI -- eliminates module import entirely
 - 45-03: EmailEmbeddingCleanupService moved to AiModule -- AI concern, not sync concern
 - 45-03: CalendarModule direct import in email.module.ts -- cycle broken at EmailSync edge
+- [Phase 49]: Type extraction pattern: shared interface to types/ dir with re-export from original file
 
 ### Roadmap Evolution
 
@@ -156,7 +174,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-06
-Stopped at: Phase 45 complete, ready to plan Phase 48
+Last session: 2026-03-06T09:40:36.378Z
+Stopped at: Completed 49-01-PLAN.md
 Resume file: None
 Next action: Plan Phase 48 (Auth Fix 2026 Best Practice)
