@@ -1,0 +1,105 @@
+# Requirements: PMSync v5.0
+
+**Defined:** 2026-03-06
+**Core Value:** The best professional AI mail client -- fast, intelligent, and secure
+
+## v5.0 Requirements
+
+Requirements for better-auth migration. Each maps to roadmap phases.
+
+### Core Auth
+
+- [ ] **CORE-01**: User can sign up with email and password via better-auth
+- [ ] **CORE-02**: User can sign in with email and password
+- [ ] **CORE-03**: User can sign in with Google OAuth
+- [ ] **CORE-04**: User receives email verification after signup
+- [ ] **CORE-05**: User can reset password via email link
+- [ ] **CORE-06**: User session persists via httpOnly cookie (DB-backed, no JWT)
+- [ ] **CORE-07**: Compromised passwords blocked via HIBP check on signup/change
+
+### NestJS Integration
+
+- [ ] **NEST-01**: NestJS validates better-auth sessions via shared DB (AuthGuard)
+- [ ] **NEST-02**: TenantGuard reads tenantId from better-auth session user
+- [ ] **NEST-03**: RolesGuard enforces role-based access from better-auth session
+- [ ] **NEST-04**: bodyParser selectively disabled for auth routes only
+- [ ] **NEST-05**: WebSocket handshake validates better-auth session tokens
+- [ ] **NEST-06**: BullMQ jobs retain correct tenantId from new auth context
+
+### Frontend Auth
+
+- [ ] **FEUI-01**: User sees login/signup pages built with better-auth-ui components
+- [ ] **FEUI-02**: User session managed via better-auth/react hooks (useSession)
+- [ ] **FEUI-03**: Auth context replaced with better-auth client (no Zustand auth store)
+- [ ] **FEUI-04**: Protected routes redirect unauthenticated users to login
+
+### Security
+
+- [ ] **SEC-01**: User can enable TOTP 2FA with QR code setup
+- [ ] **SEC-02**: User can use backup codes when TOTP device unavailable
+- [ ] **SEC-03**: User can register and authenticate with passkeys (WebAuthn)
+- [ ] **SEC-04**: User can manage security settings (2FA, passkeys, sessions)
+
+### Organizations & Roles
+
+- [ ] **ORG-01**: User can create an organization
+- [ ] **ORG-02**: Organization owner can invite members by email
+- [ ] **ORG-03**: Organization owner/admin can assign roles (owner/admin/member)
+- [ ] **ORG-04**: User can switch between organizations
+- [ ] **ORG-05**: Organization permissions enforced on API endpoints
+
+### Admin
+
+- [ ] **ADM-01**: Admin can list and search all users
+- [ ] **ADM-02**: Admin can ban/unban users with reason and expiry
+- [ ] **ADM-03**: Admin can impersonate users for support
+- [ ] **ADM-04**: Admin can revoke user sessions
+
+### Compliance & Cleanup
+
+- [ ] **CLN-01**: Auth events (login, logout, signup, password change) logged to audit trail
+- [ ] **CLN-02**: GDPR data export includes better-auth tables (account, verification)
+- [ ] **CLN-03**: Right to erasure cascades into better-auth tables
+- [ ] **CLN-04**: Old auth code deleted (~17 services, 5 npm packages, 7 Prisma models)
+- [ ] **CLN-05**: Auth test suite rewritten for better-auth
+
+## Future Requirements
+
+### Advanced Security
+
+- **ASEC-01**: Sentinel plugin (credential stuffing, impossible travel, bot detection)
+- **ASEC-02**: Captcha on signup for bot protection
+- **ASEC-03**: Session concurrency limits (max sessions per user)
+
+### Enterprise
+
+- **ENT-01**: SSO/SAML for enterprise customers
+- **ENT-02**: SCIM directory sync
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Magic link auth | Adds complexity without value; email/password + Google sufficient |
+| Anonymous auth | No use case in PMSync |
+| OIDC Provider | We consume OAuth, do not provide it |
+| Custom JWT layer on better-auth | DB sessions are simpler and more secure; cookie cache gives same perf |
+| __Host- cookie prefix | Accept better-auth cookie defaults; fighting the framework is fragile |
+| Bearer/API key auth | No API-only clients yet; add as plugin later if needed |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| (populated by roadmapper) | | |
+
+**Coverage:**
+- v5.0 requirements: 30 total
+- Mapped to phases: 0
+- Unmapped: 30
+
+---
+*Requirements defined: 2026-03-06*
+*Last updated: 2026-03-06 after initial definition*
