@@ -8,7 +8,7 @@ import { GmailSyncBackService } from './gmail-sync-back.service';
 import { MicrosoftSyncBackService } from './microsoft-sync-back.service';
 import { ImapSyncBackService } from './imap-sync-back.service';
 import type { ProviderConfig } from '@prisma/client';
-import type { EmailSyncOperation } from './email-sync-back.service';
+import type { EmailSyncOperation } from '../types/sync-back.types';
 
 /**
  * Orchestrates batch sync-back operations and manages token refresh.

@@ -8,19 +8,10 @@ import { GmailSyncBackService } from './gmail-sync-back.service';
 import { MicrosoftSyncBackService } from './microsoft-sync-back.service';
 import { ImapSyncBackService } from './imap-sync-back.service';
 import { SyncBackOrchestratorService } from './sync-back-orchestrator.service';
+import type { EmailSyncOperation } from '../types/sync-back.types';
 
-export interface EmailSyncOperation {
-  emailId: string;
-  externalId: string;
-  providerId: string;
-  tenantId: string;
-  operation: 'delete' | 'hardDelete' | 'markRead' | 'markUnread' | 'star' | 'unstar' | 'flag' | 'unflag' | 'moveToFolder';
-  /** For moveToFolder: target folder. For delete: unused (use sourceFolder) */
-  folder?: string;
-  /** Source folder where message currently resides on IMAP server.
-   * Critical for IMAP sync-back since DB folder may already be updated. */
-  sourceFolder?: string;
-}
+// Re-export for backward compatibility
+export type { EmailSyncOperation } from '../types/sync-back.types';
 
 /**
  * Facade for syncing email changes back to providers (Gmail/Outlook/IMAP).

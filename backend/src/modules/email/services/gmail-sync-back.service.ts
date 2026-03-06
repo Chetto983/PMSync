@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { google } from 'googleapis';
-import type { EmailSyncOperation } from './email-sync-back.service';
+import type { EmailSyncOperation } from '../types/sync-back.types';
 
 /**
  * Gmail-specific sync-back operations.

@@ -3,7 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { ImapFlow } from 'imapflow';
 import type { ProviderConfig } from '@prisma/client';
-import type { EmailSyncOperation } from './email-sync-back.service';
+import type { EmailSyncOperation } from '../types/sync-back.types';
 
 /**
  * IMAP-specific sync-back operations.

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import type { EmailSyncOperation } from './email-sync-back.service';
+import type { EmailSyncOperation } from '../types/sync-back.types';
 
 /**
  * Microsoft-specific sync-back operations.
