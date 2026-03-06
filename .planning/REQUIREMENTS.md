@@ -69,8 +69,8 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 - [x] **OBS-01**: prom-client replaces custom metrics, /metrics endpoint live
 - [x] **OBS-02**: Request duration histogram + active connections gauge middleware
-- [ ] **OBS-03**: BullMQ queue depth metrics exposed
-- [ ] **OBS-04**: AI cost/token counter via prom-client
+- [x] **OBS-03**: BullMQ queue depth metrics exposed
+- [x] **OBS-04**: AI cost/token counter via prom-client
 
 ### Infrastructure
 
@@ -185,8 +185,8 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | DEBT-10 | Phase 49 | Complete |
 | OBS-01 | Phase 46 | Complete |
 | OBS-02 | Phase 46 | Complete |
-| OBS-03 | Phase 46 | Pending |
-| OBS-04 | Phase 46 | Pending |
+| OBS-03 | Phase 46 | Complete |
+| OBS-04 | Phase 46 | Complete |
 | INFRA-01 | Phase 47 | Pending |
 | INFRA-02 | Phase 47 | Pending |
 | INFRA-03 | Phase 47 | Pending |
