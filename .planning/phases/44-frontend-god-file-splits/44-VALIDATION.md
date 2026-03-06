@@ -38,15 +38,15 @@ created: 2026-03-06
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 44-01-01 | 01 | 0 | TEST-07 | visual-regression | `cd frontend && npx playwright test e2e/visual-regression-splits.spec.ts --update-snapshots` | W0 creates | pending |
-| 44-02-01 | 02 | 1 | QUAL-11 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
-| 44-02-02 | 02 | 1 | QUAL-10 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
-| 44-02-03 | 02 | 1 | QUAL-09 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
+| 44-01-01 | 01 | 1 | TEST-07 | visual-regression | `cd frontend && npx playwright test e2e/visual-regression-splits.spec.ts --update-snapshots` | W0 creates | pending |
+| 44-01-02 | 01 | 1 | QUAL-11 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
+| 44-02-01 | 02 | 2 | QUAL-09 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
+| 44-02-02 | 02 | 2 | QUAL-10 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
 | 44-03-01 | 03 | 2 | QUAL-13 | type-check | `cd frontend && npx tsc --noEmit` | existing | pending |
 | 44-03-02 | 03 | 2 | QUAL-12 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
 | 44-04-01 | 04 | 3 | QUAL-08 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
 | 44-04-02 | 04 | 3 | QUAL-07 | type-check + visual | `cd frontend && npx tsc --noEmit` | existing | pending |
-| 44-05-01 | 05 | 4 | QUAL-14 | script | `find frontend/src -name "*.tsx" -o -name "*.ts" \| xargs wc -l \| awk '{if ($1>400) print}'` | W0 creates | pending |
+| 44-04-03 | 04 | 3 | QUAL-14 | script | `find frontend/src -name "*.tsx" -o -name "*.ts" \| xargs wc -l \| awk '{if ($1>400) print}'` | existing | pending |
 
 *Status: pending / green / red / flaky*
 
