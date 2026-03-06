@@ -66,7 +66,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 43: Contract Tests & Backend God-File Splits** - API contract tests in CI, attachment streaming, 5 backend god-files decomposed (completed 2026-03-05)
 - [x] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification (3/4 plans) (completed 2026-03-06)
 - [x] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to 0 files via domain events and shared interfaces (completed 2026-03-06)
-- [x] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters (completed 2026-03-06)
+- [x] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters (completed 2026-03-06)
 - [ ] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget
 - [x] **Phase 48: Auth Fix 2026 Best Practice** - Argon2id, asymmetric JWT, password policy, dual-key rate limiting, enumeration hardening, session concurrency, idle timeout, cookie hardening (completed 2026-03-05)
 - [x] **Phase 49: Zero Circular Dependencies** - Eliminate all 14 madge --circular chains via type extraction, interface abstraction, and module decoupling (completed 2026-03-06)
@@ -171,7 +171,12 @@ Plans:
   3. `npm ls --all` shows zero unused production dependencies; bundle size stays within CI budget
   4. Zero CBC-encoded records remain in the database -- all re-encrypted to GCM
   5. Dead filter files (all-exceptions, http-exception, throttler-exception) are deleted
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 47-01-PLAN.md -- WebSocket Redis adapter + tenant Redis counters + cross-instance test
+- [ ] 47-02-PLAN.md -- CSRF structured error surfacing + auto-retry + dead filter verify
+- [ ] 47-03-PLAN.md -- CBC-to-GCM re-encryption + Knip dependency audit + CI bundle budget
 
 ### Phase 48: Auth Fix 2026 Best Practice
 **Goal**: Upgrade auth to 2026 standards: Argon2id password hashing with transparent bcrypt migration, ES256 asymmetric JWT signing with dual-algo grace period, NIST-compliant password policy with HIBP breach check, enumeration hardening across all auth endpoints, session concurrency enforcement, idle session timeout, and __Host- cookie prefix
@@ -236,7 +241,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48 -> 49
 | 44. Frontend God-File Splits | 4/4 | Complete    | 2026-03-06 | - |
 | 45. forwardRef Burn-Down | 3/3 | Complete    | 2026-03-06 | - |
 | 46. Observability | 3/3 | Complete    | 2026-03-06 | - |
-| 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
+| 47. Infrastructure & Cleanup | v4.1 | 0/3 | Not started | - |
 | 48. Auth Fix 2026 Best Practice | 4/4 | Complete    | 2026-03-06 | - |
 | 49. Zero Circular Dependencies | 3/3 | Complete    | 2026-03-06 | - |
 
@@ -262,3 +267,4 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48 -> 49
 *Phase 48 plans revised: 2026-03-05 -- 4 plans in 3 waves (added 48-04 for session concurrency, idle timeout, cookie hardening; added P48-12/13/14)*
 *Phase 49 plans created: 2026-03-06 -- 3 plans in 2 waves (01+02 parallel Wave 1, 03 Wave 2 depends on 01+02)*
 *Phase 46 plans created: 2026-03-06 -- 3 plans in 2 waves (01 Wave 1, 02+03 parallel Wave 2)*
+*Phase 47 plans created: 2026-03-06 -- 3 plans in 1 wave (01+02+03 all parallel Wave 1)*
