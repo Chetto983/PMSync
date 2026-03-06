@@ -130,6 +130,11 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 <!-- v5.0 requirements - defined during milestone planning -->
 
+**v5.0 - better-auth Migration (in progress):**
+- Phase 50: Schema & infrastructure (better-auth tables, BetterAuthModule) -- complete
+- Phase 51: Core email/password auth (signup, signin, verify, reset) -- complete
+- Phase 52: NestJS session validation (global BetterAuthGuard, guard chain migration) -- complete
+
 ### Out of Scope
 
 - Mobile app (web-first, responsive)
@@ -236,5 +241,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | Zustand domain slices for email-ui-store | (set, get) => state+actions; clean separation without store fragmentation | ✓ Good |
 | Type extraction for circular dependency breaks | Shared interface to types/ dir with re-export from original; zero runtime impact | ✓ Good |
 
+| Global BetterAuthGuard + @Public() opt-out | All routes authenticated by default; opt-out is explicit and auditable | ✓ Good |
+| TenantGuard/RolesGuard zero-change compat | BetterAuthGuard maps session to identical request.user shape | ✓ Good |
+
 ---
-*Last updated: 2026-03-06 after v5.0 milestone start*
+*Last updated: 2026-03-06 after Phase 52*
