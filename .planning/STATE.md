@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 52-02-PLAN.md (guard chain migration)
-last_updated: "2026-03-06T21:55:02Z"
-last_activity: 2026-03-06 -- 52-02 complete (JwtAuthGuard removed from all controllers)
+stopped_at: Completed 52-03-PLAN.md (gap closure)
+last_updated: "2026-03-06T22:14:08.859Z"
+last_activity: 2026-03-06 -- 52-03 complete (gap closure - stale JwtAuthGuard refs fixed)
 progress:
   total_phases: 9
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 7
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -24,18 +25,18 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 
 ## Current Position
 
-Phase: 52 of 58 (NestJS Session Validation) -- Plan 2 of 2 COMPLETE
-Plan: 2 of 2
-Status: Phase 52 complete, ready for Phase 53
-Last activity: 2026-03-06 -- 52-02 complete (guard chain migration)
+Phase: 52 of 58 (NestJS Session Validation) -- Plan 3 of 3 COMPLETE
+Plan: 3 of 3
+Status: Phase 52 complete (including gap closure), ready for Phase 53
+Last activity: 2026-03-06 -- 52-03 complete (gap closure)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 7 min
+- Total plans completed: 7
+- Average duration: 6 min
 - Total execution time: 0.7 hours
 
 **By Phase:**
@@ -44,7 +45,7 @@ Progress: [██████████] 100%
 |-------|-------|-------|----------|
 | 50 - Schema & Infrastructure | 2/2 | 17 min | 8.5 min |
 | 51 - Core Email/Password Auth | 2/2 | 11 min | 5.5 min |
-| 52 - NestJS Session Validation | 2/2 | 12 min | 6 min |
+| 52 - NestJS Session Validation | 3/3 | 13 min | 4.3 min |
 
 *Updated after each plan completion*
 
@@ -76,6 +77,7 @@ Progress: [██████████] 100%
 - [52-02] TenantGuard requires zero code changes -- BetterAuthGuard maps session to identical request.user shape
 - [52-02] RolesGuard requires zero code changes -- already reads request.user.role
 - [52-02] BullMQ tenantId propagation unaffected -- same req.user.tenantId shape
+- [Phase 52]: Test update is correctness fix -- Plan 02 intentionally changed guard chain, test must reflect new reality
 
 ### Pending Todos
 
@@ -89,7 +91,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-06
-Stopped at: Completed 52-02-PLAN.md (guard chain migration)
+Last session: 2026-03-06T22:14:08.856Z
+Stopped at: Completed 52-03-PLAN.md (gap closure)
 Resume file: None
 Next action: Plan Phase 53
