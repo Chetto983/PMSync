@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SyncMessageProcessorService } from '../sync-message-processor.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
@@ -41,6 +42,7 @@ describe('SyncMessageProcessorService', () => {
         SyncMessageProcessorService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RealtimeEventsService, useValue: mockRealtimeEvents },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 
@@ -354,7 +356,6 @@ describe('SyncMessageProcessorService', () => {
       const mockContext = {
         tenantId: 'tenant-1',
         providerId: 'provider-1',
-        getEmbeddingQueue: () => ({ enqueue: jest.fn() }),
         processAttachments: jest.fn(),
       };
 
@@ -389,7 +390,6 @@ describe('SyncMessageProcessorService', () => {
       const mockContext = {
         tenantId: 'tenant-1',
         providerId: 'provider-1',
-        getEmbeddingQueue: () => ({ enqueue: jest.fn() }),
         processAttachments: jest.fn(),
       };
 
@@ -422,7 +422,6 @@ describe('SyncMessageProcessorService', () => {
       tenantId,
       providerId,
       userId: 'user-1',
-      getEmbeddingQueue: () => ({ enqueue: jest.fn().mockResolvedValue(undefined) }),
       processAttachments: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -703,7 +702,6 @@ describe('SyncMessageProcessorService', () => {
       const embeddingEnqueue = jest.fn().mockResolvedValue(undefined);
       const contextWithEmbedding = {
         ...mockContext,
-        getEmbeddingQueue: () => ({ enqueue: embeddingEnqueue }),
       };
 
       await service.processBatch(

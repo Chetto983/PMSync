@@ -53,6 +53,10 @@ import {
 } from '../../common/interfaces/embedding-queue.interface';
 import { RagTool } from './tools/rag.tool';
 import { AiProviderEventHandlerService } from './services/provider-event-handler.service';
+// Phase 45-03: Event handler for email.indexed (EmailSync -> AI decoupling)
+import { EmailIndexedHandler } from './services/email-indexed.handler';
+// Phase 45-03: Moved from EmailSyncModule (AI concern, not sync concern)
+import { EmailEmbeddingCleanupService } from './services/email-embedding-cleanup.service';
 // Phase 35: AI Run Ledger -- fire-and-forget telemetry for all AI calls
 import { AiRunLedgerService } from './services/ai-run-ledger.service';
 // Phase 35 Plan 02: AI Observability endpoints (runs query + cost summary)
@@ -114,6 +118,10 @@ import { AiObservabilityController } from './controllers/ai-observability.contro
     AiProviderEventHandlerService,
     // Phase 35: AI Run Ledger telemetry
     AiRunLedgerService,
+    // Phase 45-03: Event handler for email.indexed (EmailSync -> AI decoupling)
+    EmailIndexedHandler,
+    // Phase 45-03: Moved from EmailSyncModule (AI concern, not sync concern)
+    EmailEmbeddingCleanupService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController],
   exports: [

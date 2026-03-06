@@ -4,7 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { EmailModule } from '../email/email.module';
-import { AiModule } from '../ai/ai.module';
+// Phase 45-03: AiModule removed -- embedding enqueue via domain event (email.indexed)
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RetryService } from '../../common/services/retry.service';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
@@ -26,7 +26,7 @@ import { MicrosoftSyncService } from './services/microsoft/microsoft-sync.servic
 import { ImapSyncService } from './services/imap/imap-sync.service';
 import { FolderSyncService } from './services/folder-sync.service';
 import { FolderSyncQueryService } from './services/folder-sync-query.service';
-import { EmailEmbeddingCleanupService } from './services/email-embedding-cleanup.service';
+// Phase 45-03: EmailEmbeddingCleanupService moved to AiModule (AI concern)
 import { ProviderEventHandlerService } from './services/provider-event-handler.service';
 
 // Gmail-specific services (pluggable adapters)
@@ -75,7 +75,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     PrismaModule,
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailSyncModule)
     forwardRef(() => EmailModule), // For AttachmentStorageService
-    forwardRef(() => AiModule),
+    // Phase 45-03: AiModule forwardRef removed -- decoupled via domain events
     RealtimeModule, // WebSocket events
     DriversModule, // Email Drivers (Phase 2)
     // ScheduledJobsModule is @Global() — no need to import, available everywhere
@@ -107,7 +107,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     ImapSyncService,
     FolderSyncQueryService, // Must be before FolderSyncService for DI ordering
     FolderSyncService,
-    EmailEmbeddingCleanupService,
+    // Phase 45-03: EmailEmbeddingCleanupService moved to AiModule
 
     // Phase 32: Event handler for ProviderConnected/ProviderDisconnected
     ProviderEventHandlerService,

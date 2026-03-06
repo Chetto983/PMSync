@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -20,8 +20,7 @@ import { RedisRateLimiterService } from '../../common/services/redis-rate-limite
 import { PasswordHashingService } from './services/password-hashing.service';
 import { PasswordPolicyService } from './services/password-policy.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { EmailService } from '../email/services/email.service';
-import { EmailModule } from '../email/email.module';
+// EmailService provided globally by TransactionalEmailModule (Phase 45-03)
 import { PrismaModule } from '../../prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
 import { ComplianceModule } from '../compliance/compliance.module';
@@ -53,7 +52,7 @@ import { ComplianceModule } from '../compliance/compliance.module';
     UsersModule,
     ConfigModule,
     ComplianceModule, // LegalAcceptanceService for registration-time legal acceptance
-    forwardRef(() => EmailModule),
+    // TransactionalEmailModule is @Global() -- EmailService available without import
     PassportModule.register({ defaultStrategy: 'jwt' }),
     // JWT configuration with ES256 support and HS256 fallback
     JwtModule.registerAsync({
@@ -120,7 +119,7 @@ import { ComplianceModule } from '../compliance/compliance.module';
     PasswordHashingService,
     PasswordPolicyService,
     JwtStrategy,
-    // EmailService removed — provided by EmailModule (forwardRef import above)
+    // EmailService provided globally by TransactionalEmailModule (Phase 45-03)
   ],
   controllers: [AuthController, MfaController],
   exports: [

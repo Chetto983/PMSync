@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -38,7 +37,6 @@ export class ImapSyncService extends BaseEmailSyncService {
     prisma: PrismaService,
     realtimeEvents: RealtimeEventsService,
     config: ConfigService,
-    private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private crypto: CryptoService,
     private driverFactory: EmailDriverFactory,
     private imapAttachmentHandler: ImapAttachmentHandler,
@@ -79,12 +77,7 @@ export class ImapSyncService extends BaseEmailSyncService {
   // Abstract Method Implementations (Required)
   // ============================================
 
-  /**
-   * Provide the embedding queue service to the base class
-   */
-  protected getEmbeddingQueue(): EmailEmbeddingQueueService {
-    return this.emailEmbeddingQueue;
-  }
+  // Phase 45-03: getEmbeddingQueue() removed -- embedding enqueue via domain event
 
   /**
    * Get driver credentials for IMAP basic auth

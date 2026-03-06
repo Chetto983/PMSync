@@ -1,4 +1,4 @@
-export { EmailSyncedEvent } from './email.events';
+export { EmailSyncedEvent, EmailIndexedEvent, EmailEmbeddingCleanupRequestedEvent } from './email.events';
 export { ProviderConnectedEvent, ProviderDisconnectedEvent } from './provider.events';
 export { ContactUpdatedEvent } from './contact.events';
 export { TenantDeletedEvent } from './tenant.events';

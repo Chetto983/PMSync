@@ -14,6 +14,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
@@ -26,6 +27,7 @@ import {
   BatchResult,
 } from '../interfaces/sync-context.interface';
 import { isJunkFolder } from '../../email/email.helpers';
+import { EmailIndexedEvent } from '../../../common/events/email.events';
 
 @Injectable()
 export class SyncMessageProcessorService {
@@ -34,6 +36,7 @@ export class SyncMessageProcessorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // RedisLockService injected separately (matching base class pattern)
@@ -369,20 +372,23 @@ export class SyncMessageProcessorService {
 
       // Only queue embeddings and emit events for new messages
       if (wasNew) {
-        // Queue for embeddings (skip SPAM/TRASH - they're junk)
-        // Body is always fetched during sync for AI embeddings to work
+        // Phase 45-03: Emit domain event instead of direct embedding queue call
+        // AiModule's EmailIndexedHandler listens and enqueues the embedding job
         if (!isJunkFolder(result.folder)) {
-          await context.getEmbeddingQueue().enqueue({
-            emailId: result.id,
-            tenantId,
-            providerId,
-            subject: result.subject,
-            snippet: result.snippet || '',
-            bodyText: result.bodyText || '',
-            bodyHtml: result.bodyHtml || '',
-            from: result.from || '',
-            receivedAt: result.receivedAt || new Date(),
-          });
+          this.eventEmitter.emit(
+            EmailIndexedEvent.eventName,
+            new EmailIndexedEvent(
+              result.id,
+              tenantId,
+              providerId,
+              result.subject,
+              result.snippet || '',
+              result.bodyText || '',
+              result.bodyHtml || '',
+              result.from || '',
+              result.receivedAt || new Date(),
+            ),
+          );
         }
 
         // Emit realtime event
@@ -588,19 +594,22 @@ export class SyncMessageProcessorService {
       if (wasNew) {
         newCount++;
 
-        // Queue for embeddings (skip SPAM/TRASH)
+        // Phase 45-03: Emit domain event instead of direct embedding queue call
         if (!isJunkFolder(result.folder)) {
-          await context.getEmbeddingQueue().enqueue({
-            emailId: result.id,
-            tenantId,
-            providerId,
-            subject: result.subject,
-            snippet: result.snippet || '',
-            bodyText: result.bodyText || '',
-            bodyHtml: result.bodyHtml || '',
-            from: result.from || '',
-            receivedAt: result.receivedAt || new Date(),
-          });
+          this.eventEmitter.emit(
+            EmailIndexedEvent.eventName,
+            new EmailIndexedEvent(
+              result.id,
+              tenantId,
+              providerId,
+              result.subject,
+              result.snippet || '',
+              result.bodyText || '',
+              result.bodyHtml || '',
+              result.from || '',
+              result.receivedAt || new Date(),
+            ),
+          );
         }
 
         // Emit realtime event

@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -32,7 +31,6 @@ export class GoogleSyncService extends BaseEmailSyncService {
     prisma: PrismaService,
     realtimeEvents: RealtimeEventsService,
     config: ConfigService,
-    private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private providerTokenService: ProviderTokenService,
     private driverFactory: EmailDriverFactory,
     private gmailAttachmentHandler: GmailAttachmentHandler,
@@ -73,12 +71,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
   // Abstract Method Implementations (Required)
   // ============================================
 
-  /**
-   * Provide the embedding queue service to the base class
-   */
-  protected getEmbeddingQueue(): EmailEmbeddingQueueService {
-    return this.emailEmbeddingQueue;
-  }
+  // Phase 45-03: getEmbeddingQueue() removed -- embedding enqueue via domain event
 
   /**
    * Get driver credentials for Gmail OAuth2

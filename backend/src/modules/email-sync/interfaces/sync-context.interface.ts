@@ -8,7 +8,6 @@
  * Pattern proven in Phase 5 (GmailSyncService, MicrosoftSyncService)
  */
 
-import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { AttachmentMeta } from '../drivers/interfaces/canonical.types';
 
@@ -29,14 +28,17 @@ export type ProcessAttachmentsCallback = (
  * Context for message processor operations
  * Uses callbacks for abstract methods to avoid circular dependencies
  * Pattern proven in Phase 5 (GmailSyncService, MicrosoftSyncService)
+ *
+ * Phase 45-03: Removed getEmbeddingQueue callback. Embedding enqueue
+ * now happens via domain event (email.indexed) emitted by
+ * SyncMessageProcessorService, handled by AiModule's EmailIndexedHandler.
  */
 export interface MessageProcessorContext {
   tenantId: string;
   providerId: string;
   userId?: string;
 
-  // Callbacks for provider-specific services (from child class)
-  getEmbeddingQueue: () => EmailEmbeddingQueueService;
+  // Callback for provider-specific attachment processing (from child class)
   processAttachments: ProcessAttachmentsCallback;
 }
 

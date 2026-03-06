@@ -6,7 +6,7 @@ import { RealtimeEventsService } from '../../realtime/services/realtime-events.s
 import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
 import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { CanonicalMessage, AttachmentMeta } from '../drivers/interfaces/canonical.types';
-import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
+// Phase 45-03: EmailEmbeddingQueueService removed -- embedding enqueue via domain event
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { SyncMessageProcessorService } from './sync-message-processor.service';
 import {
@@ -305,11 +305,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     return { skipProcessing: false };
   }
 
-  /**
-   * Get the email embedding queue service - must be provided by child classes
-   * This allows the base class to queue new messages for embedding generation
-   */
-  protected abstract getEmbeddingQueue(): EmailEmbeddingQueueService;
+  // Phase 45-03: getEmbeddingQueue() removed -- embedding enqueue via domain event (email.indexed)
 
   /**
    * Process attachments for a message - must be implemented by each provider
@@ -340,7 +336,6 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       tenantId,
       providerId,
       userId,
-      getEmbeddingQueue: () => this.getEmbeddingQueue(),
       processAttachments: (driver, emailId, tid, pid, externalMessageId, attachments) =>
         this.processAttachmentsForMessage(driver, emailId, tid, pid, externalMessageId, attachments),
     };

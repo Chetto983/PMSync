@@ -20,6 +20,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { EmailModule } from './modules/email/email.module';
+import { TransactionalEmailModule } from './modules/email/transactional-email.module';
 import { AiModule } from './modules/ai/ai.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -73,6 +74,7 @@ import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry
     PrismaModule,
     // Phase 32: @Global() tool registry -- must load before domain modules
     ToolRegistryModule,
+    TransactionalEmailModule, // Phase 45-03: @Global() nodemailer service (before AuthModule)
     AuthModule,
     UsersModule,
     TenantsModule,
