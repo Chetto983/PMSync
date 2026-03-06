@@ -238,7 +238,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 51. Core Email/Password Auth | v5.0 | Complete | 2026-03-06 | 2026-03-06 |
+| 51. Core Email/Password Auth | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
 | 52. NestJS Session Validation | v5.0 | 0/TBD | Not started | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
 | 54. WebSocket Auth | v5.0 | 0/TBD | Not started | - |
