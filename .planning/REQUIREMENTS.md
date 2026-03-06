@@ -88,7 +88,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **TEST-06**: Backend god-file split regression tests -- write tests for each file BEFORE splitting, verify identical behavior after
 - [x] **TEST-07**: Frontend god-file split visual regression -- Playwright screenshot comparison before/after each split
 - [x] **TEST-08**: forwardRef removal regression -- NestJS module bootstrap succeeds, all dependency injection chains resolve
-- [ ] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
+- [x] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
 - [ ] **TEST-10**: WebSocket Redis adapter test -- message published on instance A received by client on instance B
 - [ ] **TEST-11**: CSRF error surfacing test -- invalid/expired token returns meaningful error, retry logic succeeds
 - [ ] **TEST-12**: Bundle size CI gate -- build exceeding budget fails CI
@@ -198,7 +198,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-06 | Phase 43 | Complete |
 | TEST-07 | Phase 44 | Complete |
 | TEST-08 | Phase 45 | Complete |
-| TEST-09 | Phase 46 | Pending |
+| TEST-09 | Phase 46 | Complete |
 | TEST-10 | Phase 47 | Pending |
 | TEST-11 | Phase 47 | Pending |
 | TEST-12 | Phase 47 | Pending |
