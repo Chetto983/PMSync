@@ -8,8 +8,10 @@
  * Usage: inject into any AI service, call recordRun() without awaiting
  * in the hot path (fire-and-forget with .catch for safety).
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { AiRunStatus } from '@prisma/client';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { Counter } from 'prom-client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
@@ -48,7 +50,12 @@ export interface RecordRunParams {
 export class AiRunLedgerService {
   private readonly logger = new Logger(AiRunLedgerService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @InjectMetric('ai_tokens_total') private readonly tokensCounter?: Counter,
+    @Optional() @InjectMetric('ai_cost_usd_total') private readonly costCounter?: Counter,
+    @Optional() @InjectMetric('ai_requests_total') private readonly requestsCounter?: Counter,
+  ) {}
 
   /**
    * Record an AI run to the ledger. Fire-and-forget -- callers should
@@ -62,6 +69,16 @@ export class AiRunLedgerService {
     const cost = COST_MAP[params.model] ?? DEFAULT_COST;
     const estimatedCostUsd =
       (promptTokens * cost.input + completionTokens * cost.output) / 1_000_000;
+
+    // Phase 46-02: Prometheus counters (fire-and-forget alongside DB write)
+    this.tokensCounter?.inc({ model: params.model, type: 'prompt' }, promptTokens);
+    this.tokensCounter?.inc({ model: params.model, type: 'completion' }, completionTokens);
+    this.costCounter?.inc({ model: params.model }, estimatedCostUsd);
+    this.requestsCounter?.inc({
+      model: params.model,
+      run_type: params.runType,
+      status: (params.status ?? 'SUCCESS').toLowerCase(),
+    });
 
     const requestId =
       params.requestId ??
