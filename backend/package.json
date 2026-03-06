@@ -8,6 +8,8 @@
   "scripts": {
     "prepare": "cd .. && husky install .husky",
     "prebuild": "prisma generate && rimraf dist",
+    "prestart:dev": "rimraf .tsbuildinfo",
+    "prestart:debug": "rimraf .tsbuildinfo",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
