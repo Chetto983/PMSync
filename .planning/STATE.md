@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: Completed 47-01-PLAN.md
-last_updated: "2026-03-06T11:08:13.235Z"
+stopped_at: Completed 47-02-PLAN.md
+last_updated: "2026-03-06T11:09:18.599Z"
 last_activity: 2026-03-06 -- Phase 45 forwardRef burn-down complete (18→2 call sites)
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 28
-  completed_plans: 26
+  completed_plans: 27
   percent: 91
 ---
 
@@ -111,6 +111,7 @@ Progress: [██████████] 100% (Phase 45: 3/3 plans)
 | Phase 46 P02 | 3min | 2 tasks | 3 files |
 | Phase 46 P03 | 6min | 2 tasks | 4 files |
 | Phase 47 P01 | 6min | 2 tasks | 9 files |
+| Phase 47 P02 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -170,6 +171,7 @@ Recent decisions affecting current work:
 - [Phase 46]: @Optional() @InjectMetric pattern for test-safe Prometheus counter injection
 - [Phase 46]: Single shared NestJS app for /metrics integration tests (prom-client global registry constraint)
 - [Phase 47]: hasTenantConnections async (Promise<boolean>) for Redis-backed distributed counters
+- [Phase 47]: CSRF_TOKEN_INVALID error code distinguishes CSRF 403 from auth 403; frontend retries only on this code
 
 ### Roadmap Evolution
 
@@ -187,7 +189,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-06T11:08:13.230Z
-Stopped at: Completed 47-01-PLAN.md
+Last session: 2026-03-06T11:09:18.594Z
+Stopped at: Completed 47-02-PLAN.md
 Resume file: None
 Next action: Plan Phase 48 (Auth Fix 2026 Best Practice)

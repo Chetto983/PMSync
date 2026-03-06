@@ -90,15 +90,15 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **TEST-08**: forwardRef removal regression -- NestJS module bootstrap succeeds, all dependency injection chains resolve
 - [x] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
 - [x] **TEST-10**: WebSocket Redis adapter test -- message published on instance A received by client on instance B
-- [ ] **TEST-11**: CSRF error surfacing test -- invalid/expired token returns meaningful error, retry logic succeeds
+- [x] **TEST-11**: CSRF error surfacing test -- invalid/expired token returns meaningful error, retry logic succeeds
 - [ ] **TEST-12**: Bundle size CI gate -- build exceeding budget fails CI
 - [ ] **TEST-13**: CBC->GCM migration verification -- all encrypted fields readable, no CBC-encoded records remain
 
 ### Cleanup
 
-- [ ] **CLN-01**: CSRF error properly surfaced (not empty string)
-- [ ] **CLN-02**: CSRF token refresh retry logic
-- [ ] **CLN-03**: Dead filter files deleted (all-exceptions, http-exception, throttler-exception)
+- [x] **CLN-01**: CSRF error properly surfaced (not empty string)
+- [x] **CLN-02**: CSRF token refresh retry logic
+- [x] **CLN-03**: Dead filter files deleted (all-exceptions, http-exception, throttler-exception)
 - [ ] **CLN-04**: Frontend dependency audit -- unused packages removed
 - [ ] **CLN-05**: Bundle size budget in CI
 - [ ] **CLN-06**: CBC->GCM re-encryption backfill verified
@@ -200,12 +200,12 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-08 | Phase 45 | Complete |
 | TEST-09 | Phase 46 | Complete |
 | TEST-10 | Phase 47 | Complete |
-| TEST-11 | Phase 47 | Pending |
+| TEST-11 | Phase 47 | Complete |
 | TEST-12 | Phase 47 | Pending |
 | TEST-13 | Phase 47 | Pending |
-| CLN-01 | Phase 47 | Pending |
-| CLN-02 | Phase 47 | Pending |
-| CLN-03 | Phase 47 | Pending |
+| CLN-01 | Phase 47 | Complete |
+| CLN-02 | Phase 47 | Complete |
+| CLN-03 | Phase 47 | Complete |
 | CLN-04 | Phase 47 | Pending |
 | CLN-05 | Phase 47 | Pending |
 | CLN-06 | Phase 47 | Pending |
