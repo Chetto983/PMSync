@@ -4,13 +4,13 @@ milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
 stopped_at: Completed 48-04-PLAN.md
-last_updated: "2026-03-05T18:08:22.839Z"
+last_updated: "2026-03-06T07:44:36.463Z"
 last_activity: 2026-03-05 -- 48-03 enumeration hardening + service wiring
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
   percent: 100
 ---
 
@@ -52,16 +52,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v4.1 Security Hardening & Debt Reduction -- Phase 48 complete (3/3 plans)
+**Current focus:** Frontend God-File Splits -- Phase 44 in progress (1/4 plans)
 
 ## Current Position
 
-Phase: 48 of 48 (Auth Fix 2026 Best Practice)
-Plan: 3 of 3 complete
-Status: Phase Complete
-Last activity: 2026-03-05 -- 48-03 enumeration hardening + service wiring
+Phase: 44 (Frontend God-File Splits)
+Plan: 1 of 4 complete
+Status: Executing
+Last activity: 2026-03-06 -- 44-01 visual regression scaffold + DashboardContainer split
 
-Progress: [##########] 100% (Phase 48: 3/3 plans)
+Progress: [████████░░] 81% (Phase 44: 1/4 plans)
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ Progress: [##########] 100% (Phase 48: 3/3 plans)
 | Phase 48 P01 | 7min | 3 tasks | 9 files |
 | Phase 48 P03 | 9min | 2 tasks | 6 files |
 | Phase 48 P04 | 7min | 2 tasks | 7 files |
+| Phase 44 P01 | 4min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 48]: Per-email rate limit 10/15min (vs per-IP 5/15min) due to shared IP commonality
 - [Phase 48]: Refresh cookie keeps refresh_token name (no __Host-) because path-scoping incompatible with __Host- requirement
 - [Phase 48]: lastActivityAt debounced at 1min to avoid DB write on every authenticated request
+- 44-01: widget-registry.ts uses React.createElement (not JSX) to stay .ts for pure config file
+- 44-01: Visual regression tests use storageState: undefined to bypass auth setup project
+- 44-01: God-file split pattern: extract inline components to subdir, keep parent as import-wiring facade
 
 ### Pending Todos
 
@@ -134,7 +138,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-05T18:04:12.064Z
-Stopped at: Completed 48-04-PLAN.md
+Last session: 2026-03-06T07:43:49Z
+Stopped at: Completed 44-01-PLAN.md
 Resume file: None
-Next action: Execute Phase 48 Plan 03
+Next action: Execute Phase 44 Plan 02

@@ -47,7 +47,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [ ] **QUAL-08**: Contacts.tsx (1021 lines) split into ContactList, ContactListItem, ContactFilters
 - [ ] **QUAL-09**: Header.tsx (799 lines) split into SearchBar, UserMenu, NotificationBell, NavTabs
 - [ ] **QUAL-10**: ContactDetail.tsx (720 lines) split into ContactDetailTabs, ContactActivityFeed, ContactInfoPanel
-- [ ] **QUAL-11**: DashboardContainer.tsx (674 lines) split into DashboardGrid, DashboardWidgetWrapper
+- [x] **QUAL-11**: DashboardContainer.tsx (674 lines) split into DashboardGrid, DashboardWidgetWrapper
 - [ ] **QUAL-12**: Settings.tsx (661 lines) split into per-section SettingsSection components
 - [ ] **QUAL-13**: email-ui-store.ts (552 lines) split into email-selection-store, email-filter-store
 - [ ] **QUAL-14**: All resulting frontend files < 400 lines
@@ -81,7 +81,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **TEST-04**: Contract tests for ≥5 critical APIs (auth login, emails list, contacts list, AI chat stream, briefing)
 - [ ] **TEST-05**: Attachment proxy test with large file (≥50MB) — no OOM, stream completes, Content-Length correct (NOTE: automated test verifies streaming mechanism; 50MB memory profiling is manual verification)
 - [x] **TEST-06**: Backend god-file split regression tests — write tests for each file BEFORE splitting, verify identical behavior after
-- [ ] **TEST-07**: Frontend god-file split visual regression — Playwright screenshot comparison before/after each split
+- [x] **TEST-07**: Frontend god-file split visual regression — Playwright screenshot comparison before/after each split
 - [ ] **TEST-08**: forwardRef removal regression — NestJS module bootstrap succeeds, all dependency injection chains resolve
 - [ ] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
 - [ ] **TEST-10**: WebSocket Redis adapter test — message published on instance A received by client on instance B
@@ -164,7 +164,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | QUAL-08 | Phase 44 | Pending |
 | QUAL-09 | Phase 44 | Pending |
 | QUAL-10 | Phase 44 | Pending |
-| QUAL-11 | Phase 44 | Pending |
+| QUAL-11 | Phase 44 | Complete |
 | QUAL-12 | Phase 44 | Pending |
 | QUAL-13 | Phase 44 | Pending |
 | QUAL-14 | Phase 44 | Pending |
@@ -186,7 +186,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-04 | Phase 43 | Complete |
 | TEST-05 | Phase 43 | Pending |
 | TEST-06 | Phase 43 | Complete |
-| TEST-07 | Phase 44 | Pending |
+| TEST-07 | Phase 44 | Complete |
 | TEST-08 | Phase 45 | Pending |
 | TEST-09 | Phase 46 | Pending |
 | TEST-10 | Phase 47 | Pending |
