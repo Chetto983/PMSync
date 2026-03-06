@@ -1,467 +1,358 @@
-# Domain Pitfalls: v4.0 Enterprise Stabilization
+# Domain Pitfalls: better-auth Migration in PMSync
 
-**Domain:** Enterprise stabilization of existing NestJS/Next.js AI email platform
-**Researched:** 2026-03-03
-**Confidence:** HIGH (codebase-verified circular deps, auth store, encryption config, module graph; community patterns from NestJS docs, security research)
-
----
-
-## Executive Summary
-
-v4.0 is a stabilization milestone on a brownfield codebase with real users. Every task -- circular dep breaking, API contract standardization, auth migration, encrypted search, AI Run Ledger -- is a surgery-on-a-running-patient problem. The system currently works (v3.2 shipped, AI chat functional, email sync stable). The danger is that stabilization work *destabilizes* what is already working.
-
-After auditing the actual codebase (15+ `forwardRef` chains across 12 modules, 18+ files importing `useAuthStore`, 17+ `contains+insensitive` query sites on unencrypted fields, zero `EventEmitter` usage, token passed via `auth` object in Socket.IO, mock data fallbacks in dashboard queries), here are the pitfalls ranked by likelihood of causing production regressions during stabilization.
-
-The single most dangerous mistake: breaking NestJS module injection order by removing `forwardRef` calls without understanding the full dependency chain. The second most dangerous: migrating auth from localStorage to httpOnly cookies without a dual-read transition period -- this will immediately lock out all active sessions.
+**Domain:** Enterprise auth migration (custom NestJS auth -> better-auth)
+**Researched:** 2026-03-06
+**Overall Confidence:** MEDIUM-HIGH (verified against official docs, GitHub issues, and codebase analysis)
 
 ---
 
-## Critical Pitfalls (Severity: PRODUCTION BREAKAGE)
+## Critical Pitfalls
 
-### CP-1: forwardRef Removal Breaks Runtime Injection Order
+Mistakes that cause rewrites, security holes, or production outages.
 
-**What goes wrong:**
-You identify a circular dependency (e.g., `EmailModule <-> ProvidersModule <-> EmailSyncModule`) and refactor to break it using events or shared interfaces. You remove the `forwardRef` wrappers. The app compiles. At runtime, NestJS throws `Nest can't resolve dependencies of <ServiceX>` because the DI container initialization order changed.
+---
+
+### Pitfall 1: Prisma Schema Collision -- Existing User/Session vs better-auth Models
+
+**What goes wrong:** better-auth requires four core models: `user`, `session`, `account`, `verification`. PMSync already has `User` (with 15+ custom fields: `tenantId`, `passwordHash`, `role`, `isActive`, `isMfaEnabled`, etc.) and `Session` (with `tenantId`, `token`, `expiresAt`, custom fields). The `npx auth@latest generate` CLI will try to overwrite or conflict with these existing models.
+
+**Why it happens:** better-auth's schema generator assumes it owns these models. It expects specific field names (`name`, `emailVerified`, `image`) that don't exist in PMSync's schema, and PMSync has fields (`tenantId`, `passwordHash`, `role`, `isActive`) that better-auth doesn't know about.
+
+**Consequences:**
+- Running `npx auth@latest generate` clobbers your existing schema
+- Prisma migration fails because the new schema is incompatible with existing data
+- 42 tenant-scoped models reference `User` and `Session` via foreign keys -- breaking these breaks everything
+- Composite primary keys on `Email`, `Folder`, `Embedding`, `CalendarEvent`, `Contact` (`@@id([id, tenantId])`) add migration complexity
+
+**Prevention:**
+1. Do NOT run `npx auth@latest generate` against the production schema. Create better-auth tables manually or in a dedicated Prisma schema file.
+2. Use `modelName` mapping to give better-auth its own table names (e.g., `ba_user`, `ba_session`, `ba_account`, `ba_verification`) to avoid collision with existing PMSync models.
+3. Add PMSync-specific fields (`tenantId`, `role`, `isActive`) to the better-auth user model via `additionalFields` in the auth config.
+4. Plan a data migration strategy: since PROJECT.md says "clean slate: existing users re-register," you can drop old auth tables after migration, but you must preserve the `User.id` foreign key chain (or accept cascading deletes across 42 models).
+
+**Detection:** Schema generation diffs. Run `npx prisma migrate diff` before applying any changes.
+
+**Confidence:** HIGH -- verified against PMSync's `schema.prisma` and better-auth's [database docs](https://better-auth.com/docs/concepts/database).
+
+**Phase:** Must be the FIRST thing addressed. Everything depends on correct schema.
+
+---
+
+### Pitfall 2: Split Architecture Session Validation -- NestJS Cannot Natively Validate better-auth Sessions
+
+**What goes wrong:** better-auth is designed to run inside the framework that handles auth routes (Next.js). PMSync runs a separate NestJS backend (port 3000) and Next.js frontend (port 3001). better-auth's `auth.api.getSession()` requires the auth instance to be available on the same server that receives the request. The NestJS backend doesn't have a better-auth instance -- it's a consumer, not the auth server.
+
+**Why it happens:** better-auth uses cookie-based sessions with signed cookies. The session token is stored in a `better-auth.session_token` cookie. For the NestJS backend to validate this, it needs either:
+- A shared better-auth instance (requires NestJS integration package)
+- Direct database lookup of the session token
+- A proxy/shared-domain setup
+
+**Consequences:**
+- If you install better-auth only on Next.js, NestJS has no way to validate sessions
+- The [NestJS integration](https://better-auth.com/docs/integrations/nestjs) package is **community-maintained**, not official -- it requires `bodyParser: false` which breaks existing NestJS JSON body parsing for all other routes
+- better-auth's JWT plugin docs explicitly warn: "not meant as a replacement for the session" -- using it as a workaround is a security risk
+- GitHub [Discussion #5716](https://github.com/better-auth/better-auth/discussions/5716) confirms: "no officially supported or secure way to achieve backend auth state verification across domains"
+
+**Prevention:**
+1. **Option A (Recommended):** Install better-auth on BOTH Next.js and NestJS, sharing the same database and `BETTER_AUTH_SECRET`. The NestJS side uses the `nestjs-better-auth` package with `AuthGuard` to validate sessions via the shared session table. This is the pattern described in the [NestJS integration docs](https://better-auth.com/docs/integrations/nestjs).
+2. **Option B:** Run better-auth only on Next.js; NestJS validates sessions by directly querying the `session` table using the cookie token. This is fragile -- you're reimplementing session validation outside the framework.
+3. **Option C:** Use Next.js as a BFF (Backend-for-Frontend) proxy -- all API calls go through Next.js API routes that validate the session, then forward to NestJS. This adds latency and complexity.
+4. For Option A: the `bodyParser: false` requirement means you need to selectively disable body parsing only for better-auth routes, not globally. Use NestJS middleware to apply raw body parsing selectively.
+
+**Detection:** Auth works on frontend but 401s on all NestJS API calls.
+
+**Confidence:** HIGH -- verified against [official NestJS integration docs](https://better-auth.com/docs/integrations/nestjs) and [GitHub discussion](https://github.com/better-auth/better-auth/discussions/5716).
+
+**Phase:** Architecture decision required BEFORE any implementation begins.
+
+---
+
+### Pitfall 3: Cookie Name and Prefix Mismatch -- __Host- vs better-auth Prefix
+
+**What goes wrong:** PMSync currently uses `__Host-access_token` cookies in production (cookie.helper.ts line 28) with `sameSite: 'lax'`, `httpOnly: true`, `secure: true`, `path: '/'`. better-auth uses a completely different cookie naming convention: `better-auth.session_token` with the `__Secure-` prefix (not `__Host-`) in production. These are incompatible.
 
 **Why it happens:**
-NestJS resolves dependencies eagerly during module initialization. `forwardRef` delays resolution, allowing circular references to resolve. When you remove `forwardRef` and restructure modules, the initialization order changes. Services that were registered early (because their module was imported first) may now be registered late, causing injection failures in services that depended on the old order.
-
-**Evidence from codebase:**
-- `ProvidersModule` has `forwardRef` to 5 modules: EmailSyncModule, EmailModule, AiModule, CalendarModule, ContactsModule
-- `ProviderConfigService` has 6 `@Inject(forwardRef(...))` decorators pointing to services across 4 modules
-- `EmailModule` imports `forwardRef(() => ProvidersModule)`, `forwardRef(() => AiModule)`, `forwardRef(() => EmailSyncModule)`, `forwardRef(() => CalendarModule)`
-- `AiChatModule` imports `forwardRef(() => EmailModule)`, `forwardRef(() => CalendarModule)`, `forwardRef(() => ContactsModule)`, `forwardRef(() => AiModule)`
-- These form a dense mesh, not isolated cycles. Touching one edge shifts load to others.
+- `__Host-` prefix requires: `Secure`, `Path=/`, and NO `Domain` attribute (cookie is locked to exact origin). PMSync uses this.
+- `__Secure-` prefix requires only `Secure`. better-auth uses this.
+- better-auth's cookie prefix is configurable (`cookiePrefix` option) but the `__Host-` prefix has additional browser-enforced constraints that better-auth doesn't explicitly support per [its cookie docs](https://better-auth.com/docs/concepts/cookies).
+- During migration, old cookies and new cookies will coexist, causing confusion on which auth system is active.
 
 **Consequences:**
-- App fails to start. Zero functionality.
-- Error manifests only at bootstrap time, not at compile time.
-- NestJS error messages are notoriously vague about *which* dependency in a chain failed.
+- Frontend sends old `__Host-access_token` cookie; backend expects `better-auth.session_token` (or vice versa) -- instant 401 for all users
+- WebSocket handshake service (`realtime-handshake.service.ts`) hardcodes `AUTH_COOKIE_NAME` import -- will break until updated
+- Dev environment (localhost:3000/3001) vs production (HTTPS) cookie behavior differs
+- Safari ITP blocks third-party cookies entirely -- if frontend and backend are on different domains in production, cookies won't work
 
 **Prevention:**
-1. Map the complete dependency graph with `madge --circular` BEFORE touching any module.
-2. Break ONE cycle at a time. Test app bootstrap after each removal.
-3. Use NestJS `EventEmitter2` module to decouple event-producing side from event-consuming side. The producer module emits; the consumer module listens. Neither imports the other.
-4. Create `SharedContractsModule` for interface types that both sides reference. Interfaces have no runtime weight.
-5. NEVER remove a `forwardRef` without replacing the dependency with an alternative mechanism (event, interface injection, shared module).
-6. Keep a rollback commit for each forwardRef removal.
+1. Map out every cookie consumer: auth controller, WebSocket handshake, CSRF middleware, frontend API client.
+2. Implement a transition period where both old and new cookies are accepted (dual-read).
+3. Configure better-auth's `cookiePrefix` to match your naming convention, or update all consumers to use better-auth's default.
+4. Test cookie behavior explicitly in: localhost dev, HTTPS dev proxy, and production domain setup.
+5. Verify Safari/ITP compatibility -- if backend and frontend are on different (sub)domains, use a reverse proxy.
 
-**Detection:**
-- Integration test: `app = await NestFactory.create(AppModule)` must pass before any other test.
-- Add a CI step that boots the full app (not just compiles).
+**Detection:** Auth works in Chrome but fails in Safari. Auth works in dev but fails in production (or vice versa).
 
-**Phase:** Architecture Stabilization, first task. Must be done incrementally over multiple sub-phases.
+**Confidence:** HIGH -- verified against PMSync's `cookie.helper.ts` and better-auth's [cookie docs](https://better-auth.com/docs/concepts/cookies).
+
+**Phase:** Must be addressed in the same phase as session validation (Pitfall 2).
 
 ---
 
-### CP-2: localStorage-to-Cookie Auth Migration Locks Out All Active Users
+### Pitfall 4: Tenant Isolation Gap -- better-auth Has No Tenant Concept
 
-**What goes wrong:**
-You switch the backend to issue httpOnly cookies and stop reading the `Authorization: Bearer` header. Every user with an active session (token in localStorage) gets a 401 on their next request. The Zustand persist store still has their token, but it is never sent because the backend expects a cookie it never set.
+**What goes wrong:** PMSync's entire data model is tenant-scoped. 42 Prisma models have `tenantId`. The `TenantGuard` enforces cross-tenant access control. The `TENANT_SCOPED_MODELS` set auto-injects tenant filtering. better-auth knows nothing about tenants -- its `User`, `Session`, and `Account` models have no `tenantId` field. The `organization` plugin provides multi-tenancy but uses its own `Organization` / `Member` tables, not PMSync's `Tenant` model.
 
-**Why it happens:**
-The current auth flow is deeply entangled across 18+ files:
-- `auth-store.ts`: Zustand persist with `createJSONStorage(() => localStorage)` under key `auth-storage`
-- `api-client.ts`: Interceptor reads token via `getAuthToken()` from localStorage and sets `Authorization: Bearer`
-- `auth-context.tsx`: Rehydrates Zustand on mount, validates token via `GET /auth/me`
-- `websocket-client.ts`: Passes token in `auth: { token: this.token }` to Socket.IO
-- `auth-token.ts`: Utility that parses localStorage's `auth-storage` JSON
-- `pages/api/email/attachments/[id]/download.ts`: Next.js API route reads from cookie OR Authorization header (already dual-path)
-- E2E test fixtures: `localStorage.setItem('auth-storage', ...)` for test setup (5+ test files)
-- `auth-store.ts` also sets a non-httpOnly `auth-token` cookie via `document.cookie` for img src auth
-
-Changing any one of these without the others creates a split-brain auth state.
+**Why it happens:** better-auth's organization plugin is designed for greenfield apps. It assumes organizations are created through better-auth's API, not pre-existing in a `Tenant` table with 42 dependent models.
 
 **Consequences:**
-- All active sessions invalidated (no graceful transition).
-- WebSocket connections fail (they use Bearer token, not cookies).
-- Next.js API routes that proxy to backend lose their auth mechanism.
-- E2E tests break immediately.
-- CSRF flow must change because cookies are now the auth bearer, making CSRF protection more critical, not less.
+- Users created by better-auth have no `tenantId` -- they can't access any tenant-scoped data
+- The `TenantGuard` requires `request.user.tenantId` (populated by JWT strategy) -- better-auth sessions don't include this
+- BullMQ workers extract `tenantId` from job data (which was originally set from the authenticated user) -- if the auth chain breaks, workers process jobs without tenant context
+- Prisma's auto-injected tenant scoping (`tenant-scoping.extension.ts`) depends on `tenantId` being present in the request context -- without it, queries either fail or return cross-tenant data (catastrophic security breach)
 
 **Prevention:**
-1. Phase 1 (Backend): Accept BOTH `Authorization: Bearer` header AND httpOnly cookie. Set cookie on login response. Keep reading header as fallback.
-2. Phase 2 (Frontend): On login success, store token in memory only (not localStorage). Backend sets httpOnly cookie. Zustand store keeps user state but NOT token. API client switches to cookie-based auth (`withCredentials: true` already set).
-3. Phase 3 (WebSocket): Socket.IO supports cookie auth. Switch `auth: { token }` to cookie-based handshake on the server's WsGuard.
-4. Phase 4 (Next.js API routes): Already partially cookie-aware (`req.cookies['auth-token']`). Consolidate to read the new httpOnly cookie name.
-5. Phase 5 (Cleanup): Remove localStorage token persistence, `getAuthToken()` utility, old cookie `auth-token` set by `document.cookie`.
-6. Phase 6 (E2E): Rewrite test fixtures to use login flow that sets cookies, not `localStorage.setItem`.
+1. Use better-auth's `additionalFields` to add `tenantId` and `role` to the user model.
+2. Implement a custom better-auth plugin or hook (`after` on session creation) that populates tenant context from your existing `Tenant` table.
+3. The `TenantGuard` must be updated to extract tenant from better-auth's session data instead of JWT claims.
+4. Every BullMQ job enqueue point must be audited to ensure `tenantId` is still correctly propagated.
+5. Write integration tests that verify: user A in tenant X cannot see data from tenant Y, after migration.
 
-**CSRF interaction warning:** The existing CSRF implementation (`GET /auth/csrf-token` -> memory-cached token -> `X-CSRF-Token` header) works with the current setup. With httpOnly cookies carrying auth, CSRF protection becomes essential (currently it is defense-in-depth; with cookies it becomes the primary CSRF defense). Verify CSRF is enforced on ALL mutation endpoints before switching to cookie auth.
+**Detection:** Cross-tenant data leaks in production. Users seeing other tenants' emails. BullMQ jobs processing without tenant context.
 
-**Detection:**
-- Write a canary test: login, verify cookie is set, make authenticated request without `Authorization` header, verify it succeeds.
-- Monitor 401 rates during rollout.
+**Confidence:** HIGH -- verified against PMSync's `tenant.guard.ts`, `tenant-scoped-models.ts`, and better-auth's organization plugin docs.
 
-**Phase:** Auth & Security Hardening. Requires minimum 3 sub-phases with backward-compatible transition.
+**Phase:** Immediately after schema (Pitfall 1). Must be solved before any guard/decorator migration.
 
 ---
 
-### CP-3: API Response Contract Migration Breaks Frontend Silently
+### Pitfall 5: WebSocket Auth Breaks During Migration
 
-**What goes wrong:**
-You standardize the backend response envelope from the current inconsistent mix (`{ success: true, ...data }` in ~half of controllers, raw payload in the rest) to a uniform `{ data, error, meta, requestId }` shape. The frontend keeps working because TanStack Query catches errors, but the data extraction path changes. Components that did `response.data.analytics` now need `response.data.data.analytics`. Some components break visibly; others return undefined and render empty states that look like "no data" rather than "broken."
+**What goes wrong:** The `RealtimeHandshakeService` currently extracts JWT tokens from cookies (`AUTH_COOKIE_NAME`) or Bearer headers, verifies ES256/HS256 signatures with `JwtService`, validates `sessionId`, `userId`, and `tenantId` claims, then checks user/tenant active status in the database. better-auth replaces all of this -- different cookie names, different session token format (opaque token, not JWT), different validation flow.
 
-**Why it happens:**
-The frontend has silent fallback patterns that mask backend contract drift. Evidence from codebase:
-- `use-dashboard.ts:707`: `emailTrendsOptions()` catches ALL errors and generates mock data (`// Generate mock data from email stats for last 7 days`). If the new envelope changes the shape, it silently falls back to fake data.
-- `use-dashboard.ts:317,526,739`: Three dashboard queries with `retry: 0` -- they fail silently on contract mismatch.
-- `use-signatures.ts:36`: Returns `[]` on error.
-- `use-writing-style.ts:31-32`: Returns `null` on 404 instead of throwing.
-
-These are the exact "silent frontend API fallbacks" the PRD flagged. But removing them BEFORE fixing the backend makes the app fragile. Fixing the backend BEFORE removing them means the fallbacks mask whether the new contract actually works.
+**Why it happens:** better-auth sessions are opaque tokens stored in the database, not signed JWTs. You can't verify them locally with `jwtService.verifyAsync()` -- you must look them up in the database via `auth.api.getSession()`. The WebSocket handshake happens during the `upgrade` request, which has access to cookies but not to better-auth's request handling pipeline.
 
 **Consequences:**
-- Dashboard shows mock data while developers think real data is flowing.
-- Empty states that look like "user has no data" rather than "API broke."
-- Regression goes undetected for days or weeks until someone notices data looks wrong.
+- All WebSocket connections fail immediately after migration (silent failure -- no error page, just "disconnected")
+- Real-time features (email sync notifications, chat, presence) stop working
+- Redis tenant connection counters become stale
+- Users don't see new emails until they manually refresh
 
 **Prevention:**
-1. Add telemetry BEFORE changing contracts: every silent fallback should log a warning to console/telemetry when it triggers. `console.warn('[FALLBACK] emailTrends using mock data, API response:', response)`.
-2. Standardize backend contract with a NestJS interceptor that wraps ALL responses. Do NOT change individual controllers.
-3. Frontend migration: update `apiClient` response interceptor to unwrap the new envelope globally, so individual query hooks do not need changes.
-4. Contract tests (Pact or equivalent): define expected request/response pairs for each endpoint, run against both old and new contract.
-5. Remove silent fallbacks LAST, after confirming real data flows through the new contract.
+1. The WebSocket handshake service must be rewritten to validate sessions against the better-auth session table directly (query by `token` field).
+2. Cookie extraction must use the new cookie name (`better-auth.session_token` or your custom prefix).
+3. Maintain a fallback path that accepts both old JWT tokens and new session tokens during migration (dual-mode authentication).
+4. Test WebSocket connections explicitly in your migration integration tests.
+5. Add a health check endpoint that verifies WebSocket auth is working.
 
-**Detection:**
-- Add a response interceptor in `apiClient` that checks if response has both `success` and `data` fields (old format) and logs a deprecation warning.
-- Pact contract tests in CI.
+**Detection:** "Connected" event never fires. Realtime notifications stop. Email count badge doesn't update.
 
-**Phase:** API Standardization. Must happen AFTER circular dep breaking (so modules are stable) and BEFORE auth migration (so contract tests cover auth endpoints).
+**Confidence:** HIGH -- verified against PMSync's `realtime-handshake.service.ts` (359 lines of JWT-specific validation logic).
+
+**Phase:** Dedicated phase after core auth migration. Do not attempt to migrate HTTP auth and WebSocket auth simultaneously.
 
 ---
 
-## High Pitfalls (Severity: MAJOR FEATURE BREAKAGE)
+## Moderate Pitfalls
 
-### HP-1: Encrypted Field Hash Indexes Leak Information via Frequency Analysis
+---
 
-**What goes wrong:**
-You implement ENC-03 (hash-based search on encrypted fields like `from`, `subject`, `displayName`) using deterministic SHA-256 hashes. The hash is stored alongside the encrypted value. An attacker with DB access can observe that hash `a1b2c3...` appears 47 times while hash `d4e5f6...` appears 3 times. Cross-referencing with public knowledge (e.g., "the CEO sends more emails than interns"), they identify which hash maps to which sender.
+### Pitfall 6: BullMQ Worker Auth Context Loss
 
-**Why it happens:**
-The codebase already has the hash function (`hashForSearch` in `field-encryption.utils.ts:69`):
-```typescript
-export function hashForSearch(value: string, tenantId: string, salt: string): string {
-  const normalized = `${salt}:${tenantId}:${value.toLowerCase().trim()}`;
-  return createHash('sha256').update(normalized).digest('hex');
-}
-```
+**What goes wrong:** BullMQ workers (`BaseWorker`, email-send, sync-back, embedding queues) process jobs that carry `tenantId` in job data. This `tenantId` was originally extracted from the authenticated user's JWT when the job was enqueued. Workers don't re-authenticate -- they trust the job data. During migration, if the job enqueue path changes (new session format, different user object shape), `tenantId` may be missing or incorrect in job payloads.
 
-This is per-tenant salted, which prevents cross-tenant rainbow tables. But within a single tenant, frequency analysis still works because identical inputs produce identical hashes.
+**Prevention:**
+1. Audit every `queue.add()` call site to verify `tenantId` is still correctly extracted from the new auth session.
+2. Workers should validate `tenantId` presence in job data and fail fast if missing (they already do this partially).
+3. Add a migration test that enqueues and processes a job end-to-end with the new auth system.
 
-**The 17+ query sites** currently doing `contains+insensitive` on plaintext fields include:
-- `email-folder.service.ts`: 15+ locations for `from`, `subject`, `bodyText`, folder path matching
-- `contacts.service.ts`: `firstName`, `lastName`, `displayName`, `company` search
-- `email-crud.service.ts`: VIP email matching on `from`
-- `folder-lookup.service.ts`: folder name/path/specialUse matching
+**Detection:** BullMQ jobs fail with "Tenant ID not found" or succeed but write data to the wrong tenant.
+
+**Confidence:** MEDIUM -- based on codebase analysis of `base.worker.ts` and queue services.
+
+**Phase:** Same phase as tenant isolation (Pitfall 4).
+
+---
+
+### Pitfall 7: AI Tool Auth Context Loss
+
+**What goes wrong:** AI chat tools (~20 tools as @Injectable ToolsService classes) execute within the context of an authenticated user. They access tenant-scoped data (emails, contacts, calendar events) using the user's identity. If the auth context propagation chain breaks (request -> AiChatService -> tool execution -> Prisma query), AI tools either fail or leak cross-tenant data.
+
+**Prevention:**
+1. Trace the auth context chain: HTTP request -> session validation -> `request.user` -> `AsyncLocalStorage` tenant context -> tool execution -> Prisma queries.
+2. Ensure `request.user` is populated with `tenantId` by the new auth guard before it reaches AiChatService.
+3. Test at least one AI tool end-to-end with the new auth system.
+
+**Detection:** AI chat responds with "I don't have access to your data" or returns data from wrong tenant.
+
+**Confidence:** MEDIUM -- based on codebase architecture knowledge.
+
+**Phase:** After core HTTP auth migration is stable.
+
+---
+
+### Pitfall 8: Audit Trail Gap During Migration
+
+**What goes wrong:** PMSync has GDPR-compliant audit logging (v3.1 AUDIT-01/02/03). `AuditLog` records are tenant-scoped and track all data access. During migration, there's a window where:
+- Old auth events (login, logout, password change) stop being logged (old auth controller removed)
+- New auth events from better-auth aren't yet connected to the audit system
+- Session creation/destruction events change format
+
+**Prevention:**
+1. better-auth provides hooks (`after` callbacks on `signIn`, `signUp`, `signOut`, session events) -- wire these to your existing `AuditLog` table from day one.
+2. Map old audit event types to new ones BEFORE removing old auth code.
+3. Maintain audit coverage metrics: compare event counts before and after migration.
+4. Never delete old auth code until the new audit trail is verified working.
+
+**Detection:** Compliance audit finds gaps in login/logout records. Data access logs missing for a time period.
+
+**Confidence:** MEDIUM -- better-auth hooks exist but audit integration is custom work.
+
+**Phase:** Must be implemented in the same phase as auth controller migration.
+
+---
+
+### Pitfall 9: GDPR Compliance Gaps
+
+**What goes wrong:** PMSync has extensive GDPR infrastructure: consent management (CONS-01/02/03), data export (DATA-01/02), right to erasure (DATA-03), PII tokenization (PII-01/02/03/04), legal acceptance flows (LEGAL-01/02). better-auth manages its own user data (email, name, sessions, accounts) outside this infrastructure.
 
 **Consequences:**
-- Encryption provides false sense of security -- "we encrypt at rest" but hash indexes leak patterns.
-- Regulatory risk: GDPR/SOC2 auditors may flag deterministic hashes on PII as insufficient.
-- `contains` (substring) search is IMPOSSIBLE with hash indexes. You can only do exact-match. This breaks 12+ query sites that use substring `contains` on `from` and `subject`.
+- GDPR data export (Art. 20) must now include better-auth's `account` and `session` tables
+- Right to erasure (Art. 17) must cascade delete into better-auth tables
+- Consent tracking for auth-related processing must cover better-auth's data
+- PII tokenization for AI calls must handle data from better-auth's user model
 
 **Prevention:**
-1. Accept that hash indexes only support EXACT MATCH, not substring search. Redesign the 12+ `contains` query sites to use alternative search methods (full-text search on a separate search index, or encrypted search via blind indexes with HMAC-based tokens).
-2. For exact-match use cases (VIP email lookup, folder specialUse matching), deterministic hashes are acceptable with per-tenant salt.
-3. For substring/fuzzy search (email search, contact search), use a separate search layer: either an encrypted search engine (CipherStash Protect was rejected for cloud dependency; consider local blind index approach) or keep a trigram GIN index on a separate non-encrypted search column that contains only non-PII searchable tokens.
-4. Document the threat model: "hash indexes protect against offline DB theft; they do not protect against a compromised application server with query access."
-5. Never hash fields with low cardinality (e.g., boolean flags, enum status) -- the hash becomes trivially reversible.
+1. Add better-auth's tables (`account`, `verification`) to the GDPR data export query.
+2. Add cascade deletes for better-auth tables in the `account-deletion.service.ts`.
+3. Map better-auth's user fields (`name`, `email`, `image`) into the PII tokenization pipeline.
+4. Update privacy policy text to reflect the new auth provider.
 
-**Detection:**
-- Security review before deploying hash indexes.
-- Automated test: verify that no `contains` query is applied to a hash-indexed field (it would always return zero results).
+**Detection:** GDPR data export request returns incomplete data. User deletion leaves orphaned records in better-auth tables.
 
-**Phase:** Performance & Debt (ENC-03). Must be preceded by a search architecture decision: what replaces `contains` queries?
+**Confidence:** MEDIUM -- GDPR infrastructure exists but integration with better-auth is entirely custom.
+
+**Phase:** Same phase as audit trail (Pitfall 8). Do not defer GDPR compliance.
 
 ---
 
-### HP-2: AI Run Ledger Adds Latency to Chat Streaming Pipeline
+### Pitfall 10: bodyParser: false Breaks Existing NestJS Routes
 
-**What goes wrong:**
-You insert AI Run Ledger writes into the chat pipeline's `onStepFinish` callback. Each tool call now triggers a Prisma write to the ledger table. The streaming response stutters because the writer is blocked waiting for DB operations.
-
-**Why it happens:**
-The current `onStepFinish` callback in `ai-chat.service.ts:241` already does:
-1. `conversationService.saveAssistantMessage()` -- await with catch
-2. `auditService.logToolExecution()` -- fire-and-forget with catch
-3. `hitlService.createPendingAction()` -- await for HITL actions
-
-Adding Run Ledger writes here adds another DB operation per step. With 5 max steps and 2-3 tool calls per step, that is 10-15 additional Prisma operations per chat interaction. Each one is ~5-20ms, adding up to 50-300ms of total latency on a streaming response.
-
-**Consequences:**
-- Visible stutter in AI chat responses between tool calls.
-- Under load (multiple concurrent chat sessions), DB connection pool pressure increases.
-- If ledger write fails, the chat response is interrupted or partially lost.
+**What goes wrong:** The NestJS better-auth integration [requires `bodyParser: false`](https://better-auth.com/docs/integrations/nestjs) in `NestFactory.create()`. This disables body parsing for ALL routes, not just better-auth routes. PMSync's 50+ API endpoints rely on automatic JSON body parsing.
 
 **Prevention:**
-1. AI Run Ledger writes MUST be fire-and-forget (same pattern as current `auditService.logToolExecution()`). Never `await` a ledger write in the streaming path.
-2. Better: use BullMQ to enqueue ledger writes. The `onStepFinish` callback emits a lightweight event; a background worker persists it. This decouples chat latency from ledger persistence.
-3. Batch ledger writes: collect all step data during the stream, write a single `AiRun` record with nested `AiRunStep` records after the stream completes (in `onStreamFinish` or equivalent).
-4. Add a circuit breaker on ledger writes. If the ledger table is slow (migration, index build), the chat pipeline should not degrade.
-5. Latency budget: measure chat first-token-time and inter-step-time before and after ledger integration. Regression >50ms is a bug.
+1. Do NOT set `bodyParser: false` globally.
+2. Use NestJS raw-body middleware selectively: apply raw body parsing only to `/api/auth/*` routes (better-auth routes).
+3. Alternatively, mount better-auth as an Express sub-app with its own body parsing config.
+4. Test existing POST/PUT/PATCH endpoints after the change.
 
-**Detection:**
-- Benchmark: measure `onStepFinish` callback duration before and after ledger code.
-- Alert on p95 chat response time regression.
+**Detection:** All `@Body()` decorated parameters in controllers receive `undefined` after enabling better-auth.
 
-**Phase:** Enterprise Prep (AI Run Ledger). Schema and contract first; integration with chat pipeline last.
+**Confidence:** HIGH -- explicitly documented in better-auth's [NestJS integration](https://better-auth.com/docs/integrations/nestjs).
+
+**Phase:** Same phase as NestJS integration setup.
 
 ---
 
-### HP-3: Module Boundary Enforcement Blocks Legitimate Cross-Module Needs
+## Minor Pitfalls
 
-**What goes wrong:**
-You enforce strict module boundaries by creating interface contracts and forbidding direct cross-module service imports. Then you discover that `ProviderConfigService` legitimately needs 6 services from 4 different modules (`SyncSchedulerService`, `WebhookLifecycleService`, `QueueService`, `GoogleCalendarSyncService`, `MicrosoftCalendarSyncService`, `GoogleCalendarWebhookService`, `MicrosoftCalendarWebhookService`, `StorageService`). The "clean architecture" refactoring either (a) creates a massive interface layer that mirrors the implementation, or (b) blocks the service from functioning.
+---
 
-**Why it happens:**
-`ProviderConfigService` is an orchestrator. When a provider is added/removed/updated, it needs to touch sync scheduling, webhook lifecycle, queues, calendar sync, and storage. This is genuine cross-cutting orchestration, not a dependency smell. Forcing it through event-driven patterns means you need to guarantee event ordering and transactional consistency across 6 operations -- which is harder than the original coupling.
+### Pitfall 11: Community-Maintained NestJS Package Risk
 
-**Evidence:**
-- `provider-config.service.ts` has 8 `@Inject(forwardRef(...))` decorators
-- `ai-chat.service.ts` legitimately needs `EmailModule`, `CalendarModule`, `ContactsModule`, `AiModule` services because AI tools operate across all domains
-- `email-sync.module.ts` legitimately needs `ProvidersModule`, `EmailModule`, `AiModule` for sync orchestration
-
-**Consequences:**
-- Over-abstraction: interfaces that add indirection without reducing coupling.
-- Event ordering bugs: events fire but arrive in wrong order, causing race conditions in provider setup.
-- Developer velocity drops: every cross-module call requires an interface update, an event definition, and a handler registration.
+**What goes wrong:** The `nestjs-better-auth` package is maintained by community contributors, not the better-auth team. Breaking changes have already occurred (v2.x changed from `AuthModule.forRoot(auth)` to `AuthModule.forRoot({ auth })`). The package may lag behind better-auth releases.
 
 **Prevention:**
-1. Distinguish between "accidental coupling" and "essential coupling." Use events for accidental coupling (e.g., AI module updating embeddings after email sync). Keep direct injection for essential coupling (e.g., `ProviderConfigService` orchestrating provider lifecycle).
-2. Define a "module interface" as the explicit list of services a module exports. Anything not exported is internal. This is already partially done in `email.module.ts:exports`.
-3. Create "Orchestrator Services" that are allowed to import from multiple modules. Document them explicitly. They are the exception, not a violation.
-4. Lint rule: no non-orchestrator service may import from more than 2 foreign modules.
-5. Avoid the "event for everything" anti-pattern. Events are for decoupling independently-evolvable modules. Direct calls are for tightly-coordinated operations.
+1. Pin exact versions of `nestjs-better-auth` in `package.json`.
+2. Consider a thin adapter layer you control, rather than depending on the community package's API surface.
+3. Monitor the package's GitHub for breaking changes before upgrading better-auth itself.
 
-**Detection:**
-- Dependency graph analysis in CI: flag NEW cross-module imports, but allow existing orchestrators.
-- Architecture decision record (ADR) required for any new cross-module dependency.
-
-**Phase:** Module Boundaries (v3.2 carry-forward). Define the boundary policy BEFORE enforcing it.
+**Confidence:** HIGH -- verified from [npm package](https://www.npmjs.com/package/@mguay/nestjs-better-auth) and [GitHub repos](https://github.com/underfisk/nestjs-better-auth).
 
 ---
 
-### HP-4: v3.2 VoltAgent Deletion Left Behind Unstable Wiring
+### Pitfall 12: Session Cookie Caching and Revocation Race
 
-**What goes wrong:**
-v3.2 deleted 167 VoltAgent files and 33K LOC. The new AI SDK v6 layer was built and tested for chat functionality. But edge paths (error recovery, session timeout, HITL action execution after approval, memory/embedding queues triggered by chat context) may have lost wiring that was silently handled by VoltAgent's framework.
-
-**Why it happens:**
-When you delete a framework and rebuild, you reproduce the features you know about. The features you do not know about -- the ones that "just worked" because the framework handled them -- are the ones that break weeks later.
-
-**Evidence:**
-- v3.2 closed "partial" (20/25 plans). 5 plans were carried to v4.0.
-- Phase 28 gap closure items: "chat 403, dead polling cleanup" -- these are symptoms of incomplete wiring.
-- `AiChatModule` imports 4 modules via `forwardRef` -- these dependency chains were rebuilt, but may have subtle ordering differences from the VoltAgent era.
-
-**Consequences:**
-- Intermittent 403 errors in chat (already observed in Phase 28 gaps).
-- Embedding queue stops processing after chat service restart.
-- HITL actions approved by user but never executed (wiring between approval and execution lost).
+**What goes wrong:** better-auth supports cookie caching (storing session data in a signed short-lived cookie to avoid DB lookups). If enabled, revoked sessions remain valid on other devices until the cache expires. PMSync currently validates sessions against the database on every WebSocket connection and enforces session concurrency limits.
 
 **Prevention:**
-1. Comprehensive smoke test suite for ALL AI paths: chat, HITL approve/reject, embedding triggers, memory retrieval, rate limiting, circuit breaker trip and recovery.
-2. Monitor HITL action execution rate: approved actions should have >99% execution rate. Drop below 95% = alarm.
-3. Test chat session persistence: create session, send 5 messages, restart backend, verify history loads.
-4. Dead polling audit: identify any polling loops from pre-v3.2 that were not cleaned up.
+1. Do NOT enable `cookieCache` until the migration is stable. Start with database-backed session validation.
+2. If you later enable caching, set `maxAge` to match your security requirements (current access token is 15 minutes).
+3. Sensitive operations (password change, MFA toggle) should always use `freshAge` checking.
 
-**Detection:**
-- E2E test: full chat flow with tool call -> HITL approval -> action execution.
-- Health check endpoint that verifies AI pipeline connectivity (model reachable, embedding queue active, conversation table writable).
-
-**Phase:** Phase 28 gap closure (immediate). Must be resolved BEFORE adding AI Run Ledger.
+**Confidence:** MEDIUM -- documented in better-auth's [session management docs](https://better-auth.com/docs/concepts/session-management).
 
 ---
 
-## Moderate Pitfalls (Severity: FUNCTIONALITY DEGRADED)
+### Pitfall 13: OAuth Callback URL Configuration
 
-### MP-1: WebSocket Auth Migration Breaks Realtime for Connected Users
-
-**What goes wrong:**
-You migrate auth to httpOnly cookies. WebSocket connections currently pass the JWT via `auth: { token: this.token }` in the Socket.IO handshake. If the frontend stops storing the token in memory/localStorage, it cannot pass it to Socket.IO. The WebSocket gateway's auth guard expects a token in the handshake.
-
-**Why it happens:**
-Socket.IO over WebSocket does NOT automatically send cookies during the WebSocket upgrade handshake (only during the initial HTTP polling transport). If `transports: ['websocket', 'polling']` is configured (it is, in `websocket-client.ts:338`), the polling transport sends cookies, but the WebSocket upgrade does not.
-
-**Consequences:**
-- Realtime email notifications stop.
-- Sync status updates invisible.
-- AI action events not delivered.
-- Users see stale data until they manually refresh.
+**What goes wrong:** PMSync already has Google OAuth for email provider connections (`ProviderConfig`). better-auth introduces its own OAuth for login (Google social login). Both use Google OAuth but with different callback URLs, scopes, and client configurations. Mixing them up breaks either email sync or auth login.
 
 **Prevention:**
-1. Socket.IO polling transport DOES send cookies. Configure the WebSocket gateway to read auth from cookie (same httpOnly cookie) during the polling handshake phase.
-2. Alternatively, the backend can issue a short-lived WebSocket-specific token via an API call, which the frontend passes in the handshake `auth` object. This decouples WebSocket auth from cookie auth.
-3. Test with `transports: ['polling']` first to verify cookie-based auth works, then re-enable WebSocket transport.
+1. Use separate Google OAuth client IDs for auth login vs email provider connections.
+2. Clearly document which OAuth flow is for auth and which is for email access.
+3. Verify callback URLs match between Google Console, better-auth config, and existing provider config.
 
-**Phase:** Auth & Security Hardening (sub-phase 3 of auth migration).
+**Confidence:** MEDIUM -- based on PMSync architecture knowledge.
 
 ---
 
-### MP-2: Performance Optimization Regresses Functionality
+### Pitfall 14: Existing Test Suite Breaks
 
-**What goes wrong:**
-You optimize LCP/TTI by aggressive code-splitting, removing unused imports, or deferring component hydration. A component that was eagerly loaded now loads lazily. The component's initialization code (e.g., WebSocket connection setup in Layout, auth rehydration in `_app.tsx`) runs later than expected, causing a race condition where data-fetching components mount before auth is ready.
-
-**Why it happens:**
-The auth flow has a precise timing requirement:
-1. `_app.tsx` renders `AuthProvider`
-2. `AuthProvider` calls `useAuthStore.persist.rehydrate()` to load token from localStorage
-3. Auth context validates token via `GET /auth/me`
-4. Only then do data-fetching components have a valid token
-
-If code-splitting moves `AuthProvider` or the Layout component to a lazy chunk, the rehydration happens later. Components that mount during the initial server-render or first client paint will not have auth context.
-
-**Consequences:**
-- Flash of unauthenticated content followed by redirect to login.
-- Race condition: API calls fire before token is available, get 401, trigger logout.
-- Lighthouse metrics improve but user experience degrades.
+**What goes wrong:** PMSync has extensive auth tests: `cookie-hardening.spec.ts`, `session-hardening.spec.ts`, `jwt-es256.spec.ts`, `refresh-token.spec.ts`, `roles-guard.integration.spec.ts`, `tenant-isolation.spec.ts`, `password-policy.spec.ts`, `auth-login-hardening.spec.ts`, `auth-registration-hardening.spec.ts`. All of these test the current JWT-based auth system. They will all fail after migration.
 
 **Prevention:**
-1. Auth provider, layout shell, and route guard MUST be in the critical path (not lazy-loaded).
-2. Performance optimization must target leaf components (widgets, charts, editors), not infrastructure.
-3. Before/after testing: measure LCP/TTI AND functional correctness. Performance PR must include E2E test passing, not just Lighthouse score.
+1. Don't delete old tests -- rewrite them to test the equivalent better-auth behavior.
+2. Some tests (tenant isolation, roles guard) test business logic that must survive the migration regardless of auth mechanism.
+3. Create a test migration map: old test -> new test (or "covered by better-auth internally").
 
-**Phase:** Performance & Debt. Must have E2E regression gate.
-
----
-
-### MP-3: CSRF Flow Becomes Critical After Cookie Migration
-
-**What goes wrong:**
-Currently, CSRF protection is defense-in-depth: the JWT is in the `Authorization` header, so a CSRF attack cannot forge a request because it cannot set custom headers from a cross-origin form submission. After migrating to httpOnly cookies, the browser automatically attaches the auth cookie to all same-site requests. A cross-origin form submission now carries valid auth credentials.
-
-**Why it happens:**
-The existing CSRF implementation (`GET /auth/csrf-token` -> cached in memory -> `X-CSRF-Token` header on mutations) works, but it has a silent failure mode: if `getCsrfToken()` fails (line 57-61 in `api-client.ts`), it returns `''`, and the request proceeds WITHOUT a CSRF token. If the backend does not enforce CSRF on all mutation endpoints, the request succeeds. Currently this is acceptable because Bearer token auth prevents CSRF. After cookie migration, it is not.
-
-**Consequences:**
-- CSRF attacks become viable if any mutation endpoint lacks CSRF enforcement.
-- Silent CSRF token fetch failures (`catch => return ''`) mean the app works but is unprotected.
-
-**Prevention:**
-1. BEFORE cookie migration: audit every mutation endpoint for CSRF guard.
-2. Make CSRF token fetch failure a hard error (throw, not swallow).
-3. Backend: enforce CSRF on ALL POST/PUT/DELETE/PATCH endpoints, no exceptions.
-4. Backend: validate CSRF token strictly -- reject requests with missing or empty token.
-
-**Phase:** Auth & Security Hardening. Must be completed BEFORE switching auth to cookies.
-
----
-
-### MP-4: Event-Driven Decoupling Without EventEmitter Infrastructure
-
-**What goes wrong:**
-The plan to break circular deps recommends "replace cyclic imports with event contracts." You add `@nestjs/event-emitter` and start emitting domain events. But the codebase has ZERO existing `EventEmitter` usage. Every developer needs to learn a new pattern. Events that require transactional consistency (e.g., "email synced -> trigger embedding") lose their transactional guarantees because the event fires after the transaction commits, but the consumer may fail.
-
-**Evidence:**
-- `grep EventEmitter backend/src` returns zero results.
-- `grep @OnEvent backend/src` returns zero results.
-- All current cross-module communication is synchronous service injection.
-
-**Consequences:**
-- Inconsistent adoption: some modules use events, others use direct calls, creating TWO dependency patterns.
-- Lost events: if the event handler throws, the emitter does not know and the operation appears to succeed.
-- Debugging difficulty: stack traces stop at the event emission point.
-
-**Prevention:**
-1. Start with `@nestjs/event-emitter` for non-critical, fire-and-forget operations: embedding triggers, audit logging, analytics updates.
-2. Keep synchronous service injection for operations requiring transactional consistency.
-3. Adopt the "outbox pattern" for events that must be reliably delivered: write event to an outbox table in the same transaction, then a background worker processes the outbox.
-4. Create a shared `DomainEvent` base class with `eventId`, `timestamp`, `tenantId`, `sourceModule`.
-5. Add event handler error logging at the infrastructure level (global `@OnEvent('**')` handler that catches unhandled errors).
-
-**Phase:** Architecture Stabilization. Introduce EventEmitter as part of the circular dep breaking, but only for non-critical paths first.
-
----
-
-## Minor Pitfalls (Severity: DEVELOPER FRICTION / DELAYED DELIVERY)
-
-### mP-1: Madge Circular Dependency Count is Misleading
-
-**What goes wrong:**
-The target is "reduce from 15 to <=5 circular dependencies." You run `madge --circular` and it reports 15 cycles. You break 10 of them. Then you discover that the remaining 5 are the hardest ones (the dense mesh around Email/Providers/EmailSync), and they account for 80% of the `forwardRef` usage.
-
-**Prevention:** Prioritize by impact, not count. The Email/Providers/EmailSync/AiModule mesh is the critical cluster. Breaking even 2 cycles in that mesh is worth more than breaking 10 peripheral cycles.
-
----
-
-### mP-2: E2E Test Suite Assumes localStorage Auth
-
-**What goes wrong:**
-All Playwright E2E tests set auth via `localStorage.setItem('auth-storage', ...)`. After auth migration, these tests fail because the app no longer reads from localStorage. Rewriting all test fixtures is a multi-day effort that blocks E2E CI.
-
-**Evidence:** 5+ test files (`auth.setup.ts`, `fixtures.ts`, `compose.spec.ts`, `email-list.spec.ts`) use this pattern.
-
-**Prevention:** Create a test helper that abstracts auth setup. Initially it uses localStorage; later it uses cookie injection. Change one helper, all tests work.
-
----
-
-### mP-3: Mixed Component Library Creates Theme Conflicts
-
-**What goes wrong:**
-The codebase uses MUI for dashboard and shadcn/ui (Tailwind) for email views. Performance optimization or module boundary work may merge component boundaries, causing MUI's CSS-in-JS to conflict with Tailwind's utility classes, or theme tokens to desync.
-
-**Prevention:** Keep the component library boundary explicit: MUI components NEVER import Tailwind utilities and vice versa. Use `ai-elements/` (Tailwind) and `dashboard/` (MUI) as hard boundaries.
-
----
-
-### mP-4: Hash Migration for Encrypted Fields Requires Data Backfill
-
-**What goes wrong:**
-You add `fromHash`, `subjectHash` columns to the `Email` table and create hash indexes. But existing emails (potentially millions of rows) do not have hash values populated. Every search on the new hash index returns zero results until the backfill completes.
-
-**Prevention:**
-1. Background backfill job with rate limiting (similar to existing `EmbeddingBackfillService` pattern).
-2. Dual-path search: if hash column is null, fall back to plaintext `contains` search. Only use hash index when the column is populated.
-3. Backfill progress tracking with health endpoint.
+**Confidence:** HIGH -- 15+ auth test files exist in the codebase.
 
 ---
 
 ## Phase-Specific Warnings
 
-| Phase Topic | Likely Pitfall | Severity | Mitigation |
-|-------------|---------------|----------|------------|
-| Circular dep breaking | Runtime injection failure after forwardRef removal (CP-1) | Critical | One cycle at a time, boot test after each change |
-| Circular dep breaking | Event-driven pattern without EventEmitter infrastructure (MP-4) | Moderate | Start with fire-and-forget events only |
-| API standardization | Silent frontend fallbacks mask contract drift (CP-3) | Critical | Add telemetry to fallbacks BEFORE changing contracts |
-| API standardization | Response envelope change breaks 50% of query hooks | High | Global interceptor on backend, global unwrap on frontend |
-| Auth migration | Session lockout during transition (CP-2) | Critical | Dual-read transition period (header + cookie) |
-| Auth migration | WebSocket auth breaks (MP-1) | Moderate | Polling transport reads cookies; test first |
-| Auth migration | CSRF becomes mandatory (MP-3) | Moderate | Audit all mutation endpoints BEFORE cookie switch |
-| Auth migration | E2E tests break (mP-2) | Minor | Abstract auth setup into helper |
-| ENC-03 hash search | Substring search impossible with hash (HP-1) | High | Search architecture decision first |
-| ENC-03 hash search | Frequency analysis leaks patterns (HP-1) | High | Document threat model, accept for exact-match |
-| ENC-03 hash search | Backfill gap during migration (mP-4) | Minor | Dual-path search with plaintext fallback |
-| AI Run Ledger | Streaming latency from synchronous writes (HP-2) | High | Fire-and-forget or BullMQ for writes |
-| Module boundaries | Over-abstraction kills developer velocity (HP-3) | High | Allow orchestrator exceptions |
-| Module boundaries | Madge count is misleading metric (mP-1) | Minor | Prioritize by impact, not count |
-| v3.2 carry-forward | VoltAgent deletion left broken wiring (HP-4) | High | Smoke test all AI paths before adding features |
-| Performance optimization | Auth race condition from lazy loading (MP-2) | Moderate | Never lazy-load auth infrastructure |
-| Performance optimization | Functionality regression masked by better metrics (MP-2) | Moderate | E2E must pass alongside Lighthouse |
+| Phase Topic | Likely Pitfall | Mitigation |
+|---|---|---|
+| Schema & Database | Pitfall 1 (schema collision), Pitfall 4 (no tenantId) | Manual schema creation, `additionalFields`, migration script |
+| Architecture Decision | Pitfall 2 (split arch session validation) | Decide Option A/B/C before writing code |
+| Cookie & Transport | Pitfall 3 (cookie prefix), Pitfall 10 (bodyParser) | Selective middleware, dual-read transition |
+| Guard & Decorator Migration | Pitfall 4 (tenant isolation), Pitfall 6 (BullMQ), Pitfall 7 (AI tools) | Audit every auth consumer, integration tests |
+| WebSocket Migration | Pitfall 5 (WS auth breaks) | Dual-mode auth, dedicated phase |
+| Compliance | Pitfall 8 (audit gap), Pitfall 9 (GDPR) | Wire hooks before removing old code |
+| Social Login & OAuth | Pitfall 13 (OAuth confusion) | Separate client IDs, clear documentation |
+| Testing | Pitfall 14 (test suite breaks) | Test migration map, rewrite not delete |
 
 ---
 
-## Recommended Pitfall Resolution Order
+## Recommended Pitfall-Driven Phase Order
 
-1. **HP-4 first** (v3.2 stability verification) -- verify what is working before changing anything
-2. **CP-1** (circular deps) -- foundational architecture must be stable before other changes
-3. **CP-3** (API contracts) -- standardize the contract layer that all other features depend on
-4. **CP-2** (auth migration) -- requires stable API contracts for testing
-5. **HP-1** (encrypted search) -- needs search architecture decision that informs API contracts
-6. **HP-2** (AI Run Ledger) -- needs stable AI pipeline (depends on HP-4) and stable module boundaries
+Based on dependency analysis of these pitfalls, phases should be ordered:
+
+1. **Architecture Decision** (Pitfall 2) -- How will NestJS validate sessions? This drives everything.
+2. **Schema Migration** (Pitfalls 1, 4) -- Create better-auth tables with tenant support. No code changes yet.
+3. **Core Auth Routes** (Pitfalls 3, 10) -- better-auth mounted in NestJS/Next.js, cookie config, body parser fix.
+4. **Guard & Decorator Migration** (Pitfalls 4, 6, 7) -- Replace JwtAuthGuard, TenantGuard, role decorators.
+5. **Compliance Hooks** (Pitfalls 8, 9) -- Audit logging, GDPR integration. Do NOT defer this.
+6. **WebSocket Auth** (Pitfall 5) -- Rewrite handshake service. Separate phase because it's high-risk.
+7. **Background Job Audit** (Pitfall 6) -- Verify BullMQ tenant context chain end-to-end.
+8. **Social Login & MFA** (Pitfall 13) -- Google OAuth login, TOTP, passkeys.
+9. **Old Auth Removal** -- Only after all above is stable and tested.
 
 ---
 
 ## Sources
 
-- NestJS circular dependency docs: [NestJS Circular Dependency](https://docs.nestjs.com/fundamentals/circular-dependency)
-- LogRocket guide: [How to avoid circular dependencies in NestJS](https://blog.logrocket.com/avoid-circular-dependencies-nestjs/)
-- DEV.to event-driven decoupling: [Get Rid of Tightly Coupled Modules and Circular Dependencies in NestJS](https://dev.to/kishieel/get-rid-of-tightly-coupled-modules-and-circular-dependencies-in-nestjs-3do1)
-- Next.js httpOnly cookie auth: [Next.js: Using HTTP-Only Cookies for Secure Authentication](https://maxschmitt.me/posts/next-js-http-only-cookie-auth-tokens)
-- NestJS + Next.js auth guide: [Complete Authentication Guide with Nest.js](https://www.wisp.blog/blog/how-to-use-nextjs-as-a-front-end-framework-a-complete-authentication-guide-with-nestjs)
-- Encrypted search leakage: [Understanding Leakage in Searchable Encryption](https://eprint.iacr.org/2024/1558.pdf)
-- Searchable encryption pitfalls: [Attack of the week: searchable encryption](https://blog.cryptographyengineering.com/2019/02/11/attack-of-the-week-searchable-encryption-and-the-ever-expanding-leakage-function/)
-- IronCore encrypted search: [IronCore Labs Encrypted Search](https://ironcorelabs.com/docs/data-control-platform/concepts/encrypted-search/)
-- API contract management: [Managing API Changes: 8 Strategies (2026)](https://www.theneo.io/blog/managing-api-changes-strategies)
-- API versioning best practices: [Best practices for versioning API contracts](https://proteinshaikh.medium.com/best-practices-for-versioning-api-contracts-to-avoid-breaking-changes-a54fbc6d469d)
-- Codebase evidence: direct audit of `backend/src/modules/*/`, `frontend/stores/auth-store.ts`, `frontend/lib/api-client.ts`, `frontend/hooks/queries/use-dashboard.ts`, `backend/src/prisma/encryption/`
+- [better-auth NestJS Integration](https://better-auth.com/docs/integrations/nestjs)
+- [better-auth Database/Schema](https://better-auth.com/docs/concepts/database)
+- [better-auth Prisma Adapter](https://better-auth.com/docs/adapters/prisma)
+- [better-auth Cookie Configuration](https://better-auth.com/docs/concepts/cookies)
+- [better-auth Session Management](https://better-auth.com/docs/concepts/session-management)
+- [better-auth Security Reference](https://better-auth.com/docs/reference/security)
+- [GitHub Discussion #5716: Cross-domain session validation](https://github.com/better-auth/better-auth/discussions/5716)
+- [GitHub Issue #6391: account.modelName override bug](https://github.com/better-auth/better-auth/issues/6391)
+- [NestJS + BetterAuth Part 1 (Medium)](https://medium.com/@andysenclave/nestjs-betterauth-part-1-from-zero-to-login-prisma-cookies-cfcc3e7ecec0)
+- [NestJS + BetterAuth Part 2 (Medium)](https://medium.com/@andysenclave/nestjs-betterauth-part-2-next-js-client-csr-ssr-middleware-1423f6c9309e)
+- [nestjs-better-auth (underfisk)](https://github.com/underfisk/nestjs-better-auth)
+- [nestjs-better-auth (ThallesP)](https://github.com/ThallesP/nestjs-better-auth)
+- [ZenStack: Multi-Tenant with better-auth](https://zenstack.dev/blog/better-auth)
+- PMSync codebase: `cookie.helper.ts`, `tenant.guard.ts`, `realtime-handshake.service.ts`, `base.worker.ts`, `tenant-scoped-models.ts`
