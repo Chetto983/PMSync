@@ -74,9 +74,9 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: WebSocket Redis adapter (@socket.io/redis-adapter) configured
-- [ ] **INFRA-02**: Pub/sub channels scoped per tenant
-- [ ] **INFRA-03**: Verified working with 2 backend instances
+- [x] **INFRA-01**: WebSocket Redis adapter (@socket.io/redis-adapter) configured
+- [x] **INFRA-02**: Pub/sub channels scoped per tenant
+- [x] **INFRA-03**: Verified working with 2 backend instances
 
 ### Testing
 
@@ -89,7 +89,7 @@ Requirements for Security Hardening & Debt Reduction milestone. Enterprise readi
 - [x] **TEST-07**: Frontend god-file split visual regression -- Playwright screenshot comparison before/after each split
 - [x] **TEST-08**: forwardRef removal regression -- NestJS module bootstrap succeeds, all dependency injection chains resolve
 - [x] **TEST-09**: Prometheus /metrics endpoint returns valid prom-client format with expected metric names
-- [ ] **TEST-10**: WebSocket Redis adapter test -- message published on instance A received by client on instance B
+- [x] **TEST-10**: WebSocket Redis adapter test -- message published on instance A received by client on instance B
 - [ ] **TEST-11**: CSRF error surfacing test -- invalid/expired token returns meaningful error, retry logic succeeds
 - [ ] **TEST-12**: Bundle size CI gate -- build exceeding budget fails CI
 - [ ] **TEST-13**: CBC->GCM migration verification -- all encrypted fields readable, no CBC-encoded records remain
@@ -187,9 +187,9 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | OBS-02 | Phase 46 | Complete |
 | OBS-03 | Phase 46 | Complete |
 | OBS-04 | Phase 46 | Complete |
-| INFRA-01 | Phase 47 | Pending |
-| INFRA-02 | Phase 47 | Pending |
-| INFRA-03 | Phase 47 | Pending |
+| INFRA-01 | Phase 47 | Complete |
+| INFRA-02 | Phase 47 | Complete |
+| INFRA-03 | Phase 47 | Complete |
 | TEST-01 | Phase 42 | Complete |
 | TEST-02 | Phase 42 | Complete |
 | TEST-03 | Phase 42 | Complete |
@@ -199,7 +199,7 @@ Deferred to v4.2+ (Phase 2 of transformation roadmap).
 | TEST-07 | Phase 44 | Complete |
 | TEST-08 | Phase 45 | Complete |
 | TEST-09 | Phase 46 | Complete |
-| TEST-10 | Phase 47 | Pending |
+| TEST-10 | Phase 47 | Complete |
 | TEST-11 | Phase 47 | Pending |
 | TEST-12 | Phase 47 | Pending |
 | TEST-13 | Phase 47 | Pending |
