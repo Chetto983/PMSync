@@ -4,7 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { EmailModule } from '../email/email.module';
-// Phase 45-03: AiModule removed -- embedding enqueue via domain event (email.indexed)
+import { AiModule } from '../ai/ai.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RetryService } from '../../common/services/retry.service';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
@@ -75,7 +75,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     PrismaModule,
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports EmailSyncModule)
     forwardRef(() => EmailModule), // For AttachmentStorageService
-    // Phase 45-03: AiModule forwardRef removed -- decoupled via domain events
+    forwardRef(() => AiModule), // SyncWorker needs EmailTriageService
     RealtimeModule, // WebSocket events
     DriversModule, // Email Drivers (Phase 2)
     // ScheduledJobsModule is @Global() — no need to import, available everywhere
