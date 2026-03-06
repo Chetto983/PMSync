@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.*
+!.env.railway.template
+*.log
+.git
+.gitignore
+.vscode
+coverage
+test
+tests
+__tests__
+*.test.ts
+*.spec.ts
+.planning
+docs
