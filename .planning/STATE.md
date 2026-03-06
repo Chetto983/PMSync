@@ -3,30 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 51-02-PLAN.md (auth pages rewired to better-auth)
-last_updated: "2026-03-06T21:00:57.996Z"
-last_activity: 2026-03-06 -- 51-02 complete (auth pages rewired to better-auth)
+stopped_at: Completed 52-02-PLAN.md (guard chain migration)
+last_updated: "2026-03-06T21:55:02Z"
+last_activity: 2026-03-06 -- 52-02 complete (JwtAuthGuard removed from all controllers)
 progress:
   total_phases: 9
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
----
-
----
-gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: better-auth Migration
-status: executing
-stopped_at: Completed 51-02-PLAN.md (auth pages rewiring)
-last_updated: "2026-03-06T20:55:49Z"
-last_activity: 2026-03-06 -- 51-02 complete (auth pages rewired to better-auth)
-progress:
-  total_phases: 9
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State
@@ -36,23 +20,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v5.0 better-auth Migration -- Phase 51 executing
+**Current focus:** v5.0 better-auth Migration -- Phase 52 executing
 
 ## Current Position
 
-Phase: 51 of 58 (Core Email/Password Auth) -- COMPLETE
+Phase: 52 of 58 (NestJS Session Validation) -- Plan 2 of 2 COMPLETE
 Plan: 2 of 2
-Status: Phase 51 complete, ready for Phase 52
-Last activity: 2026-03-06 -- 51-02 complete (auth pages rewired to better-auth)
+Status: Phase 52 complete, ready for Phase 53
+Last activity: 2026-03-06 -- 52-02 complete (guard chain migration)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 6
 - Average duration: 7 min
-- Total execution time: 0.47 hours
+- Total execution time: 0.7 hours
 
 **By Phase:**
 
@@ -60,6 +44,7 @@ Progress: [██████████] 100%
 |-------|-------|-------|----------|
 | 50 - Schema & Infrastructure | 2/2 | 17 min | 8.5 min |
 | 51 - Core Email/Password Auth | 2/2 | 11 min | 5.5 min |
+| 52 - NestJS Session Validation | 2/2 | 12 min | 6 min |
 
 *Updated after each plan completion*
 
@@ -83,6 +68,9 @@ Progress: [██████████] 100%
 - [51-02] Used requestPasswordReset (not forgetPassword) -- better-auth v1.5 typed client
 - [51-02] Spread firstName/lastName via Record<string,string> cast for additionalFields compatibility
 - [51-02] Always show success on forgot-password to prevent email enumeration
+- [52-02] TenantGuard requires zero code changes -- BetterAuthGuard maps session to identical request.user shape
+- [52-02] RolesGuard requires zero code changes -- already reads request.user.role
+- [52-02] BullMQ tenantId propagation unaffected -- same req.user.tenantId shape
 
 ### Pending Todos
 
@@ -97,6 +85,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 51-02-PLAN.md (auth pages rewired to better-auth)
+Stopped at: Completed 52-02-PLAN.md (guard chain migration)
 Resume file: None
-Next action: Plan Phase 52
+Next action: Plan Phase 53

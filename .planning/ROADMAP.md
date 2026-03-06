@@ -127,7 +127,7 @@ Plans:
   3. RolesGuard enforces role-based access using roles from better-auth session (existing RBAC decorators still work)
   4. bodyParser is disabled only for `/api/auth/*` proxy routes; all other NestJS routes parse bodies normally
   5. BullMQ jobs created during a request carry the correct tenantId from the new auth context
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 52-01-PLAN.md — BetterAuthGuard + @Public() decorator + global guard registration
@@ -238,7 +238,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 |-------|-----------|----------------|--------|-----------|
 | 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
 | 51. Core Email/Password Auth | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 52. NestJS Session Validation | v5.0 | 0/2 | Not started | - |
+| 52. NestJS Session Validation | 1/2 | In Progress|  | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
 | 54. WebSocket Auth | v5.0 | 0/TBD | Not started | - |
 | 55. Social Login & MFA | v5.0 | 0/TBD | Not started | - |
