@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Security Hardening & Debt Reduction
 status: executing
-stopped_at: Completed 49-01-PLAN.md
-last_updated: "2026-03-06T09:40:36.385Z"
+stopped_at: Completed 49-02-PLAN.md
+last_updated: "2026-03-06T09:42:10.030Z"
 last_activity: 2026-03-06 -- Phase 45 forwardRef burn-down complete (18→2 call sites)
 progress:
   total_phases: 8
   completed_phases: 5
   total_plans: 22
-  completed_plans: 20
+  completed_plans: 21
   percent: 91
 ---
 
@@ -105,6 +105,7 @@ Progress: [██████████] 100% (Phase 45: 3/3 plans)
 | Phase 45 P02 | 4min | 2 tasks | 7 files |
 | Phase 45 P03 | 12min | 2 tasks | 18 files |
 | Phase 49 P01 | 5min | 2 tasks | 15 files |
+| Phase 49 P02 | 7min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -157,6 +158,8 @@ Recent decisions affecting current work:
 - 45-03: EmailEmbeddingCleanupService moved to AiModule -- AI concern, not sync concern
 - 45-03: CalendarModule direct import in email.module.ts -- cycle broken at EmailSync edge
 - [Phase 49]: Type extraction pattern: shared interface to types/ dir with re-export from original file
+- [Phase 49]: Inline interface types: define types in interface file to break circular imports from services
+- [Phase 49]: Type extraction file: locales/types.ts with zero imports as canonical source for all translation interfaces
 
 ### Roadmap Evolution
 
@@ -174,7 +177,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-06T09:40:36.378Z
-Stopped at: Completed 49-01-PLAN.md
+Last session: 2026-03-06T09:42:10.025Z
+Stopped at: Completed 49-02-PLAN.md
 Resume file: None
 Next action: Plan Phase 48 (Auth Fix 2026 Best Practice)
