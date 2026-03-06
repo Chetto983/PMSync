@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 51-01-PLAN.md (auth server wiring)
-last_updated: "2026-03-06T20:49:02Z"
-last_activity: 2026-03-06 -- 51-01 complete (auth server wiring)
+stopped_at: Completed 51-02-PLAN.md (auth pages rewiring)
+last_updated: "2026-03-06T20:55:49Z"
+last_activity: 2026-03-06 -- 51-02 complete (auth pages rewired to better-auth)
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -25,26 +25,26 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 
 ## Current Position
 
-Phase: 51 of 58 (Core Email/Password Auth) -- IN PROGRESS
-Plan: 1 of 2 (Plan 01 complete)
-Status: 51-01 complete, ready for 51-02
-Last activity: 2026-03-06 -- 51-01 complete (auth server wiring)
+Phase: 51 of 58 (Core Email/Password Auth) -- COMPLETE
+Plan: 2 of 2
+Status: Phase 51 complete, ready for Phase 52
+Last activity: 2026-03-06 -- 51-02 complete (auth pages rewired to better-auth)
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 7 min
-- Total execution time: 0.32 hours
+- Total execution time: 0.47 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 50 - Schema & Infrastructure | 2/2 | 17 min | 8.5 min |
-| 51 - Core Email/Password Auth | 1/2 | 2 min | 2 min |
+| 51 - Core Email/Password Auth | 2/2 | 11 min | 5.5 min |
 
 *Updated after each plan completion*
 
@@ -65,6 +65,9 @@ Progress: [████████░░] 75%
 - [51-01] void before sendTransactionalEmail to avoid timing attacks (fire-and-forget)
 - [51-01] No baseURL on authClient -- same-origin Next.js avoids cookie issues
 - [51-01] HIBP checks both password and newPassword via nullish coalescing for reset-password
+- [51-02] Used requestPasswordReset (not forgetPassword) -- better-auth v1.5 typed client
+- [51-02] Spread firstName/lastName via Record<string,string> cast for additionalFields compatibility
+- [51-02] Always show success on forgot-password to prevent email enumeration
 
 ### Pending Todos
 
@@ -79,6 +82,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 51-01-PLAN.md (auth server wiring)
+Stopped at: Completed 51-02-PLAN.md (auth pages rewired to better-auth)
 Resume file: None
-Next action: Execute 51-02-PLAN.md (page rewiring)
+Next action: Plan Phase 52

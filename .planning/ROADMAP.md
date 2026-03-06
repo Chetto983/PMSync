@@ -75,7 +75,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 **Milestone Goal:** Replace broken custom auth with better-auth -- full enterprise auth (email/password, social login, 2FA, organizations/roles, admin panel) with clean slate migration.
 
 - [x] **Phase 50: Schema & Infrastructure** - Prisma models for better-auth, dual instances (Next.js + NestJS), cookie/session config
-- [ ] **Phase 51: Core Email/Password Auth** - Sign up, sign in, email verification, password reset via better-auth
+- [x] **Phase 51: Core Email/Password Auth** - Sign up, sign in, email verification, password reset via better-auth
 - [ ] **Phase 52: NestJS Session Validation** - Guards rewrite, tenant bridge, bodyParser fix, BullMQ context
 - [ ] **Phase 53: Frontend Auth UI** - Login/signup pages, session hooks, protected routes with better-auth client
 - [ ] **Phase 54: WebSocket Auth** - Handshake service rewrite for DB-backed session tokens
@@ -111,11 +111,11 @@ Plans:
   2. User can sign in with existing email/password and land on the dashboard
   3. User receives verification email after signup and can verify their address
   4. User can request password reset, receive email link, and set a new password
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 51-01-PLAN.md — Server-side: nodemailer, auth-client, email callbacks, HIBP on reset
-- [ ] 51-02-PLAN.md — Client-side: rewire 4 auth pages + create verify-email page
+- [x] 51-01-PLAN.md — Server-side: nodemailer, auth-client, email callbacks, HIBP on reset
+- [x] 51-02-PLAN.md — Client-side: rewire 4 auth pages + create verify-email page
 
 ### Phase 52: NestJS Session Validation
 **Goal**: NestJS backend validates better-auth sessions and enforces tenant/role isolation on all API requests
@@ -238,7 +238,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 51. Core Email/Password Auth | 1/2 | In Progress|  | - |
+| 51. Core Email/Password Auth | v5.0 | Complete | 2026-03-06 | 2026-03-06 |
 | 52. NestJS Session Validation | v5.0 | 0/TBD | Not started | - |
 | 53. Frontend Auth UI | v5.0 | 0/TBD | Not started | - |
 | 54. WebSocket Auth | v5.0 | 0/TBD | Not started | - |
