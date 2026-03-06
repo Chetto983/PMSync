@@ -26,14 +26,13 @@ import {
   UpdateCalendarPreferencesDto,
   ListEventsQueryDto,
 } from '../dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @ApiTags('Calendar')
 @ApiBearerAuth()
 @Controller('calendar')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(TenantGuard)
 export class CalendarController {
   constructor(
     private readonly calendarService: CalendarService,

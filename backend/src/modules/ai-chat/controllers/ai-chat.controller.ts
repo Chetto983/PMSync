@@ -24,7 +24,6 @@ import {
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { pipeUIMessageStreamToResponse } from 'ai';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ConsentGuard } from '../../compliance/guards/consent.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
@@ -42,12 +41,12 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  * GET  /ai/chat/conversations   -- List conversations
  * DELETE /ai/chat/conversations/:id -- Delete a conversation
  *
- * Guards: JwtAuthGuard, TenantGuard, ConsentGuard, QuotaGuard
+ * Guards: TenantGuard, ConsentGuard, QuotaGuard
  *
  * Phase 24: Backend Core Pipeline
  *
  * CHAT 403 ROOT CAUSE (Phase 31 investigation):
- * The guard chain is: JwtAuthGuard -> TenantGuard -> ConsentGuard -> QuotaGuard.
+ * The guard chain is: BetterAuthGuard (global) -> TenantGuard -> ConsentGuard -> QuotaGuard.
  * ConsentGuard: @RequiresConsent('ai_chat') is commented out, so it passes.
  * QuotaGuard: calls subscriptionService.getOrCreateSubscription() which auto-creates
  * a FREE subscription with ACTIVE status if none exists (with a transient fallback
@@ -61,7 +60,7 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
 @ApiTags('AI Chat')
 @ApiBearerAuth()
 @Controller('ai')
-@UseGuards(JwtAuthGuard, TenantGuard, ConsentGuard, QuotaGuard)
+@UseGuards(TenantGuard, ConsentGuard, QuotaGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiChatController {
   constructor(

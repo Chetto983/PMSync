@@ -22,7 +22,6 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { ActionStatus, FollowUpStatus } from '@prisma/client';
-import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -65,7 +64,7 @@ import {
 @ApiTags('AI')
 @ApiBearerAuth()
 @Controller('ai')
-@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard, ConsentGuard)
+@UseGuards(TenantGuard, QuotaGuard, ConsentGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiController {
   private readonly logger = new Logger(AiController.name);

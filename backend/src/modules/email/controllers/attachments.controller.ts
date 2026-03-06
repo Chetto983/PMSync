@@ -18,7 +18,6 @@ import {
 import { Response } from 'express';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
@@ -37,7 +36,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 @ApiTags('Email Attachments')
 @ApiBearerAuth()
 @Controller('email/attachments')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class AttachmentsController {
   private readonly logger = new Logger(AttachmentsController.name);
 

@@ -21,7 +21,6 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { TenantGuard } from '../guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { TotpService } from '../services/totp.service';
@@ -56,7 +55,7 @@ import {
 @ApiTags('MFA')
 @ApiBearerAuth()
 @Controller('auth/mfa')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(TenantGuard)
 export class MfaController {
   constructor(
     private readonly totpService: TotpService,

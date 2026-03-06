@@ -6,7 +6,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -31,7 +30,7 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 @ApiBearerAuth()
 @SkipLegalCheck()
 @Controller('compliance/data-deletion')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 @Roles('admin')
 export class DataDeletionController {
   constructor(private readonly accountDeletionService: AccountDeletionService) {}

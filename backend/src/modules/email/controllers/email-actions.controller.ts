@@ -5,7 +5,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -62,7 +61,7 @@ const decodeAttachments = (attachments?: EmailAttachmentDto[]): DecodedAttachmen
 @ApiTags('Emails')
 @ApiBearerAuth()
 @Controller('emails')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class EmailActionsController {
   private readonly logger = new Logger(EmailActionsController.name);
 

@@ -15,7 +15,6 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
@@ -31,7 +30,7 @@ import {
 @ApiTags('AI Knowledge Base')
 @ApiBearerAuth()
 @Controller('ai/knowledge-base')
-@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
+@UseGuards(TenantGuard, QuotaGuard)
 @UsePipes(
   new ValidationPipe({
     transform: true,

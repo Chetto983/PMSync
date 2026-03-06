@@ -6,7 +6,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -23,7 +22,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
  */
 @ApiTags('AI Observability')
 @Controller('ai')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 @Roles('admin')
 export class AiObservabilityController {
   constructor(private readonly prisma: PrismaService) {}

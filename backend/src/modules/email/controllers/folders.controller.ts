@@ -22,7 +22,6 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -164,7 +163,7 @@ export const LOCALIZED_FOLDER_NAMES: Record<string, keyof typeof CANONICAL_FOLDE
 
 @ApiTags('Folders')
 @Controller('folders')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 @ApiBearerAuth()
 export class FoldersController {
   constructor(

@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { TenantService } from '../services/tenant.service';
-import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { RolesGuard } from '../../../modules/auth/guards/roles.guard';
 import { Roles } from '../../../modules/auth/decorators/roles.decorator';
@@ -23,7 +22,7 @@ import { UpdateTenantDto } from '../dto/update-tenant.dto';
 @ApiTags('Tenants')
 @ApiBearerAuth()
 @Controller('tenants')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class TenantsController {
   constructor(private tenantService: TenantService) {}
 

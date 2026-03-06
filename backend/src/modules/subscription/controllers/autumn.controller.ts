@@ -24,7 +24,6 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { AutumnService } from '../services/autumn.service';
@@ -65,7 +64,7 @@ export class AutumnController {
   // ==========================================================================
 
   @Post('customers')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create Autumn customer' })
   @ApiResponse({
@@ -93,7 +92,7 @@ export class AutumnController {
   // ==========================================================================
 
   @Post('attach')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Attach product to customer (initiate payment)' })
@@ -121,7 +120,7 @@ export class AutumnController {
   // ==========================================================================
 
   @Post('check')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Check feature access' })
@@ -145,7 +144,7 @@ export class AutumnController {
   // ==========================================================================
 
   @Post('track')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Track usage event' })
@@ -175,7 +174,7 @@ export class AutumnController {
   // ==========================================================================
 
   @Post('billing_portal')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get billing portal URL' })
@@ -204,7 +203,7 @@ export class AutumnController {
   }
 
   @Post('openBillingPortal')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Open billing portal (returns to app root)' })
@@ -235,7 +234,7 @@ export class AutumnController {
   // ==========================================================================
 
   @Post('cancel')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel subscription' })
@@ -271,7 +270,7 @@ export class AutumnController {
   }
 
   @Get('components/pricing_table/authenticated')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(TenantGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get pricing table with customer context' })
   @ApiResponse({

@@ -21,7 +21,6 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { RelationshipScoreService } from '../services/relationship-score.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -40,7 +39,7 @@ import {
 @ApiTags('Contacts')
 @ApiBearerAuth()
 @Controller('contacts')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class ContactsController {
   constructor(
     private readonly contactsService: ContactsService,

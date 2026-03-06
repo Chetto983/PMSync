@@ -6,7 +6,6 @@
 import { BadRequestException, Body, Controller, Get, Logger, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -23,7 +22,7 @@ interface CalendarEventMetadata { sequence?: number; [key: string]: unknown; }
 @ApiTags('Emails')
 @ApiBearerAuth()
 @Controller('emails')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class EmailCalendarInviteController {
   private readonly logger = new Logger(EmailCalendarInviteController.name);
 

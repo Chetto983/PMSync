@@ -19,7 +19,6 @@ import {
   ReorderLabelsDto,
   UpdateLabelDto,
 } from '../dto/labels.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -30,7 +29,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 @ApiTags('Labels')
 @ApiBearerAuth()
 @Controller('labels')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard, FeatureFlagGuard)
+@UseGuards(TenantGuard, RolesGuard, FeatureFlagGuard)
 @FeatureFlag('userLabels')
 export class LabelsController {
   constructor(private readonly labelsService: LabelsService) {}

@@ -25,7 +25,6 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { EmailsService, EmailListFilters } from '../services/emails.service';
@@ -34,7 +33,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 @ApiTags('Emails')
 @ApiBearerAuth()
 @Controller('emails')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class EmailQueryController {
   private readonly maxEmailListLimit: number;
   private readonly logger = new Logger(EmailQueryController.name);

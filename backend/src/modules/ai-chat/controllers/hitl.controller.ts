@@ -21,7 +21,6 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { HitlService } from '../services/hitl.service';
 import { ApproveActionDto } from '../dto/hitl.dto';
@@ -42,7 +41,7 @@ import {
 @ApiTags('AI Chat - HITL')
 @ApiBearerAuth()
 @Controller('ai/chat')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(TenantGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class HitlController {
   private readonly logger = new Logger(HitlController.name);

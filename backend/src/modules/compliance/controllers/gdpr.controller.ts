@@ -2,7 +2,6 @@ import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { GdprService } from '../services/gdpr.service';
 import { GdprStatusDto } from '../dto/gdpr-status.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -13,7 +12,7 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 @ApiBearerAuth()
 @SkipLegalCheck()
 @Controller('compliance/gdpr')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class GdprController {
   constructor(private readonly gdprService: GdprService) {}
 

@@ -17,7 +17,6 @@ import {
 } from '@nestjs/swagger';
 import { Response } from 'express';
 import { createReadStream } from 'fs';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -41,7 +40,7 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 @ApiBearerAuth()
 @SkipLegalCheck()
 @Controller('compliance/data-export')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard)
 @Roles('admin')
 export class DataExportController {
   constructor(private readonly dataExportService: DataExportService) {}
