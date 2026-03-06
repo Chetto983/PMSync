@@ -140,6 +140,10 @@ Recent decisions affecting current work:
 - 45-03: EmailEmbeddingCleanupService moved to AiModule -- AI concern, not sync concern
 - 45-03: CalendarModule direct import in email.module.ts -- cycle broken at EmailSync edge
 
+### Roadmap Evolution
+
+- Phase 49 added: Zero Circular Dependencies (eliminate all 14 madge --circular chains)
+
 ### Pending Todos
 
 None.

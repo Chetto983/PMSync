@@ -238,6 +238,16 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 - ✅ TEST-01..03: Negative security tests (plan 42-04 complete)
 - ⬜ Gap closure: model count fix, UsersController docs, cross-tenant DB test (plan 42-05)
 
+### Phase 49: Zero Circular Dependencies
+
+**Goal:** Eliminate all 14 circular dependency chains reported by madge --circular, achieving zero cycles across the entire backend codebase
+**Requirements**: DEBT-06, DEBT-07, DEBT-08, DEBT-09, DEBT-10
+**Depends on:** Phase 48
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 49 to break down)
+
 ---
 *Roadmap created: 2026-02-09*
 *v4.0 completed: 2026-03-04 -- 11 phases, 22 plans, 19/19 requirements*
