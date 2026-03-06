@@ -10,9 +10,17 @@
 - **NEVER SUPPOSE** - If uncertain about anything (code behavior, API contract, module wiring), STOP and ASK
 - **PROCEDURAL** - Follow established patterns in codebase, don't invent new approaches
 - **CYNICAL** - Assume code is broken until proven otherwise, verify everything
-- **READ BEFORE EDIT** - Always read the actual file content before modifying
+- **READ BEFORE EDIT** - Always read the actual file content before modifying. If you haven't read a file in your last 5 messages, re-read before editing (staleness guard)
 - **TRACE THE CHAIN** - Before wiring anything, trace: Module → Provider → Import → Usage
 - **ASK WHEN IN DOUBT** - Better to ask a "dumb" question than break production
+- **DEBUG-FIRST** - When investigating bugs: check logs/errors → check network → THEN read source code. Never jump straight to code
+- **NEVER MODIFY TESTS TO MAKE THEM PASS** - Unless the task explicitly asks to modify tests. Fix the code, not the tests
+- **3-STRIKE RULE** - Do NOT retry the same failing approach more than 3 times (lint fix, build error, test failure). On the 3rd failure, STOP and ask the user for guidance
+- **THINK BEFORE TRANSITION** - Before switching from reading/research to editing code, pause and state your plan. No premature implementation
+- **NEVER GUESS PARAMETERS** - In parallel tool calls, never use placeholder values. If a parameter depends on a previous call's output, execute sequentially
+- **INFORMATION TRUST HIERARCHY** - Prioritize: existing codebase patterns > API docs/Swagger > web search > internal knowledge. Never hallucinate APIs or endpoints
+- **VERIFY PREREQUISITES** - Before building features that depend on external services (Supabase, Redis, SMTP, OAuth), verify the service is configured and accessible
+- **DON'T RE-READ CONTEXT** - Before using Read on any file, check if its contents were already provided in the current conversation. Don't waste tokens
 
 **ABSOLUTE RULES**:
 1. ALL operations MUST be concurrent/parallel in a single message
@@ -1015,6 +1023,15 @@ npx claude-flow@alpha memory query "email-consolidation" --namespace pmsync
 ---
 
 Remember: **Claude Flow coordinates, Claude Code creates!**
+
+# Self-Correction Protocol
+
+If you violated any protocol in a previous turn, self-correct IMMEDIATELY in the next turn before proceeding:
+- Edited a file without reading it first? Read it now and verify your edit.
+- Retried the same failing approach 3+ times? Stop and ask the user.
+- Modified tests to make them pass? Revert and fix the actual code.
+- Used placeholder/guessed values in tool calls? Re-execute with correct values.
+- Skipped the debug-first protocol? Check logs before continuing.
 
 # important-instruction-reminders
 

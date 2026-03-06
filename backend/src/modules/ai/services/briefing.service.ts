@@ -108,7 +108,13 @@ Rules:
 - emailVolumeTrends: Report today's counts and weekly averages.
 - focusTimeRecommendations: Suggest focus blocks in calendar gaps.
 
-Be concise, actionable, and data-driven. Do NOT fabricate data -- only reference items from the provided context.`;
+Be concise, actionable, and data-driven. Do NOT fabricate data -- only reference items from the provided context.
+
+Confidence calibration for urgency ratings:
+- critical: Explicit deadline within 24h, or sender flagged as VIP, or escalation/complaint
+- high: Deadline within 48h, direct question requiring action, or important sender
+- medium: General action item, no hard deadline, within the week
+- low: FYI email, newsletter, or optional action`;
 
 @Injectable()
 export class BriefingService {

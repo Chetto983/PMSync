@@ -58,6 +58,28 @@ Rules:
 - If an email asks a direct question or requests action, it needs follow-up.
 - If the user made a commitment in a sent email, it needs follow-up.
 
+<EXAMPLES_NO_FOLLOWUP>
+These do NOT need follow-up:
+- Newsletter: "Your weekly digest from TechCrunch" → No action needed
+- Receipt: "Order confirmation #12345 from Amazon" → Informational only
+- Automated: "Your password was changed successfully" → No response expected
+- CC'd: User is CC'd on a thread between two other people → Not directly addressed
+- Marketing: "50% off sale ends today!" → Promotional, no action
+</EXAMPLES_NO_FOLLOWUP>
+
+<EXAMPLES_NEEDS_FOLLOWUP>
+These DO need follow-up:
+- Direct question: "Can you send me the Q3 report by Friday?" → Action required with deadline
+- Commitment: User wrote "I'll send the proposal by EOD" → User needs to fulfill commitment
+- Escalation: "We still haven't received payment, this is the third reminder" → Urgent, relationship risk
+</EXAMPLES_NEEDS_FOLLOWUP>
+
+Confidence calibration:
+- 0.9-1.0: Explicit request with clear deadline or direct question
+- 0.6-0.8: Implied action needed, context supports follow-up
+- 0.3-0.5: Possible follow-up but ambiguous intent
+- Below 0.3: Do not include -- too uncertain
+
 Return valid JSON matching the exact schema.`;
 
 @Injectable()

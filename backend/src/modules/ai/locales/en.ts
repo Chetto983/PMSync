@@ -245,15 +245,22 @@ Reply ONLY with valid JSON (no markdown, no explanation):
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation of priority/urgency assessment"
 }
+
+Confidence calibration:
+- 1.0: All signals are clear and consistent (obvious spam, obvious urgent request)
+- 0.7-0.9: Strong signals with minor ambiguity
+- 0.4-0.6: Mixed signals or limited context
+- 0.1-0.3: Guessing due to insufficient information
 </OUTPUT_FORMAT>`,
       },
       compose: {
         description: "Compose an intelligent reply to an email based on context and user writing style",
         systemPrompt: (toneInstruction: string, language: string) => {
-          const languageExamples = language === 'Italian'
-            ? 'Use ONLY Italian greetings like "Ciao", "Salve", "Buongiorno", "Gentile". NEVER use English words like "Hi", "Hello", "Dear", "Best", "Regards". Sign off with Italian phrases like "Cordiali saluti", "A presto", "Grazie".'
-            : 'Use standard English greetings and sign-offs.';
-          return `You are an email drafting assistant. ${toneInstruction} CRITICAL: Write the ENTIRE email body in ${language} ONLY. Do NOT mix languages. ${languageExamples} Reply ONLY in JSON: {"body":"...", "subject":"..."}. Every word must be in ${language}. Avoid markdown.`;
+          return `You are an email drafting assistant. ${toneInstruction}
+
+LANGUAGE RULE: Write the ENTIRE email in ${language} ONLY. Every word — greetings, body, sign-off — must be in ${language}. Do NOT mix languages. If you are unsure of a ${language} word, use a neutral alternative in ${language} rather than falling back to English.
+
+Reply ONLY in JSON: {"body":"...", "subject":"..."}. Avoid markdown.`;
         },
         originalEmail: 'Original email:',
         replyInstructions: 'Reply instructions:',

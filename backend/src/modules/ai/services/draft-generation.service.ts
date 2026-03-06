@@ -48,7 +48,11 @@ Rules:
 - Subject should be "Re: [original subject]" unless the user specifies otherwise.
 - Body should be a complete, ready-to-send reply.
 - Suggest recipients based on the original email's From/To/CC fields.
-- Set confidence based on how well the instruction matches the context (1.0 = very clear, 0.5 = ambiguous).
+- Set confidence based on how well the instruction matches the context:
+  - 1.0 = instruction is clear and context is complete (e.g., "reply yes to this meeting invite")
+  - 0.7-0.9 = instruction is clear but context has some ambiguity
+  - 0.4-0.6 = instruction is vague or context is incomplete (e.g., "reply to this")
+  - 0.1-0.3 = instruction contradicts context or is very unclear
 - Do NOT include the original email in the reply body (no quoting).
 - Keep the reply concise and professional.
 
