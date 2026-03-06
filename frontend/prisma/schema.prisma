@@ -1,0 +1,1551 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id                       String                    @id @default(cuid())
+  name                     String
+  slug                     String                    @unique
+  description              String?
+  isActive                 Boolean                   @default(true)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  deletedAt                DateTime?
+  actionQueue              ActionQueue[]
+  actionFeedback           AgentActionFeedback[]
+  learningProfiles         AgentLearningProfile[]
+  auditLogs                AuditLog[]
+  calendarEvents           CalendarEvent[]
+  emailAnalyses            EmailAnalysis[]
+  emailSignatures          EmailSignature[]
+  emailTemplates           EmailTemplate[]
+  emails                   Email[]
+  embeddings               Embedding[]
+  folders                  Folder[]
+  providerConfigs          ProviderConfig[]
+  providerContacts         ProviderContact[]         @relation("ProviderContactToTenant")
+  scheduledEmails          ScheduledEmail[]
+  subscription             Subscription?
+  contacts                 Contact[]                 @relation("ContactToTenant")
+  userLabels               UserLabel[]
+  users                    User[]
+  webhookSubscriptions     WebhookSubscription[]
+  userPreferences          UserPreferences[]         @relation("UserPreferencesToTenant")
+  dashboardPreferences     DashboardPreference[]     @relation("DashboardPreferenceToTenant")
+  mfaSecrets               MfaSecret[]               @relation("MfaSecretToTenant")
+  mfaBackupCodes           MfaBackupCode[]           @relation("MfaBackupCodeToTenant")
+  emailLabels              EmailLabel[]              @relation("EmailLabelToTenant")
+  emailAttachments         EmailAttachment[]         @relation("EmailAttachmentToTenant")
+  calendarEventAttachments CalendarEventAttachment[] @relation("CalendarEventAttachmentToTenant")
+  calendarSyncStates       CalendarSyncState[]       @relation("CalendarSyncStateToTenant")
+  sessions                 Session[]
+  refreshTokens            RefreshToken[]
+  trustedDevices           TrustedDevice[]
+  webauthnCredentials      WebAuthnCredential[]
+  mistralAgents            MistralAgent[]
+  userConsents             UserConsent[]
+  legalAcceptances         LegalAcceptance[]
+  dataExportRequests       DataExportRequest[]
+  aiConversations          AiConversation[]
+  aiMemories               AIMemory[]
+
+  @@map("tenants")
+}
+
+model User {
+  id                  String                 @id @default(cuid())
+  tenantId            String?
+  email               String                 @unique
+  name                String                 @default("")
+  emailVerified       Boolean                @default(false)
+  image               String?
+  /// @deprecated Legacy field -- password now lives in Account table. Remove in Phase 58.
+  passwordHash        String?
+  firstName           String?
+  lastName            String?
+  avatarUrl           String?
+  role                String                 @default("member")
+  isActive            Boolean                @default(true)
+  /// @deprecated Legacy field -- better-auth 2FA plugin manages this. Remove in Phase 58.
+  isMfaEnabled        Boolean                @default(false)
+  lastLogin           DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  deletedAt           DateTime?
+  actionQueue         ActionQueue[]
+  actionFeedback      AgentActionFeedback[]
+  learningProfiles    AgentLearningProfile[]
+  auditLogs           AuditLog[]
+  dashboardPreference DashboardPreference?
+  emailSignatures     EmailSignature[]
+  emailTemplates      EmailTemplate[]
+  mfaBackupCodes      MfaBackupCode[]
+  mfaSecret           MfaSecret?
+  sessions            Session[]
+  accounts            Account[]
+  refreshTokens       RefreshToken[]
+  trustedDevices      TrustedDevice[]
+  userPreferences     UserPreferences?
+  tenant              Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  webauthnCredentials WebAuthnCredential[]
+  writingStyleProfiles WritingStyleProfile[]
+  userConsents        UserConsent[]
+  legalAcceptances    LegalAcceptance[]
+  dataExportRequests  DataExportRequest[]
+  aiConversations     AiConversation[]
+
+  /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model UserPreferences {
+  id                          String   @id @default(cuid())
+  tenantId                    String
+  userId                      String   @unique
+  folderOrders                Json?
+  sidebarSmartFiltersExpanded Boolean  @default(true)
+  sidebarLabelsExpanded       Boolean  @default(true)
+  theme                       String?  @default("light")
+  language                    String?  @default("en")
+  timezone                    String?  @default("UTC")
+  emailDensity                String?  @default("comfortable")
+  aiSmartRepliesEnabled       Boolean  @default(true)
+  aiSummarizationEnabled      Boolean  @default(true)
+  aiSchedulingEnabled         Boolean  @default(true)
+  aiAutoApproveThreshold      Float?   @default(0.9)
+  aiAutoTriageEnabled         Boolean  @default(false) // Auto-label and prioritize new emails
+  jobTitle                    String?
+  jobRole                     String?  @default("OTHER")
+  department                  String?
+  industry                    String?
+  companySize                 String?  @default("SMB")
+  communicationStyle          String?  @default("CASUAL")
+  responseLength              String?  @default("MODERATE")
+  workingHoursStart           String?  @default("09:00")
+  workingHoursEnd             String?  @default("18:00")
+  workingDays                 String[] @default(["MON", "TUE", "WED", "THU", "FRI"])
+  proactivityLevel            String?  @default("MEDIUM")
+  notificationFrequency       String?  @default("DIGEST")
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant                      Tenant   @relation("UserPreferencesToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tenantId])
+  @@map("user_preferences")
+}
+
+model DashboardPreference {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String   @unique
+  layout    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation("DashboardPreferenceToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("dashboard_preferences")
+}
+
+/// TOTP secrets for authenticator apps (Google Authenticator, Authy, etc.)
+model MfaSecret {
+  id           String    @id @default(cuid())
+  tenantId     String
+  userId       String    @unique
+  secret       String
+  encryptionIv String
+  isEnabled    Boolean   @default(false)
+  verifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant       Tenant    @relation("MfaSecretToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tenantId])
+  @@map("mfa_secrets")
+}
+
+/// Backup/recovery codes for MFA emergency access
+model MfaBackupCode {
+  id        String    @id @default(cuid())
+  tenantId  String
+  userId    String
+  codeHash  String
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation("MfaBackupCodeToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isUsed])
+  @@index([tenantId])
+  @@map("mfa_backup_codes")
+}
+
+/// Trusted devices for "Keep me signed in" feature
+model TrustedDevice {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+  deviceToken String
+  deviceName  String?
+  deviceHash  String
+  ipAddress   String?
+  location    String?
+  expiresAt   DateTime
+  lastUsedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, deviceToken])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([deviceToken])
+  @@index([expiresAt])
+  @@map("trusted_devices")
+}
+
+/// WebAuthn/Passkey credentials for passwordless authentication
+/// Supports Face ID, Touch ID, Windows Hello, and security keys (YubiKey)
+model WebAuthnCredential {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  userId               String
+  credentialId         String
+  credentialPublicKey  String
+  counter              Int      @default(0)
+  credentialDeviceType String   @default("singleDevice")
+  credentialBackedUp   Boolean  @default(false)
+  transports           String[] @default([])
+  aaguid               String?
+  deviceName           String?
+  lastUsedAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, credentialId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("webauthn_credentials")
+}
+
+model Session {
+  id                   String   @id @default(cuid())
+  /// @deprecated Legacy field -- Session no longer scoped to tenant. Remove in Phase 58.
+  tenantId             String?
+  userId               String
+  token                String   @unique
+  expiresAt            DateTime
+  ipAddress            String?
+  userAgent            String?
+  activeOrganizationId String?
+  /// @deprecated Legacy field -- better-auth uses updatedAt. Remove in Phase 58.
+  lastActivityAt       DateTime? @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  tenant               Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  familyId   String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  isUsed     Boolean  @default(false)
+  replacedBy String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userEmail String
+  token     String   @unique
+  tenantId  String
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+model ProviderConfig {
+  id                       String                @id @default(cuid())
+  tenantId                 String
+  userId                   String?
+  providerType             String
+  email                    String
+  displayName              String?
+  supportsEmail            Boolean               @default(true)
+  supportsCalendar         Boolean               @default(false)
+  supportsContacts         Boolean               @default(false)
+  accessToken              String?
+  refreshToken             String?
+  tokenEncryptionIv        String?
+  tokenExpiresAt           DateTime?
+  imapHost                 String?
+  imapPort                 Int?
+  imapUsername             String?
+  imapPassword             String?
+  imapEncryptionIv         String?
+  imapUseTls               Boolean               @default(true)
+  smtpHost                 String?
+  smtpPort                 Int?
+  smtpUsername             String?
+  smtpPassword             String?
+  smtpEncryptionIv         String?
+  smtpUseTls               Boolean               @default(true)
+  caldavUrl                String?
+  caldavUsername           String?
+  caldavPassword           String?
+  caldavEncryptionIv       String?
+  carddavUrl               String?
+  carddavUsername          String?
+  carddavPassword          String?
+  carddavEncryptionIv      String?
+  metadata                 Json?
+  isDefault                Boolean               @default(false)
+  isActive                 Boolean               @default(true)
+  lastSyncedAt             DateTime?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  avgActivityRate          Float?                @default(0.0)
+  syncPriority             Int?                  @default(3)
+  nextSyncAt               DateTime?
+  emailsReceivedLast24h    Int?                  @default(0)
+  errorStreak              Int?                  @default(0)
+  lastActivityCheck        DateTime?
+  refreshTokenEncryptionIv String?
+  scope                    String?
+  calendarEvents           CalendarEvent[]
+  calendarSyncStates       CalendarSyncState[]
+  emailSignatures          EmailSignature[]
+  emails                   Email[]
+  folders                  Folder[]
+  tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
+  scheduledEmails          ScheduledEmail[]
+  webhookSubscriptions     WebhookSubscription[]
+  writingStyleProfiles     WritingStyleProfile[]
+
+  @@unique([tenantId, email, providerType])
+  @@index([tenantId, isDefault])
+  @@index([userId])
+  @@index([nextSyncAt, isActive])
+  @@index([syncPriority, nextSyncAt])
+  @@map("provider_configs")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+/// Citus distributed table - composite PK for horizontal sharding
+model Email {
+  id                   String                  @default(cuid())
+  tenantId             String
+  providerId           String
+  externalId           String
+  threadId             String?
+  messageId            String?
+  inReplyTo            String?
+  references           String?
+  from                 String
+  fromHash             String?
+  to                   String[]
+  cc                   String[]                @default([])
+  bcc                  String[]                @default([])
+  replyTo              String?
+  subject              String
+  bodyText             String?
+  bodyHtml             String?
+  snippet              String?
+  folder               String                  @default("INBOX")
+  labels               String[]                @default([])
+  isRead               Boolean                 @default(false)
+  isStarred            Boolean                 @default(false)
+  isFlagged            Boolean                 @default(false)
+  isDraft              Boolean                 @default(false)
+  isDeleted            Boolean                 @default(false)
+  isArchived           Boolean                 @default(false)
+  sentAt               DateTime
+  receivedAt           DateTime
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  size                 Int?
+  headers              Json?
+  metadata             Json?
+  hasCalendarInvite    Boolean                 @default(false)
+  calendarInviteData   Json?
+  calendarInviteStatus String?
+  calendarEventId      String?
+  userModifiedAt       DateTime?
+  version              Int                     @default(1)
+  isBodyFetched        Boolean                 @default(false)
+  // Auto-Triage fields (Superhuman-like feature)
+  aiPriority           Int? // AI-calculated priority 1-5 (1=highest)
+  aiPriorityReason     String? // Explanation for priority
+  aiSentiment          String? // AI sentiment: positive, negative, neutral, mixed
+  aiLabels             String[]                @default([]) // AI-suggested labels
+  isAutoTriaged        Boolean                 @default(false) // Flag if auto-triaged
+  autoTriagedAt        DateTime? // When auto-triage ran
+  actionQueue          ActionQueue[]
+  analysis             EmailAnalysis?
+  attachments          EmailAttachment[]
+  followUp             EmailFollowUp?
+  emailLabels          EmailLabel[]
+  provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  embeddings           Embedding[]
+
+  @@id([id, tenantId])
+  @@unique([tenantId, messageId, folder])
+  @@unique([providerId, externalId])
+  @@index([tenantId, folder, receivedAt])
+  @@index([tenantId, isRead])
+  @@index([tenantId, threadId])
+  @@index([sentAt])
+  @@index([tenantId, hasCalendarInvite])
+  @@index([tenantId, providerId, folder, receivedAt])
+  @@index([tenantId, isStarred, receivedAt])
+  @@index([tenantId, providerId, isDeleted])
+  @@index([providerId, folder, isRead])
+  @@index([tenantId, from])
+  @@index([tenantId, fromHash])
+  @@index([tenantId, isBodyFetched])
+  @@index([tenantId, isFlagged])
+  @@index([tenantId, aiPriority])
+  @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([providerId, folder, isRead, isDeleted])
+  @@map("emails")
+}
+
+model ScheduledEmail {
+  id           String         @id @default(cuid())
+  tenantId     String
+  providerId   String
+  to           String[]
+  cc           String[]       @default([])
+  bcc          String[]       @default([])
+  subject      String
+  bodyHtml     String
+  bodyText     String
+  inReplyTo    String?
+  references   String?
+  attachments  Json?
+  scheduledAt  DateTime
+  status       String         @default("pending")
+  errorMessage String?
+  retryCount   Int            @default(0)
+  sentAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, scheduledAt])
+  @@index([scheduledAt, status])
+  @@map("scheduled_emails")
+}
+
+/// Citus distributed table - composite PK for horizontal sharding
+model Folder {
+  id           String         @default(cuid())
+  tenantId     String
+  providerId   String
+  name         String
+  path         String
+  externalId   String?
+  delimiter    String         @default("/")
+  parentId     String?
+  level        Int            @default(0)
+  isSelectable Boolean        @default(true)
+  specialUse   String?
+  attributes   String[]       @default([])
+  totalCount   Int            @default(0)
+  unreadCount  Int            @default(0)
+  recentCount  Int            @default(0)
+  unseenCount  Int            @default(0)
+  uidValidity  String?
+  uidNext      Int?           @default(0)
+  syncToken    String?
+  lastSyncedAt DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  isSystem     Boolean        @default(false)
+  parent       Folder?        @relation("FolderHierarchy", fields: [parentId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  children     Folder[]       @relation("FolderHierarchy")
+  provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([id, tenantId])
+  @@unique([providerId, path])
+  @@index([providerId, externalId])
+  @@index([tenantId, providerId])
+  @@index([tenantId, specialUse])
+  @@index([tenantId, isSystem])
+  @@index([providerId, parentId])
+  @@index([lastSyncedAt])
+  @@map("folders")
+}
+
+model UserLabel {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String
+  type        LabelType    @default(USER)
+  color       Json?
+  icon        String?
+  parentId    String?
+  level       Int          @default(0)
+  orderIndex  Int          @default(0)
+  isArchived  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  emailLabels EmailLabel[]
+  parent      UserLabel?   @relation("LabelHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    UserLabel[]  @relation("LabelHierarchy")
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, type])
+  @@index([tenantId, parentId])
+  @@index([tenantId, orderIndex])
+  @@map("user_labels")
+}
+
+model EmailLabel {
+  id        String    @id @default(cuid())
+  tenantId  String
+  emailId   String
+  labelId   String
+  createdAt DateTime  @default(now())
+  email     Email     @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  label     UserLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation("EmailLabelToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, emailId, labelId])
+  @@index([emailId])
+  @@index([labelId])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("email_labels")
+}
+
+model EmailAttachment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  emailId     String
+  filename    String
+  mimeType    String
+  size        Int
+  contentId   String?
+  storageType String   @default("local")
+  storagePath String?
+  contentHash String?
+  isInline    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  email       Email    @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant      Tenant   @relation("EmailAttachmentToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([emailId])
+  @@index([tenantId])
+  @@map("email_attachments")
+}
+
+/// Citus distributed table - composite PK for horizontal sharding
+/// GDPR-compliant: No content stored - use emailId/contactId to fetch from source tables
+/// Vectors are NOT reversible, so they're safe to store
+model Embedding {
+  id             String                 @default(cuid())
+  tenantId       String
+  documentName   String?
+  /// Mistral-embed produces 1024-dimensional vectors
+  vector         Unsupported("vector")?
+  embeddingModel String                 @default("mistral-embed")
+  metadata       Json?
+  createdAt      DateTime               @default(now())
+  emailId        String?
+  contactId      String?
+  email          Email?                 @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  contact        Contact?               @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([id, tenantId])
+  @@index([tenantId])
+  @@index([emailId])
+  @@index([contactId])
+  @@map("embeddings")
+}
+
+/// Citus distributed table - composite PK for horizontal sharding
+model CalendarEvent {
+  id               String                    @default(cuid())
+  tenantId         String
+  providerId       String
+  externalId       String
+  calendarId       String?
+  iCalUID          String?
+  title            String
+  description      String?
+  location         String?
+  organizer        String?
+  attendees        Json?
+  startTime        DateTime
+  endTime          DateTime
+  isAllDay         Boolean                   @default(false)
+  timeZone         String                    @default("UTC")
+  recurrence       String[]                  @default([])
+  recurringEventId String?
+  status           String                    @default("confirmed")
+  visibility       String                    @default("default")
+  isDeleted        Boolean                   @default(false)
+  isCancelled      Boolean                   @default(false)
+  reminders        Json?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  metadata         Json?
+  htmlLink         String?
+  lastSyncedAt     DateTime                  @default(now())
+  syncVersion      Int                       @default(1)
+  calendarName     String?
+  attachments      CalendarEventAttachment[]
+  provider         ProviderConfig            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([id, tenantId])
+  @@unique([providerId, externalId])
+  @@index([tenantId, startTime])
+  @@index([tenantId, calendarId, startTime])
+  @@index([tenantId, providerId, startTime])
+  @@index([iCalUID])
+  @@index([tenantId, title])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("calendar_events")
+}
+
+model CalendarEventAttachment {
+  id            String        @id @default(cuid())
+  tenantId      String
+  eventId       String
+  filename      String
+  mimeType      String
+  size          Int
+  storageType   String        @default("s3")
+  storagePath   String?
+  fileUrl       String?
+  fileId        String?
+  iconLink      String?
+  isGoogleDrive Boolean       @default(false)
+  isOneDrive    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  event         CalendarEvent @relation(fields: [eventId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant        Tenant        @relation("CalendarEventAttachmentToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([tenantId])
+  @@map("calendar_event_attachments")
+}
+
+/// CalendarPreference - User preferences for calendars (color, visibility)
+/// Stores UI preferences that persist across sessions
+model CalendarPreference {
+  id          String   @id @default(cuid())
+  tenantId    String
+  providerId  String
+  calendarId  String
+  color       String?
+  isVisible   Boolean  @default(true)
+  displayName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, providerId, calendarId])
+  @@index([tenantId])
+  @@index([providerId])
+  @@map("calendar_preferences")
+}
+
+/// CalendarSyncState - Per-calendar sync tokens for incremental sync
+/// Stores Google syncToken and Microsoft deltaLink for efficient calendar syncing
+/// Reduces API calls by ~95% after initial full sync
+model CalendarSyncState {
+  id                String         @id @default(cuid())
+  tenantId          String
+  providerId        String
+  calendarId        String
+  calendarName      String?
+  syncToken         String?
+  deltaLink         String?
+  lastFullSyncAt    DateTime?
+  lastIncrementalAt DateTime?
+  fullSyncRequired  Boolean        @default(true)
+  consecutiveErrors Int            @default(0)
+  lastError         String?
+  lastErrorAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  provider          ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant            Tenant         @relation("CalendarSyncStateToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, providerId, calendarId])
+  @@index([providerId])
+  @@index([tenantId])
+  @@index([fullSyncRequired])
+  @@map("calendar_sync_states")
+}
+
+/// Citus distributed table - composite PK for horizontal sharding
+model Contact {
+  id                  String               @default(cuid())
+  tenantId            String
+  displayName         String?
+  firstName           String?
+  lastName            String?
+  middleName          String?
+  nickname            String?
+  prefix              String?
+  suffix              String?
+  emails              Json?
+  phoneNumbers        Json?
+  addresses           Json?
+  company             String?
+  jobTitle            String?
+  department          String?
+  birthday            DateTime?
+  anniversary         DateTime?
+  websites            Json?
+  socialProfiles      Json?
+  notes               String?
+  tags                String[]             @default([])
+  photoUrl            String?
+  photoEtag           String?
+  isDeleted           Boolean              @default(false)
+  isStarred           Boolean              @default(false)
+  isFavorite          Boolean              @default(false)
+  isVip               Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  metadata            Json?
+  lastInteractedAt    DateTime?
+  receivedCount       Int                  @default(0)
+  reconnectRemindedAt DateTime?
+  relationshipScore   Float?
+  sentCount           Int                  @default(0)
+  totalInteractions   Int                  @default(0)
+  providerContacts    ProviderContact[]
+  embeddings          Embedding[]
+  tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([id, tenantId])
+  @@index([tenantId, displayName])
+  @@index([tenantId, lastName, firstName])
+  @@index([tenantId, company])
+  @@index([tenantId, displayName, firstName, lastName, company])
+  @@index([tenantId, lastInteractedAt])
+  @@index([tenantId, relationshipScore])
+  @@index([tenantId, isVip])
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("unified_contacts")
+}
+
+model ProviderContact {
+  id             String         @id @default(cuid())
+  contactId      String
+  tenantId       String
+  providerId     String
+  externalId     String
+  contactGroup   String?
+  rawData        Json?
+  firstName      String?
+  lastName       String?
+  middleName     String?
+  displayName    String?
+  nickname       String?
+  prefix         String?
+  suffix         String?
+  emails         Json?
+  phoneNumbers   Json?
+  addresses      Json?
+  company        String?
+  jobTitle       String?
+  department     String?
+  birthday       DateTime?
+  anniversary    DateTime?
+  websites       Json?
+  socialProfiles Json?
+  notes          String?
+  photoUrl       String?
+  photoEtag      String?
+  vCardVersion   String?        @default("4.0")
+  lastSyncedAt   DateTime       @default(now())
+  syncVersion    Int            @default(1)
+  eTag           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  metadata       Json?
+  contact        Contact        @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  provider       ProviderConfig @relation("ProviderContactToProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  tenant         Tenant         @relation("ProviderContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, externalId])
+  @@index([contactId])
+  @@index([tenantId])
+  @@index([tenantId, displayName])
+  @@index([contactGroup])
+  @@map("provider_contacts")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  changes   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+/// GDPR consent tracking - append-only versioned records (CONSENT-01)
+model UserConsent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  feature   String
+  granted   Boolean
+  version   Int
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, feature, createdAt(sort: Desc)])
+  @@index([tenantId, createdAt])
+  @@map("user_consents")
+}
+
+/// Legal document acceptance tracking (LEGAL-01, LEGAL-02)
+/// Append-only records proving user accepted specific ToS/PP versions
+model LegalAcceptance {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String
+  documentType    String   // 'TOS' or 'PRIVACY_POLICY'
+  documentVersion String   // e.g., '1.0', '1.1'
+  acceptedAt      DateTime @default(now())
+  ipAddress       String?
+  userAgent       String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, documentType, acceptedAt(sort: Desc)])
+  @@index([tenantId, documentType])
+  @@map("legal_acceptances")
+}
+
+/// Data export request tracking (DATA-RIGHTS-01)
+/// Tracks GDPR data portability requests through their lifecycle
+model DataExportRequest {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  status      String    @default("PENDING") // PENDING, PROCESSING, READY, EXPIRED, FAILED
+  filePath    String?
+  fileSize    Int?
+  expiresAt   DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("data_export_requests")
+}
+
+model WebhookSubscription {
+  id                 String         @id @default(cuid())
+  providerId         String
+  providerType       String
+  subscriptionId     String
+  webhookUrl         String?
+  resourcePath       String         @default("generic")
+  isActive           Boolean        @default(true)
+  expiresAt          DateTime
+  lastRenewedAt      DateTime       @default(now())
+  metadata           Json?
+  lastNotificationAt DateTime?
+  notificationCount  Int            @default(0)
+  errorCount         Int            @default(0)
+  lastError          String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  tenantId           String
+  provider           ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant             Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, resourcePath])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([providerId, isActive])
+  @@index([expiresAt])
+  @@index([providerType])
+  @@index([subscriptionId])
+  @@map("webhook_subscriptions")
+}
+
+model WritingStyleProfile {
+  id                  String          @id @default(cuid())
+  tenantId            String
+  userId              String
+  providerId          String?
+  manualSamples       String?
+  avgSentenceLength   Float           @default(15)
+  avgParagraphLines   Float           @default(3)
+  avgWordsPerEmail    Int             @default(100)
+  bulletListRate      Float           @default(0)
+  formalityScore      Float           @default(0.5)
+  contractionRate     Float           @default(0.3)
+  emojiRate           Float           @default(0)
+  typeTokenRatio      Float           @default(0.5)
+  exclamationRate     Float           @default(0)
+  questionRate        Float           @default(0)
+  ellipsisRate        Float           @default(0)
+  greetingPresent     Boolean         @default(true)
+  preferredGreetings  String[]        @default([])
+  signOffPresent      Boolean         @default(true)
+  preferredSignOffs   String[]        @default([])
+  sentimentPolarity   Float           @default(0)
+  empathyPhraseRate   Float           @default(0)
+  hedgeRate           Float           @default(0)
+  sampleCount         Int             @default(0)
+  lastAnalyzedEmailId String?
+  lastAnalyzed        DateTime        @default(now())
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider            ProviderConfig? @relation(fields: [providerId], references: [id])
+
+  @@unique([tenantId, userId, providerId])
+  @@index([tenantId, userId])
+  @@index([providerId])
+  @@map("writing_style_profiles")
+}
+
+/// Email signatures - per-provider signatures with default support
+model EmailSignature {
+  id         String          @id @default(cuid())
+  tenantId   String
+  userId     String
+  providerId String?
+  name       String
+  content    String
+  isDefault  Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  provider   ProviderConfig? @relation(fields: [providerId], references: [id])
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, providerId])
+  @@index([providerId])
+  @@map("email_signatures")
+}
+
+/// AI draft feedback - tracks accept/edit/reject for AI-generated email drafts
+model AiDraftFeedback {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  emailId       String
+  draftBody     String   // The AI-generated draft
+  sentBody      String?  // What the user actually sent (null if rejected)
+  action        String   @default("pending") // pending | accepted | edited | rejected | regenerated
+  editDistance   Float?   // Levenshtein distance ratio (0 = identical, 1 = completely different)
+  corrections   Json?    // Extracted correction patterns
+  tone          String?
+  locale        String?
+  providerId    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId, userId])
+  @@index([tenantId, emailId])
+  @@map("ai_draft_feedback")
+}
+
+/// Email templates - reusable email templates for quick composition
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  name      String
+  subject   String
+  bodyHtml  String
+  category  String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, category])
+  @@map("email_templates")
+}
+
+/// User AI memories - facts, preferences, patterns learned from conversations
+model AIMemory {
+  id         String                 @id @default(cuid())
+  tenantId   String
+  userId     String
+  content    String
+  memoryType MemoryType             @default(FACT)
+  source     String?
+  confidence Float                  @default(0.5)
+  usageCount Int                    @default(0)
+  lastUsedAt DateTime?
+  category   String?
+  tags       String?
+  metadata   Json?
+  expiresAt  DateTime?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  /// Semantic vector for similarity search (mistral-embed: 1024 dimensions)
+  vector     Unsupported("vector")?
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, memoryType])
+  @@index([tenantId, userId, category])
+  @@index([content(ops: raw("gin_trgm_ops"))], map: "ai_memories_content_gin_idx", type: Gin)
+  @@index([vector], map: "ai_memories_vector_hnsw_idx")
+  @@map("ai_memories")
+}
+
+/// Stores Mistral agent IDs for reuse across sessions
+/// GDPR: Tenant-isolated, cascades on tenant delete
+/// Citus: Uses tenantId in unique constraint for sharding
+model MistralAgent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  agentType String // 'web-search' | 'analytics'
+  locale    String // 'en' | 'it'
+  agentId   String // Mistral's agent UUID
+  model     String? // Model used (e.g., 'mistral-small-latest')
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, agentType, locale]) // One agent per tenant/type/locale
+  @@index([tenantId])
+  @@map("mistral_agents")
+}
+
+/// AI Chat Conversation (Phase 24: Backend Core Pipeline)
+model AiConversation {
+  id        String      @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String?
+  summary   String?     @db.Text
+  metadata  Json?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AiMessage[]
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, updatedAt(sort: Desc)])
+  @@index([tenantId, updatedAt(sort: Desc)])
+  @@map("ai_conversations")
+}
+
+/// AI Chat Message (Phase 24: Backend Core Pipeline)
+model AiMessage {
+  id              String         @id @default(cuid())
+  conversationId  String
+  role            String
+  content         Json
+  toolCallId      String?
+  stepIndex       Int?
+  tokenCount      Int?
+  createdAt       DateTime       @default(now())
+  conversation    AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+/// Follow-up type classification (FOLLOW-01)
+enum FollowUpType {
+  WAITING_FOR // I sent email, waiting for response
+  TODO        // I received email, need to take action
+}
+
+/// Tracks emails that need follow-up
+model EmailFollowUp {
+  id             String         @id @default(cuid())
+  tenantId       String
+  userId         String
+  emailId        String
+  status         FollowUpStatus @default(PENDING)
+  followUpType   FollowUpType   @default(TODO)
+  reason         String?
+  dueDate        DateTime
+  remindCount    Int            @default(0)
+  lastRemindedAt DateTime?
+  resolvedAt     DateTime?
+  resolvedBy     String?
+  // Extraction data (2026-01-30)
+  commitments      Json?          // Array of ExtractedCommitment
+  waitingFor       Json?          // Array of ExtractedWaitingFor
+  actionItems      Json?          // Array of ExtractedActionItem
+  emailType        String?        // receipt|notification|request|conversation|newsletter|alert
+  confidence       Float?         // LLM confidence score (0.0-1.0)
+  // NLP deadline detection (2026-02-07 Phase 04-02)
+  detectedDeadline DateTime?      // NLP-extracted deadline from email text (chrono-node)
+  deadlineSource   String?        // "nlp" | "manual" | "extraction"
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  email          Email          @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([emailId, tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, status])
+  @@index([tenantId, userId, followUpType])
+  @@index([dueDate])
+  @@map("email_follow_ups")
+}
+
+/// Unified email analysis from single LLM call (replaces 11 agents)
+model EmailAnalysis {
+  id               String        @id @default(cuid())
+  emailId          String
+  tenantId         String
+  priority         EmailPriority @default(NORMAL)
+  category         EmailCategory @default(OTHER)
+  sentiment        Sentiment     @default(NEUTRAL)
+  hasDeadline      Boolean       @default(false)
+  deadlineDate     DateTime?
+  needsFollowUp    Boolean       @default(false)
+  followUpDate     DateTime?
+  isSalesLead      Boolean       @default(false)
+  dealSignal       DealSignal?
+  buyingIntent     Float?
+  suggestedActions Json          @default("[]")
+  summary          String?
+  keyPoints        String[]      @default([])
+  processedAt      DateTime      @default(now())
+  modelUsed        String        @default("gpt-4o-mini")
+  tokensUsed       Int           @default(0)
+  latencyMs        Int           @default(0)
+  email            Email         @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([emailId, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, processedAt])
+  @@index([tenantId, priority])
+  @@index([tenantId, needsFollowUp])
+  @@map("email_analyses")
+}
+
+/// HITL Action Queue - AI suggested actions awaiting approval
+/// userId is optional to allow system-initiated actions and test scenarios
+model ActionQueue {
+  id              String       @id @default(cuid())
+  tenantId        String
+  userId          String? // Made optional for system actions and test scenarios
+  emailId         String?
+  actionType      ActionType
+  actionPayload   Json
+  confidence      Float        @default(0)
+  reasoning       String?
+  status          ActionStatus @default(PENDING_APPROVAL)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  executedAt      DateTime?
+  executionResult Json?
+  executionError  String?
+  retryCount      Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  expiresAt       DateTime?
+  email           Email?       @relation(fields: [emailId, tenantId], references: [id, tenantId])
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, userId, status])
+  @@index([expiresAt])
+  @@map("action_queue")
+}
+
+/// Learning profile for agent confidence adjustment
+model AgentLearningProfile {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  userId                String
+  agentName             String
+  actionType            String
+  totalAttempts         Int       @default(0)
+  approvedCount         Int       @default(0)
+  rejectedCount         Int       @default(0)
+  autoExecutedCount     Int       @default(0)
+  avgOriginalConfidence Float     @default(0)
+  avgAdjustedConfidence Float     @default(0)
+  successRate           Float     @default(0)
+  confidenceBoost       Float     @default(0)
+  lastLearningAt        DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  expiresAt             DateTime?
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, agentName, actionType])
+  @@index([tenantId, userId])
+  @@index([expiresAt])
+  @@map("agent_learning_profiles")
+}
+
+/// Feedback records for HITL actions
+model AgentActionFeedback {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  userId             String
+  actionId           String
+  agentName          String
+  actionType         String
+  wasApproved        Boolean
+  wasExecuted        Boolean
+  wasSuccessful      Boolean?
+  originalConfidence Float
+  adjustedConfidence Float?
+  userFeedback       String?
+  userRating         Int?
+  executionTimeMs    Int?
+  errorMessage       String?
+  contextSnapshot    Json?
+  createdAt          DateTime  @default(now())
+  expiresAt          DateTime?
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, agentName, actionType])
+  @@index([actionId])
+  @@index([expiresAt])
+  @@map("agent_action_feedback")
+}
+
+/// Subscription management (Autumn integration)
+model Subscription {
+  id                   String             @id @default(cuid())
+  tenantId             String             @unique
+  autumnCustomerId     String?            @unique
+  autumnSubscriptionId String?            @unique
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  monthlyEmailLimit    Int                @default(100)
+  monthlyAICallLimit   Int                @default(50)
+  maxUsers             Int                @default(1)
+  emailsProcessed      Int                @default(0)
+  aiCallsUsed          Int                @default(0)
+  usageResetAt         DateTime           @default(now())
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAt             DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model voltagent_memory_conversations {
+  id                        String                      @id
+  resource_id               String
+  user_id                   String
+  title                     String
+  metadata                  Json
+  created_at                DateTime                    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  voltagent_memory_messages voltagent_memory_messages[]
+  voltagent_memory_steps    voltagent_memory_steps[]
+
+  @@index([resource_id], map: "idx_voltagent_memory_conversations_resource_id")
+  @@index([user_id], map: "idx_voltagent_memory_conversations_user_id")
+}
+
+model voltagent_memory_messages {
+  conversation_id                String
+  message_id                     String
+  user_id                        String
+  role                           String
+  parts                          Json?
+  metadata                       Json?
+  format_version                 Int?                           @default(2)
+  created_at                     DateTime                       @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  voltagent_memory_conversations voltagent_memory_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([conversation_id, message_id])
+  @@index([conversation_id], map: "idx_voltagent_memory_messages_conversation_id")
+  @@index([created_at], map: "idx_voltagent_memory_messages_created_at")
+}
+
+model voltagent_memory_steps {
+  id                             String                         @id
+  conversation_id                String
+  user_id                        String
+  agent_id                       String
+  agent_name                     String?
+  operation_id                   String?
+  step_index                     Int
+  type                           String
+  role                           String
+  content                        String?
+  arguments                      Json?
+  result                         Json?
+  usage                          Json?
+  sub_agent_id                   String?
+  sub_agent_name                 String?
+  created_at                     DateTime                       @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  voltagent_memory_conversations voltagent_memory_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([conversation_id, step_index], map: "idx_voltagent_memory_steps_conversation")
+  @@index([conversation_id, operation_id], map: "idx_voltagent_memory_steps_operation")
+}
+
+model voltagent_memory_users {
+  id         String   @id
+  metadata   Json?
+  created_at DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+}
+
+model voltagent_memory_workflow_states {
+  id              String   @id
+  workflow_id     String
+  workflow_name   String
+  status          String
+  suspension      Json?
+  events          Json?
+  output          Json?
+  cancellation    Json?
+  user_id         String?
+  conversation_id String?
+  metadata        Json?
+  created_at      DateTime @db.Timestamptz(6)
+  updated_at      DateTime @db.Timestamptz(6)
+
+  @@index([status], map: "idx_voltagent_memory_workflow_states_status")
+  @@index([workflow_id], map: "idx_voltagent_memory_workflow_states_workflow_id")
+}
+
+enum LabelType {
+  SYSTEM
+  USER
+}
+
+/// Memory type categories
+enum MemoryType {
+  PREFERENCE
+  FACT
+  PATTERN
+  INTERACTION
+  CONTACT_NOTE
+}
+
+enum FollowUpStatus {
+  PENDING
+  REMINDED
+  RESOLVED
+  EXPIRED
+}
+
+enum EmailPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum EmailCategory {
+  SALES_INQUIRY
+  SUPPORT_REQUEST
+  MEETING_REQUEST
+  FOLLOW_UP
+  NEWSLETTER
+  AUTOMATED
+  PERSONAL
+  OTHER
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  MIXED
+  URGENT
+}
+
+enum DealSignal {
+  NEW_LEAD
+  INTEREST_SHOWN
+  OBJECTION
+  NEGOTIATION
+  READY_TO_BUY
+  CHURNING
+}
+
+enum ActionType {
+  SEND_EMAIL
+  SCHEDULE_MEETING
+  CREATE_TASK
+  UPDATE_CONTACT
+  UPDATE_DEAL
+  ADD_LABEL
+  ARCHIVE_EMAIL
+  SNOOZE_EMAIL
+  // Contact CRUD (P6 fix)
+  CREATE_CONTACT
+  DELETE_CONTACT
+  // Email CRUD (P6 fix)
+  DELETE_EMAIL
+  REPLY_EMAIL
+  FORWARD_EMAIL
+}
+
+enum ActionStatus {
+  PENDING_APPROVAL
+  APPROVED
+  AUTO_APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+  EXPIRED
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+/// ========================================================================
+/// AI Run Ledger (Phase 31: Schema only, service wiring in Phase 35)
+/// Tracks cost, latency, and token usage for every AI call.
+/// ========================================================================
+
+enum AiRunStatus {
+  SUCCESS
+  FAILED
+  TIMEOUT
+}
+
+model AiRunLedger {
+  id               String      @id @default(cuid())
+  tenantId         String
+  userId           String
+  runType          String      // 'chat', 'briefing', 'follow-up-detection', 'draft-generation'
+  model            String      // 'mistral-large-latest', 'mistral-small-latest', etc.
+  promptTokens     Int         @default(0)
+  completionTokens Int         @default(0)
+  totalTokens      Int         @default(0)
+  estimatedCostUsd Float       @default(0)
+  latencyMs        Int         @default(0)
+  toolCallCount    Int         @default(0)
+  hitlRequired     Boolean     @default(false)
+  requestId        String?     // Correlation ID from X-Request-Id header (Phase 33)
+  status           AiRunStatus @default(SUCCESS)
+  errorCode        String?
+  errorMessage     String?
+  promptVersion    String?     // Correlate cost changes to prompt changes
+  createdAt        DateTime    @default(now())
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, userId, createdAt(sort: Desc)])
+  @@index([tenantId, runType])
+  @@map("ai_run_ledger")
+}
