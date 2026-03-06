@@ -10,7 +10,7 @@ import { InsightUtilsService } from './insight-utils.service';
 import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
 import { getLocale, getToolTranslations, type SupportedLocale } from '../locales';
 import { PiiDetectionService } from '../guards';
-import type { UnifiedEmailAnalysis } from './email-insights.service';
+import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 
 type LocaleKey = 'en' | 'it';
 

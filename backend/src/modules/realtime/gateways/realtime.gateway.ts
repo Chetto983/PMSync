@@ -12,6 +12,7 @@ import { Server } from 'socket.io';
 import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { RealtimeEventsService } from '../services/realtime-events.service';
 import { RealtimeHandshakeService } from '../services/realtime-handshake.service';
+import type { IRealtimeGateway } from '../types/realtime-gateway.interface';
 import {
   AuthenticatedSocket,
   buildTenantScopedRoom,
@@ -65,7 +66,7 @@ function validateRoomName(room: unknown): string | null {
   transports: ['websocket', 'polling'],
 })
 export class RealtimeGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
+  implements IRealtimeGateway, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
 {
   @WebSocketServer()
   server: Server;

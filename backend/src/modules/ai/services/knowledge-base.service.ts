@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
-import { EMAIL_EMBEDDING_QUEUE, IEmailEmbeddingQueue } from '../../../common/interfaces/embedding-queue.interface';
+import { EMAIL_EMBEDDING_QUEUE, IEmailEmbeddingQueue, type CreateEmailEmbeddingOptions } from '../../../common/interfaces/embedding-queue.interface';
 import { AiError } from '../errors';
 // Phase 7: Extracted sub-services
 import { EmbeddingComposerService } from './embedding-composer.service';
@@ -13,20 +13,8 @@ import { EmbeddingSearchService, SearchOptions, SearchResult, KnowledgeBaseSearc
 export type { KnowledgeBaseSearchHit };
 import { EmbeddingBackfillService, BackfillOptions, BackfillResult, EmbeddingStats } from './embedding-backfill.service';
 
-/**
- * Options for creating email embedding
- */
-export interface CreateEmailEmbeddingOptions {
-  tenantId: string;
-  providerId?: string;
-  emailId: string;
-  subject: string;
-  snippet?: string | null;
-  bodyText?: string | null;
-  bodyHtml?: string | null;
-  from?: string | null;
-  receivedAt?: Date | string | null;
-}
+// Re-export for backward compatibility
+export type { CreateEmailEmbeddingOptions } from '../../../common/interfaces/embedding-queue.interface';
 
 /**
  * KnowledgeBaseService - FACADE for RAG operations

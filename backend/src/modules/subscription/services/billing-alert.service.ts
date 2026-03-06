@@ -18,7 +18,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../../../common/services/cache.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CostProtectionStatus } from './cost-protection.service';
+import type { CostProtectionStatus } from '../types/cost-protection.types';
 
 export type AlertLevel = 'warning' | 'critical' | 'blocked';
 

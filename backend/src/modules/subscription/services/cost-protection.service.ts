@@ -16,6 +16,10 @@ import { UsageTrackingService, OPERATION_COSTS } from './usage-tracking.service'
 import { SubscriptionService } from './subscription.service';
 import { BillingAlertService } from './billing-alert.service';
 import { SubscriptionPlan } from '@prisma/client';
+import type { CostProtectionStatus } from '../types/cost-protection.types';
+
+// Re-export for backward compatibility
+export type { CostProtectionStatus } from '../types/cost-protection.types';
 
 /**
  * Daily cost caps per tier
@@ -27,14 +31,6 @@ export const DAILY_COST_CAPS: Record<SubscriptionPlan, number | null> = {
   PROFESSIONAL: 2.00,   // $2.00/day max
   ENTERPRISE: null,     // Custom/unlimited
 };
-
-export interface CostProtectionStatus {
-  dailyCost: number;
-  dailyCap: number | null;
-  percentUsed: number;
-  isBlocked: boolean;
-  alertLevel: 'ok' | 'warning' | 'critical' | 'blocked';
-}
 
 @Injectable()
 export class CostProtectionService {

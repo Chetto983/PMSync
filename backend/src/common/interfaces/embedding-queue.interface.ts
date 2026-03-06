@@ -1,5 +1,38 @@
-import type { EmailEmbeddingJob } from '../../modules/ai/services/email-embedding.queue';
-import type { CreateEmailEmbeddingOptions } from '../../modules/ai/services/knowledge-base.service';
+// ============================================================================
+// INLINE TYPES - defined here to avoid circular imports from services
+// ============================================================================
+
+/**
+ * Job payload for email embedding queue.
+ * Canonical definition: services re-export from here for backward compat.
+ */
+export interface EmailEmbeddingJob {
+  tenantId: string;
+  providerId?: string;
+  emailId: string;
+  subject: string;
+  snippet?: string | null;
+  bodyText?: string | null;
+  bodyHtml?: string | null;
+  from?: string | null;
+  receivedAt?: string | Date | null;
+}
+
+/**
+ * Options for creating an email embedding.
+ * Canonical definition: services re-export from here for backward compat.
+ */
+export interface CreateEmailEmbeddingOptions {
+  tenantId: string;
+  providerId?: string;
+  emailId: string;
+  subject: string;
+  snippet?: string | null;
+  bodyText?: string | null;
+  bodyHtml?: string | null;
+  from?: string | null;
+  receivedAt?: Date | string | null;
+}
 
 // ============================================================================
 // EMAIL EMBEDDING QUEUE - Interface token for DI cycle-breaking

@@ -17,4 +17,6 @@ export {
 export type {
   IEmailEmbeddingQueue,
   IKnowledgeBase,
+  EmailEmbeddingJob,
+  CreateEmailEmbeddingOptions,
 } from './embedding-queue.interface';

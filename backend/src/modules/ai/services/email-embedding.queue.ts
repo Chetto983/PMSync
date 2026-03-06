@@ -1,7 +1,7 @@
 import { Job, Queue, Worker } from 'bullmq';
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { KNOWLEDGE_BASE, IKnowledgeBase } from '../../../common/interfaces/embedding-queue.interface';
+import { KNOWLEDGE_BASE, IKnowledgeBase, type EmailEmbeddingJob } from '../../../common/interfaces/embedding-queue.interface';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
 import { isRateLimitError } from '../../../common/utils/error.utils';
@@ -11,20 +11,11 @@ import {
   QUEUE_NAMES,
 } from '../../../common/config';
 
+// Re-export for backward compatibility
+export type { EmailEmbeddingJob } from '../../../common/interfaces/embedding-queue.interface';
+
 /** Maximum retry attempts before sending to DLQ */
 const MAX_ATTEMPTS = 6;
-
-export interface EmailEmbeddingJob {
-  tenantId: string;
-  providerId?: string;
-  emailId: string;
-  subject: string;
-  snippet?: string | null;
-  bodyText?: string | null;
-  bodyHtml?: string | null;
-  from?: string | null;
-  receivedAt?: string | Date | null;
-}
 
 @Injectable()
 export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy {

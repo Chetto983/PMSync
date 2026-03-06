@@ -11,28 +11,10 @@
 import { Injectable } from '@nestjs/common';
 import { EmailAnalysisService } from './email-analysis.service';
 import { EmailComposeService } from './email-compose.service';
+import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 
-/**
- * UNIFIED EMAIL ANALYSIS RESULT
- * Single LLM call returns all insights.
- */
-export interface UnifiedEmailAnalysis {
-  summary: string;
-  sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
-  tone: string;
-  priority: 1 | 2 | 3 | 4 | 5;
-  urgency: 'critical' | 'high' | 'medium' | 'low';
-  labels: string[];
-  keyTopics: string[];
-  intent: string;
-  escalationRisk: boolean;
-  hasDeadline: boolean;
-  deadlineDate: Date | null;
-  needsFollowUp: boolean;
-  smartReplies?: string[];
-  confidence: number;
-  reasoning: string;
-}
+// Re-export for backward compatibility
+export type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 
 @Injectable()
 export class EmailInsightsService {

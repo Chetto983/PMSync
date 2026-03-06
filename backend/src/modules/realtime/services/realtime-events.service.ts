@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RealtimeGateway } from '../gateways/realtime.gateway';
+import type { IRealtimeGateway } from '../types/realtime-gateway.interface';
 import {
   CalendarEventPayload,
   CalendarListPayload,
@@ -43,7 +43,7 @@ export type {
 @Injectable()
 export class RealtimeEventsService implements OnModuleDestroy {
   private readonly logger = new Logger(RealtimeEventsService.name);
-  private gateway: RealtimeGateway;
+  private gateway: IRealtimeGateway;
   private emailEventBuffer = new Map<
     string,
     { event: KnownRealtimeEvent; tenantId: string; payload: EmailEventPayload }
@@ -232,7 +232,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
   /**
    * Setter per iniettare il gateway (per evitare circular dependency)
    */
-  setGateway(gateway: RealtimeGateway) {
+  setGateway(gateway: IRealtimeGateway) {
     this.gateway = gateway;
   }
 
