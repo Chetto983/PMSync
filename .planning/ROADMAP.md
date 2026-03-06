@@ -64,7 +64,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 42: Tenant Isolation & Auth Hardening** - ~~Prisma tenant-scoping~~ (DONE), RolesGuard expansion, JWT refresh rotation
  (completed 2026-03-04)
 - [x] **Phase 43: Contract Tests & Backend God-File Splits** - API contract tests in CI, attachment streaming, 5 backend god-files decomposed (completed 2026-03-05)
-- [ ] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification (3/4 plans)
+- [x] **Phase 44: Frontend God-File Splits** - 7 frontend god-files decomposed with visual regression verification (3/4 plans) (completed 2026-03-06)
 - [ ] **Phase 45: forwardRef Burn-Down** - Reduce forwardRef from 24 to 0 files via domain events and shared interfaces
 - [ ] **Phase 46: Observability** - Prometheus metrics with prom-client, queue depth, AI cost counters
 - [ ] **Phase 47: Infrastructure & Cleanup** - WebSocket Redis adapter, CSRF fix, dead code removal, bundle budget
@@ -224,7 +224,7 @@ Phases execute in numeric order: 42 -> 43 -> 44 -> 45 -> 46 -> 47 -> 48
 | 41. Backend Code Hygiene | v4.0 | 1/1 | Complete | 2026-03-04 |
 | 42. Tenant Isolation & Auth Hardening | 4/4 | Complete   | 2026-03-04 | - |
 | 43. Contract Tests & Backend God-File Splits | 4/4 | Complete   | 2026-03-05 | - |
-| 44. Frontend God-File Splits | 2/4 | In Progress|  | - |
+| 44. Frontend God-File Splits | 4/4 | Complete   | 2026-03-06 | - |
 | 45. forwardRef Burn-Down | v4.1 | 0/TBD | Not started | - |
 | 46. Observability | v4.1 | 0/TBD | Not started | - |
 | 47. Infrastructure & Cleanup | v4.1 | 0/TBD | Not started | - |
