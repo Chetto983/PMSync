@@ -33,7 +33,7 @@ function detectSocialProvider(email: string): 'google' | 'microsoft' | null {
   return null;
 }
 
-export function StepEmailProvider({ user, onComplete, isLast }: StepProps) {
+export function StepEmailProvider({ user, onComplete }: StepProps) {
   const t = useTranslations();
   const sc = t.onboarding.stepContent?.emailProvider;
 
