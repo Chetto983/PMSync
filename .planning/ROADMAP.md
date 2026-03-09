@@ -158,10 +158,10 @@ Plans:
   1. WebSocket handshake extracts better-auth session cookie and validates it via DB lookup
   2. Invalid or expired session tokens are rejected during handshake with appropriate error
   3. Existing real-time features (email sync notifications, chat) work with the new WebSocket auth
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 54-01: TBD
+- [ ] 54-01-PLAN.md — Verify existing WS auth implementation (tests + smoke test)
 
 ### Phase 55: Social Login & MFA
 **Goal**: Users can sign in with Google or Microsoft and protect their accounts with TOTP or passkeys
@@ -247,6 +247,16 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | v5.0 | 0/TBD | Not started | - |
+
+### Phase 59: safety
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 58
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 59 to break down)
 
 ---
 *Roadmap created: 2026-02-09*
