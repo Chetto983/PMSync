@@ -12,9 +12,9 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { TenantService } from '../services/tenant.service';
-import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
-import { RolesGuard } from '../../../modules/auth/guards/roles.guard';
-import { Roles } from '../../../modules/auth/decorators/roles.decorator';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { CreateTenantDto } from '../dto/create-tenant.dto';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';

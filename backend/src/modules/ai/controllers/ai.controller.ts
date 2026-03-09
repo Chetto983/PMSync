@@ -22,7 +22,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { ActionStatus, FollowUpStatus } from '@prisma/client';
-import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
