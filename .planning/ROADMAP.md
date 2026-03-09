@@ -144,7 +144,7 @@ Plans:
   2. useSession hook from better-auth/react provides current user/session state across the app
   3. Old Zustand auth store and custom AuthContext are removed; all auth state comes from better-auth client
   4. Unauthenticated users hitting any protected route are redirected to /auth/login with return URL preserved
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 53-01-PLAN.md — Install better-auth-ui, create middleware + auth pages, wire AuthUIProvider
@@ -241,7 +241,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
 | 51. Core Email/Password Auth | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
 | 52. NestJS Session Validation | 3/3 | Complete    | 2026-03-06 | - |
-| 53. Frontend Auth UI | v5.0 | 0/2 | Planned | - |
+| 53. Frontend Auth UI | 1/2 | In Progress|  | - |
 | 54. WebSocket Auth | v5.0 | 0/TBD | Not started | - |
 | 55. Social Login & MFA | v5.0 | 0/TBD | Not started | - |
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |

@@ -3,45 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Phase 53 context gathered
-last_updated: "2026-03-09T07:19:19.890Z"
-last_activity: 2026-03-06 -- Phase 52 complete, transitioning to 53
+stopped_at: Completed 53-01-PLAN.md
+last_updated: "2026-03-09T07:51:27Z"
+last_activity: 2026-03-09 -- 53-01 complete (frontend auth foundation)
 progress:
   total_phases: 9
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
----
-
----
-gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: better-auth Migration
-status: executing
-stopped_at: Completed 52-03-PLAN.md (gap closure)
-last_updated: "2026-03-06T22:17:43.070Z"
-last_activity: 2026-03-06 -- 52-03 complete (gap closure)
-progress:
-  total_phases: 9
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
----
-
----
-gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: better-auth Migration
-status: executing
-stopped_at: Completed 52-03-PLAN.md (gap closure)
-last_updated: "2026-03-06T22:14:08.859Z"
-last_activity: 2026-03-06 -- 52-03 complete (gap closure - stale JwtAuthGuard refs fixed)
-progress:
-  total_phases: 9
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Project State
@@ -51,23 +20,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v5.0 better-auth Migration -- Phase 53 next
+**Current focus:** v5.0 better-auth Migration -- Phase 53 Plan 02 next
 
 ## Current Position
 
-Phase: 53 of 58 (Frontend Auth UI) -- Ready to plan
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-06 -- Phase 52 complete, transitioning to 53
+Phase: 53 of 58 (Frontend Auth UI) -- Plan 01 complete
+Plan: 1 of 3 in Phase 53
+Status: Executing
+Last activity: 2026-03-09 -- 53-01 complete (frontend auth foundation)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 6 min
-- Total execution time: 0.7 hours
+- Total plans completed: 8
+- Average duration: 6.4 min
+- Total execution time: 0.85 hours
 
 **By Phase:**
 
@@ -76,6 +45,7 @@ Progress: [██████████] 100%
 | 50 - Schema & Infrastructure | 2/2 | 17 min | 8.5 min |
 | 51 - Core Email/Password Auth | 2/2 | 11 min | 5.5 min |
 | 52 - NestJS Session Validation | 3/3 | 13 min | 4.3 min |
+| 53 - Frontend Auth UI | 1/3 | 9 min | 9 min |
 
 *Updated after each plan completion*
 
@@ -108,6 +78,9 @@ Progress: [██████████] 100%
 - [52-02] RolesGuard requires zero code changes -- already reads request.user.role
 - [52-02] BullMQ tenantId propagation unaffected -- same req.user.tenantId shape
 - [Phase 52]: Test update is correctness fix -- Plan 02 intentionally changed guard chain, test must reflect new reality
+- [53-01] Type inference createAuthClient<typeof auth>() fails across client/server boundary; using untyped client
+- [53-01] viewPaths uses SIGN_IN/SIGN_UP keys mapping to login/register
+- [53-01] Middleware is optimistic cookie-existence check only; real validation in useSession and NestJS guards
 
 ### Pending Todos
 
@@ -121,6 +94,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T07:19:19.887Z
-Stopped at: Phase 53 context gathered
-Resume file: .planning/phases/53-frontend-auth-ui/53-CONTEXT.md
+Last session: 2026-03-09T07:51:27Z
+Stopped at: Completed 53-01-PLAN.md
+Resume file: .planning/phases/53-frontend-auth-ui/53-01-SUMMARY.md
