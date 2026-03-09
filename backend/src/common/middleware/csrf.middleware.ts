@@ -68,6 +68,7 @@ const CSRF_EXCLUDED_PATHS = [
   '/api/v1/providers/oauth', // OAuth callbacks
   '/auth/gmail/callback',    // OAuth callbacks (excluded from global prefix)
   '/auth/microsoft/callback', // OAuth callbacks (excluded from global prefix)
+  '/api/auth',               // better-auth handles its own CSRF via trustedOrigins
 ];
 
 /**
