@@ -228,6 +228,29 @@ Plans:
 - [ ] 58-02: TBD
 - [ ] 58-03: TBD
 
+### Phase 59: Safety Hardening
+**Goal**: Critical and high-severity security findings from architecture audit are fixed -- secrets purged from git, rate limiting enforced, injection vectors closed, JWT removed, production exposure locked down
+**Depends on**: Phase 54
+**Requirements**: SAF-01, SAF-02, SAF-03, SAF-04, SAF-05, SAF-06, SAF-07, SAF-08, SAF-09, SAF-10
+**Success Criteria** (what must be TRUE):
+  1. All Prisma.raw() vector injections validated before SQL construction
+  2. RegisterDto and other DTOs have proper string length bounds
+  3. Auth-related database models have indexed lookup columns
+  4. Zero @SkipThrottle decorators on non-webhook endpoints
+  5. AI health endpoint restricts detailed info to admin role
+  6. JWT code fully removed (strategy, guard, token service, config)
+  7. Email verification required for new signups
+  8. Swagger inaccessible in production
+  9. .env removed from git history
+  10. All secrets rotated
+**Plans:** 4 plans
+
+Plans:
+- [ ] 59-01-PLAN.md — SQL injection fixes, DTO hardening, database indexes
+- [ ] 59-02-PLAN.md — Rate limiting overhaul, AI health restriction
+- [ ] 59-03-PLAN.md — JWT removal, email verification, Swagger lockdown, CORS
+- [ ] 59-04-PLAN.md — Secrets rotation checklist + BFG git history cleanup
+
 ## Progress
 
 **Execution Order:**
@@ -235,6 +258,7 @@ Phases execute in numeric order: 50 -> 51 -> 52 -> 53 -> 54 -> 55 -> 56 -> 57 ->
 
 Note: Phase 54 (WebSocket) can run in parallel with Phase 53 (Frontend) since both depend on Phase 52 only.
 Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2FA status display.
+Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -247,18 +271,10 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | v5.0 | 0/TBD | Not started | - |
-
-### Phase 59: safety
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 58
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 59 to break down)
+| 59. Safety Hardening | v5.0 | 0/4 | Planned | - |
 
 ---
 *Roadmap created: 2026-02-09*
 *v4.1 completed: 2026-03-06 -- 8 phases, 28 plans, 65/66 requirements*
 *v5.0 roadmap added: 2026-03-06 -- 9 phases, 35 requirements*
+*Phase 59 planned: 2026-03-09 -- 4 plans, 10 safety requirements*
