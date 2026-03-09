@@ -512,6 +512,7 @@ async function bootstrap() {
         { path: 'auth/gmail/callback', method: RequestMethod.GET },
         { path: 'auth/microsoft/callback', method: RequestMethod.GET },
         { path: 'metrics', method: RequestMethod.ALL },
+        { path: 'api/auth/{*path}', method: RequestMethod.ALL },
       ],
     });
 

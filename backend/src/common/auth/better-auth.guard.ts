@@ -16,10 +16,8 @@ import { IS_PUBLIC_KEY } from './public.decorator';
  * Replaces per-controller JwtAuthGuard with a single global APP_GUARD
  * backed by DB sessions (no JWT). Registered as APP_GUARD in AppModule.
  *
- * NEST-04 note: No bodyParser changes needed in NestJS. This server is
- * a session consumer only -- it never receives auth mutation POST bodies.
- * All auth mutations (login, register, etc.) are handled by the Next.js
- * better-auth provider on port 3001.
+ * Auth mutation routes (/api/auth/*) are marked @Public() and bypass
+ * this guard. Session validation applies to all other routes.
  */
 @Injectable()
 export class BetterAuthGuard implements CanActivate {
