@@ -23,7 +23,7 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 - [x] **NEST-02**: TenantGuard reads tenantId from better-auth session user
 - [x] **NEST-03**: RolesGuard enforces role-based access from better-auth session
 - [x] **NEST-04**: bodyParser selectively disabled for auth routes only
-- [ ] **NEST-05**: WebSocket handshake validates better-auth session tokens
+- [x] **NEST-05**: WebSocket handshake validates better-auth session tokens
 - [x] **NEST-06**: BullMQ jobs retain correct tenantId from new auth context
 
 ### Frontend Auth
@@ -104,7 +104,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NEST-02 | Phase 52 | Complete |
 | NEST-03 | Phase 52 | Complete |
 | NEST-04 | Phase 52 | Complete |
-| NEST-05 | Phase 54 | Pending |
+| NEST-05 | Phase 54 | Complete |
 | NEST-06 | Phase 52 | Complete |
 | FEUI-01 | Phase 53 | Complete |
 | FEUI-02 | Phase 53 | Complete |
