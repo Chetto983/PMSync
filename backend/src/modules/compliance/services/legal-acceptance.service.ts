@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { LegalStatusDto } from '../dto/legal-acceptance.dto';
 import {
   CURRENT_TOS_VERSION,
@@ -15,7 +16,10 @@ import {
  * Records user acceptance of Terms of Service and Privacy Policy
  * with version tracking, IP address, and user agent for legal evidence.
  *
- * Follows the same Prisma query patterns as ConsentService.
+ * NOTE: This service is used by LegalAcceptanceGuard, which runs as APP_GUARD
+ * before CorrelationInterceptor populates AsyncLocalStorage tenant context.
+ * Use withoutTenantScopingAsync for all queries here and rely on the explicit
+ * tenantId/userId filters instead.
  */
 @Injectable()
 export class LegalAcceptanceService {
@@ -49,16 +53,18 @@ export class LegalAcceptanceService {
       );
     }
 
-    const record = await this.prisma.legalAcceptance.create({
-      data: {
-        userId,
-        tenantId,
-        documentType,
-        documentVersion,
-        ipAddress: ipAddress ?? null,
-        userAgent: userAgent ?? null,
-      },
-    });
+    const record = await withoutTenantScopingAsync(() =>
+      this.prisma.legalAcceptance.create({
+        data: {
+          userId,
+          tenantId,
+          documentType,
+          documentVersion,
+          ipAddress: ipAddress ?? null,
+          userAgent: userAgent ?? null,
+        },
+      }),
+    );
 
     this.logger.log(
       `Legal acceptance recorded: user=${userId} type=${documentType} version=${documentVersion}`,
@@ -72,26 +78,28 @@ export class LegalAcceptanceService {
    * Used by LegalAcceptanceGuard for route enforcement.
    */
   async hasAcceptedCurrentVersions(userId: string, tenantId: string): Promise<boolean> {
-    const [tosAcceptance, ppAcceptance] = await Promise.all([
-      this.prisma.legalAcceptance.findFirst({
-        where: {
-          userId,
-          tenantId,
-          documentType: 'TOS',
-          documentVersion: CURRENT_TOS_VERSION,
-        },
-        orderBy: { acceptedAt: 'desc' },
-      }),
-      this.prisma.legalAcceptance.findFirst({
-        where: {
-          userId,
-          tenantId,
-          documentType: 'PRIVACY_POLICY',
-          documentVersion: CURRENT_PP_VERSION,
-        },
-        orderBy: { acceptedAt: 'desc' },
-      }),
-    ]);
+    const [tosAcceptance, ppAcceptance] = await withoutTenantScopingAsync(() =>
+      Promise.all([
+        this.prisma.legalAcceptance.findFirst({
+          where: {
+            userId,
+            tenantId,
+            documentType: 'TOS',
+            documentVersion: CURRENT_TOS_VERSION,
+          },
+          orderBy: { acceptedAt: 'desc' },
+        }),
+        this.prisma.legalAcceptance.findFirst({
+          where: {
+            userId,
+            tenantId,
+            documentType: 'PRIVACY_POLICY',
+            documentVersion: CURRENT_PP_VERSION,
+          },
+          orderBy: { acceptedAt: 'desc' },
+        }),
+      ]),
+    );
 
     return tosAcceptance !== null && ppAcceptance !== null;
   }
@@ -102,24 +110,26 @@ export class LegalAcceptanceService {
    */
   async getStatus(userId: string, tenantId: string): Promise<LegalStatusDto> {
     // Get latest acceptance per document type
-    const [latestTos, latestPp] = await Promise.all([
-      this.prisma.legalAcceptance.findFirst({
-        where: {
-          userId,
-          tenantId,
-          documentType: 'TOS',
-        },
-        orderBy: { acceptedAt: 'desc' },
-      }),
-      this.prisma.legalAcceptance.findFirst({
-        where: {
-          userId,
-          tenantId,
-          documentType: 'PRIVACY_POLICY',
-        },
-        orderBy: { acceptedAt: 'desc' },
-      }),
-    ]);
+    const [latestTos, latestPp] = await withoutTenantScopingAsync(() =>
+      Promise.all([
+        this.prisma.legalAcceptance.findFirst({
+          where: {
+            userId,
+            tenantId,
+            documentType: 'TOS',
+          },
+          orderBy: { acceptedAt: 'desc' },
+        }),
+        this.prisma.legalAcceptance.findFirst({
+          where: {
+            userId,
+            tenantId,
+            documentType: 'PRIVACY_POLICY',
+          },
+          orderBy: { acceptedAt: 'desc' },
+        }),
+      ]),
+    );
 
     return {
       tosAccepted: latestTos?.documentVersion === CURRENT_TOS_VERSION,
