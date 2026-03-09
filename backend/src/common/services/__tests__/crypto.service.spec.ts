@@ -81,23 +81,24 @@ describe('CryptoService', () => {
     });
   });
 
-  describe('decrypt() - CBC fallback (backward compatibility)', () => {
-    it('should decrypt legacy CBC-encrypted data (no gcm: prefix)', () => {
+  describe('decrypt() - CBC rejection (legacy data must be migrated)', () => {
+    it('should throw on legacy CBC-encrypted data (no gcm: prefix)', () => {
       const plaintext = 'legacy secret data';
       const { encrypted, iv } = encryptWithCbc(plaintext);
 
-      // CBC ciphertext has no prefix — should be handled by fallback
       expect(encrypted).not.toMatch(/^gcm:/);
 
-      const decrypted = service.decrypt(encrypted, iv);
-      expect(decrypted).toBe(plaintext);
+      expect(() => service.decrypt(encrypted, iv)).toThrow(
+        'Legacy CBC-encrypted data detected',
+      );
     });
 
-    it('should decrypt legacy CBC with unicode content', () => {
+    it('should throw on legacy CBC with unicode content', () => {
       const plaintext = 'Dati segreti con àccénti';
       const { encrypted, iv } = encryptWithCbc(plaintext);
-      const decrypted = service.decrypt(encrypted, iv);
-      expect(decrypted).toBe(plaintext);
+      expect(() => service.decrypt(encrypted, iv)).toThrow(
+        'Legacy CBC-encrypted data detected',
+      );
     });
   });
 

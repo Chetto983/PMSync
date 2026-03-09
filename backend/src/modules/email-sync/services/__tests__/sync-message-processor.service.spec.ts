@@ -342,6 +342,7 @@ describe('SyncMessageProcessorService', () => {
           SyncMessageProcessorService,
           { provide: PrismaService, useValue: mockPrisma },
           { provide: RealtimeEventsService, useValue: mockRealtimeEvents },
+          { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         ],
       }).compile();
 
