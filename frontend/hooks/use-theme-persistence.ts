@@ -12,7 +12,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { useTheme as useNextTheme } from 'next-themes';
 import { usersApi, type UserPreferences } from '@/lib/api/users';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { authClient } from '@/lib/auth-client';
 import { logger } from '@/lib/logger';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -62,7 +62,8 @@ function setLocalTheme(theme: ThemeMode): void {
 
 export function useThemePersistence(): UseThemePersistenceReturn {
   const { theme: nextTheme, setTheme: setNextTheme, systemTheme } = useNextTheme();
-  const { isAuthenticated, token } = useAuth();
+  const { data: session } = authClient.useSession();
+  const isAuthenticated = !!session;
   const [isLoading, setIsLoading] = useState(false);
   const isSavingRef = useRef(false);
 
@@ -74,7 +75,7 @@ export function useThemePersistence(): UseThemePersistenceReturn {
    * Fetch theme from database
    */
   const fetchThemeFromDB = useCallback(async (): Promise<ThemeMode | null> => {
-    if (!isAuthenticated || !token) return null;
+    if (!isAuthenticated) return null;
 
     // Dedup: if a fetch is already in flight, reuse it
     if (globalFetchPromise) return globalFetchPromise;
@@ -100,13 +101,13 @@ export function useThemePersistence(): UseThemePersistenceReturn {
     } finally {
       globalFetchPromise = null;
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated]);
 
   /**
    * Save theme to database
    */
   const saveThemeToDB = useCallback(async (theme: ThemeMode): Promise<boolean> => {
-    if (!isAuthenticated || !token) return false;
+    if (!isAuthenticated) return false;
 
     // Dedup: if a save is already in flight, reuse it
     if (globalSavePromise) return globalSavePromise;
@@ -129,7 +130,7 @@ export function useThemePersistence(): UseThemePersistenceReturn {
     } finally {
       globalSavePromise = null;
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated]);
 
   /**
    * Load theme from database on mount/auth change

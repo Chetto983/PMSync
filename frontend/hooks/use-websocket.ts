@@ -11,8 +11,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { websocketClient } from '@/lib/websocket-client';
-import { useAuth } from '@/lib/hooks/use-auth';
-import { useAuthStore } from '@/stores/auth-store';
+import { authClient } from '@/lib/auth-client';
+
 import { emailKeys } from '@/hooks/queries/email-keys';
 import { logger } from '@/lib/logger';
 
@@ -54,8 +54,9 @@ interface UseWebSocketReturn {
  */
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
   const { autoConnect = true, refetchOnReconnect = true } = options;
-  const { isAuthenticated } = useAuth();
-  const logout = useAuthStore((state) => state.logout);
+  const { data: session } = authClient.useSession();
+  const isAuthenticated = !!session;
+  const handleLogout = () => authClient.signOut();
   const queryClient = useQueryClient();
 
   const [isConnected, setIsConnected] = useState(false);
@@ -103,13 +104,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     const unsubAuthFailure = websocketClient.onAuthFailure(() => {
       logger.warn('[useWebSocket] Auth failure - logging out');
       disconnect();
-      logout();
+      handleLogout();
     });
 
     return () => {
       unsubAuthFailure();
     };
-  }, [disconnect, logout]);
+  }, [disconnect, handleLogout]);
 
   // Handle reconnection - refetch stale data
   useEffect(() => {

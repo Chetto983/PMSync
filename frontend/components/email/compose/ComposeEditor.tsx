@@ -21,7 +21,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { aiApi, type CommunicationStyle } from '@/lib/api/ai';
-import { useAuthStore } from '@/stores/auth-store';
+import { authClient } from '@/lib/auth-client';
 // AI profile endpoint removed — use default communication style
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
@@ -79,7 +79,8 @@ export default function ComposeEditor({
   const t = useTranslations();
   const { locale } = useLocale();
   const composer = t.email.composer;
-  const user = useAuthStore((state) => state.user);
+  const { data: session } = authClient.useSession();
+  const user = session?.user as import('@/lib/auth-client').SessionUser | undefined;
   const aiProfile = undefined as { communicationStyle?: CommunicationStyle } | undefined;
 
   // Build sender name from user info

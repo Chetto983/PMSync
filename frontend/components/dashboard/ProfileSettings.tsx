@@ -10,14 +10,15 @@ import {
   Alert,
   Snackbar,
 } from '@mui/material';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { authClient } from '@/lib/auth-client';
 import { usersApi } from '@/lib/api/users';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export function ProfileSettings() {
   const translations = useTranslations();
   const settingsCopy = translations.settings;
-  const { user } = useAuth();
+  const { data: session } = authClient.useSession();
+  const user = session?.user as import('@/lib/auth-client').SessionUser | undefined;
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [isSaving, setIsSaving] = useState(false);

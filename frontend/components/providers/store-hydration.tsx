@@ -59,7 +59,7 @@ export function StoreHydration({ children }: StoreHydrationProps) {
  * ```tsx
  * function UserProfile() {
  *   const isHydrated = useIsStoreHydrated();
- *   const user = useAuthStore((s) => s.user);
+ *   const { data: session } = authClient.useSession();
  *
  *   if (!isHydrated) {
  *     return <Skeleton />;

@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import { ArrowRight, Menu as MenuIcon, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { pmSyncColors } from '@/theme/appTheme';
 import dynamic from 'next/dynamic';
@@ -51,7 +51,7 @@ function normalizeSiteUrl(siteUrl: string): string {
 }
 
 export default function Home() {
-  const { isLoading } = useAuth();
+  const { isPending: isLoading } = authClient.useSession();
   const t = useTranslations();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';

@@ -18,8 +18,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
-import { useAuthStore } from '@/stores/auth-store';
-import { useAuth } from '@/lib/hooks/use-auth';
+
+import { authClient } from '@/lib/auth-client';
 import { multiAgentApi, type PendingAction } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -52,8 +52,8 @@ export function Header({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
-  const logout = useAuthStore((state: { logout: () => void }) => state.logout);
-  const { user } = useAuth();
+  const { data: session } = authClient.useSession();
+  const user = session?.user as import('@/lib/auth-client').SessionUser | undefined;
   const t = useTranslations();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -118,7 +118,7 @@ export function Header({
   };
 
   const handleLogout = () => {
-    logout();
+    authClient.signOut();
     router.push('/auth/login');
     setAnchorEl(null);
   };
@@ -291,12 +291,12 @@ export function Header({
           <Tooltip title={t.nav.account}>
             <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: 0.5, ml: 0.5 }}>
               <Avatar
-                src={user?.avatarUrl || undefined}
+                src={user?.image || undefined}
                 sx={{
                   width: 36,
                   height: 36,
                   background: (theme) =>
-                    user?.avatarUrl ? 'transparent' : `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                    user?.image ? 'transparent' : `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                   fontSize: '0.875rem',
                   fontWeight: 600,
                 }}
@@ -314,7 +314,7 @@ export function Header({
           displayName={displayName}
           displayEmail={displayEmail}
           avatarInitials={avatarInitials}
-          avatarUrl={user?.avatarUrl}
+          avatarUrl={user?.image}
           isMobile={isMobile}
           locale={locale}
           onProfile={() => router.push('/dashboard/profile')}

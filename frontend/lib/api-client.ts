@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useAuthStore } from '@/stores/auth-store';
+import { authClient } from '@/lib/auth-client';
 
 // =============================================================================
 // CSRF Token Management (SEC-04)
@@ -160,57 +160,23 @@ apiClient.interceptors.response.use(
   },
 );
 
-// ==================== 401 REFRESH INTERCEPTOR (AUTH-04) ====================
-// On 401, attempt to refresh the access token via POST /auth/refresh.
-// Concurrent 401s are queued behind a single refresh call.
-// If refresh fails, logout the user (no infinite loop).
-
-let isRefreshing = false;
-let failedQueue: Array<{ resolve: (v?: unknown) => void; reject: (e?: unknown) => void }> = [];
-
-const processQueue = (error: unknown) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) reject(error);
-    else resolve();
-  });
-  failedQueue = [];
-};
+// ==================== 401 SESSION EXPIRED INTERCEPTOR ====================
+// With better-auth DB sessions, there is no JWT refresh flow.
+// On 401, sign out and redirect to login. Session refresh is handled
+// automatically by better-auth's cookieCache strategy.
 
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-
-    // 401 handling: refresh-then-retry (AUTH-04)
-    // Skip refresh for the refresh endpoint itself to prevent infinite loops (Pitfall 5)
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/refresh')
-    ) {
-      if (isRefreshing) {
-        // Queue this request behind the in-progress refresh
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then(() => apiClient(originalRequest));
+    // 401 handling: sign out and redirect to login
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        authClient.signOut().then(() => {
+          const returnTo = window.location.pathname;
+          window.location.href = `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+        });
       }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        await apiClient.post('/auth/refresh');
-        processQueue(null);
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError);
-        if (typeof window !== 'undefined') {
-          useAuthStore.getState().logout();
-        }
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
+      return Promise.reject(error);
     }
 
     // Auto-retry once on CSRF 403: clear stale token, refetch, replay request (SEC-04)

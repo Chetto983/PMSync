@@ -6,7 +6,7 @@ import { Box } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common';
 import { KanbanSkeleton } from '@/components/productivity/KanbanBoard/KanbanSkeleton';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 // Dynamic import with SSR disabled (@dnd-kit uses window/document APIs)
@@ -20,7 +20,8 @@ const FollowupsKanbanBoard = dynamic(
 );
 
 export default function FollowUpsPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { data: session, isPending: isLoading } = authClient.useSession();
+  const isAuthenticated = !!session;
   const t = useTranslations();
 
   if (isLoading) {

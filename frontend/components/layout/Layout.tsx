@@ -5,7 +5,7 @@ import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { CommandPalette } from '@/components/ai/CommandPalette';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
-import { useAuth } from '@/lib/hooks/use-auth';
+
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useSyncStore } from '@/stores/sync-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -16,7 +16,7 @@ export interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  useAuth(); // Keep auth for session management
+  
 
   // WebSocket connection - auto-connects when authenticated
   useWebSocket({ autoConnect: true, refetchOnReconnect: true });

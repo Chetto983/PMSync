@@ -104,46 +104,37 @@ export function useSettingsHandlers(s: State, settingsCopy: Record<string, any>)
       const resizedDataUrl = await resizeImage(file);
       const result = await usersApi.uploadAvatar(resizedDataUrl);
       s.setAvatarUrl(result.avatarUrl);
-      if (s.user) {
-        s.setUser({ ...s.user, avatarUrl: result.avatarUrl });
-      }
     } catch (error) {
       logger.error('Failed to upload avatar', { error });
     } finally {
       s.setAvatarUploading(false);
     }
-  }, [s.user, s.setUser, s.setAvatarUrl, s.setAvatarUploading]);
+  }, [s.setAvatarUrl, s.setAvatarUploading]);
 
   const handleAvatarRemove = useCallback(async () => {
     try {
       s.setAvatarUploading(true);
       await usersApi.deleteAvatar();
       s.setAvatarUrl(null);
-      if (s.user) {
-        s.setUser({ ...s.user, avatarUrl: null });
-      }
     } catch (error) {
       logger.error('Failed to remove avatar', { error });
     } finally {
       s.setAvatarUploading(false);
     }
-  }, [s.user, s.setUser, s.setAvatarUrl, s.setAvatarUploading]);
+  }, [s.setAvatarUrl, s.setAvatarUploading]);
 
   const handleAvatarSave = useCallback(async (dataUrl: string) => {
     try {
       s.setAvatarUploading(true);
       const result = await usersApi.uploadAvatar(dataUrl);
       s.setAvatarUrl(result.avatarUrl);
-      if (s.user) {
-        s.setUser({ ...s.user, avatarUrl: result.avatarUrl });
-      }
     } catch (error) {
       logger.error('Failed to save avatar', { error });
       throw error;
     } finally {
       s.setAvatarUploading(false);
     }
-  }, [s.user, s.setUser, s.setAvatarUrl, s.setAvatarUploading]);
+  }, [s.setAvatarUrl, s.setAvatarUploading]);
 
   const handleSaveSignature = useCallback(async (signature: { id?: string; name: string; content: string; providerId: string | null; isDefault: boolean }) => {
     try {

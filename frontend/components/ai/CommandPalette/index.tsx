@@ -23,7 +23,7 @@ import {
   User,
   Loader2,
 } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth-store';
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { createLogger } from '@/lib/logger';
 import { emailsApi } from '@/lib/api/emails';
@@ -57,7 +57,7 @@ export function CommandPalette() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
-  const logout = useAuthStore((state) => state.logout);
+  const handleLogout = () => authClient.signOut();
   const t = useTranslations();
 
   // Toggle command palette with Cmd+K or Ctrl+K
@@ -289,13 +289,13 @@ export function CommandPalette() {
       name: t.commandPalette.commands.logout,
       icon: LogOut,
       action: () => {
-        logout();
+        handleLogout();
         router.push('/auth/login');
       },
       group: 'system',
       keywords: ['logout', 'signout', 'exit'],
     },
-  ], [t, router, logout]);
+  ], [t, router, handleLogout]);
 
   const groupLabels: Record<string, string> = useMemo(() => ({
     navigation: t.commandPalette.navigation,

@@ -22,7 +22,7 @@ import {
   ActionExecutionResult,
 } from '@/lib/api/ai';
 import { websocketClient } from '@/lib/websocket-client';
-import { useAuthStore } from '@/stores/auth-store';
+
 
 // Query key factory for consistent caching
 export const aiActionsKeys = {
@@ -98,7 +98,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   } = options;
 
   const queryClient = useQueryClient();
-  const { token } = useAuthStore();
+  
 
   // Pending Actions Query
   const pendingQuery = useQuery({
@@ -156,7 +156,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
 
   // WebSocket real-time updates
   useEffect(() => {
-    if (!enableRealtime || !token || !websocketClient.isConnected()) return;
+    if (!enableRealtime || !websocketClient.isConnected()) return;
 
     const unsubCreated = websocketClient.onAiActionCreated(() => {
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
@@ -182,7 +182,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
       unsubRejected();
       unsubExecuted();
     };
-  }, [enableRealtime, token, queryClient]);
+  }, [enableRealtime, queryClient]);
 
   // Action functions
   const getAction = useCallback(

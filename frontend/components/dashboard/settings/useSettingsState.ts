@@ -9,7 +9,7 @@ import { useRouter } from 'next/router';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/ai';
 import { usersApi } from '@/lib/api/users';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { authClient } from '@/lib/auth-client';
 import {
   useProviders,
   useUserPreferences,
@@ -18,7 +18,7 @@ import {
   useSubscriptionFeatures,
   useSubscriptionLimits,
 } from '@/hooks/queries';
-import { useAuthStore } from '@/stores/auth-store';
+
 import {
   DEFAULT_USER_SETTINGS,
   getStoredUserSettings,
@@ -35,7 +35,8 @@ export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'sign
 
 export function useSettingsState() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { data: session } = authClient.useSession();
+  const user = session?.user as import('@/lib/auth-client').SessionUser | undefined;
   const { theme, setTheme } = useThemePersistence();
   const [hydrated, setHydrated] = useState(false);
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('general');
@@ -91,8 +92,8 @@ export function useSettingsState() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  const logout = useAuthStore((state) => state.logout);
-  const setUser = useAuthStore((state) => state.setUser);
+  const handleLogout = () => authClient.signOut();
+  
 
   // Signature hooks
   const { data: signaturesData = [], isLoading: signaturesLoading } = useSignatures();
@@ -168,7 +169,7 @@ export function useSettingsState() {
     deleteLoading, setDeleteLoading,
     deleteError, setDeleteError,
     avatarUrl, setAvatarUrl, avatarUploading, setAvatarUploading,
-    logout, setUser,
+    logout: handleLogout,
     signaturesData, signaturesLoading,
     createSignatureMutation, updateSignatureMutation,
     deleteSignatureMutation, setDefaultSignatureMutation,
