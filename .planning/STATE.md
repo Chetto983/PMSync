@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 53-01-PLAN.md
-last_updated: "2026-03-09T07:51:27Z"
-last_activity: 2026-03-09 -- 53-01 complete (frontend auth foundation)
+stopped_at: Completed 53-02-PLAN.md
+last_updated: "2026-03-09T08:15:00Z"
+last_activity: 2026-03-09 -- 53-02 complete (auth consumer migration + old auth deletion)
 progress:
   total_phases: 9
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 4
+  total_plans: 10
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -20,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v5.0 better-auth Migration -- Phase 53 Plan 02 next
+**Current focus:** v5.0 better-auth Migration -- Phase 53 complete, Phase 54 next
 
 ## Current Position
 
-Phase: 53 of 58 (Frontend Auth UI) -- Plan 01 complete
-Plan: 1 of 3 in Phase 53
+Phase: 53 of 58 (Frontend Auth UI) -- Plan 02 complete (all plans done)
+Plan: 2 of 2 in Phase 53
 Status: Executing
-Last activity: 2026-03-09 -- 53-01 complete (frontend auth foundation)
+Last activity: 2026-03-09 -- 53-02 complete (auth consumer migration + old auth deletion)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 6.4 min
-- Total execution time: 0.85 hours
+- Total plans completed: 10
+- Average duration: 6.8 min
+- Total execution time: 1.13 hours
 
 **By Phase:**
 
@@ -45,7 +46,7 @@ Progress: [██████████] 100%
 | 50 - Schema & Infrastructure | 2/2 | 17 min | 8.5 min |
 | 51 - Core Email/Password Auth | 2/2 | 11 min | 5.5 min |
 | 52 - NestJS Session Validation | 3/3 | 13 min | 4.3 min |
-| 53 - Frontend Auth UI | 1/3 | 9 min | 9 min |
+| 53 - Frontend Auth UI | 2/2 | 27 min | 13.5 min |
 
 *Updated after each plan completion*
 
@@ -81,6 +82,10 @@ Progress: [██████████] 100%
 - [53-01] Type inference createAuthClient<typeof auth>() fails across client/server boundary; using untyped client
 - [53-01] viewPaths uses SIGN_IN/SIGN_UP keys mapping to login/register
 - [53-01] Middleware is optimistic cookie-existence check only; real validation in useSession and NestJS guards
+- [53-02] SessionUser interface defined manually with additionalFields (type inference impossible across client/server)
+- [53-02] 401 interceptor simplified to signOut + redirect; JWT refresh queue removed (DB sessions)
+- [53-02] Removed setUser from avatar handlers; better-auth manages user state via session
+- [53-02] Removed token references from hooks; better-auth uses cookies, no JWT exposed to client
 
 ### Pending Todos
 
@@ -94,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T07:51:27Z
-Stopped at: Completed 53-01-PLAN.md
-Resume file: .planning/phases/53-frontend-auth-ui/53-01-SUMMARY.md
+Last session: 2026-03-09T08:15:00Z
+Stopped at: Completed 53-02-PLAN.md
+Resume file: .planning/phases/53-frontend-auth-ui/53-02-SUMMARY.md

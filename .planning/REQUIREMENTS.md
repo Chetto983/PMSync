@@ -30,7 +30,7 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 
 - [x] **FEUI-01**: User sees login/signup pages built with better-auth-ui components
 - [x] **FEUI-02**: User session managed via better-auth/react hooks (useSession)
-- [ ] **FEUI-03**: Auth context replaced with better-auth client (no Zustand auth store)
+- [x] **FEUI-03**: Auth context replaced with better-auth client (no Zustand auth store)
 - [x] **FEUI-04**: Protected routes redirect unauthenticated users to login
 
 ### Security
@@ -108,7 +108,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NEST-06 | Phase 52 | Complete |
 | FEUI-01 | Phase 53 | Complete |
 | FEUI-02 | Phase 53 | Complete |
-| FEUI-03 | Phase 53 | Pending |
+| FEUI-03 | Phase 53 | Complete |
 | FEUI-04 | Phase 53 | Complete |
 | SEC-01 | Phase 55 | Pending |
 | SEC-02 | Phase 55 | Pending |
