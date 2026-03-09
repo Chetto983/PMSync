@@ -73,7 +73,7 @@ export const mockFolders = {
   },
 };
 
-// Mock user data (matches User interface in auth-store.ts)
+// Mock user data (matches better-auth session user shape)
 export const mockUser = {
   id: 'user-1',
   email: 'user@test.com',
@@ -84,12 +84,11 @@ export const mockUser = {
 };
 
 /**
- * Inject httpOnly access_token cookie for E2E test authentication.
- * Mirrors the backend's cookie.helper.ts format.
+ * Inject better-auth session cookie for E2E test authentication.
  */
 export async function injectAuthCookie(context: BrowserContext, token: string) {
   await context.addCookies([{
-    name: 'access_token',
+    name: 'better-auth.session_token',
     value: token,
     domain: 'localhost',
     path: '/',
@@ -114,14 +113,6 @@ export const test = base.extend<{ authedPage: Page }>({
 
     // Mock API endpoints - paths match apiClient baseURL (localhost:3000)
     // Use specific host to avoid matching frontend page routes
-    await page.route('**/localhost:3000/auth/me', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(mockUser),
-      });
-    });
-
     await page.route('**/localhost:3000/emails?**', (route) => {
       route.fulfill({
         status: 200,

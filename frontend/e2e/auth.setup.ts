@@ -2,7 +2,7 @@
  * Authentication Setup Project
  *
  * Creates reusable storageState for other tests.
- * Uses httpOnly cookie injection (Phase 34 -- no localStorage token).
+ * Uses better-auth session cookie (httpOnly).
  */
 
 import { test as setup, expect } from '@playwright/test';
@@ -11,8 +11,8 @@ import { injectAuthCookie } from './fixtures';
 const authFile = 'playwright/.auth/user.json';
 
 setup('authenticate', async ({ page }) => {
-  // Inject httpOnly access_token cookie for auth (Phase 34)
-  await injectAuthCookie(page.context(), 'test-jwt-token');
+  // Inject better-auth session cookie for auth
+  await injectAuthCookie(page.context(), 'test-session-token');
 
   // Pre-accept cookie consent to avoid modal blocking UI
   await page.addInitScript(() => {
@@ -20,23 +20,6 @@ setup('authenticate', async ({ page }) => {
       'pmsync:cookie-consent',
       JSON.stringify({ necessary: true, analytics: false, marketing: false })
     );
-  });
-
-  // Mock essential API endpoints for auth (matches User interface in auth-store.ts)
-  // Path matches apiClient baseURL (localhost:3000) - use specific host to avoid matching frontend page routes
-  await page.route('**/localhost:3000/auth/me', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        id: 'user-1',
-        email: 'user@test.com',
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'admin',
-        tenantId: 'tenant-1',
-      }),
-    });
   });
 
   // Catch-all for any API call during auth setup to prevent network errors
@@ -48,14 +31,14 @@ setup('authenticate', async ({ page }) => {
     });
   });
 
-  // Navigate to trigger auth check via /auth/me
+  // Navigate to trigger session check
   await page.goto('/');
 
   // Verify auth cookie was set via context cookies
   const cookies = await page.context().cookies();
-  const authCookie = cookies.find(c => c.name === 'access_token');
+  const authCookie = cookies.find(c => c.name === 'better-auth.session_token');
   expect(authCookie).toBeDefined();
-  expect(authCookie!.value).toBe('test-jwt-token');
+  expect(authCookie!.value).toBe('test-session-token');
 
   // Save auth state for other tests
   await page.context().storageState({ path: authFile });

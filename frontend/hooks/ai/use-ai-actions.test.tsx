@@ -8,7 +8,6 @@ import { ReactNode } from 'react';
 import { useAiActions, aiActionsKeys } from './use-ai-actions';
 import { voltAgentApi } from '@/lib/api/ai';
 import { websocketClient } from '@/lib/websocket-client';
-import { useAuthStore } from '@/stores/auth-store';
 
 // Mock the APIs
 jest.mock('@/lib/api/ai', () => ({
@@ -27,10 +26,6 @@ jest.mock('@/lib/websocket-client', () => ({
     onAiActionRejected: jest.fn(() => () => {}),
     onAiActionExecuted: jest.fn(() => () => {}),
   },
-}));
-
-jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: jest.fn(() => ({ token: null })),
 }));
 
 // Create a wrapper with QueryClientProvider
@@ -84,7 +79,6 @@ describe('useAiActions', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useAuthStore as unknown as jest.Mock).mockReturnValue({ token: null });
     (websocketClient.isConnected as jest.Mock).mockReturnValue(false);
   });
 
@@ -96,7 +90,6 @@ describe('useAiActions', () => {
       expect(aiActionsKeys.counts()).toEqual(['aiActions', 'counts']);
       expect(aiActionsKeys.learning()).toEqual(['aiActions', 'learning', undefined]);
       expect(aiActionsKeys.learning('user-1')).toEqual(['aiActions', 'learning', 'user-1']);
-      // NOTE: aggregate key removed - endpoint doesn't exist on backend
     });
   });
 
@@ -105,7 +98,6 @@ describe('useAiActions', () => {
       (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
-            // getActionCounts removed — no mock needed
 
       const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
         wrapper: createWrapper(),
@@ -134,7 +126,6 @@ describe('useAiActions', () => {
       (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
-            // getActionCounts removed — no mock needed
 
       const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
         wrapper: createWrapper(),
@@ -152,7 +143,6 @@ describe('useAiActions', () => {
       (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
-            // getActionCounts removed — no mock needed
 
       const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
         wrapper: createWrapper(),
@@ -166,8 +156,6 @@ describe('useAiActions', () => {
       expect(action?.actionType).toBe('SCHEDULE_MEETING');
     });
   });
-
-  // fetchAction tests removed — getPendingAction endpoint removed, fetchAction now uses cached list
 
   describe('approveAction', () => {
     it('should approve action successfully', async () => {
@@ -249,11 +237,6 @@ describe('useAiActions', () => {
     });
   });
 
-  // action counts tests removed — getActionCounts endpoint removed
-
-  // NOTE: learning stats tests removed - getLearningStats endpoint doesn't exist
-  // NOTE: aggregate stats tests removed - getAggregateStats endpoint doesn't exist
-
   describe('loading states', () => {
     it('should track approving state', async () => {
       let resolveApprove: (value: unknown) => void;
@@ -309,8 +292,7 @@ describe('useAiActions', () => {
   });
 
   describe('WebSocket real-time updates', () => {
-    it('should subscribe to WebSocket events when enabled', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({ token: 'test-token' });
+    it('should subscribe to WebSocket events when enabled and connected', () => {
       (websocketClient.isConnected as jest.Mock).mockReturnValue(true);
 
       renderHook(() => useAiActions({ autoFetch: false, enableRealtime: true }), {
@@ -324,19 +306,7 @@ describe('useAiActions', () => {
     });
 
     it('should not subscribe when WebSocket is not connected', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({ token: 'test-token' });
       (websocketClient.isConnected as jest.Mock).mockReturnValue(false);
-
-      renderHook(() => useAiActions({ autoFetch: false, enableRealtime: true }), {
-        wrapper: createWrapper(),
-      });
-
-      expect(websocketClient.onAiActionCreated).not.toHaveBeenCalled();
-    });
-
-    it('should not subscribe when no token', () => {
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({ token: null });
-      (websocketClient.isConnected as jest.Mock).mockReturnValue(true);
 
       renderHook(() => useAiActions({ autoFetch: false, enableRealtime: true }), {
         wrapper: createWrapper(),
@@ -351,7 +321,6 @@ describe('useAiActions', () => {
       const mockUnsubRejected = jest.fn();
       const mockUnsubExecuted = jest.fn();
 
-      (useAuthStore as unknown as jest.Mock).mockReturnValue({ token: 'test-token' });
       (websocketClient.isConnected as jest.Mock).mockReturnValue(true);
       (websocketClient.onAiActionCreated as jest.Mock).mockReturnValue(mockUnsubCreated);
       (websocketClient.onAiActionApproved as jest.Mock).mockReturnValue(mockUnsubApproved);
