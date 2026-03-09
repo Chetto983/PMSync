@@ -162,6 +162,9 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
+    "@captchafox/react": "^1.11.0",
+    "@hcaptcha/react-hcaptcha": "^2.0.2",
+    "@marsidev/react-turnstile": "^1.4.2",
     "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.18",
