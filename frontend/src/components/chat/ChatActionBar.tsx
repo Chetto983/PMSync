@@ -2,6 +2,7 @@
 
 import { ActionBarPrimitive } from '@assistant-ui/react';
 import { Copy, RefreshCw } from 'lucide-react';
+import Box from '@mui/material/Box';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
@@ -17,13 +18,13 @@ export function ChatActionBar() {
         className="chat-inline-action-btn"
         aria-label={t.chat.actions.copy}
       >
-        <Copy className="h-3.5 w-3.5" />
+        <Box component={Copy} sx={{ width: 14, height: 14 }} />
       </ActionBarPrimitive.Copy>
       <ActionBarPrimitive.Reload
         className="chat-inline-action-btn"
         aria-label={t.chat.actions.reload}
       >
-        <RefreshCw className="h-3.5 w-3.5" />
+        <Box component={RefreshCw} sx={{ width: 14, height: 14 }} />
       </ActionBarPrimitive.Reload>
     </ActionBarPrimitive.Root>
   );

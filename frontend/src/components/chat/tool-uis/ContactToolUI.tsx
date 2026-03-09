@@ -1,32 +1,50 @@
-﻿/**
- * Tool UI for search_contacts.
- * Contact cards with name, company, job title, email.
- */
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { User, AlertCircle } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import type { ContactSearchResult, ContactItem } from '../types';
 
-function ContactCard({ contact }: { contact: ContactItem }) {
+function ContactCard({ contact, isFirst }: { contact: ContactItem; isFirst: boolean }) {
   const name = contact.displayName ?? ([contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unknown');
   const primaryEmail = contact.emails?.[0]?.value ?? null;
 
   return (
-    <div className="flex items-start gap-2.5 py-2 px-2 rounded hover:bg-muted/30 transition-colors">
-      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-        <User className="h-4 w-4 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{name}</p>
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 1.25,
+        py: 1,
+        px: 1,
+        borderRadius: 1,
+        borderTop: isFirst ? 0 : 1,
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover' },
+        transition: 'background-color 0.15s ease',
+      }}
+    >
+      <Box
+        sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: 'primary.light', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: 0.8 }}
+      >
+        <User size={16} style={{ color: 'inherit' }} />
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {name}
+        </Typography>
         {(contact.jobTitle || contact.company) && (
-          <p className="text-xs text-muted-foreground truncate">
+          <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
             {[contact.jobTitle, contact.company].filter(Boolean).join(' at ')}
-          </p>
+          </Typography>
         )}
         {primaryEmail && (
-          <p className="text-xs text-muted-foreground truncate">{primaryEmail}</p>
+          <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+            {primaryEmail}
+          </Typography>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
@@ -38,54 +56,55 @@ export const ContactToolUI = makeAssistantToolUI<
   render: ({ args, result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-inline">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Searching contacts for "{args.query}"...</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
+          <User size={16} style={{ opacity: 0.6 }} />
+          <Typography variant="body2" color="text.secondary">Searching contacts for &ldquo;{args.query}&rdquo;...</Typography>
+        </Box>
       );
     }
     if (status.type === 'incomplete') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">
             Contact search failed: {'reason' in status ? status.reason : 'unknown'}
-          </span>
-        </div>
+          </Typography>
+        </Box>
       );
     }
     if (!result) return null;
     if (result.error) {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{result.error}</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">{result.error}</Typography>
+        </Box>
       );
     }
     const contacts = result.data ?? [];
     return (
-      <div className="chat-tool-card">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Contacts
-          </span>
-          <span className="text-xs text-muted-foreground">{contacts.length} found</span>
-        </div>
+          </Typography>
+          <Typography variant="caption" color="text.secondary">{contacts.length} found</Typography>
+        </Box>
         {contacts.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No contacts found.</p>
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No contacts found.</Typography>
         ) : (
-          <div className="divide-y divide-border">
-            {contacts.map((c) => (
-              <ContactCard key={c.id} contact={c} />
+          <Box>
+            {contacts.map((c, idx) => (
+              <ContactCard key={c.id} contact={c} isFirst={idx === 0} />
             ))}
-          </div>
+          </Box>
         )}
         {result.summary && (
-          <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">{result.summary}</p>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+            {result.summary}
+          </Typography>
         )}
-      </div>
+      </Paper>
     );
   },
 });
-

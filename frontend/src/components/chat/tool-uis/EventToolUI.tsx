@@ -1,9 +1,6 @@
-﻿/**
- * Tool UI for get_events.
- * Event list with title, time, location, all-day badge.
- */
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Calendar, MapPin, AlertCircle } from 'lucide-react';
+import { Box, Paper, Typography } from '@mui/material';
 import type { EventResult, EventItem } from '../types';
 
 function formatTime(item: EventItem): string {
@@ -20,28 +17,58 @@ function formatTime(item: EventItem): string {
   return `${start} - ${end}`;
 }
 
-function EventRow({ event }: { event: EventItem }) {
+function EventRow({ event, isFirst }: { event: EventItem; isFirst: boolean }) {
   return (
-    <div className="flex items-start gap-2.5 py-2 px-2 rounded hover:bg-muted/30 transition-colors">
-      <Calendar className="h-3.5 w-3.5 text-[hsl(var(--color-calendar))] mt-0.5 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium truncate">{event.title}</p>
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 1.25,
+        py: 1,
+        px: 1,
+        borderRadius: 1,
+        '&:hover': { bgcolor: 'action.hover' },
+        transition: 'background-color 0.15s ease',
+        ...(isFirst ? {} : { borderTop: 1, borderColor: 'divider' }),
+      }}
+    >
+      <Calendar size={14} color="var(--mui-palette-warning-main)" style={{ marginTop: 2, flexShrink: 0 }} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Typography
+            variant="body2"
+            fontWeight={500}
+            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {event.title}
+          </Typography>
           {event.isAllDay && (
-            <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[hsl(var(--color-calendar)/0.1)] text-[hsl(var(--color-calendar))]">
+            <Box
+              component="span"
+              sx={{
+                px: 0.75,
+                py: 0.125,
+                fontSize: '0.625rem',
+                fontWeight: 600,
+                borderRadius: 1,
+                bgcolor: 'warning.light',
+                color: 'warning.main',
+                flexShrink: 0,
+              }}
+            >
               All day
-            </span>
+            </Box>
           )}
-        </div>
-        <p className="text-xs text-muted-foreground">{formatTime(event)}</p>
+        </Box>
+        <Typography variant="caption" color="text.secondary">{formatTime(event)}</Typography>
         {event.location && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-            <MapPin className="h-3 w-3" />
-            {event.location}
-          </p>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+            <MapPin size={12} />
+            <Typography variant="caption" color="text.secondary">{event.location}</Typography>
+          </Box>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
@@ -53,54 +80,76 @@ export const EventToolUI = makeAssistantToolUI<
   render: ({ result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-inline">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Loading events...</span>
-        </div>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: 'fit-content',
+            borderRadius: '10px',
+            border: 1,
+            borderColor: 'divider',
+            bgcolor: 'action.hover',
+            p: 1.5,
+          }}
+        >
+          <Calendar size={16} color="var(--mui-palette-text-secondary)" />
+          <Typography variant="body2" color="text.secondary">Loading events...</Typography>
+        </Box>
       );
     }
+
     if (status.type === 'incomplete') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">
-            Failed to load events: {'reason' in status ? status.reason : 'unknown'}
-          </span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50' }}>
+          <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+          <Typography variant="body2" color="error.main">
+            Failed to load events: {'reason' in status ? (status as { reason?: string }).reason : 'unknown'}
+          </Typography>
+        </Box>
       );
     }
+
     if (!result) return null;
+
     if (result.error) {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{result.error}</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50' }}>
+          <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+          <Typography variant="body2" color="error.main">{result.error}</Typography>
+        </Box>
       );
     }
+
     const events = result.data ?? [];
+
     return (
-      <div className="chat-tool-card">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="caption" fontWeight={500} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Events
-          </span>
-          <span className="text-xs text-muted-foreground">{events.length} event{events.length !== 1 ? 's' : ''}</span>
-        </div>
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {events.length} event{events.length !== 1 ? 's' : ''}
+          </Typography>
+        </Box>
+
         {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No events found.</p>
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No events found.</Typography>
         ) : (
-          <div className="divide-y divide-border">
-            {events.map((e) => (
-              <EventRow key={e.id} event={e} />
+          <Box>
+            {events.map((e, i) => (
+              <EventRow key={e.id} event={e} isFirst={i === 0} />
             ))}
-          </div>
+          </Box>
         )}
+
         {result.summary && (
-          <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">{result.summary}</p>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+            {result.summary}
+          </Typography>
         )}
-      </div>
+      </Paper>
     );
   },
 });
-

@@ -2,51 +2,95 @@
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Code, Loader2 } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 
-/**
- * Catch-all fallback for unregistered tools.
- * Shows tool name, running indicator, and collapsible JSON of args/result.
- *
- * Registered with toolName "*" which assistant-ui uses as the wildcard matcher.
- */
 export const FallbackToolUI = makeAssistantToolUI<unknown, unknown>({
   toolName: '*',
   render: ({ status, toolName, args, result }) => {
     const isRunning = status.type === 'running';
 
     return (
-      <div className="chat-tool-fallback text-sm">
-        <div className="chat-tool-fallback-header">
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1, fontSize: '0.875rem' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {isRunning ? (
-            <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+            <Box component="span" sx={{ display: 'inline-flex', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } }, animation: 'spin 1s linear infinite' }}>
+              <Loader2 size={14} color="var(--mui-palette-primary-main)" />
+            </Box>
           ) : (
-            <Code className="h-3.5 w-3.5 text-muted-foreground" />
+            <Code size={14} color="var(--mui-palette-text-secondary)" />
           )}
-          <span className="chat-tool-fallback-name">
+          <Typography sx={{ fontFamily: 'monospace', fontSize: '0.74rem' }}>
             {toolName}
-          </span>
-          <span className="chat-tool-fallback-status">
+          </Typography>
+          <Typography
+            sx={{
+              ml: 'auto',
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              color: 'text.secondary',
+            }}
+          >
             {isRunning ? 'Running' : 'Complete'}
-          </span>
-        </div>
-        <details className="mt-2">
-          <summary className="chat-tool-fallback-summary">
+          </Typography>
+        </Box>
+        <Box component="details" sx={{ mt: 1 }}>
+          <Typography
+            component="summary"
+            sx={{
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              color: 'text.secondary',
+              cursor: 'pointer',
+            }}
+          >
             {isRunning ? 'Arguments' : 'Details'}
-          </summary>
-          <div className="mt-1 space-y-1">
+          </Typography>
+          <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {args != null && (
-              <pre className="chat-tool-fallback-pre">
+              <Box
+                component="pre"
+                sx={{
+                  m: 0,
+                  maxHeight: 180,
+                  overflow: 'auto',
+                  borderRadius: 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'action.hover',
+                  p: '8px 10px',
+                  fontSize: '0.72rem',
+                  lineHeight: 1.45,
+                }}
+              >
                 {JSON.stringify(args, null, 2)}
-              </pre>
+              </Box>
             )}
             {result != null && (
-              <pre className="chat-tool-fallback-pre">
+              <Box
+                component="pre"
+                sx={{
+                  m: 0,
+                  maxHeight: 180,
+                  overflow: 'auto',
+                  borderRadius: 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'action.hover',
+                  p: '8px 10px',
+                  fontSize: '0.72rem',
+                  lineHeight: 1.45,
+                }}
+              >
                 {JSON.stringify(result, null, 2)}
-              </pre>
+              </Box>
             )}
-          </div>
-        </details>
-      </div>
+          </Box>
+        </Box>
+      </Paper>
     );
   },
 });

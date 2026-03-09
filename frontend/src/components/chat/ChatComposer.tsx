@@ -2,6 +2,7 @@
 
 import { ComposerPrimitive } from '@assistant-ui/react';
 import { ArrowUp, Square } from 'lucide-react';
+import Box from '@mui/material/Box';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
@@ -23,13 +24,13 @@ export function ChatComposer() {
           className="chat-composer-btn chat-composer-btn-cancel"
           aria-label={t.chat.composer.stop}
         >
-          <Square className="h-4 w-4" />
+          <Box component={Square} sx={{ width: 16, height: 16 }} />
         </ComposerPrimitive.Cancel>
         <ComposerPrimitive.Send
           className="chat-composer-btn chat-composer-btn-send"
           aria-label={t.chat.composer.send}
         >
-          <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+          <Box component={ArrowUp} sx={{ width: 16, height: 16 }} strokeWidth={2.5} />
         </ComposerPrimitive.Send>
       </div>
     </ComposerPrimitive.Root>

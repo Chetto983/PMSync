@@ -393,6 +393,10 @@
   color: hsl(var(--foreground));
 }
 
+.chat-cot-trigger[data-state='open'] > svg {
+  transform: rotate(180deg);
+}
+
 .chat-cot-content {
   padding: 0 10px 10px;
   font-size: 0.86rem;

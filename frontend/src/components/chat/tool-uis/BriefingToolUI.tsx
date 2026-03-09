@@ -1,16 +1,8 @@
-﻿'use client';
+'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
-import {
-  Sun,
-  AlertTriangle,
-  Mail,
-  Star,
-  Clock,
-  CheckSquare,
-  Calendar,
-  MessageCircle,
-} from 'lucide-react';
+import { Sun, AlertTriangle, Mail, Star, Clock, CheckSquare, Calendar, MessageCircle } from 'lucide-react';
+import { Box, Paper, Typography } from '@mui/material';
 import type { BriefingResult } from '../types';
 
 export const BriefingToolUI = makeAssistantToolUI<
@@ -21,121 +13,115 @@ export const BriefingToolUI = makeAssistantToolUI<
   render: ({ status, result }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-card">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Sun className="h-4 w-4" />
-            <span className="text-sm">Generating daily briefing...</span>
-          </div>
-        </div>
+        <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+            <Sun size={16} />
+            <Typography variant="body2">Generating daily briefing...</Typography>
+          </Box>
+        </Paper>
       );
     }
 
     if (status.type === 'incomplete' || !result || result.error) {
       return (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-sm">{result?.error ?? 'Briefing failed'}</span>
-          </div>
-        </div>
+        <Box sx={{ borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50', p: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+            <AlertTriangle size={16} />
+            <Typography variant="body2">{result?.error ?? 'Briefing failed'}</Typography>
+          </Box>
+        </Box>
       );
     }
 
     const { stats, summary, followUps, deadlines, actionItems, calendar } = result;
 
     return (
-      <div className="chat-tool-card space-y-3">
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <Sun className="h-4 w-4 text-[hsl(var(--color-warning))]" />
-          <span className="text-sm font-medium">Daily Briefing</span>
-        </div>
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Sun size={16} color="var(--mui-palette-warning-main)" />
+            <Typography variant="body2" fontWeight={500}>Daily Briefing</Typography>
+          </Box>
 
-        {/* Stats bar */}
-        <div className="flex items-center gap-3 text-xs">
-          <span className="flex items-center gap-1 bg-[hsl(var(--color-info)/0.1)] text-[hsl(var(--color-info))] px-2 py-1 rounded-md">
-            <Mail className="h-3 w-3" />
-            {stats.totalUnread} unread
-          </span>
-          <span className="flex items-center gap-1 bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))] px-2 py-1 rounded-md">
-            <Star className="h-3 w-3" />
-            {stats.highPriority} high priority
-          </span>
-          <span className="flex items-center gap-1 bg-[hsl(var(--color-success)/0.1)] text-[hsl(var(--color-success))] px-2 py-1 rounded-md">
-            <Mail className="h-3 w-3" />
-            {stats.newToday} new
-          </span>
-        </div>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'info.light', color: 'info.main', px: 1, py: 0.5, borderRadius: 1 }}>
+              <Mail size={12} />
+              <Typography variant="caption">{stats.totalUnread} unread</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'error.light', color: 'error.main', px: 1, py: 0.5, borderRadius: 1 }}>
+              <Star size={12} />
+              <Typography variant="caption">{stats.highPriority} high priority</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'success.light', color: 'success.main', px: 1, py: 0.5, borderRadius: 1 }}>
+              <Mail size={12} />
+              <Typography variant="caption">{stats.newToday} new</Typography>
+            </Box>
+          </Box>
 
-        {/* Summary */}
-        <div>
-          <p className="text-sm text-muted-foreground">{summary.summary}</p>
-          {summary.highlights.length > 0 && (
-            <ul className="mt-1.5 space-y-0.5">
-              {summary.highlights.map((h, i) => (
-                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                  <span className="text-primary mt-0.5">&#8226;</span>
-                  {h}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Follow-ups */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-          <MessageCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            {followUps.message}
-            {followUps.overdue > 0 && (
-              <span className="text-[hsl(var(--color-error))] font-medium ml-1">
-                ({followUps.overdue} overdue)
-              </span>
+          <Box>
+            <Typography variant="body2" color="text.secondary">{summary.summary}</Typography>
+            {summary.highlights.length > 0 && (
+              <Box component="ul" sx={{ mt: 0.75, pl: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                {summary.highlights.map((h, i) => (
+                  <Box key={i} component="li" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+                    <Box component="span" sx={{ color: 'primary.main', mt: 0.25 }}>&#8226;</Box>
+                    <Typography variant="caption" color="text.secondary">{h}</Typography>
+                  </Box>
+                ))}
+              </Box>
             )}
-          </span>
-        </div>
+          </Box>
 
-        {/* Deadlines */}
-        {deadlines.count > 0 && (
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium">
-              <Clock className="h-3 w-3 text-[hsl(var(--color-warning))]" />
-              Deadlines ({deadlines.count})
-            </div>
-            {deadlines.items.map((d, i) => (
-              <p key={i} className="text-xs text-muted-foreground pl-4.5">
-                <span className="font-medium">{d.title}</span>
-                {d.detail && <span className="ml-1">- {d.detail}</span>}
-              </p>
-            ))}
-          </div>
-        )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'action.hover', borderRadius: 1, p: 1 }}>
+            <MessageCircle size={14} style={{ flexShrink: 0 }} />
+            <Typography variant="caption" color="text.secondary">
+              {followUps.message}
+              {followUps.overdue > 0 && (
+                <Box component="span" sx={{ color: 'error.main', fontWeight: 500, ml: 0.5 }}>
+                  ({followUps.overdue} overdue)
+                </Box>
+              )}
+            </Typography>
+          </Box>
 
-        {/* Action items */}
-        {actionItems.count > 0 && (
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium">
-              <CheckSquare className="h-3 w-3 text-[hsl(var(--color-success))]" />
-              Action Items ({actionItems.count})
-            </div>
-            {actionItems.items.map((a, i) => (
-              <p key={i} className="text-xs text-muted-foreground pl-4.5">
-                <span className="font-medium">{a.title}</span>
-                {a.detail && <span className="ml-1">- {a.detail}</span>}
-              </p>
-            ))}
-          </div>
-        )}
+          {deadlines.count > 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Clock size={12} color="var(--mui-palette-warning-main)" />
+                <Typography variant="caption" fontWeight={500}>Deadlines ({deadlines.count})</Typography>
+              </Box>
+              {deadlines.items.map((d, i) => (
+                <Typography key={i} variant="caption" color="text.secondary" sx={{ pl: 2.5 }}>
+                  <Box component="span" fontWeight={500}>{d.title}</Box>
+                  {d.detail && <Box component="span" sx={{ ml: 0.5 }}>- {d.detail}</Box>}
+                </Typography>
+              ))}
+            </Box>
+          )}
 
-        {/* Calendar */}
-        {calendar.hasEvents && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3 text-[hsl(var(--color-info))]" />
-            {calendar.message}
-          </div>
-        )}
-      </div>
+          {actionItems.count > 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <CheckSquare size={12} color="var(--mui-palette-success-main)" />
+                <Typography variant="caption" fontWeight={500}>Action Items ({actionItems.count})</Typography>
+              </Box>
+              {actionItems.items.map((a, i) => (
+                <Typography key={i} variant="caption" color="text.secondary" sx={{ pl: 2.5 }}>
+                  <Box component="span" fontWeight={500}>{a.title}</Box>
+                  {a.detail && <Box component="span" sx={{ ml: 0.5 }}>- {a.detail}</Box>}
+                </Typography>
+              ))}
+            </Box>
+          )}
+
+          {calendar.hasEvents && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+              <Calendar size={12} color="var(--mui-palette-info-main)" />
+              <Typography variant="caption">{calendar.message}</Typography>
+            </Box>
+          )}
+        </Box>
+      </Paper>
     );
   },
 });
-

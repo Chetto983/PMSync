@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { MessagesSquare, ArrowLeft } from 'lucide-react';
+import Box from '@mui/material/Box';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ChatThreadList } from './ChatThreadList';
 import { ChatThread } from './ChatThread';
@@ -30,7 +31,7 @@ export function ChatMobileLayout() {
               className="chat-mobile-menu-btn"
               aria-label={t.chat.threadList.title}
             >
-              <MessagesSquare className="h-5 w-5" />
+              <Box component={MessagesSquare} sx={{ width: 20, height: 20 }} />
             </button>
             <ChatThread />
           </div>
@@ -49,15 +50,15 @@ export function ChatMobileLayout() {
                 className="chat-mobile-back-btn"
                 aria-label={t.chat.threadList.title}
               >
-                <ArrowLeft className="h-5 w-5" />
+                <Box component={ArrowLeft} sx={{ width: 20, height: 20 }} />
               </button>
               <p className="chat-mobile-sidebar-title">
                 {t.chat.threadList.title}
               </p>
             </div>
-            <div className="flex-1 min-h-0" onClick={closeSidebar}>
+            <Box sx={{ flex: 1, minHeight: 0 }} onClick={closeSidebar}>
               <ChatThreadList />
-            </div>
+            </Box>
           </div>
         </div>
       </div>

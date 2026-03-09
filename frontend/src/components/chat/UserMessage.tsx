@@ -25,7 +25,7 @@ export function UserMessage() {
             className="chat-inline-action-btn"
             aria-label={t.chat.actions.edit}
           >
-            <Pencil className="h-3 w-3" />
+            <Pencil size={12} />
           </ActionBarPrimitive.Edit>
         </ActionBarPrimitive.Root>
         <ChatBranchPicker />

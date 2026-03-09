@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
 import { ChatRuntimeProvider } from './ChatRuntimeProvider';
+import { ChatThemeBridge } from './ChatThemeBridge';
 import { AllToolUIs } from './tool-uis';
 import { ChatDesktopLayout } from './ChatDesktopLayout';
 import { ChatMobileLayout } from './ChatMobileLayout';
 
 function ChatSkeleton() {
   return (
-    <div className="chat-skeleton animate-pulse">
+    <Box className="chat-skeleton" sx={{ animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' }}>
       <div className="chat-skeleton-header" />
       <div className="chat-skeleton-messages">
         {[1, 2, 3].map((i) => (
@@ -23,7 +25,7 @@ function ChatSkeleton() {
         ))}
       </div>
       <div className="chat-skeleton-composer" />
-    </div>
+    </Box>
   );
 }
 
@@ -48,12 +50,14 @@ export function ChatPage() {
   return (
     <ChatRuntimeProvider>
       <AllToolUIs />
-      <div className="chat-page">
-        <div className="chat-surface">
-          <ChatDesktopLayout />
-          <ChatMobileLayout />
+      <ChatThemeBridge>
+        <div className="chat-page">
+          <div className="chat-surface">
+            <ChatDesktopLayout />
+            <ChatMobileLayout />
+          </div>
         </div>
-      </div>
+      </ChatThemeBridge>
     </ChatRuntimeProvider>
   );
 }

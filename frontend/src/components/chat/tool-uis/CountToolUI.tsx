@@ -1,9 +1,8 @@
-﻿/**
- * Tool UI for count_emails.
- * Stats grid with total, unread, read numbers.
- */
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Mail, AlertCircle } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import type { CountResult } from '../types';
 
 export const CountToolUI = makeAssistantToolUI<
@@ -14,64 +13,65 @@ export const CountToolUI = makeAssistantToolUI<
   render: ({ args, result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-inline">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
+          <Mail size={16} style={{ opacity: 0.6 }} />
+          <Typography variant="body2" color="text.secondary">
             Counting emails{args.folder ? ` in ${args.folder}` : ''}...
-          </span>
-        </div>
+          </Typography>
+        </Box>
       );
     }
     if (status.type === 'incomplete') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">
             Failed to count emails: {'reason' in status ? status.reason : 'unknown'}
-          </span>
-        </div>
+          </Typography>
+        </Box>
       );
     }
     if (!result) return null;
     if (result.error) {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{result.error}</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">{result.error}</Typography>
+        </Box>
       );
     }
     const data = result.data;
     if (!data) return null;
     return (
-      <div className="chat-tool-card">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Email Count{data.folder ? ` - ${data.folder}` : ''}
-          </span>
+          </Typography>
           {data.period && (
-            <span className="text-xs text-muted-foreground">{data.period}</span>
+            <Typography variant="caption" color="text.secondary">{data.period}</Typography>
           )}
-        </div>
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div>
-            <div className="text-2xl font-bold">{data.total}</div>
-            <div className="text-xs text-muted-foreground">Total</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.unread}</div>
-            <div className="text-xs text-muted-foreground">Unread</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{data.read}</div>
-            <div className="text-xs text-muted-foreground">Read</div>
-          </div>
-        </div>
+        </Box>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, textAlign: 'center' }}>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>{data.total}</Typography>
+            <Typography variant="caption" color="text.secondary">Total</Typography>
+          </Box>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>{data.unread}</Typography>
+            <Typography variant="caption" color="text.secondary">Unread</Typography>
+          </Box>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{data.read}</Typography>
+            <Typography variant="caption" color="text.secondary">Read</Typography>
+          </Box>
+        </Box>
         {result.summary && (
-          <p className="text-xs text-muted-foreground mt-3 pt-2 border-t text-center">{result.summary}</p>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, pt: 1, borderTop: 1, borderColor: 'divider', textAlign: 'center' }}>
+            {result.summary}
+          </Typography>
         )}
-      </div>
+      </Paper>
     );
   },
 });
-

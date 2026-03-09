@@ -2,6 +2,7 @@
 
 import { BranchPickerPrimitive } from '@assistant-ui/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Box from '@mui/material/Box';
 
 /**
  * Branch picker for navigating between message branches (edit + regenerate).
@@ -14,16 +15,16 @@ export function ChatBranchPicker() {
         className="chat-branch-btn"
         aria-label="Previous branch"
       >
-        <ChevronLeft className="h-3.5 w-3.5" />
+        <ChevronLeft size={14} />
       </BranchPickerPrimitive.Previous>
-      <span className="tabular-nums">
+      <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
         <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
-      </span>
+      </Box>
       <BranchPickerPrimitive.Next
         className="chat-branch-btn"
         aria-label="Next branch"
       >
-        <ChevronRight className="h-3.5 w-3.5" />
+        <ChevronRight size={14} />
       </BranchPickerPrimitive.Next>
     </BranchPickerPrimitive.Root>
   );

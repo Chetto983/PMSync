@@ -1,27 +1,25 @@
-﻿'use client';
+'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
-import {
-  Brain,
-  AlertTriangle,
-  Clock,
-  TrendingUp,
-  MessageSquare,
-} from 'lucide-react';
+import { Brain, AlertTriangle, Clock, TrendingUp, MessageSquare } from 'lucide-react';
+import { Box, Paper, Typography } from '@mui/material';
 import type { AnalysisResult } from '../types';
 
-const sentimentColor: Record<string, string> = {
-  positive: 'bg-[hsl(var(--color-success)/0.1)] text-[hsl(var(--color-success))]',
-  negative: 'bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]',
-  neutral: 'bg-muted text-muted-foreground',
-  mixed: 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]',
+type SentimentKey = 'positive' | 'negative' | 'neutral' | 'mixed';
+type UrgencyKey = 'critical' | 'high' | 'medium' | 'low';
+
+const sentimentSx: Record<SentimentKey, { bgcolor: string; color: string }> = {
+  positive: { bgcolor: 'success.light', color: 'success.main' },
+  negative: { bgcolor: 'error.light', color: 'error.main' },
+  neutral: { bgcolor: 'action.hover', color: 'text.secondary' },
+  mixed: { bgcolor: 'warning.light', color: 'warning.main' },
 };
 
-const urgencyColor: Record<string, string> = {
-  critical: 'bg-[hsl(var(--color-error))] text-white',
-  high: 'bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]',
-  medium: 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]',
-  low: 'bg-muted text-muted-foreground',
+const urgencySx: Record<UrgencyKey, { bgcolor: string; color: string }> = {
+  critical: { bgcolor: 'error.main', color: 'common.white' },
+  high: { bgcolor: 'error.light', color: 'error.main' },
+  medium: { bgcolor: 'warning.light', color: 'warning.main' },
+  low: { bgcolor: 'action.hover', color: 'text.secondary' },
 };
 
 export const AnalysisToolUI = makeAssistantToolUI<
@@ -32,105 +30,108 @@ export const AnalysisToolUI = makeAssistantToolUI<
   render: ({ status, result }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-card">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Brain className="h-4 w-4" />
-            <span className="text-sm">Analyzing email...</span>
-          </div>
-        </div>
+        <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+            <Brain size={16} />
+            <Typography variant="body2">Analyzing email...</Typography>
+          </Box>
+        </Paper>
       );
     }
 
     if (status.type === 'incomplete') {
       return (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-sm">Analysis failed</span>
-          </div>
-        </div>
+        <Box sx={{ borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50', p: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+            <AlertTriangle size={16} />
+            <Typography variant="body2">Analysis failed</Typography>
+          </Box>
+        </Box>
       );
     }
 
     if (!result || result.error) {
       return (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-sm">{result?.error ?? 'Unknown error'}</span>
-          </div>
-        </div>
+        <Box sx={{ borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50', p: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+            <AlertTriangle size={16} />
+            <Typography variant="body2">{result?.error ?? 'Unknown error'}</Typography>
+          </Box>
+        </Box>
       );
     }
 
     const { analysis, subject, from, summary } = result;
+    const sentimentStyle = sentimentSx[(analysis.sentiment as SentimentKey)] ?? sentimentSx.neutral;
+    const urgencyStyle = urgencySx[(analysis.urgency as UrgencyKey)] ?? urgencySx.low;
 
     return (
-      <div className="chat-tool-card space-y-3">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium truncate max-w-[200px]">
-              {subject ?? from}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded-full ${sentimentColor[analysis.sentiment] ?? sentimentColor.neutral}`}
-            >
-              {analysis.sentiment}
-            </span>
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded-full ${urgencyColor[analysis.urgency] ?? urgencyColor.low}`}
-            >
-              {analysis.urgency}
-            </span>
-          </div>
-        </div>
-
-        {/* Summary */}
-        <p className="text-sm text-muted-foreground">{summary}</p>
-
-        {/* Key topics */}
-        {analysis.keyTopics.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {analysis.keyTopics.map((topic) => (
-              <span
-                key={topic}
-                className="text-xs bg-secondary/10 text-secondary-foreground px-2 py-0.5 rounded-full"
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Brain size={16} color="var(--mui-palette-primary-main)" />
+              <Typography
+                variant="body2"
+                fontWeight={500}
+                sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}
               >
-                {topic}
-              </span>
-            ))}
-          </div>
-        )}
+                {subject ?? from}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+              <Box
+                component="span"
+                sx={{ px: 0.75, py: 0.25, fontSize: '0.75rem', borderRadius: '9999px', ...sentimentStyle }}
+              >
+                {analysis.sentiment}
+              </Box>
+              <Box
+                component="span"
+                sx={{ px: 0.75, py: 0.25, fontSize: '0.75rem', borderRadius: '9999px', ...urgencyStyle }}
+              >
+                {analysis.urgency}
+              </Box>
+            </Box>
+          </Box>
 
-        {/* Suggested response */}
-        {analysis.suggestedResponse && (
-          <div className="flex items-start gap-2 text-sm bg-muted/50 rounded-md p-2">
-            <MessageSquare className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
-            <span className="text-muted-foreground">
-              {analysis.suggestedResponse}
-            </span>
-          </div>
-        )}
+          <Typography variant="body2" color="text.secondary">{summary}</Typography>
 
-        {/* Footer: deadline + priority */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {analysis.deadline && (
-            <span className="flex items-center gap-1 text-[hsl(var(--color-warning))]">
-              <Clock className="h-3 w-3" />
-              Deadline: {analysis.deadline}
-            </span>
+          {analysis.keyTopics.length > 0 && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {analysis.keyTopics.map((topic) => (
+                <Box
+                  key={topic}
+                  component="span"
+                  sx={{ px: 1, py: 0.25, fontSize: '0.75rem', borderRadius: '9999px', bgcolor: 'action.selected', color: 'text.secondary' }}
+                >
+                  {topic}
+                </Box>
+              ))}
+            </Box>
           )}
-          <span className="flex items-center gap-1">
-            <TrendingUp className="h-3 w-3" />
-            Priority: {analysis.priority}/10
-          </span>
-        </div>
-      </div>
+
+          {analysis.suggestedResponse && (
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, bgcolor: 'action.hover', borderRadius: 1, p: 1 }}>
+              <MessageSquare size={14} color="var(--mui-palette-primary-main)" style={{ marginTop: 2, flexShrink: 0 }} />
+              <Typography variant="body2" color="text.secondary">{analysis.suggestedResponse}</Typography>
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary' }}>
+            {analysis.deadline && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'warning.main' }}>
+                <Clock size={12} />
+                <Typography variant="caption">Deadline: {analysis.deadline}</Typography>
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <TrendingUp size={12} />
+              <Typography variant="caption">Priority: {analysis.priority}/10</Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
     );
   },
 });
-

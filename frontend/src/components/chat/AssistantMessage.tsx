@@ -3,6 +3,7 @@
 import { MessagePrimitive } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
 import { Bot } from 'lucide-react';
+import Box from '@mui/material/Box';
 import { ChatActionBar } from './ChatActionBar';
 import { ChatBranchPicker } from './ChatBranchPicker';
 import { ChatChainOfThought } from './ChatChainOfThought';
@@ -22,7 +23,7 @@ function HitlPendingActions() {
   if (pending.length === 0) return null;
 
   return (
-    <div className="mt-2 space-y-2">
+    <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
       {pending.map((action) => (
         <HitlApprovalCard
           key={action.executionId}
@@ -33,7 +34,7 @@ function HitlPendingActions() {
           isRejecting={isRejecting}
         />
       ))}
-    </div>
+    </Box>
   );
 }
 
@@ -45,7 +46,7 @@ export function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="chat-message-row chat-message-assistant group">
       <div className="chat-message-avatar">
-        <Bot className="h-4 w-4 text-primary-foreground" />
+        <Bot size={16} style={{ color: 'var(--mui-palette-primary-contrastText)' }} />
       </div>
       <div className="chat-message-main">
         <div className="chat-assistant-bubble">

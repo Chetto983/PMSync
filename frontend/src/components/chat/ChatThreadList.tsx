@@ -5,6 +5,7 @@ import {
   ThreadListItemPrimitive,
 } from '@assistant-ui/react';
 import { Plus, Trash2, MessageSquare } from 'lucide-react';
+import Typography from '@mui/material/Typography';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
@@ -17,14 +18,21 @@ function ThreadListItem() {
     <ThreadListItemPrimitive.Root className="chat-thread-item group">
       <ThreadListItemPrimitive.Trigger className="chat-thread-item-trigger">
         <span className="chat-thread-item-icon">
-          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <MessageSquare
+            size={14}
+            style={{ flexShrink: 0, color: 'var(--mui-palette-text-secondary)' }}
+          />
         </span>
         <span className="chat-thread-item-title">
           <ThreadListItemPrimitive.Title
             fallback={
-              <span className="text-muted-foreground">
+              <Typography
+                component="span"
+                variant="body2"
+                color="text.secondary"
+              >
                 {t.chat.threadList.newChat}
-              </span>
+              </Typography>
             }
           />
         </span>
@@ -33,7 +41,7 @@ function ThreadListItem() {
         className="chat-thread-item-delete"
         aria-label={t.chat.threadList.deleteConfirm}
       >
-        <Trash2 className="h-3.5 w-3.5" />
+        <Trash2 size={14} />
       </ThreadListItemPrimitive.Delete>
     </ThreadListItemPrimitive.Root>
   );
@@ -56,7 +64,7 @@ export function ChatThreadList() {
           className="chat-sidebar-new-btn"
           aria-label={t.chat.threadList.newChat}
         >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          <Plus size={14} strokeWidth={2.5} />
         </ThreadListPrimitive.New>
       </div>
 
@@ -67,11 +75,15 @@ export function ChatThreadList() {
         />
         <div className="chat-sidebar-empty">
           <div className="chat-sidebar-empty-icon">
-            <MessageSquare className="h-5 w-5" />
+            <MessageSquare size={20} />
           </div>
-          <p className="chat-sidebar-empty-text">
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            className="chat-sidebar-empty-text"
+          >
             {t.chat.threadList.noConversations ?? 'No conversations yet'}
-          </p>
+          </Typography>
         </div>
       </div>
     </ThreadListPrimitive.Root>

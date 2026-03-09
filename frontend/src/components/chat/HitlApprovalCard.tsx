@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { AlertTriangle, Check, X, Loader2, Shield } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import type { PendingAction } from '@/lib/api/ai';
 
 // ---------------------------------------------------------------------------
@@ -17,10 +21,10 @@ interface HitlApprovalCardProps {
   isRejecting?: boolean;
 }
 
-const severityBadge: Record<string, string> = {
-  HIGH: 'bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]',
-  MEDIUM: 'bg-[hsl(var(--color-warning)/0.1)] text-[hsl(var(--color-warning))]',
-  LOW: 'bg-muted text-muted-foreground',
+const severityColor: Record<string, { bg: string; color: string }> = {
+  HIGH: { bg: 'error.light', color: 'error.main' },
+  MEDIUM: { bg: 'warning.light', color: 'warning.main' },
+  LOW: { bg: 'action.hover', color: 'text.secondary' },
 };
 
 export function HitlApprovalCard({
@@ -34,61 +38,99 @@ export function HitlApprovalCard({
   const busy = isApproving || isRejecting;
 
   return (
-    <div className="border-2 border-[hsl(var(--color-warning)/0.4)] rounded-lg p-4 bg-[hsl(var(--color-warning)/0.05)] space-y-3">
+    <Box
+      sx={{
+        border: 2,
+        borderColor: 'warning.main',
+        borderRadius: 2,
+        p: 2,
+        bgcolor: (theme) => theme.palette.warning.main + '0D',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 text-[hsl(var(--color-warning))] shrink-0" />
-        <span className="text-sm font-medium">{t.chat.hitl.pendingTitle}</span>
-      </div>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AlertTriangle
+          size={16}
+          style={{ flexShrink: 0, color: 'var(--mui-palette-warning-main)' }}
+        />
+        <Typography variant="body2" fontWeight={500}>
+          {t.chat.hitl.pendingTitle}
+        </Typography>
+      </Box>
 
       {/* Action info */}
-      <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">{action.summary}</p>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <Shield className="h-3 w-3" />
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography variant="body2" color="text.secondary">
+          {action.summary}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.75rem' }}>
+          <Box
+            component="span"
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}
+          >
+            <Shield size={12} />
             {action.actionType}
-          </span>
-          {action.severity && (
-            <span
-              className={`px-1.5 py-0.5 rounded-full ${severityBadge[action.severity] ?? severityBadge.LOW}`}
-            >
-              {action.severity}
-            </span>
-          )}
-        </div>
-      </div>
+          </Box>
+          {action.severity && (() => {
+            const sev = severityColor[action.severity] ?? severityColor.LOW;
+            return (
+              <Chip
+                label={action.severity}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.75rem',
+                  bgcolor: sev.bg,
+                  color: sev.color,
+                  '& .MuiChip-label': { px: 1 },
+                }}
+              />
+            );
+          })()}
+        </Box>
+      </Box>
 
       {/* Buttons */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Button
+          variant="contained"
+          size="small"
           onClick={onApprove}
           disabled={busy}
-          className="bg-[hsl(var(--color-success))] hover:opacity-90 disabled:opacity-50 text-white rounded-md px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors"
+          startIcon={
+            isApproving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />
+          }
+          sx={{
+            bgcolor: 'success.main',
+            '&:hover': { bgcolor: 'success.dark' },
+            textTransform: 'none',
+            fontSize: '0.875rem',
+          }}
         >
-          {isApproving ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Check className="h-3.5 w-3.5" />
-          )}
           {t.chat.hitl.approveLabel}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
           onClick={onReject}
           disabled={busy}
-          className="bg-[hsl(var(--color-error))] hover:opacity-90 disabled:opacity-50 text-white rounded-md px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors"
+          startIcon={
+            isRejecting ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />
+          }
+          sx={{
+            bgcolor: 'error.main',
+            '&:hover': { bgcolor: 'error.dark' },
+            textTransform: 'none',
+            fontSize: '0.875rem',
+          }}
         >
-          {isRejecting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <X className="h-3.5 w-3.5" />
-          )}
           {t.chat.hitl.rejectLabel}
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Box>
+    </Box>
   );
 }
 
@@ -127,56 +169,111 @@ export function HitlApprovalCardFromStatus({
   const isBusy = busy !== null;
 
   return (
-    <div className="border-2 border-[hsl(var(--color-warning)/0.4)] rounded-lg p-4 bg-[hsl(var(--color-warning)/0.05)] space-y-3">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 text-[hsl(var(--color-warning))] shrink-0" />
-        <span className="text-sm font-medium">{t.chat.hitl.pendingTitle}</span>
-      </div>
+    <Box
+      sx={{
+        border: 2,
+        borderColor: 'warning.main',
+        borderRadius: 2,
+        p: 2,
+        bgcolor: (theme) => theme.palette.warning.main + '0D',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AlertTriangle
+          size={16}
+          style={{ flexShrink: 0, color: 'var(--mui-palette-warning-main)' }}
+        />
+        <Typography variant="body2" fontWeight={500}>
+          {t.chat.hitl.pendingTitle}
+        </Typography>
+      </Box>
 
-      <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">
-          Tool <span className="font-mono text-xs">{toolName}</span> requires your approval
-        </p>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography variant="body2" color="text.secondary">
+          Tool{' '}
+          <Box component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+            {toolName}
+          </Box>{' '}
+          requires your approval
+        </Typography>
         {args && Object.keys(args).length > 0 && (
-          <details className="text-xs">
-            <summary className="text-muted-foreground cursor-pointer hover:text-foreground select-none">
+          <Box component="details" sx={{ fontSize: '0.75rem' }}>
+            <Box
+              component="summary"
+              sx={{
+                color: 'text.secondary',
+                cursor: 'pointer',
+                userSelect: 'none',
+                '&:hover': { color: 'text.primary' },
+              }}
+            >
               View parameters
-            </summary>
-            <pre className="mt-1 bg-muted/50 rounded p-2 overflow-x-auto max-h-32">
+            </Box>
+            <Box
+              component="pre"
+              sx={{
+                mt: 0.5,
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                p: 1,
+                overflowX: 'auto',
+                maxHeight: 128,
+                fontSize: '0.75rem',
+              }}
+            >
               {JSON.stringify(args, null, 2)}
-            </pre>
-          </details>
+            </Box>
+          </Box>
         )}
-      </div>
+      </Box>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Button
+          variant="contained"
+          size="small"
           onClick={handleApprove}
           disabled={isBusy}
-          className="bg-[hsl(var(--color-success))] hover:opacity-90 disabled:opacity-50 text-white rounded-md px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors"
+          startIcon={
+            busy === 'approve' ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Check size={14} />
+            )
+          }
+          sx={{
+            bgcolor: 'success.main',
+            '&:hover': { bgcolor: 'success.dark' },
+            textTransform: 'none',
+            fontSize: '0.875rem',
+          }}
         >
-          {busy === 'approve' ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Check className="h-3.5 w-3.5" />
-          )}
           {t.chat.hitl.approveLabel}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
           onClick={handleReject}
           disabled={isBusy}
-          className="bg-[hsl(var(--color-error))] hover:opacity-90 disabled:opacity-50 text-white rounded-md px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors"
+          startIcon={
+            busy === 'reject' ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <X size={14} />
+            )
+          }
+          sx={{
+            bgcolor: 'error.main',
+            '&:hover': { bgcolor: 'error.dark' },
+            textTransform: 'none',
+            fontSize: '0.875rem',
+          }}
         >
-          {busy === 'reject' ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <X className="h-3.5 w-3.5" />
-          )}
           {t.chat.hitl.rejectLabel}
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Box>
+    </Box>
   );
 }

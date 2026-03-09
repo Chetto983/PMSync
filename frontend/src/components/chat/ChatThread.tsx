@@ -2,6 +2,7 @@
 
 import { ThreadPrimitive } from '@assistant-ui/react';
 import { ArrowDown } from 'lucide-react';
+import Box from '@mui/material/Box';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatComposer } from './ChatComposer';
 import { ChatSuggestions } from './ChatSuggestions';
@@ -33,7 +34,7 @@ export function ChatThread() {
       <ThreadPrimitive.ViewportFooter className="chat-thread-footer">
         <div className="chat-thread-footer-inner">
           <ThreadPrimitive.ScrollToBottom className="chat-scroll-bottom-btn">
-            <ArrowDown className="h-4 w-4" />
+            <Box component={ArrowDown} sx={{ width: 16, height: 16 }} />
           </ThreadPrimitive.ScrollToBottom>
           <ChatSuggestions />
           <ChatComposer />

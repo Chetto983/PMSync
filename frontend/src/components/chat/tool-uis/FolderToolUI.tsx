@@ -1,26 +1,49 @@
-﻿/**
- * Tool UI for list_folders.
- * Tree-like list with folder name, unread count badge, total count.
- */
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Folder, AlertCircle } from 'lucide-react';
+import { Box, Paper, Typography } from '@mui/material';
 import type { FolderResult, FolderItem } from '../types';
 
-function FolderRow({ folder }: { folder: FolderItem }) {
+function FolderRow({ folder, isFirst }: { folder: FolderItem; isFirst: boolean }) {
   return (
-    <div
-      className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/30 transition-colors"
-      style={{ paddingLeft: `${8 + folder.level * 16}px` }}
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        py: 0.75,
+        pl: `${8 + folder.level * 16}px`,
+        pr: 1,
+        borderRadius: 1,
+        '&:hover': { bgcolor: 'action.hover' },
+        transition: 'background-color 0.15s ease',
+        ...(isFirst ? {} : { borderTop: 1, borderColor: 'divider' }),
+      }}
     >
-      <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <span className="text-sm flex-1 truncate">{folder.name}</span>
+      <Folder size={14} color="var(--mui-palette-text-secondary)" style={{ flexShrink: 0 }} />
+      <Typography
+        variant="body2"
+        sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
+        {folder.name}
+      </Typography>
       {folder.unreadCount > 0 && (
-        <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--color-info)/0.1)] text-[hsl(var(--color-info))]">
+        <Box
+          component="span"
+          sx={{
+            px: 0.75,
+            py: 0.125,
+            fontSize: '0.625rem',
+            fontWeight: 600,
+            borderRadius: '9999px',
+            bgcolor: 'info.light',
+            color: 'info.main',
+          }}
+        >
           {folder.unreadCount}
-        </span>
+        </Box>
       )}
-      <span className="text-xs text-muted-foreground">{folder.totalCount}</span>
-    </div>
+      <Typography variant="caption" color="text.secondary">{folder.totalCount}</Typography>
+    </Box>
   );
 }
 
@@ -32,51 +55,70 @@ export const FolderToolUI = makeAssistantToolUI<
   render: ({ result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-inline">
-          <Folder className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Loading folders...</span>
-        </div>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: 'fit-content',
+            borderRadius: '10px',
+            border: 1,
+            borderColor: 'divider',
+            bgcolor: 'action.hover',
+            p: 1.5,
+          }}
+        >
+          <Folder size={16} color="var(--mui-palette-text-secondary)" />
+          <Typography variant="body2" color="text.secondary">Loading folders...</Typography>
+        </Box>
       );
     }
+
     if (status.type === 'incomplete') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">
-            Failed to load folders: {'reason' in status ? status.reason : 'unknown'}
-          </span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50' }}>
+          <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+          <Typography variant="body2" color="error.main">
+            Failed to load folders: {'reason' in status ? (status as { reason?: string }).reason : 'unknown'}
+          </Typography>
+        </Box>
       );
     }
+
     if (!result) return null;
+
     if (result.error) {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{result.error}</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50' }}>
+          <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+          <Typography variant="body2" color="error.main">{result.error}</Typography>
+        </Box>
       );
     }
+
     const folders = result.folders ?? [];
+
     return (
-      <div className="chat-tool-card">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="caption" fontWeight={500} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Folders
-          </span>
-          <span className="text-xs text-muted-foreground">{result.count} folder{result.count !== 1 ? 's' : ''}</span>
-        </div>
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {result.count} folder{result.count !== 1 ? 's' : ''}
+          </Typography>
+        </Box>
+
         {folders.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No folders found.</p>
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No folders found.</Typography>
         ) : (
-          <div className="divide-y divide-border/50">
-            {folders.map((f) => (
-              <FolderRow key={f.id} folder={f} />
+          <Box>
+            {folders.map((f, i) => (
+              <FolderRow key={f.id} folder={f} isFirst={i === 0} />
             ))}
-          </div>
+          </Box>
         )}
-      </div>
+      </Paper>
     );
   },
 });
-

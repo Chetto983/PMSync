@@ -1,9 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { Command } from 'cmdk';
 import { useDebounce } from 'use-debounce';
+import {
+  Dialog,
+  TextField,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  ListSubheader,
+  Typography,
+  Box,
+  CircularProgress,
+  Chip,
+  InputAdornment,
+  Divider,
+  alpha,
+} from '@mui/material';
 import {
   Mail,
   Calendar,
@@ -21,7 +36,6 @@ import {
   LogOut,
   Wand2,
   User,
-  Loader2,
 } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -35,7 +49,7 @@ interface CommandItem {
   id: string;
   name: string;
   shortcut?: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number }>;
   action: () => void;
   group: 'navigation' | 'actions' | 'ai' | 'productivity' | 'system';
   keywords?: string[];
@@ -46,7 +60,7 @@ interface SearchResult {
   type: 'email' | 'contact' | 'event';
   title: string;
   subtitle: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number }>;
   action: () => void;
 }
 
@@ -56,6 +70,8 @@ export function CommandPalette() {
   const [debouncedSearch] = useDebounce(search, 300);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const listRef = useRef<HTMLUListElement>(null);
   const router = useRouter();
   const t = useTranslations();
 
@@ -74,14 +90,19 @@ export function CommandPalette() {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
-      if (e.key === 'Escape') {
-        setOpen(false);
-      }
     };
-
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
   }, []);
+
+  // Reset state when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setSearch('');
+      setSearchResults([]);
+      setFocusedIndex(0);
+    }
+  }, [open]);
 
   // Real-time search when user types
   useEffect(() => {
@@ -95,7 +116,6 @@ export function CommandPalette() {
       try {
         const results: SearchResult[] = [];
 
-        // Search emails
         const emails = await emailsApi.searchEmails(debouncedSearch, 5);
         if (emails.length > 0) {
           results.push(
@@ -110,7 +130,6 @@ export function CommandPalette() {
           );
         }
 
-        // Search contacts
         const contactResponse = await contactsApi.listContacts({ search: debouncedSearch, limit: 5 });
         if (contactResponse.contacts.length > 0) {
           results.push(
@@ -136,171 +155,23 @@ export function CommandPalette() {
     performSearch();
   }, [debouncedSearch, router]);
 
-  const runCommand = useCallback((command: () => void) => {
-    setOpen(false);
-    setSearch('');
-    command();
-  }, []);
-
   const commands: CommandItem[] = useMemo(() => [
-    // Navigation
-    {
-      id: 'home',
-      name: t.commandPalette.commands.goToDashboard,
-      shortcut: '⌘1',
-      icon: Home,
-      action: () => router.push('/dashboard'),
-      group: 'navigation',
-      keywords: ['home', 'dashboard', 'main'],
-    },
-    {
-      id: 'inbox',
-      name: t.commandPalette.commands.goToInbox,
-      shortcut: '⌘2',
-      icon: Mail,
-      action: () => router.push('/dashboard/email'),
-      group: 'navigation',
-      keywords: ['email', 'inbox', 'mail'],
-    },
-    {
-      id: 'calendar',
-      name: t.commandPalette.commands.goToCalendar,
-      shortcut: '⌘3',
-      icon: Calendar,
-      action: () => router.push('/dashboard/calendar'),
-      group: 'navigation',
-      keywords: ['calendar', 'events', 'schedule'],
-    },
-    {
-      id: 'contacts',
-      name: t.commandPalette.commands.goToContacts,
-      shortcut: '⌘4',
-      icon: Users,
-      action: () => router.push('/dashboard/contacts'),
-      group: 'navigation',
-      keywords: ['contacts', 'people', 'address'],
-    },
-    {
-      id: 'ai',
-      name: t.commandPalette.commands.goToAiAssistant,
-      shortcut: '⌘5',
-      icon: Sparkles,
-      action: () => router.push('/dashboard/ai'),
-      group: 'navigation',
-      keywords: ['ai', 'assistant', 'smart'],
-    },
-    {
-      id: 'settings',
-      name: t.commandPalette.commands.goToSettings,
-      shortcut: '⌘,',
-      icon: Settings,
-      action: () => router.push('/dashboard/settings'),
-      group: 'navigation',
-      keywords: ['settings', 'preferences', 'config'],
-    },
-    {
-      id: 'analytics',
-      name: t.commandPalette.commands.goToAnalytics,
-      icon: BarChart3,
-      action: () => router.push('/dashboard/analytics'),
-      group: 'navigation',
-      keywords: ['analytics', 'stats', 'metrics'],
-    },
-
-    // Actions
-    {
-      id: 'compose',
-      name: t.commandPalette.commands.composeEmail,
-      shortcut: '⌘N',
-      icon: PenSquare,
-      action: () => router.push('/dashboard/email?compose=true'),
-      group: 'actions',
-      keywords: ['compose', 'new', 'write', 'email'],
-    },
-    {
-      id: 'search',
-      name: t.commandPalette.commands.searchEmails,
-      shortcut: '/',
-      icon: Search,
-      action: () => router.push('/dashboard/email?focus=search'),
-      group: 'actions',
-      keywords: ['search', 'find', 'look'],
-    },
-
-    // AI Features
-    {
-      id: 'ai-summarize',
-      name: t.commandPalette.commands.aiSummarize,
-      shortcut: '⇧S',
-      icon: Sparkles,
-      action: () => {
-        window.dispatchEvent(new CustomEvent('command:ai-summarize'));
-      },
-      group: 'ai',
-      keywords: ['summarize', 'summary', 'ai', 'tldr'],
-    },
-    {
-      id: 'ai-reply',
-      name: t.commandPalette.commands.aiQuickReply,
-      shortcut: '⇧R',
-      icon: Reply,
-      action: () => {
-        window.dispatchEvent(new CustomEvent('command:ai-reply'));
-      },
-      group: 'ai',
-      keywords: ['reply', 'respond', 'ai', 'quick'],
-    },
-    {
-      id: 'ai-compose',
-      name: t.commandPalette.commands.aiComposeContext,
-      shortcut: '⌘J',
-      icon: Wand2,
-      action: () => {
-        window.dispatchEvent(new CustomEvent('command:ai-compose'));
-      },
-      group: 'ai',
-      keywords: ['compose', 'write', 'ai', 'context'],
-    },
-
-    // Productivity
-    {
-      id: 'followups',
-      name: t.commandPalette.commands.viewFollowups,
-      icon: Bell,
-      action: () => router.push('/dashboard?view=followups'),
-      group: 'productivity',
-      keywords: ['followup', 'pending', 'waiting'],
-    },
-    {
-      id: 'deadlines',
-      name: t.commandPalette.commands.viewDeadlines,
-      icon: Clock,
-      action: () => router.push('/dashboard?view=deadlines'),
-      group: 'productivity',
-      keywords: ['deadline', 'due', 'urgent'],
-    },
-    {
-      id: 'stale-contacts',
-      name: t.commandPalette.commands.viewStaleContacts,
-      icon: AlertTriangle,
-      action: () => router.push('/dashboard/contacts?filter=stale'),
-      group: 'productivity',
-      keywords: ['stale', 'inactive', 'reconnect'],
-    },
-
-    // AI Knowledge commands removed — no backend for memories/documents pages
-
-    // System
-    {
-      id: 'logout',
-      name: t.commandPalette.commands.logout,
-      icon: LogOut,
-      action: () => {
-        void handleLogout();
-      },
-      group: 'system',
-      keywords: ['logout', 'signout', 'exit'],
-    },
+    { id: 'home', name: t.commandPalette.commands.goToDashboard, shortcut: '⌘1', icon: Home, action: () => router.push('/dashboard'), group: 'navigation', keywords: ['home', 'dashboard', 'main'] },
+    { id: 'inbox', name: t.commandPalette.commands.goToInbox, shortcut: '⌘2', icon: Mail, action: () => router.push('/dashboard/email'), group: 'navigation', keywords: ['email', 'inbox', 'mail'] },
+    { id: 'calendar', name: t.commandPalette.commands.goToCalendar, shortcut: '⌘3', icon: Calendar, action: () => router.push('/dashboard/calendar'), group: 'navigation', keywords: ['calendar', 'events', 'schedule'] },
+    { id: 'contacts', name: t.commandPalette.commands.goToContacts, shortcut: '⌘4', icon: Users, action: () => router.push('/dashboard/contacts'), group: 'navigation', keywords: ['contacts', 'people', 'address'] },
+    { id: 'ai', name: t.commandPalette.commands.goToAiAssistant, shortcut: '⌘5', icon: Sparkles, action: () => router.push('/dashboard/ai'), group: 'navigation', keywords: ['ai', 'assistant', 'smart'] },
+    { id: 'settings', name: t.commandPalette.commands.goToSettings, shortcut: '⌘,', icon: Settings, action: () => router.push('/dashboard/settings'), group: 'navigation', keywords: ['settings', 'preferences', 'config'] },
+    { id: 'analytics', name: t.commandPalette.commands.goToAnalytics, icon: BarChart3, action: () => router.push('/dashboard/analytics'), group: 'navigation', keywords: ['analytics', 'stats', 'metrics'] },
+    { id: 'compose', name: t.commandPalette.commands.composeEmail, shortcut: '⌘N', icon: PenSquare, action: () => router.push('/dashboard/email?compose=true'), group: 'actions', keywords: ['compose', 'new', 'write', 'email'] },
+    { id: 'search', name: t.commandPalette.commands.searchEmails, shortcut: '/', icon: Search, action: () => router.push('/dashboard/email?focus=search'), group: 'actions', keywords: ['search', 'find', 'look'] },
+    { id: 'ai-summarize', name: t.commandPalette.commands.aiSummarize, shortcut: '⇧S', icon: Sparkles, action: () => { window.dispatchEvent(new CustomEvent('command:ai-summarize')); }, group: 'ai', keywords: ['summarize', 'summary', 'ai', 'tldr'] },
+    { id: 'ai-reply', name: t.commandPalette.commands.aiQuickReply, shortcut: '⇧R', icon: Reply, action: () => { window.dispatchEvent(new CustomEvent('command:ai-reply')); }, group: 'ai', keywords: ['reply', 'respond', 'ai', 'quick'] },
+    { id: 'ai-compose', name: t.commandPalette.commands.aiComposeContext, shortcut: '⌘J', icon: Wand2, action: () => { window.dispatchEvent(new CustomEvent('command:ai-compose')); }, group: 'ai', keywords: ['compose', 'write', 'ai', 'context'] },
+    { id: 'followups', name: t.commandPalette.commands.viewFollowups, icon: Bell, action: () => router.push('/dashboard?view=followups'), group: 'productivity', keywords: ['followup', 'pending', 'waiting'] },
+    { id: 'deadlines', name: t.commandPalette.commands.viewDeadlines, icon: Clock, action: () => router.push('/dashboard?view=deadlines'), group: 'productivity', keywords: ['deadline', 'due', 'urgent'] },
+    { id: 'stale-contacts', name: t.commandPalette.commands.viewStaleContacts, icon: AlertTriangle, action: () => router.push('/dashboard/contacts?filter=stale'), group: 'productivity', keywords: ['stale', 'inactive', 'reconnect'] },
+    { id: 'logout', name: t.commandPalette.commands.logout, icon: LogOut, action: () => { void handleLogout(); }, group: 'system', keywords: ['logout', 'signout', 'exit'] },
   ], [t, router, handleLogout]);
 
   const groupLabels: Record<string, string> = useMemo(() => ({
@@ -311,131 +182,299 @@ export function CommandPalette() {
     system: t.commandPalette.system,
   }), [t]);
 
-  const groupedCommands = commands.reduce(
-    (acc, cmd) => {
-      if (!acc[cmd.group]) {
-        acc[cmd.group] = [];
+  // Filter commands by search query
+  const filteredCommands = useMemo(() => {
+    if (!search || search.length < 2) return commands;
+    const lower = search.toLowerCase();
+    return commands.filter(
+      (cmd) =>
+        cmd.name.toLowerCase().includes(lower) ||
+        cmd.keywords?.some((kw) => kw.includes(lower)),
+    );
+  }, [commands, search]);
+
+  const groupedCommands = useMemo(() => {
+    return filteredCommands.reduce(
+      (acc, cmd) => {
+        if (!acc[cmd.group]) acc[cmd.group] = [];
+        acc[cmd.group].push(cmd);
+        return acc;
+      },
+      {} as Record<string, CommandItem[]>,
+    );
+  }, [filteredCommands]);
+
+  // Flat list for keyboard navigation
+  const flatItems = useMemo(() => {
+    const hasSearchResults = searchResults.length > 0;
+    const showCommands = !search || search.length < 2;
+
+    if (hasSearchResults && !isSearching) {
+      return searchResults.map((r) => ({ id: r.id, action: r.action }));
+    }
+    if (showCommands) {
+      return filteredCommands.map((c) => ({ id: c.id, action: c.action }));
+    }
+    return [];
+  }, [searchResults, isSearching, search, filteredCommands]);
+
+  const runCommand = useCallback((action: () => void) => {
+    setOpen(false);
+    action();
+  }, []);
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.min(prev + 1, flatItems.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setFocusedIndex((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter' && flatItems[focusedIndex]) {
+        e.preventDefault();
+        runCommand(flatItems[focusedIndex].action);
       }
-      acc[cmd.group].push(cmd);
-      return acc;
     },
-    {} as Record<string, CommandItem[]>,
+    [flatItems, focusedIndex, runCommand],
   );
 
-  // Show search results when searching, commands otherwise
+  // Reset focus index when items change
+  useEffect(() => {
+    setFocusedIndex(0);
+  }, [flatItems.length]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (!listRef.current) return;
+    const items = listRef.current.querySelectorAll('[data-command-item]');
+    items[focusedIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [focusedIndex]);
+
   const hasSearchResults = searchResults.length > 0;
   const showCommands = !search || search.length < 2;
 
-  if (!open) return null;
+  // Track which flat index each rendered item corresponds to
+  let itemCounter = 0;
 
   return (
-    <div className="fixed inset-0 z-[9999]">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => setOpen(false)}
+    <Dialog
+      open={open}
+      onClose={() => setOpen(false)}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            position: 'fixed',
+            top: '20%',
+            m: 0,
+            borderRadius: 3,
+            overflow: 'hidden',
+            maxHeight: '60vh',
+          },
+        },
+        backdrop: {
+          sx: { backdropFilter: 'blur(4px)' },
+        },
+      }}
+      onKeyDown={handleKeyDown}
+    >
+      <TextField
+        autoFocus
+        fullWidth
+        placeholder={t.commandPalette.searchPlaceholder}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        variant="outlined"
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={20} />
+              </InputAdornment>
+            ),
+            sx: {
+              fontSize: '1.1rem',
+              '& fieldset': { border: 'none' },
+            },
+          },
+        }}
+        sx={{ px: 1, pt: 1 }}
       />
 
-      {/* Command Dialog */}
-      <div className="absolute left-1/2 top-1/4 w-full max-w-xl -translate-x-1/2">
-        <Command
-          className="rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
-          loop
-          shouldFilter={showCommands}
-        >
-          <Command.Input
-            placeholder={t.commandPalette.searchPlaceholder}
-            className="w-full border-b border-gray-200 bg-transparent px-4 py-4 text-lg outline-none placeholder:text-gray-400 dark:border-gray-700 dark:text-white dark:placeholder:text-gray-500"
-            value={search}
-            onValueChange={setSearch}
-            autoFocus
-          />
+      <Divider />
 
-          <Command.List className="max-h-80 overflow-y-auto p-2">
-            {isSearching && (
-              <div className="flex items-center justify-center py-8 text-gray-500">
-                <Loader2 size={20} className="animate-spin mr-2" />
-                Searching...
-              </div>
-            )}
+      <List
+        ref={listRef}
+        dense
+        sx={{ maxHeight: 320, overflow: 'auto', py: 1, px: 1 }}
+      >
+        {isSearching && (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={20} sx={{ mr: 1 }} />
+            <Typography variant="body2" color="text.secondary">
+              Searching...
+            </Typography>
+          </Box>
+        )}
 
-            {!isSearching && search.length >= 2 && searchResults.length === 0 && (
-              <Command.Empty className="px-4 py-8 text-center text-sm text-gray-500">
-                {t.commandPalette.noResults}
-              </Command.Empty>
-            )}
+        {!isSearching && search.length >= 2 && !hasSearchResults && filteredCommands.length === 0 && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ textAlign: 'center', py: 4 }}
+          >
+            {t.commandPalette.noResults}
+          </Typography>
+        )}
 
-            {/* Search Results */}
-            {hasSearchResults && !isSearching && (
-              <Command.Group heading="Search Results" className="mb-2">
-                <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Search Results
-                </div>
-                {searchResults.map((result) => (
-                  <Command.Item
-                    key={result.id}
-                    value={result.id}
-                    onSelect={() => runCommand(result.action)}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 aria-selected:bg-blue-50 aria-selected:text-blue-700 dark:text-gray-200 dark:hover:bg-gray-800 dark:aria-selected:bg-blue-900/30 dark:aria-selected:text-blue-400"
-                  >
-                    <result.icon size={18} className="shrink-0 opacity-60" />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{result.title}</div>
-                      <div className="truncate text-xs text-gray-400">{result.subtitle}</div>
-                    </div>
-                    <span className="text-xs text-gray-400 capitalize">{result.type}</span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
+        {/* Search Results */}
+        {hasSearchResults && !isSearching && (
+          <>
+            <ListSubheader
+              sx={{
+                lineHeight: '28px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'text.secondary',
+                bgcolor: 'transparent',
+              }}
+            >
+              Search Results
+            </ListSubheader>
+            {searchResults.map((result) => {
+              const idx = itemCounter++;
+              return (
+                <ListItemButton
+                  key={result.id}
+                  data-command-item
+                  selected={focusedIndex === idx}
+                  onClick={() => runCommand(result.action)}
+                  sx={{ borderRadius: 2, mb: 0.25 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <result.icon size={18} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={result.title}
+                    secondary={result.subtitle}
+                    primaryTypographyProps={{ noWrap: true, fontSize: '0.875rem' }}
+                    secondaryTypographyProps={{ noWrap: true, fontSize: '0.75rem' }}
+                  />
+                  <Chip
+                    label={result.type}
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontSize: '0.65rem', height: 20, textTransform: 'capitalize' }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </>
+        )}
 
-            {/* Commands - shown when not searching or no search results */}
-            {showCommands && Object.entries(groupedCommands).map(([group, items]) => (
-              <Command.Group
-                key={group}
-                heading={groupLabels[group]}
-                className="mb-2"
+        {/* Commands */}
+        {showCommands &&
+          Object.entries(groupedCommands).map(([group, items]) => (
+            <Box key={group}>
+              <ListSubheader
+                sx={{
+                  lineHeight: '28px',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'text.secondary',
+                  bgcolor: 'transparent',
+                }}
               >
-                <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  {groupLabels[group]}
-                </div>
-                {items.map((item) => (
-                  <Command.Item
+                {groupLabels[group]}
+              </ListSubheader>
+              {items.map((item) => {
+                const idx = itemCounter++;
+                return (
+                  <ListItemButton
                     key={item.id}
-                    value={`${item.name} ${item.keywords?.join(' ') || ''}`}
-                    onSelect={() => runCommand(item.action)}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 aria-selected:bg-blue-50 aria-selected:text-blue-700 dark:text-gray-200 dark:hover:bg-gray-800 dark:aria-selected:bg-blue-900/30 dark:aria-selected:text-blue-400"
+                    data-command-item
+                    selected={focusedIndex === idx}
+                    onClick={() => runCommand(item.action)}
+                    sx={{ borderRadius: 2, mb: 0.25 }}
                   >
-                    <item.icon size={18} className="shrink-0 opacity-60" />
-                    <span className="flex-1">{item.name}</span>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <item.icon size={18} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.name}
+                      primaryTypographyProps={{ fontSize: '0.875rem' }}
+                    />
                     {item.shortcut && (
-                      <kbd className="ml-auto rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                      <Typography
+                        component="kbd"
+                        variant="caption"
+                        sx={{
+                          ml: 'auto',
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 1,
+                          bgcolor: (t) => alpha(t.palette.text.primary, 0.06),
+                          color: 'text.secondary',
+                          fontFamily: 'inherit',
+                          fontSize: '0.7rem',
+                          fontWeight: 500,
+                        }}
+                      >
                         {item.shortcut}
-                      </kbd>
+                      </Typography>
                     )}
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            ))}
-          </Command.List>
+                  </ListItemButton>
+                );
+              })}
+            </Box>
+          ))}
+      </List>
 
-          <div className="flex items-center justify-between border-t border-gray-200 px-4 py-2 text-xs text-gray-400 dark:border-gray-700">
-            <div className="flex items-center gap-2">
-              <kbd className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">↑↓</kbd>
-              <span>{t.commandPalette.navigate}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">↵</kbd>
-              <span>{t.commandPalette.select}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">esc</kbd>
-              <span>{t.commandPalette.close}</span>
-            </div>
-          </div>
-        </Command>
-      </div>
-    </div>
+      {/* Footer hints */}
+      <Divider />
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2,
+          py: 1,
+        }}
+      >
+        {[
+          { key: '↑↓', label: t.commandPalette.navigate },
+          { key: '↵', label: t.commandPalette.select },
+          { key: 'esc', label: t.commandPalette.close },
+        ].map(({ key, label }) => (
+          <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography
+              component="kbd"
+              variant="caption"
+              sx={{
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 1,
+                bgcolor: (t) => alpha(t.palette.text.primary, 0.06),
+                fontSize: '0.65rem',
+                fontFamily: 'inherit',
+              }}
+            >
+              {key}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {label}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Dialog>
   );
 }
 

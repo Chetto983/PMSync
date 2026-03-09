@@ -24,7 +24,7 @@ export function ChatEmptyState() {
     <div className="chat-empty-state">
       {/* Icon */}
       <div className="chat-empty-icon">
-        <Sparkles className="h-7 w-7" />
+        <Sparkles size={28} />
       </div>
 
       {/* Title */}
@@ -38,19 +38,19 @@ export function ChatEmptyState() {
       {/* Clickable capability cards */}
       <div className="chat-capability-grid">
         <CapabilityCard
-          icon={<Mail className="h-4 w-4" />}
+          icon={<Mail size={16} />}
           color="email"
           label={t.chat.emptyState.capEmail ?? 'Search and manage emails'}
           onClick={() => sendPrompt(t.chat.emptyState.capEmailPrompt ?? 'Show my unread emails from today')}
         />
         <CapabilityCard
-          icon={<Calendar className="h-4 w-4" />}
+          icon={<Calendar size={16} />}
           color="calendar"
           label={t.chat.emptyState.capCalendar ?? 'Check calendar and schedule'}
           onClick={() => sendPrompt(t.chat.emptyState.capCalendarPrompt ?? 'What meetings do I have today?')}
         />
         <CapabilityCard
-          icon={<Users className="h-4 w-4" />}
+          icon={<Users size={16} />}
           color="contacts"
           label={t.chat.emptyState.capContacts ?? 'Find and manage contacts'}
           onClick={() => sendPrompt(t.chat.emptyState.capContactsPrompt ?? 'Who are my most recent contacts?')}

@@ -1,38 +1,56 @@
-﻿'use client';
+'use client';
 
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Users, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
+import { Box, Paper, Typography } from '@mui/material';
 import type { CrmResult, CrmContactStat } from '../types';
 
-function ContactStatCard({ contact }: { contact: CrmContactStat }) {
+function ContactStatCard({ contact, isFirst }: { contact: CrmContactStat; isFirst: boolean }) {
   const scorePercent = Math.min(Math.round(contact.relationshipScore), 100);
   const scoreColor =
-    scorePercent >= 70 ? 'bg-[hsl(var(--color-success))]' : scorePercent >= 40 ? 'bg-[hsl(var(--color-warning))]' : 'bg-[hsl(var(--color-error))]';
+    scorePercent >= 70 ? 'success.main' : scorePercent >= 40 ? 'warning.main' : 'error.main';
 
   return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{contact.displayName}</p>
-        <p className="text-xs text-muted-foreground truncate">{contact.email}</p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {/* Score bar */}
-        <div className="flex items-center gap-1.5">
-          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full ${scoreColor}`}
-              style={{ width: `${scorePercent}%` }}
-            />
-          </div>
-          <span className="text-xs font-medium w-7 text-right">{scorePercent}%</span>
-        </div>
-        {/* Interaction count */}
-        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-          <TrendingUp className="h-2.5 w-2.5" />
-          {contact.interactionCount}
-        </span>
-      </div>
-    </div>
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        py: 1,
+        ...(isFirst ? {} : { borderTop: 1, borderColor: 'divider' }),
+      }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="body2"
+          fontWeight={500}
+          sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {contact.displayName}
+        </Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+        >
+          {contact.email}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Box sx={{ width: 64, height: 6, bgcolor: 'action.hover', borderRadius: '9999px', overflow: 'hidden' }}>
+            <Box sx={{ height: '100%', borderRadius: '9999px', bgcolor: scoreColor, width: `${scorePercent}%` }} />
+          </Box>
+          <Typography variant="caption" fontWeight={500} sx={{ width: 28, textAlign: 'right' }}>
+            {scorePercent}%
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, color: 'text.secondary' }}>
+          <TrendingUp size={10} />
+          <Typography variant="caption">{contact.interactionCount}</Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
@@ -44,55 +62,59 @@ export const CrmToolUI = makeAssistantToolUI<
   render: ({ status, result }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-card">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span className="text-sm">Loading relationship data...</span>
-          </div>
-        </div>
+        <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+            <Users size={16} />
+            <Typography variant="body2">Loading relationship data...</Typography>
+          </Box>
+        </Paper>
       );
     }
 
     if (status.type === 'incomplete' || !result || result.error) {
       return (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-sm">{result?.error ?? 'Failed to load CRM data'}</span>
-          </div>
-        </div>
+        <Box sx={{ borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50', p: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+            <AlertTriangle size={16} />
+            <Typography variant="body2">{result?.error ?? 'Failed to load CRM data'}</Typography>
+          </Box>
+        </Box>
       );
     }
 
     return (
-      <div className="chat-tool-card">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">Relationship Stats</span>
-          </div>
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Users size={16} color="var(--mui-palette-primary-main)" />
+            <Typography variant="body2" fontWeight={500}>Relationship Stats</Typography>
+          </Box>
           {result.averageScore != null && (
-            <span className="text-xs text-muted-foreground">
+            <Typography variant="caption" color="text.secondary">
               Avg: {Math.round(result.averageScore)}%
-            </span>
+            </Typography>
           )}
-        </div>
+        </Box>
+
         {result.summary && (
-          <p className="text-xs text-muted-foreground mb-2">{result.summary}</p>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            {result.summary}
+          </Typography>
         )}
-        <div className="divide-y divide-border">
-          {result.contacts.map((c) => (
-            <ContactStatCard key={c.contactId} contact={c} />
+
+        <Box>
+          {result.contacts.map((c, i) => (
+            <ContactStatCard key={c.contactId} contact={c} isFirst={i === 0} />
           ))}
-        </div>
+        </Box>
+
         {result.contacts.some((c) => c.staleDays != null && c.staleDays > 30) && (
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-[hsl(var(--color-warning))]">
-            <Clock className="h-3 w-3" />
-            Some contacts may need re-engagement
-          </div>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1, color: 'warning.main' }}>
+            <Clock size={12} />
+            <Typography variant="caption">Some contacts may need re-engagement</Typography>
+          </Box>
         )}
-      </div>
+      </Paper>
     );
   },
 });
-

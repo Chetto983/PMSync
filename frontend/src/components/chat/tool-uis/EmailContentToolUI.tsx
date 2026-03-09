@@ -1,9 +1,8 @@
-﻿/**
- * Tool UI for get_email_content.
- * Renders email card(s) with from, to, subject, date, content preview, attachment badges.
- */
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Mail, Paperclip, AlertCircle } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import type { EmailContentResult, EmailContentItem } from '../types';
 
 function formatDate(iso: string | null): string {
@@ -23,38 +22,45 @@ function truncate(text: string, max: number): string {
 
 function EmailCard({ email }: { email: EmailContentItem }) {
   return (
-    <div className="chat-tool-card">
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="text-sm font-medium truncate">{email.from}</span>
-        </div>
-        <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          <Mail size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
+          <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {email.from}
+          </Typography>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
           {formatDate(email.date)}
-        </span>
-      </div>
-      <h4 className="text-sm font-semibold mb-1 truncate">{email.subject ?? '(no subject)'}</h4>
-      <div className="text-xs text-muted-foreground mb-2">
-        <span>To: {email.to.join(', ')}</span>
-        {email.cc.length > 0 && <span className="ml-2">Cc: {email.cc.join(', ')}</span>}
-      </div>
-      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
+        </Typography>
+      </Box>
+      <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {email.subject ?? '(no subject)'}
+      </Typography>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          To: {email.to.join(', ')}
+          {email.cc.length > 0 && <Box component="span" sx={{ ml: 1 }}>Cc: {email.cc.join(', ')}</Box>}
+        </Typography>
+      </Box>
+      <Typography variant="body2" sx={{ opacity: 0.8, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
         {truncate(email.content, 500)}
-      </p>
+      </Typography>
       {email.hasAttachments && email.attachments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t">
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
           {email.attachments.map((name, i) => (
-            <span
+            <Box
               key={i}
-              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-muted text-muted-foreground"
+              component="span"
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.25, fontSize: '0.75rem', borderRadius: '9999px', bgcolor: 'action.hover', color: 'text.secondary' }}
             >
-              <Paperclip className="h-3 w-3" />
+              <Paperclip size={12} />
               {name}
-            </span>
+            </Box>
           ))}
-        </div>
+        </Box>
       )}
-    </div>
+    </Paper>
   );
 }
 
@@ -66,42 +72,45 @@ export const EmailContentToolUI = makeAssistantToolUI<
   render: ({ result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-inline">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Loading email content...</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
+          <Mail size={16} style={{ opacity: 0.6 }} />
+          <Typography variant="body2" color="text.secondary">Loading email content...</Typography>
+        </Box>
       );
     }
     if (status.type === 'incomplete') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">
             Failed to load email: {'reason' in status ? status.reason : 'unknown'}
-          </span>
-        </div>
+          </Typography>
+        </Box>
       );
     }
     if (!result) return null;
     if (result.error) {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{result.error}</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">{result.error}</Typography>
+        </Box>
       );
     }
     const emails = result.emails ?? [];
     if (emails.length === 0) {
-      return <p className="text-sm text-muted-foreground p-3">No email content found.</p>;
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
+          No email content found.
+        </Typography>
+      );
     }
     return (
-      <div className="space-y-2">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {emails.map((email) => (
           <EmailCard key={email.id} email={email} />
         ))}
-      </div>
+      </Box>
     );
   },
 });
-

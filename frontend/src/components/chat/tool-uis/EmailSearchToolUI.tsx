@@ -1,9 +1,8 @@
-﻿/**
- * Tool UIs for search_emails, list_emails, and semantic_search_emails.
- * All three share the same result shape (EmailSearchResult) and visual layout.
- */
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { Search, Mail, Star, AlertCircle } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import type { EmailSearchResult, EmailSearchItem } from '../types';
 
 function formatDate(iso: string | null): string {
@@ -20,59 +19,86 @@ function sentimentDot(sentiment: string | null) {
   if (!sentiment) return null;
   const color =
     sentiment === 'positive'
-      ? 'bg-[hsl(var(--color-success))]'
+      ? 'success.main'
       : sentiment === 'negative'
-        ? 'bg-[hsl(var(--color-error))]'
-        : 'bg-[hsl(var(--color-warning))]';
-  return <span className={`inline-block w-2 h-2 rounded-full ${color}`} title={sentiment} />;
+        ? 'error.main'
+        : 'warning.main';
+  return (
+    <Box
+      component="span"
+      title={sentiment}
+      sx={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }}
+    />
+  );
 }
 
 function priorityBadge(priority: number | null) {
   if (priority == null || priority < 7) return null;
   return (
-    <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[hsl(var(--color-error)/0.1)] text-[hsl(var(--color-error))]">
+    <Box
+      component="span"
+      sx={{ px: 0.75, py: 0.25, fontSize: '0.625rem', fontWeight: 600, borderRadius: 0.5, bgcolor: 'error.light', color: 'error.main' }}
+    >
       P{priority}
-    </span>
+    </Box>
   );
 }
 
-function EmailRow({ item }: { item: EmailSearchItem }) {
+function EmailRow({ item, isFirst }: { item: EmailSearchItem; isFirst: boolean }) {
   return (
-    <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 transition-colors">
-      <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className={`text-sm truncate ${item.isRead === false ? 'font-semibold' : ''}`}>
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        py: 0.75,
+        px: 1,
+        borderRadius: 1,
+        borderTop: isFirst ? 0 : 1,
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover' },
+        transition: 'background-color 0.15s ease',
+      }}
+    >
+      <Mail size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: item.isRead === false ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
             {item.from}
-          </span>
-          {item.isStarred && <Star className="h-3 w-3 text-[hsl(var(--color-warning))] fill-[hsl(var(--color-warning))] shrink-0" />}
+          </Typography>
+          {item.isStarred && <Star size={12} style={{ flexShrink: 0, fill: 'currentColor', color: '#ed6c02' }} />}
           {priorityBadge(item.aiPriority)}
           {sentimentDot(item.aiSentiment)}
-          <span className="text-xs text-muted-foreground ml-auto shrink-0">
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', flexShrink: 0 }}>
             {formatDate(item.receivedAt)}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground truncate">{item.subject ?? '(no subject)'}</p>
-      </div>
-    </div>
+          </Typography>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+          {item.subject ?? '(no subject)'}
+        </Typography>
+      </Box>
+    </Box>
   );
 }
 
 function RunningState({ label }: { label: string }) {
   return (
-    <div className="chat-tool-running-inline">
-      <Search className="h-4 w-4 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">{label}</span>
-    </div>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
+      <Search size={16} style={{ opacity: 0.6 }} />
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+    </Box>
   );
 }
 
 function ErrorState({ reason }: { reason: string }) {
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-      <AlertCircle className="h-4 w-4 text-destructive" />
-      <span className="text-sm text-destructive">Search failed: {reason}</span>
-    </div>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+      <AlertCircle size={16} />
+      <Typography variant="body2" color="error.main">Search failed: {reason}</Typography>
+    </Box>
   );
 }
 
@@ -82,26 +108,30 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
   }
   const items = result.data ?? [];
   return (
-    <div className="chat-tool-card">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {label}
-        </span>
-        <span className="text-xs text-muted-foreground">{items.length} result{items.length !== 1 ? 's' : ''}</span>
-      </div>
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {items.length} result{items.length !== 1 ? 's' : ''}
+        </Typography>
+      </Box>
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-2">No emails found.</p>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No emails found.</Typography>
       ) : (
-        <div className="divide-y divide-border">
-          {items.map((item) => (
-            <EmailRow key={item.id} item={item} />
+        <Box>
+          {items.map((item, idx) => (
+            <EmailRow key={item.id} item={item} isFirst={idx === 0} />
           ))}
-        </div>
+        </Box>
       )}
       {result.summary && (
-        <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">{result.summary}</p>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+          {result.summary}
+        </Typography>
       )}
-    </div>
+    </Paper>
   );
 }
 
@@ -143,4 +173,3 @@ export const SemanticSearchToolUI = makeAssistantToolUI<
     return <ResultCard result={result} label="Semantic Search" />;
   },
 });
-

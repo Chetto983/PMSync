@@ -1,9 +1,8 @@
-﻿/**
- * Tool UI for list_email_index.
- * Compact table with idx, from, subject, date, unread indicator.
- */
 import { makeAssistantToolUI } from '@assistant-ui/react';
 import { List, AlertCircle } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import type { EmailIndexResult } from '../types';
 
 function formatDate(iso: string): string {
@@ -23,76 +22,85 @@ export const EmailListToolUI = makeAssistantToolUI<
   render: ({ args, result, status }) => {
     if (status.type === 'running') {
       return (
-        <div className="chat-tool-running-inline">
-          <List className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Loading email index...</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
+          <List size={16} style={{ color: 'inherit', opacity: 0.6 }} />
+          <Typography variant="body2" color="text.secondary">Loading email index...</Typography>
+        </Box>
       );
     }
     if (status.type === 'incomplete') {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">
             Failed to load index: {'reason' in status ? status.reason : 'unknown'}
-          </span>
-        </div>
+          </Typography>
+        </Box>
       );
     }
     if (!result) return null;
     if (result.error) {
       return (
-        <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{result.error}</span>
-        </div>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+          <AlertCircle size={16} />
+          <Typography variant="body2" color="error.main">{result.error}</Typography>
+        </Box>
       );
     }
     const items = result.index ?? [];
     return (
-      <div className="chat-tool-card">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Email Index{args.folder ? ` - ${args.folder}` : ''}
-          </span>
-          <span className="text-xs text-muted-foreground">{result.count} email{result.count !== 1 ? 's' : ''}</span>
-        </div>
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {result.count} email{result.count !== 1 ? 's' : ''}
+          </Typography>
+        </Box>
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No emails in index.</p>
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No emails in index.</Typography>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="py-1 pr-2 text-left w-8">#</th>
-                  <th className="py-1 pr-2 text-left">From</th>
-                  <th className="py-1 pr-2 text-left">Subject</th>
-                  <th className="py-1 text-right">Date</th>
-                </tr>
-              </thead>
-              <tbody>
+          <Box sx={{ overflowX: 'auto' }}>
+            <Box component="table" sx={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+              <Box component="thead">
+                <Box component="tr" sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', width: 32, color: 'text.secondary', fontWeight: 500 }}>#</Box>
+                  <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', color: 'text.secondary', fontWeight: 500 }}>From</Box>
+                  <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', color: 'text.secondary', fontWeight: 500 }}>Subject</Box>
+                  <Box component="th" sx={{ py: 0.5, textAlign: 'right', color: 'text.secondary', fontWeight: 500 }}>Date</Box>
+                </Box>
+              </Box>
+              <Box component="tbody">
                 {items.map((item) => (
-                  <tr
+                  <Box
+                    component="tr"
                     key={item.id}
-                    className={`border-b border-border/50 hover:bg-muted/30 ${item.unread ? 'font-semibold' : ''}`}
+                    sx={{
+                      borderBottom: 1,
+                      borderColor: 'divider',
+                      fontWeight: item.unread ? 600 : 400,
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
                   >
-                    <td className="py-1 pr-2 text-muted-foreground">{item.idx}</td>
-                    <td className="py-1 pr-2 truncate max-w-[120px]">{item.from}</td>
-                    <td className="py-1 pr-2 truncate max-w-[200px]">{item.subject}</td>
-                    <td className="py-1 text-right text-muted-foreground whitespace-nowrap">
+                    <Box component="td" sx={{ py: 0.5, pr: 1, color: 'text.secondary' }}>{item.idx}</Box>
+                    <Box component="td" sx={{ py: 0.5, pr: 1, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.from}</Box>
+                    <Box component="td" sx={{ py: 0.5, pr: 1, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.subject}</Box>
+                    <Box component="td" sx={{ py: 0.5, textAlign: 'right', color: 'text.secondary', whiteSpace: 'nowrap' }}>
                       {formatDate(item.date)}
-                    </td>
-                  </tr>
+                    </Box>
+                  </Box>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Box>
+            </Box>
+          </Box>
         )}
         {result.hint && (
-          <p className="text-xs text-muted-foreground mt-2 pt-2 border-t italic">{result.hint}</p>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, pt: 1, borderTop: 1, borderColor: 'divider', fontStyle: 'italic' }}>
+            {result.hint}
+          </Typography>
         )}
-      </div>
+      </Paper>
     );
   },
 });
-
