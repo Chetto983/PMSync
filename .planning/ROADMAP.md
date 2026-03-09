@@ -226,9 +226,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 58-01-PLAN.md -- Audit hooks + guard relocation— Audit hooks + guard relocation
-- [ ] 58-02-PLAN.md -- Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)— Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)
-- [ ] 58-03-PLAN.md -- Auth test suite (partial, no org/admin)— Auth test suite (partial, no org/admin)
+- [ ] 58-01-PLAN.md -- Audit hooks + guard relocationï¿½ Audit hooks + guard relocation
+- [ ] 58-02-PLAN.md -- Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)ï¿½ Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)
+- [ ] 58-03-PLAN.md -- Auth test suite (partial, no org/admin)ï¿½ Auth test suite (partial, no org/admin)
 
 ### Phase 59: Safety Hardening
 **Goal**: Critical and high-severity security findings from architecture audit are fixed -- secrets purged from git, rate limiting enforced, injection vectors closed, JWT removed, production exposure locked down
@@ -245,7 +245,7 @@ Plans:
   8. Swagger inaccessible in production
   9. .env removed from git history
   10. All secrets rotated
-**Plans:** 5 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 59-01-PLAN.md â€” SQL injection fixes, DTO hardening, database indexes
@@ -272,7 +272,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 55. Social Login & MFA | 5/5 | Complete    | 2026-03-09 | - |
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
-| 58. Compliance & Cleanup | v5.0 | 0/TBD | Not started | - |
+| 58. Compliance & Cleanup | 1/3 | In Progress|  | - |
 | 59. Safety Hardening | v5.0 | 0/4 | Planned | - |
 
 ---

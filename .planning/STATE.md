@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Phase 58 context gathered
-last_updated: "2026-03-09T15:38:40.493Z"
+stopped_at: Completed 58-01-PLAN.md
+last_updated: "2026-03-09T16:03:22.947Z"
 last_activity: 2026-03-09 -- Phase 55 Plan 03 complete (onboarding wizard + middleware)
 progress:
   total_phases: 10
   completed_phases: 6
-  total_plans: 19
-  completed_plans: 15
+  total_plans: 22
+  completed_plans: 16
   percent: 79
 ---
 
@@ -101,6 +101,7 @@ Progress: [████████████████████] 12/14 p
 | Phase 55 P04 | 12min | 2 tasks | 8 files |
 | Phase 55 P02 | 8min | 2 tasks | 9 files |
 | Phase 55 P05 | 8min | 1 tasks | 18 files |
+| Phase 58 P01 | 4min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -153,6 +154,8 @@ Progress: [████████████████████] 12/14 p
 - [Phase 55]: [55-02] listUserPasskeys (not listPasskeys) is correct better-auth passkey method
 - [Phase 55]: [55-02] authClient.setPassword cast needed -- types not exposed without open-api plugin
 - [Phase 55]: Removed MFA challenge/passkey/WebAuthn endpoints from NestJS auth -- better-auth plugins handle all MFA now
+- [Phase 58]: Exported getRequestIp from better-auth.instance.ts rather than duplicating
+- [Phase 58]: Guards copied (not moved) to common/auth/ -- old files preserved for Plan 02 full directory deletion
 
 ### Pending Todos
 
@@ -170,6 +173,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T15:38:40.489Z
-Stopped at: Phase 58 context gathered
-Resume file: .planning/phases/58-compliance-cleanup/58-CONTEXT.md
+Last session: 2026-03-09T16:03:22.941Z
+Stopped at: Completed 58-01-PLAN.md
+Resume file: None
