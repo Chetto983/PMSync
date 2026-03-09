@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
+stopped_at: Completed 55-04-PLAN.md
+last_updated: "2026-03-09T15:01:01.436Z"
+last_activity: 2026-03-09 -- Phase 55 Plan 03 complete (onboarding wizard + middleware)
+progress:
+  total_phases: 10
+  completed_phases: 5
+  total_plans: 19
+  completed_plans: 14
+  percent: 74
+---
+
+---
+gsd_state_version: 1.0
+milestone: v5.0
+milestone_name: better-auth Migration
+status: executing
 stopped_at: Completed 55-01-PLAN.md
 last_updated: "2026-03-09T14:54:38.941Z"
 last_activity: 2026-03-09 -- Phase 55 Plan 01 complete (social login + 2FA plugins wired)
 progress:
-  total_phases: 10
+  [███████░░░] 74%
   completed_phases: 5
   total_plans: 19
   completed_plans: 12
@@ -66,6 +82,8 @@ Progress: [████████████████████] 12/14 p
 | 55 - Social Login & MFA | 3/4 | 16 min | 5.3 min |
 
 *Updated after each plan completion*
+| Phase 55 P04 | 12min | 2 tasks | 8 files |
+| Phase 55 P02 | 8min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -112,6 +130,11 @@ Progress: [████████████████████] 12/14 p
 - [55-03] Cookie-based onboarding check in Edge middleware (no DB calls); real validation in page via useSession()
 - [55-03] StepProps in types.ts re-exported from OnboardingWizard for Plan 04 consumers
 - [55-03] Cast session.user as SessionUser at page level (better-auth types miss additionalFields)
+- [Phase 55]: [55-04] Email provider detection via domain heuristic, avatar as base64 via authClient, MFA QR via dynamic import of qrcode
+- [Phase 55]: [55-02] Used QR code API instead of qrcode npm package to avoid adding dependency
+- [Phase 55]: [55-02] UAParser v2 require() workaround for @types v0.7 mismatch
+- [Phase 55]: [55-02] listUserPasskeys (not listPasskeys) is correct better-auth passkey method
+- [Phase 55]: [55-02] authClient.setPassword cast needed -- types not exposed without open-api plugin
 
 ### Pending Todos
 
@@ -129,6 +152,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T14:53:45Z
-Stopped at: Completed 55-03-PLAN.md
-Resume file: .planning/phases/55-social-login-mfa/55-04-PLAN.md
+Last session: 2026-03-09T15:00:46.018Z
+Stopped at: Completed 55-04-PLAN.md
+Resume file: None
