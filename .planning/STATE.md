@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 53-02-PLAN.md
-last_updated: "2026-03-09T08:08:00.726Z"
-last_activity: 2026-03-09 -- 53-02 complete (auth consumer migration + old auth deletion)
+stopped_at: Phase 59 context gathered
+last_updated: "2026-03-09T13:19:14.457Z"
+last_activity: 2026-03-09 -- 54-01 complete (WebSocket auth verification, NEST-05 satisfied)
 progress:
-  total_phases: 9
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 10
+  completed_phases: 5
+  total_plans: 10
+  completed_plans: 10
 ---
 
 ---
@@ -18,14 +18,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 53-02-PLAN.md
-last_updated: "2026-03-09T08:15:00Z"
-last_activity: 2026-03-09 -- 53-02 complete (auth consumer migration + old auth deletion)
+stopped_at: Completed 54-01-PLAN.md
+last_updated: "2026-03-09T13:18:00Z"
+last_activity: 2026-03-09 -- 54-01 complete (WebSocket auth verification, NEST-05 satisfied)
 progress:
   total_phases: 9
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 11
   percent: 100
 ---
 
@@ -36,23 +36,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v5.0 better-auth Migration -- Phase 53 complete, Phase 54 next
+**Current focus:** v5.0 better-auth Migration -- Phase 54 complete, Phase 55 next
 
 ## Current Position
 
-Phase: 53 of 58 (Frontend Auth UI) -- Plan 02 complete (all plans done)
-Plan: 2 of 2 in Phase 53
+Phase: 54 of 58 (WebSocket Auth) -- Plan 01 complete (all plans done)
+Plan: 1 of 1 in Phase 54
 Status: Executing
-Last activity: 2026-03-09 -- 53-02 complete (auth consumer migration + old auth deletion)
+Last activity: 2026-03-09 -- 54-01 complete (WebSocket auth verification, NEST-05 satisfied)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: 6.8 min
-- Total execution time: 1.13 hours
+- Total plans completed: 11
+- Average duration: 6.3 min
+- Total execution time: 1.15 hours
 
 **By Phase:**
 
@@ -62,6 +62,7 @@ Progress: [██████████] 100%
 | 51 - Core Email/Password Auth | 2/2 | 11 min | 5.5 min |
 | 52 - NestJS Session Validation | 3/3 | 13 min | 4.3 min |
 | 53 - Frontend Auth UI | 2/2 | 27 min | 13.5 min |
+| 54 - WebSocket Auth | 1/1 | 1 min | 1 min |
 
 *Updated after each plan completion*
 
@@ -101,10 +102,16 @@ Progress: [██████████] 100%
 - [53-02] 401 interceptor simplified to signOut + redirect; JWT refresh queue removed (DB sessions)
 - [53-02] Removed setUser from avatar handlers; better-auth manages user state via session
 - [53-02] Removed token references from hooks; better-auth uses cookies, no JWT exposed to client
+- [54-01] No new code needed -- Phase 52 already implemented WS auth migration to better-auth session cookies
+- [54-01] NEST-05 verified via existing 7-test suite + source pattern confirmation (zero JWT remnants)
 
 ### Pending Todos
 
 None.
+
+### Roadmap Evolution
+
+- Phase 59 added: safety
 
 ### Blockers/Concerns
 
@@ -114,6 +121,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T08:15:00Z
-Stopped at: Completed 53-02-PLAN.md
-Resume file: .planning/phases/53-frontend-auth-ui/53-02-SUMMARY.md
+Last session: 2026-03-09T13:19:14.454Z
+Stopped at: Phase 59 context gathered
+Resume file: .planning/phases/59-safety/59-CONTEXT.md
