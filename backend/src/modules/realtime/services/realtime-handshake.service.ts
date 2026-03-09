@@ -68,12 +68,14 @@ export class RealtimeHandshakeService {
     client: AuthenticatedSocket,
   ): Promise<BetterAuthSessionResult | null> {
     try {
-      return await this.auth.api.getSession({
-        headers: fromNodeHeaders(this.buildSessionHeaders(client)),
-        query: {
-          disableCookieCache: true,
-        },
-      });
+      return await withoutTenantScopingAsync(() =>
+        this.auth.api.getSession({
+          headers: fromNodeHeaders(this.buildSessionHeaders(client)),
+          query: {
+            disableCookieCache: true,
+          },
+        }),
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(

@@ -417,6 +417,38 @@ async function bootstrap() {
       `${config.redis.host}:${config.redis.port}${config.redis.tls.enabled ? ' (TLS)' : ''}`,
     );
 
+    const corsAllowAll =
+      config.api.corsAllowAll && config.nodeEnv !== 'production';
+    if (config.api.corsAllowAll && config.nodeEnv === 'production') {
+      logger.warn(
+        '[SECURITY] CORS_ALLOW_ALL is ignored in production environment',
+      );
+    }
+
+    const corsMethods = 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS';
+    const corsAllowedHeaders = [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'x-webhook-token',
+      'X-CSRF-Token',
+    ];
+    const isCorsOriginAllowed = (origin?: string): boolean => {
+      if (!origin) {
+        return true;
+      }
+
+      if (corsAllowAll) {
+        return true;
+      }
+
+      if (config.api.corsOrigins.includes(origin)) {
+        return true;
+      }
+
+      return config.api.corsRegexOrigins.some((regex) => regex.test(origin));
+    };
+
     // ─── better-auth: mount on raw Express BEFORE any middleware ───
     // toNodeHandler needs an untouched IncomingMessage stream.
     // Registering here ensures cookieParser/helmet/bodyParser never touch
@@ -424,13 +456,43 @@ async function bootstrap() {
     // withoutTenantScoping: auth is system-level (no tenant context).
     const betterAuthInstance = app.get('BETTER_AUTH');
     const { toNodeHandler: toBetterAuthHandler } = await import('better-auth/node');
-    const { withoutTenantScoping } = await import('./prisma/tenant-scoping/tenant-context');
+    const { withoutTenantScopingAsync } = await import('./prisma/tenant-scoping/tenant-context');
     const betterAuthHandler = toBetterAuthHandler(betterAuthInstance);
     const expressApp = app.getHttpAdapter().getInstance();
-    expressApp.use('/api/auth', (req: any, res: any, _next: any) => {
+    expressApp.use('/api/auth', async (req: any, res: any, next: any) => {
+      const origin = req.headers.origin as string | undefined;
+
+      if (!isCorsOriginAllowed(origin)) {
+        res.status(403).json({ message: `CORS: origin ${origin} not allowed` });
+        return;
+      }
+
+      if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+      }
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', corsMethods);
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        corsAllowedHeaders.join(', '),
+      );
+
+      if (req.method === 'OPTIONS') {
+        res.sendStatus(204);
+        return;
+      }
+
       req.url = req.originalUrl;
       req.baseUrl = '';
-      withoutTenantScoping(() => betterAuthHandler(req, res));
+
+      try {
+        await withoutTenantScopingAsync(async () => {
+          await Promise.resolve(betterAuthHandler(req, res));
+        });
+      } catch (error) {
+        next(error);
+      }
     });
 
     // Respect real client IPs behind reverse proxies (prevents rate-limit false positives)
@@ -473,46 +535,17 @@ async function bootstrap() {
       }),
     );
 
-    // CORS configuration - allowlist + regex + optional allow-all
-    // SEC: CORS_ALLOW_ALL is forcibly disabled in production to prevent open CORS
-    const corsAllowAll =
-      config.api.corsAllowAll && config.nodeEnv !== 'production';
-    if (config.api.corsAllowAll && config.nodeEnv === 'production') {
-      logger.warn(
-        '[SECURITY] CORS_ALLOW_ALL is ignored in production environment',
-      );
-    }
-
     app.enableCors({
       origin: (origin, callback) => {
-        // Allow same-origin/SSR calls without origin
-        if (!origin) {
-          return callback(null, true);
-        }
-
-        if (corsAllowAll) {
-          return callback(null, true);
-        }
-
-        if (config.api.corsOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-
-        if (config.api.corsRegexOrigins.some((regex) => regex.test(origin))) {
+        if (isCorsOriginAllowed(origin)) {
           return callback(null, true);
         }
 
         return callback(new Error(`CORS: origin ${origin} not allowed`), false);
       },
       credentials: true,
-      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'x-webhook-token',
-        'X-CSRF-Token', // SEC-04: CSRF protection header
-      ],
+      methods: corsMethods,
+      allowedHeaders: corsAllowedHeaders,
       optionsSuccessStatus: 204,
       preflightContinue: false,
     });

@@ -17,7 +17,8 @@ import { logger } from '@/lib/logger';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-const THEME_STORAGE_KEY = 'pmSync:theme';
+const THEME_STORAGE_KEY = 'pmsync:theme';
+const THEME_STORAGE_KEY_OLD = 'pmSync:theme';
 const THEME_FETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // Module-level singleton to prevent duplicate fetches across multiple hook instances
@@ -48,6 +49,13 @@ function getLocalTheme(): ThemeMode {
   const stored = localStorage.getItem(THEME_STORAGE_KEY);
   if (stored === 'light' || stored === 'dark' || stored === 'system') {
     return stored;
+  }
+  // Migrate old camelCase key
+  const oldStored = localStorage.getItem(THEME_STORAGE_KEY_OLD);
+  if (oldStored === 'light' || oldStored === 'dark' || oldStored === 'system') {
+    localStorage.setItem(THEME_STORAGE_KEY, oldStored);
+    localStorage.removeItem(THEME_STORAGE_KEY_OLD);
+    return oldStored;
   }
   return 'system';
 }

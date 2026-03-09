@@ -112,7 +112,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
         {isPrivateRoute && <meta name="robots" content="noindex,nofollow" />}
       </Head>
-      <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <NextThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="pmsync:theme">
         <MaterialThemeWrapper>
           <ToastProvider>
               <Component {...pageProps} />

@@ -7,8 +7,28 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { fromNodeHeaders } from 'better-auth/node';
+import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
 import { BETTER_AUTH } from './better-auth.module';
 import { IS_PUBLIC_KEY } from './public.decorator';
+
+interface BetterAuthSession {
+  id: string;
+}
+
+interface BetterAuthUser {
+  id: string;
+  email: string;
+  tenantId?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  isActive?: boolean | null;
+}
+
+interface BetterAuthSessionResult {
+  session: BetterAuthSession;
+  user: BetterAuthUser;
+}
 
 /**
  * Global guard that validates better-auth session cookies.
@@ -40,12 +60,14 @@ export class BetterAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
 
     // Validate session via better-auth
-    const result = await this.auth.api.getSession({
-      headers: fromNodeHeaders(request.headers),
-      query: {
-        disableCookieCache: true,
-      },
-    });
+    const result = (await withoutTenantScopingAsync(() =>
+      this.auth.api.getSession({
+        headers: fromNodeHeaders(request.headers),
+        query: {
+          disableCookieCache: true,
+        },
+      }),
+    )) as BetterAuthSessionResult | null;
 
     if (!result) {
       throw new UnauthorizedException('Invalid or expired session');
