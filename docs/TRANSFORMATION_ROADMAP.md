@@ -1,5 +1,9 @@
 # PMSync — Enterprise Transformation Roadmap
 
+> Historical transformation log from 2026-03-04 to 2026-03-05.
+> Items in this roadmap that refer to JWT refresh rotation and related frontend interceptor work describe the legacy auth track, not the current primary browser auth model.
+> The current primary auth reference is [`../backend/docs/BACKEND_AUTH_ARCHITECTURE_2026-03-09.md`](../backend/docs/BACKEND_AUTH_ARCHITECTURE_2026-03-09.md). The current backend architecture and AI governance references are [`../backend/docs/BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md`](../backend/docs/BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md) and [`../backend/docs/BACKEND_AI_TOOL_GOVERNANCE_2026-03-09.md`](../backend/docs/BACKEND_AI_TOOL_GOVERNANCE_2026-03-09.md).
+
 **Date:** 2026-03-04 | **Last Updated:** 2026-03-05 (Sprint 1.5)
 **Baseline Score:** 42/100 Enterprise Readiness
 **Target Score:** 80/100 (end of Phase 4)

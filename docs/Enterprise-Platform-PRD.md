@@ -1,5 +1,9 @@
 # PMSync Enterprise Platform PRD
 
+> Mixed-state architecture audit from 2026-03-06.
+> This document still contains legacy JWT-refresh and older AI/runtime references that should be treated as migration history rather than the current backend source of truth.
+> For the current backend reference set, use [`../technical_overview.md`](../technical_overview.md), [`../backend/docs/BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md`](../backend/docs/BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md), [`../backend/docs/BACKEND_AUTH_ARCHITECTURE_2026-03-09.md`](../backend/docs/BACKEND_AUTH_ARCHITECTURE_2026-03-09.md), and [`../backend/docs/BACKEND_AI_TOOL_GOVERNANCE_2026-03-09.md`](../backend/docs/BACKEND_AI_TOOL_GOVERNANCE_2026-03-09.md).
+
 **Document Type:** Enterprise Platform Audit + Transformation PRD
 **Date:** March 6, 2026
 **Last Updated:** March 6, 2026 (codebase-verified audit)

@@ -1,5 +1,9 @@
 # PMSync — Enterprise Platform PRD
 
+> Historical audit snapshot from 2026-03-04.
+> Some sections in this document describe the then-current JWT-centric auth path and other transition-state architecture as if it were the active platform baseline.
+> For the current backend reference set, use [`../technical_overview.md`](../technical_overview.md), [`../backend/docs/BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md`](../backend/docs/BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md), [`../backend/docs/BACKEND_AUTH_ARCHITECTURE_2026-03-09.md`](../backend/docs/BACKEND_AUTH_ARCHITECTURE_2026-03-09.md), and [`../backend/docs/BACKEND_AI_TOOL_GOVERNANCE_2026-03-09.md`](../backend/docs/BACKEND_AI_TOOL_GOVERNANCE_2026-03-09.md).
+
 **Document Type:** Architecture Audit & Transformation Strategy
 **Date:** 2026-03-04 (Consolidated from multiple audit passes, codebase-verified)
 **Classification:** CTO-Level Technical Due Diligence
