@@ -500,6 +500,16 @@ async function bootstrap() {
       preflightContinue: false,
     });
 
+    // Mount better-auth handler as raw Express middleware BEFORE NestJS
+    // body parser and CSRF. better-auth needs raw request bodies.
+    const betterAuthInstance = app.get('BETTER_AUTH');
+    const { toNodeHandler: toBetterAuthHandler } = await import('better-auth/node');
+    const betterAuthHandler = toBetterAuthHandler(betterAuthInstance);
+    app.use('/api/auth', (req: any, res: any, next: any) => {
+      // Let better-auth handle the request; if it doesn't match, fall through
+      betterAuthHandler(req, res);
+    });
+
     // CSRF Protection (SEC-04) - must be after cookieParser
     app.use(csrfMiddleware);
 

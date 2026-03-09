@@ -1,20 +1,18 @@
 import { Global, Module } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { createBetterAuthInstance } from './better-auth.instance';
-import { BetterAuthController } from './better-auth.controller';
 
 export const BETTER_AUTH = 'BETTER_AUTH';
 
 /**
- * Full better-auth module — provides auth instance via DI
- * and exposes /api/auth/* endpoints for sign-up, sign-in,
- * password reset, email verification, and session management.
+ * Full better-auth module — provides auth instance via DI.
  *
- * The frontend createAuthClient points to this backend.
+ * Auth HTTP routes are mounted as raw Express middleware in main.ts
+ * (before NestJS body parser) via toNodeHandler.
+ * Session validation uses auth.api.getSession() in BetterAuthGuard.
  */
 @Global()
 @Module({
-  controllers: [BetterAuthController],
   providers: [
     {
       provide: BETTER_AUTH,
