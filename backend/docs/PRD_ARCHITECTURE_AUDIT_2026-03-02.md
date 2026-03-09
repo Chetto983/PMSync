@@ -1,5 +1,8 @@
 # PMSync Backend -- PRD & Architecture Audit
 
+> Historical snapshot from 2026-03-02.
+> For the current backend state, use [`BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md`](./BACKEND_ARCHITECTURE_AUDIT_2026-03-09.md).
+
 **Date:** 2026-03-02
 **Scope:** `D:\PMSync\backend\src\` (434 files, 20,523 LOC across 22 NestJS modules)
 **Auditors:** 9 specialized AI agents (architecture, security, performance, code quality, CRM/data, AI layer)
