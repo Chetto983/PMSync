@@ -51,10 +51,9 @@ export class EmailService {
 
   /**
    * Send password reset email
-   * Links to frontend page which calls backend API
+   * Links to Better Auth's reset flow callback URL.
    */
-  async sendPasswordReset(email: string, token: string) {
-    const resetLink = `${this.config.frontendUrl}/auth/reset-password?token=${token}`;
+  async sendPasswordResetLink(email: string, resetLink: string) {
     const html = `
       <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -71,6 +70,14 @@ export class EmailService {
     `;
 
     return this.sendEmail(email, 'Password Reset Request', html);
+  }
+
+  /**
+   * Backward-compatible legacy reset email helper.
+   */
+  async sendPasswordReset(email: string, token: string) {
+    const resetLink = `${this.config.frontendUrl}/auth/reset-password?token=${token}`;
+    return this.sendPasswordResetLink(email, resetLink);
   }
 
   /**

@@ -10,6 +10,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/router';
 import { websocketClient } from '@/lib/websocket-client';
 import { authClient } from '@/lib/auth-client';
 
@@ -54,10 +55,19 @@ interface UseWebSocketReturn {
  */
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
   const { autoConnect = true, refetchOnReconnect = true } = options;
+  const router = useRouter();
   const { data: session } = authClient.useSession();
   const isAuthenticated = !!session;
-  const handleLogout = () => authClient.signOut();
   const queryClient = useQueryClient();
+  const handleLogout = useCallback(async () => {
+    const result = await authClient.signOut();
+    if (result.error) {
+      logger.warn('[useWebSocket] Sign out returned an error', {
+        message: result.error.message,
+      });
+    }
+    await router.replace('/auth/login');
+  }, [router]);
 
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -104,7 +114,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     const unsubAuthFailure = websocketClient.onAuthFailure(() => {
       logger.warn('[useWebSocket] Auth failure - logging out');
       disconnect();
-      handleLogout();
+      void handleLogout();
     });
 
     return () => {

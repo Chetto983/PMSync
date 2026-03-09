@@ -5,7 +5,7 @@ import { logger } from '@/lib/logger';
  * WebSocket Client per connessione realtime al backend
  *
  * Caratteristiche:
- * - Autenticazione JWT automatica
+ * - Autenticazione Better Auth basata su sessione
  * - Reconnection automatica
  * - Isolamento tenant tramite rooms
  * - Type-safe event handlers
@@ -203,13 +203,20 @@ export interface RealtimeAiAgentStepEvent {
 
 export type EventHandler<T> = (data: T) => void;
 
-// Auth error detection - these messages indicate token/auth issues
+// Auth error detection - these messages indicate session/auth issues
 const AUTH_ERROR_PATTERNS = [
   'unauthorized',
   'invalid token',
+  'invalid or expired session',
+  'session expired',
+  'session mismatch',
   'token expired',
   'jwt expired',
   'jwt malformed',
+  'user is not assigned to an organization',
+  'tenant mismatch',
+  'account is disabled',
+  'organization is disabled',
   'authentication failed',
   '401',
 ];
@@ -232,7 +239,7 @@ class WebSocketClient {
   private handlerRegistry = new Map<string, Set<(...args: unknown[]) => void>>();
 
   // Auth failure callback - called when auth fails after max retries
-  private authFailureHandler: (() => void) | null = null;
+  private authFailureHandler: (() => void | Promise<void>) | null = null;
 
   // Reconnect callback - called after successful reconnection
   private reconnectHandler: (() => void) | null = null;
@@ -241,7 +248,7 @@ class WebSocketClient {
    * Register handler for auth failures (expired/invalid token)
    * This is called when connection fails due to auth issues
    */
-  onAuthFailure(handler: () => void): () => void {
+  onAuthFailure(handler: () => void | Promise<void>): () => void {
     this.authFailureHandler = handler;
     return () => {
       this.authFailureHandler = null;
@@ -377,7 +384,7 @@ class WebSocketClient {
           // If auth failure, notify handler
           if (isAuthFailure && this.authFailureHandler) {
             logger.debug('[WebSocket] Triggering auth failure handler');
-            this.authFailureHandler();
+            void this.authFailureHandler();
           }
 
           reject(new Error(isAuthFailure ? 'Authentication failed' : 'Max reconnection attempts reached'));

@@ -83,8 +83,8 @@ export function useSettingsHandlers(s: State, settingsCopy: Record<string, any>)
       s.setDeleteLoading(true);
       s.setDeleteError('');
       await usersApi.deleteAccount();
-      s.logout();
-      s.router.push('/login');
+      await s.logout();
+      await s.router.push('/auth/login');
     } catch (error) {
       logger.error('Failed to delete account', { error });
       s.setDeleteError(settingsCopy.accountPanel?.deleteDialogError || 'Failed to delete');

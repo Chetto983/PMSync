@@ -1,18 +1,29 @@
-import { createAuthClient } from "better-auth/react";
+import { createAuthClient } from 'better-auth/react';
+import { inferAdditionalFields } from 'better-auth/client/plugins';
 
 /**
  * better-auth React client.
  *
- * No baseURL needed -- auth API is on the same Next.js origin (port 3001).
- * createAuthClient defaults to current origin for all requests.
- * Setting a baseURL would break same-origin cookie handling.
+ * Requests go directly to the backend Better Auth instance.
+ * Cookies remain host-scoped on localhost, so they are still sent on the
+ * frontend origin and can be forwarded by Next.js API routes when needed.
  *
  * Type inference from server auth config fails because PrismaClient types
  * are server-only. We declare additionalFields manually below.
  */
 export const authClient = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
-  plugins: [],
+  plugins: [
+    inferAdditionalFields({
+      user: {
+        tenantId: { type: 'string', required: false, input: false },
+        firstName: { type: 'string', required: false },
+        lastName: { type: 'string', required: false },
+        role: { type: 'string', required: false, input: false },
+        isActive: { type: 'boolean', required: false, input: false },
+      },
+    }),
+  ],
 });
 
 /**

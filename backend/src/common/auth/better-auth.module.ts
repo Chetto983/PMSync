@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../../modules/email/services/email.service';
 import { createBetterAuthInstance } from './better-auth.instance';
 
 export const BETTER_AUTH = 'BETTER_AUTH';
@@ -16,9 +17,9 @@ export const BETTER_AUTH = 'BETTER_AUTH';
   providers: [
     {
       provide: BETTER_AUTH,
-      useFactory: (prisma: PrismaService) =>
-        createBetterAuthInstance(prisma),
-      inject: [PrismaService],
+      useFactory: (prisma: PrismaService, emailService: EmailService) =>
+        createBetterAuthInstance(prisma, emailService),
+      inject: [PrismaService, EmailService],
     },
   ],
   exports: [BETTER_AUTH],

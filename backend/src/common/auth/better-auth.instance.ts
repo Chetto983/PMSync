@@ -1,8 +1,138 @@
-import { betterAuth } from 'better-auth';
-import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { createAuthMiddleware, APIError } from 'better-auth/api';
+import { createHash, randomBytes } from 'crypto';
 import type { PrismaClient } from '@prisma/client';
-import { createHash } from 'crypto';
+import { betterAuth } from 'better-auth';
+import { createAuthMiddleware, APIError } from 'better-auth/api';
+import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { CURRENT_PP_VERSION, CURRENT_TOS_VERSION } from '../../modules/compliance/legal.constants';
+import { EmailService } from '../../modules/email/services/email.service';
+import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
+
+interface ProvisioningUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  tenantId?: string | null;
+}
+
+function sanitizeWorkspaceSlugPart(value: string): string {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32);
+
+  return normalized || 'workspace';
+}
+
+function buildWorkspaceName(user: ProvisioningUser): string {
+  const displayName =
+    [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+    user.name?.trim() ||
+    user.email.split('@')[0];
+
+  return `${displayName}'s Workspace`;
+}
+
+function buildWorkspaceSlug(user: ProvisioningUser): string {
+  const base =
+    [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+    user.name?.trim() ||
+    user.email.split('@')[0];
+
+  return `${sanitizeWorkspaceSlugPart(base)}-${randomBytes(3).toString('hex')}`;
+}
+
+async function provisionWorkspaceForUser(
+  prisma: PrismaClient,
+  user: ProvisioningUser,
+  options: {
+    agreedToTerms: boolean;
+    ipAddress?: string;
+    userAgent?: string;
+  },
+): Promise<void> {
+  if (user.tenantId) {
+    return;
+  }
+
+  await withoutTenantScopingAsync(() =>
+    prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: {
+          name: buildWorkspaceName(user),
+          slug: buildWorkspaceSlug(user),
+          isActive: true,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          tenantId: tenant.id,
+          role: 'admin',
+          isActive: true,
+        },
+      });
+
+      await tx.userPreferences.upsert({
+        where: { userId: user.id },
+        update: { tenantId: tenant.id },
+        create: {
+          tenantId: tenant.id,
+          userId: user.id,
+          folderOrders: {},
+          sidebarSmartFiltersExpanded: true,
+          sidebarLabelsExpanded: true,
+          theme: 'light',
+          language: 'en',
+          timezone: 'UTC',
+          emailDensity: 'comfortable',
+        },
+      });
+
+      if (options.agreedToTerms) {
+        await tx.legalAcceptance.createMany({
+          data: [
+            {
+              userId: user.id,
+              tenantId: tenant.id,
+              documentType: 'TOS',
+              documentVersion: CURRENT_TOS_VERSION,
+              ipAddress: options.ipAddress ?? null,
+              userAgent: options.userAgent ?? null,
+            },
+            {
+              userId: user.id,
+              tenantId: tenant.id,
+              documentType: 'PRIVACY_POLICY',
+              documentVersion: CURRENT_PP_VERSION,
+              ipAddress: options.ipAddress ?? null,
+              userAgent: options.userAgent ?? null,
+            },
+          ],
+        });
+      }
+    }),
+  );
+}
+
+function getRequestHeader(
+  request: Request | undefined,
+  headerName: string,
+): string | undefined {
+  return request?.headers.get(headerName) ?? undefined;
+}
+
+function getRequestIp(request: Request | undefined): string | undefined {
+  const forwardedFor = getRequestHeader(request, 'x-forwarded-for');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0]?.trim() || undefined;
+  }
+
+  return getRequestHeader(request, 'x-real-ip');
+}
 
 /**
  * Check password against HIBP k-anonymity API.
@@ -49,14 +179,10 @@ async function checkHIBP(
   }
 }
 
-/**
- * Creates the full better-auth instance for NestJS.
- *
- * This is the SINGLE source of truth for auth — it handles sign-up,
- * sign-in, password reset, email verification, AND session validation.
- * The frontend calls this via createAuthClient({ baseURL }).
- */
-export function createBetterAuthInstance(prisma: PrismaClient) {
+export function createBetterAuthInstance(
+  prisma: PrismaClient,
+  emailService: EmailService,
+) {
   return betterAuth({
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
     baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
@@ -69,17 +195,19 @@ export function createBetterAuthInstance(prisma: PrismaClient) {
 
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: false, // flip to true when SMTP is wired
+      requireEmailVerification: false,
       autoSignIn: true,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        await emailService.sendPasswordResetLink(user.email, url);
+      },
     },
 
     session: {
-      expiresIn: 60 * 60 * 24 * 7, // 7 days
-      updateAge: 60 * 60 * 24, // refresh daily
+      expiresIn: 60 * 60 * 24 * 7,
+      updateAge: 60 * 60 * 24,
       cookieCache: {
-        enabled: true,
-        maxAge: 5 * 60, // 5 min
-        strategy: 'compact',
+        enabled: false,
       },
     },
 
@@ -92,21 +220,38 @@ export function createBetterAuthInstance(prisma: PrismaClient) {
           type: 'string',
           required: false,
           defaultValue: 'member',
+          input: false,
         },
         isActive: {
           type: 'boolean',
           required: false,
           defaultValue: true,
+          input: false,
+        },
+      },
+    },
+
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user, context) => {
+            if (context?.path !== '/sign-up/email') {
+              return;
+            }
+
+            await provisionWorkspaceForUser(prisma, user, {
+              agreedToTerms: context.body?.agreeToTerms === true,
+              ipAddress: getRequestIp(context.request),
+              userAgent: getRequestHeader(context.request, 'user-agent'),
+            });
+          },
         },
       },
     },
 
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
-        if (
-          ctx.path === '/sign-up/email' ||
-          ctx.path === '/reset-password'
-        ) {
+        if (ctx.path === '/sign-up/email' || ctx.path === '/reset-password') {
           const password = (ctx.body?.password ?? ctx.body?.newPassword) as
             | string
             | undefined;
@@ -119,6 +264,12 @@ export function createBetterAuthInstance(prisma: PrismaClient) {
               });
             }
           }
+        }
+
+        if (ctx.path === '/sign-up/email' && ctx.body?.agreeToTerms !== true) {
+          throw new APIError('BAD_REQUEST', {
+            message: 'You must accept the Terms of Service and Privacy Policy',
+          });
         }
       }),
     },

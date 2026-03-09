@@ -7,7 +7,7 @@ import { getSessionCookie } from "better-auth/cookies";
  * This is an optimistic cookie-existence check (not full validation).
  * Real validation happens in useSession on client and NestJS guards on API.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = getSessionCookie(request);
 

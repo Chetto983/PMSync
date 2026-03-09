@@ -57,8 +57,15 @@ export function CommandPalette() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
-  const handleLogout = () => authClient.signOut();
   const t = useTranslations();
+
+  const handleLogout = useCallback(async () => {
+    const result = await authClient.signOut();
+    if (result.error) {
+      logger.warn('Sign out returned an error', { message: result.error.message });
+    }
+    await router.replace('/auth/login');
+  }, [router]);
 
   // Toggle command palette with Cmd+K or Ctrl+K
   useEffect(() => {
@@ -289,8 +296,7 @@ export function CommandPalette() {
       name: t.commandPalette.commands.logout,
       icon: LogOut,
       action: () => {
-        handleLogout();
-        router.push('/auth/login');
+        void handleLogout();
       },
       group: 'system',
       keywords: ['logout', 'signout', 'exit'],

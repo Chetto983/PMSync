@@ -49,7 +49,7 @@ function validateRoomName(room: unknown): string | null {
  * WebSocket Gateway per comunicazione realtime multi-tenant
  *
  * Caratteristiche:
- * - Autenticazione JWT su handshake
+ * - Autenticazione Better Auth su handshake
  * - Isolamento tenant tramite rooms (tenant:${tenantId})
  * - CORS configurabile
  * - Heartbeat automatico
@@ -111,7 +111,7 @@ export class RealtimeGateway
 
   /**
    * Gestisce nuove connessioni WebSocket
-   * Valida JWT e aggiunge il socket alla room del tenant
+   * Valida la sessione Better Auth e aggiunge il socket alla room del tenant
    */
   async handleConnection(client: AuthenticatedSocket) {
     try {

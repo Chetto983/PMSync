@@ -15,21 +15,25 @@ function createMockReq(overrides: Partial<NextApiRequest> = {}): NextApiRequest 
   return {
     method: 'GET',
     query: { id: 'att-123' },
-    cookies: { access_token: 'test-token-abc' },
-    headers: {},
+    cookies: { 'better-auth.session_token': 'test-token-abc' },
+    headers: {
+      cookie: 'better-auth.session_token=test-token-abc',
+    },
     ...overrides,
   } as unknown as NextApiRequest;
 }
 
-function createMockRes(): NextApiResponse & {
+interface MockResponse extends NextApiResponse {
   _status: number;
   _json: unknown;
   _headers: Record<string, string>;
   _body: Buffer | null;
-} {
+}
+
+function createMockRes(): MockResponse {
   const res = {
     _status: 200,
-    _json: null,
+    _json: null as unknown,
     _headers: {} as Record<string, string>,
     _body: null as Buffer | null,
     status(code: number) {
@@ -49,7 +53,7 @@ function createMockRes(): NextApiResponse & {
       return res;
     },
   };
-  return res as unknown as ReturnType<typeof createMockRes>;
+  return res as unknown as MockResponse;
 }
 
 beforeEach(() => {
@@ -83,7 +87,7 @@ describe('attachment download proxy', () => {
     expect(mockFetch.mock.calls[0][1]).toEqual(
       expect.objectContaining({
         method: 'GET',
-        headers: { Authorization: 'Bearer test-token-abc' },
+        headers: { cookie: 'better-auth.session_token=test-token-abc' },
       }),
     );
     expect(res._status).toBe(200);
@@ -136,7 +140,7 @@ describe('attachment download proxy', () => {
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/email/attachments/'),
       expect.objectContaining({
-        headers: { Authorization: 'Bearer header-token-xyz' },
+        headers: { authorization: 'Bearer header-token-xyz' },
       }),
     );
   });

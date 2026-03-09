@@ -117,10 +117,10 @@ export function Header({
     }
   };
 
-  const handleLogout = () => {
-    authClient.signOut();
-    router.push('/auth/login');
+  const handleLogout = async () => {
     setAnchorEl(null);
+    await authClient.signOut();
+    await router.replace('/auth/login');
   };
 
   const handleLanguageChange = (newLocale: string) => {

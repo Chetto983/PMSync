@@ -92,8 +92,10 @@ export function useSettingsState() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  const handleLogout = () => authClient.signOut();
-  
+  const handleLogout = async () => {
+    await authClient.signOut();
+  };
+
 
   // Signature hooks
   const { data: signaturesData = [], isLoading: signaturesLoading } = useSignatures();

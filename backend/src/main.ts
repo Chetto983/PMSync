@@ -417,6 +417,22 @@ async function bootstrap() {
       `${config.redis.host}:${config.redis.port}${config.redis.tls.enabled ? ' (TLS)' : ''}`,
     );
 
+    // ─── better-auth: mount on raw Express BEFORE any middleware ───
+    // toNodeHandler needs an untouched IncomingMessage stream.
+    // Registering here ensures cookieParser/helmet/bodyParser never touch
+    // auth requests. Express 5 app.use('/path') strips req.url — restore it.
+    // withoutTenantScoping: auth is system-level (no tenant context).
+    const betterAuthInstance = app.get('BETTER_AUTH');
+    const { toNodeHandler: toBetterAuthHandler } = await import('better-auth/node');
+    const { withoutTenantScoping } = await import('./prisma/tenant-scoping/tenant-context');
+    const betterAuthHandler = toBetterAuthHandler(betterAuthInstance);
+    const expressApp = app.getHttpAdapter().getInstance();
+    expressApp.use('/api/auth', (req: any, res: any, _next: any) => {
+      req.url = req.originalUrl;
+      req.baseUrl = '';
+      withoutTenantScoping(() => betterAuthHandler(req, res));
+    });
+
     // Respect real client IPs behind reverse proxies (prevents rate-limit false positives)
     app.set('trust proxy', config.api.trustProxy);
 
@@ -501,25 +517,12 @@ async function bootstrap() {
       preflightContinue: false,
     });
 
-    // Mount better-auth handler as raw Express middleware BEFORE NestJS
-    // body parser and CSRF. better-auth needs raw request bodies.
-    const betterAuthInstance = app.get('BETTER_AUTH');
-    const { toNodeHandler: toBetterAuthHandler } = await import('better-auth/node');
-    const betterAuthHandler = toBetterAuthHandler(betterAuthInstance);
-    app.use('/api/auth', (req: any, res: any, next: any) => {
-      // Let better-auth handle the request; if it doesn't match, fall through
-      betterAuthHandler(req, res);
-    });
-
-    // Re-add body parsers for all NON-auth routes (disabled globally above).
-    // /api/auth routes are handled by better-auth which parses its own body.
+    // Body parsers for all NON-auth routes (disabled globally above).
+    // /api/auth requests are fully handled by the better-auth middleware
+    // registered earlier on the raw Express instance and never reach here.
     const express = await import('express');
-    const skipAuthBodyParser = (fn: any) => (req: any, res: any, next: any) => {
-      if (req.path.startsWith('/api/auth')) return next();
-      return fn(req, res, next);
-    };
-    app.use(skipAuthBodyParser(express.json({ limit: '10mb' })));
-    app.use(skipAuthBodyParser(express.urlencoded({ extended: true, limit: '10mb' })));
+    app.use(express.json({ limit: '10mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     // CSRF Protection (SEC-04) - must be after cookieParser
     app.use(csrfMiddleware);

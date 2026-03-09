@@ -47,15 +47,24 @@ export default function RegisterPage() {
 
       setLoading(true);
       try {
+        const normalizedFirstName = firstName.trim();
+        const normalizedLastName = lastName.trim();
         const res = await authClient.signUp.email({
           email,
           password,
-          name: `${firstName} ${lastName}`.trim(),
+          name: `${normalizedFirstName} ${normalizedLastName}`.trim(),
+          firstName: normalizedFirstName,
+          lastName: normalizedLastName,
+        }, {
+          body: {
+            agreeToTerms: true,
+          },
         });
         if (res.error) {
           setError(res.error.message || 'Registration failed');
           return;
         }
+        await authClient.getSession();
         router.push('/dashboard');
       } catch {
         setError('An unexpected error occurred.');
@@ -156,7 +165,15 @@ export default function RegisterPage() {
           variant="contained"
           fullWidth
           size="large"
-          disabled={loading || !email || !password || !firstName}
+          disabled={
+            loading ||
+            !email.trim() ||
+            !password ||
+            !confirmPassword ||
+            !firstName.trim() ||
+            !lastName.trim() ||
+            !agreedToTerms
+          }
           sx={{ py: 1.3, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
           {loading ? <CircularProgress size={22} color="inherit" /> : reg.form.submit}

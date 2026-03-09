@@ -42,6 +42,9 @@ export class BetterAuthGuard implements CanActivate {
     // Validate session via better-auth
     const result = await this.auth.api.getSession({
       headers: fromNodeHeaders(request.headers),
+      query: {
+        disableCookieCache: true,
+      },
     });
 
     if (!result) {

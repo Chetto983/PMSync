@@ -2,11 +2,11 @@
  * Attachment Download Proxy Route
  *
  * Proxies attachment download requests from frontend to backend,
- * adding authentication headers that can't be sent via img src attributes.
+ * forwarding the browser auth context that can't be sent directly via img src attributes.
  *
  * Flow:
  * 1. img src="/api/email/attachments/{id}/download" (frontend route)
- * 2. This route reads auth token from cookie/localStorage
+ * 2. This route reads the incoming Better Auth session cookies
  * 3. Forwards request to backend: http://localhost:3000/api/v1/email/attachments/{id}/download
  * 4. Streams response back to client with proper headers
  */
@@ -31,37 +31,30 @@ export default async function handler(
     return res.status(400).json({ error: 'Missing attachment ID' });
   }
 
-  // Get auth token from httpOnly access_token cookie (set by backend on login).
-  // Next.js API routes run server-side and CAN read httpOnly cookies.
-  let token: string | undefined;
+  const cookieHeader = req.headers.cookie;
+  const authorizationHeader = req.headers.authorization;
 
-  // Primary: read from httpOnly access_token cookie (Phase 34 cookie auth)
-  if (req.cookies['access_token']) {
-    token = req.cookies['access_token'];
-  }
-
-  // Fallback: Authorization header (for authenticated fetch requests)
-  if (!token) {
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.slice(7);
-    }
-  }
-
-  if (!token) {
+  if (!cookieHeader && !authorizationHeader) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    // Forward request to backend with auth
+    // Forward request to backend with the original auth context
     // Backend route: /api/v1/email/attachments/:id/download
     const backendUrl = `${API_BASE_URL}/api/v1/email/attachments/${id}/download`;
+    const headers: HeadersInit = {};
+
+    if (cookieHeader) {
+      headers.cookie = cookieHeader;
+    }
+
+    if (authorizationHeader) {
+      headers.authorization = authorizationHeader;
+    }
 
     const response = await fetch(backendUrl, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
     });
 
     if (!response.ok) {

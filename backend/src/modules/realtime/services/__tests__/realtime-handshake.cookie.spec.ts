@@ -1,265 +1,172 @@
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { RealtimeHandshakeService } from '../realtime-handshake.service';
-import { AUTH_COOKIE_NAME } from '../../../auth/helpers/cookie.helper';
-import { UnauthorizedException } from '@nestjs/common';
 
-/**
- * Unit tests for WebSocket handshake cookie extraction (SEC-01)
- *
- * Tests that extractToken checks cookies FIRST, then falls back to
- * existing auth.token/header extraction methods.
- */
-describe('RealtimeHandshakeService - Cookie Extraction', () => {
-  let service: RealtimeHandshakeService;
+jest.mock('../../../../common/auth/better-auth.module', () => ({
+  BETTER_AUTH: 'BETTER_AUTH',
+}));
 
-  beforeEach(() => {
-    // Create service with minimal mocks (we only test extractToken, not authenticate)
-    const mockJwtService = {} as any;
-    const mockConfigService = {
-      get: jest.fn().mockReturnValue('a'.repeat(32)), // JWT_SECRET
+describe('RealtimeHandshakeService', () => {
+  function createService(overrides: {
+    sessionResult?: any;
+    persistedUser?: any;
+    sessionError?: Error;
+  } = {}) {
+    const mockAuth = {
+      api: {
+        getSession: overrides.sessionError
+          ? jest.fn().mockRejectedValue(overrides.sessionError)
+          : jest.fn().mockResolvedValue(
+              Object.prototype.hasOwnProperty.call(overrides, 'sessionResult')
+                ? overrides.sessionResult
+                : {
+                    session: { id: 'sess-1' },
+                    user: {
+                      id: 'user-1',
+                      email: 'user@example.com',
+                      tenantId: 'tenant-1',
+                      isActive: true,
+                    },
+                  },
+            ),
+      },
+    };
+
+    const mockPrisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(
+          Object.prototype.hasOwnProperty.call(overrides, 'persistedUser')
+            ? overrides.persistedUser
+            : {
+                id: 'user-1',
+                tenantId: 'tenant-1',
+                tenant: { isActive: true },
+              },
+        ),
+      },
     } as any;
-    const mockPrisma = {} as any;
 
-    service = new RealtimeHandshakeService(mockJwtService, mockConfigService, mockPrisma);
-  });
+    return {
+      service: new RealtimeHandshakeService(mockAuth, mockPrisma),
+      mockAuth,
+      mockPrisma,
+    };
+  }
 
-  function createMockClient(overrides: {
+  function createClient(overrides: {
     cookie?: string;
     authorization?: string;
     authToken?: string;
-    queryToken?: string;
   } = {}): any {
     return {
-      id: 'test-client',
+      id: 'client-1',
       handshake: {
         headers: {
-          ...(overrides.cookie !== undefined ? { cookie: overrides.cookie } : {}),
+          ...(overrides.cookie ? { cookie: overrides.cookie } : {}),
           ...(overrides.authorization ? { authorization: overrides.authorization } : {}),
         },
         auth: overrides.authToken ? { token: overrides.authToken } : {},
-        query: overrides.queryToken ? { token: overrides.queryToken } : {},
       },
     };
   }
 
-  describe('extractToken', () => {
-    it('should return token from cookie when present', () => {
-      const client = createMockClient({
-        cookie: `${AUTH_COOKIE_NAME}=jwt-from-cookie`,
-      });
+  it('passes cookie headers to Better Auth and disables cookie cache', async () => {
+    const { service, mockAuth } = createService();
 
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-from-cookie');
-    });
+    await service.authenticate(
+      createClient({
+        cookie: 'better-auth.session_token=session-token',
+      }),
+    );
 
-    it('should prioritize cookie over auth.token', () => {
-      const client = createMockClient({
-        cookie: `${AUTH_COOKIE_NAME}=jwt-from-cookie`,
-        authToken: 'jwt-from-auth',
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-from-cookie');
-    });
-
-    it('should prioritize cookie over Authorization header', () => {
-      const client = createMockClient({
-        cookie: `${AUTH_COOKIE_NAME}=jwt-from-cookie`,
-        authorization: 'Bearer jwt-from-header',
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-from-cookie');
-    });
-
-    it('should fall back to auth.token when no cookie', () => {
-      const client = createMockClient({
-        authToken: 'jwt-from-auth',
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-from-auth');
-    });
-
-    it('should fall back to Authorization header when no cookie and no auth.token', () => {
-      const client = createMockClient({
-        authorization: 'Bearer jwt-from-header',
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-from-header');
-    });
-
-    it('should ignore query.token when no cookie/header/auth token is present', () => {
-      const client = createMockClient({
-        queryToken: 'jwt-from-query',
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBeNull();
-    });
-
-    it('should return null when nothing present', () => {
-      const client = createMockClient({});
-
-      const token = service.extractToken(client);
-      expect(token).toBeNull();
-    });
-
-    it('should parse access_token from multiple cookies correctly', () => {
-      const client = createMockClient({
-        cookie: `csrf_token=abc123; ${AUTH_COOKIE_NAME}=jwt-target; other_cookie=val`,
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-target');
-    });
-
-    it('should handle empty cookie header gracefully', () => {
-      const client = createMockClient({
-        cookie: '',
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBeNull();
-    });
-
-    it('should handle cookie header without access_token', () => {
-      const client = createMockClient({
-        cookie: 'csrf_token=abc123; other=val',
-        authToken: 'jwt-fallback',
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-fallback');
-    });
-
-    it('should handle cookie with spaces around values', () => {
-      const client = createMockClient({
-        cookie: `  ${AUTH_COOKIE_NAME}=jwt-with-spaces ;  other=val `,
-      });
-
-      const token = service.extractToken(client);
-      expect(token).toBe('jwt-with-spaces');
+    expect(mockAuth.api.getSession).toHaveBeenCalledWith({
+      headers: expect.any(Headers),
+      query: {
+        disableCookieCache: true,
+      },
     });
   });
-});
 
-describe('RealtimeHandshakeService - Authenticate Security', () => {
-  function createService(overrides: {
-    decodedToken?: any;
-    session?: any;
-    user?: any;
-  } = {}) {
-    const hasSessionOverride = Object.prototype.hasOwnProperty.call(overrides, 'session');
-    const hasUserOverride = Object.prototype.hasOwnProperty.call(overrides, 'user');
-    const hasDecodedOverride = Object.prototype.hasOwnProperty.call(overrides, 'decodedToken');
+  it('maps auth.token to an Authorization header for non-cookie clients', async () => {
+    const { service, mockAuth } = createService();
 
-    const mockJwtService = {
-      verifyAsync: jest.fn().mockResolvedValue(
-        hasDecodedOverride ? overrides.decodedToken : {
-          userId: 'user-1',
+    await service.authenticate(
+      createClient({
+        authToken: 'opaque-session-token',
+      }),
+    );
+
+    const [{ headers }] = mockAuth.api.getSession.mock.calls[0];
+    expect(headers.get('authorization')).toBe('Bearer opaque-session-token');
+  });
+
+  it('rejects missing sessions', async () => {
+    const { service } = createService({ sessionResult: null });
+
+    await expect(service.authenticate(createClient())).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('rejects inactive accounts', async () => {
+    const { service } = createService({
+      sessionResult: {
+        session: { id: 'sess-1' },
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
           tenantId: 'tenant-1',
-          sessionId: 'sess-1',
-          type: 'access',
+          isActive: false,
         },
-      ),
-    } as any;
-
-    const mockConfigService = {
-      get: jest.fn().mockReturnValue('a'.repeat(32)),
-    } as any;
-
-    const mockPrisma = {
-      session: {
-        findUnique: jest.fn().mockResolvedValue(
-          hasSessionOverride ? overrides.session : {
-            id: 'sess-1',
-            userId: 'user-1',
-            tenantId: 'tenant-1',
-            expiresAt: new Date(Date.now() + 60_000),
-          },
-        ),
-      },
-      user: {
-        findUnique: jest.fn().mockResolvedValue(
-          hasUserOverride ? overrides.user : {
-            id: 'user-1',
-            email: 'user@example.com',
-            tenantId: 'tenant-1',
-            isActive: true,
-            tenant: { isActive: true },
-          },
-        ),
-      },
-    } as any;
-
-    return {
-      service: new RealtimeHandshakeService(mockJwtService, mockConfigService, mockPrisma),
-      mockPrisma,
-      mockJwtService,
-    };
-  }
-
-  function createMockJwt(alg: 'HS256' | 'ES256' = 'HS256'): string {
-    const header = Buffer.from(JSON.stringify({ alg, typ: 'JWT' })).toString('base64url');
-    return `${header}.payload.signature`;
-  }
-
-  function createAuthClient(token: string = createMockJwt()): any {
-    return {
-      id: 'test-client',
-      handshake: {
-        headers: { authorization: `Bearer ${token}` },
-        auth: {},
-        query: {},
-      },
-    };
-  }
-
-  it('rejects non-access token types (e.g. mfa-challenge)', async () => {
-    const { service } = createService({
-      decodedToken: {
-        userId: 'user-1',
-        tenantId: 'tenant-1',
-        sessionId: 'sess-1',
-        type: 'mfa-challenge',
       },
     });
 
-    await expect(service.authenticate(createAuthClient())).rejects.toThrow(
-      UnauthorizedException,
+    await expect(service.authenticate(createClient())).rejects.toThrow(
+      ForbiddenException,
     );
   });
 
-  it('rejects token payload without sessionId', async () => {
+  it('rejects users without tenant assignment', async () => {
     const { service } = createService({
-      decodedToken: {
-        userId: 'user-1',
-        tenantId: 'tenant-1',
-        type: 'access',
+      sessionResult: {
+        session: { id: 'sess-1' },
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: null,
+          isActive: true,
+        },
       },
     });
 
-    await expect(service.authenticate(createAuthClient())).rejects.toThrow(
-      UnauthorizedException,
+    await expect(service.authenticate(createClient())).rejects.toThrow(
+      ForbiddenException,
     );
   });
 
-  it('rejects when session is not found', async () => {
-    const { service } = createService({ session: null });
+  it('rejects inactive organizations', async () => {
+    const { service } = createService({
+      persistedUser: {
+        id: 'user-1',
+        tenantId: 'tenant-1',
+        tenant: { isActive: false },
+      },
+    });
 
-    await expect(service.authenticate(createAuthClient())).rejects.toThrow(
-      UnauthorizedException,
+    await expect(service.authenticate(createClient())).rejects.toThrow(
+      ForbiddenException,
     );
   });
 
-  it('authenticates when token, session and user checks pass', async () => {
+  it('authenticates when the Better Auth session and tenant checks pass', async () => {
     const { service } = createService();
 
-    const result = await service.authenticate(createAuthClient());
+    const result = await service.authenticate(createClient());
 
-    expect(result.userId).toBe('user-1');
-    expect(result.tenantId).toBe('tenant-1');
-    expect(result.tenantRoom).toBe('tenant:tenant-1');
+    expect(result).toEqual({
+      userId: 'user-1',
+      tenantId: 'tenant-1',
+      email: 'user@example.com',
+      tenantRoom: 'tenant:tenant-1',
+    });
   });
 });
