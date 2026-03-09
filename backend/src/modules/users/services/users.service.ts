@@ -30,7 +30,7 @@ export class UsersService {
         lastName: true,
         avatarUrl: true,
         role: true,
-        isMfaEnabled: true,
+        twoFactorEnabled: true,
         lastLogin: true,
         createdAt: true,
       },

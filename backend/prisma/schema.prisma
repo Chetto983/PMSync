@@ -44,7 +44,6 @@ model Tenant {
   calendarEventAttachments CalendarEventAttachment[] @relation("CalendarEventAttachmentToTenant")
   calendarSyncStates       CalendarSyncState[]       @relation("CalendarSyncStateToTenant")
   sessions                 Session[]
-  refreshTokens            RefreshToken[]
   trustedDevices           TrustedDevice[]
   webauthnCredentials      WebAuthnCredential[]
   mistralAgents            MistralAgent[]
@@ -64,15 +63,11 @@ model User {
   name                String                 @default("")
   emailVerified       Boolean                @default(false)
   image               String?
-  /// @deprecated Legacy field -- password now lives in Account table. Remove in Phase 58.
-  passwordHash        String?
   firstName           String?
   lastName            String?
   avatarUrl           String?
   role                String                 @default("member")
   isActive            Boolean                @default(true)
-  /// @deprecated Legacy field -- better-auth 2FA plugin manages this. Remove in Phase 58.
-  isMfaEnabled        Boolean                @default(false)
   twoFactorEnabled    Boolean                @default(false)
   onboardingComplete  Boolean                @default(false)
   lastLogin           DateTime?
@@ -90,7 +85,6 @@ model User {
   mfaSecret           MfaSecret?
   sessions            Session[]
   accounts            Account[]
-  refreshTokens       RefreshToken[]
   trustedDevices      TrustedDevice[]
   userPreferences     UserPreferences?
   tenant              Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -288,8 +282,6 @@ model Session {
   ipAddress            String?
   userAgent            String?
   activeOrganizationId String?
-  /// @deprecated Legacy field -- better-auth uses updatedAt. Remove in Phase 58.
-  lastActivityAt       DateTime? @default(now())
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   tenant               Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -327,26 +319,6 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@map("verifications")
-}
-
-model RefreshToken {
-  id         String   @id @default(cuid())
-  tenantId   String
-  userId     String
-  familyId   String
-  tokenHash  String   @unique
-  expiresAt  DateTime
-  isUsed     Boolean  @default(false)
-  replacedBy String?
-  createdAt  DateTime @default(now())
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([userId])
-  @@index([familyId])
-  @@map("refresh_tokens")
 }
 
 model PasswordResetToken {

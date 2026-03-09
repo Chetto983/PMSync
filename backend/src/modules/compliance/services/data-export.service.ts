@@ -175,7 +175,7 @@ export class DataExportService {
       consentHistory,
       auditLogs,
     ] = await Promise.all([
-      // Profile (EXCLUDE: passwordHash, deletedAt)
+      // Profile (EXCLUDE: deletedAt)
       this.prisma.user.findUnique({
         where: { id: userId },
         select: {
