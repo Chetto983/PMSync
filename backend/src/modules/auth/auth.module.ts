@@ -4,7 +4,6 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { AuthController } from './controllers/auth.controller';
-import { MfaController } from './controllers/mfa.controller';
 import { AuthService } from './services/auth.service';
 import { AuthRegistrationService } from './services/auth-registration.service';
 import { AuthLoginService } from './services/auth-login.service';
@@ -12,10 +11,8 @@ import { AuthTokenService } from './services/auth-token.service';
 import { AuthPasswordResetService } from './services/auth-password-reset.service';
 import { AuthConfigService } from './services/auth-config.service';
 import { OtpSecurityService } from './services/otp-security.service';
-import { TotpService } from './services/totp.service';
 import { BackupCodesService } from './services/backup-codes.service';
 import { TrustedDeviceService } from './services/trusted-device.service';
-import { WebAuthnService } from './services/webauthn.service';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
 import { PasswordHashingService } from './services/password-hashing.service';
 import { PasswordPolicyService } from './services/password-policy.service';
@@ -111,25 +108,21 @@ import { ComplianceModule } from '../compliance/compliance.module';
     AuthService,
     AuthConfigService,
     OtpSecurityService,
-    TotpService,
     BackupCodesService,
     TrustedDeviceService,
-    WebAuthnService,
     RedisRateLimiterService,
     PasswordHashingService,
     PasswordPolicyService,
     JwtStrategy,
     // EmailService provided globally by TransactionalEmailModule (Phase 45-03)
   ],
-  controllers: [AuthController, MfaController],
+  controllers: [AuthController],
   exports: [
     AuthService,
     AuthConfigService,
     OtpSecurityService,
-    TotpService,
     BackupCodesService,
     TrustedDeviceService,
-    WebAuthnService,
     RedisRateLimiterService,
     JwtModule,
   ],

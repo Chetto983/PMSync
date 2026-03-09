@@ -22,7 +22,6 @@ import { VerifyOtpDto } from '../dtos/verify-otp.dto';
 import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { SendOtpDto } from '../dtos/send-otp.dto';
-import { MfaChallengeDto, MfaChallengeResponseDto, WebAuthnLoginOptionsDto, WebAuthnLoginVerifyDto } from '../dtos/mfa.dto';
 import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { generateCsrfToken } from '../../../common/middleware/csrf.middleware';
 import {
@@ -120,89 +119,6 @@ export class AuthController {
     const deviceToken = req.cookies?.['mfa_device_token'] || req.headers['x-device-token'] as string;
     const result = await this.authService.login(body.email, body.password, body.tenantSlug, ipAddress, userAgent, deviceToken, req);
     if ('accessToken' in result && result.accessToken) {
-      setAuthCookie(res, result.accessToken);
-    }
-    if ('refreshToken' in result && result.refreshToken) {
-      setRefreshCookie(res, result.refreshToken as string);
-    }
-    return result;
-  }
-
-  /**
-   * Verify MFA challenge (TOTP, backup code, or email OTP)
-   * POST /auth/mfa/verify
-   * SECURITY: Rate limited to 5 attempts per 60 seconds
-   */
-  @Public()
-  @Post('mfa/verify')
-  @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Verify MFA challenge to complete login' })
-  @ApiResponse({ status: 200, description: 'MFA verified, login successful', type: MfaChallengeResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid MFA code or token' })
-  async verifyMfaChallenge(
-    @Body() body: MfaChallengeDto,
-    @Req() req: ExpressRequest,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ) {
-    const ipAddress = this.getClientIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    const result = await this.authService.verifyMfaChallenge(
-      body.mfaToken,
-      body.method,
-      body.code,
-      body.trustDevice || false,
-      req,
-      ipAddress,
-      userAgent,
-    );
-    if (result.accessToken) {
-      setAuthCookie(res, result.accessToken);
-    }
-    if ('refreshToken' in result && result.refreshToken) {
-      setRefreshCookie(res, result.refreshToken as string);
-    }
-    return result;
-  }
-
-  // ==================== WEBAUTHN / PASSKEY LOGIN ====================
-
-  /**
-   * Get WebAuthn login options for passwordless authentication
-   * POST /auth/webauthn/login/options
-   * Rate limited: 5 requests per 60 seconds
-   */
-  @Public()
-  @Post('webauthn/login/options')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Get WebAuthn authentication options for passkey login' })
-  @ApiResponse({ status: 201, description: 'Authentication options for browser WebAuthn API' })
-  @ApiResponse({ status: 400, description: 'User not found or no passkeys registered' })
-  async getWebAuthnLoginOptions(@Body() body: WebAuthnLoginOptionsDto) {
-    return this.authService.getWebAuthnLoginOptions(body.email, body.tenantSlug);
-  }
-
-  /**
-   * Verify WebAuthn authentication and complete login
-   * POST /auth/webauthn/login/verify
-   * Rate limited: 5 requests per 60 seconds
-   */
-  @Public()
-  @Post('webauthn/login/verify')
-  @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Verify WebAuthn authentication and complete passkey login' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Authentication failed' })
-  async verifyWebAuthnLogin(
-    @Body() body: WebAuthnLoginVerifyDto,
-    @Req() req: ExpressRequest,
-    @Res({ passthrough: true }) res: ExpressResponse,
-  ) {
-    const ipAddress = this.getClientIp(req);
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    const result = await this.authService.loginWithPasskey(body.response, body.sessionId, ipAddress, userAgent);
-    if (result.accessToken) {
       setAuthCookie(res, result.accessToken);
     }
     if ('refreshToken' in result && result.refreshToken) {

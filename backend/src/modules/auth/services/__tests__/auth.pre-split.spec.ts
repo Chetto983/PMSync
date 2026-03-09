@@ -42,10 +42,8 @@ describe('AuthService (Pre-Split Characterization)', () => {
   let mockJwtService: any;
   let mockEmailService: any;
   let mockOtpSecurity: any;
-  let mockTotpService: any;
   let mockBackupCodesService: any;
   let mockTrustedDeviceService: any;
-  let mockWebauthnService: any;
   let mockRateLimiter: any;
   let mockCacheService: any;
   let mockLegalAcceptanceService: any;
@@ -127,11 +125,6 @@ describe('AuthService (Pre-Split Characterization)', () => {
       verifyOtp: jest.fn().mockResolvedValue({ success: true }),
     };
 
-    mockTotpService = {
-      isEnabled: jest.fn().mockResolvedValue(false),
-      verifyCode: jest.fn().mockResolvedValue({ success: true }),
-    };
-
     mockBackupCodesService = {
       getRemainingCount: jest.fn().mockResolvedValue(0),
       verify: jest.fn().mockResolvedValue({ success: true }),
@@ -140,11 +133,6 @@ describe('AuthService (Pre-Split Characterization)', () => {
     mockTrustedDeviceService = {
       verifyDevice: jest.fn().mockResolvedValue(false),
       trustDevice: jest.fn().mockResolvedValue('device-token'),
-    };
-
-    mockWebauthnService = {
-      verifyLogin: jest.fn().mockResolvedValue({ success: true, user: mockUser }),
-      generateLoginOptions: jest.fn().mockResolvedValue({ challenge: 'test' }),
     };
 
     mockRateLimiter = {
@@ -189,8 +177,8 @@ describe('AuthService (Pre-Split Characterization)', () => {
       mockPasswordHashingService as any, mockPasswordPolicyService as any,
     );
     const loginService = new AuthLoginService(
-      mockPrisma, mockJwtService, mockOtpSecurity, mockTotpService,
-      mockBackupCodesService, mockTrustedDeviceService, mockWebauthnService, mockRateLimiter,
+      mockPrisma, mockJwtService, mockOtpSecurity,
+      mockBackupCodesService, mockTrustedDeviceService, mockRateLimiter,
       mockPasswordHashingService as any, mockPasswordPolicyService as any, mockAuthConfigService as any,
     );
     const tokenService = new AuthTokenService(
@@ -297,14 +285,7 @@ describe('AuthService (Pre-Split Characterization)', () => {
       expect(result.accessToken).toBeDefined();
     });
 
-    it('should request MFA when user has MFA enabled and TOTP set', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, isMfaEnabled: true });
-      mockTotpService.isEnabled.mockResolvedValue(true);
-
-      const result = await service.login('test@example.com', 'password123');
-      expect(result.mfaRequired).toBe(true);
-      expect(result.mfaToken).toBeDefined();
-    });
+    // NOTE: MFA TOTP test removed -- better-auth handles MFA now (Phase 55-05)
 
     it('should throw on lockout', async () => {
       mockRateLimiter.isLockedOut.mockResolvedValue({
@@ -328,39 +309,8 @@ describe('AuthService (Pre-Split Characterization)', () => {
     });
   });
 
-  // ===== PASSKEY =====
-  describe('loginWithPasskey', () => {
-    it('should create session on successful passkey login', async () => {
-      const result = await service.loginWithPasskey({}, 'session-1');
-      expect(result.success).toBe(true);
-      expect(result.accessToken).toBeDefined();
-    });
-
-    it('should throw on failed passkey verification', async () => {
-      mockWebauthnService.verifyLogin.mockResolvedValue({
-        success: false,
-        error: 'Invalid passkey',
-      });
-      await expect(
-        service.loginWithPasskey({}, 'session-1'),
-      ).rejects.toThrow('Invalid passkey');
-    });
-  });
-
-  // ===== MFA =====
-  describe('verifyMfaChallenge', () => {
-    it('should verify TOTP and create session', async () => {
-      const result = await service.verifyMfaChallenge('mfa-token', 'totp', '123456');
-      expect(result.success).toBe(true);
-    });
-
-    it('should throw on invalid MFA token', async () => {
-      mockJwtService.verify.mockImplementation(() => { throw new Error('expired'); });
-      await expect(
-        service.verifyMfaChallenge('bad-token', 'totp', '123456'),
-      ).rejects.toThrow('Invalid or expired MFA token');
-    });
-  });
+  // NOTE: loginWithPasskey and verifyMfaChallenge tests removed --
+  // better-auth plugins handle passkey login and MFA now (Phase 55-05)
 
   // ===== PASSWORD RESET =====
   describe('requestPasswordReset', () => {
@@ -480,9 +430,6 @@ describe('AuthService (Pre-Split Characterization)', () => {
       'sendOtpCode',
       'verifyOtpCode',
       'login',
-      'loginWithPasskey',
-      'getWebAuthnLoginOptions',
-      'verifyMfaChallenge',
       'requestPasswordReset',
       'resetPassword',
       'logout',

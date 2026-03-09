@@ -1,17 +1,14 @@
 import {
   Injectable,
   UnauthorizedException,
-  BadRequestException,
   Logger,
   ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { OtpSecurityService } from './otp-security.service';
-import { TotpService } from './totp.service';
 import { BackupCodesService } from './backup-codes.service';
 import { TrustedDeviceService } from './trusted-device.service';
-import { WebAuthnService } from './webauthn.service';
 import { PasswordHashingService } from './password-hashing.service';
 import { PasswordPolicyService } from './password-policy.service';
 import { AuthConfigService } from './auth-config.service';
@@ -42,10 +39,8 @@ export class AuthLoginService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private otpSecurity: OtpSecurityService,
-    private totpService: TotpService,
     private backupCodesService: BackupCodesService,
     private trustedDeviceService: TrustedDeviceService,
-    private webauthnService: WebAuthnService,
     private rateLimiter: RedisRateLimiterService,
     private passwordHashingService: PasswordHashingService,
     private passwordPolicyService: PasswordPolicyService,
@@ -366,188 +361,14 @@ export class AuthLoginService {
     // Soft password policy warning (non-blocking, length-only check)
     const passwordPolicyWarning = password.length < PASSWORD_POLICY_MIN_LENGTH;
 
-    if (user.isMfaEnabled) {
-      if (deviceToken && request) {
-        const isTrusted = await this.trustedDeviceService.verifyDevice(
-          tenant.id,
-          user.id,
-          deviceToken,
-          request,
-        );
-        if (isTrusted) {
-          this.logger.log(JSON.stringify({ event: 'mfa_skipped_trusted_device', userId: user.id }));
-          return { ...await this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn), passwordPolicyWarning };
-        }
-      }
-
-      const totpEnabled = await this.totpService.isEnabled(user.id);
-      const backupCodesRemaining = await this.backupCodesService.getRemainingCount(tenant.id, user.id);
-
-      if (totpEnabled) {
-        const mfaToken = this.jwtService.sign(
-          { userId: user.id, tenantId: tenant.id, type: 'mfa-challenge' },
-          { expiresIn: '5m' },
-        );
-        return {
-          mfaRequired: true, mfaToken,
-          availableMethods: ['totp', ...(backupCodesRemaining > 0 ? ['backup'] : []), 'email'],
-          message: 'Multi-factor authentication required',
-          passwordPolicyWarning,
-        };
-      }
-
-      if (sendOtpCodeFn) {
-        await sendOtpCodeFn(normalizedEmail, slug);
-      }
-      return { mfaRequired: true, availableMethods: ['email'], message: 'OTP code has been sent to your email', passwordPolicyWarning };
-    }
+    // NOTE: MFA is now handled by better-auth plugins (twoFactor, passkey).
+    // The old custom TOTP/WebAuthn MFA flow has been removed (Phase 55-05).
+    // The isMfaEnabled flag is deprecated; better-auth manages 2FA state directly.
 
     return { ...await this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn), passwordPolicyWarning };
   }
 
-  /**
-   * Login with passkey (WebAuthn)
-   */
-  async loginWithPasskey(
-    response: Record<string, unknown>,
-    sessionId: string,
-    ipAddress?: string,
-    userAgent?: string,
-    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
-  ) {
-    return withoutTenantScopingAsync(() => this._loginWithPasskey(response, sessionId, ipAddress, userAgent, createRefreshTokenFn));
-  }
-
-  private async _loginWithPasskey(
-    response: Record<string, unknown>,
-    sessionId: string,
-    ipAddress?: string,
-    userAgent?: string,
-    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
-  ) {
-    const result = await this.webauthnService.verifyLogin(
-      response as unknown as Parameters<typeof this.webauthnService.verifyLogin>[0],
-      sessionId,
-    );
-
-    if (!result.success || !result.user) {
-      throw new UnauthorizedException(result.error || 'Passkey authentication failed');
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: result.user.id },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, tenantId: true, isActive: true },
-    });
-    if (!user || !user.isActive) throw new UnauthorizedException('Account not active');
-
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: user.tenantId! },
-      select: { id: true, isActive: true },
-    });
-    if (!tenant || !tenant.isActive) throw new UnauthorizedException('Tenant not active');
-
-    this.logger.log(
-      JSON.stringify({ event: 'passkey_login_success', userId: user.id, email: user.email.substring(0, 2) + '***' }),
-    );
-
-    return this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn);
-  }
-
-  /**
-   * Get WebAuthn login options
-   */
-  async getWebAuthnLoginOptions(email: string, tenantSlug?: string) {
-    return withoutTenantScopingAsync(async () => {
-      const result = await this.webauthnService.generateLoginOptions(email, tenantSlug);
-      if (!result) throw new BadRequestException('Unable to generate passkey options');
-      return result;
-    });
-  }
-
-  /**
-   * Verify MFA challenge (TOTP, backup code, or email OTP)
-   */
-  async verifyMfaChallenge(
-    mfaToken: string,
-    method: 'totp' | 'backup' | 'email',
-    code: string,
-    trustDevice: boolean = false,
-    request?: ExpressRequest,
-    ipAddress?: string,
-    userAgent?: string,
-    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
-  ) {
-    return withoutTenantScopingAsync(() => this._verifyMfaChallenge(mfaToken, method, code, trustDevice, request, ipAddress, userAgent, createRefreshTokenFn));
-  }
-
-  private async _verifyMfaChallenge(
-    mfaToken: string,
-    method: 'totp' | 'backup' | 'email',
-    code: string,
-    trustDevice: boolean = false,
-    request?: ExpressRequest,
-    ipAddress?: string,
-    userAgent?: string,
-    createRefreshTokenFn?: (userId: string, tenantId: string) => Promise<{ token: string; familyId: string }>,
-  ) {
-    let payload: { userId: string; tenantId: string; type: string };
-    try {
-      payload = this.jwtService.verify(mfaToken);
-    } catch {
-      throw new UnauthorizedException('Invalid or expired MFA token');
-    }
-
-    if (payload.type !== 'mfa-challenge') throw new UnauthorizedException('Invalid token type');
-
-    const user = await this.prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user) throw new UnauthorizedException('User not found');
-
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: payload.tenantId } });
-    if (!tenant) throw new UnauthorizedException('Tenant not found');
-    if (user.tenantId !== tenant.id) {
-      throw new UnauthorizedException('Invalid MFA token context');
-    }
-    if (!user.isActive) throw new ForbiddenException('Account is disabled');
-    if (!tenant.isActive) throw new ForbiddenException('Organization is disabled');
-
-    switch (method) {
-      case 'totp': {
-        const result = await this.totpService.verifyCode(user.id, code);
-        if (!result.success) throw new UnauthorizedException('Invalid TOTP code');
-        break;
-      }
-      case 'backup': {
-        const result = await this.backupCodesService.verify(tenant.id, user.id, code);
-        if (!result.success) {
-          throw new UnauthorizedException(
-            result.reason === 'already_used' ? 'This backup code has already been used' : 'Invalid backup code',
-          );
-        }
-        break;
-      }
-      case 'email': {
-        const result = await this.otpSecurity.verifyOtp(user.id, code, 'email');
-        if (!result.success) {
-          if (result.reason === 'locked_out') {
-            throw new ForbiddenException(`Account temporarily locked. Try again after ${result.lockoutEndsAt?.toISOString()}`);
-          }
-          throw new UnauthorizedException(`Invalid or expired OTP code. ${result.attemptsRemaining} attempts remaining.`);
-        }
-        break;
-      }
-      default:
-        throw new BadRequestException('Invalid MFA method');
-    }
-
-    this.logger.log(JSON.stringify({ event: 'mfa_verified', userId: user.id, method }));
-
-    const sessionResult = await this.createSession(user, tenant, ipAddress, userAgent, createRefreshTokenFn);
-
-    let deviceTokenResult: string | undefined;
-    if (trustDevice && request) {
-      deviceTokenResult = await this.trustedDeviceService.trustDevice(tenant.id, user.id, request);
-    }
-
-    return { ...sessionResult, ...(deviceTokenResult && { deviceToken: deviceTokenResult }) };
-  }
+  // NOTE: loginWithPasskey, getWebAuthnLoginOptions, and verifyMfaChallenge
+  // have been removed (Phase 55-05). Passkey login and MFA verification are
+  // now handled entirely by better-auth plugins (passkey, twoFactor).
 }

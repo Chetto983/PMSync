@@ -52,26 +52,8 @@ export class AuthService {
     );
   }
 
-  async loginWithPasskey(response: Record<string, unknown>, sessionId: string, ipAddress?: string, userAgent?: string) {
-    return this.loginService.loginWithPasskey(
-      response, sessionId, ipAddress, userAgent,
-      (uid, tid) => this.createRefreshToken(uid, tid),
-    );
-  }
-
-  async getWebAuthnLoginOptions(email: string, tenantSlug?: string) {
-    return this.loginService.getWebAuthnLoginOptions(email, tenantSlug);
-  }
-
-  async verifyMfaChallenge(
-    mfaToken: string, method: 'totp' | 'backup' | 'email', code: string,
-    trustDevice: boolean = false, request?: ExpressRequest, ipAddress?: string, userAgent?: string,
-  ) {
-    return this.loginService.verifyMfaChallenge(
-      mfaToken, method, code, trustDevice, request, ipAddress, userAgent,
-      (uid, tid) => this.createRefreshToken(uid, tid),
-    );
-  }
+  // NOTE: loginWithPasskey, getWebAuthnLoginOptions, and verifyMfaChallenge
+  // removed in Phase 55-05. Passkey/MFA now handled by better-auth plugins.
 
   // ===== LOGOUT / TOKENS =====
 

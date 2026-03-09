@@ -22,10 +22,8 @@ const mockPrisma = {
 };
 const mockJwtService = { sign: jest.fn().mockReturnValue('jwt-token'), verify: jest.fn() };
 const mockOtpSecurity = { verifyOtp: jest.fn() };
-const mockTotpService = { isEnabled: jest.fn(), verifyCode: jest.fn() };
 const mockBackupCodesService = { getRemainingCount: jest.fn(), verify: jest.fn() };
 const mockTrustedDeviceService = { verifyDevice: jest.fn(), trustDevice: jest.fn() };
-const mockWebauthnService = { verifyLogin: jest.fn(), generateLoginOptions: jest.fn() };
 const mockRateLimiter = {
   isLockedOut: jest.fn().mockResolvedValue({ isLockedOut: false, retryAfterSeconds: 0 }),
   recordFailedAttempt: jest.fn().mockResolvedValue({ isLockedOut: false, retryAfterSeconds: 0 }),
@@ -68,10 +66,8 @@ describe('AuthLoginService - Hardening', () => {
     const { PrismaService } = await import('../../../prisma/prisma.service');
     const { JwtService } = await import('@nestjs/jwt');
     const { OtpSecurityService } = await import('../services/otp-security.service');
-    const { TotpService } = await import('../services/totp.service');
     const { BackupCodesService } = await import('../services/backup-codes.service');
     const { TrustedDeviceService } = await import('../services/trusted-device.service');
-    const { WebAuthnService } = await import('../services/webauthn.service');
     const { RedisRateLimiterService } = await import('../../../common/services/redis-rate-limiter.service');
 
     const module: TestingModule = await Test.createTestingModule({
@@ -80,10 +76,8 @@ describe('AuthLoginService - Hardening', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: JwtService, useValue: mockJwtService },
         { provide: OtpSecurityService, useValue: mockOtpSecurity },
-        { provide: TotpService, useValue: mockTotpService },
         { provide: BackupCodesService, useValue: mockBackupCodesService },
         { provide: TrustedDeviceService, useValue: mockTrustedDeviceService },
-        { provide: WebAuthnService, useValue: mockWebauthnService },
         { provide: RedisRateLimiterService, useValue: mockRateLimiter },
         { provide: PasswordHashingService, useValue: mockPasswordHashing },
         { provide: PasswordPolicyService, useValue: mockPasswordPolicy },

@@ -31,10 +31,8 @@ import { AuthPasswordResetService } from '../services/auth-password-reset.servic
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailService } from '../../email/services/email.service';
 import { OtpSecurityService } from '../services/otp-security.service';
-import { TotpService } from '../services/totp.service';
 import { BackupCodesService } from '../services/backup-codes.service';
 import { TrustedDeviceService } from '../services/trusted-device.service';
-import { WebAuthnService } from '../services/webauthn.service';
 import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { LegalAcceptanceService } from '../../compliance/services/legal-acceptance.service';
@@ -137,10 +135,8 @@ describe('Password Change Invalidation (AUTH-05)', () => {
         { provide: PasswordPolicyService, useValue: mockPasswordPolicy },
         // Sub-service deps not exercised in these tests but required for DI
         { provide: OtpSecurityService, useValue: {} },
-        { provide: TotpService, useValue: {} },
         { provide: BackupCodesService, useValue: {} },
         { provide: TrustedDeviceService, useValue: {} },
-        { provide: WebAuthnService, useValue: {} },
         { provide: RedisRateLimiterService, useValue: {} },
         { provide: LegalAcceptanceService, useValue: {} },
       ],
