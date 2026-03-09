@@ -1,20 +1,20 @@
 import { Global, Module } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { createBetterAuthInstance } from './better-auth.instance';
+import { BetterAuthController } from './better-auth.controller';
 
 export const BETTER_AUTH = 'BETTER_AUTH';
 
 /**
- * Provides the better-auth consumer instance via NestJS DI.
+ * Full better-auth module — provides auth instance via DI
+ * and exposes /api/auth/* endpoints for sign-up, sign-in,
+ * password reset, email verification, and session management.
  *
- * Import this module wherever you need to validate better-auth sessions.
- * Inject with `@Inject(BETTER_AUTH)`.
- *
- * The old AuthModule is NOT touched -- both coexist until Phase 52
- * replaces the guards.
+ * The frontend createAuthClient points to this backend.
  */
 @Global()
 @Module({
+  controllers: [BetterAuthController],
   providers: [
     {
       provide: BETTER_AUTH,

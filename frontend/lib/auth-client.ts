@@ -11,6 +11,7 @@ import { createAuthClient } from "better-auth/react";
  * are server-only. We declare additionalFields manually below.
  */
 export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
   plugins: [],
 });
 
