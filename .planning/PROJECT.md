@@ -134,6 +134,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 - Phase 50: Schema & infrastructure (better-auth tables, BetterAuthModule) -- complete
 - Phase 51: Core email/password auth (signup, signin, verify, reset) -- complete
 - Phase 52: NestJS session validation (global BetterAuthGuard, guard chain migration) -- complete
+- Phase 53: Frontend auth UI (login/signup pages, session hooks, protected routes) -- complete
+- Phase 54: WebSocket auth (verified existing better-auth WS handshake, NEST-05) -- complete
 
 ### Out of Scope
 
@@ -243,6 +245,9 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 | Global BetterAuthGuard + @Public() opt-out | All routes authenticated by default; opt-out is explicit and auditable | ✓ Good |
 | TenantGuard/RolesGuard zero-change compat | BetterAuthGuard maps session to identical request.user shape | ✓ Good |
+| Untyped createAuthClient (no generic) | Type inference fails across client/server boundary; manual SessionUser interface | ✓ Good |
+| 401 interceptor simplified to signOut+redirect | No JWT refresh queue needed; better-auth manages sessions via cookies | ✓ Good |
+| WS auth via Phase 52 (no new code for Phase 54) | Handshake already uses auth.api.getSession with cookie validation | ✓ Good |
 
 ---
-*Last updated: 2026-03-06 after Phase 52*
+*Last updated: 2026-03-09 after Phase 54*

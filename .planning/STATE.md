@@ -3,29 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Phase 59 context gathered
-last_updated: "2026-03-09T13:21:57.987Z"
-last_activity: 2026-03-09 -- 54-01 complete (WebSocket auth verification, NEST-05 satisfied)
+stopped_at: Phase 54 complete, ready to plan Phase 55
+last_updated: "2026-03-09"
+last_activity: 2026-03-09 -- Phase 54 complete (WebSocket auth verified, NEST-05 satisfied)
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 10
   completed_plans: 10
----
-
----
-gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: better-auth Migration
-status: executing
-stopped_at: Completed 54-01-PLAN.md
-last_updated: "2026-03-09T13:18:00Z"
-last_activity: 2026-03-09 -- 54-01 complete (WebSocket auth verification, NEST-05 satisfied)
-progress:
-  total_phases: 9
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
   percent: 100
 ---
 
@@ -33,19 +18,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-06)
+See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v5.0 better-auth Migration -- Phase 54 complete, Phase 55 next
+**Current focus:** v5.0 better-auth Migration -- Phase 55 (Social Login & MFA)
 
 ## Current Position
 
-Phase: 54 of 58 (WebSocket Auth) -- Plan 01 complete (all plans done)
-Plan: 1 of 1 in Phase 54
-Status: Executing
-Last activity: 2026-03-09 -- 54-01 complete (WebSocket auth verification, NEST-05 satisfied)
+Phase: 55 of 59 (Social Login & MFA) -- Ready to plan
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-09 -- Phase 54 complete (WebSocket auth verified, NEST-05 satisfied)
 
-Progress: [██████████] 100%
+Progress: [████████████████████] 10/10 plans (100%)
 
 ## Performance Metrics
 
@@ -115,12 +100,12 @@ None.
 
 ### Blockers/Concerns
 
-- Schema collision: better-auth wants to own User/Session tables; PMSync has 42 FK chains to User
-- Cookie name change: `__Host-access_token` -> `better-auth.session_token` affects WebSocket + CSRF
+- Schema collision: better-auth wants to own User/Session tables; PMSync has 42 FK chains to User (resolved in Phase 50)
+- ~~Cookie name change: `__Host-access_token` -> `better-auth.session_token` affects WebSocket + CSRF~~ (resolved -- Phase 54 confirmed WS works with new cookies)
 - api.generated.ts placeholder (carries forward from v4.1)
 
 ## Session Continuity
 
-Last session: 2026-03-09T13:19:14.454Z
-Stopped at: Phase 59 context gathered
-Resume file: .planning/phases/59-safety/59-CONTEXT.md
+Last session: 2026-03-09
+Stopped at: Phase 54 complete, ready to plan Phase 55
+Resume file: None
