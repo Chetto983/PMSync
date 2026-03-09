@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
+stopped_at: Completed 55-05-PLAN.md
+last_updated: "2026-03-09T15:11:44.424Z"
+last_activity: 2026-03-09 -- Phase 55 Plan 03 complete (onboarding wizard + middleware)
+progress:
+  total_phases: 10
+  completed_phases: 6
+  total_plans: 19
+  completed_plans: 15
+  percent: 79
+---
+
+---
+gsd_state_version: 1.0
+milestone: v5.0
+milestone_name: better-auth Migration
+status: executing
 stopped_at: Completed 55-02-PLAN.md
 last_updated: "2026-03-09T15:01:06.465Z"
 last_activity: 2026-03-09 -- Phase 55 Plan 03 complete (onboarding wizard + middleware)
 progress:
-  total_phases: 10
+  [████████░░] 79%
   completed_phases: 5
   total_plans: 19
   completed_plans: 14
@@ -84,6 +100,7 @@ Progress: [████████████████████] 12/14 p
 *Updated after each plan completion*
 | Phase 55 P04 | 12min | 2 tasks | 8 files |
 | Phase 55 P02 | 8min | 2 tasks | 9 files |
+| Phase 55 P05 | 8min | 1 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -135,6 +152,7 @@ Progress: [████████████████████] 12/14 p
 - [Phase 55]: [55-02] UAParser v2 require() workaround for @types v0.7 mismatch
 - [Phase 55]: [55-02] listUserPasskeys (not listPasskeys) is correct better-auth passkey method
 - [Phase 55]: [55-02] authClient.setPassword cast needed -- types not exposed without open-api plugin
+- [Phase 55]: Removed MFA challenge/passkey/WebAuthn endpoints from NestJS auth -- better-auth plugins handle all MFA now
 
 ### Pending Todos
 
@@ -152,6 +170,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T15:01:06.459Z
-Stopped at: Completed 55-02-PLAN.md
+Last session: 2026-03-09T15:11:44.420Z
+Stopped at: Completed 55-05-PLAN.md
 Resume file: None

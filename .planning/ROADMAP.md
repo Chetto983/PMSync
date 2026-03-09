@@ -80,7 +80,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
  (completed 2026-03-06)
 - [x] **Phase 53: Frontend Auth UI** - Login/signup pages, session hooks, protected routes with better-auth client (completed 2026-03-09)
 - [x] **Phase 54: WebSocket Auth** - Verified existing better-auth WS handshake (7/7 tests pass, zero JWT remnants) (completed 2026-03-09)
-- [ ] **Phase 55: Social Login & MFA** - Google OAuth, TOTP 2FA, passkeys, backup codes, security settings
+- [x] **Phase 55: Social Login & MFA** - Google OAuth, TOTP 2FA, passkeys, backup codes, security settings (completed 2026-03-09)
 - [ ] **Phase 56: Organizations** - Org creation, invitations, roles, switching, API permission enforcement
 - [ ] **Phase 57: Admin Panel** - User management, ban/unban, impersonation, session revocation
 - [ ] **Phase 58: Compliance & Cleanup** - Audit trail hooks, GDPR updates, legacy code deletion, test rewrite
@@ -173,7 +173,7 @@ Plans:
   3. User can use backup codes to bypass TOTP when their device is unavailable
   4. User can register a passkey (WebAuthn) and use it as primary or second-factor authentication
   5. User can view and manage all security settings (active 2FA methods, registered passkeys, active sessions) from a settings page
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 55-01-PLAN.md — Schema migration + plugin config + social login buttons + 2FA page
@@ -269,7 +269,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 52. NestJS Session Validation | 3/3 | Complete    | 2026-03-06 | - |
 | 53. Frontend Auth UI | 2/2 | Complete    | 2026-03-09 | 2026-03-09 |
 | 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
-| 55. Social Login & MFA | 4/5 | In Progress|  | - |
+| 55. Social Login & MFA | 5/5 | Complete   | 2026-03-09 | - |
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | v5.0 | 0/TBD | Not started | - |
