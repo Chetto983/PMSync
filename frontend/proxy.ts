@@ -10,6 +10,7 @@ import { getSessionCookie } from "better-auth/cookies";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = getSessionCookie(request);
+  const onboardingCookie = request.cookies.get("pmsync:onboarding-complete");
 
   // Protected routes: require session cookie
   if (pathname.startsWith("/dashboard")) {
@@ -17,6 +18,10 @@ export async function proxy(request: NextRequest) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("returnTo", pathname);
       return NextResponse.redirect(loginUrl);
+    }
+
+    if (!onboardingCookie) {
+      return NextResponse.redirect(new URL("/onboarding", request.url));
     }
   }
 
