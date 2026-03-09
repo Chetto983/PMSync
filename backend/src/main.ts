@@ -395,6 +395,7 @@ async function bootstrap() {
       () =>
         NestFactory.create<NestExpressApplication>(AppModule, {
           bufferLogs,
+          bodyParser: false, // Disabled: we add it manually to exclude /api/auth routes
         }),
     );
 
@@ -509,6 +510,16 @@ async function bootstrap() {
       // Let better-auth handle the request; if it doesn't match, fall through
       betterAuthHandler(req, res);
     });
+
+    // Re-add body parsers for all NON-auth routes (disabled globally above).
+    // /api/auth routes are handled by better-auth which parses its own body.
+    const express = await import('express');
+    const skipAuthBodyParser = (fn: any) => (req: any, res: any, next: any) => {
+      if (req.path.startsWith('/api/auth')) return next();
+      return fn(req, res, next);
+    };
+    app.use(skipAuthBodyParser(express.json({ limit: '10mb' })));
+    app.use(skipAuthBodyParser(express.urlencoded({ extended: true, limit: '10mb' })));
 
     // CSRF Protection (SEC-04) - must be after cookieParser
     app.use(csrfMiddleware);
