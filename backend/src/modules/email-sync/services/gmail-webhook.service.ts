@@ -313,8 +313,8 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
 
       // Initialize Gmail API client with fresh token
       const oauth2Client = new google.auth.OAuth2(
-        this.configService.get<string>('GOOGLE_CLIENT_ID'),
-        this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
+        this.configService.get<string>('GMAIL_CLIENT_ID'),
+        this.configService.get<string>('GMAIL_CLIENT_SECRET'),
       );
 
       oauth2Client.setCredentials({
@@ -506,8 +506,8 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
 
       // Initialize Gmail API client with fresh token
       const oauth2Client = new google.auth.OAuth2(
-        this.configService.get<string>('GOOGLE_CLIENT_ID'),
-        this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
+        this.configService.get<string>('GMAIL_CLIENT_ID'),
+        this.configService.get<string>('GMAIL_CLIENT_SECRET'),
       );
 
       oauth2Client.setCredentials({

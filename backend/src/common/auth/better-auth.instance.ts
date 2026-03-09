@@ -199,8 +199,8 @@ export function createBetterAuthInstance(
 
     socialProviders: {
       google: {
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientId: process.env.GMAIL_CLIENT_ID!,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET!,
         accessType: 'offline',
         prompt: 'select_account consent',
         scope: [
