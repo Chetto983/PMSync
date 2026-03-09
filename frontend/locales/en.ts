@@ -364,6 +364,23 @@ export const en: AppTranslations = {
         actionLabel: 'Go to login',
       },
     },
+    social: {
+      google: 'Continue with Google',
+      microsoft: 'Continue with Microsoft',
+      or: 'or',
+    },
+    twoFactorVerify: {
+      title: 'Two-Factor Authentication',
+      subtitle: 'Enter the code from your authenticator app',
+      codeLabel: 'Verification code',
+      codePlaceholder: '000000',
+      verify: 'Verify',
+      useBackupCode: 'Use a backup code',
+      backupCodeLabel: 'Backup code',
+      backupCodePlaceholder: 'Enter backup code',
+      useAuthenticator: 'Use authenticator app',
+      error: 'Invalid code. Please try again.',
+    },
     mfa: {
       title: 'Two-Factor Authentication',
       subtitle: 'Add an extra layer of security to your account.',

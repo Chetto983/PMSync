@@ -404,6 +404,23 @@ export interface AppTranslations {
     register: AuthScreenCopy;
     forgotPassword: AuthScreenCopy;
     resetPassword: AuthScreenCopy;
+    social: {
+      google: string;
+      microsoft: string;
+      or: string;
+    };
+    twoFactorVerify: {
+      title: string;
+      subtitle: string;
+      codeLabel: string;
+      codePlaceholder: string;
+      verify: string;
+      useBackupCode: string;
+      backupCodeLabel: string;
+      backupCodePlaceholder: string;
+      useAuthenticator: string;
+      error: string;
+    };
     mfa: MfaTranslations;
   };
   dashboard: {

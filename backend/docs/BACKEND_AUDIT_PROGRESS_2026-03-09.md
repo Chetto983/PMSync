@@ -19,6 +19,9 @@ Canonical current-state backend references:
 - `backend/docs/BACKEND_MULTI_TENANCY_ARCHITECTURE_2026-03-09.md`
 - `backend/docs/BACKEND_API_ARCHITECTURE_2026-03-09.md`
 - `backend/docs/BACKEND_OBSERVABILITY_ARCHITECTURE_2026-03-09.md`
+- `backend/docs/BACKEND_QUEUE_ARCHITECTURE_2026-03-09.md`
+- `backend/docs/BACKEND_AI_OBSERVABILITY_ARCHITECTURE_2026-03-09.md`
+- `backend/docs/BACKEND_SECURITY_SURFACE_2026-03-09.md`
 - `technical_overview.md`
 - `AUDIT.md`
 
@@ -34,7 +37,11 @@ Canonical current-state backend references:
 - `backend/docs/BACKEND_MULTI_TENANCY_ARCHITECTURE_2026-03-09.md`
 - `backend/docs/BACKEND_API_ARCHITECTURE_2026-03-09.md`
 - `backend/docs/BACKEND_OBSERVABILITY_ARCHITECTURE_2026-03-09.md`
+- `backend/docs/BACKEND_QUEUE_ARCHITECTURE_2026-03-09.md`
+- `backend/docs/BACKEND_AI_OBSERVABILITY_ARCHITECTURE_2026-03-09.md`
+- `backend/docs/BACKEND_SECURITY_SURFACE_2026-03-09.md`
 - `backend/docs/BACKEND_AUDIT_PROGRESS_2026-03-09.md`
+- `backend/docs/BACKEND_AI_SAFETY_HARDENING_IMPLEMENTATION_PLAN_2026-03-09.md`
 
 ### Updated
 
@@ -53,18 +60,22 @@ Canonical current-state backend references:
 - current multi-tenancy model is documented as shared-db with Prisma tenant enforcement
 - current API architecture is documented as versioned REST with global contract controls
 - current observability architecture is documented with metrics, logging, and health exposure gaps
+- current queue architecture is documented with BullMQ and Redis operational patterns
+- current AI observability architecture is documented with ledger and metrics gaps
+- current backend security surface is documented with auth, CSRF, CORS, and exposure risks
 - AI mutating-tool approval inconsistency is explicitly recorded
 - broken HITL approval-execution path is explicitly recorded
+- AI safety hardening now has a file-targeted implementation plan
 - older JWT-centric and older AI-runtime docs are marked as historical or mixed-state
 
 ## Open Backend Documentation Gaps
 
 These docs still should be added or refreshed if the backend audit work continues:
 
-1. Backend multi-tenant isolation architecture
-2. Backend API contract and versioning reference
-3. Backend observability and operational exposure reference
-4. Backend queue and background-job architecture
+1. Backend provider-sync architecture
+2. Backend data lifecycle and retention architecture
+3. Backend support and admin access architecture
+4. Backend AI safety implementation status
 
 ## Current Engineering Priorities From the Audit
 
@@ -78,9 +89,9 @@ These docs still should be added or refreshed if the backend audit work continue
 
 Create next:
 
-1. `backend/docs/BACKEND_QUEUE_ARCHITECTURE_2026-03-09.md`
-2. `backend/docs/BACKEND_AI_OBSERVABILITY_ARCHITECTURE_2026-03-09.md`
-3. `backend/docs/BACKEND_SECURITY_SURFACE_2026-03-09.md`
+1. `backend/docs/BACKEND_PROVIDER_SYNC_ARCHITECTURE_2026-03-09.md`
+2. `backend/docs/BACKEND_DATA_LIFECYCLE_ARCHITECTURE_2026-03-09.md`
+3. `backend/docs/BACKEND_SUPPORT_ADMIN_ACCESS_2026-03-09.md`
 
 ## Notes
 

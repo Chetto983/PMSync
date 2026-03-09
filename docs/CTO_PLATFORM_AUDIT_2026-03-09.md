@@ -1,5 +1,9 @@
 # PMSync Platform — CTO Engineering Audit Report
 
+> Parallel audit snapshot from 2026-03-09.
+> This document should be treated as an alternate analysis artifact, not the canonical top-level source of truth.
+> The canonical current report and execution path are [`CTO_PLATFORM_ENGINEERING_REPORT_2026-03-09.md`](./CTO_PLATFORM_ENGINEERING_REPORT_2026-03-09.md) and [`CTO_EXECUTION_BACKLOG_2026-03-09.md`](./CTO_EXECUTION_BACKLOG_2026-03-09.md).
+
 **Date:** 2026-03-09
 **Classification:** Confidential — Internal Engineering
 **Stack:** NestJS 11 · Next.js 16 · React 19 · Prisma 7 · PostgreSQL (pgvector) · Redis · BullMQ · Mistral AI · AI SDK v6

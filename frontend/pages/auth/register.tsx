@@ -16,6 +16,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { authClient } from '@/lib/auth-client';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { PasswordField } from '@/components/auth/PasswordField';
+import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
 export default function RegisterPage() {
   const t = useTranslations();
@@ -77,6 +78,7 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout title={reg.title} subtitle={reg.subtitle} footerLink={reg.links!.primary}>
+      <SocialLoginButtons />
       <Box component="form" onSubmit={handleSubmit} noValidate>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
