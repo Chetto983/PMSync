@@ -11,10 +11,17 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { CheckCircle, Smartphone, Key, Download } from 'lucide-react';
-import UAParser from 'ua-parser-js';
 import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { StepProps } from './types';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const UAParser = require('ua-parser-js') as {
+  new(ua: string): {
+    getBrowser(): { name?: string };
+    getOS(): { name?: string };
+  };
+};
 
 type MfaPhase = 'choose' | 'totp-setup' | 'totp-verify' | 'totp-backup' | 'passkey-setup';
 
@@ -88,9 +95,7 @@ export function StepMfaSetup({ onComplete, isLast }: StepProps) {
     setLoading(true);
     setError('');
     try {
-      // ua-parser-js v2 types don't expose constructor; cast to bypass
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const parser = new (UAParser as any)(navigator.userAgent);
+      const parser = new UAParser(navigator.userAgent);
       const browser = parser.getBrowser().name ?? 'Browser';
       const os = parser.getOS().name ?? 'Device';
       const name = `${browser} on ${os}`;
