@@ -2255,6 +2255,81 @@ export interface AppTranslations {
       deleteDialogDeleting: string;
       deleteDialogError: string;
     };
+    securityPanel?: {
+      title: string;
+      description: string;
+      mfa: {
+        title: string;
+        description: string;
+        totp: {
+          title: string;
+          description: string;
+          enabled: string;
+          disabled: string;
+          enable: string;
+          disable: string;
+          scanQr: string;
+          enterCode: string;
+          verifyCode: string;
+          passwordRequired: string;
+        };
+        passkeys: {
+          title: string;
+          description: string;
+          add: string;
+          noPasskeys: string;
+          maxReached: string;
+          remove: string;
+          rename: string;
+          registered: string;
+          adding: string;
+          removeConfirm: string;
+        };
+        backupCodes: {
+          title: string;
+          description: string;
+          regenerate: string;
+          download: string;
+          warning: string;
+          remaining: string;
+          regenerateConfirm: string;
+        };
+      };
+      sessions: {
+        title: string;
+        description: string;
+        current: string;
+        revokeAll: string;
+        revoke: string;
+        lastActive: string;
+        noOtherSessions: string;
+      };
+      connectedAccounts: {
+        title: string;
+        description: string;
+        link: string;
+        unlink: string;
+        google: string;
+        microsoft: string;
+        linked: string;
+        notLinked: string;
+        unlinkConfirm: string;
+        cannotUnlinkLast: string;
+      };
+      password: {
+        title: string;
+        description: string;
+        currentPassword: string;
+        newPassword: string;
+        confirmPassword: string;
+        change: string;
+        set: string;
+        setDescription: string;
+        success: string;
+        mismatch: string;
+        tooShort: string;
+      };
+    };
     dataRights?: {
       title: string;
       export: {
@@ -3407,6 +3482,21 @@ export interface AppTranslations {
     suggestions: {
       label: string;
     };
+  };
+  onboarding: {
+    title: string;
+    subtitle: string;
+    steps: {
+      name: string;
+      workspace: string;
+      emailProvider: string;
+      avatar: string;
+      mfa: string;
+    };
+    next: string;
+    back: string;
+    finish: string;
+    skip: string;
   };
 }
 
