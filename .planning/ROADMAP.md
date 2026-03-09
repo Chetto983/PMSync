@@ -173,13 +173,14 @@ Plans:
   3. User can use backup codes to bypass TOTP when their device is unavailable
   4. User can register a passkey (WebAuthn) and use it as primary or second-factor authentication
   5. User can view and manage all security settings (active 2FA methods, registered passkeys, active sessions) from a settings page
-**Plans:** 4 plans
+**Plans:** 5 plans
 
 Plans:
 - [ ] 55-01-PLAN.md — Schema migration + plugin config + social login buttons + 2FA page
 - [ ] 55-02-PLAN.md — Security settings page (MFA, sessions, accounts, password)
-- [ ] 55-03-PLAN.md — Onboarding wizard (5 steps) + middleware redirect
-- [ ] 55-04-PLAN.md — Delete old custom MFA code (11 files)
+- [ ] 55-03-PLAN.md — Onboarding wizard container + middleware redirect
+- [ ] 55-04-PLAN.md — Wizard step components (name, workspace, email, avatar, MFA)
+- [ ] 55-05-PLAN.md — Delete old custom MFA code (11 files)
 
 ### Phase 56: Organizations
 **Goal**: Users can create and manage organizations with role-based membership
@@ -244,7 +245,7 @@ Plans:
   8. Swagger inaccessible in production
   9. .env removed from git history
   10. All secrets rotated
-**Plans:** 4 plans
+**Plans:** 5 plans
 
 Plans:
 - [ ] 59-01-PLAN.md — SQL injection fixes, DTO hardening, database indexes
@@ -268,7 +269,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 52. NestJS Session Validation | 3/3 | Complete    | 2026-03-06 | - |
 | 53. Frontend Auth UI | 2/2 | Complete    | 2026-03-09 | 2026-03-09 |
 | 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
-| 55. Social Login & MFA | v5.0 | 0/4 | Planned | - |
+| 55. Social Login & MFA | v5.0 | 0/5 | Planned | - |
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | v5.0 | 0/TBD | Not started | - |
@@ -279,4 +280,4 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 *v4.1 completed: 2026-03-06 -- 8 phases, 28 plans, 65/66 requirements*
 *v5.0 roadmap added: 2026-03-06 -- 9 phases, 35 requirements*
 *Phase 59 planned: 2026-03-09 -- 4 plans, 10 safety requirements*
-*Phase 55 planned: 2026-03-09 -- 4 plans, 5 requirements (CORE-03, SEC-01-04)*
+*Phase 55 revised: 2026-03-09 -- 5 plans, 5 requirements (CORE-03, SEC-01-04)*
