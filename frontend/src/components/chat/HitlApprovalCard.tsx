@@ -101,7 +101,7 @@ export function HitlApprovalCard({
           onClick={onApprove}
           disabled={busy}
           startIcon={
-            isApproving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />
+            isApproving ? <Box component="span" sx={{ display: 'inline-flex', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } }, animation: 'spin 1s linear infinite' }}><Loader2 size={14} /></Box> : <Check size={14} />
           }
           sx={{
             bgcolor: 'success.main',
@@ -118,7 +118,7 @@ export function HitlApprovalCard({
           onClick={onReject}
           disabled={busy}
           startIcon={
-            isRejecting ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />
+            isRejecting ? <Box component="span" sx={{ display: 'inline-flex', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } }, animation: 'spin 1s linear infinite' }}><Loader2 size={14} /></Box> : <X size={14} />
           }
           sx={{
             bgcolor: 'error.main',
@@ -238,7 +238,7 @@ export function HitlApprovalCardFromStatus({
           disabled={isBusy}
           startIcon={
             busy === 'approve' ? (
-              <Loader2 size={14} className="animate-spin" />
+              <Box component="span" sx={{ display: 'inline-flex', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } }, animation: 'spin 1s linear infinite' }}><Loader2 size={14} /></Box>
             ) : (
               <Check size={14} />
             )
@@ -259,7 +259,7 @@ export function HitlApprovalCardFromStatus({
           disabled={isBusy}
           startIcon={
             busy === 'reject' ? (
-              <Loader2 size={14} className="animate-spin" />
+              <Box component="span" sx={{ display: 'inline-flex', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } }, animation: 'spin 1s linear infinite' }}><Loader2 size={14} /></Box>
             ) : (
               <X size={14} />
             )

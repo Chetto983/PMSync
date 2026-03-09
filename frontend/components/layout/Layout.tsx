@@ -61,12 +61,38 @@ export function Layout({ children }: LayoutProps) {
   return (
       <Box sx={{ display: 'flex', height: '100vh', minHeight: '100vh', maxWidth: '100vw', overflow: 'hidden' }}>
         {/* Skip Navigation Link - WCAG 2.1 AA requirement */}
-        <a
+        <Box
+          component="a"
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-[9999] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          sx={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            overflow: 'hidden',
+            clip: 'rect(0 0 0 0)',
+            whiteSpace: 'nowrap',
+            '&:focus': {
+              position: 'absolute',
+              width: 'auto',
+              height: 'auto',
+              overflow: 'visible',
+              clip: 'auto',
+              whiteSpace: 'normal',
+              zIndex: 9999,
+              top: 16,
+              left: 16,
+              px: 2,
+              py: 1,
+              borderRadius: 2,
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              outline: 'none',
+              boxShadow: (theme) => `0 0 0 2px ${theme.palette.primary.main}`,
+            },
+          }}
         >
           {t.common?.skipToContent || 'Skip to main content'}
-        </a>
+        </Box>
         {/* Sidebar */}
         <Sidebar
           collapsed={collapsed}
