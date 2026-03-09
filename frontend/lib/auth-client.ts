@@ -1,5 +1,6 @@
 import { createAuthClient } from 'better-auth/react';
-import { inferAdditionalFields } from 'better-auth/client/plugins';
+import { inferAdditionalFields, twoFactorClient } from 'better-auth/client/plugins';
+import { passkeyClient } from '@better-auth/passkey/client';
 
 /**
  * better-auth React client.
@@ -21,8 +22,16 @@ export const authClient = createAuthClient({
         lastName: { type: 'string', required: false },
         role: { type: 'string', required: false, input: false },
         isActive: { type: 'boolean', required: false, input: false },
+        twoFactorEnabled: { type: 'boolean', required: false, input: false },
+        onboardingComplete: { type: 'boolean', required: false, input: false },
       },
     }),
+    twoFactorClient({
+      onTwoFactorRedirect() {
+        window.location.href = '/auth/two-factor';
+      },
+    }),
+    passkeyClient(),
   ],
 });
 
@@ -45,6 +54,8 @@ export interface SessionUser {
   role: string;
   tenantId: string | null;
   isActive: boolean;
+  twoFactorEnabled: boolean;
+  onboardingComplete: boolean;
 }
 
 // Convenience re-exports for consumers

@@ -41,6 +41,7 @@
     "@aws-sdk/client-s3": "^3.985.0",
     "@aws-sdk/s3-request-presigner": "^3.985.0",
     "@azure/msal-node": "^5.0.3",
+    "@better-auth/passkey": "^1.5.4",
     "@google/genai": "^1.40.0",
     "@google/generative-ai": "^0.24.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
@@ -118,6 +119,7 @@
     "sentiment": "^5.0.2",
     "socket.io": "^4.8.3",
     "tsdav": "^2.1.7",
+    "ua-parser-js": "^2.0.9",
     "vcf": "^2.1.2",
     "zod": "^4.3.6"
   },
@@ -143,6 +145,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/sentiment": "^5.0.4",
     "@types/supertest": "^6.0.3",
+    "@types/ua-parser-js": "^0.7.39",
     "chalk": "^5.6.2",
     "cross-env": "^10.1.0",
     "dependency-cruiser": "^17.3.8",

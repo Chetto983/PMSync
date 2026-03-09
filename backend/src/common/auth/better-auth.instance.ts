@@ -3,6 +3,8 @@ import type { PrismaClient } from '@prisma/client';
 import { betterAuth } from 'better-auth';
 import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { twoFactor } from 'better-auth/plugins';
+import { passkey } from '@better-auth/passkey';
 import { CURRENT_PP_VERSION, CURRENT_TOS_VERSION } from '../../modules/compliance/legal.constants';
 import { EmailService } from '../../modules/email/services/email.service';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
@@ -184,6 +186,7 @@ export function createBetterAuthInstance(
   emailService: EmailService,
 ) {
   return betterAuth({
+    appName: 'PMSync',
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
     baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
     secret: process.env.BETTER_AUTH_SECRET,
@@ -191,6 +194,55 @@ export function createBetterAuthInstance(
     trustedOrigins: [
       'http://localhost:3001',
       process.env.FRONTEND_URL || 'http://localhost:3001',
+    ],
+
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        accessType: 'offline',
+        prompt: 'select_account consent',
+        scope: [
+          'email',
+          'profile',
+          'https://www.googleapis.com/auth/gmail.modify',
+          'https://www.googleapis.com/auth/gmail.send',
+        ],
+      },
+      microsoft: {
+        clientId: process.env.MICROSOFT_CLIENT_ID!,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
+        tenantId: 'common',
+        prompt: 'select_account',
+        scope: [
+          'openid',
+          'email',
+          'profile',
+          'offline_access',
+          'https://outlook.office365.com/IMAP.AccessAsUser.All',
+          'https://outlook.office365.com/SMTP.Send',
+        ],
+      },
+    },
+
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ['google', 'microsoft'],
+      },
+    },
+
+    plugins: [
+      twoFactor({
+        issuer: 'PMSync',
+        backupCodeOptions: { amount: 10, length: 8 },
+        totpOptions: { digits: 6, period: 30 },
+      }),
+      passkey({
+        rpID: process.env.PASSKEY_RP_ID || 'localhost',
+        rpName: 'PMSync',
+        origin: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
+      }),
     ],
 
     emailAndPassword: {
@@ -226,6 +278,18 @@ export function createBetterAuthInstance(
           type: 'boolean',
           required: false,
           defaultValue: true,
+          input: false,
+        },
+        twoFactorEnabled: {
+          type: 'boolean',
+          required: false,
+          defaultValue: false,
+          input: false,
+        },
+        onboardingComplete: {
+          type: 'boolean',
+          required: false,
+          defaultValue: false,
           input: false,
         },
       },

@@ -73,6 +73,8 @@ model User {
   isActive            Boolean                @default(true)
   /// @deprecated Legacy field -- better-auth 2FA plugin manages this. Remove in Phase 58.
   isMfaEnabled        Boolean                @default(false)
+  twoFactorEnabled    Boolean                @default(false)
+  onboardingComplete  Boolean                @default(false)
   lastLogin           DateTime?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
@@ -93,6 +95,8 @@ model User {
   userPreferences     UserPreferences?
   tenant              Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webauthnCredentials WebAuthnCredential[]
+  twoFactors          TwoFactor[]
+  passkeys            Passkey[]
   writingStyleProfiles WritingStyleProfile[]
   userConsents        UserConsent[]
   legalAcceptances    LegalAcceptance[]
@@ -240,6 +244,38 @@ model WebAuthnCredential {
   @@index([tenantId])
   @@index([userId])
   @@map("webauthn_credentials")
+}
+
+/// better-auth twoFactor plugin table
+model TwoFactor {
+  id          String  @id @default(cuid())
+  secret      String
+  backupCodes String
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("two_factor")
+}
+
+/// better-auth passkey plugin table
+model Passkey {
+  id           String   @id @default(cuid())
+  name         String?
+  publicKey    String
+  userId       String
+  credentialID String
+  counter      Int      @default(0)
+  deviceType   String
+  backedUp     Boolean  @default(false)
+  transports   String?
+  aaguid       String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([credentialID])
+  @@map("passkeys")
 }
 
 model Session {
