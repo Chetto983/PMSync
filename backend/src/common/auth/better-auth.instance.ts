@@ -8,6 +8,7 @@ import { passkey } from '@better-auth/passkey';
 import { CURRENT_PP_VERSION, CURRENT_TOS_VERSION } from '../../modules/compliance/legal.constants';
 import { EmailService } from '../../modules/email/services/email.service';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
+import { logAuthEvent } from './audit-hooks';
 
 interface ProvisioningUser {
   id: string;
@@ -127,7 +128,7 @@ function getRequestHeader(
   return request?.headers.get(headerName) ?? undefined;
 }
 
-function getRequestIp(request: Request | undefined): string | undefined {
+export function getRequestIp(request: Request | undefined): string | undefined {
   const forwardedFor = getRequestHeader(request, 'x-forwarded-for');
   if (forwardedFor) {
     return forwardedFor.split(',')[0]?.trim() || undefined;
@@ -308,12 +309,37 @@ export function createBetterAuthInstance(
               ipAddress: getRequestIp(context.request),
               userAgent: getRequestHeader(context.request, 'user-agent'),
             });
+
+            // Audit signup after provisioning (tenantId now available)
+            const updatedUser = await withoutTenantScopingAsync(() =>
+              prisma.user.findUnique({
+                where: { id: user.id },
+                select: { tenantId: true },
+              }),
+            );
+            void logAuthEvent(
+              prisma,
+              '/sign-up/email',
+              user.id,
+              updatedUser?.tenantId ?? null,
+              context?.request,
+            );
           },
         },
       },
     },
 
     hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+        const ctxAny = ctx as any;
+        const userId =
+          ctxAny.session?.userId ?? ctxAny.user?.id ?? null;
+        const tenantId =
+          ctxAny.session?.user?.tenantId ?? ctxAny.user?.tenantId ?? null;
+        void logAuthEvent(prisma, ctx.path, userId, tenantId, ctx.request, {
+          userAgent: ctx.request?.headers.get('user-agent') ?? undefined,
+        });
+      }),
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === '/sign-up/email' || ctx.path === '/reset-password') {
           const password = (ctx.body?.password ?? ctx.body?.newPassword) as
