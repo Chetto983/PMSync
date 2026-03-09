@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { LegalAcceptanceService } from '../services/legal-acceptance.service';
 import { AcceptLegalDocumentDto, LegalStatusDto } from '../dto/legal-acceptance.dto';

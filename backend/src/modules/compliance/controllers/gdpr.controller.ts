@@ -2,9 +2,9 @@ import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { GdprService } from '../services/gdpr.service';
 import { GdprStatusDto } from '../dto/gdpr-status.dto';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 

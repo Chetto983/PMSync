@@ -6,9 +6,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AiRunsQueryDto } from '../dto/ai-runs-query.dto';
 import { AuthenticatedRequest } from '../../../common/types/request.types';

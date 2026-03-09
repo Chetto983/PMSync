@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { ConsentService } from '../services/consent.service';
 import { ConsentHistoryDto, ConsentStateDto, UpdateConsentDto } from '../dto/consent.dto';

@@ -25,8 +25,8 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
 import { EmailsService, EmailListFilters } from '../services/emails.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 

@@ -18,8 +18,8 @@ import {
 import { Response } from 'express';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 

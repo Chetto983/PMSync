@@ -26,7 +26,7 @@ import {
   UpdateCalendarPreferencesDto,
   ListEventsQueryDto,
 } from '../dto';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @ApiTags('Calendar')

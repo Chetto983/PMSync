@@ -13,8 +13,8 @@ import {
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
 import { ProviderConfigService } from '../services/provider-config.service';
 import { GoogleOAuthService } from '../services/google-oauth.service';
 import { MicrosoftOAuthService } from '../services/microsoft-oauth.service';

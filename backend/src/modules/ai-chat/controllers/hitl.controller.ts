@@ -21,7 +21,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { HitlService } from '../services/hitl.service';
 import { ApproveActionDto } from '../dto/hitl.dto';
 import type { AuthenticatedRequest } from '../../../common/types/request.types';

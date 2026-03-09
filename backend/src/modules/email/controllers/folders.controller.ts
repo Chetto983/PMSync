@@ -22,9 +22,9 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
 import { FolderOperationsQueueService } from '../../email-sync/services/folder-operations-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';

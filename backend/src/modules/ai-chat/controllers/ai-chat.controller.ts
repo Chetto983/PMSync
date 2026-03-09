@@ -24,7 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { pipeUIMessageStreamToResponse } from 'ai';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { ConsentGuard } from '../../compliance/guards/consent.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';

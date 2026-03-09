@@ -17,9 +17,9 @@ import {
 } from '@nestjs/swagger';
 import { Response } from 'express';
 import { createReadStream } from 'fs';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { DataExportService } from '../services/data-export.service';
 import { DataExportResponseDto, DataExportListDto } from '../dto/data-export.dto';

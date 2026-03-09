@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Param, UseGuards, Request, Logger, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { TenantGuard } from '../auth/guards/tenant.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { TenantGuard } from '../../common/auth/tenant.guard';
+import { RolesGuard } from '../../common/auth/roles.guard';
+import { Roles } from '../../common/auth/roles.decorator';
 import { QueueService } from './services/queue.service';
 import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { WebhookLifecycleService } from './services/webhook-lifecycle.service';

@@ -6,9 +6,9 @@
 import { BadRequestException, Body, Controller, Get, Logger, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { EmailSendService } from '../services/email-send.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { IcsGeneratorService, CalendarResponseType } from '../../calendar/services/ics-generator.service';

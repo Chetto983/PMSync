@@ -21,9 +21,9 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { RelationshipScoreService } from '../services/relationship-score.service';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {

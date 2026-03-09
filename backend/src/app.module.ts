@@ -16,7 +16,6 @@ import { LogRotationService } from './common/services/log-rotation.service';
 import { CacheModule } from './common/services/cache.module';
 import { ScheduledJobsModule } from './common/services/scheduled-jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { EmailModule } from './modules/email/email.module';
@@ -80,9 +79,8 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     MetricsModule,
     // Phase 32: @Global() tool registry -- must load before domain modules
     ToolRegistryModule,
-    TransactionalEmailModule, // Phase 45-03: @Global() nodemailer service (before AuthModule)
-    BetterAuthModule, // Phase 50-02: better-auth consumer for session validation (coexists with old AuthModule)
-    AuthModule,
+    TransactionalEmailModule, // Phase 45-03: @Global() nodemailer service
+    BetterAuthModule, // Phase 50-02: better-auth consumer for session validation
     UsersModule,
     TenantsModule,
     EmailModule,

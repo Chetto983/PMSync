@@ -24,7 +24,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { AutumnService } from '../services/autumn.service';
 import {
