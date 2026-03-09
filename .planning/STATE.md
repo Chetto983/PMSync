@@ -3,30 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Phase 55 context gathered
-last_updated: "2026-03-09T13:48:57.825Z"
-last_activity: 2026-03-09 -- Phase 54 complete (WebSocket auth verified, NEST-05 satisfied)
+stopped_at: Completed 55-01-PLAN.md
+last_updated: "2026-03-09T14:43:28Z"
+last_activity: 2026-03-09 -- Phase 55 Plan 01 complete (social login + 2FA plugins wired)
 progress:
   total_phases: 10
   completed_phases: 5
   total_plans: 14
-  completed_plans: 10
----
-
----
-gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: better-auth Migration
-status: executing
-stopped_at: Phase 54 complete, ready to plan Phase 55
-last_updated: "2026-03-09"
-last_activity: 2026-03-09 -- Phase 54 complete (WebSocket auth verified, NEST-05 satisfied)
-progress:
-  total_phases: 10
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  completed_plans: 11
 ---
 
 # Project State
@@ -40,19 +24,19 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 
 ## Current Position
 
-Phase: 55 of 59 (Social Login & MFA) -- Ready to plan
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-09 -- Phase 54 complete (WebSocket auth verified, NEST-05 satisfied)
+Phase: 55 of 59 (Social Login & MFA) -- Executing
+Plan: 1 of 4 complete
+Status: Executing Plan 02
+Last activity: 2026-03-09 -- Phase 55 Plan 01 complete (social login + 2FA plugins wired)
 
-Progress: [████████████████████] 10/10 plans (100%)
+Progress: [███████████████████░] 11/14 plans (79%)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 6.3 min
-- Total execution time: 1.15 hours
+- Total plans completed: 12
+- Average duration: 6.5 min
+- Total execution time: 1.32 hours
 
 **By Phase:**
 
@@ -63,6 +47,7 @@ Progress: [████████████████████] 10/10 p
 | 52 - NestJS Session Validation | 3/3 | 13 min | 4.3 min |
 | 53 - Frontend Auth UI | 2/2 | 27 min | 13.5 min |
 | 54 - WebSocket Auth | 1/1 | 1 min | 1 min |
+| 55 - Social Login & MFA | 1/4 | 10 min | 10 min |
 
 *Updated after each plan completion*
 
@@ -104,6 +89,10 @@ Progress: [████████████████████] 10/10 p
 - [53-02] Removed token references from hooks; better-auth uses cookies, no JWT exposed to client
 - [54-01] No new code needed -- Phase 52 already implemented WS auth migration to better-auth session cookies
 - [54-01] NEST-05 verified via existing 7-test suite + source pattern confirmation (zero JWT remnants)
+- [55-01] Used prisma db push instead of migrate dev due to schema drift from previous phases
+- [55-01] Social login buttons above email/password form with "or" divider per user decision
+- [55-01] twoFactorClient onTwoFactorRedirect routes to /auth/two-factor
+- [55-01] Named translation key twoFactorVerify to avoid collision with existing mfa settings section
 
 ### Pending Todos
 
@@ -121,6 +110,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T13:48:57.821Z
-Stopped at: Phase 55 context gathered
-Resume file: .planning/phases/55-social-login-mfa/55-CONTEXT.md
+Last session: 2026-03-09T14:43:28Z
+Stopped at: Completed 55-01-PLAN.md
+Resume file: .planning/phases/55-social-login-mfa/55-02-PLAN.md

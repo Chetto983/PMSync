@@ -176,7 +176,7 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 55-01-PLAN.md — Schema migration + plugin config + social login buttons + 2FA page
+- [x] 55-01-PLAN.md — Schema migration + plugin config + social login buttons + 2FA page
 - [ ] 55-02-PLAN.md — Security settings page (MFA, sessions, accounts, password)
 - [ ] 55-03-PLAN.md — Onboarding wizard container + middleware redirect
 - [ ] 55-04-PLAN.md — Wizard step components (name, workspace, email, avatar, MFA)
@@ -269,7 +269,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 52. NestJS Session Validation | 3/3 | Complete    | 2026-03-06 | - |
 | 53. Frontend Auth UI | 2/2 | Complete    | 2026-03-09 | 2026-03-09 |
 | 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
-| 55. Social Login & MFA | v5.0 | 0/5 | Planned | - |
+| 55. Social Login & MFA | v5.0 | 1/5 | In Progress | - |
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | v5.0 | 0/TBD | Not started | - |
