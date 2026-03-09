@@ -158,7 +158,7 @@ Plans:
   1. WebSocket handshake extracts better-auth session cookie and validates it via DB lookup
   2. Invalid or expired session tokens are rejected during handshake with appropriate error
   3. Existing real-time features (email sync notifications, chat) work with the new WebSocket auth
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [x] 54-01-PLAN.md — Verify existing WS auth implementation (tests + smoke test)
@@ -242,7 +242,7 @@ Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2F
 | 51. Core Email/Password Auth | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
 | 52. NestJS Session Validation | 3/3 | Complete    | 2026-03-06 | - |
 | 53. Frontend Auth UI | 2/2 | Complete    | 2026-03-09 | 2026-03-09 |
-| 54. WebSocket Auth | v5.0 | 1/1 | Complete | 2026-03-09 |
+| 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
 | 55. Social Login & MFA | v5.0 | 0/TBD | Not started | - |
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
