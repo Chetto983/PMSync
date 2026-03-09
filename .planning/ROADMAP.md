@@ -245,7 +245,7 @@ Plans:
   8. Swagger inaccessible in production
   9. .env removed from git history
   10. All secrets rotated
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 59-01-PLAN.md — SQL injection fixes, DTO hardening, database indexes
@@ -272,7 +272,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 55. Social Login & MFA | 5/5 | Complete    | 2026-03-09 | - |
 | 56. Organizations | v5.0 | 0/TBD | Not started | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
-| 58. Compliance & Cleanup | 1/3 | In Progress|  | - |
+| 58. Compliance & Cleanup | 2/3 | In Progress|  | - |
 | 59. Safety Hardening | v5.0 | 0/4 | Planned | - |
 
 ---
