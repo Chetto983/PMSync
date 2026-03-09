@@ -3497,6 +3497,56 @@ export interface AppTranslations {
     back: string;
     finish: string;
     skip: string;
+    stepContent?: {
+      name: {
+        title: string;
+        description: string;
+        firstName: string;
+        lastName: string;
+      };
+      workspace: {
+        title: string;
+        description: string;
+        workspaceName: string;
+        placeholder: string;
+        alreadySetUp: string;
+      };
+      emailProvider: {
+        title: string;
+        description: string;
+        autoDetected: string;
+        connectGmail: string;
+        connectOutlook: string;
+        skipForNow: string;
+      };
+      avatar: {
+        title: string;
+        description: string;
+        upload: string;
+        useOAuth: string;
+        skip: string;
+      };
+      mfa: {
+        title: string;
+        description: string;
+        chooseMethod: string;
+        setupTotp: string;
+        setupTotpDesc: string;
+        setupPasskey: string;
+        setupPasskeyDesc: string;
+        bothRecommended: string;
+        totpComplete: string;
+        passkeyComplete: string;
+        mustConfigureOne: string;
+        enterPassword: string;
+        enterCode: string;
+        verifyCode: string;
+        backupCodesTitle: string;
+        backupCodesWarning: string;
+        downloadCodes: string;
+        addPasskey: string;
+      };
+    };
   };
 }
 

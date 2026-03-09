@@ -19,7 +19,7 @@ import {
   DatabaseZap,
 } from 'lucide-react';
 import { WritingStyleSettings } from '@/components/email/compose/WritingStyleSettings';
-import { MfaSettings } from '@/components/mfa';
+import { SecuritySettings } from '@/components/settings/SecuritySettings';
 import {
   GeneralSettings,
   AiSettings,
@@ -113,7 +113,7 @@ export function Settings() {
             {s.selectedSection === 'general' && (
               <GeneralSettings theme={s.theme} setTheme={s.setTheme} language={s.language} setLanguage={s.setLanguage} timezone={s.timezone} setTimezone={s.setTimezone} emailDensity={s.emailDensity} setEmailDensity={s.setEmailDensity} saveLoading={s.saveLoading} onSave={h.handleSaveSettings} success={s.generalSuccess} error={s.generalError} onClearSuccess={() => s.setGeneralSuccess('')} onClearError={() => s.setGeneralError('')} copy={generalCopy} />
             )}
-            {s.selectedSection === 'security' && <MfaSettings />}
+            {s.selectedSection === 'security' && <SecuritySettings />}
             {s.selectedSection === 'ai' && (
               <>
                 <AiSettings loading={s.aiProfileLoading} saveLoading={s.aiSaveLoading} dataLoading={s.aiDataLoading} success={s.aiSuccess} error={s.aiError} onClearSuccess={() => s.setAiSuccess('')} onClearError={() => s.setAiError('')} canUseSmartReplies={s.canUseSmartReplies} smartRepliesEnabled={s.smartRepliesEnabled} setSmartRepliesEnabled={s.setSmartRepliesEnabled} canUseSummaries={s.canUseSummaries} summarizationEnabled={s.summarizationEnabled} setSummarizationEnabled={s.setSummarizationEnabled} schedulingEnabled={s.schedulingEnabled} setSchedulingEnabled={s.setSchedulingEnabled} canUseTriage={s.canUseTriage} triageEnabled={s.triageEnabled} setTriageEnabled={s.setTriageEnabled} jobRole={s.jobRole} setJobRole={s.setJobRole} communicationStyle={s.communicationStyle} setCommunicationStyle={s.setCommunicationStyle} responseLength={s.responseLength} setResponseLength={s.setResponseLength} proactivityLevel={s.proactivityLevel} setProactivityLevel={s.setProactivityLevel} autoApproveThreshold={s.autoApproveThreshold} setAutoApproveThreshold={s.setAutoApproveThreshold} onSave={h.handleSaveAiProfile} onClearMemory={h.handleClearAiMemory} onOpenAssistant={() => s.router.push('/dashboard/ai')} copy={aiCopy} />
