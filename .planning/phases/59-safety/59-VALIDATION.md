@@ -2,9 +2,10 @@
 phase: 59
 slug: safety
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-09
+revised: 2026-03-09
 ---
 
 # Phase 59 — Validation Strategy
@@ -36,23 +37,24 @@ created: 2026-03-09
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 59-01-01 | 01 | 1 | secrets-rotation | manual | N/A (env var rotation) | N/A | ⬜ pending |
-| 59-01-02 | 01 | 1 | git-history-clean | manual | `git log --all -- backend/.env` | N/A | ⬜ pending |
-| 59-02-01 | 02 | 1 | sql-injection-fix | unit | `npm run type-check` | ✅ | ⬜ pending |
-| 59-02-02 | 02 | 1 | dto-validation | unit | `npm run type-check` | ✅ | ⬜ pending |
-| 59-03-01 | 03 | 2 | rate-limit-overhaul | integration | `npm run type-check` | ✅ | ⬜ pending |
-| 59-04-01 | 04 | 2 | auth-hardening | integration | `npm run type-check` | ✅ | ⬜ pending |
-| 59-05-01 | 05 | 1 | db-indexes | migration | `npx prisma migrate dev --dry-run` | ✅ | ⬜ pending |
+| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | Status |
+|---------|------|------|-------------|-----------|-------------------|--------|
+| 59-01-T1 | 01 | 1 | SAF-01 (vector injection) | unit + build | `cd backend && npx jest --testPathPattern="vector-validation" --no-coverage && npm run build` | pending |
+| 59-01-T2 | 01 | 1 | SAF-02, SAF-03 (DTO + indexes) | migration + build | `cd backend && npx prisma migrate dev --name add-security-indexes && npm run build` | pending |
+| 59-02-T1 | 02 | 1 | SAF-04 (rate limiting) | grep + build | `cd backend && grep -rn "SkipThrottle" src/ --include="*.ts" \| grep -v test && npm run build` | pending |
+| 59-02-T2 | 02 | 1 | SAF-05 (AI health restrict) | build | `cd backend && npm run build` | pending |
+| 59-03-T1 | 03 | 1 | SAF-06 (JWT removal) | grep + build | `cd backend && npm run build && grep -rn "JwtAuthGuard\|JwtStrategy" src/ --include="*.ts" \| grep -v test` | pending |
+| 59-03-T2 | 03 | 1 | SAF-07, SAF-08 (email verify + Swagger + CORS) | build + grep | `cd backend && npm run build && grep -n "requireEmailVerification" src/common/auth/better-auth.instance.ts` | pending |
+| 59-04-T1 | 04 | 2 | SAF-09, SAF-10 (secrets checklist) | file + content | `cd D:/MailAgent && test -f docs/secrets-rotation-checklist.md && wc -l docs/secrets-rotation-checklist.md` | pending |
+| 59-04-T2 | 04 | 2 | SAF-09, SAF-10 (BFG + rotation) | manual | N/A (human-action checkpoint) | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-*Existing infrastructure covers all phase requirements.*
+*Existing infrastructure covers all phase requirements. No Wave 0 tasks needed.*
 
 ---
 
@@ -60,22 +62,22 @@ created: 2026-03-09
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Secrets rotated in Railway | secrets-rotation | External service config | Verify each secret regenerated in Railway dashboard |
-| Git history cleaned | git-history-clean | One-time destructive op | Run `git log --all -- backend/.env` to confirm no matches |
-| Swagger blocked in prod | swagger-block | Environment-dependent | Deploy to staging, verify /api/docs returns 404 |
-| CORS locked in prod | cors-lock | Environment-dependent | Deploy to staging, verify cross-origin from non-localhost blocked |
+| Secrets rotated in Railway | SAF-10 | External service config | Verify each secret regenerated in Railway dashboard |
+| Git history cleaned | SAF-09 | One-time destructive op | Run `git log --all -- backend/.env` to confirm no matches |
+| Swagger blocked in prod | SAF-08 | Environment-dependent | Deploy to staging, verify /api/docs returns 404 |
+| CORS locked in prod | SAF-08 | Environment-dependent | Deploy to staging, verify cross-origin from non-localhost blocked |
 
-*All code-level behaviors have automated type-check verification.*
+*All code-level behaviors have automated type-check or grep verification.*
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or are checkpoint:human-action
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (none needed)
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** pending execution
