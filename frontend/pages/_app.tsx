@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Toaster } from 'sonner';
 import { MotionConfig } from 'framer-motion';
 import {
   ThemeProvider as MuiThemeProvider,
@@ -12,11 +14,11 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
+import { AuthUIProvider } from '@daveyplate/better-auth-ui';
 import { QueryProvider } from '@/lib/query-client';
-import { AuthProvider } from '@/lib/context/auth-context';
+import { authClient } from '@/lib/auth-client';
 import { ToastProvider } from '@/lib/context/toast-context';
 import { lightTheme, darkTheme } from '@/theme/appTheme';
-import { useAuth } from '@/lib/hooks/use-auth';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
 import '@/src/components/chat/chat-layout.css';
@@ -48,72 +50,6 @@ function MaterialThemeWrapper({ children }: { children: React.ReactNode }) {
       </MotionConfig>
     </MuiThemeProvider>
   );
-}
-
-function RouteGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
-  const [requiresAuth, setRequiresAuth] = React.useState(false);
-
-  // Determine if route requires auth only on client side
-  React.useEffect(() => {
-    if (router.pathname) {
-      setRequiresAuth(router.pathname.startsWith('/dashboard'));
-    }
-  }, [router.pathname]);
-
-  React.useEffect(() => {
-    // Skip auth check during SSR
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    if (!requiresAuth) {
-      return;
-    }
-
-    if (isLoading) {
-      return;
-    }
-
-    if (!isAuthenticated) {
-      const next = router.asPath && router.asPath !== '/auth/login' ? router.asPath : undefined;
-      router.replace({
-        pathname: '/auth/login',
-        query: next ? { next } : undefined,
-      });
-    }
-  }, [requiresAuth, isAuthenticated, isLoading, router]);
-
-  // Don't block rendering during SSR
-  if (typeof window === 'undefined') {
-    return <>{children}</>;
-  }
-
-  if (requiresAuth && (!isAuthenticated || isLoading)) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          minHeight: '100vh',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Box sx={{ textAlign: 'center' }}>
-          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
-            <CircularProgress size={40} />
-          </Box>
-          <Typography variant="body1" color="text.primary">
-            {isAuthenticated ? 'Loading dashboard...' : 'Redirecting to login...'}
-          </Typography>
-        </Box>
-      </Box>
-    );
-  }
-
-  return <>{children}</>;
 }
 
 // Custom hook for client-side mounting check (hydration guard)
@@ -151,9 +87,7 @@ function AppSkeleton() {
   );
 }
 
-export default function App({ Component, pageProps }: AppProps & { Component: React.ComponentType & { skipAuthGuard?: boolean } }) {
-  // Skip RouteGuard for error pages and pages with skipAuthGuard flag
-  const skipAuth = Component.skipAuthGuard || false;
+export default function App({ Component, pageProps }: AppProps) {
   const mounted = useHasMounted();
   const router = useRouter();
   const isPrivateRoute = router.pathname.startsWith('/dashboard');
@@ -183,17 +117,18 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
       <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <MaterialThemeWrapper>
           <ToastProvider>
-            <AuthProvider>
-              {skipAuth ? (
-                <Component {...pageProps} />
-              ) : (
-                <RouteGuard>
-                  <Component {...pageProps} />
-                </RouteGuard>
-              )}
-            </AuthProvider>
+            <AuthUIProvider
+              authClient={authClient}
+              navigate={router.push}
+              replace={router.replace}
+              Link={Link}
+              viewPaths={{ SIGN_IN: "login", SIGN_UP: "register" }}
+            >
+              <Component {...pageProps} />
+            </AuthUIProvider>
           </ToastProvider>
           <SpeedInsights />
+          <Toaster />
         </MaterialThemeWrapper>
       </NextThemeProvider>
     </QueryProvider>
