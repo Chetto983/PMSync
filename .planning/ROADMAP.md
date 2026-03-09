@@ -215,7 +215,7 @@ Plans:
 
 ### Phase 58: Compliance & Cleanup
 **Goal**: Auth events feed into audit/GDPR systems and all legacy auth code is deleted
-**Depends on**: Phase 55, Phase 56, Phase 57
+**Depends on**: Phase 55
 **Requirements**: CLN-01, CLN-02, CLN-03, CLN-04, CLN-05
 **Success Criteria** (what must be TRUE):
   1. Auth events (login, logout, signup, password change, 2FA enable/disable) are logged to the existing audit trail
@@ -223,12 +223,12 @@ Plans:
   3. Right to erasure cascades into all better-auth tables and cleans up organization memberships
   4. Old auth code is deleted (~17 services, 5 npm packages, 7 Prisma models) and the app builds cleanly
   5. Auth test suite covers all better-auth flows (signup, signin, OAuth, 2FA, org, admin, session validation)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 58-01: TBD
-- [ ] 58-02: TBD
-- [ ] 58-03: TBD
+- [ ] 58-01-PLAN.md -- Audit hooks + guard relocation— Audit hooks + guard relocation
+- [ ] 58-02-PLAN.md -- Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)— Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)
+- [ ] 58-03-PLAN.md -- Auth test suite (partial, no org/admin)— Auth test suite (partial, no org/admin)
 
 ### Phase 59: Safety Hardening
 **Goal**: Critical and high-severity security findings from architecture audit are fixed -- secrets purged from git, rate limiting enforced, injection vectors closed, JWT removed, production exposure locked down
