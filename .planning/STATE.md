@@ -4,13 +4,29 @@ milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
 stopped_at: Completed 55-01-PLAN.md
-last_updated: "2026-03-09T14:43:28Z"
+last_updated: "2026-03-09T14:54:38.941Z"
 last_activity: 2026-03-09 -- Phase 55 Plan 01 complete (social login + 2FA plugins wired)
 progress:
   total_phases: 10
   completed_phases: 5
+  total_plans: 19
+  completed_plans: 12
+  percent: 63
+---
+
+---
+gsd_state_version: 1.0
+milestone: v5.0
+milestone_name: better-auth Migration
+status: executing
+stopped_at: Completed 55-03-PLAN.md
+last_updated: "2026-03-09T14:53:45Z"
+last_activity: 2026-03-09 -- Phase 55 Plan 03 complete (onboarding wizard + middleware)
+progress:
+  total_phases: 10
+  completed_phases: 5
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -25,11 +41,11 @@ See: .planning/PROJECT.md (updated 2026-03-09)
 ## Current Position
 
 Phase: 55 of 59 (Social Login & MFA) -- Executing
-Plan: 1 of 4 complete
-Status: Executing Plan 02
-Last activity: 2026-03-09 -- Phase 55 Plan 01 complete (social login + 2FA plugins wired)
+Plan: 3 of 4 complete
+Status: Executing Plan 04
+Last activity: 2026-03-09 -- Phase 55 Plan 03 complete (onboarding wizard + middleware)
 
-Progress: [███████████████████░] 11/14 plans (79%)
+Progress: [████████████████████] 12/14 plans (86%)
 
 ## Performance Metrics
 
@@ -47,7 +63,7 @@ Progress: [███████████████████░] 11/14 p
 | 52 - NestJS Session Validation | 3/3 | 13 min | 4.3 min |
 | 53 - Frontend Auth UI | 2/2 | 27 min | 13.5 min |
 | 54 - WebSocket Auth | 1/1 | 1 min | 1 min |
-| 55 - Social Login & MFA | 1/4 | 10 min | 10 min |
+| 55 - Social Login & MFA | 3/4 | 16 min | 5.3 min |
 
 *Updated after each plan completion*
 
@@ -93,6 +109,9 @@ Progress: [███████████████████░] 11/14 p
 - [55-01] Social login buttons above email/password form with "or" divider per user decision
 - [55-01] twoFactorClient onTwoFactorRedirect routes to /auth/two-factor
 - [55-01] Named translation key twoFactorVerify to avoid collision with existing mfa settings section
+- [55-03] Cookie-based onboarding check in Edge middleware (no DB calls); real validation in page via useSession()
+- [55-03] StepProps in types.ts re-exported from OnboardingWizard for Plan 04 consumers
+- [55-03] Cast session.user as SessionUser at page level (better-auth types miss additionalFields)
 
 ### Pending Todos
 
@@ -110,6 +129,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-09T14:43:28Z
-Stopped at: Completed 55-01-PLAN.md
-Resume file: .planning/phases/55-social-login-mfa/55-02-PLAN.md
+Last session: 2026-03-09T14:53:45Z
+Stopped at: Completed 55-03-PLAN.md
+Resume file: .planning/phases/55-social-login-mfa/55-04-PLAN.md

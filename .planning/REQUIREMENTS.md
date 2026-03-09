@@ -35,10 +35,10 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 
 ### Security
 
-- [ ] **SEC-01**: User can enable TOTP 2FA with QR code setup
+- [x] **SEC-01**: User can enable TOTP 2FA with QR code setup
 - [ ] **SEC-02**: User can use backup codes when TOTP device unavailable
 - [ ] **SEC-03**: User can register and authenticate with passkeys (WebAuthn)
-- [ ] **SEC-04**: User can manage security settings (2FA, passkeys, sessions)
+- [x] **SEC-04**: User can manage security settings (2FA, passkeys, sessions)
 
 ### Organizations & Roles
 
@@ -110,10 +110,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEUI-02 | Phase 53 | Complete |
 | FEUI-03 | Phase 53 | Complete |
 | FEUI-04 | Phase 53 | Complete |
-| SEC-01 | Phase 55 | Pending |
+| SEC-01 | Phase 55 | Complete |
 | SEC-02 | Phase 55 | Pending |
 | SEC-03 | Phase 55 | Pending |
-| SEC-04 | Phase 55 | Pending |
+| SEC-04 | Phase 55 | Complete |
 | ORG-01 | Phase 56 | Pending |
 | ORG-02 | Phase 56 | Pending |
 | ORG-03 | Phase 56 | Pending |
