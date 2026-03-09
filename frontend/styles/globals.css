@@ -1,5 +1,4 @@
 /* stylelint-disable at-rule-no-unknown */
-@import "@daveyplate/better-auth-ui/css";
 @config '../tailwind.config.ts';
 @tailwind base;
 @tailwind components;

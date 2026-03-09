@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
-import Link from 'next/link';
+
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
 import { SpeedInsights } from '@vercel/speed-insights/next';
@@ -14,9 +14,7 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
-import { AuthUIProvider } from '@daveyplate/better-auth-ui';
 import { QueryProvider } from '@/lib/query-client';
-import { authClient } from '@/lib/auth-client';
 import { ToastProvider } from '@/lib/context/toast-context';
 import { lightTheme, darkTheme } from '@/theme/appTheme';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
@@ -117,15 +115,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <MaterialThemeWrapper>
           <ToastProvider>
-            <AuthUIProvider
-              authClient={authClient}
-              navigate={router.push}
-              replace={router.replace}
-              Link={Link}
-              viewPaths={{ SIGN_IN: "login", SIGN_UP: "register" }}
-            >
               <Component {...pageProps} />
-            </AuthUIProvider>
           </ToastProvider>
           <SpeedInsights />
           <Toaster />
