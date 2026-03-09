@@ -38,7 +38,7 @@ export class WebhookController {
    * Gmail Pub/Sub webhook endpoint
    * Receives push notifications from Google Cloud Pub/Sub
    */
-  @Post('gmail/push')
+  @Post(['gmail/push', 'gmail'])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gmail Pub/Sub webhook', description: 'Receives push notifications from Google Cloud Pub/Sub' })
   @ApiHeader({ name: 'x-webhook-token', description: 'Webhook authentication token', required: false })
