@@ -19,6 +19,15 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  // INFRA-05 target: 50%. Enforced on `npm test --coverage`. Phases 67-69 add tests to meet this.
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50,
+    },
+  },
   transformIgnorePatterns: [
     'node_modules/(?!(@nestjs|@prisma|imapflow|mailparser|isomorphic-ws|nanoid|@mistralai|@langchain|langchain|p-retry|@anthropic-ai)/)',
   ],

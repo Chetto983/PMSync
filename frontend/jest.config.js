@@ -32,6 +32,15 @@ const config = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  // INFRA-05 target: 30%. Enforced on coverage runs. Phase 70 adds tests to meet this.
+  coverageThreshold: {
+    global: {
+      branches: 30,
+      functions: 30,
+      lines: 30,
+      statements: 30,
+    },
+  },
 };
 
 module.exports = config;
