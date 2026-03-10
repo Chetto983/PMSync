@@ -198,12 +198,22 @@ export class SyncBackOrchestratorService {
       }
     }
 
+    // BULK FIX: Pre-fetch full provider records for token access (1 query for all active providers)
+    const activeProviderIds = [
+      ...gmailByProvider.keys(),
+      ...microsoftByProvider.keys(),
+      ...imapByProvider.keys(),
+    ];
+    const fullProviders = activeProviderIds.length > 0
+      ? await this.prisma.providerConfig.findMany({
+          where: { id: { in: activeProviderIds } },
+        })
+      : [];
+    const fullProviderMap = new Map(fullProviders.map((p) => [p.id, p]));
+
     // Process Gmail batches
     for (const [providerId, ops] of gmailByProvider) {
-      const tenantId = providerTenantMap.get(providerId);
-      const provider = tenantId
-        ? await this.prisma.providerConfig.findFirst({ where: { id: providerId, tenantId } })
-        : null;
+      const provider = fullProviderMap.get(providerId);
       if (!provider) {
         this.logger.error(`Gmail provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
@@ -214,10 +224,7 @@ export class SyncBackOrchestratorService {
 
     // Process Microsoft batches
     for (const [providerId, ops] of microsoftByProvider) {
-      const tenantId = providerTenantMap.get(providerId);
-      const provider = tenantId
-        ? await this.prisma.providerConfig.findFirst({ where: { id: providerId, tenantId } })
-        : null;
+      const provider = fullProviderMap.get(providerId);
       if (!provider) {
         this.logger.error(`Microsoft provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
@@ -228,10 +235,7 @@ export class SyncBackOrchestratorService {
 
     // Process IMAP batches
     for (const [providerId, ops] of imapByProvider) {
-      const tenantId = providerTenantMap.get(providerId);
-      const provider = tenantId
-        ? await this.prisma.providerConfig.findFirst({ where: { id: providerId, tenantId } })
-        : null;
+      const provider = fullProviderMap.get(providerId);
       if (!provider) {
         this.logger.error(`IMAP provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;

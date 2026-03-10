@@ -229,21 +229,31 @@ export class ImapSyncBackService {
       await client.connect();
       this.logger.log(`Connected to IMAP server: ${provider.imapHost} (Batch Mode)`);
 
+      // BULK FIX: Pre-fetch folders for ops without sourceFolder in 1 query instead of N findFirst() calls
+      const opsWithoutFolder = ops.filter((op) => !op.sourceFolder);
+      const emailFolderMap = new Map<string, string>();
+      if (opsWithoutFolder.length > 0) {
+        const emailIds = opsWithoutFolder.map((op) => op.emailId);
+        const emails = await this.prisma.email.findMany({
+          where: { id: { in: emailIds } },
+          select: { id: true, folder: true },
+        });
+        for (const email of emails) {
+          emailFolderMap.set(email.id, email.folder || 'INBOX');
+        }
+      }
+
       // Group operations by source folder to minimize switching
       const opsByFolder = new Map<string, EmailSyncOperation[]>();
 
       for (const op of ops) {
         let folder = op.sourceFolder;
         if (!folder) {
-          const email = await this.prisma.email.findFirst({
-            where: { id: op.emailId, tenantId: op.tenantId },
-            select: { folder: true },
-          });
-          if (!email) {
-            this.logger.warn(`Email ${op.emailId} not found for tenant ${op.tenantId}, skipping IMAP operation`);
+          folder = emailFolderMap.get(op.emailId);
+          if (!folder) {
+            this.logger.warn(`Email ${op.emailId} not found, skipping IMAP operation`);
             continue;
           }
-          folder = email.folder || 'INBOX';
         }
 
         if (!opsByFolder.has(folder)) {
