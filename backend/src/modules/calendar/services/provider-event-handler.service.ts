@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
   ProviderConnectedEvent,
   ProviderDisconnectedEvent,
@@ -36,62 +37,64 @@ export class CalendarProviderEventHandlerService {
    */
   @OnEvent(ProviderConnectedEvent.eventName)
   async handleProviderConnected(event: ProviderConnectedEvent): Promise<void> {
+    // @OnEvent runs outside HTTP request context — no AsyncLocalStorage tenant.
     try {
-      const { providerId, providerType } = event;
+      await withoutTenantScopingAsync(async () => {
+        const { providerId, providerType } = event;
 
-      // Load provider to check calendar support
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
+        const provider = await this.prisma.providerConfig.findUnique({
+          where: { id: providerId },
+        });
+        if (!provider?.supportsCalendar) {
+          return;
+        }
+
+        this.logger.log(`[ProviderConnected] Starting calendar sync for provider ${provider.email}`);
+
+        if (providerType === 'google') {
+          this.googleCalendarSync
+            .syncCalendar(providerId)
+            .then(() => this.logger.log(`Completed initial Google Calendar sync for ${provider.email}`))
+            .catch((error) =>
+              this.logger.error(
+                `Failed initial Google Calendar sync for ${providerId}: ${
+                  error instanceof Error ? error.message : error
+                }`,
+              ),
+            );
+
+          try {
+            await this.googleCalendarWebhook.setupWatch(providerId);
+          } catch (error) {
+            this.logger.error(
+              `Failed to setup Google Calendar webhook for ${providerId}: ${
+                error instanceof Error ? error.message : error
+              }`,
+            );
+          }
+        } else if (providerType === 'microsoft') {
+          this.microsoftCalendarSync
+            .syncCalendar(providerId)
+            .then(() => this.logger.log(`Completed initial Microsoft Calendar sync for ${provider.email}`))
+            .catch((error) =>
+              this.logger.error(
+                `Failed initial Microsoft Calendar sync for ${providerId}: ${
+                  error instanceof Error ? error.message : error
+                }`,
+              ),
+            );
+
+          try {
+            await this.microsoftCalendarWebhook.setupSubscription(providerId);
+          } catch (error) {
+            this.logger.error(
+              `Failed to setup Microsoft Calendar webhook for ${providerId}: ${
+                error instanceof Error ? error.message : error
+              }`,
+            );
+          }
+        }
       });
-      if (!provider?.supportsCalendar) {
-        return;
-      }
-
-      this.logger.log(`[ProviderConnected] Starting calendar sync for provider ${provider.email}`);
-
-      if (providerType === 'google') {
-        this.googleCalendarSync
-          .syncCalendar(providerId)
-          .then(() => this.logger.log(`Completed initial Google Calendar sync for ${provider.email}`))
-          .catch((error) =>
-            this.logger.error(
-              `Failed initial Google Calendar sync for ${providerId}: ${
-                error instanceof Error ? error.message : error
-              }`,
-            ),
-          );
-
-        try {
-          await this.googleCalendarWebhook.setupWatch(providerId);
-        } catch (error) {
-          this.logger.error(
-            `Failed to setup Google Calendar webhook for ${providerId}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          );
-        }
-      } else if (providerType === 'microsoft') {
-        this.microsoftCalendarSync
-          .syncCalendar(providerId)
-          .then(() => this.logger.log(`Completed initial Microsoft Calendar sync for ${provider.email}`))
-          .catch((error) =>
-            this.logger.error(
-              `Failed initial Microsoft Calendar sync for ${providerId}: ${
-                error instanceof Error ? error.message : error
-              }`,
-            ),
-          );
-
-        try {
-          await this.microsoftCalendarWebhook.setupSubscription(providerId);
-        } catch (error) {
-          this.logger.error(
-            `Failed to setup Microsoft Calendar webhook for ${providerId}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          );
-        }
-      }
     } catch (error) {
       this.logger.error(
         `[ProviderConnected] Calendar handler error for provider ${event.providerId}: ${
@@ -107,30 +110,32 @@ export class CalendarProviderEventHandlerService {
   @OnEvent(ProviderDisconnectedEvent.eventName)
   async handleProviderDisconnected(event: ProviderDisconnectedEvent): Promise<void> {
     try {
-      const { providerId, providerType, supportsCalendar } = event;
-      if (!supportsCalendar) {
-        return;
-      }
+      await withoutTenantScopingAsync(async () => {
+        const { providerId, providerType, supportsCalendar } = event;
+        if (!supportsCalendar) {
+          return;
+        }
 
-      this.logger.log(`[ProviderDisconnected] Cleaning up calendar for provider ${providerId}`);
+        this.logger.log(`[ProviderDisconnected] Cleaning up calendar for provider ${providerId}`);
 
-      if (providerType === 'google') {
-        await this.googleCalendarWebhook.stopWatch(providerId).catch((error) => {
-          this.logger.warn(
-            `Failed to stop Google Calendar watch for provider ${providerId}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          );
-        });
-      } else if (providerType === 'microsoft') {
-        await this.microsoftCalendarWebhook.deleteSubscription(providerId).catch((error) => {
-          this.logger.warn(
-            `Failed to delete Microsoft Calendar subscription for provider ${providerId}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          );
-        });
-      }
+        if (providerType === 'google') {
+          await this.googleCalendarWebhook.stopWatch(providerId).catch((error) => {
+            this.logger.warn(
+              `Failed to stop Google Calendar watch for provider ${providerId}: ${
+                error instanceof Error ? error.message : error
+              }`,
+            );
+          });
+        } else if (providerType === 'microsoft') {
+          await this.microsoftCalendarWebhook.deleteSubscription(providerId).catch((error) => {
+            this.logger.warn(
+              `Failed to delete Microsoft Calendar subscription for provider ${providerId}: ${
+                error instanceof Error ? error.message : error
+              }`,
+            );
+          });
+        }
+      });
     } catch (error) {
       this.logger.error(
         `[ProviderDisconnected] Calendar handler error for provider ${event.providerId}: ${

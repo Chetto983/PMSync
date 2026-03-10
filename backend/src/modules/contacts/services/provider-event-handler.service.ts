@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
   ProviderConnectedEvent,
   ProviderDisconnectedEvent,
@@ -30,32 +31,34 @@ export class ContactsProviderEventHandlerService {
    */
   @OnEvent(ProviderConnectedEvent.eventName)
   async handleProviderConnected(event: ProviderConnectedEvent): Promise<void> {
+    // @OnEvent runs outside HTTP request context — no AsyncLocalStorage tenant.
     try {
-      const { providerId } = event;
+      await withoutTenantScopingAsync(async () => {
+        const { providerId } = event;
 
-      // Load provider to check contacts support
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
-      if (!provider?.supportsContacts) {
-        return;
-      }
-
-      this.logger.log(`[ProviderConnected] Queuing contacts sync for provider ${provider.email}`);
-
-      // Fire and forget - don't block the event handler
-      this.contactsService
-        .syncContacts(providerId)
-        .then((contactsCount) => {
-          this.logger.log(`[Initial Sync] ${contactsCount} contacts synced for ${provider.email}`);
-        })
-        .catch((error) => {
-          this.logger.error(
-            `[Initial Sync] Failed to sync contacts for provider ${providerId}: ${
-              error instanceof Error ? error.message : error
-            }`,
-          );
+        const provider = await this.prisma.providerConfig.findUnique({
+          where: { id: providerId },
         });
+        if (!provider?.supportsContacts) {
+          return;
+        }
+
+        this.logger.log(`[ProviderConnected] Queuing contacts sync for provider ${provider.email}`);
+
+        // Fire and forget - don't block the event handler
+        this.contactsService
+          .syncContacts(providerId)
+          .then((contactsCount) => {
+            this.logger.log(`[Initial Sync] ${contactsCount} contacts synced for ${provider.email}`);
+          })
+          .catch((error) => {
+            this.logger.error(
+              `[Initial Sync] Failed to sync contacts for provider ${providerId}: ${
+                error instanceof Error ? error.message : error
+              }`,
+            );
+          });
+      });
     } catch (error) {
       this.logger.error(
         `[ProviderConnected] Contacts handler error for provider ${event.providerId}: ${
@@ -71,19 +74,21 @@ export class ContactsProviderEventHandlerService {
   @OnEvent(ProviderDisconnectedEvent.eventName)
   async handleProviderDisconnected(event: ProviderDisconnectedEvent): Promise<void> {
     try {
-      const { tenantId, providerId, supportsContacts } = event;
-      if (!supportsContacts) {
-        return;
-      }
+      await withoutTenantScopingAsync(async () => {
+        const { tenantId, providerId, supportsContacts } = event;
+        if (!supportsContacts) {
+          return;
+        }
 
-      this.logger.log(`[ProviderDisconnected] Cleaning up contacts for provider ${providerId}`);
+        this.logger.log(`[ProviderDisconnected] Cleaning up contacts for provider ${providerId}`);
 
-      await this.contactsService.deleteProviderContacts(providerId, tenantId).catch((error) => {
-        this.logger.warn(
-          `Failed to cleanup contacts for provider ${providerId}: ${
-            error instanceof Error ? error.message : error
-          }`,
-        );
+        await this.contactsService.deleteProviderContacts(providerId, tenantId).catch((error) => {
+          this.logger.warn(
+            `Failed to cleanup contacts for provider ${providerId}: ${
+              error instanceof Error ? error.message : error
+            }`,
+          );
+        });
       });
     } catch (error) {
       this.logger.error(
