@@ -211,17 +211,30 @@ export class AccountDeletionService {
    * so this single delete removes all associated data (emails, contacts,
    * calendar events, sessions, audit logs, etc.).
    *
+   * After cascade, cleans up orphaned organizations (orgs where deleted
+   * user was the sole member). The user's workspace tenant is preserved.
+   *
    * Returns true if deleted, false if already gone.
    */
   async hardDeleteUser(userId: string, tenantId: string): Promise<boolean> {
     this.logger.warn(`Hard-deleting user ${userId} from tenant ${tenantId}`);
 
+    // Query org memberships BEFORE delete — cascade removes Member rows
+    const memberships = await this.prisma.member.findMany({
+      where: { userId },
+      select: { organizationId: true },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantId: true },
+    });
+
     try {
       await this.prisma.user.delete({ where: { id: userId } });
       this.logger.log(`Successfully hard-deleted user ${userId}`);
-      return true;
     } catch (error: any) {
-      // P2025: Record not found -- user may have been manually deleted already
+      // P2025: Record not found — user may have been manually deleted already
       if (error?.code === 'P2025') {
         this.logger.warn(`User ${userId} already deleted (P2025), skipping`);
         return false;
@@ -229,5 +242,44 @@ export class AccountDeletionService {
       this.logger.error(`Failed to hard-delete user ${userId}: ${error}`);
       throw error;
     }
+
+    // Clean up orphaned organizations after successful cascade
+    const orgIds = memberships.map((m: { organizationId: string }) => m.organizationId);
+    if (orgIds.length > 0) {
+      const cleaned = await this.cleanupOrphanedOrgs(
+        orgIds,
+        user?.tenantId ?? null,
+      );
+      if (cleaned > 0) {
+        this.logger.log(
+          `Cleaned up ${cleaned} orphaned organization(s) after deleting user ${userId}`,
+        );
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Delete organizations that have zero remaining members after a user
+   * cascade delete. Excludes the user's own workspace tenant.
+   */
+  private async cleanupOrphanedOrgs(
+    orgIds: string[],
+    excludeTenantId: string | null,
+  ): Promise<number> {
+    let cleaned = 0;
+    for (const orgId of orgIds) {
+      if (orgId === excludeTenantId) continue;
+      const remaining = await this.prisma.member.count({
+        where: { organizationId: orgId },
+      });
+      if (remaining === 0) {
+        this.logger.warn(`Deleting orphaned organization ${orgId}`);
+        await this.prisma.tenant.delete({ where: { id: orgId } });
+        cleaned++;
+      }
+    }
+    return cleaned;
   }
 }
