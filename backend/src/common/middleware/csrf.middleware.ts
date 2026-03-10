@@ -36,14 +36,16 @@ const {
   invalidCsrfTokenError,
 } = doubleCsrf({
   getSecret: () => CSRF_SECRET,
-  // Session identifier: always IP-based for consistency.
-  // Use req.ip (trust-proxy aware) instead of raw X-Forwarded-For header.
-  // The /auth/csrf-token endpoint runs without BetterAuthGuard, so req.user
-  // is never set during token generation. Using userId here would cause a
-  // mismatch between generation (IP) and validation (userId) = "invalid csrf token".
+  // Session identifier: use session token from cookie for stability.
+  // IP-based identifiers break on Vercel/edge platforms where IPs change
+  // between requests (different edge nodes, regions). The session cookie
+  // is stable and already httpOnly/secure.
   getSessionIdentifier: (req: Request) => {
-    const ip = req.ip || req.socket?.remoteAddress || 'anonymous';
-    return ip;
+    const sessionCookie =
+      req.cookies?.['better-auth.session_token'] ||
+      req.cookies?.['__Secure-better-auth.session_token'] ||
+      'anonymous';
+    return sessionCookie;
   },
   cookieName: (isProduction && !isCrossSite) ? '__Host-csrf' : 'csrf',
   cookieOptions: {
