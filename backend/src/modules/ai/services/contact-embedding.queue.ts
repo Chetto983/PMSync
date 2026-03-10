@@ -11,6 +11,7 @@ import {
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /** Maximum retry attempts before sending to DLQ */
 const MAX_ATTEMPTS = 6;
@@ -77,7 +78,7 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
   onModuleInit() {
     this.knowledgeBaseService = this.resolveKnowledgeBaseService();
 
-    const connection = getRedisConnectionOptions();
+    const connection = { ...getRedisConnectionOptions(), lazyConnect: false };
     const jobDefaults = getDefaultJobOptions('AI_EMBEDDING');
 
     this.queue = new Queue<ContactEmbeddingJob>(QUEUE_NAMES.CONTACT_EMBEDDING, {
@@ -93,7 +94,9 @@ export class ContactEmbeddingQueueService implements OnModuleInit, OnModuleDestr
       async (job: Job<ContactEmbeddingJob>) => {
         this.logger.debug(`Processing contact embedding job ${job.id}`);
         try {
-          return await this.resolveKnowledgeBaseService().createEmbeddingForContact(job.data);
+          return await withoutTenantScopingAsync(() =>
+            this.resolveKnowledgeBaseService().createEmbeddingForContact(job.data),
+          );
         } catch (error) {
           if (isRateLimitError(error)) {
             const delayMs = this.computeBackoffDelay(job.attemptsMade, error);

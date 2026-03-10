@@ -15,6 +15,7 @@ import {
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 // Re-export for backward compatibility
 export type { EmailEmbeddingJob } from '../../../common/interfaces/embedding-queue.interface';
@@ -76,7 +77,8 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
     this.knowledgeBaseService = this.resolveKnowledgeBaseService();
 
     // Use centralized Redis connection options (includes maxRetriesPerRequest: null for BullMQ)
-    const connection = getRedisConnectionOptions();
+    // Override lazyConnect: false — BullMQ Worker.duplicate() inherits lazyConnect and may never connect
+    const connection = { ...getRedisConnectionOptions(), lazyConnect: false };
 
     // Use centralized job defaults for AI embedding operations
     const jobDefaults = getDefaultJobOptions('AI_EMBEDDING');
@@ -94,7 +96,10 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       async (job: Job<EmailEmbeddingJob>) => {
         this.logger.debug(`Processing email embedding job ${job.id}`);
         try {
-          return await this.resolveKnowledgeBaseService().createEmbeddingForEmail(job.data);
+          // BullMQ workers run outside HTTP context — bypass tenant scoping for Prisma calls
+          return await withoutTenantScopingAsync(() =>
+            this.resolveKnowledgeBaseService().createEmbeddingForEmail(job.data),
+          );
         } catch (error) {
           if (isRateLimitError(error)) {
             const delayMs = this.computeBackoffDelay(job.attemptsMade, error);
