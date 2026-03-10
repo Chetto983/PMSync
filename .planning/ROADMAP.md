@@ -301,6 +301,32 @@ Plans:
 Plans:
 - [ ] 62-01-PLAN.md — Auth audit remediation across backend, frontend proxy, org context, and verification flow
 
+### Phase 63: Email Invitation Accept Page
+**Goal**: Email invitation deep-link lands on a working page that accepts the invitation
+**Depends on**: Phase 56
+**Requirements**: ORG-02 (re-close)
+**Gap Closure:** Closes ORG-02 partial, integration gap (invitation email → frontend routing), flow gap ("Invited user accepts via email link")
+**Success Criteria** (what must be TRUE):
+  1. Next.js page exists at `/dashboard/invitations/accept` that reads `?id=` query param and calls `authClient.organization.acceptInvitation`
+  2. Unauthenticated users following the email link are redirected to `/auth/login` with return URL preserving the `?id=` param
+  3. Success and error states displayed with i18n strings (invitation accepted, expired, already member, etc.)
+
+Plans:
+- [ ] 63-01-PLAN.md — Invitation accept page + middleware param preservation + i18n
+
+### Phase 64: WebSocket Org-Switch Reconnect
+**Goal**: WebSocket reconnects after org switch so real-time events come from the new organization
+**Depends on**: Phase 54, Phase 56
+**Requirements**: ORG-04 (re-close), P62-04 (re-close)
+**Gap Closure:** Closes P62-04 partial, integration gap (OrgSwitcher → WS handshake), flow gap ("User switches org → WS delivers events from new org")
+**Success Criteria** (what must be TRUE):
+  1. `useSetActiveOrg.onSuccess` triggers WebSocket disconnect and reconnect
+  2. After org switch, WS handshake sends new session with updated activeOrganizationId
+  3. Real-time events arrive from the new organization without page refresh
+
+Plans:
+- [ ] 64-01-PLAN.md — WS reconnect on org switch + room re-assignment verification
+
 ## Progress
 
 **Execution Order:**
@@ -325,6 +351,8 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 60. Middleware & Auth Cleanup | 2/2 | Complete    | 2026-03-10 | - |
 | 61. GDPR Org Compliance | 1/1 | Complete    | 2026-03-10 | - |
 | 62. Auth Audit Remediation | 1/1 | Complete    | 2026-03-10 | - |
+| 63. Email Invitation Accept Page | 0/1 | Pending | - | - |
+| 64. WS Org-Switch Reconnect | 0/1 | Pending | - | - |
 
 ---
 *Roadmap created: 2026-02-09*

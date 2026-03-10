@@ -43,9 +43,9 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 ### Organizations & Roles
 
 - [x] **ORG-01**: User can create an organization
-- [x] **ORG-02**: Organization owner can invite members by email
+- [ ] **ORG-02**: Organization owner can invite members by email
 - [x] **ORG-03**: Organization owner/admin can assign roles (owner/admin/member)
-- [x] **ORG-04**: User can switch between organizations
+- [ ] **ORG-04**: User can switch between organizations
 - [x] **ORG-05**: Organization permissions enforced on API endpoints
 
 ### Admin
@@ -128,9 +128,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-03 | Phase 55 | Complete |
 | SEC-04 | Phase 55 | Complete |
 | ORG-01 | Phase 56 | Complete |
-| ORG-02 | Phase 56 | Complete |
+| ORG-02 | Phase 63 | Pending |
 | ORG-03 | Phase 56 | Complete |
-| ORG-04 | Phase 56 | Complete |
+| ORG-04 | Phase 64 | Pending |
 | ORG-05 | Phase 56 | Complete |
 | ADM-01 | Phase 57 | Complete |
 | ADM-02 | Phase 57 | Complete |
@@ -151,11 +151,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAF-08 | Phase 59 | Complete |
 | SAF-09 | Phase 59 | Complete |
 | SAF-10 | Phase 59 | Complete |
+| P62-01 | Phase 62 | Complete |
+| P62-02 | Phase 62 | Complete |
+| P62-03 | Phase 62 | Complete |
+| P62-04 | Phase 64 | Pending |
+| P62-05 | Phase 62 | Complete |
+| P62-06 | Phase 62 | Complete |
 
 **Coverage:**
-- v5.0 requirements: 45 total
-- Mapped to phases: 45
+- v5.0 requirements: 51 total (45 original + 6 P62-*)
+- Mapped to phases: 51
 - Unmapped: 0
+- Pending (gap closure): 3 (ORG-02, ORG-04, P62-04)
 
 ---
 *Requirements defined: 2026-03-06*
