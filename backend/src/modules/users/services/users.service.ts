@@ -68,7 +68,7 @@ export class UsersService {
     }
 
     // Parse base64 data URL
-    const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    const match = dataUrl.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
     if (!match) {
       throw new BadRequestException('Invalid image data URL');
     }
@@ -81,7 +81,7 @@ export class UsersService {
       throw new BadRequestException('Avatar image too large (max 200KB)');
     }
 
-    const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+    const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : contentType === 'image/svg+xml' ? 'svg' : 'jpg';
     const key = `avatars/${userId}.${ext}`;
 
     await this.storageService.putObject(key, buffer, contentType);

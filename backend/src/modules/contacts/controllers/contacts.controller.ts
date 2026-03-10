@@ -145,7 +145,8 @@ export class ContactsController {
     const tenantId = req.user.tenantId;
     const parsedLimit = limit ? parseInt(String(limit), 10) : 50;
     // Stub: ContactInteraction model removed (dead code)
-    return { interactions: [], total: 0, message: 'Contact interaction history not yet implemented' };
+    // Return raw array to match frontend contract (ContactInteraction[])
+    return [];
   }
 
   /**

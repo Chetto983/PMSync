@@ -51,7 +51,10 @@ export const ContactActivityFeed = ({ contactId }: ContactActivityFeedProps) => 
     );
   }
 
-  if (!history || history.length === 0) {
+  // Defensive: backend may return non-array (e.g. object stub)
+  const historyList = Array.isArray(history) ? history : [];
+
+  if (historyList.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="body2" color="text.secondary">
@@ -63,7 +66,7 @@ export const ContactActivityFeed = ({ contactId }: ContactActivityFeedProps) => 
 
   return (
     <List disablePadding>
-      {history.map((interaction: ContactInteraction) => {
+      {historyList.map((interaction: ContactInteraction) => {
         let Icon = MessageSquare;
         let color = theme.palette.text.secondary;
         let label = detailsCopy.interactions?.label || 'Interaction';
