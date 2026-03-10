@@ -22,9 +22,11 @@ import {
 import { SyncAuthService } from '../services/sync-auth.service';
 import { Public } from '../../../common/auth/public.decorator';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('Webhooks - Email Sync')
 @Public()
+@SkipThrottle()
 @Controller('webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
