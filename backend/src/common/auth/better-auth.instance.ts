@@ -10,7 +10,7 @@ import { EmailService } from '../../modules/email/services/email.service';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
 import { logAuthEvent } from './audit-hooks';
 
-interface ProvisioningUser {
+export interface ProvisioningUser {
   id: string;
   email: string;
   name?: string | null;
@@ -47,7 +47,7 @@ function buildWorkspaceSlug(user: ProvisioningUser): string {
   return `${sanitizeWorkspaceSlugPart(base)}-${randomBytes(3).toString('hex')}`;
 }
 
-async function provisionWorkspaceForUser(
+export async function provisionWorkspaceForUser(
   prisma: PrismaClient,
   user: ProvisioningUser,
   options: {
