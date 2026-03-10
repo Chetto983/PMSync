@@ -14,8 +14,13 @@ jest.mock('archiver', () => {
     on: jest.fn(),
     _appendedFiles: appendedFiles,
   };
+  const factory = jest.fn(() => mockArchive);
+  // `import * as archiver from 'archiver'` → archiver.default(...)
+  factory.__mockArchive = mockArchive;
+  factory.__appendedFiles = appendedFiles;
   return {
-    default: jest.fn(() => mockArchive),
+    __esModule: true,
+    default: factory,
     __mockArchive: mockArchive,
     __appendedFiles: appendedFiles,
   };

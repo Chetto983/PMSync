@@ -23,6 +23,10 @@ interface ExportData {
   aiHistory: Record<string, unknown>[];
   consentHistory: Record<string, unknown>[];
   auditLogs: Record<string, unknown>[];
+  organizationMemberships: Record<string, unknown>[];
+  sentInvitations: Record<string, unknown>[];
+  authAccounts: Record<string, unknown>[];
+  activeSessions: Record<string, unknown>[];
 }
 
 /**
@@ -174,6 +178,10 @@ export class DataExportService {
       aiHistory,
       consentHistory,
       auditLogs,
+      organizationMemberships,
+      sentInvitations,
+      authAccounts,
+      activeSessions,
     ] = await Promise.all([
       // Profile (EXCLUDE: deletedAt)
       this.prisma.user.findUnique({
@@ -308,6 +316,54 @@ export class DataExportService {
         take: 10000,
         orderBy: { createdAt: 'desc' },
       }),
+
+      // Organization memberships
+      this.prisma.member.findMany({
+        where: { userId },
+        select: {
+          role: true,
+          createdAt: true,
+          organization: { select: { id: true, name: true } },
+        },
+      }),
+
+      // Invitations sent by this user
+      this.prisma.invitation.findMany({
+        where: { inviterId: userId },
+        select: {
+          email: true,
+          role: true,
+          status: true,
+          expiresAt: true,
+          createdAt: true,
+          organization: { select: { id: true, name: true } },
+        },
+      }),
+
+      // Auth accounts (EXCLUDE: password, accessToken, refreshToken, idToken)
+      this.prisma.account.findMany({
+        where: { userId },
+        select: {
+          providerId: true,
+          accountId: true,
+          scope: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+
+      // Active sessions (EXCLUDE: token)
+      this.prisma.session.findMany({
+        where: { userId },
+        select: {
+          ipAddress: true,
+          userAgent: true,
+          activeOrganizationId: true,
+          createdAt: true,
+          updatedAt: true,
+          expiresAt: true,
+        },
+      }),
     ]);
 
     return {
@@ -319,6 +375,10 @@ export class DataExportService {
       aiHistory: aiHistory as Record<string, unknown>[],
       consentHistory: consentHistory as Record<string, unknown>[],
       auditLogs: auditLogs as Record<string, unknown>[],
+      organizationMemberships: organizationMemberships as Record<string, unknown>[],
+      sentInvitations: sentInvitations as Record<string, unknown>[],
+      authAccounts: authAccounts as Record<string, unknown>[],
+      activeSessions: activeSessions as Record<string, unknown>[],
     };
   }
 
@@ -380,6 +440,22 @@ export class DataExportService {
         name: 'audit-logs.json',
       });
 
+      archive.append(JSON.stringify(data.organizationMemberships, null, 2), {
+        name: 'organization-memberships.json',
+      });
+
+      archive.append(JSON.stringify(data.sentInvitations, null, 2), {
+        name: 'sent-invitations.json',
+      });
+
+      archive.append(JSON.stringify(data.authAccounts, null, 2), {
+        name: 'auth-accounts.json',
+      });
+
+      archive.append(JSON.stringify(data.activeSessions, null, 2), {
+        name: 'active-sessions.json',
+      });
+
       // Metadata file
       archive.append(
         JSON.stringify(
@@ -397,6 +473,10 @@ export class DataExportService {
               'ai-history',
               'consent-history',
               'audit-logs',
+              'organization-memberships',
+              'sent-invitations',
+              'auth-accounts',
+              'active-sessions',
             ],
           },
           null,
