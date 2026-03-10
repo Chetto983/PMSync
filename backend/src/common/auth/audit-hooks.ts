@@ -16,6 +16,12 @@ const AUDIT_PATHS: Record<string, string> = {
   '/two-factor/enable': 'AUTH:2FA_ENABLE',
   '/two-factor/disable': 'AUTH:2FA_DISABLE',
   '/passkey/register': 'AUTH:PASSKEY_REGISTER',
+  '/admin/ban-user': 'AUTH:ADMIN_BAN',
+  '/admin/unban-user': 'AUTH:ADMIN_UNBAN',
+  '/admin/impersonate-user': 'AUTH:ADMIN_IMPERSONATE',
+  '/admin/stop-impersonating': 'AUTH:ADMIN_STOP_IMPERSONATE',
+  '/admin/revoke-user-sessions': 'AUTH:ADMIN_REVOKE_SESSIONS',
+  '/admin/revoke-user-session': 'AUTH:ADMIN_REVOKE_SESSION',
 };
 
 /** Wildcard suffix patterns (path starts with key minus trailing /*) */
@@ -27,7 +33,7 @@ const AUDIT_WILDCARD_PATHS: Array<{ prefix: string; event: string }> = [
 const SOCIAL_CALLBACK_PREFIX = '/callback/';
 const SOCIAL_LOGIN_EVENT = 'AUTH:SOCIAL_LOGIN';
 
-function resolveEventType(path: string): string | null {
+export function resolveEventType(path: string): string | null {
   // 1. Exact match
   if (AUDIT_PATHS[path]) {
     return AUDIT_PATHS[path];
