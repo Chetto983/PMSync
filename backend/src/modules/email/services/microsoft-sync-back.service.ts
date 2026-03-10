@@ -215,7 +215,17 @@ export class MicrosoftSyncBackService {
       });
     };
 
-    const msTrashFolderId = await this.getMicrosoftFolderId(providerId, 'TRASH');
+    // BULK FIX: Cache folder ID lookups to avoid N repeated getMicrosoftFolderId() calls
+    const folderIdCache = new Map<string, string>();
+    const cachedGetFolderId = async (pid: string, folder: string): Promise<string> => {
+      const key = `${pid}:${folder}`;
+      if (folderIdCache.has(key)) return folderIdCache.get(key)!;
+      const id = await this.getMicrosoftFolderId(pid, folder);
+      folderIdCache.set(key, id);
+      return id;
+    };
+
+    const msTrashFolderId = await cachedGetFolderId(providerId, 'TRASH');
 
     for (const op of ops) {
       switch (op.operation) {
@@ -244,7 +254,7 @@ export class MicrosoftSyncBackService {
           enqueue('PATCH', `/me/messages/${op.externalId}`, { flag: { flagStatus: 'notFlagged' } });
           break;
         case 'moveToFolder': {
-          const destId = await this.getMicrosoftFolderId(op.providerId, op.folder || 'INBOX');
+          const destId = await cachedGetFolderId(op.providerId, op.folder || 'INBOX');
           enqueue('POST', `/me/messages/${op.externalId}/move`, { destinationId: destId });
           break;
         }

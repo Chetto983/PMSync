@@ -262,9 +262,18 @@ export class ImapSyncBackService {
         opsByFolder.get(folder)!.push(op);
       }
 
+      // BULK FIX: Cache folder path lookups to avoid N repeated getImapFolderPath() calls
+      const folderPathCache = new Map<string, string>();
+      const cachedGetFolderPath = async (fName: string): Promise<string> => {
+        if (folderPathCache.has(fName)) return folderPathCache.get(fName)!;
+        const path = await this.getImapFolderPath(provider.id, fName);
+        folderPathCache.set(fName, path);
+        return path;
+      };
+
       // Process each folder group
       for (const [folderName, folderOps] of opsByFolder) {
-        const currentFolderPath = await this.getImapFolderPath(provider.id, folderName);
+        const currentFolderPath = await cachedGetFolderPath(folderName);
         this.logger.debug(`IMAP Batch: Opening folder "${currentFolderPath}" for ${folderOps.length} operations`);
 
         try {
@@ -306,7 +315,7 @@ export class ImapSyncBackService {
                 await client.messageFlagsRemove(uidStr, ['\\Flagged'], { uid: true });
                 break;
               case 'delete': {
-                const trashFolder = await this.getImapFolderPath(provider.id, 'TRASH');
+                const trashFolder = await cachedGetFolderPath('TRASH');
                 try {
                   await client.messageMove(uidStr, trashFolder, { uid: true });
                 } catch {
@@ -317,7 +326,7 @@ export class ImapSyncBackService {
               }
               case 'moveToFolder': {
                 if (!op.folder) continue;
-                const targetFolder = await this.getImapFolderPath(provider.id, op.folder);
+                const targetFolder = await cachedGetFolderPath(op.folder);
                 try {
                   await client.messageMove(uidStr, targetFolder, { uid: true });
                 } catch {
