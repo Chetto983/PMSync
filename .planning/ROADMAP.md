@@ -245,13 +245,14 @@ Plans:
   8. Swagger inaccessible in production
   9. .env removed from git history
   10. All secrets rotated
-**Plans:** 4/4 plans complete
+**Plans:** 5 plans (4 complete + 1 gap closure)
 
 Plans:
 - [ ] 59-01-PLAN.md — SQL injection fixes, DTO hardening, database indexes
 - [ ] 59-02-PLAN.md — Rate limiting overhaul, AI health restriction
 - [ ] 59-03-PLAN.md — JWT removal, email verification, Swagger lockdown, CORS
 - [ ] 59-04-PLAN.md — Secrets rotation checklist + BFG git history cleanup
+- [ ] 59-05-PLAN.md — Gap closure: add SAF-* requirement definitions to REQUIREMENTS.md
 
 ## Progress
 
