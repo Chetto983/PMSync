@@ -71,7 +71,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
 
     // Microsoft-specific configuration overrides
     this.batchSize = this.config.get<number>('MS_BATCH_FETCH_SIZE', 20);
-    this.fullSyncMaxMessages = this.config.get<number>('MS_FULL_MAX_MESSAGES', 200);
+    this.fullSyncMaxMessages = this.config.get<number>('MS_FULL_MAX_MESSAGES', 2500);
   }
 
   // ============================================

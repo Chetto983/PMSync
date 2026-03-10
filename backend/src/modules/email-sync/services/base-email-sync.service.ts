@@ -98,7 +98,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     this.retry5xxDelayMs = this.config.get<number>('RETRY_5XX_DELAY_MS', 2000);
 
     // Full sync limits
-    this.fullSyncMaxMessages = this.config.get<number>('FULL_SYNC_MAX_MESSAGES', 1000);
+    this.fullSyncMaxMessages = this.config.get<number>('FULL_SYNC_MAX_MESSAGES', 2500);
   }
 
   /**

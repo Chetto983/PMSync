@@ -943,7 +943,11 @@ export class ProviderConfigService {
         refreshTokenEncryptionIv: encryptedRefreshToken?.iv ?? null,
         tokenExpiresAt: tokens.expiresAt,
         isActive: true,
-        lastSyncedAt: new Date(),
+        // BUG FIX: Do NOT set lastSyncedAt here — it prevents full sync on reconnect.
+        // The sync worker sets lastSyncedAt after actual sync completion.
+        // Also clear stale sync metadata so determineSyncType() triggers a full sync.
+        metadata: {},
+        lastSyncedAt: null,
       },
     });
 

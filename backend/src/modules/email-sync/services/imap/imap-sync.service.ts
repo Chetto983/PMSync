@@ -70,7 +70,7 @@ export class ImapSyncService extends BaseEmailSyncService {
 
     // IMAP-specific configuration overrides
     this.batchSize = this.config.get<number>('IMAP_BATCH_FETCH_SIZE', 100);
-    this.fullSyncMaxMessages = this.config.get<number>('IMAP_FULL_MAX_MESSAGES', 500);
+    this.fullSyncMaxMessages = this.config.get<number>('IMAP_FULL_MAX_MESSAGES', 2500);
   }
 
   // ============================================

@@ -64,7 +64,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
 
     // Gmail-specific configuration overrides
     this.batchSize = this.config.get<number>('GMAIL_BATCH_GET_SIZE', 100);
-    this.fullSyncMaxMessages = this.config.get<number>('GMAIL_FULL_MAX_MESSAGES', 200);
+    this.fullSyncMaxMessages = this.config.get<number>('GMAIL_FULL_MAX_MESSAGES', 2500);
   }
 
   // ============================================

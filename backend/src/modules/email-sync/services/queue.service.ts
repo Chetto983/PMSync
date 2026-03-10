@@ -472,7 +472,11 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
           // Soft guard: skip if any job for provider is in waiting/active/delayed
           if (await this.hasPendingJob(data.providerId, data.tenantId)) {
-            this.logger.verbose(`Provider ${data.providerId} already has a pending job; skipping new enqueue`);
+            // Log at warn for full/high-priority syncs (initial sync) so drops are visible
+            const logLevel = data.syncType === 'full' || data.priority === 'high' ? 'warn' : 'verbose';
+            this.logger[logLevel](
+              `Provider ${data.providerId} already has a pending job; skipping ${data.syncType}/${data.priority} enqueue for ${data.email}`,
+            );
             return;
           }
 
