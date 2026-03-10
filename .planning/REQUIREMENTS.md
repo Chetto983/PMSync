@@ -45,7 +45,7 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 - [x] **ORG-01**: User can create an organization
 - [x] **ORG-02**: Organization owner can invite members by email
 - [x] **ORG-03**: Organization owner/admin can assign roles (owner/admin/member)
-- [ ] **ORG-04**: User can switch between organizations
+- [x] **ORG-04**: User can switch between organizations
 - [x] **ORG-05**: Organization permissions enforced on API endpoints
 
 ### Admin
@@ -130,7 +130,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ORG-01 | Phase 56 | Complete |
 | ORG-02 | Phase 63 | Complete |
 | ORG-03 | Phase 56 | Complete |
-| ORG-04 | Phase 64 | Pending |
+| ORG-04 | Phase 64 | Complete |
 | ORG-05 | Phase 56 | Complete |
 | ADM-01 | Phase 57 | Complete |
 | ADM-02 | Phase 57 | Complete |
@@ -154,7 +154,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | P62-01 | Phase 62 | Complete |
 | P62-02 | Phase 62 | Complete |
 | P62-03 | Phase 62 | Complete |
-| P62-04 | Phase 64 | Pending |
+| P62-04 | Phase 64 | Complete |
 | P62-05 | Phase 62 | Complete |
 | P62-06 | Phase 62 | Complete |
 
