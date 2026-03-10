@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { betterAuth } from 'better-auth';
 import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { twoFactor, organization } from 'better-auth/plugins';
+import { twoFactor, organization, admin } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 import { CURRENT_PP_VERSION, CURRENT_TOS_VERSION } from '../../modules/compliance/legal.constants';
 import { EmailService } from '../../modules/email/services/email.service';
@@ -269,6 +269,12 @@ export function createBetterAuthInstance(
         rpName: 'PMSync',
         origin: publicAuthUrl,
       }),
+      admin({
+        defaultRole: 'member',
+        adminRoles: ['super-admin'],
+        impersonationSessionDuration: 60 * 60, // 1 hour
+        defaultBanReason: 'Account suspended by administrator',
+      }),
       organization({
         // Per CONTEXT.md: only super-admin can create orgs
         allowUserToCreateOrganization: async (user) => {
@@ -363,6 +369,17 @@ export function createBetterAuthInstance(
           type: 'boolean',
           required: false,
           defaultValue: false,
+          input: false,
+        },
+        banned: {
+          type: 'boolean',
+          required: false,
+          defaultValue: false,
+          input: false,
+        },
+        banReason: {
+          type: 'string',
+          required: false,
           input: false,
         },
       },

@@ -72,6 +72,9 @@ model User {
   isActive            Boolean                @default(true)
   twoFactorEnabled    Boolean                @default(false)
   onboardingComplete  Boolean                @default(false)
+  banned              Boolean                @default(false)
+  banReason           String?
+  banExpires          DateTime?
   lastLogin           DateTime?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
@@ -286,6 +289,7 @@ model Session {
   ipAddress            String?
   userAgent            String?
   activeOrganizationId String?
+  impersonatedBy       String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   tenant               Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
