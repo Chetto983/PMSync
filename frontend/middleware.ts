@@ -8,7 +8,7 @@ import { getSessionCookie } from "better-auth/cookies";
  * Real validation still happens in useSession on the client and NestJS guards
  * on the backend.
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = getSessionCookie(request);
   const onboardingCookie = request.cookies.get("pmsync:onboarding-complete");
