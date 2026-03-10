@@ -1,5 +1,5 @@
 import { createAuthClient } from 'better-auth/react';
-import { inferAdditionalFields, twoFactorClient, organizationClient } from 'better-auth/client/plugins';
+import { inferAdditionalFields, twoFactorClient, organizationClient, adminClient } from 'better-auth/client/plugins';
 import { passkeyClient } from '@better-auth/passkey/client';
 
 /**
@@ -27,6 +27,8 @@ export const authClient = createAuthClient({
         isActive: { type: 'boolean', required: false, input: false },
         twoFactorEnabled: { type: 'boolean', required: false, input: false },
         onboardingComplete: { type: 'boolean', required: false, input: false },
+        banned: { type: 'boolean', required: false, input: false },
+        banReason: { type: 'string', required: false, input: false },
       },
     }),
     twoFactorClient({
@@ -36,6 +38,7 @@ export const authClient = createAuthClient({
     }),
     passkeyClient(),
     organizationClient(),
+    adminClient(),
   ],
 });
 
@@ -60,6 +63,8 @@ export interface SessionUser {
   isActive: boolean;
   twoFactorEnabled: boolean;
   onboardingComplete: boolean;
+  banned: boolean;
+  banReason: string | null;
 }
 
 // Convenience re-exports for consumers
@@ -67,3 +72,6 @@ export const { useSession, signIn, signUp, signOut } = authClient;
 
 // Organization client methods for org management
 export const { organization } = authClient;
+
+// Admin client methods for user management (super-admin only)
+export const { admin } = authClient;

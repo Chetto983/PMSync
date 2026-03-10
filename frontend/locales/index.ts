@@ -3550,6 +3550,49 @@ export interface AppTranslations {
       };
     };
   };
+  admin: {
+    users: {
+      title: string;
+      searchPlaceholder: string;
+      columns: {
+        name: string;
+        email: string;
+        role: string;
+        status: string;
+        twoFactor: string;
+        verified: string;
+        created: string;
+        actions: string;
+      };
+      banned: string;
+      active: string;
+      ban: string;
+      unban: string;
+      impersonate: string;
+      sessions: string;
+      banDialog: {
+        title: string;
+        reason: string;
+        reasonPlaceholder: string;
+        expiry: string;
+        confirm: string;
+        cancel: string;
+      };
+      sessionsDialog: {
+        title: string;
+        noSessions: string;
+        revokeAll: string;
+        revoke: string;
+        device: string;
+        ip: string;
+        lastActive: string;
+      };
+    };
+    impersonation: {
+      banner: string;
+      stop: string;
+    };
+  };
   organizations: {
     title: string;
     create: string;

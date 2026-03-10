@@ -11,6 +11,7 @@ import { useSyncStore } from '@/stores/sync-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { QuotaAlertBanner } from '@/components/billing';
 import { PendingInvitationBanner } from '@/components/organizations/PendingInvitationBanner';
+import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -115,6 +116,9 @@ export function Layout({ children }: LayoutProps) {
             overflow: 'hidden',
           }}
         >
+          {/* Impersonation Banner - visible on ALL pages during impersonation */}
+          <ImpersonationBanner />
+
           {/* Header */}
           <Header
             onMenuClick={handleMobileDrawerToggle}
