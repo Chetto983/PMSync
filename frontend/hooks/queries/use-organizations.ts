@@ -8,6 +8,7 @@
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { orgKeys } from './organization-keys';
 import { authClient } from '@/lib/auth-client';
+import { websocketClient } from '@/lib/websocket-client';
 
 // ==========================================================================
 // Query Options
@@ -106,6 +107,14 @@ export function useSetActiveOrg() {
     },
     onSuccess: async () => {
       await authClient.getSession();
+      // Reconnect WS to pick up new activeOrganizationId
+      if (websocketClient.isConnected()) {
+        try {
+          await websocketClient.reconnectForOrgSwitch();
+        } catch {
+          // WS reconnect failure is non-fatal; data still correct via HTTP
+        }
+      }
       // Full cache invalidation -- switching org changes all data context
       queryClient.invalidateQueries();
     },

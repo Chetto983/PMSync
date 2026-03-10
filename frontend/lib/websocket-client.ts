@@ -489,6 +489,40 @@ class WebSocketClient {
   }
 
   /**
+   * Reconnect WebSocket for organization switch.
+   * Preserves joined rooms, destroys current socket, creates new connection
+   * with fresh auth token reflecting the new activeOrganizationId.
+   */
+  async reconnectForOrgSwitch(): Promise<void> {
+    logger.debug('[WebSocket] Reconnecting for org switch...');
+
+    // 1. Preserve room subscriptions before destroying socket
+    const rooms = new Set(this.joinedRooms);
+
+    // 2. Destroy current socket without clearing rooms (don't call disconnect() which clears joinedRooms)
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+    this.reconnectAttempts = 0;
+    this.isConnecting = false;
+
+    // 3. Restore preserved rooms so rejoinRooms() will re-subscribe them
+    this.joinedRooms = rooms;
+
+    // 4. Create new connection -- fetches fresh auth token with new activeOrganizationId
+    await this.connect();
+
+    // 5. Manually rejoin rooms -- connect() doesn't trigger socket.io 'reconnect' event
+    //    because this is a brand-new socket, not an automatic reconnection
+    this.rejoinRooms();
+
+    logger.debug('[WebSocket] Org switch reconnect complete', {
+      roomCount: this.joinedRooms.size,
+    });
+  }
+
+  /**
    * Verifica se è connesso
    */
   isConnected(): boolean {
