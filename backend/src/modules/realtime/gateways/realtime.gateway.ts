@@ -20,6 +20,22 @@ import {
 } from '../types/realtime.types';
 import { getRedisConnectionOptions } from '../../../config/configuration';
 
+function getRealtimeCorsOrigins(): string[] {
+  const origins = [
+    process.env.FRONTEND_URL,
+    process.env.CORS_ALLOWED_ORIGINS,
+    'http://localhost:3001',
+  ]
+    .flatMap((value) =>
+      (value || '')
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    );
+
+  return Array.from(new Set(origins));
+}
+
 // Room name validation constants
 const ROOM_NAME_MAX_LENGTH = 100;
 const ROOM_NAME_PATTERN = /^[a-zA-Z0-9_\-:.]+$/;
@@ -61,7 +77,7 @@ function validateRoomName(room: unknown): string | null {
  */
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL?.split(',') || ['http://localhost:3001'],
+    origin: getRealtimeCorsOrigins(),
     credentials: true,
   },
   namespace: '/realtime',

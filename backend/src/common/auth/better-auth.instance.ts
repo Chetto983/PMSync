@@ -29,6 +29,25 @@ interface WorkspaceIdentity {
   lastName?: string | null;
 }
 
+function parseOriginList(...values: Array<string | undefined>): string[] {
+  const origins = values.flatMap((value) =>
+    (value || '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  );
+
+  return Array.from(new Set(origins));
+}
+
+function inferHostnameFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return 'localhost';
+  }
+}
+
 function sanitizeWorkspaceSlugPart(value: string): string {
   const normalized = value
     .toLowerCase()
@@ -213,9 +232,18 @@ export function createBetterAuthInstance(
   const backendAuthUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
   const publicAuthUrl = process.env.BETTER_AUTH_PUBLIC_URL || frontendUrl;
-  const trustedOrigins = Array.from(
-    new Set(['http://localhost:3001', frontendUrl, publicAuthUrl, backendAuthUrl]),
+  const trustedOrigins = parseOriginList(
+    'http://localhost:3001',
+    frontendUrl,
+    publicAuthUrl,
+    backendAuthUrl,
+    process.env.CORS_ALLOWED_ORIGINS,
   );
+  const passkeyRpId =
+    process.env.PASSKEY_RP_ID ||
+    process.env.WEBAUTHN_RP_ID ||
+    inferHostnameFromUrl(publicAuthUrl);
+  const passkeyOrigin = process.env.WEBAUTHN_ORIGIN || publicAuthUrl;
 
   return betterAuth({
     appName: 'PMSync',
@@ -281,9 +309,9 @@ export function createBetterAuthInstance(
         totpOptions: { digits: 6, period: 30 },
       }),
       passkey({
-        rpID: process.env.PASSKEY_RP_ID || 'localhost',
+        rpID: passkeyRpId,
         rpName: 'PMSync',
-        origin: publicAuthUrl,
+        origin: passkeyOrigin,
       }),
       admin({
         defaultRole: 'member',

@@ -4,6 +4,10 @@ import { BETTER_AUTH } from '../../../common/auth/better-auth.module';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { AuthenticatedSocket, buildTenantRoom } from '../types/realtime.types';
+import {
+  RealtimeAuthSessionResult,
+  RealtimeAuthTokenService,
+} from './realtime-auth-token.service';
 
 interface HandshakeResult {
   userId: string;
@@ -42,6 +46,7 @@ export class RealtimeHandshakeService {
   constructor(
     @Inject(BETTER_AUTH) private readonly auth: any,
     private readonly prisma: PrismaService,
+    private readonly realtimeAuthTokenService: RealtimeAuthTokenService,
   ) {}
 
   /**
@@ -53,13 +58,19 @@ export class RealtimeHandshakeService {
     return `${local.substring(0, 2)}***@${domain}`;
   }
 
+  private getHandshakeToken(client: AuthenticatedSocket): string | null {
+    const token = client.handshake.auth?.token;
+    return typeof token === 'string' && token.trim() ? token.trim() : null;
+  }
+
   private buildSessionHeaders(client: AuthenticatedSocket): Record<string, string | string[]> {
     const headers = {
       ...client.handshake.headers,
     } as Record<string, string | string[]>;
 
-    if (!headers.authorization && typeof client.handshake.auth?.token === 'string') {
-      headers.authorization = `Bearer ${client.handshake.auth.token}`;
+    const handshakeToken = this.getHandshakeToken(client);
+    if (!headers.authorization && handshakeToken) {
+      headers.authorization = `Bearer ${handshakeToken}`;
     }
 
     return headers;
@@ -68,6 +79,28 @@ export class RealtimeHandshakeService {
   private async getSession(
     client: AuthenticatedSocket,
   ): Promise<BetterAuthSessionResult | null> {
+    const handshakeToken = this.getHandshakeToken(client);
+    if (
+      handshakeToken &&
+      this.realtimeAuthTokenService.isRealtimeAuthToken(handshakeToken)
+    ) {
+      try {
+        return (await this.realtimeAuthTokenService.verifyToken(
+          handshakeToken,
+        )) as RealtimeAuthSessionResult;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          JSON.stringify({
+            event: 'ws_realtime_token_failed',
+            error: message,
+            clientId: client.id,
+          }),
+        );
+        throw new UnauthorizedException('Invalid or expired session');
+      }
+    }
+
     try {
       return await withoutTenantScopingAsync(() =>
         this.auth.api.getSession({

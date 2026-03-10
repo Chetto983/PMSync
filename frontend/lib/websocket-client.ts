@@ -203,6 +203,10 @@ export interface RealtimeAiAgentStepEvent {
 
 export type EventHandler<T> = (data: T) => void;
 
+interface RealtimeAuthTokenResponse {
+  token?: string;
+}
+
 // Auth error detection - these messages indicate session/auth issues
 const AUTH_ERROR_PATTERNS = [
   'unauthorized',
@@ -243,6 +247,26 @@ class WebSocketClient {
 
   // Reconnect callback - called after successful reconnection
   private reconnectHandler: (() => void) | null = null;
+
+  private async fetchRealtimeAuthToken(): Promise<string> {
+    const response = await fetch('/api/v1/realtime/auth-token', {
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch realtime auth token (${response.status})`);
+    }
+
+    const body = (await response.json()) as RealtimeAuthTokenResponse;
+    if (!body.token) {
+      throw new Error('Realtime auth token response did not include a token');
+    }
+
+    return body.token;
+  }
 
   /**
    * Register handler for auth failures (expired/invalid token)
@@ -309,7 +333,7 @@ class WebSocketClient {
    */
   /**
    * Connect to the WebSocket server.
-   * Auth is handled by httpOnly cookie sent via withCredentials: true.
+   * Auth is handled by a short-lived token issued over the same-origin API proxy.
    */
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -340,12 +364,23 @@ class WebSocketClient {
       }
 
       this.socket = io(`${backendUrl}/realtime`, {
-        withCredentials: true,
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         reconnectionAttempts: this.maxReconnectAttempts,
+        auth: async (callback) => {
+          try {
+            const token = await this.fetchRealtimeAuthToken();
+            callback({ token });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.error('[WebSocket] Failed to fetch realtime auth token', {
+              message,
+            });
+            callback({ token: '' });
+          }
+        },
       });
 
       this.attachRegisteredHandlers();

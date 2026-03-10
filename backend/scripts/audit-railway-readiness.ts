@@ -11,6 +11,7 @@ import axios, { AxiosError } from 'axios';
 // @ts-ignore - pg types not installed
 import { Client } from 'pg';
 import { createClient } from 'redis';
+import path from 'path';
 
 const BASE = process.env.AUDIT_BASE_URL || 'http://localhost:3000';
 const NEON_URL = process.env.DATABASE_URL!;
@@ -86,9 +87,13 @@ async function auditAuth() {
   console.log('\n🔒 AUTH & SECURITY');
 
   // CSRF protection on POST
-  const login = await httpPost('/api/v1/auth/login', { email: 'x@x.com', password: 'x' });
-  record('Auth', 'CSRF on POST /auth/login', login.status === 403 ? 'PASS' : 'FAIL',
-    `Status ${login.status} (expect 403 CSRF block)`);
+  const authOk = await httpGet('/api/auth/ok');
+  record(
+    'Auth',
+    'better-auth health route',
+    authOk.status === 200 ? 'PASS' : 'FAIL',
+    `Status ${authOk.status} (expect 200)`,
+  );
 
   // JWT required on protected routes
   const protectedRoutes = ['/api/v1/emails', '/api/v1/contacts', '/api/v1/calendar/events',
@@ -99,10 +104,14 @@ async function auditAuth() {
       `Status ${r.status} (expect 401)`);
   }
 
-  // Swagger docs accessible
+  // Swagger docs must stay disabled in production
   const swagger = await httpGet('/api/docs-json');
-  record('Auth', 'Swagger /api/docs-json', swagger.status === 200 ? 'PASS' : 'FAIL',
-    `Status ${swagger.status}`);
+  record(
+    'Auth',
+    'Swagger /api/docs-json disabled',
+    swagger.status === 200 ? 'FAIL' : 'PASS',
+    `Status ${swagger.status}`,
+  );
 }
 
 // ─── 3. Rate Limiting ─────────────────────────────────────────────
@@ -270,12 +279,12 @@ async function auditRailwayConfig() {
 
   // Check Dockerfile exists
   const fs = await import('fs');
-  const dockerfilePath = 'd:/PMSync/backend/Dockerfile.railway';
+  const dockerfilePath = path.resolve(__dirname, '..', 'Dockerfile.railway');
   record('Railway', 'Dockerfile.railway exists',
     fs.existsSync(dockerfilePath) ? 'PASS' : 'FAIL', dockerfilePath);
 
   // Check railway.toml
-  const tomlPath = 'd:/PMSync/backend/railway.toml';
+  const tomlPath = path.resolve(__dirname, '..', 'railway.toml');
   record('Railway', 'railway.toml exists',
     fs.existsSync(tomlPath) ? 'PASS' : 'FAIL', tomlPath);
 
@@ -284,6 +293,13 @@ async function auditRailwayConfig() {
     const hasHealthcheck = toml.includes('healthcheckPath');
     record('Railway', 'Healthcheck configured', hasHealthcheck ? 'PASS' : 'FAIL',
       hasHealthcheck ? 'Found in railway.toml' : 'MISSING — Railway needs healthcheckPath');
+    const hasPreDeploy = toml.includes('preDeployCommand');
+    record(
+      'Railway',
+      'Pre-deploy migrations configured',
+      hasPreDeploy ? 'PASS' : 'WARN',
+      hasPreDeploy ? 'Found preDeployCommand in railway.toml' : 'No preDeployCommand found',
+    );
   }
 
   // Check NODE_OPTIONS for memory limit

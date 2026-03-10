@@ -182,6 +182,18 @@ export class EnvironmentVariables {
   @IsOptional()
   BETTER_AUTH_PUBLIC_URL?: string;
 
+  @IsString()
+  @IsOptional()
+  PASSKEY_RP_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  WEBAUTHN_RP_ID?: string;
+
+  @IsUrl({ require_tld: false })
+  @IsOptional()
+  WEBAUTHN_ORIGIN?: string;
+
   // Features
   // Better-Auth secret (shared with frontend for session signing)
   @IsString()

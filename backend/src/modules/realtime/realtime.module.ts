@@ -1,6 +1,8 @@
 import { Module, Logger } from '@nestjs/common';
 import { RealtimeGateway } from './gateways/realtime.gateway';
+import { RealtimeController } from './controllers/realtime.controller';
 import { RealtimeEventsService } from './services/realtime-events.service';
+import { RealtimeAuthTokenService } from './services/realtime-auth-token.service';
 import { RealtimeHandshakeService } from './services/realtime-handshake.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 
@@ -15,7 +17,13 @@ import { PrismaModule } from '../../prisma/prisma.module';
  */
 @Module({
   imports: [PrismaModule],
-  providers: [RealtimeGateway, RealtimeEventsService, RealtimeHandshakeService],
+  controllers: [RealtimeController],
+  providers: [
+    RealtimeGateway,
+    RealtimeEventsService,
+    RealtimeAuthTokenService,
+    RealtimeHandshakeService,
+  ],
   exports: [RealtimeEventsService],
 })
 export class RealtimeModule {}

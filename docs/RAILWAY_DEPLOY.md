@@ -42,7 +42,7 @@ railway variables set API_PUBLIC_URL=https://<your-railway-domain>.up.railway.ap
 railway variables set DATABASE_URL="postgresql://neondb_owner:<pw>@<host>/neondb?sslmode=verify-full&connection_limit=20&pool_timeout=20"
 
 # Redis (Railway plugin auto-injects REDIS_URL, but we need components)
-railway variables set REDIS_TLS_ENABLED=true
+railway variables set REDIS_TLS_ENABLED=false
 railway variables set REDIS_DB=0
 
 # JWT & Auth (generate fresh secrets for prod!)
@@ -59,7 +59,7 @@ railway variables set AES_SECRET_KEY=$(openssl rand -base64 32)
 
 # WebAuthn
 railway variables set WEBAUTHN_RP_NAME=PMSync
-railway variables set WEBAUTHN_RP_ID=<your-frontend-domain>
+railway variables set PASSKEY_RP_ID=<your-frontend-domain>
 railway variables set WEBAUTHN_ORIGIN=https://<your-frontend-domain>
 
 # OAuth (same credentials, new redirect URIs)
@@ -149,7 +149,7 @@ Set in Vercel Dashboard > Environment Variables:
 NEXT_PUBLIC_API_URL=https://<railway-domain>.up.railway.app
 ```
 
-`NEXT_PUBLIC_API_URL` still points at Railway, but browser requests are proxied through Vercel on `/api/auth/*` and `/api/v1/*` so auth cookies stay first-party.
+`NEXT_PUBLIC_API_URL` still points at Railway. Browser HTTP auth/API requests are proxied through Vercel on `/api/auth/*` and `/api/v1/*`, while realtime now uses a short-lived websocket token fetched over that same-origin API path before connecting to Railway.
 
 ## Architecture
 
@@ -174,6 +174,6 @@ NEXT_PUBLIC_API_URL=https://<railway-domain>.up.railway.app
 ## Troubleshooting
 
 - **Port issues**: Railway sets `PORT` automatically. Backend reads `PORT || API_PORT || 3000`
-- **Redis TLS**: Railway Redis requires TLS. Set `REDIS_TLS_ENABLED=true`
-- **Migrations**: Run automatically on deploy via `startCommand` in `railway.toml`
+- **Redis TLS**: Railway Redis private/proxy hosts use plain TCP. Keep `REDIS_TLS_ENABLED=false` unless you switch to a Redis host that actually requires TLS.
+- **Migrations**: Run automatically before boot via `preDeployCommand` in `railway.toml`
 - **Health check**: `GET /health` must return 200 within 30s

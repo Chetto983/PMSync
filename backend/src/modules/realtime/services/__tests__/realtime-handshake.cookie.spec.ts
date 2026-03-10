@@ -11,6 +11,9 @@ describe('RealtimeHandshakeService', () => {
     persistedUser?: any;
     membership?: any;
     sessionError?: Error;
+    isRealtimeToken?: boolean;
+    realtimeTokenResult?: any;
+    realtimeTokenError?: Error;
   } = {}) {
     const mockAuth = {
       api: {
@@ -56,10 +59,38 @@ describe('RealtimeHandshakeService', () => {
       },
     } as any;
 
+    const mockRealtimeAuthTokenService = {
+      isRealtimeAuthToken: jest.fn().mockImplementation((token: string) =>
+        Object.prototype.hasOwnProperty.call(overrides, 'isRealtimeToken')
+          ? overrides.isRealtimeToken
+          : token.startsWith('pmsync.ws.'),
+      ),
+      verifyToken: overrides.realtimeTokenError
+        ? jest.fn().mockRejectedValue(overrides.realtimeTokenError)
+        : jest.fn().mockResolvedValue(
+            Object.prototype.hasOwnProperty.call(overrides, 'realtimeTokenResult')
+              ? overrides.realtimeTokenResult
+              : {
+                  session: { id: 'sess-1', activeOrganizationId: 'tenant-1' },
+                  user: {
+                    id: 'user-1',
+                    email: 'user@example.com',
+                    tenantId: 'tenant-1',
+                    isActive: true,
+                  },
+                },
+          ),
+    };
+
     return {
-      service: new RealtimeHandshakeService(mockAuth, mockPrisma),
+      service: new RealtimeHandshakeService(
+        mockAuth,
+        mockPrisma,
+        mockRealtimeAuthTokenService,
+      ),
       mockAuth,
       mockPrisma,
+      mockRealtimeAuthTokenService,
     };
   }
 
@@ -108,6 +139,32 @@ describe('RealtimeHandshakeService', () => {
 
     const [{ headers }] = mockAuth.api.getSession.mock.calls[0];
     expect(headers.get('authorization')).toBe('Bearer opaque-session-token');
+  });
+
+  it('uses verified realtime auth tokens instead of Better Auth session lookup', async () => {
+    const { service, mockAuth, mockRealtimeAuthTokenService } = createService({
+      realtimeTokenResult: {
+        session: { id: 'sess-1', activeOrganizationId: 'tenant-2' },
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          isActive: true,
+        },
+      },
+    });
+
+    const result = await service.authenticate(
+      createClient({
+        authToken: 'pmsync.ws.payload.signature',
+      }),
+    );
+
+    expect(mockRealtimeAuthTokenService.verifyToken).toHaveBeenCalledWith(
+      'pmsync.ws.payload.signature',
+    );
+    expect(mockAuth.api.getSession).not.toHaveBeenCalled();
+    expect(result.tenantId).toBe('tenant-2');
   });
 
   it('rejects missing sessions', async () => {
