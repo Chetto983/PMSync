@@ -153,6 +153,7 @@ backend/test/*
 !backend/test/setup.ts
 !backend/test/helpers/
 !backend/test/helpers/**
+!backend/test/smoke.spec.ts
 data/*
 frontend/test-results/*
 frontend/.lighthouseci/
