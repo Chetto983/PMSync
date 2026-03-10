@@ -58,8 +58,8 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 ### Compliance & Cleanup
 
 - [x] **CLN-01**: Auth events (login, logout, signup, password change) logged to audit trail
-- [ ] **CLN-02**: GDPR data export includes better-auth tables (account, verification)
-- [ ] **CLN-03**: Right to erasure cascades into better-auth tables
+- [x] **CLN-02**: GDPR data export includes better-auth tables (account, verification)
+- [x] **CLN-03**: Right to erasure cascades into better-auth tables
 - [x] **CLN-04**: Old auth code deleted (~17 services, 5 npm packages, 7 Prisma models)
 - [x] **CLN-05**: Auth test suite rewritten for better-auth
 
@@ -137,8 +137,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADM-03 | Phase 57 | Complete |
 | ADM-04 | Phase 57 | Complete |
 | CLN-01 | Phase 58 | Complete |
-| CLN-02 | Phase 61 | Pending |
-| CLN-03 | Phase 61 | Pending |
+| CLN-02 | Phase 61 | Complete |
+| CLN-03 | Phase 61 | Complete |
 | CLN-04 | Phase 58 | Complete |
 | CLN-05 | Phase 58 | Complete |
 | SAF-01 | Phase 59 | Complete |

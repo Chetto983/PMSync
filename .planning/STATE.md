@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: better-auth Migration
 status: executing
-stopped_at: Completed 57-02-PLAN.md
-last_updated: "2026-03-10T10:57:01.475Z"
-last_activity: 2026-03-10 -- Phase 60 complete (middleware rename, dead code cleanup, cookieCache, E2E redirect tests)
+stopped_at: Completed 61-01-PLAN.md
+last_updated: "2026-03-10T12:47:00Z"
+last_activity: 2026-03-10 -- Phase 61 Plan 01 complete (GDPR org data export + orphaned org cleanup)
 progress:
   total_phases: 12
-  completed_phases: 11
-  total_plans: 30
-  completed_plans: 30
+  completed_phases: 12
+  total_plans: 31
+  completed_plans: 31
 ---
 
 ---
@@ -99,16 +99,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v5.0 better-auth Migration -- Phase 61 (GDPR & Org Compliance)
+**Current focus:** v5.0 better-auth Migration -- Phase 61 complete (GDPR & Org Compliance)
 
 ## Current Position
 
-Phase: 61 (GDPR & Org Compliance) -- Ready to plan
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-10 -- Phase 60 complete (middleware rename, dead code cleanup, cookieCache, E2E redirect tests)
+Phase: 61 (GDPR & Org Compliance) -- Complete
+Plan: 01/01 complete
+Status: Phase complete
+Last activity: 2026-03-10 -- Phase 61 Plan 01 complete (GDPR org data export + orphaned org cleanup)
 
-Progress: [████████████████████████████] 25/25 plans (100%)
+Progress: [████████████████████████████] 31/31 plans (100%)
 
 ## Performance Metrics
 
@@ -147,6 +147,7 @@ Progress: [███████████████████████
 | Phase 56 P03 | 3min | 2 tasks | 3 files |
 | Phase 57 P01 | 3min | 2 tasks | 4 files |
 | Phase 57 P02 | 6min | 2 tasks | 13 files |
+| Phase 61 P01 | 6min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -224,6 +225,9 @@ Progress: [███████████████████████
 - [Phase 57]: adminRoles=['super-admin'] to separate from workspace admin role
 - [Phase 57]: Source file analysis for admin plugin tests (ESM/Jest incompatibility workaround)
 - [Phase 57]: as-any casts for authClient.admin methods (adminClient types not inferred across boundary)
+- [Phase 61]: Prisma select whitelist for credential exclusion in exports (safe by default)
+- [Phase 61]: Pre-delete membership query before cascade -- Member rows deleted by cascade
+- [Phase 61]: Workspace tenant excluded from orphan cleanup by comparing orgId to user.tenantId
 
 ### Pending Todos
 
@@ -241,6 +245,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T10:57:01.470Z
-Stopped at: Completed 57-02-PLAN.md
+Last session: 2026-03-10T12:47:00Z
+Stopped at: Completed 61-01-PLAN.md
 Resume file: None

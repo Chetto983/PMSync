@@ -10,7 +10,7 @@
 - ✅ **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (shipped 2026-03-03, partial)
 - ✅ **v4.0 Enterprise Stabilization** - Phases 31-41 (shipped 2026-03-04)
 - ✅ **v4.1 Security Hardening & Debt Reduction** - Phases 42-49 (shipped 2026-03-06)
-- 🚧 **v5.0 better-auth Migration** - Phases 50-58 (in progress)
+- 🚧 **v5.0 better-auth Migration** - Phases 50-62 (in progress)
 
 ## Phases
 
@@ -282,7 +282,24 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 61-01-PLAN.md — Extend data export with org/auth tables + orphaned org cleanup after erasure
+- [x] 61-01-PLAN.md — Extend data export with org/auth tables + orphaned org cleanup after erasure
+
+### Phase 62: Auth Audit Remediation
+**Goal**: Close the Better Auth audit findings across provider bootstrap, auth proxying, organization context, and verification UX
+**Depends on**: Phase 55, Phase 56, Phase 60
+**Requirements**: P62-01, P62-02, P62-03, P62-04, P62-05, P62-06
+**Gap Closure:** Fixes post-migration auth regressions and security gaps found in the 2026-03-10 audit
+**Success Criteria** (what must be TRUE):
+  1. PMSync no longer depends on plaintext Better Auth `Account` OAuth tokens
+  2. Google and Microsoft social login still auto-connect provider configs after onboarding
+  3. `/api/auth/*` preserves all `Set-Cookie` headers and does not log auth secrets
+  4. Active organization is consistent across HTTP, WebSocket, and the org switcher UI
+  5. Registration, verification, and onboarding UX reflect Better Auth session semantics
+  6. Workspace provisioning uses one canonical implementation path
+**Plans:** 1 plan
+
+Plans:
+- [ ] 62-01-PLAN.md — Auth audit remediation across backend, frontend proxy, org context, and verification flow
 
 ## Progress
 
@@ -306,7 +323,8 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
 | 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
 | 60. Middleware & Auth Cleanup | 2/2 | Complete    | 2026-03-10 | - |
-| 61. GDPR Org Compliance | 0/TBD | Not started | - | - |
+| 61. GDPR Org Compliance | 1/1 | Complete    | 2026-03-10 | - |
+| 62. Auth Audit Remediation | 0/TBD | Not started | - | - |
 
 ---
 *Roadmap created: 2026-02-09*
@@ -317,3 +335,4 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 *Phase 56 planned: 2026-03-10 -- 2 plans, 5 requirements (ORG-01-05)*
 *Phase 56 gap closure: 2026-03-10 -- 1 plan closing 2 verification gaps (stub tests, seed migration)*
 *Phase 57 planned: 2026-03-10 -- 2 plans, 4 requirements (ADM-01-04)*
+*Phase 62 planned: 2026-03-10 -- 1 plan, 6 remediation requirements (P62-01-06)*
