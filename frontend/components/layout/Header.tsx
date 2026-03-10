@@ -29,6 +29,7 @@ import { UserMenu } from './header/UserMenu';
 import { NotificationBell } from './header/NotificationBell';
 import { AiActionsBell } from './header/AiActionsBell';
 import { LanguageMenu } from './header/LanguageMenu';
+import { OrgSwitcher } from '@/components/organizations/OrgSwitcher';
 
 interface HeaderNotification {
   id: string;
@@ -205,6 +206,9 @@ export function Header({
             <MenuIcon size={24} />
           </IconButton>
         )}
+
+        {/* Org Switcher -- only visible for multi-org users */}
+        <OrgSwitcher />
 
         {/* Spacer */}
         <Box sx={{ flexGrow: 1 }} />

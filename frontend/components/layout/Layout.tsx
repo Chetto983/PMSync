@@ -10,6 +10,7 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useSyncStore } from '@/stores/sync-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { QuotaAlertBanner } from '@/components/billing';
+import { PendingInvitationBanner } from '@/components/organizations/PendingInvitationBanner';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -123,6 +124,9 @@ export function Layout({ children }: LayoutProps) {
 
           {/* Quota Alert Banner - shows when usage > 80% */}
           <QuotaAlertBanner />
+
+          {/* Pending Invitation Banner -- visible until accepted/declined */}
+          <PendingInvitationBanner />
 
           {/* Page Content - Main content target for skip navigation */}
           <Box
