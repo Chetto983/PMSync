@@ -44,7 +44,7 @@ export function SocialLoginButtons() {
   const handleSocialLogin = async (provider: 'google' | 'microsoft') => {
     setLoading(provider);
     try {
-      await authClient.signIn.social({ provider, callbackURL: '/dashboard' });
+      await authClient.signIn.social({ provider, callbackURL: `${window.location.origin}/dashboard` });
     } catch {
       // Redirect will happen, errors are handled by better-auth
       setLoading(null);

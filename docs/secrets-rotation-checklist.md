@@ -12,14 +12,14 @@
 
 ---
 
-## 1. Database (Supabase / PostgreSQL)
+## 1. Database (Neon PostgreSQL)
 
 | Env Var | Where to Regenerate | Shared? |
 |---------|---------------------|---------|
-| `DATABASE_URL` | Supabase Dashboard > Settings > Database > Connection string | Backend + Frontend |
-| `DB_PASSWORD` | Supabase Dashboard > Settings > Database > Reset password | Backend only |
-| `DB_HOST` | Supabase Dashboard > Settings > Database (host value) | Backend only |
-| `DB_USER` | Supabase Dashboard > Settings > Database | Backend only |
+| `DATABASE_URL` | Neon Console > Project > Connection Details > Connection string | Backend + Frontend |
+| `DB_PASSWORD` | Neon Console > Project > Roles > Reset password | Backend only |
+| `DB_HOST` | Neon Console > Project > Connection Details (host value) | Backend only |
+| `DB_USER` | Neon Console > Project > Roles | Backend only |
 | `POSTGRES_URL` | Railway alias -- set to same value as `DATABASE_URL` | Backend only |
 
 - [ ] `DATABASE_URL` rotated (backend)

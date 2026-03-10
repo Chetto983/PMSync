@@ -195,7 +195,18 @@ export function createBetterAuthInstance(
     trustedOrigins: [
       'http://localhost:3001',
       process.env.FRONTEND_URL || 'http://localhost:3001',
+      process.env.BETTER_AUTH_URL || 'http://localhost:3000',
     ],
+
+    advanced: {
+      crossSubDomainCookies: {
+        enabled: false,
+      },
+      defaultCookieAttributes: {
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
 
     socialProviders: {
       google: {
