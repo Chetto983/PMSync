@@ -142,9 +142,14 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
     const queueNames = configArray.map((config) => config.queueName);
 
     // Initialize Redis connection
+    // CRITICAL: Override lazyConnect to false. BullMQ internally calls
+    // connection.duplicate() for its blocking client. If lazyConnect is true,
+    // the duplicate also gets lazyConnect: true and may never actually connect,
+    // causing workers to silently not pick up jobs.
     const redisOptions = {
       ...getRedisConnectionOptions(),
       connectionName: `${this.workerName}-worker`,
+      lazyConnect: false,
     };
     this.redisConnection = new Redis(redisOptions);
 
