@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../../modules/email/services/email.service';
 import { createBetterAuthInstance } from './better-auth.instance';
+import { CsrfTokenController } from './csrf-token.controller';
 
 export const BETTER_AUTH = 'BETTER_AUTH';
 
@@ -14,6 +15,7 @@ export const BETTER_AUTH = 'BETTER_AUTH';
  */
 @Global()
 @Module({
+  controllers: [CsrfTokenController],
   providers: [
     {
       provide: BETTER_AUTH,
