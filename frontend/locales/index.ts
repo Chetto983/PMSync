@@ -3487,6 +3487,7 @@ export interface AppTranslations {
     title: string;
     subtitle: string;
     steps: {
+      legal: string;
       name: string;
       workspace: string;
       emailProvider: string;
@@ -3527,6 +3528,16 @@ export interface AppTranslations {
         upload: string;
         useOAuth: string;
         skip: string;
+      };
+      legal: {
+        title: string;
+        description: string;
+        acceptTos: string;
+        acceptPp: string;
+        readDocument: string;
+        aiConsentTitle: string;
+        aiConsentDescription: string;
+        mustAcceptAll: string;
       };
       mfa: {
         title: string;

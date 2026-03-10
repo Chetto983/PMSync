@@ -193,6 +193,20 @@ apiClient.interceptors.response.use(
         }
         return apiClient.request(error.config);
       }
+
+      // Legal acceptance 403: redirect to onboarding so user can accept TOS/PP
+      const message = error.response?.data?.message || error.response?.data?.error?.message || '';
+      if (
+        typeof window !== 'undefined' &&
+        typeof message === 'string' &&
+        message.includes('Terms of Service and Privacy Policy')
+      ) {
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/onboarding' && currentPath !== '/auth/login' && currentPath !== '/auth/register') {
+          window.location.href = '/onboarding';
+        }
+        return Promise.reject(error);
+      }
     }
 
     return Promise.reject(error);

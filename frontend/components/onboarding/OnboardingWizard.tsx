@@ -17,6 +17,7 @@ import { StepWorkspace } from './StepWorkspace';
 import { StepEmailProvider } from './StepEmailProvider';
 import { StepAvatar } from './StepAvatar';
 import { StepMfaSetup } from './StepMfaSetup';
+import { StepLegalConsent } from './StepLegalConsent';
 
 // Re-export StepProps for Plan 04 consumers
 export type { StepProps } from './types';
@@ -34,6 +35,7 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
   const [completing, setCompleting] = useState(false);
 
   const steps = [
+    { label: t.onboarding.steps.legal, Component: StepLegalConsent },
     { label: t.onboarding.steps.name, Component: StepNameConfirm },
     { label: t.onboarding.steps.workspace, Component: StepWorkspace },
     { label: t.onboarding.steps.emailProvider, Component: StepEmailProvider },

@@ -3646,6 +3646,7 @@ export const en: AppTranslations = {
     title: 'Welcome to PMSync',
     subtitle: "Let's get you set up",
     steps: {
+      legal: 'Terms & Privacy',
       name: 'Your Name',
       workspace: 'Workspace',
       emailProvider: 'Email Provider',
@@ -3686,6 +3687,16 @@ export const en: AppTranslations = {
         upload: 'Upload photo',
         useOAuth: 'Use {provider} photo',
         skip: 'Skip',
+      },
+      legal: {
+        title: 'Terms & Privacy',
+        description: 'Please review and accept our legal documents to continue',
+        acceptTos: 'I accept the Terms of Service',
+        acceptPp: 'I accept the Privacy Policy',
+        readDocument: '(Read)',
+        aiConsentTitle: 'AI Features',
+        aiConsentDescription: 'Choose which AI features you want to enable. You can change these later in Settings.',
+        mustAcceptAll: 'You must accept both documents to continue',
       },
       mfa: {
         title: 'Secure Your Account',
