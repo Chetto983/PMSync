@@ -49,6 +49,9 @@ export class ContactsService {
   async deleteContact(tenantId: string, contactId: string): Promise<void> {
     return this.crudService.deleteContact(tenantId, contactId);
   }
+  async bulkDeleteContacts(tenantId: string, contactIds: string[]): Promise<number> {
+    return this.crudService.bulkDeleteContacts(tenantId, contactIds);
+  }
 
   // VIP
   async toggleVip(tenantId: string, contactId: string): Promise<ContactWithProviders> {

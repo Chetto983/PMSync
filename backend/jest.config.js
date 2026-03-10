@@ -1,6 +1,8 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  globalSetup: '<rootDir>/test/global-setup.ts',
+  globalTeardown: '<rootDir>/test/global-teardown.ts',
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   // Force exit after tests complete to handle open handles from API connections
   forceExit: true,

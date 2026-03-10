@@ -34,6 +34,7 @@ import {
   ExtractContactsDto,
   VCardImportBodyDto,
   LookupContactsByEmailsDto,
+  BulkDeleteContactsDto,
 } from '../dto/contact.dto';
 
 @ApiTags('Contacts')
@@ -223,6 +224,24 @@ export class ContactsController {
   ) {
     const tenantId = req.user.tenantId;
     return this.contactsService.updateContact(tenantId, contactId, data);
+  }
+
+  /**
+   * Bulk delete contacts
+   * DELETE /api/contacts/bulk
+   *
+   * MUST be defined BEFORE the :id route to avoid route collision.
+   */
+  @Delete('bulk')
+  @Roles('admin', 'super-admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bulk delete contacts', description: 'Soft-deletes multiple contacts in one call' })
+  @ApiBody({ type: BulkDeleteContactsDto })
+  @ApiResponse({ status: 200, description: 'Contacts deleted successfully' })
+  async bulkDeleteContacts(@Req() req: any, @Body() data: BulkDeleteContactsDto) {
+    const tenantId = req.user.tenantId;
+    const deleted = await this.contactsService.bulkDeleteContacts(tenantId, data.contactIds);
+    return { success: true, deleted };
   }
 
   /**

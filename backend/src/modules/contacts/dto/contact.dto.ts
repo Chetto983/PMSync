@@ -282,6 +282,16 @@ export class VCardImportBodyDto {
 }
 
 /**
+ * DTO for bulk deleting contacts
+ */
+export class BulkDeleteContactsDto {
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(500)
+  contactIds!: string[];
+}
+
+/**
  * DTO for batch lookup of contacts by email addresses
  * Used for populating sender photos in email list
  */

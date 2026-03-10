@@ -186,6 +186,11 @@ export const contactsApi = {
     await apiClient.delete(`/contacts/${id}`);
   },
 
+  async bulkDeleteContacts(contactIds: string[]): Promise<{ success: boolean; deleted: number }> {
+    const response = await apiClient.delete('/contacts/bulk', { data: { contactIds } });
+    return response.data;
+  },
+
   /**
    * Create a local-only contact (no provider sync)
    * Useful for IMAP providers that don't support contacts API

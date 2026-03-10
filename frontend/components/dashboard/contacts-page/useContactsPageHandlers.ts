@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { type Contact } from '@/lib/api/contacts';
+import { type Contact, contactsApi } from '@/lib/api/contacts';
 import { useContactStore } from '@/stores/contact-store';
 import { logger } from '@/lib/logger';
 import type { useContactsPageData } from './useContactsPageData';
@@ -170,7 +170,7 @@ export function useContactsPageHandlers(data: PageData, form: FormData, contacts
 
     try {
       setActionLoading(true);
-      await Promise.all(idsToDelete.map((id) => deleteContactMutation.mutateAsync(id)));
+      await contactsApi.bulkDeleteContacts(idsToDelete);
       clearSelection();
       await loadContacts();
       setSnackbar({
@@ -188,7 +188,7 @@ export function useContactsPageHandlers(data: PageData, form: FormData, contacts
     } finally {
       setActionLoading(false);
     }
-  }, [selectedIds, contactsCopy, deleteContactMutation, clearSelection, loadContacts, setSnackbar, setActionLoading]);
+  }, [selectedIds, contactsCopy, clearSelection, loadContacts, setSnackbar, setActionLoading]);
 
   // Sync handler
   const handleSyncContacts = useCallback(async () => {

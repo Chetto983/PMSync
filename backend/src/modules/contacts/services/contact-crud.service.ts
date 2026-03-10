@@ -158,6 +158,73 @@ export class ContactCrudService {
     void this.updateContactCounts(tenantId);
   }
 
+  /**
+   * Bulk soft-delete contacts. Syncs deletions to external providers, then
+   * marks all contacts as deleted in a single transaction.
+   * @returns Number of contacts deleted
+   */
+  async bulkDeleteContacts(tenantId: string, contactIds: string[]): Promise<number> {
+    if (!contactIds.length) return 0;
+
+    // 1. Fetch all contacts with their provider links in 1 query
+    const contacts = await this.prisma.contact.findMany({
+      where: { id: { in: contactIds }, tenantId, isDeleted: false },
+      include: {
+        providerContacts: {
+          select: {
+            id: true,
+            providerId: true,
+            externalId: true,
+            provider: { select: { id: true, providerType: true, isActive: true } },
+          },
+        },
+      },
+    });
+
+    if (!contacts.length) return 0;
+
+    // 2. Delete from external providers (best-effort, don't block on failures)
+    for (const contact of contacts) {
+      for (const pc of contact.providerContacts) {
+        if (!pc.provider?.isActive) continue;
+        try {
+          if (pc.provider.providerType === 'google') {
+            await this.googleContactsSync.deleteContact(pc.providerId, pc.externalId);
+          } else if (pc.provider.providerType === 'microsoft') {
+            await this.microsoftContactsSync.deleteContact(pc.providerId, pc.externalId);
+          }
+        } catch (error: any) {
+          this.logger.warn(`Bulk delete: failed to delete from provider ${pc.providerId}: ${error.message}`);
+        }
+      }
+    }
+
+    // 3. Soft-delete all contacts + update providerContact timestamps in 1 transaction
+    const validIds = contacts.map((c) => c.id);
+    await this.prisma.$transaction([
+      this.prisma.contact.updateMany({
+        where: { id: { in: validIds }, tenantId },
+        data: { isDeleted: true, updatedAt: new Date() },
+      }),
+      this.prisma.providerContact.updateMany({
+        where: { contactId: { in: validIds } },
+        data: { lastSyncedAt: new Date() },
+      }),
+    ]);
+
+    // 4. Emit realtime events
+    for (const contact of contacts) {
+      this.realtimeEvents.emitContactDelete(tenantId, {
+        contactId: contact.id,
+        reason: 'contact-deleted',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    void this.updateContactCounts(tenantId);
+    return validIds.length;
+  }
+
   async toggleVip(tenantId: string, contactId: string): Promise<ContactWithProviders> {
     const contact = await this.getContact(tenantId, contactId);
     const updated = await this.prisma.contact.update({
