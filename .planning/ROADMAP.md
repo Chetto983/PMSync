@@ -367,7 +367,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 62. Auth Audit Remediation | 1/1 | Complete    | 2026-03-10 | - |
 | 63. Email Invitation Accept Page | 1/1 | Complete    | 2026-03-10 | - |
 | 64. WS Org-Switch Reconnect | 1/1 | Complete    | 2026-03-10 | - |
-| 65. Fix Next.js Middleware | 1/1 | Complete   | 2026-03-10 | - |
+| 65. Fix Next.js Middleware | 1/1 | Complete    | 2026-03-10 | - |
 
 ---
 *Roadmap created: 2026-02-09*
