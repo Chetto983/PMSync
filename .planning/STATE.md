@@ -68,16 +68,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v5.0 better-auth Migration -- Phase 55 (Social Login & MFA)
+**Current focus:** v5.0 better-auth Migration -- Phase 59 (Safety Hardening)
 
 ## Current Position
 
 Phase: 59 of 59 (Safety Hardening) -- Executing
-Plan: 1 complete
-Status: Plan 01 complete
-Last activity: 2026-03-10 -- Phase 59 Plan 01 complete (vector validation + security indexes)
+Plan: 3 of 3 complete
+Status: Phase 59 complete
+Last activity: 2026-03-10 -- Phase 59 Plan 03 complete (JWT removal, email verification, Swagger lockdown)
 
-Progress: [████████████████████████] 19/22 plans (86%)
+Progress: [█████████████████████████] 22/22 plans (100%)
 
 ## Performance Metrics
 
@@ -104,6 +104,7 @@ Progress: [███████████████████████
 | Phase 58 P01 | 4min | 2 tasks | 9 files |
 | Phase 58 P02 | 6min | 2 tasks | 30 files |
 | Phase 58 P03 | 2min | 2 tasks | 2 files |
+| Phase 59 P03 | 10min | 2 tasks | 10 files |
 | Phase 59 P01 | 7min | 2 tasks | 6 files |
 
 ## Accumulated Context
@@ -164,6 +165,10 @@ Progress: [███████████████████████
 - [Phase 58]: Used dynamic import for TenantGuard test to avoid NestJS DI issues
 - [Phase 59]: RegisterDto @MaxLength skipped -- auth module deleted in Phase 58, better-auth handles registration
 - [Phase 59]: Used prisma db push for security indexes (consistent with Phase 55 drift decision)
+- [Phase 59]: CSRF middleware fallback changed from JWT_SECRET to BETTER_AUTH_SECRET
+- [Phase 59]: Existing users grandfathered via SQL script (not automatic migration)
+- [Phase 59]: CORS_ALLOW_ALL already locked down -- no changes needed
+- [Phase 59]: JWT files already deleted in Phase 58 -- only config/env cleanup remained
 
 ### Pending Todos
 
@@ -181,6 +186,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T06:58:34Z
-Stopped at: Completed 59-01-PLAN.md
+Last session: 2026-03-10T07:01:18Z
+Stopped at: Completed 59-03-PLAN.md
 Resume file: None
