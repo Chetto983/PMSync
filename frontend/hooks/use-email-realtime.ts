@@ -5,12 +5,15 @@
  * When backend emits realtime events (email:new, email:update, etc.),
  * this hook invalidates relevant queries to trigger refetch.
  *
- * Best Practice: Invalidate queries instead of manual cache updates
+ * RATE LIMIT FIX: All list/stats invalidations are debounced to prevent
+ * burst events (batch processed + folder counts + unread count) from
+ * triggering N parallel refetches that 429 the backend.
+ *
  * @see https://tkdodo.eu/blog/using-web-sockets-with-react-query
  */
 
 import { useEffect, useCallback, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { websocketClient, RealtimeEmailEvent, RealtimeFolderCountsEvent } from '@/lib/websocket-client';
 import { emailKeys } from '@/hooks/queries/email-keys';
 import { folderKeys } from '@/hooks/queries/use-folders';
@@ -21,6 +24,72 @@ interface UseEmailRealtimeOptions {
   folder?: string;
   /** Whether realtime updates are enabled */
   enabled?: boolean;
+}
+
+/**
+ * Debounced invalidation helper.
+ * Collects invalidation requests and fires them once after a quiet period.
+ * Prevents Socket.IO event bursts from triggering N parallel refetches.
+ */
+function createDebouncedInvalidator(delayMs = 500) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let pendingKeys = new Set<string>();
+
+  return {
+    /**
+     * Schedule an invalidation. Multiple calls within `delayMs` are coalesced.
+     * @param tag - A string tag identifying the invalidation group (e.g. 'list', 'stats')
+     */
+    schedule(tag: string) {
+      pendingKeys.add(tag);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const keys = new Set(pendingKeys);
+        pendingKeys.clear();
+        timer = null;
+        // Return keys so the caller can execute invalidation
+        this._flush?.(keys);
+      }, delayMs);
+    },
+    _flush: null as ((keys: Set<string>) => void) | null,
+    /** Register the flush callback that actually invalidates queries */
+    onFlush(fn: (keys: Set<string>) => void) {
+      this._flush = fn;
+    },
+    clear() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      pendingKeys.clear();
+    },
+  };
+}
+
+function executeInvalidations(
+  queryClient: QueryClient,
+  keys: Set<string>,
+  folder?: string,
+  providerId?: string,
+) {
+  if (keys.has('all')) {
+    queryClient.invalidateQueries({ queryKey: emailKeys.all });
+  } else if (keys.has('list')) {
+    queryClient.invalidateQueries({ queryKey: emailKeys.list() });
+  }
+  if (keys.has('stats')) {
+    queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+  }
+  if (keys.has('folders')) {
+    queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+  }
+  if (keys.has('threads')) {
+    queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+  }
+  if (keys.has('folder-specific') && folder) {
+    queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder) });
+  }
+  if (keys.has('provider-folders') && providerId) {
+    queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(providerId) });
+  }
 }
 
 /**
@@ -40,26 +109,44 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   const queryClient = useQueryClient();
   const { setStatus } = useSyncStore();
 
+  // Debounced invalidator - coalesces burst events into a single invalidation
+  const invalidatorRef = useRef(createDebouncedInvalidator(500));
+  const folderRef = useRef(folder);
+  const providerIdRef = useRef<string | undefined>(undefined);
+
+  // Keep refs updated
+  useEffect(() => { folderRef.current = folder; }, [folder]);
+
+  // Wire up the flush callback to use current queryClient
+  useEffect(() => {
+    invalidatorRef.current.onFlush((keys) => {
+      executeInvalidations(queryClient, keys, folderRef.current, providerIdRef.current);
+    });
+  }, [queryClient]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    const inv = invalidatorRef.current;
+    return () => inv.clear();
+  }, []);
+
+  /** Schedule debounced list+stats+folders invalidation (most common pattern) */
+  const invalidateListAndStats = useCallback(() => {
+    const inv = invalidatorRef.current;
+    inv.schedule('list');
+    inv.schedule('stats');
+    inv.schedule('folders');
+  }, []);
+
   // Handler for new email events
   const handleEmailNew = useCallback(
     (event: RealtimeEmailEvent) => {
-      // If folder filter is set, only invalidate if event matches
       if (folder && event.folder !== folder) {
         return;
       }
-
-      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
-      queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
-
-      // If we have the full email object, we could prefetch the detail
-      if (event.emailId) {
-        // Prefetch is optional - can be enabled for faster detail loading
-        // queryClient.prefetchQuery(emailDetailOptions(event.emailId));
-      }
+      invalidateListAndStats();
     },
-    [queryClient, folder]
+    [folder, invalidateListAndStats]
   );
 
   // Handler for email update events (read, starred, flagged, etc.)
@@ -69,38 +156,28 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       if (event.emailId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.detail(event.emailId),
-          refetchType: 'all',
         });
       }
 
       // Invalidate thread queries
-      // CRITICAL: Frontend uses emailId for thread URL (not threadId field)
-      // So we must invalidate using emailId as the query key
       if (event.emailId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.thread(event.emailId),
-          refetchType: 'all',
         });
       }
-      // Also invalidate by actual threadId if different (for future compatibility)
       if (event.threadId && event.threadId !== event.emailId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.thread(event.threadId),
-          refetchType: 'all',
         });
       }
 
       // For read/starred/flagged updates, always invalidate list and stats
-      // These affect the current view regardless of folder
       if (
         event.reason === 'read-status-updated' ||
         event.reason === 'starred-updated' ||
         event.reason === 'flagged-updated'
       ) {
-        // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
-        queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
-        queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
-        queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
+        invalidateListAndStats();
         return;
       }
 
@@ -109,49 +186,43 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         return;
       }
 
-      queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
+      invalidatorRef.current.schedule('list');
     },
-    [queryClient, folder]
+    [queryClient, folder, invalidateListAndStats]
   );
 
   // Handler for email delete events
   const handleEmailDelete = useCallback(
     (event: RealtimeEmailEvent) => {
-      // Remove from cache if we have the ID
       if (event.emailId) {
         queryClient.removeQueries({
           queryKey: emailKeys.detail(event.emailId),
         });
       }
 
-      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
-      queryClient.invalidateQueries({ queryKey: emailKeys.list(), refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
+      invalidateListAndStats();
 
-      // Invalidate thread if provided
       if (event.threadId) {
         queryClient.invalidateQueries({
           queryKey: emailKeys.thread(event.threadId),
-          refetchType: 'all',
         });
       }
     },
-    [queryClient]
+    [queryClient, invalidateListAndStats]
   );
 
   // Handler for batch processed events (sync complete)
   const handleBatchProcessed = useCallback(
     (event: { providerId: string; processed: number; created?: number; syncType?: string }) => {
-      // Full sync completed - invalidate all email queries
-      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
-      queryClient.invalidateQueries({ queryKey: emailKeys.all, refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
+      // Full sync completed - invalidate all email queries (debounced)
+      const inv = invalidatorRef.current;
+      inv.schedule('all');
+      inv.schedule('folders');
       if (event.providerId) {
-        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId), refetchType: 'all' });
+        providerIdRef.current = event.providerId;
+        inv.schedule('provider-folders');
       }
 
-      // Update sync status in store
       setStatus({
         providerId: event.providerId,
         status: 'completed',
@@ -159,33 +230,30 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         timestamp: new Date().toISOString(),
       });
     },
-    [queryClient, setStatus]
+    [setStatus]
   );
 
   // Handler for folder counts update
   const handleFolderCountsUpdate = useCallback(
     (event: RealtimeFolderCountsEvent) => {
-      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
+      const inv = invalidatorRef.current;
+      inv.schedule('stats');
+      inv.schedule('folders');
 
-      // If watching specific folder, invalidate its list
       if (folder && event.folderName === folder) {
-        queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder), refetchType: 'all' });
+        inv.schedule('folder-specific');
       }
     },
-    [queryClient, folder]
+    [folder]
   );
 
   // Handler for thread update
   const handleThreadUpdate = useCallback(
     (event: { threadId: string; emailIds: string[] }) => {
-      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
       queryClient.invalidateQueries({
         queryKey: emailKeys.thread(event.threadId),
-        refetchType: 'all',
       });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations(), refetchType: 'all' });
+      invalidatorRef.current.schedule('threads');
     },
     [queryClient]
   );
@@ -193,25 +261,23 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for unread count update
   const handleUnreadCountUpdate = useCallback(
     (event: { folder: string; count: number; providerId: string }) => {
-      // TanStack Query v5: refetchType 'all' ensures refetch even with stale data
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats(), refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: folderKeys.lists(), refetchType: 'all' });
+      const inv = invalidatorRef.current;
+      inv.schedule('stats');
+      inv.schedule('folders');
 
-      // Invalidate specific provider folders if provided
       if (event.providerId) {
-        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId), refetchType: 'all' });
+        providerIdRef.current = event.providerId;
+        inv.schedule('provider-folders');
       }
 
       if (folder && event.folder === folder) {
-        queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder), refetchType: 'all' });
+        inv.schedule('folder-specific');
       }
     },
-    [queryClient, folder]
+    [folder]
   );
 
   // CRITICAL FIX: Store handlers in refs to prevent race conditions
-  // When callbacks change, we update refs instead of re-registering WebSocket handlers
-  // This prevents stale closures and duplicate subscriptions
   const handlersRef = useRef({
     handleEmailNew,
     handleEmailUpdate,
@@ -244,13 +310,11 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   ]);
 
   // Register WebSocket handlers ONCE with stable wrappers
-  // Wrappers delegate to current ref values, always using latest callbacks
   useEffect(() => {
     if (!enabled) {
       return;
     }
 
-    // Subscribe with stable wrapper functions that delegate to refs
     const unsubNew = websocketClient.onEmailNew((event) =>
       handlersRef.current.handleEmailNew(event)
     );
@@ -273,7 +337,6 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       handlersRef.current.handleUnreadCountUpdate(event)
     );
 
-    // Cleanup subscriptions on unmount or when disabled
     return () => {
       unsubNew();
       unsubUpdate();
@@ -283,10 +346,8 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       unsubThread();
       unsubUnread();
     };
-  }, [enabled]); // Only re-register when enabled changes
+  }, [enabled]);
 
-  // Note: isConnected is a snapshot at render time, not reactive.
-  // For reactive connection state, use useWebSocket hook instead.
   return {
     isConnected: websocketClient.isConnected(),
   };

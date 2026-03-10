@@ -23,8 +23,13 @@ function makeQueryClient() {
         // above 0 to avoid refetching immediately on the client
         staleTime: 60 * 1000, // 1 minute
         gcTime: 5 * 60 * 1000, // 5 minutes (min 2s to avoid hydration errors)
-        // Retry with exponential backoff
-        retry: 3,
+        // Retry with exponential backoff, but skip retries on 429 (rate limit)
+        retry: (failureCount, error) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const status = (error as any)?.response?.status ?? (error as any)?.status;
+          if (status === 429) return false;
+          return failureCount < 3;
+        },
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
         refetchOnWindowFocus: false,
       },
