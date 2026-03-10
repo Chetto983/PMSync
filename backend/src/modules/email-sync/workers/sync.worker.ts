@@ -30,6 +30,7 @@ import { QUEUE_NAMES } from '../../../common/config';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { EmailTriageService } from '../../ai/services/email-triage.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 @Injectable()
 export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
@@ -131,6 +132,12 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
    * Process a single sync job
    */
   protected async processJob(job: Job<SyncJobData>): Promise<SyncJobResult> {
+    // BullMQ workers run outside HTTP request context — no tenant in AsyncLocalStorage.
+    // Wrap entire job in withoutTenantScopingAsync so all Prisma calls succeed.
+    return withoutTenantScopingAsync(() => this.executeSync(job));
+  }
+
+  private async executeSync(job: Job<SyncJobData>): Promise<SyncJobResult> {
     const { tenantId, providerId, providerType: jobProviderType, email, syncType } = job.data;
 
     // Optional job token validation to align with webhook handshake pattern
