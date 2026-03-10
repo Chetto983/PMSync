@@ -5,15 +5,18 @@ import { passkeyClient } from '@better-auth/passkey/client';
 /**
  * better-auth React client.
  *
- * Requests go directly to the backend Better Auth instance.
- * Cookies remain host-scoped on localhost, so they are still sent on the
- * frontend origin and can be forwarded by Next.js API routes when needed.
+ * All auth requests go through the Next.js API proxy (/api/auth/*) which
+ * forwards to the backend. This ensures cookies (session, OAuth state) are
+ * set on the frontend origin, avoiding third-party cookie blocking when
+ * frontend (Vercel) and backend (Railway) are on different domains.
  *
  * Type inference from server auth config fails because PrismaClient types
  * are server-only. We declare additionalFields manually below.
  */
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+  baseURL: typeof window !== 'undefined'
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001'),
   plugins: [
     inferAdditionalFields({
       user: {
