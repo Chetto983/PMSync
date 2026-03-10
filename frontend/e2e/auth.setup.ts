@@ -2,44 +2,73 @@
  * Authentication Setup Project
  *
  * Creates reusable storageState for other tests.
- * Uses better-auth session cookie (httpOnly).
+ * Authenticates by inserting a real session row directly into the test DB via Prisma.
  */
 
-import { test as setup, expect } from '@playwright/test';
-import { injectAuthCookie } from './fixtures';
+import { test as setup } from '@playwright/test';
+import { randomBytes } from 'crypto';
+import { createPrismaClient } from '../../backend/src/prisma/prisma-client.factory';
 
 const authFile = 'playwright/.auth/user.json';
 
+/** Seed user email — must exist in the test DB (created by seed or global-setup). */
+const TEST_USER_EMAIL = 'test@pmsync.local';
+
 setup('authenticate', async ({ page }) => {
-  // Inject better-auth session cookie for auth
-  await injectAuthCookie(page.context(), 'test-session-token');
+  const prisma = createPrismaClient();
 
-  // Pre-accept cookie consent to avoid modal blocking UI
-  await page.addInitScript(() => {
-    localStorage.setItem(
-      'pmsync:cookie-consent',
-      JSON.stringify({ necessary: true, analytics: false, marketing: false })
-    );
-  });
-
-  // Catch-all for any API call during auth setup to prevent network errors
-  await page.route('**/localhost:3000/**', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({}),
+  try {
+    // Find or create the seed test user
+    let user = await prisma.user.findUnique({
+      where: { email: TEST_USER_EMAIL },
     });
-  });
 
-  // Navigate to trigger session check
-  await page.goto('/');
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: TEST_USER_EMAIL,
+          name: 'Test User',
+          emailVerified: true,
+        },
+      });
+    }
 
-  // Verify auth cookie was set via context cookies
-  const cookies = await page.context().cookies();
-  const authCookie = cookies.find(c => c.name === 'better-auth.session_token');
-  expect(authCookie).toBeDefined();
-  expect(authCookie!.value).toBe('test-session-token');
+    // Create a real session token
+    const token = randomBytes(32).toString('hex');
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
+      },
+    });
 
-  // Save auth state for other tests
-  await page.context().storageState({ path: authFile });
+    // Set the session cookie via Playwright context
+    await page.context().addCookies([
+      {
+        name: 'better-auth.session_token',
+        value: token,
+        domain: 'localhost',
+        path: '/',
+        httpOnly: true,
+        secure: false, // localhost in test
+      },
+    ]);
+
+    // Pre-accept cookie consent to avoid modal blocking UI
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'pmsync:cookie-consent',
+        JSON.stringify({ necessary: true, analytics: false, marketing: false }),
+      );
+    });
+
+    // Navigate to trigger session check against real backend
+    await page.goto('/');
+
+    // Save auth state for other tests
+    await page.context().storageState({ path: authFile });
+  } finally {
+    await prisma.$disconnect();
+  }
 });

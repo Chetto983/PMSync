@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3001';
+const apiURL = process.env.E2E_API_URL ?? 'http://localhost:3100';
 const startWebServer =
   process.env.E2E_NO_WEB_SERVER !== '1' && process.env.E2E_NO_WEB_SERVER !== 'true';
 
@@ -17,14 +18,24 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  webServer: startWebServer
-    ? {
-        command: 'npm run dev',
-        url: baseURL,
-        reuseExistingServer: true,
-        timeout: 120_000,
-      }
-    : undefined,
+  webServer: [
+    startWebServer
+      ? {
+          command: 'cd ../backend && npx dotenv-cli -e .env.test -- npm run start:dev',
+          url: `${apiURL}/health`,
+          reuseExistingServer: true,
+          timeout: 120_000,
+        }
+      : undefined,
+    startWebServer
+      ? {
+          command: 'npm run dev',
+          url: baseURL,
+          reuseExistingServer: true,
+          timeout: 120_000,
+        }
+      : undefined,
+  ].filter(Boolean),
   projects: [
     // Setup project runs first to create auth state
     {
@@ -77,4 +88,3 @@ export default defineConfig({
     },
   ],
 });
-
