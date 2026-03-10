@@ -64,3 +64,6 @@ export interface SessionUser {
 
 // Convenience re-exports for consumers
 export const { useSession, signIn, signUp, signOut } = authClient;
+
+// Organization client methods for org management
+export const { organization } = authClient;

@@ -3550,6 +3550,37 @@ export interface AppTranslations {
       };
     };
   };
+  organizations: {
+    title: string;
+    create: string;
+    delete: string;
+    deleteConfirm: string;
+    name: string;
+    slug: string;
+    members: string;
+    noOrganizations: string;
+    createSuccess: string;
+    deleteSuccess: string;
+    inviteMember: string;
+    inviteEmail: string;
+    inviteSent: string;
+    removeMember: string;
+    removeConfirm: string;
+    memberRemoved: string;
+    joinedAt: string;
+    status: string;
+    pending: string;
+    accepted: string;
+    switchOrg: string;
+    switchSuccess: string;
+    invitationBanner: {
+      title: string;
+      accept: string;
+      decline: string;
+      accepted: string;
+      declined: string;
+    };
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
