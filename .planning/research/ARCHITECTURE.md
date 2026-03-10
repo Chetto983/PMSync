@@ -1,807 +1,554 @@
-# Architecture Patterns: Enterprise Stabilization (v4.0)
+# Architecture Patterns: Test Infrastructure for PMSync v5.1
 
-**Domain:** Enterprise stabilization of NestJS/Next.js AI email platform
-**Researched:** 2026-03-03
-**Confidence:** HIGH (based on direct codebase audit of all module files + official docs)
+**Domain:** Deep test coverage for NestJS + Next.js multi-tenant email platform
+**Researched:** 2026-03-10
+**Overall confidence:** HIGH (based on existing codebase patterns + established testing libraries)
 
----
+## Current Test Infrastructure Inventory
 
-## Current Architecture State
+### What Exists
 
-The codebase is a modular monolith: NestJS 11 backend (17 domain modules), Next.js 16 frontend, PostgreSQL (Prisma 7.3), Redis (BullMQ), AI pipeline on raw AI SDK v6 with Mistral. Enterprise readiness scored 58/100 in the March 2026 audit. The v3.2 AI rebuild is complete but carried forward module coupling, performance, and security debt.
+| Layer | Runner | Count | Pattern |
+|-------|--------|-------|---------|
+| Backend unit (.spec.ts) | Jest + ts-jest | ~80 files | NestJS `Test.createTestingModule` with manual mocks |
+| Backend integration (.spec.ts) | Jest | 4 files | Real Redis/Prisma, skip-on-unavailable |
+| Backend AI pipeline (.test.ts) | Vitest + MSW | 8 files | MSW streaming handlers, no real API |
+| Backend contract (.spec.ts) | Jest | 5 files | OpenAPI spec validation |
+| Frontend unit (.test.ts/.tsx) | Jest + jsdom | 5 files | @testing-library/react, manual mocks |
+| Frontend E2E (.spec.ts) | Playwright | 12 specs + 1 setup | Route interception, auth cookie injection |
 
-This document covers how 6 stabilization targets integrate with what exists: breaking circular deps, API standardization, httpOnly cookie auth, AI Run Ledger, module boundary CI enforcement, and hash-based encrypted search.
+### What is Missing
 
----
+| Gap | Impact | Priority |
+|-----|--------|----------|
+| Backend: calendar, labels, providers, subscription, tenants, users, health modules | Zero test coverage on 7/16 modules | HIGH |
+| Frontend: hooks/queries/* unit tests | TanStack Query hooks untested | HIGH |
+| Frontend: Zustand store tests | State management logic untested | HIGH |
+| Frontend: MUI component rendering tests | No visual regression at unit level | MEDIUM |
+| Backend: BullMQ worker tests | 7 workers with zero unit tests | HIGH |
+| Backend: AI tool tests (individual) | ~20 injectable tools untested as units | MEDIUM |
+| Frontend: org/admin/security E2E | v5.0 features with zero E2E coverage | HIGH |
 
-## Component Map: Current Module Dependency Graph
+## Recommended Architecture
 
-Audited every `forwardRef` import across all `*.module.ts` files.
-
-### Circular Dependency Clusters
-
-```
-CLUSTER 1 -- Email Core (5 cycles)
-  EmailModule <-> ProvidersModule
-  EmailModule <-> AiModule
-  EmailModule <-> EmailSyncModule
-  EmailModule <-> CalendarModule
-  ProvidersModule <-> EmailSyncModule
-
-CLUSTER 2 -- AI Chat Tools (4 cycles)
-  AiChatModule -> EmailModule (fwdRef)
-  AiChatModule -> CalendarModule (fwdRef)
-  AiChatModule -> ContactsModule (fwdRef)
-  AiChatModule -> AiModule (fwdRef)
-
-CLUSTER 3 -- Provider Hub (5 cycles)
-  ProvidersModule <-> EmailModule
-  ProvidersModule <-> AiModule
-  ProvidersModule <-> CalendarModule
-  ProvidersModule <-> ContactsModule
-  ProvidersModule <-> EmailSyncModule
-
-CLUSTER 4 -- Sync Consumers (2 cycles)
-  CalendarModule <-> EmailSyncModule (for SyncAuthService)
-  ContactsModule <-> EmailSyncModule (for SyncAuthService)
-
-CLUSTER 5 -- Misc (2 cycles)
-  UsersModule -> AiModule + forwardRef(EmailSyncModule)
-  TenantsModule -> forwardRef(ComplianceModule)
-  ScheduledJobsModule -> forwardRef(ComplianceModule)
-```
-
-**Total unique forwardRef edges: 17** (the PRD estimated 15; actual count from codebase is 17).
-
-### Root Causes by Category
-
-| Category | forwardRef Count | Root Cause |
-|----------|-----------------|------------|
-| ProvidersModule imports all consumers | 5 | ProvidersModule imports EmailModule, EmailSyncModule, AiModule, CalendarModule, ContactsModule -- each imports ProvidersModule back |
-| AiChatModule needs all domain services for tool execution | 4 | Direct forwardRef imports to Email, Calendar, Contacts, Ai modules |
-| EmailModule tightly coupled to AI | 2 | EmailModule imports AiModule (triage/embeddings on ingest); AiModule imports EmailModule (StorageService for attachments) |
-| Calendar/Contacts need SyncAuth | 2 | Both import EmailSyncModule solely for SyncAuthService (webhook auth) |
-| Email <-> EmailSync bidirectional | 1 | EmailModule needs queue services; EmailSyncModule needs attachment storage |
-| Email <-> Calendar | 1 | ICS event detection on email ingest |
-| Users/Tenants/ScheduledJobs misc | 2 | UsersModule->EmailSync, Tenants->Compliance, ScheduledJobs->Compliance |
-
-### Current API Versioning State
-
-Audited all 32 controllers:
-
-| Pattern | Count | Controllers |
-|---------|-------|------------|
-| Dual-routed `['path', 'api/v1/path']` | 6 | AiChatController, HitlController, AiController, AiHealthController, KnowledgeBaseController |
-| Manual `api/v1/` prefix | 2 | SubscriptionController, AutumnController |
-| Unversioned bare path | 24 | emails, auth, calendar, contacts, folders, providers, compliance/*, labels, tenants, users, health, webhooks/* |
-
-### Current Auth Flow
+### Test Pyramid for This Stack
 
 ```
-Login: POST /auth/login -> returns { accessToken, refreshToken } in JSON body
-Frontend: Zustand auth-store.ts stores token in localStorage (persist middleware)
-Frontend: Also sets non-httpOnly cookie "auth-token" via document.cookie (for img src)
-Requests: apiClient reads token from Zustand, sets Authorization: Bearer header
-Backend: JwtStrategy extracts from cookie (access_token) OR Authorization header
-         -> cookieExtractor checks req.cookies.access_token first
-         -> then falls back to ExtractJwt.fromAuthHeaderAsBearerToken()
+                    /\
+                   /  \     Playwright E2E (12 existing + ~8 new)
+                  /    \    Full browser, mocked API, auth cookie injection
+                 /------\
+                /        \  Integration (4 existing + ~6 new)
+               /          \ Real Redis/Prisma, skip-on-unavailable
+              /------------\
+             /              \ Vitest AI pipeline (8 existing + ~4 new)
+            /                \ MSW streaming, deterministic AI responses
+           /------------------\
+          /                    \ Jest backend unit (~80 existing + ~60 new)
+         /                      \ NestJS TestingModule, manual Prisma mocks
+        /------------------------\
+       /                          \ Frontend Jest unit (~5 existing + ~25 new)
+      /                            \ RTL, mock hooks, Zustand store tests
+     /------------------------------\
 ```
 
-**Key fact:** Backend already supports cookie extraction. The migration is primarily a frontend change + backend cookie-setting on login.
+**Target ratio:** 60% unit : 20% integration/pipeline : 15% E2E : 5% contract
 
-### Current Response Shapes
+### Dual Runner Strategy (Keep It -- Do NOT Consolidate)
 
-No standardized envelope. Three different shapes coexist:
+The codebase already splits cleanly:
 
-1. **AllExceptionsFilter:** `{ statusCode, message, timestamp, path }`
-2. **HttpExceptionFilter:** `{ statusCode, message, timestamp }`
-3. **Controller responses:** Raw payloads. Some controllers manually wrap in `{ success: true, data: ... }`
+- **Jest** (.spec.ts): NestJS unit tests, contract tests, frontend unit tests. CJS-compatible, NestJS Testing module works natively.
+- **Vitest** (.test.ts): AI pipeline tests requiring MSW + ESM streaming. SWC plugin handles decorators.
 
-### Current Encryption
+Do NOT consolidate runners. The split is intentional: Jest handles NestJS DI well; Vitest handles ESM-only MSW/AI SDK streaming. Mixing causes transform hell.
 
-- `CryptoService` uses `aes-256-cbc` (unauthenticated) for provider tokens
-- `field-encryption.extension.ts` (custom Prisma extension) encrypts Email.bodyText, Email.bodyHtml, Email.snippet using per-tenant HKDF-derived keys
-- `encryption.config.ts` has `hashField` property per field but all set to `null` -- the hash infrastructure is architecturally present but unused
-- Tier 2 fields (from, subject, displayName) are NOT encrypted because 17+ query sites use `contains`/`insensitive`
+## Component Boundaries
 
-### Current Observability
+### Backend Test Utilities (New -- to be created)
 
-- Pino structured logging with RequestIdMiddleware (nanoid per request)
-- `CorrelationInterceptor` exists in `common/interceptors/` but is NOT registered in `AppModule` (not globally wired)
-- `CorrelationContextService` uses `AsyncLocalStorage` and is injectable but not actively used in most services
-- `ResponseTimeInterceptor` is globally registered (logs method, url, time, requestId)
-- `AuditLogInterceptor` is globally registered (audit logs for authenticated requests)
-- No AI run-level telemetry, no token cost tracking per run
+| Utility | Location | Purpose |
+|---------|----------|---------|
+| `createMockPrisma()` | `backend/test/helpers/mock-prisma.ts` | Typed Prisma mock factory replacing per-file manual mocks |
+| `createMockUser()` | `backend/test/helpers/mock-auth.ts` | Standard tenant-scoped user with better-auth session |
+| `createMockExecutionContext()` | `backend/test/helpers/mock-context.ts` | NestJS ExecutionContext with request.user pre-populated |
+| `createMockJob()` | `backend/test/helpers/mock-bullmq.ts` | BullMQ Job mock for worker testing |
+| `createMockSocket()` | `backend/test/helpers/mock-socket.ts` | Socket.IO client mock for realtime testing |
 
----
+### Frontend Test Utilities (New -- to be created)
 
-## Recommended Architecture: Stabilization Changes
+| Utility | Location | Purpose |
+|---------|----------|---------|
+| `renderWithProviders()` | `frontend/test/helpers/render.tsx` | MUI ThemeProvider + QueryProvider + Zustand wrapper |
+| `createMockSession()` | `frontend/test/helpers/mock-session.ts` | better-auth session mock for hook/component tests |
+| `mockApiRoute()` | `frontend/test/helpers/mock-api.ts` | axios-mock-adapter convenience wrapper |
 
-The stabilization keeps the modular monolith. It introduces **3 decoupling mechanisms** and **6 new/modified infrastructure components**.
+### Existing Utilities (Keep -- Already Working)
 
-### Decoupling Mechanism 1: Event Bus via @nestjs/event-emitter
-
-**What:** Replace direct cross-module service calls with domain events where the caller does not need a return value. Uses `@nestjs/event-emitter` (wraps EventEmitter2) -- in-process, no message broker, zero infrastructure overhead.
-
-**New dependency:** `@nestjs/event-emitter` (not currently installed).
-
-**Events to introduce:**
-
-| Event | Producer | Consumer(s) | forwardRef It Eliminates |
-|-------|----------|-------------|--------------------------|
-| `email.synced` | EmailSyncModule | AiModule (triage + embeddings) | AiModule fwdRef from EmailSyncModule |
-| `email.created` | EmailModule | AiModule (auto-triage) | AiModule fwdRef from EmailModule |
-| `email.deleted` | EmailModule | AiModule (embedding cleanup) | Direct AiModule import |
-| `contact.updated` | ContactsModule | AiModule (re-embed) | fwdRef to AiModule |
-| `provider.connected` | ProvidersModule | EmailSyncModule, CalendarModule, ContactsModule | 3x fwdRef from ProvidersModule |
-| `provider.disconnected` | ProvidersModule | All sync modules | Same 3 fwdRef |
-| `calendar.ics.detected` | EmailSyncModule | CalendarModule | Email <-> Calendar fwdRef |
-
-**Where it lives:**
-- `EventEmitterModule.forRoot()` in `AppModule.imports` (global by default)
-- Event type definitions in `backend/src/common/events/` (one file per domain)
-
-**Impact:** Eliminates 7-9 forwardRef edges.
-
-### Decoupling Mechanism 2: Interface Contracts (Abstract Service Tokens)
-
-**What:** For cases where module A calls module B and needs a return value (events are fire-and-forget), extract an interface + injection token. Consuming module depends on the interface in `common/`, not on the concrete module.
-
-**Interfaces to extract:**
-
-| Interface | Token | Current Concrete | Used By | Eliminates |
-|-----------|-------|-----------------|---------|-----------|
-| `IStorageService` | `STORAGE_SERVICE` | `StorageService` (EmailModule) | AiModule (attachment extraction) | Email <-> Ai fwdRef |
-| `ISyncAuthService` | `SYNC_AUTH_SERVICE` | `SyncAuthService` (EmailSyncModule) | CalendarModule, ContactsModule | 2x Calendar/Contacts <-> EmailSync fwdRef |
-| `IProviderTokenService` | `PROVIDER_TOKEN_SERVICE` | `ProviderTokenService` (EmailSyncModule) | EmailModule | Email <-> EmailSync partial |
-
-**Pattern:**
-```typescript
-// common/interfaces/storage.interface.ts
-export const STORAGE_SERVICE = Symbol('STORAGE_SERVICE');
-export interface IStorageService {
-  getAttachmentContent(attachmentId: string, tenantId: string): Promise<Buffer>;
-  getPresignedUrl(key: string): Promise<string>;
-}
-
-// In EmailModule providers:
-{ provide: STORAGE_SERVICE, useExisting: StorageService }
-
-// In AiModule -- no forwardRef(() => EmailModule) needed:
-constructor(@Inject(STORAGE_SERVICE) private storage: IStorageService) {}
-```
-
-**Where it lives:** `backend/src/common/interfaces/` directory.
-
-**Impact:** Eliminates 3-4 forwardRef edges.
-
-### Decoupling Mechanism 3: AI Tool Registry (Deferred Binding)
-
-**What:** AiChatModule currently imports 4 domain modules via forwardRef for tool execution. Replace with a global tool registry: domain modules register their tools at startup, AiChatModule discovers them at runtime.
-
-**New component:** `ToolRegistryService` in `common/ai/tool-registry.module.ts` (global).
-
-```typescript
-@Global()
-@Module({ providers: [ToolRegistryService], exports: [ToolRegistryService] })
-export class ToolRegistryModule {}
-
-@Injectable()
-export class ToolRegistryService {
-  private readonly registry = new Map<string, ToolRegistration>();
-
-  register(domain: string, toolsFn: (tenantId: string, userId: string) => Record<string, any>) {
-    this.registry.set(domain, { getTools: toolsFn });
-  }
-
-  getAllTools(tenantId: string, userId: string): Record<string, any> {
-    const tools: Record<string, any> = {};
-    for (const [, reg] of this.registry) {
-      Object.assign(tools, reg.getTools(tenantId, userId));
-    }
-    return tools;
-  }
-}
-```
-
-**Registration (in each domain module's onModuleInit):**
-```typescript
-// EmailModule
-onModuleInit() {
-  this.toolRegistry.register('email', (t, u) => this.emailToolsService.getTools(t, u));
-}
-```
-
-**Impact:** Eliminates all 4 AiChatModule forwardRef edges. AiChatModule imports only ToolRegistryModule (global).
-
-### Expected forwardRef Count After All Three Mechanisms
-
-| Before | After | Remaining |
-|--------|-------|-----------|
-| 17 forwardRef edges | 3-5 | Tenants <-> Compliance (GDPR cascade), Users -> EmailSync (profile sync), ScheduledJobs -> Compliance (retention jobs) |
-
----
-
-## New Components
-
-### Component 1: ResponseEnvelopeInterceptor
-
-**Purpose:** Wrap all controller responses in a uniform envelope. Standardize error shapes.
-
-**Location:** `backend/src/common/interceptors/response-envelope.interceptor.ts`
-
-**Success response contract:**
-```json
-{
-  "data": "<T>",
-  "meta": {
-    "requestId": "abc123",
-    "timestamp": "2026-03-03T...",
-    "pagination": { "page": 1, "pageSize": 20, "total": 142 }
-  }
-}
-```
-
-**Error response contract:**
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Human-readable description",
-    "details": [{ "field": "email", "message": "Invalid format" }]
-  },
-  "meta": {
-    "requestId": "abc123",
-    "timestamp": "2026-03-03T..."
-  }
-}
-```
-
-**Integration:**
-- Register as `APP_INTERCEPTOR` in `AppModule` (after ResponseTimeInterceptor, before AuditLogInterceptor)
-- `@SkipEnvelope()` custom decorator for streaming endpoints (ai/chat) and health checks
-- Rewrite `AllExceptionsFilter` and `HttpExceptionFilter` to emit error envelope format
-- Update `ThrottlerExceptionFilter` to emit error envelope with `Retry-After` in meta
-
-**Files that change:**
-
-| File | Change Type |
-|------|------------|
-| `app.module.ts` | ADD ResponseEnvelopeInterceptor as APP_INTERCEPTOR |
-| `common/interceptors/response-envelope.interceptor.ts` | NEW |
-| `common/decorators/skip-envelope.decorator.ts` | NEW |
-| `common/filters/all-exceptions.filter.ts` | MODIFY to emit `{ error, meta }` |
-| `common/filters/http-exception.filter.ts` | MODIFY to emit `{ error, meta }` |
-| `common/filters/throttler-exception.filter.ts` | MODIFY to match |
-| All 32 controllers | INCREMENTAL: Remove manual `{ success: true }` wrapping |
-
-### Component 2: Global API Version Prefix
-
-**Purpose:** All routes prefixed with `api/v1/` uniformly.
-
-**Approach:** `app.setGlobalPrefix('api/v1')` in `main.ts`. This is simpler and less disruptive than NestJS built-in URI versioning.
-
-**Integration:**
-
-| File | Change |
-|------|--------|
-| `main.ts` | ADD `app.setGlobalPrefix('api/v1', { exclude: [{ path: 'health', method: RequestMethod.ALL }, { path: 'webhooks/(.*)', method: RequestMethod.ALL }] })` |
-| 6 dual-routed controllers | REMOVE `api/v1/` from @Controller arrays (now redundant) |
-| 2 manually prefixed controllers (Subscription, Autumn) | REMOVE `api/v1/` prefix |
-| Frontend apiClient | UPDATE base URL from `http://host:3000` to `http://host:3000/api/v1` |
-| Swagger config | Adjusts automatically (global prefix applies) |
-| Legacy `/email-configs` watchdog | KEEP at root (excluded from prefix) |
-
-
-### Component 3: httpOnly Cookie Auth
-
-**Current auth flow surface:**
-
-| File | Current Role |
-|------|-------------|
-| `auth-store.ts` (frontend) | Stores token in localStorage, sets non-httpOnly `auth-token` cookie via `document.cookie` |
-| `auth-token.ts` (frontend) | Reads token from localStorage for `apiClient` |
-| `auth-context.tsx` (frontend) | Rehydrates Zustand store from localStorage on client |
-| `jwt.strategy.ts` (backend) | Extracts JWT from cookie (access_token) OR Authorization header -- already supports both |
-| `auth.controller.ts` (backend) | Returns `{ accessToken, refreshToken }` in response body |
-
-**Target auth flow:**
-
-1. Backend `AuthController.login()` sets two httpOnly cookies:
-   - `access_token`: httpOnly, Secure, SameSite=Strict, maxAge=15m
-   - `refresh_token`: httpOnly, Secure, SameSite=Strict, Path=/api/v1/auth/refresh, maxAge=7d
-2. Backend returns `{ user }` in response body (no tokens in body)
-3. Frontend `apiClient` configured with `withCredentials: true` (cookies sent automatically)
-4. Frontend `auth-store.ts` stores only user info (id, email, role), NOT the token
-5. Backend `JwtStrategy` already extracts from cookie -- no change needed
-6. CSRF protection already in place (`csrfMiddleware` with httpOnly CSRF cookie)
-
-**Migration strategy: Dual-mode for 2 weeks.**
-
-Phase 1: Backend sets httpOnly cookies AND returns tokens in body. Frontend still reads from body.
-Phase 2: Frontend switches to cookie-only (removes localStorage token, adds withCredentials).
-Phase 3: Backend stops returning tokens in body. Kill old path.
-
-**Files that change:**
-
-| File | Change Type | Details |
-|------|------------|---------|
-| `auth.controller.ts` | MODIFY | Login/register/refresh: `res.cookie('access_token', token, { httpOnly: true, secure: isProduction, sameSite: 'strict', maxAge: 900000 })` |
-| `auth-store.ts` | MODIFY | Remove token from state, remove localStorage persist for token, remove `setAuthCookie()`, keep user info |
-| `auth-token.ts` | DELETE | No more client-side token extraction |
-| `auth-context.tsx` | MODIFY | Remove token rehydration from localStorage |
-| `frontend/lib/api/client.ts` | MODIFY | Remove Authorization header interceptor, add `withCredentials: true` |
-| `e2e/auth.setup.ts` | MODIFY | Set cookies instead of localStorage |
-
-**Attachment proxy impact:** The non-httpOnly `auth-token` cookie currently used for `<img src>` requests becomes unnecessary. With httpOnly `access_token` cookie, the browser sends it automatically on same-origin image requests. The `AttachmentsController` already reads from cookies via `JwtAuthGuard`.
-
-### Component 4: AI Run Ledger Schema
-
-**Purpose:** Capture every AI run (chat and non-chat) with full traceability: tokens, cost, timing, tool calls, HITL decisions, errors.
-
-**Schema (new Prisma model):**
-
-```prisma
-model AiRunLedger {
-  id               String   @id @default(cuid())
-  tenantId         String
-  userId           String
-  conversationId   String?  // null for non-chat (briefing, triage, drafts)
-  runType          String   // "chat" | "briefing" | "follow-up" | "draft" | "triage" | "embedding"
-  model            String   // "mistral-small-latest"
-  status           String   // "started" | "completed" | "failed" | "cancelled"
-  promptTokens     Int?
-  completionTokens Int?
-  totalTokens      Int?
-  estimatedCostUsd Float?
-  startedAt        DateTime @default(now())
-  completedAt      DateTime?
-  latencyMs        Int?
-  toolCallCount    Int      @default(0)
-  toolCalls        Json?    // [{ name, durationMs, status }] -- args/results redacted
-  hitlRequired     Boolean  @default(false)
-  hitlApproved     Boolean?
-  hitlApprovedBy   String?
-  errorCode        String?
-  errorMessage     String?
-  requestId        String?  // From CorrelationContext
-  parentRunId      String?  // Chained runs (triage spawns embedding)
-  metadata         Json?
-  createdAt        DateTime @default(now())
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId, startedAt(sort: Desc)])
-  @@index([tenantId, runType, status])
-  @@index([conversationId])
-  @@index([requestId])
-  @@map("ai_run_ledger")
-}
-```
-
-**New service:** `AiRunLedgerService` in `backend/src/modules/ai/services/ai-run-ledger.service.ts`
-
-```typescript
-@Injectable()
-export class AiRunLedgerService {
-  async startRun(params: StartRunParams): Promise<AiRunLedger> { ... }
-  async completeRun(id: string, result: RunResult): Promise<void> { ... }
-  async failRun(id: string, error: RunError): Promise<void> { ... }
-  async listRuns(tenantId: string, filters: RunFilters): Promise<PaginatedResult<AiRunLedger>> { ... }
-  async getRunCostSummary(tenantId: string, period: DateRange): Promise<CostSummary> { ... }
-}
-```
-
-**Integration points (files that change):**
-
-| File | Change | Details |
-|------|--------|---------|
-| `prisma/schema.prisma` | ADD AiRunLedger model | Plus relations on Tenant, User |
-| `ai/services/ai-run-ledger.service.ts` | NEW | CRUD + cost aggregation |
-| `ai-chat/services/ai-chat.service.ts` | MODIFY | Wrap streamText in startRun/completeRun/failRun |
-| `ai/services/briefing.service.ts` | MODIFY | Wrap generateText call |
-| `ai/services/follow-up-detection.service.ts` | MODIFY | Wrap generateText call |
-| `ai/services/draft-generation.service.ts` | MODIFY | Wrap generateText call |
-| `ai/services/email-triage.service.ts` | MODIFY | Ledger entry per triage batch |
-| `ai.module.ts` | MODIFY | Register AiRunLedgerService, export it |
-
-**Relationship to existing models:** The ledger is additive. It does NOT modify `AiConversation` or `AiMessage`. A run may reference a conversationId but the relationship is optional and one-way. `AiMessage` captures message content; the ledger captures operational metadata (cost, latency, tools, errors).
-
-### Component 5: Hash-Based Search on Encrypted Fields (ENC-03)
-
-**Current state recap:** `encryption.config.ts` already has the `hashField` property per encrypted field. It is set to `null` everywhere. The extension has the architectural slot for hash computation but no implementation.
-
-**Approach:** HMAC-SHA256 blind indexes for exact-match-searchable fields.
-
-**Schema additions:**
-```prisma
-model Email {
-  // existing fields ...
-  fromHash    String?  // HMAC-SHA256 of normalized lowercase 'from' address
-  toHash      String?  // HMAC-SHA256 of first 'to' address (for exact recipient search)
-
-  @@index([tenantId, fromHash])
-  @@index([tenantId, toHash])
-}
-```
-
-**Updated encryption config:**
-```typescript
-export const ENCRYPTED_FIELDS: Record<string, EncryptedFieldConfig[]> = {
-  Email: [
-    { field: 'bodyText', hashField: null },
-    { field: 'bodyHtml', hashField: null },
-    { field: 'snippet', hashField: null },
-    { field: 'from', hashField: 'fromHash' },    // Tier 2: encrypt + blind index
-  ],
-};
-```
-
-**Critical limitation:** Blind indexes support EXACT match only. The 17+ query sites using `contains`/`insensitive` on `from` and `subject` CANNOT use blind indexes. Real-world analysis:
-
-| Field | Current Query Pattern | Hash-Compatible? |
-|-------|----------------------|-----------------|
-| `from` (email address) | Exact match + contains | Exact: YES. Contains: NO |
-| `subject` | Almost always `contains` (substring search) | NO |
-| `displayName` | `contains` (fuzzy) | NO |
-
-**Pragmatic recommendation for v4.0:**
-- Encrypt `from` field and add blind index for exact address lookup
-- Leave `subject` as plaintext (substring search is critical for UX)
-- Leave `displayName` as plaintext
-- Document the tradeoff: full subject encryption requires searchable encryption infrastructure (e.g., trigram HMAC or dedicated search engine) -- deferred to v5.0
-
-**Files that change:**
-
-| File | Change |
-|------|--------|
-| `prisma/schema.prisma` | ADD fromHash, toHash columns + indexes |
-| `prisma/encryption/encryption.config.ts` | ADD hashField mappings for from |
-| `prisma/encryption/field-encryption.extension.ts` | IMPLEMENT HMAC computation on write for configured hashFields |
-| NEW `prisma/encryption/hash-search.service.ts` | Convert search terms to HMAC for query |
-| 17+ service query sites | UPDATE exact-match queries to use hash, keep `contains` where needed |
-
-### Component 6: Module Boundary Enforcement in CI
-
-**Tool:** `dependency-cruiser` (not madge -- dependency-cruiser supports rules, CI integration, and forbid patterns; madge is detection-only).
-
-**Configuration:** `.dependency-cruiser.cjs` at repo root.
-
-```javascript
-module.exports = {
-  forbidden: [
-    {
-      name: 'no-new-circular',
-      severity: 'error',
-      comment: 'No new circular dependencies beyond the 3-5 accepted ones',
-      from: {},
-      to: { circular: true }
-    },
-    {
-      name: 'ai-chat-no-domain-imports',
-      severity: 'error',
-      comment: 'AiChatModule must use ToolRegistry, not direct domain imports',
-      from: { path: '^backend/src/modules/ai-chat' },
-      to: { path: '^backend/src/modules/(email|calendar|contacts)/(?!.*\\.interface)' }
-    },
-    {
-      name: 'common-no-module-imports',
-      severity: 'error',
-      comment: 'common/ must not import from modules/',
-      from: { path: '^backend/src/common' },
-      to: { path: '^backend/src/modules' }
-    },
-    {
-      name: 'providers-no-consumer-imports',
-      severity: 'error',
-      comment: 'ProvidersModule must not import consumer modules',
-      from: { path: '^backend/src/modules/providers' },
-      to: { path: '^backend/src/modules/(email-sync|email|calendar|contacts|ai)/' }
-    }
-  ],
-  options: {
-    doNotFollow: { path: 'node_modules' },
-    tsConfig: { fileName: 'backend/tsconfig.json' }
-  }
-};
-```
-
-**CI integration:** `npx depcruise backend/src --config .dependency-cruiser.cjs --output-type err` as a CI step. Fails build on violations.
-
-**Rollout:** Start in warn-only mode during Phase B (circular dep burn-down). Switch to error mode once the target (3-5 remaining) is hit.
-
----
-
-## Data Flow Changes
-
-### Before Stabilization
-
-```
-Frontend (localStorage JWT, Authorization header)
-    |
-    | Mixed API paths (some api/v1/, most bare)
-    v
-Controllers (raw payloads, no envelope)
-    |
-    | Direct service imports (17 forwardRef)
-    v
-Services (tight coupling, no event bus)
-    |
-    | AI calls with no run-level tracking
-    v
-Database (bodyText/bodyHtml encrypted, from/subject plaintext, no blind index)
-```
-
-### After Stabilization
-
-```
-Frontend (no stored token, withCredentials: true)
-    |
-    | httpOnly cookie (automatic), uniform api/v1/ prefix
-    v
-Controllers (ResponseEnvelopeInterceptor wraps all responses)
-    |
-    | { data, meta: { requestId, timestamp } }
-    v
-Services (EventEmitter2 for notifications, interfaces for queries, ToolRegistry for AI)
-    |    |
-    |    +-- Events: email.synced, provider.connected, contact.updated
-    |    +-- ToolRegistry: domain modules register, AiChat discovers
-    |
-    | AiRunLedgerService: startRun() -> completeRun()/failRun()
-    v
-Database (from encrypted + blind index, AI Run Ledger, subject plaintext)
-```
-
----
+| Utility | Location | Used By |
+|---------|----------|---------|
+| `contract-helpers.ts` | `backend/test/contract/` | All 5 contract tests |
+| `msw-handlers/` | `backend/src/test/msw-handlers/` | AI pipeline Vitest tests |
+| `fixtures.ts` | `frontend/e2e/` | All Playwright E2E specs |
+| `auth.setup.ts` | `frontend/e2e/` | Playwright auth state bootstrapping |
+| `better-auth-node.mock.ts` | `backend/test/mocks/` | Jest moduleNameMapper for ESM boundary |
 
 ## Patterns to Follow
 
-### Pattern 1: Domain Event with Typed Payload
+### Pattern 1: Multi-Tenant Prisma Query Testing
 
-**When:** Cross-module notification where producer does not need a response.
+Every Prisma service test MUST verify tenant isolation. The existing pattern (email-crud.service.spec.ts) is the canonical reference.
 
+**What:** Mock PrismaService with jest.fn() for each model method. Verify every query includes `tenantId` in the `where` clause.
+
+**When:** Every service that touches the database (all 7 untested modules).
+
+**Example (follow email-crud.service.spec.ts exactly):**
 ```typescript
-// common/events/email.events.ts
-export class EmailSyncedEvent {
-  constructor(
-    public readonly tenantId: string,
-    public readonly emailId: string,
-    public readonly providerId: string,
-    public readonly isNew: boolean,
-  ) {}
-}
+const mockPrismaService = {
+  calendar: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
+  $transaction: jest.fn(),
+};
 
-// Producer (EmailSyncModule)
-this.eventEmitter.emit('email.synced', new EmailSyncedEvent(tenantId, emailId, providerId, true));
-
-// Consumer (AiModule)
-@OnEvent('email.synced')
-async handleEmailSynced(event: EmailSyncedEvent) {
-  if (event.isNew) {
-    await this.emailTriageService.triageEmail(event.tenantId, event.emailId);
-    await this.emailEmbeddingQueue.enqueue(event.tenantId, event.emailId);
-  }
-}
+// In test -- verify tenantId is ALWAYS in the where clause:
+expect(prisma.calendar.findMany).toHaveBeenCalledWith(
+  expect.objectContaining({
+    where: expect.objectContaining({ tenantId: 'tenant-1' }),
+  }),
+);
 ```
 
-### Pattern 2: Interface + Injection Token for Cross-Module Queries
+**Critical:** The tenant-scoping extension (tested in tenant-scoping.extension.spec.ts) provides runtime enforcement via AsyncLocalStorage, but unit tests operate OUTSIDE that context. A service that forgets tenantId would pass unit tests but rely on runtime injection -- masking the bug until `withoutTenantScoping()` is used in migration scripts or raw queries. Test the service's intent explicitly.
 
-**When:** Module A calls Module B and needs a return value.
+### Pattern 2: better-auth Session Mocking
 
+The existing pattern (better-auth.guard.spec.ts) is the canonical reference.
+
+**What:** Mock the BETTER_AUTH injection token with `{ api: { getSession: jest.fn() } }`. Mock the ESM module BEFORE importing the class under test.
+
+**When:** Any guard, controller, or service test that needs authenticated context.
+
+**Example (follow better-auth.guard.spec.ts exactly):**
 ```typescript
-// common/interfaces/storage.interface.ts
-export const STORAGE_SERVICE = Symbol('STORAGE_SERVICE');
-export interface IStorageService {
-  getAttachmentContent(id: string, tenantId: string): Promise<Buffer>;
-}
+// MUST mock before importing -- better-auth is ESM-only
+jest.mock('../better-auth.module', () => ({
+  BETTER_AUTH: 'BETTER_AUTH',
+}));
 
-// email.module.ts -- provider
-{ provide: STORAGE_SERVICE, useExisting: StorageService }
-
-// ai.module.ts -- consumer (no import of EmailModule)
-constructor(@Inject(STORAGE_SERVICE) private storage: IStorageService) {}
+const mockAuth = {
+  api: {
+    getSession: jest.fn().mockResolvedValue({
+      session: { id: 'sess-1', activeOrganizationId: 'tenant-1' },
+      user: {
+        id: 'user-1',
+        email: 'test@example.com',
+        tenantId: 'tenant-1',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'admin',
+        isActive: true,
+      },
+    }),
+  },
+};
 ```
 
-### Pattern 3: Run Ledger Wrapping
+**Critical:** Always mock `better-auth.module` with `jest.mock()` BEFORE importing the guard/service. The real module is ESM and causes Jest transform failures. The existing `backend/test/mocks/better-auth-node.mock.ts` handles the `better-auth/node` import via moduleNameMapper.
 
-**When:** Any service that calls an LLM.
+### Pattern 3: BullMQ Worker Testing
 
+Workers extend `BaseWorker` which handles Redis lifecycle. Unit tests should NOT spin up Redis.
+
+**What:** Test the job processing logic in isolation by creating fake Job objects and mocking service dependencies.
+
+**When:** All 7 workers (sync, sync-back, folder-ops, email-send, bulk-ops, contacts-sync, calendar-sync).
+
+**Example:**
 ```typescript
-async generateBriefing(tenantId: string, userId: string): Promise<Briefing> {
-  const run = await this.ledgerService.startRun({
-    tenantId, userId, runType: 'briefing', model: 'mistral-small-latest'
+const mockJob = {
+  id: 'job-1',
+  name: 'sync-emails',
+  data: {
+    tenantId: 'tenant-1',
+    providerId: 'provider-1',
+    operation: 'full-sync',
+  },
+  attemptsMade: 0,
+  updateProgress: jest.fn(),
+  log: jest.fn(),
+  moveToFailed: jest.fn(),
+} as unknown as Job;
+
+// Test the processing method directly -- skip Worker constructor (needs Redis)
+// Option A: If worker exposes a processJob method, call it directly
+// Option B: Extract processing logic into a testable service
+await workerService.handleSyncJob(mockJob);
+
+expect(mockSyncService.syncEmails).toHaveBeenCalledWith(
+  expect.objectContaining({ tenantId: 'tenant-1' }),
+);
+```
+
+**Key insight:** The `BaseWorker` constructor creates a BullMQ `Worker` instance which requires Redis. Two strategies:
+1. **Extract processing logic** into a separate `@Injectable()` service that the worker calls. Test the service, not the worker lifecycle.
+2. **Mock the Worker constructor** and test the callback passed to it.
+
+Strategy 1 is preferred because it follows existing NestJS patterns and makes the logic independently testable.
+
+### Pattern 4: WebSocket / Realtime Testing
+
+Two tiers exist and should continue:
+
+**Unit tier** (existing in realtime-handshake.cookie.spec.ts):
+- Direct instantiation of service with mocked dependencies
+- Mock `BETTER_AUTH`, PrismaService, RealtimeAuthTokenService
+- Test authentication logic, room assignment, tenant isolation
+- No actual Socket.IO server
+
+**Integration tier** (existing in realtime-redis-adapter.spec.ts):
+- Real Socket.IO servers with Redis adapter
+- Tests cross-instance message delivery and room isolation
+- Skips gracefully when Redis unavailable: `if (!redisAvailable) return;`
+
+**New tests needed:**
+- RealtimeEventsService unit tests: verify correct events emitted to correct tenant rooms
+- WebSocket reconnection behavior after org switch
+
+### Pattern 5: AI SDK Mocking (Vitest + MSW)
+
+The existing MSW pattern (chat-pipeline-msw.test.ts) is the gold standard.
+
+**What:** MSW intercepts HTTP calls to Mistral API, returns deterministic streaming/non-streaming responses. Vitest runs these because MSW v2 requires ESM.
+
+**When:** Testing AI pipeline logic (intent routing, tool selection, HITL triggers, PII handling).
+
+**DO NOT test AI pipeline with Jest.** MSW + streaming requires ESM module resolution that Vitest handles natively via SWC plugin.
+
+**Example (existing -- follow chat-pipeline-msw.test.ts):**
+```typescript
+import { setupServer } from 'msw/node';
+import { mistralChatHandler, mistralEmbedHandler } from '../../../test/msw-handlers';
+
+const server = setupServer(mistralChatHandler, mistralEmbedHandler);
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+```
+
+**New tests needed:**
+- Individual tool unit tests (Jest, NOT Vitest -- tools are plain @Injectable NestJS classes with no ESM dependency)
+- Tool registry integration (verify all ~20 tools register and are discoverable)
+- Rate limiter edge cases in AI pipeline
+
+### Pattern 6: MUI Component Testing (Frontend)
+
+**What:** Use @testing-library/react with MUI ThemeProvider wrapper. Test rendering, accessibility, interaction.
+
+**When:** Critical components. Focus on components that were migrated from shadcn/Radix in v5.0 (highest risk of inconsistency).
+
+**Example:**
+```typescript
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ThemeProvider } from '@mui/material/styles';
+import { theme } from '@/lib/theme';
+
+function renderWithTheme(ui: React.ReactElement) {
+  return render(
+    <ThemeProvider theme={theme}>{ui}</ThemeProvider>
+  );
+}
+
+it('renders email list item with sender name', () => {
+  renderWithTheme(<EmailListItem email={mockEmail} />);
+  expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+});
+
+it('calls onSelect when clicked', async () => {
+  const onSelect = jest.fn();
+  renderWithTheme(<EmailListItem email={mockEmail} onSelect={onSelect} />);
+  await userEvent.click(screen.getByRole('listitem'));
+  expect(onSelect).toHaveBeenCalledWith('email-1');
+});
+```
+
+**Key:** Do NOT test MUI internals (popover positioning, animation timing, ripple effects). Test that YOUR component renders the right content and responds to user interaction correctly.
+
+### Pattern 7: TanStack Query Hook Testing
+
+**What:** Use `renderHook` with `QueryProvider` wrapper. Mock the underlying API module (not axios directly).
+
+**When:** All hooks in `frontend/hooks/queries/`.
+
+**Example (follow query-client.test.tsx pattern):**
+```typescript
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryProvider } from '@/lib/query-client';
+import { useEmails } from '@/hooks/queries/use-emails';
+
+jest.mock('@/lib/api/emails', () => ({
+  emailsApi: {
+    list: jest.fn().mockResolvedValue({
+      data: { emails: mockEmails, pagination: { total: 3, page: 1, limit: 50 } },
+    }),
+  },
+}));
+
+it('fetches emails and returns data', async () => {
+  const { result } = renderHook(() => useEmails({ folder: 'INBOX' }), {
+    wrapper: QueryProvider,
   });
-  try {
-    const result = await generateText({ ... });
-    await this.ledgerService.completeRun(run.id, {
-      promptTokens: result.usage.promptTokens,
-      completionTokens: result.usage.completionTokens,
-    });
-    return result;
-  } catch (error) {
-    await this.ledgerService.failRun(run.id, {
-      errorCode: 'LLM_ERROR', errorMessage: error.message
-    });
-    throw error;
-  }
-}
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(result.current.data.emails).toHaveLength(3);
+});
 ```
 
-### Pattern 4: SkipEnvelope for Streaming
+### Pattern 8: Zustand Store Testing
 
-**When:** Endpoint returns a stream (SSE, binary), not JSON.
+**What:** Test stores by calling actions directly and asserting state changes. No React rendering needed for pure store logic.
 
+**When:** All stores in `frontend/stores/`.
+
+**Example:**
 ```typescript
-@SkipEnvelope()
-@Post('chat')
-async streamChat(@Req() req, @Res() res) {
-  const stream = await this.aiChatService.streamChat(params);
-  // Direct streaming -- no envelope wrapping
-}
+import { useEmailUiStore } from '@/stores/email-ui-store';
+
+beforeEach(() => {
+  // Reset store to initial state between tests
+  useEmailUiStore.setState(useEmailUiStore.getInitialState());
+});
+
+it('selects an email', () => {
+  useEmailUiStore.getState().selectEmail('email-1');
+  expect(useEmailUiStore.getState().selectedEmailId).toBe('email-1');
+});
+
+it('clears selection', () => {
+  useEmailUiStore.getState().selectEmail('email-1');
+  useEmailUiStore.getState().clearSelection();
+  expect(useEmailUiStore.getState().selectedEmailId).toBeNull();
+});
 ```
 
----
+### Pattern 9: Playwright E2E for v5.0 Features
+
+**What:** Extend existing fixtures.ts with new route mocks for org/admin/security endpoints.
+
+**When:** Testing v5.0 features (orgs, admin, onboarding, security settings).
+
+**Example (extend existing fixtures pattern):**
+```typescript
+import { test as base, Page } from '@playwright/test';
+import { injectAuthCookie, mockUser } from './fixtures';
+
+const orgTest = base.extend<{ orgPage: Page }>({
+  orgPage: async ({ page }, use) => {
+    await injectAuthCookie(page.context(), 'test-session-token');
+
+    // Mock org-specific endpoints
+    await page.route('**/localhost:3000/api/v1/organizations', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{ id: 'org-1', name: 'Test Org', slug: 'test-org' }],
+        }),
+      });
+    });
+
+    await page.route('**/localhost:3000/api/v1/organizations/*/members', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [{ userId: 'user-1', role: 'admin', ...mockUser }],
+        }),
+      });
+    });
+
+    await use(page);
+  },
+});
+```
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Adding New forwardRef
+### Anti-Pattern 1: Testing NestJS Modules via Full App Bootstrap
+**What:** Using `NestFactory.create(AppModule)` in unit tests
+**Why bad:** Pulls entire dependency graph, requires all env vars, slow (seconds per test), flaky with external services
+**Instead:** Use `Test.createTestingModule` with only the service under test and its direct mocked dependencies
 
-**What:** `forwardRef(() => SomeModule)` for any new dependency.
-**Why bad:** Papers over coupling. DI init order becomes fragile. Test isolation degrades.
-**Instead:** Events for notifications, interfaces for queries, tool registry for AI tools.
+### Anti-Pattern 2: Real Database in Unit Tests
+**What:** Using PrismaClient connected to PostgreSQL for service-level tests
+**Why bad:** Tests become slow, order-dependent, require DB setup/teardown, flaky on CI
+**Instead:** Mock PrismaService at the unit level. Reserve real DB for integration tests only (like hitl.test.ts pattern with explicit cleanup)
 
-### Anti-Pattern 2: Silent Frontend Fallbacks
+### Anti-Pattern 3: Shared Mutable State Between Test Files
+**What:** Global mock state that leaks between describe blocks
+**Why bad:** Order-dependent failures, impossible to debug in isolation
+**Instead:** `jest.clearAllMocks()` in `beforeEach`. New mock instances per test via `Test.createTestingModule`
 
-**What:** API client catches errors and returns `[]` or `null` silently.
-**Why bad:** Hides backend contract drift. Users see "empty" instead of errors. Bugs hide for weeks.
-**Instead:** Propagate errors to error boundaries. Show explicit degraded state. Log with telemetry.
+### Anti-Pattern 4: Relying on Tenant-Scoping Extension as Substitute for Service Tests
+**What:** Not testing tenantId in service methods because "the extension adds it"
+**Why bad:** Extension can be bypassed (`withoutTenantScoping()`), migration scripts bypass it, raw `$queryRaw` bypasses it
+**Instead:** Unit tests must verify services pass tenantId explicitly in every query
 
-### Anti-Pattern 3: Mixed Response Shapes
+### Anti-Pattern 5: Mixing Jest and Vitest Patterns
+**What:** Using `vi.fn()` in .spec.ts files or `jest.fn()` in .test.ts files
+**Why bad:** Wrong runner picks up wrong file, cryptic failures
+**Instead:** .spec.ts = Jest (jest.fn/jest.mock). .test.ts = Vitest (vi.fn/vi.mock). No exceptions
 
-**What:** Some controllers return `{ success: true, data }`, others return raw payloads.
-**Why bad:** Frontend must handle N response formats. Generic error handling impossible.
-**Instead:** ResponseEnvelopeInterceptor globally. `{ data, meta }` or `{ error, meta }` -- always.
+### Anti-Pattern 6: Testing MUI Component Internals
+**What:** Asserting on MUI internal class names, DOM structure, or animation states
+**Why bad:** MUI internal implementation changes between versions, breaking tests that test nothing useful
+**Instead:** Test user-visible behavior: text content, accessibility roles, click handlers, form values
 
-### Anti-Pattern 4: AES-CBC for New Encryption
+## Data Flow for Test Fixtures
 
-**What:** Using `aes-256-cbc` (current `CryptoService` algorithm) for new encrypted fields.
-**Why bad:** CBC is unauthenticated -- ciphertext malleable (padding oracle attacks). The PRD flagged this.
-**Instead:** Use `aes-256-gcm` for all new encryption. Plan to migrate existing CryptoService to GCM.
+```
+backend/test/helpers/           (NEW -- shared utilities)
+  mock-prisma.ts        -> All backend .spec.ts files
+  mock-auth.ts          -> Guard/controller/service tests needing auth
+  mock-context.ts       -> Controller/interceptor tests
+  mock-bullmq.ts        -> Worker tests
+  mock-socket.ts        -> Realtime unit tests
 
----
+backend/test/mocks/             (EXISTING -- Jest moduleNameMapper mocks)
+  better-auth-node.mock.ts -> better-auth ESM boundary
+  nanoid.mock.ts           -> ESM nanoid
+  p-retry.mock.ts          -> ESM p-retry
+  jsdom.mock.ts            -> ESM jsdom
+  is-network-error.mock.ts -> ESM is-network-error
 
-## Suggested Build Order
+backend/src/test/msw-handlers/  (EXISTING -- Vitest MSW handlers)
+  mistral-chat.handler.ts  -> AI pipeline .test.ts
+  mistral-embed.handler.ts -> Embedding .test.ts
+  index.ts                 -> Re-exports
 
-Ordered by dependency chains: what unblocks what.
+backend/test/contract/          (EXISTING -- contract test helpers)
+  contract-helpers.ts   -> All 5 contract .spec.ts files
 
-### Phase A: Foundation Layer (Weeks 1-2)
+frontend/test/helpers/          (NEW -- shared utilities)
+  render.tsx            -> All component .test.tsx files
+  mock-session.ts       -> Auth-dependent component tests
+  mock-api.ts           -> API-dependent hook tests
 
-Build first because everything else depends on these. All changes are additive -- no existing code breaks.
+frontend/e2e/                   (EXISTING -- Playwright infrastructure)
+  fixtures.ts           -> All Playwright .spec.ts files
+  auth.setup.ts         -> Shared auth state (better-auth cookie injection)
+```
 
-1. `npm install @nestjs/event-emitter` + `EventEmitterModule.forRoot()` in AppModule
-2. Define event types in `common/events/` (email.events.ts, provider.events.ts, contact.events.ts, calendar.events.ts)
-3. Create interface contracts in `common/interfaces/` (IStorageService, ISyncAuthService, IProviderTokenService)
-4. Create ToolRegistryModule + ToolRegistryService in `common/ai/`
-5. Add AiRunLedger model to Prisma schema + run migration + create basic AiRunLedgerService
-6. Install dependency-cruiser + baseline config (warn-only mode)
+## Build Order for Test Infrastructure
 
-### Phase B: Circular Dependency Burn-down (Weeks 2-4)
+Dependencies flow downward. Build in this order:
 
-Must happen before API standardization because module boundaries affect controller organization.
+### Phase 1: Shared Test Utilities (foundation -- no dependencies)
+1. `backend/test/helpers/mock-prisma.ts` -- typed Prisma mock factory
+2. `backend/test/helpers/mock-auth.ts` -- standard session/user shapes for better-auth
+3. `backend/test/helpers/mock-context.ts` -- NestJS ExecutionContext factory
+4. `backend/test/helpers/mock-bullmq.ts` -- BullMQ Job/Queue mocks
+5. `frontend/test/helpers/render.tsx` -- MUI ThemeProvider + QueryProvider wrapper
+6. `frontend/test/helpers/mock-session.ts` -- better-auth session mock
 
-**Order by impact (most forwardRef edges eliminated first):**
+### Phase 2: Backend Unit Tests for Untested Modules
+**Depends on:** Phase 1 utilities
 
-1. **ProvidersModule decoupling** (eliminates 5 edges)
-   - Emit `provider.connected/disconnected` events
-   - Remove all consumer module imports from ProvidersModule
+Order by dependency complexity (simpler modules first):
+1. **health** -- zero dependencies beyond NestJS, trivial health check
+2. **users** -- Prisma-only, CRUD operations
+3. **tenants** -- Prisma-only, CRUD + tenant lifecycle
+4. **labels** -- Prisma-only, CRUD + tree structure
+5. **providers** -- Prisma + OAuth config, provider lifecycle
+6. **subscription** -- Prisma, may have payment logic
+7. **calendar** -- Prisma + BullMQ worker + external calendar API mocks
 
-2. **AiChatModule tool registry migration** (eliminates 4 edges)
-   - Email, Calendar, Contacts, Ai modules register tools in onModuleInit()
-   - AiChatModule reads from ToolRegistryService
+### Phase 3: BullMQ Worker Tests
+**Depends on:** Phase 1 (mock-bullmq.ts)
 
-3. **SyncAuthService extraction** (eliminates 2 edges)
-   - ISyncAuthService interface in common/interfaces/
-   - Calendar and Contacts depend on interface
+All 7 workers follow BaseWorker pattern. Test `processJob()` logic:
+1. sync.worker -- email sync orchestration
+2. sync-back.worker -- write-back to provider
+3. email-send.worker -- SMTP/API send path
+4. folder-operations.worker -- folder CRUD with Redis locks
+5. bulk-operations.worker -- batch email operations
+6. contacts-sync.worker -- contacts import from provider
+7. calendar-sync.worker -- calendar event sync
 
-4. **EmailModule <-> AiModule decoupling** (eliminates 2 edges)
-   - Events for email.created/deleted
-   - IStorageService interface for attachment access
+### Phase 4: Frontend Unit Tests
+**Depends on:** Phase 1 (render helpers)
 
-5. **Remaining misc edges** -- evaluate, target 3-5 remaining
+1. **Zustand stores** -- pure logic, no rendering needed
+2. **TanStack Query hooks** -- renderHook + API module mocks
+3. **Critical MUI components** -- rendering + interaction tests for migrated components
 
-6. Switch dependency-cruiser to error mode in CI
+### Phase 5: Frontend E2E for v5.0 Features
+**Depends on:** existing Playwright fixtures (extend with new route mocks)
 
-### Phase C: API Contract Standardization (Weeks 3-5)
+1. Organization create/switch flow
+2. Admin user management (list, ban/unban, impersonation)
+3. Security settings (2FA setup, passkeys, backup codes)
+4. Onboarding flow (new user first-time experience)
+5. Invitation accept flow
 
-After module boundaries are clean, standardize the API surface.
+### Phase 6: MUI Consistency Audit
+**Depends on:** Phase 4 component tests (reveal non-MUI patterns during testing)
 
-1. Implement ResponseEnvelopeInterceptor + SkipEnvelope decorator
-2. Rewrite AllExceptionsFilter and HttpExceptionFilter to error envelope format
-3. Register interceptor globally in AppModule
-4. Set `app.setGlobalPrefix('api/v1')` in main.ts
-5. Remove manual api/v1/ from 8 controllers
-6. Update frontend apiClient base URL
-7. Remove manual `{ success: true }` wrapping from controllers (incremental)
-8. Remove silent fallbacks in frontend API clients
-9. Add OpenAPI snapshot test in CI
+1. Grep for non-MUI patterns (Tailwind utility classes in .tsx, raw CSS, Radix remnants)
+2. Fix violations found
+3. Add regression tests for fixed components
 
-### Phase D: Auth Hardening (Weeks 4-6)
+## Integration Points with Existing Architecture
 
-Depends on API standardization (cookie handling interacts with CORS config and response format).
+### NestJS DI Container
+All backend unit tests use `Test.createTestingModule()`. New tests follow the same pattern. The module under test gets its real class; dependencies get mock providers via `{ provide: ServiceClass, useValue: mockObject }`.
 
-1. Backend sets httpOnly cookies on login/refresh (dual-mode: cookies AND body tokens)
-2. Frontend migration: remove token from Zustand, add withCredentials, delete auth-token.ts
-3. Kill dual-mode: backend stops returning tokens in body
-4. Update E2E auth setup
+### Prisma Tenant-Scoping Extension
+The extension auto-injects tenantId via AsyncLocalStorage context. Tests operate OUTSIDE this context (no CorrelationContext active), so mocked Prisma calls do not go through the extension. This is correct -- unit tests verify the service's intent, not the runtime enforcement layer.
 
-### Phase E: AI Run Ledger Integration (Weeks 5-7)
+### better-auth ESM Boundary
+The `better-auth` package is ESM-only. All tests touching auth MUST use the `jest.mock('../better-auth.module')` pattern before importing the class under test. The existing `backend/test/mocks/better-auth-node.mock.ts` handles the `better-auth/node` import via Jest moduleNameMapper in jest.config.js.
 
-Depends on AiRunLedger schema from Phase A.
+### Vitest/Jest Split
+- `backend/jest.config.js` testMatch: `*.spec.ts` only
+- `backend/vitest.config.ts` include: `*.test.ts` only
+- No overlap. New tests MUST use the correct extension for the correct runner.
 
-1. Wire AiChatService with ledger (startRun around streamText)
-2. Wire BriefingService, FollowUpDetectionService, DraftGenerationService
-3. Wire EmailTriageService
-4. Add model pricing lookup + cost calculation
-5. Add GET /api/v1/ai/runs query endpoint
+### Playwright Auth State
+Playwright uses `auth.setup.ts` project to inject `better-auth.session_token` httpOnly cookie. All browser projects depend on the `setup` project. New E2E specs get auth state for free via `storageState: 'playwright/.auth/user.json'`.
 
-### Phase F: Encrypted Search (ENC-03) (Weeks 6-8)
-
-Independent of other phases. Benefits from stable module boundaries.
-
-1. Add hash columns to Email schema + migration
-2. Implement HMAC computation in field-encryption.extension.ts
-3. Create HashSearchService
-4. Backfill existing data (batch migration job)
-5. Encrypt from field, update exact-match query sites
-6. Document tradeoff: subject stays plaintext
-
-### Phase G: Bug Fixes + Performance (Weeks 7-9)
-
-Can run in parallel with Phases E and F.
-
-1. RC-A1/A8 race conditions (distributed locks on folder CRUD)
-2. 7 deferred v3.1 bugs
-3. Phase 28 gap closure (chat 403, dead polling)
-4. LCP/TTI optimization (bundle splitting, lazy loading)
-5. Memory profiling under simulated load
-6. Wire CorrelationInterceptor globally (currently exists but not registered)
-
-### Phase ordering rationale
-
-- **A before B:** Foundation infrastructure must exist before wiring.
-- **B before C:** Module boundaries must be clean before standardizing API surface that spans modules.
-- **C before D:** Cookie handling interacts with CORS and response format. Must be stable first.
-- **D after C:** Auth migration needs the final API prefix and response format.
-- **E after A:** Ledger schema must exist. Can overlap with C/D since it is AI-module internal.
-- **F independent:** Encryption work is database-level, does not depend on API or module changes.
-- **G parallel:** Bug fixes are independent items that can run alongside E and F.
-
----
+### Frontend Jest Setup
+`frontend/jest.setup.ts` provides: @testing-library/jest-dom matchers, next/router mock, localStorage mock, matchMedia mock. New component tests inherit all of this automatically.
 
 ## Scalability Considerations
 
-| Concern | Current (v3.2) | After v4.0 | At 10x Users |
-|---------|----------------|------------|-------------|
-| Module coupling | 17 forwardRef, fragile DI init | 3-5 forwardRef, event-driven | Same architecture holds |
-| API contracts | Mixed formats, silent failures | Uniform envelope, CI-enforced | Add rate limit tiers per tenant |
-| Auth security | XSS blast radius (localStorage) | httpOnly cookies, no client token | Add short-lived access (5m) |
-| AI observability | No run tracking | Full run ledger per request | Partition ledger table by month |
-| Encrypted search | Body only, no search index | Blind indexes on email addresses | Consider dedicated search engine |
-| CI enforcement | No boundary checks | dependency-cruiser blocks violations | Add per-module contract tests |
-
----
+| Concern | Current (~120 tests) | Target (~250 tests) | At 500+ tests |
+|---------|---------------------|---------------------|---------------|
+| Test speed | ~30s backend, ~15s frontend | ~60s backend, ~30s frontend | Shard with `jest --shard` |
+| Flakiness | Low (mocked I/O) | Low if patterns followed | Redis integration tests: `--runInBand` |
+| CI time | ~2min total | ~4min total | Parallel matrix: unit / integration / e2e |
+| Fixture duplication | Per-file manual mocks | Shared helpers from Phase 1 | Factory functions with overrides |
+| Coverage tracking | No coverage gates | Add `--coverage` with thresholds | Per-module coverage enforcement |
 
 ## Sources
 
-- Direct codebase audit: all `*.module.ts`, `auth-store.ts`, `jwt.strategy.ts`, `main.ts`, `encryption.config.ts`, `field-encryption.extension.ts`, `correlation-context.service.ts`, `all-exceptions.filter.ts`, `http-exception.filter.ts` -- HIGH confidence
-- [Trilon: Circular Dependencies in NestJS](https://trilon.io/blog/avoiding-circular-dependencies-in-nestjs) -- MEDIUM confidence
-- [Dev.to: Get Rid of Tightly Coupled Modules in NestJS](https://dev.to/kishieel/get-rid-of-tightly-coupled-modules-and-circular-dependencies-in-nestjs-3do1) -- MEDIUM confidence
-- [Dev.to: Refresh Tokens through Http-Only Cookie in NestJS and React](https://dev.to/zenstok/part-33-how-to-implement-refresh-tokens-through-http-only-cookie-in-nestjs-and-react-265e) -- MEDIUM confidence
-- [Tigran.tech: NestJS Cookie-Based JWT Authentication](https://tigran.tech/nestjs-cookie-based-jwt-authentication/) -- MEDIUM confidence
-- [GitHub: prisma-field-encryption by 47ng](https://github.com/47ng/prisma-field-encryption) -- HIGH confidence (in use)
-- [GitHub: blind_index by ankane](https://github.com/ankane/blind_index) -- HIGH confidence (established pattern)
-- [SitePoint: How to Search on Securely Encrypted Database Fields](https://www.sitepoint.com/how-to-search-on-securely-encrypted-database-fields/) -- MEDIUM confidence
-- [Portkey: Complete Guide to LLM Observability](https://portkey.ai/blog/the-complete-guide-to-llm-observability/) -- MEDIUM confidence
-- [Medium: Identify Circular Dependencies in NestJS Using madge](https://manishbit97.medium.com/identifying-circular-dependencies-in-nestjs-using-madge-de137cd7f74f) -- MEDIUM confidence
-- NestJS official docs: Modules, Event Emitter, Custom Providers -- HIGH confidence
+- Existing test patterns in codebase (HIGH confidence -- direct inspection):
+  - `backend/src/modules/email/services/email-crud.service.spec.ts` -- canonical Prisma mock pattern
+  - `backend/src/common/auth/__tests__/better-auth.guard.spec.ts` -- canonical auth mock pattern
+  - `backend/test/integration/realtime-redis-adapter.spec.ts` -- canonical integration test pattern
+  - `backend/src/modules/ai-chat/__tests__/chat-pipeline-msw.test.ts` -- canonical MSW/Vitest pattern
+  - `backend/src/modules/realtime/services/__tests__/realtime-handshake.cookie.spec.ts` -- canonical WS unit test
+  - `frontend/lib/query-client.test.tsx` -- canonical TanStack Query test
+  - `frontend/e2e/fixtures.ts` -- canonical Playwright fixture
+- Config files (HIGH confidence):
+  - `backend/jest.config.js`, `backend/vitest.config.ts`, `frontend/jest.config.js`, `frontend/playwright.config.ts`
+- NestJS testing docs: https://docs.nestjs.com/fundamentals/testing (HIGH confidence)
+- Playwright fixture docs: https://playwright.dev/docs/test-fixtures (HIGH confidence)
+- @testing-library/react docs: https://testing-library.com/docs/react-testing-library/intro (HIGH confidence)

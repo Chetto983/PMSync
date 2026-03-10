@@ -1,154 +1,119 @@
-# Domain Pitfalls: better-auth Migration in PMSync
+# Domain Pitfalls: Adding Test Coverage to PMSync
 
-**Domain:** Enterprise auth migration (custom NestJS auth -> better-auth)
-**Researched:** 2026-03-06
-**Overall Confidence:** MEDIUM-HIGH (verified against official docs, GitHub issues, and codebase analysis)
-
----
+**Domain:** Deep test coverage for existing multi-tenant NestJS + Next.js codebase with better-auth, AI SDK v6, MUI, and Playwright
+**Researched:** 2026-03-10
+**Overall confidence:** HIGH (based on codebase analysis + verified documentation)
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, security holes, or production outages.
+Mistakes that cause rewrites, false confidence, or multi-day debugging sessions.
 
 ---
 
-### Pitfall 1: Prisma Schema Collision -- Existing User/Session vs better-auth Models
+### Pitfall C1: Tenant Scoping Bypass in Test Mocks
 
-**What goes wrong:** better-auth requires four core models: `user`, `session`, `account`, `verification`. PMSync already has `User` (with 15+ custom fields: `tenantId`, `passwordHash`, `role`, `isActive`, `isMfaEnabled`, etc.) and `Session` (with `tenantId`, `token`, `expiresAt`, custom fields). The `npx auth@latest generate` CLI will try to overwrite or conflict with these existing models.
+**What goes wrong:** Tests mock PrismaService or individual repositories without engaging the tenant-scoping Prisma extension. Tests pass with raw queries that would throw `TenantContextRequiredError` in production because the `CorrelationContext` (AsyncLocalStorage) is never set up in the test harness.
 
-**Why it happens:** better-auth's schema generator assumes it owns these models. It expects specific field names (`name`, `emailVerified`, `image`) that don't exist in PMSync's schema, and PMSync has fields (`tenantId`, `passwordHash`, `role`, `isActive`) that better-auth doesn't know about.
+**Why it happens:** The existing tenant-scoping extension (`prisma/tenant-scoping/`) relies on `CorrelationContext.getContext()` returning a context with `tenantId`. In unit tests, there is no HTTP request to trigger the NestJS middleware that populates this. Developers mock Prisma methods directly (e.g., `prisma.email.findMany.mockResolvedValue(...)`) and never discover that their service code would fail without a tenant context.
 
-**Consequences:**
-- Running `npx auth@latest generate` clobbers your existing schema
-- Prisma migration fails because the new schema is incompatible with existing data
-- 42 tenant-scoped models reference `User` and `Session` via foreign keys -- breaking these breaks everything
-- Composite primary keys on `Email`, `Folder`, `Embedding`, `CalendarEvent`, `Contact` (`@@id([id, tenantId])`) add migration complexity
+**Consequences:** Tests give false confidence. A service that works in tests may silently return cross-tenant data or throw in production. The existing test for `tenant-scoping.extension.spec.ts` only tests the extension itself -- it does not validate that services USE it correctly.
 
 **Prevention:**
-1. Do NOT run `npx auth@latest generate` against the production schema. Create better-auth tables manually or in a dedicated Prisma schema file.
-2. Use `modelName` mapping to give better-auth its own table names (e.g., `ba_user`, `ba_session`, `ba_account`, `ba_verification`) to avoid collision with existing PMSync models.
-3. Add PMSync-specific fields (`tenantId`, `role`, `isActive`) to the better-auth user model via `additionalFields` in the auth config.
-4. Plan a data migration strategy: since PROJECT.md says "clean slate: existing users re-register," you can drop old auth tables after migration, but you must preserve the `User.id` foreign key chain (or accept cascading deletes across 42 models).
+1. Create a `TestTenantContext` helper that wraps test execution in `CorrelationContext.run({ tenantId: 'test-tenant', correlationId: 'test' })`.
+2. For integration-level tests of any service that touches Prisma, always run through the tenant-scoping layer rather than mocking Prisma directly.
+3. Add a lint rule or test helper that fails if any new `.spec.ts` file mocks `PrismaService` methods on tenant-scoped models without also setting up tenant context.
 
-**Detection:** Schema generation diffs. Run `npx prisma migrate diff` before applying any changes.
+**Detection:** Tests that mock `prisma.X.findMany` without setting `mockTenantId` or wrapping in `CorrelationContext`. Search for `prisma.*.find` in spec files that lack any tenant context setup.
 
-**Confidence:** HIGH -- verified against PMSync's `schema.prisma` and better-auth's [database docs](https://better-auth.com/docs/concepts/database).
-
-**Phase:** Must be the FIRST thing addressed. Everything depends on correct schema.
+**Phase:** Backend unit test phase. Address FIRST, before writing any new service tests.
 
 ---
 
-### Pitfall 2: Split Architecture Session Validation -- NestJS Cannot Natively Validate better-auth Sessions
+### Pitfall C2: better-auth ESM/CJS Boundary in Jest
 
-**What goes wrong:** better-auth is designed to run inside the framework that handles auth routes (Next.js). PMSync runs a separate NestJS backend (port 3000) and Next.js frontend (port 3001). better-auth's `auth.api.getSession()` requires the auth instance to be available on the same server that receives the request. The NestJS backend doesn't have a better-auth instance -- it's a consumer, not the auth server.
+**What goes wrong:** `better-auth` is an ESM-only package. Jest (CJS by default) cannot import it. Tests crash with `SyntaxError: Cannot use import statement outside a module` or `ERR_REQUIRE_ESM`. The existing codebase already has `better-auth-node.mock.ts` and `jest.mock('../better-auth.module')` patterns, but new test authors do not know to follow them.
 
-**Why it happens:** better-auth uses cookie-based sessions with signed cookies. The session token is stored in a `better-auth.session_token` cookie. For the NestJS backend to validate this, it needs either:
-- A shared better-auth instance (requires NestJS integration package)
-- Direct database lookup of the session token
-- A proxy/shared-domain setup
+**Why it happens:** `better-auth` ships ESM-only. The existing `moduleNameMapper` in `jest.config.js` maps `better-auth/node` to a CJS mock. But any test that imports a module that imports from `better-auth` (not just `better-auth/node`) will fail unless that import chain is also mocked. The `BetterAuthGuard` test already demonstrates the pattern (`jest.mock('../better-auth.module')`), but this is easy to miss.
 
-**Consequences:**
-- If you install better-auth only on Next.js, NestJS has no way to validate sessions
-- The [NestJS integration](https://better-auth.com/docs/integrations/nestjs) package is **community-maintained**, not official -- it requires `bodyParser: false` which breaks existing NestJS JSON body parsing for all other routes
-- better-auth's JWT plugin docs explicitly warn: "not meant as a replacement for the session" -- using it as a workaround is a security risk
-- GitHub [Discussion #5716](https://github.com/better-auth/better-auth/discussions/5716) confirms: "no officially supported or secure way to achieve backend auth state verification across domains"
+**Consequences:** New tests hang or crash. Developers spend hours debugging ESM vs CJS issues instead of writing tests. Some give up and skip testing auth-adjacent modules.
 
 **Prevention:**
-1. **Option A (Recommended):** Install better-auth on BOTH Next.js and NestJS, sharing the same database and `BETTER_AUTH_SECRET`. The NestJS side uses the `nestjs-better-auth` package with `AuthGuard` to validate sessions via the shared session table. This is the pattern described in the [NestJS integration docs](https://better-auth.com/docs/integrations/nestjs).
-2. **Option B:** Run better-auth only on Next.js; NestJS validates sessions by directly querying the `session` table using the cookie token. This is fragile -- you're reimplementing session validation outside the framework.
-3. **Option C:** Use Next.js as a BFF (Backend-for-Frontend) proxy -- all API calls go through Next.js API routes that validate the session, then forward to NestJS. This adds latency and complexity.
-4. For Option A: the `bodyParser: false` requirement means you need to selectively disable body parsing only for better-auth routes, not globally. Use NestJS middleware to apply raw body parsing selectively.
+1. Document the mandatory mock pattern in a `TESTING.md` or inline comment at the top of `test/setup.ts`.
+2. Create a shared `test/helpers/mock-better-auth.ts` that exports a pre-configured mock factory for the auth instance.
+3. Add `better-auth` and all its subpath exports to `moduleNameMapper` in `jest.config.js` proactively.
 
-**Detection:** Auth works on frontend but 401s on all NestJS API calls.
+**Detection:** Jest test runs that fail with `SyntaxError` mentioning `import` or `export` in `node_modules/better-auth`.
 
-**Confidence:** HIGH -- verified against [official NestJS integration docs](https://better-auth.com/docs/integrations/nestjs) and [GitHub discussion](https://github.com/better-auth/better-auth/discussions/5716).
-
-**Phase:** Architecture decision required BEFORE any implementation begins.
+**Phase:** Test infrastructure setup phase. Must be solved before any new guard/auth tests are written.
 
 ---
 
-### Pitfall 3: Cookie Name and Prefix Mismatch -- __Host- vs better-auth Prefix
+### Pitfall C3: AI SDK streamText Mocking Without Official Test Utilities
 
-**What goes wrong:** PMSync currently uses `__Host-access_token` cookies in production (cookie.helper.ts line 28) with `sameSite: 'lax'`, `httpOnly: true`, `secure: true`, `path: '/'`. better-auth uses a completely different cookie naming convention: `better-auth.session_token` with the `__Secure-` prefix (not `__Host-`) in production. These are incompatible.
+**What goes wrong:** Tests for AI chat streaming either (a) mock at too high a level (mock the entire service, test nothing), or (b) try to mock `streamText` at the HTTP level and get the SSE format wrong, causing tests to hang or produce garbled output.
 
-**Why it happens:**
-- `__Host-` prefix requires: `Secure`, `Path=/`, and NO `Domain` attribute (cookie is locked to exact origin). PMSync uses this.
-- `__Secure-` prefix requires only `Secure`. better-auth uses this.
-- better-auth's cookie prefix is configurable (`cookiePrefix` option) but the `__Host-` prefix has additional browser-enforced constraints that better-auth doesn't explicitly support per [its cookie docs](https://better-auth.com/docs/concepts/cookies).
-- During migration, old cookies and new cookies will coexist, causing confusion on which auth system is active.
+**Why it happens:** AI SDK v6 provides `MockLanguageModelV3` and `simulateReadableStream` from `ai/test`, but most developers are unaware of these. They instead mock `fetch` or mock the Mistral provider, neither of which correctly simulates the streaming protocol. The `AiChatService` likely calls `streamText()` from `ai`, and the tool loop + streaming response shape is non-trivial.
 
-**Consequences:**
-- Frontend sends old `__Host-access_token` cookie; backend expects `better-auth.session_token` (or vice versa) -- instant 401 for all users
-- WebSocket handshake service (`realtime-handshake.service.ts`) hardcodes `AUTH_COOKIE_NAME` import -- will break until updated
-- Dev environment (localhost:3000/3001) vs production (HTTPS) cookie behavior differs
-- Safari ITP blocks third-party cookies entirely -- if frontend and backend are on different domains in production, cookies won't work
+**Consequences:** AI module tests are either trivially mocked (testing nothing real) or impossibly fragile (break on any AI SDK update). Tool calls within streams are especially hard to test -- the mock must simulate the tool-call / tool-result cycle.
 
 **Prevention:**
-1. Map out every cookie consumer: auth controller, WebSocket handshake, CSRF middleware, frontend API client.
-2. Implement a transition period where both old and new cookies are accepted (dual-read).
-3. Configure better-auth's `cookiePrefix` to match your naming convention, or update all consumers to use better-auth's default.
-4. Test cookie behavior explicitly in: localhost dev, HTTPS dev proxy, and production domain setup.
-5. Verify Safari/ITP compatibility -- if backend and frontend are on different (sub)domains, use a reverse proxy.
+1. Use `MockLanguageModelV3` from `ai/test` as the model in unit tests. This is the officially supported approach.
+2. Use `simulateReadableStream` for tests that need to verify streaming behavior (e.g., SSE endpoint tests).
+3. For service-level tests, inject the mock model via DI rather than mocking the `ai` module globally.
+4. Create a `test/helpers/mock-ai-model.ts` that provides pre-configured mock models with common tool responses.
 
-**Detection:** Auth works in Chrome but fails in Safari. Auth works in dev but fails in production (or vice versa).
+**Detection:** AI test files that `jest.mock('ai')` globally or that mock `fetch` for streaming endpoints.
 
-**Confidence:** HIGH -- verified against PMSync's `cookie.helper.ts` and better-auth's [cookie docs](https://better-auth.com/docs/concepts/cookies).
+**Phase:** AI module test phase. Create the mock helpers first, then write the tests.
 
-**Phase:** Must be addressed in the same phase as session validation (Pitfall 2).
+**Sources:**
+- [AI SDK Core: Testing](https://ai-sdk.dev/docs/ai-sdk-core/testing) (official docs)
+- [Testing Streaming Responses with AI SDK](https://blog.atrera.com/post/unit-testing-streaming-ai-vercel-sdk/)
 
 ---
 
-### Pitfall 4: Tenant Isolation Gap -- better-auth Has No Tenant Concept
+### Pitfall C4: Playwright E2E Tests With Stale Auth State
 
-**What goes wrong:** PMSync's entire data model is tenant-scoped. 42 Prisma models have `tenantId`. The `TenantGuard` enforces cross-tenant access control. The `TENANT_SCOPED_MODELS` set auto-injects tenant filtering. better-auth knows nothing about tenants -- its `User`, `Session`, and `Account` models have no `tenantId` field. The `organization` plugin provides multi-tenancy but uses its own `Organization` / `Member` tables, not PMSync's `Tenant` model.
+**What goes wrong:** E2E tests use stored `playwright/.auth/user.json` (from `auth.setup.ts`), but the session token in the cookie expires or the backend session is invalidated between test runs. Tests fail with auth redirects that look like application bugs.
 
-**Why it happens:** better-auth's organization plugin is designed for greenfield apps. It assumes organizations are created through better-auth's API, not pre-existing in a `Tenant` table with 42 dependent models.
+**Why it happens:** The current Playwright config uses a `setup` project that creates auth state, then all browser projects depend on that `storageState`. If the backend session has a short TTL (better-auth `cookieCache` with 300s maxAge), and the test suite takes longer than that, mid-suite tests hit expired sessions. Worse: the existing fixtures use `'test-jwt-token'` as a hardcoded cookie value, which only works when ALL API calls are mocked. If any test hits a real backend, it fails.
 
-**Consequences:**
-- Users created by better-auth have no `tenantId` -- they can't access any tenant-scoped data
-- The `TenantGuard` requires `request.user.tenantId` (populated by JWT strategy) -- better-auth sessions don't include this
-- BullMQ workers extract `tenantId` from job data (which was originally set from the authenticated user) -- if the auth chain breaks, workers process jobs without tenant context
-- Prisma's auto-injected tenant scoping (`tenant-scoping.extension.ts`) depends on `tenantId` being present in the request context -- without it, queries either fail or return cross-tenant data (catastrophic security breach)
+**Consequences:** Flaky tests that pass locally (fast) but fail in CI (slow). Tests that pass in isolation but fail in suite order. Debugging auth-related E2E failures is especially painful because the symptoms (blank page, redirect loops) don't point to the root cause.
 
 **Prevention:**
-1. Use better-auth's `additionalFields` to add `tenantId` and `role` to the user model.
-2. Implement a custom better-auth plugin or hook (`after` on session creation) that populates tenant context from your existing `Tenant` table.
-3. The `TenantGuard` must be updated to extract tenant from better-auth's session data instead of JWT claims.
-4. Every BullMQ job enqueue point must be audited to ensure `tenantId` is still correctly propagated.
-5. Write integration tests that verify: user A in tenant X cannot see data from tenant Y, after migration.
+1. For fully-mocked E2E tests (current pattern): ensure the catch-all mock at `**/localhost:3000/**` is robust and returns correct shapes for new endpoints.
+2. For any future real-backend E2E tests: implement programmatic session creation via `better-auth` test utilities (see [GitHub issue #5609](https://github.com/better-auth/better-auth/issues/5609)) and refresh before each test.
+3. Add a test-health check at the start of each E2E spec that validates the auth state is still valid.
+4. Keep the current `injectAuthCookie` pattern but add explicit comments that it ONLY works with fully-mocked backends.
 
-**Detection:** Cross-tenant data leaks in production. Users seeing other tenants' emails. BullMQ jobs processing without tenant context.
+**Detection:** E2E tests that intermittently redirect to `/auth/login` when they should be on authenticated pages.
 
-**Confidence:** HIGH -- verified against PMSync's `tenant.guard.ts`, `tenant-scoped-models.ts`, and better-auth's organization plugin docs.
-
-**Phase:** Immediately after schema (Pitfall 1). Must be solved before any guard/decorator migration.
+**Phase:** E2E test phase. Establish the auth strategy BEFORE writing new E2E tests.
 
 ---
 
-### Pitfall 5: WebSocket Auth Breaks During Migration
+### Pitfall C5: Coverage Metric Gaming -- Testing Happy Paths Only
 
-**What goes wrong:** The `RealtimeHandshakeService` currently extracts JWT tokens from cookies (`AUTH_COOKIE_NAME`) or Bearer headers, verifies ES256/HS256 signatures with `JwtService`, validates `sessionId`, `userId`, and `tenantId` claims, then checks user/tenant active status in the database. better-auth replaces all of this -- different cookie names, different session token format (opaque token, not JWT), different validation flow.
+**What goes wrong:** Coverage target (e.g., 80%) is hit by testing only happy paths through services. The resulting test suite has high line coverage but zero confidence in error handling, edge cases, multi-tenant boundary violations, race conditions, or partial failure scenarios.
 
-**Why it happens:** better-auth sessions are opaque tokens stored in the database, not signed JWTs. You can't verify them locally with `jwtService.verifyAsync()` -- you must look them up in the database via `auth.api.getSession()`. The WebSocket handshake happens during the `upgrade` request, which has access to cookies but not to better-auth's request handling pipeline.
+**Why it happens:** Happy path tests are fast to write. Error paths require understanding failure modes. Multi-tenant boundary tests require careful setup of two tenant contexts. Developers gravitate toward the easiest tests that move the coverage number.
 
-**Consequences:**
-- All WebSocket connections fail immediately after migration (silent failure -- no error page, just "disconnected")
-- Real-time features (email sync notifications, chat, presence) stop working
-- Redis tenant connection counters become stale
-- Users don't see new emails until they manually refresh
+**Consequences:** False confidence. The test suite is green but production bugs slip through in error handling, concurrent access, and tenant isolation -- the exact areas where PMSync has the most historical issues (see v1 race condition fixes, v4.1 security hardening).
 
 **Prevention:**
-1. The WebSocket handshake service must be rewritten to validate sessions against the better-auth session table directly (query by `token` field).
-2. Cookie extraction must use the new cookie name (`better-auth.session_token` or your custom prefix).
-3. Maintain a fallback path that accepts both old JWT tokens and new session tokens during migration (dual-mode authentication).
-4. Test WebSocket connections explicitly in your migration integration tests.
-5. Add a health check endpoint that verifies WebSocket auth is working.
+1. Define coverage goals by risk category, not raw percentage:
+   - Tenant isolation: 100% of tenant-scoped services must have cross-tenant rejection tests.
+   - Error handling: Every Prisma P2002/P2034 retry path must be tested.
+   - Auth boundaries: Every guard (BetterAuthGuard, TenantGuard, RolesGuard, ConsentGuard) must have deny-case tests.
+2. Use mutation testing (e.g., Stryker) on critical modules to validate test quality, not just coverage.
+3. Require that every `.spec.ts` file has at least one negative/error test case.
 
-**Detection:** "Connected" event never fires. Realtime notifications stop. Email count badge doesn't update.
+**Detection:** Coverage report shows >80% lines but `git log` shows production bugs in "covered" code. Spec files with zero `expect(...).rejects` or `expect(...).toThrow()`.
 
-**Confidence:** HIGH -- verified against PMSync's `realtime-handshake.service.ts` (359 lines of JWT-specific validation logic).
+**Phase:** All phases. Enforce from the start via PR review checklist.
 
-**Phase:** Dedicated phase after core auth migration. Do not attempt to migrate HTTP auth and WebSocket auth simultaneously.
+**Sources:**
+- [Full Test Coverage: Myths vs Reality](https://www.testdevlab.com/blog/full-test-coverage-explained)
 
 ---
 
@@ -156,100 +121,125 @@ Mistakes that cause rewrites, security holes, or production outages.
 
 ---
 
-### Pitfall 6: BullMQ Worker Auth Context Loss
+### Pitfall M1: MUI Theme Provider Missing in Component Tests
 
-**What goes wrong:** BullMQ workers (`BaseWorker`, email-send, sync-back, embedding queues) process jobs that carry `tenantId` in job data. This `tenantId` was originally extracted from the authenticated user's JWT when the job was enqueued. Workers don't re-authenticate -- they trust the job data. During migration, if the job enqueue path changes (new session format, different user object shape), `tenantId` may be missing or incorrect in job payloads.
+**What goes wrong:** Component unit tests render MUI components without wrapping them in `ThemeProvider`. Components that use `useTheme()` or `sx` props with theme tokens crash with cryptic errors like "Cannot read properties of undefined (reading 'palette')".
+
+**Why it happens:** The existing `jest.setup.ts` mocks `next/router`, `localStorage`, and `matchMedia`, but does NOT set up a MUI `ThemeProvider`. Every component test must manually wrap in a provider, and developers forget.
 
 **Prevention:**
-1. Audit every `queue.add()` call site to verify `tenantId` is still correctly extracted from the new auth session.
-2. Workers should validate `tenantId` presence in job data and fail fast if missing (they already do this partially).
-3. Add a migration test that enqueues and processes a job end-to-end with the new auth system.
+1. Create a `test/helpers/render-with-theme.tsx` that wraps `@testing-library/react`'s `render` with the project's MUI theme.
+2. Export this as the default `render` function in test utils so developers use it by default.
+3. The wrapper should include: `ThemeProvider`, `QueryClientProvider` (with fresh client per test), and the translation provider.
 
-**Detection:** BullMQ jobs fail with "Tenant ID not found" or succeed but write data to the wrong tenant.
+**Detection:** Component tests that fail with "Cannot read properties of undefined" on `theme.*` or `palette.*`.
 
-**Confidence:** MEDIUM -- based on codebase analysis of `base.worker.ts` and queue services.
+**Phase:** Frontend test infrastructure phase. Create the wrapper BEFORE any component tests.
 
-**Phase:** Same phase as tenant isolation (Pitfall 4).
+**Sources:**
+- [MUI Testing Guide](https://mui.com/material-ui/guides/testing/)
 
 ---
 
-### Pitfall 7: AI Tool Auth Context Loss
+### Pitfall M2: QueryClient Shared Across Tests
 
-**What goes wrong:** AI chat tools (~20 tools as @Injectable ToolsService classes) execute within the context of an authenticated user. They access tenant-scoped data (emails, contacts, calendar events) using the user's identity. If the auth context propagation chain breaks (request -> AiChatService -> tool execution -> Prisma query), AI tools either fail or leak cross-tenant data.
+**What goes wrong:** Multiple frontend tests share a single `QueryClient` instance. Cached data from one test bleeds into the next, causing order-dependent test failures. Test A populates a query cache; Test B runs and sees stale data.
+
+**Why it happens:** TanStack Query's `QueryClient` retains cache across renders. If tests use a module-level `QueryClient` (or the one from `lib/query-client.ts`), all tests in a file share state.
 
 **Prevention:**
-1. Trace the auth context chain: HTTP request -> session validation -> `request.user` -> `AsyncLocalStorage` tenant context -> tool execution -> Prisma queries.
-2. Ensure `request.user` is populated with `tenantId` by the new auth guard before it reaches AiChatService.
-3. Test at least one AI tool end-to-end with the new auth system.
+1. Create a fresh `QueryClient` in `beforeEach` or in the test wrapper function.
+2. Set `retry: false` and `gcTime: 0` in test QueryClient to prevent retry delays and cache leakage.
+3. Never import the production `queryClient` instance in tests.
 
-**Detection:** AI chat responds with "I don't have access to your data" or returns data from wrong tenant.
+**Detection:** Tests that pass individually (`jest --testPathPattern=MyTest`) but fail when run with the full suite.
 
-**Confidence:** MEDIUM -- based on codebase architecture knowledge.
-
-**Phase:** After core HTTP auth migration is stable.
+**Phase:** Frontend test infrastructure phase.
 
 ---
 
-### Pitfall 8: Audit Trail Gap During Migration
+### Pitfall M3: Testing Encrypted Fields Without Encryption Setup
 
-**What goes wrong:** PMSync has GDPR-compliant audit logging (v3.1 AUDIT-01/02/03). `AuditLog` records are tenant-scoped and track all data access. During migration, there's a window where:
-- Old auth events (login, logout, password change) stop being logged (old auth controller removed)
-- New auth events from better-auth aren't yet connected to the audit system
-- Session creation/destruction events change format
+**What goes wrong:** Integration tests that touch encrypted fields (AES-256-GCM) fail because the encryption keys are not configured in the test environment. The Prisma encryption extension either throws or returns garbled data.
+
+**Why it happens:** PMSync uses per-tenant HKDF key derivation for field encryption. Test environments typically don't have `ENCRYPTION_MASTER_KEY` or the per-tenant key derivation configured. The `withoutTenantScoping` bypass exists but doesn't bypass encryption.
 
 **Prevention:**
-1. better-auth provides hooks (`after` callbacks on `signIn`, `signUp`, `signOut`, session events) -- wire these to your existing `AuditLog` table from day one.
-2. Map old audit event types to new ones BEFORE removing old auth code.
-3. Maintain audit coverage metrics: compare event counts before and after migration.
-4. Never delete old auth code until the new audit trail is verified working.
+1. For unit tests: mock the encryption extension or use `jest.mock` on `field-encryption.utils.ts`.
+2. For integration tests: provide a stable test `ENCRYPTION_MASTER_KEY` in `.env.test` and ensure the test tenant has derived keys.
+3. Never test with production encryption keys.
 
-**Detection:** Compliance audit finds gaps in login/logout records. Data access logs missing for a time period.
+**Detection:** Tests that fail with "Invalid key length" or produce Base64-encoded garbage in assertions.
 
-**Confidence:** MEDIUM -- better-auth hooks exist but audit integration is custom work.
-
-**Phase:** Must be implemented in the same phase as auth controller migration.
+**Phase:** Backend integration test phase.
 
 ---
 
-### Pitfall 9: GDPR Compliance Gaps
+### Pitfall M4: BullMQ Job Testing Without Redis
 
-**What goes wrong:** PMSync has extensive GDPR infrastructure: consent management (CONS-01/02/03), data export (DATA-01/02), right to erasure (DATA-03), PII tokenization (PII-01/02/03/04), legal acceptance flows (LEGAL-01/02). better-auth manages its own user data (email, name, sessions, accounts) outside this infrastructure.
+**What goes wrong:** Tests for queue processors (email sync, contact embedding, cleanup) either require a running Redis instance or fail silently when the queue is mocked too aggressively.
 
-**Consequences:**
-- GDPR data export (Art. 20) must now include better-auth's `account` and `session` tables
-- Right to erasure (Art. 17) must cascade delete into better-auth tables
-- Consent tracking for auth-related processing must cover better-auth's data
-- PII tokenization for AI calls must handle data from better-auth's user model
+**Why it happens:** BullMQ requires Redis. In unit tests, developers mock the queue entirely, but then the processor logic (which handles retries, DLQ, rate limiting) is untested. In integration tests, spinning up Redis adds CI complexity.
 
 **Prevention:**
-1. Add better-auth's tables (`account`, `verification`) to the GDPR data export query.
-2. Add cascade deletes for better-auth tables in the `account-deletion.service.ts`.
-3. Map better-auth's user fields (`name`, `email`, `image`) into the PII tokenization pipeline.
-4. Update privacy policy text to reflect the new auth provider.
+1. For processor logic: extract the processing function from the BullMQ handler so it can be tested without the queue infrastructure.
+2. For queue behavior (retry, DLQ): use a dedicated Redis test container in CI.
+3. Never mock the processor function itself -- mock only the external dependencies it calls.
 
-**Detection:** GDPR data export request returns incomplete data. User deletion leaves orphaned records in better-auth tables.
+**Detection:** Queue processor spec files that mock the processor's own method instead of its dependencies.
 
-**Confidence:** MEDIUM -- GDPR infrastructure exists but integration with better-auth is entirely custom.
-
-**Phase:** Same phase as audit trail (Pitfall 8). Do not defer GDPR compliance.
+**Phase:** Backend unit test phase for processors; integration test phase for queue behavior.
 
 ---
 
-### Pitfall 10: bodyParser: false Breaks Existing NestJS Routes
+### Pitfall M5: Playwright Catch-All Mock Hiding Bugs
 
-**What goes wrong:** The NestJS better-auth integration [requires `bodyParser: false`](https://better-auth.com/docs/integrations/nestjs) in `NestFactory.create()`. This disables body parsing for ALL routes, not just better-auth routes. PMSync's 50+ API endpoints rely on automatic JSON body parsing.
+**What goes wrong:** The existing E2E fixtures have a catch-all route handler (`**/localhost:3000/**`) that returns `200 {}` for any unmocked API call. New features that add API calls appear to work in E2E tests even when the response shape is completely wrong, because the catch-all returns an empty object instead of a 404.
+
+**Why it happens:** The catch-all was added (see `fixtures.ts` line 222) to prevent E2E failures when new endpoints are added. This is pragmatic but dangerous -- it masks missing mocks and makes E2E tests unable to catch frontend code that mishandles empty/malformed responses.
 
 **Prevention:**
-1. Do NOT set `bodyParser: false` globally.
-2. Use NestJS raw-body middleware selectively: apply raw body parsing only to `/api/auth/*` routes (better-auth routes).
-3. Alternatively, mount better-auth as an Express sub-app with its own body parsing config.
-4. Test existing POST/PUT/PATCH endpoints after the change.
+1. Log a warning (to Playwright trace) whenever the catch-all is triggered, including the URL that was not explicitly mocked.
+2. In strict mode (for CI), make the catch-all return 500 instead of 200 so unmocked endpoints fail loudly.
+3. When adding new E2E tests for a feature, always add explicit mocks for that feature's endpoints FIRST.
 
-**Detection:** All `@Body()` decorated parameters in controllers receive `undefined` after enabling better-auth.
+**Detection:** E2E tests that pass despite having no explicit mock for the endpoints they exercise.
 
-**Confidence:** HIGH -- explicitly documented in better-auth's [NestJS integration](https://better-auth.com/docs/integrations/nestjs).
+**Phase:** E2E test infrastructure phase.
 
-**Phase:** Same phase as NestJS integration setup.
+---
+
+### Pitfall M6: Mocking `request.user` Incorrectly in Controller/Guard Tests
+
+**What goes wrong:** Controller tests set `request.user = { id, tenantId }` but miss fields that guards or decorators rely on (e.g., `userId`, `role`, `sessionId`, `email`). The `BetterAuthGuard` maps session data to a specific shape with BOTH `id` and `userId` (for backward compatibility). Tests that use a partial mock pass the guard but fail in service calls that expect the full shape.
+
+**Why it happens:** The `request.user` shape in PMSync has evolved through multiple auth migrations (JWT -> better-auth). It now has both `id` and `userId` pointing to the same value, plus `sessionId`, `role`, `email`, `firstName`, `lastName`. Missing any field may not cause an immediate crash but leads to subtle bugs.
+
+**Prevention:**
+1. Create a `test/factories/mock-user.factory.ts` that returns the full `SessionUser` shape with sensible defaults.
+2. Use this factory in ALL controller and guard tests.
+3. Type the mock: `const mockUser: SessionUser = createMockUser({ tenantId: 'test' })`.
+
+**Detection:** Controller tests where `request.user` is assigned an object literal with fewer than 5 properties.
+
+**Phase:** Backend test infrastructure phase.
+
+---
+
+### Pitfall M7: Composite Primary Key Confusion in Test Data
+
+**What goes wrong:** Tests create Email, Folder, Contact, CalendarEvent, or Embedding records using simple `id` fields, but these models use composite primary keys (e.g., `@@id([tenantId, externalId, providerId])` for Email). Test assertions using `findUnique({ where: { id } })` fail because `id` is not the primary key.
+
+**Why it happens:** 5 core models use composite PKs (documented in `COMPOSITE_PK_MODELS` set). Developers accustomed to simple `id`-based lookups write tests that don't account for the composite key structure.
+
+**Prevention:**
+1. Create test data factories for each composite PK model that generate valid composite keys.
+2. Document the composite PK models in the test README with examples of correct `findUnique` calls.
+3. In test helpers, always use `where: { tenantId_externalId_providerId: { ... } }` patterns.
+
+**Detection:** Tests with `prisma.email.findUnique({ where: { id: ... } })` -- this will fail at runtime.
+
+**Phase:** Backend test infrastructure phase.
 
 ---
 
@@ -257,102 +247,80 @@ Mistakes that cause rewrites, security holes, or production outages.
 
 ---
 
-### Pitfall 11: Community-Maintained NestJS Package Risk
+### Pitfall L1: Console Silence Hiding Test Failures
 
-**What goes wrong:** The `nestjs-better-auth` package is maintained by community contributors, not the better-auth team. Breaking changes have already occurred (v2.x changed from `AuthModule.forRoot(auth)` to `AuthModule.forRoot({ auth })`). The package may lag behind better-auth releases.
+**What goes wrong:** The current `test/setup.ts` silences `console.log` and `console.debug` globally. Errors that are logged (not thrown) are invisible during test runs. A service that catches an error and logs it will appear to pass in tests.
 
-**Prevention:**
-1. Pin exact versions of `nestjs-better-auth` in `package.json`.
-2. Consider a thin adapter layer you control, rather than depending on the community package's API surface.
-3. Monitor the package's GitHub for breaking changes before upgrading better-auth itself.
+**Prevention:** Only silence `console.log`/`console.debug`, keep `console.error` and `console.warn` visible. The current setup already does this correctly (only mocks `log` and `debug`), but verify this is preserved as test infrastructure evolves.
 
-**Confidence:** HIGH -- verified from [npm package](https://www.npmjs.com/package/@mguay/nestjs-better-auth) and [GitHub repos](https://github.com/underfisk/nestjs-better-auth).
+**Phase:** All phases. Monitor during test infrastructure setup.
 
 ---
 
-### Pitfall 12: Session Cookie Caching and Revocation Race
+### Pitfall L2: Playwright `waitForSelector` vs Web-First Assertions
 
-**What goes wrong:** better-auth supports cookie caching (storing session data in a signed short-lived cookie to avoid DB lookups). If enabled, revoked sessions remain valid on other devices until the cache expires. PMSync currently validates sessions against the database on every WebSocket connection and enforces session concurrency limits.
+**What goes wrong:** Existing E2E tests mix `waitForSelector` (Playwright classic) with `expect(locator).toBeVisible()` (web-first assertions). The `waitForSelector` approach is more fragile and does not auto-retry like web-first assertions.
 
-**Prevention:**
-1. Do NOT enable `cookieCache` until the migration is stable. Start with database-backed session validation.
-2. If you later enable caching, set `maxAge` to match your security requirements (current access token is 15 minutes).
-3. Sensitive operations (password change, MFA toggle) should always use `freshAge` checking.
+**Prevention:** Prefer `expect(page.getByRole(...)).toBeVisible()` over `page.waitForSelector('css-selector')`. Refactor existing tests during the E2E phase. The current `auth.spec.ts` already uses both patterns -- standardize on web-first.
 
-**Confidence:** MEDIUM -- documented in better-auth's [session management docs](https://better-auth.com/docs/concepts/session-management).
+**Phase:** E2E test phase.
 
 ---
 
-### Pitfall 13: OAuth Callback URL Configuration
+### Pitfall L3: Contract Tests Depending on Live OpenAPI Spec
 
-**What goes wrong:** PMSync already has Google OAuth for email provider connections (`ProviderConfig`). better-auth introduces its own OAuth for login (Google social login). Both use Google OAuth but with different callback URLs, scopes, and client configurations. Mixing them up breaks either email sync or auth login.
+**What goes wrong:** The existing contract tests (`test/contract/`) load the OpenAPI spec from a file and skip if unavailable (`if (!spec) return`). This means contract tests silently pass (by skipping) in environments where the spec isn't generated, giving false confidence.
 
-**Prevention:**
-1. Use separate Google OAuth client IDs for auth login vs email provider connections.
-2. Clearly document which OAuth flow is for auth and which is for email access.
-3. Verify callback URLs match between Google Console, better-auth config, and existing provider config.
+**Prevention:** In CI, fail contract tests if the spec file is missing rather than skipping. Locally, document how to generate the spec before running contract tests.
 
-**Confidence:** MEDIUM -- based on PMSync architecture knowledge.
+**Phase:** CI/infrastructure phase.
 
 ---
 
-### Pitfall 14: Existing Test Suite Breaks
+### Pitfall L4: Frontend Test Transform for ESM Packages
 
-**What goes wrong:** PMSync has extensive auth tests: `cookie-hardening.spec.ts`, `session-hardening.spec.ts`, `jwt-es256.spec.ts`, `refresh-token.spec.ts`, `roles-guard.integration.spec.ts`, `tenant-isolation.spec.ts`, `password-policy.spec.ts`, `auth-login-hardening.spec.ts`, `auth-registration-hardening.spec.ts`. All of these test the current JWT-based auth system. They will all fail after migration.
+**What goes wrong:** The frontend `jest.config.js` has `transformIgnorePatterns` for `@tanstack`, `clsx`, and `tailwind-merge`. New dependencies added during v5.1 (e.g., `assistant-ui`, `@ai-sdk/*`) may also need to be transformed, causing cryptic import errors.
 
-**Prevention:**
-1. Don't delete old tests -- rewrite them to test the equivalent better-auth behavior.
-2. Some tests (tenant isolation, roles guard) test business logic that must survive the migration regardless of auth mechanism.
-3. Create a test migration map: old test -> new test (or "covered by better-auth internally").
+**Prevention:** When adding any new ESM-only dependency to the frontend, immediately add it to `transformIgnorePatterns` in `jest.config.js`. Keep a comment in the config explaining why each package is listed.
 
-**Confidence:** HIGH -- 15+ auth test files exist in the codebase.
+**Phase:** All phases. Ongoing vigilance.
+
+---
+
+### Pitfall L5: Zustand Store Testing Without Reset
+
+**What goes wrong:** Zustand stores persist state across tests in the same file. Test A modifies store state; Test B sees the modified state instead of the initial state.
+
+**Prevention:** Call `useStore.setState(initialState)` in `beforeEach`, or use Zustand's `create` with a factory function in tests. The email-ui-store uses domain slices -- each slice's initial state must be reset independently.
+
+**Phase:** Frontend unit test phase.
 
 ---
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
-|---|---|---|
-| Schema & Database | Pitfall 1 (schema collision), Pitfall 4 (no tenantId) | Manual schema creation, `additionalFields`, migration script |
-| Architecture Decision | Pitfall 2 (split arch session validation) | Decide Option A/B/C before writing code |
-| Cookie & Transport | Pitfall 3 (cookie prefix), Pitfall 10 (bodyParser) | Selective middleware, dual-read transition |
-| Guard & Decorator Migration | Pitfall 4 (tenant isolation), Pitfall 6 (BullMQ), Pitfall 7 (AI tools) | Audit every auth consumer, integration tests |
-| WebSocket Migration | Pitfall 5 (WS auth breaks) | Dual-mode auth, dedicated phase |
-| Compliance | Pitfall 8 (audit gap), Pitfall 9 (GDPR) | Wire hooks before removing old code |
-| Social Login & OAuth | Pitfall 13 (OAuth confusion) | Separate client IDs, clear documentation |
-| Testing | Pitfall 14 (test suite breaks) | Test migration map, rewrite not delete |
-
----
-
-## Recommended Pitfall-Driven Phase Order
-
-Based on dependency analysis of these pitfalls, phases should be ordered:
-
-1. **Architecture Decision** (Pitfall 2) -- How will NestJS validate sessions? This drives everything.
-2. **Schema Migration** (Pitfalls 1, 4) -- Create better-auth tables with tenant support. No code changes yet.
-3. **Core Auth Routes** (Pitfalls 3, 10) -- better-auth mounted in NestJS/Next.js, cookie config, body parser fix.
-4. **Guard & Decorator Migration** (Pitfalls 4, 6, 7) -- Replace JwtAuthGuard, TenantGuard, role decorators.
-5. **Compliance Hooks** (Pitfalls 8, 9) -- Audit logging, GDPR integration. Do NOT defer this.
-6. **WebSocket Auth** (Pitfall 5) -- Rewrite handshake service. Separate phase because it's high-risk.
-7. **Background Job Audit** (Pitfall 6) -- Verify BullMQ tenant context chain end-to-end.
-8. **Social Login & MFA** (Pitfall 13) -- Google OAuth login, TOTP, passkeys.
-9. **Old Auth Removal** -- Only after all above is stable and tested.
-
----
+|-------------|---------------|------------|
+| Test infrastructure setup | ESM/CJS boundary issues (C2) | Build all mocks and helpers first |
+| Backend unit tests (services) | Tenant scoping bypass (C1) | Require CorrelationContext in all service tests |
+| Backend unit tests (guards) | Incomplete request.user shape (M6) | Use typed mock user factory |
+| Backend unit tests (queues) | Missing Redis / over-mocked processors (M4) | Extract processor logic from queue handler |
+| Backend integration tests | Encryption key setup (M3) | Provide .env.test with test encryption keys |
+| Frontend unit tests (components) | Missing ThemeProvider (M1) | Use render-with-theme wrapper |
+| Frontend unit tests (hooks/stores) | Shared QueryClient / Zustand state (M2, L5) | Fresh instances per test |
+| AI module tests | streamText mock complexity (C3) | Use MockLanguageModelV3 from ai/test |
+| E2E auth flows | Stale session state (C4) | Validate auth before each test spec |
+| E2E feature tests | Catch-all mock hiding bugs (M5) | Log or fail on catch-all hits |
+| Coverage reporting | Happy-path-only gaming (C5) | Require negative tests per spec file |
+| Contract tests | Silent skip on missing spec (L3) | Fail in CI if spec missing |
 
 ## Sources
 
-- [better-auth NestJS Integration](https://better-auth.com/docs/integrations/nestjs)
-- [better-auth Database/Schema](https://better-auth.com/docs/concepts/database)
-- [better-auth Prisma Adapter](https://better-auth.com/docs/adapters/prisma)
-- [better-auth Cookie Configuration](https://better-auth.com/docs/concepts/cookies)
-- [better-auth Session Management](https://better-auth.com/docs/concepts/session-management)
-- [better-auth Security Reference](https://better-auth.com/docs/reference/security)
-- [GitHub Discussion #5716: Cross-domain session validation](https://github.com/better-auth/better-auth/discussions/5716)
-- [GitHub Issue #6391: account.modelName override bug](https://github.com/better-auth/better-auth/issues/6391)
-- [NestJS + BetterAuth Part 1 (Medium)](https://medium.com/@andysenclave/nestjs-betterauth-part-1-from-zero-to-login-prisma-cookies-cfcc3e7ecec0)
-- [NestJS + BetterAuth Part 2 (Medium)](https://medium.com/@andysenclave/nestjs-betterauth-part-2-next-js-client-csr-ssr-middleware-1423f6c9309e)
-- [nestjs-better-auth (underfisk)](https://github.com/underfisk/nestjs-better-auth)
-- [nestjs-better-auth (ThallesP)](https://github.com/ThallesP/nestjs-better-auth)
-- [ZenStack: Multi-Tenant with better-auth](https://zenstack.dev/blog/better-auth)
-- PMSync codebase: `cookie.helper.ts`, `tenant.guard.ts`, `realtime-handshake.service.ts`, `base.worker.ts`, `tenant-scoped-models.ts`
+- PMSync codebase analysis (backend/test/, frontend/e2e/, jest configs, existing spec files)
+- [AI SDK Core: Testing](https://ai-sdk.dev/docs/ai-sdk-core/testing) -- official mock utilities documentation
+- [MUI Testing Guide](https://mui.com/material-ui/guides/testing/) -- official component testing guidance
+- [Playwright Authentication](https://playwright.dev/docs/auth) -- session reuse patterns
+- [better-auth test utilities discussion](https://github.com/better-auth/better-auth/issues/5609) -- programmatic session creation for E2E
+- [NestJS + Prisma transaction propagation & test rollback](https://blog.callgent.com/nestjs-prisma-transaction-propagation-test-rollback-multi-tenancy) -- multi-tenant test patterns
+- [Testing Streaming Responses with AI SDK](https://blog.atrera.com/post/unit-testing-streaming-ai-vercel-sdk/) -- streamText mock patterns
+- [Full Test Coverage: Myths vs Reality](https://www.testdevlab.com/blog/full-test-coverage-explained) -- coverage metric pitfalls

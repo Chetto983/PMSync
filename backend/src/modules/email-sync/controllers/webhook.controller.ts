@@ -76,6 +76,9 @@ export class WebhookController {
         );
       }
     } else {
+      // No JWT from Google. Validate webhook token if provided, or if
+      // EMAIL_SYNC_WEBHOOK_TOKEN is configured and the caller sent one.
+      // If neither side has a token, validateWebhookToken returns (no-op).
       this.logger.debug('[WEBHOOK] Gmail push received without Pub/Sub JWT, validating webhook token...');
       this.syncAuth.validateWebhookToken(webhookToken, queryToken);
       this.logger.log('[WEBHOOK] Webhook token validated, received Gmail Pub/Sub notification');
