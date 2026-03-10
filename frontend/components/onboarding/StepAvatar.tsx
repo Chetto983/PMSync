@@ -124,20 +124,26 @@ export function StepAvatar({ user, onComplete, isLast }: StepProps) {
   );
 }
 
+/** Crop to center square, then resize to maxPx × maxPx */
 function resizeImageToDataURL(file: File, maxPx: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
+
+      // Crop: center-square from the shorter dimension
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width - side) / 2;
+      const sy = (img.height - side) / 2;
+
+      // Scale down to maxPx (or keep original if smaller)
+      const size = Math.min(maxPx, side);
       const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = size;
+      canvas.height = size;
       const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, w, h);
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
       resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
     img.onerror = () => {
