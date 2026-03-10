@@ -147,11 +147,11 @@ export class GmailFolderService {
       for (const label of labels) {
         if (!label.id || !label.name) continue;
 
-        // CRITICAL: Skip ALL Gmail category labels - they are virtual categories, not real folders.
-        // Based on Zero-staging pattern: Gmail categories are just label filters for inbox tabs.
-        // Users cannot create/delete/rename categories - they're managed by Gmail settings.
-        if (label.id?.startsWith('CATEGORY_')) {
-          this.logger.debug(`Skipping Gmail category label: ${label.id} (virtual category, not a real folder)`);
+        // Gmail categories (CATEGORY_SOCIAL, CATEGORY_PROMOTIONS, etc.) are synced as folders
+        // so emails with folder=UPDATES/PROMOTIONS/SOCIAL/FORUMS appear in the sidebar.
+        // CATEGORY_PERSONAL maps to INBOX (handled by labelIdToFolderPath), so it's
+        // effectively a no-op duplicate — skip it to avoid overwriting INBOX folder record.
+        if (label.id === 'CATEGORY_PERSONAL') {
           continue;
         }
 

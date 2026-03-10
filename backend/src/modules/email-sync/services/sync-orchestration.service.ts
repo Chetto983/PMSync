@@ -69,11 +69,46 @@ export interface IncrementalHookResult {
 @Injectable()
 export class SyncOrchestrationService {
   private readonly logger = new Logger(SyncOrchestrationService.name);
+  private static readonly FULL_SYNC_FOLDER_WEIGHTS = [
+    { folder: 'INBOX', weight: 0.5 },
+    { folder: 'SENT', weight: 0.2 },
+    { folder: 'ARCHIVE', weight: 0.15 },
+    { folder: 'DRAFTS', weight: 0.1 },
+    { folder: 'TRASH', weight: 0.05 },
+  ] as const;
 
   constructor(
     private readonly messageProcessor: SyncMessageProcessorService,
     private readonly tokenService: SyncTokenService,
   ) {}
+
+  private buildFolderBudgets(maxMessages: number): Array<{ folder: string; budget: number }> {
+    const weightedBudgets = SyncOrchestrationService.FULL_SYNC_FOLDER_WEIGHTS.map(
+      ({ folder, weight }) => ({
+        folder,
+        rawBudget: maxMessages * weight,
+        budget: Math.floor(maxMessages * weight),
+      }),
+    );
+
+    let allocated = weightedBudgets.reduce((sum, item) => sum + item.budget, 0);
+    let remainder = Math.max(0, maxMessages - allocated);
+
+    weightedBudgets
+      .sort((a, b) => (b.rawBudget - b.budget) - (a.rawBudget - a.budget))
+      .forEach((item) => {
+        if (remainder <= 0) {
+          return;
+        }
+        item.budget += 1;
+        allocated += 1;
+        remainder -= 1;
+      });
+
+    return weightedBudgets
+      .filter((item) => item.budget > 0)
+      .map(({ folder, budget }) => ({ folder, budget }));
+  }
 
   /**
    * Full sync using driver - shared implementation
@@ -91,12 +126,12 @@ export class SyncOrchestrationService {
     config: FullSyncConfig,
     context: OrchestrationContext,
   ): Promise<FullSyncResult> {
-    // FOLDER-FIX: Sync all important folders, not just INBOX
-    const foldersToSync = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'ARCHIVE'];
-    const messagesPerFolder = Math.ceil(config.fullSyncMaxMessages / foldersToSync.length);
+    // FOLDER-FIX: Sync all important folders, but bias the budget toward user-visible mail.
+    const folderBudgets = this.buildFolderBudgets(config.fullSyncMaxMessages);
+    const foldersToSync = folderBudgets.map(({ folder }) => folder);
 
     this.logger.debug(
-      `Full sync with driver - fetching ${messagesPerFolder} messages from each folder: ${foldersToSync.join(', ')}`,
+      `Full sync with driver - folder budgets: ${folderBudgets.map(({ folder, budget }) => `${folder}:${budget}`).join(', ')}`,
     );
 
     let messagesProcessed = 0;
@@ -112,11 +147,11 @@ export class SyncOrchestrationService {
     const processedExternalIds = new Set<string>();
 
     // FOLDER-FIX: Iterate through all folders
-    for (const folder of foldersToSync) {
+    for (const { folder, budget } of folderBudgets) {
       let pageToken: string | undefined;
       let fetchedCount = 0;
 
-      this.logger.debug(`Syncing folder: ${folder}`);
+      this.logger.debug(`Syncing folder: ${folder} (budget: ${budget})`);
 
       try {
         // List messages from current folder
@@ -134,7 +169,7 @@ export class SyncOrchestrationService {
 
           const result = await driver.listMessages({
             folder,
-            pageSize: Math.min(config.batchSize, messagesPerFolder - fetchedCount),
+            pageSize: Math.min(config.batchSize, budget - fetchedCount),
             pageToken,
             ...config.getListMessagesOptions(),
           });
@@ -169,7 +204,7 @@ export class SyncOrchestrationService {
           pageToken = result.nextPageToken;
 
           // Stop if we've reached the limit for this folder or no more pages
-          if (fetchedCount >= messagesPerFolder || !pageToken) {
+          if (fetchedCount >= budget || !pageToken) {
             break;
           }
         } while (pageToken);
