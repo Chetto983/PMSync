@@ -141,7 +141,7 @@ export default function RegisterPage() {
         </Box>
       ) : (
         <>
-      <SocialLoginButtons />
+      <SocialLoginButtons intent="register" />
       <Box component="form" onSubmit={handleSubmit} noValidate>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>

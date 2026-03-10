@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import NextLink from 'next/link';
 import {
@@ -51,6 +52,18 @@ export default function LoginPage() {
   const [verificationNotice, setVerificationNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const socialError = typeof router.query.error === 'string' ? router.query.error : '';
+
+    if (socialError === 'signup_disabled') {
+      setError(
+        t.auth.login.accountNotFoundNotice ||
+          'No account was found for this email. Create an account first.',
+      );
+      setVerificationNotice('');
+    }
+  }, [router.query.error, t]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -102,7 +115,7 @@ export default function LoginPage() {
       subtitle={auth.subtitle}
       footerLink={auth.links!.primary}
     >
-      <SocialLoginButtons />
+      <SocialLoginButtons intent="login" />
       <Box component="form" onSubmit={handleSubmit} noValidate>
         {verificationNotice && (
           <Alert severity="info" sx={{ mb: 2 }}>

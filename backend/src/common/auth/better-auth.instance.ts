@@ -291,6 +291,7 @@ export function createBetterAuthInstance(
       google: {
         clientId: process.env.GMAIL_CLIENT_ID!,
         clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+        disableImplicitSignUp: true,
         accessType: 'offline',
         prompt: 'select_account consent',
         scope: [
@@ -307,6 +308,7 @@ export function createBetterAuthInstance(
         clientId: process.env.MICROSOFT_CLIENT_ID!,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
         tenantId: 'common',
+        disableImplicitSignUp: true,
         // Microsoft Entra accepts a single prompt value here.
         prompt: 'select_account',
         scope: [

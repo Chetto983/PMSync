@@ -3,6 +3,12 @@ import { Box, Button, Divider, Typography, SvgIcon } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { authClient } from '@/lib/auth-client';
 
+type SocialLoginIntent = 'login' | 'register';
+
+interface SocialLoginButtonsProps {
+  intent?: SocialLoginIntent;
+}
+
 function GoogleIcon() {
   return (
     <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: 20 }}>
@@ -37,7 +43,7 @@ function MicrosoftIcon() {
   );
 }
 
-export function SocialLoginButtons() {
+export function SocialLoginButtons({ intent = 'login' }: SocialLoginButtonsProps) {
   const t = useTranslations();
   const [loading, setLoading] = useState<'google' | 'microsoft' | null>(null);
 
@@ -51,7 +57,12 @@ export function SocialLoginButtons() {
       await authClient.signIn.social({
         provider,
         callbackURL: new URL(callbackPath, window.location.origin).toString(),
+        newUserCallbackURL:
+          intent === 'register'
+            ? new URL(callbackPath, window.location.origin).toString()
+            : undefined,
         errorCallbackURL: currentUrl.toString(),
+        requestSignUp: intent === 'register',
       });
     } catch {
       // Redirect will happen, errors are handled by better-auth
