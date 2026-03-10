@@ -14,9 +14,17 @@ if (!CSRF_SECRET) {
  * Uses HMAC-signed cookies for stateless CSRF validation.
  * Token is sent in X-CSRF-Token header, cookie is httpOnly.
  */
-// Cross-site dev mode: when API is behind a public proxy and frontend
-// is on localhost, sameSite must be 'none' + secure for cookies to travel.
+// Cross-site mode: when frontend and backend are on different domains,
+// sameSite must be 'none' + secure for cookies to travel cross-origin.
 const isProduction = process.env.NODE_ENV === 'production';
+const frontendUrl = process.env.FRONTEND_URL || '';
+const backendUrl = process.env.API_PUBLIC_URL || process.env.BETTER_AUTH_URL || '';
+const isCrossSite = (() => {
+  try {
+    if (!frontendUrl || !backendUrl) return false;
+    return new URL(frontendUrl).hostname !== new URL(backendUrl).hostname;
+  } catch { return false; }
+})();
 const isCrossSiteDev = !isProduction && (
   ['1', 'true', 'yes'].includes((process.env.CORS_ALLOW_ALL || '').toLowerCase())
   || (process.env.API_PUBLIC_URL || '').startsWith('https')
@@ -37,11 +45,11 @@ const {
     const ip = req.ip || req.socket?.remoteAddress || 'anonymous';
     return ip;
   },
-  cookieName: isProduction ? '__Host-csrf' : 'csrf',
+  cookieName: (isProduction && !isCrossSite) ? '__Host-csrf' : 'csrf',
   cookieOptions: {
     httpOnly: true,
-    sameSite: isCrossSiteDev ? 'none' as const : 'strict' as const,
-    secure: isProduction || isCrossSiteDev,
+    sameSite: (isCrossSite || isCrossSiteDev) ? 'none' as const : 'strict' as const,
+    secure: isProduction || isCrossSiteDev || isCrossSite,
     path: '/',
     maxAge: 60 * 60 * 24 * 1000, // 24 hours in ms
   },
