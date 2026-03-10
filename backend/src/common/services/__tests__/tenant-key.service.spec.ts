@@ -97,9 +97,9 @@ describe('TenantKeyService', () => {
     it('clearCache also clears hmac cache', () => {
       const svc = createServiceWithConfig(TEST_MASTER_KEY);
       svc.getHmacKey('tenant-1');
-      expect((svc as any).hmacCache.size).toBe(1);
+      expect((svc).hmacCache.size).toBe(1);
       svc.clearCache();
-      expect((svc as any).hmacCache.size).toBe(0);
+      expect((svc).hmacCache.size).toBe(0);
     });
   });
 });

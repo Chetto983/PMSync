@@ -95,7 +95,7 @@ export async function backfillFromHash(
         if (existingHash !== null && existingHash !== undefined) continue;
         if (typeof fromValue !== 'string' || fromValue.length === 0) continue;
 
-        const hash = hmacForBlindIndex(fromValue as string, hmacKey);
+        const hash = hmacForBlindIndex(fromValue, hmacKey);
 
         if (!dryRun) {
           updates.push(

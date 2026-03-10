@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 // Mock better-auth.instance to break the import chain to better-auth
 jest.mock('../better-auth.instance', () => ({

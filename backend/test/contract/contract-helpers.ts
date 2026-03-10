@@ -91,7 +91,7 @@ export function expectPathExists(
  */
 export function resolveRef(spec: OpenApiSpec, ref: string): SchemaObject | undefined {
   const parts = ref.replace('#/', '').split('/');
-  let current: any = spec; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let current: any = spec;  
   for (const part of parts) {
     current = current?.[part];
   }

@@ -126,7 +126,7 @@ export class AttachmentsController {
 
       // Stream the file from S3 to client (piped streaming -- constant memory usage)
       if (s3Response.body) {
-        const nodeStream = Readable.fromWeb(s3Response.body as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const nodeStream = Readable.fromWeb(s3Response.body as any);  
         await pipeline(nodeStream, res);
       } else {
         throw new Error('No response body from S3');

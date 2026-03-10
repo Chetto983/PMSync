@@ -3,7 +3,7 @@ process.env.BETTER_AUTH_SECRET = 'test-csrf-secret-for-jest-integration';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-/* eslint-disable @typescript-eslint/no-var-requires */
+ 
 const request = require('supertest');
 const cookieParser = require('cookie-parser');
 

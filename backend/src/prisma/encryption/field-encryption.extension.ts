@@ -128,15 +128,15 @@ export function injectBlindIndexFields(
       const create = typedArgs.create as Record<string, unknown> | undefined;
       const update = typedArgs.update as Record<string, unknown> | undefined;
       if (create && typeof create[field] === 'string') {
-        create[hashField] = hmacForBlindIndex(create[field] as string, hmacKey);
+        create[hashField] = hmacForBlindIndex(create[field], hmacKey);
       }
       if (update && typeof update[field] === 'string') {
-        update[hashField] = hmacForBlindIndex(update[field] as string, hmacKey);
+        update[hashField] = hmacForBlindIndex(update[field], hmacKey);
       }
     } else if (operation === 'createMany' && Array.isArray(typedArgs.data)) {
       for (const record of typedArgs.data as Record<string, unknown>[]) {
         if (typeof record[field] === 'string') {
-          record[hashField] = hmacForBlindIndex(record[field] as string, hmacKey);
+          record[hashField] = hmacForBlindIndex(record[field], hmacKey);
         }
       }
     } else if (

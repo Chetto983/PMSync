@@ -26,7 +26,7 @@ describe('Attachment Streaming', () => {
     }
 
     if (s3Body) {
-      const nodeStream = Readable.fromWeb(s3Body as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      const nodeStream = Readable.fromWeb(s3Body as any);  
       await pipeline(nodeStream, res);
     } else {
       throw new Error('No response body from S3');

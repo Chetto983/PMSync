@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 // Mock tenant scoping before imports
 jest.mock('../../../prisma/tenant-scoping/tenant-context', () => ({
