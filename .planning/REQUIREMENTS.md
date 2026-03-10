@@ -63,6 +63,19 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 - [x] **CLN-04**: Old auth code deleted (~17 services, 5 npm packages, 7 Prisma models)
 - [x] **CLN-05**: Auth test suite rewritten for better-auth
 
+### Safety Hardening
+
+- [x] **SAF-01**: All Prisma.raw() vector injections validated via shared utility before SQL construction
+- [x] **SAF-02**: DTOs have proper string length bounds (deviation: auth module deleted in Phase 58, better-auth handles validation)
+- [x] **SAF-03**: Auth-related database models (Account, Verification, PasswordResetToken) have indexed lookup columns
+- [x] **SAF-04**: Zero @SkipThrottle decorators on non-webhook endpoints; tiered rate limits enforced
+- [x] **SAF-05**: AI health endpoint restricts detailed info to admin role; public probe returns only status
+- [x] **SAF-06**: JWT code fully removed (strategy, guard, token service, config, env vars)
+- [x] **SAF-07**: Email verification required for new signups via better-auth config
+- [x] **SAF-08**: Swagger inaccessible in production (hard-blocked, no env override)
+- [x] **SAF-09**: .env files purged from git history via BFG Repo-Cleaner
+- [x] **SAF-10**: All secrets rotated with documented rotation checklist
+
 ## Future Requirements
 
 ### Advanced Security
@@ -128,12 +141,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLN-03 | Phase 58 | Pending |
 | CLN-04 | Phase 58 | Complete |
 | CLN-05 | Phase 58 | Complete |
+| SAF-01 | Phase 59 | Complete |
+| SAF-02 | Phase 59 | Complete |
+| SAF-03 | Phase 59 | Complete |
+| SAF-04 | Phase 59 | Complete |
+| SAF-05 | Phase 59 | Complete |
+| SAF-06 | Phase 59 | Complete |
+| SAF-07 | Phase 59 | Complete |
+| SAF-08 | Phase 59 | Complete |
+| SAF-09 | Phase 59 | Complete |
+| SAF-10 | Phase 59 | Complete |
 
 **Coverage:**
-- v5.0 requirements: 35 total
-- Mapped to phases: 35
+- v5.0 requirements: 45 total
+- Mapped to phases: 45
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-06*
-*Last updated: 2026-03-06 after roadmap creation (traceability populated)*
+*Last updated: 2026-03-10 after Phase 59 gap closure (SAF-01 through SAF-10 added)*
