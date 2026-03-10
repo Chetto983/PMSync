@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { useRouter } from 'next/router';
 import NextLink from 'next/link';
 import {
   Alert,
@@ -12,6 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { Mail } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { authClient } from '@/lib/auth-client';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -20,7 +20,6 @@ import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
 export default function RegisterPage() {
   const t = useTranslations();
-  const router = useRouter();
   const reg = t.auth.register;
 
   const [firstName, setFirstName] = useState('');
@@ -32,6 +31,8 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -69,12 +70,8 @@ export default function RegisterPage() {
           return;
         }
 
-        const session = await authClient.getSession();
-        if (session.data) {
-          router.push('/dashboard');
-          return;
-        }
-
+        // Email verification is required — do NOT assume an authenticated session.
+        // Better Auth sends a verification email on signup; show verification-pending UI.
         setVerificationEmail((res.data?.user?.email as string | undefined) || email.trim());
       } catch {
         setError('An unexpected error occurred.');
@@ -82,17 +79,55 @@ export default function RegisterPage() {
         setLoading(false);
       }
     },
-    [firstName, lastName, email, password, confirmPassword, agreedToTerms, router, t, reg],
+    [firstName, lastName, email, password, confirmPassword, agreedToTerms, t, reg],
   );
+
+  const handleResendVerification = useCallback(async () => {
+    if (!verificationEmail || resending) return;
+    setResending(true);
+    setResendSuccess(false);
+    try {
+      await authClient.sendVerificationEmail({
+        email: verificationEmail,
+        callbackURL: new URL('/dashboard', window.location.origin).toString(),
+      });
+      setResendSuccess(true);
+    } catch {
+      // Silently fail — avoid leaking whether email exists
+    } finally {
+      setResending(false);
+    }
+  }, [verificationEmail, resending]);
 
   return (
     <AuthLayout title={reg.title} subtitle={reg.subtitle} footerLink={reg.links!.primary}>
       {verificationEmail ? (
-        <Box>
-          <Alert severity="success" sx={{ mb: 3 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <Mail size={48} style={{ marginBottom: 16, opacity: 0.7 }} />
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+            {reg.successTitle || 'Check your inbox'}
+          </Typography>
+          <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
             {reg.successDescription?.replace('{email}', verificationEmail) ||
-              `Check your inbox. We sent a verification link to ${verificationEmail}.`}
+              `We sent a verification link to ${verificationEmail}. Verify your email to continue.`}
           </Alert>
+          {resendSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {t.auth?.verifyEmail?.resendSuccess || 'Verification email resent!'}
+            </Alert>
+          )}
+          <Button
+            onClick={handleResendVerification}
+            variant="outlined"
+            fullWidth
+            size="large"
+            disabled={resending}
+            sx={{ py: 1.3, borderRadius: 2, textTransform: 'none', fontWeight: 600, mb: 2 }}
+          >
+            {resending
+              ? <CircularProgress size={20} color="inherit" />
+              : t.auth?.verifyEmail?.resend || 'Resend verification email'}
+          </Button>
           <Button
             component={NextLink}
             href="/auth/login"

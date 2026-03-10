@@ -411,6 +411,21 @@ export interface AppTranslations {
       microsoft: string;
       or: string;
     };
+    verifyEmail?: {
+      title: string;
+      subtitle: string;
+      verifying: string;
+      successTitle: string;
+      successDescription: string;
+      goToDashboard: string;
+      errorTitle: string;
+      failed: string;
+      resend: string;
+      resendDescription: string;
+      resendSuccess: string;
+      resendButton: string;
+      emailLabel: string;
+    };
     twoFactorVerify: {
       title: string;
       subtitle: string;
