@@ -13,6 +13,7 @@ import { IS_PUBLIC_KEY } from './public.decorator';
 
 interface BetterAuthSession {
   id: string;
+  activeOrganizationId?: string | null;
 }
 
 interface BetterAuthUser {
@@ -81,10 +82,11 @@ export class BetterAuthGuard implements CanActivate {
     }
 
     // Map to backward-compatible request.user shape
+    // Use activeOrganizationId from session when set (org switching), fall back to user.tenantId
     request.user = {
       id: user.id,
       userId: user.id, // backward compat: many services use userId
-      tenantId: user.tenantId,
+      tenantId: session.activeOrganizationId || user.tenantId,
       email: user.email,
       firstName: user.firstName ?? null,
       lastName: user.lastName ?? null,

@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { betterAuth } from 'better-auth';
 import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { twoFactor } from 'better-auth/plugins';
+import { twoFactor, organization } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 import { CURRENT_PP_VERSION, CURRENT_TOS_VERSION } from '../../modules/compliance/legal.constants';
 import { EmailService } from '../../modules/email/services/email.service';
@@ -76,6 +76,15 @@ async function provisionWorkspaceForUser(
           tenantId: tenant.id,
           role: 'admin',
           isActive: true,
+        },
+      });
+
+      // Create Member record for the org plugin (flat role: everyone is admin, ORG-03)
+      await tx.member.create({
+        data: {
+          organizationId: tenant.id,
+          userId: user.id,
+          role: 'admin',
         },
       });
 
@@ -260,6 +269,43 @@ export function createBetterAuthInstance(
         rpName: 'PMSync',
         origin: publicAuthUrl,
       }),
+      organization({
+        // Per CONTEXT.md: only super-admin can create orgs
+        allowUserToCreateOrganization: async (user) => {
+          return (user as any).role === 'super-admin';
+        },
+        creatorRole: 'admin', // Flat role model: everyone is admin (ORG-03)
+        membershipLimit: 100,
+        invitationExpiresIn: 48 * 60 * 60, // 48 hours
+        sendInvitationEmail: async (data) => {
+          const acceptUrl = `${frontendUrl}/dashboard/invitations/accept?id=${data.id}`;
+          await emailService.sendEmail(
+            data.email,
+            `You've been invited to ${data.organization.name} on PMSync`,
+            `<html>
+              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2>Organization Invitation</h2>
+                <p>You've been invited to join <strong>${data.organization.name}</strong> on PMSync.</p>
+                <a href="${acceptUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                  Accept Invitation
+                </a>
+                <p>Or copy and paste this link in your browser: ${acceptUrl}</p>
+                <p>This invitation expires in 48 hours.</p>
+              </body>
+            </html>`,
+          );
+        },
+        schema: {
+          organization: {
+            modelName: 'Tenant',
+            fields: {
+              name: 'name',
+              slug: 'slug',
+              logo: 'description', // Reuse description column for logo URL
+            },
+          },
+        },
+      }),
     ],
 
     emailAndPassword: {
@@ -323,6 +369,29 @@ export function createBetterAuthInstance(
     },
 
     databaseHooks: {
+      session: {
+        create: {
+          before: async (session) => {
+            // Auto-set activeOrganizationId on login to user's first org (Pitfall 4 fix)
+            const member = await withoutTenantScopingAsync(() =>
+              prisma.member.findFirst({
+                where: { userId: session.userId },
+                orderBy: { createdAt: 'asc' },
+                select: { organizationId: true },
+              }),
+            );
+            if (member) {
+              return {
+                data: {
+                  ...session,
+                  activeOrganizationId: member.organizationId,
+                },
+              };
+            }
+            return { data: session };
+          },
+        },
+      },
       user: {
         create: {
           after: async (user, context) => {
@@ -372,6 +441,27 @@ export function createBetterAuthInstance(
         });
       }),
       before: createAuthMiddleware(async (ctx) => {
+        // ORG-05: Block non-super-admin from org management routes
+        const orgMgmtPaths = [
+          '/organization/create',
+          '/organization/update',
+          '/organization/delete',
+          '/organization/invite-member',
+          '/organization/remove-member',
+          '/organization/cancel-invitation',
+        ];
+        if (orgMgmtPaths.some((p) => ctx.path.includes(p))) {
+          const session = await ctx.context.getSession(ctx);
+          if (!session?.user) {
+            throw new APIError('UNAUTHORIZED', { message: 'Authentication required' });
+          }
+          if ((session.user as any).role !== 'super-admin') {
+            throw new APIError('FORBIDDEN', {
+              message: 'Only super-admins can manage organizations',
+            });
+          }
+        }
+
         if (ctx.path === '/sign-up/email' || ctx.path === '/reset-password') {
           const password = (ctx.body?.password ?? ctx.body?.newPassword) as
             | string

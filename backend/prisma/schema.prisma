@@ -52,6 +52,8 @@ model Tenant {
   dataExportRequests       DataExportRequest[]
   aiConversations          AiConversation[]
   aiMemories               AIMemory[]
+  members                  Member[]
+  invitations              Invitation[]
 
   @@map("tenants")
 }
@@ -96,6 +98,8 @@ model User {
   legalAcceptances    LegalAcceptance[]
   dataExportRequests  DataExportRequest[]
   aiConversations     AiConversation[]
+  members             Member[]
+  sentInvitations     Invitation[]        @relation("InvitationInviter")
 
   /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
   @@unique([tenantId, email])
@@ -289,6 +293,39 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+model Member {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("admin")
+  createdAt      DateTime @default(now())
+
+  organization   Tenant   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  role           String   @default("admin")
+  status         String   @default("pending")
+  inviterId      String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  organization   Tenant   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter        User     @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
 }
 
 model Account {
