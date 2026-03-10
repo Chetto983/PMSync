@@ -3793,5 +3793,16 @@ export const it: AppTranslations = {
       accepted: 'Invito accettato',
       declined: 'Invito rifiutato',
     },
+    invitationAccept: {
+      title: 'Accetta Invito',
+      accepting: 'Accettazione invito in corso...',
+      success: 'Invito accettato! Reindirizzamento...',
+      error: "Impossibile accettare l'invito",
+      expired: 'Questo invito è scaduto',
+      notFound: 'Invito non trovato',
+      alreadyMember: 'Sei già membro di questa organizzazione',
+      missingId: 'Nessun ID invito fornito',
+      goToDashboard: 'Vai alla Dashboard',
+    },
   },
 };

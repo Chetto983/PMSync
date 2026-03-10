@@ -3816,5 +3816,16 @@ export const en: AppTranslations = {
       accepted: 'Invitation accepted',
       declined: 'Invitation declined',
     },
+    invitationAccept: {
+      title: 'Accept Invitation',
+      accepting: 'Accepting invitation...',
+      success: 'Invitation accepted! Redirecting...',
+      error: 'Failed to accept invitation',
+      expired: 'This invitation has expired',
+      notFound: 'Invitation not found',
+      alreadyMember: 'You are already a member of this organization',
+      missingId: 'No invitation ID provided',
+      goToDashboard: 'Go to Dashboard',
+    },
   },
 };

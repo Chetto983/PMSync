@@ -3652,6 +3652,17 @@ export interface AppTranslations {
       accepted: string;
       declined: string;
     };
+    invitationAccept: {
+      title: string;
+      accepting: string;
+      success: string;
+      error: string;
+      expired: string;
+      notFound: string;
+      alreadyMember: string;
+      missingId: string;
+      goToDashboard: string;
+    };
   };
 }
 
