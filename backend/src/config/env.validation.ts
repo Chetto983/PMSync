@@ -111,14 +111,6 @@ export class EnvironmentVariables {
   @IsOptional()
   REDIS_TLS_KEY?: string;
 
-  // JWT
-  @IsString()
-  JWT_SECRET: string;
-
-  @IsString()
-  @IsOptional()
-  JWT_EXPIRATION?: string;
-
   // OAuth Providers (Gmail/Google)
   @IsString()
   GMAIL_CLIENT_ID: string;
@@ -187,6 +179,11 @@ export class EnvironmentVariables {
   FRONTEND_URL?: string;
 
   // Features
+  // Better-Auth secret (shared with frontend for session signing)
+  @IsString()
+  @IsOptional()
+  BETTER_AUTH_SECRET?: string;
+
   @IsBoolean()
   @IsOptional()
   ENABLE_SWAGGER?: boolean;

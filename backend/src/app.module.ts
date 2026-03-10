@@ -103,7 +103,7 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-    // Phase 52: Global session validation via better-auth (replaces per-controller JwtAuthGuard)
+    // Phase 52: Global session validation via better-auth (BetterAuthGuard)
     // MUST be before Legal/Consent guards so unauthenticated requests are rejected first
     {
       provide: APP_GUARD,

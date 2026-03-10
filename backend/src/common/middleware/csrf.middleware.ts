@@ -2,10 +2,10 @@ import { doubleCsrf } from 'csrf-csrf';
 import { Request, Response, NextFunction } from 'express';
 import type { HttpError } from 'http-errors';
 
-const CSRF_SECRET = process.env.CSRF_SECRET || process.env.JWT_SECRET;
+const CSRF_SECRET = process.env.CSRF_SECRET || process.env.BETTER_AUTH_SECRET;
 
 if (!CSRF_SECRET) {
-  throw new Error('CSRF_SECRET or JWT_SECRET must be set for CSRF protection');
+  throw new Error('CSRF_SECRET or BETTER_AUTH_SECRET must be set for CSRF protection');
 }
 
 /**
@@ -30,7 +30,7 @@ const {
   getSecret: () => CSRF_SECRET,
   // Session identifier: always IP-based for consistency.
   // Use req.ip (trust-proxy aware) instead of raw X-Forwarded-For header.
-  // The /auth/csrf-token endpoint runs without JwtAuthGuard, so req.user
+  // The /auth/csrf-token endpoint runs without BetterAuthGuard, so req.user
   // is never set during token generation. Using userId here would cause a
   // mismatch between generation (IP) and validation (userId) = "invalid csrf token".
   getSessionIdentifier: (req: Request) => {

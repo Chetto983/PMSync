@@ -106,7 +106,7 @@ describe('ConsentGuard', () => {
   it('returns true (skips) when user is missing from request (APP_GUARD pre-auth pass-through)', async () => {
     // ConsentGuard runs as both APP_GUARD (global) and controller-level.
     // When running as APP_GUARD, request.user is not yet set because
-    // JwtAuthGuard hasn't executed. Guard must return true to let the
+    // BetterAuthGuard hasn't executed. Guard must return true to let the
     // controller-level instance re-check after authentication.
     reflector.get.mockReturnValue('ai_smart_replies');
     const context = createMockExecutionContext(undefined);

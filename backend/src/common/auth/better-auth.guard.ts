@@ -33,8 +33,8 @@ interface BetterAuthSessionResult {
 /**
  * Global guard that validates better-auth session cookies.
  *
- * Replaces per-controller JwtAuthGuard with a single global APP_GUARD
- * backed by DB sessions (no JWT). Registered as APP_GUARD in AppModule.
+ * Global APP_GUARD backed by DB sessions (no JWT).
+ * Registered as APP_GUARD in AppModule.
  *
  * Auth mutation routes (/api/auth/*) are marked @Public() and bypass
  * this guard. Session validation applies to all other routes.

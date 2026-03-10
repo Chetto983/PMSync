@@ -179,8 +179,6 @@ export interface ApiConfig {
 }
 
 export interface AuthConfig {
-  jwtSecret: string;
-  jwtExpiration: string;
   otpExpiration: number;
   passwordResetExpiration: number;
 }
@@ -391,7 +389,6 @@ export function loadConfiguration(): Configuration {
 
   // Security validation - throw error in production if critical secrets are not set
   const nodeEnv = (process.env.NODE_ENV as any) || 'development';
-  const jwtSecret = process.env.JWT_SECRET;
   const aesSecretKey = process.env.AES_SECRET_KEY;
   const debugAuthLog = (process.env.DEBUG_AUTH_LOG || 'false').toLowerCase() === 'true';
   const aesSecretKeyBytes = aesSecretKey ? Buffer.from(aesSecretKey, 'base64') : null;
@@ -404,12 +401,6 @@ export function loadConfiguration(): Configuration {
 
   if (nodeEnv === 'production') {
     // Critical security checks - will throw and prevent startup
-    if (!jwtSecret || jwtSecret === 'change-me-in-production' || jwtSecret === 'secret') {
-      throw new Error('SECURITY ERROR: JWT_SECRET must be set to a strong secret in production. Generate one with: openssl rand -base64 64');
-    }
-    if (jwtSecret.length < 32) {
-      throw new Error('SECURITY ERROR: JWT_SECRET must be at least 32 characters long');
-    }
     if (!aesSecretKey || aesSecretKey === 'default-key-change-in-production') {
       throw new Error('SECURITY ERROR: AES_SECRET_KEY must be set to a strong secret in production. Generate one with: openssl rand -base64 32');
     }
@@ -436,9 +427,6 @@ export function loadConfiguration(): Configuration {
     }
   } else {
     // Development - warn about insecure defaults but don't prevent startup
-    if (!jwtSecret || jwtSecret === 'change-me-in-production' || jwtSecret === 'secret') {
-      console.warn('\x1b[33m⚠️  WARNING: Using default JWT_SECRET in development. Set JWT_SECRET environment variable.\x1b[0m');
-    }
     if (!aesSecretKey || aesSecretKey === 'default-key-change-in-production') {
       console.warn('\x1b[33m⚠️  WARNING: Using default AES_SECRET_KEY in development. Set AES_SECRET_KEY environment variable.\x1b[0m');
     }
@@ -495,8 +483,6 @@ export function loadConfiguration(): Configuration {
     },
 
     auth: {
-      jwtSecret: jwtSecret || 'change-me-in-production',
-      jwtExpiration: process.env.JWT_EXPIRATION || '24h',
       otpExpiration: parseInt(process.env.OTP_EXPIRATION || '900000'),
       passwordResetExpiration: parseInt(process.env.PASSWORD_RESET_EXPIRATION || '900000'),
     },

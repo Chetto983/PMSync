@@ -30,7 +30,7 @@ export class LegalAcceptanceGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
-    // Unauthenticated routes (no JwtAuthGuard) have no user — skip legal check
+    // Unauthenticated routes (no BetterAuthGuard) have no user — skip legal check
     if (!request.user) {
       return true;
     }
