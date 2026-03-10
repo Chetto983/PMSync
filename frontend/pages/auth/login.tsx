@@ -15,10 +15,29 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
-function isEmailVerificationError(error: { code?: string; message?: string } | null | undefined) {
+interface AuthClientError {
+  code?: string;
+  message?: string;
+}
+
+function isEmailVerificationError(error: AuthClientError | null | undefined) {
   const code = error?.code || '';
   const message = error?.message?.toLowerCase() || '';
   return code === 'EMAIL_NOT_VERIFIED' || message.includes('not verified');
+}
+
+function isAccountNotFoundError(error: AuthClientError | null | undefined) {
+  const code = (error?.code || '').toUpperCase();
+  const message = error?.message?.toLowerCase() || '';
+
+  return (
+    code === 'NOT_FOUND' ||
+    code === 'USER_NOT_FOUND' ||
+    code === 'ACCOUNT_NOT_FOUND' ||
+    message.includes('account not found') ||
+    message.includes('user not found') ||
+    message.includes('email not found')
+  );
 }
 
 export default function LoginPage() {
@@ -53,12 +72,21 @@ export default function LoginPage() {
             );
             return;
           }
-          setError(res.error.message || 'Sign-in failed');
+
+          if (isAccountNotFoundError(res.error)) {
+            setError(
+              t.auth.login.accountNotFoundNotice ||
+                'No account was found for this email. Create an account first.',
+            );
+            return;
+          }
+
+          setError(t.errors.invalidCredentials);
           return;
         }
         router.push(returnTo);
       } catch {
-        setError('An unexpected error occurred.');
+        setError(t.common.genericError);
       } finally {
         setLoading(false);
       }

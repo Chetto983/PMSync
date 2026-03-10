@@ -128,6 +128,7 @@ interface AuthScreenCopy {
   title: string;
   subtitle: string;
   verificationNotice?: string;
+  accountNotFoundNotice?: string;
   successTitle?: string;
   successDescription?: string;
   successAction?: string;

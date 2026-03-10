@@ -287,6 +287,8 @@ export const it: AppTranslations = {
       subtitle: 'Autenticazione sicura con MFA e protezioni di sessione.',
       verificationNotice:
         "La tua email non è ancora verificata. Abbiamo inviato un nuovo link di verifica a {email}.",
+      accountNotFoundNotice:
+        'Nessun account trovato per questa email. Crea prima un account.',
       form: {
         emailLabel: 'Email di lavoro',
         passwordLabel: 'Password',

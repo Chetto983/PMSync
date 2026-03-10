@@ -96,6 +96,30 @@ function buildWorkspaceSlug(
   return `${sanitizeWorkspaceSlugPart(base)}-${randomBytes(3).toString('hex')}`;
 }
 
+async function emailSignInAccountExists(
+  prisma: PrismaClient,
+  email: string,
+): Promise<boolean> {
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  const user = await withoutTenantScopingAsync(() =>
+    prisma.user.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true },
+    }),
+  );
+
+  return Boolean(user);
+}
+
 export async function provisionWorkspaceForUser(
   prisma: PrismaClient,
   user: ProvisioningUser,
@@ -560,6 +584,17 @@ export function createBetterAuthInstance(
           throw new APIError('BAD_REQUEST', {
             message: 'You must accept the Terms of Service and Privacy Policy',
           });
+        }
+
+        if (ctx.path === '/sign-in/email') {
+          const email = typeof ctx.body?.email === 'string' ? ctx.body.email : '';
+          const accountExists = await emailSignInAccountExists(prisma, email);
+
+          if (!accountExists) {
+            throw new APIError('NOT_FOUND', {
+              message: 'Account not found',
+            });
+          }
         }
       }),
     },

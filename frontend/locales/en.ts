@@ -294,6 +294,8 @@ export const en: AppTranslations = {
       subtitle: 'Secure authentication with MFA and session guardrails.',
       verificationNotice:
         'Your email is not verified yet. We sent a new verification link to {email}.',
+      accountNotFoundNotice:
+        'No account was found for this email. Create an account first.',
       form: {
         emailLabel: 'Work email',
         passwordLabel: 'Password',
