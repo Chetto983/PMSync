@@ -279,7 +279,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. GDPR data export includes better-auth organization membership, invitation, and role tables
   2. Right to erasure cascades into organization membership and cleans up orphaned org references
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [x] 61-01-PLAN.md — Extend data export with org/auth tables + orphaned org cleanup after erasure
