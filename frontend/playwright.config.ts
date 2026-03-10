@@ -35,7 +35,7 @@ export default defineConfig({
           timeout: 120_000,
         }
       : undefined,
-  ].filter(Boolean),
+  ].filter((x): x is NonNullable<typeof x> => x !== undefined),
   projects: [
     // Setup project runs first to create auth state
     {
