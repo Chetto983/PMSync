@@ -4,6 +4,8 @@ import { betterAuth } from 'better-auth';
 import { createAuthMiddleware, APIError } from 'better-auth/api';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { twoFactor, organization, admin } from 'better-auth/plugins';
+ 
+import { adminAc, userAc } from 'better-auth/plugins/admin/access';
 import { passkey } from '@better-auth/passkey';
 import { CURRENT_PP_VERSION, CURRENT_TOS_VERSION } from '../../modules/compliance/legal.constants';
 import { EmailService } from '../../modules/email/services/email.service';
@@ -274,6 +276,11 @@ export function createBetterAuthInstance(
         adminRoles: ['super-admin'],
         impersonationSessionDuration: 60 * 60, // 1 hour
         defaultBanReason: 'Account suspended by administrator',
+        roles: {
+          'super-admin': adminAc,
+          admin: adminAc,
+          member: userAc,
+        },
       }),
       organization({
         // Per CONTEXT.md: only super-admin can create orgs
@@ -482,7 +489,7 @@ export function createBetterAuthInstance(
           if (!session?.user) {
             throw new APIError('UNAUTHORIZED', { message: 'Authentication required' });
           }
-          if ((session.user as any).role !== 'super-admin') {
+          if ((session.user).role !== 'super-admin') {
             throw new APIError('FORBIDDEN', {
               message: 'Only super-admins can manage organizations',
             });

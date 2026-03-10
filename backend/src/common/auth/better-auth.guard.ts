@@ -61,14 +61,14 @@ export class BetterAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
 
     // Validate session via better-auth
-    const result = (await withoutTenantScopingAsync(() =>
+    const result = await withoutTenantScopingAsync<BetterAuthSessionResult | null>(() =>
       this.auth.api.getSession({
         headers: fromNodeHeaders(request.headers),
         query: {
           disableCookieCache: true,
         },
       }),
-    )) as BetterAuthSessionResult | null;
+    );
 
     if (!result) {
       throw new UnauthorizedException('Invalid or expired session');
