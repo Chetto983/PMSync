@@ -3,10 +3,16 @@ import handler from './[...all]';
 describe('auth proxy handler', () => {
   const originalFetch = global.fetch;
   const originalEnv = process.env.NEXT_PUBLIC_API_URL;
+  let consoleErrorSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
 
   afterEach(() => {
     global.fetch = originalFetch;
     process.env.NEXT_PUBLIC_API_URL = originalEnv;
+    consoleErrorSpy.mockRestore();
     jest.restoreAllMocks();
   });
 
@@ -96,5 +102,61 @@ describe('auth proxy handler', () => {
       '/api/auth/callback/google?code=abc&state=def',
     );
     expect(res.end).toHaveBeenCalled();
+  });
+
+  it('does not log secret-bearing URLs on proxy error', async () => {
+    process.env.NEXT_PUBLIC_API_URL = 'https://backend.example.com';
+
+    const secretUrl =
+      'https://backend.example.com/api/auth/callback/google?code=SECRET_AUTH_CODE&state=SECRET_STATE';
+    global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) as any;
+
+    const req = {
+      method: 'GET',
+      query: { all: ['callback', 'google'], code: 'SECRET_AUTH_CODE', state: 'SECRET_STATE' },
+      headers: {},
+      socket: { remoteAddress: '127.0.0.1' },
+      [Symbol.asyncIterator]: async function* () {},
+    } as any;
+    const res = createResponseMock();
+
+    await handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Auth proxy error' });
+
+    // Verify no logged message contains the secret values
+    for (const call of consoleErrorSpy.mock.calls) {
+      const logged = call.join(' ');
+      expect(logged).not.toContain('SECRET_AUTH_CODE');
+      expect(logged).not.toContain('SECRET_STATE');
+      expect(logged).not.toContain(secretUrl);
+    }
+  });
+
+  it('does not log OAuth codes, tokens, or verification tokens', async () => {
+    process.env.NEXT_PUBLIC_API_URL = 'https://backend.example.com';
+
+    global.fetch = jest.fn().mockRejectedValue(new Error('timeout')) as any;
+
+    const req = {
+      method: 'GET',
+      query: {
+        all: ['verify-email'],
+        token: 'VERIFICATION_TOKEN_SECRET',
+        callbackURL: 'https://example.com/dashboard',
+      },
+      headers: {},
+      socket: { remoteAddress: '127.0.0.1' },
+      [Symbol.asyncIterator]: async function* () {},
+    } as any;
+    const res = createResponseMock();
+
+    await handler(req, res);
+
+    for (const call of consoleErrorSpy.mock.calls) {
+      const logged = call.join(' ');
+      expect(logged).not.toContain('VERIFICATION_TOKEN_SECRET');
+    }
   });
 });
