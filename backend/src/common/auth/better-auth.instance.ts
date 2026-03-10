@@ -228,12 +228,9 @@ export function createBetterAuthInstance(
         clientId: process.env.MICROSOFT_CLIENT_ID!,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
         tenantId: 'common',
-        prompt: 'select_account consent',
+        // Microsoft Entra accepts a single prompt value here.
+        prompt: 'select_account',
         scope: [
-          'openid',
-          'email',
-          'profile',
-          'offline_access',
           'https://graph.microsoft.com/Mail.ReadWrite',
           'https://graph.microsoft.com/Mail.Send',
           'https://graph.microsoft.com/Calendars.ReadWrite',
