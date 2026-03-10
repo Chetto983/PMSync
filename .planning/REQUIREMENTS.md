@@ -12,8 +12,8 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 - [x] **INFRA-01**: Test environment runs against real PostgreSQL and Redis (Docker Compose or existing instances)
 - [ ] **INFRA-02**: Shared test helpers provide tenant context, auth session, and user/tenant factories for real DB
 - [ ] **INFRA-03**: Test database is seeded with baseline data and cleaned between test suites
-- [ ] **INFRA-04**: Frontend E2E tests run against real backend server (no mocked API routes)
-- [ ] **INFRA-05**: Jest coverage thresholds enforce minimum coverage (50% backend, 30% frontend)
+- [x] **INFRA-04**: Frontend E2E tests run against real backend server (no mocked API routes)
+- [x] **INFRA-05**: Jest coverage thresholds enforce minimum coverage (50% backend, 30% frontend)
 
 ### Backend Unit Tests
 
@@ -82,8 +82,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-01 | Phase 66 | Complete |
 | INFRA-02 | Phase 66 | Pending |
 | INFRA-03 | Phase 66 | Pending |
-| INFRA-04 | Phase 66 | Pending |
-| INFRA-05 | Phase 66 | Pending |
+| INFRA-04 | Phase 66 | Complete |
+| INFRA-05 | Phase 66 | Complete |
 | BTEST-01 | Phase 68 | Pending |
 | BTEST-02 | Phase 68 | Pending |
 | BTEST-03 | Phase 68 | Pending |

@@ -5,29 +5,29 @@
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 66 - Test Infrastructure
+**Current focus:** Phase 66 - Test Infrastructure (COMPLETE)
 
 ## Current Position
 
 Phase: 66 (1 of 7 in v5.1)
-Plan: 1 of 3 in current phase
-Status: Executing
-Last activity: 2026-03-10 -- Completed 66-01-PLAN.md
+Plan: 3 of 3 in current phase (COMPLETE)
+Status: Phase Complete
+Last activity: 2026-03-10 -- Completed 66-03-PLAN.md
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (v5.1)
+- Total plans completed: 3 (v5.1)
 - Average duration: 3min
-- Total execution time: 0.05 hours
+- Total execution time: 0.15 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 66-test-infrastructure | 1/3 | 3min | 3min |
+| 66-test-infrastructure | 3/3 | 9min | 3min |
 
 **Recent Trend:**
 - Last 5 plans: -
@@ -50,6 +50,10 @@ Recent decisions affecting current work:
 - [v5.1]: Dual test runner preserved -- Jest for NestJS .spec.ts, Vitest for AI .test.ts (from research)
 - [66-01]: .env.test committed to git (test fixtures, not secrets) despite .gitignore pattern
 - [66-01]: Test client singleton via globalThis to survive Jest module reloading
+- [66-02]: TRUNCATE CASCADE covers 16 auth tables in single statement for cleanup speed
+- [66-02]: Factory uniqueness via module-level counter + Date.now() suffix
+- [66-03]: Cross-package Prisma import for auth.setup (monorepo colocation)
+- [66-03]: Mock data exports retained as inert constants for Phase 71 transition
 
 ### Pending Todos
 
@@ -65,5 +69,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 66-01-PLAN.md
+Stopped at: Completed 66-03-PLAN.md (Phase 66 complete)
 Resume file: None
