@@ -441,6 +441,16 @@ export function createBetterAuthInstance(
         });
       }),
       before: createAuthMiddleware(async (ctx) => {
+        // Guard: cap image size to prevent cookie cache overflow (Vercel 494)
+        if (ctx.path === '/update-user' && ctx.body?.image) {
+          const img = ctx.body.image as string;
+          // Max ~50KB base64 — anything larger would overflow cookie headers
+          if (img.length > 50_000) {
+            throw new APIError('BAD_REQUEST', {
+              message: 'Avatar image is too large. Please upload a smaller image (max 256×256px).',
+            });
+          }
+        }
         // ORG-05: Block non-super-admin from org management routes
         const orgMgmtPaths = [
           '/organization/create',
