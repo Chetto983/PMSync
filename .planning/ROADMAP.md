@@ -192,11 +192,12 @@ Plans:
   3. Organization owner/admin can assign and change roles (owner, admin, member) for members
   4. User belonging to multiple organizations can switch between them and the UI/API context updates
   5. API endpoints enforce organization-level permissions (members cannot perform admin/owner actions)
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 56-01-PLAN.md — Schema + organization plugin + guard extension + data migration
-- [ ] 56-02-PLAN.md — Org admin page + org switcher + invitation banner + i18n
+- [x] 56-01-PLAN.md — Schema + organization plugin + guard extension + data migration
+- [x] 56-02-PLAN.md — Org admin page + org switcher + invitation banner + i18n
+- [ ] 56-03-PLAN.md — Gap closure: replace stub tests + add seed migration health check
 
 ### Phase 57: Admin Panel
 **Goal**: Admins can manage users and sessions from an admin interface
@@ -300,7 +301,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 53. Frontend Auth UI | 2/2 | Complete    | 2026-03-09 | 2026-03-09 |
 | 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
 | 55. Social Login & MFA | 5/5 | Complete    | 2026-03-09 | - |
-| 56. Organizations | 2/2 | Complete   | 2026-03-10 | - |
+| 56. Organizations | 3/3 | Gap closure   | 2026-03-10 | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
 | 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
@@ -314,3 +315,4 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 *Phase 59 planned: 2026-03-09 -- 4 plans, 10 safety requirements*
 *Phase 55 revised: 2026-03-09 -- 5 plans, 5 requirements (CORE-03, SEC-01-04)*
 *Phase 56 planned: 2026-03-10 -- 2 plans, 5 requirements (ORG-01-05)*
+*Phase 56 gap closure: 2026-03-10 -- 1 plan closing 2 verification gaps (stub tests, seed migration)*
