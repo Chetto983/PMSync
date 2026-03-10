@@ -78,6 +78,92 @@ export class EmbeddingsService {
   }
 
   /**
+   * Persist multiple embedding vectors in a single multi-row INSERT.
+   * BULK FIX: Replaces N individual saveEmbedding() calls with 1 SQL statement.
+   *
+   * @param options Array of embedding options
+   * @returns Number of embeddings saved
+   */
+  async saveBulkEmbeddings(options: SaveEmbeddingOptions[]): Promise<number> {
+    if (!options.length) return 0;
+
+    // Validate all embeddings first — skip invalid ones
+    const valid: Array<SaveEmbeddingOptions & { validated: number[] }> = [];
+    for (const opt of options) {
+      try {
+        const validated = validateEmbeddingVector(opt.embedding);
+        valid.push({ ...opt, validated });
+      } catch {
+        this.logger.warn(`Skipping invalid embedding in bulk save (emailId=${opt.emailId}, contactId=${opt.contactId})`);
+      }
+    }
+
+    if (!valid.length) return 0;
+
+    // Build multi-row INSERT with raw SQL for pgvector compatibility
+    // Process in batches of 100 to avoid query size limits
+    const BATCH_SIZE = 100;
+    let totalSaved = 0;
+
+    for (let i = 0; i < valid.length; i += BATCH_SIZE) {
+      const batch = valid.slice(i, i + BATCH_SIZE);
+
+      // Build VALUES clause fragments
+      const valueFragments = batch.map((opt) => {
+        const id = nanoid();
+        const vectorLiteral = Prisma.raw(`'[${opt.validated.join(',')}]'::vector`);
+        const metadataString = opt.metadata ? JSON.stringify(opt.metadata) : null;
+        const metadataFragment = metadataString
+          ? Prisma.sql`${metadataString}::jsonb`
+          : Prisma.sql`NULL::jsonb`;
+
+        return Prisma.sql`(${id}, ${opt.tenantId}, ${opt.documentName ?? null}, ${vectorLiteral}, ${opt.model}, ${metadataFragment}, NOW(), ${opt.emailId ?? null}, ${opt.contactId ?? null})`;
+      });
+
+      // Join all value fragments with commas
+      const valuesClause = Prisma.join(valueFragments, ',\n');
+
+      try {
+        const result = await this.prisma.$executeRaw(
+          Prisma.sql`
+            INSERT INTO "embeddings"
+              ("id", "tenantId", "documentName", "vector", "embeddingModel", "metadata", "createdAt", "emailId", "contactId")
+            VALUES
+              ${valuesClause}
+          `,
+        );
+        totalSaved += result;
+      } catch (error) {
+        this.logger.error(`Bulk embedding save failed for batch ${i / BATCH_SIZE + 1}: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
+      }
+    }
+
+    return totalSaved;
+  }
+
+  /**
+   * Batch check which emailIds already have embeddings.
+   * BULK FIX: Replaces N individual hasEmbeddingForEmail() calls with 1 query.
+   *
+   * @returns Set of emailIds that already have embeddings
+   */
+  async getExistingEmailIds(tenantId: string, emailIds: string[]): Promise<Set<string>> {
+    if (!emailIds.length) return new Set();
+
+    const results = await this.prisma.embedding.findMany({
+      where: {
+        tenantId,
+        emailId: { in: emailIds },
+      },
+      select: { emailId: true },
+      distinct: ['emailId'],
+    });
+
+    return new Set(results.map((r) => r.emailId).filter(Boolean) as string[]);
+  }
+
+  /**
    * Perform similarity search using pgvector <-> operator.
    *
    * CRITICAL: Uses CTE to ensure tenant isolation at query level.

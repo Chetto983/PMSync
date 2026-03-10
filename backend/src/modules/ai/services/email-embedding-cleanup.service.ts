@@ -83,71 +83,63 @@ export class EmailEmbeddingCleanupService implements OnModuleInit {
       `Cleaning embeddings for ${emails.length} deleted email(s).`,
     );
 
+    // BULK FIX: Batch-delete all embeddings in one call per tenant instead of N individual calls
+    const emailsByTenant = new Map<string, DeletedEmailRecord[]>();
     for (const email of emails) {
-      await this.cleanupForEmail(email as DeletedEmailRecord);
+      const list = emailsByTenant.get(email.tenantId) ?? [];
+      list.push(email as DeletedEmailRecord);
+      emailsByTenant.set(email.tenantId, list);
     }
-  }
 
-  private async cleanupForEmail(email: DeletedEmailRecord): Promise<void> {
     const nowIso = new Date().toISOString();
-    const existingMetadata = (email.metadata ?? {});
+    const successIds: string[] = [];
+    const failedIds: { id: string; tenantId: string; error: string }[] = [];
 
-    try {
-      const removed = await this.knowledgeBaseService.deleteEmbeddingsForEmail(
-        email.tenantId,
-        email.id,
-      );
-
-      const updatedMetadata = {
-        ...existingMetadata,
-        embeddingCleanup: {
-          status: 'done',
-          removedVectors: removed,
-          lastRunAt: nowIso,
-        },
-      };
-
-      await this.prisma.email.update({
-        where: { id_tenantId: { id: email.id, tenantId: email.tenantId } },
-        data: {
-          metadata: updatedMetadata,
-        },
-      });
-
-      if (removed > 0) {
-        this.logger.verbose(
-          `Removed ${removed} embeddings for deleted email ${email.id} (tenant ${email.tenantId}).`,
-        );
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Failed to cleanup embeddings for email ${email.id}: ${message}`,
-      );
-
-      const updatedMetadata = {
-        ...existingMetadata,
-        embeddingCleanup: {
-          status: 'error',
-          lastRunAt: nowIso,
-          error: message,
-        },
-      };
-
+    for (const [tenantId, tenantEmails] of emailsByTenant) {
+      const emailIds = tenantEmails.map((e) => e.id);
       try {
-        await this.prisma.email.update({
-          where: { id_tenantId: { id: email.id, tenantId: email.tenantId } },
-          data: {
-            metadata: updatedMetadata,
-          },
-        });
-      } catch (metadataError) {
-        const metadataMessage =
-          metadataError instanceof Error ? metadataError.message : String(metadataError);
-        this.logger.warn(
-          `Failed to record cleanup error for email ${email.id}: ${metadataMessage}`,
-        );
+        await this.knowledgeBaseService.deleteEmbeddingsForEmails(tenantId, emailIds);
+        successIds.push(...emailIds);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Batch embedding cleanup failed for tenant ${tenantId}: ${message}`);
+        for (const id of emailIds) {
+          failedIds.push({ id, tenantId, error: message });
+        }
+      }
+    }
+
+    // Batch-update metadata for successful cleanups
+    if (successIds.length > 0) {
+      try {
+        await this.prisma.$executeRaw`
+          UPDATE "emails"
+          SET "metadata" = COALESCE("metadata", '{}'::jsonb) || ${JSON.stringify({
+            embeddingCleanup: { status: 'done', lastRunAt: nowIso },
+          })}::jsonb
+          WHERE "id" = ANY(${successIds})
+        `;
+      } catch (error) {
+        this.logger.warn(`Batch metadata update failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    // Batch-update metadata for failed cleanups
+    if (failedIds.length > 0) {
+      const failedEmailIds = failedIds.map((f) => f.id);
+      try {
+        await this.prisma.$executeRaw`
+          UPDATE "emails"
+          SET "metadata" = COALESCE("metadata", '{}'::jsonb) || ${JSON.stringify({
+            embeddingCleanup: { status: 'error', lastRunAt: nowIso },
+          })}::jsonb
+          WHERE "id" = ANY(${failedEmailIds})
+        `;
+      } catch (error) {
+        this.logger.warn(`Batch error metadata update failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }
+
+  // cleanupForEmail removed — replaced by batch operations in cleanupDeletedEmailEmbeddings()
 }

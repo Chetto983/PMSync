@@ -411,8 +411,25 @@ export class EmailCleanupService implements OnModuleInit {
         break;
       }
 
+      // BULK FIX: Batch-delete all embeddings for this batch in one call per tenant
+      // Before: 1 deleteEmbeddingsForEmail() per email = N queries
+      // After: 1 deleteEmbeddingsForEmails() per tenant = 1 query
+      const emailsByTenant = new Map<string, string[]>();
       for (const email of batch) {
-        const stats = await this.permanentlyDeleteEmail(email.id, email.tenantId);
+        const ids = emailsByTenant.get(email.tenantId) ?? [];
+        ids.push(email.id);
+        emailsByTenant.set(email.tenantId, ids);
+      }
+      for (const [tid, emailIds] of emailsByTenant) {
+        try {
+          await this.knowledgeBaseService.deleteEmbeddingsForEmails(tid, emailIds);
+        } catch (error) {
+          this.logger.warn(`Batch embedding delete failed for tenant ${tid}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      for (const email of batch) {
+        const stats = await this.permanentlyDeleteEmailWithoutEmbeddings(email.id, email.tenantId);
         totalAttachmentsFound += stats.attachmentsFound;
         totalS3Deleted += stats.s3Deleted;
         totalS3Failed += stats.s3Failed;
@@ -465,8 +482,23 @@ export class EmailCleanupService implements OnModuleInit {
     let s3Deleted = 0;
     let s3Failed = 0;
 
+    // BULK FIX: Batch-delete all embeddings first
+    const dupsByTenant = new Map<string, string[]>();
+    for (const dup of duplicates) {
+      const ids = dupsByTenant.get(dup.tenantId) ?? [];
+      ids.push(dup.id);
+      dupsByTenant.set(dup.tenantId, ids);
+    }
+    for (const [tid, emailIds] of dupsByTenant) {
+      try {
+        await this.knowledgeBaseService.deleteEmbeddingsForEmails(tid, emailIds);
+      } catch (error) {
+        this.logger.warn(`Batch embedding delete failed for duplicates (tenant ${tid}): ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
     for (const duplicate of duplicates) {
-      const stats = await this.permanentlyDeleteEmail(duplicate.id, duplicate.tenantId);
+      const stats = await this.permanentlyDeleteEmailWithoutEmbeddings(duplicate.id, duplicate.tenantId);
       attachmentsFound += stats.attachmentsFound;
       s3Deleted += stats.s3Deleted;
       s3Failed += stats.s3Failed;
@@ -608,6 +640,79 @@ export class EmailCleanupService implements OnModuleInit {
           }),
         );
         // Don't throw - email already deleted from DB
+      }
+    }
+
+    return { attachmentsFound, s3Deleted, s3Failed, orphanedKeys };
+  }
+
+  /**
+   * Permanently delete email WITHOUT embedding cleanup.
+   * Used by batch callers that already deleted embeddings in bulk.
+   * Same as permanentlyDeleteEmail but skips step 2 (embedding delete).
+   */
+  private async permanentlyDeleteEmailWithoutEmbeddings(id: string, tenantId: string): Promise<{
+    attachmentsFound: number;
+    s3Deleted: number;
+    s3Failed: number;
+    orphanedKeys: string[];
+  }> {
+    const attachments = await this.prisma.emailAttachment.findMany({
+      where: { emailId: id },
+      select: { id: true, storagePath: true, storageType: true, filename: true, size: true },
+    });
+
+    const attachmentsFound = attachments.length;
+    let s3Deleted = 0;
+    let s3Failed = 0;
+    const orphanedKeys: string[] = [];
+
+    // Skip embedding delete — caller already handled it in bulk
+
+    const deleteResult = await this.prisma.email.deleteMany({
+      where: { id },
+    });
+
+    if (deleteResult.count === 0) {
+      this.logger.debug(`Email ${id} already deleted by another operation, cleaning up S3 only`);
+    }
+
+    const s3Attachments = attachments.filter((a) => a.storageType === 's3' && a.storagePath);
+    const s3Keys = s3Attachments.map((a) => a.storagePath!);
+
+    if (s3Keys.length > 0) {
+      try {
+        const result = await this.storage.deleteObjects(s3Keys);
+        s3Deleted += result.deleted;
+        s3Failed += result.failed;
+
+        if (result.errors?.length) {
+          for (const error of result.errors) {
+            this.orphanedS3Keys.set(error.key, {
+              key: error.key,
+              tenantId,
+              failedAt: new Date(),
+              errorCode: error.code,
+              errorMessage: error.message,
+            });
+            orphanedKeys.push(error.key);
+          }
+        }
+      } catch (error) {
+        s3Failed += s3Keys.length;
+        for (const key of s3Keys) {
+          this.orphanedS3Keys.set(key, { key, tenantId, failedAt: new Date() });
+          orphanedKeys.push(key);
+        }
+        this.logger.error(
+          JSON.stringify({
+            event: 's3_batch_delete_failed',
+            emailId: id,
+            tenantId,
+            s3ObjectsOrphaned: s3Keys.length,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
       }
     }
 

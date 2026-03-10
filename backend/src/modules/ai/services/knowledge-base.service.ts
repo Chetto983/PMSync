@@ -82,6 +82,17 @@ export class KnowledgeBaseService {
 
     const results: Array<{ emailId: string; success: boolean; error?: string }> = [];
 
+    // BULK FIX: Batch check existing embeddings instead of N individual hasEmbeddingForEmail() calls
+    const tenantIds = [...new Set(emailOptions.map((o) => o.tenantId))];
+    const existingIds = new Set<string>();
+    for (const tenantId of tenantIds) {
+      const tenantEmailIds = emailOptions.filter((o) => o.tenantId === tenantId).map((o) => o.emailId).filter(Boolean) as string[];
+      if (tenantEmailIds.length > 0) {
+        const existing = await this.embeddingsService.getExistingEmailIds(tenantId, tenantEmailIds);
+        for (const id of existing) existingIds.add(id);
+      }
+    }
+
     // Prepare all chunks from all emails
     const allChunksData: Array<{
       emailId: string;
@@ -98,7 +109,7 @@ export class KnowledgeBaseService {
     }> = [];
 
     for (const options of emailOptions) {
-      if (options.emailId && (await this.embeddingsService.hasEmbeddingForEmail(options.tenantId, options.emailId))) {
+      if (options.emailId && existingIds.has(options.emailId)) {
         results.push({ emailId: options.emailId, success: false, error: 'Already exists' });
         continue;
       }
@@ -141,43 +152,40 @@ export class KnowledgeBaseService {
       // Generate ALL embeddings first — if this throws, no old data is deleted
       const embeddings = await this.mistralService.generateBulkEmbeddings(allContents);
 
-      // Track which emails have had their old embeddings deleted (swap pattern)
-      const deletedEmailIds = new Set<string>();
-
-      for (let i = 0; i < allChunksData.length; i++) {
-        const chunkData = allChunksData[i];
-        const embedding = embeddings[i];
-
-        try {
-          // Delete old embeddings for this email once, right before saving new ones
-          if (!deletedEmailIds.has(chunkData.emailId)) {
-            await this.crudService.deleteEmbeddingsForEmail(chunkData.tenantId, chunkData.emailId);
-            deletedEmailIds.add(chunkData.emailId);
-          }
-
-          await this.embeddingsService.saveEmbedding({
-            tenantId: chunkData.tenantId,
-            embedding,
-            model: this.mistralService.getEmbeddingModel(),
-            documentName: chunkData.subject,
-            emailId: chunkData.emailId,
-            metadata: {
-              source: 'email',
-              emailId: chunkData.emailId,
-              subject: chunkData.subject,
-              from: chunkData.from,
-              receivedAt: chunkData.receivedAt ?? null,
-              chunkIndex: chunkData.chunkIndex,
-              chunkCount: chunkData.chunkCount,
-              hasAttachments: chunkData.hasAttachments,
-              attachmentCount: chunkData.attachmentCount,
-              attachmentIds: chunkData.attachmentIds,
-            },
-          });
-        } catch (saveError) {
-          this.logger.warn(`Failed to save embedding for email ${chunkData.emailId}: ${saveError instanceof Error ? saveError.message : String(saveError)}`);
-        }
+      // BULK FIX: Batch-delete old embeddings for all emails in one call per tenant
+      const emailIdsByTenant = new Map<string, string[]>();
+      for (const chunkData of allChunksData) {
+        const ids = emailIdsByTenant.get(chunkData.tenantId) ?? [];
+        if (!ids.includes(chunkData.emailId)) ids.push(chunkData.emailId);
+        emailIdsByTenant.set(chunkData.tenantId, ids);
       }
+      for (const [tid, emailIds] of emailIdsByTenant) {
+        await this.crudService.deleteEmbeddingsForEmails(tid, emailIds);
+      }
+
+      // BULK FIX: Batch-save all embeddings in one multi-row INSERT instead of N individual INSERTs
+      const model = this.mistralService.getEmbeddingModel();
+      const saveOptions = allChunksData.map((chunkData, i) => ({
+        tenantId: chunkData.tenantId,
+        embedding: embeddings[i],
+        model,
+        documentName: chunkData.subject,
+        emailId: chunkData.emailId,
+        metadata: {
+          source: 'email',
+          emailId: chunkData.emailId,
+          subject: chunkData.subject,
+          from: chunkData.from,
+          receivedAt: chunkData.receivedAt ?? null,
+          chunkIndex: chunkData.chunkIndex,
+          chunkCount: chunkData.chunkCount,
+          hasAttachments: chunkData.hasAttachments,
+          attachmentCount: chunkData.attachmentCount,
+          attachmentIds: chunkData.attachmentIds,
+        },
+      }));
+
+      await this.embeddingsService.saveBulkEmbeddings(saveOptions);
 
       const processedEmailIds = new Set(allChunksData.map((c) => c.emailId));
       for (const emailId of processedEmailIds) {

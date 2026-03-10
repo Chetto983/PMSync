@@ -147,6 +147,16 @@ export class SyncBackOrchestratorService {
     const otherOps: EmailSyncOperation[] = [];
     const providerTenantMap = new Map<string, string>();
 
+    // BULK FIX: Pre-fetch all providers in 1 query instead of N individual findFirst() calls
+    const uniqueProviderIds = [...new Set(operations.map((op) => op.providerId).filter(Boolean))];
+    const providers = uniqueProviderIds.length > 0
+      ? await this.prisma.providerConfig.findMany({
+          where: { id: { in: uniqueProviderIds } },
+          select: { id: true, providerType: true, tenantId: true },
+        })
+      : [];
+    const providerMap = new Map(providers.map((p) => [p.id, p]));
+
     for (const op of operations) {
       if (!op.externalId || op.externalId.trim() === '') {
         this.logger.error(`Skipping operation with invalid externalId for email ${op.emailId}`);
@@ -164,11 +174,8 @@ export class SyncBackOrchestratorService {
         continue;
       }
 
-      const provider = await this.prisma.providerConfig.findFirst({
-        where: { id: op.providerId, tenantId: op.tenantId },
-        select: { id: true, providerType: true },
-      });
-      if (!provider) {
+      const provider = providerMap.get(op.providerId);
+      if (!provider || provider.tenantId !== op.tenantId) {
         this.logger.error(`Provider ${op.providerId} not found for operation ${op.operation} on email ${op.emailId}`);
         continue;
       }
