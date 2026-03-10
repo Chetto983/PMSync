@@ -192,7 +192,7 @@ Plans:
   3. Organization owner/admin can assign and change roles (owner, admin, member) for members
   4. User belonging to multiple organizations can switch between them and the UI/API context updates
   5. API endpoints enforce organization-level permissions (members cannot perform admin/owner actions)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 56-01: TBD
@@ -207,7 +207,7 @@ Plans:
   2. Admin can ban a user with a reason and optional expiry; banned user cannot sign in and sees ban reason
   3. Admin can impersonate a user to troubleshoot their experience, with audit trail of impersonation
   4. Admin can revoke any user's active sessions, forcing immediate re-authentication
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 57-01: TBD
@@ -264,10 +264,11 @@ Plans:
   2. Unauthenticated requests to `/dashboard/*` are server-side redirected to `/auth/login` without content flash
   3. `frontend/lib/auth.ts` duplicate better-auth instance removed; onboarding uses backend canonical instance
   4. `cookieCache.strategy` aligned between frontend auth config and backend instance
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 60-01: TBD
+- [ ] 60-01-PLAN.md — Middleware rename + auth instance cleanup + cookieCache alignment
+- [ ] 60-02-PLAN.md — E2E Playwright tests for middleware redirect behavior
 
 ### Phase 61: GDPR Organization Compliance
 **Goal**: GDPR data export and erasure cover better-auth organization tables
@@ -277,7 +278,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. GDPR data export includes better-auth organization membership, invitation, and role tables
   2. Right to erasure cascades into organization membership and cleans up orphaned org references
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 61-01: TBD
@@ -303,7 +304,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
 | 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
-| 60. Middleware & Auth Cleanup | 0/TBD | Not started | - | - |
+| 60. Middleware & Auth Cleanup | 0/2 | Planned | - | - |
 | 61. GDPR Org Compliance | 0/TBD | Not started | - | - |
 
 ---
