@@ -80,7 +80,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
  (completed 2026-03-06)
 - [x] **Phase 53: Frontend Auth UI** - Login/signup pages, session hooks, protected routes with better-auth client (completed 2026-03-09)
 - [x] **Phase 54: WebSocket Auth** - Verified existing better-auth WS handshake (7/7 tests pass, zero JWT remnants) (completed 2026-03-09)
-- [x] **Phase 55: Social Login & MFA** - Google OAuth, TOTP 2FA, passkeys, backup codes, security settings (completed 2026-03-09)
+- [x] **Phase 55: Social Login & MFA** - Google OAuth, TOTP 2FA, passkeys, backup codes, security settings (completed 2026-03-09)
 - [ ] **Phase 56: Organizations** - Org creation, invitations, roles, switching, API permission enforcement
 - [ ] **Phase 57: Admin Panel** - User management, ban/unban, impersonation, session revocation
 - [x] **Phase 58: Compliance & Cleanup** - Audit trail hooks, GDPR updates, legacy code deletion, test rewrite (completed 2026-03-09)
@@ -195,8 +195,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 56-01: TBD
-- [ ] 56-02: TBD
+- [ ] 56-01-PLAN.md — Schema + organization plugin + guard extension + data migration
+- [ ] 56-02-PLAN.md — Org admin page + org switcher + invitation banner + i18n
 
 ### Phase 57: Admin Panel
 **Goal**: Admins can manage users and sessions from an admin interface
@@ -226,9 +226,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 58-01-PLAN.md -- Audit hooks + guard relocation� Audit hooks + guard relocation
-- [ ] 58-02-PLAN.md -- Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)� Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)
-- [ ] 58-03-PLAN.md -- Auth test suite (partial, no org/admin)� Auth test suite (partial, no org/admin)
+- [ ] 58-01-PLAN.md -- Audit hooks + guard relocation
+- [ ] 58-02-PLAN.md -- Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)
+- [ ] 58-03-PLAN.md -- Auth test suite (partial, no org/admin)
 
 ### Phase 59: Safety Hardening
 **Goal**: Critical and high-severity security findings from architecture audit are fixed -- secrets purged from git, rate limiting enforced, injection vectors closed, JWT removed, production exposure locked down
@@ -300,7 +300,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 53. Frontend Auth UI | 2/2 | Complete    | 2026-03-09 | 2026-03-09 |
 | 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
 | 55. Social Login & MFA | 5/5 | Complete    | 2026-03-09 | - |
-| 56. Organizations | v5.0 | 0/TBD | Not started | - |
+| 56. Organizations | v5.0 | 0/2 | Planned | - |
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
 | 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
@@ -313,3 +313,4 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 *v5.0 roadmap added: 2026-03-06 -- 9 phases, 35 requirements*
 *Phase 59 planned: 2026-03-09 -- 4 plans, 10 safety requirements*
 *Phase 55 revised: 2026-03-09 -- 5 plans, 5 requirements (CORE-03, SEC-01-04)*
+*Phase 56 planned: 2026-03-10 -- 2 plans, 5 requirements (ORG-01-05)*
