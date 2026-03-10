@@ -8,26 +8,24 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v5.0 better-auth Migration
+## Current Milestone: v5.1 Test Coverage & Polish
 
-**Goal:** Replace broken custom auth with better-auth — full enterprise auth (email/password, social login, 2FA, organizations/roles, admin panel) with clean slate migration.
+**Goal:** Deep automated test coverage across all functionality, MUI consistency audit, and production polish.
 
 **Target features:**
-- better-auth as auth provider (Next.js side)
-- NestJS backend session validation (best 2026 integration pattern)
-- Social login (Google OAuth)
-- Two-factor authentication (TOTP/passkeys)
-- Organization & roles support
-- Admin panel
-- Clean slate: existing users re-register
+- Backend unit + integration tests for all untested modules (calendar, labels, providers, subscription, tenants, users, health)
+- Frontend E2E tests for all v5.0 features (orgs, admin, onboarding, security settings, invitations)
+- Frontend unit tests for critical hooks and stores
+- MUI audit — catch and fix any non-MUI patterns from v5.0
+- Fix whatever the tests reveal
 
 ## Current State
 
-**Version:** v5.0 in progress
+**Version:** v5.1 in progress
 **Status:** Defining requirements
-**Base:** v4.1 Security Hardening & Debt Reduction (shipped 2026-03-06)
+**Base:** v5.0 better-auth Migration (completed 2026-03-10)
 
-**Previous:** v4.1 Security Hardening & Debt Reduction shipped 2026-03-06 (8 phases, 28 plans, 65/66 requirements).
+**Previous:** v5.0 better-auth Migration completed 2026-03-10 (16 phases, 35 plans, 51/51 requirements).
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
@@ -96,6 +94,16 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 - ✓ Old VoltAgent code deleted (167 files, 33K LOC)
 - ✓ Playwright E2E for chat frontend
 
+**v5.0 - better-auth Migration (completed 2026-03-10):**
+- ✓ CORE-01..07: better-auth email/password, Google OAuth, email verification, password reset, HIBP, DB sessions
+- ✓ NEST-01..06: Global BetterAuthGuard, TenantGuard/RolesGuard compat, WS auth, BullMQ context
+- ✓ FEUI-01..04: MUI auth pages, useSession hooks, protected routes with middleware redirect
+- ✓ SEC-01..04: TOTP 2FA, passkeys (WebAuthn), backup codes, security settings
+- ✓ ORG-01..05: Org create/invite/roles/switch, WS reconnect, API permission enforcement
+- ✓ ADM-01..04: User list/search, ban/unban, impersonation, session revocation
+- ✓ CLN-01..05: Audit trail hooks, GDPR org coverage, legacy auth deletion, test rewrite
+- ✓ SAF-01..10: SQL injection fixes, rate limiting, JWT removal, Swagger lockdown, secrets rotation
+
 **v4.1 - Security Hardening & Debt Reduction (shipped 2026-03-06):**
 - ✓ TSEC-01..07: Prisma tenant-scoping (42 models), RolesGuard >50% controllers
 - ✓ AUTH-01..05: JWT refresh rotation (15min access tokens), family-based theft detection
@@ -128,14 +136,10 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- v5.0 requirements - defined during milestone planning -->
+<!-- v5.1 requirements - defined during milestone planning -->
 
-**v5.0 - better-auth Migration (in progress):**
-- Phase 50: Schema & infrastructure (better-auth tables, BetterAuthModule) -- complete
-- Phase 51: Core email/password auth (signup, signin, verify, reset) -- complete
-- Phase 52: NestJS session validation (global BetterAuthGuard, guard chain migration) -- complete
-- Phase 53: Frontend auth UI (login/signup pages, session hooks, protected routes) -- complete
-- Phase 54: WebSocket auth (verified existing better-auth WS handshake, NEST-05) -- complete
+**v5.1 - Test Coverage & Polish (in progress):**
+- TBD — requirements being defined
 
 ### Out of Scope
 
@@ -253,4 +257,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | cookieCache compact with 300s maxAge | Reduces DB session lookups; 5-min cache with compact strategy | ✓ Good |
 
 ---
-*Last updated: 2026-03-10 after Phase 60*
+*Last updated: 2026-03-10 after v5.1 milestone start*
