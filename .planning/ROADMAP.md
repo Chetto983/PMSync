@@ -208,7 +208,7 @@ Plans:
   2. Admin can ban a user with a reason and optional expiry; banned user cannot sign in and sees ban reason
   3. Admin can impersonate a user to troubleshoot their experience, with audit trail of impersonation
   4. Admin can revoke any user's active sessions, forcing immediate re-authentication
-**Plans**: 2 plans
+**Plans:** 1 plan
 
 Plans:
 - [ ] 57-01-PLAN.md — Schema + admin plugin + audit hooks + test scaffold
@@ -265,7 +265,7 @@ Plans:
   2. Unauthenticated requests to `/dashboard/*` are server-side redirected to `/auth/login` without content flash
   3. `frontend/lib/auth.ts` duplicate better-auth instance removed; onboarding uses backend canonical instance
   4. `cookieCache.strategy` aligned between frontend auth config and backend instance
-**Plans**: 2 plans
+**Plans:** 1 plan
 
 Plans:
 - [ ] 60-01-PLAN.md — Middleware rename + auth instance cleanup + cookieCache alignment
@@ -279,10 +279,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. GDPR data export includes better-auth organization membership, invitation, and role tables
   2. Right to erasure cascades into organization membership and cleans up orphaned org references
-**Plans**: 2 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] 61-01: TBD
+- [ ] 61-01-PLAN.md — Extend data export with org/auth tables + orphaned org cleanup after erasure
 
 ## Progress
 
