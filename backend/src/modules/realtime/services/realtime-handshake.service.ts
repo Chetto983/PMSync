@@ -14,6 +14,7 @@ interface HandshakeResult {
 
 interface BetterAuthSession {
   id: string;
+  activeOrganizationId?: string | null;
 }
 
 interface BetterAuthUser {
@@ -111,9 +112,10 @@ export class RealtimeHandshakeService {
       throw new UnauthorizedException('Invalid or expired session');
     }
 
-    const { user } = result;
+    const { session, user } = result;
+    const activeTenantId = session.activeOrganizationId || user.tenantId;
 
-    if (!user.tenantId) {
+    if (!activeTenantId) {
       this.logger.warn(
         JSON.stringify({
           event: 'ws_auth_missing_tenant',
@@ -158,27 +160,55 @@ export class RealtimeHandshakeService {
       throw new UnauthorizedException('User not found');
     }
 
-    if (!persistedUser.tenantId || persistedUser.tenantId !== user.tenantId) {
-      this.logger.warn(
-        JSON.stringify({
-          event: 'ws_auth_tenant_mismatch',
-          userId: user.id,
-          sessionTenantId: user.tenantId,
-          userTenantId: persistedUser.tenantId,
+    if (activeTenantId === persistedUser.tenantId) {
+      if (!persistedUser.tenant?.isActive) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'ws_auth_tenant_inactive',
+            userId: user.id,
+            tenantId: activeTenantId,
+          }),
+        );
+        throw new ForbiddenException('Organization is disabled');
+      }
+    } else {
+      const membership = await withoutTenantScopingAsync(() =>
+        this.prisma.member.findFirst({
+          where: {
+            userId: user.id,
+            organizationId: activeTenantId,
+          },
+          select: {
+            organizationId: true,
+            organization: {
+              select: { isActive: true },
+            },
+          },
         }),
       );
-      throw new UnauthorizedException('Tenant mismatch');
-    }
 
-    if (!persistedUser.tenant?.isActive) {
-      this.logger.warn(
-        JSON.stringify({
-          event: 'ws_auth_tenant_inactive',
-          userId: user.id,
-          tenantId: persistedUser.tenantId,
-        }),
-      );
-      throw new ForbiddenException('Organization is disabled');
+      if (!membership) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'ws_auth_membership_missing',
+            userId: user.id,
+            sessionTenantId: activeTenantId,
+            userTenantId: persistedUser.tenantId,
+          }),
+        );
+        throw new UnauthorizedException('Tenant mismatch');
+      }
+
+      if (!membership.organization.isActive) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'ws_auth_tenant_inactive',
+            userId: user.id,
+            tenantId: activeTenantId,
+          }),
+        );
+        throw new ForbiddenException('Organization is disabled');
+      }
     }
 
     this.logger.log(
@@ -186,15 +216,15 @@ export class RealtimeHandshakeService {
         event: 'ws_auth_success',
         userId: user.id,
         email: this.redactEmail(user.email),
-        tenantId: persistedUser.tenantId,
+        tenantId: activeTenantId,
       }),
     );
 
     return {
       userId: user.id,
-      tenantId: persistedUser.tenantId,
+      tenantId: activeTenantId,
       email: user.email,
-      tenantRoom: buildTenantRoom(persistedUser.tenantId),
+      tenantRoom: buildTenantRoom(activeTenantId),
     };
   }
 }

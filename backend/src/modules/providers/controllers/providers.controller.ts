@@ -145,7 +145,7 @@ export class ProvidersController {
   @ApiOperation({
     summary: 'Auto-connect email provider from social login tokens',
     description:
-      'Reads tokens from better-auth Account table and creates a ProviderConfig. ' +
+      'Resolves tokens from the linked Better Auth social account and creates a ProviderConfig. ' +
       'Eliminates the need for a second OAuth flow during onboarding.',
   })
   @ApiResponse({ status: 200, type: ProviderConfigResponseDto })
@@ -164,7 +164,7 @@ export class ProvidersController {
       return { connected: false, reason: 'No social login account found with valid tokens' };
     }
 
-    return result;
+    return result as unknown as ProviderConfigResponseDto;
   }
 
   // ========== GENERIC PROVIDER (IMAP/CalDAV) ==========

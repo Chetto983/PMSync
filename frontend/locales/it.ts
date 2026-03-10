@@ -285,6 +285,8 @@ export const it: AppTranslations = {
     login: {
       title: 'Bentornato',
       subtitle: 'Autenticazione sicura con MFA e protezioni di sessione.',
+      verificationNotice:
+        "La tua email non è ancora verificata. Abbiamo inviato un nuovo link di verifica a {email}.",
       form: {
         emailLabel: 'Email di lavoro',
         passwordLabel: 'Password',
@@ -326,6 +328,10 @@ export const it: AppTranslations = {
         privacyPolicy: "l'Informativa sulla Privacy",
         termsRequired: 'Devi accettare i Termini di Servizio e l\'Informativa sulla Privacy per registrarti.',
       },
+      successTitle: 'Controlla la tua casella',
+      successDescription:
+        'Abbiamo inviato un link di verifica a {email}. Verifica la tua email per continuare.',
+      successAction: 'Vai al login',
       links: {
         primary: { href: '/auth/login', label: 'Hai già un account? Accedi' },
       },

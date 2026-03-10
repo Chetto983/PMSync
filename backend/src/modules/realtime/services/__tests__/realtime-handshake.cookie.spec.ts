@@ -9,6 +9,7 @@ describe('RealtimeHandshakeService', () => {
   function createService(overrides: {
     sessionResult?: any;
     persistedUser?: any;
+    membership?: any;
     sessionError?: Error;
   } = {}) {
     const mockAuth = {
@@ -40,6 +41,16 @@ describe('RealtimeHandshakeService', () => {
                 id: 'user-1',
                 tenantId: 'tenant-1',
                 tenant: { isActive: true },
+              },
+        ),
+      },
+      member: {
+        findFirst: jest.fn().mockResolvedValue(
+          Object.prototype.hasOwnProperty.call(overrides, 'membership')
+            ? overrides.membership
+            : {
+                organizationId: 'tenant-2',
+                organization: { isActive: true },
               },
         ),
       },
@@ -110,7 +121,7 @@ describe('RealtimeHandshakeService', () => {
   it('rejects inactive accounts', async () => {
     const { service } = createService({
       sessionResult: {
-        session: { id: 'sess-1' },
+        session: { id: 'sess-1', activeOrganizationId: null },
         user: {
           id: 'user-1',
           email: 'user@example.com',
@@ -128,7 +139,7 @@ describe('RealtimeHandshakeService', () => {
   it('rejects users without tenant assignment', async () => {
     const { service } = createService({
       sessionResult: {
-        session: { id: 'sess-1' },
+        session: { id: 'sess-1', activeOrganizationId: null },
         user: {
           id: 'user-1',
           email: 'user@example.com',
@@ -145,6 +156,15 @@ describe('RealtimeHandshakeService', () => {
 
   it('rejects inactive organizations', async () => {
     const { service } = createService({
+      sessionResult: {
+        session: { id: 'sess-1', activeOrganizationId: null },
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          isActive: true,
+        },
+      },
       persistedUser: {
         id: 'user-1',
         tenantId: 'tenant-1',
@@ -168,5 +188,55 @@ describe('RealtimeHandshakeService', () => {
       email: 'user@example.com',
       tenantRoom: 'tenant:tenant-1',
     });
+  });
+
+  it('uses activeOrganizationId for cross-org websocket membership', async () => {
+    const { service, mockPrisma } = createService({
+      sessionResult: {
+        session: { id: 'sess-1', activeOrganizationId: 'tenant-2' },
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          isActive: true,
+        },
+      },
+    });
+
+    const result = await service.authenticate(createClient());
+
+    expect(mockPrisma.member.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        organizationId: 'tenant-2',
+      },
+      select: {
+        organizationId: true,
+        organization: {
+          select: { isActive: true },
+        },
+      },
+    });
+    expect(result.tenantId).toBe('tenant-2');
+    expect(result.tenantRoom).toBe('tenant:tenant-2');
+  });
+
+  it('rejects active organizations when the user is not a member', async () => {
+    const { service } = createService({
+      sessionResult: {
+        session: { id: 'sess-1', activeOrganizationId: 'tenant-2' },
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          tenantId: 'tenant-1',
+          isActive: true,
+        },
+      },
+      membership: null,
+    });
+
+    await expect(service.authenticate(createClient())).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

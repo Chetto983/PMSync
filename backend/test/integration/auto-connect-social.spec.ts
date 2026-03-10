@@ -4,7 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
  * Auto-Connect Social Provider Tests (PARANOID)
  *
  * Validates the complete auto-connect flow:
- * 1. Reads better-auth Account tokens and creates ProviderConfig
+ * 1. Reads better-auth Account metadata and resolves usable tokens via Better Auth
  * 2. Encrypts tokens via CryptoService before storing
  * 3. Deduplication: returns existing provider if already connected
  * 4. Returns null when no social account exists
@@ -20,6 +20,10 @@ jest.mock('../../src/prisma/tenant-scoping/tenant-context', () => ({
   withoutTenantScopingAsync: jest.fn((fn: () => any) => fn()),
 }));
 
+jest.mock('../../src/common/auth/better-auth.module', () => ({
+  BETTER_AUTH: 'BETTER_AUTH',
+}));
+
 import { ProviderConfigService } from '../../src/modules/providers/services/provider-config.service';
 import { ProviderConnectedEvent } from '../../src/common/events/provider.events';
 
@@ -29,6 +33,7 @@ describe('Auto-Connect Social Provider (E2E)', () => {
   let mockCrypto: any;
   let mockEventEmitter: EventEmitter2;
   let mockSubscriptionService: any;
+  let mockAuth: any;
 
   const TEST_TENANT = 'tenant-test-001';
   const TEST_USER = 'user-test-001';
@@ -63,6 +68,13 @@ describe('Auto-Connect Social Provider (E2E)', () => {
       }),
     };
 
+    mockAuth = {
+      api: {
+        getAccessToken: jest.fn(),
+        refreshToken: jest.fn(),
+      },
+    };
+
     service = new ProviderConfigService(
       mockPrisma,
       mockCrypto,
@@ -72,6 +84,7 @@ describe('Auto-Connect Social Provider (E2E)', () => {
       {} as any, // caldav
       mockSubscriptionService,
       mockEventEmitter,
+      mockAuth,
     );
   });
 
@@ -80,16 +93,18 @@ describe('Auto-Connect Social Provider (E2E)', () => {
   // =========================================================================
 
   it('auto-connects Google provider from Account tokens', async () => {
-    // Account with Google tokens (stored unencrypted by better-auth)
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-1',
-      userId: TEST_USER,
+      accountId: 'google-account-1',
       providerId: 'google',
+      refreshToken: '1//google-refresh-token-xyz',
+      accessToken: 'encrypted-or-legacy-token-placeholder',
+    });
+    mockAuth.api.refreshToken.mockResolvedValue({
+      providerId: 'google',
+      accountId: 'google-account-1',
       accessToken: 'ya29.google-access-token-xyz',
       refreshToken: '1//google-refresh-token-xyz',
       accessTokenExpiresAt: new Date('2026-03-10T12:00:00Z'),
-      scope: 'email profile gmail.modify',
-      updatedAt: new Date(),
     });
 
     // No existing ProviderConfig
@@ -132,7 +147,14 @@ describe('Auto-Connect Social Provider (E2E)', () => {
     expect(result).toHaveProperty('email', TEST_EMAIL);
     expect(result).toHaveProperty('providerType', 'google');
 
-    // Verify tokens were encrypted
+    expect(mockAuth.api.refreshToken).toHaveBeenCalledWith({
+      body: {
+        providerId: 'google',
+        accountId: 'google-account-1',
+        userId: TEST_USER,
+      },
+    });
+
     expect(mockCrypto.encrypt).toHaveBeenCalledWith('ya29.google-access-token-xyz');
     expect(mockCrypto.encrypt).toHaveBeenCalledWith('1//google-refresh-token-xyz');
 
@@ -172,14 +194,17 @@ describe('Auto-Connect Social Provider (E2E)', () => {
 
   it('auto-connects Microsoft provider from Account tokens', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-2',
-      userId: TEST_USER,
+      accountId: 'microsoft-account-2',
       providerId: 'microsoft',
+      refreshToken: 'M.R3_BAY.microsoft-refresh',
+      accessToken: 'encrypted-or-legacy-token-placeholder',
+    });
+    mockAuth.api.refreshToken.mockResolvedValue({
+      providerId: 'microsoft',
+      accountId: 'microsoft-account-2',
       accessToken: 'eyJ0.microsoft-access-token',
       refreshToken: 'M.R3_BAY.microsoft-refresh',
       accessTokenExpiresAt: new Date('2026-03-10T13:00:00Z'),
-      scope: 'openid email profile offline_access Mail.ReadWrite',
-      updatedAt: new Date(),
     });
 
     mockPrisma.providerConfig.findUnique.mockResolvedValue(null);
@@ -219,9 +244,15 @@ describe('Auto-Connect Social Provider (E2E)', () => {
       where: {
         userId: TEST_USER,
         providerId: { in: ['google', 'microsoft'] },
-        accessToken: { not: null },
+        OR: [{ accessToken: { not: null } }, { refreshToken: { not: null } }],
       },
       orderBy: { updatedAt: 'desc' },
+      select: {
+        accountId: true,
+        providerId: true,
+        accessToken: true,
+        refreshToken: true,
+      },
     });
   });
 
@@ -231,13 +262,10 @@ describe('Auto-Connect Social Provider (E2E)', () => {
 
   it('returns existing provider if already connected (no duplicate)', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-1',
-      userId: TEST_USER,
+      accountId: 'google-account-1',
       providerId: 'google',
       accessToken: 'ya29.token',
       refreshToken: '1//refresh',
-      accessTokenExpiresAt: new Date(),
-      updatedAt: new Date(),
     });
 
     // Provider already exists and is active
@@ -265,6 +293,7 @@ describe('Auto-Connect Social Provider (E2E)', () => {
     // Returns existing, does NOT upsert
     expect(result).toHaveProperty('id', 'pc-existing');
     expect(mockPrisma.providerConfig.upsert).not.toHaveBeenCalled();
+    expect(mockAuth.api.refreshToken).not.toHaveBeenCalled();
     expect(mockCrypto.encrypt).not.toHaveBeenCalled();
 
     // Does NOT emit event (no new connection)
@@ -291,12 +320,10 @@ describe('Auto-Connect Social Provider (E2E)', () => {
 
   it('returns null when account has null accessToken', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-empty',
-      userId: TEST_USER,
+      accountId: 'acc-empty',
       providerId: 'google',
       accessToken: null, // Token was revoked or never stored
       refreshToken: null,
-      updatedAt: new Date(),
     });
 
     const result = await service.autoConnectSocialProvider(
@@ -312,15 +339,16 @@ describe('Auto-Connect Social Provider (E2E)', () => {
   // 5. Missing Refresh Token
   // =========================================================================
 
-  it('handles missing refresh token gracefully (empty string stored)', async () => {
+  it('handles missing refresh token gracefully', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-no-refresh',
-      userId: TEST_USER,
+      accountId: 'google-account-3',
       providerId: 'google',
       accessToken: 'ya29.short-lived-token',
       refreshToken: null, // No refresh token
+    });
+    mockAuth.api.getAccessToken.mockResolvedValue({
+      accessToken: 'ya29.short-lived-token',
       accessTokenExpiresAt: new Date(),
-      updatedAt: new Date(),
     });
 
     mockPrisma.providerConfig.findUnique.mockResolvedValue(null);
@@ -331,9 +359,9 @@ describe('Auto-Connect Social Provider (E2E)', () => {
       providerType: 'google',
       email: TEST_EMAIL,
       accessToken: 'gcm:enc:ya29.sho',
-      refreshToken: '',
+      refreshToken: null,
       tokenEncryptionIv: 'iv-ya29.sho',
-      refreshTokenEncryptionIv: '',
+      refreshTokenEncryptionIv: null,
       isDefault: true,
       isActive: true,
       createdAt: new Date(),
@@ -351,13 +379,19 @@ describe('Auto-Connect Social Provider (E2E)', () => {
     // Only access token encrypted, not refresh
     expect(mockCrypto.encrypt).toHaveBeenCalledTimes(1);
     expect(mockCrypto.encrypt).toHaveBeenCalledWith('ya29.short-lived-token');
+    expect(mockAuth.api.getAccessToken).toHaveBeenCalledWith({
+      body: {
+        providerId: 'google',
+        accountId: 'google-account-3',
+        userId: TEST_USER,
+      },
+    });
 
-    // Upsert stores empty string for refresh token
     expect(mockPrisma.providerConfig.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
-          refreshToken: '',
-          refreshTokenEncryptionIv: '',
+          refreshToken: null,
+          refreshTokenEncryptionIv: null,
         }),
       }),
     );
@@ -369,12 +403,10 @@ describe('Auto-Connect Social Provider (E2E)', () => {
 
   it('throws ForbiddenException when provider limit exceeded', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-1',
-      userId: TEST_USER,
+      accountId: 'google-account-1',
       providerId: 'google',
       accessToken: 'ya29.token',
       refreshToken: '1//refresh',
-      updatedAt: new Date(),
     });
 
     mockPrisma.providerConfig.findUnique.mockResolvedValue(null);
@@ -399,13 +431,17 @@ describe('Auto-Connect Social Provider (E2E)', () => {
 
   it('re-activates an inactive existing provider via upsert update', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-1',
-      userId: TEST_USER,
+      accountId: 'google-account-1',
       providerId: 'google',
+      accessToken: 'encrypted-or-legacy-token-placeholder',
+      refreshToken: '1//new-refresh',
+    });
+    mockAuth.api.refreshToken.mockResolvedValue({
+      providerId: 'google',
+      accountId: 'google-account-1',
       accessToken: 'ya29.new-token',
       refreshToken: '1//new-refresh',
       accessTokenExpiresAt: new Date('2026-03-11T00:00:00Z'),
-      updatedAt: new Date(),
     });
 
     // Existing but inactive
@@ -456,13 +492,17 @@ describe('Auto-Connect Social Provider (E2E)', () => {
 
   it('never exposes tokens, IVs, or encryption data in response', async () => {
     mockPrisma.account.findFirst.mockResolvedValue({
-      id: 'acc-1',
-      userId: TEST_USER,
+      accountId: 'google-account-1',
       providerId: 'google',
+      accessToken: 'encrypted-or-legacy-token-placeholder',
+      refreshToken: 'SUPER_SECRET_REFRESH',
+    });
+    mockAuth.api.refreshToken.mockResolvedValue({
+      providerId: 'google',
+      accountId: 'google-account-1',
       accessToken: 'SUPER_SECRET_TOKEN',
       refreshToken: 'SUPER_SECRET_REFRESH',
       accessTokenExpiresAt: new Date(),
-      updatedAt: new Date(),
     });
 
     mockPrisma.providerConfig.findUnique.mockResolvedValue(null);

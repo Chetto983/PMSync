@@ -292,6 +292,8 @@ export const en: AppTranslations = {
     login: {
       title: 'Welcome back',
       subtitle: 'Secure authentication with MFA and session guardrails.',
+      verificationNotice:
+        'Your email is not verified yet. We sent a new verification link to {email}.',
       form: {
         emailLabel: 'Work email',
         passwordLabel: 'Password',
@@ -333,6 +335,10 @@ export const en: AppTranslations = {
         privacyPolicy: 'Privacy Policy',
         termsRequired: 'You must agree to the Terms of Service and Privacy Policy to register.',
       },
+      successTitle: 'Check your inbox',
+      successDescription:
+        'We sent a verification link to {email}. Verify your email to continue.',
+      successAction: 'Go to sign in',
       links: {
         primary: { href: '/auth/login', label: 'Already have an account? Sign in' },
       },

@@ -89,7 +89,8 @@ export function useSetActiveOrg() {
       });
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await authClient.getSession();
       // Full cache invalidation -- switching org changes all data context
       queryClient.invalidateQueries();
     },

@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../../modules/email/services/email.service';
 import { createBetterAuthInstance } from './better-auth.instance';
 import { CsrfTokenController } from './csrf-token.controller';
+import { OnboardingController } from './onboarding.controller';
 
 export const BETTER_AUTH = 'BETTER_AUTH';
 
@@ -15,7 +16,7 @@ export const BETTER_AUTH = 'BETTER_AUTH';
  */
 @Global()
 @Module({
-  controllers: [CsrfTokenController],
+  controllers: [CsrfTokenController, OnboardingController],
   providers: [
     {
       provide: BETTER_AUTH,

@@ -127,8 +127,10 @@ interface LandingTranslations {
 interface AuthScreenCopy {
   title: string;
   subtitle: string;
+  verificationNotice?: string;
   successTitle?: string;
   successDescription?: string;
+  successAction?: string;
   form: {
     emailLabel?: string;
     passwordLabel?: string;

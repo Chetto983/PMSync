@@ -11,7 +11,10 @@ import {
 import { Building2, Check, ChevronDown } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useOrganizations, useSetActiveOrg } from '@/hooks/queries';
-import { authClient, type SessionUser } from '@/lib/auth-client';
+import {
+  authClient,
+  getActiveOrganizationId,
+} from '@/lib/auth-client';
 
 /**
  * Organization switcher dropdown.
@@ -23,13 +26,12 @@ export function OrgSwitcher() {
   const { data: orgs } = useOrganizations();
   const setActiveOrg = useSetActiveOrg();
   const { data: session } = authClient.useSession();
-  const user = session?.user as SessionUser | undefined;
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   // Only render for users with 2+ orgs
   if (!orgs || orgs.length < 2) return null;
 
-  const activeOrgId = user?.tenantId;
+  const activeOrgId = getActiveOrganizationId(session);
   const activeOrg = (orgs as any[]).find((o: any) => o.id === activeOrgId);
 
   const handleSwitch = async (orgId: string) => {

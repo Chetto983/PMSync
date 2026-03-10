@@ -1,1042 +1,141 @@
-# Claude Code Configuration - SPARC Development Environment
+# PMSync - Claude Code Instructions
 
-## 🚨 CRITICAL: CONCURRENT EXECUTION & FILE MANAGEMENT
+Be critical, sincere, and cynical. Don't please me.
 
-## be  critical and sincere, don't please me, be cynical'!!!!!!'
+## Behavioral Rules
 
-## 🛑 SENIOR DEV PROTOCOL
+**Core Protocol:**
+- NEVER SUPPOSE. If uncertain about code behavior, API contract, or module wiring, STOP and ASK.
+- READ BEFORE EDIT. Always read the file before modifying. If you haven't read it in your last 5 messages, re-read (staleness guard).
+- THINK BEFORE TRANSITION. Before switching from research to editing, pause and state your plan. No premature implementation.
+- TRACE THE CHAIN. Before wiring anything: Module > Provider > Import > Usage.
+- DEBUG-FIRST. When investigating bugs: check logs/errors > check network > THEN read source code.
+- FOLLOW EXISTING PATTERNS. Never invent new approaches when codebase patterns exist.
+- INFORMATION TRUST HIERARCHY. Existing codebase > API docs/Swagger > web search > internal knowledge. Never hallucinate APIs.
+- VERIFY PREREQUISITES. Before building features on external services (Supabase, Redis, SMTP, OAuth), verify the service is configured.
 
-**MANDATORY BEHAVIOR:**
-- **NEVER SUPPOSE** - If uncertain about anything (code behavior, API contract, module wiring), STOP and ASK
-- **PROCEDURAL** - Follow established patterns in codebase, don't invent new approaches
-- **CYNICAL** - Assume code is broken until proven otherwise, verify everything
-- **READ BEFORE EDIT** - Always read the actual file content before modifying. If you haven't read a file in your last 5 messages, re-read before editing (staleness guard)
-- **TRACE THE CHAIN** - Before wiring anything, trace: Module → Provider → Import → Usage
-- **ASK WHEN IN DOUBT** - Better to ask a "dumb" question than break production
-- **DEBUG-FIRST** - When investigating bugs: check logs/errors → check network → THEN read source code. Never jump straight to code
-- **NEVER MODIFY TESTS TO MAKE THEM PASS** - Unless the task explicitly asks to modify tests. Fix the code, not the tests
-- **3-STRIKE RULE** - Do NOT retry the same failing approach more than 3 times (lint fix, build error, test failure). On the 3rd failure, STOP and ask the user for guidance
-- **THINK BEFORE TRANSITION** - Before switching from reading/research to editing code, pause and state your plan. No premature implementation
-- **NEVER GUESS PARAMETERS** - In parallel tool calls, never use placeholder values. If a parameter depends on a previous call's output, execute sequentially
-- **INFORMATION TRUST HIERARCHY** - Prioritize: existing codebase patterns > API docs/Swagger > web search > internal knowledge. Never hallucinate APIs or endpoints
-- **VERIFY PREREQUISITES** - Before building features that depend on external services (Supabase, Redis, SMTP, OAuth), verify the service is configured and accessible
-- **DON'T RE-READ CONTEXT** - Before using Read on any file, check if its contents were already provided in the current conversation. Don't waste tokens
+**Hard Stops:**
+- 3-STRIKE RULE. Do NOT retry the same failing approach more than 3 times. On 3rd failure, STOP and ask.
+- NEVER MODIFY TESTS TO MAKE THEM PASS. Unless the task explicitly asks. Fix the code, not the tests.
+- NEVER GUESS PARAMETERS. If a parameter depends on a previous call's output, execute sequentially.
+- DON'T RE-READ CONTEXT. Before using Read, check if contents were already provided. Don't waste tokens.
+- SCOPE CONTROL. Do exactly what was asked. Never add unrequested features, refactors, or improvements.
 
-**ABSOLUTE RULES**:
-1. ALL operations MUST be concurrent/parallel in a single message
-2. **NEVER save working files, text/mds and tests to the root folder create a docs folder if not exist**
-3. ALWAYS organize files in appropriate subdirectories
-4. **USE CLAUDE CODE'S TASK TOOL** for spawning agents concurrently, not just MCP
+**Post-Edit Validation (MANDATORY):**
+After EVERY file edit, run the appropriate validation. No exceptions:
+- Frontend: `cd frontend && npx tsc --noEmit` (type-check)
+- Backend: `cd backend && npx tsc --noEmit` (type-check)
+- If lint is relevant: `npm run lint:win`
+- Fix issues before moving on. Do not leave broken code behind.
 
-### ⚡ GOLDEN RULE: "1 MESSAGE = ALL RELATED OPERATIONS"
+**Discussion-First Default:**
+If the request contains no explicit action verb (implement, create, fix, add, remove, refactor, delete, build, write, move, rename), discuss the approach first and ask before writing code.
 
-**MANDATORY PATTERNS:**
-- **TodoWrite**: ALWAYS batch ALL todos in ONE call (5-10+ todos minimum)
-- **Task tool (Claude Code)**: ALWAYS spawn ALL agents in ONE message with full instructions
-- **File operations**: ALWAYS batch ALL reads/writes/edits in ONE message
-- **Bash commands**: ALWAYS batch ALL terminal operations in ONE message
-- **Memory operations**: ALWAYS batch ALL memory store/retrieve in ONE message
+**Self-Correction:**
+If you violated any protocol in a previous turn, self-correct IMMEDIATELY:
+- Edited without reading? Read now and verify.
+- Retried 3+ times? Stop and ask.
+- Modified tests to pass? Revert and fix code.
+- Guessed parameter values? Re-execute with correct values.
 
-### 🎯 CRITICAL: Claude Code Task Tool for Agent Execution
+## Execution Rules
 
-**Claude Code's Task tool is the PRIMARY way to spawn agents:**
-```javascript
-// ✅ CORRECT: Use Claude Code's Task tool for parallel agent execution
-[Single Message]:
-  Task("Research agent", "Analyze requirements and patterns...", "researcher")
-  Task("Coder agent", "Implement core features...", "coder")
-  Task("Tester agent", "Create comprehensive tests...", "tester")
-  Task("Reviewer agent", "Review code quality...", "reviewer")
-  Task("Architect agent", "Design system architecture...", "system-architect")
-```
+**Batch everything in single messages:**
+- TodoWrite: batch ALL todos in ONE call
+- Agent tool: spawn ALL agents in ONE message
+- File operations: batch ALL reads/writes/edits in ONE message
+- Bash commands: batch ALL terminal operations in ONE message
 
-**MCP tools are ONLY for coordination setup:**
-- `mcp__claude-flow__swarm_init` - Initialize coordination topology
-- `mcp__claude-flow__agent_spawn` - Define agent types for coordination
-- `mcp__claude-flow__task_orchestrate` - Orchestrate high-level workflows
+**File Organization:**
+- NEVER save working files, docs, or tests to root. Use `docs/`, `tests/`, `scripts/`, `src/`.
+- Max 500 lines per file. No exceptions.
+- Never hardcode secrets.
 
-### 📁 File Organization Rules
+**Memory-First Mandate:**
+Before starting any task, check for prior solutions:
+1. Check auto-memory files in the memory directory
+2. Search episodic memory: `episodic-memory:search-conversations`
+3. Search git history: `git log --all -S "keyword" --oneline`
+4. Only then start fresh research
 
-**NEVER save to root folder. Use these directories:**
-- `/src` - Source code files
-- `/tests` - Test files
-- `/docs` - Documentation and markdown files
-- `/config` - Configuration files
-- `/scripts` - Utility scripts
-- `/examples` - Example code
-
-## Project Overview
-
-This project uses SPARC (Specification, Pseudocode, Architecture, Refinement, Completion) methodology with Claude-Flow orchestration for systematic Test-Driven Development.
-
-## SPARC Commands
-
-### Core Commands
-- `npx claude-flow sparc modes` - List available modes
-- `npx claude-flow sparc run <mode> "<task>"` - Execute specific mode
-- `npx claude-flow sparc tdd "<feature>"` - Run complete TDD workflow
-- `npx claude-flow sparc info <mode>` - Get mode details
-
-### Batchtools Commands
-- `npx claude-flow sparc batch <modes> "<task>"` - Parallel execution
-- `npx claude-flow sparc pipeline "<task>"` - Full pipeline processing
-- `npx claude-flow sparc concurrent <mode> "<tasks-file>"` - Multi-task processing
-
-### Build Commands
-- `npm run build` - Build project
-- `npm run test` - Run tests
-- `npm run lint` - Linting
-- `npm run typecheck` - Type checking
-
-## SPARC Workflow Phases
-
-1. **Specification** - Requirements analysis (`sparc run spec-pseudocode`)
-2. **Pseudocode** - Algorithm design (`sparc run spec-pseudocode`)
-3. **Architecture** - System design (`sparc run architect`)
-4. **Refinement** - TDD implementation (`sparc tdd`)
-5. **Completion** - Integration (`sparc run integration`)
-
-## Code Style & Best Practices
-
-- **Modular Design**: Files under 500 lines - **NEVER CREATE A FILE >500 LINES!!!!**
-- **Environment Safety**: Never hardcode secrets
-- **Test-First**: Write tests before implementation
-- **Clean Architecture**: Separate concerns
-- **Documentation**: Keep updated
-- **🔍 RESEARCH FIRST**: ALWAYS search online for best 2026 practices/methods BEFORE implementing, modifying, or refactoring code
-- **🎨 Theme Over Custom CSS**: ALWAYS use MUI theme colors and native components (Accordion, etc.), NEVER use custom/hardcoded CSS colors
-
-## 🚀 Available Agents (54 Total)
-
-### Core Development
-`coder`, `reviewer`, `tester`, `planner`, `researcher`
-
-### Swarm Coordination
-`hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`, `collective-intelligence-coordinator`, `swarm-memory-manager`
-
-### Consensus & Distributed
-`byzantine-coordinator`, `raft-manager`, `gossip-coordinator`, `consensus-builder`, `crdt-synchronizer`, `quorum-manager`, `security-manager`
-
-### Performance & Optimization
-`perf-analyzer`, `performance-benchmarker`, `task-orchestrator`, `memory-coordinator`, `smart-agent`
-
-### GitHub & Repository
-`github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `workflow-automation`, `project-board-sync`, `repo-architect`, `multi-repo-swarm`
-
-### SPARC Methodology
-`sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `architecture`, `refinement`
-
-### Specialized Development
-`backend-dev`, `mobile-dev`, `ml-developer`, `cicd-engineer`, `api-docs`, `system-architect`, `code-analyzer`, `base-template-generator`
-
-### Testing & Validation
-`tdd-london-swarm`, `production-validator`
-
-### Migration & Planning
-`migration-planner`, `swarm-init`
-
-## 🎯 Claude Code vs MCP Tools
-
-### Claude Code Handles ALL EXECUTION:
-- **Task tool**: Spawn and run agents concurrently for actual work
-- File operations (Read, Write, Edit, MultiEdit, Glob, Grep)
-- Code generation and programming
-- Bash commands and system operations
-- Implementation work
-- Project navigation and analysis
-- TodoWrite and task management
-- Git operations
-- Package management
-- Testing and debugging
-
-### MCP Tools ONLY COORDINATE:
-- Swarm initialization (topology setup)
-- Agent type definitions (coordination patterns)
-- Task orchestration (high-level planning)
-- Memory management
-- Neural features
-- Performance tracking
-- GitHub integration
-
-**KEY**: MCP coordinates the strategy, Claude Code's Task tool executes with real agents.
-
-## 🚀 Quick Setup
-
+**Memory Storage:**
+Store in ReasoningBank after fixing complex bugs, creating reusable components, or discovering patterns:
 ```bash
-# Add MCP servers (REQUIRED - always add these)
-claude mcp add claude-flow npx claude-flow@alpha mcp start
-claude mcp add flow-nexus npx flow-nexus@latest mcp start  # REQUIRED: Cloud features & advanced orchestration
-claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional: Enhanced coordination
+npx claude-flow memory store <key> '<json>' --namespace pmsync
+npx claude-flow memory query "<search>" --namespace pmsync
 ```
 
-## 🧠 Memory Management System
+## Tech Stack
 
-### Two Memory Systems Available
+**Backend** (`backend/`): NestJS 11, Prisma + PostgreSQL, BullMQ + Redis, Mistral AI + pgvector, Socket.IO
+**Frontend** (`frontend/`): Next.js 16 + React 19, TanStack Query + Zustand, MUI (no Tailwind utilities)
 
-#### 1. Episodic Memory (Automatic - READ ONLY)
-
-- **Search past conversations**: `episodic-memory:search-conversations` skill
-- **Read full transcripts**: `mcp__plugin_episodic-memory_episodic-memory__read`
-- **Automatic storage**: All conversations automatically saved
-- **Use when**: Looking for previous discussions, decisions, or solutions
-
-#### 2. Claude-Flow ReasoningBank (Manual - AI-Powered)
-
-- **Store information**: `npx claude-flow memory store <key> <value> --namespace <ns>`
-- **Query with semantic search**: `npx claude-flow memory query "<search>" --namespace <ns>`
-- **List all keys**: `npx claude-flow memory list --namespace <ns>`
-- **Export/Import**: `npx claude-flow memory export/import <file>`
-- **Use when**: Storing project-specific fixes, patterns, configurations
-
-### 🎯 CRITICAL: When to Update Memory
-
-**ALWAYS store in ReasoningBank after:**
-
-1. Fixing a complex bug or issue
-2. Creating new reusable components
-3. Discovering important patterns or solutions
-4. Completing major refactoring
-5. Implementing workarounds for framework issues
-
-### Memory Commands
-
+**Commands:**
 ```bash
-# Store a fix or pattern (ALWAYS use --namespace)
-npx claude-flow memory store gmail-folders-fix-2025-12-30 '{
-  "date": "2025-12-30",
-  "issue": "Description of problem",
-  "solution": "How it was fixed",
-  "files": ["file1.ts", "file2.tsx"],
-  "status": "RESOLVED"
-}' --namespace pmsync
+# Backend (from backend/)
+npm run start:dev          # Dev server
+npx tsc --noEmit           # Type check
+npm run lint:win           # Lint (Windows)
+npx prisma generate        # Generate Prisma client
 
-# Query memory (semantic search)
-npx claude-flow memory query "Gmail folders" --namespace pmsync
-
-# List all stored memories
-npx claude-flow memory list --namespace pmsync --sort recent --limit 20
-
-# Export for backup
-npx claude-flow memory export memory-backup.json --namespace pmsync
-
-# Check memory statistics
-npx claude-flow memory stats --namespace pmsync
+# Frontend (from frontend/)
+npm run dev                # Dev server (port 3001)
+npm run type-check         # TypeScript check
 ```
 
-### Namespace Organization
+## Frontend Procedure
 
-| Namespace   | Purpose                               |
-| ----------- | ------------------------------------- |
-| `pmsync` | PMSync project fixes and patterns  |
-| `frontend`  | Frontend-specific solutions           |
-| `backend`   | Backend-specific solutions            |
-| `sparc`     | SPARC workflow patterns               |
-| `testing`   | Test patterns and fixes               |
+**Before writing any React component, do these in order:**
 
-### Memory Storage Best Practices
+1. **Translations** - Add strings to `frontend/locales/en.ts` and `it.ts`, types to `index.ts`. NEVER hardcode strings.
+2. **Query Hooks** - Create in `frontend/hooks/queries/use-*.ts` with `queryOptions()`. Export from `index.ts`.
+3. **Component** - Use translations + query hooks. Handle loading/error/empty states.
+4. **Validate** - Run type-check and lint.
 
-**Store as JSON with these fields:**
+**Anti-patterns:**
+- Raw `apiClient.get()` in components. Use TanStack Query hooks wrapping API modules in `frontend/lib/api/*.ts`.
+- Hardcoded strings. Use `t.section.key`.
+- Missing loading states. Always show Skeleton, then error Alert, then empty state, then data.
+- Hardcoded colors/CSS. Use MUI theme `sx` props only.
+- Inventing endpoints. Use existing API modules. Only check Swagger (`localhost:3000/api/docs-json`) for NEW endpoints.
 
-```json
-{
-  "date": "YYYY-MM-DD",
-  "issue": "Clear problem description",
-  "solution": "Step-by-step solution",
-  "files": ["affected files"],
-  "references": ["GitHub issues, docs"],
-  "status": "RESOLVED|PARTIAL|WORKAROUND"
-}
-```
+**Performance:** Critical widgets load immediately. Non-critical use `React.lazy` + `Suspense` with skeleton fallback. TanStack Query: `staleTime: 5min`, `gcTime: 30min`, `retry: 1`.
 
-**Memory Workflow:**
+**Reference:** See `docs/CLAUDE_REFERENCE.md` for component template, API module table, file organization, and UI patterns.
 
-1. Fix a bug or implement a feature
-2. Update documentation (if needed)
-3. Store in ReasoningBank with proper namespace
-4. Episodic memory automatically captures full conversation
+## Backend Procedure
 
-## MCP Tool Categories
-
-### Coordination
-`swarm_init`, `agent_spawn`, `task_orchestrate`
-
-### Monitoring
-`swarm_status`, `agent_list`, `agent_metrics`, `task_status`, `task_results`
-
-### Memory & Neural
-`memory_usage`, `neural_status`, `neural_train`, `neural_patterns`
-
-### GitHub Integration
-`github_swarm`, `repo_analyze`, `pr_enhance`, `issue_triage`, `code_review`
-
-### System
-`benchmark_run`, `features_detect`, `swarm_monitor`
-
-### Flow-Nexus MCP Tools (REQUIRED - Always Use)
-
-Flow-Nexus extends MCP capabilities with 70+ cloud-based orchestration tools:
-
-**Key MCP Tool Categories:**
-- **Swarm & Agents**: `swarm_init`, `swarm_scale`, `agent_spawn`, `task_orchestrate`
-- **Sandboxes**: `sandbox_create`, `sandbox_execute`, `sandbox_upload` (cloud execution)
-- **Templates**: `template_list`, `template_deploy` (pre-built project templates)
-- **Neural AI**: `neural_train`, `neural_patterns`, `seraphina_chat` (AI assistant)
-- **GitHub**: `github_repo_analyze`, `github_pr_manage` (repository management)
-- **Real-time**: `execution_stream_subscribe`, `realtime_subscribe` (live monitoring)
-- **Storage**: `storage_upload`, `storage_list` (cloud file management)
-
-**Authentication Required:**
-- Register: `mcp__flow-nexus__user_register` or `npx flow-nexus@latest register`
-- Login: `mcp__flow-nexus__user_login` or `npx flow-nexus@latest login`
-- Access 70+ specialized MCP tools for advanced orchestration
-
-## 🚀 Agent Execution Flow with Claude Code
-
-### The Correct Pattern:
-
-1. **Optional**: Use MCP tools to set up coordination topology
-2. **REQUIRED**: Use Claude Code's Task tool to spawn agents that do actual work
-3. **REQUIRED**: Each agent runs hooks for coordination
-4. **REQUIRED**: Batch all operations in single messages
-
-### Example Full-Stack Development:
-
-```javascript
-// Single message with all agent spawning via Claude Code's Task tool
-[Parallel Agent Execution]:
-  Task("Backend Developer", "Build REST API with Express. Use hooks for coordination.", "backend-dev")
-  Task("Frontend Developer", "Create React UI. Coordinate with backend via memory.", "coder")
-  Task("Database Architect", "Design PostgreSQL schema. Store schema in memory.", "code-analyzer")
-  Task("Test Engineer", "Write Jest tests. Check memory for API contracts.", "tester")
-  Task("DevOps Engineer", "Setup Docker and CI/CD. Document in memory.", "cicd-engineer")
-  Task("Security Auditor", "Review authentication. Report findings via hooks.", "reviewer")
-  
-  // All todos batched together
-  TodoWrite { todos: [...8-10 todos...] }
-  
-  // All file operations together
-  Write "backend/server.js"
-  Write "frontend/App.jsx"
-  Write "database/schema.sql"
-```
-
-## 📋 Agent Coordination Protocol
-
-### Every Agent Spawned via Task Tool MUST:
-
-**1️⃣ BEFORE Work:**
-```bash
-npx claude-flow@alpha hooks pre-task --description "[task]"
-npx claude-flow@alpha hooks session-restore --session-id "swarm-[id]"
-```
-
-**2️⃣ DURING Work:**
-```bash
-npx claude-flow@alpha hooks post-edit --file "[file]" --memory-key "swarm/[agent]/[step]"
-npx claude-flow@alpha hooks notify --message "[what was done]"
-```
-
-**3️⃣ AFTER Work:**
-```bash
-npx claude-flow@alpha hooks post-task --task-id "[task]"
-npx claude-flow@alpha hooks session-end --export-metrics true
-```
-
-## 🎯 Concurrent Execution Examples
-
-### ✅ CORRECT WORKFLOW: MCP Coordinates, Claude Code Executes
-
-```javascript
-// Step 1: MCP tools set up coordination (optional, for complex tasks)
-[Single Message - Coordination Setup]:
-  mcp__claude-flow__swarm_init { topology: "mesh", maxAgents: 6 }
-  mcp__claude-flow__agent_spawn { type: "researcher" }
-  mcp__claude-flow__agent_spawn { type: "coder" }
-  mcp__claude-flow__agent_spawn { type: "tester" }
-
-// Step 2: Claude Code Task tool spawns ACTUAL agents that do the work
-[Single Message - Parallel Agent Execution]:
-  // Claude Code's Task tool spawns real agents concurrently
-  Task("Research agent", "Analyze API requirements and best practices. Check memory for prior decisions.", "researcher")
-  Task("Coder agent", "Implement REST endpoints with authentication. Coordinate via hooks.", "coder")
-  Task("Database agent", "Design and implement database schema. Store decisions in memory.", "code-analyzer")
-  Task("Tester agent", "Create comprehensive test suite with 90% coverage.", "tester")
-  Task("Reviewer agent", "Review code quality and security. Document findings.", "reviewer")
-  
-  // Batch ALL todos in ONE call
-  TodoWrite { todos: [
-    {id: "1", content: "Research API patterns", status: "in_progress", priority: "high"},
-    {id: "2", content: "Design database schema", status: "in_progress", priority: "high"},
-    {id: "3", content: "Implement authentication", status: "pending", priority: "high"},
-    {id: "4", content: "Build REST endpoints", status: "pending", priority: "high"},
-    {id: "5", content: "Write unit tests", status: "pending", priority: "medium"},
-    {id: "6", content: "Integration tests", status: "pending", priority: "medium"},
-    {id: "7", content: "API documentation", status: "pending", priority: "low"},
-    {id: "8", content: "Performance optimization", status: "pending", priority: "low"}
-  ]}
-  
-  // Parallel file operations
-  Bash "mkdir -p app/{src,tests,docs,config}"
-  Write "app/package.json"
-  Write "app/src/server.js"
-  Write "app/tests/server.test.js"
-  Write "app/docs/API.md"
-```
-
-### ❌ WRONG (Multiple Messages):
-```javascript
-Message 1: mcp__claude-flow__swarm_init
-Message 2: Task("agent 1")
-Message 3: TodoWrite { todos: [single todo] }
-Message 4: Write "file.js"
-// This breaks parallel coordination!
-```
-
-## Performance Benefits
-
-- **84.8% SWE-Bench solve rate**
-- **32.3% token reduction**
-- **2.8-4.4x speed improvement**
-- **27+ neural models**
-
-## Hooks Integration
-
-### Pre-Operation
-- Auto-assign agents by file type
-- Validate commands for safety
-- Prepare resources automatically
-- Optimize topology by complexity
-- Cache searches
-
-### Post-Operation
-- Auto-format code
-- Train neural patterns
-- Update memory
-- Analyze performance
-- Track token usage
-
-### Session Management
-- Generate summaries
-- Persist state
-- Track metrics
-- Restore context
-- Export workflows
-
-## Advanced Features (v2.0.0)
-
-- 🚀 Automatic Topology Selection
-- ⚡ Parallel Execution (2.8-4.4x speed)
-- 🧠 Neural Training
-- 📊 Bottleneck Analysis
-- 🤖 Smart Auto-Spawning
-- 🛡️ Self-Healing Workflows
-- 💾 Cross-Session Memory
-- 🔗 GitHub Integration
-
-## Integration Tips
-
-1. Start with basic swarm init
-2. Scale agents gradually
-3. Use memory for context
-4. Monitor progress regularly
-5. Train patterns from success
-6. Enable hooks automation
-7. Use GitHub tools first
-
-## 🎨 FRONTEND DEVELOPMENT PROCEDURE (PMSync/PMSync)
-
-### ⚠️ MANDATORY CHECKLIST FOR EVERY FRONTEND COMPONENT
-
-**BEFORE writing any React component:**
-
-1. **Translations First** (i18n)
-   - Add all strings to `frontend/locales/en.ts`
-   - Add all strings to `frontend/locales/it.ts`
-   - Add TypeScript types to `frontend/locales/index.ts`
-   - NEVER hardcode strings in components
-
-2. **TanStack Query for Data** (NOT raw apiClient)
-   - Create query keys in `frontend/hooks/queries/*-keys.ts`
-   - Create query options in `frontend/hooks/queries/use-*.ts`
-   - Export from `frontend/hooks/queries/index.ts`
-   - Use `useQuery()` hooks, NOT direct `apiClient.get()`
-
-3. **TypeScript Types**
-   - Define interfaces before implementation
-   - Export types from hooks files
-
-### 📝 COMPONENT CREATION TEMPLATE
-
+**Multi-tenant rule:** Every query MUST include `tenantId`. Never query without tenant filter.
 ```typescript
-// 1. Imports
-import { useTranslations } from '@/lib/hooks/use-translations';
-import { useSomeData } from '@/hooks/queries';
-
-// 2. Component with proper patterns
-export function MyComponent() {
-  const t = useTranslations();
-  const { data, isLoading, error } = useSomeData();
-
-  // 3. Use translations for ALL user-facing strings
-  return (
-    <Box>
-      <Typography>{t.dashboard.widgets.myWidget.title}</Typography>
-      {isLoading && <Skeleton />}
-      {error && <Alert>{t.errors.genericError}</Alert>}
-      {data && /* render data */}
-    </Box>
-  );
-}
+// CORRECT
+await prisma.email.findMany({ where: { tenantId, ... } });
+// WRONG - security vulnerability
+await prisma.email.findMany({ where: { ... } });
 ```
 
-### 🔄 STEP-BY-STEP PROCEDURE
+**Provider pattern:** Interface > Factory > Implementation (`IEmailDriver > EmailDriverFactory > GoogleDriver`).
 
-```text
-Step 1: Translations
-├── locales/en.ts     → Add English strings
-├── locales/it.ts     → Add Italian strings
-└── locales/index.ts  → Add TypeScript types
+**Prisma retry:** Handle P2002 (unique constraint) and P2034 (deadlock) with exponential backoff.
 
-Step 2: Query Hooks
-├── hooks/queries/*-keys.ts  → Query key factory
-├── hooks/queries/use-*.ts   → Query options + hooks
-└── hooks/queries/index.ts   → Export new hooks
+**Embeddings:** Always use indexed FK fields (`emailId`, `contactId`), NEVER JSONB metadata path queries.
 
-Step 3: Component
-├── Create component using hooks + translations
-├── Handle loading/error/empty states
-└── Follow existing patterns in codebase
+**Email consolidation:** Before any email module changes, read `backend/docs/EMAIL_CONSOLIDATION_ENTRY.md` first. Never proceed to next phase until current phase test passes.
 
-Step 4: Integration
-├── Import in parent component
-├── Pass necessary props
-└── Test with `npm run type-check` and `npm run lint`
+**Reference:** See `docs/CLAUDE_REFERENCE.md` for utils locations, test commands, race condition fixes, and RAG architecture.
 
-Step 5: Validation
-├── Run type-check: `npm run type-check`
-├── Run lint: `npm run lint`
-└── Visual test with screenshot
-```
+## Architecture Context
 
-### 🚫 ANTI-PATTERNS TO AVOID
+See `docs/technical_overview.md` for full architecture.
+See `docs/AUDIT.md` for security audit and remediation roadmap.
 
-```typescript
-// ❌ WRONG: Hardcoded strings
-<Typography>Daily Briefing</Typography>
+Key caveats:
+- Auth is dual-stack: `better-auth` sessions (active) + legacy JWT (transition). Don't assume JWT is removed.
+- AI HITL approval is inconsistent. Some mutating tools bypass approval.
+- Authorization is coarse RBAC, not enterprise ABAC.
 
-// ✅ CORRECT: Use translations
-<Typography>{t.dashboard.widgets.briefing.title}</Typography>
-
-// ❌ WRONG: Direct API calls
-const [data, setData] = useState();
-useEffect(() => {
-  apiClient.get('/endpoint').then(res => setData(res.data));
-}, []);
-
-// ✅ CORRECT: TanStack Query hooks
-const { data, isLoading } = useMyDataQuery();
-
-// ❌ WRONG: No loading state
-return <List>{data.map(...)}</List>
-
-// ✅ CORRECT: Handle all states
-if (isLoading) return <Skeleton />;
-if (error) return <Alert>{t.errors.genericError}</Alert>;
-if (!data?.length) return <EmptyState />;
-return <List>{data.map(...)}</List>
-```
-
-### ⚡ SPEED OPTIMIZATION (SUPER FAST UX)
-
-**User expects INSTANT page load!**
-
-#### Code Splitting with React.lazy
-
-```typescript
-// Critical widgets - load immediately
-import { StatsGrid } from './widgets/StatsGrid';
-import { DailyBriefing } from '../ai/DailyBriefing';
-
-// Non-critical widgets - lazy loaded for speed
-const EventsWidget = lazy(() => import('./widgets/EventsWidget'));
-const PriorityInbox = lazy(() => import('./widgets/PriorityInbox'));
-
-// Wrap with Suspense + skeleton fallback
-<Suspense fallback={<WidgetSkeleton height={280} />}>
-  <EventsWidget />
-</Suspense>
-```
-
-#### TanStack Query Caching
-
-```typescript
-export function myQueryOptions() {
-  return queryOptions({
-    queryKey: ['myData'],
-    queryFn: fetchMyData,
-    staleTime: 5 * 60 * 1000,  // 5 min - data stays fresh
-    gcTime: 30 * 60 * 1000,    // 30 min - keep in cache
-    retry: 1,                   // Fast failure
-  });
-}
-```
-
-#### Skeleton Loading
-
-```typescript
-function WidgetSkeleton({ height = 200 }: { height?: number }) {
-  return (
-    <Box sx={{ borderRadius: 3, border: 1, p: 2, height }}>
-      <Skeleton variant="text" width="40%" height={28} />
-      <Skeleton variant="rectangular" height={height - 80} />
-    </Box>
-  );
-}
-```
-
-#### Priority Loading Order
-
-| Priority | Widgets | Strategy |
-|----------|---------|----------|
-| Critical | Header, Stats, Briefing | Load immediately |
-| Important | Events, Priority Inbox | Lazy load |
-| Secondary | Contacts, CRM Alerts | Lazy load |
-
-#### Performance Targets
-
-| Metric | Target |
-|--------|--------|
-| First Contentful Paint | < 1 second |
-| Time to Interactive | < 2 seconds |
-| Skeleton → Content | < 500ms |
-
-### 🔌 BACKEND API - USE API MODULES + TANSTACK QUERY
-
-**⚠️ CRITICAL RULES:**
-
-1. **USE EXISTING API MODULES** in `frontend/lib/api/*.ts`
-2. **USE TANSTACK QUERY** for ALL data fetching in components
-3. **NEVER use raw `apiClient.get()` directly in components**
-
-#### Existing API Modules
-
-| Module | File | What it handles |
-|--------|------|-----------------|
-| `voltAgentApi` | `lib/api/ai.ts` | Briefing, deadlines, follow-ups, actions, memory |
-| `crmApi` | `lib/api/crm.ts` | Stale contacts, relationship scores |
-| `contactsApi` | `lib/api/contacts.ts` | Contact CRUD, sync, counts |
-| `calendarApi` | `lib/api/calendar.ts` | Events, calendars, sync |
-| `aiApi` | `lib/api/ai.ts` | Email AI (summarize, smart-reply) |
-
-#### TanStack Query Pattern
-
-```typescript
-// 1. Create query hook in hooks/queries/use-*.ts
-import { useQuery, queryOptions } from '@tanstack/react-query';
-import { voltAgentApi } from '@/lib/api/ai';
-
-export function briefingOptions() {
-  return queryOptions({
-    queryKey: ['dashboard', 'briefing'],
-    queryFn: async () => {
-      const response = await voltAgentApi.getBriefing();
-      return response.data;
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
-}
-
-export function useBriefing() {
-  return useQuery(briefingOptions());
-}
-
-// 2. Use in component
-import { useBriefing } from '@/hooks/queries';
-
-function MyComponent() {
-  const { data, isLoading, error } = useBriefing();
-  // ...
-}
-```
-
-#### ❌ WRONG vs ✅ CORRECT
-
-```typescript
-// ❌ WRONG: Raw apiClient in component
-const [data, setData] = useState();
-useEffect(() => {
-  apiClient.get('/api/v1/voltagent/briefing').then(res => setData(res.data));
-}, []);
-
-// ✅ CORRECT: TanStack Query hook
-const { data, isLoading } = useBriefing();
-
-// ❌ WRONG: Invented endpoint
-apiClient.get('/api/v1/voltagent/followups');
-
-// ✅ CORRECT: Use API module
-voltAgentApi.listFollowUps({ status: 'pending', limit: 5 });
-```
-
-#### Check Swagger ONLY for NEW endpoints
-
-Only check `http://localhost:3000/api/docs-json` when adding endpoints not in API modules.
-
-### 📁 Frontend File Organization
-
-```text
-frontend/
-├── components/
-│   ├── ai/           → AI-related components
-│   ├── crm/          → CRM components
-│   ├── dashboard/    → Dashboard components
-│   ├── email/        → Email components
-│   ├── layout/       → Layout components
-│   ├── productivity/ → Productivity widgets
-│   └── common/       → Shared components
-├── hooks/
-│   ├── queries/      → TanStack Query hooks
-│   └── use-*.ts      → Other hooks
-├── lib/
-│   ├── api/          → API client modules
-│   ├── hooks/        → Core hooks
-│   └── context/      → React contexts
-├── locales/
-│   ├── en.ts         → English translations
-│   ├── it.ts         → Italian translations
-│   └── index.ts      → Types + exports
-├── pages/            → Next.js pages
-├── stores/           → Zustand stores
-└── styles/           → Global styles
-```
-
-## 🖥️ UI/UX DEBUGGING WITH PLAYWRIGHT MCP
-
-### Visual UI Audit Workflow
-
-Use Playwright MCP tools to visually audit and debug UI layouts:
-
-```javascript
-// 1. Navigate to the page
-mcp__playwright__browser_navigate({ url: "http://localhost:3001/dashboard/email" })
-
-// 2. Take screenshots at different breakpoints
-// Desktop (1440px)
-mcp__playwright__browser_resize({ width: 1440, height: 900 })
-mcp__playwright__browser_take_screenshot({ filename: "desktop-1440.png" })
-
-// Tablet (768px)
-mcp__playwright__browser_resize({ width: 768, height: 1024 })
-mcp__playwright__browser_take_screenshot({ filename: "tablet-768.png" })
-
-// Mobile (375px)
-mcp__playwright__browser_resize({ width: 375, height: 812 })
-mcp__playwright__browser_take_screenshot({ filename: "mobile-375.png" })
-
-// 3. Compare with reference designs (e.g., TailAdmin)
-mcp__playwright__browser_navigate({ url: "https://react-demo.tailadmin.com/chat" })
-mcp__playwright__browser_take_screenshot({ filename: "reference-design.png" })
-
-// 4. Close browser
-mcp__playwright__browser_close()
-```
-
-### Responsive Breakpoints
-
-| Breakpoint | Width | Use Case |
-|------------|-------|----------|
-| Mobile | 375px | iPhone X/11/12 |
-| Tablet | 768px | iPad portrait |
-| Small Desktop | 1024px | Laptop |
-| Desktop | 1440px | Standard monitor |
-
-### TailAdmin Reference
-
-TailAdmin components available at: `D:\PMSync\free-nextjs-admin-dashboard-main`
-- GitHub: https://github.com/TailAdmin
-- Use for responsive design patterns and component inspiration
-
-## 🎨 MODERN UI DESIGN PATTERNS (2025)
-
-### Email List Design (Superhuman/shadcn-ui Inspired)
-
-**Design Principles:**
-- Clean 2-line layout: sender+date on line 1, subject on line 2
-- No snippet preview (minimal clutter)
-- Checkbox hidden until hover (clean look)
-- Small avatar (28px)
-- Subtle hover effects
-- Floating action bar on hover
-
-**Reference Libraries:**
-- [shadcn/ui](https://ui.shadcn.com/) - Clean, minimal components
-- [Inbox Zero](https://github.com/elie222/inbox-zero) - AI email management UI
-- [React Email](https://react.email) - Modern email components
-- Superhuman - Premium email UX inspiration
-
-**List Item Pattern:**
-```tsx
-// Clean 2-line layout
-<Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', minHeight: 56 }}>
-  {/* Checkbox - hidden until hover */}
-  <Fade in={isHovered || selected}>
-    <Checkbox checked={selected} />
-  </Fade>
-
-  {/* Small avatar */}
-  <Avatar sx={{ width: 28, height: 28 }} />
-
-  {/* Content */}
-  <Box sx={{ flex: 1 }}>
-    {/* Line 1: Sender + indicators + date */}
-    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-      <Typography sx={{ fontWeight: unread ? 600 : 400 }}>{sender}</Typography>
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        {starred && <Star size={14} fill="#FFB300" />}
-        {hasAttachments && <Paperclip size={14} />}
-        {threadCount > 1 && <Chip label={threadCount} />}
-      </Box>
-      <Typography variant="caption">{date}</Typography>
-    </Box>
-
-    {/* Line 2: Subject only */}
-    <Typography color="text.secondary" sx={{ fontWeight: unread ? 500 : 400 }}>
-      {subject}
-    </Typography>
-  </Box>
-</Box>
-```
-
-**Key CSS Properties:**
-```css
-/* Subtle hover effect */
-transition: all 0.15s ease;
-&:hover { background-color: action.hover; }
-
-/* Unread indicator */
-bgcolor: unread ? 'rgba(25, 118, 210, 0.04)' : 'transparent';
-
-/* Clean typography */
-font-size: 0.875rem; /* 14px sender */
-font-size: 0.8125rem; /* 13px subject */
-```
-
-### Responsive Design Rules
-
-| Element | Desktop | Mobile |
-|---------|---------|--------|
-| Avatar | 28px | 28px |
-| Item height | 56px | 56px |
-| Padding | 12px | 8px |
-| Checkbox | Show on hover | Always show |
-| Action bar | Floating on hover | Bottom sheet |
-
-## 🧠 RAG & EMBEDDINGS ARCHITECTURE
-
-### Embedding Storage (pgvector)
-
-**Model**: `Embedding` in `schema.prisma`
-
-- Uses pgvector for similarity search
-- **CRITICAL**: Always use indexed fields, NOT JSONB metadata queries!
-
-| Field       | Type    | Usage                                           |
-| ----------- | ------- | ----------------------------------------------- |
-| `emailId`   | String? | Direct indexed FK - use for email lookups       |
-| `contactId` | String? | Direct indexed FK - use for contact lookups     |
-| `metadata`  | Json?   | Extra data only - NEVER query by metadata paths |
-
-**⚠️ JSONB ANTI-PATTERN (O(n) full scan)**:
-
-```typescript
-// ❌ WRONG - Full table scan
-where: { metadata: { path: ['emailId'], equals: id } }
-
-// ✅ CORRECT - Indexed O(log n)
-where: { emailId: id }
-```
-
-### Contact Embeddings (2025-01-09)
-
-**Queue**: `ContactEmbeddingQueueService` in `ai/services/contact-embedding.queue.ts`
-
-- BullMQ with batching (50 items, 200ms flush)
-- Rate limiting: 2 req/s for Mistral API
-- DLQ integration after 6 retries
-
-**Trigger Points**:
-
-- `ContactsService.createContact()` → enqueue embedding
-- `ContactsService.updateContact()` → enqueue re-embedding
-
-**Content Template** (`KnowledgeBaseService.composeContactEmbeddingContent()`):
-
-```text
-Name: {displayName}
-Company: {company}
-Role: {jobTitle}
-Department: {department}
-Notes: {notes}
-Tags: {tags}
-Email: {emails}
-Phone: {phoneNumbers}
-```
-
-### UnifiedRetriever (Hybrid RAG)
-
-**Location**: `voltagent/rag/unified-retriever.ts`
-
-**Search Sources**: `emails | contacts | deadlines | followups | actions | memories`
-
-**Hybrid Search Pattern (RRF Fusion)**:
-
-1. Vector search (semantic) via `embeddingsService.findSimilarContent()`
-2. Keyword search (exact) via Prisma `contains`
-3. RRF fusion with K=60: `score = 1/(K + rank_vector) + 1/(K + rank_keyword)`
-4. Items found by BOTH get boosted scores
-
-**Contact Query Detection**:
-
-```typescript
-/contact|person|who|from|sender|colleague|client|customer|contatto|persona|chi|da|mittente|collega|cliente/
-```
-
-## 🔧 BACKEND DEVELOPMENT PROCEDURE (Email Modules)
-
-### ⚠️ CRITICAL: Email Module Consolidation Rules
-
-**Entry Point**: `backend/docs/EMAIL_CONSOLIDATION_ENTRY.md`
-
-**BEFORE any email module changes:**
-1. Read the entry point document
-2. Check current phase status
-3. Run phase test BEFORE proceeding
-
-### 📋 Phase Execution Rules
-
-```
-PHASE 1 ──> PHASE 2 ──> PHASE 3 ──> ... ──> PHASE 9
-   │           │           │                   │
-   ▼           ▼           ▼                   ▼
-  TEST       TEST        TEST              PRODUCTION
-                                           STRESS TEST
-```
-
-**ABSOLUTE RULE**: Never proceed to next phase until current phase test PASSES.
-
-### 🧪 Real Tests Only (No Mocks, No Jest)
-
-| Phase | Test Command |
-|-------|--------------|
-| Prisma Retry | `npx ts-node backend/scripts/test-prisma-retry.ts` |
-| IMAP Utils | `npx ts-node backend/scripts/test-imap-sync.ts` |
-| Folder Utils | `npx ts-node backend/scripts/stress-test-atomic-sync.ts` |
-| Error Utils | `npm run type-check` |
-| Race Conditions | `npx ts-node backend/scripts/stress-test-multi-tenant.ts` |
-| Production | `npx ts-node backend/scripts/stress-test-production-scenarios.ts` |
-
-### 🚨 Production Stress Test Scenarios
-
-**Current tests pass but production fails!** Phase 9 TRIGGERS actual failures:
-
-1. **Multi-tenant concurrent sync** - 10 syncs at same second
-2. **Folder rename during sync** - Race between sync and folder ops
-3. **P2034 deadlock recovery** - Actual deadlock creation
-4. **System folder protection** - isSystem flag enforcement
-5. **Redis lock contention** - 20 workers compete for lock
-6. **Large batch operation** - 1000+ emails at once
-7. **Token expiry mid-sync** - OAuth expires during sync
-
-### 📁 Common Utils Location
-
-**All shared utilities go in `backend/src/common/`:**
-
-```
-common/
-├── utils/
-│   ├── imap-utils.ts      → parseImapExternalId
-│   ├── folder-utils.ts    → normalizeFolderName
-│   ├── error.utils.ts     → isNotFoundError, isRateLimitError
-│   └── format.utils.ts    → truncateText
-├── services/
-│   ├── prisma-retry.service.ts  → P2002/P2034 retry (TO CREATE)
-│   ├── redis-lock.service.ts    → Distributed locks
-│   └── retry.service.ts         → HTTP 429/5xx retry
-└── errors/
-    └── driver-error.ts          → StandardizedError class
-```
-
-### 🔒 Prisma Best Practices (v7.2)
-
-**Retry on these error codes:**
-- **P2002**: Unique constraint violation
-- **P2034**: Deadlock/write conflict (CURRENTLY MISSING!)
-
-**Pattern:**
-```typescript
-const isRetryable = error.code === 'P2002' || error.code === 'P2034';
-const delay = Math.min(100 * Math.pow(2, attempt), 2000); // Exponential backoff
-```
-
-### 🔐 Race Condition Fixes Required
-
-| Issue | File | Fix |
-|-------|------|-----|
-| RC-A1 | folder-sync.service.ts | Add Redis lock to syncProviderFolders |
-| RC-A8 | folder-sync.service.ts | Add Redis lock to folder CRUD |
-
-### ❌ Dead Code to Delete
-
-| File | Lines | Code |
-|------|-------|------|
-| base-email-sync.service.ts | 1314-1346 | extractPlainText (never called) |
-
-### 📚 Documentation Index
-
-| Document | Purpose |
-|----------|---------|
-| `EMAIL_CONSOLIDATION_ENTRY.md` | START HERE - Phase timeline |
-| `EMAIL_CONSOLIDATION_ROADMAP.md` | Detailed implementation |
-| `EMAIL_MODULES_CONSOLIDATION_MASTER.md` | Audit + Prisma 7.2 |
-| `EMAIL_SYNC_REFACTOR_PLAN.md` | Driver split (AFTER consolidation) |
-
-### 🧠 Memory Keys (ReasoningBank)
-
-```bash
-# Query email consolidation memory
-npx claude-flow@alpha memory query "email-consolidation" --namespace pmsync
-
-# Key memories stored:
-# - email-consolidation-roadmap-2025-01-04
-# - email-module-audit-2025-01-04
-# - email-duplication-map-2025-01-04
-# - prisma-7-features-2025-01-04
-```
-
-## Support
-
-- Documentation: https://github.com/ruvnet/claude-flow
-- Issues: https://github.com/ruvnet/claude-flow/issues
-- Flow-Nexus Platform: https://flow-nexus.ruv.io (registration required for cloud features)
-
----
-
-Remember: **Claude Flow coordinates, Claude Code creates!**
-
-# Self-Correction Protocol
-
-If you violated any protocol in a previous turn, self-correct IMMEDIATELY in the next turn before proceeding:
-- Edited a file without reading it first? Read it now and verify your edit.
-- Retried the same failing approach 3+ times? Stop and ask the user.
-- Modified tests to make them pass? Revert and fix the actual code.
-- Used placeholder/guessed values in tool calls? Re-execute with correct values.
-- Skipped the debug-first protocol? Check logs before continuing.
-
-# important-instruction-reminders
+## Final Reminders
 
 Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
-Never save working files, text/mds and tests to the root folder.
+NEVER create files unless absolutely necessary. Prefer editing existing files.
+NEVER proactively create documentation files unless explicitly requested.
+Never save working files, text/mds, or tests to the root folder.

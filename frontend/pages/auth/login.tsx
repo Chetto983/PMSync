@@ -15,6 +15,12 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 
+function isEmailVerificationError(error: { code?: string; message?: string } | null | undefined) {
+  const code = error?.code || '';
+  const message = error?.message?.toLowerCase() || '';
+  return code === 'EMAIL_NOT_VERIFIED' || message.includes('not verified');
+}
+
 export default function LoginPage() {
   const t = useTranslations();
   const router = useRouter();
@@ -23,17 +29,30 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [verificationNotice, setVerificationNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError('');
+      setVerificationNotice('');
       setLoading(true);
 
       try {
-        const res = await authClient.signIn.email({ email, password });
+        const res = await authClient.signIn.email({
+          email,
+          password,
+          callbackURL: new URL(returnTo, window.location.origin).toString(),
+        });
         if (res.error) {
+          if (isEmailVerificationError(res.error)) {
+            setVerificationNotice(
+              t.auth.login.verificationNotice?.replace('{email}', email.trim()) ||
+                `Your email is not verified yet. We sent a new verification link to ${email.trim()}.`,
+            );
+            return;
+          }
           setError(res.error.message || 'Sign-in failed');
           return;
         }
@@ -44,7 +63,7 @@ export default function LoginPage() {
         setLoading(false);
       }
     },
-    [email, password, returnTo, router],
+    [email, password, returnTo, router, t],
   );
 
   const auth = t.auth.login;
@@ -57,6 +76,11 @@ export default function LoginPage() {
     >
       <SocialLoginButtons />
       <Box component="form" onSubmit={handleSubmit} noValidate>
+        {verificationNotice && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {verificationNotice}
+          </Alert>
+        )}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}

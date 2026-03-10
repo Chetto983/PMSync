@@ -30,6 +30,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = useCallback(
@@ -47,6 +48,7 @@ export default function RegisterPage() {
       }
 
       setLoading(true);
+      setVerificationEmail('');
       try {
         const normalizedFirstName = firstName.trim();
         const normalizedLastName = lastName.trim();
@@ -56,6 +58,7 @@ export default function RegisterPage() {
           name: `${normalizedFirstName} ${normalizedLastName}`.trim(),
           firstName: normalizedFirstName,
           lastName: normalizedLastName,
+          callbackURL: new URL('/dashboard', window.location.origin).toString(),
         }, {
           body: {
             agreeToTerms: true,
@@ -65,8 +68,14 @@ export default function RegisterPage() {
           setError(res.error.message || 'Registration failed');
           return;
         }
-        await authClient.getSession();
-        router.push('/dashboard');
+
+        const session = await authClient.getSession();
+        if (session.data) {
+          router.push('/dashboard');
+          return;
+        }
+
+        setVerificationEmail((res.data?.user?.email as string | undefined) || email.trim());
       } catch {
         setError('An unexpected error occurred.');
       } finally {
@@ -78,6 +87,25 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout title={reg.title} subtitle={reg.subtitle} footerLink={reg.links!.primary}>
+      {verificationEmail ? (
+        <Box>
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {reg.successDescription?.replace('{email}', verificationEmail) ||
+              `Check your inbox. We sent a verification link to ${verificationEmail}.`}
+          </Alert>
+          <Button
+            component={NextLink}
+            href="/auth/login"
+            variant="contained"
+            fullWidth
+            size="large"
+            sx={{ py: 1.3, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+          >
+            {reg.successAction || 'Go to sign in'}
+          </Button>
+        </Box>
+      ) : (
+        <>
       <SocialLoginButtons />
       <Box component="form" onSubmit={handleSubmit} noValidate>
         {error && (
@@ -181,6 +209,8 @@ export default function RegisterPage() {
           {loading ? <CircularProgress size={22} color="inherit" /> : reg.form.submit}
         </Button>
       </Box>
+        </>
+      )}
     </AuthLayout>
   );
 }

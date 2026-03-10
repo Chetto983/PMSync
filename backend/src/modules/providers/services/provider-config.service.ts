@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   Logger,
   BadRequestException,
@@ -18,6 +19,7 @@ import {
   ProviderDisconnectedEvent,
 } from '../../../common/events/provider.events';
 import type { ProviderConfig } from '@prisma/client';
+import { BETTER_AUTH } from '../../../common/auth/better-auth.module';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
   ConnectGoogleProviderDto,
@@ -29,6 +31,22 @@ export interface ProviderAlias {
   email: string;
   name?: string;
   providerId: string;
+}
+
+interface BetterAuthOAuthAccount {
+  accountId: string;
+  providerId: 'google' | 'microsoft';
+  accessToken: string | null;
+  refreshToken: string | null;
+}
+
+interface BetterAuthAccessTokenResult {
+  accessToken: string;
+  accessTokenExpiresAt?: Date | string | null;
+}
+
+interface BetterAuthRefreshTokenResult extends BetterAuthAccessTokenResult {
+  refreshToken?: string | null;
 }
 
 /**
@@ -52,6 +70,7 @@ export class ProviderConfigService {
     private readonly caldav: CalDavService,
     private readonly subscriptionService: SubscriptionService,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(BETTER_AUTH) private readonly auth: any,
   ) {}
 
   /**
@@ -776,10 +795,76 @@ export class ProviderConfigService {
   }
 
   /**
-   * Auto-connect email provider from better-auth social login tokens.
+   * Resolve the latest Better Auth social account without reading token values.
+   */
+  private async getLatestSocialAccount(
+    userId: string,
+  ): Promise<BetterAuthOAuthAccount | null> {
+    return withoutTenantScopingAsync(() =>
+      this.prisma.account.findFirst({
+        where: {
+          userId,
+          providerId: { in: ['google', 'microsoft'] },
+          OR: [
+            { accessToken: { not: null } },
+            { refreshToken: { not: null } },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          accountId: true,
+          providerId: true,
+          accessToken: true,
+          refreshToken: true,
+        },
+      }),
+    ) as Promise<BetterAuthOAuthAccount | null>;
+  }
+
+  private async getOAuthTokensForAccount(
+    account: BetterAuthOAuthAccount,
+    userId: string,
+  ): Promise<{ accessToken: string; refreshToken: string | null; expiresAt: Date | null }> {
+    if (account.refreshToken) {
+      const refreshed = await this.auth.api.refreshToken({
+        body: {
+          providerId: account.providerId,
+          accountId: account.accountId,
+          userId,
+        },
+      }) as BetterAuthRefreshTokenResult;
+
+      return {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken ?? null,
+        expiresAt: refreshed.accessTokenExpiresAt
+          ? new Date(refreshed.accessTokenExpiresAt)
+          : null,
+      };
+    }
+
+    const access = await this.auth.api.getAccessToken({
+      body: {
+        providerId: account.providerId,
+        accountId: account.accountId,
+        userId,
+      },
+    }) as BetterAuthAccessTokenResult;
+
+    return {
+      accessToken: access.accessToken,
+      refreshToken: null,
+      expiresAt: access.accessTokenExpiresAt
+        ? new Date(access.accessTokenExpiresAt)
+        : null,
+    };
+  }
+
+  /**
+   * Auto-connect email provider from Better Auth social login tokens.
    *
-   * Reads the Account table (managed by better-auth) for the user's
-   * social provider, encrypts the tokens, and upserts a ProviderConfig.
+   * Uses Better Auth's server API to obtain valid provider tokens from the
+   * linked account while keeping Better Auth's Account table encrypted at rest.
    * This eliminates the need for a second OAuth flow during onboarding.
    *
    * @returns The connected provider config, or null if no social account found
@@ -788,26 +873,21 @@ export class ProviderConfigService {
     tenantId: string,
     userId: string,
     userEmail: string,
-  ): Promise<ReturnType<typeof this.sanitizeProviderConfig> | null> {
-    // Find social account from better-auth's Account table (unscoped by tenant)
-    const account = await withoutTenantScopingAsync(() =>
-      this.prisma.account.findFirst({
-        where: {
-          userId,
-          providerId: { in: ['google', 'microsoft'] },
-          accessToken: { not: null },
-        },
-        orderBy: { updatedAt: 'desc' },
-      }),
-    );
+  ): Promise<Record<string, unknown> | null> {
+    const account = await this.getLatestSocialAccount(userId);
 
-    if (!account?.accessToken) {
+    if (!account) {
       this.logger.debug(`No social account with tokens found for user ${userId}`);
       return null;
     }
 
+    if (!account.accessToken && !account.refreshToken) {
+      this.logger.debug(`No usable social tokens found for user ${userId}`);
+      return null;
+    }
+
     // Check if provider already connected (avoid duplicates)
-    const providerType = account.providerId as 'google' | 'microsoft';
+    const providerType = account.providerId;
     const existing = await this.prisma.providerConfig.findUnique({
       where: {
         tenantId_email_providerType: {
@@ -826,10 +906,10 @@ export class ProviderConfigService {
     // Check provider limit
     await this.checkProviderLimit(tenantId);
 
-    // Encrypt tokens from better-auth Account (stored unencrypted)
-    const encryptedAccessToken = this.crypto.encrypt(account.accessToken);
-    const encryptedRefreshToken = account.refreshToken
-      ? this.crypto.encrypt(account.refreshToken)
+    const tokens = await this.getOAuthTokensForAccount(account, userId);
+    const encryptedAccessToken = this.crypto.encrypt(tokens.accessToken);
+    const encryptedRefreshToken = tokens.refreshToken
+      ? this.crypto.encrypt(tokens.refreshToken)
       : null;
 
     // Upsert ProviderConfig with encrypted tokens
@@ -850,18 +930,18 @@ export class ProviderConfigService {
         supportsCalendar: true,
         supportsContacts: true,
         accessToken: encryptedAccessToken.encrypted,
-        refreshToken: encryptedRefreshToken?.encrypted ?? '',
+        refreshToken: encryptedRefreshToken?.encrypted ?? null,
         tokenEncryptionIv: encryptedAccessToken.iv,
-        refreshTokenEncryptionIv: encryptedRefreshToken?.iv ?? '',
-        tokenExpiresAt: account.accessTokenExpiresAt,
+        refreshTokenEncryptionIv: encryptedRefreshToken?.iv ?? null,
+        tokenExpiresAt: tokens.expiresAt,
         isDefault: true,
       },
       update: {
         accessToken: encryptedAccessToken.encrypted,
-        refreshToken: encryptedRefreshToken?.encrypted ?? '',
+        refreshToken: encryptedRefreshToken?.encrypted ?? null,
         tokenEncryptionIv: encryptedAccessToken.iv,
-        refreshTokenEncryptionIv: encryptedRefreshToken?.iv ?? '',
-        tokenExpiresAt: account.accessTokenExpiresAt,
+        refreshTokenEncryptionIv: encryptedRefreshToken?.iv ?? null,
+        tokenExpiresAt: tokens.expiresAt,
         isActive: true,
         lastSyncedAt: new Date(),
       },

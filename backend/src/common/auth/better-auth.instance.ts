@@ -21,6 +21,13 @@ export interface ProvisioningUser {
   tenantId?: string | null;
 }
 
+interface WorkspaceIdentity {
+  email: string;
+  name?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
 function sanitizeWorkspaceSlugPart(value: string): string {
   const normalized = value
     .toLowerCase()
@@ -31,21 +38,41 @@ function sanitizeWorkspaceSlugPart(value: string): string {
   return normalized || 'workspace';
 }
 
-function buildWorkspaceName(user: ProvisioningUser): string {
-  const displayName =
+function getWorkspaceBaseName(
+  user: WorkspaceIdentity,
+  workspaceName?: string,
+): string {
+  if (workspaceName?.trim()) {
+    return workspaceName.trim();
+  }
+
+  return (
     [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
     user.name?.trim() ||
-    user.email.split('@')[0];
+    user.email.split('@')[0]
+  );
+}
+
+function buildWorkspaceName(
+  user: WorkspaceIdentity,
+  workspaceName?: string,
+): string {
+  const baseName = getWorkspaceBaseName(user, workspaceName);
+  if (workspaceName?.trim()) {
+    return baseName;
+  }
+
+  const displayName =
+    baseName;
 
   return `${displayName}'s Workspace`;
 }
 
-function buildWorkspaceSlug(user: ProvisioningUser): string {
-  const base =
-    [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
-    user.name?.trim() ||
-    user.email.split('@')[0];
-
+function buildWorkspaceSlug(
+  user: WorkspaceIdentity,
+  workspaceName?: string,
+): string {
+  const base = getWorkspaceBaseName(user, workspaceName);
   return `${sanitizeWorkspaceSlugPart(base)}-${randomBytes(3).toString('hex')}`;
 }
 
@@ -56,6 +83,7 @@ export async function provisionWorkspaceForUser(
     agreedToTerms: boolean;
     ipAddress?: string;
     userAgent?: string;
+    workspaceName?: string;
   },
 ): Promise<void> {
   if (user.tenantId) {
@@ -66,8 +94,8 @@ export async function provisionWorkspaceForUser(
     prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
-          name: buildWorkspaceName(user),
-          slug: buildWorkspaceSlug(user),
+          name: buildWorkspaceName(user, options.workspaceName),
+          slug: buildWorkspaceSlug(user, options.workspaceName),
           isActive: true,
         },
       });
@@ -254,6 +282,7 @@ export function createBetterAuthInstance(
     },
 
     account: {
+      encryptOAuthTokens: true,
       accountLinking: {
         enabled: true,
         trustedProviders: ['google', 'microsoft'],
@@ -333,6 +362,7 @@ export function createBetterAuthInstance(
 
     emailVerification: {
       sendOnSignUp: true,
+      sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         await emailService.sendVerificationEmail(user.email, url);
@@ -487,7 +517,9 @@ export function createBetterAuthInstance(
         if (orgMgmtPaths.some((p) => ctx.path.includes(p))) {
           const session = await ctx.context.getSession(ctx);
           if (!session?.user) {
-            throw new APIError('UNAUTHORIZED', { message: 'Authentication required' });
+            throw new APIError('UNAUTHORIZED', {
+              message: 'Authentication required',
+            });
           }
           if ((session.user).role !== 'super-admin') {
             throw new APIError('FORBIDDEN', {

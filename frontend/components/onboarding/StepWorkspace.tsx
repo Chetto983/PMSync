@@ -8,6 +8,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { CheckCircle } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { StepProps } from './types';
 
@@ -31,17 +32,10 @@ export function StepWorkspace({ user, onComplete, isLast }: StepProps) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/onboarding/create-workspace', {
-        method: 'POST',
-        body: JSON.stringify({ workspaceName: workspaceName.trim() }),
-        headers: { 'Content-Type': 'application/json' },
+      const response = await apiClient.post('/onboarding/provision-workspace', {
+        workspaceName: workspaceName.trim(),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || t.common.genericError);
-        return;
-      }
-      onComplete({ tenantId: data.tenantId });
+      onComplete({ tenantId: response.data.tenantId });
     } catch (err) {
       setError((err as Error).message || t.common.genericError);
     } finally {

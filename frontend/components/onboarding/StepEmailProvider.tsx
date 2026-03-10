@@ -10,7 +10,11 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { CheckCircle, Mail } from 'lucide-react';
-import { providersApi } from '@/lib/api/providers';
+import {
+  providersApi,
+  type AutoConnectResult,
+  type ProviderConfig,
+} from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { StepProps } from './types';
 
@@ -33,45 +37,55 @@ function detectSocialProvider(email: string): 'google' | 'microsoft' | null {
   return null;
 }
 
+function isAutoConnectFailure(
+  result: ProviderConfig | AutoConnectResult,
+): result is AutoConnectResult {
+  return 'connected' in result;
+}
+
 export function StepEmailProvider({ user, onComplete }: StepProps) {
   const t = useTranslations();
   const sc = t.onboarding.stepContent?.emailProvider;
 
   const [loading, setLoading] = useState(false);
   const [autoConnecting, setAutoConnecting] = useState(false);
-  const [autoConnected, setAutoConnected] = useState(false);
+  const [autoConnectedProvider, setAutoConnectedProvider] = useState<
+    'google' | 'microsoft' | null
+  >(null);
   const [error, setError] = useState('');
   const attemptedAutoConnect = useRef(false);
 
   const detectedProvider = detectSocialProvider(user.email);
 
-  // Auto-connect on mount if user signed in via social login
+  // Always try auto-connect once. Email/password users will get a clean
+  // "not available" response and fall back to manual connect.
   useEffect(() => {
-    if (attemptedAutoConnect.current || !detectedProvider) return;
+    if (attemptedAutoConnect.current) return;
     attemptedAutoConnect.current = true;
 
     const tryAutoConnect = async () => {
       setAutoConnecting(true);
       try {
         const result = await providersApi.autoConnectSocial();
-        if ('connected' in result && result.connected === false) {
-          // No social tokens available, fall back to manual
+        if (isAutoConnectFailure(result)) {
           setAutoConnecting(false);
           return;
         }
-        // Success — provider auto-connected
-        setAutoConnected(true);
+        if (result.providerType !== 'google' && result.providerType !== 'microsoft') {
+          setAutoConnecting(false);
+          return;
+        }
+        const connectedProvider = result.providerType;
+        setAutoConnectedProvider(connectedProvider);
         setAutoConnecting(false);
-        // Auto-advance after brief visual confirmation
         setTimeout(() => onComplete({ emailConnected: true }), 1500);
       } catch {
-        // Auto-connect failed silently, user can connect manually
         setAutoConnecting(false);
       }
     };
 
     tryAutoConnect();
-  }, [detectedProvider, onComplete]);
+  }, [onComplete]);
 
   const handleConnectGoogle = async () => {
     setLoading(true);
@@ -104,12 +118,12 @@ export function StepEmailProvider({ user, onComplete }: StepProps) {
   };
 
   // Show auto-connect success state
-  if (autoConnected) {
+  if (autoConnectedProvider) {
     return (
       <Box sx={{ maxWidth: 480, mx: 'auto', textAlign: 'center', py: 4 }}>
         <CheckCircle size={48} color="var(--mui-palette-success-main, #4caf50)" />
         <Typography variant="h6" sx={{ fontWeight: 600, mt: 2 }}>
-          {detectedProvider === 'google' ? 'Gmail' : 'Outlook'}{' '}
+          {autoConnectedProvider === 'google' ? 'Gmail' : 'Outlook'}{' '}
           {sc?.connected ?? 'connected successfully!'}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>

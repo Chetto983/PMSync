@@ -67,6 +67,19 @@ export interface SessionUser {
   banReason: string | null;
 }
 
+export interface AuthSessionData {
+  session?: {
+    activeOrganizationId?: string | null;
+  } | null;
+  user?: {
+    tenantId?: string | null;
+  } | null;
+}
+
+export function getActiveOrganizationId(session?: AuthSessionData | null): string | null {
+  return session?.session?.activeOrganizationId ?? session?.user?.tenantId ?? null;
+}
+
 // Convenience re-exports for consumers
 export const { useSession, signIn, signUp, signOut } = authClient;
 
