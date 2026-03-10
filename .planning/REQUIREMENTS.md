@@ -122,7 +122,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEUI-01 | Phase 53 | Complete |
 | FEUI-02 | Phase 53 | Complete |
 | FEUI-03 | Phase 53 | Complete |
-| FEUI-04 | Phase 65 | Complete |
+| FEUI-04 | Phase 53 | Complete |
 | SEC-01 | Phase 55 | Complete |
 | SEC-02 | Phase 55 | Complete |
 | SEC-03 | Phase 55 | Complete |
@@ -162,7 +162,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 - v5.0 requirements: 51 total (45 original + 6 P62-*)
 - Mapped to phases: 51
 - Unmapped: 0
-- Pending (gap closure): 1 (FEUI-04)
+- Pending (gap closure): 0
 
 ---
 *Requirements defined: 2026-03-06*

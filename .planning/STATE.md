@@ -181,7 +181,6 @@ Progress: [████████████████████] 33/33 p
 | Phase 62 P01 | 11min | 4 tasks | 10 files |
 | Phase 63 P01 | 4min | 2 tasks | 7 files |
 | Phase 64 P01 | 2min | 1 tasks | 2 files |
-| Phase 65 P01 | 1min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -269,7 +268,7 @@ Progress: [████████████████████] 33/33 p
 - [Phase 63]: Error message matching via string includes for backend error discrimination
 - [Phase 64]: Manual socket.disconnect() instead of this.disconnect() to preserve joinedRooms across org switch
 - [Phase 64]: WS reconnect wrapped in try/catch -- non-fatal, HTTP data still correct on failure
-- [Phase 65]: Pure rename — no logic changes to preserve verified redirect behavior
+- [Phase 65]: REMOVED — proxy.ts is correct, middleware.ts convention not used in this project
 
 ### Pending Todos
 

@@ -327,20 +327,6 @@ Plans:
 Plans:
 - [ ] 64-01-PLAN.md — WS reconnect on org switch + room re-assignment verification
 
-### Phase 65: Fix Next.js Middleware
-**Goal**: Rename proxy.ts to middleware.ts so Next.js actually invokes server-side route protection (unauthenticated redirect, onboarding gate)
-**Depends on**: Phase 60
-**Requirements**: FEUI-04 (re-close)
-**Gap Closure:** Closes FEUI-04 unsatisfied, 2 integration gaps (proxy.ts → Next.js edge runtime, onboarding gate → redirect), 2 broken flows (unauthenticated redirect, onboarding gate)
-**Success Criteria** (what must be TRUE):
-  1. `frontend/middleware.ts` exports `middleware()` function (not proxy.ts with proxy())
-  2. Unauthenticated requests to `/dashboard/*` are server-side redirected to `/auth/login` with returnTo preserved
-  3. Non-onboarded users redirected from `/dashboard` to `/onboarding`
-  4. `/dashboard/invitations/accept` exempted from onboarding redirect
-
-Plans:
-- [ ] 65-01-PLAN.md — Rename proxy.ts → middleware.ts, rename export, verify redirects
-
 ## Progress
 
 **Execution Order:**
@@ -367,7 +353,6 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 62. Auth Audit Remediation | 1/1 | Complete    | 2026-03-10 | - |
 | 63. Email Invitation Accept Page | 1/1 | Complete    | 2026-03-10 | - |
 | 64. WS Org-Switch Reconnect | 1/1 | Complete    | 2026-03-10 | - |
-| 65. Fix Next.js Middleware | 1/1 | Complete    | 2026-03-10 | - |
 
 ---
 *Roadmap created: 2026-02-09*
@@ -379,4 +364,4 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 *Phase 56 gap closure: 2026-03-10 -- 1 plan closing 2 verification gaps (stub tests, seed migration)*
 *Phase 57 planned: 2026-03-10 -- 2 plans, 4 requirements (ADM-01-04)*
 *Phase 62 planned: 2026-03-10 -- 1 plan, 6 remediation requirements (P62-01-06)*
-*Phase 65 added: 2026-03-10 -- gap closure for FEUI-04 (middleware dead code)*
+*Phase 65 removed: 2026-03-10 -- proxy.ts is correct (middleware.ts convention deprecated/not used)*
