@@ -16,6 +16,7 @@ import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { isSystemFolder } from '../drivers/interfaces/canonical.types';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /**
  * FolderOperationsWorker
@@ -76,6 +77,10 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
    * operations on the same folder/provider combination.
    */
   protected async processJob(job: Job<FolderJobData>): Promise<FolderJobResult> {
+    return withoutTenantScopingAsync(() => this.executeFolderOperation(job));
+  }
+
+  private async executeFolderOperation(job: Job<FolderJobData>): Promise<FolderJobResult> {
     const { tenantId, providerId, providerType, email, operation, authToken } = job.data;
     const startTime = Date.now();
 

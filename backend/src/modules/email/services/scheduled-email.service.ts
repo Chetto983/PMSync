@@ -5,6 +5,7 @@ import {
   ScheduledJobsQueueService,
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 export interface ScheduleEmailDto {
   tenantId: string;
@@ -43,13 +44,13 @@ export class ScheduledEmailService implements OnModuleInit {
     // Register handler for processing scheduled emails (every minute)
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.SCHEDULED_EMAIL_PROCESS,
-      async () => this.processScheduledEmails(),
+      async () => withoutTenantScopingAsync(() => this.processScheduledEmails()),
     );
 
     // Register handler for cleanup (daily at midnight)
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.SCHEDULED_EMAIL_CLEANUP,
-      async () => this.cleanupOldScheduledEmails(),
+      async () => withoutTenantScopingAsync(() => this.cleanupOldScheduledEmails()),
     );
 
     this.logger.log('ScheduledEmailService registered with BullMQ scheduler');

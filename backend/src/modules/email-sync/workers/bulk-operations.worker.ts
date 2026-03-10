@@ -28,6 +28,7 @@ import { ProviderSyncBackQueueService } from '../services/provider-sync-back-que
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 @Injectable()
 export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkOperationJobResult> {
@@ -73,6 +74,10 @@ export class BulkOperationsWorker extends BaseWorker<BulkOperationJobData, BulkO
    * tenant which could cause database contention.
    */
   protected async processJob(job: Job<BulkOperationJobData>): Promise<BulkOperationJobResult> {
+    return withoutTenantScopingAsync(() => this.executeBulkOperation(job));
+  }
+
+  private async executeBulkOperation(job: Job<BulkOperationJobData>): Promise<BulkOperationJobResult> {
     const startTime = Date.now();
     const {
       tenantId,

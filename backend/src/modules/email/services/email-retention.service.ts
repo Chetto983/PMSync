@@ -6,6 +6,7 @@ import {
   ScheduledJobsQueueService,
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 @Injectable()
 export class EmailRetentionService implements OnModuleInit {
@@ -35,7 +36,7 @@ export class EmailRetentionService implements OnModuleInit {
 
     this.scheduledJobsQueue.registerHandler(
       ScheduledJobType.EMAIL_RETENTION,
-      async () => { await this.runRetentionPolicy(); },
+      async () => { await withoutTenantScopingAsync(() => this.runRetentionPolicy()); },
     );
 
     this.logger.log('EmailRetentionService registered with BullMQ scheduler');

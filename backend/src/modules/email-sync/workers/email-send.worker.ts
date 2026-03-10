@@ -30,6 +30,7 @@ import { EmailDriverFactory } from '../drivers/driver.factory';
 import { DriverCredentials, IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { ComposeMessage, AttachmentData, EmailAddress, ProviderType } from '../drivers/interfaces/canonical.types';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 @Injectable()
 export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobResult> {
@@ -67,6 +68,10 @@ export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobRe
   }
 
   protected async processJob(job: Job<EmailSendJobData>): Promise<EmailSendJobResult> {
+    return withoutTenantScopingAsync(() => this.executeSendEmail(job));
+  }
+
+  private async executeSendEmail(job: Job<EmailSendJobData>): Promise<EmailSendJobResult> {
     const startTime = Date.now();
     const { tenantId, providerId, providerType, email, draftId } = job.data;
 

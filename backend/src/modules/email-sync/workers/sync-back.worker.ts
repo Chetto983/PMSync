@@ -30,6 +30,7 @@ import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { parseImapExternalId as parseImapExternalIdShared } from '../../../common/utils/imap-utils';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 @Injectable()
 export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResult> {
@@ -68,6 +69,10 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
   }
 
   protected async processJob(job: Job<SyncBackJobData>): Promise<SyncBackJobResult> {
+    return withoutTenantScopingAsync(() => this.executeSyncBack(job));
+  }
+
+  private async executeSyncBack(job: Job<SyncBackJobData>): Promise<SyncBackJobResult> {
     const startTime = Date.now();
     const { tenantId, providerId, providerType, action, emailIds, externalIds, targetFolder, labelId, permanent } =
       job.data;

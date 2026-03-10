@@ -13,6 +13,7 @@ import { QUEUE_NAMES, WORKER_PRESETS, QUEUE_PRESETS } from '../../../common/conf
 import { getErrorMessage } from '../../../common/utils';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /** Maximum retry attempts before sending to DLQ (matches QUEUE_PRESETS.CALENDAR_SYNC.attempts) */
 const MAX_ATTEMPTS = QUEUE_PRESETS.CALENDAR_SYNC.attempts;
@@ -90,6 +91,10 @@ export class CalendarSyncWorker extends BaseWorker<CalendarSyncJobData, Calendar
    * Process a single calendar sync job
    */
   protected async processJob(job: Job<CalendarSyncJobData>): Promise<CalendarSyncJobResult> {
+    return withoutTenantScopingAsync(() => this.executeCalendarSync(job));
+  }
+
+  private async executeCalendarSync(job: Job<CalendarSyncJobData>): Promise<CalendarSyncJobResult> {
     const { providerId, email } = job.data;
 
     this.logger.log(`Processing calendar sync for ${email} (attempt ${job.attemptsMade + 1}/${MAX_ATTEMPTS})`);

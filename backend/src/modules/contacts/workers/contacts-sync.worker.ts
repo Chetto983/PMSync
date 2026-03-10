@@ -14,6 +14,7 @@ import { getErrorMessage } from '../../../common/utils';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
 import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 /** Maximum retry attempts before sending to DLQ (matches QUEUE_PRESETS.CONTACTS_SYNC.attempts) */
 const MAX_ATTEMPTS = QUEUE_PRESETS.CONTACTS_SYNC.attempts;
@@ -93,6 +94,10 @@ export class ContactsSyncWorker extends BaseWorker<ContactsSyncJobData, Contacts
    * Process a single contacts sync job
    */
   protected async processJob(job: Job<ContactsSyncJobData>): Promise<ContactsSyncJobResult> {
+    return withoutTenantScopingAsync(() => this.executeContactsSync(job));
+  }
+
+  private async executeContactsSync(job: Job<ContactsSyncJobData>): Promise<ContactsSyncJobResult> {
     const { providerId, email } = job.data;
 
     this.logger.log(`Processing contacts sync for ${email} (attempt ${job.attemptsMade + 1}/${MAX_ATTEMPTS})`);
