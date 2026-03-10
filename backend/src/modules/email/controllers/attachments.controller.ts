@@ -30,7 +30,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
  * - On-demand attachment downloads (with S3 signed URL redirect)
  * - Attachment metadata queries
  *
- * Authorization: All endpoints require JWT authentication
+ * Authorization: All endpoints require session authentication
  * Tenant isolation: Enforced via req.user.tenantId and TenantGuard
  */
 @ApiTags('Email Attachments')

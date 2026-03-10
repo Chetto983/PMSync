@@ -1,8 +1,9 @@
  
 
-// Mock better-auth.instance to break the import chain to better-auth
-jest.mock('../better-auth.instance', () => ({
+// Mock request utils (getRequestIp moved from better-auth.instance to common/utils)
+jest.mock('../../utils/request.utils', () => ({
   getRequestIp: jest.fn(),
+  getRequestHeader: jest.fn(),
 }));
 
 // Mock tenant scoping

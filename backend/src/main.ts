@@ -498,7 +498,7 @@ async function bootstrap() {
     // Respect real client IPs behind reverse proxies (prevents rate-limit false positives)
     app.set('trust proxy', config.api.trustProxy);
 
-    // Parse signed/unsigned cookies for auth flows (JWT, MFA device tokens, etc.)
+    // Parse signed/unsigned cookies for auth flows (session, MFA device tokens, etc.)
     app.use(cookieParser());
 
     // Security middleware with Content Security Policy

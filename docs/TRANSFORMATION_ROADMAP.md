@@ -22,7 +22,7 @@
 | **Multi-tenancy** | Prisma extension, 43 models scoped | 8/10 | Enforce mode, composite PKs, 41 tests |
 | **AI** | Custom Mistral orchestration + pgvector RAG | 6/10 | HITL inconsistent, some tools bypass approval, ledger incomplete |
 | **Frontend** | Next.js 16 + React 19, MUI-only | 7/10 | Tailwind base CSS vars only, zero utility classes, 117 deps |
-| **Backend** | NestJS 11 modular monolith | 7/10 | 0 forwardRef calls (all removed), 1 file-level circular dep, prom-client wired |
+| **Backend** | NestJS 11 modular monolith | 7/10 | 0 forwardRef, 0 circular deps, prom-client wired |
 | **Observability** | Prometheus + structured logging + AI ledger | 6/10 | No distributed tracing, no Sentry, metrics endpoint too open |
 | **DevOps** | Docker + Railway + GitHub CI | 6/10 | No staging env, no IaC, no secret governance |
 | **Testing** | Mixed coverage | 6/10 | 41 tenant tests, 5 contracts, org/admin/safety specs exist |
@@ -141,7 +141,7 @@ Key outcomes: dead code ~830 lines removed, argon2id only, Railway deployment re
 | prom-client with HTTP metrics interceptor + queue collector | ✅ |
 | Railway deployment (Dockerfile, toml, env template) | ✅ |
 | forwardRef burn-down | ✅ 0 runtime calls (14 files have comments only) |
-| Circular dependency | 1 file-level cycle: `better-auth.instance.ts` <-> `audit-hooks.ts` |
+| Circular dependency | ✅ 0 cycles (extracted `getRequestIp` to `common/utils/request.utils.ts`) |
 | Bundle size budget | ❌ Not established |
 | Distributed tracing (OpenTelemetry) | ❌ Not started |
 | Staging environment | ❌ Not established |
@@ -155,7 +155,7 @@ Most Phase 1 items are complete. Remaining gaps:
 | Item | Priority | Status | Effort |
 |------|----------|--------|--------|
 | forwardRef elimination | ✅ | 0 runtime calls (comments only remain) | Done |
-| File-level circular dep (`better-auth.instance` <-> `audit-hooks`) | P2 | Extract `getRequestIp` to shared util | 15m |
+| File-level circular dep (`better-auth.instance` <-> `audit-hooks`) | ✅ | Extracted to `common/utils/request.utils.ts` | Done |
 | Bundle size budget in CI | P2 | Not started | 1h |
 | Attachment proxy full streaming | P2 | Controller streams, service still buffers | 2h |
 | Frontend dependency audit (117 deps) | P2 | Not started | 2h |
@@ -431,9 +431,8 @@ Most Phase 1 items are complete. Remaining gaps:
 
 ### Then: Phase 1 Remaining Gaps
 
-6. File-level circular dep fix (15m)
-7. Bundle size budget in CI
-8. Frontend dependency audit (117 deps -> target <100)
+6. Bundle size budget in CI
+7. Frontend dependency audit (117 deps -> target <100)
 
 ### Then: Phase 2 Start
 

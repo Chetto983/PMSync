@@ -5,8 +5,8 @@ jest.mock('../../../prisma/tenant-scoping/tenant-context', () => ({
   withoutTenantScopingAsync: jest.fn((fn: () => any) => fn()),
 }));
 
-// Mock getRequestIp
-jest.mock('../better-auth.instance', () => ({
+// Mock getRequestIp (moved from better-auth.instance to common/utils)
+jest.mock('../../utils/request.utils', () => ({
   getRequestIp: jest.fn((req: any) => {
     if (!req) return undefined;
     const xff = req.headers?.get?.('x-forwarded-for');

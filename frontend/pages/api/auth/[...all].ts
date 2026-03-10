@@ -143,7 +143,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const responseText = await response.text();
     res.send(responseText);
   } catch (error) {
-    console.error('[auth-proxy] Error proxying to backend:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    // Never log full URLs — they may contain OAuth codes, state values, or tokens
+    console.error(`[auth-proxy] proxy error: ${message}`);
     res.status(502).json({ error: 'Auth proxy error' });
   }
 }

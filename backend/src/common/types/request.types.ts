@@ -1,7 +1,7 @@
 import { Request } from 'express';
 
 /**
- * Custom Request interface with JWT user payload
+ * Custom Request interface with better-auth session payload
  */
 export interface AuthenticatedRequest extends Request {
   user: {
