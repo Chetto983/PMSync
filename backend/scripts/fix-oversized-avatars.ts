@@ -15,30 +15,31 @@ async function main() {
   const prisma = createPrismaClient();
 
   try {
-    // Find users with oversized image fields
-    const users = await prisma.user.findMany({
-      where: { image: { not: null } },
-      select: { id: true, email: true, image: true },
-    });
+    // Use raw SQL to bypass tenant scoping
+    const users = await prisma.$queryRawUnsafe<Array<{ id: string; email: string; image: string }>>(
+      `SELECT id, email, image FROM "user" WHERE image IS NOT NULL AND LENGTH(image) > $1`,
+      MAX_IMAGE_LENGTH,
+    );
 
-    let fixed = 0;
+    console.log(`Found ${users.length} users with oversized images`);
+
     for (const user of users) {
-      if (!user.image || user.image.length <= MAX_IMAGE_LENGTH) continue;
-
       const sizeMB = (user.image.length / 1024 / 1024).toFixed(2);
       console.log(`[FIX] ${user.email}: image is ${sizeMB}MB (${user.image.length} chars) — clearing`);
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { image: null },
-      });
-      fixed++;
+      await prisma.$executeRawUnsafe(
+        `UPDATE "user" SET image = NULL WHERE id = $1`,
+        user.id,
+      );
     }
 
-    console.log(`\nDone. Fixed ${fixed} / ${users.length} users.`);
-    if (fixed > 0) {
-      console.log('Users will need to re-upload their avatar (now resized to 256px).');
-    }
+    // Verify
+    const remaining = await prisma.$queryRawUnsafe<Array<{ cnt: bigint }>>(
+      `SELECT COUNT(*) as cnt FROM "user" WHERE image IS NOT NULL AND LENGTH(image) > $1`,
+      MAX_IMAGE_LENGTH,
+    );
+    console.log(`\nVerification: ${remaining[0]?.cnt ?? 0} oversized images remaining`);
+    console.log('Done. Users will need to re-upload their avatar (now resized to 256px).');
   } finally {
     await prisma.$disconnect();
   }
