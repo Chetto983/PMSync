@@ -16,9 +16,12 @@ import { MicrosoftCalendarWebhookService, MicrosoftCalendarNotification } from '
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
 import { getErrorDetails } from '../../../common/utils';
 import { Public } from '../../../common/auth/public.decorator';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('Webhooks - Calendar')
 @Public()
+@SkipThrottle()
 @Controller('webhooks/calendar')
 export class CalendarWebhookController {
   private readonly logger = new Logger(CalendarWebhookController.name);
@@ -61,8 +64,8 @@ export class CalendarWebhookController {
         throw new UnauthorizedException('Missing required Google webhook headers');
       }
 
-      // Process the notification
-      await this.googleCalendarWebhook.handleNotification(headers);
+      // Webhook requests have no HTTP tenant context — bypass tenant scoping.
+      await withoutTenantScopingAsync(() => this.googleCalendarWebhook.handleNotification(headers));
 
       return { success: true };
     } catch (error) {
@@ -123,8 +126,9 @@ export class CalendarWebhookController {
         return { success: true };
       }
 
-      // Process each notification (includes clientState validation)
-      await this.microsoftCalendarWebhook.handleNotifications(payload.value);
+      // Webhook requests have no HTTP tenant context — bypass tenant scoping.
+      const notifications = payload.value;
+      await withoutTenantScopingAsync(() => this.microsoftCalendarWebhook.handleNotifications(notifications));
 
       return { success: true };
     } catch (error) {
@@ -147,14 +151,16 @@ export class CalendarWebhookController {
    */
   @Get('health')
   async getWebhookHealth() {
-    const googleStats = await this.googleCalendarWebhook.getStats();
-    const microsoftStats = await this.microsoftCalendarWebhook.getStats();
+    return withoutTenantScopingAsync(async () => {
+      const googleStats = await this.googleCalendarWebhook.getStats();
+      const microsoftStats = await this.microsoftCalendarWebhook.getStats();
 
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      google: googleStats,
-      microsoft: microsoftStats,
-    };
+      return {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        google: googleStats,
+        microsoft: microsoftStats,
+      };
+    });
   }
 }

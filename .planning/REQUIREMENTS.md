@@ -79,39 +79,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| INFRA-05 | — | Pending |
-| BTEST-01 | — | Pending |
-| BTEST-02 | — | Pending |
-| BTEST-03 | — | Pending |
-| BTEST-04 | — | Pending |
-| BTEST-05 | — | Pending |
-| BTEST-06 | — | Pending |
-| BTEST-07 | — | Pending |
-| BTEST-08 | — | Pending |
-| BINT-01 | — | Pending |
-| BINT-02 | — | Pending |
-| BINT-03 | — | Pending |
-| FTEST-01 | — | Pending |
-| FTEST-02 | — | Pending |
-| FTEST-03 | — | Pending |
-| FE2E-01 | — | Pending |
-| FE2E-02 | — | Pending |
-| FE2E-03 | — | Pending |
-| FE2E-04 | — | Pending |
-| MUI-01 | — | Pending |
-| MUI-02 | — | Pending |
-| MUI-03 | — | Pending |
-| MUI-04 | — | Pending |
+| INFRA-01 | Phase 66 | Pending |
+| INFRA-02 | Phase 66 | Pending |
+| INFRA-03 | Phase 66 | Pending |
+| INFRA-04 | Phase 66 | Pending |
+| INFRA-05 | Phase 66 | Pending |
+| BTEST-01 | Phase 68 | Pending |
+| BTEST-02 | Phase 68 | Pending |
+| BTEST-03 | Phase 68 | Pending |
+| BTEST-04 | Phase 68 | Pending |
+| BTEST-05 | Phase 67 | Pending |
+| BTEST-06 | Phase 67 | Pending |
+| BTEST-07 | Phase 67 | Pending |
+| BTEST-08 | Phase 67 | Pending |
+| BINT-01 | Phase 69 | Pending |
+| BINT-02 | Phase 69 | Pending |
+| BINT-03 | Phase 69 | Pending |
+| FTEST-01 | Phase 70 | Pending |
+| FTEST-02 | Phase 70 | Pending |
+| FTEST-03 | Phase 70 | Pending |
+| FE2E-01 | Phase 71 | Pending |
+| FE2E-02 | Phase 71 | Pending |
+| FE2E-03 | Phase 71 | Pending |
+| FE2E-04 | Phase 71 | Pending |
+| MUI-01 | Phase 72 | Pending |
+| MUI-02 | Phase 72 | Pending |
+| MUI-03 | Phase 72 | Pending |
+| MUI-04 | Phase 72 | Pending |
 
 **Coverage:**
 - v5.1 requirements: 27 total
-- Mapped to phases: 0
-- Unmapped: 27 ⚠️
+- Mapped to phases: 27
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after initial definition*
+*Last updated: 2026-03-10 after roadmap creation (27/27 mapped)*

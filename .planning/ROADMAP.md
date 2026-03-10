@@ -2,366 +2,182 @@
 
 ## Milestones
 
-- ✅ **v1.0 Stability & Code Quality** - Phases 1-5 (shipped 2026-02-02)
-- ✅ **v2.0 Professional Email Client** - Phases 6-10 (shipped 2026-02-04)
-- ✅ **v2.1 Optimization & Polish** - Phases 11-13 (shipped 2026-02-05)
 - ✅ **v3.0 AI Intelligence & Scalability** - Phases 1-12 (shipped 2026-02-09)
 - ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-22 (shipped 2026-02-27)
 - ✅ **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (shipped 2026-03-03, partial)
 - ✅ **v4.0 Enterprise Stabilization** - Phases 31-41 (shipped 2026-03-04)
 - ✅ **v4.1 Security Hardening & Debt Reduction** - Phases 42-49 (shipped 2026-03-06)
-- 🚧 **v5.0 better-auth Migration** - Phases 50-62 (in progress)
+- ✅ **v5.0 better-auth Migration** - Phases 50-65 (shipped 2026-03-10)
+- **v5.1 Test Coverage & Polish** - Phases 66-72 (in progress)
 
 ## Phases
 
 <details>
-<summary>✅ v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
+<summary>v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
 
 Phases 1-12: VoltAgent audit, modern chat UI, priority scoring, follow-ups refactor, nested labels, chat UI on mail, chat improvements, email tool triage, artifact renderers, UI review, AI module audit, test fixes. 12 phases, 42 plans, 19/19 requirements.
 
 </details>
 
 <details>
-<summary>✅ v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) - SHIPPED 2026-02-27</summary>
+<summary>v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) - SHIPPED 2026-02-27</summary>
 
 Phases 13-22: PII tokenization, database encryption at rest, GDPR core compliance, data rights & legal, rich artifacts UI, AI triage & bulk ops, AI draft generation, GDPR guard mounting, triage prompt enrichment, bug audit. 10 phases, 31/32 requirements (ENC-03 deferred).
 
 </details>
 
 <details>
-<summary>✅ v3.2 AI Rebuild & Cleanup (Phases 23-30) - SHIPPED 2026-03-03 (partial)</summary>
+<summary>v3.2 AI Rebuild & Cleanup (Phases 23-30) - SHIPPED 2026-03-03 (partial)</summary>
 
-Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, chat frontend, cleanup & VoltAgent deletion. 6 phases complete (20 plans). Phases 29-30 (architecture hardening, performance & debt) carried forward to v4.0 as ARCH-01/02/03 and PERF-01/02.
+Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, chat frontend, cleanup & VoltAgent deletion. 6 phases complete (20 plans). Phases 29-30 carried forward to v4.0.
 
 </details>
 
 <details>
-<summary>✅ v4.0 Enterprise Stabilization (Phases 31-41) - SHIPPED 2026-03-04</summary>
-
-- [x] Phase 31: Foundation & Stability Verification (2/2 plans) -- completed 2026-03-03
-- [x] Phase 32: Architecture Decoupling (4/4 plans) -- completed 2026-03-03
-- [x] Phase 33: API Contract Standardization (3/3 plans) -- completed 2026-03-03
-- [x] Phase 34: Auth Security Hardening (3/3 plans) -- completed 2026-03-04
-- [x] Phase 35: AI Observability & Permissions (2/2 plans) -- completed 2026-03-04
-- [x] Phase 36: Encrypted Search (2/2 plans) -- completed 2026-03-04
-- [x] Phase 37: Performance & Debt Closure (2/2 plans) -- completed 2026-03-04
-- [x] Phase 38: Attachment Proxy Path Fix (1/1 plan) -- completed 2026-03-04
-- [x] Phase 39: Code Quality & CI Hygiene (1/1 plan) -- completed 2026-03-04
-- [x] Phase 40: Fix CI Regressions (1/1 plan) -- completed 2026-03-04
-- [x] Phase 41: Backend Code Hygiene (1/1 plan) -- completed 2026-03-04
+<summary>v4.0 Enterprise Stabilization (Phases 31-41) - SHIPPED 2026-03-04</summary>
 
 11 phases, 22 plans, 19/19 requirements. See `.planning/milestones/v4.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>✅ v4.1 Security Hardening & Debt Reduction (Phases 42-49) - SHIPPED 2026-03-06</summary>
-
-- [x] Phase 42: Tenant Isolation & Auth Hardening (4/4 plans) -- completed 2026-03-04
-- [x] Phase 43: Contract Tests & Backend God-File Splits (4/4 plans) -- completed 2026-03-05
-- [x] Phase 44: Frontend God-File Splits (4/4 plans) -- completed 2026-03-06
-- [x] Phase 45: forwardRef Burn-Down (3/3 plans) -- completed 2026-03-06
-- [x] Phase 46: Observability (3/3 plans) -- completed 2026-03-06
-- [x] Phase 47: Infrastructure & Cleanup (3/3 plans) -- completed 2026-03-06
-- [x] Phase 48: Auth Fix 2026 Best Practice (4/4 plans) -- completed 2026-03-06
-- [x] Phase 49: Zero Circular Dependencies (3/3 plans) -- completed 2026-03-06
+<summary>v4.1 Security Hardening & Debt Reduction (Phases 42-49) - SHIPPED 2026-03-06</summary>
 
 8 phases, 28 plans, 65/66 requirements. See `.planning/milestones/v4.1-ROADMAP.md` for full details.
 
 </details>
 
-### v5.0 better-auth Migration (In Progress)
+<details>
+<summary>v5.0 better-auth Migration (Phases 50-65) - SHIPPED 2026-03-10</summary>
 
-**Milestone Goal:** Replace broken custom auth with better-auth -- full enterprise auth (email/password, social login, 2FA, organizations/roles, admin panel) with clean slate migration.
+- [x] Phase 50: Schema & Infrastructure (2/2 plans)
+- [x] Phase 51: Core Email/Password Auth (2/2 plans)
+- [x] Phase 52: NestJS Session Validation (3/3 plans)
+- [x] Phase 53: Frontend Auth UI (2/2 plans)
+- [x] Phase 54: WebSocket Auth (1/1 plans)
+- [x] Phase 55: Social Login & MFA (5/5 plans)
+- [x] Phase 56: Organizations (3/3 plans)
+- [x] Phase 57: Admin Panel (2/2 plans)
+- [x] Phase 58: Compliance & Cleanup (3/3 plans)
+- [x] Phase 59: Safety Hardening (5/5 plans)
+- [x] Phase 60: Middleware & Auth Cleanup (2/2 plans)
+- [x] Phase 61: GDPR Org Compliance (1/1 plans)
+- [x] Phase 62: Auth Audit Remediation (1/1 plans)
+- [x] Phase 63: Email Invitation Accept Page (1/1 plans)
+- [x] Phase 64: WS Org-Switch Reconnect (1/1 plans)
 
-- [x] **Phase 50: Schema & Infrastructure** - Prisma models for better-auth, dual instances (Next.js + NestJS), cookie/session config
-- [x] **Phase 51: Core Email/Password Auth** - Sign up, sign in, email verification, password reset via better-auth
-- [x] **Phase 52: NestJS Session Validation** - Guards rewrite, tenant bridge, bodyParser fix, BullMQ context
- (completed 2026-03-06)
-- [x] **Phase 53: Frontend Auth UI** - Login/signup pages, session hooks, protected routes with better-auth client (completed 2026-03-09)
-- [x] **Phase 54: WebSocket Auth** - Verified existing better-auth WS handshake (7/7 tests pass, zero JWT remnants) (completed 2026-03-09)
-- [x] **Phase 55: Social Login & MFA** - Google OAuth, TOTP 2FA, passkeys, backup codes, security settings (completed 2026-03-09)
-- [x] **Phase 56: Organizations** - Org creation, invitations, roles, switching, API permission enforcement (completed 2026-03-10)
-- [x] **Phase 57: Admin Panel** - User management, ban/unban, impersonation, session revocation (completed 2026-03-10)
-- [x] **Phase 58: Compliance & Cleanup** - Audit trail hooks, GDPR updates, legacy code deletion, test rewrite (completed 2026-03-09)
+15 phases, 34 plans, 51/51 requirements.
+
+</details>
+
+### v5.1 Test Coverage & Polish (In Progress)
+
+**Milestone Goal:** Deep automated test coverage across backend and frontend, MUI consistency enforcement, and production polish. All tests run against real database and real backend -- no Prisma mocking, no mocked API routes.
+
+- [ ] **Phase 66: Test Infrastructure** - Real DB test environment, shared helpers, factories, coverage thresholds
+- [ ] **Phase 67: Backend Tests - Simple Modules** - Unit tests for health, users, tenants, labels
+- [ ] **Phase 68: Backend Tests - Complex Modules** - Unit tests for calendar, contacts, providers, subscription
+- [ ] **Phase 69: Backend Integration Tests** - Cross-tenant isolation, auth guard chain, contract tests
+- [ ] **Phase 70: Frontend Unit Tests** - Zustand stores, TanStack Query hooks, settings components
+- [ ] **Phase 71: Frontend E2E Tests** - Org flows, admin panel, onboarding wizard, security settings
+- [ ] **Phase 72: MUI Audit & Polish** - Automated scanner, violation fixes, accessibility audit, visual regression
 
 ## Phase Details
 
-### Phase 50: Schema & Infrastructure
-**Goal**: better-auth can run in both Next.js and NestJS, backed by shared Prisma schema with tenant awareness
-**Depends on**: Nothing (first phase of v5.0)
-**Requirements**: CORE-06, CORE-07
+### Phase 66: Test Infrastructure
+**Goal**: All test tooling, helpers, and environment config exist so every subsequent phase can write tests against real PostgreSQL/Redis without setup friction
+**Depends on**: Nothing (first phase of v5.1)
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
 **Success Criteria** (what must be TRUE):
-  1. Prisma schema contains better-auth tables (user, session, account, verification) with tenantId on user via additionalFields
-  2. better-auth instance initializes in Next.js and responds to `/api/auth/*` routes
-  3. better-auth instance initializes in NestJS for session validation (read-only consumer)
-  4. Sessions are DB-backed httpOnly cookies (no JWT anywhere in the new auth path)
-  5. HIBP password check rejects known-breached passwords during signup attempt
-**Plans:** 2/2 plans complete
+  1. Running `npm test` in backend starts tests against a real PostgreSQL database and real Redis instance (Docker Compose or existing)
+  2. Test helpers provide `createTestTenant()`, `createTestUser()`, and `createTestSession()` factories that insert real rows and return typed objects
+  3. Each test suite starts with a clean database state (seeded baseline data, cleaned between suites) so tests are isolated and deterministic
+  4. Frontend E2E tests (`npx playwright test`) execute against a real running backend server -- no MSW route mocking for API calls
+  5. Jest coverage thresholds are configured (50% backend, 30% frontend) and `npm test` fails if coverage drops below threshold
+**Plans**: TBD
 
-Plans:
-- [x] 50-01-PLAN.md — Prisma schema reshape + HIBP utility + better-auth Next.js instance
-- [x] 50-02-PLAN.md — NestJS better-auth consumer instance + cross-service verification
-
-### Phase 51: Core Email/Password Auth
-**Goal**: Users can create accounts, sign in, verify email, and reset passwords through better-auth
-**Depends on**: Phase 50
-**Requirements**: CORE-01, CORE-02, CORE-04, CORE-05
+### Phase 67: Backend Tests - Simple Modules
+**Goal**: Health, users, tenants, and labels modules have comprehensive test coverage proving correct behavior against real database
+**Depends on**: Phase 66
+**Requirements**: BTEST-05, BTEST-06, BTEST-07, BTEST-08
 **Success Criteria** (what must be TRUE):
-  1. User can create account with email and password, and a session cookie is set
-  2. User can sign in with existing email/password and land on the dashboard
-  3. User receives verification email after signup and can verify their address
-  4. User can request password reset, receive email link, and set a new password
-**Plans:** 2/2 plans complete
+  1. Health endpoint tests verify DB, Redis, and BullMQ connectivity probes return correct status under healthy and degraded conditions
+  2. Users module tests verify profile CRUD and preferences update/retrieval with tenant isolation (user A cannot read user B's profile in a different tenant)
+  3. Tenants module tests verify tenant creation, update, and deletion with cascading cleanup and cross-tenant isolation
+  4. Labels module tests verify CRUD, nested label tree operations (create child, move, delete with children), and tenant scoping
+**Plans**: TBD
 
-Plans:
-- [x] 51-01-PLAN.md — Server-side: nodemailer, auth-client, email callbacks, HIBP on reset
-- [x] 51-02-PLAN.md — Client-side: rewire 4 auth pages + create verify-email page
-
-### Phase 52: NestJS Session Validation
-**Goal**: NestJS backend validates better-auth sessions and enforces tenant/role isolation on all API requests
-**Depends on**: Phase 51
-**Requirements**: NEST-01, NEST-02, NEST-03, NEST-04, NEST-06
+### Phase 68: Backend Tests - Complex Modules
+**Goal**: Calendar, contacts, providers, and subscription modules have comprehensive test coverage proving correct behavior for security-sensitive and business-critical flows
+**Depends on**: Phase 66
+**Requirements**: BTEST-01, BTEST-02, BTEST-03, BTEST-04
 **Success Criteria** (what must be TRUE):
-  1. NestJS AuthGuard validates better-auth session cookie via shared DB lookup and rejects invalid/expired sessions with 401
-  2. TenantGuard reads tenantId from the better-auth session user and scopes all Prisma queries to that tenant
-  3. RolesGuard enforces role-based access using roles from better-auth session (existing RBAC decorators still work)
-  4. bodyParser is disabled only for `/api/auth/*` proxy routes; all other NestJS routes parse bodies normally
-  5. BullMQ jobs created during a request carry the correct tenantId from the new auth context
-**Plans:** 3/3 plans complete
+  1. Calendar module tests cover sync lifecycle, webhook processing, conflict resolution logic, and ICS parsing edge cases (recurring events, timezone handling)
+  2. Contacts module tests cover sync flow, CRM relationship scoring calculation, cache invalidation, and webhook processing
+  3. Providers module tests cover OAuth token acquisition, refresh, and revocation flows; IMAP config validation; and token lifecycle (expiry, rotation)
+  4. Subscription module tests cover billing state transitions, quota calculation, usage tracking increments, and QuotaGuard rejection when limits are exceeded
+**Plans**: TBD
 
-Plans:
-- [ ] 52-01-PLAN.md — BetterAuthGuard + @Public() decorator + global guard registration
-- [ ] 52-02-PLAN.md — Controller cleanup (remove JwtAuthGuard) + TenantGuard/RolesGuard verification
-- [ ] 52-03-PLAN.md — Gap closure: fix stale test + update JwtAuthGuard references in JSDoc
-
-### Phase 53: Frontend Auth UI
-**Goal**: Users interact with polished login/signup pages and the app manages sessions entirely through better-auth client
-**Depends on**: Phase 52
-**Requirements**: FEUI-01, FEUI-02, FEUI-03, FEUI-04
+### Phase 69: Backend Integration Tests
+**Goal**: Integration tests prove cross-cutting concerns work correctly with real database -- tenant isolation prevents data leaks, auth guard pipeline rejects unauthorized access, and API contracts match expected response shapes
+**Depends on**: Phase 67, Phase 68
+**Requirements**: BINT-01, BINT-02, BINT-03
 **Success Criteria** (what must be TRUE):
-  1. User sees a login page and signup page built with better-auth-ui shadcn components (no custom form)
-  2. useSession hook from better-auth/react provides current user/session state across the app
-  3. Old Zustand auth store and custom AuthContext are removed; all auth state comes from better-auth client
-  4. Unauthenticated users hitting any protected route are redirected to /auth/login with return URL preserved
-**Plans:** 2/2 plans complete
+  1. Cross-tenant isolation test creates two tenants with distinct data, then proves queries scoped to tenant A return zero rows from tenant B (and vice versa) across all tenant-scoped models
+  2. Auth guard chain test validates the full BetterAuth -> Tenant -> Roles pipeline: unauthenticated request gets 401, wrong-tenant request gets 403, insufficient-role request gets 403, valid request succeeds
+  3. Contract tests exist for calendar, labels, providers, subscription, organizations, and admin endpoints -- each validates response envelope shape, required fields, and error format
+**Plans**: TBD
 
-Plans:
-- [x] 53-01-PLAN.md — Install better-auth-ui, create middleware + auth pages, wire AuthUIProvider
-- [x] 53-02-PLAN.md — Migrate all auth consumers to useSession, delete old auth layer, update E2E tests
-
-### Phase 54: WebSocket Auth
-**Goal**: WebSocket connections authenticate using better-auth session tokens instead of JWT
-**Depends on**: Phase 52
-**Requirements**: NEST-05
+### Phase 70: Frontend Unit Tests
+**Goal**: Frontend data layer and security-critical UI components have test coverage proving correct state management, data fetching, and user interaction behavior
+**Depends on**: Phase 66
+**Requirements**: FTEST-01, FTEST-02, FTEST-03
 **Success Criteria** (what must be TRUE):
-  1. WebSocket handshake extracts better-auth session cookie and validates it via DB lookup
-  2. Invalid or expired session tokens are rejected during handshake with appropriate error
-  3. Existing real-time features (email sync notifications, chat) work with the new WebSocket auth
-**Plans:** 1/1 plans complete
+  1. All 14 Zustand store files have tests verifying state transitions, action side effects, and store isolation (no cross-store leakage between tests)
+  2. Critical TanStack Query hooks (emails, folders, contacts, organizations) have tests verifying correct query key construction, cache behavior, and error/loading state handling
+  3. Security settings components (MFA toggle, passkey management, session list, password change) have tests verifying user interactions trigger correct API calls and display correct feedback
+**Plans**: TBD
 
-Plans:
-- [x] 54-01-PLAN.md — Verify existing WS auth implementation (tests + smoke test)
-
-### Phase 55: Social Login & MFA
-**Goal**: Users can sign in with Google or Microsoft OAuth and protect their accounts with TOTP 2FA, passkeys, and mandatory MFA via onboarding wizard
-**Depends on**: Phase 53
-**Requirements**: CORE-03, SEC-01, SEC-02, SEC-03, SEC-04
+### Phase 71: Frontend E2E Tests
+**Goal**: All v5.0 features have end-to-end Playwright tests proving complete user workflows against a real running backend
+**Depends on**: Phase 66, Phase 69
+**Requirements**: FE2E-01, FE2E-02, FE2E-03, FE2E-04
 **Success Criteria** (what must be TRUE):
-  1. User can sign in with Google or Microsoft OAuth and land on the dashboard with a valid session
-  2. User can enable TOTP 2FA, scan QR code, and is prompted for TOTP code on subsequent logins
-  3. User can use backup codes to bypass TOTP when their device is unavailable
-  4. User can register a passkey (WebAuthn) and use it as primary or second-factor authentication
-  5. User can view and manage all security settings (active 2FA methods, registered passkeys, active sessions) from a settings page
-**Plans:** 5/5 plans complete
+  1. Organization E2E test completes the full flow: create org, invite member by email, accept invitation (as invited user), switch between organizations -- all against real backend
+  2. Admin panel E2E test completes: navigate to admin, search users, ban a user (verify they cannot log in), unban, impersonate a user, revoke a session
+  3. Onboarding wizard E2E test completes all steps: set display name, create/join workspace, connect email provider, configure MFA, upload avatar -- wizard marks complete and redirects to dashboard
+  4. Security settings E2E test completes: change password, enable TOTP (scan QR, enter code), disable TOTP, register passkey (via virtual authenticator), view and revoke active sessions
+**Plans**: TBD
 
-Plans:
-- [x] 55-01-PLAN.md — Schema migration + plugin config + social login buttons + 2FA page
-- [ ] 55-02-PLAN.md — Security settings page (MFA, sessions, accounts, password)
-- [ ] 55-03-PLAN.md — Onboarding wizard container + middleware redirect
-- [ ] 55-04-PLAN.md — Wizard step components (name, workspace, email, avatar, MFA)
-- [ ] 55-05-PLAN.md — Delete old custom MFA code (11 files)
-
-### Phase 56: Organizations
-**Goal**: Users can create and manage organizations with role-based membership
-**Depends on**: Phase 52
-**Requirements**: ORG-01, ORG-02, ORG-03, ORG-04, ORG-05
+### Phase 72: MUI Audit & Polish
+**Goal**: Zero non-MUI patterns exist in the codebase, all v5.0 pages pass accessibility audit, and visual regression baselines prevent future drift
+**Depends on**: Phase 71
+**Requirements**: MUI-01, MUI-02, MUI-03, MUI-04
 **Success Criteria** (what must be TRUE):
-  1. User can create a new organization and becomes its owner
-  2. Organization owner can invite members by email; invited user receives invitation and can accept
-  3. Organization owner/admin can assign and change roles (owner, admin, member) for members
-  4. User belonging to multiple organizations can switch between them and the UI/API context updates
-  5. API endpoints enforce organization-level permissions (members cannot perform admin/owner actions)
-**Plans**: 3 plans
-
-Plans:
-- [x] 56-01-PLAN.md — Schema + organization plugin + guard extension + data migration
-- [x] 56-02-PLAN.md — Org admin page + org switcher + invitation banner + i18n
-- [ ] 56-03-PLAN.md — Gap closure: replace stub tests + add seed migration health check
-
-### Phase 57: Admin Panel
-**Goal**: Admins can manage users and sessions from an admin interface
-**Depends on**: Phase 52, Phase 55
-**Requirements**: ADM-01, ADM-02, ADM-03, ADM-04
-**Success Criteria** (what must be TRUE):
-  1. Admin can list all users with search/filter and see account status (verified, banned, 2FA enabled)
-  2. Admin can ban a user with a reason and optional expiry; banned user cannot sign in and sees ban reason
-  3. Admin can impersonate a user to troubleshoot their experience, with audit trail of impersonation
-  4. Admin can revoke any user's active sessions, forcing immediate re-authentication
-**Plans:** 1 plan
-
-Plans:
-- [ ] 57-01-PLAN.md — Schema + admin plugin + audit hooks + test scaffold
-- [ ] 57-02-PLAN.md — Frontend admin UI (user list, ban dialog, sessions dialog, impersonation banner)
-
-### Phase 58: Compliance & Cleanup
-**Goal**: Auth events feed into audit/GDPR systems and all legacy auth code is deleted
-**Depends on**: Phase 55
-**Requirements**: CLN-01, CLN-02, CLN-03, CLN-04, CLN-05
-**Success Criteria** (what must be TRUE):
-  1. Auth events (login, logout, signup, password change, 2FA enable/disable) are logged to the existing audit trail
-  2. GDPR data export includes better-auth tables (account, session, verification, organization membership)
-  3. Right to erasure cascades into all better-auth tables and cleans up organization memberships
-  4. Old auth code is deleted (~17 services, 5 npm packages, 7 Prisma models) and the app builds cleanly
-  5. Auth test suite covers all better-auth flows (signup, signin, OAuth, 2FA, org, admin, session validation)
-**Plans**: 3 plans
-
-Plans:
-- [ ] 58-01-PLAN.md -- Audit hooks + guard relocation
-- [ ] 58-02-PLAN.md -- Legacy auth deletion + schema cleanup (CLN-02/CLN-03 deferred)
-- [ ] 58-03-PLAN.md -- Auth test suite (partial, no org/admin)
-
-### Phase 59: Safety Hardening
-**Goal**: Critical and high-severity security findings from architecture audit are fixed -- secrets purged from git, rate limiting enforced, injection vectors closed, JWT removed, production exposure locked down
-**Depends on**: Phase 54
-**Requirements**: SAF-01, SAF-02, SAF-03, SAF-04, SAF-05, SAF-06, SAF-07, SAF-08, SAF-09, SAF-10
-**Success Criteria** (what must be TRUE):
-  1. All Prisma.raw() vector injections validated before SQL construction
-  2. RegisterDto and other DTOs have proper string length bounds
-  3. Auth-related database models have indexed lookup columns
-  4. Zero @SkipThrottle decorators on non-webhook endpoints
-  5. AI health endpoint restricts detailed info to admin role
-  6. JWT code fully removed (strategy, guard, token service, config)
-  7. Email verification required for new signups
-  8. Swagger inaccessible in production
-  9. .env removed from git history
-  10. All secrets rotated
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 59-01-PLAN.md — SQL injection fixes, DTO hardening, database indexes
-- [ ] 59-02-PLAN.md — Rate limiting overhaul, AI health restriction
-- [ ] 59-03-PLAN.md — JWT removal, email verification, Swagger lockdown, CORS
-- [ ] 59-04-PLAN.md — Secrets rotation checklist + BFG git history cleanup
-- [ ] 59-05-PLAN.md — Gap closure: add SAF-* requirement definitions to REQUIREMENTS.md
-
-### Phase 60: Middleware & Auth Cleanup
-**Goal**: Fix critical integration gap (Next.js middleware not active) and remove divergent auth instances
-**Depends on**: Phase 53
-**Requirements**: FEUI-04 (re-close)
-**Gap Closure:** Closes integration gap, flow gap, and 2 tech debt items from v5.0 audit
-**Success Criteria** (what must be TRUE):
-  1. `frontend/middleware.ts` exports `middleware()` function with correct route matcher (not proxy.ts with proxy())
-  2. Unauthenticated requests to `/dashboard/*` are server-side redirected to `/auth/login` without content flash
-  3. `frontend/lib/auth.ts` duplicate better-auth instance removed; onboarding uses backend canonical instance
-  4. `cookieCache.strategy` aligned between frontend auth config and backend instance
-**Plans:** 1 plan
-
-Plans:
-- [ ] 60-01-PLAN.md — Middleware rename + auth instance cleanup + cookieCache alignment
-- [ ] 60-02-PLAN.md — E2E Playwright tests for middleware redirect behavior
-
-### Phase 61: GDPR Organization Compliance
-**Goal**: GDPR data export and erasure cover better-auth organization tables
-**Depends on**: Phase 56
-**Requirements**: CLN-02, CLN-03
-**Gap Closure:** Closes deferred requirements from Phase 58 audit
-**Success Criteria** (what must be TRUE):
-  1. GDPR data export includes better-auth organization membership, invitation, and role tables
-  2. Right to erasure cascades into organization membership and cleans up orphaned org references
-**Plans:** 1/1 plans complete
-
-Plans:
-- [x] 61-01-PLAN.md — Extend data export with org/auth tables + orphaned org cleanup after erasure
-
-### Phase 62: Auth Audit Remediation
-**Goal**: Close the Better Auth audit findings across provider bootstrap, auth proxying, organization context, and verification UX
-**Depends on**: Phase 55, Phase 56, Phase 60
-**Requirements**: P62-01, P62-02, P62-03, P62-04, P62-05, P62-06
-**Gap Closure:** Fixes post-migration auth regressions and security gaps found in the 2026-03-10 audit
-**Success Criteria** (what must be TRUE):
-  1. PMSync no longer depends on plaintext Better Auth `Account` OAuth tokens
-  2. Google and Microsoft social login still auto-connect provider configs after onboarding
-  3. `/api/auth/*` preserves all `Set-Cookie` headers and does not log auth secrets
-  4. Active organization is consistent across HTTP, WebSocket, and the org switcher UI
-  5. Registration, verification, and onboarding UX reflect Better Auth session semantics
-  6. Workspace provisioning uses one canonical implementation path
-**Plans:** 1/1 plans complete
-
-Plans:
-- [ ] 62-01-PLAN.md — Auth audit remediation across backend, frontend proxy, org context, and verification flow
-
-### Phase 63: Email Invitation Accept Page
-**Goal**: Email invitation deep-link lands on a working page that accepts the invitation
-**Depends on**: Phase 56
-**Requirements**: ORG-02 (re-close)
-**Gap Closure:** Closes ORG-02 partial, integration gap (invitation email → frontend routing), flow gap ("Invited user accepts via email link")
-**Success Criteria** (what must be TRUE):
-  1. Next.js page exists at `/dashboard/invitations/accept` that reads `?id=` query param and calls `authClient.organization.acceptInvitation`
-  2. Unauthenticated users following the email link are redirected to `/auth/login` with return URL preserving the `?id=` param
-  3. Success and error states displayed with i18n strings (invitation accepted, expired, already member, etc.)
-
-Plans:
-- [ ] 63-01-PLAN.md — Invitation accept page + middleware param preservation + i18n
-
-### Phase 64: WebSocket Org-Switch Reconnect
-**Goal**: WebSocket reconnects after org switch so real-time events come from the new organization
-**Depends on**: Phase 54, Phase 56
-**Requirements**: ORG-04 (re-close), P62-04 (re-close)
-**Gap Closure:** Closes P62-04 partial, integration gap (OrgSwitcher → WS handshake), flow gap ("User switches org → WS delivers events from new org")
-**Success Criteria** (what must be TRUE):
-  1. `useSetActiveOrg.onSuccess` triggers WebSocket disconnect and reconnect
-  2. After org switch, WS handshake sends new session with updated activeOrganizationId
-  3. Real-time events arrive from the new organization without page refresh
-
-Plans:
-- [ ] 64-01-PLAN.md — WS reconnect on org switch + room re-assignment verification
+  1. An automated scanner (ESLint rule or CI script) detects Tailwind utility classes, hardcoded color values, and raw CSS-in-JS in .tsx/.ts files -- and it runs in CI
+  2. Running the scanner produces zero violations across the entire frontend codebase
+  3. axe-core accessibility audit passes on all v5.0 pages (organizations, admin panel, onboarding wizard, security settings) with zero critical or serious violations
+  4. Playwright visual regression baselines exist for all v5.0 pages and can detect unintended visual changes in CI
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 50 -> 51 -> 52 -> 53 -> 54 -> 55 -> 56 -> 57 -> 58
-
-Note: Phase 54 (WebSocket) can run in parallel with Phase 53 (Frontend) since both depend on Phase 52 only.
-Phase 56 (Orgs) can start after Phase 52; Phase 57 (Admin) needs Phase 55 for 2FA status display.
-Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
+Phases 67, 68, and 70 can run in parallel after Phase 66 completes.
+Phase 69 depends on 67 + 68. Phase 71 depends on 66 + 69.
+Phase 72 depends on 71 (needs pages working to screenshot).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 50. Schema & Infrastructure | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 51. Core Email/Password Auth | v5.0 | Complete    | 2026-03-06 | 2026-03-06 |
-| 52. NestJS Session Validation | 3/3 | Complete    | 2026-03-06 | - |
-| 53. Frontend Auth UI | 2/2 | Complete    | 2026-03-09 | 2026-03-09 |
-| 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
-| 55. Social Login & MFA | 5/5 | Complete    | 2026-03-09 | - |
-| 56. Organizations | 3/3 | Complete    | 2026-03-10 | - |
-| 57. Admin Panel | 2/2 | Complete   | 2026-03-10 | - |
-| 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
-| 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
-| 60. Middleware & Auth Cleanup | 2/2 | Complete    | 2026-03-10 | - |
-| 61. GDPR Org Compliance | 1/1 | Complete    | 2026-03-10 | - |
-| 62. Auth Audit Remediation | 1/1 | Complete    | 2026-03-10 | - |
-| 63. Email Invitation Accept Page | 1/1 | Complete    | 2026-03-10 | - |
-| 64. WS Org-Switch Reconnect | 1/1 | Complete    | 2026-03-10 | - |
+| 66. Test Infrastructure | v5.1 | 0/? | Not started | - |
+| 67. Backend Tests - Simple Modules | v5.1 | 0/? | Not started | - |
+| 68. Backend Tests - Complex Modules | v5.1 | 0/? | Not started | - |
+| 69. Backend Integration Tests | v5.1 | 0/? | Not started | - |
+| 70. Frontend Unit Tests | v5.1 | 0/? | Not started | - |
+| 71. Frontend E2E Tests | v5.1 | 0/? | Not started | - |
+| 72. MUI Audit & Polish | v5.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
-*v4.1 completed: 2026-03-06 -- 8 phases, 28 plans, 65/66 requirements*
-*v5.0 roadmap added: 2026-03-06 -- 9 phases, 35 requirements*
-*Phase 59 planned: 2026-03-09 -- 4 plans, 10 safety requirements*
-*Phase 55 revised: 2026-03-09 -- 5 plans, 5 requirements (CORE-03, SEC-01-04)*
-*Phase 56 planned: 2026-03-10 -- 2 plans, 5 requirements (ORG-01-05)*
-*Phase 56 gap closure: 2026-03-10 -- 1 plan closing 2 verification gaps (stub tests, seed migration)*
-*Phase 57 planned: 2026-03-10 -- 2 plans, 4 requirements (ADM-01-04)*
-*Phase 62 planned: 2026-03-10 -- 1 plan, 6 remediation requirements (P62-01-06)*
-*Phase 65 removed: 2026-03-10 -- proxy.ts is correct (middleware.ts convention deprecated/not used)*
+*v5.0 completed: 2026-03-10 -- 15 phases, 34 plans, 51/51 requirements*
+*v5.1 roadmap added: 2026-03-10 -- 7 phases, 27 requirements*
