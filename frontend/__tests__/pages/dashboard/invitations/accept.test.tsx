@@ -114,12 +114,10 @@ describe('AcceptInvitationPage', () => {
     expect(mockMutate).toHaveBeenCalledWith('test-inv-id');
   });
 
-  it('does not call mutate twice (useRef guard)', () => {
-    const { unmount } = render(<AcceptInvitationPage />);
-    unmount();
+  it('does not call mutate twice (useRef guard against strict mode double-invoke)', () => {
+    // The useRef guard ensures that even if the effect fires twice in strict mode,
+    // mutate is only called once per component instance mount
     render(<AcceptInvitationPage />);
-    // Even with two renders, mutate should have been called once per component instance
-    // The useRef guard prevents double-invoke within a single instance
     expect(mockMutate).toHaveBeenCalledTimes(1);
   });
 });

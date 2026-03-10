@@ -16,11 +16,11 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/dashboard") || pathname === "/onboarding") {
     if (!sessionCookie) {
       const loginUrl = new URL("/auth/login", request.url);
-      loginUrl.searchParams.set("returnTo", pathname);
+      loginUrl.searchParams.set("returnTo", pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }
 
-    if (pathname.startsWith("/dashboard") && !onboardingCookie) {
+    if (pathname.startsWith("/dashboard") && !onboardingCookie && !pathname.startsWith("/dashboard/invitations/accept")) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
   }
