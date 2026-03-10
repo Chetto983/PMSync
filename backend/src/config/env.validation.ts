@@ -178,6 +178,10 @@ export class EnvironmentVariables {
   @IsOptional()
   FRONTEND_URL?: string;
 
+  @IsUrl({ require_tld: false })
+  @IsOptional()
+  BETTER_AUTH_PUBLIC_URL?: string;
+
   // Features
   // Better-Auth secret (shared with frontend for session signing)
   @IsString()

@@ -8,20 +8,21 @@ import { authClient } from '@/lib/auth-client';
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
 
-const apiBaseURL =
+const serverApiOrigin =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : undefined);
 
-export const API_BASE_URL = apiBaseURL;
+// Browser traffic goes through the Next.js proxy so Better Auth cookies stay first-party.
+export const API_BASE_URL = typeof window !== 'undefined' ? '' : serverApiOrigin;
 
-if (!apiBaseURL) {
+if (typeof window === 'undefined' && !serverApiOrigin) {
   throw new Error(
-    'NEXT_PUBLIC_API_URL is not configured. Set it in the environment or rely on the default http://localhost:3000 for development.',
+    'NEXT_PUBLIC_API_URL is not configured. Set it for the frontend proxy or rely on the default http://localhost:3000 in development.',
   );
 }
 
 export const apiClient = axios.create({
-  baseURL: `${apiBaseURL}/api/v1`,
+  baseURL: `${API_BASE_URL}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
   },

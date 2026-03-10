@@ -6,11 +6,8 @@ import {
   AssistantChatTransport,
 } from '@assistant-ui/react-ai-sdk';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
-import { getCsrfToken } from '@/lib/api-client';
+import { API_BASE_URL, getCsrfToken } from '@/lib/api-client';
 import type { UIMessage } from 'ai';
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 /**
  * Extract plain text from the last user message in AI SDK message array.
@@ -53,7 +50,7 @@ export function ChatRuntimeProvider({
 
   const runtime = useChatRuntime({
     transport: new AssistantChatTransport({
-      api: `${API_BASE}/api/v1/ai/chat`,
+      api: `${API_BASE_URL}/api/v1/ai/chat`,
       credentials: 'include',
       headers: getHeaders,
       // Backend expects { message, conversationId }, not the AI SDK messages array.

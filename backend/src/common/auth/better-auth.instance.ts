@@ -186,17 +186,20 @@ export function createBetterAuthInstance(
   prisma: PrismaClient,
   emailService: EmailService,
 ) {
+  const backendAuthUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+  const publicAuthUrl = process.env.BETTER_AUTH_PUBLIC_URL || frontendUrl;
+  const trustedOrigins = Array.from(
+    new Set(['http://localhost:3001', frontendUrl, publicAuthUrl, backendAuthUrl]),
+  );
+
   return betterAuth({
     appName: 'PMSync',
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
-    baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
+    baseURL: publicAuthUrl,
     secret: process.env.BETTER_AUTH_SECRET,
 
-    trustedOrigins: [
-      'http://localhost:3001',
-      process.env.FRONTEND_URL || 'http://localhost:3001',
-      process.env.BETTER_AUTH_URL || 'http://localhost:3000',
-    ],
+    trustedOrigins,
 
     advanced: {
       crossSubDomainCookies: {
@@ -255,7 +258,7 @@ export function createBetterAuthInstance(
       passkey({
         rpID: process.env.PASSKEY_RP_ID || 'localhost',
         rpName: 'PMSync',
-        origin: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
+        origin: publicAuthUrl,
       }),
     ],
 

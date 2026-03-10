@@ -49,6 +49,9 @@ railway variables set REDIS_DB=0
 railway variables set JWT_SECRET=$(openssl rand -hex 64)
 railway variables set JWT_EXPIRATION=24h
 railway variables set ACCESS_TOKEN_EXPIRES_IN=7d
+railway variables set BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+railway variables set BETTER_AUTH_URL=https://<railway-domain>.up.railway.app
+railway variables set BETTER_AUTH_PUBLIC_URL=https://<your-vercel-domain>.vercel.app
 railway variables set PASSWORD_RESET_SECRET=$(openssl rand -hex 64)
 railway variables set REFRESH_TOKEN_SECRET=$(openssl rand -hex 64)
 railway variables set CSRF_SECRET=$(openssl rand -hex 64)
@@ -108,10 +111,12 @@ railway variables set CALENDAR_SYNC_ENABLED=true
 After Railway gives you a domain, update:
 
 1. **Google Cloud Console** > APIs & Services > Credentials
-   - Add `https://<railway-domain>.up.railway.app/auth/gmail/callback`
+   - Add `https://<your-vercel-domain>.vercel.app/api/auth/callback/google`
+   - Keep `https://<railway-domain>.up.railway.app/auth/gmail/callback` only if you still use the backend provider-connect OAuth flow
 
 2. **Azure AD** > App registrations > Redirect URIs
-   - Add `https://<railway-domain>.up.railway.app/auth/microsoft/callback`
+   - Add `https://<your-vercel-domain>.vercel.app/api/auth/callback/microsoft`
+   - Keep `https://<railway-domain>.up.railway.app/auth/microsoft/callback` only if you still use the backend provider-connect OAuth flow
 
 ## 5. Deploy
 
@@ -143,6 +148,8 @@ Set in Vercel Dashboard > Environment Variables:
 ```
 NEXT_PUBLIC_API_URL=https://<railway-domain>.up.railway.app
 ```
+
+`NEXT_PUBLIC_API_URL` still points at Railway, but browser requests are proxied through Vercel on `/api/auth/*` and `/api/v1/*` so auth cookies stay first-party.
 
 ## Architecture
 
