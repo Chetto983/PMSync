@@ -13,6 +13,8 @@ import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { StepProps } from './types';
 
+const MAX_AVATAR_PX = 256;
+
 export function StepAvatar({ user, onComplete, isLast }: StepProps) {
   const t = useTranslations();
   const sc = t.onboarding.stepContent?.avatar;
@@ -26,17 +28,16 @@ export function StepAvatar({ user, onComplete, isLast }: StepProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Client-side size check (2 MB max)
-    if (file.size > 2 * 1024 * 1024) {
-      setError('File must be under 2 MB');
+    // Client-side size check (5 MB raw max — will be resized)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File must be under 5 MB');
       return;
     }
 
     setLoading(true);
     setError('');
     try {
-      // Convert to base64 data URL for inline storage via better-auth
-      const dataUrl = await readFileAsDataURL(file);
+      const dataUrl = await resizeImageToDataURL(file, MAX_AVATAR_PX);
       setPreview(dataUrl);
       await authClient.updateUser({ image: dataUrl });
       onComplete({ avatarUrl: dataUrl });
@@ -74,7 +75,14 @@ export function StepAvatar({ user, onComplete, isLast }: StepProps) {
       <Avatar
         src={preview ?? undefined}
         alt={user.name}
-        sx={{ width: 120, height: 120, mx: 'auto', mb: 3, fontSize: 48 }}
+        sx={{
+          width: 120,
+          height: 120,
+          mx: 'auto',
+          mb: 3,
+          fontSize: 48,
+          '& img': { objectFit: 'cover', objectPosition: 'center' },
+        }}
       >
         {user.name?.charAt(0)?.toUpperCase()}
       </Avatar>
@@ -116,11 +124,26 @@ export function StepAvatar({ user, onComplete, isLast }: StepProps) {
   );
 }
 
-function readFileAsDataURL(file: File): Promise<string> {
+function resizeImageToDataURL(file: File, maxPx: number): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image'));
+    };
+    img.src = url;
   });
 }

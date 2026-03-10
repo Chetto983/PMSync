@@ -1,5 +1,5 @@
 import { createAuthClient } from 'better-auth/react';
-import { inferAdditionalFields, twoFactorClient } from 'better-auth/client/plugins';
+import { inferAdditionalFields, twoFactorClient, organizationClient } from 'better-auth/client/plugins';
 import { passkeyClient } from '@better-auth/passkey/client';
 
 /**
@@ -35,6 +35,7 @@ export const authClient = createAuthClient({
       },
     }),
     passkeyClient(),
+    organizationClient(),
   ],
 });
 
