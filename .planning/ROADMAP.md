@@ -211,8 +211,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 57-01: TBD
-- [ ] 57-02: TBD
+- [ ] 57-01-PLAN.md — Schema + admin plugin + audit hooks + test scaffold
+- [ ] 57-02-PLAN.md — Frontend admin UI (user list, ban dialog, sessions dialog, impersonation banner)
 
 ### Phase 58: Compliance & Cleanup
 **Goal**: Auth events feed into audit/GDPR systems and all legacy auth code is deleted
@@ -302,7 +302,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 54. WebSocket Auth | v5.0 | Complete    | 2026-03-09 | 2026-03-09 |
 | 55. Social Login & MFA | 5/5 | Complete    | 2026-03-09 | - |
 | 56. Organizations | 3/3 | Complete    | 2026-03-10 | - |
-| 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
+| 57. Admin Panel | v5.0 | 0/2 | Not started | - |
 | 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
 | 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
 | 60. Middleware & Auth Cleanup | 2/2 | Complete    | 2026-03-10 | - |
@@ -316,3 +316,4 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 *Phase 55 revised: 2026-03-09 -- 5 plans, 5 requirements (CORE-03, SEC-01-04)*
 *Phase 56 planned: 2026-03-10 -- 2 plans, 5 requirements (ORG-01-05)*
 *Phase 56 gap closure: 2026-03-10 -- 1 plan closing 2 verification gaps (stub tests, seed migration)*
+*Phase 57 planned: 2026-03-10 -- 2 plans, 4 requirements (ADM-01-04)*
