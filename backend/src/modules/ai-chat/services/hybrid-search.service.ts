@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 
 // ─── Result types ───────────────────────────────────────────
@@ -140,8 +141,10 @@ export class HybridSearchService {
   ): Promise<EmailSearchResult[]> {
     try {
       const embeddingVector = await this.generateEmbedding(query, tenantId);
+      // SECURITY: Validate embedding vector before using in raw SQL
+      const validatedVector = validateEmbeddingVector(embeddingVector);
       const vectorLiteral = Prisma.raw(
-        `'[${embeddingVector.join(',')}]'::vector`,
+        `'[${validatedVector.join(',')}]'::vector`,
       );
 
       const rows = await this.prisma.$queryRaw<RawEmailRow[]>(
@@ -180,8 +183,10 @@ export class HybridSearchService {
   ): Promise<ContactSearchResult[]> {
     try {
       const embeddingVector = await this.generateEmbedding(query, tenantId);
+      // SECURITY: Validate embedding vector before using in raw SQL
+      const validatedVector = validateEmbeddingVector(embeddingVector);
       const vectorLiteral = Prisma.raw(
-        `'[${embeddingVector.join(',')}]'::vector`,
+        `'[${validatedVector.join(',')}]'::vector`,
       );
 
       const rows = await this.prisma.$queryRaw<RawContactRow[]>(

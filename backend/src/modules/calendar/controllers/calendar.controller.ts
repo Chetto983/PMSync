@@ -14,7 +14,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { CalendarService, ListEventsFilters } from '../services/calendar.service';
 import { CalendarConflictService } from '../services/calendar-conflict.service';
 import { FocusTimeService } from '../services/focus-time.service';
@@ -49,7 +49,6 @@ export class CalendarController {
    * GET /api/calendar/conflicts
    */
   @Get('conflicts')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Detect calendar scheduling conflicts' })
   @ApiResponse({ status: 200, description: 'Conflicts returned successfully' })
   async getConflicts(
@@ -73,7 +72,6 @@ export class CalendarController {
    * GET /api/calendar/focus-time
    */
   @Get('focus-time')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Suggest focus time blocks' })
   @ApiResponse({ status: 200, description: 'Focus blocks returned successfully' })
   async getFocusTime(
@@ -97,7 +95,6 @@ export class CalendarController {
    * GET /api/calendar/meeting-prep/:eventId
    */
   @Get('meeting-prep/:eventId')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get pre-meeting briefing for a calendar event' })
   @ApiParam({ name: 'eventId', description: 'Calendar event ID' })
   @ApiResponse({ status: 200, description: 'Meeting prep returned successfully' })
@@ -118,7 +115,6 @@ export class CalendarController {
    * GET /api/calendar/calendars
    */
   @Get('calendars')
-  @SkipThrottle()
   @ApiOperation({ summary: 'List all calendars', description: 'Returns all calendars from all providers' })
   @ApiResponse({ status: 200, description: 'Calendars returned successfully' })
   async listCalendars(@Req() req: any) {
@@ -165,7 +161,6 @@ export class CalendarController {
    * GET /api/calendar/events
    */
   @Get('events')
-  @SkipThrottle()
   @ApiOperation({ summary: 'List calendar events', description: 'Returns calendar events with filters' })
   @ApiResponse({ status: 200, description: 'Events returned successfully' })
   async listEvents(@Req() req: any, @Query() query: ListEventsQueryDto) {
@@ -188,7 +183,6 @@ export class CalendarController {
    * GET /api/calendar/events/:id
    */
   @Get('events/:id')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get event by ID', description: 'Returns a single calendar event' })
   @ApiParam({ name: 'id', description: 'Event ID' })
   @ApiResponse({ status: 200, description: 'Event returned successfully' })
@@ -249,6 +243,7 @@ export class CalendarController {
    * POST /api/calendar/sync/:providerId
    */
   @Post('sync/:providerId')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Sync provider calendars', description: 'Triggers manual sync for a provider' })
   @ApiParam({ name: 'providerId', description: 'Provider ID' })
   @ApiResponse({ status: 200, description: 'Sync started successfully' })
@@ -278,7 +273,6 @@ export class CalendarController {
    * GET /api/calendar/events/:eventId/attachments
    */
   @Get('events/:eventId/attachments')
-  @SkipThrottle()
   @ApiOperation({ summary: 'List event attachments', description: 'Returns attachments for an event' })
   @ApiParam({ name: 'eventId', description: 'Event ID' })
   @ApiResponse({ status: 200, description: 'Attachments returned successfully' })
@@ -293,7 +287,6 @@ export class CalendarController {
    * GET /api/calendar/events/:eventId/attachments/:attachmentId
    */
   @Get('events/:eventId/attachments/:attachmentId')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get event attachment', description: 'Returns attachment metadata and download URL' })
   @ApiParam({ name: 'eventId', description: 'Event ID' })
   @ApiParam({ name: 'attachmentId', description: 'Attachment ID' })

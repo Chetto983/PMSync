@@ -11,7 +11,6 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
@@ -239,7 +238,6 @@ export class ProvidersController {
   // ========== COMMON OPERATIONS ==========
 
   @Get()
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get all provider configs' })
   @ApiResponse({ status: 200, type: [ProviderConfigResponseDto] })
   async getProviders(@Request() req: any): Promise<ProviderConfigResponseDto[]> {
@@ -248,7 +246,6 @@ export class ProvidersController {
   }
 
   @Get(':id')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get a specific provider config' })
   @ApiResponse({ status: 200, type: ProviderConfigResponseDto })
   async getProvider(
@@ -272,7 +269,6 @@ export class ProvidersController {
   }
 
   @Get(':id/aliases')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get sender aliases for a provider' })
   @ApiResponse({ status: 200, description: 'List of aliases' })
   async getAliases(@Request() req: any, @Param('id') id: string) {
@@ -292,7 +288,6 @@ export class ProvidersController {
   // ========== TEST ENDPOINTS ==========
 
   @Get(':id/test/gmail-labels')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Gmail API - List labels' })
   @ApiResponse({ status: 200, description: 'Returns Gmail labels' })
   async testGmailLabels(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -301,7 +296,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/gmail-messages')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Gmail API - List recent messages' })
   @ApiResponse({ status: 200, description: 'Returns recent Gmail messages' })
   async testGmailMessages(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -310,7 +304,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/calendars')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Google Calendar API - List calendars' })
   @ApiResponse({ status: 200, description: 'Returns Google calendars' })
   async testCalendars(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -319,7 +312,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/calendar-events')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Google Calendar API - List upcoming events' })
   @ApiResponse({ status: 200, description: 'Returns upcoming calendar events' })
   async testCalendarEvents(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -328,7 +320,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/contacts')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Google People API - List contacts' })
   @ApiResponse({ status: 200, description: 'Returns Google contacts' })
   async testContacts(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -339,7 +330,6 @@ export class ProvidersController {
   // ========== MICROSOFT TEST ENDPOINTS ==========
 
   @Get(':id/test/mail-folders')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Microsoft Mail API - List mail folders' })
   @ApiResponse({ status: 200, description: 'Returns mail folders' })
   async testMailFolders(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -348,7 +338,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/mail-messages')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Microsoft Mail API - List recent messages' })
   @ApiResponse({ status: 200, description: 'Returns recent mail messages' })
   async testMailMessages(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -357,7 +346,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/microsoft-calendars')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Microsoft Calendar API - List calendars' })
   @ApiResponse({ status: 200, description: 'Returns Microsoft calendars' })
   async testMicrosoftCalendars(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -366,7 +354,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/microsoft-calendar-events')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Microsoft Calendar API - List upcoming events' })
   @ApiResponse({ status: 200, description: 'Returns upcoming calendar events' })
   async testMicrosoftCalendarEvents(@Request() req: any, @Param('id') id: string): Promise<any> {
@@ -375,7 +362,6 @@ export class ProvidersController {
   }
 
   @Get(':id/test/microsoft-contacts')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Test Microsoft Contacts API - List contacts' })
   @ApiResponse({ status: 200, description: 'Returns Microsoft contacts' })
   async testMicrosoftContacts(@Request() req: any, @Param('id') id: string): Promise<any> {

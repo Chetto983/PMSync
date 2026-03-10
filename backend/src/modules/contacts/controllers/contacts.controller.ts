@@ -17,7 +17,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { RelationshipScoreService } from '../services/relationship-score.service';
@@ -53,7 +53,6 @@ export class ContactsController {
    * GET /api/contacts
    */
   @Get()
-  @SkipThrottle()
   @ApiOperation({ summary: 'List contacts', description: 'Returns contacts with pagination and filters' })
   @ApiResponse({ status: 200, description: 'Contacts returned successfully' })
   async listContacts(@Req() req: any, @Query() query: ListContactsQueryDto) {
@@ -73,7 +72,6 @@ export class ContactsController {
    * GET /api/contacts/relationship-scores
    */
   @Get('relationship-scores')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get relationship scores for contacts' })
   @ApiResponse({ status: 200, description: 'Relationship scores returned successfully' })
   async getRelationshipScores(
@@ -94,7 +92,6 @@ export class ContactsController {
    * GET /api/contacts/stale
    */
   @Get('stale')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get stale contacts that need re-engagement' })
   @ApiResponse({ status: 200, description: 'Stale contacts returned successfully' })
   async getStaleContacts(
@@ -115,7 +112,6 @@ export class ContactsController {
    * GET /api/contacts/counts
    */
   @Get('counts')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get contact counts', description: 'Returns contact counts for sidebar' })
   @ApiResponse({ status: 200, description: 'Counts returned successfully' })
   async getContactCounts(@Req() req: any) {
@@ -128,7 +124,6 @@ export class ContactsController {
    * GET /api/contacts/:id
    */
   @Get(':id')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get contact by ID', description: 'Returns a single contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiResponse({ status: 200, description: 'Contact returned successfully' })
@@ -143,7 +138,6 @@ export class ContactsController {
    * GET /api/contacts/:id/history
    */
   @Get(':id/history')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get interaction history', description: 'Returns interaction history for a contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiResponse({ status: 200, description: 'History returned successfully' })
@@ -164,7 +158,6 @@ export class ContactsController {
    * @see https://learn.microsoft.com/en-us/graph/api/profilephoto-get
    */
   @Get(':id/photo')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Get contact photo', description: 'Returns contact photo URL or base64 data' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiResponse({ status: 200, description: 'Photo returned successfully' })
@@ -186,7 +179,6 @@ export class ContactsController {
   @Post('lookup-by-emails')
   @Roles('admin', 'manager')
   @HttpCode(HttpStatus.OK)
-  @SkipThrottle()
   @ApiOperation({
     summary: 'Lookup contacts by emails',
     description: 'Batch lookup contacts by email addresses for sender photos',
@@ -266,7 +258,6 @@ export class ContactsController {
    * GET /api/contacts/vip
    */
   @Get('vip/list')
-  @SkipThrottle()
   @ApiOperation({ summary: 'List VIP contacts', description: 'Returns all VIP contacts' })
   @ApiResponse({ status: 200, description: 'VIP contacts returned successfully' })
   async listVipContacts(@Req() req: any) {
@@ -295,6 +286,7 @@ export class ContactsController {
    * Works for any provider, especially useful for generic IMAP
    */
   @Post('extract-from-emails')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Extract contacts from emails', description: 'Extracts contacts from email headers' })
   @ApiBody({ type: ExtractContactsDto })
@@ -318,6 +310,7 @@ export class ContactsController {
    * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
    */
   @Post('import/vcard')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Roles('admin', 'super-admin')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -377,6 +370,7 @@ export class ContactsController {
    * POST /api/contacts/sync/:providerId
    */
   @Post('sync/:providerId')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Sync provider contacts', description: 'Triggers manual sync for a provider' })
   @ApiParam({ name: 'providerId', description: 'Provider ID' })
@@ -413,6 +407,7 @@ export class ContactsController {
    * ✅ TENANT ISOLATED: Only queues jobs for the authenticated user's providers
    */
   @Post('sync-all')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Sync all providers', description: 'Queues sync jobs for all contact-enabled providers' })
   @ApiResponse({ status: 200, description: 'Sync jobs queued successfully' })

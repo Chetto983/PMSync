@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 
 /**
  * GDPR-compliant embedding storage.
@@ -18,37 +19,6 @@ interface SaveEmbeddingOptions {
   emailId?: string | null;
   /** Direct indexed field - DO NOT store only in metadata */
   contactId?: string | null;
-}
-
-/**
- * Validates and sanitizes an embedding vector for safe SQL usage.
- * Prevents SQL injection by ensuring all values are finite numbers.
- *
- * @throws Error if embedding contains invalid values
- */
-function validateEmbeddingVector(embedding: unknown): number[] {
-  if (!Array.isArray(embedding)) {
-    throw new Error('Embedding must be an array');
-  }
-
-  if (embedding.length === 0) {
-    throw new Error('Embedding array cannot be empty');
-  }
-
-  if (embedding.length > 4096) {
-    throw new Error('Embedding array exceeds maximum dimension (4096)');
-  }
-
-  const validated: number[] = [];
-  for (let i = 0; i < embedding.length; i++) {
-    const value = embedding[i];
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      throw new Error(`Invalid embedding value at index ${i}: expected finite number`);
-    }
-    validated.push(value);
-  }
-
-  return validated;
 }
 
 @Injectable()

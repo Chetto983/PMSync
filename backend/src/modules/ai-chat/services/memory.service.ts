@@ -15,6 +15,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 
 /** Memory result from vector search */
@@ -59,8 +60,11 @@ export class MemoryService {
         { tenantId },
       );
 
+      // SECURITY: Validate embedding vector before using in raw SQL
+      const validatedVector = validateEmbeddingVector(queryVector);
+
       // Convert to pgvector format: [0.1, 0.2, ...]
-      const vectorStr = `[${queryVector.join(',')}]`;
+      const vectorStr = `[${validatedVector.join(',')}]`;
 
       // Vector similarity search on AIMemory
       // SEC: Use $queryRaw tagged template (parameterized) instead of $queryRawUnsafe
