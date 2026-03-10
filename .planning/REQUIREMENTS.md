@@ -50,10 +50,10 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 
 ### Admin
 
-- [ ] **ADM-01**: Admin can list and search all users
-- [ ] **ADM-02**: Admin can ban/unban users with reason and expiry
-- [ ] **ADM-03**: Admin can impersonate users for support
-- [ ] **ADM-04**: Admin can revoke user sessions
+- [x] **ADM-01**: Admin can list and search all users
+- [x] **ADM-02**: Admin can ban/unban users with reason and expiry
+- [x] **ADM-03**: Admin can impersonate users for support
+- [x] **ADM-04**: Admin can revoke user sessions
 
 ### Compliance & Cleanup
 
@@ -132,10 +132,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ORG-03 | Phase 56 | Complete |
 | ORG-04 | Phase 56 | Complete |
 | ORG-05 | Phase 56 | Complete |
-| ADM-01 | Phase 57 | Pending |
-| ADM-02 | Phase 57 | Pending |
-| ADM-03 | Phase 57 | Pending |
-| ADM-04 | Phase 57 | Pending |
+| ADM-01 | Phase 57 | Complete |
+| ADM-02 | Phase 57 | Complete |
+| ADM-03 | Phase 57 | Complete |
+| ADM-04 | Phase 57 | Complete |
 | CLN-01 | Phase 58 | Complete |
 | CLN-02 | Phase 61 | Pending |
 | CLN-03 | Phase 61 | Pending |
