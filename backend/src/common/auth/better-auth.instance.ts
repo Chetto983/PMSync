@@ -10,6 +10,7 @@ import { passkey } from '@better-auth/passkey';
 import { CURRENT_PP_VERSION, CURRENT_TOS_VERSION } from '../../modules/compliance/legal.constants';
 import { EmailService } from '../../modules/email/services/email.service';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
+import { getRequestIp, getRequestHeader } from '../utils/request.utils';
 import { logAuthEvent } from './audit-hooks';
 
 export interface ProvisioningUser {
@@ -158,22 +159,6 @@ export async function provisionWorkspaceForUser(
       }
     }),
   );
-}
-
-function getRequestHeader(
-  request: Request | undefined,
-  headerName: string,
-): string | undefined {
-  return request?.headers.get(headerName) ?? undefined;
-}
-
-export function getRequestIp(request: Request | undefined): string | undefined {
-  const forwardedFor = getRequestHeader(request, 'x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0]?.trim() || undefined;
-  }
-
-  return getRequestHeader(request, 'x-real-ip');
 }
 
 /**

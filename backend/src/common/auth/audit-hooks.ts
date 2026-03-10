@@ -1,6 +1,6 @@
 import type { PrismaClient, Prisma } from '@prisma/client';
 import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping/tenant-context';
-import { getRequestIp } from './better-auth.instance';
+import { getRequestIp } from '../utils/request.utils';
 
 /**
  * Maps better-auth internal paths to audit event type strings.

@@ -422,18 +422,25 @@ Most Phase 1 items are complete. Remaining gaps:
 
 1. **Phase 62 — Auth Audit Remediation** — OAuth token encryption, proxy header passthrough, org context consistency, verification UX alignment
 
-### Then: Phase 1 Gaps
+### Then: v5.1 Production Validation (Phases 63-66)
 
-2. forwardRef elimination (14 files -> 0) — hard blocker for any future service extraction
-3. Bundle size budget in CI
-4. Frontend dependency audit (117 deps -> target <100)
+2. **Phase 63 — Production Deployment** — Railway backend + Vercel frontend, env provisioning, DNS, CORS/cookie domain config
+3. **Phase 64 — E2E Smoke Suite** — Playwright tests for critical paths (register, onboard, connect provider, sync, AI chat)
+4. **Phase 65 — Production Observability** — Sentry error tracking, Prometheus scraping target, health check alerting, log aggregation
+5. **Phase 66 — Production Hardening** — CSP headers, rate limit tuning, cookie domain/SameSite config, CORS lockdown to prod domains
+
+### Then: Phase 1 Remaining Gaps
+
+6. File-level circular dep fix (15m)
+7. Bundle size budget in CI
+8. Frontend dependency audit (117 deps -> target <100)
 
 ### Then: Phase 2 Start
 
-5. Organization-scoped permissions (`@RequirePermission`)
-6. AI control plane hardening (AUDIT.md critical findings)
-7. CRM module (Accounts, Deals, Activities)
-8. OpenTelemetry integration
+9. Organization-scoped permissions (`@RequirePermission`)
+10. AI control plane hardening (AUDIT.md critical findings)
+11. CRM module (Accounts, Deals, Activities)
+12. OpenTelemetry integration
 
 ---
 
