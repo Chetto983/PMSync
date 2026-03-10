@@ -3515,6 +3515,8 @@ export interface AppTranslations {
         title: string;
         description: string;
         autoDetected: string;
+        autoConnecting: string;
+        connected: string;
         connectGmail: string;
         connectOutlook: string;
         skipForNow: string;

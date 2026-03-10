@@ -3651,6 +3651,8 @@ export const it: AppTranslations = {
         title: 'Collega la tua email',
         description: 'Collega il tuo account email per iniziare a gestire la posta',
         autoDetected: 'Hai effettuato l\'accesso con {provider}. Collegare il tuo account {service}?',
+        autoConnecting: 'Collegamento del tuo account email...',
+        connected: 'collegato con successo!',
         connectGmail: 'Collega Gmail',
         connectOutlook: 'Collega Outlook',
         skipForNow: 'Salta per ora',

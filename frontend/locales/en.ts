@@ -3674,6 +3674,8 @@ export const en: AppTranslations = {
         title: 'Connect Your Email',
         description: 'Link your email account to start managing your inbox',
         autoDetected: 'We detected you signed in with {provider}. Connect your {service} account?',
+        autoConnecting: 'Connecting your email account...',
+        connected: 'connected successfully!',
         connectGmail: 'Connect Gmail',
         connectOutlook: 'Connect Outlook',
         skipForNow: 'Skip for now',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -9,7 +9,7 @@ import {
   CardContent,
   CircularProgress,
 } from '@mui/material';
-import { Mail } from 'lucide-react';
+import { CheckCircle, Mail } from 'lucide-react';
 import { providersApi } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { StepProps } from './types';
@@ -38,16 +38,46 @@ export function StepEmailProvider({ user, onComplete }: StepProps) {
   const sc = t.onboarding.stepContent?.emailProvider;
 
   const [loading, setLoading] = useState(false);
+  const [autoConnecting, setAutoConnecting] = useState(false);
+  const [autoConnected, setAutoConnected] = useState(false);
   const [error, setError] = useState('');
+  const attemptedAutoConnect = useRef(false);
 
   const detectedProvider = detectSocialProvider(user.email);
+
+  // Auto-connect on mount if user signed in via social login
+  useEffect(() => {
+    if (attemptedAutoConnect.current || !detectedProvider) return;
+    attemptedAutoConnect.current = true;
+
+    const tryAutoConnect = async () => {
+      setAutoConnecting(true);
+      try {
+        const result = await providersApi.autoConnectSocial();
+        if ('connected' in result && result.connected === false) {
+          // No social tokens available, fall back to manual
+          setAutoConnecting(false);
+          return;
+        }
+        // Success — provider auto-connected
+        setAutoConnected(true);
+        setAutoConnecting(false);
+        // Auto-advance after brief visual confirmation
+        setTimeout(() => onComplete({ emailConnected: true }), 1500);
+      } catch {
+        // Auto-connect failed silently, user can connect manually
+        setAutoConnecting(false);
+      }
+    };
+
+    tryAutoConnect();
+  }, [detectedProvider, onComplete]);
 
   const handleConnectGoogle = async () => {
     setLoading(true);
     setError('');
     try {
       const { authUrl } = await providersApi.getGoogleAuthUrl();
-      // Store return URL so user comes back to onboarding after OAuth
       sessionStorage.setItem('pmsync:onboarding-return', 'true');
       window.location.href = authUrl;
     } catch (err) {
@@ -72,6 +102,34 @@ export function StepEmailProvider({ user, onComplete }: StepProps) {
   const handleSkip = () => {
     onComplete({ emailConnected: false });
   };
+
+  // Show auto-connect success state
+  if (autoConnected) {
+    return (
+      <Box sx={{ maxWidth: 480, mx: 'auto', textAlign: 'center', py: 4 }}>
+        <CheckCircle size={48} color="var(--mui-palette-success-main, #4caf50)" />
+        <Typography variant="h6" sx={{ fontWeight: 600, mt: 2 }}>
+          {detectedProvider === 'google' ? 'Gmail' : 'Outlook'}{' '}
+          {sc?.connected ?? 'connected successfully!'}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          {user.email}
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Show loading while auto-connecting
+  if (autoConnecting) {
+    return (
+      <Box sx={{ maxWidth: 480, mx: 'auto', textAlign: 'center', py: 4 }}>
+        <CircularProgress size={40} />
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          {sc?.autoConnecting ?? 'Connecting your email account...'}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ maxWidth: 480, mx: 'auto' }}>

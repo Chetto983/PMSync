@@ -219,20 +219,25 @@ export function createBetterAuthInstance(
           'profile',
           'https://www.googleapis.com/auth/gmail.modify',
           'https://www.googleapis.com/auth/gmail.send',
+          'https://www.googleapis.com/auth/calendar',
+          'https://www.googleapis.com/auth/calendar.events',
+          'https://www.googleapis.com/auth/contacts',
         ],
       },
       microsoft: {
         clientId: process.env.MICROSOFT_CLIENT_ID!,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
         tenantId: 'common',
-        prompt: 'select_account',
+        prompt: 'select_account consent',
         scope: [
           'openid',
           'email',
           'profile',
           'offline_access',
-          'https://outlook.office365.com/IMAP.AccessAsUser.All',
-          'https://outlook.office365.com/SMTP.Send',
+          'https://graph.microsoft.com/Mail.ReadWrite',
+          'https://graph.microsoft.com/Mail.Send',
+          'https://graph.microsoft.com/Calendars.ReadWrite',
+          'https://graph.microsoft.com/Contacts.ReadWrite',
         ],
       },
     },
@@ -319,14 +324,19 @@ export function createBetterAuthInstance(
       user: {
         create: {
           after: async (user, context) => {
-            if (context?.path !== '/sign-up/email') {
+            const path = context?.path ?? '';
+            const isSocialLogin = path.startsWith('/callback/');
+            const isEmailSignup = path === '/sign-up/email';
+
+            if (!isEmailSignup && !isSocialLogin) {
               return;
             }
 
             await provisionWorkspaceForUser(prisma, user, {
-              agreedToTerms: context.body?.agreeToTerms === true,
-              ipAddress: getRequestIp(context.request),
-              userAgent: getRequestHeader(context.request, 'user-agent'),
+              // Social logins accept terms during onboarding, not signup
+              agreedToTerms: isEmailSignup && context?.body?.agreeToTerms === true,
+              ipAddress: getRequestIp(context?.request),
+              userAgent: getRequestHeader(context?.request, 'user-agent'),
             });
 
             // Audit signup after provisioning (tenantId now available)
@@ -338,7 +348,7 @@ export function createBetterAuthInstance(
             );
             void logAuthEvent(
               prisma,
-              '/sign-up/email',
+              path,
               user.id,
               updatedUser?.tenantId ?? null,
               context?.request,

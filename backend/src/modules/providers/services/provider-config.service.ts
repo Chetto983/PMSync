@@ -18,6 +18,7 @@ import {
   ProviderDisconnectedEvent,
 } from '../../../common/events/provider.events';
 import type { ProviderConfig } from '@prisma/client';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import {
   ConnectGoogleProviderDto,
   ConnectMicrosoftProviderDto,
@@ -772,6 +773,110 @@ export class ProviderConfigService {
       messages,
       count: messages.length,
     };
+  }
+
+  /**
+   * Auto-connect email provider from better-auth social login tokens.
+   *
+   * Reads the Account table (managed by better-auth) for the user's
+   * social provider, encrypts the tokens, and upserts a ProviderConfig.
+   * This eliminates the need for a second OAuth flow during onboarding.
+   *
+   * @returns The connected provider config, or null if no social account found
+   */
+  async autoConnectSocialProvider(
+    tenantId: string,
+    userId: string,
+    userEmail: string,
+  ): Promise<ReturnType<typeof this.sanitizeProviderConfig> | null> {
+    // Find social account from better-auth's Account table (unscoped by tenant)
+    const account = await withoutTenantScopingAsync(() =>
+      this.prisma.account.findFirst({
+        where: {
+          userId,
+          providerId: { in: ['google', 'microsoft'] },
+          accessToken: { not: null },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+    );
+
+    if (!account?.accessToken) {
+      this.logger.debug(`No social account with tokens found for user ${userId}`);
+      return null;
+    }
+
+    // Check if provider already connected (avoid duplicates)
+    const providerType = account.providerId as 'google' | 'microsoft';
+    const existing = await this.prisma.providerConfig.findUnique({
+      where: {
+        tenantId_email_providerType: {
+          tenantId,
+          email: userEmail,
+          providerType,
+        },
+      },
+    });
+
+    if (existing?.isActive) {
+      this.logger.debug(`Provider ${providerType} already connected for ${userEmail}`);
+      return this.sanitizeProviderConfig(existing);
+    }
+
+    // Check provider limit
+    await this.checkProviderLimit(tenantId);
+
+    // Encrypt tokens from better-auth Account (stored unencrypted)
+    const encryptedAccessToken = this.crypto.encrypt(account.accessToken);
+    const encryptedRefreshToken = account.refreshToken
+      ? this.crypto.encrypt(account.refreshToken)
+      : null;
+
+    // Upsert ProviderConfig with encrypted tokens
+    const providerConfig = await this.prisma.providerConfig.upsert({
+      where: {
+        tenantId_email_providerType: {
+          tenantId,
+          email: userEmail,
+          providerType,
+        },
+      },
+      create: {
+        tenantId,
+        userId,
+        providerType,
+        email: userEmail,
+        supportsEmail: true,
+        supportsCalendar: true,
+        supportsContacts: true,
+        accessToken: encryptedAccessToken.encrypted,
+        refreshToken: encryptedRefreshToken?.encrypted ?? '',
+        tokenEncryptionIv: encryptedAccessToken.iv,
+        refreshTokenEncryptionIv: encryptedRefreshToken?.iv ?? '',
+        tokenExpiresAt: account.accessTokenExpiresAt,
+        isDefault: true,
+      },
+      update: {
+        accessToken: encryptedAccessToken.encrypted,
+        refreshToken: encryptedRefreshToken?.encrypted ?? '',
+        tokenEncryptionIv: encryptedAccessToken.iv,
+        refreshTokenEncryptionIv: encryptedRefreshToken?.iv ?? '',
+        tokenExpiresAt: account.accessTokenExpiresAt,
+        isActive: true,
+        lastSyncedAt: new Date(),
+      },
+    });
+
+    const sanitized = this.sanitizeProviderConfig(providerConfig);
+
+    // Emit event to trigger initial sync
+    this.emitProviderConnected(providerConfig, userId);
+
+    this.logger.log(
+      `Auto-connected ${providerType} provider for ${userEmail} from social login`,
+    );
+
+    return sanitized;
   }
 
   /**

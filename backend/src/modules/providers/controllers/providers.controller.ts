@@ -138,6 +138,35 @@ export class ProvidersController {
     return this.providerConfigService.connectMicrosoftProvider(tenantId, userId, dto, codeVerifier);
   }
 
+  // ========== AUTO-CONNECT FROM SOCIAL LOGIN ==========
+
+  @Post('auto-connect-social')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Auto-connect email provider from social login tokens',
+    description:
+      'Reads tokens from better-auth Account table and creates a ProviderConfig. ' +
+      'Eliminates the need for a second OAuth flow during onboarding.',
+  })
+  @ApiResponse({ status: 200, type: ProviderConfigResponseDto })
+  @ApiResponse({ status: 404, description: 'No social account found' })
+  async autoConnectSocial(
+    @Request() req: any,
+  ): Promise<ProviderConfigResponseDto | { connected: false; reason: string }> {
+    const { tenantId, userId, email } = req.user;
+    const result = await this.providerConfigService.autoConnectSocialProvider(
+      tenantId,
+      userId,
+      email,
+    );
+
+    if (!result) {
+      return { connected: false, reason: 'No social login account found with valid tokens' };
+    }
+
+    return result;
+  }
+
   // ========== GENERIC PROVIDER (IMAP/CalDAV) ==========
 
   @Post('generic/connect')

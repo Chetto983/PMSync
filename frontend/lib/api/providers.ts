@@ -95,7 +95,18 @@ export interface TestCredentialsResult {
   smtp: { success: boolean; message: string; skipped?: boolean };
 }
 
+export interface AutoConnectResult {
+  connected: false;
+  reason: string;
+}
+
 export const providersApi = {
+  // Auto-connect from social login (no second OAuth needed)
+  async autoConnectSocial(): Promise<ProviderConfig | AutoConnectResult> {
+    const response = await apiClient.post('/providers/auto-connect-social');
+    return response.data;
+  },
+
   // Google
   async getGoogleAuthUrl(scopes?: string[]): Promise<OAuthUrlResponse> {
     const response = await apiClient.post('/providers/google/auth-url', { scopes });
