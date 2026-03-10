@@ -254,6 +254,34 @@ Plans:
 - [ ] 59-04-PLAN.md — Secrets rotation checklist + BFG git history cleanup
 - [ ] 59-05-PLAN.md — Gap closure: add SAF-* requirement definitions to REQUIREMENTS.md
 
+### Phase 60: Middleware & Auth Cleanup
+**Goal**: Fix critical integration gap (Next.js middleware not active) and remove divergent auth instances
+**Depends on**: Phase 53
+**Requirements**: FEUI-04 (re-close)
+**Gap Closure:** Closes integration gap, flow gap, and 2 tech debt items from v5.0 audit
+**Success Criteria** (what must be TRUE):
+  1. `frontend/middleware.ts` exports `middleware()` function with correct route matcher (not proxy.ts with proxy())
+  2. Unauthenticated requests to `/dashboard/*` are server-side redirected to `/auth/login` without content flash
+  3. `frontend/lib/auth.ts` duplicate better-auth instance removed; onboarding uses backend canonical instance
+  4. `cookieCache.strategy` aligned between frontend auth config and backend instance
+**Plans**: TBD
+
+Plans:
+- [ ] 60-01: TBD
+
+### Phase 61: GDPR Organization Compliance
+**Goal**: GDPR data export and erasure cover better-auth organization tables
+**Depends on**: Phase 56
+**Requirements**: CLN-02, CLN-03
+**Gap Closure:** Closes deferred requirements from Phase 58 audit
+**Success Criteria** (what must be TRUE):
+  1. GDPR data export includes better-auth organization membership, invitation, and role tables
+  2. Right to erasure cascades into organization membership and cleans up orphaned org references
+**Plans**: TBD
+
+Plans:
+- [ ] 61-01: TBD
+
 ## Progress
 
 **Execution Order:**
@@ -275,6 +303,8 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
 | 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
+| 60. Middleware & Auth Cleanup | 0/TBD | Not started | - | - |
+| 61. GDPR Org Compliance | 0/TBD | Not started | - | - |
 
 ---
 *Roadmap created: 2026-02-09*

@@ -11,7 +11,7 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 
 - [x] **CORE-01**: User can sign up with email and password via better-auth
 - [x] **CORE-02**: User can sign in with email and password
-- [ ] **CORE-03**: User can sign in with Google OAuth
+- [x] **CORE-03**: User can sign in with Google OAuth
 - [x] **CORE-04**: User receives email verification after signup
 - [x] **CORE-05**: User can reset password via email link
 - [x] **CORE-06**: User session persists via httpOnly cookie (DB-backed, no JWT)
@@ -31,7 +31,7 @@ Requirements for better-auth migration. Each maps to roadmap phases.
 - [x] **FEUI-01**: User sees login/signup pages built with better-auth-ui components
 - [x] **FEUI-02**: User session managed via better-auth/react hooks (useSession)
 - [x] **FEUI-03**: Auth context replaced with better-auth client (no Zustand auth store)
-- [x] **FEUI-04**: Protected routes redirect unauthenticated users to login
+- [ ] **FEUI-04**: Protected routes redirect unauthenticated users to login
 
 ### Security
 
@@ -108,7 +108,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | CORE-01 | Phase 51 | Complete |
 | CORE-02 | Phase 51 | Complete |
-| CORE-03 | Phase 55 | Pending |
+| CORE-03 | Phase 55 | Complete |
 | CORE-04 | Phase 51 | Complete |
 | CORE-05 | Phase 51 | Complete |
 | CORE-06 | Phase 50 | Complete |
@@ -122,7 +122,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEUI-01 | Phase 53 | Complete |
 | FEUI-02 | Phase 53 | Complete |
 | FEUI-03 | Phase 53 | Complete |
-| FEUI-04 | Phase 53 | Complete |
+| FEUI-04 | Phase 60 | Pending |
 | SEC-01 | Phase 55 | Complete |
 | SEC-02 | Phase 55 | Complete |
 | SEC-03 | Phase 55 | Complete |
@@ -137,8 +137,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADM-03 | Phase 57 | Pending |
 | ADM-04 | Phase 57 | Pending |
 | CLN-01 | Phase 58 | Complete |
-| CLN-02 | Phase 58 | Pending |
-| CLN-03 | Phase 58 | Pending |
+| CLN-02 | Phase 61 | Pending |
+| CLN-03 | Phase 61 | Pending |
 | CLN-04 | Phase 58 | Complete |
 | CLN-05 | Phase 58 | Complete |
 | SAF-01 | Phase 59 | Complete |
