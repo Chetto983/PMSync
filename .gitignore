@@ -148,6 +148,11 @@ free-nextjs-admin-dashboard-main/*
 backend/test/*
 !backend/test/contract/
 !backend/test/integration/
+!backend/test/global-setup.ts
+!backend/test/global-teardown.ts
+!backend/test/setup.ts
+!backend/test/helpers/
+!backend/test/helpers/**
 data/*
 frontend/test-results/*
 frontend/.lighthouseci/
