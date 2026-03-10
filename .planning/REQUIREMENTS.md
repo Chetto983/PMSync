@@ -9,7 +9,7 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 
 ### Test Infrastructure
 
-- [ ] **INFRA-01**: Test environment runs against real PostgreSQL and Redis (Docker Compose or existing instances)
+- [x] **INFRA-01**: Test environment runs against real PostgreSQL and Redis (Docker Compose or existing instances)
 - [ ] **INFRA-02**: Shared test helpers provide tenant context, auth session, and user/tenant factories for real DB
 - [ ] **INFRA-03**: Test database is seeded with baseline data and cleaned between test suites
 - [ ] **INFRA-04**: Frontend E2E tests run against real backend server (no mocked API routes)
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 66 | Pending |
+| INFRA-01 | Phase 66 | Complete |
 | INFRA-02 | Phase 66 | Pending |
 | INFRA-03 | Phase 66 | Pending |
 | INFRA-04 | Phase 66 | Pending |

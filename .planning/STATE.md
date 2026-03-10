@@ -10,24 +10,24 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 66 (1 of 7 in v5.1)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-10 -- v5.1 roadmap created (7 phases, 27 requirements)
+Plan: 1 of 3 in current phase
+Status: Executing
+Last activity: 2026-03-10 -- Completed 66-01-PLAN.md
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (v5.1)
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1 (v5.1)
+- Average duration: 3min
+- Total execution time: 0.05 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 66-test-infrastructure | 1/3 | 3min | 3min |
 
 **Recent Trend:**
 - Last 5 plans: -
@@ -48,6 +48,8 @@ Recent decisions affecting current work:
 - [v5.1]: All tests against real PostgreSQL/Redis -- no Prisma mocking (user requirement)
 - [v5.1]: All E2E tests against real running backend -- no mocked API routes (user requirement)
 - [v5.1]: Dual test runner preserved -- Jest for NestJS .spec.ts, Vitest for AI .test.ts (from research)
+- [66-01]: .env.test committed to git (test fixtures, not secrets) despite .gitignore pattern
+- [66-01]: Test client singleton via globalThis to survive Jest module reloading
 
 ### Pending Todos
 
@@ -63,5 +65,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: v5.1 roadmap created, ready to plan Phase 66
+Stopped at: Completed 66-01-PLAN.md
 Resume file: None
