@@ -1,8 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { auth } from '@/lib/auth';
-
-// Re-use the singleton PrismaClient from auth module to avoid connection churn.
-// auth.ts already creates a globalThis-cached PrismaClient.
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
@@ -15,16 +11,21 @@ export default async function handler(
 ) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Validate session using better-auth
-  const session = await auth.api.getSession({
-    headers: req.headers as unknown as Headers,
+  // Validate session via HTTP call to backend better-auth instance
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const sessionRes = await fetch(`${backendUrl}/api/auth/get-session`, {
+    headers: { cookie: req.headers.cookie || '' },
   });
-  if (!session?.user) {
+  if (!sessionRes.ok) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const { user } = await sessionRes.json();
+  if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   // Check user doesn't already have a tenant
-  if ((session.user as Record<string, unknown>).tenantId) {
+  if ((user as Record<string, unknown>).tenantId) {
     return res.status(400).json({ error: 'Workspace already exists' });
   }
 
@@ -56,7 +57,7 @@ export default async function handler(
     });
 
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: {
         tenantId: tenant.id,
         role: 'admin',

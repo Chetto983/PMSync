@@ -284,7 +284,9 @@ export function createBetterAuthInstance(
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
       cookieCache: {
-        enabled: false,
+        enabled: true,
+        maxAge: 300,
+        strategy: 'compact',
       },
     },
 
