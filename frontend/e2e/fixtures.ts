@@ -3,13 +3,12 @@
  *
  * Provides common setup for email page E2E tests:
  * - Authenticated page context
- * - Mock API responses
- * - Test data factories
+ * - Test data constants (inert, retained for transition)
  */
 
 import { test as base, Page, BrowserContext } from '@playwright/test';
 
-// Mock email data
+// Mock email data (inert constants -- retained for transition to Phase 71)
 export const mockEmails = [
   {
     id: 'email-1',
@@ -61,7 +60,7 @@ export const mockEmails = [
   },
 ];
 
-// Mock folders data
+// Mock folders data (inert constants -- retained for transition to Phase 71)
 export const mockFolders = {
   foldersByProvider: {
     'provider-1': [
@@ -73,7 +72,7 @@ export const mockFolders = {
   },
 };
 
-// Mock user data (matches better-auth session user shape)
+// Mock user data (inert constants -- retained for transition to Phase 71)
 export const mockUser = {
   id: 'user-1',
   email: 'user@test.com',
@@ -100,7 +99,7 @@ export async function injectAuthCookie(context: BrowserContext, token: string) {
 // Extend base test with authenticated page
 export const test = base.extend<{ authedPage: Page }>({
   authedPage: async ({ page }, use) => {
-    // Inject httpOnly cookie for auth (Phase 34 -- no localStorage)
+    // Inject httpOnly cookie for auth
     await injectAuthCookie(page.context(), 'test-jwt-token');
 
     // Pre-accept cookie consent to avoid modal blocking UI
@@ -111,121 +110,8 @@ export const test = base.extend<{ authedPage: Page }>({
       );
     });
 
-    // Mock API endpoints - paths match apiClient baseURL (localhost:3000)
-    // Use specific host to avoid matching frontend page routes
-    await page.route('**/localhost:3000/emails?**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          emails: mockEmails,
-          total: mockEmails.length,
-          page: 1,
-          limit: 50,
-        }),
-      });
-    });
-
-    // Also mock /emails without query params
-    await page.route('**/localhost:3000/emails', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          emails: mockEmails,
-          total: mockEmails.length,
-          page: 1,
-          limit: 50,
-        }),
-      });
-    });
-
-    await page.route('**/localhost:3000/email/folders**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(mockFolders),
-      });
-    });
-
-    await page.route('**/localhost:3000/emails/*', (route) => {
-      const url = route.request().url();
-      const emailId = url.split('/').pop()?.split('?')[0];
-      const email = mockEmails.find((e) => e.id === emailId);
-
-      if (email) {
-        route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(email),
-        });
-      } else {
-        route.fulfill({ status: 404 });
-      }
-    });
-
-    await page.route('**/localhost:3000/contacts/sender-photos**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({}),
-      });
-    });
-
-    await page.route('**/localhost:3000/labels**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ labels: [] }),
-      });
-    });
-
-    // Mock CSRF token endpoint
-    await page.route('**/localhost:3000/auth/csrf-token', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ token: 'test-csrf-token' }),
-      });
-    });
-
-    // Mock legal acceptance check (v3.1 GDPR)
-    await page.route('**/localhost:3000/legal/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ accepted: true, version: '1.0' }),
-      });
-    });
-
-    // Mock consent endpoints (v3.1 GDPR)
-    await page.route('**/localhost:3000/consent/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ consents: [], features: [] }),
-      });
-    });
-
-    // Mock subscription endpoints
-    await page.route('**/localhost:3000/subscription/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ plan: 'pro', status: 'active' }),
-      });
-    });
-
-    // Catch-all for any unmocked localhost:3000 API call.
-    // Returns 200 with empty JSON to prevent E2E failures when new
-    // endpoints are added. Specific mocks above take priority.
-    await page.route('**/localhost:3000/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({}),
-      });
-    });
+    // No API route mocking -- E2E tests hit real backend on port 3100
+    // Existing E2E specs may fail until rewritten in Phase 71
 
     // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture callback, not a React hook
     await use(page);
