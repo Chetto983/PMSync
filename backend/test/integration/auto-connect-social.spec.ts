@@ -589,4 +589,56 @@ describe('Auto-Connect Social Provider (E2E)', () => {
       }),
     );
   });
+
+  // =========================================================================
+  // 10. Encrypted Token Handoff: Never reads raw plaintext from Account
+  // =========================================================================
+
+  it('never reads raw accessToken/refreshToken from Account — uses Better Auth API instead', async () => {
+    const accountRow = {
+      accountId: 'google-account-enc',
+      providerId: 'google' as const,
+      accessToken: 'ENCRYPTED_BLOB_NOT_READABLE',
+      refreshToken: 'ENCRYPTED_BLOB_NOT_READABLE',
+    };
+    mockPrisma.account.findFirst.mockResolvedValue(accountRow);
+    mockAuth.api.refreshToken.mockResolvedValue({
+      accessToken: 'ya29.decrypted-by-better-auth',
+      refreshToken: '1//decrypted-refresh',
+      accessTokenExpiresAt: new Date('2026-03-11T00:00:00Z'),
+    });
+    mockPrisma.providerConfig.findUnique.mockResolvedValue(null);
+    mockPrisma.providerConfig.upsert.mockResolvedValue({
+      id: 'pc-enc',
+      tenantId: TEST_TENANT,
+      userId: TEST_USER,
+      providerType: 'google',
+      email: TEST_EMAIL,
+      accessToken: 'gcm:enc:ya29.dec',
+      refreshToken: 'gcm:enc:1//decry',
+      tokenEncryptionIv: 'iv-ya29.dec',
+      refreshTokenEncryptionIv: 'iv-1//decry',
+      isDefault: true,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await service.autoConnectSocialProvider(TEST_TENANT, TEST_USER, TEST_EMAIL);
+
+    // The raw Account.accessToken was NEVER passed to CryptoService.encrypt
+    // Only the token from Better Auth API was encrypted
+    expect(mockCrypto.encrypt).not.toHaveBeenCalledWith('ENCRYPTED_BLOB_NOT_READABLE');
+    expect(mockCrypto.encrypt).toHaveBeenCalledWith('ya29.decrypted-by-better-auth');
+    expect(mockCrypto.encrypt).toHaveBeenCalledWith('1//decrypted-refresh');
+
+    // Better Auth API was called to obtain decrypted tokens
+    expect(mockAuth.api.refreshToken).toHaveBeenCalledWith({
+      body: {
+        providerId: 'google',
+        accountId: 'google-account-enc',
+        userId: TEST_USER,
+      },
+    });
+  });
 });
