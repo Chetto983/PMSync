@@ -94,7 +94,11 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. Each test suite starts with a clean database state (seeded baseline data, cleaned between suites) so tests are isolated and deterministic
   4. Frontend E2E tests (`npx playwright test`) execute against a real running backend server -- no MSW route mocking for API calls
   5. Jest coverage thresholds are configured (50% backend, 30% frontend) and `npm test` fails if coverage drops below threshold
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 66-01-PLAN.md -- Docker Compose, .env.test, globalSetup/Teardown, Prisma test client
+- [ ] 66-02-PLAN.md -- Factory helpers, cleanup utility, smoke test
+- [ ] 66-03-PLAN.md -- Playwright real backend config, E2E auth, coverage thresholds
 
 ### Phase 67: Backend Tests - Simple Modules
 **Goal**: Health, users, tenants, and labels modules have comprehensive test coverage proving correct behavior against real database
@@ -169,7 +173,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 66. Test Infrastructure | v5.1 | 0/? | Not started | - |
+| 66. Test Infrastructure | v5.1 | 0/3 | Planning complete | - |
 | 67. Backend Tests - Simple Modules | v5.1 | 0/? | Not started | - |
 | 68. Backend Tests - Complex Modules | v5.1 | 0/? | Not started | - |
 | 69. Backend Integration Tests | v5.1 | 0/? | Not started | - |
