@@ -588,13 +588,8 @@ async function bootstrap() {
     // Phase 33: CorrelationInterceptor globally -- sets correlation context for all requests
     app.useGlobalInterceptors(new CorrelationInterceptor());
 
-    // Swagger documentation - disabled in production unless explicitly enabled
-    // ENABLE_SWAGGER=true can be set to enable in staging/production (not recommended)
-    const enableSwagger =
-      config.nodeEnv !== 'production' ||
-      ['1', 'true', 'yes'].includes(
-        (process.env.ENABLE_SWAGGER || '').toLowerCase(),
-      );
+    // Swagger documentation - hard-blocked in production (no env var override)
+    const enableSwagger = config.nodeEnv !== 'production';
 
     if (enableSwagger) {
       const swaggerConfig = new DocumentBuilder()

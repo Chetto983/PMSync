@@ -73,6 +73,27 @@ export class EmailService {
   }
 
   /**
+   * Send email verification link for new signups.
+   */
+  async sendVerificationEmail(email: string, verificationUrl: string) {
+    const html = `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>Verify Your Email</h2>
+          <p>Thank you for signing up for PMSync. Please verify your email address by clicking the link below:</p>
+          <a href="${verificationUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            Verify Email
+          </a>
+          <p>Or copy and paste this link in your browser: ${verificationUrl}</p>
+          <p>If you didn't create an account, please ignore this email.</p>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail(email, 'Verify Your Email - PMSync', html);
+  }
+
+  /**
    * Backward-compatible legacy reset email helper.
    */
   async sendPasswordReset(email: string, token: string) {

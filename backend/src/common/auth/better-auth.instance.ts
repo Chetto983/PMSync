@@ -248,11 +248,19 @@ export function createBetterAuthInstance(
 
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: false,
+      requireEmailVerification: true,
       autoSignIn: true,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await emailService.sendPasswordResetLink(user.email, url);
+      },
+    },
+
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await emailService.sendVerificationEmail(user.email, url);
       },
     },
 
