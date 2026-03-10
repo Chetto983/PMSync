@@ -468,6 +468,17 @@ export function SecurityMfaSection() {
       {/* TOTP Enable Dialog */}
       <Dialog open={enableOpen} onClose={handleCloseEnable} maxWidth="sm" fullWidth>
         <DialogTitle>{mfa?.totp.enable || 'Enable TOTP'}</DialogTitle>
+        <Box
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (enableStep === 0) {
+              void handleEnableStep1();
+            } else if (enableStep === 2) {
+              void handleVerifyTotp();
+            }
+          }}
+        >
         <DialogContent>
           {enableStep === 0 && (
             <Box sx={{ pt: 1 }}>
@@ -548,8 +559,8 @@ export function SecurityMfaSection() {
           )}
           {enableStep === 0 && (
             <Button
+              type="submit"
               variant="contained"
-              onClick={handleEnableStep1}
               disabled={stepLoading || !password}
               startIcon={stepLoading ? <CircularProgress size={16} /> : undefined}
             >
@@ -563,8 +574,8 @@ export function SecurityMfaSection() {
           )}
           {enableStep === 2 && (
             <Button
+              type="submit"
               variant="contained"
-              onClick={handleVerifyTotp}
               disabled={stepLoading || verifyCode.length !== 6}
               startIcon={stepLoading ? <CircularProgress size={16} /> : undefined}
             >
@@ -577,11 +588,19 @@ export function SecurityMfaSection() {
             </Button>
           )}
         </DialogActions>
+        </Box>
       </Dialog>
 
       {/* TOTP Disable Dialog */}
       <Dialog open={disableOpen} onClose={() => setDisableOpen(false)}>
         <DialogTitle>{mfa?.totp.disable || 'Disable TOTP'}</DialogTitle>
+        <Box
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleDisableTotp();
+          }}
+        >
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
             {mfa?.totp.passwordRequired || 'Enter your password to continue'}
@@ -598,15 +617,16 @@ export function SecurityMfaSection() {
         <DialogActions>
           <Button onClick={() => setDisableOpen(false)}>Cancel</Button>
           <Button
+            type="submit"
             variant="contained"
             color="error"
-            onClick={handleDisableTotp}
             disabled={disableLoading || !disablePassword}
             startIcon={disableLoading ? <CircularProgress size={16} /> : undefined}
           >
             {mfa?.totp.disable || 'Disable'}
           </Button>
         </DialogActions>
+        </Box>
       </Dialog>
 
       {/* Remove Passkey Confirmation */}
@@ -632,6 +652,13 @@ export function SecurityMfaSection() {
       {/* Backup Codes Regenerate Dialog */}
       <Dialog open={regenOpen} onClose={() => { setRegenOpen(false); setRegenPassword(''); }}>
         <DialogTitle>{mfa?.backupCodes.regenerate || 'Regenerate Codes'}</DialogTitle>
+        <Box
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleRegenCodes();
+          }}
+        >
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
             {mfa?.backupCodes.regenerateConfirm || 'This will invalidate all existing backup codes. Continue?'}
@@ -648,15 +675,16 @@ export function SecurityMfaSection() {
         <DialogActions>
           <Button onClick={() => { setRegenOpen(false); setRegenPassword(''); }}>Cancel</Button>
           <Button
+            type="submit"
             variant="contained"
             color="warning"
-            onClick={handleRegenCodes}
             disabled={regenLoading || !regenPassword}
             startIcon={regenLoading ? <CircularProgress size={16} /> : undefined}
           >
             {mfa?.backupCodes.regenerate || 'Regenerate'}
           </Button>
         </DialogActions>
+        </Box>
       </Dialog>
     </Box>
   );

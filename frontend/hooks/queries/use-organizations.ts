@@ -13,12 +13,28 @@ import { authClient } from '@/lib/auth-client';
 // Query Options
 // ==========================================================================
 
+async function getAuthJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api/auth${path}`, {
+    ...init,
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      ...(init?.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Auth request failed (${response.status})`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
 export function organizationsOptions() {
   return queryOptions({
     queryKey: orgKeys.list(),
     queryFn: async () => {
-      const res = await (authClient.organization as any).listOrganizations();
-      return res.data ?? [];
+      return getAuthJson<any[]>('/organization/list');
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -46,8 +62,7 @@ export function pendingInvitationsOptions() {
   return queryOptions({
     queryKey: orgKeys.invitations(),
     queryFn: async () => {
-      const res = await (authClient.organization as any).getInvitations();
-      return res.data ?? [];
+      return getAuthJson<any[]>('/organization/list-user-invitations');
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

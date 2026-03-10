@@ -11,7 +11,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { authClient, type SessionUser } from '@/lib/auth-client';
+import type { SessionUser } from '@/lib/auth-client';
+import { apiClient } from '@/lib/api-client';
 import { StepNameConfirm } from './StepNameConfirm';
 import { StepWorkspace } from './StepWorkspace';
 import { StepEmailProvider } from './StepEmailProvider';
@@ -54,9 +55,7 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
         // All steps done -- mark onboarding complete
         setCompleting(true);
         try {
-          await authClient.updateUser({
-            onboardingComplete: true,
-          } as Parameters<typeof authClient.updateUser>[0]);
+          await apiClient.post('/onboarding/complete');
 
           // Set cookie so middleware skips onboarding redirect
           document.cookie =

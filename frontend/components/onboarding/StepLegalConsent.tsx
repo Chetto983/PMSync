@@ -31,6 +31,9 @@ const AI_FEATURES = [
 export function StepLegalConsent({ onComplete, isLast }: StepProps) {
   const t = useTranslations();
   const sc = t.onboarding.stepContent?.legal;
+  const consentFeaturesCopy = t.settings.consentPanel?.features as
+    | Record<string, { label: string; description: string }>
+    | undefined;
 
   const { data: legalStatus, isLoading: legalLoading } = useLegalStatus();
   const { data: consents, isLoading: consentLoading } = useConsent();
@@ -88,8 +91,8 @@ export function StepLegalConsent({ onComplete, isLast }: StepProps) {
     [canSubmit, legalStatus, acceptDoc, onComplete, t.common.genericError],
   );
 
-  const handleConsentToggle = (feature: string, currentGranted: boolean) => {
-    updateConsent.mutate({ feature, granted: !currentGranted });
+  const handleConsentToggle = (feature: string, granted: boolean) => {
+    updateConsent.mutate({ feature, granted });
   };
 
   const aiConsents = consents?.filter((c) => AI_FEATURES.includes(c.feature)) ?? [];
@@ -190,6 +193,16 @@ export function StepLegalConsent({ onComplete, isLast }: StepProps) {
         {aiConsents.map((consent) => (
           <Box
             key={consent.feature}
+            role="button"
+            tabIndex={0}
+            aria-label={consentFeaturesCopy?.[consent.feature]?.label ?? consent.label}
+            onClick={() => handleConsentToggle(consent.feature, !consent.granted)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleConsentToggle(consent.feature, !consent.granted);
+              }
+            }}
             sx={{
               display: 'flex',
               alignItems: 'center',
@@ -197,20 +210,27 @@ export function StepLegalConsent({ onComplete, isLast }: StepProps) {
               py: 0.75,
               px: 1.5,
               borderRadius: 1,
+              cursor: updateConsent.isPending ? 'default' : 'pointer',
               '&:hover': { bgcolor: 'action.hover' },
+              '&:focus-visible': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: 2,
+              },
             }}
           >
             <Box sx={{ flex: 1, mr: 2 }}>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {consent.label}
+                {consentFeaturesCopy?.[consent.feature]?.label ?? consent.label}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {consent.description}
+                {consentFeaturesCopy?.[consent.feature]?.description ?? consent.description}
               </Typography>
             </Box>
             <Switch
               checked={consent.granted}
-              onChange={() => handleConsentToggle(consent.feature, consent.granted)}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => handleConsentToggle(consent.feature, event.target.checked)}
               disabled={updateConsent.isPending}
               size="small"
             />

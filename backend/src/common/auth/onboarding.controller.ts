@@ -36,6 +36,24 @@ function getRequestIpFromExpress(request: Request): string | undefined {
 export class OnboardingController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Post('complete')
+  async completeOnboarding(@Req() request: AuthenticatedRequest) {
+    const userId = request.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    await withoutTenantScopingAsync(() =>
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { onboardingComplete: true },
+        select: { id: true },
+      }),
+    );
+
+    return { success: true };
+  }
+
   @Post('provision-workspace')
   async provisionWorkspace(
     @Req() request: AuthenticatedRequest,

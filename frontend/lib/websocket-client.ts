@@ -205,6 +205,9 @@ export type EventHandler<T> = (data: T) => void;
 
 interface RealtimeAuthTokenResponse {
   token?: string;
+  data?: {
+    token?: string;
+  };
 }
 
 // Auth error detection - these messages indicate session/auth issues
@@ -261,11 +264,12 @@ class WebSocketClient {
     }
 
     const body = (await response.json()) as RealtimeAuthTokenResponse;
-    if (!body.token) {
+    const token = body.token ?? body.data?.token;
+    if (!token) {
       throw new Error('Realtime auth token response did not include a token');
     }
 
-    return body.token;
+    return token;
   }
 
   /**

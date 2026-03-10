@@ -16,6 +16,7 @@ import { crmApi, type ContactRelationshipStats } from '@/lib/api/crm';
 import { contactsApi } from '@/lib/api/contacts';
 import { calendarApi } from '@/lib/api/calendar';
 import { apiClient } from '@/lib/api-client';
+import { useConsent } from './use-consent';
 import type { WidgetLayout, DashboardLayout } from '@/lib/dashboard/layout-engine';
 
 // ============================================================================
@@ -648,7 +649,7 @@ export interface EmailTrendDataPoint {
  * Query options for email trends
  * Uses the AI analytics endpoint for email volume data
  */
-export function emailTrendsOptions() {
+export function emailTrendsOptions(enabled: boolean = true) {
   return queryOptions({
     queryKey: dashboardKeys.emailTrends(),
     queryFn: async (): Promise<{ trends: EmailTrendDataPoint[] }> => {
@@ -664,6 +665,7 @@ export function emailTrendsOptions() {
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000,
     retry: 1,
+    enabled,
   });
 }
 
@@ -671,7 +673,11 @@ export function emailTrendsOptions() {
  * Hook for email trends
  */
 export function useEmailTrends() {
-  return useQuery(emailTrendsOptions());
+  const { data: consentList } = useConsent();
+  const hasEmailAnalyticsConsent =
+    consentList?.some((c) => c.feature === 'email_analytics' && c.granted) ?? false;
+
+  return useQuery(emailTrendsOptions(hasEmailAnalyticsConsent));
 }
 
 // ============================================================================
