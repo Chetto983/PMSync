@@ -1,21 +1,22 @@
 /**
  * AI Health Controller
  *
- * Public endpoint for monitoring AI module health status.
- * Used by load balancers, Kubernetes probes, and monitoring systems.
- *
- * No authentication required - designed for infrastructure monitoring.
+ * Public probe endpoint for load balancers and monitoring systems.
+ * Admin-only detailed endpoint for circuit breaker and service diagnostics.
  */
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../../common/auth/public.decorator';
+import { RolesGuard } from '../../../common/auth/roles.guard';
+import { Roles } from '../../../common/auth/roles.decorator';
 import { MistralService } from '../services/mistral.service';
 import { CacheService } from '../../../common/services/cache.service';
 
 /**
- * AI health status response
+ * Detailed AI health status response (admin only)
  */
-export interface AiHealthResponse {
+export interface AiHealthDetailedResponse {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: string;
   services: {
@@ -33,7 +34,7 @@ export interface AiHealthResponse {
 }
 
 @ApiTags('AI')
-@Public()
+@Throttle({ default: { limit: 30, ttl: 60000 } })
 @Controller('ai')
 export class AiHealthController {
   constructor(
@@ -42,23 +43,57 @@ export class AiHealthController {
   ) { }
 
   /**
-   * AI module health check
+   * AI module health probe
    * Public endpoint for load balancer health probes and monitoring systems.
-   *
-   * Status values:
-   * - healthy: All services operational
-   * - degraded: Some services impaired (circuit breaker half-open, cache down)
-   * - unhealthy: Critical services unavailable
+   * Returns only status -- no internal details exposed.
    */
   @Get('health')
+  @Public()
   @ApiOperation({
-    summary: 'AI module health check',
-    description:
-      'Returns health status of AI services (Mistral, Redis cache). Public endpoint for monitoring.',
+    summary: 'AI module health probe',
+    description: 'Returns simple health status (ok/degraded/unhealthy). No internal details.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Health status returned',
+    description: 'Health probe status',
+    schema: {
+      properties: {
+        status: { type: 'string', enum: ['ok', 'degraded', 'unhealthy'] },
+      },
+    },
+  })
+  getHealth(): { status: string } {
+    const circuitBreaker = this.mistralService.getCircuitBreakerStatus();
+    const mistralHealthy = circuitBreaker.state === 'closed';
+    const cacheConnected = this.cacheService.isHealthy();
+
+    let status: string;
+    if (mistralHealthy && cacheConnected) {
+      status = 'ok';
+    } else if (circuitBreaker.state === 'open' && !cacheConnected) {
+      status = 'unhealthy';
+    } else {
+      status = 'degraded';
+    }
+
+    return { status };
+  }
+
+  /**
+   * AI module detailed health (admin only)
+   * Returns full circuit breaker info, provider status, failure counts.
+   * Requires authentication and admin role.
+   */
+  @Get('health/detailed')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @ApiOperation({
+    summary: 'AI module detailed health (admin only)',
+    description: 'Returns detailed health status including circuit breaker state and failure counts.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detailed health status returned',
     schema: {
       properties: {
         status: { type: 'string', enum: ['healthy', 'degraded', 'unhealthy'] },
@@ -87,16 +122,12 @@ export class AiHealthController {
       },
     },
   })
-  getHealth(): AiHealthResponse {
-    // Get Mistral circuit breaker status
+  getHealthDetailed(): AiHealthDetailedResponse {
     const circuitBreaker = this.mistralService.getCircuitBreakerStatus();
     const mistralHealthy = circuitBreaker.state === 'closed';
     const mistralDegraded = circuitBreaker.state === 'half-open';
-
-    // Get Redis cache status
     const cacheConnected = this.cacheService.isHealthy();
 
-    // Determine overall status
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
     if (mistralHealthy && cacheConnected) {
       overallStatus = 'healthy';
