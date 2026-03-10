@@ -17,7 +17,7 @@ async function main() {
   try {
     // Use raw SQL to bypass tenant scoping
     const users = await prisma.$queryRawUnsafe<Array<{ id: string; email: string; image: string }>>(
-      `SELECT id, email, image FROM "user" WHERE image IS NOT NULL AND LENGTH(image) > $1`,
+      `SELECT id, email, image FROM "users" WHERE image IS NOT NULL AND LENGTH(image) > $1`,
       MAX_IMAGE_LENGTH,
     );
 
@@ -28,14 +28,14 @@ async function main() {
       console.log(`[FIX] ${user.email}: image is ${sizeMB}MB (${user.image.length} chars) — clearing`);
 
       await prisma.$executeRawUnsafe(
-        `UPDATE "user" SET image = NULL WHERE id = $1`,
+        `UPDATE "users" SET image = NULL WHERE id = $1`,
         user.id,
       );
     }
 
     // Verify
     const remaining = await prisma.$queryRawUnsafe<Array<{ cnt: bigint }>>(
-      `SELECT COUNT(*) as cnt FROM "user" WHERE image IS NOT NULL AND LENGTH(image) > $1`,
+      `SELECT COUNT(*) as cnt FROM "users" WHERE image IS NOT NULL AND LENGTH(image) > $1`,
       MAX_IMAGE_LENGTH,
     );
     console.log(`\nVerification: ${remaining[0]?.cnt ?? 0} oversized images remaining`);

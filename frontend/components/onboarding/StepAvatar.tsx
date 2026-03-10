@@ -9,7 +9,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Upload, Check } from 'lucide-react';
-import { authClient } from '@/lib/auth-client';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { StepProps } from './types';
 
@@ -28,7 +28,6 @@ export function StepAvatar({ user, onComplete, isLast }: StepProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Client-side size check (5 MB raw max — will be resized)
     if (file.size > 5 * 1024 * 1024) {
       setError('File must be under 5 MB');
       return;
@@ -39,8 +38,9 @@ export function StepAvatar({ user, onComplete, isLast }: StepProps) {
     try {
       const dataUrl = await resizeImageToDataURL(file, MAX_AVATAR_PX);
       setPreview(dataUrl);
-      await authClient.updateUser({ image: dataUrl });
-      onComplete({ avatarUrl: dataUrl });
+      // Upload to R2 via backend — stores URL (not base64) in user.image
+      const res = await apiClient.put('/api/v1/users/me/avatar', { avatarUrl: dataUrl });
+      onComplete({ avatarUrl: res.data.avatarUrl });
     } catch (err) {
       setError((err as Error).message || t.common.genericError);
     } finally {

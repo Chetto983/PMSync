@@ -3,6 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { QueueService } from '../../email-sync/services/queue.service';
 import { CacheService } from '../../../common/services/cache.service';
+import { StorageService } from '../../email/services/storage.service';
 import { UpdatePreferencesDto } from '../dtos/update-preferences.dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class UsersService {
     private prisma: PrismaService,
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private queueService: QueueService,
+    private storageService: StorageService,
     // CRITICAL: @Inject() required alongside @Optional() for NestJS to resolve the service
     @Optional() @Inject(CacheService) private cacheService?: CacheService,
   ) { }
@@ -56,31 +58,56 @@ export class UsersService {
   }
 
   /**
-   * Update user avatar
-   * Accepts base64 data URL or null to remove
+   * Update user avatar — uploads base64 to R2, stores URL in DB.
+   * Sets both `avatarUrl` (app field) and `image` (better-auth field)
+   * to a short URL so cookie cache never overflows.
    */
-  async updateUserAvatar(userId: string, avatarUrl: string | null) {
+  async updateUserAvatar(userId: string, dataUrl: string | null) {
+    if (!dataUrl) {
+      return this.deleteUserAvatar(userId);
+    }
+
+    // Parse base64 data URL
+    const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!match) {
+      throw new BadRequestException('Invalid image data URL');
+    }
+
+    const contentType = match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+
+    // Cap at 200KB after base64 decode (~150KB image)
+    if (buffer.length > 200 * 1024) {
+      throw new BadRequestException('Avatar image too large (max 200KB)');
+    }
+
+    const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+    const key = `avatars/${userId}.${ext}`;
+
+    await this.storageService.putObject(key, buffer, contentType);
+    const publicUrl = await this.storageService.getSignedDownloadUrl(key, 60 * 60 * 24 * 365);
+
+    // Store URL (not base64) in both fields
     return this.prisma.user.update({
       where: { id: userId },
-      data: { avatarUrl },
-      select: {
-        id: true,
-        avatarUrl: true,
-      },
+      data: { avatarUrl: publicUrl, image: publicUrl },
+      select: { id: true, avatarUrl: true, image: true },
     });
   }
 
   /**
-   * Delete user avatar
+   * Delete user avatar from R2 and DB
    */
   async deleteUserAvatar(userId: string) {
+    // Try to delete from R2 (best-effort, ignore errors)
+    for (const ext of ['jpg', 'png', 'webp']) {
+      await this.storageService.deleteObject(`avatars/${userId}.${ext}`).catch(() => {});
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
-      data: { avatarUrl: null },
-      select: {
-        id: true,
-        avatarUrl: true,
-      },
+      data: { avatarUrl: null, image: null },
+      select: { id: true, avatarUrl: true },
     });
   }
 
