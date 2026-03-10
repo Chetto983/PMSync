@@ -195,7 +195,7 @@ export class EnvironmentVariables {
   WEBAUTHN_ORIGIN?: string;
 
   // Features
-  // Better-Auth secret (shared with frontend for session signing)
+  // Better Auth secret used by the backend runtime.
   @IsString()
   @IsOptional()
   BETTER_AUTH_SECRET?: string;

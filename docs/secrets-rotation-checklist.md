@@ -16,14 +16,13 @@
 
 | Env Var | Where to Regenerate | Shared? |
 |---------|---------------------|---------|
-| `DATABASE_URL` | Neon Console > Project > Connection Details > Connection string | Backend + Frontend |
+| `DATABASE_URL` | Neon Console > Project > Connection Details > Connection string | Backend only |
 | `DB_PASSWORD` | Neon Console > Project > Roles > Reset password | Backend only |
 | `DB_HOST` | Neon Console > Project > Connection Details (host value) | Backend only |
 | `DB_USER` | Neon Console > Project > Roles | Backend only |
 | `POSTGRES_URL` | Railway alias -- set to same value as `DATABASE_URL` | Backend only |
 
 - [ ] `DATABASE_URL` rotated (backend)
-- [ ] `DATABASE_URL` rotated (frontend -- must match backend)
 - [ ] `DB_PASSWORD` rotated
 - [ ] `POSTGRES_URL` updated (if used in Railway)
 
@@ -33,10 +32,9 @@
 
 | Env Var | Where to Regenerate | Shared? |
 |---------|---------------------|---------|
-| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | Backend + Frontend (MUST match) |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | Backend only |
 
 - [ ] `BETTER_AUTH_SECRET` rotated (backend)
-- [ ] `BETTER_AUTH_SECRET` rotated (frontend -- **must be identical** to backend)
 
 ---
 
@@ -123,12 +121,11 @@
 
 | Env Var | Where to Regenerate | Shared? |
 |---------|---------------------|---------|
-| `SMTP_HOST` | Your SMTP provider (Postmark, SendGrid, SES, etc.) | Backend + Frontend |
-| `SMTP_USER` | SMTP provider dashboard | Backend + Frontend |
-| `SMTP_PASSWORD` | SMTP provider dashboard > Reset credentials | Backend + Frontend |
+| `SMTP_HOST` | Your SMTP provider (Postmark, SendGrid, SES, etc.) | Backend only |
+| `SMTP_USER` | SMTP provider dashboard | Backend only |
+| `SMTP_PASSWORD` | SMTP provider dashboard > Reset credentials | Backend only |
 
 - [ ] `SMTP_PASSWORD` rotated (backend)
-- [ ] `SMTP_PASSWORD` rotated (frontend -- if using same SMTP)
 
 ---
 

@@ -1,15 +1,13 @@
 /**
  * Unit tests for the attachment download proxy route.
- * Verifies the /api/v1 prefix fix (Phase 38) and auth logic.
+ * Verifies the /api/v1 prefix fix and auth forwarding behavior.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Must import AFTER mocking fetch
-import handler from './download';
+import handler from '@/pages/api/email/attachments/[id]/download';
 
 function createMockReq(overrides: Partial<NextApiRequest> = {}): NextApiRequest {
   return {
@@ -53,12 +51,12 @@ function createMockRes(): MockResponse {
       return res;
     },
   };
+
   return res as unknown as MockResponse;
 }
 
 beforeEach(() => {
   mockFetch.mockReset();
-  // Set env for test
   process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000';
 });
 
@@ -79,10 +77,8 @@ describe('attachment download proxy', () => {
 
     await handler(req, res as unknown as NextApiResponse);
 
-    // THE critical assertion: URL must include /api/v1
     const calledUrl = mockFetch.mock.calls[0][0] as string;
     expect(calledUrl).toContain('/api/v1/email/attachments/att-456/download');
-    // Ensure it's not the OLD broken path without /api/v1
     expect(calledUrl).not.toMatch(/^\/email\/attachments\//);
     expect(mockFetch.mock.calls[0][1]).toEqual(
       expect.objectContaining({

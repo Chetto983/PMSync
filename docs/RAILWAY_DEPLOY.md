@@ -45,20 +45,14 @@ railway variables set DATABASE_URL="postgresql://neondb_owner:<pw>@<host>/neondb
 railway variables set REDIS_TLS_ENABLED=false
 railway variables set REDIS_DB=0
 
-# JWT & Auth (generate fresh secrets for prod!)
-railway variables set JWT_SECRET=$(openssl rand -hex 64)
-railway variables set JWT_EXPIRATION=24h
-railway variables set ACCESS_TOKEN_EXPIRES_IN=7d
+# Auth (generate fresh secrets for prod!)
 railway variables set BETTER_AUTH_SECRET=$(openssl rand -base64 32)
 railway variables set BETTER_AUTH_URL=https://<railway-domain>.up.railway.app
 railway variables set BETTER_AUTH_PUBLIC_URL=https://<your-vercel-domain>.vercel.app
-railway variables set PASSWORD_RESET_SECRET=$(openssl rand -hex 64)
-railway variables set REFRESH_TOKEN_SECRET=$(openssl rand -hex 64)
 railway variables set CSRF_SECRET=$(openssl rand -hex 64)
 railway variables set AES_SECRET_KEY=$(openssl rand -base64 32)
 
 # WebAuthn
-railway variables set WEBAUTHN_RP_NAME=PMSync
 railway variables set PASSKEY_RP_ID=<your-frontend-domain>
 railway variables set WEBAUTHN_ORIGIN=https://<your-frontend-domain>
 
@@ -147,6 +141,7 @@ Set in Vercel Dashboard > Environment Variables:
 
 ```
 NEXT_PUBLIC_API_URL=https://<railway-domain>.up.railway.app
+NEXT_PUBLIC_SITE_URL=https://<your-vercel-domain>.vercel.app
 ```
 
 `NEXT_PUBLIC_API_URL` still points at Railway. Browser HTTP auth/API requests are proxied through Vercel on `/api/auth/*` and `/api/v1/*`, while realtime now uses a short-lived websocket token fetched over that same-origin API path before connecting to Railway.

@@ -5,7 +5,7 @@ function normalizeSiteUrl(siteUrl: string): string {
 }
 
 function getConfiguredSiteUrl(): string | null {
-  const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
+  const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   return envSiteUrl ? normalizeSiteUrl(envSiteUrl) : null;
 }
 

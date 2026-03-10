@@ -4,15 +4,15 @@ import { getSessionCookie } from "better-auth/cookies";
 /**
  * Server-side route protection using better-auth session cookie.
  *
- * This is an optimistic cookie-existence check (not full validation).
- * Real validation happens in useSession on client and NestJS guards on API.
+ * This is an optimistic cookie-existence check, not full session validation.
+ * Real validation still happens in useSession on the client and NestJS guards
+ * on the backend.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = getSessionCookie(request);
   const onboardingCookie = request.cookies.get("pmsync:onboarding-complete");
 
-  // Protected routes: require session cookie
   if (pathname.startsWith("/dashboard") || pathname === "/onboarding") {
     if (!sessionCookie) {
       const loginUrl = new URL("/auth/login", request.url);
@@ -20,13 +20,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Onboarding cookie check only applies to /dashboard routes
     if (pathname.startsWith("/dashboard") && !onboardingCookie) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
   }
 
-  // Auth routes: redirect authenticated users to dashboard
   if (pathname.startsWith("/auth/") && sessionCookie) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }

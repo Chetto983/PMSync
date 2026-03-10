@@ -1,4 +1,4 @@
-import handler from './[...all]';
+import handler from '@/pages/api/auth/[...all]';
 
 describe('auth proxy handler', () => {
   const originalFetch = global.fetch;
@@ -125,7 +125,6 @@ describe('auth proxy handler', () => {
     expect(res.status).toHaveBeenCalledWith(502);
     expect(res.json).toHaveBeenCalledWith({ error: 'Auth proxy error' });
 
-    // Verify no logged message contains the secret values
     for (const call of consoleErrorSpy.mock.calls) {
       const logged = call.join(' ');
       expect(logged).not.toContain('SECRET_AUTH_CODE');

@@ -310,9 +310,12 @@ async function auditRailwayConfig() {
 
   // Check env vars that MUST be set on Railway
   const requiredEnvs = [
-    'DATABASE_URL', 'REDIS_HOST', 'JWT_SECRET', 'AES_SECRET_KEY',
-    'GMAIL_CLIENT_ID', 'MICROSOFT_CLIENT_ID', 'MISTRAL_API_KEY',
-    'S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_BUCKET', 'SMTP_HOST',
+    'API_PUBLIC_URL', 'DATABASE_URL', 'REDIS_HOST', 'REDIS_PASSWORD',
+    'BETTER_AUTH_SECRET', 'BETTER_AUTH_URL', 'BETTER_AUTH_PUBLIC_URL',
+    'FRONTEND_URL', 'CORS_ALLOWED_ORIGINS', 'PASSKEY_RP_ID',
+    'WEBAUTHN_ORIGIN', 'AES_SECRET_KEY', 'GMAIL_CLIENT_ID',
+    'MICROSOFT_CLIENT_ID', 'MISTRAL_API_KEY', 'S3_ENDPOINT',
+    'S3_ACCESS_KEY', 'S3_BUCKET', 'SMTP_HOST',
   ];
   for (const env of requiredEnvs) {
     record('Railway', `ENV ${env}`, process.env[env] ? 'PASS' : 'FAIL',

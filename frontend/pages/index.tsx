@@ -57,9 +57,7 @@ export default function Home() {
   const isDark = theme.palette.mode === 'dark';
   const [mobileOpen, setMobileOpen] = useState(false);
   const siteUrl = normalizeSiteUrl(
-    process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      'https://mail-agent-indol.vercel.app'
+    process.env.NEXT_PUBLIC_SITE_URL || 'https://mail-agent-indol.vercel.app'
   );
   const seoTitle = 'PMSync | Unified AI Workspace for Email, Calendar & Contacts';
   const seoDescription = t.landing.hero.subtitle;

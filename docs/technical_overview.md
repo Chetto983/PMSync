@@ -186,18 +186,20 @@ Important characteristics:
 ### Key Environment Variables
 
 - `DATABASE_URL`
-- `REDIS_HOST`, `REDIS_PASSWORD`
+- `REDIS_HOST`, `REDIS_PASSWORD`, `REDIS_TLS_ENABLED`
 - `MISTRAL_API_KEY`
-- `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`
-- `FRONTEND_URL`
+- `API_PUBLIC_URL`
+- `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `BETTER_AUTH_PUBLIC_URL`
+- `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`
+- `PASSKEY_RP_ID`, `WEBAUTHN_ORIGIN`
 - `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`
 - `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`
-- `JWT_SECRET`
 - `CSRF_SECRET`
+- `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`
 
 Note:
 
-`JWT_SECRET` still exists because the legacy auth path has not been fully removed.
+Legacy JWT code still exists in parts of the backend, but the primary browser auth path now depends on Better Auth session cookies and the envs above.
 
 ## Current Design Decisions
 
