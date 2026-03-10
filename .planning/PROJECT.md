@@ -249,5 +249,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | 401 interceptor simplified to signOut+redirect | No JWT refresh queue needed; better-auth manages sessions via cookies | ✓ Good |
 | WS auth via Phase 52 (no new code for Phase 54) | Handshake already uses auth.api.getSession with cookie validation | ✓ Good |
 
+| Frontend session validation via HTTP fetch | Frontend API routes validate sessions via backend HTTP call, not local auth instance | ✓ Good |
+| cookieCache compact with 300s maxAge | Reduces DB session lookups; 5-min cache with compact strategy | ✓ Good |
+
 ---
-*Last updated: 2026-03-09 after Phase 54*
+*Last updated: 2026-03-10 after Phase 60*
