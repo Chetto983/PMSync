@@ -90,6 +90,16 @@ function executeInvalidations(
   if (keys.has('provider-folders') && providerId) {
     queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(providerId) });
   }
+  // Dynamic keys: thread:{id} and detail:{id} — coalesced by debouncer
+  for (const key of keys) {
+    if (key.startsWith('thread:')) {
+      const id = key.slice(7);
+      queryClient.invalidateQueries({ queryKey: emailKeys.thread(id) });
+    } else if (key.startsWith('detail:')) {
+      const id = key.slice(7);
+      queryClient.invalidateQueries({ queryKey: emailKeys.detail(id) });
+    }
+  }
 }
 
 /**
@@ -150,25 +160,18 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   );
 
   // Handler for email update events (read, starred, flagged, etc.)
+  // ALL invalidations go through the debouncer to prevent 429 storms during sync
   const handleEmailUpdate = useCallback(
     (event: RealtimeEmailEvent) => {
-      // Always invalidate detail if we have the ID (read status, flags, etc.)
-      if (event.emailId) {
-        queryClient.invalidateQueries({
-          queryKey: emailKeys.detail(event.emailId),
-        });
-      }
+      const inv = invalidatorRef.current;
 
-      // Invalidate thread queries
+      // Debounced detail + thread invalidations (coalesced by ID)
       if (event.emailId) {
-        queryClient.invalidateQueries({
-          queryKey: emailKeys.thread(event.emailId),
-        });
+        inv.schedule(`detail:${event.emailId}`);
+        inv.schedule(`thread:${event.emailId}`);
       }
       if (event.threadId && event.threadId !== event.emailId) {
-        queryClient.invalidateQueries({
-          queryKey: emailKeys.thread(event.threadId),
-        });
+        inv.schedule(`thread:${event.threadId}`);
       }
 
       // For read/starred/flagged updates, always invalidate list and stats
@@ -186,14 +189,15 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         return;
       }
 
-      invalidatorRef.current.schedule('list');
+      inv.schedule('list');
     },
-    [queryClient, folder, invalidateListAndStats]
+    [folder, invalidateListAndStats]
   );
 
   // Handler for email delete events
   const handleEmailDelete = useCallback(
     (event: RealtimeEmailEvent) => {
+      // Remove detail from cache immediately (it's gone)
       if (event.emailId) {
         queryClient.removeQueries({
           queryKey: emailKeys.detail(event.emailId),
@@ -202,10 +206,9 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
 
       invalidateListAndStats();
 
+      // Debounce thread invalidation — multiple deletes in a batch shouldn't flood
       if (event.threadId) {
-        queryClient.invalidateQueries({
-          queryKey: emailKeys.thread(event.threadId),
-        });
+        invalidatorRef.current.schedule(`thread:${event.threadId}`);
       }
     },
     [queryClient, invalidateListAndStats]

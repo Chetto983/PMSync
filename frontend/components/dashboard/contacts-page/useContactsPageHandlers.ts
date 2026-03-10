@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { useQueryClient } from '@tanstack/react-query';
 import { type Contact, contactsApi } from '@/lib/api/contacts';
 import { useContactStore } from '@/stores/contact-store';
+import { contactsKeys } from '@/hooks/queries/contacts-keys';
 import { logger } from '@/lib/logger';
 import type { useContactsPageData } from './useContactsPageData';
 import type { useContactForm } from './useContactForm';
@@ -12,6 +14,7 @@ type FormData = ReturnType<typeof useContactForm>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useContactsPageHandlers(data: PageData, form: FormData, contactsCopy: any) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const {
     providers,
@@ -140,7 +143,8 @@ export function useContactsPageHandlers(data: PageData, form: FormData, contacts
     try {
       setActionLoading(true);
       await deleteContactMutation.mutateAsync(contactToDelete.id);
-      await loadContacts();
+      // Store removal for instant UI update (mutation's onSuccess invalidates cache)
+      useContactStore.getState().deleteContact(contactToDelete.id);
       setDeleteDialogOpen(false);
       setContactToDelete(null);
       if (selectedContact?.id === contactToDelete.id) {
@@ -171,8 +175,15 @@ export function useContactsPageHandlers(data: PageData, form: FormData, contacts
     try {
       setActionLoading(true);
       await contactsApi.bulkDeleteContacts(idsToDelete);
+      // Remove from Zustand store immediately for instant UI update.
+      // loadContacts() returns stale cached data — store removal is the source of truth.
+      for (const id of idsToDelete) {
+        useContactStore.getState().deleteContact(id);
+      }
+      // Invalidate cache so next fetch gets fresh data (not stale cached contacts)
+      queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.counts() });
       clearSelection();
-      await loadContacts();
       setSnackbar({
         open: true,
         message: (contactsCopy.alerts?.deletedCount || 'Deleted {count} contacts').replace('{count}', String(idsToDelete.length)),
@@ -188,7 +199,7 @@ export function useContactsPageHandlers(data: PageData, form: FormData, contacts
     } finally {
       setActionLoading(false);
     }
-  }, [selectedIds, contactsCopy, clearSelection, loadContacts, setSnackbar, setActionLoading]);
+  }, [selectedIds, contactsCopy, queryClient, clearSelection, setSnackbar, setActionLoading]);
 
   // Sync handler
   const handleSyncContacts = useCallback(async () => {
