@@ -1,23 +1,143 @@
-/**
- * Seed database with sample data for local development
- * Run with: npx prisma db seed
- * This runs automatically when Docker starts the backend
- */
-
 import 'dotenv/config';
-import { hash } from '@node-rs/argon2';
+import { randomBytes, scryptSync } from 'crypto';
 import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 
 const prisma = createPrismaClient();
 
+async function hashBetterAuthPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const derivedKey = scryptSync(password.normalize('NFKC'), salt, 64, {
+    N: 16384,
+    r: 16,
+    p: 1,
+    maxmem: 128 * 16384 * 16 * 2,
+  });
+
+  return `${salt}:${derivedKey.toString('hex')}`;
+}
+
+async function upsertCredentialAccount(params: {
+  userId: string;
+  email: string;
+  password: string;
+}) {
+  const passwordHash = await hashBetterAuthPassword(params.password);
+  const existingAccount = await prisma.account.findFirst({
+    where: {
+      userId: params.userId,
+      providerId: 'credential',
+    },
+    select: { id: true },
+  });
+
+  if (existingAccount) {
+    await prisma.account.update({
+      where: { id: existingAccount.id },
+      data: {
+        accountId: params.email,
+        password: passwordHash,
+      },
+    });
+    return;
+  }
+
+  await prisma.account.create({
+    data: {
+      userId: params.userId,
+      accountId: params.email,
+      providerId: 'credential',
+      password: passwordHash,
+    },
+  });
+}
+
+async function seedUser(params: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  tenantId: string;
+}) {
+  const name = `${params.firstName} ${params.lastName}`;
+  const user = await prisma.user.upsert({
+    where: { email: params.email },
+    update: {
+      tenantId: params.tenantId,
+      name,
+      firstName: params.firstName,
+      lastName: params.lastName,
+      role: params.role,
+      isActive: true,
+      emailVerified: true,
+      twoFactorEnabled: false,
+    },
+    create: {
+      tenantId: params.tenantId,
+      email: params.email,
+      name,
+      firstName: params.firstName,
+      lastName: params.lastName,
+      role: params.role,
+      isActive: true,
+      emailVerified: true,
+      twoFactorEnabled: false,
+    },
+  });
+
+  await prisma.member.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: params.tenantId,
+        userId: user.id,
+      },
+    },
+    update: {
+      role: 'admin',
+    },
+    create: {
+      organizationId: params.tenantId,
+      userId: user.id,
+      role: 'admin',
+    },
+  });
+
+  await prisma.userPreferences.upsert({
+    where: { userId: user.id },
+    update: { tenantId: params.tenantId },
+    create: {
+      tenantId: params.tenantId,
+      userId: user.id,
+      folderOrders: {},
+      sidebarSmartFiltersExpanded: true,
+      sidebarLabelsExpanded: true,
+      theme: 'light',
+      language: 'en',
+      timezone: 'UTC',
+      emailDensity: 'comfortable',
+    },
+  });
+
+  await upsertCredentialAccount({
+    userId: user.id,
+    email: params.email,
+    password: params.password,
+  });
+
+  return user;
+}
+
 async function main() {
-  console.log('🌱 Seeding database with test data...');
+  console.log('Seeding database with test data...');
   console.log('');
 
-  // Create default tenant
   const defaultTenant = await prisma.tenant.upsert({
     where: { slug: 'default' },
-    update: {},
+    update: {
+      name: 'Default Tenant',
+      description: 'Default tenant for local development',
+      isActive: true,
+    },
     create: {
       name: 'Default Tenant',
       slug: 'default',
@@ -26,91 +146,50 @@ async function main() {
     },
   });
 
-  console.log('✅ Created default tenant:', defaultTenant.name);
+  console.log(`Created default tenant: ${defaultTenant.name}`);
 
-  // Create test user (admin)
-  const adminPassword = await hash('TestPassword123!', { memoryCost: 65536, timeCost: 3, parallelism: 4 });
-  const adminUser = await prisma.user.upsert({
-    where: {
-      tenantId_email: {
-        tenantId: defaultTenant.id,
-        email: 'admin@pmsync.local',
-      },
-    },
-    update: {},
-    create: {
-      tenantId: defaultTenant.id,
-      email: 'admin@pmsync.local',
-      passwordHash: adminPassword,
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'admin',
-      isMfaEnabled: true,
-    },
+  const adminUser = await seedUser({
+    email: 'admin@pmsync.local',
+    password: 'TestPassword123!',
+    firstName: 'Admin',
+    lastName: 'User',
+    role: 'admin',
+    tenantId: defaultTenant.id,
   });
 
-  console.log('✅ Created admin user:', adminUser.email);
+  console.log(`Created admin user: ${adminUser.email}`);
 
-  // Create secondary test user (admin - single-user-per-tenant policy)
-  const userPassword = await hash('UserPassword123!', { memoryCost: 65536, timeCost: 3, parallelism: 4 });
-  const regularUser = await prisma.user.upsert({
-    where: {
-      tenantId_email: {
-        tenantId: defaultTenant.id,
-        email: 'test@pmsync.local',
-      },
-    },
-    update: {},
-    create: {
-      tenantId: defaultTenant.id,
-      email: 'test@pmsync.local',
-      passwordHash: userPassword,
-      firstName: 'Test',
-      lastName: 'User',
-      role: 'admin',
-      isMfaEnabled: true,
-    },
+  const regularUser = await seedUser({
+    email: 'test@pmsync.local',
+    password: 'UserPassword123!',
+    firstName: 'Test',
+    lastName: 'User',
+    role: 'admin',
+    tenantId: defaultTenant.id,
   });
 
-  console.log('✅ Created secondary admin user:', regularUser.email);
-
-  console.log('✅ Skipped sample messages (schema changed)');
-
+  console.log(`Created secondary admin user: ${regularUser.email}`);
+  console.log('Skipped sample messages (schema changed)');
   console.log('');
-  console.log('🎉 Database seeding completed successfully!');
+  console.log('Database seeding completed successfully.');
   console.log('');
-  console.log('📋 Test Accounts Created:');
-  console.log('─────────────────────────────────────────');
-  console.log('  Admin Account:');
-  console.log('    • Email: admin@pmsync.local');
-  console.log('    • Password: TestPassword123!');
-  console.log('    • Role: Administrator');
+  console.log('Test accounts created:');
+  console.log('  Admin account: admin@pmsync.local / TestPassword123!');
+  console.log('  Secondary admin account: test@pmsync.local / UserPassword123!');
   console.log('');
-  console.log('  Secondary Admin Account:');
-  console.log('    • Email: test@pmsync.local');
-  console.log('    • Password: UserPassword123!');
-  console.log('    • Role: Administrator');
+  console.log('Notes:');
+  console.log('  MFA is disabled in seed data unless configured manually.');
+  console.log('  Both accounts use Better Auth credential accounts.');
   console.log('');
-  console.log('🔐 Security Notes:');
-  console.log('  • MFA is ENABLED for both accounts');
-  console.log('  • OTP will be sent via email in real deployment');
-  console.log('  • For testing: check logs for generated OTP codes');
-  console.log('');
-  console.log('📊 Sample Data:');
-  console.log('  • Default tenant created');
-  console.log('  • Sample conversation added (4 messages)');
-  console.log('');
-  console.log('🚀 Next Steps:');
-  console.log('  1. Visit: http://localhost:3001/auth/login');
-  console.log('  2. Use admin@pmsync.local or test@pmsync.local');
-  console.log('  3. Enter password');
-  console.log('  4. Enter OTP (check docker logs for code)');
+  console.log('Next steps:');
+  console.log('  1. Visit http://localhost:3001/auth/login');
+  console.log('  2. Sign in with one of the seeded accounts');
   console.log('');
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Error seeding database:', e);
+  .catch((error) => {
+    console.error('Error seeding database:', error);
     process.exit(1);
   })
   .finally(async () => {
