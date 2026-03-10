@@ -21,10 +21,22 @@ export default async function handler(
 ) {
   const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-  // Reconstruct the path: /api/auth/signin/social -> /api/auth/signin/social
+  // Reconstruct the full URL including query params (?code=xxx&state=yyy)
   const slugParts = req.query.all;
   const subPath = Array.isArray(slugParts) ? slugParts.join('/') : slugParts || '';
-  const targetUrl = `${backendUrl}/api/auth/${subPath}`;
+
+  // Rebuild query string excluding the catch-all slug param
+  const queryParams = new URLSearchParams();
+  for (const [key, val] of Object.entries(req.query)) {
+    if (key === 'all') continue;
+    if (Array.isArray(val)) {
+      val.forEach((v) => queryParams.append(key, v));
+    } else if (val) {
+      queryParams.append(key, val);
+    }
+  }
+  const qs = queryParams.toString();
+  const targetUrl = `${backendUrl}/api/auth/${subPath}${qs ? `?${qs}` : ''}`;
 
   try {
     // Forward headers, including cookies
@@ -57,7 +69,9 @@ export default async function handler(
       headers['content-type'] = 'application/json';
     }
 
+    console.log(`[auth-proxy] ${req.method} ${targetUrl}`);
     const response = await fetch(targetUrl, fetchOptions);
+    console.log(`[auth-proxy] → ${response.status} ${response.headers.get('location') || ''}`);
 
     // Forward status
     res.status(response.status);
@@ -72,8 +86,10 @@ export default async function handler(
       }
 
       if (lowerKey === 'set-cookie') {
-        // Append each Set-Cookie header individually
-        res.appendHeader('set-cookie', value);
+        // Strip Domain attribute so browser sets cookie on current origin
+        const cleaned = value
+          .replace(/;\s*domain=[^;]*/gi, '');
+        res.appendHeader('set-cookie', cleaned);
       } else if (lowerKey === 'location') {
         // Rewrite redirects: if backend redirects to its own /api/auth/*,
         // rewrite to our frontend proxy path
