@@ -304,7 +304,7 @@ Phase 59 (Safety) can run independently -- depends only on Phase 54 (completed).
 | 57. Admin Panel | v5.0 | 0/TBD | Not started | - |
 | 58. Compliance & Cleanup | 3/3 | Complete   | 2026-03-09 | - |
 | 59. Safety Hardening | 5/5 | Complete    | 2026-03-10 | - |
-| 60. Middleware & Auth Cleanup | 1/2 | In Progress|  | - |
+| 60. Middleware & Auth Cleanup | 2/2 | Complete   | 2026-03-10 | - |
 | 61. GDPR Org Compliance | 0/TBD | Not started | - | - |
 
 ---
