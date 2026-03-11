@@ -414,19 +414,19 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                 <ListItemIcon>
                   <Inbox size={18} />
                 </ListItemIcon>
-                <ListItemText>Inbox</ListItemText>
+                <ListItemText>{t.folders.inbox}</ListItemText>
               </MenuItem>
               <MenuItem onClick={() => handleMoveToFolder('ARCHIVE')}>
                 <ListItemIcon>
                   <Archive size={18} />
                 </ListItemIcon>
-                <ListItemText>Archive</ListItemText>
+                <ListItemText>{t.folders.archive}</ListItemText>
               </MenuItem>
               <MenuItem onClick={() => handleMoveToFolder('TRASH')}>
                 <ListItemIcon>
                   <Trash2 size={18} />
                 </ListItemIcon>
-                <ListItemText>Trash</ListItemText>
+                <ListItemText>{t.folders.trash}</ListItemText>
               </MenuItem>
             </Menu>
           </>

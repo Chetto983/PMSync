@@ -113,10 +113,11 @@ export class EmailTemplateService {
       });
     }
 
-    return this.prisma.emailTemplate.update({
-      where: { id },
+    await this.prisma.emailTemplate.updateMany({
+      where: { id, tenantId },
       data: dto,
     });
+    return this.prisma.emailTemplate.findFirst({ where: { id, tenantId } });
   }
 
   /**
@@ -126,7 +127,7 @@ export class EmailTemplateService {
     // Verify template exists and belongs to user
     await this.findOne(tenantId, userId, id);
 
-    await this.prisma.emailTemplate.delete({ where: { id } });
+    await this.prisma.emailTemplate.deleteMany({ where: { id, tenantId } });
     return { success: true };
   }
 
@@ -148,10 +149,11 @@ export class EmailTemplateService {
     });
 
     // Set this one as default
-    return this.prisma.emailTemplate.update({
-      where: { id },
+    await this.prisma.emailTemplate.updateMany({
+      where: { id, tenantId },
       data: { isDefault: true },
     });
+    return this.prisma.emailTemplate.findFirst({ where: { id, tenantId } });
   }
 
   /**

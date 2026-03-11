@@ -477,7 +477,7 @@ export default function ComposeEditor({
               overflow: 'auto',
               px: 2,
               py: 2,
-              bgcolor: 'grey.50',
+              bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
             }}
           >
             {aiIsLoading ? (

@@ -242,9 +242,7 @@ export default function ComposeDialog({
     if (!originalEmail?.bodyHtml && !originalEmail?.subject) return undefined;
     let plainBody = originalEmail?.bodyHtml || '';
     if (typeof document !== 'undefined' && plainBody) {
-      const tmp = document.createElement('div');
-      tmp.innerHTML = plainBody;
-      plainBody = tmp.textContent || tmp.innerText || '';
+      plainBody = plainBody.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     }
     return [{ subject: originalEmail?.subject, body: plainBody }];
   }, [originalEmail?.bodyHtml, originalEmail?.subject]);
@@ -910,7 +908,7 @@ export default function ComposeDialog({
                     ml: 2,
                     mr: 2,
                     mb: 2,
-                    bgcolor: 'grey.50',
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
                     maxHeight: 300,
                     overflow: 'auto',
                     '& img': { maxWidth: '100%', height: 'auto' },

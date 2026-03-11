@@ -224,12 +224,6 @@ export class ScheduledEmailService implements OnModuleInit {
     retryCount: number;
   }): Promise<void> {
     try {
-      // Mark as processing
-      await this.prisma.scheduledEmail.update({
-        where: { id: scheduled.id },
-        data: { status: 'processing' },
-      });
-
       // Parse attachments if present (with error handling for malformed JSON)
       // FIX (BUG-003): Validate individual attachment fields before processing
       let attachments: SendEmailDto['attachments'] = undefined;

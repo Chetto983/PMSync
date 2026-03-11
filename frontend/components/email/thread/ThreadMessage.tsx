@@ -206,7 +206,7 @@ export const ThreadMessage = memo(function ThreadMessage({
                 whiteSpace: 'nowrap',
               }}
             >
-              {message.body.substring(0, 100)}...
+              {message.body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100)}...
             </Typography>
           )}
         </Box>

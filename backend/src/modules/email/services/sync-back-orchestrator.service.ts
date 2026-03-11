@@ -45,8 +45,8 @@ export class SyncBackOrchestratorService {
         lockKey,
         lockTtlMs,
         async () => {
-          const freshProvider = await this.prisma.providerConfig.findUnique({
-            where: { id: provider.id },
+          const freshProvider = await this.prisma.providerConfig.findFirst({
+            where: { id: provider.id, tenantId: provider.tenantId },
           });
 
           if (!freshProvider) {
@@ -72,8 +72,8 @@ export class SyncBackOrchestratorService {
             if (providerType === 'GOOGLE') {
               const refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
               const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
-              await this.prisma.providerConfig.update({
-                where: { id: provider.id },
+              await this.prisma.providerConfig.updateMany({
+                where: { id: provider.id, tenantId: provider.tenantId },
                 data: {
                   accessToken: encryptedAccess.encrypted,
                   tokenEncryptionIv: encryptedAccess.iv,
@@ -84,8 +84,8 @@ export class SyncBackOrchestratorService {
             } else if (providerType === 'MICROSOFT') {
               const refreshed = await this.microsoftOAuth.refreshAccessToken(refreshToken);
               const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
-              await this.prisma.providerConfig.update({
-                where: { id: provider.id },
+              await this.prisma.providerConfig.updateMany({
+                where: { id: provider.id, tenantId: provider.tenantId },
                 data: {
                   accessToken: encryptedAccess.encrypted,
                   tokenEncryptionIv: encryptedAccess.iv,
@@ -100,8 +100,8 @@ export class SyncBackOrchestratorService {
             const errMsg = refreshError instanceof Error ? refreshError.message : String(refreshError);
             this.logger.error(`Failed to refresh ${providerType} token for provider ${provider.id}: ${errMsg}`);
 
-            await this.prisma.providerConfig.update({
-              where: { id: provider.id },
+            await this.prisma.providerConfig.updateMany({
+              where: { id: provider.id, tenantId: provider.tenantId },
               data: {
                 isActive: false,
                 metadata: {

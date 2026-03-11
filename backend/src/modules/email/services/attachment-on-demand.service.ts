@@ -219,6 +219,7 @@ export class AttachmentOnDemandService {
           reference.externalMessageId,
           reference.externalAttachmentId,
           attachment.email.providerId,
+          tenantId,
         );
 
         // Upload to S3 with deduplication
@@ -293,6 +294,7 @@ export class AttachmentOnDemandService {
     externalMessageId: string,
     externalAttachmentId: string,
     providerId: string,
+    tenantId: string,
   ): Promise<Buffer> {
     this.logger.debug(
       `Fetching attachment from ${providerType}: message=${externalMessageId}, attachment=${externalAttachmentId}`,
@@ -300,18 +302,19 @@ export class AttachmentOnDemandService {
 
     switch (providerType) {
       case 'google':
-        return await this.fetchFromGmail(externalMessageId, externalAttachmentId, providerId);
+        return await this.fetchFromGmail(externalMessageId, externalAttachmentId, providerId, tenantId);
 
       case 'microsoft':
         return await this.fetchFromMicrosoft(
           externalMessageId,
           externalAttachmentId,
           providerId,
+          tenantId,
         );
 
       case 'imap':
       case 'generic':
-        return await this.fetchFromImap(externalMessageId, externalAttachmentId, providerId);
+        return await this.fetchFromImap(externalMessageId, externalAttachmentId, providerId, tenantId);
 
       default:
         throw new Error(`Unknown provider type: ${providerType}`);
@@ -336,13 +339,14 @@ export class AttachmentOnDemandService {
     externalMessageId: string,
     externalAttachmentId: string,
     providerId: string,
+    tenantId: string,
   ): Promise<Buffer> {
     let client: ImapFlow | null = null;
 
     try {
       // Get provider credentials
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { id: providerId, tenantId },
       });
 
       if (!provider || !['imap', 'generic'].includes(provider.providerType) || !provider.imapPassword) {
@@ -484,11 +488,12 @@ export class AttachmentOnDemandService {
     messageId: string,
     attachmentId: string,
     providerId: string,
+    tenantId: string,
   ): Promise<Buffer> {
     try {
       // Get fresh access token (auto-refresh if needed)
       const { provider, accessToken } =
-        await this.providerTokenService.getProviderWithToken(providerId);
+        await this.providerTokenService.getProviderWithToken(providerId, tenantId);
 
       if (provider.providerType !== 'google') {
         throw new Error(`Provider ${providerId} is not a Gmail provider`);
@@ -541,6 +546,7 @@ export class AttachmentOnDemandService {
     messageId: string,
     attachmentId: string,
     providerId: string,
+    tenantId: string,
   ): Promise<Buffer> {
     const GRAPH_API_URL = 'https://graph.microsoft.com/v1.0';
     const MAX_RETRIES = 3;
@@ -548,7 +554,7 @@ export class AttachmentOnDemandService {
     try {
       // Get fresh access token (auto-refresh if needed)
       const { provider, accessToken } =
-        await this.providerTokenService.getProviderWithToken(providerId);
+        await this.providerTokenService.getProviderWithToken(providerId, tenantId);
 
       if (provider.providerType !== 'microsoft') {
         throw new Error(`Provider ${providerId} is not a Microsoft provider`);

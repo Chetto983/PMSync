@@ -537,7 +537,7 @@ export class EmailCleanupService implements OnModuleInit {
   }> {
     // 1. Get attachments BEFORE deleting email (to guarantee cleanup ordering)
     const attachments = await this.prisma.emailAttachment.findMany({
-      where: { emailId: id },
+      where: { emailId: id, email: { tenantId } },
       select: { id: true, storagePath: true, storageType: true, filename: true, size: true },
     });
 
@@ -564,7 +564,7 @@ export class EmailCleanupService implements OnModuleInit {
     // 3. Delete email from database (cascade deletes EmailAttachment records)
     // RACE CONDITION FIX RC-4: Use deleteMany for idempotent delete (no error if already deleted)
     const deleteResult = await this.prisma.email.deleteMany({
-      where: { id },
+      where: { id, tenantId },
     });
 
     // If email was already deleted by another operation, still clean up S3
@@ -658,7 +658,7 @@ export class EmailCleanupService implements OnModuleInit {
     orphanedKeys: string[];
   }> {
     const attachments = await this.prisma.emailAttachment.findMany({
-      where: { emailId: id },
+      where: { emailId: id, email: { tenantId } },
       select: { id: true, storagePath: true, storageType: true, filename: true, size: true },
     });
 
@@ -670,7 +670,7 @@ export class EmailCleanupService implements OnModuleInit {
     // Skip embedding delete — caller already handled it in bulk
 
     const deleteResult = await this.prisma.email.deleteMany({
-      where: { id },
+      where: { id, tenantId },
     });
 
     if (deleteResult.count === 0) {

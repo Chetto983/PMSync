@@ -374,6 +374,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
         id: providerId,
         tenantId,
       },
+      select: { id: true, email: true, providerType: true },
     });
 
     if (!provider) {
@@ -408,6 +409,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
         tenantId,
         isActive: true,
       },
+      select: { id: true, email: true },
     });
 
     const results: any[] = [];
@@ -800,6 +802,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   // ========== QUEUE STATUS ENDPOINTS ==========
 
   @Get('queue/status')
+  @Roles('admin')
   @ApiOperation({ summary: 'Get folder operations queue status' })
   @ApiResponse({ status: 200, description: 'Returns queue status' })
   async getQueueStatus() {
@@ -813,6 +816,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   }
 
   @Get('queue/job/:jobId')
+  @Roles('admin')
   @ApiOperation({ summary: 'Get folder operation job status' })
   @ApiResponse({ status: 200, description: 'Returns job status' })
   @ApiResponse({ status: 404, description: 'Job not found' })

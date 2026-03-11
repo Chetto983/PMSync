@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useQueryClient } from '@tanstack/react-query';
@@ -199,9 +199,9 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     }
   }, [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, setSelectedThreadId]);
 
-  const handleDownloadAttachment = useCallback(async (_messageId: string, attachmentId: string) => {
+  const handleDownloadAttachment = useCallback(async (messageId: string, attachmentId: string) => {
     try {
-      const response = await apiClient.get<Blob>(`/email/attachments/${attachmentId}/download`, {
+      const response = await apiClient.get<Blob>(`/emails/${messageId}/attachments/${attachmentId}/download`, {
         responseType: 'blob',
       });
 

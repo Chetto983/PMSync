@@ -41,8 +41,8 @@ export function emailsListOptions(params?: ListEmailsParams) {
     queryFn: async () => {
       return await emailsApi.listEmails(params);
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes - keep list fresh without constant refetching
-    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache longer for back-navigation
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
     placeholderData: keepPreviousData, // Show old list while new data loads (no skeleton flash)
   });
 }
@@ -56,8 +56,8 @@ export function emailDetailOptions(id: string) {
     queryFn: async () => {
       return await emailsApi.getEmail(id);
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
     enabled: !!id,
   });
 }
@@ -86,8 +86,8 @@ export function emailConversationsOptions(params?: ListEmailsParams) {
     queryFn: async () => {
       return await emailsApi.getConversations(params);
     },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     placeholderData: keepPreviousData,
   });
 }
@@ -115,8 +115,9 @@ export function emailSearchOptions(query: string) {
     queryFn: async () => {
       return await emailsApi.searchEmails(query);
     },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
     enabled: query.length >= 2,
     placeholderData: keepPreviousData,
   });

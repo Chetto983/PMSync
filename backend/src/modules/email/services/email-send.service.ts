@@ -30,6 +30,9 @@ export interface SendEmailDto {
   scheduledAt?: string;
 }
 
+const escapeHtml = (str: string): string =>
+  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 @Injectable()
 export class EmailSendService {
   private readonly logger = new Logger(EmailSendService.name);
@@ -225,7 +228,7 @@ export class EmailSendService {
     }[],
   ) {
     // Get the actual sent folder name for this provider
-    const sentFolder = await this.getSentFolderName(providerId);
+    const sentFolder = await this.getSentFolderName(providerId, data.tenantId);
 
     await this.prisma.email.create({
       data: {
@@ -325,11 +328,12 @@ export class EmailSendService {
    * Returns the real folder path from the provider (e.g., 'Posta Inviata', 'Sent Items')
    * using RFC 6154 specialUse attribute instead of hardcoded folder names
    */
-  private async getSentFolderName(providerId: string): Promise<string> {
+  private async getSentFolderName(providerId: string, tenantId: string): Promise<string> {
     // Look up the sent folder by specialUse attribute (RFC 6154)
     const folder = await this.prisma.folder.findFirst({
       where: {
         providerId,
+        tenantId,
         specialUse: { equals: 'SENT', mode: 'insensitive' },
       },
       select: { path: true, name: true },
@@ -407,10 +411,10 @@ export class EmailSendService {
     let bodyHtml = `
       <p><br></p>
       <p>---------- Forwarded message ---------</p>
-      <p><strong>From:</strong> ${originalEmail.from}</p>
+      <p><strong>From:</strong> ${escapeHtml(originalEmail.from)}</p>
       <p><strong>Date:</strong> ${originalEmail.sentAt.toLocaleString()}</p>
-      <p><strong>Subject:</strong> ${originalEmail.subject}</p>
-      <p><strong>To:</strong> ${originalEmail.to.join(', ')}</p>
+      <p><strong>Subject:</strong> ${escapeHtml(originalEmail.subject)}</p>
+      <p><strong>To:</strong> ${escapeHtml(originalEmail.to.join(', '))}</p>
       <p><br></p>
       ${originalEmail.bodyHtml || ''}
     `;

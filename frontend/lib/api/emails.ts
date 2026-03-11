@@ -396,6 +396,7 @@ export const emailsApi = {
       replyToMessageId: dto.replyToMessageId,
       threadId: dto.threadId,
       scheduledAt: dto.scheduledAt,
+      signatureId: dto.signatureId,
       attachments: attachments.length > 0 ? attachments : undefined,
     };
 
@@ -404,9 +405,7 @@ export const emailsApi = {
       return response.data;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Send Email Error Payload:', JSON.stringify(payload, null, 2));
-      // eslint-disable-next-line no-console
-      console.error('Send Email Error Response:', JSON.stringify((error as any).response?.data, null, 2)); // eslint-disable-line @typescript-eslint/no-explicit-any
+      console.error('Send email failed', (error as { message?: string })?.message);
       throw error;
     }
   },

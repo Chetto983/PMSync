@@ -163,7 +163,7 @@ export class EmailCalendarInviteController {
     const { messageId } = await this.emailSendService.sendEmail({
       tenantId, providerId: body.providerId,
       to: body.to.map((r) => r.email), cc: body.cc?.map((r) => r.email), bcc: body.bcc?.map((r) => r.email),
-      subject, bodyHtml: `<p>You are invited to "<strong>${body.summary}</strong>".</p>`, bodyText,
+      subject, bodyHtml: `<p>You are invited to "<strong>${body.summary?.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') ?? ''}</strong>".</p>`, bodyText,
       attachments: [{ filename: 'invite.ics', content: Buffer.from(icsContent, 'utf-8'), contentType: 'text/calendar; method=REQUEST; charset=UTF-8' }],
     });
     const createdEvent = await this.calendarService.createEvent(tenantId, {

@@ -176,4 +176,46 @@ export class ForwardEmailRequestDto {
   signatureId?: string | null;
 }
 
+export class SaveDraftDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @IsString()
+  providerId: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  to?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  cc?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  bcc?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(998)
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  bodyHtml?: string;
+
+  @IsOptional()
+  @IsString()
+  bodyText?: string;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => EmailAttachmentDto)
+  attachments?: EmailAttachmentDto[];
+}
+
 export type { EmailAttachmentDto };

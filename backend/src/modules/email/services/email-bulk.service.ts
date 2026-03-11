@@ -569,6 +569,14 @@ export class EmailBulkService {
       Array.from(new Set(emails.map((email) => email.providerId))),
     );
 
+    const validatedLabels = await this.prisma.userLabel.findMany({
+      where: { id: { in: labelIds }, tenantId },
+      select: { id: true },
+    });
+    if (validatedLabels.length !== labelIds.length) {
+      throw new NotFoundException('One or more labels not found');
+    }
+
     const result = await this.prisma.emailLabel.deleteMany({
       where: {
         emailId: { in: validatedEmailIds },

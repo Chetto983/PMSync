@@ -191,7 +191,7 @@ export function ThreadViewOutlook({
           <IconButton
             size="small"
             onClick={onBack}
-            aria-label={t.common?.backToLogin || 'Back'}
+            aria-label={t.common.close}
           >
             <ArrowLeft size={20} />
           </IconButton>

@@ -21,7 +21,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 // DragOverlay is centralized in EmailLayout
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 // DnD state is managed by EmailLayout - no need to access here

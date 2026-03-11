@@ -20,6 +20,7 @@ import {
   ReplyEmailRequestDto,
   ForwardEmailRequestDto,
   SendEmailRequestDto,
+  SaveDraftDto,
   type EmailAttachmentDto,
 } from '../dto/send-email.dto';
 import {
@@ -230,23 +231,7 @@ export class EmailActionsController {
   @Roles('admin', 'manager')
   async saveDraft(
     @Req() req: AuthenticatedRequest,
-    @Body()
-    dto: {
-      id?: string;
-      providerId: string;
-      to?: string[];
-      cc?: string[];
-      bcc?: string[];
-      subject?: string;
-      bodyHtml?: string;
-      bodyText?: string;
-      attachments?: {
-        filename: string;
-        contentType: string;
-        size?: number;
-        contentBase64?: string;
-      }[];
-    },
+    @Body() dto: SaveDraftDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.saveDraft(tenantId, dto);
@@ -331,14 +316,14 @@ export class EmailActionsController {
   /** POST /emails/maintenance/cleanup - Remove duplicates and purge deleted emails */
   @Post('maintenance/cleanup')
   @Roles('admin', 'super-admin')
-  async runTenantCleanup(@Req() req: any) {
+  async runTenantCleanup(@Req() req: AuthenticatedRequest) {
     return this.cleanupService.runTenantMaintenance(req.user.tenantId);
   }
 
   /** GET /emails/retention/stats - Get retention statistics */
   @Get('retention/stats')
   @Roles('admin', 'super-admin')
-  async getRetentionStats(@Req() req: any) {
+  async getRetentionStats(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
     return this.retentionService.getRetentionStats(tenantId);
   }
@@ -371,6 +356,6 @@ export class EmailActionsController {
       return res.redirect(result.url);
     }
 
-    return res.status(400).json({ message: 'Invalid or unsupported storage configuration' });
+    throw new BadRequestException('Invalid or unsupported storage configuration');
   }
 }
