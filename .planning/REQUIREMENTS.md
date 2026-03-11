@@ -40,10 +40,10 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 
 ### Frontend E2E Tests
 
-- [ ] **FE2E-01**: Organization flows tested end-to-end (create org, invite member, accept invitation, switch org)
-- [ ] **FE2E-02**: Admin panel tested end-to-end (user list, search, ban/unban, impersonation, session revocation)
-- [ ] **FE2E-03**: Onboarding wizard tested end-to-end (all steps: name, workspace, email provider, MFA, avatar)
-- [ ] **FE2E-04**: Security settings tested end-to-end (password change, TOTP setup/remove, session management)
+- [x] **FE2E-01**: Organization flows tested end-to-end (create org, invite member, accept invitation, switch org)
+- [x] **FE2E-02**: Admin panel tested end-to-end (user list, search, ban/unban, impersonation, session revocation)
+- [x] **FE2E-03**: Onboarding wizard tested end-to-end (all steps: name, workspace, email provider, MFA, avatar)
+- [x] **FE2E-04**: Security settings tested end-to-end (password change, TOTP setup/remove, session management)
 
 ### MUI Audit & Polish
 
@@ -98,10 +98,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FTEST-01 | Phase 70 | Complete |
 | FTEST-02 | Phase 70 | Complete |
 | FTEST-03 | Phase 70 | Complete |
-| FE2E-01 | Phase 71 | Pending |
-| FE2E-02 | Phase 71 | Pending |
-| FE2E-03 | Phase 71 | Pending |
-| FE2E-04 | Phase 71 | Pending |
+| FE2E-01 | Phase 71 | Complete |
+| FE2E-02 | Phase 71 | Complete |
+| FE2E-03 | Phase 71 | Complete |
+| FE2E-04 | Phase 71 | Complete |
 | MUI-01 | Phase 72 | Pending |
 | MUI-02 | Phase 72 | Pending |
 | MUI-03 | Phase 72 | Pending |
