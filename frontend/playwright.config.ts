@@ -37,10 +37,14 @@ export default defineConfig({
       : undefined,
   ].filter((x): x is NonNullable<typeof x> => x !== undefined),
   projects: [
-    // Setup project runs first to create auth state
+    // Setup projects run first to create auth state
     {
       name: 'setup',
-      testMatch: /.*\.setup\.ts/,
+      testMatch: /auth\.setup\.ts$/,
+    },
+    {
+      name: 'setup-member',
+      testMatch: /auth\.setup\.member\.ts$/,
     },
 
     // Desktop browser projects
@@ -50,7 +54,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'setup-member'],
     },
     {
       name: 'firefox',
@@ -58,7 +62,7 @@ export default defineConfig({
         ...devices['Desktop Firefox'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'setup-member'],
     },
     {
       name: 'webkit',
@@ -66,7 +70,7 @@ export default defineConfig({
         ...devices['Desktop Safari'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'setup-member'],
     },
 
     // Mobile device projects
@@ -76,7 +80,7 @@ export default defineConfig({
         ...devices['Pixel 7'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'setup-member'],
     },
     {
       name: 'mobile-safari',
@@ -84,7 +88,7 @@ export default defineConfig({
         ...devices['iPhone 14'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'setup-member'],
     },
   ],
 });
