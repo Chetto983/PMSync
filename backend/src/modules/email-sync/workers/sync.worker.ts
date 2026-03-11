@@ -27,7 +27,6 @@ import { GoogleSyncService } from '../services/gmail/google-sync.service';
 import { MicrosoftSyncService } from '../services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from '../services/imap/imap-sync.service';
 import { QUEUE_NAMES } from '../../../common/config';
-import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { EmailTriageService } from '../../ai/services/email-triage.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
@@ -58,8 +57,6 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
     private readonly googleSyncService: GoogleSyncService,
     private readonly microsoftSyncService: MicrosoftSyncService,
     private readonly imapSyncService: ImapSyncService,
-    // RACE CONDITION FIX RC-4: Redis lock for folder sync coordination
-    private readonly redisLock: RedisLockService,
     // Week 3 Task 4: Auto-triage service for Superhuman-like priority/labels
     private readonly emailTriageService: EmailTriageService,
   ) {
@@ -314,38 +311,17 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
   }
 
   /**
-   * RACE CONDITION FIX RC-4: Sync folders with distributed lock
-   * Prevents concurrent folder syncs from racing and producing inconsistent counts
+   * Sync folders for a provider.
+   * Locking is managed inside FolderSyncService.syncProviderFolders — no outer lock needed here.
+   * Adding a lock at this level with the same key causes a non-reentrant deadlock:
+   * the worker acquires 'folder-sync:{id}', then syncProviderFolders tries to acquire
+   * the same key and fails → "RC-3: Folder sync SKIPPED" — folders never update.
    *
    * @param tenantId - Tenant ID
    * @param providerId - Provider ID
    */
   private async syncFoldersWithLock(tenantId: string, providerId: string): Promise<void> {
-    const lockKey = `folder-sync:${providerId}`;
-    const lockTtlMs = 30000; // 30 second TTL for folder sync
-
-    try {
-      await this.redisLock.withLock(
-        lockKey,
-        lockTtlMs,
-        async () => {
-          await this.folderSyncService.syncProviderFolders(tenantId, providerId);
-        },
-        { maxRetries: 3 },
-      );
-    } catch (lockError) {
-      // RC-3 FIX: FAIL CLOSED - Skip folder sync if lock unavailable
-      // Proceeding without lock in multi-instance deployments causes race conditions
-      // (inconsistent folder counts, duplicate sync operations)
-      // The folder sync will succeed on the next scheduled sync when lock is available
-      this.logger.error(
-        `RC-3: Folder sync SKIPPED for ${providerId} due to lock failure (fail-closed): ${
-          lockError instanceof Error ? lockError.message : String(lockError)
-        }`,
-      );
-      // Don't throw - allow email sync to continue, just skip folder sync this time
-      // Folders will be synced on next successful lock acquisition
-    }
+    await this.folderSyncService.syncProviderFolders(tenantId, providerId);
   }
 
   /**
