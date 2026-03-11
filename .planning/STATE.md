@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Completed 68-03-PLAN.md
-last_updated: "2026-03-11T18:33:12.037Z"
+stopped_at: Completed 68-02-PLAN.md
+last_updated: "2026-03-11T18:34:45.456Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 91
 ---
 
@@ -74,6 +74,7 @@ Progress: [██████████] 100%
 | Phase 68-backend-tests-complex-modules P00 | 5 | 2 tasks | 2 files |
 | Phase 68-backend-tests-complex-modules P04 | 15 | 2 tasks | 4 files |
 | Phase 68-backend-tests-complex-modules P03 | 25 | 2 tasks | 4 files |
+| Phase 68-backend-tests-complex-modules P02 | 25 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,8 @@ Recent decisions affecting current work:
 - [Phase 68-03]: Omit cleanupTestData() TRUNCATE CASCADE from provider spec afterAll — concurrent Jest workers cause FK violations when one spec truncates tenants while another is mid-test
 - [Phase 68-03]: createTestProviderAccount factory enhanced with refreshTokenEncryptionIv/tokenEncryptionIv overrides — service gates on both fields before triggering refresh
 - [Phase 68-03]: better-auth ESM mock pattern for ProviderConfigService specs: jest.mock('../../../../common/auth/better-auth.module', () => ({ BETTER_AUTH: 'BETTER_AUTH' }))
+- [Phase 68]: acquireSyncLock returns boolean not rejection in ContactsCacheService — ContactSyncService returns 0 when lock=false
+- [Phase 68]: QUEUE_PRESETS.CONTACTS_SYNC.attempts = 3; last-attempt DLQ test uses attemptsMade = MAX_ATTEMPTS - 1 = 2
 
 ### Pending Todos
 
@@ -123,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T18:33:12.034Z
-Stopped at: Completed 68-03-PLAN.md
+Last session: 2026-03-11T18:34:30.721Z
+Stopped at: Completed 68-02-PLAN.md
 Resume file: None
