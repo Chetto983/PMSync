@@ -244,7 +244,9 @@ export async function createTestProviderAccount(
     providerType: string;
     email: string;
     accessToken: string;
+    tokenEncryptionIv: string;
     refreshToken: string | null;
+    refreshTokenEncryptionIv: string | null;
     tokenExpiresAt: Date | null;
     supportsCalendar: boolean;
     supportsContacts: boolean;
@@ -253,6 +255,7 @@ export async function createTestProviderAccount(
   const prisma = getTestPrismaClient();
   const uid = nextId();
   const now = new Date();
+  const hasRefreshToken = overrides.refreshToken !== null && overrides.refreshToken !== undefined;
   return prisma.providerConfig.create({
     data: {
       tenantId,
@@ -263,8 +266,14 @@ export async function createTestProviderAccount(
       supportsCalendar: overrides.supportsCalendar ?? true,
       supportsContacts: overrides.supportsContacts ?? true,
       accessToken: overrides.accessToken ?? 'test-access-token',
-      tokenEncryptionIv: 'test-iv',
+      tokenEncryptionIv: overrides.tokenEncryptionIv ?? 'test-iv',
       refreshToken: overrides.refreshToken ?? null,
+      refreshTokenEncryptionIv:
+        overrides.refreshTokenEncryptionIv !== undefined
+          ? overrides.refreshTokenEncryptionIv
+          : hasRefreshToken
+            ? 'test-refresh-iv'
+            : null,
       tokenExpiresAt:
         overrides.tokenExpiresAt !== undefined
           ? overrides.tokenExpiresAt
