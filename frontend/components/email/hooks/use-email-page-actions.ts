@@ -49,7 +49,6 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     threads,
     selectedEmail,
     senderPhotos,
-    emailQueryParams,
     optimisticUpdateEmail,
     optimisticRemoveEmail,
     setSelectedThreadId,
@@ -263,21 +262,16 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
 
   const handleBulkDelete = useCallback(
     async (ids: string[]) => {
-      const previousEmails = emails.filter((e) => ids.includes(e.id));
       ids.forEach((id) => optimisticRemoveEmail(id));
       try {
         await bulkDelete.mutateAsync(ids);
         clearSelection();
         toast.success(t.common.success ?? 'Done');
       } catch {
-        queryClient.setQueryData<ListEmailsResponse>(
-          emailKeys.listFiltered(emailQueryParams),
-          (old) => old ? { ...old, emails: [...old.emails, ...previousEmails] } : old
-        );
         toast.error(t.common.genericError);
       }
     },
-    [bulkDelete, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, clearSelection]
+    [bulkDelete, toast, t, optimisticRemoveEmail, clearSelection]
   );
 
   const handleBulkMove = useCallback((_ids: string[]) => {
