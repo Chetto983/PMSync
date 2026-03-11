@@ -61,7 +61,19 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-      <Box sx={{ display: 'flex', height: '100vh', minHeight: '100vh', maxWidth: '100vw', overflow: 'hidden' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          height: '100dvh',
+          minHeight: '100dvh',
+          maxWidth: '100vw',
+          overflow: 'hidden',
+          '@supports not (height: 100dvh)': {
+            height: '100vh',
+            minHeight: '100vh',
+          },
+        }}
+      >
         {/* Skip Navigation Link - WCAG 2.1 AA requirement */}
         <Box
           component="a"
@@ -110,10 +122,13 @@ export function Layout({ children }: LayoutProps) {
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
-            minHeight: '100vh',
+            minHeight: '100dvh',
             minWidth: 0, // Critical: allows flex item to shrink below content width
             maxWidth: '100%',
             overflow: 'hidden',
+            '@supports not (height: 100dvh)': {
+              minHeight: '100vh',
+            },
           }}
         >
           {/* Impersonation Banner - visible on ALL pages during impersonation */}

@@ -47,6 +47,8 @@ interface ThreadListHeaderProps {
   onAddLabel: () => void;
   /** Apply AI triage suggestions to selected emails */
   onApplyAiSuggestions?: () => void;
+  /** Bulk action in-flight */
+  isBulkActionPending?: boolean;
 }
 
 /**
@@ -72,6 +74,7 @@ export function ThreadListHeader({
   onMoveToFolder,
   onAddLabel,
   onApplyAiSuggestions,
+  isBulkActionPending = false,
 }: ThreadListHeaderProps) {
   const t = useTranslations();
 
@@ -128,14 +131,26 @@ export function ThreadListHeader({
 
           {/* Mark as read */}
           <Tooltip title={t.emailList.markAsRead}>
-            <IconButton size="small" onClick={onMarkAsRead} sx={{ p: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={onMarkAsRead}
+              disabled={isBulkActionPending}
+              aria-label={t.emailList.markAsRead}
+              sx={{ p: 0.5 }}
+            >
               <MailOpen size={18} strokeWidth={2} />
             </IconButton>
           </Tooltip>
 
           {/* Mark as unread */}
           <Tooltip title={t.emailList.markAsUnread}>
-            <IconButton size="small" onClick={onMarkAsUnread} sx={{ p: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={onMarkAsUnread}
+              disabled={isBulkActionPending}
+              aria-label={t.emailList.markAsUnread}
+              sx={{ p: 0.5 }}
+            >
               <Mail size={18} strokeWidth={2} />
             </IconButton>
           </Tooltip>
@@ -144,7 +159,13 @@ export function ThreadListHeader({
 
           {/* Archive */}
           <Tooltip title={t.emailList.archive}>
-            <IconButton size="small" onClick={onArchive} sx={{ p: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={onArchive}
+              disabled={isBulkActionPending}
+              aria-label={t.emailList.archive}
+              sx={{ p: 0.5 }}
+            >
               <Archive size={18} strokeWidth={2} />
             </IconButton>
           </Tooltip>
@@ -154,6 +175,8 @@ export function ThreadListHeader({
             <IconButton
               size="small"
               onClick={onDelete}
+              disabled={isBulkActionPending}
+              aria-label={t.emailList.delete}
               sx={{ p: 0.5, color: 'error.main' }}
             >
               <Trash2 size={18} strokeWidth={2} />
@@ -164,14 +187,26 @@ export function ThreadListHeader({
 
           {/* Move to folder */}
           <Tooltip title={t.emailList.moveToFolder}>
-            <IconButton size="small" onClick={onMoveToFolder} sx={{ p: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={onMoveToFolder}
+              disabled={isBulkActionPending}
+              aria-label={t.emailList.moveToFolder}
+              sx={{ p: 0.5 }}
+            >
               <FolderInput size={18} strokeWidth={2} />
             </IconButton>
           </Tooltip>
 
           {/* Add label */}
           <Tooltip title={t.emailList.addLabel}>
-            <IconButton size="small" onClick={onAddLabel} sx={{ p: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={onAddLabel}
+              disabled={isBulkActionPending}
+              aria-label={t.emailList.addLabel}
+              sx={{ p: 0.5 }}
+            >
               <Tag size={18} strokeWidth={2} />
             </IconButton>
           </Tooltip>
@@ -182,6 +217,7 @@ export function ThreadListHeader({
               <IconButton
                 size="small"
                 onClick={onApplyAiSuggestions}
+                disabled={isBulkActionPending}
                 aria-label={t.emailList.applyAiSuggestions}
                 sx={{ color: 'info.main' }}
               >
@@ -210,6 +246,7 @@ export function ThreadListHeader({
           size="small"
           onClick={onRefresh}
           disabled={isRefreshing}
+          aria-label={t.emailList.refresh}
           sx={{ p: 0.5 }}
         >
           <RefreshCw

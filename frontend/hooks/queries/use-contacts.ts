@@ -18,12 +18,91 @@ import {
   type CreateContactDto,
   type UpdateContactDto,
   type Contact,
+  type ListContactsResponse,
   type CreateLocalContactDto,
   type ExtractContactsParams,
   type ExtractContactsResult,
   type VCardImportResult,
 } from '@/lib/api/contacts';
 import { contactsKeys } from './contacts-keys';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
+
+type ContactListSnapshot = [QueryKey, ListContactsResponse | undefined];
+
+const CONTACT_COLLECTION_QUERY_KEYS = [
+  contactsKeys.list(),
+  [...contactsKeys.all, 'search'] as const,
+  [...contactsKeys.all, 'provider'] as const,
+  contactsKeys.vip(),
+] as const;
+
+function snapshotContactCollections(queryClient: QueryClient): ContactListSnapshot[] {
+  const snapshots = new Map<string, ContactListSnapshot>();
+
+  CONTACT_COLLECTION_QUERY_KEYS.forEach((queryKey) => {
+    queryClient
+      .getQueriesData<ListContactsResponse>({ queryKey })
+      .forEach(([snapshotKey, data]) => {
+        snapshots.set(JSON.stringify(snapshotKey), [snapshotKey, data]);
+      });
+  });
+
+  return Array.from(snapshots.values());
+}
+
+function restoreContactCollections(queryClient: QueryClient, snapshots: ContactListSnapshot[]) {
+  snapshots.forEach(([queryKey, data]) => {
+    queryClient.setQueryData(queryKey, data);
+  });
+}
+
+function patchContactCollections(
+  queryClient: QueryClient,
+  matcher: (contact: Contact) => boolean,
+  updater: (contact: Contact) => Contact
+) {
+  CONTACT_COLLECTION_QUERY_KEYS.forEach((queryKey) => {
+    queryClient.setQueriesData<ListContactsResponse>(
+      { queryKey },
+      (old) =>
+        old
+          ? {
+              ...old,
+              contacts: old.contacts.map((contact) =>
+                matcher(contact) ? updater(contact) : contact
+              ),
+            }
+          : old
+    );
+  });
+}
+
+function upsertVipCollection(queryClient: QueryClient, contact: Contact) {
+  queryClient.setQueryData<ListContactsResponse>(contactsKeys.vip(), (old) => {
+    if (!contact.isVip) {
+      if (!old) return old;
+      const contacts = old.contacts.filter((item) => item.id !== contact.id);
+      return {
+        ...old,
+        contacts,
+        total: Math.max(contacts.length, old.total - (contacts.length === old.contacts.length ? 0 : 1)),
+      };
+    }
+
+    if (!old) {
+      return { contacts: [contact], total: 1 };
+    }
+
+    const existing = old.contacts.some((item) => item.id === contact.id);
+    return {
+      ...old,
+      contacts: existing
+        ? old.contacts.map((item) => (item.id === contact.id ? contact : item))
+        : [contact, ...old.contacts],
+      total: existing ? old.total : old.total + 1,
+    };
+  });
+}
 
 // ============================================================================
 // Query Options (for sharing between hooks and prefetching)
@@ -315,32 +394,51 @@ export function useUpdateContact() {
     },
     onMutate: async ({ id, data }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) }),
+        ...CONTACT_COLLECTION_QUERY_KEYS.map((queryKey) =>
+          queryClient.cancelQueries({ queryKey })
+        ),
+      ]);
 
       // Snapshot the previous value
       const previousContact = queryClient.getQueryData<Contact>(contactsKeys.detail(id));
+      const previousCollections = snapshotContactCollections(queryClient);
 
       // Optimistically update
       if (previousContact) {
-        queryClient.setQueryData<Contact>(contactsKeys.detail(id), {
+        const optimisticContact = {
           ...previousContact,
           ...data,
           updatedAt: new Date().toISOString(),
-        });
+        };
+        queryClient.setQueryData<Contact>(contactsKeys.detail(id), optimisticContact);
+        patchContactCollections(
+          queryClient,
+          (contact) => contact.id === id,
+          () => optimisticContact
+        );
+        upsertVipCollection(queryClient, optimisticContact);
       }
 
-      return { previousContact };
+      return { previousContact, previousCollections };
     },
     onError: (_, { id }, context) => {
       // Rollback on error
       if (context?.previousContact) {
         queryClient.setQueryData(contactsKeys.detail(id), context.previousContact);
       }
+      if (context?.previousCollections) {
+        restoreContactCollections(queryClient, context.previousCollections);
+      }
     },
     onSettled: (_, __, { id }) => {
       // Always refetch after mutation
       queryClient.invalidateQueries({ queryKey: contactsKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.vip() });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'search'] });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'provider'] });
     },
   });
 }
@@ -434,27 +532,45 @@ export function useToggleContactStar() {
       return await contactsApi.updateContact(id, { isStarred } as UpdateContactDto);
     },
     onMutate: async ({ id, isStarred }) => {
-      await queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) }),
+        ...CONTACT_COLLECTION_QUERY_KEYS.map((queryKey) =>
+          queryClient.cancelQueries({ queryKey })
+        ),
+      ]);
 
       const previousContact = queryClient.getQueryData<Contact>(contactsKeys.detail(id));
+      const previousCollections = snapshotContactCollections(queryClient);
 
       if (previousContact) {
-        queryClient.setQueryData<Contact>(contactsKeys.detail(id), {
+        const optimisticContact = {
           ...previousContact,
           isStarred,
-        });
+        };
+        queryClient.setQueryData<Contact>(contactsKeys.detail(id), optimisticContact);
+        patchContactCollections(
+          queryClient,
+          (contact) => contact.id === id,
+          () => optimisticContact
+        );
       }
 
-      return { previousContact };
+      return { previousContact, previousCollections };
     },
     onError: (_, { id }, context) => {
       if (context?.previousContact) {
         queryClient.setQueryData(contactsKeys.detail(id), context.previousContact);
       }
+      if (context?.previousCollections) {
+        restoreContactCollections(queryClient, context.previousCollections);
+      }
     },
     onSettled: (_, __, { id }) => {
       queryClient.invalidateQueries({ queryKey: contactsKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.vip() });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'search'] });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'provider'] });
     },
   });
 }
@@ -476,27 +592,45 @@ export function useToggleContactFavorite() {
       return await contactsApi.updateContact(id, { isFavorite } as UpdateContactDto);
     },
     onMutate: async ({ id, isFavorite }) => {
-      await queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) }),
+        ...CONTACT_COLLECTION_QUERY_KEYS.map((queryKey) =>
+          queryClient.cancelQueries({ queryKey })
+        ),
+      ]);
 
       const previousContact = queryClient.getQueryData<Contact>(contactsKeys.detail(id));
+      const previousCollections = snapshotContactCollections(queryClient);
 
       if (previousContact) {
-        queryClient.setQueryData<Contact>(contactsKeys.detail(id), {
+        const optimisticContact = {
           ...previousContact,
           isFavorite,
-        });
+        };
+        queryClient.setQueryData<Contact>(contactsKeys.detail(id), optimisticContact);
+        patchContactCollections(
+          queryClient,
+          (contact) => contact.id === id,
+          () => optimisticContact
+        );
       }
 
-      return { previousContact };
+      return { previousContact, previousCollections };
     },
     onError: (_, { id }, context) => {
       if (context?.previousContact) {
         queryClient.setQueryData(contactsKeys.detail(id), context.previousContact);
       }
+      if (context?.previousCollections) {
+        restoreContactCollections(queryClient, context.previousCollections);
+      }
     },
     onSettled: (_, __, { id }) => {
       queryClient.invalidateQueries({ queryKey: contactsKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.vip() });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'search'] });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'provider'] });
     },
   });
 }
@@ -652,26 +786,41 @@ export function useToggleVip() {
     },
     onMutate: async (id) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) });
-      await queryClient.cancelQueries({ queryKey: contactsKeys.vip() });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) }),
+        ...CONTACT_COLLECTION_QUERY_KEYS.map((queryKey) =>
+          queryClient.cancelQueries({ queryKey })
+        ),
+      ]);
 
       // Snapshot the previous value
       const previousContact = queryClient.getQueryData<Contact>(contactsKeys.detail(id));
+      const previousCollections = snapshotContactCollections(queryClient);
 
       // Optimistically update
       if (previousContact) {
-        queryClient.setQueryData<Contact>(contactsKeys.detail(id), {
+        const optimisticContact = {
           ...previousContact,
           isVip: !previousContact.isVip,
-        });
+        };
+        queryClient.setQueryData<Contact>(contactsKeys.detail(id), optimisticContact);
+        patchContactCollections(
+          queryClient,
+          (contact) => contact.id === id,
+          () => optimisticContact
+        );
+        upsertVipCollection(queryClient, optimisticContact);
       }
 
-      return { previousContact };
+      return { previousContact, previousCollections };
     },
     onError: (_, id, context) => {
       // Rollback on error
       if (context?.previousContact) {
         queryClient.setQueryData(contactsKeys.detail(id), context.previousContact);
+      }
+      if (context?.previousCollections) {
+        restoreContactCollections(queryClient, context.previousCollections);
       }
     },
     onSettled: (_, __, id) => {
@@ -679,6 +828,8 @@ export function useToggleVip() {
       queryClient.invalidateQueries({ queryKey: contactsKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: contactsKeys.vip() });
       queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'search'] });
+      queryClient.invalidateQueries({ queryKey: [...contactsKeys.all, 'provider'] });
     },
   });
 }

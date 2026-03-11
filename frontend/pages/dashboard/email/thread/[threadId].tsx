@@ -6,7 +6,6 @@ import { ThreadView } from '@/components/email/thread';
 import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
 import { LabelPickerDialog } from '@/components/email/labels/LabelPickerDialog';
 import type { ThreadMessageData } from '@/components/email/thread';
-import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useEmailThread,
@@ -20,6 +19,7 @@ import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
 import { ArrowLeft } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
+import { useGlobalToast } from '@/lib/context/toast-context';
 
 /**
  * Thread Detail Page
@@ -52,7 +52,7 @@ function mapEmailToThreadMessage(email: Email): ThreadMessageData {
 
 export default function ThreadDetailPage() {
   const router = useRouter();
-  const toast = useToast();
+  const toast = useGlobalToast();
   const t = useTranslations();
 
   // Get threadId from URL - may be string or string[] from Next.js
@@ -355,8 +355,6 @@ export default function ThreadDetailPage() {
             onUnflagAllMessages={handleUnflagAllMessages}
             onAddLabelsToThread={handleAddLabelsToThread}
           />
-          <toast.ToastContainer />
-
           <FolderPickerDialog
             open={folderPickerOpen}
             onClose={() => setFolderPickerOpen(false)}

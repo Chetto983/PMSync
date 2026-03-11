@@ -271,11 +271,14 @@ export function useMoveLabel() {
       );
 
       if (previousLabels) {
+        const nextLevel = parentId
+          ? (previousLabels.find((label) => label.id === parentId)?.level ?? 0) + 1
+          : 0;
         queryClient.setQueryData(
           labelKeys.list(),
           previousLabels.map((l) =>
             l.id === labelId
-              ? { ...l, parentId, orderIndex, level: parentId ? l.level : 0 }
+              ? { ...l, parentId, orderIndex, level: nextLevel }
               : l,
           ),
         );

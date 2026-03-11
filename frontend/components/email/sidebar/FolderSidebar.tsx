@@ -53,7 +53,7 @@ import { useUserPreferences } from '@/hooks/queries/use-settings';
 import { emailsListOptions } from '@/hooks/queries/use-emails';
 import { useEmailUIStore, useEmailSidebar, type SpecialFolder } from '@/stores/email-ui-store';
 import { useFoldersStore } from '@/stores/folders-store';
-import { useToast } from '@/hooks/use-toast';
+import { useGlobalToast } from '@/lib/context/toast-context';
 import { FolderItem } from './FolderItem';
 import { SortableFolderItem } from './SortableFolderItem';
 import { DroppableFolderItem } from './DroppableFolderItem';
@@ -81,7 +81,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const { data, isLoading, refetch, isFetching } = useFolders();
   const { data: preferences } = useUserPreferences();
   const syncComplete = useSyncProviderComplete();
-  const toast = useToast();
+  const toast = useGlobalToast();
   const { syncingProviders, setSyncing, setLastSync } = useFoldersStore();
 
   // Prefetch timeout refs for debouncing
@@ -548,9 +548,6 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
         onClose={handleCloseDialog}
         providerId={createFolderProviderId}
       />
-
-      {/* Toast Container - must be rendered for toast notifications to work */}
-      <toast.ToastContainer />
     </Box>
   );
 }

@@ -10,13 +10,14 @@ import {
   useUpdatePreferences,
 } from '@/hooks/queries';
 import { apiClient } from '@/lib/api';
-import type { Email, ListEmailsParams } from '@/lib/api/emails';
+import type { Email, ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import type { ThreadListItemData } from '@/components/email/list';
 import type { SenderContactMap } from '@/lib/api/contacts';
 import { extractEmailAddress } from '@/components/email/utils/email-formatters';
 import { getAvatarUrl } from '@/lib/utils/gravatar';
 import { useGlobalToast } from '@/lib/context/toast-context';
+import type { QueryKey } from '@tanstack/react-query';
 
 /**
  * Parameters for useEmailPageActions hook.
@@ -28,8 +29,8 @@ export interface UseEmailPageActionsParams {
   selectedEmail: Email | null | undefined;
   senderPhotos: SenderContactMap | undefined;
   emailQueryParams: ListEmailsParams;
-  captureEmailsState: () => Email[];
-  restoreEmailsState: (snapshot: Email[]) => void;
+  captureEmailsState: () => EmailPageStateSnapshot;
+  restoreEmailsState: (snapshot: EmailPageStateSnapshot) => void;
   optimisticUpdateEmail: (emailId: string, updates: Partial<Email>) => void;
   optimisticUpdateEmails: (emailIds: string[], updates: Partial<Email>) => void;
   optimisticRemoveEmail: (emailId: string) => void;
@@ -41,6 +42,11 @@ export interface UseEmailPageActionsParams {
   setFolderPickerEmailIds: (ids: string[]) => void;
   foldersData: { foldersByProvider?: Record<string, { id: string; name: string; path?: string }[]> } | undefined;
   preferences: { folderOrders?: Record<string, string[]> } | undefined;
+}
+
+export interface EmailPageStateSnapshot {
+  emails: Email[];
+  lists: [QueryKey, ListEmailsResponse | undefined][];
 }
 
 /**
@@ -505,6 +511,9 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     [foldersData?.foldersByProvider, preferences?.folderOrders, updatePreferences]
   );
 
+  const isBulkActionPending =
+    moveEmails.isPending || markRead.isPending || bulkDelete.isPending;
+
   return {
     handleReply, handleReplyAll, handleForward, handleFlagMessage,
     handleLabelsMessage, handleDeleteMessage, handleArchiveMessage,
@@ -514,6 +523,6 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     handleFlag, handleArchive, handleDelete,
     handleLabelPickerSuccess, handleLabelPickerClose, getCurrentLabelIds,
     handleEmailDrop, handleFolderReorder, handleMoveEmailsToFolder,
-    selectedEmailData, updateEmail,
+    selectedEmailData, updateEmail, isBulkActionPending,
   };
 }

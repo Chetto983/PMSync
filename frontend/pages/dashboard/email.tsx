@@ -37,7 +37,7 @@ import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 import { extractEmailAddress, formatEmailToThread } from '@/components/email/utils/email-formatters';
-import { useEmailPageActions } from '@/components/email/hooks/use-email-page-actions';
+import { useEmailPageActions, type EmailPageStateSnapshot } from '@/components/email/hooks/use-email-page-actions';
 
 export default function EmailPage() {
   const router = useRouter();
@@ -249,10 +249,19 @@ export default function EmailPage() {
     [queryClient]
   );
 
-  const captureEmailsState = useCallback(() => accumulatedEmails, [accumulatedEmails]);
-  const restoreEmailsState = useCallback((snapshot: Email[]) => {
-    setAccumulatedEmails(snapshot);
-  }, []);
+  const captureEmailsState = useCallback(
+    (): EmailPageStateSnapshot => ({
+      emails: accumulatedEmails.map((email) => ({ ...email })),
+      lists: queryClient.getQueriesData<ListEmailsResponse>({ queryKey: emailKeys.list() }),
+    }),
+    [accumulatedEmails, queryClient]
+  );
+  const restoreEmailsState = useCallback((snapshot: EmailPageStateSnapshot) => {
+    setAccumulatedEmails(snapshot.emails);
+    snapshot.lists.forEach(([queryKey, data]) => {
+      queryClient.setQueryData(queryKey, data);
+    });
+  }, [queryClient]);
 
   const folderPickerProviderId = useMemo(() => {
     const firstEmailId = folderPickerEmailIds[0];
@@ -275,7 +284,7 @@ export default function EmailPage() {
     handleFlag, handleArchive, handleDelete,
     handleLabelPickerSuccess, handleLabelPickerClose, getCurrentLabelIds,
     handleEmailDrop, handleFolderReorder, handleMoveEmailsToFolder,
-    selectedEmailData, updateEmail,
+    selectedEmailData, updateEmail, isBulkActionPending,
   } = useEmailPageActions({
     emails, threads,
     selectedEmail: selectedEmail ?? null,
@@ -394,6 +403,7 @@ export default function EmailPage() {
             onBulkArchive={handleBulkArchive} onBulkDelete={handleBulkDelete}
             onBulkMove={handleBulkMove} onBulkLabel={handleBulkLabel}
             onFlag={handleFlag} onArchive={handleArchive} onDelete={handleDelete}
+            isBulkActionPending={isBulkActionPending}
           />
         </EmailLayout>
 

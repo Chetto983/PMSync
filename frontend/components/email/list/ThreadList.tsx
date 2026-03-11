@@ -58,6 +58,7 @@ interface ThreadListProps {
   onFlag?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
+  isBulkActionPending?: boolean;
 }
 
 /**
@@ -85,6 +86,7 @@ export function ThreadList({
   onFlag,
   onArchive,
   onDelete,
+  isBulkActionPending = false,
 }: ThreadListProps) {
   const t = useTranslations();
   const theme = useTheme();
@@ -279,6 +281,7 @@ export function ThreadList({
           onDelete={handleBulkDelete}
           onMoveToFolder={handleBulkMove}
           onAddLabel={handleBulkLabel}
+          isBulkActionPending={isBulkActionPending}
         />
         <ThreadListSkeleton count={8} animation="wave" />
       </Box>
@@ -304,6 +307,7 @@ export function ThreadList({
           onDelete={handleBulkDelete}
           onMoveToFolder={handleBulkMove}
           onAddLabel={handleBulkLabel}
+          isBulkActionPending={isBulkActionPending}
         />
         <EmptyState variant={emptyVariant} />
       </Box>
@@ -337,6 +341,7 @@ export function ThreadList({
         onMoveToFolder={handleBulkMove}
         onAddLabel={handleBulkLabel}
         onApplyAiSuggestions={handleApplyAiSuggestions}
+        isBulkActionPending={isBulkActionPending}
       />
 
       {/* Virtual scrolling container */}
