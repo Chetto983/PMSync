@@ -76,7 +76,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 
 - [x] **Phase 66: Test Infrastructure** - Real DB test environment, shared helpers, factories, coverage thresholds (completed 2026-03-10)
 - [x] **Phase 67: Backend Tests - Simple Modules** - Unit tests for health, users, tenants, labels (completed 2026-03-11)
-- [ ] **Phase 68: Backend Tests - Complex Modules** - Unit tests for calendar, contacts, providers, subscription
+- [x] **Phase 68: Backend Tests - Complex Modules** - Unit tests for calendar, contacts, providers, subscription (completed 2026-03-11)
 - [ ] **Phase 69: Backend Integration Tests** - Cross-tenant isolation, auth guard chain, contract tests
 - [ ] **Phase 70: Frontend Unit Tests** - Zustand stores, TanStack Query hooks, settings components
 - [ ] **Phase 71: Frontend E2E Tests** - Org flows, admin panel, onboarding wizard, security settings
@@ -127,7 +127,7 @@ Plans:
   2. Contacts module tests cover sync flow, CRM relationship scoring calculation, cache invalidation, and webhook processing
   3. Providers module tests cover OAuth token acquisition, refresh, and revocation flows; IMAP config validation; and token lifecycle (expiry, rotation)
   4. Subscription module tests cover billing state transitions, quota calculation, usage tracking increments, and QuotaGuard rejection when limits are exceeded
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 - [ ] 68-00-PLAN.md -- Extend test helpers: 4 new factories + 9 new cleanup tables
 - [ ] 68-01-PLAN.md -- Calendar module tests (BTEST-01): ICS parsing, conflict detection, sync, webhook
@@ -188,7 +188,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 |-------|-----------|----------------|--------|-----------|
 | 66. Test Infrastructure | 4/4 | Complete   | 2026-03-10 | - |
 | 67. Backend Tests - Simple Modules | 5/5 | Complete    | 2026-03-11 | - |
-| 68. Backend Tests - Complex Modules | 4/5 | In Progress|  | - |
+| 68. Backend Tests - Complex Modules | 5/5 | Complete   | 2026-03-11 | - |
 | 69. Backend Integration Tests | v5.1 | 0/? | Not started | - |
 | 70. Frontend Unit Tests | v5.1 | 0/? | Not started | - |
 | 71. Frontend E2E Tests | v5.1 | 0/? | Not started | - |
