@@ -58,6 +58,14 @@ export interface FolderManagementState {
  * } = useFolderManagement();
  * ```
  */
+// Folders where an unread badge is semantically meaningless.
+// Trash/Sent/Drafts emails may technically be "unread" in the DB but users
+// don't expect a badge there — it's noise, not signal.
+const NO_BADGE_FOLDERS = new Set([
+  'TRASH', 'SENT', 'DRAFTS', 'ARCHIVE', 'ALL',
+  'STARRED', 'FLAGGED', 'CHAT', 'UNREAD',
+]);
+
 export function useFolderManagement(): FolderManagementState {
   const t = useTranslations() as FolderTranslations;
   const { data } = useFolders();
@@ -78,8 +86,8 @@ export function useFolderManagement(): FolderManagementState {
     [t]
   );
 
-  // Calculate unread counts per folder from API data
-  // Uses backend displayMapping to avoid duplication (e.g., CATEGORY_PERSONAL → INBOX)
+  // Calculate unread counts per folder from API data.
+  // Uses backend displayMapping to avoid duplication (e.g., CATEGORY_PERSONAL → INBOX).
   const folderCounts = useMemo(() => {
     const counts: Partial<Record<SpecialFolder, number>> = {};
 
@@ -88,6 +96,8 @@ export function useFolderManagement(): FolderManagementState {
         folders.forEach((folder) => {
           if (folder.specialUse) {
             const rawSpecialUse = folder.specialUse.toUpperCase();
+            // Skip folders where unread badge makes no sense
+            if (NO_BADGE_FOLDERS.has(rawSpecialUse)) return;
             // Map using backend displayMapping (e.g., CATEGORY_PERSONAL → INBOX)
             const displayAs = metadata?.displayMapping?.[rawSpecialUse] || rawSpecialUse;
             const specialUse = displayAs as SpecialFolder;

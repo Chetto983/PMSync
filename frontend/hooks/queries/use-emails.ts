@@ -25,6 +25,7 @@ import {
   type RespondToInviteDto,
 } from '@/lib/api/emails';
 import { emailKeys } from './email-keys';
+import { folderKeys } from './use-folders';
 import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
 
 // =============================================================================
@@ -335,6 +336,8 @@ export function useUpdateEmail() {
       queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+      // Refresh sidebar folder unread counts
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
   });
 }
@@ -354,6 +357,8 @@ export function useDeleteEmail() {
       queryClient.removeQueries({ queryKey: emailKeys.detail(emailId) });
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+      // Refresh sidebar folder unread counts
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.deleteEmailFailed);
@@ -382,6 +387,8 @@ export function useBulkDeleteEmails() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      // Refresh sidebar folder unread counts
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.deleteEmailsFailed);
@@ -403,6 +410,8 @@ export function useBulkMarkRead() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      // Refresh sidebar folder unread counts
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.updateReadStatusFailed);
@@ -446,6 +455,8 @@ export function useBulkMoveEmails() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      // Refresh sidebar folder unread counts (source and target counts both change)
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.moveEmailsFailed);
