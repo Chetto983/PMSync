@@ -58,8 +58,13 @@ async function seedUser(params: {
   lastName: string;
   role: string;
   tenantId: string;
+  onboardingComplete?: boolean;
+  memberRole?: string;
 }) {
   const name = `${params.firstName} ${params.lastName}`;
+  const onboardingComplete = params.onboardingComplete ?? false;
+  const memberRole = params.memberRole ?? 'member';
+
   const user = await prisma.user.upsert({
     where: { email: params.email },
     update: {
@@ -71,6 +76,7 @@ async function seedUser(params: {
       isActive: true,
       emailVerified: true,
       twoFactorEnabled: false,
+      onboardingComplete,
     },
     create: {
       tenantId: params.tenantId,
@@ -82,6 +88,7 @@ async function seedUser(params: {
       isActive: true,
       emailVerified: true,
       twoFactorEnabled: false,
+      onboardingComplete,
     },
   });
 
@@ -93,12 +100,12 @@ async function seedUser(params: {
       },
     },
     update: {
-      role: 'admin',
+      role: memberRole,
     },
     create: {
       organizationId: params.tenantId,
       userId: user.id,
-      role: 'admin',
+      role: memberRole,
     },
   });
 
@@ -153,33 +160,50 @@ async function main() {
     password: 'TestPassword123!',
     firstName: 'Admin',
     lastName: 'User',
-    role: 'admin',
+    role: 'super-admin',
     tenantId: defaultTenant.id,
+    onboardingComplete: true,
+    memberRole: 'admin',
   });
 
   console.log(`Created admin user: ${adminUser.email}`);
+
+  const memberUser = await seedUser({
+    email: 'member@pmsync.local',
+    password: 'MemberPassword123!',
+    firstName: 'Member',
+    lastName: 'User',
+    role: 'user',
+    tenantId: defaultTenant.id,
+    onboardingComplete: true,
+    memberRole: 'member',
+  });
+
+  console.log(`Created member user: ${memberUser.email}`);
 
   const regularUser = await seedUser({
     email: 'test@pmsync.local',
     password: 'UserPassword123!',
     firstName: 'Test',
     lastName: 'User',
-    role: 'admin',
+    role: 'user',
     tenantId: defaultTenant.id,
+    onboardingComplete: false,
+    memberRole: 'member',
   });
 
-  console.log(`Created secondary admin user: ${regularUser.email}`);
-  console.log('Skipped sample messages (schema changed)');
+  console.log(`Created test user: ${regularUser.email}`);
   console.log('');
   console.log('Database seeding completed successfully.');
   console.log('');
   console.log('Test accounts created:');
-  console.log('  Admin account: admin@pmsync.local / TestPassword123!');
-  console.log('  Secondary admin account: test@pmsync.local / UserPassword123!');
+  console.log('  Admin account:  admin@pmsync.local / TestPassword123!');
+  console.log('  Member account: member@pmsync.local / MemberPassword123!');
+  console.log('  Test account:   test@pmsync.local / UserPassword123! (onboardingComplete: false — used by onboarding E2E spec)');
   console.log('');
   console.log('Notes:');
   console.log('  MFA is disabled in seed data unless configured manually.');
-  console.log('  Both accounts use Better Auth credential accounts.');
+  console.log('  All accounts use Better Auth credential accounts.');
   console.log('');
   console.log('Next steps:');
   console.log('  1. Visit http://localhost:3001/auth/login');
