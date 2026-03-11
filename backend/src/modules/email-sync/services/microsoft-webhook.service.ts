@@ -264,8 +264,8 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
     await this.updateSubscriptionStats(subscription.providerId);
 
     // Get provider
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: subscription.providerId },
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: { id: subscription.providerId, tenantId: subscription.tenantId },
     });
 
     if (!provider) {
@@ -486,14 +486,14 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
             );
             await this.recreateSubscription(subscription.providerId);
           } else {
-            await this.renewSubscription(subscription.subscriptionId, subscription.providerId);
+            await this.renewSubscription(subscription.subscriptionId, subscription.providerId, subscription.tenantId);
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           this.logger.error(
             `Failed to ${isExpired ? 'recreate' : 'renew'} subscription ${subscription.subscriptionId}: ${errorMessage}`,
           );
-          await this.failOpenToCron(subscription.providerId, subscription.subscriptionId);
+          await this.failOpenToCron(subscription.providerId, subscription.tenantId, subscription.subscriptionId);
         }
       }
 
@@ -559,10 +559,11 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
   private async renewSubscription(
     subscriptionId: string,
     providerId: string,
+    tenantId: string,
   ): Promise<void> {
     try {
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { id: providerId, tenantId },
       });
 
       if (!provider || provider.providerType !== 'microsoft') {
@@ -632,8 +633,8 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
         throw new Error('Subscription not found');
       }
 
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { id: providerId, tenantId: subscription.tenantId },
       });
 
       if (!provider || provider.providerType !== 'microsoft') {
@@ -717,7 +718,7 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
   /**
    * If renewal fails, deactivate webhook and force cron fallback for the provider.
    */
-  private async failOpenToCron(providerId: string, subscriptionId?: string): Promise<void> {
+  private async failOpenToCron(providerId: string, tenantId: string, subscriptionId?: string): Promise<void> {
     try {
       await this.prisma.webhookSubscription.update({
         where: {
@@ -743,8 +744,8 @@ export class MicrosoftWebhookService extends BaseWebhookService implements OnMod
     }
 
     try {
-      await this.prisma.providerConfig.update({
-        where: { id: providerId },
+      await this.prisma.providerConfig.updateMany({
+        where: { id: providerId, tenantId },
         data: {
           nextSyncAt: new Date(), // force cron backup
           syncPriority: 2, // medium-high

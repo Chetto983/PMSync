@@ -452,13 +452,13 @@ describe('FolderSyncQueryService', () => {
     it('should delete folders and return count', async () => {
       mockPrismaService.folder.deleteMany.mockResolvedValue({ count: 3 });
 
-      const result = await service.deleteFoldersByPath('provider-1', ['a', 'b', 'c']);
+      const result = await service.deleteFoldersByPath('provider-1', 'tenant-1', ['a', 'b', 'c']);
 
       expect(result).toBe(3);
     });
 
     it('should return 0 for empty paths array', async () => {
-      const result = await service.deleteFoldersByPath('provider-1', []);
+      const result = await service.deleteFoldersByPath('provider-1', 'tenant-1', []);
 
       expect(result).toBe(0);
       expect(mockPrismaService.folder.deleteMany).not.toHaveBeenCalled();

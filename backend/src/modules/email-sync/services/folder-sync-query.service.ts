@@ -77,7 +77,7 @@ export class FolderSyncQueryService {
     if (deletedPaths.length > 0) {
       this.logger.log(`Deleting ${deletedPaths.length} removed folders`);
       await this.prisma.folder.deleteMany({
-        where: { providerId, path: { in: deletedPaths } },
+        where: { providerId, tenantId, path: { in: deletedPaths } },
       });
     }
 
@@ -223,7 +223,7 @@ export class FolderSyncQueryService {
     }
 
     const folders = await this.prisma.folder.findMany({
-      where: { providerId },
+      where: { providerId, tenantId: provider.tenantId },
       select: { id: true, name: true, path: true, tenantId: true, totalCount: true, unreadCount: true, specialUse: true },
     });
 
@@ -357,11 +357,11 @@ export class FolderSyncQueryService {
   }
 
   /** Delete folders by path (used when syncing removes folders from server). */
-  async deleteFoldersByPath(providerId: string, paths: string[]): Promise<number> {
+  async deleteFoldersByPath(providerId: string, tenantId: string, paths: string[]): Promise<number> {
     if (paths.length === 0) return 0;
     this.logger.log(`Deleting ${paths.length} folders by path`);
     const result = await this.prisma.folder.deleteMany({
-      where: { providerId, path: { in: paths } },
+      where: { providerId, tenantId, path: { in: paths } },
     });
     return result.count;
   }

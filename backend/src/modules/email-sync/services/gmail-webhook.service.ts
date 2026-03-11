@@ -197,8 +197,8 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
     await this.updateSubscriptionStats(providerId);
 
     // Re-fetch provider to get latest metadata (in case another webhook updated it)
-    const freshProvider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
+    const freshProvider = await this.prisma.providerConfig.findFirst({
+      where: { id: providerId, tenantId },
       select: { metadata: true, lastSyncedAt: true },
     });
 
@@ -254,8 +254,8 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
       lastGapAt: hasGap ? new Date().toISOString() : existingMetadata.lastGapAt,
     };
     this.logger.debug(`[GMAIL-WEBHOOK] Updating provider metadata with historyId: ${data.historyId}...`);
-    await this.prisma.providerConfig.update({
-      where: { id: providerId },
+    await this.prisma.providerConfig.updateMany({
+      where: { id: providerId, tenantId },
       data: { metadata: newMetadata },
     });
     this.logger.debug(`[GMAIL-WEBHOOK] Provider metadata updated successfully`);
@@ -292,11 +292,14 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
       },
     };
 
+    let providerTenantId: string | undefined;
+
     try {
       // Get provider info
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: providerId },
       });
+      providerTenantId = provider?.tenantId;
 
       if (!provider || provider.providerType !== 'google') {
         throw new Error('Invalid Gmail provider');
@@ -384,17 +387,19 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
       this.logger.error(`Error creating Gmail subscription: ${errorMessage}`);
 
       // Log error in subscription record
-      await this.prisma.webhookSubscription.update({
-        where: subscriptionWhere,
-        data: {
-          isActive: false,
-          lastError: errorMessage,
-          errorCount: { increment: 1 },
-        },
-      }).catch((updateErr) => {
-        // Q-7 FIX: Log subscription update failures for debugging (record may not exist)
-        this.logger.debug(`Failed to update subscription status: ${updateErr instanceof Error ? updateErr.message : updateErr}`);
-      });
+      if (providerTenantId) {
+        await this.prisma.webhookSubscription.updateMany({
+          where: { providerId, resourcePath: GMAIL_WEBHOOK_RESOURCE, tenantId: providerTenantId },
+          data: {
+            isActive: false,
+            lastError: errorMessage,
+            errorCount: { increment: 1 },
+          },
+        }).catch((updateErr) => {
+          // Q-7 FIX: Log subscription update failures for debugging (record may not exist)
+          this.logger.debug(`Failed to update subscription status: ${updateErr instanceof Error ? updateErr.message : updateErr}`);
+        });
+      }
 
       throw error;
     }

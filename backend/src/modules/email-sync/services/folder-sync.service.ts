@@ -97,9 +97,9 @@ export class FolderSyncService {
 
   async renameFolder(tenantId: string, providerId: string, folderPath: string, newName: string): Promise<{ id: string; path: string; name: string }> {
     return this.redisLock.withLock(`folder-crud:${providerId}`, 30000, async () => {
-      const provider = await this.prisma.providerConfig.findUnique({ where: { id: providerId } });
+      const provider = await this.prisma.providerConfig.findFirst({ where: { id: providerId, tenantId } });
       if (!provider) throw new Error(`Provider ${providerId} not found`);
-      const folder = await this.prisma.folder.findUnique({ where: { providerId_path: { providerId, path: folderPath } } });
+      const folder = await this.prisma.folder.findFirst({ where: { providerId, path: folderPath, tenantId } });
       if (!folder) throw new Error(`Folder not found: ${folderPath}`);
       this.logger.log(`Renaming folder "${folder.name}" to "${newName}"`);
       const newPath = await this.routeRename(provider.providerType, providerId, folderPath, folder.externalId, newName, folder.path);
@@ -120,16 +120,16 @@ export class FolderSyncService {
 
   async deleteFolder(tenantId: string, providerId: string, folderPath: string): Promise<void> {
     await this.redisLock.withLock(`folder-crud:${providerId}`, 30000, async () => {
-      const provider = await this.prisma.providerConfig.findUnique({ where: { id: providerId } });
+      const provider = await this.prisma.providerConfig.findFirst({ where: { id: providerId, tenantId } });
       if (!provider) throw new Error(`Provider ${providerId} not found`);
-      const folder = await this.prisma.folder.findUnique({ where: { providerId_path: { providerId, path: folderPath } } });
+      const folder = await this.prisma.folder.findFirst({ where: { providerId, path: folderPath, tenantId } });
       if (!folder) throw new Error(`Folder not found: ${folderPath}`);
       if (folder.specialUse && CORE_SYSTEM_FOLDERS.includes(folder.specialUse)) throw new Error(`Cannot delete system folder: ${folder.specialUse}`);
       this.logger.log(`Deleting folder "${folder.name}"`);
-      const emailsInFolder = await this.prisma.email.count({ where: { providerId, folder: folderPath } });
+      const emailsInFolder = await this.prisma.email.count({ where: { providerId, tenantId, folder: folderPath } });
       if (emailsInFolder > 0) {
         this.logger.log(`Moving ${emailsInFolder} emails to TRASH`);
-        await this.prisma.email.updateMany({ where: { providerId, folder: folderPath }, data: { folder: 'TRASH' } });
+        await this.prisma.email.updateMany({ where: { providerId, tenantId, folder: folderPath }, data: { folder: 'TRASH' } });
       }
       await this.routeDelete(provider.providerType, providerId, folderPath, folder.externalId);
       await this.prisma.folder.delete({ where: { id_tenantId: { id: folder.id, tenantId: folder.tenantId } } });

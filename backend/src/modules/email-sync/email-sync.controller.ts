@@ -86,6 +86,7 @@ export class EmailSyncController {
   }
 
   @Post('sync-all')
+  @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Purge all emails, attachments, embeddings and re-sync all providers (DANGEROUS)' })
   @ApiResponse({ status: 200, description: 'All data purged, webhooks renewed, and sync jobs queued' })
   async syncAll(@Request() req: AuthenticatedRequest) {
@@ -259,6 +260,7 @@ export class EmailSyncController {
   }
 
   @Post('webhooks/create-all')
+  @Roles('admin')
   @ApiOperation({ summary: 'Create webhook subscriptions for all eligible providers' })
   @ApiResponse({ status: 200, description: 'Webhooks created successfully' })
   async createAllWebhooks() {
@@ -273,6 +275,7 @@ export class EmailSyncController {
   }
 
   @Post('webhooks/renew')
+  @Roles('admin')
   @ApiOperation({ summary: 'Manually trigger webhook renewal' })
   @ApiResponse({ status: 200, description: 'Webhook renewal triggered' })
   async renewWebhooks() {
