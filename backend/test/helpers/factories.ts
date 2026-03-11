@@ -4,7 +4,7 @@
  * and return fully typed Prisma objects.
  */
 import { randomBytes } from 'crypto';
-import type { Account, Session, Tenant, User } from '@prisma/client';
+import type { Account, Session, Tenant, User, UserLabel } from '@prisma/client';
 import { getTestPrismaClient } from './prisma-test-client';
 
 let counter = 0;
@@ -112,6 +112,42 @@ export async function createTestAccount(
       accountId: overrides.accountId ?? userId,
       providerId: overrides.providerId ?? 'credential',
       password: overrides.password ?? null,
+    },
+  });
+}
+
+/**
+ * Creates a real UserLabel row linked to a tenant.
+ * Used by labels.service.spec.ts tests.
+ */
+export async function createTestLabel(
+  tenantId: string,
+  overrides: Partial<{
+    name: string;
+    parentId: string | null;
+    color: Record<string, unknown> | null;
+    icon: string | null;
+  }> = {},
+): Promise<UserLabel> {
+  const prisma = getTestPrismaClient();
+  const uid = nextId();
+  const name = overrides.name ?? `Test Label ${uid}`;
+  const slug = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return prisma.userLabel.create({
+    data: {
+      tenantId,
+      name,
+      slug,
+      type: 'USER',
+      parentId: overrides.parentId ?? null,
+      level: overrides.parentId ? 1 : 0,
+      orderIndex: 0,
+      color: overrides.color ?? undefined,
+      icon: overrides.icon ?? null,
     },
   });
 }
