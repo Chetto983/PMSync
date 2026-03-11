@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Completed 70-03-PLAN.md
-last_updated: "2026-03-11T20:17:42.640Z"
+stopped_at: Completed 70-01-PLAN.md
+last_updated: "2026-03-11T20:20:29.081Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 20
-  completed_plans: 18
+  completed_plans: 20
   percent: 91
 ---
 
@@ -80,6 +80,8 @@ Progress: [██████████] 100%
 | Phase 69-backend-integration-tests P01 | 12 | 1 tasks | 1 files |
 | Phase 69 P03 | 15 | 2 tasks | 6 files |
 | Phase 70-frontend-unit-tests P03 | 20 | 2 tasks | 4 files |
+| Phase 70-frontend-unit-tests P01 | 15 | 2 tasks | 15 files |
+| Phase 70-frontend-unit-tests P02 | 18 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -128,6 +130,10 @@ Recent decisions affecting current work:
 - [Phase 70-03]: SecuritySessionsSection revoke button has no aria-label (icon-only IconButton with Tooltip) — found via button with empty textContent
 - [Phase 70-03]: @testing-library/user-event not installed — use fireEvent from @testing-library/react instead (consistent with existing test patterns)
 - [Phase 70-03]: PasswordField mock filters MUI-only props (fullWidth, sx) to avoid React DOM warnings in tests
+- [Phase 70-01]: setState without replace=true required for Zustand stores without reset() — replace=true destroys action functions
+- [Phase 70-01]: CalendarEvent and Label test factories must include all required TypeScript fields to pass type-check
+- [Phase 70]: waitFor timeout 5000ms required for queries with retry:1 at options level (overrides QueryClient default)
+- [Phase 70]: better-auth ESM mock required in any test whose import chain reaches @/lib/auth-client
 
 ### Pending Todos
 
@@ -142,6 +148,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T20:17:42.620Z
-Stopped at: Completed 70-03-PLAN.md
+Last session: 2026-03-11T20:20:14.485Z
+Stopped at: Completed 70-01-PLAN.md
 Resume file: None
