@@ -77,7 +77,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 66: Test Infrastructure** - Real DB test environment, shared helpers, factories, coverage thresholds (completed 2026-03-10)
 - [x] **Phase 67: Backend Tests - Simple Modules** - Unit tests for health, users, tenants, labels (completed 2026-03-11)
 - [x] **Phase 68: Backend Tests - Complex Modules** - Unit tests for calendar, contacts, providers, subscription (completed 2026-03-11)
-- [ ] **Phase 69: Backend Integration Tests** - Cross-tenant isolation, auth guard chain, contract tests
+- [x] **Phase 69: Backend Integration Tests** - Cross-tenant isolation, auth guard chain, contract tests (completed 2026-03-11)
 - [ ] **Phase 70: Frontend Unit Tests** - Zustand stores, TanStack Query hooks, settings components
 - [ ] **Phase 71: Frontend E2E Tests** - Org flows, admin panel, onboarding wizard, security settings
 - [ ] **Phase 72: MUI Audit & Polish** - Automated scanner, violation fixes, accessibility audit, visual regression
@@ -143,7 +143,7 @@ Plans:
   1. Cross-tenant isolation test creates two tenants with distinct data, then proves queries scoped to tenant A return zero rows from tenant B (and vice versa) across all tenant-scoped models
   2. Auth guard chain test validates the full BetterAuth -> Tenant -> Roles pipeline: unauthenticated request gets 401, wrong-tenant request gets 403, insufficient-role request gets 403, valid request succeeds
   3. Contract tests exist for calendar, labels, providers, subscription, organizations, and admin endpoints -- each validates response envelope shape, required fields, and error format
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 69-01-PLAN.md -- Cross-tenant isolation tests (BINT-01): 5 domains, scoped Prisma client + CorrelationContext
 - [ ] 69-02-PLAN.md -- Auth guard chain test (BINT-02): NestJS bootstrap + supertest, 4 scenarios
@@ -193,7 +193,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 | 66. Test Infrastructure | 4/4 | Complete   | 2026-03-10 | - |
 | 67. Backend Tests - Simple Modules | 5/5 | Complete    | 2026-03-11 | - |
 | 68. Backend Tests - Complex Modules | 5/5 | Complete    | 2026-03-11 | - |
-| 69. Backend Integration Tests | 2/3 | In Progress|  | - |
+| 69. Backend Integration Tests | 3/3 | Complete   | 2026-03-11 | - |
 | 70. Frontend Unit Tests | v5.1 | 0/? | Not started | - |
 | 71. Frontend E2E Tests | v5.1 | 0/? | Not started | - |
 | 72. MUI Audit & Polish | v5.1 | 0/? | Not started | - |

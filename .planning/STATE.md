@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Completed 69-01-PLAN.md
-last_updated: "2026-03-11T19:29:13.025Z"
+stopped_at: Completed 69-03-PLAN.md
+last_updated: "2026-03-11T19:31:23.289Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
   percent: 91
 ---
 
@@ -78,6 +78,7 @@ Progress: [██████████] 100%
 | Phase 68-backend-tests-complex-modules P01 | 41 | 3 tasks | 7 files |
 | Phase 69-backend-integration-tests P02 | 8 | 1 tasks | 1 files |
 | Phase 69-backend-integration-tests P01 | 12 | 1 tasks | 1 files |
+| Phase 69 P03 | 15 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,8 @@ Recent decisions affecting current work:
 - [Phase 69-02]: createdTenantIds array collected across tests for single afterAll cleanup pass — avoids concurrent FK violations
 - [Phase 69-01]: Promise.resolve(PrismaPromise) inside ALS run() required — lazy thenable defers .then() until outside ALS scope without this pattern
 - [Phase 69-01]: Subscription domain uses dedicated fresh tenants — unique constraint on tenantId prevents reuse of shared test tenants
+- [Phase 69-03]: Orgs and admin contract specs use multi-path variants with soft assertions at every level — better-auth plugin routes may not appear in NestJS-generated OpenAPI spec
+- [Phase 69-03]: Error envelope assertions check for 'error' and 'meta' top-level keys only (no statusCode) — ApiExceptionFilter does not include statusCode in response body
 
 ### Pending Todos
 
@@ -135,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T19:29:13.018Z
-Stopped at: Completed 69-01-PLAN.md
+Last session: 2026-03-11T19:31:23.285Z
+Stopped at: Completed 69-03-PLAN.md
 Resume file: None
