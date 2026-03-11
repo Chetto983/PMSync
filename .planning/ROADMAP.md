@@ -127,7 +127,7 @@ Plans:
   2. Contacts module tests cover sync flow, CRM relationship scoring calculation, cache invalidation, and webhook processing
   3. Providers module tests cover OAuth token acquisition, refresh, and revocation flows; IMAP config validation; and token lifecycle (expiry, rotation)
   4. Subscription module tests cover billing state transitions, quota calculation, usage tracking increments, and QuotaGuard rejection when limits are exceeded
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 Plans:
 - [ ] 68-00-PLAN.md -- Extend test helpers: 4 new factories + 9 new cleanup tables
 - [ ] 68-01-PLAN.md -- Calendar module tests (BTEST-01): ICS parsing, conflict detection, sync, webhook
@@ -188,7 +188,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 |-------|-----------|----------------|--------|-----------|
 | 66. Test Infrastructure | 4/4 | Complete   | 2026-03-10 | - |
 | 67. Backend Tests - Simple Modules | 5/5 | Complete    | 2026-03-11 | - |
-| 68. Backend Tests - Complex Modules | 1/5 | In Progress|  | - |
+| 68. Backend Tests - Complex Modules | 2/5 | In Progress|  | - |
 | 69. Backend Integration Tests | v5.1 | 0/? | Not started | - |
 | 70. Frontend Unit Tests | v5.1 | 0/? | Not started | - |
 | 71. Frontend E2E Tests | v5.1 | 0/? | Not started | - |

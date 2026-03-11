@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Completed 68-00-PLAN.md
-last_updated: "2026-03-11T18:23:05.223Z"
+stopped_at: Completed 68-04-PLAN.md
+last_updated: "2026-03-11T18:28:39.971Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 14
-  completed_plans: 10
+  completed_plans: 11
   percent: 91
 ---
 
@@ -72,6 +72,7 @@ Progress: [██████████] 100%
 | Phase 67-backend-tests-simple-modules P04 | 525544min | 1 tasks | 1 files |
 | Phase 67-backend-tests-simple-modules P05 | 6 | 1 tasks | 1 files |
 | Phase 68-backend-tests-complex-modules P00 | 5 | 2 tasks | 2 files |
+| Phase 68-backend-tests-complex-modules P04 | 15 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,8 @@ Recent decisions affecting current work:
 - [Phase 67-05]: Import path to test helpers is 5 levels up from __tests__ dir for labels/services (matches pattern from 67-03/67-04; plan template showed 6 which was wrong)
 - [Phase 68-00]: Used SubscriptionPlan/SubscriptionStatus Prisma enums directly instead of casting as any
 - [Phase 68-00]: createTestProviderAccount uses tokenExpiresAt undefined-sentinel for explicit null override in expired-token tests
+- [Phase 68-backend-tests-complex-modules]: Lifecycle tests: per-tenant mock call assertions (calls[].some) prevent false failures from shared DB state contamination
+- [Phase 68-backend-tests-complex-modules]: PostgreSQL column for Prisma updatedAt is camelCase 'updatedAt' — raw SQL must double-quote it
 
 ### Pending Todos
 
@@ -116,6 +119,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T18:23:05.220Z
-Stopped at: Completed 68-00-PLAN.md
+Last session: 2026-03-11T18:28:39.967Z
+Stopped at: Completed 68-04-PLAN.md
 Resume file: None
