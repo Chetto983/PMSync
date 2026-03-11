@@ -5,7 +5,6 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { Toaster } from 'sonner';
 import { MotionConfig } from 'framer-motion';
 import {
   ThemeProvider as MuiThemeProvider,
@@ -118,7 +117,6 @@ export default function App({ Component, pageProps }: AppProps) {
               <Component {...pageProps} />
           </ToastProvider>
           <SpeedInsights />
-          <Toaster />
         </MaterialThemeWrapper>
       </NextThemeProvider>
     </QueryProvider>

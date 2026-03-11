@@ -25,9 +25,9 @@ const KeyboardShortcutsDialog = dynamic(
 
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
-  useEmail, useEmails, useFolders, useSenderPhotos, useUserPreferences, emailKeys,
+  useEmail, useFolders, useSenderPhotos, useUserPreferences, emailKeys, emailsListOptions,
 } from '@/hooks/queries';
 import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
@@ -119,43 +119,39 @@ export default function EmailPage() {
     limit: 50,
   }), [filters, selectedFolderPath, getApiSpecialUse]);
 
-  const emailQueryParams: ListEmailsParams = useMemo(
+  const emailQueryParams = useMemo(
     () => ({ ...baseEmailParams, page }),
-    [baseEmailParams, page],
+    [baseEmailParams, page]
   );
 
   const filterKey = useMemo(() => JSON.stringify(baseEmailParams), [baseEmailParams]);
-  const [accumulatedEmails, setAccumulatedEmails] = useState<Email[]>([]);
 
   useEffect(() => {
     setPage(1); // eslint-disable-line react-hooks/set-state-in-effect
-    setAccumulatedEmails([]);
   }, [filterKey]);
 
-  const {
-    data: emailsResponse, isLoading: loading, isFetching, refetch,
-  } = useEmails(emailQueryParams);
+  const emailQueries = useQueries({
+    queries: Array.from({ length: page }, (_, index) =>
+      emailsListOptions({ ...baseEmailParams, page: index + 1 })
+    ),
+  });
 
-  useEffect(() => {
-    const newEmails = emailsResponse?.emails;
-    if (!newEmails?.length) return;
-    if (page === 1) {
-      setAccumulatedEmails(newEmails); // eslint-disable-line react-hooks/set-state-in-effect
-    } else {
-      setAccumulatedEmails((prev) => {
-        const incomingById = new Map(newEmails.map((email) => [email.id, email]));
-        const next = prev.map((email) => incomingById.get(email.id) ?? email);
-        const existingIds = new Set(next.map((email) => email.id));
-        const fresh = newEmails.filter((email) => !existingIds.has(email.id));
-        return fresh.length > 0 ? [...next, ...fresh] : next;
+  const isFetching = emailQueries.some((query) => query.isFetching);
+  const loading = emailQueries[0]?.isLoading ?? false;
+
+  const emails = useMemo(() => {
+    const merged = new Map<string, Email>();
+    emailQueries.forEach((query) => {
+      query.data?.emails.forEach((email) => {
+        merged.set(email.id, email);
       });
-    }
-  }, [emailsResponse?.emails, page]);
+    });
+    return Array.from(merged.values());
+  }, [emailQueries]);
 
-  const emails = accumulatedEmails;
-  const responsePagination = emailsResponse?.pagination;
+  const responsePagination = emailQueries[page - 1]?.data?.pagination;
   const hasMore = responsePagination ? responsePagination.page < responsePagination.totalPages : false;
-  const loadingMore = isFetching && page > 1;
+  const loadingMore = page > 1 && (emailQueries[page - 1]?.isFetching ?? false);
 
   const handleLoadMore = useCallback(() => {
     if (!isFetching && hasMore) setPage((p) => p + 1);
@@ -179,9 +175,6 @@ export default function EmailPage() {
   // Optimistic update helpers
   const optimisticUpdateEmail = useCallback(
     (emailId: string, updates: Partial<Email>) => {
-      setAccumulatedEmails((prev) =>
-        prev.map((email) => (email.id === emailId ? { ...email, ...updates } : email))
-      );
       queryClient.setQueriesData<ListEmailsResponse>(
         { queryKey: emailKeys.list() },
         (old) =>
@@ -201,9 +194,6 @@ export default function EmailPage() {
   const optimisticUpdateEmails = useCallback(
     (emailIds: string[], updates: Partial<Email>) => {
       const ids = new Set(emailIds);
-      setAccumulatedEmails((prev) =>
-        prev.map((email) => (ids.has(email.id) ? { ...email, ...updates } : email))
-      );
       queryClient.setQueriesData<ListEmailsResponse>(
         { queryKey: emailKeys.list() },
         (old) =>
@@ -222,7 +212,6 @@ export default function EmailPage() {
 
   const optimisticRemoveEmail = useCallback(
     (emailId: string) => {
-      setAccumulatedEmails((prev) => prev.filter((email) => email.id !== emailId));
       queryClient.setQueriesData<ListEmailsResponse>(
         { queryKey: emailKeys.list() },
         (old) =>
@@ -237,7 +226,6 @@ export default function EmailPage() {
   const optimisticRemoveEmails = useCallback(
     (emailIds: string[]) => {
       const ids = new Set(emailIds);
-      setAccumulatedEmails((prev) => prev.filter((email) => !ids.has(email.id)));
       queryClient.setQueriesData<ListEmailsResponse>(
         { queryKey: emailKeys.list() },
         (old) =>
@@ -251,13 +239,12 @@ export default function EmailPage() {
 
   const captureEmailsState = useCallback(
     (): EmailPageStateSnapshot => ({
-      emails: accumulatedEmails.map((email) => ({ ...email })),
+      emails: emails.map((email) => ({ ...email })),
       lists: queryClient.getQueriesData<ListEmailsResponse>({ queryKey: emailKeys.list() }),
     }),
-    [accumulatedEmails, queryClient]
+    [emails, queryClient]
   );
   const restoreEmailsState = useCallback((snapshot: EmailPageStateSnapshot) => {
-    setAccumulatedEmails(snapshot.emails);
     snapshot.lists.forEach(([queryKey, data]) => {
       queryClient.setQueryData(queryKey, data);
     });
@@ -339,9 +326,9 @@ export default function EmailPage() {
 
   const handleRefresh = useCallback(() => {
     setPage(1);
-    setAccumulatedEmails([]);
-    refetch();
-  }, [refetch]);
+    queryClient.invalidateQueries({ queryKey: emailKeys.list() });
+    queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+  }, [queryClient]);
 
   // Reading pane for 3-panel desktop view
   const readingPane = useMemo(() => {

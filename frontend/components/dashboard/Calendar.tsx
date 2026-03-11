@@ -17,8 +17,6 @@ import React, { lazy, Suspense } from 'react';
 import {
   Box,
   Paper,
-  Snackbar,
-  Alert as MuiAlert,
   Drawer,
   alpha,
   useTheme,
@@ -40,11 +38,13 @@ import {
 import { useCalendarPreferences } from './calendar/useCalendarPreferences';
 import { useCalendarData } from './calendar/useCalendarData';
 import { useCalendarHandlers } from './calendar/useCalendarHandlers';
+import { useGlobalToast } from '@/lib/context/toast-context';
 
 export function Calendar() {
   const theme = useTheme();
   const translations = useTranslations();
   const calendarCopy = translations.calendar;
+  const toast = useGlobalToast();
 
   const prefs = useCalendarPreferences(calendarCopy);
   const data = useCalendarData(prefs.calendarPrefs, prefs.loadCalendars, prefs.setSnackbar, calendarCopy);
@@ -63,6 +63,12 @@ export function Calendar() {
     handleCloseColorPicker,
     handleColorSelect,
   } = prefs;
+
+  React.useEffect(() => {
+    if (!snackbar.open || !snackbar.message) return;
+    toast[snackbar.severity](snackbar.message);
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, [setSnackbar, snackbar, toast]);
 
   const {
     calendarRef,
@@ -308,22 +314,6 @@ export function Calendar() {
         loadingAttachments={loadingAttachments}
         onDownloadAttachment={handleDownloadAttachment}
       />
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <MuiAlert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%', borderRadius: 2 }}
-        >
-          {snackbar.message}
-        </MuiAlert>
-      </Snackbar>
     </Box>
   );
 }

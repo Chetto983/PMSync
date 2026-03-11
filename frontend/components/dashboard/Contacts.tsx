@@ -3,8 +3,6 @@ import {
   Box,
   TextField,
   InputAdornment,
-  Snackbar,
-  Alert as MuiAlert,
   IconButton,
 } from '@mui/material';
 import { Search, Menu } from 'lucide-react';
@@ -20,11 +18,13 @@ import { useContactsPageData } from './contacts-page/useContactsPageData';
 import { useContactsPageHandlers } from './contacts-page/useContactsPageHandlers';
 import { useContactForm } from './contacts-page/useContactForm';
 import { ContactFormDialog, DeleteContactDialog } from './contacts-page/ContactDialogs';
+import { useGlobalToast } from '@/lib/context/toast-context';
 // ComposeDialog removed during email rebuild
 
 export function Contacts() {
   const translations = useTranslations();
   const contactsCopy = translations.contacts;
+  const toast = useGlobalToast();
 
   const data = useContactsPageData();
   const form = useContactForm();
@@ -89,6 +89,12 @@ export function Contacts() {
       form.updateProviderIdIfEmpty(providers[0].id);
     }
   }, [providers, form]);
+
+  React.useEffect(() => {
+    if (!snackbar.open || !snackbar.message) return;
+    toast[snackbar.severity](snackbar.message);
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, [setSnackbar, snackbar, toast]);
 
   // Render sidebar
   const renderSidebar = () => (
@@ -227,23 +233,6 @@ export function Contacts() {
         actionLoading={actionLoading}
         contactsCopy={contactsCopy}
       />
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <MuiAlert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </MuiAlert>
-      </Snackbar>
-
       {/* ComposeDialog removed during email rebuild */}
     </>
   );
