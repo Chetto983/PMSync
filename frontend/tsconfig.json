@@ -49,7 +49,7 @@
       ]
     },
     "allowJs": true,
-    "incremental": true
+    "incremental": false
   },
   "include": [
     "**/*.ts",
@@ -63,6 +63,7 @@
   ],
   "exclude": [
     "node_modules",
-    "../backend"
+    "../backend",
+    "backend"
   ]
 }
