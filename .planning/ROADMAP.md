@@ -157,7 +157,11 @@ Plans:
   1. All 14 Zustand store files have tests verifying state transitions, action side effects, and store isolation (no cross-store leakage between tests)
   2. Critical TanStack Query hooks (emails, folders, contacts, organizations) have tests verifying correct query key construction, cache behavior, and error/loading state handling
   3. Security settings components (MFA toggle, passkey management, session list, password change) have tests verifying user interactions trigger correct API calls and display correct feedback
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 70-01-PLAN.md -- Zustand store tests (FTEST-01): 14 store files + jest.setup.ts next/image mock
+- [ ] 70-02-PLAN.md -- TanStack Query hook tests (FTEST-02): 10 hook files, query keys + loading/error + cache invalidation
+- [ ] 70-03-PLAN.md -- Security settings component tests (FTEST-03): MFA, password, sessions, accounts
 
 ### Phase 71: Frontend E2E Tests
 **Goal**: All v5.0 features have end-to-end Playwright tests proving complete user workflows against a real running backend
@@ -194,7 +198,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 | 67. Backend Tests - Simple Modules | 5/5 | Complete    | 2026-03-11 | - |
 | 68. Backend Tests - Complex Modules | 5/5 | Complete    | 2026-03-11 | - |
 | 69. Backend Integration Tests | 3/3 | Complete    | 2026-03-11 | - |
-| 70. Frontend Unit Tests | v5.1 | 0/? | Not started | - |
+| 70. Frontend Unit Tests | v5.1 | 0/3 | Not started | - |
 | 71. Frontend E2E Tests | v5.1 | 0/? | Not started | - |
 | 72. MUI Audit & Polish | v5.1 | 0/? | Not started | - |
 
