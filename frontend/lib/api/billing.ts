@@ -2,9 +2,7 @@
  * Billing API Client
  *
  * API client for subscription and billing endpoints.
- * Uses Autumn SDK on the backend for payment processing.
- *
- * @see backend/src/modules/subscription
+ * Uses the app's Autumn-backed payment routes.
  */
 
 import { apiClient } from '../api-client';

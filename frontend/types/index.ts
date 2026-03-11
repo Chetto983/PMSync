@@ -1,6 +1,6 @@
 // ============================================
 // PMSync Frontend Types
-// Auto-generated from backend Prisma schema and DTOs
+// App-level shared types
 // ============================================
 
 // Re-export all types

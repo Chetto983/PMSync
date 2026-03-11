@@ -2,10 +2,9 @@
  * Billing/Subscription Query Hooks
  *
  * TanStack Query hooks for subscription management and billing.
- * Uses the backend SubscriptionModule and Autumn proxy routes.
+ * Uses the subscription API and Autumn proxy routes.
  *
  * @see frontend/lib/api/billing.ts
- * @see backend/src/modules/subscription
  */
 
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';

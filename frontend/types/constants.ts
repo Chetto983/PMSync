@@ -1,11 +1,10 @@
 // ============================================
-// Constants - Matching Backend Enums
+// Constants - Shared enum-style values
 // These provide type-safe constants while allowing string flexibility
 // ============================================
 
 /**
  * Action types that agents can propose
- * Matches: backend/src/modules/ai/interfaces/agent-action.interface.ts
  */
 export const AgentActionType = {
   // Email actions

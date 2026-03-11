@@ -63,8 +63,8 @@
   ],
   "exclude": [
     "node_modules",
-    "../backend",
-    "../backend/**",
-    "backend"
+    "e2e",
+    "playwright",
+    "__tests__"
   ]
 }
