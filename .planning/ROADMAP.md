@@ -110,7 +110,7 @@ Plans:
   2. Users module tests verify profile CRUD and preferences update/retrieval with tenant isolation (user A cannot read user B's profile in a different tenant)
   3. Tenants module tests verify tenant creation, update, and deletion with cascading cleanup and cross-tenant isolation
   4. Labels module tests verify CRUD, nested label tree operations (create child, move, delete with children), and tenant scoping
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 Plans:
 - [ ] 67-01-PLAN.md -- Extend test helpers: createTestLabel factory + user_labels cleanup
 - [ ] 67-02-PLAN.md -- Health service tests (BTEST-08): DB probe, Redis probe, Mistral disabled, BullMQ optional
@@ -181,7 +181,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 66. Test Infrastructure | 4/4 | Complete   | 2026-03-10 | - |
-| 67. Backend Tests - Simple Modules | 1/5 | In Progress|  | - |
+| 67. Backend Tests - Simple Modules | 2/5 | In Progress|  | - |
 | 68. Backend Tests - Complex Modules | v5.1 | 0/? | Not started | - |
 | 69. Backend Integration Tests | v5.1 | 0/? | Not started | - |
 | 70. Frontend Unit Tests | v5.1 | 0/? | Not started | - |
