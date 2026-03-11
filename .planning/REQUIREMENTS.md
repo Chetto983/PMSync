@@ -29,7 +29,7 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 ### Backend Integration Tests
 
 - [ ] **BINT-01**: Cross-tenant isolation test proves tenant scoping prevents data leaks between tenants
-- [ ] **BINT-02**: Auth guard chain test validates BetterAuth -> Tenant -> Roles pipeline end-to-end
+- [x] **BINT-02**: Auth guard chain test validates BetterAuth -> Tenant -> Roles pipeline end-to-end
 - [ ] **BINT-03**: Contract tests exist for calendar, labels, providers, subscription, orgs, and admin endpoints
 
 ### Frontend Unit Tests
@@ -93,7 +93,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BTEST-07 | Phase 67 | Complete |
 | BTEST-08 | Phase 67 | Complete |
 | BINT-01 | Phase 69 | Pending |
-| BINT-02 | Phase 69 | Pending |
+| BINT-02 | Phase 69 | Complete |
 | BINT-03 | Phase 69 | Pending |
 | FTEST-01 | Phase 70 | Pending |
 | FTEST-02 | Phase 70 | Pending |

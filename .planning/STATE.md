@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Phase 69 context gathered
-last_updated: "2026-03-11T18:56:20.006Z"
+stopped_at: Completed 69-02-PLAN.md
+last_updated: "2026-03-11T19:25:49.040Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 17
+  completed_plans: 15
   percent: 91
 ---
 
@@ -76,6 +76,7 @@ Progress: [██████████] 100%
 | Phase 68-backend-tests-complex-modules P03 | 25 | 2 tasks | 4 files |
 | Phase 68-backend-tests-complex-modules P02 | 25 | 3 tasks | 5 files |
 | Phase 68-backend-tests-complex-modules P01 | 41 | 3 tasks | 7 files |
+| Phase 69-backend-integration-tests P02 | 8 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 68]: QUEUE_PRESETS.CONTACTS_SYNC.attempts = 3; last-attempt DLQ test uses attemptsMade = MAX_ATTEMPTS - 1 = 2
 - [Phase 68-01]: Remove cleanupTestData() from calendar spec afterAll; targeted cleanup prevents FK violations in parallel Jest runs
 - [Phase 68-01]: jest.spyOn on protected fetchCalendarList/fetchEvents avoids real Google API calls in sync tests
+- [Phase 69-02]: Tenant model excluded from TENANT_SCOPED_MODELS — getAllTenants() works without withoutTenantScopingAsync
+- [Phase 69-02]: createdTenantIds array collected across tests for single afterAll cleanup pass — avoids concurrent FK violations
 
 ### Pending Todos
 
@@ -129,6 +132,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T18:56:20.003Z
-Stopped at: Phase 69 context gathered
-Resume file: .planning/phases/69-backend-integration-tests/69-CONTEXT.md
+Last session: 2026-03-11T19:25:49.035Z
+Stopped at: Completed 69-02-PLAN.md
+Resume file: None
