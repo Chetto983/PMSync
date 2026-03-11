@@ -107,7 +107,7 @@ export class EmailSignatureService {
 
     // If setting as default, unset existing defaults
     if (dto.isDefault) {
-      const current = await this.prisma.emailSignature.findUnique({ where: { id } });
+      const current = await this.prisma.emailSignature.findFirst({ where: { id, tenantId } });
       await this.prisma.emailSignature.updateMany({
         where: {
           tenantId,
@@ -120,10 +120,11 @@ export class EmailSignatureService {
       });
     }
 
-    return this.prisma.emailSignature.update({
-      where: { id },
+    await this.prisma.emailSignature.updateMany({
+      where: { id, tenantId },
       data: dto,
     });
+    return this.prisma.emailSignature.findFirst({ where: { id, tenantId } });
   }
 
   /**
@@ -133,7 +134,7 @@ export class EmailSignatureService {
     // Verify signature exists and belongs to user
     await this.findOne(tenantId, userId, id);
 
-    await this.prisma.emailSignature.delete({ where: { id } });
+    await this.prisma.emailSignature.deleteMany({ where: { id, tenantId } });
     return { success: true };
   }
 
@@ -156,10 +157,11 @@ export class EmailSignatureService {
     });
 
     // Set this one as default
-    return this.prisma.emailSignature.update({
-      where: { id },
+    await this.prisma.emailSignature.updateMany({
+      where: { id, tenantId },
       data: { isDefault: true },
     });
+    return this.prisma.emailSignature.findFirst({ where: { id, tenantId } });
   }
 
   /**

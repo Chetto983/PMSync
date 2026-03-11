@@ -199,54 +199,6 @@ export class EmailCleanupService implements OnModuleInit {
   ): Promise<DryRunResult> {
     const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
 
-    // Get emails that would be purged (using cursor pagination)
-    // CITUS: Cursor-based pagination with composite PK requires both id and tenantId
-    let hasMore = true;
-    let cursorData: { id: string; tenantId: string } | undefined;
-    const staleEmails: Array<{
-      id: string;
-      tenantId: string;
-      attachments: Array<{ id: string; size: number; storageType: string }>;
-    }> = [];
-
-    while (hasMore) {
-      const batch = await this.prisma.email.findMany({
-        where: {
-          isDeleted: true,
-          ...(tenantId ? { tenantId } : {}),
-          updatedAt: { lt: cutoff },
-        },
-        select: {
-          id: true,
-          tenantId: true,
-          attachments: {
-            select: {
-              id: true,
-              size: true,
-              storageType: true,
-            },
-          },
-        },
-        take: this.BATCH_SIZE,
-        skip: cursorData ? 1 : 0,
-        cursor: cursorData ? { id_tenantId: { id: cursorData.id, tenantId: cursorData.tenantId } } : undefined,
-        orderBy: { id: 'asc' }, // Consistent ordering is required for cursor pagination
-      });
-
-      if (batch.length === 0) {
-        hasMore = false;
-      } else {
-        staleEmails.push(...batch);
-        const lastItem = batch[batch.length - 1];
-        cursorData = { id: lastItem.id, tenantId: lastItem.tenantId };
-
-        // Safety break for extremely large sets in dry run to avoid memory pressure even with batching
-        // Since we are accumulating into `staleEmails` array, we ARE still loading everything into memory eventually.
-        // For a TRUE fix, we should aggregate stats incrementally instead of pushing to array.
-        // Let's optimize that in the loop below.
-      }
-    }
-
     // Aggregate by tenant
     const byTenant: Record<string, { emails: number; attachments: number; estimatedBytes: number }> = {};
     let totalEmails = 0;
