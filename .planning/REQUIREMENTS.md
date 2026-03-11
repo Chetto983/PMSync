@@ -17,10 +17,10 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 
 ### Backend Unit Tests
 
-- [ ] **BTEST-01**: Calendar module has tests for all services (sync, webhooks, conflict resolution, ICS parsing)
-- [ ] **BTEST-02**: Contacts module has tests for all services (sync, CRM scoring, cache, webhooks)
-- [ ] **BTEST-03**: Providers module has tests for OAuth flows, IMAP config, and token lifecycle
-- [ ] **BTEST-04**: Subscription module has tests for billing, quotas, usage tracking, and QuotaGuard
+- [x] **BTEST-01**: Calendar module has tests for all services (sync, webhooks, conflict resolution, ICS parsing)
+- [x] **BTEST-02**: Contacts module has tests for all services (sync, CRM scoring, cache, webhooks)
+- [x] **BTEST-03**: Providers module has tests for OAuth flows, IMAP config, and token lifecycle
+- [x] **BTEST-04**: Subscription module has tests for billing, quotas, usage tracking, and QuotaGuard
 - [x] **BTEST-05**: Labels module has tests for CRUD and nested label operations
 - [x] **BTEST-06**: Tenants module has tests for tenant CRUD with isolation verification
 - [x] **BTEST-07**: Users module has tests for profile management and preferences
@@ -84,10 +84,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFRA-03 | Phase 66 | Complete |
 | INFRA-04 | Phase 66 | Complete |
 | INFRA-05 | Phase 66 | Complete |
-| BTEST-01 | Phase 68 | Pending |
-| BTEST-02 | Phase 68 | Pending |
-| BTEST-03 | Phase 68 | Pending |
-| BTEST-04 | Phase 68 | Pending |
+| BTEST-01 | Phase 68 | Complete |
+| BTEST-02 | Phase 68 | Complete |
+| BTEST-03 | Phase 68 | Complete |
+| BTEST-04 | Phase 68 | Complete |
 | BTEST-05 | Phase 67 | Complete |
 | BTEST-06 | Phase 67 | Complete |
 | BTEST-07 | Phase 67 | Complete |
