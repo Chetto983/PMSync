@@ -35,3 +35,12 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
+
+// Mock next/image
+jest.mock('next/image', () => ({
+  __esModule: true,
+  default: function MockImage(props: Record<string, unknown>) {
+    const React = require('react');
+    return React.createElement('img', { src: props.src, alt: props.alt });
+  },
+}));
