@@ -137,6 +137,7 @@ describe('FolderSyncQueryService', () => {
       expect(mockPrismaService.folder.deleteMany).toHaveBeenCalledWith({
         where: {
           providerId,
+          tenantId,
           path: { in: ['Trash', 'Old'] },
         },
       });

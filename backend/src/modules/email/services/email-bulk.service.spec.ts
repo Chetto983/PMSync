@@ -486,6 +486,7 @@ describe('EmailBulkService', () => {
     beforeEach(() => {
       prisma.email.findMany.mockResolvedValue(mockEmails);
       prisma.emailLabel.deleteMany.mockResolvedValue({ count: 4 });
+      prisma.userLabel.findMany.mockResolvedValue([{ id: 'label-1' }, { id: 'label-2' }]);
       mockEmailCrudService.getEmailsByIds.mockResolvedValue([
         { id: 'email-1', folder: 'INBOX', providerId: 'provider-1', threadId: 'thread-1' },
         { id: 'email-2', folder: 'INBOX', providerId: 'provider-1', threadId: 'thread-2' },
@@ -515,6 +516,7 @@ describe('EmailBulkService', () => {
     });
 
     it('should emit realtime events with labels-updated reason', async () => {
+      prisma.userLabel.findMany.mockResolvedValue([{ id: 'label-1' }]);
       await service.bulkRemoveLabels(['email-1', 'email-2'], 'tenant-1', ['label-1']);
 
       expect(mockRealtimeEventsService.emitEmailUpdate).toHaveBeenCalledWith(

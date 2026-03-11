@@ -72,24 +72,20 @@ describe('EmailSyncBackService (Pre-Split Characterization)', () => {
   };
 
   beforeEach(() => {
+    const defaultProvider = {
+      id: 'provider-1',
+      providerType: 'GOOGLE',
+      accessToken: 'enc-token',
+      tokenEncryptionIv: 'iv-1',
+      tokenExpiresAt: new Date(Date.now() + 3600000),
+      tenantId: 'tenant-1',
+    };
+
     mockPrisma = {
       providerConfig: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'provider-1',
-          providerType: 'GOOGLE',
-          accessToken: 'enc-token',
-          tokenEncryptionIv: 'iv-1',
-          tokenExpiresAt: new Date(Date.now() + 3600000),
-          tenantId: 'tenant-1',
-        }),
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'provider-1',
-          providerType: 'GOOGLE',
-          accessToken: 'enc-token',
-          tokenEncryptionIv: 'iv-1',
-          tokenExpiresAt: new Date(Date.now() + 3600000),
-          tenantId: 'tenant-1',
-        }),
+        findFirst: jest.fn().mockResolvedValue(defaultProvider),
+        findUnique: jest.fn().mockResolvedValue(defaultProvider),
+        findMany: jest.fn().mockResolvedValue([defaultProvider]),
         update: jest.fn().mockResolvedValue({}),
       },
       email: {

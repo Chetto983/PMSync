@@ -282,7 +282,7 @@ describe('GmailFolderService', () => {
       expect(mockPrismaService.folder.upsert).toHaveBeenCalledTimes(3);
     });
 
-    it('should skip CATEGORY_ labels (virtual, not real folders)', async () => {
+    it('should sync CATEGORY_ labels as sidebar folders (SOCIAL, PROMOTIONS) but skip CATEGORY_PERSONAL', async () => {
       const mockLabels = [
         { id: 'INBOX', name: 'INBOX', type: 'system', messagesTotal: 100, messagesUnread: 10 },
         { id: 'CATEGORY_SOCIAL', name: 'Social', type: 'system', messagesTotal: 30, messagesUnread: 5 },
@@ -298,11 +298,22 @@ describe('GmailFolderService', () => {
 
       await service.syncGmailFolders(mockGmail, tenantId, providerId);
 
-      // Only INBOX should be upserted, categories are skipped
-      expect(mockPrismaService.folder.upsert).toHaveBeenCalledTimes(1);
+      // INBOX, SOCIAL (from CATEGORY_SOCIAL), and PROMOTIONS (from CATEGORY_PROMOTIONS)
+      // are all synced so sidebar tabs can show emails in those categories
+      expect(mockPrismaService.folder.upsert).toHaveBeenCalledTimes(3);
       expect(mockPrismaService.folder.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { providerId_path: { providerId, path: 'INBOX' } },
+        }),
+      );
+      expect(mockPrismaService.folder.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { providerId_path: { providerId, path: 'SOCIAL' } },
+        }),
+      );
+      expect(mockPrismaService.folder.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { providerId_path: { providerId, path: 'PROMOTIONS' } },
         }),
       );
     });

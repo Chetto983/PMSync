@@ -13,7 +13,8 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
-  // Set turbopack root to this directory to silence lockfile warning
+  // Set both roots to this directory to prevent Vercel from tracing backend files
+  outputFileTracingRoot: __dirname,
   turbopack: {
     root: __dirname,
   },
