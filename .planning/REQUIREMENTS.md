@@ -22,7 +22,7 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 - [ ] **BTEST-03**: Providers module has tests for OAuth flows, IMAP config, and token lifecycle
 - [ ] **BTEST-04**: Subscription module has tests for billing, quotas, usage tracking, and QuotaGuard
 - [x] **BTEST-05**: Labels module has tests for CRUD and nested label operations
-- [ ] **BTEST-06**: Tenants module has tests for tenant CRUD with isolation verification
+- [x] **BTEST-06**: Tenants module has tests for tenant CRUD with isolation verification
 - [x] **BTEST-07**: Users module has tests for profile management and preferences
 - [x] **BTEST-08**: Health module has tests for DB/Redis/queue connectivity probes
 
@@ -89,7 +89,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BTEST-03 | Phase 68 | Pending |
 | BTEST-04 | Phase 68 | Pending |
 | BTEST-05 | Phase 67 | Complete |
-| BTEST-06 | Phase 67 | Pending |
+| BTEST-06 | Phase 67 | Complete |
 | BTEST-07 | Phase 67 | Complete |
 | BTEST-08 | Phase 67 | Complete |
 | BINT-01 | Phase 69 | Pending |
