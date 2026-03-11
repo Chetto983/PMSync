@@ -28,6 +28,7 @@ export async function cleanupTestData(): Promise<void> {
       "verifications",
       "password_reset_tokens",
       "users",
+      "user_labels",
       "tenants"
     CASCADE
   `);
