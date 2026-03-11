@@ -68,7 +68,8 @@ describe('CalendarConflictService', () => {
     await prisma.providerConfig.deleteMany({ where: { id: { in: providerIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
-    await cleanupTestData();
+    // cleanupTestData() intentionally omitted here — targeted cleanup above is sufficient.
+    // Calling TRUNCATE CASCADE in parallel with other specs causes FK violations.
   });
 
   describe('detectConflicts', () => {

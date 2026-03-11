@@ -15,7 +15,6 @@
  */
 import { GoogleCalendarSyncService } from '../google-calendar-sync.service';
 import { getTestPrismaClient } from '../../../../../test/helpers/prisma-test-client';
-import { cleanupTestData } from '../../../../../test/helpers/cleanup';
 import {
   createTestTenant,
   createTestUser,
@@ -84,7 +83,8 @@ describe('GoogleCalendarSyncService', () => {
     await prisma.providerConfig.deleteMany({ where: { id: { in: providerIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
-    await cleanupTestData();
+    // cleanupTestData() intentionally omitted — targeted cleanup above is sufficient.
+    // TRUNCATE CASCADE in parallel with other specs causes FK violations.
   });
 
   describe('syncCalendar', () => {
