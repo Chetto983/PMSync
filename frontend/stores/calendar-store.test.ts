@@ -3,13 +3,22 @@ import type { CalendarEvent } from './calendar-store';
 
 const makeEvent = (overrides: Partial<CalendarEvent> = {}): CalendarEvent => ({
   id: 'e1',
-  calendarId: 'cal-1',
+  tenantId: 't1',
   providerId: 'p1',
+  externalId: 'ext-1',
+  calendarId: 'cal-1',
   title: 'Test Event',
   startTime: '2026-03-11T10:00:00Z',
   endTime: '2026-03-11T11:00:00Z',
+  isAllDay: false,
+  timeZone: 'UTC',
+  recurrence: [],
+  status: 'confirmed',
+  visibility: 'public',
   isDeleted: false,
   isCancelled: false,
+  lastSyncedAt: '2026-03-11T00:00:00Z',
+  syncVersion: 1,
   ...overrides,
 });
 

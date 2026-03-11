@@ -5,12 +5,17 @@ const makeLabel = (id: string, parentId?: string): Label => ({
   id,
   tenantId: 't1',
   name: id,
-  color: 'BLUE',
-  sortOrder: 0,
-  parentId,
+  slug: id,
+  type: 'USER',
+  color: null,
+  icon: null,
+  parentId: parentId ?? null,
+  level: 0,
+  orderIndex: 0,
+  isArchived: false,
   createdAt: '2026-03-11T00:00:00Z',
   updatedAt: '2026-03-11T00:00:00Z',
-} as Label);
+});
 
 beforeEach(() => {
   useLabelTreeStore.setState({ expandedIds: new Set<string>() });

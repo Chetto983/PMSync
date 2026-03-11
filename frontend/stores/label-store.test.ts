@@ -25,12 +25,18 @@ const makeLabel = (overrides: Partial<Label> = {}): Label => ({
   id: 'l1',
   tenantId: 't1',
   name: 'Work',
-  color: 'BLUE',
-  sortOrder: 0,
+  slug: 'work',
+  type: 'USER',
+  color: null,
+  icon: null,
+  parentId: null,
+  level: 0,
+  orderIndex: 0,
+  isArchived: false,
   createdAt: '2026-03-11T00:00:00Z',
   updatedAt: '2026-03-11T00:00:00Z',
   ...overrides,
-} as Label);
+});
 
 beforeEach(() => {
   useLabelStore.setState({ labels: [], isLoading: false, error: null });
@@ -58,7 +64,7 @@ describe('useLabelStore', () => {
 
   describe('createLabel', () => {
     it('appends new label to labels array', async () => {
-      const newLabel = makeLabel({ id: 'l2', name: 'Personal', color: 'GREEN' });
+      const newLabel = makeLabel({ id: 'l2', name: 'Personal' });
       (labelsApi.createLabel as jest.Mock).mockResolvedValue({ label: newLabel });
       await useLabelStore.getState().createLabel('Personal', '#00ff00');
       expect(useLabelStore.getState().labels).toHaveLength(1);
