@@ -143,7 +143,7 @@ Plans:
   1. Cross-tenant isolation test creates two tenants with distinct data, then proves queries scoped to tenant A return zero rows from tenant B (and vice versa) across all tenant-scoped models
   2. Auth guard chain test validates the full BetterAuth -> Tenant -> Roles pipeline: unauthenticated request gets 401, wrong-tenant request gets 403, insufficient-role request gets 403, valid request succeeds
   3. Contract tests exist for calendar, labels, providers, subscription, organizations, and admin endpoints -- each validates response envelope shape, required fields, and error format
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 69-01-PLAN.md -- Cross-tenant isolation tests (BINT-01): 5 domains, scoped Prisma client + CorrelationContext
 - [ ] 69-02-PLAN.md -- Auth guard chain test (BINT-02): NestJS bootstrap + supertest, 4 scenarios
@@ -193,7 +193,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 | 66. Test Infrastructure | 4/4 | Complete   | 2026-03-10 | - |
 | 67. Backend Tests - Simple Modules | 5/5 | Complete    | 2026-03-11 | - |
 | 68. Backend Tests - Complex Modules | 5/5 | Complete    | 2026-03-11 | - |
-| 69. Backend Integration Tests | 1/3 | In Progress|  | - |
+| 69. Backend Integration Tests | 2/3 | In Progress|  | - |
 | 70. Frontend Unit Tests | v5.1 | 0/? | Not started | - |
 | 71. Frontend E2E Tests | v5.1 | 0/? | Not started | - |
 | 72. MUI Audit & Polish | v5.1 | 0/? | Not started | - |
