@@ -7,7 +7,6 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
 import { GoogleOAuthService } from '../google-oauth.service';
 import { getTestPrismaClient } from '../../../../../test/helpers/prisma-test-client';
-import { cleanupTestData } from '../../../../../test/helpers/cleanup';
 import {
   createTestTenant,
   createTestUser,
@@ -43,6 +42,10 @@ describe('GoogleOAuthService', () => {
   });
 
   afterAll(async () => {
+    // Targeted cleanup: only delete rows created by this spec.
+    // cleanupTestData() (TRUNCATE CASCADE) is intentionally omitted here —
+    // running it races with other concurrent provider spec files and violates FK constraints.
+    // The global teardown handles the final TRUNCATE after all specs finish.
     if (providerIds.length > 0) {
       await prisma.providerConfig.deleteMany({ where: { id: { in: providerIds } } });
     }
@@ -52,7 +55,6 @@ describe('GoogleOAuthService', () => {
     if (tenantIds.length > 0) {
       await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
     }
-    await cleanupTestData();
   });
 
   // ---------------------------------------------------------------------------

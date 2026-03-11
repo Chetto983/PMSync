@@ -17,7 +17,6 @@ import {
   emailsApi,
   type ListEmailsParams,
   type Email,
-  type ListEmailsResponse,
   type SendEmailDto,
   type ReplyEmailDto,
   type ForwardEmailDto,
@@ -382,33 +381,18 @@ export function useBulkDeleteEmails() {
     mutationFn: async (emailIds: string[]) => {
       return await emailsApi.bulkDelete(emailIds);
     },
-    onMutate: async (emailIds) => {
-      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
-      const listQueriesData = queryClient.getQueriesData<ListEmailsResponse>({ queryKey: emailKeys.list() });
-      listQueriesData.forEach(([queryKey, data]) => {
-        if (data?.emails) {
-          queryClient.setQueryData<ListEmailsResponse>(queryKey, {
-            ...data,
-            emails: data.emails.filter((e) => !emailIds.includes(e.id)),
-          });
-        }
-      });
-      return { listQueriesData };
-    },
-    onError: (_, __, context) => {
-      context?.listQueriesData.forEach(([queryKey, data]) => {
-        queryClient.setQueryData(queryKey, data);
-      });
-      getGlobalToast().error(getGlobalTranslations().errors.deleteEmailsFailed);
-    },
-    onSettled: (_, __, emailIds) => {
-      emailIds?.forEach((id) => {
+    onSuccess: (_, emailIds) => {
+      emailIds.forEach((id) => {
         queryClient.removeQueries({ queryKey: emailKeys.detail(id) });
       });
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      // Refresh sidebar folder unread counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().errors.deleteEmailsFailed);
     },
   });
 }
@@ -423,30 +407,15 @@ export function useBulkMarkRead() {
     mutationFn: async ({ emailIds, isRead }: { emailIds: string[]; isRead: boolean }) => {
       return await emailsApi.bulkMarkRead(emailIds, isRead);
     },
-    onMutate: async ({ emailIds, isRead }) => {
-      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
-      const listQueriesData = queryClient.getQueriesData<ListEmailsResponse>({ queryKey: emailKeys.list() });
-      listQueriesData.forEach(([queryKey, data]) => {
-        if (data?.emails) {
-          queryClient.setQueryData<ListEmailsResponse>(queryKey, {
-            ...data,
-            emails: data.emails.map((e) => emailIds.includes(e.id) ? { ...e, isRead } : e),
-          });
-        }
-      });
-      return { listQueriesData };
-    },
-    onError: (_, __, context) => {
-      context?.listQueriesData.forEach(([queryKey, data]) => {
-        queryClient.setQueryData(queryKey, data);
-      });
-      getGlobalToast().error(getGlobalTranslations().errors.updateReadStatusFailed);
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      // Refresh sidebar folder unread counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().errors.updateReadStatusFailed);
     },
   });
 }
@@ -462,31 +431,13 @@ export function useBulkMarkImportant() {
     mutationFn: async ({ emailIds, isImportant }: { emailIds: string[]; isImportant: boolean }) => {
       return await emailsApi.bulkMarkImportant(emailIds, isImportant);
     },
-    onMutate: async ({ emailIds, isImportant }) => {
-      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
-      const listQueriesData = queryClient.getQueriesData<ListEmailsResponse>({ queryKey: emailKeys.list() });
-      listQueriesData.forEach(([queryKey, data]) => {
-        if (data?.emails) {
-          queryClient.setQueryData<ListEmailsResponse>(queryKey, {
-            ...data,
-            emails: data.emails.map((e) =>
-              emailIds.includes(e.id) ? { ...e, isFlagged: isImportant } : e
-            ),
-          });
-        }
-      });
-      return { listQueriesData };
-    },
-    onError: (_, __, context) => {
-      context?.listQueriesData.forEach(([queryKey, data]) => {
-        queryClient.setQueryData(queryKey, data);
-      });
-      getGlobalToast().error(getGlobalTranslations().errors.markEmailsFailed);
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().errors.markEmailsFailed);
     },
   });
 }
@@ -501,30 +452,15 @@ export function useBulkMoveEmails() {
     mutationFn: async ({ emailIds, targetFolder }: { emailIds: string[]; targetFolder: string }) => {
       return await emailsApi.bulkMove(emailIds, targetFolder);
     },
-    onMutate: async ({ emailIds }) => {
-      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
-      const listQueriesData = queryClient.getQueriesData<ListEmailsResponse>({ queryKey: emailKeys.list() });
-      listQueriesData.forEach(([queryKey, data]) => {
-        if (data?.emails) {
-          queryClient.setQueryData<ListEmailsResponse>(queryKey, {
-            ...data,
-            emails: data.emails.filter((e) => !emailIds.includes(e.id)),
-          });
-        }
-      });
-      return { listQueriesData };
-    },
-    onError: (_, __, context) => {
-      context?.listQueriesData.forEach(([queryKey, data]) => {
-        queryClient.setQueryData(queryKey, data);
-      });
-      getGlobalToast().error(getGlobalTranslations().errors.moveEmailsFailed);
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      // Refresh sidebar folder unread counts (source and target counts both change)
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+    },
+    onError: () => {
+      getGlobalToast().error(getGlobalTranslations().errors.moveEmailsFailed);
     },
   });
 }
@@ -582,10 +518,6 @@ export function useSaveDraft() {
   return useMutation({
     mutationFn: async (dto: SaveDraftDto) => {
       return await emailsApi.saveDraft(dto);
-    },
-    onMutate: async () => {
-      // Cancel inflight draft queries to prevent stale data overwriting this save
-      await queryClient.cancelQueries({ queryKey: emailKeys.drafts() });
     },
     onSuccess: (data) => {
       queryClient.setQueryData(emailKeys.draft(data.id), data.email);

@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   useBulkMoveEmails,
   useBulkMarkRead,
@@ -10,10 +9,9 @@ import {
   useUpdateEmail,
   useDeleteEmail,
   useUpdatePreferences,
-  emailKeys,
 } from '@/hooks/queries';
 import { apiClient } from '@/lib/api';
-import type { Email, ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
+import type { Email, ListEmailsParams } from '@/lib/api/emails';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import type { ThreadListItemData } from '@/components/email/list';
 import type { SenderContactMap } from '@/lib/api/contacts';
@@ -66,7 +64,6 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   const router = useRouter();
   const toast = useToast();
   const t = useTranslations();
-  const queryClient = useQueryClient();
   const { clearSelection } = useEmailUIStore();
 
   // Mutations
