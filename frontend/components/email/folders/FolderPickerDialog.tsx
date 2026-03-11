@@ -35,6 +35,7 @@ interface FolderPickerDialogProps {
     onClose: () => void;
     emailIds: string[];
     onSuccess?: () => void;
+    onMove?: (params: { emailIds: string[]; targetFolder: string }) => Promise<void>;
     /** Current folder ID of the selected emails (optional) */
     currentFolderId?: string;
     /** Provider ID to filter folders - only show folders from this provider */
@@ -46,6 +47,7 @@ export function FolderPickerDialog({
     onClose,
     emailIds,
     onSuccess,
+    onMove,
     currentFolderId,
     providerId,
 }: FolderPickerDialogProps) {
@@ -123,16 +125,20 @@ export function FolderPickerDialog({
         if (!selectedFolderId) return;
 
         try {
-            await moveEmails.mutateAsync({
-                emailIds,
-                targetFolder: selectedFolderId,
-            });
+            if (onMove) {
+                await onMove({ emailIds, targetFolder: selectedFolderId });
+            } else {
+                await moveEmails.mutateAsync({
+                    emailIds,
+                    targetFolder: selectedFolderId,
+                });
+            }
             onSuccess?.();
             onClose();
         } catch {
             setError(t.email?.messages?.moveFailed || 'Failed to move emails');
         }
-    }, [selectedFolderId, emailIds, moveEmails, onSuccess, onClose, t]);
+    }, [selectedFolderId, emailIds, moveEmails, onMove, onSuccess, onClose, t]);
 
     const emailCount = emailIds.length;
 

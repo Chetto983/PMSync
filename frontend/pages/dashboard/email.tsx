@@ -51,7 +51,7 @@ export default function EmailPage() {
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [labelPickerEmailIds, setLabelPickerEmailIds] = useState<string[]>([]);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
-  const [folderPickerEmailId, setFolderPickerEmailId] = useState<string | null>(null);
+  const [folderPickerEmailIds, setFolderPickerEmailIds] = useState<string[]>([]);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -143,10 +143,11 @@ export default function EmailPage() {
       setAccumulatedEmails(newEmails); // eslint-disable-line react-hooks/set-state-in-effect
     } else {
       setAccumulatedEmails((prev) => {
-        const existingIds = new Set(prev.map((e) => e.id));
-        const fresh = newEmails.filter((e) => !existingIds.has(e.id));
-        if (fresh.length === 0) return prev;
-        return [...prev, ...fresh];
+        const incomingById = new Map(newEmails.map((email) => [email.id, email]));
+        const next = prev.map((email) => incomingById.get(email.id) ?? email);
+        const existingIds = new Set(next.map((email) => email.id));
+        const fresh = newEmails.filter((email) => !existingIds.has(email.id));
+        return fresh.length > 0 ? [...next, ...fresh] : next;
       });
     }
   }, [emailsResponse?.emails, page]);
@@ -178,23 +179,91 @@ export default function EmailPage() {
   // Optimistic update helpers
   const optimisticUpdateEmail = useCallback(
     (emailId: string, updates: Partial<Email>) => {
-      queryClient.setQueryData<ListEmailsResponse>(
-        emailKeys.listFiltered(emailQueryParams),
-        (old) => old ? { ...old, emails: old.emails.map((e) => e.id === emailId ? { ...e, ...updates } : e) } : old
+      setAccumulatedEmails((prev) =>
+        prev.map((email) => (email.id === emailId ? { ...email, ...updates } : email))
+      );
+      queryClient.setQueriesData<ListEmailsResponse>(
+        { queryKey: emailKeys.list() },
+        (old) =>
+          old
+            ? {
+                ...old,
+                emails: old.emails.map((email) =>
+                  email.id === emailId ? { ...email, ...updates } : email
+                ),
+              }
+            : old
       );
     },
-    [queryClient, emailQueryParams]
+    [queryClient]
+  );
+
+  const optimisticUpdateEmails = useCallback(
+    (emailIds: string[], updates: Partial<Email>) => {
+      const ids = new Set(emailIds);
+      setAccumulatedEmails((prev) =>
+        prev.map((email) => (ids.has(email.id) ? { ...email, ...updates } : email))
+      );
+      queryClient.setQueriesData<ListEmailsResponse>(
+        { queryKey: emailKeys.list() },
+        (old) =>
+          old
+            ? {
+                ...old,
+                emails: old.emails.map((email) =>
+                  ids.has(email.id) ? { ...email, ...updates } : email
+                ),
+              }
+            : old
+      );
+    },
+    [queryClient]
   );
 
   const optimisticRemoveEmail = useCallback(
     (emailId: string) => {
-      queryClient.setQueryData<ListEmailsResponse>(
-        emailKeys.listFiltered(emailQueryParams),
-        (old) => old ? { ...old, emails: old.emails.filter((e) => e.id !== emailId) } : old
+      setAccumulatedEmails((prev) => prev.filter((email) => email.id !== emailId));
+      queryClient.setQueriesData<ListEmailsResponse>(
+        { queryKey: emailKeys.list() },
+        (old) =>
+          old
+            ? { ...old, emails: old.emails.filter((email) => email.id !== emailId) }
+            : old
       );
     },
-    [queryClient, emailQueryParams]
+    [queryClient]
   );
+
+  const optimisticRemoveEmails = useCallback(
+    (emailIds: string[]) => {
+      const ids = new Set(emailIds);
+      setAccumulatedEmails((prev) => prev.filter((email) => !ids.has(email.id)));
+      queryClient.setQueriesData<ListEmailsResponse>(
+        { queryKey: emailKeys.list() },
+        (old) =>
+          old
+            ? { ...old, emails: old.emails.filter((email) => !ids.has(email.id)) }
+            : old
+      );
+    },
+    [queryClient]
+  );
+
+  const captureEmailsState = useCallback(() => accumulatedEmails, [accumulatedEmails]);
+  const restoreEmailsState = useCallback((snapshot: Email[]) => {
+    setAccumulatedEmails(snapshot);
+  }, []);
+
+  const folderPickerProviderId = useMemo(() => {
+    const firstEmailId = folderPickerEmailIds[0];
+    if (!firstEmailId) return undefined;
+    return emails.find((email) => email.id === firstEmailId)?.providerId;
+  }, [emails, folderPickerEmailIds]);
+
+  const folderPickerCurrentFolderId = useMemo(() => {
+    if (folderPickerEmailIds.length !== 1) return undefined;
+    return emails.find((email) => email.id === folderPickerEmailIds[0])?.folder;
+  }, [emails, folderPickerEmailIds]);
 
   // Action handlers (extracted to hook)
   const {
@@ -205,16 +274,18 @@ export default function EmailPage() {
     handleBulkDelete, handleBulkMove, handleBulkLabel,
     handleFlag, handleArchive, handleDelete,
     handleLabelPickerSuccess, handleLabelPickerClose, getCurrentLabelIds,
-    handleEmailDrop, handleFolderReorder,
-    selectedEmailData, updateEmail, toast,
+    handleEmailDrop, handleFolderReorder, handleMoveEmailsToFolder,
+    selectedEmailData, updateEmail,
   } = useEmailPageActions({
     emails, threads,
     selectedEmail: selectedEmail ?? null,
     senderPhotos,
     emailQueryParams,
-    optimisticUpdateEmail, optimisticRemoveEmail,
+    captureEmailsState, restoreEmailsState,
+    optimisticUpdateEmail, optimisticUpdateEmails,
+    optimisticRemoveEmail, optimisticRemoveEmails,
     setSelectedThreadId, setLabelPickerOpen, setLabelPickerEmailIds,
-    setFolderPickerOpen, setFolderPickerEmailId,
+    setFolderPickerOpen, setFolderPickerEmailIds,
     foldersData, preferences,
   });
 
@@ -324,7 +395,6 @@ export default function EmailPage() {
             onBulkMove={handleBulkMove} onBulkLabel={handleBulkLabel}
             onFlag={handleFlag} onArchive={handleArchive} onDelete={handleDelete}
           />
-          <toast.ToastContainer />
         </EmailLayout>
 
         <LabelPickerDialog
@@ -335,10 +405,12 @@ export default function EmailPage() {
         />
         <FolderPickerDialog
           open={folderPickerOpen}
-          onClose={() => { setFolderPickerOpen(false); setFolderPickerEmailId(null); }}
-          emailIds={folderPickerEmailId ? [folderPickerEmailId] : []}
-          providerId={folderPickerEmailId ? emails.find((e) => e.id === folderPickerEmailId)?.providerId : undefined}
-          onSuccess={() => { setFolderPickerOpen(false); setFolderPickerEmailId(null); setSelectedThreadId(null); }}
+          onClose={() => { setFolderPickerOpen(false); setFolderPickerEmailIds([]); }}
+          emailIds={folderPickerEmailIds}
+          providerId={folderPickerProviderId}
+          currentFolderId={folderPickerCurrentFolderId}
+          onMove={handleMoveEmailsToFolder}
+          onSuccess={() => { setFolderPickerOpen(false); setFolderPickerEmailIds([]); setSelectedThreadId(null); }}
         />
         <KeyboardShortcutsDialog open={keyboardShortcutsOpen} onClose={() => setKeyboardShortcutsOpen(false)} />
 

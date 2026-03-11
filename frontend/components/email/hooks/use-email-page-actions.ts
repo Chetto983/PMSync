@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useBulkMoveEmails,
@@ -17,6 +16,7 @@ import type { ThreadListItemData } from '@/components/email/list';
 import type { SenderContactMap } from '@/lib/api/contacts';
 import { extractEmailAddress } from '@/components/email/utils/email-formatters';
 import { getAvatarUrl } from '@/lib/utils/gravatar';
+import { useGlobalToast } from '@/lib/context/toast-context';
 
 /**
  * Parameters for useEmailPageActions hook.
@@ -28,13 +28,17 @@ export interface UseEmailPageActionsParams {
   selectedEmail: Email | null | undefined;
   senderPhotos: SenderContactMap | undefined;
   emailQueryParams: ListEmailsParams;
+  captureEmailsState: () => Email[];
+  restoreEmailsState: (snapshot: Email[]) => void;
   optimisticUpdateEmail: (emailId: string, updates: Partial<Email>) => void;
+  optimisticUpdateEmails: (emailIds: string[], updates: Partial<Email>) => void;
   optimisticRemoveEmail: (emailId: string) => void;
+  optimisticRemoveEmails: (emailIds: string[]) => void;
   setSelectedThreadId: (id: string | null) => void;
   setLabelPickerOpen: (open: boolean) => void;
   setLabelPickerEmailIds: (ids: string[]) => void;
   setFolderPickerOpen: (open: boolean) => void;
-  setFolderPickerEmailId: (id: string | null) => void;
+  setFolderPickerEmailIds: (ids: string[]) => void;
   foldersData: { foldersByProvider?: Record<string, { id: string; name: string; path?: string }[]> } | undefined;
   preferences: { folderOrders?: Record<string, string[]> } | undefined;
 }
@@ -49,19 +53,24 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     threads,
     selectedEmail,
     senderPhotos,
+    emailQueryParams,
+    captureEmailsState,
+    restoreEmailsState,
     optimisticUpdateEmail,
+    optimisticUpdateEmails,
     optimisticRemoveEmail,
+    optimisticRemoveEmails,
     setSelectedThreadId,
     setLabelPickerOpen,
     setLabelPickerEmailIds,
     setFolderPickerOpen,
-    setFolderPickerEmailId,
+    setFolderPickerEmailIds,
     foldersData,
     preferences,
   } = params;
 
   const router = useRouter();
-  const toast = useToast();
+  const toast = useGlobalToast();
   const t = useTranslations();
   const { clearSelection } = useEmailUIStore();
 
@@ -72,6 +81,15 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   const updateEmail = useUpdateEmail();
   const deleteEmail = useDeleteEmail();
   const updatePreferences = useUpdatePreferences();
+
+  const shouldRemoveMovedEmailsFromCurrentView = useCallback(
+    (targetFolder: string) => {
+      const currentFolder = emailQueryParams.folder ?? emailQueryParams.specialUse;
+      if (!currentFolder) return false;
+      return currentFolder.toUpperCase() !== targetFolder.toUpperCase();
+    },
+    [emailQueryParams.folder, emailQueryParams.specialUse]
+  );
 
   // Format single email for ExpandedMessage component
   const selectedEmailData = useMemo(() => {
@@ -134,6 +152,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   }, [setLabelPickerEmailIds, setLabelPickerOpen]);
 
   const handleDeleteMessage = useCallback(async (messageId: string) => {
+    const snapshot = captureEmailsState();
     optimisticRemoveEmail(messageId);
     setSelectedThreadId(null);
 
@@ -141,38 +160,54 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       await deleteEmail.mutateAsync(messageId);
       toast.success(t.common.success ?? 'Deleted');
     } catch {
+      restoreEmailsState(snapshot);
       toast.error(t.common.genericError);
     }
-  }, [deleteEmail, toast, t, optimisticRemoveEmail, setSelectedThreadId]);
+  }, [captureEmailsState, deleteEmail, optimisticRemoveEmail, restoreEmailsState, setSelectedThreadId, t, toast]);
 
   const handleArchiveMessage = useCallback(async (messageId: string) => {
-    optimisticRemoveEmail(messageId);
+    const snapshot = captureEmailsState();
+    if (shouldRemoveMovedEmailsFromCurrentView('ARCHIVE')) {
+      optimisticRemoveEmail(messageId);
+    } else {
+      optimisticUpdateEmail(messageId, { folder: 'ARCHIVE', isArchived: true });
+    }
     setSelectedThreadId(null);
 
     try {
       await moveEmails.mutateAsync({ emailIds: [messageId], targetFolder: 'ARCHIVE' });
       toast.success(t.common.success ?? 'Archived');
     } catch {
+      restoreEmailsState(snapshot);
       toast.error(t.common.genericError);
     }
-  }, [moveEmails, toast, t, optimisticRemoveEmail, setSelectedThreadId]);
+  }, [captureEmailsState, moveEmails, optimisticRemoveEmail, optimisticUpdateEmail, restoreEmailsState, setSelectedThreadId, shouldRemoveMovedEmailsFromCurrentView, t, toast]);
 
   const handleMoveMessage = useCallback((messageId: string) => {
-    setFolderPickerEmailId(messageId);
+    setFolderPickerEmailIds([messageId]);
     setFolderPickerOpen(true);
-  }, [setFolderPickerEmailId, setFolderPickerOpen]);
+  }, [setFolderPickerEmailIds, setFolderPickerOpen]);
 
   const handleMoveMessageToFolder = useCallback(async (messageId: string, targetFolder: string) => {
-    optimisticRemoveEmail(messageId);
+    const snapshot = captureEmailsState();
+    if (shouldRemoveMovedEmailsFromCurrentView(targetFolder)) {
+      optimisticRemoveEmail(messageId);
+    } else {
+      optimisticUpdateEmail(messageId, {
+        folder: targetFolder,
+        isArchived: targetFolder.toUpperCase() === 'ARCHIVE',
+      });
+    }
     setSelectedThreadId(null);
 
     try {
       await moveEmails.mutateAsync({ emailIds: [messageId], targetFolder });
       toast.success(t.common.success ?? 'Moved');
     } catch {
+      restoreEmailsState(snapshot);
       toast.error(t.common.genericError);
     }
-  }, [moveEmails, toast, t, optimisticRemoveEmail, setSelectedThreadId]);
+  }, [captureEmailsState, moveEmails, optimisticRemoveEmail, optimisticUpdateEmail, restoreEmailsState, setSelectedThreadId, shouldRemoveMovedEmailsFromCurrentView, t, toast]);
 
   const handleDownloadAttachment = useCallback(async (messageId: string, attachmentId: string) => {
     try {
@@ -218,65 +253,72 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
 
   const handleBulkMarkAsRead = useCallback(
     async (ids: string[]) => {
-      ids.forEach((id) => optimisticUpdateEmail(id, { isRead: true }));
+      const snapshot = captureEmailsState();
+      optimisticUpdateEmails(ids, { isRead: true });
       try {
         await markRead.mutateAsync({ emailIds: ids, isRead: true });
         clearSelection();
-        toast.success(t.common.success ?? 'Done');
       } catch {
-        ids.forEach((id) => optimisticUpdateEmail(id, { isRead: false }));
+        restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [markRead, toast, t, optimisticUpdateEmail, clearSelection]
+    [captureEmailsState, clearSelection, markRead, optimisticUpdateEmails, restoreEmailsState, t, toast]
   );
 
   const handleBulkMarkAsUnread = useCallback(
     async (ids: string[]) => {
-      ids.forEach((id) => optimisticUpdateEmail(id, { isRead: false }));
+      const snapshot = captureEmailsState();
+      optimisticUpdateEmails(ids, { isRead: false });
       try {
         await markRead.mutateAsync({ emailIds: ids, isRead: false });
         clearSelection();
-        toast.success(t.common.success ?? 'Done');
       } catch {
-        ids.forEach((id) => optimisticUpdateEmail(id, { isRead: true }));
+        restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [markRead, toast, t, optimisticUpdateEmail, clearSelection]
+    [captureEmailsState, clearSelection, markRead, optimisticUpdateEmails, restoreEmailsState, t, toast]
   );
 
   const handleBulkArchive = useCallback(
     async (ids: string[]) => {
-      ids.forEach((id) => optimisticRemoveEmail(id));
+      const snapshot = captureEmailsState();
+      if (shouldRemoveMovedEmailsFromCurrentView('ARCHIVE')) {
+        optimisticRemoveEmails(ids);
+      } else {
+        optimisticUpdateEmails(ids, { folder: 'ARCHIVE', isArchived: true });
+      }
       try {
         await moveEmails.mutateAsync({ emailIds: ids, targetFolder: 'ARCHIVE' });
         clearSelection();
-        toast.success(t.common.success ?? 'Done');
       } catch {
+        restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [moveEmails, toast, t, optimisticRemoveEmail, clearSelection]
+    [captureEmailsState, clearSelection, moveEmails, optimisticRemoveEmails, optimisticUpdateEmails, restoreEmailsState, shouldRemoveMovedEmailsFromCurrentView, t, toast]
   );
 
   const handleBulkDelete = useCallback(
     async (ids: string[]) => {
-      ids.forEach((id) => optimisticRemoveEmail(id));
+      const snapshot = captureEmailsState();
+      optimisticRemoveEmails(ids);
       try {
         await bulkDelete.mutateAsync(ids);
         clearSelection();
-        toast.success(t.common.success ?? 'Done');
       } catch {
+        restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [bulkDelete, toast, t, optimisticRemoveEmail, clearSelection]
+    [bulkDelete, captureEmailsState, clearSelection, optimisticRemoveEmails, restoreEmailsState, t, toast]
   );
 
-  const handleBulkMove = useCallback((_ids: string[]) => {
-    toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
-  }, [toast, t]);
+  const handleBulkMove = useCallback((ids: string[]) => {
+    setFolderPickerEmailIds(ids);
+    setFolderPickerOpen(true);
+  }, [setFolderPickerEmailIds, setFolderPickerOpen]);
 
   const handleBulkLabel = useCallback((ids: string[]) => {
     setLabelPickerEmailIds(ids);
@@ -287,40 +329,51 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     async (id: string) => {
       const email = threads.find((t) => t.id === id);
       if (!email) return;
+      const snapshot = captureEmailsState();
+      optimisticUpdateEmail(id, { isFlagged: !email.isFlagged });
       try {
         await updateEmail.mutateAsync({
           emailId: id,
           dto: { isFlagged: !email.isFlagged },
         });
       } catch {
+        restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [threads, updateEmail, toast, t]
+    [captureEmailsState, optimisticUpdateEmail, restoreEmailsState, threads, updateEmail, toast, t]
   );
 
   const handleArchive = useCallback(
     async (id: string) => {
+      const snapshot = captureEmailsState();
+      if (shouldRemoveMovedEmailsFromCurrentView('ARCHIVE')) {
+        optimisticRemoveEmail(id);
+      } else {
+        optimisticUpdateEmail(id, { folder: 'ARCHIVE', isArchived: true });
+      }
       try {
         await moveEmails.mutateAsync({ emailIds: [id], targetFolder: 'ARCHIVE' });
-        toast.success(t.common.success ?? 'Done');
       } catch {
+        restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [moveEmails, toast, t]
+    [captureEmailsState, moveEmails, optimisticRemoveEmail, optimisticUpdateEmail, restoreEmailsState, shouldRemoveMovedEmailsFromCurrentView, t, toast]
   );
 
   const handleDelete = useCallback(
     async (id: string) => {
+      const snapshot = captureEmailsState();
+      optimisticRemoveEmail(id);
       try {
         await deleteEmail.mutateAsync(id);
-        toast.success(t.common.success ?? 'Done');
       } catch {
+        restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [deleteEmail, toast, t]
+    [captureEmailsState, deleteEmail, optimisticRemoveEmail, restoreEmailsState, t, toast]
   );
 
   const handleLabelPickerSuccess = useCallback(() => {
@@ -377,6 +430,16 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
         return;
       }
 
+      const snapshot = captureEmailsState();
+      if (shouldRemoveMovedEmailsFromCurrentView(folderId)) {
+        optimisticRemoveEmails(emailIds);
+      } else {
+        optimisticUpdateEmails(emailIds, {
+          folder: folderId,
+          isArchived: folderId.toUpperCase() === 'ARCHIVE',
+        });
+      }
+
       try {
         await moveEmails.mutateAsync({ emailIds, targetFolder: folderId });
         const message =
@@ -387,10 +450,35 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
               .replace('{folder}', folderName);
         toast.success(message);
       } catch {
+        restoreEmailsState(snapshot);
         toast.error(t.errors?.moveFailed || 'Failed to move email(s). Please try again.');
       }
     },
-    [threads, moveEmails, toast, t]
+    [captureEmailsState, moveEmails, optimisticRemoveEmails, optimisticUpdateEmails, restoreEmailsState, shouldRemoveMovedEmailsFromCurrentView, threads, toast, t]
+  );
+
+  const handleMoveEmailsToFolder = useCallback(
+    async ({ emailIds, targetFolder }: { emailIds: string[]; targetFolder: string }) => {
+      const snapshot = captureEmailsState();
+
+      if (shouldRemoveMovedEmailsFromCurrentView(targetFolder)) {
+        optimisticRemoveEmails(emailIds);
+      } else {
+        optimisticUpdateEmails(emailIds, {
+          folder: targetFolder,
+          isArchived: targetFolder.toUpperCase() === 'ARCHIVE',
+        });
+      }
+
+      try {
+        await moveEmails.mutateAsync({ emailIds, targetFolder });
+        clearSelection();
+      } catch {
+        restoreEmailsState(snapshot);
+        throw new Error('Failed to move emails');
+      }
+    },
+    [captureEmailsState, clearSelection, moveEmails, optimisticRemoveEmails, optimisticUpdateEmails, restoreEmailsState, shouldRemoveMovedEmailsFromCurrentView]
   );
 
   const handleFolderReorder = useCallback(
@@ -425,7 +513,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
     handleBulkDelete, handleBulkMove, handleBulkLabel,
     handleFlag, handleArchive, handleDelete,
     handleLabelPickerSuccess, handleLabelPickerClose, getCurrentLabelIds,
-    handleEmailDrop, handleFolderReorder,
-    selectedEmailData, updateEmail, toast,
+    handleEmailDrop, handleFolderReorder, handleMoveEmailsToFolder,
+    selectedEmailData, updateEmail,
   };
 }

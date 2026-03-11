@@ -27,6 +27,51 @@ import {
 import { emailKeys } from './email-keys';
 import { folderKeys } from './use-folders';
 import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
+
+type EmailListSnapshot = [QueryKey, { emails: Email[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined];
+
+function snapshotEmailLists(queryClient: QueryClient): EmailListSnapshot[] {
+  return queryClient.getQueriesData<{ emails: Email[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+    queryKey: emailKeys.list(),
+  });
+}
+
+function restoreEmailLists(queryClient: QueryClient, snapshots: EmailListSnapshot[]) {
+  snapshots.forEach(([queryKey, data]) => {
+    queryClient.setQueryData(queryKey, data);
+  });
+}
+
+function patchEmailLists(
+  queryClient: QueryClient,
+  matcher: (email: Email) => boolean,
+  updater: (email: Email) => Email
+) {
+  queryClient.setQueriesData<{ emails: Email[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(
+    { queryKey: emailKeys.list() },
+    (old) =>
+      old
+        ? {
+            ...old,
+            emails: old.emails.map((email) => (matcher(email) ? updater(email) : email)),
+          }
+        : old
+  );
+}
+
+function removeFromEmailLists(queryClient: QueryClient, ids: Set<string>) {
+  queryClient.setQueriesData<{ emails: Email[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(
+    { queryKey: emailKeys.list() },
+    (old) =>
+      old
+        ? {
+            ...old,
+            emails: old.emails.filter((email) => !ids.has(email.id)),
+          }
+        : old
+  );
+}
 
 // =============================================================================
 // Query Options (for sharing between hooks and prefetching)
@@ -313,9 +358,13 @@ export function useUpdateEmail() {
       return await emailsApi.updateEmail(emailId, dto);
     },
     onMutate: async ({ emailId, dto }) => {
-      await queryClient.cancelQueries({ queryKey: emailKeys.detail(emailId) });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: emailKeys.detail(emailId) }),
+        queryClient.cancelQueries({ queryKey: emailKeys.list() }),
+      ]);
 
       const previousEmail = queryClient.getQueryData<Email>(emailKeys.detail(emailId));
+      const previousLists = snapshotEmailLists(queryClient);
 
       if (previousEmail) {
         queryClient.setQueryData<Email>(emailKeys.detail(emailId), {
@@ -325,11 +374,24 @@ export function useUpdateEmail() {
         });
       }
 
-      return { previousEmail };
+      patchEmailLists(
+        queryClient,
+        (email) => email.id === emailId,
+        (email) => ({
+          ...email,
+          ...dto,
+          updatedAt: new Date().toISOString(),
+        })
+      );
+
+      return { previousEmail, previousLists };
     },
     onError: (_, { emailId }, context) => {
       if (context?.previousEmail) {
         queryClient.setQueryData(emailKeys.detail(emailId), context.previousEmail);
+      }
+      if (context?.previousLists) {
+        restoreEmailLists(queryClient, context.previousLists);
       }
       getGlobalToast().error(getGlobalTranslations().errors.updateEmailFailed);
     },
@@ -354,6 +416,12 @@ export function useDeleteEmail() {
       await emailsApi.deleteEmail(emailId);
       return emailId;
     },
+    onMutate: async (emailId: string) => {
+      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
+      const previousLists = snapshotEmailLists(queryClient);
+      removeFromEmailLists(queryClient, new Set([emailId]));
+      return { previousLists };
+    },
     onSuccess: (emailId) => {
       queryClient.removeQueries({ queryKey: emailKeys.detail(emailId) });
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
@@ -361,7 +429,10 @@ export function useDeleteEmail() {
       // Refresh sidebar folder unread counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
-    onError: () => {
+    onError: (_, __, context) => {
+      if (context?.previousLists) {
+        restoreEmailLists(queryClient, context.previousLists);
+      }
       getGlobalToast().error(getGlobalTranslations().errors.deleteEmailFailed);
     },
   });
@@ -381,6 +452,12 @@ export function useBulkDeleteEmails() {
     mutationFn: async (emailIds: string[]) => {
       return await emailsApi.bulkDelete(emailIds);
     },
+    onMutate: async (emailIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
+      const previousLists = snapshotEmailLists(queryClient);
+      removeFromEmailLists(queryClient, new Set(emailIds));
+      return { previousLists };
+    },
     onSuccess: (_, emailIds) => {
       emailIds.forEach((id) => {
         queryClient.removeQueries({ queryKey: emailKeys.detail(id) });
@@ -391,7 +468,10 @@ export function useBulkDeleteEmails() {
       // Refresh sidebar folder unread counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
-    onError: () => {
+    onError: (_, __, context) => {
+      if (context?.previousLists) {
+        restoreEmailLists(queryClient, context.previousLists);
+      }
       getGlobalToast().error(getGlobalTranslations().errors.deleteEmailsFailed);
     },
   });
@@ -407,6 +487,17 @@ export function useBulkMarkRead() {
     mutationFn: async ({ emailIds, isRead }: { emailIds: string[]; isRead: boolean }) => {
       return await emailsApi.bulkMarkRead(emailIds, isRead);
     },
+    onMutate: async ({ emailIds, isRead }) => {
+      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
+      const previousLists = snapshotEmailLists(queryClient);
+      const ids = new Set(emailIds);
+      patchEmailLists(
+        queryClient,
+        (email) => ids.has(email.id),
+        (email) => ({ ...email, isRead })
+      );
+      return { previousLists };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
@@ -414,7 +505,10 @@ export function useBulkMarkRead() {
       // Refresh sidebar folder unread counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
     },
-    onError: () => {
+    onError: (_, __, context) => {
+      if (context?.previousLists) {
+        restoreEmailLists(queryClient, context.previousLists);
+      }
       getGlobalToast().error(getGlobalTranslations().errors.updateReadStatusFailed);
     },
   });
@@ -431,12 +525,26 @@ export function useBulkMarkImportant() {
     mutationFn: async ({ emailIds, isImportant }: { emailIds: string[]; isImportant: boolean }) => {
       return await emailsApi.bulkMarkImportant(emailIds, isImportant);
     },
+    onMutate: async ({ emailIds, isImportant }) => {
+      await queryClient.cancelQueries({ queryKey: emailKeys.list() });
+      const previousLists = snapshotEmailLists(queryClient);
+      const ids = new Set(emailIds);
+      patchEmailLists(
+        queryClient,
+        (email) => ids.has(email.id),
+        (email) => ({ ...email, isFlagged: isImportant })
+      );
+      return { previousLists };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
     },
-    onError: () => {
+    onError: (_, __, context) => {
+      if (context?.previousLists) {
+        restoreEmailLists(queryClient, context.previousLists);
+      }
       getGlobalToast().error(getGlobalTranslations().errors.markEmailsFailed);
     },
   });
