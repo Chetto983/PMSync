@@ -135,7 +135,6 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   }, [setLabelPickerEmailIds, setLabelPickerOpen]);
 
   const handleDeleteMessage = useCallback(async (messageId: string) => {
-    const previousEmail = emails.find((e) => e.id === messageId);
     optimisticRemoveEmail(messageId);
     setSelectedThreadId(null);
 
@@ -143,18 +142,11 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       await deleteEmail.mutateAsync(messageId);
       toast.success(t.common.success ?? 'Deleted');
     } catch {
-      if (previousEmail) {
-        queryClient.setQueryData<ListEmailsResponse>(
-          emailKeys.listFiltered(emailQueryParams),
-          (old) => old ? { ...old, emails: [...old.emails, previousEmail] } : old
-        );
-      }
       toast.error(t.common.genericError);
     }
-  }, [deleteEmail, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, setSelectedThreadId]);
+  }, [deleteEmail, toast, t, optimisticRemoveEmail, setSelectedThreadId]);
 
   const handleArchiveMessage = useCallback(async (messageId: string) => {
-    const previousEmail = emails.find((e) => e.id === messageId);
     optimisticRemoveEmail(messageId);
     setSelectedThreadId(null);
 
@@ -162,15 +154,9 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       await moveEmails.mutateAsync({ emailIds: [messageId], targetFolder: 'ARCHIVE' });
       toast.success(t.common.success ?? 'Archived');
     } catch {
-      if (previousEmail) {
-        queryClient.setQueryData<ListEmailsResponse>(
-          emailKeys.listFiltered(emailQueryParams),
-          (old) => old ? { ...old, emails: [...old.emails, previousEmail] } : old
-        );
-      }
       toast.error(t.common.genericError);
     }
-  }, [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, setSelectedThreadId]);
+  }, [moveEmails, toast, t, optimisticRemoveEmail, setSelectedThreadId]);
 
   const handleMoveMessage = useCallback((messageId: string) => {
     setFolderPickerEmailId(messageId);
@@ -178,7 +164,6 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   }, [setFolderPickerEmailId, setFolderPickerOpen]);
 
   const handleMoveMessageToFolder = useCallback(async (messageId: string, targetFolder: string) => {
-    const previousEmail = emails.find((e) => e.id === messageId);
     optimisticRemoveEmail(messageId);
     setSelectedThreadId(null);
 
@@ -186,15 +171,9 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       await moveEmails.mutateAsync({ emailIds: [messageId], targetFolder });
       toast.success(t.common.success ?? 'Moved');
     } catch {
-      if (previousEmail) {
-        queryClient.setQueryData<ListEmailsResponse>(
-          emailKeys.listFiltered(emailQueryParams),
-          (old) => old ? { ...old, emails: [...old.emails, previousEmail] } : old
-        );
-      }
       toast.error(t.common.genericError);
     }
-  }, [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, setSelectedThreadId]);
+  }, [moveEmails, toast, t, optimisticRemoveEmail, setSelectedThreadId]);
 
   const handleDownloadAttachment = useCallback(async (messageId: string, attachmentId: string) => {
     try {
@@ -270,21 +249,16 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
 
   const handleBulkArchive = useCallback(
     async (ids: string[]) => {
-      const previousEmails = emails.filter((e) => ids.includes(e.id));
       ids.forEach((id) => optimisticRemoveEmail(id));
       try {
         await moveEmails.mutateAsync({ emailIds: ids, targetFolder: 'ARCHIVE' });
         clearSelection();
         toast.success(t.common.success ?? 'Done');
       } catch {
-        queryClient.setQueryData<ListEmailsResponse>(
-          emailKeys.listFiltered(emailQueryParams),
-          (old) => old ? { ...old, emails: [...old.emails, ...previousEmails] } : old
-        );
         toast.error(t.common.genericError);
       }
     },
-    [moveEmails, toast, t, emails, optimisticRemoveEmail, queryClient, emailQueryParams, clearSelection]
+    [moveEmails, toast, t, optimisticRemoveEmail, clearSelection]
   );
 
   const handleBulkDelete = useCallback(
