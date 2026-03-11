@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Completed 68-04-PLAN.md
-last_updated: "2026-03-11T18:28:39.971Z"
+stopped_at: Completed 68-03-PLAN.md
+last_updated: "2026-03-11T18:33:12.037Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
   percent: 91
 ---
 
@@ -73,6 +73,7 @@ Progress: [██████████] 100%
 | Phase 67-backend-tests-simple-modules P05 | 6 | 1 tasks | 1 files |
 | Phase 68-backend-tests-complex-modules P00 | 5 | 2 tasks | 2 files |
 | Phase 68-backend-tests-complex-modules P04 | 15 | 2 tasks | 4 files |
+| Phase 68-backend-tests-complex-modules P03 | 25 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,9 @@ Recent decisions affecting current work:
 - [Phase 68-00]: createTestProviderAccount uses tokenExpiresAt undefined-sentinel for explicit null override in expired-token tests
 - [Phase 68-backend-tests-complex-modules]: Lifecycle tests: per-tenant mock call assertions (calls[].some) prevent false failures from shared DB state contamination
 - [Phase 68-backend-tests-complex-modules]: PostgreSQL column for Prisma updatedAt is camelCase 'updatedAt' — raw SQL must double-quote it
+- [Phase 68-03]: Omit cleanupTestData() TRUNCATE CASCADE from provider spec afterAll — concurrent Jest workers cause FK violations when one spec truncates tenants while another is mid-test
+- [Phase 68-03]: createTestProviderAccount factory enhanced with refreshTokenEncryptionIv/tokenEncryptionIv overrides — service gates on both fields before triggering refresh
+- [Phase 68-03]: better-auth ESM mock pattern for ProviderConfigService specs: jest.mock('../../../../common/auth/better-auth.module', () => ({ BETTER_AUTH: 'BETTER_AUTH' }))
 
 ### Pending Todos
 
@@ -119,6 +123,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T18:28:39.967Z
-Stopped at: Completed 68-04-PLAN.md
+Last session: 2026-03-11T18:33:12.034Z
+Stopped at: Completed 68-03-PLAN.md
 Resume file: None
