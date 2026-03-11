@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Phase 70 context gathered
-last_updated: "2026-03-11T19:42:40.529Z"
+stopped_at: Completed 70-03-PLAN.md
+last_updated: "2026-03-11T20:17:42.640Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 20
+  completed_plans: 18
   percent: 91
 ---
 
@@ -79,6 +79,7 @@ Progress: [██████████] 100%
 | Phase 69-backend-integration-tests P02 | 8 | 1 tasks | 1 files |
 | Phase 69-backend-integration-tests P01 | 12 | 1 tasks | 1 files |
 | Phase 69 P03 | 15 | 2 tasks | 6 files |
+| Phase 70-frontend-unit-tests P03 | 20 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,9 @@ Recent decisions affecting current work:
 - [Phase 69-01]: Subscription domain uses dedicated fresh tenants — unique constraint on tenantId prevents reuse of shared test tenants
 - [Phase 69-03]: Orgs and admin contract specs use multi-path variants with soft assertions at every level — better-auth plugin routes may not appear in NestJS-generated OpenAPI spec
 - [Phase 69-03]: Error envelope assertions check for 'error' and 'meta' top-level keys only (no statusCode) — ApiExceptionFilter does not include statusCode in response body
+- [Phase 70-03]: SecuritySessionsSection revoke button has no aria-label (icon-only IconButton with Tooltip) — found via button with empty textContent
+- [Phase 70-03]: @testing-library/user-event not installed — use fireEvent from @testing-library/react instead (consistent with existing test patterns)
+- [Phase 70-03]: PasswordField mock filters MUI-only props (fullWidth, sx) to avoid React DOM warnings in tests
 
 ### Pending Todos
 
@@ -138,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T19:42:40.522Z
-Stopped at: Phase 70 context gathered
-Resume file: .planning/phases/70-frontend-unit-tests/70-CONTEXT.md
+Last session: 2026-03-11T20:17:42.620Z
+Stopped at: Completed 70-03-PLAN.md
+Resume file: None

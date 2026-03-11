@@ -36,7 +36,7 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 
 - [ ] **FTEST-01**: Zustand store tests cover all 14 store files (email-ui slices, compose, sidebar, kanban)
 - [ ] **FTEST-02**: TanStack Query hook tests cover critical data hooks (emails, folders, contacts, organizations)
-- [ ] **FTEST-03**: Settings component tests cover security-critical UI (MFA, passkeys, sessions, password)
+- [x] **FTEST-03**: Settings component tests cover security-critical UI (MFA, passkeys, sessions, password)
 
 ### Frontend E2E Tests
 
@@ -97,7 +97,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BINT-03 | Phase 69 | Complete |
 | FTEST-01 | Phase 70 | Pending |
 | FTEST-02 | Phase 70 | Pending |
-| FTEST-03 | Phase 70 | Pending |
+| FTEST-03 | Phase 70 | Complete |
 | FE2E-01 | Phase 71 | Pending |
 | FE2E-02 | Phase 71 | Pending |
 | FE2E-03 | Phase 71 | Pending |
