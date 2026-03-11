@@ -27,6 +27,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { pmSyncColors } from '@/theme/appTheme';
 import dynamic from 'next/dynamic';
 import { SeoHead } from '@/components/seo/SeoHead';
+import { minViewportHeightSx } from '@/lib/ui/viewport';
 
 const Hero = dynamic(() => import('@/components/landing/hero').then((mod) => mod.Hero));
 const Features = dynamic(() => import('@/components/landing/features').then((mod) => mod.Features));
@@ -100,7 +101,7 @@ export default function Home() {
     return (
       <Box
         sx={{
-          minHeight: '100vh',
+          ...minViewportHeightSx,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -134,7 +135,7 @@ export default function Home() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        ...minViewportHeightSx,
         bgcolor: 'background.default',
         position: 'relative',
         overflow: 'hidden',

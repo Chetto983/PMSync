@@ -3,6 +3,7 @@ import { Box, Container, Typography, Paper, Divider, Link } from '@mui/material'
 import { useRouter } from 'next/router';
 import { ArrowLeft } from 'lucide-react';
 import { SeoHead } from '@/components/seo/SeoHead';
+import { minViewportHeightSx } from '@/lib/ui/viewport';
 
 const LAST_UPDATED_DATE = 'February 26, 2026';
 
@@ -24,7 +25,7 @@ export default function TermsOfService() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 4 }}>
+    <Box sx={{ ...minViewportHeightSx, bgcolor: 'background.default', py: 4 }}>
       <SeoHead
         canonicalPath="/terms"
         description="Read the PMSync Terms of Service covering account use, provider integrations, AI features, data ownership, and service conditions."

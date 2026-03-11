@@ -85,7 +85,7 @@ export function Settings() {
 
   if (!s.hydrated) {
     return (
-      <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', p: 3 }}>
+      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', p: 3 }}>
         <CircularProgress size={28} />
       </Box>
     );

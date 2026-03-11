@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Box, Typography, Button, useTheme, alpha } from '@mui/material';
 import { pmSyncColors } from '@/theme/appTheme';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { minViewportHeightSx } from '@/lib/ui/viewport';
 
 interface ErrorProps {
   statusCode?: number;
@@ -26,7 +27,7 @@ function Error({ statusCode }: ErrorProps) {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        ...minViewportHeightSx,
         background: isDark
           ? `linear-gradient(to bottom right, ${alpha(pmSyncColors.brand.purple, 0.2)}, ${theme.palette.background.default})`
           : `linear-gradient(to bottom right, ${alpha(pmSyncColors.brand.cyan, 0.1)}, ${theme.palette.background.default})`,

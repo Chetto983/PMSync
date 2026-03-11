@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { Box, CircularProgress } from '@mui/material';
 import { authClient, type SessionUser } from '@/lib/auth-client';
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
+import { minViewportHeightSx } from '@/lib/ui/viewport';
 
 /**
  * Onboarding page.
@@ -39,7 +40,7 @@ export default function OnboardingPage() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '100vh',
+          ...minViewportHeightSx,
         }}
       >
         <CircularProgress />

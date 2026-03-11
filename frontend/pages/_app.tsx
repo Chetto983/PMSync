@@ -16,6 +16,7 @@ import {
 import { QueryProvider } from '@/lib/query-client';
 import { ToastProvider } from '@/lib/context/toast-context';
 import { lightTheme, darkTheme } from '@/theme/appTheme';
+import { minViewportHeightSx } from '@/lib/ui/viewport';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
 import '@/src/components/chat/chat-layout.css';
@@ -67,7 +68,7 @@ function AppSkeleton() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        ...minViewportHeightSx,
         bgcolor: 'background.default',
         display: 'flex',
         alignItems: 'center',

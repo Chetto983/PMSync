@@ -38,7 +38,7 @@ export default function FollowUpsPage() {
         <title>{t.ai.followUpTracker.title} | PMSync</title>
       </Head>
       <PageErrorBoundary pageName="Follow-up Tracker">
-        <Box sx={{ height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <FollowupsKanbanBoard />
         </Box>
       </PageErrorBoundary>

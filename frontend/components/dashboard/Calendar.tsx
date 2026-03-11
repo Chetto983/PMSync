@@ -142,10 +142,11 @@ export function Calendar() {
   };
 
   return (
-    <Box
+      <Box
       sx={{
-        height: 'calc(100vh - 64px)',
         display: 'flex',
+        flex: 1,
+        minHeight: 0,
         overflow: 'hidden',
         bgcolor: alpha(theme.palette.background.default, 0.5),
       }}
