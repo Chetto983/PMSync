@@ -17,6 +17,8 @@ import { QueryProvider } from '@/lib/query-client';
 import { ToastProvider } from '@/lib/context/toast-context';
 import { lightTheme, darkTheme } from '@/theme/appTheme';
 import { minViewportHeightSx } from '@/lib/ui/viewport';
+import { authClient } from '@/lib/auth-client';
+import { useLegalStatus } from '@/hooks/queries/use-data-rights';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
 import '@/src/components/chat/chat-layout.css';
@@ -85,6 +87,39 @@ function AppSkeleton() {
   );
 }
 
+function PrivateRouteGate({
+  children,
+  isPrivateRoute,
+}: {
+  children: React.ReactNode;
+  isPrivateRoute: boolean;
+}) {
+  const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
+  const user = session?.user;
+  const { data: legalStatus, isLoading: legalLoading } = useLegalStatus(isPrivateRoute && !!user);
+
+  useEffect(() => {
+    if (!isPrivateRoute || isPending || legalLoading || !user) {
+      return;
+    }
+
+    if (legalStatus?.allAccepted === false && router.pathname !== '/onboarding') {
+      void router.replace('/onboarding');
+    }
+  }, [isPrivateRoute, isPending, legalLoading, legalStatus?.allAccepted, router, user]);
+
+  if (!isPrivateRoute) {
+    return <>{children}</>;
+  }
+
+  if (isPending || !user || legalLoading || legalStatus?.allAccepted === false) {
+    return <AppSkeleton />;
+  }
+
+  return <>{children}</>;
+}
+
 export default function App({ Component, pageProps }: AppProps) {
   const mounted = useHasMounted();
   const router = useRouter();
@@ -115,7 +150,9 @@ export default function App({ Component, pageProps }: AppProps) {
       <NextThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="pmsync:theme">
         <MaterialThemeWrapper>
           <ToastProvider>
+            <PrivateRouteGate isPrivateRoute={isPrivateRoute}>
               <Component {...pageProps} />
+            </PrivateRouteGate>
           </ToastProvider>
           <SpeedInsights />
         </MaterialThemeWrapper>
