@@ -21,6 +21,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLocale } from '@/lib/hooks/use-locale';
 import type { Contact } from '@/lib/api/contacts';
 import { ProviderIcon } from './ProviderIcon';
 import { formatDate } from './contact-detail-utils';
@@ -33,6 +34,7 @@ export interface ContactInfoPanelProps {
 export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelProps) {
   const theme = useTheme();
   const t = useTranslations();
+  const { locale } = useLocale();
   const contactsCopy = t.contacts || {};
   const detailsCopy = contactsCopy.details || {};
 
@@ -217,7 +219,7 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
                     </Typography>
                   </Box>
                   <Typography variant="body1">
-                    {new Date(contact.birthday).toLocaleDateString()}
+                    {new Date(contact.birthday).toLocaleDateString(locale)}
                   </Typography>
                 </CardContent>
               </Card>
@@ -232,7 +234,7 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
                     </Typography>
                   </Box>
                   <Typography variant="body1">
-                    {new Date(contact.anniversary).toLocaleDateString()}
+                    {new Date(contact.anniversary).toLocaleDateString(locale)}
                   </Typography>
                 </CardContent>
               </Card>
@@ -295,7 +297,7 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
                   {contactsCopy.details?.lastInteraction || 'Last Interaction'}
                 </Typography>
               </Box>
-              <Typography variant="body1">{formatDate(lastInteraction, detailsCopy.never ?? 'Never')}</Typography>
+              <Typography variant="body1">{formatDate(lastInteraction, detailsCopy.never ?? 'Never', locale)}</Typography>
             </CardContent>
           </Card>
 

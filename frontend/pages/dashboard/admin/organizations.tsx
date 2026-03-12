@@ -25,8 +25,13 @@ export default function OrganizationsPage() {
     return (
       <Layout>
         <Box sx={{ p: 4 }}>
-          <Alert severity="error">
-            {t.common.genericError || 'Access denied'}
+          <Alert severity="warning">
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Accesso limitato
+            </Typography>
+            <Typography variant="body2">
+              Questa area e riservata ai super-admin. Se devi gestire organizzazioni, usa un account con privilegi adeguati oppure contatta l amministratore del workspace.
+            </Typography>
           </Alert>
         </Box>
       </Layout>

@@ -25,8 +25,13 @@ export default function AdminUsersPage() {
     return (
       <Layout>
         <Box sx={{ p: 4 }}>
-          <Alert severity="error">
-            {t.common.genericError || 'Access denied'}
+          <Alert severity="warning">
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Accesso limitato
+            </Typography>
+            <Typography variant="body2">
+              Questa area e riservata ai super-admin. Il tuo account puo continuare a usare il resto della dashboard, ma non ha accesso alla gestione utenti.
+            </Typography>
           </Alert>
         </Box>
       </Layout>

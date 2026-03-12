@@ -20,7 +20,7 @@ export function PasswordField(props: TextFieldProps) {
                 onClick={() => setShow((s) => !s)}
                 edge="end"
                 size="small"
-                aria-label={show ? 'Hide password' : 'Show password'}
+                aria-label={show ? 'Nascondi password' : 'Mostra password'}
               >
                 {show ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
               </IconButton>

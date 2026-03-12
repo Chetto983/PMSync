@@ -39,11 +39,12 @@ import Image from 'next/image';
 const UAParser = require('ua-parser-js') as { new(ua: string): { getBrowser(): { name?: string }; getOS(): { name?: string } } };
 import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLocale } from '@/lib/hooks/use-locale';
 
 const MAX_PASSKEYS = 5;
 
-function formatDate(date: string | Date) {
-  return new Date(date).toLocaleDateString(undefined, {
+function formatDate(date: string | Date, locale: string) {
+  return new Date(date).toLocaleDateString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -60,6 +61,7 @@ function getAutoPasskeyName(): string {
 
 export function SecurityMfaSection() {
   const t = useTranslations();
+  const { locale } = useLocale();
   const sec = t.settings.securityPanel;
   const mfa = sec?.mfa;
 
@@ -310,10 +312,18 @@ export function SecurityMfaSection() {
       {/* TOTP Subsection */}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: { xs: 'stretch', sm: 'center' },
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, minWidth: 0 }}>
               {totpEnabled ? <ShieldCheck size={20} /> : <Shield size={20} />}
-              <Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {mfa?.totp.title || 'Authenticator App'}
                 </Typography>
@@ -322,18 +332,40 @@ export function SecurityMfaSection() {
                 </Typography>
               </Box>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: { xs: 'stretch', sm: 'center' },
+                justifyContent: 'flex-end',
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: 1,
+                width: { xs: '100%', sm: 'auto' },
+                flexShrink: 0,
+              }}
+            >
               <Chip
                 label={totpEnabled ? (mfa?.totp.enabled || 'Enabled') : (mfa?.totp.disabled || 'Not configured')}
                 color={totpEnabled ? 'success' : 'default'}
                 size="small"
+                sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
               />
               {totpEnabled ? (
-                <Button size="small" variant="outlined" color="error" onClick={() => setDisableOpen(true)}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={() => setDisableOpen(true)}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
                   {mfa?.totp.disable || 'Disable'}
                 </Button>
               ) : (
-                <Button size="small" variant="contained" onClick={() => setEnableOpen(true)}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => setEnableOpen(true)}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
                   {mfa?.totp.enable || 'Enable'}
                 </Button>
               )}
@@ -345,8 +377,17 @@ export function SecurityMfaSection() {
       {/* Passkeys Subsection */}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: { xs: 'stretch', sm: 'center' },
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 2,
+              mb: 2,
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 {mfa?.passkeys.title || 'Passkeys'}
               </Typography>
@@ -360,6 +401,7 @@ export function SecurityMfaSection() {
               startIcon={addingPasskey ? <CircularProgress size={14} /> : <Plus size={14} />}
               onClick={handleAddPasskey}
               disabled={addingPasskey || passkeys.length >= MAX_PASSKEYS}
+              sx={{ width: { xs: '100%', sm: 'auto' }, alignSelf: { xs: 'stretch', sm: 'center' } }}
             >
               {addingPasskey
                 ? (mfa?.passkeys.adding || 'Adding...')
@@ -393,7 +435,7 @@ export function SecurityMfaSection() {
                   <ListItemText
                     primary={pk.name || 'Passkey'}
                     secondary={pk.createdAt
-                      ? `${mfa?.passkeys.registered || 'Registered'}: ${formatDate(pk.createdAt)}`
+                      ? `${mfa?.passkeys.registered || 'Registered'}: ${formatDate(pk.createdAt, locale)}`
                       : undefined
                     }
                     primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
@@ -417,8 +459,17 @@ export function SecurityMfaSection() {
       {totpEnabled && (
         <Card variant="outlined" sx={{ mb: 2 }}>
           <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Box>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: { xs: 'stretch', sm: 'center' },
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: 2,
+                mb: 2,
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   {mfa?.backupCodes.title || 'Backup Codes'}
                 </Typography>
@@ -431,6 +482,7 @@ export function SecurityMfaSection() {
                 variant="outlined"
                 startIcon={<RefreshCw size={14} />}
                 onClick={() => setRegenOpen(true)}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {mfa?.backupCodes.regenerate || 'Regenerate'}
               </Button>
@@ -488,6 +540,7 @@ export function SecurityMfaSection() {
               <TextField
                 label={sec?.password.currentPassword || 'Password'}
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 fullWidth
@@ -608,6 +661,7 @@ export function SecurityMfaSection() {
           <TextField
             label={sec?.password.currentPassword || 'Password'}
             type="password"
+            autoComplete="current-password"
             value={disablePassword}
             onChange={(e) => setDisablePassword(e.target.value)}
             fullWidth
@@ -666,6 +720,7 @@ export function SecurityMfaSection() {
           <TextField
             label={sec?.password.currentPassword || 'Password'}
             type="password"
+            autoComplete="current-password"
             value={regenPassword}
             onChange={(e) => setRegenPassword(e.target.value)}
             fullWidth

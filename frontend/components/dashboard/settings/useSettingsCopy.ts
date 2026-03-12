@@ -26,7 +26,7 @@ export function useSettingsCopy() {
     saveSuccess: settingsCopy.generalPanel?.saveSuccess || 'Saved',
     saveError: settingsCopy.generalPanel?.saveError || 'Failed',
     saving: settingsCopy.aiPanel?.saving || 'Saving...',
-    save: 'Save',
+    save: settingsCopy.generalPanel?.save || t.common?.save || 'Save',
   }), [settingsCopy]);
 
   const aiCopy = useMemo(() => ({

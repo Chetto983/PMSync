@@ -138,22 +138,40 @@ export function SecurityAccountsSection() {
 
       {PROVIDERS.map((provider) => {
         const linked = isLinked(provider.id);
+        const unlinkBlocked = linked && !canUnlink(provider.id);
         return (
           <Card key={provider.id} variant="outlined" sx={{ mb: 1 }}>
             <CardContent sx={{ py: 1.5, px: 3, '&:last-child': { pb: 1.5 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: { xs: 'stretch', sm: 'center' },
+                  justifyContent: 'space-between',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: 1.5,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
                   {provider.icon}
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {sec?.[provider.labelKey] || provider.id}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: 1,
+                    width: { xs: '100%', sm: 'auto' },
+                  }}
+                >
                   <Chip
                     label={linked ? (sec?.linked || 'Linked') : (sec?.notLinked || 'Not linked')}
                     color={linked ? 'success' : 'default'}
                     size="small"
                     variant="outlined"
+                    sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
                   />
                   {linked ? (
                     <Button
@@ -161,7 +179,8 @@ export function SecurityAccountsSection() {
                       variant="outlined"
                       color="error"
                       onClick={() => setUnlinkTarget(provider.id)}
-                      disabled={!canUnlink(provider.id)}
+                      disabled={unlinkBlocked}
+                      sx={{ width: { xs: '100%', sm: 'auto' } }}
                     >
                       {sec?.unlink || 'Unlink'}
                     </Button>
@@ -172,12 +191,18 @@ export function SecurityAccountsSection() {
                       onClick={() => handleLink(provider.id)}
                       disabled={linking === provider.id}
                       startIcon={linking === provider.id ? <CircularProgress size={14} /> : undefined}
+                      sx={{ width: { xs: '100%', sm: 'auto' } }}
                     >
                       {sec?.link || 'Link'}
                     </Button>
                   )}
                 </Box>
               </Box>
+              {unlinkBlocked && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+                  {sec?.cannotUnlinkLast || 'Non puoi scollegare il tuo unico metodo di autenticazione.'}
+                </Typography>
+              )}
             </CardContent>
           </Card>
         );

@@ -10,7 +10,7 @@
  * Design: Clean toolbar with MUI theme tokens
  */
 
-import { Box, Checkbox, IconButton, Typography, Tooltip, Divider } from '@mui/material';
+import { Box, Checkbox, IconButton, Typography, Tooltip, Divider, useMediaQuery, useTheme } from '@mui/material';
 import {
   RefreshCw,
   Mail,
@@ -77,6 +77,8 @@ export function ThreadListHeader({
   isBulkActionPending = false,
 }: ThreadListHeaderProps) {
   const t = useTranslations();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const hasSelection = selectedCount > 0;
 
@@ -93,7 +95,8 @@ export function ThreadListHeader({
       data-testid="thread-list-header"
       sx={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: hasSelection ? 'center' : { xs: 'stretch', sm: 'center' },
+        flexWrap: hasSelection ? 'nowrap' : { xs: 'wrap', sm: 'nowrap' },
         gap: 1,
         px: 2,
         py: 1,
@@ -118,10 +121,34 @@ export function ThreadListHeader({
         <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
           {t.emailList.selected.replace('{count}', selectedCount.toString())}
         </Typography>
-      ) : (
+      ) : !isMobile ? (
         <Typography variant="body2" color="text.secondary">
           {totalCount} {totalCount === 1 ? 'email' : 'emails'}
         </Typography>
+      ) : null}
+
+      {!hasSelection && isMobile && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+          <EmailSearchBar compact placeholder={t.email?.search?.placeholder || t.common?.searchPlaceholder} />
+          <Tooltip title={t.emailList.refresh}>
+            <IconButton
+              data-testid="refresh-button-mobile"
+              size="small"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              aria-label={t.emailList.refresh}
+              sx={{ p: 0.5, alignSelf: 'center', flexShrink: 0 }}
+            >
+              <RefreshCw
+                size={18}
+                strokeWidth={2}
+                style={{
+                  animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+                }}
+              />
+            </IconButton>
+          </Tooltip>
+        </Box>
       )}
 
       {/* Bulk actions - show when emails are selected */}
@@ -229,7 +256,7 @@ export function ThreadListHeader({
       )}
 
       {/* Search bar - hide when bulk actions are showing */}
-      {!hasSelection && (
+      {!hasSelection && !isMobile && (
         <>
           <Box sx={{ flex: 1 }} />
           <EmailSearchBar compact />
@@ -240,6 +267,7 @@ export function ThreadListHeader({
       {hasSelection && <Box sx={{ flex: 1 }} />}
 
       {/* Refresh button - always visible */}
+      {!isMobile && (
       <Tooltip title={t.emailList.refresh}>
         <IconButton
           data-testid="refresh-button"
@@ -258,6 +286,7 @@ export function ThreadListHeader({
           />
         </IconButton>
       </Tooltip>
+      )}
 
       {/* Spin animation for refresh icon */}
       <style jsx global>{`

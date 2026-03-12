@@ -153,7 +153,13 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
     placeholder || t.email?.search?.placeholder || 'Search... (try from:john has:attachment)';
 
   return (
-    <Box sx={{ flex: compact ? '0 1 280px' : '1 1 auto', minWidth: compact ? 180 : 200 }}>
+    <Box
+      sx={{
+        flex: compact ? { xs: '1 1 100%', sm: '0 1 280px' } : '1 1 auto',
+        minWidth: compact ? { xs: 0, sm: 180 } : 200,
+        width: { xs: '100%', sm: 'auto' },
+      }}
+    >
       <TextField
         data-testid="email-search"
         inputRef={inputRef}

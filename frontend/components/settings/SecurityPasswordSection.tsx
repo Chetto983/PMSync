@@ -145,6 +145,7 @@ export function SecurityPasswordSection() {
                 label={sec?.currentPassword || 'Current password'}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
                 fullWidth
                 sx={{ mb: 2 }}
               />
@@ -152,6 +153,7 @@ export function SecurityPasswordSection() {
                 label={sec?.newPassword || 'New password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
                 fullWidth
                 sx={{ mb: 2 }}
               />
@@ -159,6 +161,7 @@ export function SecurityPasswordSection() {
                 label={sec?.confirmPassword || 'Confirm new password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
                 fullWidth
                 sx={{ mb: 2 }}
               />
@@ -180,6 +183,7 @@ export function SecurityPasswordSection() {
                 label={sec?.newPassword || 'New password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
                 fullWidth
                 sx={{ mb: 2 }}
               />
@@ -187,6 +191,7 @@ export function SecurityPasswordSection() {
                 label={sec?.confirmPassword || 'Confirm new password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
                 fullWidth
                 sx={{ mb: 2 }}
               />

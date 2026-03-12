@@ -143,6 +143,11 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           >
             {contactsCopy.actions?.email || 'Send Email'}
           </Button>
+          {!primaryEmail && (
+            <Typography variant="caption" color="text.secondary">
+              Aggiungi un indirizzo email al contatto per inviare un messaggio.
+            </Typography>
+          )}
         </Stack>
       </Box>
 

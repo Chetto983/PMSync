@@ -30,20 +30,20 @@ export function getPrimaryEmail(contact: Contact): string | null {
   return primary?.value || contact.emails?.[0]?.value || null;
 }
 
-export function formatDate(date?: Date | string | null, fallback: string = 'Never'): string {
+export function formatDate(date?: Date | string | null, fallback: string = 'Never', locale?: string): string {
   if (!date) return fallback;
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
 }
 
-export function formatDateTime(date?: Date | string | null): string {
+export function formatDateTime(date?: Date | string | null, locale?: string): string {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

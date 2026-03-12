@@ -144,7 +144,16 @@ export function SecuritySessionsSection() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'stretch', sm: 'center' },
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2,
+          mb: 2,
+        }}
+      >
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
             {sec?.title || 'Active Sessions'}
@@ -161,6 +170,7 @@ export function SecuritySessionsSection() {
             startIcon={revokingAll ? <CircularProgress size={14} /> : <LogOut size={14} />}
             onClick={handleRevokeAll}
             disabled={revokingAll}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
             {sec?.revokeAll || 'Revoke all other sessions'}
           </Button>
