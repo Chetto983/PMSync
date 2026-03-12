@@ -61,7 +61,7 @@ export function featuresOptions() {
     queryKey: billingKeys.features(),
     queryFn: async (): Promise<SubscriptionFeatures> => {
       const response = await billingApi.getFeatures();
-      return response.features as SubscriptionFeatures;
+      return response.features as unknown as SubscriptionFeatures;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes (features change less often)
     gcTime: 30 * 60 * 1000,

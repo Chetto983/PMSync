@@ -87,7 +87,7 @@ export function useThemePersistence(): UseThemePersistenceReturn {
    * Fetch theme from database
    */
   const fetchThemeFromDB = useCallback(async (): Promise<ThemeFetchResult> => {
-    if (!isAuthenticated) return null;
+    if (!isAuthenticated) return { status: 'error' };
 
     try {
       const cachedPrefs = queryClient.getQueryData<UserPreferences>(settingsKeys.preferences());
