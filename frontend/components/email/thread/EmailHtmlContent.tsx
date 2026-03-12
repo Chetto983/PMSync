@@ -196,6 +196,7 @@ const getBaseStyles = (isDark: boolean) => `
   }
   table {
     border-collapse: collapse;
+    max-width: 100%;
   }
   blockquote {
     margin: 8px 0;
@@ -220,6 +221,38 @@ const getBaseStyles = (isDark: boolean) => `
     margin: 16px 0;
   }
 `;
+
+function normalizeMobileEmailLayout(contentRoot: HTMLElement, hostWidth: number) {
+  if (hostWidth > 640) return;
+
+  const tables = Array.from(contentRoot.querySelectorAll('table'));
+  for (const table of tables) {
+    const width = table.getBoundingClientRect().width;
+    if (width <= hostWidth + 8) continue;
+
+    table.style.width = '100%';
+    table.style.maxWidth = '100%';
+    table.style.marginLeft = '0';
+    table.style.marginRight = 'auto';
+  }
+
+  const centeredTables = Array.from(
+    contentRoot.querySelectorAll('table[align="center"], center > table')
+  );
+  for (const table of centeredTables) {
+    if (!(table instanceof HTMLElement)) continue;
+    table.style.width = '100%';
+    table.style.maxWidth = '100%';
+    table.style.marginLeft = '0';
+    table.style.marginRight = 'auto';
+  }
+
+  const images = Array.from(contentRoot.querySelectorAll('img'));
+  for (const image of images) {
+    image.style.maxWidth = '100%';
+    image.style.height = 'auto';
+  }
+}
 
 /**
  * Safely renders HTML email content using Shadow DOM
@@ -273,12 +306,20 @@ export function EmailHtmlContent({ html, className, attachments }: EmailHtmlCont
     styleElement.textContent = getBaseStyles(isDark);
 
     const contentWrapper = document.createElement('div');
+    contentWrapper.style.width = '100%';
+    contentWrapper.style.maxWidth = '100%';
+    contentWrapper.style.overflowX = 'auto';
     contentWrapper.innerHTML = sanitizedHtml;
 
     // Clear and update shadow root
     shadowRootRef.current.innerHTML = '';
     shadowRootRef.current.appendChild(styleElement);
     shadowRootRef.current.appendChild(contentWrapper);
+
+    const hostWidth = hostRef.current?.clientWidth ?? 0;
+    if (hostWidth > 0) {
+      normalizeMobileEmailLayout(contentWrapper, hostWidth);
+    }
   }, [sanitizedHtml, isDark]);
 
   // Handle link clicks within shadow DOM
