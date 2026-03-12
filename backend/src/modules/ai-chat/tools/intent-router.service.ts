@@ -44,16 +44,21 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'draft_email',
     'send_email',
     'search_contacts',
+    'semantic_search',
+    'search_emails',
   ],
   email_reply: [
     'read_email',
     'reply_email',
     'search_emails',
+    'search_contacts',
+    'semantic_search',
   ],
   email_forward: [
     'read_email',
     'forward_email',
     'search_contacts',
+    'search_emails',
   ],
   email_delete: [
     'search_emails',
@@ -78,6 +83,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'search_emails',
     'read_email',
     'semantic_search',
+    'save_memory',
   ],
 
   // Calendar intents
@@ -128,10 +134,21 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
   help: [],
   settings_view: [],
 
-  // Status check -- search + calendar for overview
+  // Data analysis -- compute + data gathering
+  data_analysis: [
+    'search_emails',
+    'semantic_search',
+    'view_calendar',
+    'list_folders',
+    'run_code',
+  ],
+
+  // Status check -- search + calendar + folders for overview
   status_check: [
     'search_emails',
     'view_calendar',
+    'list_folders',
+    'semantic_search',
   ],
 
   // Unknown fallback -- broad set for best coverage
@@ -139,6 +156,9 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'search_emails',
     'semantic_search',
     'view_calendar',
+    'search_contacts',
+    'list_folders',
+    'save_memory',
   ],
 };
 

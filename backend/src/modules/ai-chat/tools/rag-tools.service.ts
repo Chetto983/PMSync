@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from '../../ai/services/embeddings.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
+import { truncateToolResult } from '../utils/tool-result-truncator';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -54,9 +55,12 @@ export class RagToolsService {
   private buildSemanticSearch(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Search across emails, contacts, and calendar events using semantic and keyword matching. ' +
-        'Finds relevant content by meaning, not just exact text matches. ' +
-        'Example: semantic_search({ query: "project deadline discussion with marketing team", sources: ["emails", "contacts"] })',
+        'Search across emails, contacts, and calendar events by MEANING, not just keywords. ' +
+        'Use when the user describes what they are looking for in natural language: ' +
+        '"that conversation about the project deadline", "emails where Marco talked about budget". ' +
+        'Do NOT use for specific keyword/sender lookups — use search_emails instead. ' +
+        'Optionally filter by source: emails, contacts, calendar. Omit to search all. ' +
+        'Returns: array of unified results ranked by semantic similarity. Max 20 results.',
       inputSchema: z.object({
         query: z
           .string()
@@ -86,7 +90,7 @@ export class RagToolsService {
           resolved.limit ?? 10,
         );
 
-        return { results, count: results.length };
+        return truncateToolResult({ results, count: results.length });
       },
     });
   }
@@ -94,9 +98,12 @@ export class RagToolsService {
   private buildSaveMemory(tenantId: string, userId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Save a memory note that the AI can recall later. ' +
-        'Use this to remember user preferences, important facts, or decisions. ' +
-        'Example: save_memory({ content: "User prefers emails in Italian", category: "preference" })',
+        'Save a fact or preference that the AI should remember for future conversations. ' +
+        'Use when the user explicitly states a preference ("I prefer emails in Italian") ' +
+        'or when you learn an important fact about the user during conversation. ' +
+        'Categories: "preference" (user preferences), "fact" (important info), ' +
+        '"contact_note" (notes about specific contacts), "workflow" (user workflows). ' +
+        'Returns: { id, content, category, savedAt }.',
       inputSchema: z.object({
         content: z
           .string()
@@ -151,12 +158,12 @@ export class RagToolsService {
           },
         });
 
-        return {
+        return truncateToolResult({
           id: memory.id,
           content: resolved.content,
           category: resolved.category ?? null,
           savedAt: memory.createdAt,
-        };
+        });
       },
     });
   }

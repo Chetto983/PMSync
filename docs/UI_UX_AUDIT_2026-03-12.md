@@ -250,3 +250,24 @@ Browser diagnostics reported missing `autocomplete` attributes for the new passw
   - connected-account disabled unlink state now explains why it is blocked
 - Residual low-priority signal:
   - browser diagnostics still suggest an optional hidden username field for password-form autofill heuristics on the security page
+
+## Regression Verification 2
+
+- Production backend redeployed again on March 12, 2026 after attachment streaming and super-admin permission fixes
+- Verified fixed in live production:
+  - `POST /api/v1/contacts/lookup-by-emails` now returns `200` during the real inbox page load for `super-admin`
+  - `GET /api/v1/emails/:emailId/attachments/:attachmentId/download` now returns `200` and streams the file through the backend without the previous R2 CORS failure
+- Authenticated route sweep completed successfully with `200` document responses and no first-party `4xx/5xx` requests during page load for:
+  - `/dashboard`
+  - `/dashboard/email`
+  - `/dashboard/calendar`
+  - `/dashboard/contacts`
+  - `/dashboard/ai`
+  - `/dashboard/ai/follow-ups`
+  - `/dashboard/settings`
+  - `/dashboard/settings?section=security`
+  - `/dashboard/admin/users`
+  - `/dashboard/admin/organizations`
+- Residual low-priority browser warnings:
+  - a chart container warning on `/dashboard/admin/organizations` reports width and height resolving to `-1`
+  - browser diagnostics still suggest improved password-form autofill semantics on the security page

@@ -6,6 +6,7 @@ import { EmailSearchService } from '../../email/services/email-search.service';
 import { EmailCrudService } from '../../email/services/email-crud.service';
 import { EmailSendService } from '../../email/services/email-send.service';
 import { EmailFetchService } from '../../email/services/email-fetch.service';
+import { truncateToolResult } from '../utils/tool-result-truncator';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -58,8 +59,11 @@ export class EmailToolsService {
   private buildSendEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Send an email on behalf of the user. Provide recipient address, subject, and body. ' +
-        'Example: send_email({ to: "john@example.com", subject: "Meeting tomorrow", body: "Hi John, ..." })',
+        'Send an email on behalf of the user. The email is QUEUED for delivery, not sent instantly. ' +
+        'Use when the user explicitly says "send" — if they say "write" or "draft", use draft_email instead. ' +
+        'Always verify the recipient address first via search_contacts if you only have a name. ' +
+        'Returns: { jobId, to, subject, status: "queued" }. ' +
+        'Requires user approval before execution.',
       inputSchema: z.object({
         to: z.string().describe('Recipient email address'),
         cc: z.string().optional().describe('CC recipients, comma-separated'),
@@ -86,12 +90,12 @@ export class EmailToolsService {
           bodyText: resolved.body,
         });
 
-        return {
+        return truncateToolResult({
           jobId: result.jobId,
           to: toAddresses,
           subject: resolved.subject,
           status: 'queued',
-        };
+        });
       },
     });
   }
@@ -99,9 +103,11 @@ export class EmailToolsService {
   private buildSearchEmails(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Search through the user\'s emails by keyword, sender, subject, or date. ' +
-        'Returns matching emails with subject, sender, date, AI triage (priority, sentiment, labels). ' +
-        'Example: search_emails({ query: "invoice from Acme", limit: 10 })',
+        'Search emails by keyword, sender name, subject text, or date. ' +
+        'Use for SPECIFIC lookups: "emails from John", "invoices", "emails about the budget". ' +
+        'Do NOT use for vague/meaning-based queries — use semantic_search instead. ' +
+        'Returns: array of { id, from, subject, date, snippet, labels, aiPriority, aiSentiment, aiLabels }. ' +
+        'Max 50 results. Default 20.',
       inputSchema: z.object({
         query: z.string().describe('Search query (keywords, sender name, subject text)'),
         limit: z.number().optional().describe('Max results to return (default 20, max 50)'),
@@ -128,7 +134,7 @@ export class EmailToolsService {
           aiLabels: e.aiLabels ?? [],
         }));
 
-        return { results, count: results.length };
+        return truncateToolResult({ results, count: results.length });
       },
     });
   }
@@ -136,10 +142,11 @@ export class EmailToolsService {
   private buildReadEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Read the full content of a specific email by its ID. ' +
-        'Returns sender, recipients, subject, body text, labels, AI triage (priority, sentiment, labels), ' +
-        'and analysis (summary, key points, category, suggested actions). ' +
-        'Example: read_email({ emailId: "clx123abc" })',
+        'Fetch the full content of a specific email by its ID. ' +
+        'ALWAYS search first (search_emails or semantic_search) to get the ID — never guess IDs. ' +
+        'Returns: { id, from, to, cc, subject, date, bodyText (max 2000 chars), labels, isRead, isStarred, ' +
+        'aiPriority, aiSentiment, aiLabels, analysis: { summary, keyPoints, sentiment, priority, category, ' +
+        'hasDeadline, deadlineDate, needsFollowUp, followUpDate, suggestedActions } }.',
       inputSchema: z.object({
         emailId: z.string().describe('The ID of the email to read'),
       }),
@@ -151,7 +158,7 @@ export class EmailToolsService {
         });
 
         if (!email) {
-          return { error: 'Email not found', emailId: resolved.emailId };
+          return truncateToolResult({ error: 'Email not found', emailId: resolved.emailId });
         }
 
         const bodyText = typeof email.bodyText === 'string'
@@ -160,7 +167,7 @@ export class EmailToolsService {
 
         const analysis = (email as any).analysis;
 
-        return {
+        return truncateToolResult({
           id: email.id,
           from: email.from,
           to: email.to,
@@ -187,7 +194,7 @@ export class EmailToolsService {
             followUpDate: analysis.followUpDate ?? null,
             suggestedActions: analysis.suggestedActions ?? null,
           } : null,
-        };
+        });
       },
     });
   }
@@ -195,8 +202,10 @@ export class EmailToolsService {
   private buildArchiveEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Archive an email, removing it from the inbox without deleting it. ' +
-        'Example: archive_email({ emailId: "clx123abc" })',
+        'Move an email to the Archive folder, removing it from the Inbox. ' +
+        'This does NOT delete the email — it can still be found via search. ' +
+        'Use when user says "archive", "clean up", or "done with this". ' +
+        'Returns: { id, archived: true }.',
       inputSchema: z.object({
         emailId: z.string().describe('The ID of the email to archive'),
       }),
@@ -207,7 +216,7 @@ export class EmailToolsService {
           tenantId,
           { folder: 'Archive' },
         );
-        return { id: resolved.emailId, archived: true };
+        return truncateToolResult({ id: resolved.emailId, archived: true });
       },
     });
   }
@@ -215,8 +224,8 @@ export class EmailToolsService {
   private buildMoveEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Move an email to a specific folder. ' +
-        'Example: move_email({ emailId: "clx123abc", folder: "Work" })',
+        'Move an email to a specific folder. Use list_folders first if you do not know the exact folder name. ' +
+        'Returns: { id, movedTo: <folder name> }.',
       inputSchema: z.object({
         emailId: z.string().describe('The ID of the email to move'),
         folder: z.string().describe('Target folder name or path'),
@@ -228,7 +237,7 @@ export class EmailToolsService {
           tenantId,
           { folder: resolved.folder },
         );
-        return { id: resolved.emailId, movedTo: resolved.folder };
+        return truncateToolResult({ id: resolved.emailId, movedTo: resolved.folder });
       },
     });
   }
@@ -236,8 +245,9 @@ export class EmailToolsService {
   private buildDeleteEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Permanently delete an email. This action cannot be undone. ' +
-        'Example: delete_email({ emailId: "clx123abc" })',
+        'Permanently delete an email. This action CANNOT be undone. ' +
+        'Use ONLY when the user explicitly asks to delete. For cleanup, prefer archive_email. ' +
+        'Returns: { id, deleted: true }. Requires user approval before execution.',
       inputSchema: z.object({
         emailId: z.string().describe('The ID of the email to delete'),
       }),
@@ -245,7 +255,7 @@ export class EmailToolsService {
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         await this.emailCrudService.deleteEmail(resolved.emailId, tenantId);
-        return { id: resolved.emailId, deleted: true };
+        return truncateToolResult({ id: resolved.emailId, deleted: true });
       },
     });
   }
@@ -253,8 +263,10 @@ export class EmailToolsService {
   private buildForwardEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Forward an existing email to another recipient. Includes the original email body. ' +
-        'Example: forward_email({ emailId: "clx123abc", to: "jane@example.com", message: "FYI" })',
+        'Forward an existing email to another recipient, including the original email body. ' +
+        'ALWAYS search first to get the email ID, then verify the recipient via search_contacts. ' +
+        'Returns: { jobId, forwardedEmailId, to, subject, status: "queued" }. ' +
+        'Requires user approval before execution.',
       inputSchema: z.object({
         emailId: z.string().describe('The ID of the email to forward'),
         to: z.string().describe('Recipient email address for forwarding'),
@@ -268,7 +280,7 @@ export class EmailToolsService {
         });
 
         if (!original) {
-          return { error: 'Original email not found', emailId: resolved.emailId };
+          return truncateToolResult({ error: 'Original email not found', emailId: resolved.emailId });
         }
 
         const provider = await this.getDefaultProvider(tenantId);
@@ -283,13 +295,13 @@ export class EmailToolsService {
           bodyText: forwardBody,
         });
 
-        return {
+        return truncateToolResult({
           jobId: result.jobId,
           forwardedEmailId: resolved.emailId,
           to: resolved.to,
           subject: `Fwd: ${original.subject}`,
           status: 'queued',
-        };
+        });
       },
     });
   }
@@ -297,8 +309,11 @@ export class EmailToolsService {
   private buildReplyEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Reply to an email. The original sender becomes the recipient. ' +
-        'Example: reply_email({ emailId: "clx123abc", body: "Thanks for the update!" })',
+        'Reply to an email. The original sender becomes the recipient automatically. ' +
+        'ALWAYS use read_email first to understand what you are replying to. ' +
+        'Set replyAll: true to include all original recipients (CC). ' +
+        'Returns: { jobId, repliedToEmailId, to, subject, status: "queued" }. ' +
+        'Requires user approval before execution.',
       inputSchema: z.object({
         emailId: z.string().describe('The ID of the email to reply to'),
         body: z.string().describe('Reply message body'),
@@ -312,7 +327,7 @@ export class EmailToolsService {
         });
 
         if (!original) {
-          return { error: 'Original email not found', emailId: resolved.emailId };
+          return truncateToolResult({ error: 'Original email not found', emailId: resolved.emailId });
         }
 
         const provider = await this.getDefaultProvider(tenantId);
@@ -329,13 +344,13 @@ export class EmailToolsService {
           threadId: original.threadId ?? undefined,
         });
 
-        return {
+        return truncateToolResult({
           jobId: result.jobId,
           repliedToEmailId: resolved.emailId,
           to: toAddress,
           subject: `Re: ${original.subject}`,
           status: 'queued',
-        };
+        });
       },
     });
   }
@@ -343,8 +358,10 @@ export class EmailToolsService {
   private buildDraftEmail(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Create a draft email without sending it. The user can review and send later. ' +
-        'Example: draft_email({ to: "john@example.com", subject: "Proposal", body: "..." })',
+        'Create a draft email saved in the Drafts folder WITHOUT sending it. ' +
+        'Use when user says "write", "draft", "compose", or "prepare" — NOT when they say "send". ' +
+        'The user can review and send the draft later. ' +
+        'Returns: { id, subject, to, status: "draft" }.',
       inputSchema: z.object({
         to: z.string().describe('Recipient email address'),
         subject: z.string().describe('Email subject line'),
@@ -374,12 +391,12 @@ export class EmailToolsService {
           },
         });
 
-        return {
+        return truncateToolResult({
           id: draft.id,
           subject: resolved.subject,
           to: resolved.to,
           status: 'draft',
-        };
+        });
       },
     });
   }

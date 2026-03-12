@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CalendarEventsService } from '../../calendar/services/calendar-events.service';
+import { truncateToolResult } from '../utils/tool-result-truncator';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -46,9 +47,11 @@ export class CalendarToolsService {
   private buildViewCalendar(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'View calendar events within a date range. Returns event titles, times, and locations. ' +
-        'Dates should be ISO 8601 format (e.g., "2025-01-15T00:00:00Z"). ' +
-        'Example: view_calendar({ startDate: "2025-01-15T00:00:00Z", endDate: "2025-01-16T23:59:59Z" })',
+        'View calendar events within a date range. ' +
+        'If no dates are provided, returns events for today. For a weekly view, pass start and end of the week. ' +
+        'Dates must be ISO 8601 format (e.g., "2026-03-15T00:00:00Z"). ' +
+        'ALWAYS check this before creating new events to avoid conflicts. ' +
+        'Returns: array of { id, title, start, end, location, isAllDay, attendees, calendarName }.',
       inputSchema: z.object({
         startDate: z
           .string()
@@ -93,7 +96,7 @@ export class CalendarToolsService {
           calendarName: e.calendarName,
         }));
 
-        return { events: mapped, count: mapped.length };
+        return truncateToolResult({ events: mapped, count: mapped.length });
       },
     });
   }
@@ -102,8 +105,10 @@ export class CalendarToolsService {
     return tool({
       description:
         'Create a new calendar event. Provide title and start/end times at minimum. ' +
-        'Times should be ISO 8601 format. ' +
-        'Example: create_event({ title: "Team Standup", startDate: "2025-01-15T09:00:00Z", endDate: "2025-01-15T09:30:00Z" })',
+        'ALWAYS call view_calendar first to check for conflicts in the time range. ' +
+        'Use search_contacts to resolve attendee names to email addresses. ' +
+        'Times must be ISO 8601 format (e.g., "2026-03-15T09:00:00Z"). ' +
+        'Returns: { id, title, start, end, location, attendees, status: "created" }.',
       inputSchema: z.object({
         title: z.string().describe('Event title'),
         startDate: z.string().describe('Start time in ISO 8601 format'),
@@ -135,7 +140,7 @@ export class CalendarToolsService {
           attendees: attendeesFormatted,
         });
 
-        return {
+        return truncateToolResult({
           id: event.id,
           title: event.title,
           start: event.startTime,
@@ -143,7 +148,7 @@ export class CalendarToolsService {
           location: event.location,
           attendees: event.attendees,
           status: 'created',
-        };
+        });
       },
     });
   }
@@ -151,8 +156,9 @@ export class CalendarToolsService {
   private buildUpdateEvent(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Update an existing calendar event. Provide the event ID and fields to change. ' +
-        'Example: update_event({ eventId: "clx123abc", title: "Updated Standup", location: "Room B" })',
+        'Update an existing calendar event. Provide the event ID and only the fields to change. ' +
+        'ALWAYS call view_calendar first to confirm the event exists and get its current details. ' +
+        'Returns: { id, title, start, end, location, status: "updated" }.',
       inputSchema: z.object({
         eventId: z.string().describe('The ID of the event to update'),
         title: z.string().optional().describe('New event title'),
@@ -188,14 +194,14 @@ export class CalendarToolsService {
           },
         );
 
-        return {
+        return truncateToolResult({
           id: event.id,
           title: event.title,
           start: event.startTime,
           end: event.endTime,
           location: event.location,
           status: 'updated',
-        };
+        });
       },
     });
   }
@@ -203,8 +209,9 @@ export class CalendarToolsService {
   private buildDeleteEvent(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Delete a calendar event. This action cannot be undone. ' +
-        'Example: delete_event({ eventId: "clx123abc" })',
+        'Delete a calendar event permanently. This action cannot be undone. ' +
+        'Use ONLY when the user explicitly asks to cancel or delete an event. ' +
+        'Returns: { id, deleted: true }. Requires user approval before execution.',
       inputSchema: z.object({
         eventId: z.string().describe('The ID of the event to delete'),
       }),
@@ -219,7 +226,7 @@ export class CalendarToolsService {
           resolved.eventId,
         );
 
-        return { id: resolved.eventId, deleted: true };
+        return truncateToolResult({ id: resolved.eventId, deleted: true });
       },
     });
   }

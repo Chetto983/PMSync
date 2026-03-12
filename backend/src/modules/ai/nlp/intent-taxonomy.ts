@@ -32,6 +32,7 @@ export type PrimaryIntent =
   | 'farewell'
   | 'thanks'
   | 'status_check'
+  | 'data_analysis'
   | 'unknown';
 
 /** Array of all primary intents for validation */
@@ -60,6 +61,7 @@ export const PRIMARY_INTENTS: PrimaryIntent[] = [
   'farewell',
   'thanks',
   'status_check',
+  'data_analysis',
   'unknown',
 ];
 
@@ -705,6 +707,33 @@ export const INTENT_TAXONOMY: IntentDefinition[] = [
     slots: [],
     requiresAuth: true,
     priority: 'high',
+  },
+  {
+    intent: 'data_analysis',
+    description: 'User wants to analyze data, calculate, chart, or process numbers',
+    examples: {
+      en: [
+        'analyze my email stats',
+        'how many emails did I receive this week',
+        'chart my email volume',
+        'calculate the average response time',
+        'compare emails by sender',
+        'show me a breakdown of emails by label',
+        'count unread emails per folder',
+      ],
+      it: [
+        'analizza le mie statistiche email',
+        'quante email ho ricevuto questa settimana',
+        'grafico del volume email',
+        'calcola il tempo medio di risposta',
+        'confronta email per mittente',
+        'mostra una suddivisione per etichetta',
+        'conta email non lette per cartella',
+      ],
+    },
+    slots: ['date_range'],
+    requiresAuth: true,
+    priority: 'medium',
   },
   {
     intent: 'unknown',

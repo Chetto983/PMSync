@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { truncateToolResult } from '../utils/tool-result-truncator';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -43,8 +44,9 @@ export class FolderToolsService {
   private buildListFolders(tenantId: string, _piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'List all email folders for the user (Inbox, Sent, Drafts, custom folders, etc.). ' +
-        'Example: list_folders({})',
+        'List all email folders for the user (Inbox, Sent, Drafts, Archive, and custom folders). ' +
+        'Use before move_email to verify the target folder exists. ' +
+        'Returns: array of { id, name, path, type, unreadCount }.',
       inputSchema: z.object({}),
       execute: async () => {
         const folders = await this.prisma.folder.findMany({
@@ -73,7 +75,7 @@ export class FolderToolsService {
           unreadCount: f.unreadCount,
         }));
 
-        return { folders: mapped, count: mapped.length };
+        return truncateToolResult({ folders: mapped, count: mapped.length });
       },
     });
   }
@@ -81,8 +83,9 @@ export class FolderToolsService {
   private buildCreateFolder(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Create a new email folder. ' +
-        'Example: create_folder({ name: "Project Alpha" })',
+        'Create a new custom email folder. ' +
+        'Use list_folders first to check if a similar folder already exists. ' +
+        'Returns: { id, name, path, status: "created" }.',
       inputSchema: z.object({
         name: z.string().describe('Name for the new folder'),
       }),
@@ -109,12 +112,12 @@ export class FolderToolsService {
           },
         });
 
-        return {
+        return truncateToolResult({
           id: folder.id,
           name: folder.name,
           path: folder.path,
           status: 'created',
-        };
+        });
       },
     });
   }

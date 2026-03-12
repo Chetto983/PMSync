@@ -3,6 +3,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ContactsService } from '../../contacts/services/contacts.service';
+import { truncateToolResult } from '../utils/tool-result-truncator';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -49,8 +50,9 @@ export class ContactToolsService {
     return tool({
       description:
         'Search contacts by name, email address, or company. ' +
-        'Returns matching contacts with name, email, company, and phone numbers. ' +
-        'Example: search_contacts({ query: "John from Acme" })',
+        'ALWAYS use this before composing emails to verify recipient addresses. ' +
+        'Also use before create_contact to check if the contact already exists. ' +
+        'Returns: array of { id, name, email, company, jobTitle, phoneNumbers }.',
       inputSchema: z.object({
         query: z
           .string()
@@ -86,7 +88,7 @@ export class ContactToolsService {
             : [],
         }));
 
-        return { contacts: mapped, count: total };
+        return truncateToolResult({ contacts: mapped, count: total });
       },
     });
   }
@@ -94,9 +96,9 @@ export class ContactToolsService {
   private buildCreateContact(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Create a new contact in the address book. ' +
-        'At minimum, provide a name or email address. ' +
-        'Example: create_contact({ firstName: "Jane", lastName: "Doe", email: "jane@acme.com", company: "Acme" })',
+        'Add a new contact to the address book. Provide at least a name or email address. ' +
+        'ALWAYS search_contacts first to check if the contact already exists — avoid duplicates. ' +
+        'Returns: { id, name, email, company, jobTitle, status: "created" }.',
       inputSchema: z.object({
         firstName: z.string().optional().describe('Contact first name'),
         lastName: z.string().optional().describe('Contact last name'),
@@ -138,14 +140,14 @@ export class ContactToolsService {
           jobTitle: resolved.jobTitle,
         });
 
-        return {
+        return truncateToolResult({
           id: contact.id,
           name: contact.displayName,
           email: resolved.email,
           company: contact.company,
           jobTitle: contact.jobTitle,
           status: 'created',
-        };
+        });
       },
     });
   }
@@ -153,8 +155,9 @@ export class ContactToolsService {
   private buildUpdateContact(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Update an existing contact\'s information. Provide the contact ID and fields to change. ' +
-        'Example: update_contact({ contactId: "clx123abc", company: "New Corp", jobTitle: "VP" })',
+        'Update an existing contact. Provide the contact ID and only the fields to change. ' +
+        'ALWAYS use search_contacts first to find the contact and confirm the ID. ' +
+        'Returns: { id, name, company, jobTitle, status: "updated" }.',
       inputSchema: z.object({
         contactId: z.string().describe('The ID of the contact to update'),
         firstName: z.string().optional().describe('Updated first name'),
@@ -189,13 +192,13 @@ export class ContactToolsService {
           updateData as any,
         );
 
-        return {
+        return truncateToolResult({
           id: contact.id,
           name: contact.displayName,
           company: contact.company,
           jobTitle: contact.jobTitle,
           status: 'updated',
-        };
+        });
       },
     });
   }
