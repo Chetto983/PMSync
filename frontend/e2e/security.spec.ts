@@ -34,7 +34,7 @@ async function goToSecuritySettings(page: Page) {
  * PasswordField renders an MUI TextField with type="password".
  */
 async function fillPassword(page: Page, label: string, value: string) {
-  const field = page.getByLabel(label, { exact: false });
+  const field = page.getByLabel(label, { exact: true });
   await field.fill(value);
 }
 
@@ -55,7 +55,7 @@ test.describe('Security settings', () => {
 
     // Wait for the password form to load (it checks accounts first)
     await expect(
-      page.getByLabel('Current password', { exact: false }),
+      page.getByLabel('Current password', { exact: true }),
     ).toBeVisible({ timeout: 10_000 });
 
     // Step 1: Change to new password
@@ -66,7 +66,7 @@ test.describe('Security settings', () => {
     await page.getByRole('button', { name: /change password/i }).click();
 
     // Assert success
-    await expect(page.getByText(/password updated/i).or(page.getByRole('alert').filter({ hasText: /success/i }))).toBeVisible({
+    await expect(page.getByRole('alert').filter({ hasText: /password updated/i })).toBeVisible({
       timeout: 10_000,
     });
 
@@ -101,7 +101,7 @@ test.describe('Security settings', () => {
     // Navigate back to security settings (the success alert may have cleared state)
     await goToSecuritySettings(page);
     await expect(
-      page.getByLabel('Current password', { exact: false }),
+      page.getByLabel('Current password', { exact: true }),
     ).toBeVisible({ timeout: 10_000 });
 
     await fillPassword(page, 'Current password', NEW_PASSWORD);
@@ -110,7 +110,7 @@ test.describe('Security settings', () => {
 
     await page.getByRole('button', { name: /change password/i }).click();
 
-    await expect(page.getByText(/password updated/i).or(page.getByRole('alert').filter({ hasText: /success/i }))).toBeVisible({
+    await expect(page.getByRole('alert').filter({ hasText: /password updated/i })).toBeVisible({
       timeout: 10_000,
     });
   });

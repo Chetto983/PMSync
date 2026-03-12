@@ -20,12 +20,13 @@ setup('authenticate', async ({ page }) => {
     );
   });
 
-  await page.goto('/auth/login', { waitUntil: 'networkidle' });
+  await page.goto('/auth/login', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.waitForSelector('input[name="email"], input[type="email"]', { timeout: 30_000 });
   await page.fill('input[name="email"], input[type="email"]', TEST_USER_EMAIL);
   await page.fill('input[name="password"], input[type="password"]', TEST_USER_PASSWORD);
   await page.click('button[type="submit"]');
 
-  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 });
+  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 30_000 });
 
   // If user hasn't completed onboarding, walk through the wizard via UI
   if (page.url().includes('/onboarding')) {

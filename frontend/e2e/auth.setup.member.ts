@@ -20,12 +20,13 @@ setup('authenticate as member', async ({ page }) => {
     );
   });
 
-  await page.goto('/auth/login', { waitUntil: 'networkidle' });
+  await page.goto('/auth/login', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.waitForSelector('input[name="email"], input[type="email"]', { timeout: 30_000 });
   await page.fill('input[name="email"], input[type="email"]', MEMBER_EMAIL);
   await page.fill('input[name="password"], input[type="password"]', MEMBER_PASSWORD);
   await page.click('button[type="submit"]');
 
-  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 });
+  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 30_000 });
 
   // If middleware redirected to /onboarding (missing cookie), set the cookie
   // and navigate to /dashboard. The member user has onboardingComplete: true

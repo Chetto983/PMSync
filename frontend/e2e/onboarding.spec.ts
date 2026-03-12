@@ -28,11 +28,13 @@ test.describe('Onboarding wizard', () => {
       );
     });
 
-    await page.goto('/auth/login', { waitUntil: 'networkidle' });
+    await page.goto('/auth/login', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    // Wait for the login form to be interactive
+    await page.waitForSelector('input[name="email"], input[type="email"]', { timeout: 30_000 });
     await page.fill('input[name="email"], input[type="email"]', ONBOARDING_USER_EMAIL);
     await page.fill('input[name="password"], input[type="password"]', ONBOARDING_USER_PASSWORD);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 15_000 });
+    await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 30_000 });
 
     // Guard: if middleware sent us to /dashboard, onboardingComplete is already true.
     // No reset API exists — only `cd backend && npx prisma db seed` can reset it.
