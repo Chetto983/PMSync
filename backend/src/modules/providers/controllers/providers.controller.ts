@@ -55,10 +55,12 @@ export class ProvidersController {
   ): Promise<OAuthUrlResponseDto> {
     const { tenantId, userId } = req.user;
 
-    // Create secure state with PKCE using OAuthStateService
+    // Create secure state with PKCE — 'pl_' prefix distinguishes provider-link
+    // callbacks from better-auth login callbacks at the shared redirect URI.
     const { state, pkce } = await this.oauthStateService.createState('google', {
       userId,
       tenantId,
+      statePrefix: 'pl_',
     });
 
     // Generate auth URL with PKCE code_challenge
@@ -102,10 +104,12 @@ export class ProvidersController {
   ): Promise<OAuthUrlResponseDto> {
     const { tenantId, userId } = req.user;
 
-    // Create secure state with PKCE using OAuthStateService
+    // Create secure state with PKCE — 'pl_' prefix distinguishes provider-link
+    // callbacks from better-auth login callbacks at the shared redirect URI.
     const { state, pkce } = await this.oauthStateService.createState('microsoft', {
       userId,
       tenantId,
+      statePrefix: 'pl_',
     });
 
     // Generate auth URL with PKCE code_challenge

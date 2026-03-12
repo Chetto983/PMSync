@@ -15,7 +15,6 @@ import {
   type AutoConnectResult,
   type ProviderConfig,
 } from '@/lib/api/providers';
-import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { StepProps } from './types';
 
@@ -92,11 +91,9 @@ export function StepEmailProvider({ user, onComplete }: StepProps) {
     setLoading(true);
     setError('');
     try {
+      const { authUrl } = await providersApi.getGoogleAuthUrl();
       sessionStorage.setItem('pmsync:onboarding-return', 'true');
-      await authClient.linkSocial({
-        provider: 'google',
-        callbackURL: '/onboarding?autoConnect=google',
-      });
+      window.location.href = authUrl;
     } catch (err) {
       setError((err as Error).message || t.common.genericError);
       setLoading(false);
@@ -107,11 +104,9 @@ export function StepEmailProvider({ user, onComplete }: StepProps) {
     setLoading(true);
     setError('');
     try {
+      const { authUrl } = await providersApi.getMicrosoftAuthUrl();
       sessionStorage.setItem('pmsync:onboarding-return', 'true');
-      await authClient.linkSocial({
-        provider: 'microsoft',
-        callbackURL: '/onboarding?autoConnect=microsoft',
-      });
+      window.location.href = authUrl;
     } catch (err) {
       setError((err as Error).message || t.common.genericError);
       setLoading(false);

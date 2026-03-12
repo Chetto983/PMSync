@@ -84,13 +84,13 @@ export function Settings() {
     }
   }, [s.router, s.refetchProviders, s.setSelectedSection, s.setProviderSuccess, s.setProviderError]);
 
-  // Handle autoConnect after better-auth social link redirect
-  const autoConnectHandled = useRef(false);
+  // Handle provider-link OAuth callback (code + state + provider from proxy redirect)
+  const codeExchangeHandled = useRef(false);
   useEffect(() => {
-    if (!s.router.isReady || autoConnectHandled.current) return;
-    const { autoConnect } = s.router.query;
-    if (typeof autoConnect !== 'string') return;
-    autoConnectHandled.current = true;
+    if (!s.router.isReady || codeExchangeHandled.current) return;
+    const { code, state, provider } = s.router.query;
+    if (typeof code !== 'string' || typeof provider !== 'string') return;
+    codeExchangeHandled.current = true;
 
     s.setSelectedSection('accounts');
     s.router.replace(
@@ -99,15 +99,16 @@ export function Settings() {
       { shallow: true },
     );
 
-    providersApi.autoConnectSocial().then((result) => {
-      if ('connected' in result && !result.connected) {
-        s.setProviderError(result.reason || 'Auto-connect failed');
-      } else {
-        s.setProviderSuccess('Account connected successfully');
-      }
+    const connectFn = provider === 'google'
+      ? providersApi.connectGoogle({ authorizationCode: code, state: typeof state === 'string' ? state : undefined })
+      : providersApi.connectMicrosoft({ authorizationCode: code, state: typeof state === 'string' ? state : undefined });
+
+    connectFn.then(() => {
+      s.setProviderSuccess('Account connected successfully');
       s.refetchProviders();
-    }).catch(() => {
-      s.setProviderError('Failed to auto-connect provider');
+    }).catch((err) => {
+      const msg = (err as any)?.response?.data?.message || 'Failed to connect provider';
+      s.setProviderError(msg);
     });
   }, [s.router, s.refetchProviders, s.setSelectedSection, s.setProviderSuccess, s.setProviderError]);
 

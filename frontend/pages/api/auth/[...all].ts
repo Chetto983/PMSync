@@ -98,8 +98,67 @@ function rewriteAuthLocation(value: string, backendUrl: string): string {
   return value.replace(`${backendUrl}/api/auth/`, '/api/auth/');
 }
 
+/**
+ * Provider-link state prefix.
+ * Custom provider-link OAuth flows use state tokens prefixed with 'pl_'
+ * to distinguish them from better-auth social login callbacks.
+ * When detected, the proxy redirects to Settings with the authorization code
+ * instead of forwarding to better-auth.
+ */
+const PROVIDER_LINK_STATE_PREFIX = 'pl_';
+
+/**
+ * Map callback path segment → provider name for provider-link interception.
+ */
+const CALLBACK_PROVIDER_MAP: Record<string, string> = {
+  google: 'google',
+  microsoft: 'microsoft',
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+  // --- Provider-link callback interception ---
+  // OAuth callbacks hit /api/auth/callback/{provider}?code=...&state=pl_...
+  // If state starts with 'pl_', this is a provider-link flow (not better-auth login).
+  // Redirect to Settings page which exchanges the code via the providers API.
+  const slugParts = Array.isArray(req.query.all) ? req.query.all : [req.query.all];
+  if (
+    req.method === 'GET' &&
+    slugParts.length === 2 &&
+    slugParts[0] === 'callback' &&
+    typeof slugParts[1] === 'string' &&
+    CALLBACK_PROVIDER_MAP[slugParts[1]]
+  ) {
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    if (state.startsWith(PROVIDER_LINK_STATE_PREFIX)) {
+      const provider = CALLBACK_PROVIDER_MAP[slugParts[1]];
+      const code = typeof req.query.code === 'string' ? req.query.code : '';
+      const error = typeof req.query.error === 'string' ? req.query.error : '';
+
+      if (error) {
+        const errorDesc = typeof req.query.error_description === 'string'
+          ? req.query.error_description
+          : error;
+        res.redirect(
+          `/dashboard/settings?section=accounts&error=${encodeURIComponent(errorDesc)}&provider=${provider}`,
+        );
+        return;
+      }
+
+      if (!code) {
+        res.redirect(
+          `/dashboard/settings?section=accounts&error=no_code&provider=${provider}`,
+        );
+        return;
+      }
+
+      res.redirect(
+        `/dashboard/settings?section=accounts&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&provider=${provider}`,
+      );
+      return;
+    }
+  }
 
   try {
     const targetUrl = buildTargetUrl(req, backendUrl);

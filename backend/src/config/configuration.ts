@@ -375,9 +375,12 @@ export function loadConfiguration(): Configuration {
     }).filter((regex): regex is RegExp => Boolean(regex)),
   ];
 
-  // OAuth redirect URIs - use explicit environment variables or fallback to API_URL
-  const gmailRedirectUri = process.env.GOOGLE_REDIRECT_URI || `${apiUrl}/auth/gmail/callback`;
-  const microsoftRedirectUri = process.env.MICROSOFT_REDIRECT_URI || `${apiUrl}/auth/microsoft/callback`;
+  // OAuth redirect URIs — unified with better-auth callback path.
+  // Uses frontend URL so only ONE redirect URI per provider is registered in Google/Azure.
+  // The frontend auth proxy differentiates login vs provider-link via state prefix.
+  const oauthFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+  const gmailRedirectUri = process.env.GOOGLE_REDIRECT_URI || `${oauthFrontendUrl}/api/auth/callback/google`;
+  const microsoftRedirectUri = process.env.MICROSOFT_REDIRECT_URI || `${oauthFrontendUrl}/api/auth/callback/microsoft`;
 
   // SMTP config
   const smtpFromEmail = process.env.SMTP_FROM_EMAIL || 'noreply';

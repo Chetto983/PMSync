@@ -118,9 +118,11 @@ export class OAuthStateService {
       userId?: string;
       tenantId?: string;
       redirectUrl?: string;
+      /** Prefix prepended to state token (e.g. 'pl_' for provider-link flows) */
+      statePrefix?: string;
     },
   ): Promise<{ state: string; pkce: PKCEData }> {
-    const state = this.generateSecureState();
+    const state = (options?.statePrefix || '') + this.generateSecureState();
     const pkce = this.generatePKCE();
 
     const stateData: OAuthStateData = {
