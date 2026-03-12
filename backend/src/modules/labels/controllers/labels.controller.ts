@@ -53,7 +53,7 @@ export class LabelsController {
   }
 
   @Post()
-  @Roles('admin', 'manager')
+  @Roles('super-admin', 'admin', 'manager')
   @ApiOperation({ summary: 'Create label', description: 'Creates a new user label' })
   @ApiBody({ type: CreateLabelDto })
   @ApiResponse({ status: 201, description: 'Label created successfully' })
@@ -63,7 +63,7 @@ export class LabelsController {
   }
 
   @Put(':id')
-  @Roles('admin', 'manager')
+  @Roles('super-admin', 'admin', 'manager')
   @ApiOperation({ summary: 'Update label', description: 'Updates an existing label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
   @ApiBody({ type: UpdateLabelDto })
@@ -78,7 +78,7 @@ export class LabelsController {
   }
 
   @Delete(':id')
-  @Roles('admin', 'manager')
+  @Roles('super-admin', 'admin', 'manager')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete label', description: 'Deletes a user label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
@@ -88,7 +88,7 @@ export class LabelsController {
   }
 
   @Post(':id/emails')
-  @Roles('admin', 'manager')
+  @Roles('super-admin', 'admin', 'manager')
   @ApiOperation({ summary: 'Add emails to label', description: 'Adds one or more emails to a label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
   @ApiBody({ type: AddEmailsToLabelDto })
@@ -103,7 +103,7 @@ export class LabelsController {
   }
 
   @Delete(':id/emails/:emailId')
-  @Roles('admin', 'manager')
+  @Roles('super-admin', 'admin', 'manager')
   @ApiOperation({ summary: 'Remove email from label', description: 'Removes an email from a label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
   @ApiParam({ name: 'emailId', description: 'Email ID' })
@@ -127,7 +127,7 @@ export class LabelsController {
   }
 
   @Post('reorder')
-  @Roles('admin', 'manager')
+  @Roles('super-admin', 'admin', 'manager')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Reorder labels', description: 'Reorders user labels' })
   @ApiBody({ type: ReorderLabelsDto })

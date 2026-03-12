@@ -74,6 +74,16 @@ test.describe('Security settings', () => {
     await fillPassword(page, 'New password', NEW_PASSWORD);
     await fillPassword(page, 'Confirm new password', NEW_PASSWORD);
 
+    // Intercept the change-password call to log the response
+    let changePasswordStatus = 0;
+    let changePasswordBody = '';
+    page.on('response', (resp) => {
+      if (resp.url().includes('change-password')) {
+        changePasswordStatus = resp.status();
+        resp.text().then((t) => { changePasswordBody = t; }).catch(() => {});
+      }
+    });
+
     await page.getByRole('button', { name: /change password/i }).click();
 
     // Assert success
@@ -81,13 +91,17 @@ test.describe('Security settings', () => {
       timeout: 10_000,
     });
 
-    // Step 2: Verify new password works via API call (more reliable than
-    // full UI login which is fragile due to rate-limiting and scrypt lag)
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
-    const loginResp = await page.request.post(`${apiBase}/api/auth/sign-in/email`, {
+    console.log(`[password-change] status=${changePasswordStatus}, body=${changePasswordBody.slice(0, 300)}`);
+
+    // Step 2: Verify new password works via API call through Next.js proxy
+    // (more reliable than full UI login which is fragile due to rate-limiting)
+    const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3001';
+    const loginResp = await page.request.post('/api/auth/sign-in/email', {
       data: { email: ADMIN_EMAIL, password: NEW_PASSWORD },
-      headers: { Origin: 'http://localhost:3001' },
+      headers: { origin: baseURL },
     });
+    const loginBody = await loginResp.text();
+    console.log(`[password-verify] status=${loginResp.status()}, body=${loginBody.slice(0, 500)}`);
     expect(loginResp.ok()).toBeTruthy();
 
     // Step 3: Restore original password so reruns and auth.setup.ts work
