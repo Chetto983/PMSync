@@ -69,7 +69,7 @@ export function StepLegalConsent({ onComplete, isLast }: StepProps) {
         if (!legalStatus?.tosAccepted) {
           await acceptDoc.mutateAsync({
             documentType: 'TOS',
-            documentVersion: CURRENT_TOS_VERSION,
+            documentVersion: legalStatus?.currentTosVersion ?? CURRENT_TOS_VERSION,
           });
         }
 
@@ -77,7 +77,7 @@ export function StepLegalConsent({ onComplete, isLast }: StepProps) {
         if (!legalStatus?.privacyPolicyAccepted) {
           await acceptDoc.mutateAsync({
             documentType: 'PRIVACY_POLICY',
-            documentVersion: CURRENT_PP_VERSION,
+            documentVersion: legalStatus?.currentPpVersion ?? CURRENT_PP_VERSION,
           });
         }
 

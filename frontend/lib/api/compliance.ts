@@ -43,6 +43,22 @@ export interface LegalStatus {
   privacyPolicyVersion: string | null;
   privacyPolicyAcceptedAt: string | null;
   allAccepted: boolean;
+  currentTosVersion?: string | null;
+  currentPpVersion?: string | null;
+}
+
+interface RawLegalStatus {
+  tosAccepted?: boolean;
+  tosVersion?: string | null;
+  tosAcceptedAt?: string | null;
+  privacyPolicyAccepted?: boolean;
+  privacyPolicyVersion?: string | null;
+  privacyPolicyAcceptedAt?: string | null;
+  ppAccepted?: boolean;
+  ppVersion?: string | null;
+  currentTosVersion?: string | null;
+  currentPpVersion?: string | null;
+  allAccepted?: boolean;
 }
 
 export interface AcceptLegalDocumentPayload {
@@ -153,8 +169,23 @@ export const complianceApi = {
    * GET /compliance/legal/status
    */
   async getLegalStatus(): Promise<LegalStatus> {
-    const response = await apiClient.get('/compliance/legal/status');
-    return response.data;
+    const response = await apiClient.get<RawLegalStatus>('/compliance/legal/status');
+    const raw = response.data ?? {};
+    const tosAccepted = raw.tosAccepted ?? false;
+    const privacyPolicyAccepted = raw.privacyPolicyAccepted ?? raw.ppAccepted ?? false;
+
+    return {
+      tosAccepted,
+      tosVersion: raw.tosVersion ?? null,
+      tosAcceptedAt: raw.tosAcceptedAt ?? null,
+      privacyPolicyAccepted,
+      privacyPolicyVersion: raw.privacyPolicyVersion ?? raw.ppVersion ?? null,
+      privacyPolicyAcceptedAt: raw.privacyPolicyAcceptedAt ?? null,
+      allAccepted: raw.allAccepted ?? (tosAccepted && privacyPolicyAccepted),
+      currentTosVersion: raw.currentTosVersion ?? raw.tosVersion ?? null,
+      currentPpVersion:
+        raw.currentPpVersion ?? raw.privacyPolicyVersion ?? raw.ppVersion ?? null,
+    };
   },
 
   /**

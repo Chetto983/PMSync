@@ -77,6 +77,9 @@ async function seedUser(params: {
       emailVerified: true,
       twoFactorEnabled: false,
       onboardingComplete,
+      banned: false,
+      banReason: null,
+      banExpires: null,
     },
     create: {
       tenantId: params.tenantId,

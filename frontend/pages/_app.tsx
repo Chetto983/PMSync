@@ -98,6 +98,7 @@ function PrivateRouteGate({
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
   const { data: legalStatus, isLoading: legalLoading } = useLegalStatus(isPrivateRoute && !!user);
+  const legalAccepted = legalStatus?.allAccepted === true;
 
   useEffect(() => {
     if (!isPrivateRoute || isPending || legalLoading || !user) {
@@ -113,7 +114,7 @@ function PrivateRouteGate({
     return <>{children}</>;
   }
 
-  if (isPending || !user || legalLoading || legalStatus?.allAccepted === false) {
+  if (isPending || !user || legalLoading || !legalAccepted) {
     return <AppSkeleton />;
   }
 
