@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardActions, Typography, Button, Alert, Box } from '@mui/material';
-import { providersApi } from '@/lib/api/providers';
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface MicrosoftProviderCardProps {
@@ -17,12 +17,13 @@ export function MicrosoftProviderCard({ onSuccess }: MicrosoftProviderCardProps)
     setLoading(true);
     setError('');
     try {
-      const { authUrl } = await providersApi.getMicrosoftAuthUrl();
       onSuccess();
-      window.location.href = authUrl;
+      await authClient.linkSocial({
+        provider: 'microsoft',
+        callbackURL: '/dashboard/settings?section=accounts&autoConnect=microsoft',
+      });
     } catch (err) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Failed to connect Microsoft account');
+      setError((err as Error).message || 'Failed to connect Microsoft account');
       setLoading(false);
     }
   };

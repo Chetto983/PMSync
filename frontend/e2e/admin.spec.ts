@@ -1,5 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// All admin tests must run serially -- the ban/unban tests modify member state
+// which conflicts with impersonate and session tests if run in parallel.
+test.describe.configure({ mode: 'serial' });
+
 const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL ?? 'member@pmsync.local';
 const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD ?? 'MemberPassword123!';
 
@@ -207,16 +211,10 @@ test.describe.serial('Admin panel -- ban/unban', () => {
       await bannedPage.fill('input[name="password"], input[type="password"]', MEMBER_PASSWORD);
       await bannedPage.click('button[type="submit"]');
 
-      // Assert: either an error alert is visible OR the page stays on /auth/login (not redirected to /dashboard)
-      // Give generous timeout for the auth round-trip
+      // Wait for an error alert to appear (banned users get auth error)
+      // or a short delay for the response to come back
       const errorAlert = bannedPage.locator('[role="alert"]');
-      const staysOnLogin = bannedPage.waitForURL('**/auth/login**', { timeout: 5_000 }).then(() => true).catch(() => false);
-
-      // Wait for either an error alert to appear or confirm we stayed on login page
-      await Promise.race([
-        expect(errorAlert.first()).toBeVisible({ timeout: 10_000 }),
-        staysOnLogin,
-      ]);
+      await expect(errorAlert.first()).toBeVisible({ timeout: 15_000 });
 
       // Double-check: user should NOT be on dashboard
       expect(bannedPage.url()).not.toContain('/dashboard');

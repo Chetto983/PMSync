@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardActions, Typography, Button, Alert, Box } from '@mui/material';
-import { providersApi } from '@/lib/api/providers';
+import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface GoogleProviderCardProps {
@@ -17,12 +17,13 @@ export function GoogleProviderCard({ onSuccess }: GoogleProviderCardProps) {
     setLoading(true);
     setError('');
     try {
-      const { authUrl } = await providersApi.getGoogleAuthUrl();
       onSuccess();
-      window.location.href = authUrl;
+      await authClient.linkSocial({
+        provider: 'google',
+        callbackURL: '/dashboard/settings?section=accounts&autoConnect=google',
+      });
     } catch (err) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Failed to connect Google account');
+      setError((err as Error).message || 'Failed to connect Google account');
       setLoading(false);
     }
   };

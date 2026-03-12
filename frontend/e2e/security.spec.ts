@@ -25,7 +25,7 @@ async function goToSecuritySettings(page: Page) {
   });
   // Wait for the security section to be visible (MFA section loads data)
   await expect(
-    page.getByText('Two-Factor Authentication').or(page.getByText('Authenticator App')),
+    page.getByRole('heading', { name: 'Two-Factor Authentication' }),
   ).toBeVisible({ timeout: 15_000 });
 }
 
@@ -37,6 +37,10 @@ async function fillPassword(page: Page, label: string, value: string) {
   const field = page.getByLabel(label, { exact: false });
   await field.fill(value);
 }
+
+// Security tests modify shared user state (password, TOTP, passkeys)
+// and must run serially to avoid conflicts.
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Security settings', () => {
   test('change password and verify login with new password', async ({
@@ -70,6 +74,12 @@ test.describe('Security settings', () => {
     const freshContext = await browser.newContext();
     const freshPage = await freshContext.newPage();
     try {
+      await freshPage.addInitScript(() => {
+        localStorage.setItem(
+          'pmsync:cookie-consent',
+          JSON.stringify({ necessary: true, analytics: false, marketing: false }),
+        );
+      });
       await freshPage.goto('/auth/login', { waitUntil: 'networkidle' });
       await freshPage.fill(
         'input[name="email"], input[type="email"]',
@@ -80,8 +90,9 @@ test.describe('Security settings', () => {
         NEW_PASSWORD,
       );
       await freshPage.click('button[type="submit"]');
-      await freshPage.waitForURL('**/dashboard**', { timeout: 15_000 });
-      await expect(freshPage).toHaveURL(/\/dashboard/);
+      // Accept either dashboard or onboarding redirect -- verifying login worked
+      await freshPage.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 });
+      await expect(freshPage).toHaveURL(/\/(dashboard|onboarding)/);
     } finally {
       await freshContext.close();
     }
@@ -117,8 +128,8 @@ test.describe('Security settings', () => {
 
       await goToSecuritySettings(page);
 
-      // Click "Enable" on the TOTP / Authenticator App row
-      const enableButton = page.getByRole('button', { name: /^enable$/i });
+      // Click "Enable TOTP" on the Authenticator App row
+      const enableButton = page.getByRole('button', { name: /enable totp/i });
       await expect(enableButton).toBeVisible({ timeout: 10_000 });
       await enableButton.click();
 
@@ -166,17 +177,17 @@ test.describe('Security settings', () => {
       // Close the dialog
       await dialog.getByRole('button', { name: /done/i }).click();
 
-      // Verify the TOTP row now shows "Enabled" chip
+      // Verify the TOTP row now shows "TOTP is enabled" chip
       await expect(
-        page.getByText('Enabled', { exact: true }),
+        page.getByText(/TOTP is enabled/i),
       ).toBeVisible({ timeout: 5_000 });
     });
 
     test('disable TOTP', async ({ page }) => {
       await goToSecuritySettings(page);
 
-      // The TOTP row should show "Disable" button since it's enabled
-      const disableButton = page.getByRole('button', { name: /^disable$/i });
+      // The TOTP row should show "Disable TOTP" button since it's enabled
+      const disableButton = page.getByRole('button', { name: /disable totp/i });
       await expect(disableButton).toBeVisible({ timeout: 10_000 });
       await disableButton.click();
 
@@ -191,10 +202,10 @@ test.describe('Security settings', () => {
       // Wait for dialog to close and verify TOTP is disabled
       await expect(dialog).not.toBeVisible({ timeout: 10_000 });
 
-      // The chip should now show "Not configured" and Enable button should be back
+      // The chip should now show "TOTP is not configured" and Enable button should be back
       await expect(
         page.getByText(/not configured/i).or(
-          page.getByRole('button', { name: /^enable$/i }),
+          page.getByRole('button', { name: /enable totp/i }),
         ),
       ).toBeVisible({ timeout: 5_000 });
     });
@@ -271,6 +282,12 @@ test.describe('Security settings', () => {
     // Create an extra session by logging in with a separate context
     const extraContext = await browser.newContext();
     const extraPage = await extraContext.newPage();
+    await extraPage.addInitScript(() => {
+      localStorage.setItem(
+        'pmsync:cookie-consent',
+        JSON.stringify({ necessary: true, analytics: false, marketing: false }),
+      );
+    });
     await extraPage.goto('/auth/login', { waitUntil: 'networkidle' });
     await extraPage.fill(
       'input[name="email"], input[type="email"]',
@@ -281,7 +298,8 @@ test.describe('Security settings', () => {
       ADMIN_PASSWORD,
     );
     await extraPage.click('button[type="submit"]');
-    await extraPage.waitForURL('**/dashboard**', { timeout: 15_000 });
+    // Accept either dashboard or onboarding redirect -- we only need the session created
+    await extraPage.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 });
     await extraContext.close();
 
     // Now navigate to security settings with the main (authenticated) page

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -31,6 +31,7 @@ import { ConsentSettings } from '@/components/dashboard/consent/ConsentSettings'
 import { DataExportPanel } from '@/components/dashboard/data-rights/DataExportPanel';
 import { AccountDeletionPanel } from '@/components/dashboard/data-rights/AccountDeletionPanel';
 import { BillingPanel } from '@/components/billing';
+import { providersApi } from '@/lib/api/providers';
 import { useSettingsState } from './settings/useSettingsState';
 import type { SettingsSection } from './settings/useSettingsState';
 import { useSettingsCopy } from './settings/useSettingsCopy';
@@ -81,6 +82,33 @@ export function Settings() {
       s.setProviderError(error);
       s.router.replace({ pathname: s.router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
     }
+  }, [s.router, s.refetchProviders, s.setSelectedSection, s.setProviderSuccess, s.setProviderError]);
+
+  // Handle autoConnect after better-auth social link redirect
+  const autoConnectHandled = useRef(false);
+  useEffect(() => {
+    if (!s.router.isReady || autoConnectHandled.current) return;
+    const { autoConnect } = s.router.query;
+    if (typeof autoConnect !== 'string') return;
+    autoConnectHandled.current = true;
+
+    s.setSelectedSection('accounts');
+    s.router.replace(
+      { pathname: s.router.pathname, query: { section: 'accounts' } },
+      undefined,
+      { shallow: true },
+    );
+
+    providersApi.autoConnectSocial().then((result) => {
+      if ('connected' in result && !result.connected) {
+        s.setProviderError(result.reason || 'Auto-connect failed');
+      } else {
+        s.setProviderSuccess('Account connected successfully');
+      }
+      s.refetchProviders();
+    }).catch(() => {
+      s.setProviderError('Failed to auto-connect provider');
+    });
   }, [s.router, s.refetchProviders, s.setSelectedSection, s.setProviderSuccess, s.setProviderError]);
 
   if (!s.hydrated) {

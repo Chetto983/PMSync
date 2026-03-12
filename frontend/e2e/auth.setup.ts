@@ -27,63 +27,66 @@ setup('authenticate', async ({ page }) => {
 
   await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 });
 
-  // If user hasn't completed onboarding, fast-complete via proxied API + cookie
+  // If user hasn't completed onboarding, walk through the wizard via UI
   if (page.url().includes('/onboarding')) {
-    // Fetch CSRF token (required for POST requests)
-    const csrfResp = await page.request.get('/api/v1/auth/csrf-token');
-    const csrfData = await csrfResp.json();
-    const csrfToken = csrfData.csrfToken ?? '';
+    // Wait for the onboarding page to fully load
+    await page.waitForLoadState('networkidle');
 
-    const postHeaders = {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken,
-    };
+    // Check if we need to accept Terms & Privacy (Step 1)
+    const tosCheckbox = page.getByRole('checkbox').first();
+    if (await tosCheckbox.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      // Accept TOS checkbox
+      await tosCheckbox.check({ force: true });
+      // Accept Privacy Policy checkbox
+      const ppCheckbox = page.getByRole('checkbox').nth(1);
+      await ppCheckbox.check({ force: true });
 
-    // 1. Provision workspace (creates tenant if missing)
-    const wsResp = await page.request.post('/api/v1/onboarding/provision-workspace', {
-      headers: postHeaders,
-      data: { workspaceName: 'E2E Workspace' },
-    });
-    console.log(`provision-workspace: ${wsResp.status()}`);
+      // The wizard shows "Get Started" for already-onboarded users who only
+      // need legal acceptance, or "Continue" for the full onboarding flow.
+      const getStartedBtn = page.getByRole('button', { name: /get started/i });
+      const continueBtn = page.getByRole('button', { name: /continue/i });
 
-    // 2. Mark onboarding complete
-    const compResp = await page.request.post('/api/v1/onboarding/complete', {
-      headers: postHeaders,
-    });
-    console.log(`onboarding-complete: ${compResp.status()}`);
-
-    // 3. Set the middleware cookie so the redirect check is skipped
-    // Use context.addCookies() instead of page.evaluate to avoid
-    // "Execution context was destroyed" errors from mid-navigation pages
-    const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3001';
-    const cookieDomain = new URL(baseURL).hostname;
-    await page.context().addCookies([
-      {
-        name: 'pmsync:onboarding-complete',
-        value: '1',
-        domain: cookieDomain,
-        path: '/',
-        sameSite: 'Lax',
-        expires: Math.floor(Date.now() / 1000) + 31536000,
-      },
-    ]);
-
-    // Verify cookie was set
-    const cookies = await page.context().cookies();
-    const obCookie = cookies.find((c) => c.name === 'pmsync:onboarding-complete');
-    console.log(`onboarding cookie set: ${!!obCookie}, value: ${obCookie?.value}`);
-
-    // Wait for either the onboarding page to auto-redirect to dashboard,
-    // or navigate there explicitly. Use try/catch because goto may ERR_ABORT
-    // if the page is already mid-navigation from the onboarding redirect.
-    try {
-      await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 10_000 });
-    } catch {
-      // Navigation aborted -- page is likely already redirecting to dashboard
+      if (await getStartedBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await getStartedBtn.click();
+      } else if (await continueBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await continueBtn.click();
+      }
     }
+
+    // Step 2: Name confirm -- just click Continue (pre-filled)
+    const nameHeading = page.getByText('Confirm Your Name');
+    if (await nameHeading.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await page.getByRole('button', { name: /continue/i }).click();
+    }
+
+    // Step 3: Workspace -- click Continue
+    const wsText = page.getByText(/workspace is ready|Create Your Workspace/i);
+    if (await wsText.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await page.getByRole('button', { name: /continue/i }).click();
+    }
+
+    // Step 4: Email provider -- skip
+    const skipEmail = page.getByRole('button', { name: /skip for now/i });
+    if (await skipEmail.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await skipEmail.click();
+    }
+
+    // Step 5: Avatar -- skip
+    const skipAvatar = page.getByRole('button', { name: /skip/i });
+    if (await skipAvatar.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await skipAvatar.click();
+    }
+
+    // Step 6: Security -- click "Get Started" to finish
+    const getStartedFinal = page.getByRole('button', { name: /get started/i });
+    if (await getStartedFinal.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await getStartedFinal.click();
+    }
+
+    // Wait for redirect to dashboard
     await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
     await page.waitForLoadState('networkidle');
-    console.log(`after goto /dashboard, URL is: ${page.url()}`);
+    console.log(`after onboarding wizard, URL is: ${page.url()}`);
   }
 
   await expect(page).toHaveURL(/\/dashboard/);

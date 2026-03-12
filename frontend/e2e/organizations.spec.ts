@@ -54,11 +54,13 @@ test.describe('Organization flows', () => {
     });
 
     // Click "Create Organization" button
-    await page.getByRole('button', { name: /create organization/i }).click();
+    const createBtn = page.getByRole('button', { name: /create organization/i });
+    await expect(createBtn).toBeVisible({ timeout: 10_000 });
+    await createBtn.click();
 
     // Fill in org name in the dialog
-    const dialog = page.locator('div[role="dialog"]');
-    await dialog.waitFor({ state: 'visible' });
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
 
     // The first text field is name, the second is slug (auto-generated)
     const nameInput = dialog.locator('input').first();
@@ -96,13 +98,13 @@ test.describe('Organization flows', () => {
     const orgRow = page.locator('tr', { hasText: ORG_NAME }).first();
     await expect(orgRow).toBeVisible();
 
-    // Click the invite (UserPlus) icon button -- first button in the actions cell
-    const inviteBtn = orgRow.locator('button').first();
+    // Click the invite (UserPlus) icon button
+    const inviteBtn = orgRow.getByRole('button', { name: 'Invite Member' });
     await inviteBtn.click();
 
     // InviteMemberDialog should open
-    const dialog = page.locator('div[role="dialog"]');
-    await dialog.waitFor({ state: 'visible' });
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
 
     // Fill in the member email
     const emailInput = dialog.locator('input[type="email"]');
