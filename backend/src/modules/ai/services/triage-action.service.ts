@@ -173,7 +173,7 @@ export class TriageActionService {
 
       const userEmails = providers
         .map((p) => p.email?.toLowerCase())
-        .filter(Boolean) as string[];
+        .filter(Boolean);
 
       const senderLower = emailFrom.toLowerCase().trim();
       // Extract email from "Name <email>" format
@@ -220,7 +220,7 @@ export class TriageActionService {
         data: {
           tenantId: context.tenantId,
           userId: context.userId,
-          conversationId: `triage-${context.emailId}`,
+          emailId: context.emailId,
           actionType: 'CREATE_REMINDER',
           actionPayload: {
             title: `Follow up: ${context.subject || 'Email'}`,

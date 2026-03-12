@@ -168,8 +168,9 @@ test.describe.serial('Admin panel -- ban/unban', () => {
   });
 
   test('verify banned user cannot log in', async ({ browser }) => {
-    // Open a fresh unauthenticated browser context
-    const bannedCtx = await browser.newContext();
+    // Open a fresh unauthenticated browser context (explicit empty state
+    // because the chromium project inherits admin storageState)
+    const bannedCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const bannedPage = await bannedCtx.newPage();
 
     try {

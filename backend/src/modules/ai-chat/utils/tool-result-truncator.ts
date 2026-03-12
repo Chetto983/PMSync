@@ -33,13 +33,13 @@ export function truncateToolResult<T extends Record<string, unknown>>(
   for (const key of arrayKeys) {
     if (Array.isArray(result[key])) {
       const copy = { ...result, [key]: [...(result[key] as unknown[])] };
-      const originalCount = (copy[key] as unknown[]).length;
+      const originalCount = (copy[key]).length;
 
       while (
         JSON.stringify(copy).length > MAX_TOOL_RESULT_CHARS &&
-        (copy[key] as unknown[]).length > 1
+        (copy[key]).length > 1
       ) {
-        (copy[key] as unknown[]).pop();
+        (copy[key]).pop();
       }
 
       (copy as Record<string, unknown>).truncated = true;
@@ -58,7 +58,7 @@ export function truncateToolResult<T extends Record<string, unknown>>(
       copy.bodyText as string
     ).slice(0, maxBody);
     (copy as Record<string, unknown>).bodyTruncated = true;
-    return copy as T;
+    return copy;
   }
 
   // Strategy 3: Fallback — return a truncation notice

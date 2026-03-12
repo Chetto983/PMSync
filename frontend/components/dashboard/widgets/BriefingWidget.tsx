@@ -5,6 +5,7 @@
 'use client';
 
 import { useBriefing, useRecentUnreadEmails } from '@/hooks/queries/use-dashboard';
+import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import { Box, Typography, Chip, Stack } from '@mui/material';
@@ -12,8 +13,18 @@ import { Sparkles, AlertCircle, Calendar, Mail, Users } from 'lucide-react';
 
 export function BriefingWidget() {
   const t = useTranslations();
-  const { data, isLoading, error, refetch } = useBriefing();
-  const { data: recentEmails } = useRecentUnreadEmails({ limit: 3 });
+  const { data: consentList, isLoading: consentLoading } = useConsent();
+  const hasAiConsent =
+    consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
+  const { data, isLoading, error, refetch } = useBriefing(hasAiConsent);
+  const { data: recentEmails } = useRecentUnreadEmails({ limit: 3 }, hasAiConsent);
+  const noConsentMessage =
+    t.settings?.consentPanel?.features?.ai_email_processing?.description ||
+    'Enable AI email processing in Settings to see your daily briefing.';
+  const loading = consentLoading || isLoading;
+  const emptyText = hasAiConsent
+    ? t.dashboard?.widgets?.common?.noItems || 'No items'
+    : noConsentMessage;
 
   // Generate highlights from recent emails if briefing highlights are empty
   const highlights = data?.highlights?.length
@@ -28,11 +39,13 @@ export function BriefingWidget() {
     <BaseWidget
       id="briefing"
       title={t.dashboard?.widgets?.briefing?.title || 'Daily Briefing'}
-      loading={isLoading}
-      error={error?.message}
+      loading={loading}
+      error={hasAiConsent ? error?.message : undefined}
       rawError={error}
-      onRefresh={() => refetch()}
+      onRefresh={hasAiConsent ? () => refetch() : undefined}
       icon={<Sparkles size={18} />}
+      isEmpty={!loading && (!hasAiConsent || !data)}
+      emptyText={emptyText}
     >
       {data && (
         <Stack spacing={2.5}>

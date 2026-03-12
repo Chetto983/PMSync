@@ -179,6 +179,8 @@ export class FollowUpDetectionService {
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
       await this.trackUsage();
+      // Persist detected follow-ups as EmailFollowUp records (backfill for un-triaged emails)
+      await this.persistDetectedFollowUps(result.output, tenantId);
       return { data: result.output };
     } catch (firstError) {
       if (NoObjectGeneratedError.isInstance(firstError)) {
@@ -215,6 +217,7 @@ export class FollowUpDetectionService {
           }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
           await this.trackUsage();
+          await this.persistDetectedFollowUps(retryResult.output, tenantId);
           return { data: retryResult.output };
         } catch (retryError) {
           this.logger.error(`Follow-up detection retry failed: ${retryError}`);
@@ -248,6 +251,52 @@ export class FollowUpDetectionService {
         error: 'Follow-up detection failed',
       };
     }
+  }
+
+  /**
+   * Persist LLM-detected follow-ups as EmailFollowUp records (backfill path).
+   * Skips emails that already have a follow-up record (upsert on emailId).
+   */
+  private async persistDetectedFollowUps(
+    output: FollowUpDetectionOutput,
+    tenantId: string,
+  ): Promise<void> {
+    if (!output.detectedFollowUps || output.detectedFollowUps.length === 0) return;
+
+    for (const det of output.detectedFollowUps) {
+      try {
+        // Resolve userId from the email's provider config
+        const email = await this.prisma.email.findFirst({
+          where: { id: det.emailId, tenantId },
+          select: { provider: { select: { userId: true } } },
+        });
+        const userId = email?.provider?.userId;
+        if (!userId) {
+          this.logger.debug(`Skipped follow-up for ${det.emailId}: no userId on provider`);
+          continue;
+        }
+
+        await this.prisma.emailFollowUp.upsert({
+          where: { emailId_tenantId: { emailId: det.emailId, tenantId } },
+          update: {}, // Don't overwrite if already exists
+          create: {
+            emailId: det.emailId,
+            tenantId,
+            userId,
+            reason: det.reason,
+            dueDate: det.suggestedDueDate ? new Date(det.suggestedDueDate) : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+            status: 'PENDING',
+            followUpType: 'TODO',
+            confidence: det.confidence,
+          },
+        });
+      } catch (err) {
+        // P2003 = FK violation (email deleted between detection and persist), P2002 = unique constraint
+        this.logger.debug(`Skipped follow-up persist for ${det.emailId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    this.logger.log(`Persisted ${output.detectedFollowUps.length} detected follow-ups for tenant ${tenantId}`);
   }
 
   private async trackUsage() {

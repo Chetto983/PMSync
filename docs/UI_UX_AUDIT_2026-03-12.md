@@ -412,3 +412,32 @@ Browser diagnostics reported missing `autocomplete` attributes for the new passw
   1. dashboard AI briefing is not consent-gated
   2. admin users page is not truly responsive
   3. profile page still has localization drift
+
+### 2026-03-12 Follow-up: Labels 403 Retest
+
+- Symptom reported:
+  - repeated `GET /api/v1/labels` `403` in the mobile email shell
+- Root cause:
+  - could not reproduce as a live backend permission failure
+  - production `/api/v1/labels` now returns `200` with the authenticated mobile session
+  - the frontend query client was still retrying `401` and `403`, which amplified transient auth-state misses into repeated console noise
+- Fix shipped:
+  - shared TanStack Query defaults now use the same `shouldRetryQuery()` policy already applied in billing/settings hooks
+  - default queries no longer retry `401`, `403`, or `429`
+- Post-deploy verification:
+  - `/dashboard/email` on mobile
+  - `GET /api/v1/labels` -> `200`
+  - no console errors during the focused retest
+
+### 2026-03-12 Follow-up: Dashboard Consent Gate + Profile Localization
+
+- Fix shipped:
+  - the dashboard briefing widget now waits for `ai_email_processing` consent before querying `/api/v1/ai/briefing`
+  - the AI daily briefing component follows the same consent gate
+  - the profile page title now uses localized settings copy instead of a hard-coded English heading
+- Post-deploy verification:
+  - `/dashboard` on mobile
+  - no `GET /api/v1/ai/briefing` request when AI email processing consent is disabled
+  - no console errors during the focused retest
+  - consent explanation is shown instead of a raw error state
+  - `/dashboard/profile` header renders `Impostazioni profilo`

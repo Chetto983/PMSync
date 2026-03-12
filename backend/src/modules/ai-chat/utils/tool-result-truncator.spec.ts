@@ -101,7 +101,7 @@ describe('truncateToolResult', () => {
 
       const truncated = truncateToolResult(result);
       expect(truncated.bodyTruncated).toBe(true);
-      expect((truncated.bodyText as string).length).toBeLessThan(20_000);
+      expect((truncated.bodyText).length).toBeLessThan(20_000);
     });
 
     it('preserves at least 200 chars of bodyText', () => {
@@ -113,7 +113,7 @@ describe('truncateToolResult', () => {
       };
 
       const truncated = truncateToolResult(result);
-      expect((truncated.bodyText as string).length).toBeGreaterThanOrEqual(200);
+      expect((truncated.bodyText).length).toBeGreaterThanOrEqual(200);
     });
   });
 

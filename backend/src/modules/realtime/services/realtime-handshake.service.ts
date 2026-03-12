@@ -87,7 +87,7 @@ export class RealtimeHandshakeService {
       try {
         return (await this.realtimeAuthTokenService.verifyToken(
           handshakeToken,
-        )) as RealtimeAuthSessionResult;
+        ));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(

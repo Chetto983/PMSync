@@ -31,6 +31,7 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useBriefing, useRecentUnreadEmails, type Email } from '@/hooks/queries';
+import { useConsent } from '@/hooks/queries/use-consent';
 
 interface DailyBriefingProps {
   userName?: string;
@@ -51,8 +52,11 @@ export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
-  const { data: briefing, isLoading, refetch, isRefetching } = useBriefing();
-  const { data: unreadData } = useRecentUnreadEmails({ limit: 5 });
+  const { data: consentList, isLoading: consentLoading } = useConsent();
+  const hasAiConsent =
+    consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
+  const { data: briefing, isLoading, refetch, isRefetching } = useBriefing(hasAiConsent);
+  const { data: unreadData } = useRecentUnreadEmails({ limit: 5 }, hasAiConsent);
   const [expanded, setExpanded] = useState(true);
   const [dismissed, setDismissed] = useState(getInitialDismissed);
 
@@ -107,7 +111,7 @@ export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
     return parts.join(' • ');
   };
 
-  if (dismissed) return null;
+  if (dismissed || (!consentLoading && !hasAiConsent)) return null;
 
   const wt = t.dashboard.widgets.briefing;
 

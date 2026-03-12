@@ -9,7 +9,16 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { authenticator } from 'otplib';
+import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
+
+function generateTotpCode(secret: string): Promise<string> {
+  const instance = new TOTP({
+    crypto: new NobleCryptoPlugin(),
+    base32: new ScureBase32Plugin(),
+    secret,
+  });
+  return instance.generate();
+}
 
 const ONBOARDING_USER_EMAIL = 'test@pmsync.local';
 const ONBOARDING_USER_PASSWORD = 'UserPassword123!';
@@ -113,7 +122,7 @@ test.describe('Onboarding wizard', () => {
     // Step 4: Email provider — skip (no OAuth mock needed)
     // ---------------------------------------------------------------
     // Wait for auto-connect attempt to finish (spinner disappears)
-    await expect(page.getByText(/connect your email|skip for now/i)).toBeVisible({
+    await expect(page.getByRole('heading', { name: /connect your email/i })).toBeVisible({
       timeout: 15_000,
     });
 
@@ -157,7 +166,7 @@ test.describe('Onboarding wizard', () => {
     expect(totpUri).toBeTruthy();
     const secret = new URL(totpUri).searchParams.get('secret')!;
     expect(secret).toBeTruthy();
-    const code = authenticator.generate(secret);
+    const code = await generateTotpCode(secret);
 
     // Fill the OTP input
     await page.getByLabel(/enter 6-digit code/i).fill(code);

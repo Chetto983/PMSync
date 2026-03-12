@@ -112,7 +112,7 @@ describe('RelationshipScoreService', () => {
       // highFreq has more interactions and more recent — scores higher overall
       // (frequencyScore from 50 interactions >> 1 interaction; recency: yesterday >> 90d ago)
       if (lfScore) {
-        expect(hfScore!.totalScore).toBeGreaterThanOrEqual(lfScore!.totalScore);
+        expect(hfScore!.totalScore).toBeGreaterThanOrEqual(lfScore.totalScore);
       }
     });
 

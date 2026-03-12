@@ -36,7 +36,7 @@ import { CorrelationContext } from '../../src/common/services/correlation-contex
  */
 async function queryAs<T>(
   tenantId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   queryFn: () => any,
 ): Promise<T> {
   return CorrelationContext.run({ tenantId }, () =>
@@ -49,12 +49,12 @@ describe('Cross-Tenant Isolation (BINT-01)', () => {
   let tenantB: Tenant;
   let userA: User;
   let userB: User;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let scopedClient: any;
 
   beforeAll(async () => {
     const baseClient = getTestPrismaClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     scopedClient = (baseClient as any).$extends(createTenantScopingExtension());
     tenantA = await createTestTenant();
     tenantB = await createTestTenant();

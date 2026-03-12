@@ -25,6 +25,7 @@ import {
   useFollowUps,
   useStaleContacts,
 } from '@/hooks/queries/use-dashboard';
+import { useConsent } from '@/hooks/queries/use-consent';
 import { BaseWidget } from './BaseWidget';
 
 interface Insight {
@@ -42,14 +43,22 @@ interface Insight {
 export function PredictiveInsightsWidget() {
   const t = useTranslations();
   const theme = useTheme();
+  const { data: consentList, isLoading: consentLoading } = useConsent();
+  const hasAiConsent =
+    consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
 
   // Fetch all data sources
-  const { data: briefing, isLoading: briefingLoading } = useBriefing();
+  const { data: briefing, isLoading: briefingLoading } = useBriefing(hasAiConsent);
   const { data: deadlines, isLoading: deadlinesLoading } = useDeadlines({ limit: 10 });
   const { data: followUps, isLoading: followUpsLoading } = useFollowUps({ limit: 10 });
   const { data: staleContacts, isLoading: staleLoading } = useStaleContacts({ limit: 10 });
 
-  const isLoading = briefingLoading || deadlinesLoading || followUpsLoading || staleLoading;
+  const isLoading =
+    consentLoading ||
+    (hasAiConsent && briefingLoading) ||
+    deadlinesLoading ||
+    followUpsLoading ||
+    staleLoading;
 
   // Generate AI insights from data
   const insights = useMemo<Insight[]>(() => {

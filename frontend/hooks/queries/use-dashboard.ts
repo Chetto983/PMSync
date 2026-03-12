@@ -86,7 +86,7 @@ export interface StaleContact {
  * Query options for daily briefing
  * Uses voltAgentApi.getBriefing()
  */
-export function briefingOptions() {
+export function briefingOptions(enabled = true) {
   return queryOptions({
     queryKey: dashboardKeys.briefing(),
     queryFn: async (): Promise<BriefingData> => {
@@ -105,6 +105,7 @@ export function briefingOptions() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
     retry: 1,
+    enabled,
   });
 }
 
@@ -382,7 +383,7 @@ export const starredEmailsOptions = importantEmailsOptions;
  * Query options for recent unread emails (for briefing highlights)
  * IMPORTANT: Uses specialUse=INBOX to exclude TRASH and SPAM folders
  */
-export function recentUnreadEmailsOptions(params?: { limit?: number }) {
+export function recentUnreadEmailsOptions(params?: { limit?: number }, enabled = true) {
   return queryOptions({
     queryKey: [...dashboardKeys.all, 'recentUnreadEmails', params] as const,
     queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
@@ -399,6 +400,7 @@ export function recentUnreadEmailsOptions(params?: { limit?: number }) {
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
+    enabled,
   });
 }
 
@@ -569,8 +571,8 @@ export function useSaveDashboardLayout() {
 /**
  * Hook for daily briefing
  */
-export function useBriefing() {
-  return useQuery(briefingOptions());
+export function useBriefing(enabled = true) {
+  return useQuery(briefingOptions(enabled));
 }
 
 /**
@@ -630,8 +632,8 @@ export function useRecentContacts(params?: { limit?: number }) {
 /**
  * Hook for recent unread emails (for briefing highlights)
  */
-export function useRecentUnreadEmails(params?: { limit?: number }) {
-  return useQuery(recentUnreadEmailsOptions(params));
+export function useRecentUnreadEmails(params?: { limit?: number }, enabled = true) {
+  return useQuery(recentUnreadEmailsOptions(params, enabled));
 }
 
 // ============================================================================

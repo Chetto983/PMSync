@@ -7,7 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import { createPrismaClient } from '../../src/prisma/prisma-client.factory';
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __TEST_PRISMA_CLIENT__: PrismaClient | undefined;
 }
 

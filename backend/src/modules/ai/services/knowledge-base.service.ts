@@ -86,7 +86,7 @@ export class KnowledgeBaseService {
     const tenantIds = [...new Set(emailOptions.map((o) => o.tenantId))];
     const existingIds = new Set<string>();
     for (const tenantId of tenantIds) {
-      const tenantEmailIds = emailOptions.filter((o) => o.tenantId === tenantId).map((o) => o.emailId).filter(Boolean) as string[];
+      const tenantEmailIds = emailOptions.filter((o) => o.tenantId === tenantId).map((o) => o.emailId).filter(Boolean);
       if (tenantEmailIds.length > 0) {
         const existing = await this.embeddingsService.getExistingEmailIds(tenantId, tenantEmailIds);
         for (const id of existing) existingIds.add(id);

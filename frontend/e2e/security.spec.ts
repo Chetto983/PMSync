@@ -10,7 +10,16 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { authenticator } from 'otplib';
+import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
+
+function generateTotpCode(secret: string): Promise<string> {
+  const instance = new TOTP({
+    crypto: new NobleCryptoPlugin(),
+    base32: new ScureBase32Plugin(),
+    secret,
+  });
+  return instance.generate();
+}
 
 const ADMIN_EMAIL = process.env.E2E_USER_EMAIL ?? 'admin@pmsync.local';
 const ADMIN_PASSWORD = process.env.E2E_USER_PASSWORD ?? 'TestPassword123!';
@@ -72,33 +81,14 @@ test.describe('Security settings', () => {
       timeout: 10_000,
     });
 
-    // Step 2: Verify new password works by logging in with a fresh context
-    const freshContext = await browser.newContext();
-    const freshPage = await freshContext.newPage();
-    try {
-      await freshPage.addInitScript(() => {
-        localStorage.setItem(
-          'pmsync:cookie-consent',
-          JSON.stringify({ necessary: true, analytics: false, marketing: false }),
-        );
-      });
-      await freshPage.goto('/auth/login', { waitUntil: 'domcontentloaded' });
-      await freshPage.waitForSelector('input[name="email"], input[type="email"]', { timeout: 15_000 });
-      await freshPage.fill(
-        'input[name="email"], input[type="email"]',
-        ADMIN_EMAIL,
-      );
-      await freshPage.fill(
-        'input[name="password"], input[type="password"]',
-        NEW_PASSWORD,
-      );
-      await freshPage.click('button[type="submit"]');
-      // Accept either dashboard or onboarding redirect -- verifying login worked
-      await freshPage.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 });
-      await expect(freshPage).toHaveURL(/\/(dashboard|onboarding)/);
-    } finally {
-      await freshContext.close();
-    }
+    // Step 2: Verify new password works via API call (more reliable than
+    // full UI login which is fragile due to rate-limiting and scrypt lag)
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+    const loginResp = await page.request.post(`${apiBase}/api/auth/sign-in/email`, {
+      data: { email: ADMIN_EMAIL, password: NEW_PASSWORD },
+      headers: { Origin: 'http://localhost:3001' },
+    });
+    expect(loginResp.ok()).toBeTruthy();
 
     // Step 3: Restore original password so reruns and auth.setup.ts work
     // Navigate back to security settings (the success alert may have cleared state)
@@ -146,7 +136,7 @@ test.describe('Security settings', () => {
 
       // Step 1: QR code screen — wait for it then click Continue
       await expect(
-        dialog.getByText(/scan/i).or(dialog.locator('img[alt*="QR"]')),
+        dialog.getByText(/scan this qr code/i),
       ).toBeVisible({ timeout: 10_000 });
 
       // The totpUri should be captured by now from the intercepted response
@@ -162,7 +152,7 @@ test.describe('Security settings', () => {
 
       const secret = new URL(totpUri).searchParams.get('secret')!;
       expect(secret).toBeTruthy();
-      const code = authenticator.generate(secret);
+      const code = await generateTotpCode(secret);
 
       // Fill the OTP input (has inputMode="numeric")
       await dialog.locator('input[inputmode="numeric"]').fill(code);
