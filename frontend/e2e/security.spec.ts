@@ -74,24 +74,12 @@ test.describe('Security settings', () => {
     await fillPassword(page, 'New password', NEW_PASSWORD);
     await fillPassword(page, 'Confirm new password', NEW_PASSWORD);
 
-    // Intercept the change-password call to log the response
-    let changePasswordStatus = 0;
-    let changePasswordBody = '';
-    page.on('response', (resp) => {
-      if (resp.url().includes('change-password')) {
-        changePasswordStatus = resp.status();
-        resp.text().then((t) => { changePasswordBody = t; }).catch(() => {});
-      }
-    });
-
     await page.getByRole('button', { name: /change password/i }).click();
 
     // Assert success
     await expect(page.getByRole('alert').filter({ hasText: /password updated/i })).toBeVisible({
       timeout: 10_000,
     });
-
-    console.log(`[password-change] status=${changePasswordStatus}, body=${changePasswordBody.slice(0, 300)}`);
 
     // Step 2: Verify new password works via API call through Next.js proxy
     // (more reliable than full UI login which is fragile due to rate-limiting)
@@ -100,8 +88,6 @@ test.describe('Security settings', () => {
       data: { email: ADMIN_EMAIL, password: NEW_PASSWORD },
       headers: { origin: baseURL },
     });
-    const loginBody = await loginResp.text();
-    console.log(`[password-verify] status=${loginResp.status()}, body=${loginBody.slice(0, 500)}`);
     expect(loginResp.ok()).toBeTruthy();
 
     // Step 3: Restore original password so reruns and auth.setup.ts work
