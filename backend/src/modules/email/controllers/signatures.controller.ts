@@ -49,7 +49,7 @@ export class SignaturesController {
   }
 
   @Post()
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @ApiOperation({ summary: 'Create a new signature' })
   @ApiResponse({ status: 201, type: SignatureResponseDto })
   async create(@Request() req: AuthenticatedRequest, @Body() dto: CreateSignatureDto) {
@@ -57,7 +57,7 @@ export class SignaturesController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @ApiOperation({ summary: 'Update a signature' })
   @ApiResponse({ status: 200, type: SignatureResponseDto })
   async update(
@@ -69,7 +69,7 @@ export class SignaturesController {
   }
 
   @Delete(':id')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @ApiOperation({ summary: 'Delete a signature' })
   @ApiResponse({ status: 200 })
   async delete(@Request() req: AuthenticatedRequest, @Param('id') id: string) {
@@ -77,7 +77,7 @@ export class SignaturesController {
   }
 
   @Post(':id/set-default')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @ApiOperation({ summary: 'Set signature as default' })
   @ApiResponse({ status: 200, type: SignatureResponseDto })
   async setDefault(@Request() req: AuthenticatedRequest, @Param('id') id: string) {

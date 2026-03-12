@@ -111,6 +111,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'semantic_search',
   ],
   contact_create: [
+    'search_contacts',
     'create_contact',
   ],
   contact_update: [
@@ -204,6 +205,10 @@ const EXPANSION_RULES: Record<string, string[]> = {
   create_contact: ['search_contacts'],
   create_folder: ['list_folders'],
   draft_email: ['send_email'],
+  // After send/reply/forward: allow saving memory about the interaction
+  send_email: ['save_memory'],
+  reply_email: ['save_memory', 'archive_email'],
+  forward_email: ['save_memory', 'archive_email'],
   // After view: allow modification
   view_calendar: [
     'create_event',

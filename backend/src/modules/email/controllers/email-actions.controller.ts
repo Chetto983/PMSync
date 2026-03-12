@@ -97,7 +97,7 @@ export class EmailActionsController {
    * POST /emails/send - Send a new email
    */
   @Post('send')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendEmail(@Req() req: AuthenticatedRequest, @Body() body: SendEmailRequestDto) {
     const tenantId = req.user.tenantId;
@@ -128,7 +128,7 @@ export class EmailActionsController {
    * POST /emails/:id/reply - Reply to an email
    */
   @Post(':id/reply')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async replyToEmail(
     @Req() req: AuthenticatedRequest,
@@ -168,7 +168,7 @@ export class EmailActionsController {
    * POST /emails/:id/forward - Forward an email
    */
   @Post(':id/forward')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async forwardEmail(
     @Req() req: AuthenticatedRequest,
@@ -204,7 +204,7 @@ export class EmailActionsController {
    * PATCH /emails/:id - Update email flags
    */
   @Patch(':id')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async updateEmail(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
@@ -219,7 +219,7 @@ export class EmailActionsController {
    * IMPORTANT: Must come before @Delete(':id') to avoid route conflict
    */
   @Delete('bulk')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async bulkDelete(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkDeleteDto,
@@ -232,7 +232,7 @@ export class EmailActionsController {
    * DELETE /emails/:id - Delete email
    */
   @Delete(':id')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
@@ -243,7 +243,7 @@ export class EmailActionsController {
    * POST /emails/drafts - Create or update a draft (autosave)
    */
   @Post('drafts')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async saveDraft(
     @Req() req: AuthenticatedRequest,
     @Body() dto: SaveDraftDto,
@@ -265,7 +265,7 @@ export class EmailActionsController {
    * DELETE /emails/drafts/:id - Delete a draft
    */
   @Delete('drafts/:id')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteDraft(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
@@ -274,7 +274,7 @@ export class EmailActionsController {
 
   /** PATCH /emails/bulk/read - Mark multiple emails as read/unread */
   @Patch('bulk/read')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async bulkUpdateRead(@Req() req: AuthenticatedRequest, @Body() data: BulkUpdateReadDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateRead(data.emailIds, tenantId, data.isRead);
@@ -282,7 +282,7 @@ export class EmailActionsController {
 
   /** PATCH /emails/bulk/star - Bulk star/unstar emails */
   @Patch('bulk/star')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async bulkUpdateStar(@Req() req: AuthenticatedRequest, @Body() data: BulkUpdateStarDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateStarred(data.emailIds, tenantId, data.isStarred);
@@ -290,7 +290,7 @@ export class EmailActionsController {
 
   /** PATCH /emails/bulk/flag - Bulk flag/unflag emails */
   @Patch('bulk/flag')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async bulkUpdateFlag(@Req() req: AuthenticatedRequest, @Body() data: BulkUpdateFlagDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateFlagged(data.emailIds, tenantId, data.isFlagged);
@@ -298,7 +298,7 @@ export class EmailActionsController {
 
   /** PATCH /emails/bulk/move - Bulk move emails to folder */
   @Patch('bulk/move')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async bulkMoveToFolder(@Req() req: AuthenticatedRequest, @Body() data: BulkMoveToFolderDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkMoveToFolder(data.emailIds, tenantId, data.folder);
@@ -306,7 +306,7 @@ export class EmailActionsController {
 
   /** PATCH /emails/bulk/labels/add - Bulk add labels to emails */
   @Patch('bulk/labels/add')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async bulkAddLabels(@Req() req: AuthenticatedRequest, @Body() data: BulkLabelsDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkAddLabels(data.emailIds, tenantId, data.labelIds);
@@ -314,7 +314,7 @@ export class EmailActionsController {
 
   /** PATCH /emails/bulk/labels/remove - Bulk remove labels from emails */
   @Patch('bulk/labels/remove')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async bulkRemoveLabels(@Req() req: AuthenticatedRequest, @Body() data: BulkLabelsDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkRemoveLabels(data.emailIds, tenantId, data.labelIds);
@@ -322,7 +322,7 @@ export class EmailActionsController {
 
   /** POST /emails/:id/fetch-archived - Fetch archived email from server */
   @Post(':id/fetch-archived')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async fetchArchivedEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.fetchService.fetchArchivedEmail(id, tenantId);

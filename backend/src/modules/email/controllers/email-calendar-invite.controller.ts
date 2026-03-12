@@ -47,7 +47,7 @@ export class EmailCalendarInviteController {
   }
 
   @Post(':id/calendar-invite/respond')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async respondToCalendarInvite(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
@@ -133,7 +133,7 @@ export class EmailCalendarInviteController {
   }
 
   @Post('calendar-invite/send')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendCalendarInvite(
     @Req() req: AuthenticatedRequest,
@@ -180,7 +180,7 @@ export class EmailCalendarInviteController {
   }
 
   @Post('calendar-invite/:eventId/cancel')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   async cancelCalendarInvite(
     @Req() req: AuthenticatedRequest,
     @Param('eventId') eventId: string,
