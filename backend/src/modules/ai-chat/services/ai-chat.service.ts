@@ -24,13 +24,15 @@ import {
   getAiCircuitBreaker,
   CircuitBreakerOpenError,
 } from '../../ai/utils/index';
-import { buildSystemPrompt } from '../constants/system-prompt';
+import { buildSystemPrompt, buildRuntimeContext } from '../constants/system-prompt';
 import {
   EmailToolsService,
   CalendarToolsService,
   ContactToolsService,
   FolderToolsService,
   RagToolsService,
+  ConversationToolsService,
+  SandboxToolsService,
 } from '../tools/index';
 import { IntentRouterService } from '../tools/intent-router.service';
 import { MemoryService } from './memory.service';
@@ -81,6 +83,9 @@ export class AiChatService {
     private readonly contactToolsService: ContactToolsService,
     private readonly folderToolsService: FolderToolsService,
     private readonly ragToolsService: RagToolsService,
+    // Phase AI-AUDIT: Conversation + sandbox tools
+    private readonly conversationToolsService: ConversationToolsService,
+    private readonly sandboxToolsService: SandboxToolsService,
     // Phase 25 Plan 02: Intent routing + memory injection
     private readonly intentRouterService: IntentRouterService,
     private readonly memoryService: MemoryService,
@@ -175,8 +180,10 @@ export class AiChatService {
       conversation.id,
     );
 
-    // Append current user message (redacted for LLM)
-    messages.push({ role: 'user', content: llmMessage });
+    // Append current user message with runtime context (redacted for LLM)
+    // Phase AI-AUDIT: Runtime context separated from system prompt (nanobot pattern)
+    const runtimeContext = buildRuntimeContext();
+    messages.push({ role: 'user', content: `${runtimeContext}\n\n${llmMessage}` });
 
     // 7. Audit log (fire-and-forget)
     this.auditService
@@ -432,6 +439,9 @@ export class AiChatService {
       ...this.contactToolsService.getTools(tenantId, conversationId, piiResolve),
       ...this.folderToolsService.getTools(tenantId, conversationId, piiResolve),
       ...this.ragToolsService.getTools(tenantId, userId, conversationId, piiResolve),
+      // Phase AI-AUDIT: Conversation tools (ask_user) + sandbox (run_code)
+      ...this.conversationToolsService.getTools(),
+      ...this.sandboxToolsService.getTools(),
     };
 
     // Runtime duplicate check -- fail fast if tool names collide

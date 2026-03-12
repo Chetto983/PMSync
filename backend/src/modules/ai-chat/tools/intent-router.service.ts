@@ -35,10 +35,12 @@ export interface IntentRouteResult {
  */
 const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
   // Email intents
+  // ask_user is included in every action intent for disambiguation
   email_search: [
     'search_emails',
     'semantic_search',
     'read_email',
+    'ask_user',
   ],
   email_compose: [
     'draft_email',
@@ -46,6 +48,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'search_contacts',
     'semantic_search',
     'search_emails',
+    'ask_user',
   ],
   email_reply: [
     'read_email',
@@ -53,79 +56,96 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'search_emails',
     'search_contacts',
     'semantic_search',
+    'ask_user',
   ],
   email_forward: [
     'read_email',
     'forward_email',
     'search_contacts',
     'search_emails',
+    'ask_user',
   ],
   email_delete: [
     'search_emails',
     'read_email',
     'delete_email',
+    'ask_user',
   ],
   email_archive: [
     'search_emails',
     'archive_email',
+    'ask_user',
   ],
   email_move: [
     'search_emails',
     'move_email',
     'list_folders',
+    'ask_user',
   ],
   email_read: [
     'read_email',
     'search_emails',
     'semantic_search',
+    'ask_user',
   ],
   email_summarize: [
     'search_emails',
     'read_email',
     'semantic_search',
     'save_memory',
+    'run_code',
+    'ask_user',
   ],
 
   // Calendar intents
   calendar_view: [
     'view_calendar',
     'search_contacts',
+    'ask_user',
   ],
   calendar_create: [
     'create_event',
     'view_calendar',
     'search_contacts',
+    'ask_user',
   ],
   calendar_update: [
     'update_event',
     'view_calendar',
+    'ask_user',
   ],
   calendar_delete: [
     'delete_event',
     'view_calendar',
+    'ask_user',
   ],
 
   // Contact intents
   contact_search: [
     'search_contacts',
     'semantic_search',
+    'ask_user',
   ],
   contact_create: [
     'search_contacts',
     'create_contact',
+    'ask_user',
   ],
   contact_update: [
     'search_contacts',
     'update_contact',
+    'ask_user',
   ],
 
   // Folder intents
   folder_list: [
     'list_folders',
+    'ask_user',
   ],
   folder_create: [
     'create_folder',
     'list_folders',
+    'ask_user',
   ],
 
   // Conversational intents -- no tools needed, LLM responds directly
@@ -142,6 +162,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'view_calendar',
     'list_folders',
     'run_code',
+    'ask_user',
   ],
 
   // Status check -- search + calendar + folders for overview
@@ -150,6 +171,8 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'view_calendar',
     'list_folders',
     'semantic_search',
+    'run_code',
+    'ask_user',
   ],
 
   // Unknown fallback -- broad set for best coverage
@@ -160,6 +183,8 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'search_contacts',
     'list_folders',
     'save_memory',
+    'run_code',
+    'ask_user',
   ],
 };
 
@@ -325,8 +350,9 @@ export class IntentRouterService {
       }
     }
 
-    // Also always include save_memory (user might want to save context)
+    // Always include save_memory + ask_user (universal fallbacks)
     expanded.add('save_memory');
+    expanded.add('ask_user');
 
     // Filter to only tools that actually exist in the current toolset
     const allToolSet = new Set(allToolNames);
