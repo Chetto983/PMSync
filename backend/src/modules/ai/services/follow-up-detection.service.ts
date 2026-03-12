@@ -104,12 +104,14 @@ export class FollowUpDetectionService {
   ): Promise<{ data: FollowUpDetectionOutput; error?: string }> {
     const cutoffDate = new Date(Date.now() - hoursWindow * 60 * 60 * 1000);
 
-    // 1. Fetch recent emails
+    // 1. Fetch recent emails — skip already-triaged (they get follow-ups from TriageActionService)
     const recentEmails = await this.prisma.email.findMany({
       where: {
         tenantId,
         receivedAt: { gte: cutoffDate },
         isDeleted: false,
+        isAutoTriaged: false, // Only backfill un-triaged emails
+        followUp: { is: null }, // No existing follow-up record
       },
       select: {
         id: true,

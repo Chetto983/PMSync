@@ -16,7 +16,6 @@ import { AuthDebugMiddleware } from '../../common/middleware/auth-debug.middlewa
 
 // Controllers
 import { ProvidersController } from './controllers/providers.controller';
-import { OAuthCallbackController } from './controllers/oauth-callback.controller';
 
 /**
  * ProvidersModule - OAuth, IMAP, CalDAV provider management.
@@ -51,7 +50,7 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
     ProviderConfigService,
     GmailClientManagerService,
   ],
-  controllers: [ProvidersController, OAuthCallbackController],
+  controllers: [ProvidersController],
   exports: [
     CryptoService,
     CRYPTO_SERVICE, // Phase 32: Symbol export for interface injection

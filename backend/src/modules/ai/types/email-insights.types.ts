@@ -16,6 +16,8 @@ export interface UnifiedEmailAnalysis {
   hasDeadline: boolean;
   deadlineDate: Date | null;
   needsFollowUp: boolean;
+  followUpDate: Date | null;
+  followUpReason: string | null;
   smartReplies?: string[];
   confidence: number;
   reasoning: string;

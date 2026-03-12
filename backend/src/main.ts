@@ -566,8 +566,6 @@ async function bootstrap() {
         { path: 'health/{*path}', method: RequestMethod.ALL },
         { path: 'health', method: RequestMethod.ALL },
         { path: 'webhooks/{*path}', method: RequestMethod.ALL },
-        { path: 'auth/gmail/callback', method: RequestMethod.GET },
-        { path: 'auth/microsoft/callback', method: RequestMethod.GET },
         { path: 'metrics', method: RequestMethod.ALL },
         { path: 'api/auth/{*path}', method: RequestMethod.ALL },
       ],

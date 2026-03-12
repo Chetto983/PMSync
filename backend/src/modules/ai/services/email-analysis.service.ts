@@ -77,6 +77,8 @@ export class EmailAnalysisService {
         hasDeadline: Boolean(parsed.hasDeadline),
         deadlineDate: parsed.deadlineDate ? new Date(parsed.deadlineDate as string) : null,
         needsFollowUp: Boolean(parsed.needsFollowUp),
+        followUpDate: parsed.followUpDate ? new Date(parsed.followUpDate as string) : null,
+        followUpReason: typeof parsed.followUpReason === 'string' ? parsed.followUpReason : null,
         smartReplies: options?.includeSmartReplies && Array.isArray(parsed.smartReplies) ? (parsed.smartReplies as string[]).slice(0, 3) : undefined,
         confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.7)),
         reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
@@ -88,9 +90,11 @@ export class EmailAnalysisService {
         sentiment: this.mapSentimentToEnum(result.sentiment),
         summary: result.summary, keyPoints: result.keyTopics,
         hasDeadline: result.hasDeadline, deadlineDate: result.deadlineDate, needsFollowUp: result.needsFollowUp,
+        followUpDate: result.followUpDate,
         suggestedActions: {
           locale: lang, smartReplies: result.smartReplies, intent: result.intent, urgency: result.urgency,
           tone: result.tone, escalationRisk: result.escalationRisk, reasoning: result.reasoning, confidence: result.confidence,
+          followUpReason: result.followUpReason,
         },
         processedAt: new Date(), latencyMs,
       };
@@ -188,7 +192,7 @@ export class EmailAnalysisService {
     } catch { return {}; }
   }
 
-  private mapEmailAnalysisToUnified(analysis: { priority: string; category: string; sentiment: string; summary: string | null; keyPoints: string[]; hasDeadline: boolean; deadlineDate: Date | null; needsFollowUp: boolean; suggestedActions: unknown; }): UnifiedEmailAnalysis {
+  private mapEmailAnalysisToUnified(analysis: { priority: string; category: string; sentiment: string; summary: string | null; keyPoints: string[]; hasDeadline: boolean; deadlineDate: Date | null; needsFollowUp: boolean; followUpDate?: Date | null; suggestedActions: unknown; }): UnifiedEmailAnalysis {
     const actions = (analysis.suggestedActions as Record<string, unknown>) || {};
     return {
       summary: analysis.summary || '', sentiment: this.validateSentiment(analysis.sentiment),
@@ -196,6 +200,7 @@ export class EmailAnalysisService {
       urgency: this.validateUrgency(actions.urgency), labels: [], keyTopics: analysis.keyPoints || [],
       intent: (actions.intent as string) || 'fyi', escalationRisk: Boolean(actions.escalationRisk),
       hasDeadline: analysis.hasDeadline, deadlineDate: analysis.deadlineDate, needsFollowUp: analysis.needsFollowUp,
+      followUpDate: analysis.followUpDate ?? null, followUpReason: (actions.followUpReason as string) ?? null,
       smartReplies: actions.smartReplies as string[] | undefined, confidence: Number(actions.confidence) || 0.7,
       reasoning: (actions.reasoning as string) || '',
     };

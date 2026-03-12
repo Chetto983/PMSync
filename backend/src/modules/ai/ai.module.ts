@@ -23,6 +23,7 @@ import { QueryEmbeddingCacheService } from './services/query-embedding-cache.ser
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
 import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill-scheduler.service';
 import { TriageBackfillSchedulerService } from './services/triage-backfill-scheduler.service';
+import { ReminderSchedulerService } from './services/reminder-scheduler.service';
 import { StorageModule } from '../email/storage.module';
 import { AlertingService } from '../../common/services/alerting.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
@@ -36,6 +37,7 @@ import { EmbeddingBackfillService } from './services/embedding-backfill.service'
 // PERF-03: Orphan embedding cleanup (null emailId AND null contactId)
 import { OrphanEmbeddingCleanupService } from './services/orphan-embedding-cleanup.service';
 import { TriageLearningService } from './services/triage-learning.service';
+import { TriageActionService } from './services/triage-action.service';
 import { PromptGuardService } from './guards';
 // Phase 26: Non-chat AI services (generateText + Output.object())
 import { BriefingService } from './services/briefing.service';
@@ -101,12 +103,14 @@ import { AiObservabilityController } from './controllers/ai-observability.contro
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
+    ReminderSchedulerService, // CONSOLIDATION: Follow-up due date notifications
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
     CachePrewarmingService, // Pre-warm query cache for common searches
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
     IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
+    TriageActionService, // CONSOLIDATION: Triage → follow-up/reminder creation
     PromptGuardService, // Required by MistralService for prompt injection prevention
     // Phase 26: Non-chat AI services (generateText + Output.object())
     BriefingService,

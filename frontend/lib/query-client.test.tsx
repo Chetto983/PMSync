@@ -1,6 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useQuery } from '@tanstack/react-query';
-import { QueryProvider, getQueryClient } from './query-client';
+import { QueryProvider, getQueryClient, makeQueryClient } from './query-client';
+
+function getRetryFn() {
+  const retry = makeQueryClient().getDefaultOptions().queries?.retry;
+  expect(typeof retry).toBe('function');
+  return retry as (failureCount: number, error: unknown) => boolean;
+}
 
 describe('QueryProvider', () => {
   it('should provide a QueryClient to children', async () => {
@@ -104,5 +110,50 @@ describe('getQueryClient', () => {
     const client1 = getQueryClient();
     const client2 = getQueryClient();
     expect(client1).toBe(client2);
+  });
+});
+
+describe('makeQueryClient', () => {
+  it('should not retry 403 query failures by default', () => {
+    const retry = getRetryFn();
+
+    expect(
+      retry(0, {
+        response: {
+          status: 403,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('should not retry 429 query failures by default', () => {
+    const retry = getRetryFn();
+
+    expect(
+      retry(0, {
+        response: {
+          status: 429,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('should retry transient failures below the max attempt count', () => {
+    const retry = getRetryFn();
+
+    expect(
+      retry(0, {
+        response: {
+          status: 500,
+        },
+      }),
+    ).toBe(true);
+    expect(
+      retry(3, {
+        response: {
+          status: 500,
+        },
+      }),
+    ).toBe(false);
   });
 });

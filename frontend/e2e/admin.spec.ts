@@ -77,7 +77,7 @@ test.describe('Admin panel -- user management', () => {
     // UserSessionsDialog should open with "Active Sessions" title
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible({ timeout: 10_000 });
-    await expect(dialog.getByText('Active Sessions')).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: /Active Sessions/ })).toBeVisible();
 
     // Check if there are sessions listed. The member setup ran login,
     // so there should be at least one session.

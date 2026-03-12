@@ -433,4 +433,7 @@ export const QUEUE_NAMES = {
 
   // AI triage backfill (recovers missed auto-triage)
   TRIAGE_BACKFILL: 'triage-backfill',
+
+  // Reminder check scheduler (follow-up due date notifications)
+  REMINDER_CHECK: 'reminder-check',
 } as const;

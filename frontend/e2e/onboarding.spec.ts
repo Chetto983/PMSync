@@ -17,7 +17,8 @@ const ONBOARDING_AUTH_FILE = 'playwright/.auth/onboarding-user.json';
 
 test.describe('Onboarding wizard', () => {
   test.beforeAll(async ({ browser }) => {
-    const ctx = await browser.newContext();
+    // Explicitly clear storageState — the chromium project inherits admin auth
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await ctx.newPage();
 
     // Set cookie consent to prevent consent banner from blocking UI

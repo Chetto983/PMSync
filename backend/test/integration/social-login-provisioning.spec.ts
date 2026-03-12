@@ -376,8 +376,6 @@ describe('CSRF Excluded Paths', () => {
     '/api/v1/webhooks',
     '/webhooks',
     '/api/v1/providers/oauth',
-    '/auth/gmail/callback',
-    '/auth/microsoft/callback',
     '/api/auth',
   ];
 
@@ -391,9 +389,12 @@ describe('CSRF Excluded Paths', () => {
     expect(CSRF_EXCLUDED_PATHS).toContain('/api/v1/auth/forgot-password');
   });
 
-  it('OAuth callbacks are excluded (redirects from Google/Microsoft)', () => {
-    expect(CSRF_EXCLUDED_PATHS).toContain('/auth/gmail/callback');
-    expect(CSRF_EXCLUDED_PATHS).toContain('/auth/microsoft/callback');
+  it('OAuth callbacks go through better-auth which handles its own CSRF', () => {
+    // Old backend /auth/gmail/callback and /auth/microsoft/callback routes removed.
+    // OAuth callbacks now use unified frontend proxy → /api/auth/callback/{provider}
+    // which is covered by the /api/auth exclusion below.
+    expect(CSRF_EXCLUDED_PATHS).not.toContain('/auth/gmail/callback');
+    expect(CSRF_EXCLUDED_PATHS).not.toContain('/auth/microsoft/callback');
   });
 
   it('better-auth routes are excluded (handles own CSRF via trustedOrigins)', () => {

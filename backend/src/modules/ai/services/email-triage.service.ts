@@ -13,10 +13,11 @@
  * (thread-summary.service.ts) to maintain Single Responsibility Principle.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
 import { SubscriptionService } from '../../subscription/services/subscription.service';
+import { TriageActionService } from './triage-action.service';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 50;
@@ -78,6 +79,7 @@ export class EmailTriageService {
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
     private readonly subscriptionService: SubscriptionService,
+    @Optional() private readonly triageActionService?: TriageActionService,
   ) {}
 
   /**
@@ -213,6 +215,24 @@ export class EmailTriageService {
       this.logger.debug(
         `Triaged email ${emailId}: priority=${analysis.priority}, labels=${analysis.labels.join(',')}, sentiment=${analysis.sentiment}`,
       );
+
+      // Phase CONSOLIDATION: Create follow-up records from triage signals (fire-and-forget)
+      if (this.triageActionService && (analysis.needsFollowUp || analysis.hasDeadline)) {
+        const email = await this.prisma.email.findFirst({
+          where: { id: emailId, tenantId },
+          select: { from: true, subject: true },
+        });
+        if (email) {
+          this.triageActionService
+            .processTriageSignals(
+              { emailId, tenantId, userId: options.userId, from: email.from, subject: email.subject },
+              analysis,
+            )
+            .catch((err) =>
+              this.logger.warn(`Follow-up creation failed for ${emailId}: ${err instanceof Error ? err.message : String(err)}`),
+            );
+        }
+      }
 
       return {
         emailId,

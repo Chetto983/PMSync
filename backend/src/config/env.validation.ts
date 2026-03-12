@@ -118,7 +118,7 @@ export class EnvironmentVariables {
   @IsString()
   GMAIL_CLIENT_SECRET: string;
 
-  // Optional: derived from API_PUBLIC_URL if not set
+  // Optional: defaults to ${FRONTEND_URL}/api/auth/callback/google (unified with better-auth)
   @IsString()
   @IsOptional()
   GOOGLE_REDIRECT_URI?: string;
@@ -129,7 +129,7 @@ export class EnvironmentVariables {
   @IsString()
   MICROSOFT_CLIENT_SECRET: string;
 
-  // Optional: derived from API_PUBLIC_URL if not set
+  // Optional: defaults to ${FRONTEND_URL}/api/auth/callback/microsoft (unified with better-auth)
   @IsString()
   @IsOptional()
   MICROSOFT_REDIRECT_URI?: string;

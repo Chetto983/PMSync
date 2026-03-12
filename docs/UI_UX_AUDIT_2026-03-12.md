@@ -271,3 +271,144 @@ Browser diagnostics reported missing `autocomplete` attributes for the new passw
 - Residual low-priority browser warnings:
   - a chart container warning on `/dashboard/admin/organizations` reports width and height resolving to `-1`
   - browser diagnostics still suggest improved password-form autofill semantics on the security page
+
+## Mobile Deep Pass
+
+- Date: March 12, 2026
+- Environment: production `https://mail-agent-indol.vercel.app`
+- Viewport: mobile phone (`412x915`, Pixel 7 class)
+- Auth path: real sign-in flow, legal-acceptance step completed in the same session
+
+### Finding 1: Dashboard Home leaks AI consent errors into the primary mobile surface
+
+- URL: `/dashboard`
+- Severity: High
+- Category: State gating, mobile trust, consent-aware UX
+
+#### What happens
+
+- The mobile dashboard renders the `Briefing Giornaliero` card in an error state.
+- The page fires `GET /api/v1/ai/briefing` twice and receives `403 FORBIDDEN` both times.
+- In the same authenticated session, all AI consent flags were `false`, so the widget is attempting to load AI-only data even when the user has not granted the required consent.
+
+#### User harm
+
+- The first mobile surface looks broken immediately after login.
+- Users see a technical error where the product should either hide the widget or explain that AI features are disabled until consent is granted.
+
+#### Evidence
+
+- API failures:
+  - `GET /api/v1/ai/briefing` -> `403`
+  - repeated twice during the same mobile dashboard load
+- UI text on the live page:
+  - `Request failed with status code 403`
+
+#### Likely owner
+
+- `frontend/hooks/queries/use-dashboard.ts`
+- `frontend/components/dashboard/widgets/BriefingWidget.tsx`
+- `frontend/components/dashboard/widgets/PredictiveInsightsWidget.tsx`
+
+#### Fix direction
+
+- Gate `useBriefing()` behind the relevant consent state instead of firing unconditionally.
+- Replace the technical error state with a consent-aware empty state such as “Enable AI features in onboarding/settings to use briefing.”
+
+### Finding 2: Mobile admin users table is wider than the viewport and clips actionable columns
+
+- URL: `/dashboard/admin/users`
+- Severity: High
+- Category: Responsive layout, admin usability
+
+#### What happens
+
+- The admin users page renders a desktop table on mobile without a mobile presentation mode.
+- The visible viewport width was `412px`, while the measured first rows extended to roughly `901px`.
+- The right-hand columns and action controls are cut off rather than reflowed into a card/list pattern.
+
+#### User harm
+
+- Roles, status, verification, created date, and actions are not fully visible on phone width.
+- Critical admin actions become hard or impossible to review confidently on mobile.
+
+#### Evidence
+
+- Measured mobile viewport: `412px`
+- Measured row width:
+  - last visible action cell ended near `901px`
+- Visual symptom:
+  - role chips visibly clip on the right edge in the mobile screenshot
+
+#### Likely owner
+
+- `frontend/components/admin/UserListTable.tsx`
+
+#### Fix direction
+
+- Replace the table with stacked user cards below a mobile breakpoint.
+- If a table must remain, add explicit horizontal scroll affordance instead of clipping hidden columns.
+
+### Finding 3: Profile page still mixes English and Italian on mobile
+
+- URL: `/dashboard/profile`
+- Severity: Medium
+- Category: Localization consistency
+
+#### What happens
+
+- The page header is still `User Profile` while the form section beneath it is localized as `Impostazioni profilo`.
+
+#### User harm
+
+- The page feels partially translated and less polished, especially on mobile where the header is the first thing users read.
+
+#### Evidence
+
+- Live mobile page header:
+  - `User Profile`
+- Form section:
+  - `Impostazioni profilo`
+
+#### Likely owner
+
+- `frontend/pages/dashboard/profile.tsx`
+
+#### Fix direction
+
+- Replace the hard-coded English header with translated copy from the locale bundle.
+
+### Mobile Pass Coverage
+
+- Re-tested on mobile:
+  - `/dashboard`
+  - `/dashboard/email`
+  - `/dashboard/email/compose`
+  - `/dashboard/calendar`
+  - `/dashboard/contacts`
+  - `/dashboard/ai`
+  - `/dashboard/ai/follow-ups`
+  - `/dashboard/profile`
+  - `/dashboard/settings`
+  - `/dashboard/settings?section=security`
+  - `/dashboard/admin/users`
+  - `/dashboard/admin/organizations`
+- Additional interaction spot checks:
+  - sign-in on mobile
+  - legal acceptance redirect and completion
+  - email-thread availability check from inbox
+
+### Mobile Pass Summary
+
+- Stable on mobile:
+  - inbox route shell and compose screen
+  - calendar shell
+  - contacts empty state
+  - AI assistant shell
+  - follow-up board shell
+  - settings general and security layout
+  - admin organizations page shell
+- Open mobile issues after this pass:
+  1. dashboard AI briefing is not consent-gated
+  2. admin users page is not truly responsive
+  3. profile page still has localization drift

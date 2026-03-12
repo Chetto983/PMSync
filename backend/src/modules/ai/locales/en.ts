@@ -241,6 +241,8 @@ Reply ONLY with valid JSON (no markdown, no explanation):
   "hasDeadline": true|false,
   "deadlineDate": "ISO date string or null",
   "needsFollowUp": true|false,
+  "followUpDate": "ISO date when the user should follow up, or null",
+  "followUpReason": "brief reason why follow-up is needed, or null",
   "smartReplies": ["Quick reply 1", "Quick reply 2", "Quick reply 3"],
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation of priority/urgency assessment"

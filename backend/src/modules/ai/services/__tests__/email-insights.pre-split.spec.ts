@@ -27,7 +27,8 @@ describe('EmailInsightsService (pre-split characterization)', () => {
       summary: '', sentiment: 'neutral', tone: 'neutral',
       priority: 3, urgency: 'medium', labels: [], keyTopics: [],
       intent: 'fyi', escalationRisk: false, hasDeadline: false,
-      deadlineDate: null, needsFollowUp: false, confidence: 0.7, reasoning: '',
+      deadlineDate: null, needsFollowUp: false, followUpDate: null, followUpReason: null,
+      confidence: 0.7, reasoning: '',
     };
     expect(analysis.sentiment).toBe('neutral');
   });

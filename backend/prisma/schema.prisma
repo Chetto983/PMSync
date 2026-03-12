@@ -1543,6 +1543,8 @@ enum ActionType {
   DELETE_EMAIL
   REPLY_EMAIL
   FORWARD_EMAIL
+  // Phase CONSOLIDATION: Triage → calendar reminder
+  CREATE_REMINDER
 }
 
 enum ActionStatus {

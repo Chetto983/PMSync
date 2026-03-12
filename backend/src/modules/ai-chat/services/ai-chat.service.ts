@@ -472,10 +472,14 @@ export class AiChatService {
       reply_email: 'REPLY_EMAIL',
       forward_email: 'FORWARD_EMAIL',
       delete_email: 'DELETE_EMAIL',
-      delete_event: 'SCHEDULE_MEETING', // Closest ActionType; DELETE_EVENT not in enum yet
-      delete_contact: 'DELETE_CONTACT',
+      delete_event: 'DELETE_EMAIL', // Destructive calendar action — no DELETE_EVENT enum yet
     };
-    return mapping[toolName] || 'SEND_EMAIL';
+    const actionType = mapping[toolName];
+    if (!actionType) {
+      this.logger.warn(`No ActionType mapping for tool "${toolName}", using CREATE_TASK`);
+      return 'CREATE_TASK';
+    }
+    return actionType;
   }
 
   /**

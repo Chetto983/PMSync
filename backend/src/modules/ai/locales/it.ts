@@ -217,6 +217,8 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
   "hasDeadline": true|false,
   "deadlineDate": "data ISO o null",
   "needsFollowUp": true|false,
+  "followUpDate": "data ISO per il follow-up, o null",
+  "followUpReason": "breve motivo per il follow-up, o null",
   "smartReplies": ["Risposta rapida 1", "Risposta rapida 2", "Risposta rapida 3"],
   "confidence": 0.0-1.0,
   "reasoning": "Breve spiegazione della valutazione priorità/urgenza"

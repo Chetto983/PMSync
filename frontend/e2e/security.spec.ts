@@ -43,10 +43,12 @@ async function fillPassword(page: Page, label: string, value: string) {
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Security settings', () => {
+  // Password change + re-login + restore needs more than the default 120s
   test('change password and verify login with new password', async ({
     page,
     browser,
   }) => {
+    test.setTimeout(180_000);
     await goToSecuritySettings(page);
 
     // Scroll to the password section
@@ -80,7 +82,8 @@ test.describe('Security settings', () => {
           JSON.stringify({ necessary: true, analytics: false, marketing: false }),
         );
       });
-      await freshPage.goto('/auth/login', { waitUntil: 'networkidle' });
+      await freshPage.goto('/auth/login', { waitUntil: 'domcontentloaded' });
+      await freshPage.waitForSelector('input[name="email"], input[type="email"]', { timeout: 15_000 });
       await freshPage.fill(
         'input[name="email"], input[type="email"]',
         ADMIN_EMAIL,

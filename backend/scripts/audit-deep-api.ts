@@ -100,8 +100,6 @@ async function auditAuth() {
     ['/api/v1/auth/mfa/verify', { code: '000000' }],
     ['/api/v1/auth/webauthn/login/options', {}],
     ['/api/v1/auth/webauthn/login/verify', {}],
-    ['/api/v1/auth/google/callback', { code: 'x' }],
-    ['/api/v1/auth/microsoft/callback', { code: 'x' }],
   ];
   for (const [path, body] of postRoutes) {
     const r = await req('POST', path as string, body);
@@ -315,18 +313,9 @@ async function auditWebhooks() {
 }
 
 // ─── OAuth callbacks ───────────────────────────────────────────
-async function auditOAuthCallbacks() {
-  console.log('\n🔑 OAUTH CALLBACKS (2 routes)');
-  const routes = ['/auth/gmail/callback', '/auth/microsoft/callback'];
-  for (const path of routes) {
-    const r = await req('GET', `${path}?code=invalid_test`);
-    const is500 = r.status >= 500;
-    const pass = !is500;
-    test('OAuth', 'GET', path, r.status, r.ms, pass,
-      is500 ? `SERVER ERROR ${r.status}` : `${r.status} (expected error, no 500)`);
-    log(pass, 'GET', path, r.status, r.ms);
-  }
-}
+// Old backend /auth/gmail/callback and /auth/microsoft/callback routes removed.
+// OAuth callbacks now use unified frontend proxy → /api/auth/callback/{provider}
+// with state prefix routing (pl_ = provider-link, else better-auth login).
 
 // ─── DELETE/PATCH/PUT with IDs (should 401 or 404, never 500) ─
 async function auditMutations() {
@@ -421,7 +410,7 @@ async function main() {
   await auditProtectedGets();
   await auditProtectedPosts();
   await auditWebhooks();
-  await auditOAuthCallbacks();
+  // OAuth callbacks removed — now unified via frontend proxy /api/auth/callback/{provider}
   await auditMutations();
   await auditResponseTimes();
 
