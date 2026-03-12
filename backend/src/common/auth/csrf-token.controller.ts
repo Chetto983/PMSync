@@ -1,6 +1,7 @@
 import { Controller, Get, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from './public.decorator';
 import { generateCsrfToken } from '../middleware/csrf.middleware';
 
@@ -18,6 +19,7 @@ import { generateCsrfToken } from '../middleware/csrf.middleware';
 @Controller('auth')
 export class CsrfTokenController {
   @Get('csrf-token')
+  @Throttle({ default: { limit: 300, ttl: 60000 } })
   @ApiOperation({ summary: 'Get CSRF token for double-submit cookie protection' })
   @ApiResponse({ status: 200, description: 'Returns CSRF token' })
   getCsrfToken(

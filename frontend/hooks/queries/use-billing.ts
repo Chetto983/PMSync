@@ -11,10 +11,20 @@ import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/r
 import { billingKeys } from './billing-keys';
 import { billingApi } from '@/lib/api/billing';
 import { useCallback, useMemo } from 'react';
+import { shouldRetryQuery } from './query-retry';
 
 // ==========================================================================
 // Query Options (for prefetching)
 // ==========================================================================
+
+export interface SubscriptionFeatures {
+  basic_email: boolean;
+  smart_replies: boolean;
+  summaries: boolean;
+  auto_triage: boolean;
+  briefings: boolean;
+  rag: boolean;
+}
 
 export function subscriptionOptions() {
   return queryOptions({
@@ -22,7 +32,7 @@ export function subscriptionOptions() {
     queryFn: billingApi.getSubscription,
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
@@ -32,7 +42,7 @@ export function usageOptions() {
     queryFn: billingApi.getUsage,
     staleTime: 30 * 1000, // 30 seconds (more frequent updates)
     gcTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
@@ -42,17 +52,20 @@ export function costStatusOptions() {
     queryFn: billingApi.getCostStatus,
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
 export function featuresOptions() {
   return queryOptions({
     queryKey: billingKeys.features(),
-    queryFn: billingApi.getFeatures,
+    queryFn: async (): Promise<SubscriptionFeatures> => {
+      const response = await billingApi.getFeatures();
+      return response.features as SubscriptionFeatures;
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes (features change less often)
     gcTime: 30 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
@@ -62,7 +75,7 @@ export function pricingTableOptions(authenticated = false) {
     queryFn: authenticated ? billingApi.getPricingTableAuthenticated : billingApi.getPricingTable,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
@@ -107,7 +120,7 @@ export function useCostBreakdown() {
     queryFn: billingApi.getCostBreakdown,
     staleTime: 60 * 1000, // 1 minute
     gcTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
@@ -120,7 +133,7 @@ export function useFeatureUsage() {
     queryFn: billingApi.getFeatureUsage,
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
@@ -251,7 +264,7 @@ export function useBilling() {
   // Derived state
   const subscription = subscriptionQuery.data;
   const costStatus = costStatusQuery.data;
-  const features = featuresQuery.data?.features;
+  const features = featuresQuery.data;
 
   // Helper: Check if user is on paid plan
   const isPro = useMemo(() => {

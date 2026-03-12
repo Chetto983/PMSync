@@ -7,6 +7,7 @@ import { authClient } from '@/lib/auth-client';
 // Stored in memory, not localStorage, to prevent XSS token theft
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
+let csrfRetryAfterMs = 0;
 
 const serverApiOrigin =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -41,6 +42,10 @@ export async function getCsrfToken(): Promise<string> {
     return csrfToken;
   }
 
+  if (csrfRetryAfterMs > Date.now()) {
+    return '';
+  }
+
   // Prevent concurrent token fetches
   if (csrfTokenPromise) {
     return csrfTokenPromise;
@@ -54,6 +59,12 @@ export async function getCsrfToken(): Promise<string> {
       return csrfToken!;
     })
     .catch((_err) => {
+      const retryAfterHeader = _err?.response?.headers?.['retry-after'];
+      const retryAfterSeconds = Number.parseInt(String(retryAfterHeader ?? ''), 10);
+      if (_err?.response?.status === 429) {
+        const cooldownMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : 15000;
+        csrfRetryAfterMs = Date.now() + cooldownMs;
+      }
       csrfTokenPromise = null;
       //console.warn('Failed to fetch CSRF token:', err);
       return '';
@@ -188,9 +199,10 @@ apiClient.interceptors.response.use(
         clearCsrfToken();
         error.config._csrfRetried = true;
         const freshToken = await getCsrfToken();
-        if (freshToken) {
-          error.config.headers['X-CSRF-Token'] = freshToken;
+        if (!freshToken) {
+          return Promise.reject(error);
         }
+        error.config.headers['X-CSRF-Token'] = freshToken;
         return apiClient.request(error.config);
       }
 

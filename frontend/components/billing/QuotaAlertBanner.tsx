@@ -16,7 +16,7 @@ import {
 import { AlertTriangle, X, Sparkles } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useBilling } from '@/hooks/queries/use-billing';
+import { useCostStatus, useSubscription } from '@/hooks/queries/use-billing';
 
 interface QuotaAlertBannerProps {
   onUpgradeClick?: () => void;
@@ -25,7 +25,8 @@ interface QuotaAlertBannerProps {
 export function QuotaAlertBanner({ onUpgradeClick }: QuotaAlertBannerProps) {
   const theme = useTheme();
   const t = useTranslations();
-  const { subscription, costStatus, quotaStatus, isLoading } = useBilling();
+  const subscriptionQuery = useSubscription();
+  const costStatusQuery = useCostStatus();
   const [dismissed, setDismissed] = useState(false);
 
   const handleDismiss = useCallback(() => {
@@ -35,15 +36,22 @@ export function QuotaAlertBanner({ onUpgradeClick }: QuotaAlertBannerProps) {
   }, []);
 
   // Don't show if loading or no data
-  if (isLoading || !subscription || dismissed) {
+  if (subscriptionQuery.isLoading || costStatusQuery.isLoading || !subscriptionQuery.data || dismissed) {
     return null;
   }
+
+  const subscription = subscriptionQuery.data;
+  const costStatus = costStatusQuery.data;
 
   // Check for cost protection blocked state
   const isCostBlocked = costStatus?.isBlocked;
 
   // Check for quota warnings
-  const { emailPercent, aiPercent, isWarning, isCritical } = quotaStatus;
+  const usage = subscription.usage;
+  const emailPercent = usage?.percentEmailUsed ?? 0;
+  const aiPercent = usage?.percentAIUsed ?? 0;
+  const isWarning = emailPercent >= 80 || aiPercent >= 80;
+  const isCritical = emailPercent >= 95 || aiPercent >= 95;
   const maxPercent = Math.max(emailPercent, aiPercent);
   const quotaType = aiPercent >= emailPercent
     ? (t.billing?.usage?.aiCalls || 'AI Calls')

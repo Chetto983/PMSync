@@ -44,8 +44,7 @@ test.describe('Admin panel -- user management', () => {
     const searchInput = page.getByPlaceholder('Search by email...');
     await searchInput.fill('member@');
 
-    // Wait for debounce + refetch (300ms debounce + network)
-    await page.waitForTimeout(500);
+    // Wait for debounce + refetch (search has 300ms debounce)
     await expect(memberRow(page)).toBeVisible({ timeout: 10_000 });
 
     // admin@pmsync.local should NOT be visible after filtering
@@ -139,9 +138,10 @@ test.describe.serial('Admin panel -- ban/unban', () => {
       // Search for member to find them quickly
       const searchInput = page.getByPlaceholder('Search by email...');
       await searchInput.fill('member@');
-      await page.waitForTimeout(500);
 
       const row = page.locator('tr', { hasText: MEMBER_EMAIL });
+      // Wait for search debounce + refetch to complete
+      await row.waitFor({ state: 'visible', timeout: 10_000 });
 
       // Check if the user is still banned by looking for "Banned" chip
       const bannedChip = row.getByText('Banned');
@@ -175,7 +175,7 @@ test.describe.serial('Admin panel -- ban/unban', () => {
     // BanUserDialog should appear
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible({ timeout: 5_000 });
-    await expect(dialog.getByText('Ban User')).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: /ban user/i })).toBeVisible();
 
     // Click "Ban User" confirm button (variant="contained" color="error")
     const confirmBtn = dialog.locator('button', { hasText: 'Ban User' }).last();

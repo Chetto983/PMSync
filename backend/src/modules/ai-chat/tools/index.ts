@@ -14,6 +14,8 @@ export { CalendarToolsService } from './calendar-tools.service';
 export { ContactToolsService } from './contact-tools.service';
 export { FolderToolsService } from './folder-tools.service';
 export { RagToolsService } from './rag-tools.service';
+export { ConversationToolsService } from './conversation-tools.service';
+export { SandboxToolsService } from './sandbox-tools.service';
 
 /**
  * Common interface for tool service getTools() signature.

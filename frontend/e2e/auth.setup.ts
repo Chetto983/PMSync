@@ -53,17 +53,36 @@ setup('authenticate', async ({ page }) => {
     console.log(`onboarding-complete: ${compResp.status()}`);
 
     // 3. Set the middleware cookie so the redirect check is skipped
-    await page.evaluate(() => {
-      document.cookie =
-        'pmsync:onboarding-complete=1; path=/; max-age=31536000; SameSite=Lax';
-    });
+    // Use context.addCookies() instead of page.evaluate to avoid
+    // "Execution context was destroyed" errors from mid-navigation pages
+    const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3001';
+    const cookieDomain = new URL(baseURL).hostname;
+    await page.context().addCookies([
+      {
+        name: 'pmsync:onboarding-complete',
+        value: '1',
+        domain: cookieDomain,
+        path: '/',
+        sameSite: 'Lax',
+        expires: Math.floor(Date.now() / 1000) + 31536000,
+      },
+    ]);
 
     // Verify cookie was set
     const cookies = await page.context().cookies();
     const obCookie = cookies.find((c) => c.name === 'pmsync:onboarding-complete');
     console.log(`onboarding cookie set: ${!!obCookie}, value: ${obCookie?.value}`);
 
-    await page.goto('/dashboard', { waitUntil: 'networkidle' });
+    // Wait for either the onboarding page to auto-redirect to dashboard,
+    // or navigate there explicitly. Use try/catch because goto may ERR_ABORT
+    // if the page is already mid-navigation from the onboarding redirect.
+    try {
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 10_000 });
+    } catch {
+      // Navigation aborted -- page is likely already redirecting to dashboard
+    }
+    await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
+    await page.waitForLoadState('networkidle');
     console.log(`after goto /dashboard, URL is: ${page.url()}`);
   }
 

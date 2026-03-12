@@ -11,19 +11,22 @@
  */
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { useTheme as useNextTheme } from 'next-themes';
+import { useQueryClient } from '@tanstack/react-query';
 import { usersApi, type UserPreferences } from '@/lib/api/users';
 import { authClient } from '@/lib/auth-client';
 import { logger } from '@/lib/logger';
+import { settingsKeys } from '@/hooks/queries/settings-keys';
+import { userPreferencesOptions } from '@/hooks/queries/use-settings';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 const THEME_STORAGE_KEY = 'pmsync:theme';
 const THEME_STORAGE_KEY_OLD = 'pmSync:theme';
-const THEME_FETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+type ThemeFetchResult =
+  | { status: 'success'; theme: ThemeMode | null }
+  | { status: 'error' };
 
-// Module-level singleton to prevent duplicate fetches across multiple hook instances
-let globalLastFetch = 0;
-let globalFetchPromise: Promise<ThemeMode | null> | null = null;
+// Module-level singleton to prevent duplicate saves across multiple hook instances
 let globalSavePromise: Promise<boolean> | null = null;
 
 interface UseThemePersistenceReturn {
@@ -70,6 +73,7 @@ function setLocalTheme(theme: ThemeMode): void {
 
 export function useThemePersistence(): UseThemePersistenceReturn {
   const { theme: nextTheme, setTheme: setNextTheme, systemTheme } = useNextTheme();
+  const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const isAuthenticated = !!session;
   const [isLoading, setIsLoading] = useState(false);
@@ -82,34 +86,24 @@ export function useThemePersistence(): UseThemePersistenceReturn {
   /**
    * Fetch theme from database
    */
-  const fetchThemeFromDB = useCallback(async (): Promise<ThemeMode | null> => {
+  const fetchThemeFromDB = useCallback(async (): Promise<ThemeFetchResult> => {
     if (!isAuthenticated) return null;
 
-    // Dedup: if a fetch is already in flight, reuse it
-    if (globalFetchPromise) return globalFetchPromise;
-
-    // Throttle: skip if recently fetched
-    if (Date.now() - globalLastFetch < THEME_FETCH_INTERVAL) return null;
-
-    globalFetchPromise = (async () => {
-      try {
-        const prefs: UserPreferences = await usersApi.getPreferences();
-        globalLastFetch = Date.now();
-        if (prefs.theme && ['light', 'dark', 'system'].includes(prefs.theme)) {
-          return prefs.theme as ThemeMode;
-        }
-      } catch (error) {
-        logger.warn('[useThemePersistence] Failed to fetch theme from DB', { error });
-      }
-      return null;
-    })();
-
     try {
-      return await globalFetchPromise;
-    } finally {
-      globalFetchPromise = null;
+      const cachedPrefs = queryClient.getQueryData<UserPreferences>(settingsKeys.preferences());
+      const prefs =
+        cachedPrefs ?? (await queryClient.fetchQuery(userPreferencesOptions()));
+
+      if (prefs.theme && ['light', 'dark', 'system'].includes(prefs.theme)) {
+        return { status: 'success', theme: prefs.theme as ThemeMode };
+      }
+
+      return { status: 'success', theme: null };
+    } catch (error) {
+      logger.warn('[useThemePersistence] Failed to fetch theme from DB', { error });
+      return { status: 'error' };
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, queryClient]);
 
   /**
    * Save theme to database
@@ -123,7 +117,8 @@ export function useThemePersistence(): UseThemePersistenceReturn {
     globalSavePromise = (async () => {
       try {
         isSavingRef.current = true;
-        await usersApi.updatePreferences({ theme });
+        const updatedPrefs = await usersApi.updatePreferences({ theme });
+        queryClient.setQueryData(settingsKeys.preferences(), updatedPrefs);
         return true;
       } catch (error) {
         logger.warn('[useThemePersistence] Failed to save theme to DB', { error });
@@ -138,7 +133,7 @@ export function useThemePersistence(): UseThemePersistenceReturn {
     } finally {
       globalSavePromise = null;
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, queryClient]);
 
   /**
    * Load theme from database on mount/auth change
@@ -156,15 +151,15 @@ export function useThemePersistence(): UseThemePersistenceReturn {
       try {
         const dbTheme = await fetchThemeFromDB();
 
-        if (dbTheme) {
+        if (dbTheme.status === 'success' && dbTheme.theme) {
           // DB theme is source of truth
-          setNextTheme(dbTheme);
-          setLocalTheme(dbTheme);
+          setNextTheme(dbTheme.theme);
+          setLocalTheme(dbTheme.theme);
         } else {
-          // No DB theme, use local and save to DB
+          // No DB theme or fetch failed: use local fallback only.
+          // Do not auto-write preferences on mount.
           const localTheme = getLocalTheme();
           setNextTheme(localTheme);
-          await saveThemeToDB(localTheme);
         }
       } finally {
         setIsLoading(false);

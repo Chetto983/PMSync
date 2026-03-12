@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/r
 import { settingsKeys } from './settings-keys';
 import { usersApi, type UserPreferences, type UpdatePreferencesData } from '@/lib/api/users';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
+import { shouldRetryQuery } from './query-retry';
 
 // ============================================================================
 // Query Options
@@ -27,7 +28,7 @@ export function userPreferencesOptions() {
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 
@@ -43,7 +44,7 @@ export function providersOptions() {
     },
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }
 

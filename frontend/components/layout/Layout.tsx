@@ -4,7 +4,6 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { CommandPalette } from '@/components/ai/CommandPalette';
-import { useThemePersistence } from '@/hooks/use-theme-persistence';
 
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useSyncStore } from '@/stores/sync-store';
@@ -27,10 +26,6 @@ export function Layout({ children }: LayoutProps) {
   const { lastStatus, clear } = useSyncStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Unified theme management - syncs with database
-  // Note: MUI ThemeProvider is in _app.tsx (MaterialThemeWrapper) - no duplicate here
-  const { isDarkMode, toggleTheme } = useThemePersistence();
 
   // Get translated sync status message
   const getSyncStatusMessage = useMemo(() => {
@@ -137,8 +132,6 @@ export function Layout({ children }: LayoutProps) {
           {/* Header */}
           <Header
             onMenuClick={handleMobileDrawerToggle}
-            onThemeToggle={toggleTheme}
-            isDarkMode={isDarkMode}
           />
 
           {/* Quota Alert Banner - shows when usage > 80% */}
