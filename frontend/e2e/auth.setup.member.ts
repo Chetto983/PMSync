@@ -25,7 +25,33 @@ setup('authenticate as member', async ({ page }) => {
   await page.fill('input[name="password"], input[type="password"]', MEMBER_PASSWORD);
   await page.click('button[type="submit"]');
 
-  await page.waitForURL('**/dashboard**', { timeout: 15_000 });
+  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 15_000 });
+
+  // If middleware redirected to /onboarding (missing cookie), set the cookie
+  // and navigate to /dashboard. The member user has onboardingComplete: true
+  // in the DB, so the middleware cookie is the only gate.
+  if (page.url().includes('/onboarding')) {
+    const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3001';
+    const cookieDomain = new URL(baseURL).hostname;
+    await page.context().addCookies([
+      {
+        name: 'pmsync:onboarding-complete',
+        value: '1',
+        domain: cookieDomain,
+        path: '/',
+        sameSite: 'Lax',
+        expires: Math.floor(Date.now() / 1000) + 31536000,
+      },
+    ]);
+
+    try {
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 10_000 });
+    } catch {
+      // Navigation aborted -- page may already be redirecting
+    }
+    await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
+  }
+
   await expect(page).toHaveURL(/\/dashboard/);
   await page.context().storageState({ path: authFile });
 });
