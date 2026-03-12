@@ -172,7 +172,7 @@ Plans:
   2. Admin panel E2E test completes: navigate to admin, search users, ban a user (verify they cannot log in), unban, impersonate a user, revoke a session
   3. Onboarding wizard E2E test completes all steps: set display name, create/join workspace, connect email provider, configure MFA, upload avatar -- wizard marks complete and redirects to dashboard
   4. Security settings E2E test completes: change password, enable TOTP (scan QR, enter code), disable TOTP, register passkey (via virtual authenticator), view and revoke active sessions
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 Plans:
 - [ ] 71-01-PLAN.md -- Seed fix (super-admin + member user), auth.setup.member.ts, playwright.config.ts update, otplib install
 - [ ] 71-02-PLAN.md -- organizations.spec.ts: create org, invite, accept invitation, switch org (FE2E-01)
@@ -205,7 +205,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 | 68. Backend Tests - Complex Modules | 5/5 | Complete    | 2026-03-11 | - |
 | 69. Backend Integration Tests | 3/3 | Complete    | 2026-03-11 | - |
 | 70. Frontend Unit Tests | 3/3 | Complete    | 2026-03-11 | - |
-| 71. Frontend E2E Tests | 3/5 | In Progress|  | - |
+| 71. Frontend E2E Tests | 4/5 | In Progress|  | - |
 | 72. MUI Audit & Polish | v5.1 | 0/? | Not started | - |
 
 ---
