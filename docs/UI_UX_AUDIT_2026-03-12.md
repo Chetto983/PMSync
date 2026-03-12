@@ -238,3 +238,15 @@ Browser diagnostics reported missing `autocomplete` attributes for the new passw
   - mobile TOTP CTA visibility
   - admin route role-state rendering
   - mobile inbox toolbar layout
+
+## Post-Deploy Verification
+
+- Re-tested after production deploy on `https://mail-agent-indol.vercel.app`
+- Verified fixed:
+  - mobile security CTA no longer clips on `/dashboard/settings?section=security`
+  - admin routes now show an explicit access-limited state instead of a generic failure
+  - mobile inbox header gives search the primary row and no longer squeezes the count label into the same line
+  - password toggle labels are localized
+  - connected-account disabled unlink state now explains why it is blocked
+- Residual low-priority signal:
+  - browser diagnostics still suggest an optional hidden username field for password-form autofill heuristics on the security page

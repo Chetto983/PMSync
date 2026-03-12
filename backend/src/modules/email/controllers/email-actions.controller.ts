@@ -5,6 +5,9 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { Response } from 'express';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
@@ -340,22 +343,53 @@ export class EmailActionsController {
   @Get(':emailId/attachments/:attachmentId/download')
   async downloadAttachment(
     @Req() req: AuthenticatedRequest,
-    @Res() res: any,
+    @Res() res: Response,
     @Param('emailId') emailId: string,
     @Param('attachmentId') attachmentId: string,
   ) {
     const tenantId = req.user.tenantId;
     const attachment = await this.emailsService.getAttachmentDownloadUrl(emailId, attachmentId, tenantId);
 
+    let signedUrl: string | null = null;
     if (attachment.storageType === 's3' && attachment.storagePath) {
-      const signedUrl = await this.storageService.getSignedDownloadUrl(attachment.storagePath);
-      return res.redirect(signedUrl);
+      signedUrl = await this.storageService.getSignedDownloadUrl(attachment.storagePath);
     }
-    if (attachment.storageType === 'pending') {
+    if (!signedUrl && attachment.storageType === 'pending') {
       const result = await this.attachmentOnDemandService.downloadAttachment(attachmentId, tenantId);
-      return res.redirect(result.url);
+      signedUrl = result.url;
     }
 
-    throw new BadRequestException('Invalid or unsupported storage configuration');
+    if (!signedUrl) {
+      throw new BadRequestException('Invalid or unsupported storage configuration');
+    }
+
+    const nodeFetch = await import('node-fetch');
+    const fetch = nodeFetch.default;
+    const storageResponse = await fetch(signedUrl);
+
+    if (!storageResponse.ok) {
+      throw new BadRequestException(`Failed to fetch attachment content: ${storageResponse.status}`);
+    }
+
+    res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
+
+    const sanitizedFilename = attachment.filename
+      .replace(/[\r\n\0]/g, '')
+      .replace(/[<>:"/\\|?*]/g, '_')
+      .substring(0, 255);
+    const safeFilename = encodeURIComponent(sanitizedFilename).replace(/['()]/g, escape);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeFilename}`);
+
+    const contentLength = storageResponse.headers.get('content-length');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+
+    if (!storageResponse.body) {
+      throw new BadRequestException('Attachment response body missing');
+    }
+
+    const nodeStream = Readable.fromWeb(storageResponse.body as any);
+    await pipeline(nodeStream, res);
   }
 }

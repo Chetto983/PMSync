@@ -179,7 +179,7 @@ export class ContactsController {
    * Returns a map of email address -> { contactId, photoUrl, displayName }
    */
   @Post('lookup-by-emails')
-  @Roles('admin', 'manager')
+  @Roles('admin', 'manager', 'super-admin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Lookup contacts by emails',
