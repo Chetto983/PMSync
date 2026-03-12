@@ -5,7 +5,7 @@
  * Uses admin storageState (default) and a second browser context for the member user.
  */
 
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type BrowserContext } from '@playwright/test';
 
 const ORG_NAME = `E2E Org ${Date.now()}`;
 const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL ?? 'member@pmsync.local';
@@ -18,7 +18,7 @@ test.describe('Organization flows', () => {
   let invitationId: string | undefined;
 
   test.afterAll(async ({ browser }) => {
-    // Clean up: delete the created org via the admin UI
+    // Clean up: delete the created org via API (faster + more reliable than UI)
     if (!createdOrgId) return;
 
     let ctx: BrowserContext | undefined;
@@ -28,34 +28,20 @@ test.describe('Organization flows', () => {
       });
       const page = await ctx.newPage();
 
-      await page.goto('/dashboard/admin/organizations', {
-        waitUntil: 'networkidle',
-      });
-
-      // Find and click the delete button for the org row containing ORG_NAME
-      const orgRow = page.locator('tr', { hasText: ORG_NAME });
-      const deleteBtn = orgRow.locator('button[color="error"], button:has(svg)').last();
-
-      if (await deleteBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await deleteBtn.click();
-
-        // DeleteOrgDialog: type the org name to confirm
-        const confirmInput = page.locator('div[role="dialog"] input');
-        await confirmInput.fill(ORG_NAME);
-
-        // Click the red "Delete Organization" submit button
-        const submitBtn = page.locator(
-          'div[role="dialog"] button[type="submit"]',
-        );
-        await submitBtn.click();
-
-        // Wait for dialog to close
-        await page
-          .locator('div[role="dialog"]')
-          .waitFor({ state: 'hidden', timeout: 10_000 })
-          .catch(() => {
-            // Cleanup is best-effort
-          });
+      // Use the better-auth organization delete API directly for cleanup
+      const response = await page.request.post(
+        '/api/auth/organization/delete',
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          data: { organizationId: createdOrgId },
+        },
+      );
+      // Best-effort: don't fail teardown if delete fails
+      if (!response.ok()) {
+        console.warn(`Cleanup: failed to delete org ${createdOrgId} (${response.status()})`);
       }
     } finally {
       await ctx?.close();
@@ -89,7 +75,6 @@ test.describe('Organization flows', () => {
     await expect(orgCell).toBeVisible({ timeout: 10_000 });
 
     // Extract org ID from the org list API for later use
-    // Refetch org list and find the one matching ORG_NAME
     const response = await page.request.get('/api/auth/organization/list', {
       headers: { Accept: 'application/json' },
     });
@@ -107,12 +92,11 @@ test.describe('Organization flows', () => {
       waitUntil: 'networkidle',
     });
 
-    // Expand the org row to see actions
+    // Find the org row containing ORG_NAME
     const orgRow = page.locator('tr', { hasText: ORG_NAME }).first();
     await expect(orgRow).toBeVisible();
 
-    // Click the invite (UserPlus) icon button for this org
-    // The invite button is inside the actions cell -- it has color="primary"
+    // Click the invite (UserPlus) icon button -- first button in the actions cell
     const inviteBtn = orgRow.locator('button').first();
     await inviteBtn.click();
 
@@ -127,7 +111,7 @@ test.describe('Organization flows', () => {
     // Click send/submit
     await dialog.locator('button[type="submit"]').click();
 
-    // Wait for success alert or dialog close
+    // Wait for success alert (MUI Alert with role="alert")
     const successAlert = dialog.locator('[role="alert"]');
     await expect(successAlert).toBeVisible({ timeout: 10_000 });
 
@@ -168,9 +152,9 @@ test.describe('Organization flows', () => {
         { waitUntil: 'networkidle' },
       );
 
-      // Wait for success alert
+      // Wait for success alert -- accept page shows "Invitation accepted! Redirecting..."
       const successAlert = memberPage.locator('[role="alert"]');
-      await expect(successAlert).toContainText(/accepted|success/i, {
+      await expect(successAlert).toContainText(/accepted/i, {
         timeout: 15_000,
       });
     } finally {
@@ -183,67 +167,26 @@ test.describe('Organization flows', () => {
 
     await page.goto('/dashboard', { waitUntil: 'networkidle' });
 
-    // The OrgSwitcher renders as a button with Building2 icon in the header
-    // It only shows for users with 2+ orgs
-    const orgSwitcherBtn = page.locator('header button', {
-      hasText: /./,
-    });
-
-    // Find the switcher button -- it has the current org name or "Switch Organization"
-    const switcher = page.locator('button:has(svg)', {
-      hasText: /.+/,
-    });
-
-    // Click the org switcher -- look for a button that opens a menu with org names
-    // The OrgSwitcher button starts with a Building2 icon
-    // We need to find a button that, when clicked, shows a menu with ORG_NAME
-    // Try clicking buttons that look like the switcher
-    const allHeaderButtons = page.locator('header button');
-    const count = await allHeaderButtons.count();
-
-    let switcherFound = false;
-    for (let i = 0; i < count; i++) {
-      const btn = allHeaderButtons.nth(i);
-      const text = await btn.textContent();
-      // OrgSwitcher shows active org name or "Switch Organization"
-      if (text && (text.includes('Organization') || text.includes('Org'))) {
-        await btn.click();
-        switcherFound = true;
-        break;
-      }
-    }
-
-    if (!switcherFound) {
-      // Fallback: set active org via API directly
-      const response = await page.request.post(
-        '/api/auth/organization/set-active',
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          data: { organizationId: createdOrgId },
+    // Set the active org via API, then verify it reflects in the UI.
+    // This is more reliable than finding/clicking the OrgSwitcher button
+    // (whose text varies based on current active org name).
+    const response = await page.request.post(
+      '/api/auth/organization/set-active',
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
-      );
-      expect(response.ok()).toBeTruthy();
+        data: { organizationId: createdOrgId },
+      },
+    );
+    expect(response.ok()).toBeTruthy();
 
-      // Reload and verify
-      await page.reload({ waitUntil: 'networkidle' });
-    } else {
-      // Click on ORG_NAME in the dropdown menu
-      const menuItem = page.locator('[role="menuitem"]', {
-        hasText: ORG_NAME,
-      });
-      await expect(menuItem).toBeVisible({ timeout: 5_000 });
-      await menuItem.click();
+    // Reload to pick up the new active org in the UI
+    await page.reload({ waitUntil: 'networkidle' });
 
-      // Wait for page to settle after org switch (full cache invalidation)
-      await page.waitForLoadState('networkidle');
-    }
-
-    // Verify the org name appears somewhere in the header/UI
-    // After switching, the OrgSwitcher button text should show ORG_NAME
-    // or the page should reflect the new active org
+    // The OrgSwitcher button in the header shows the active org name
+    // Verify ORG_NAME appears in the header
     const orgNameVisible = page.locator('header').getByText(ORG_NAME);
     await expect(orgNameVisible).toBeVisible({ timeout: 10_000 });
   });
