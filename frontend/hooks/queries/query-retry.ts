@@ -9,7 +9,7 @@ export function shouldRetryQuery(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (error as any)?.status;
 
-  if (status === 429) {
+  if (status === 401 || status === 403 || status === 429) {
     return false;
   }
 

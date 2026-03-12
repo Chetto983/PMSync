@@ -25,9 +25,10 @@ export type { StepProps } from './types';
 
 interface OnboardingWizardProps {
   user: SessionUser;
+  legalOnly?: boolean;
 }
 
-export function OnboardingWizard({ user }: OnboardingWizardProps) {
+export function OnboardingWizard({ user, legalOnly = false }: OnboardingWizardProps) {
   const t = useTranslations();
   const router = useRouter();
 
@@ -35,14 +36,16 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
   const [_stepData, setStepData] = useState<Record<number, unknown>>({});
   const [completing, setCompleting] = useState(false);
 
-  const steps = [
-    { label: t.onboarding.steps.legal, Component: StepLegalConsent },
-    { label: t.onboarding.steps.name, Component: StepNameConfirm },
-    { label: t.onboarding.steps.workspace, Component: StepWorkspace },
-    { label: t.onboarding.steps.emailProvider, Component: StepEmailProvider },
-    { label: t.onboarding.steps.avatar, Component: StepAvatar },
-    { label: t.onboarding.steps.mfa, Component: StepMfaSetup },
-  ];
+  const steps = legalOnly
+    ? [{ label: t.onboarding.steps.legal, Component: StepLegalConsent }]
+    : [
+        { label: t.onboarding.steps.legal, Component: StepLegalConsent },
+        { label: t.onboarding.steps.name, Component: StepNameConfirm },
+        { label: t.onboarding.steps.workspace, Component: StepWorkspace },
+        { label: t.onboarding.steps.emailProvider, Component: StepEmailProvider },
+        { label: t.onboarding.steps.avatar, Component: StepAvatar },
+        { label: t.onboarding.steps.mfa, Component: StepMfaSetup },
+      ];
 
   const isLastStep = activeStep === steps.length - 1;
 
@@ -55,7 +58,9 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
         // All steps done -- mark onboarding complete
         setCompleting(true);
         try {
-          await apiClient.post('/onboarding/complete');
+          if (!user.onboardingComplete) {
+            await apiClient.post('/onboarding/complete');
+          }
 
           // Set cookie so middleware skips onboarding redirect
           document.cookie =
@@ -72,7 +77,7 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
 
       setActiveStep((prev) => prev + 1);
     },
-    [activeStep, isLastStep, router],
+    [activeStep, isLastStep, router, user.onboardingComplete],
   );
 
   const handleBack = useCallback(() => {

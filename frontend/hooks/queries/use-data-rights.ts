@@ -90,17 +90,18 @@ export function useCancelDeletionMutation() {
 
 // ===== LEGAL STATUS HOOKS =====
 
-export function legalStatusOptions() {
+export function legalStatusOptions(enabled = true) {
   return queryOptions({
     queryKey: dataRightsKeys.legalStatus(),
     queryFn: () => complianceApi.getLegalStatus(),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    enabled,
   });
 }
 
-export function useLegalStatus() {
-  return useQuery(legalStatusOptions());
+export function useLegalStatus(enabled = true) {
+  return useQuery(legalStatusOptions(enabled));
 }
 
 export function useLegalAcceptMutation() {
