@@ -12,12 +12,24 @@ import { Readable, PassThrough } from 'stream';
 import { pipeline } from 'stream/promises';
 
 describe('Attachment Streaming', () => {
+  function toNodeReadableStream(streamBody: unknown): NodeJS.ReadableStream {
+    if (!streamBody) {
+      throw new Error('No response body from S3');
+    }
+
+    if (typeof (streamBody as NodeJS.ReadableStream).pipe === 'function') {
+      return streamBody as NodeJS.ReadableStream;
+    }
+
+    return Readable.fromWeb(streamBody as any);
+  }
+
   /**
    * Simulate the streaming logic from attachments.controller.ts downloadAttachment method.
    * We extract the core streaming pattern to test it in isolation.
    */
   async function streamFromS3ToResponse(
-    s3Body: ReadableStream | null,
+    s3Body: ReadableStream | NodeJS.ReadableStream | null,
     res: { setHeader: jest.Mock; write: jest.Mock; end: jest.Mock } & NodeJS.WritableStream,
     contentLength?: string | null,
   ): Promise<void> {
@@ -25,12 +37,8 @@ describe('Attachment Streaming', () => {
       res.setHeader('Content-Length', contentLength);
     }
 
-    if (s3Body) {
-      const nodeStream = Readable.fromWeb(s3Body as any);  
-      await pipeline(nodeStream, res);
-    } else {
-      throw new Error('No response body from S3');
-    }
+    const nodeStream = toNodeReadableStream(s3Body);
+    await pipeline(nodeStream, res);
   }
 
   /**
@@ -81,6 +89,17 @@ describe('Attachment Streaming', () => {
     const received = Buffer.concat(mockRes.chunks).toString();
     expect(received).toBe(testData);
     expect(received.length).toBe(1024);
+  });
+
+  it('streams data from a Node readable body without converting from web stream', async () => {
+    const testData = 'node stream attachment body';
+    const nodeStream = Readable.from([Buffer.from(testData)]);
+    const mockRes = createMockResponse();
+
+    await streamFromS3ToResponse(nodeStream, mockRes as any, String(testData.length));
+
+    const received = Buffer.concat(mockRes.chunks).toString();
+    expect(received).toBe(testData);
   });
 
   it('sets Content-Length header from S3 response', async () => {
@@ -142,7 +161,7 @@ describe('Attachment Streaming', () => {
     expect(source).not.toContain('Buffer.from(arrayBuffer)');
 
     // SHOULD have the streaming pattern
-    expect(source).toContain('Readable.fromWeb');
+    expect(source).toContain('toNodeReadableStream');
     expect(source).toContain('pipeline');
   });
 

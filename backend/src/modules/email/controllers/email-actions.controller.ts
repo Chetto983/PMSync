@@ -62,6 +62,18 @@ const decodeAttachments = (attachments?: EmailAttachmentDto[]): DecodedAttachmen
     });
 };
 
+const toNodeReadableStream = (streamBody: unknown): NodeJS.ReadableStream => {
+  if (!streamBody) {
+    throw new BadRequestException('Attachment response body missing');
+  }
+
+  if (typeof (streamBody as NodeJS.ReadableStream).pipe === 'function') {
+    return streamBody as NodeJS.ReadableStream;
+  }
+
+  return Readable.fromWeb(streamBody as any);
+};
+
 @ApiTags('Emails')
 @ApiBearerAuth()
 @Controller('emails')
@@ -385,11 +397,7 @@ export class EmailActionsController {
       res.setHeader('Content-Length', contentLength);
     }
 
-    if (!storageResponse.body) {
-      throw new BadRequestException('Attachment response body missing');
-    }
-
-    const nodeStream = Readable.fromWeb(storageResponse.body as any);
+    const nodeStream = toNodeReadableStream(storageResponse.body);
     await pipeline(nodeStream, res);
   }
 }

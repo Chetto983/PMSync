@@ -23,6 +23,18 @@ import { RolesGuard } from '../../../common/auth/roles.guard';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
+const toNodeReadableStream = (streamBody: unknown): NodeJS.ReadableStream => {
+  if (!streamBody) {
+    throw new Error('No response body from S3');
+  }
+
+  if (typeof (streamBody as NodeJS.ReadableStream).pipe === 'function') {
+    return streamBody as NodeJS.ReadableStream;
+  }
+
+  return Readable.fromWeb(streamBody as any);
+};
+
 /**
  * HTTP API endpoints for email attachments
  *
@@ -125,12 +137,8 @@ export class AttachmentsController {
       }
 
       // Stream the file from S3 to client (piped streaming -- constant memory usage)
-      if (s3Response.body) {
-        const nodeStream = Readable.fromWeb(s3Response.body as any);  
-        await pipeline(nodeStream, res);
-      } else {
-        throw new Error('No response body from S3');
-      }
+      const nodeStream = toNodeReadableStream(s3Response.body);
+      await pipeline(nodeStream, res);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
 
