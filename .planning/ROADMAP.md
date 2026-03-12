@@ -110,7 +110,7 @@ Plans:
   2. Users module tests verify profile CRUD and preferences update/retrieval with tenant isolation (user A cannot read user B's profile in a different tenant)
   3. Tenants module tests verify tenant creation, update, and deletion with cascading cleanup and cross-tenant isolation
   4. Labels module tests verify CRUD, nested label tree operations (create child, move, delete with children), and tenant scoping
-**Plans:** 5/5 plans complete
+**Plans:** 6 plans (5 complete, 1 gap closure)
 Plans:
 - [ ] 67-01-PLAN.md -- Extend test helpers: createTestLabel factory + user_labels cleanup
 - [ ] 67-02-PLAN.md -- Health service tests (BTEST-08): DB probe, Redis probe, Mistral disabled, BullMQ optional
@@ -127,7 +127,7 @@ Plans:
   2. Contacts module tests cover sync flow, CRM relationship scoring calculation, cache invalidation, and webhook processing
   3. Providers module tests cover OAuth token acquisition, refresh, and revocation flows; IMAP config validation; and token lifecycle (expiry, rotation)
   4. Subscription module tests cover billing state transitions, quota calculation, usage tracking increments, and QuotaGuard rejection when limits are exceeded
-**Plans:** 5/5 plans complete
+**Plans:** 6 plans (5 complete, 1 gap closure)
 Plans:
 - [ ] 68-00-PLAN.md -- Extend test helpers: 4 new factories + 9 new cleanup tables
 - [ ] 68-01-PLAN.md -- Calendar module tests (BTEST-01): ICS parsing, conflict detection, sync, webhook
@@ -172,13 +172,14 @@ Plans:
   2. Admin panel E2E test completes: navigate to admin, search users, ban a user (verify they cannot log in), unban, impersonate a user, revoke a session
   3. Onboarding wizard E2E test completes all steps: set display name, create/join workspace, connect email provider, configure MFA, upload avatar -- wizard marks complete and redirects to dashboard
   4. Security settings E2E test completes: change password, enable TOTP (scan QR, enter code), disable TOTP, register passkey (via virtual authenticator), view and revoke active sessions
-**Plans:** 5/5 plans complete
+**Plans:** 6 plans (5 complete, 1 gap closure)
 Plans:
 - [ ] 71-01-PLAN.md -- Seed fix (super-admin + member user), auth.setup.member.ts, playwright.config.ts update, otplib install
 - [ ] 71-02-PLAN.md -- organizations.spec.ts: create org, invite, accept invitation, switch org (FE2E-01)
 - [ ] 71-03-PLAN.md -- admin.spec.ts: user list, search, ban/unban, impersonate, revoke sessions (FE2E-02)
 - [ ] 71-04-PLAN.md -- onboarding.spec.ts: all 6 wizard steps including TOTP setup (FE2E-03)
 - [ ] 71-05-PLAN.md -- security.spec.ts: password change, TOTP lifecycle, passkey CDP, session revoke (FE2E-04)
+- [ ] 71-06-PLAN.md -- Gap closure: run full Playwright suite against live backend, fix runtime failures, capture evidence
 
 ### Phase 72: MUI Audit & Polish
 **Goal**: Zero non-MUI patterns exist in the codebase, all v5.0 pages pass accessibility audit, and visual regression baselines prevent future drift
@@ -205,7 +206,7 @@ Phase 72 depends on 71 (needs pages working to screenshot).
 | 68. Backend Tests - Complex Modules | 5/5 | Complete    | 2026-03-11 | - |
 | 69. Backend Integration Tests | 3/3 | Complete    | 2026-03-11 | - |
 | 70. Frontend Unit Tests | 3/3 | Complete    | 2026-03-11 | - |
-| 71. Frontend E2E Tests | 5/5 | Complete   | 2026-03-12 | - |
+| 71. Frontend E2E Tests | 5/6 | Gap closure | 2026-03-12 | - |
 | 72. MUI Audit & Polish | v5.1 | 0/? | Not started | - |
 
 ---
