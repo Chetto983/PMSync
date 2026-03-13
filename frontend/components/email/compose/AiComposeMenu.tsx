@@ -127,6 +127,8 @@ export default function AiComposeMenu({
             open={open}
             anchorEl={anchorEl}
             onClose={onClose}
+            hideBackdrop
+            disableScrollLock
             anchorOrigin={{
                 vertical: 'bottom',
                 horizontal: 'left',

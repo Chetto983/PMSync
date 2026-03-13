@@ -258,6 +258,8 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
           open={Boolean(moreAnchor)}
           anchorEl={moreAnchor}
           onClose={handleCloseMore}
+          hideBackdrop
+          disableScrollLock
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
           transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           slotProps={{

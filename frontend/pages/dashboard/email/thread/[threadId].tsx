@@ -91,6 +91,16 @@ export default function ThreadDetailPage() {
     return emails?.map((e) => e.id) || [];
   }, [emails]);
 
+  const hasFlaggedMessages = useMemo(
+    () => emails?.some((email) => email.isFlagged || email.isStarred) ?? false,
+    [emails]
+  );
+
+  const hasUnflaggedMessages = useMemo(
+    () => emails?.some((email) => !email.isFlagged && !email.isStarred) ?? false,
+    [emails]
+  );
+
   // Get providerId from thread (all emails in a thread belong to same provider)
   const providerId = useMemo(() => {
     return emails?.[0]?.providerId;
@@ -122,15 +132,15 @@ export default function ThreadDetailPage() {
   // Reply handler - navigate to compose with reply context
   const handleReply = useCallback(
     (messageId: string) => {
-      router.push(`/dashboard/email/compose?replyTo=${messageId}&threadId=${threadId}`);
+      router.push(`/dashboard/email/compose?mode=reply&emailId=${messageId}`);
     },
-    [router, threadId]
+    [router]
   );
 
   // Forward handler - navigate to compose with forward context
   const handleForward = useCallback(
     (messageId: string) => {
-      router.push(`/dashboard/email/compose?forward=${messageId}`);
+      router.push(`/dashboard/email/compose?mode=forward&emailId=${messageId}`);
     },
     [router]
   );
@@ -138,9 +148,9 @@ export default function ThreadDetailPage() {
   // Reply All handler - navigate to compose with reply all context
   const handleReplyAll = useCallback(
     (messageId: string) => {
-      router.push(`/dashboard/email/compose?replyTo=${messageId}&threadId=${threadId}&replyAll=true`);
+      router.push(`/dashboard/email/compose?mode=replyAll&emailId=${messageId}`);
     },
-    [router, threadId]
+    [router]
   );
 
   // Download attachment handler
@@ -351,8 +361,8 @@ export default function ThreadDetailPage() {
             onArchiveThread={handleArchiveThread}
             onMarkThreadRead={handleMarkThreadRead}
             onMarkThreadUnread={handleMarkThreadUnread}
-            onFlagAllMessages={handleFlagAllMessages}
-            onUnflagAllMessages={handleUnflagAllMessages}
+            onFlagAllMessages={hasUnflaggedMessages ? handleFlagAllMessages : undefined}
+            onUnflagAllMessages={hasFlaggedMessages ? handleUnflagAllMessages : undefined}
             onAddLabelsToThread={handleAddLabelsToThread}
           />
           <FolderPickerDialog

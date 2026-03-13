@@ -18,29 +18,42 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import type { ComposeDialogProps, ComposeMode } from '@/components/email/compose';
 import type { Recipient } from '@/components/email/compose/ComposeRecipients';
 
+function getSingleQueryParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function ComposePage() {
   const router = useRouter();
   const t = useTranslations();
 
-  // Parse query params - only when router is ready
-  const {
-    mode: queryMode,
-    emailId,
-    draftId,
-    providerId,
-    to,
-  } = router.query as {
-    mode?: string;
-    emailId?: string;
-    draftId?: string;
-    providerId?: string;
-    to?: string;
-  };
+  const queryMode = getSingleQueryParam(router.query.mode);
+  const queryEmailId = getSingleQueryParam(router.query.emailId);
+  const queryDraftId = getSingleQueryParam(router.query.draftId);
+  const providerId = getSingleQueryParam(router.query.providerId);
+  const to = getSingleQueryParam(router.query.to);
+  const legacyReplyTo = getSingleQueryParam(router.query.replyTo);
+  const legacyForward = getSingleQueryParam(router.query.forward);
+  const legacyReplyAll = getSingleQueryParam(router.query.replyAll);
 
-  // Validate and cast mode
-  const mode: ComposeMode = ['reply', 'replyAll', 'forward'].includes(queryMode || '')
-    ? (queryMode as ComposeMode)
-    : 'new';
+  const mode = useMemo<ComposeMode>(() => {
+    if (queryMode === 'reply' || queryMode === 'replyAll' || queryMode === 'forward') {
+      return queryMode;
+    }
+    if (legacyForward) {
+      return 'forward';
+    }
+    if (legacyReplyTo) {
+      return legacyReplyAll === 'true' || legacyReplyAll === '1' ? 'replyAll' : 'reply';
+    }
+    return 'new';
+  }, [legacyForward, legacyReplyAll, legacyReplyTo, queryMode]);
+
+  const emailId = useMemo(
+    () => queryEmailId || legacyReplyTo || legacyForward,
+    [legacyForward, legacyReplyTo, queryEmailId]
+  );
+
+  const draftId = useMemo(() => queryDraftId, [queryDraftId]);
 
   // Parse initial recipients from query param
   const initialTo = useMemo<Recipient[] | undefined>(() => {

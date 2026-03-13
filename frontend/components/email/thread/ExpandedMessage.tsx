@@ -368,7 +368,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           gap: 0.5,
           px: 2,
           py: 1,
-          pl: 7.5,
+          pl: { xs: 2, sm: 7.5 },
           borderBottom: 1,
           borderColor: 'divider',
           bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
@@ -480,13 +480,13 @@ export const ExpandedMessage = memo(function ExpandedMessage({
       />
 
       {/* Body */}
-      <Box sx={{ px: 2, pb: 2, pl: 7.5 }}>
+      <Box sx={{ px: 2, pb: 2, pl: { xs: 2, sm: 7.5 } }}>
         <EmailHtmlContent html={message.body} attachments={message.attachments} />
       </Box>
 
       {/* Attachments - TailAdmin Style */}
       {message.attachments && message.attachments.length > 0 && (
-        <Box sx={{ px: 2, pb: 2, pl: 7.5 }}>
+        <Box sx={{ px: 2, pb: 2, pl: { xs: 2, sm: 7.5 } }}>
           <Divider sx={{ mb: 1.5 }} />
           {/* Attachment Header */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>

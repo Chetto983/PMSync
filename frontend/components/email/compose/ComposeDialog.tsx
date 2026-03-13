@@ -120,6 +120,10 @@ function getQuoteHeader(originalEmail: OriginalEmail | undefined, mode: ComposeM
   return `On ${date}, ${from} wrote:`;
 }
 
+function mapRecipients(emails?: string[]): Recipient[] {
+  return (emails || []).map((email) => ({ email }));
+}
+
 // Constants
 const AUTOSAVE_DELAY_MS = 2000;
 
@@ -254,6 +258,8 @@ export default function ComposeDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isDirtyRef = useRef(false);
   const signatureAppendedRef = useRef(false);
+  const draftContentRestoredRef = useRef(false);
+  const draftAttachmentsRestoredRef = useRef(false);
 
   // AI Draft hooks (enabled only for reply/replyAll AND when user has granted AI consent)
   const isReplyMode = mode === 'reply' || mode === 'replyAll';
@@ -290,6 +296,8 @@ export default function ComposeDialog({
     isDirtyRef.current = false;
     // Always reset signature flag when body is reset, so signature can be re-appended
     signatureAppendedRef.current = false;
+    draftContentRestoredRef.current = false;
+    draftAttachmentsRestoredRef.current = false;
     // Reset AI draft state
     setDraftTone(undefined);
     setUserHasEdited(false);
@@ -298,7 +306,7 @@ export default function ComposeDialog({
     setRegenerateInstructions('');
     setShowRegenerateInput(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, originalEmail?.id, open]);
+  }, [mode, originalEmail?.id, open, initialDraftId]);
 
   // Auto-append default signature when dialog opens
   // Signature is shown in editor so user can see/edit it
@@ -307,6 +315,7 @@ export default function ComposeDialog({
     // Debug: log signature data
     // Wait for signature to be fetched before deciding
     if (!signatureFetched) return;
+    if (initialDraftId || existingDraft) return;
     if (open && defaultSignature?.content && !signatureAppendedRef.current) {
       // Append signature to body with a line break before it
       setBody((prevBody) => {
@@ -319,7 +328,7 @@ export default function ComposeDialog({
       });
       signatureAppendedRef.current = true;
     }
-  }, [open, defaultSignature, signatureFetched, computedProviderId, signatureLoading]);
+  }, [open, defaultSignature, signatureFetched, computedProviderId, signatureLoading, initialDraftId, existingDraft]);
 
   // Populate editor when AI draft arrives (reply/replyAll only)
   useEffect(() => {
@@ -331,9 +340,25 @@ export default function ComposeDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiDraft?.draftId]);
 
+  // Restore the saved draft body, recipients, and provider before autosave or signature logic can mutate it.
+  useEffect(() => {
+    if (!open || !existingDraft || draftContentRestoredRef.current) return;
+
+    setProviderId(existingDraft.providerId || computedProviderId);
+    setTo(mapRecipients(existingDraft.to));
+    setCc(mapRecipients(existingDraft.cc));
+    setBcc(mapRecipients(existingDraft.bcc));
+    setSubject(existingDraft.subject || '');
+    setBody(existingDraft.bodyHtml || existingDraft.bodyText || '');
+    setDraftId(existingDraft.id);
+    setLastSavedAt(existingDraft.updatedAt ? new Date(existingDraft.updatedAt) : null);
+    isDirtyRef.current = false;
+    signatureAppendedRef.current = true;
+    draftContentRestoredRef.current = true;
+  }, [open, existingDraft, computedProviderId]);
+
   // Restore attachments from draft when editing an existing draft
   // Converts base64 data back to File objects for seamless UX
-  const draftAttachmentsRestoredRef = useRef(false);
   useEffect(() => {
     if (!open || !existingDraft || draftAttachmentsRestoredRef.current) return;
 
@@ -374,6 +399,7 @@ export default function ComposeDialog({
   // Reset draft attachments restored flag when dialog closes
   useEffect(() => {
     if (!open) {
+      draftContentRestoredRef.current = false;
       draftAttachmentsRestoredRef.current = false;
     }
   }, [open]);
@@ -406,7 +432,7 @@ export default function ComposeDialog({
           bcc: bcc.map((r) => r.email),
           subject: debouncedSubject,
           bodyHtml: debouncedBody,
-          existingDraftId: draftId,
+          id: draftId,
           attachments: attachmentDtos.length > 0 ? attachmentDtos : undefined,
         });
         setDraftId(result.id);

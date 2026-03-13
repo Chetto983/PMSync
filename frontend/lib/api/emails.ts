@@ -260,6 +260,7 @@ export interface SaveDraftDto {
   bodyText?: string;
   replyToMessageId?: string;
   threadId?: string;
+  id?: string;
   existingDraftId?: string;
   /** Attachments as base64-encoded data (for draft persistence) */
   attachments?: DraftAttachmentDto[];
@@ -515,7 +516,12 @@ export const emailsApi = {
   // -------------------------------------------------------------------------
 
   async saveDraft(dto: SaveDraftDto): Promise<DraftResponse> {
-    const response = await apiClient.post('/emails/drafts', dto);
+    const { existingDraftId, ...rest } = dto;
+    const payload = {
+      ...rest,
+      id: dto.id ?? existingDraftId,
+    };
+    const response = await apiClient.post('/emails/drafts', payload);
     // Backend returns email directly, wrap it in DraftResponse format
     const email = response.data;
     return { id: email.id, email };

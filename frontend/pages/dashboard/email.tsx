@@ -290,6 +290,10 @@ export default function EmailPage() {
     async (id: string) => {
       const email = emails.find((e) => e.id === id);
       if (!email) return;
+      if (email.isDraft) {
+        router.push(`/dashboard/email/compose?draftId=${id}`);
+        return;
+      }
       if (!email.isRead) {
         optimisticUpdateEmail(id, { isRead: true });
         updateEmail.mutate(
