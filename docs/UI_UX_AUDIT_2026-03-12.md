@@ -1147,3 +1147,49 @@ The production calendar was audited with a real authenticated Edge profile on bo
 ### Residual Risk
 
 - I did not validate drag-and-drop move/resize on touch hardware because the mobile audit used a desktop automation environment emulating phone viewport, not a physical touchscreen
+
+## 2026-03-13 Calendar Backend Post-Deploy Verification
+
+The Google/Microsoft calendar backend cleanup was revalidated live after the Railway production deploy on March 13, 2026.
+
+### Deployment Status
+
+- Railway backend deploy `c3e00a1f-e30e-4068-965c-0749da08c6f0` completed successfully
+- production health check `GET /health/live` returned `200`
+- deployed backend commit: `b4f88c0a11b94da516c76358c282122c104d5fb5`
+
+### Production Verification
+
+- environment: live production `https://mail-agent-indol.vercel.app`
+- desktop viewport: `1440x900`
+- mobile viewport: `390x844`
+- session: authenticated production user
+
+### Verification Results
+
+- desktop calendar create
+  - `POST /api/v1/calendar/events` returned `201`
+  - created event rendered immediately and opened successfully from month view
+- desktop calendar edit
+  - `PATCH /api/v1/calendar/events/:id` returned `200`
+  - edited title, location, description, and shifted start time persisted correctly
+- desktop calendar delete
+  - confirmation dialog appeared before mutation
+  - `DELETE /api/v1/calendar/events/:id` returned `204`
+- desktop calendar sync
+  - manual refresh triggered `POST /api/v1/calendar/sync/:providerId` and returned `201`
+  - no failed first-party calendar requests were observed
+- mobile calendar create
+  - mobile sidebar drawer opened correctly
+  - `Nuovo evento` transitioned from drawer to modal cleanly
+  - event dialog fit within viewport (`326px` inside `390px`)
+  - `POST /api/v1/calendar/events` returned `201`
+- mobile event open and delete
+  - created event opened from the month surface without console errors
+  - detail dialog fit inside the phone viewport
+  - delete confirmation and `DELETE /api/v1/calendar/events/:id` returned `204`
+
+### Notes
+
+- no calendar-specific console errors were emitted during this verification pass
+- the only failed network entries were Vercel Speed Insights aborted posts, unrelated to calendar functionality

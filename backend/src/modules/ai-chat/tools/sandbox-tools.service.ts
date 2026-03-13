@@ -25,16 +25,16 @@ export class SandboxToolsService {
   ) {}
 
   /**
-   * Returns sandbox tools.
+   * Returns sandbox tools scoped to a tenant.
    */
-  getTools() {
+  getTools(tenantId?: string) {
     return {
-      run_code: this.buildRunCode(),
-      code_assistant: this.buildCodeAssistant(),
+      run_code: this.buildRunCode(tenantId),
+      code_assistant: this.buildCodeAssistant(tenantId),
     };
   }
 
-  private buildRunCode() {
+  private buildRunCode(tenantId?: string) {
     return tool({
       description:
         'Execute Python or JavaScript code in an isolated sandbox. ' +
@@ -66,6 +66,7 @@ export class SandboxToolsService {
           code: args.code,
           language: args.language,
           inputData: args.inputData,
+          tenantId,
         });
 
         return truncateToolResult({
@@ -78,7 +79,7 @@ export class SandboxToolsService {
     });
   }
 
-  private buildCodeAssistant() {
+  private buildCodeAssistant(tenantId?: string) {
     return tool({
       description:
         'Delegate a coding task to Devstral, a specialized coding AI. ' +
@@ -127,6 +128,7 @@ export class SandboxToolsService {
             code,
             language: args.language,
             inputData: args.inputData,
+            tenantId,
           });
 
           // Step 3: If failed, retry once with error context
@@ -147,6 +149,7 @@ export class SandboxToolsService {
                 code: fixedCode,
                 language: args.language,
                 inputData: args.inputData,
+                tenantId,
               });
 
               return truncateToolResult({

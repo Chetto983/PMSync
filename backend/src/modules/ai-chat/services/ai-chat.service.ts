@@ -462,7 +462,7 @@ export class AiChatService {
       ...this.productivityToolsService.getTools(tenantId, userId, conversationId, piiResolve),
       // Phase AI-AUDIT: Conversation tools (ask_user) + sandbox (run_code)
       ...this.conversationToolsService.getTools(),
-      ...this.sandboxToolsService.getTools(),
+      ...this.sandboxToolsService.getTools(tenantId),
     };
 
     // Runtime duplicate check -- fail fast if tool names collide

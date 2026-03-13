@@ -176,8 +176,10 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
       }
     }
 
+    const hydratedEvents = await this.hydrateSparseEvents(client, allEvents);
+
     return {
-      events: allEvents as T[],
+      events: hydratedEvents as T[],
       nextDeltaLink,
     };
   }
@@ -203,11 +205,10 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
     const location = event.location?.displayName || null;
     const organizer = event.organizer?.emailAddress?.address || null;
     const attendees = event.attendees || null;
-
-    const isAllDay = event.isAllDay || false;
     const timeZone = event.start?.timeZone || event.end?.timeZone || 'UTC';
     const startTime = parseDateTimeInTimeZone(event.start!.dateTime!, timeZone);
     const endTime = parseDateTimeInTimeZone(event.end!.dateTime!, timeZone);
+    const isAllDay = this.inferAllDay(event, startTime, endTime, calendarName);
 
     const recurrence = event.recurrence ? [JSON.stringify(event.recurrence)] : [];
     const recurringEventId = event.seriesMasterId || null;
@@ -275,6 +276,114 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
   }
 
   /**
+   * Microsoft calendarView/delta can omit critical fields for some virtual calendars
+   * such as birthdays. Hydrate only sparse items through a direct event lookup.
+   */
+  private async hydrateSparseEvents(
+    client: GraphClient,
+    events: MicrosoftDeltaEvent[],
+  ): Promise<MicrosoftDeltaEvent[]> {
+    const candidates = events.filter((event) => this.shouldHydrateEvent(event));
+
+    if (candidates.length === 0) {
+      return events;
+    }
+
+    this.logger.debug(
+      `Hydrating ${candidates.length} sparse Microsoft calendar event(s) with direct lookups`,
+    );
+
+    const hydratedById = new Map<string, MicrosoftDeltaEvent>();
+    const batchSize = 10;
+
+    for (let index = 0; index < candidates.length; index += batchSize) {
+      const batch = candidates.slice(index, index + batchSize);
+      const hydratedBatch = await Promise.all(
+        batch.map((event) => this.fetchEventDetails(client, event)),
+      );
+
+      for (const hydrated of hydratedBatch) {
+        hydratedById.set(hydrated.id!, hydrated);
+      }
+    }
+
+    return events.map((event) => hydratedById.get(event.id!) || event);
+  }
+
+  private shouldHydrateEvent(event: MicrosoftDeltaEvent): boolean {
+    if (!event.id || event['@removed']) {
+      return false;
+    }
+
+    return !this.hasText(event.subject) || typeof event.isAllDay !== 'boolean';
+  }
+
+  private async fetchEventDetails(
+    client: GraphClient,
+    event: MicrosoftDeltaEvent,
+  ): Promise<MicrosoftDeltaEvent> {
+    try {
+      const detailedEvent = await client
+        .api(`/me/events/${encodeURIComponent(event.id!)}`)
+        .select(
+          [
+            'id', 'subject', 'start', 'end', 'location', 'organizer', 'attendees',
+            'isAllDay', 'isCancelled', 'recurrence', 'seriesMasterId', 'iCalUId',
+            'showAs', 'sensitivity', 'webLink', 'lastModifiedDateTime', 'body', 'bodyPreview',
+          ].join(','),
+        )
+        .get();
+
+      return {
+        ...event,
+        ...detailedEvent,
+        '@removed': event['@removed'],
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to hydrate sparse Microsoft event ${event.id}: ${message}`,
+      );
+      return event;
+    }
+  }
+
+  private hasText(value?: string | null): value is string {
+    return typeof value === 'string' && value.trim().length > 0;
+  }
+
+  private inferAllDay(
+    event: MicrosoftDeltaEvent,
+    startTime: Date,
+    endTime: Date,
+    calendarName: string,
+  ): boolean {
+    if (event.isAllDay === true) {
+      return true;
+    }
+
+    if (event.isAllDay === false) {
+      return false;
+    }
+
+    const durationMs = endTime.getTime() - startTime.getTime();
+    const looksLikeMidnightUtcRange =
+      event.start?.timeZone === 'UTC' &&
+      event.end?.timeZone === 'UTC' &&
+      startTime.getUTCHours() === 0 &&
+      startTime.getUTCMinutes() === 0 &&
+      endTime.getUTCHours() === 0 &&
+      endTime.getUTCMinutes() === 0 &&
+      durationMs % (24 * 60 * 60 * 1000) === 0;
+
+    if (!looksLikeMidnightUtcRange) {
+      return false;
+    }
+
+    return this.isBirthdayCalendar(calendarName) || !this.hasText(event.subject);
+  }
+
+  /**
    * Map Microsoft sensitivity to visibility
    */
   private mapMicrosoftSensitivity(sensitivity: string): string {
@@ -323,21 +432,24 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
     }
 
     // Check calendar name for context
-    if (calendarName) {
-      const isBirthdayCalendar =
-        calendarName.toLowerCase().includes('birthday') ||
-        calendarName.toLowerCase().includes('compleanno') ||
-        calendarName.toLowerCase().includes('anniversaire');
-
-      if (isBirthdayCalendar) {
-        const eventDate = new Date(event.start?.dateTime || Date.now());
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const month = monthNames[eventDate.getMonth()];
-        const day = eventDate.getDate();
-        return `Birthday - ${month} ${day}`;
-      }
+    if (this.isBirthdayCalendar(calendarName)) {
+      const eventDate = new Date(event.start?.dateTime || Date.now());
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[eventDate.getMonth()];
+      const day = eventDate.getDate();
+      return `Birthday - ${month} ${day}`;
     }
 
     return '(No Title)';
+  }
+
+  private isBirthdayCalendar(calendarName: string): boolean {
+    const normalized = calendarName.toLowerCase();
+    return (
+      normalized.includes('birthday') ||
+      normalized.includes('compleanno') ||
+      normalized.includes('compleanni') ||
+      normalized.includes('anniversaire')
+    );
   }
 }

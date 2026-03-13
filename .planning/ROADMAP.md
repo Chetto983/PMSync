@@ -83,6 +83,8 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [ ] **Phase 72: MUI Audit & Polish** - Automated scanner, violation fixes, accessibility audit, visual regression
 - [x] **Phase 73: Test Hardening & Cleanup** - Gap closure: contract test generation, Chromium skip, TRUNCATE race fix, seed automation, dead code (completed 2026-03-13)
 - [x] **Phase 74: E2E Runtime Validation** - Gap closure: run Playwright suite against live backend, fix runtime failures, capture evidence (completed 2026-03-13)
+- [ ] **Phase 75: Organization E2E Fix** - Gap closure: fix backend org creation 500, clean member auth setup, re-run org E2E
+- [ ] **Phase 76: CI Test Reliability Gate** - Gap closure: fail-fast when openapi-spec.json generation fails in CI
 
 ## Phase Details
 
@@ -225,6 +227,27 @@ Plans:
 Plans:
 - [ ] 74-01-PLAN.md -- Run Playwright suite against live backend, fix runtime failures, capture evidence
 
+### Phase 75: Organization E2E Fix
+**Goal**: Organization E2E tests pass against real backend — the org creation 500 is diagnosed and fixed, member auth setup is scoped correctly, and FE2E-01 is satisfied at runtime level
+**Depends on**: Phase 74
+**Requirements**: FE2E-01 (runtime fix — spec exists from Phase 71, skipped due to backend 500)
+**Gap Closure:** Closes requirement gap FE2E-01, flow gap "Organization lifecycle", integration gap "member auth setup latency"
+**Success Criteria** (what must be TRUE):
+  1. `better-auth` organization.create no longer returns HTTP 500 — root cause identified and fixed (migration, config, or code bug)
+  2. `auth.setup.member.ts` only runs as dependency for projects that actually consume member auth (not all 5 browser projects)
+  3. `organizations.spec.ts` passes all 4 tests against real backend with evidence captured
+**Plans:** TBD
+
+### Phase 76: CI Test Reliability Gate
+**Goal**: Contract tests cannot silently pass with zero assertions — CI fails fast if openapi-spec.json generation fails
+**Depends on**: Phase 73
+**Requirements**: BINT-03 (hardening — contract tests exist from Phase 69/73, but can silently skip)
+**Gap Closure:** Closes integration gap "contract tests silently pass when openapi-spec.json absent"
+**Success Criteria** (what must be TRUE):
+  1. `contract-helpers.ts` `loadSpec()` throws (not returns null) when openapi-spec.json is absent — tests fail instead of silently passing
+  2. CI pipeline (or Jest global-setup) includes an assertion that openapi-spec.json was generated successfully before contract test suites run
+**Plans:** TBD
+
 ## Progress
 
 **Execution Order:**
@@ -233,6 +256,9 @@ Phase 69 depends on 67 + 68. Phase 71 depends on 66 + 69.
 Phase 72 depends on 71 (needs pages working to screenshot).
 Phase 73 depends on 69 + 71 (hardens existing test artifacts).
 Phase 74 depends on 73 (runs E2E after hardening fixes applied).
+Phase 75 depends on 74 (fixes org E2E that Phase 74 confirmed broken).
+Phase 76 depends on 73 (hardens contract test CI gate from Phase 73 work).
+Phases 72, 75, and 76 can run in parallel.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -245,9 +271,12 @@ Phase 74 depends on 73 (runs E2E after hardening fixes applied).
 | 72. MUI Audit & Polish | 0/? | Not started | - |
 | 73. Test Hardening & Cleanup | 2/2 | Complete    | 2026-03-13 |
 | 74. E2E Runtime Validation | 1/1 | Complete    | 2026-03-13 |
+| 75. Organization E2E Fix | 0/? | Not started | - |
+| 76. CI Test Reliability Gate | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
 *v5.0 completed: 2026-03-10 -- 15 phases, 34 plans, 51/51 requirements*
 *v5.1 roadmap added: 2026-03-10 -- 7 phases, 27 requirements*
 *v5.1 gap closure: 2026-03-13 -- 2 phases added (73-74) from milestone audit*
+*v5.1 gap closure: 2026-03-13 -- 2 phases added (75-76) from second milestone audit*
