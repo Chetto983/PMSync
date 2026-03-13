@@ -180,6 +180,7 @@ describe('Chat Pipeline (MSW)', () => {
       toolsServiceStub, // SandboxToolsService
       toolsServiceStub, // ProductivityToolsService
       intentRouterService,
+      { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       memoryServiceMock,
       // Phase 32: ToolRegistryService stub for tool discovery
       { getAllTools: () => [], getToolNames: () => [], getTool: () => undefined, registerTool: () => {} } as any,

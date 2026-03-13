@@ -93,6 +93,7 @@ describe('AiChatService ledger wiring', () => {
       { getTools: () => ({}) } as any, // SandboxToolsService
       { getTools: () => ({}) } as any, // ProductivityToolsService
       mockIntentRouter as any,
+      { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       mockMemoryService as any,
       mockToolRegistry as any,
       mockUsageTracking as any,

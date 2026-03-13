@@ -36,6 +36,7 @@ import {
   ProductivityToolsService,
 } from '../tools/index';
 import { IntentRouterService } from '../tools/intent-router.service';
+import { SkillsLoaderService } from '../skills/skills-loader.service';
 import { MemoryService } from './memory.service';
 import {
   TOOL_REGISTRY_SERVICE,
@@ -91,6 +92,8 @@ export class AiChatService {
     private readonly productivityToolsService: ProductivityToolsService,
     // Phase 25 Plan 02: Intent routing + memory injection
     private readonly intentRouterService: IntentRouterService,
+    // Phase SKILLS: Contextual skill loading based on intent
+    private readonly skillsLoaderService: SkillsLoaderService,
     private readonly memoryService: MemoryService,
     // Phase 32: Tool discovery via registry (domain modules self-register)
     @Inject(TOOL_REGISTRY_SERVICE)
@@ -205,8 +208,13 @@ export class AiChatService {
         this.logger.warn(`Audit log failed: ${err.message}`),
       );
 
-    // 8. Build dynamic system prompt with current date/timezone + memory injection
-    const basePrompt = buildSystemPrompt(); // Injects current date/time
+    // 8. Build dynamic system prompt with current date/timezone + memory + skills injection
+    const basePrompt = buildSystemPrompt();
+
+    // Phase SKILLS: Classify intent early so we can inject relevant skill docs
+    const intentResult = await this.intentRouterService.classifyAndRoute(message);
+    const skillBlock = this.skillsLoaderService.getSkillsForIntent(intentResult.intent);
+
     const memories = await this.memoryService.getRelevantMemories(
       tenantId,
       userId,
@@ -214,9 +222,11 @@ export class AiChatService {
       3,
     );
     const memoryBlock = this.memoryService.formatMemoriesForPrompt(memories);
-    const systemPromptWithMemory = memoryBlock
-      ? basePrompt + '\n\n' + memoryBlock
-      : basePrompt;
+
+    // Compose: base prompt + skills + memory
+    let systemPromptWithMemory = basePrompt;
+    if (skillBlock) systemPromptWithMemory += skillBlock;
+    if (memoryBlock) systemPromptWithMemory += '\n\n' + memoryBlock;
 
     // 9. Create UI message stream
     // Note: conversationId continuity is handled by backend auto-resolve in ConversationService
@@ -237,15 +247,13 @@ export class AiChatService {
           // come from INTENT_TOOL_MAP which mirrors createToolSet() keys.
           prepareStep: async ({ stepNumber, steps }) => {
             if (stepNumber === 0) {
-              // Step 0: classify intent, serve only relevant tools
-              const classification =
-                await this.intentRouterService.classifyAndRoute(message);
+              // Step 0: reuse intent classified above (already done for skill injection)
               this.logger.debug(
-                `Intent: ${classification.intent} (${classification.confidence.toFixed(2)}), tools: ${classification.activeTools.join(', ')}`,
+                `Intent: ${intentResult.intent} (${intentResult.confidence.toFixed(2)}), tools: ${intentResult.activeTools.join(', ')}`,
               );
               return {
                 activeTools:
-                  classification.activeTools as (keyof typeof tools)[],
+                  intentResult.activeTools as (keyof typeof tools)[],
               };
             }
             // Subsequent steps: expand based on what tools were just called
