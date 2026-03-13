@@ -192,7 +192,9 @@ Plans:
   2. Running the scanner produces zero violations across the entire frontend codebase
   3. axe-core accessibility audit passes on all v5.0 pages (organizations, admin panel, onboarding wizard, security settings) with zero critical or serious violations
   4. Playwright visual regression baselines exist for all v5.0 pages and can detect unintended visual changes in CI
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 74-01-PLAN.md -- Run Playwright suite against live backend, fix runtime failures, capture evidence
 
 ### Phase 73: Test Hardening & Cleanup
 **Goal**: Close integration and tech debt gaps found by v5.1 audit — contract tests actually assert, E2E specs are cross-browser safe, parallel test execution is race-free, and dead code is removed
@@ -219,7 +221,9 @@ Plans:
   1. Full Playwright suite (`npx playwright test`) executes against a running backend with real database
   2. All four spec files pass (organizations, admin, onboarding, security) or have documented skip reasons for environment-specific tests
   3. Test run evidence (HTML report or CI log) is captured and stored in phase directory
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 74-01-PLAN.md -- Run Playwright suite against live backend, fix runtime failures, capture evidence
 
 ## Progress
 
