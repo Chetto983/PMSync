@@ -6,7 +6,6 @@
 import { SubscriptionService } from '../subscription.service';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 import { getTestPrismaClient } from '../../../../../test/helpers/prisma-test-client';
-import { cleanupTestData } from '../../../../../test/helpers/cleanup';
 import { createTestTenant } from '../../../../../test/helpers/factories';
 
 const mockUsageTracking = {
@@ -39,7 +38,6 @@ describe('SubscriptionService', () => {
     if (tenantIds.length > 0) {
       await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
     }
-    await cleanupTestData();
   });
 
   describe('getOrCreateSubscription', () => {
