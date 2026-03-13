@@ -23,6 +23,7 @@ import {
   RagToolsService,
   ConversationToolsService,
   SandboxToolsService,
+  ProductivityToolsService,
 } from './tools/index';
 import { SandboxService } from './services/sandbox.service';
 import { IntentRouterService } from './tools/intent-router.service';
@@ -71,6 +72,8 @@ import { HybridSearchService } from './services/hybrid-search.service';
     // Phase AI-AUDIT: Conversation + sandbox tools
     ConversationToolsService,
     SandboxToolsService,
+    // Phase CONSOLIDATION: Follow-up, label, star, email index tools
+    ProductivityToolsService,
     SandboxService,
     // Phase 25 Plan 02: Intent routing + memory
     IntentRouterService,

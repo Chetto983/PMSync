@@ -193,6 +193,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       toolsServiceStub, // RagToolsService
       toolsServiceStub, // ConversationToolsService
       toolsServiceStub, // SandboxToolsService
+      toolsServiceStub, // ProductivityToolsService
       intentRouterService, // REAL -- will be spied on
       memoryService, // REAL -- will be spied on
       // Phase 32: ToolRegistryService stub for tool discovery

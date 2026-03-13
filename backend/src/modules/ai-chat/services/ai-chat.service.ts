@@ -33,6 +33,7 @@ import {
   RagToolsService,
   ConversationToolsService,
   SandboxToolsService,
+  ProductivityToolsService,
 } from '../tools/index';
 import { IntentRouterService } from '../tools/intent-router.service';
 import { MemoryService } from './memory.service';
@@ -86,6 +87,8 @@ export class AiChatService {
     // Phase AI-AUDIT: Conversation + sandbox tools
     private readonly conversationToolsService: ConversationToolsService,
     private readonly sandboxToolsService: SandboxToolsService,
+    // Phase CONSOLIDATION: Productivity tools (follow-ups, labels, stars, email index)
+    private readonly productivityToolsService: ProductivityToolsService,
     // Phase 25 Plan 02: Intent routing + memory injection
     private readonly intentRouterService: IntentRouterService,
     private readonly memoryService: MemoryService,
@@ -439,6 +442,8 @@ export class AiChatService {
       ...this.contactToolsService.getTools(tenantId, conversationId, piiResolve),
       ...this.folderToolsService.getTools(tenantId, conversationId, piiResolve),
       ...this.ragToolsService.getTools(tenantId, userId, conversationId, piiResolve),
+      // Phase CONSOLIDATION: Productivity tools (follow-ups, labels, stars, email index)
+      ...this.productivityToolsService.getTools(tenantId, userId, conversationId, piiResolve),
       // Phase AI-AUDIT: Conversation tools (ask_user) + sandbox (run_code)
       ...this.conversationToolsService.getTools(),
       ...this.sandboxToolsService.getTools(),

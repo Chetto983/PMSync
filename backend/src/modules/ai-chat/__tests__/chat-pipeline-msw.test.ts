@@ -178,6 +178,7 @@ describe('Chat Pipeline (MSW)', () => {
       toolsServiceStub, // RagToolsService
       toolsServiceStub, // ConversationToolsService
       toolsServiceStub, // SandboxToolsService
+      toolsServiceStub, // ProductivityToolsService
       intentRouterService,
       memoryServiceMock,
       // Phase 32: ToolRegistryService stub for tool discovery

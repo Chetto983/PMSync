@@ -318,6 +318,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       ragToolsService,
       { getTools: () => ({}) } as any, // ConversationToolsService
       { getTools: () => ({}) } as any, // SandboxToolsService
+      { getTools: () => ({}) } as any, // ProductivityToolsService
       intentRouterService,
       memoryService,
       // Phase 32: ToolRegistryService stub for tool discovery

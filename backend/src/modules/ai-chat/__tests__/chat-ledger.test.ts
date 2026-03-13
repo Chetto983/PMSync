@@ -91,6 +91,7 @@ describe('AiChatService ledger wiring', () => {
       mockRagTools as any,
       { getTools: () => ({}) } as any, // ConversationToolsService
       { getTools: () => ({}) } as any, // SandboxToolsService
+      { getTools: () => ({}) } as any, // ProductivityToolsService
       mockIntentRouter as any,
       mockMemoryService as any,
       mockToolRegistry as any,

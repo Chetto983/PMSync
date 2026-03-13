@@ -438,6 +438,272 @@ Browser diagnostics reported missing `autocomplete` attributes for the new passw
 - Post-deploy verification:
   - `/dashboard` on mobile
   - no `GET /api/v1/ai/briefing` request when AI email processing consent is disabled
-  - no console errors during the focused retest
-  - consent explanation is shown instead of a raw error state
-  - `/dashboard/profile` header renders `Impostazioni profilo`
+- no console errors during the focused retest
+- consent explanation is shown instead of a raw error state
+- `/dashboard/profile` header renders `Impostazioni profilo`
+
+## 2026-03-13 Deep Mobile Email Audit
+
+- Audit mode:
+  - authenticated Edge session
+  - mobile viewport (`375x812`)
+  - production app: `https://mail-agent-indol.vercel.app`
+- Scope:
+  - inbox list
+  - thread view
+  - reply
+  - forward
+  - compose AI panel
+  - important/flag actions
+  - draft autosave
+  - draft reopen flow
+
+### Finding 1: Reply and forward routes open a blank composer instead of a populated reply/forward draft
+
+- URL:
+  - source thread: `/dashboard/email/thread/cmmp0vuwu08jl01p9xhs8r9u6`
+  - reply route: `/dashboard/email/compose?replyTo=cmmp0vuwu08jl01p9xhs8r9u6&threadId=cmmp0vuwu08jl01p9xhs8r9u6`
+  - forward route: `/dashboard/email/compose?forward=cmmp0vuwu08jl01p9xhs8r9u6`
+- Severity: Critical
+- Category: Core email action failure
+
+#### What happens
+
+- Tapping `Rispondi` opens the compose dialog, but the composer is blank:
+  - no recipient in `A:`
+  - empty subject
+  - empty editor body
+- Tapping `Inoltra` does the same:
+  - the composer opens, but it behaves like a new message rather than a forward
+
+#### User harm
+
+- Reply and forward are among the highest-frequency email actions.
+- On mobile, both paths silently discard the original message context and force the user to rebuild the action manually.
+- Because the dialog still opens, the failure looks like a user mistake instead of a product bug.
+
+#### Evidence
+
+- Reply composer state after tapping `Rispondi`:
+  - subject value: `""`
+  - `A:` value: `""`
+  - editor body: empty placeholder paragraph
+- Forward composer state after tapping `Inoltra`:
+  - subject value: `""`
+  - editor body: empty placeholder paragraph
+
+#### Likely owner
+
+- `frontend/pages/dashboard/email/thread/[threadId].tsx`
+- `frontend/pages/dashboard/email/compose.tsx`
+- `frontend/components/email/compose/ComposeDialog.tsx`
+
+#### Fix direction
+
+- Normalize thread action routing so reply/reply-all/forward pass the parameters that the compose page actually reads.
+- Prefer a single contract such as `?mode=reply&emailId=...`, `?mode=replyAll&emailId=...`, and `?mode=forward&emailId=...`.
+- Add a mobile E2E regression that asserts recipients, subject prefix, and quoted body are prefilled.
+
+### Finding 2: Draft autosave partially succeeds, then fails with repeated validation errors
+
+- URL: `/dashboard/email/compose`
+- Severity: High
+- Category: Data integrity, error handling
+
+#### What happens
+
+- Creating a new draft on mobile produced one successful autosave, then two failing autosave attempts immediately after.
+- The UI surfaced `Impossibile salvare la bozza.` even though the draft had already been created successfully.
+
+#### User harm
+
+- Users cannot trust whether their draft is safe.
+- The mixed `saved now` plus `failed to save draft` signals create uncertainty about whether to continue writing.
+- Repeated invalid autosaves are noisy and likely waste backend capacity.
+
+#### Evidence
+
+- Network:
+  - `POST /api/v1/emails/drafts` -> `201`
+  - `POST /api/v1/emails/drafts` -> `400`
+  - `POST /api/v1/emails/drafts` -> `400`
+- Console:
+  - `VALIDATION_ERROR` request IDs:
+    - `Z1x70T_x5KCztDA2trumN`
+    - `ncbP34YGXJUoIAFy0dLIN`
+- UI text:
+  - `Impossibile salvare la bozza.`
+
+#### Likely owner
+
+- `frontend/components/email/compose/ComposeDialog.tsx`
+- `frontend/lib/api/emails.ts`
+
+#### Fix direction
+
+- Trace the autosave payload difference between the initial create and subsequent saves.
+- Prevent follow-up autosaves from sending an invalid create payload after `draftId` is assigned.
+- Replace contradictory save toasts with a single clear draft status model.
+
+### Finding 3: Opening a draft on mobile goes to read-only thread view instead of reopening the editor
+
+- URL:
+  - draft list: `/dashboard/email` with account folder `Bozze`
+  - opened draft route: `/dashboard/email/thread/cmmp9885n003701mxl0pyuzph`
+- Severity: Critical
+- Category: Core draft workflow failure
+
+#### What happens
+
+- A saved draft appears in `Bozze` correctly.
+- Tapping the draft does not reopen the compose editor.
+- Instead, it routes to the thread reader and shows reply/forward/delete actions with no editable composer.
+
+#### User harm
+
+- Mobile users cannot reliably continue writing a saved draft.
+- Drafts become effectively dead-end message records rather than editable work-in-progress items.
+
+#### Evidence
+
+- Draft list item visible with subject:
+  - `MOBILE AUDIT DRAFT 2026-03-13 01:00`
+- Open behavior:
+  - route changed to `/dashboard/email/thread/cmmp9885n003701mxl0pyuzph`
+  - viewport screenshot shows read-only thread header and action bar, not the editor
+
+#### Likely owner
+
+- `frontend/pages/dashboard/email.tsx`
+- `frontend/pages/dashboard/email/compose.tsx`
+- `frontend/components/email/list/*`
+
+#### Fix direction
+
+- Distinguish draft rows from normal message rows in the mobile list click handler.
+- Draft rows should navigate to compose with `draftId=...`, not to thread view.
+- Add a mobile test that saves a draft, opens it from `Bozze`, and asserts the editor is restored.
+
+### Finding 4: Important/flag action succeeds, but the mobile action menu does not reflect the new state
+
+- URL: `/dashboard/email/thread/cmmp0vuwu08jl01p9xhs8r9u6`
+- Severity: Medium
+- Category: State feedback, mobile email controls
+
+#### What happens
+
+- The conversation actions menu exposes both:
+  - `Contrassegna tutti i messaggi`
+  - `Rimuovi contrassegno da tutti`
+- After tapping `Contrassegna tutti i messaggi`, the backend mutation succeeds and the success toast is shown.
+- Reopening the same menu still shows both actions simultaneously, so the UI never resolves to a single truthful state.
+
+#### User harm
+
+- Users cannot tell whether the conversation is currently marked important.
+- The action model feels nondeterministic, especially on mobile where the menu is the only available control surface.
+
+#### Evidence
+
+- Network:
+  - `PATCH /api/v1/emails/bulk/flag` -> `200`
+- Success toast:
+  - `Tutti i messaggi contrassegnati`
+- Post-mutation menu still shows:
+  - `Contrassegna tutti i messaggi`
+  - `Rimuovi contrassegno da tutti`
+
+#### Likely owner
+
+- `frontend/components/email/thread/ThreadHeader.tsx`
+- `frontend/components/email/thread/ThreadView.tsx`
+- `frontend/lib/api/emails.ts`
+
+#### Fix direction
+
+- Resolve the menu from the current thread flag state instead of rendering both actions unconditionally.
+- After mutation success, refetch or optimistically update the thread state before reopening the menu.
+
+### Finding 5: Mobile thread content still leaves a large blank gutter on the left
+
+- URL: `/dashboard/email/thread/cmmp0vuwu08jl01p9xhs8r9u6`
+- Severity: High
+- Category: Responsive rendering
+
+#### What happens
+
+- The email body is shifted right on mobile, leaving visible dead space on the left side of the viewport.
+- The content looks truncated or squeezed even when the underlying HTML itself fits.
+
+#### User harm
+
+- Message reading feels broken on phone width.
+- Users lose horizontal space exactly where readability is most constrained.
+
+#### Evidence
+
+- Measured viewport width: `375px`
+- Measured body wrapper:
+  - width: about `358px`
+  - computed `padding-left`: `60px`
+  - computed `padding-right`: `16px`
+- Measured email table:
+  - `left: 61`
+  - `width: 282`
+  - `right: 343`
+
+#### Likely owner
+
+- `frontend/components/email/thread/EmailHtmlContent.tsx`
+
+#### Fix direction
+
+- Remove the asymmetric left padding/centering behavior below the mobile breakpoint.
+- Normalize legacy email HTML into a full-width mobile container before applying table shrinking rules.
+
+### Finding 6: AI compose on mobile traps the user behind a backdrop and blocks adjacent controls
+
+- URL: `/dashboard/email/compose`
+- Severity: Medium
+- Category: Mobile overlay behavior
+
+#### What happens
+
+- Opening `Composizione AI` shows the AI panel correctly, but the backdrop intercepts pointer events behind it.
+- While the panel is open, nearby composer controls such as the dialog close button cannot be tapped.
+
+#### User harm
+
+- The panel feels stuck or overlaid incorrectly.
+- On mobile, where screen real estate is limited, a blocking backdrop without a clean single-stack interaction model creates friction immediately.
+
+#### Evidence
+
+- Playwright interaction failure while AI compose was open:
+  - `MuiBackdrop-root ... intercepts pointer events`
+- The issue reproduced both on the composer close button and on the thread close path while a menu/backdrop overlay was active.
+
+#### Likely owner
+
+- `frontend/components/email/compose/ComposeDialog.tsx`
+- `frontend/components/email/compose/EditorMenuControls.tsx`
+
+#### Fix direction
+
+- Make the mobile AI compose experience a clear sheet/drawer with an explicit top-level dismiss pattern.
+- Prevent invisible backdrops from intercepting taps on controls that appear visually reachable.
+
+### Deep Mobile Email Summary
+
+- Confirmed broken on mobile:
+  1. reply opens a blank new-message composer
+  2. forward opens a blank new-message composer
+  3. draft autosave produces contradictory success/failure states
+  4. tapping a saved draft opens thread view instead of the editor
+  5. important/flag menu state is inconsistent after successful mutation
+  6. thread body still wastes horizontal space with a visible left gutter
+  7. AI compose/backdrop behavior blocks nearby controls
+- Confirmed healthy in this pass:
+  - `GET /api/v1/labels` -> `200`
+  - `POST /api/v1/contacts/lookup-by-emails` -> `200`
+  - temporary audit draft was deleted after testing

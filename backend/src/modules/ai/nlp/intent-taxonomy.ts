@@ -15,8 +15,11 @@ export type PrimaryIntent =
   | 'email_delete'
   | 'email_archive'
   | 'email_move'
+  | 'email_label'
+  | 'email_triage'
   | 'email_read'
   | 'email_summarize'
+  | 'follow_up_manage'
   | 'calendar_view'
   | 'calendar_create'
   | 'calendar_update'
@@ -44,8 +47,11 @@ export const PRIMARY_INTENTS: PrimaryIntent[] = [
   'email_delete',
   'email_archive',
   'email_move',
+  'email_label',
+  'email_triage',
   'email_read',
   'email_summarize',
+  'follow_up_manage',
   'calendar_view',
   'calendar_create',
   'calendar_update',
@@ -283,6 +289,68 @@ export const INTENT_TAXONOMY: IntentDefinition[] = [
     priority: 'medium',
   },
   {
+    intent: 'email_label',
+    description: 'User wants to label, tag, or categorize emails',
+    examples: {
+      en: [
+        'label this as urgent',
+        'tag this email as important',
+        'add label {keyword} to this',
+        'categorize this as {keyword}',
+        'remove the urgent label',
+        'mark as {keyword}',
+        'what labels does this email have',
+        'label emails from {person} as {keyword}',
+      ],
+      it: [
+        'etichetta come urgente',
+        'tagga questa email come importante',
+        'aggiungi etichetta {keyword}',
+        'categorizza come {keyword}',
+        'rimuovi etichetta urgente',
+        'segna come {keyword}',
+        'che etichette ha questa email',
+        'etichetta email da {person} come {keyword}',
+      ],
+    },
+    slots: ['person', 'keyword'],
+    requiresAuth: true,
+    priority: 'medium',
+  },
+  {
+    intent: 'email_triage',
+    description: 'User wants to triage, sort, or bulk-manage inbox emails',
+    examples: {
+      en: [
+        'triage my inbox',
+        'sort my emails by priority',
+        'show me what needs attention',
+        'which emails are urgent',
+        'help me clean up my inbox',
+        'what should I deal with first',
+        'show unread emails',
+        'star the important ones',
+        'mark all as read',
+        'what are my most important emails',
+      ],
+      it: [
+        'smista la mia posta',
+        'ordina le email per priorità',
+        'mostrami cosa richiede attenzione',
+        'quali email sono urgenti',
+        'aiutami a pulire la posta',
+        'cosa devo gestire prima',
+        'mostra email non lette',
+        'segna come importanti',
+        'segna tutto come letto',
+        'quali sono le email più importanti',
+      ],
+    },
+    slots: [],
+    requiresAuth: true,
+    priority: 'high',
+  },
+  {
     intent: 'email_read',
     description: 'User wants to read/open an email',
     examples: {
@@ -333,6 +401,40 @@ export const INTENT_TAXONOMY: IntentDefinition[] = [
     slots: ['person'],
     requiresAuth: true,
     priority: 'medium',
+  },
+
+  {
+    intent: 'follow_up_manage',
+    description: 'User wants to view, manage, snooze, or resolve follow-ups',
+    examples: {
+      en: [
+        'show my follow-ups',
+        'what do I need to follow up on',
+        'any overdue follow-ups',
+        'resolve this follow-up',
+        'snooze this for 3 days',
+        'mark follow-up as done',
+        'what needs my attention',
+        'pending follow-ups',
+        'reopen this follow-up',
+        'what tasks are overdue',
+      ],
+      it: [
+        'mostra i miei follow-up',
+        'cosa devo seguire',
+        'follow-up scaduti',
+        'risolvi questo follow-up',
+        'rimanda di 3 giorni',
+        'segna come completato',
+        'cosa richiede la mia attenzione',
+        'follow-up in sospeso',
+        'riapri questo follow-up',
+        'quali compiti sono scaduti',
+      ],
+    },
+    slots: [],
+    requiresAuth: true,
+    priority: 'high',
   },
 
   // === CALENDAR INTENTS ===

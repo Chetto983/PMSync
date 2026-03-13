@@ -40,6 +40,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'search_emails',
     'semantic_search',
     'read_email',
+    'list_email_index',
     'ask_user',
   ],
   email_compose: [
@@ -82,10 +83,28 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'list_folders',
     'ask_user',
   ],
+  email_label: [
+    'search_emails',
+    'read_email',
+    'label_email',
+    'list_email_index',
+    'ask_user',
+  ],
+  email_triage: [
+    'search_emails',
+    'list_email_index',
+    'list_follow_ups',
+    'star_email',
+    'mark_email_read',
+    'label_email',
+    'ask_user',
+  ],
   email_read: [
     'read_email',
     'search_emails',
     'semantic_search',
+    'list_email_index',
+    'mark_email_read',
     'ask_user',
   ],
   email_summarize: [
@@ -94,6 +113,15 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'semantic_search',
     'save_memory',
     'run_code',
+    'ask_user',
+  ],
+
+  // Follow-up management
+  follow_up_manage: [
+    'list_follow_ups',
+    'update_follow_up',
+    'search_emails',
+    'read_email',
     'ask_user',
   ],
 
@@ -165,9 +193,11 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'ask_user',
   ],
 
-  // Status check -- search + calendar + folders for overview
+  // Status check -- search + calendar + folders + follow-ups for overview
   status_check: [
     'search_emails',
+    'list_email_index',
+    'list_follow_ups',
     'view_calendar',
     'list_folders',
     'semantic_search',
@@ -178,7 +208,9 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
   // Unknown fallback -- broad set for best coverage
   unknown: [
     'search_emails',
+    'list_email_index',
     'semantic_search',
+    'list_follow_ups',
     'view_calendar',
     'search_contacts',
     'list_folders',
@@ -203,7 +235,7 @@ const LLM_CLASSIFY_SYSTEM_PROMPT =
  * to include logically next actions.
  */
 const EXPANSION_RULES: Record<string, string[]> = {
-  // After search: allow reading, replying, forwarding
+  // After search: allow reading, replying, forwarding, labeling, starring
   search_emails: [
     'read_email',
     'reply_email',
@@ -211,19 +243,47 @@ const EXPANSION_RULES: Record<string, string[]> = {
     'archive_email',
     'delete_email',
     'move_email',
+    'star_email',
+    'label_email',
+    'mark_email_read',
   ],
   semantic_search: [
     'read_email',
     'reply_email',
     'forward_email',
+    'star_email',
+    'label_email',
   ],
-  // After read: allow reply, forward, archive, delete
+  // After listing emails: allow reading, starring, labeling, marking
+  list_email_index: [
+    'read_email',
+    'star_email',
+    'mark_email_read',
+    'label_email',
+    'reply_email',
+    'archive_email',
+    'delete_email',
+  ],
+  // After read: allow reply, forward, archive, delete, star, label
   read_email: [
     'reply_email',
     'forward_email',
     'archive_email',
     'delete_email',
     'move_email',
+    'star_email',
+    'label_email',
+    'mark_email_read',
+  ],
+  // After follow-up actions: allow viewing emails, updating follow-ups
+  list_follow_ups: [
+    'update_follow_up',
+    'read_email',
+    'search_emails',
+  ],
+  update_follow_up: [
+    'list_follow_ups',
+    'read_email',
   ],
   // After create: allow the corresponding view/search
   create_event: ['view_calendar'],

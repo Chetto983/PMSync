@@ -1,9 +1,10 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FollowUpStatus } from '@prisma/client';
 
 const mockPrisma = {
   emailFollowUp: {
-    count: jest.fn(),
-    updateMany: jest.fn(),
+    count: vi.fn(),
+    updateMany: vi.fn(),
   },
 };
 
@@ -32,7 +33,7 @@ describe('AiController - Follow-Up CRUD', () => {
   let controller: AiController;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     controller = makeController();
   });
 
