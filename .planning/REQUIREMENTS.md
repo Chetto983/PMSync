@@ -81,7 +81,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | INFRA-01 | Phase 66 | Complete |
 | INFRA-02 | Phase 66 | Complete |
-| INFRA-03 | Phase 66 | Complete |
+| INFRA-03 | Phase 66, Phase 73 (hardening) | Complete (race fix pending) |
 | INFRA-04 | Phase 66 | Complete |
 | INFRA-05 | Phase 66 | Complete |
 | BTEST-01 | Phase 68 | Complete |
@@ -94,14 +94,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BTEST-08 | Phase 67 | Complete |
 | BINT-01 | Phase 69 | Complete |
 | BINT-02 | Phase 69 | Complete |
-| BINT-03 | Phase 69 | Complete |
+| BINT-03 | Phase 69, Phase 73 (hardening) | Complete (openapi-spec pending) |
 | FTEST-01 | Phase 70 | Complete |
 | FTEST-02 | Phase 70 | Complete |
 | FTEST-03 | Phase 70 | Complete |
-| FE2E-01 | Phase 71 | Complete |
-| FE2E-02 | Phase 71 | Complete |
-| FE2E-03 | Phase 71 | Complete |
-| FE2E-04 | Phase 71 | Complete |
+| FE2E-01 | Phase 71, Phase 74 (runtime) | Complete (runtime pending) |
+| FE2E-02 | Phase 71, Phase 74 (runtime) | Complete (runtime pending) |
+| FE2E-03 | Phase 71, Phase 74 (runtime) | Complete (runtime pending) |
+| FE2E-04 | Phase 71, Phase 73 (Chromium skip), Phase 74 (runtime) | Complete (runtime pending) |
 | MUI-01 | Phase 72 | Pending |
 | MUI-02 | Phase 72 | Pending |
 | MUI-03 | Phase 72 | Pending |
