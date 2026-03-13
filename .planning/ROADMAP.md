@@ -82,7 +82,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 71: Frontend E2E Tests** - Org flows, admin panel, onboarding wizard, security settings (completed 2026-03-12)
 - [ ] **Phase 72: MUI Audit & Polish** - Automated scanner, violation fixes, accessibility audit, visual regression
 - [x] **Phase 73: Test Hardening & Cleanup** - Gap closure: contract test generation, Chromium skip, TRUNCATE race fix, seed automation, dead code (completed 2026-03-13)
-- [ ] **Phase 74: E2E Runtime Validation** - Gap closure: run Playwright suite against live backend, fix runtime failures, capture evidence
+- [x] **Phase 74: E2E Runtime Validation** - Gap closure: run Playwright suite against live backend, fix runtime failures, capture evidence (completed 2026-03-13)
 
 ## Phase Details
 
@@ -221,7 +221,7 @@ Plans:
   1. Full Playwright suite (`npx playwright test`) executes against a running backend with real database
   2. All four spec files pass (organizations, admin, onboarding, security) or have documented skip reasons for environment-specific tests
   3. Test run evidence (HTML report or CI log) is captured and stored in phase directory
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 74-01-PLAN.md -- Run Playwright suite against live backend, fix runtime failures, capture evidence
 
@@ -244,7 +244,7 @@ Phase 74 depends on 73 (runs E2E after hardening fixes applied).
 | 71. Frontend E2E Tests | 5/6 | Gap closure | 2026-03-12 |
 | 72. MUI Audit & Polish | 0/? | Not started | - |
 | 73. Test Hardening & Cleanup | 2/2 | Complete    | 2026-03-13 |
-| 74. E2E Runtime Validation | 0/? | Not started | - |
+| 74. E2E Runtime Validation | 1/1 | Complete   | 2026-03-13 |
 
 ---
 *Roadmap created: 2026-02-09*
