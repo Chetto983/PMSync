@@ -8,6 +8,7 @@
  * - Errors propagate to TanStack Query for explicit UI error states (Phase 33)
  */
 
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import axios from 'axios';
 import { dashboardKeys } from './dashboard-keys';
@@ -17,6 +18,7 @@ import { contactsApi } from '@/lib/api/contacts';
 import { calendarApi } from '@/lib/api/calendar';
 import { apiClient } from '@/lib/api-client';
 import { useConsent } from './use-consent';
+import { useLocale } from '@/lib/hooks/use-locale';
 import type { WidgetLayout, DashboardLayout } from '@/lib/dashboard/layout-engine';
 
 // ============================================================================
@@ -641,6 +643,7 @@ export function useRecentUnreadEmails(params?: { limit?: number }, enabled = tru
 // ============================================================================
 
 export interface EmailTrendDataPoint {
+  date?: string;
   name: string;
   emails: number;
   sent: number;
@@ -659,7 +662,14 @@ export function emailTrendsOptions(enabled: boolean = true) {
       // Backend returns { success, analytics } with volumeTrends array
       const analytics = response.data?.analytics;
       if (analytics?.volumeTrends && Array.isArray(analytics.volumeTrends)) {
-        return { trends: analytics.volumeTrends };
+        const trends = analytics.volumeTrends.map((item: Record<string, unknown>) => ({
+          date: item.date as string | undefined,
+          name: (item.name as string) || '',
+          emails: (item.emails as number) || 0,
+          sent: (item.sent as number) || 0,
+          received: (item.received as number) || 0,
+        }));
+        return { trends };
       }
       // Endpoint returned unexpected format -- treat as error
       throw new Error('Analytics endpoint returned unexpected format');
@@ -675,11 +685,33 @@ export function emailTrendsOptions(enabled: boolean = true) {
  * Hook for email trends
  */
 export function useEmailTrends() {
+  const { locale } = useLocale();
   const { data: consentList } = useConsent();
   const hasEmailAnalyticsConsent =
     consentList?.some((c) => c.feature === 'email_analytics' && c.granted) ?? false;
+  const query = useQuery(emailTrendsOptions(hasEmailAnalyticsConsent));
 
-  return useQuery(emailTrendsOptions(hasEmailAnalyticsConsent));
+  const data = useMemo(() => {
+    if (!query.data) {
+      return query.data;
+    }
+
+    const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+
+    return {
+      trends: query.data.trends.map((trend) => ({
+        ...trend,
+        name: trend.date
+          ? formatter.format(new Date(`${trend.date}T00:00:00`))
+          : trend.name,
+      })),
+    };
+  }, [locale, query.data]);
+
+  return {
+    ...query,
+    data,
+  };
 }
 
 // ============================================================================

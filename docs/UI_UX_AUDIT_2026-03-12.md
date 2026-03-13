@@ -763,3 +763,227 @@ The following mobile email regressions were fixed and redeployed to `https://mai
 - AI compose verification:
   - AI popover opens
   - tapping the subject field while the AI popover is open no longer throws a pointer interception error
+
+## 2026-03-13 Continued Mobile Product Audit
+
+### Scope
+
+- Target app: `https://mail-agent-indol.vercel.app`
+- Audit mode: authenticated mobile sweep on production
+- Viewport: `412x915`
+- Method:
+  - route-by-route mobile pass
+  - console and network inspection
+  - DOM width checks for clipped or trapped overflow
+  - UX review against mobile-first and responsive interaction standards
+
+### Routes Checked
+
+- `/dashboard`
+- `/dashboard/email`
+- `/dashboard/email/compose`
+- `/dashboard/calendar`
+- `/dashboard/contacts`
+- `/dashboard/ai`
+- `/dashboard/ai/follow-ups`
+- `/dashboard/profile`
+- `/dashboard/settings`
+- `/dashboard/settings?section=security`
+- `/dashboard/admin/users`
+- `/dashboard/admin/organizations`
+- `/dashboard/tasks`
+- `/dashboard/analytics`
+
+### Finding 1: Mobile analytics is production-broken and fails with a consent-gated 403
+
+- Severity: High
+- URL: `/dashboard/analytics`
+- Category: Error handling, permission-state UX, localization
+
+#### What happens
+
+- The page loads a minimal shell and then fails its primary chart request.
+- Production returns `GET /api/v1/ai/analytics/email -> 403 FORBIDDEN`.
+- The widget logs `Failed to fetch analytics data`.
+- The page title remains `Analytics` in English inside the Italian dashboard.
+
+#### User harm
+
+- The page's primary purpose fails on first load.
+- The UI does not explain whether the issue is missing consent, missing permissions, or missing data.
+- Users receive a broken analytics page instead of a recoverable consent-gated state.
+
+#### Evidence
+
+- Request failure observed in production:
+  - `GET /api/v1/ai/analytics/email -> 403`
+  - requestId: `RAJwDaunaBn_kbx0dGtyo`
+- Console warning also reproduced:
+  - `The width(-1) and height(-1) of chart should be greater than 0`
+
+#### Likely owners
+
+- `backend/src/modules/ai/controllers/ai.controller.ts`
+- `frontend/components/dashboard/AnalyticsChart.tsx`
+- `frontend/pages/dashboard/analytics.tsx`
+
+#### Code evidence
+
+- Backend route is explicitly consent-gated with `@RequiresConsent('email_analytics')`
+- Backend formats weekday labels with `new Intl.DateTimeFormat('en', ...)`
+- Frontend chart logs the failure but renders no user-facing recovery state
+- Page header is hardcoded as `Analytics`
+
+#### Fix direction
+
+- Replace the raw broken chart state with an explicit mobile-friendly consent/interstitial state.
+- If `email_analytics` consent is absent, do not fetch the chart until the UI has presented the required action.
+- Localize the page title and backend weekday labels to match the user locale.
+
+### Finding 2: Follow-up board is still a desktop kanban trapped inside mobile overflow
+
+- Severity: High
+- URL: `/dashboard/ai/follow-ups`
+- Category: Mobile layout, navigation clarity
+
+#### What happens
+
+- The board renders four fixed-width columns on phone width.
+- Measured internal content widths were about `1252px` and `1220px` inside a `412px` viewport.
+- The board does not trigger page-level overflow because the page and route wrappers hide overflow, so the desktop surface is visually clipped inside its own area.
+
+#### User harm
+
+- A mobile user lands on a compressed desktop board instead of a phone-optimized flow.
+- The horizontal interaction model is discoverability-poor because the outer layout suppresses the usual overflow cues.
+- Primary follow-up triage becomes a precision-scrolling task on touch.
+
+#### Evidence
+
+- Widest board content measured in production:
+  - container width about `1252px`
+  - inner input width about `1180px`
+- Visible labels on mobile still presented as desktop columns:
+  - `In sospeso`
+  - `In ritardo`
+  - `Risolto`
+  - `Scaduto`
+
+#### Likely owners
+
+- `frontend/pages/dashboard/ai/follow-ups.tsx`
+- `frontend/components/productivity/KanbanBoard/index.tsx`
+- `frontend/components/layout/Layout.tsx`
+
+#### Code evidence
+
+- The board keeps fixed per-column widths on mobile with `minWidth` and `maxWidth` of `260`
+- The route wraps the board in `overflow: 'hidden'`
+- The shared layout also uses hidden overflow containers
+
+#### Fix direction
+
+- Do not ship the full four-column board as the primary phone layout.
+- Use a mobile mode that shows one status lane at a time, or switch to a stacked list with a status filter.
+- If horizontal snap-scrolling remains, remove the clipping wrappers and add visible affordances that communicate sideways navigation.
+
+### Finding 3: Admin users remains a clipped desktop table on mobile
+
+- Severity: High
+- URL: `/dashboard/admin/users`
+- Category: Mobile layout, dense-data usability
+
+#### What happens
+
+- The page renders the full desktop table on phone width.
+- Measured table width was about `879px` inside a `412px` viewport.
+- Key columns and row actions are hidden off-screen unless the user discovers horizontal scrolling inside the table container.
+
+#### User harm
+
+- The page fails the mobile "see the primary action without precision panning" bar.
+- Status, role, and action controls become secondary to table navigation.
+- A super-admin can technically access the screen but not use it efficiently on phone.
+
+#### Evidence
+
+- Visible mobile headers still include the full desktop grid:
+  - `NOME`
+  - `EMAIL`
+  - `RUOLO`
+  - `STATO`
+  - `2FA`
+  - `VERIFICATO`
+  - `CREATO`
+  - `AZIONI`
+- No production API failure was needed to reproduce this; the issue is presentation alone.
+
+#### Likely owners
+
+- `frontend/components/admin/UserListTable.tsx`
+- `frontend/pages/dashboard/admin/users.tsx`
+
+#### Code evidence
+
+- The search field remains fixed at `width: 300`
+- The component renders a standard eight-column `Table`
+- The empty state string is still English: `No users found`
+
+#### Fix direction
+
+- Replace the phone layout with user cards or a condensed two-line list item pattern.
+- Keep admin actions in an overflow menu per row instead of in visible table columns.
+- Localize the empty state and search/table affordances fully.
+
+### Finding 4: Tasks page is still shipping hardcoded English demo content in production
+
+- Severity: Medium
+- URL: `/dashboard/tasks`
+- Category: Content quality, localization, product trust
+
+#### What happens
+
+- The page shows three pre-seeded tasks in English:
+  - `Finalize Q4 marketing budget`
+  - `Draft the weekly progress report`
+  - `Review design mockups for new homepage`
+- Dates are formatted with `toLocaleDateString('en-US', ...)`.
+
+#### User harm
+
+- The page reads as prototype/demoware rather than a live tenant workspace.
+- Mixed-language content inside an authenticated Italian product reduces trust quickly.
+- Users cannot tell whether the page is real, seeded, or broken.
+
+#### Likely owners
+
+- `frontend/components/dashboard/Tasks.tsx`
+- `frontend/pages/dashboard/tasks.tsx`
+
+#### Fix direction
+
+- Remove hardcoded example tasks from production surfaces.
+- If task data is not yet live, present a truthful empty state with next actions.
+- Localize date formatting and any fallback content.
+
+### Stable In This Pass
+
+- `/dashboard`
+- `/dashboard/email`
+- `/dashboard/email/compose`
+- `/dashboard/calendar`
+- `/dashboard/contacts`
+- `/dashboard/ai`
+- `/dashboard/profile`
+- `/dashboard/settings`
+- `/dashboard/settings?section=security`
+- `/dashboard/admin/organizations`
+
+### Summary
+
+- High-severity mobile issues remain outside the email area.
+- The largest current gaps are:
+  1. analytics is functionally broken
+  2. follow-up board is not genuinely mobile
+  3. admin users is not genuinely mobile
+  4. tasks still looks like demo content

@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { logger } from '@/lib/logger';
+import React from 'react';
 import {
   LineChart,
   Line,
@@ -10,71 +9,195 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Paper, Typography, CircularProgress, useTheme } from '@mui/material';
-import { analyticsApi, EmailAnalyticsDataPoint } from '@/lib/api/analytics';
+import { Box, Button, CircularProgress, Paper, Typography, useTheme } from '@mui/material';
+import { BarChart3 } from 'lucide-react';
+import { useEmailTrends } from '@/hooks/queries/use-dashboard';
+import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export function AnalyticsChart() {
   const t = useTranslations();
   const theme = useTheme();
-  const [data, setData] = useState<EmailAnalyticsDataPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: consentList, isLoading: consentLoading } = useConsent();
+  const hasEmailAnalyticsConsent =
+    consentList?.some((consent) => consent.feature === 'email_analytics' && consent.granted) ??
+    false;
+  const { data, isLoading, error, refetch } = useEmailTrends();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await analyticsApi.getEmailAnalytics();
-        setData(data);
-      } catch (error) {
-        logger.error('Failed to fetch analytics data', { error });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const loading = consentLoading || isLoading;
+  const chartData = data?.trends ?? [];
+  const consentDescription =
+    t.settings?.consentPanel?.features?.email_analytics?.description ||
+    'Enable email analytics consent to see activity trends.';
 
   if (loading) {
     return (
-      <Paper sx={{ p: 4, height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Paper
+        sx={{
+          p: { xs: 3, sm: 4 },
+          minHeight: 320,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <CircularProgress />
       </Paper>
     );
   }
 
+  if (!hasEmailAnalyticsConsent) {
+    return (
+      <Paper
+        sx={{
+          p: { xs: 3, sm: 4 },
+          minHeight: 320,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Box sx={{ maxWidth: 420, textAlign: 'center' }}>
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: 3,
+              mx: 'auto',
+              mb: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'action.hover',
+              color: 'primary.main',
+            }}
+          >
+            <BarChart3 size={24} />
+          </Box>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            {t.dashboard.widgets.trendCharts.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+            {consentDescription}
+          </Typography>
+          <Button
+            variant="contained"
+            href="/dashboard/settings?section=consent"
+            sx={{ textTransform: 'none' }}
+          >
+            {t.settings?.consentPanel?.title || t.nav.settings}
+          </Button>
+        </Box>
+      </Paper>
+    );
+  }
+
+  if (error) {
+    return (
+      <Paper
+        sx={{
+          p: { xs: 3, sm: 4 },
+          minHeight: 320,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Box sx={{ maxWidth: 420, textAlign: 'center' }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            {t.dashboard.widgets.trendCharts.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+            {String(error.message || t.dashboard.widgets.common.retry)}
+          </Typography>
+          <Button variant="outlined" onClick={() => refetch()} sx={{ textTransform: 'none' }}>
+            {t.dashboard.widgets.common.retry}
+          </Button>
+        </Box>
+      </Paper>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <Paper
+        sx={{
+          p: { xs: 3, sm: 4 },
+          minHeight: 320,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Box sx={{ maxWidth: 420, textAlign: 'center' }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            {t.dashboard.widgets.trendCharts.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t.dashboard.widgets.trendCharts.noData}
+          </Typography>
+        </Box>
+      </Paper>
+    );
+  }
+
   return (
-    <Paper sx={{ p: 4, height: 400 }}>
+    <Paper sx={{ p: { xs: 2, sm: 4 } }}>
       <Typography variant="h6" gutterBottom>
         {t.dashboard.widgets.trendCharts.title}
       </Typography>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" />
-          <YAxis />
-          <Tooltip
-            formatter={(value, name) => {
-              const labels: Record<string, string> = {
-                sent: t.dashboard.widgets.trendCharts.sent,
-                received: t.dashboard.widgets.trendCharts.received,
-              };
-              return [value, labels[name as string] || name];
-            }}
-          />
-          <Legend
-            formatter={(value: string) => {
-              const labels: Record<string, string> = {
-                sent: t.dashboard.widgets.trendCharts.sent,
-                received: t.dashboard.widgets.trendCharts.received,
-              };
-              return labels[value] || value;
-            }}
-          />
-          <Line type="monotone" dataKey="sent" stroke={theme.palette.primary.main} name={t.dashboard.widgets.trendCharts.sent} />
-          <Line type="monotone" dataKey="received" stroke={theme.palette.success.main} name={t.dashboard.widgets.trendCharts.received} />
-        </LineChart>
-      </ResponsiveContainer>
+      <Box sx={{ height: { xs: 280, sm: 360 } }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 11, fill: theme.palette.text.secondary }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: theme.palette.text.secondary }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip
+              formatter={(value, name) => {
+                const labels: Record<string, string> = {
+                  sent: t.dashboard.widgets.trendCharts.sent,
+                  received: t.dashboard.widgets.trendCharts.received,
+                };
+                return [value, labels[name as string] || name];
+              }}
+            />
+            <Legend
+              formatter={(value: string) => {
+                const labels: Record<string, string> = {
+                  sent: t.dashboard.widgets.trendCharts.sent,
+                  received: t.dashboard.widgets.trendCharts.received,
+                };
+                return labels[value] || value;
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="sent"
+              stroke={theme.palette.primary.main}
+              strokeWidth={2}
+              dot={false}
+              name="sent"
+            />
+            <Line
+              type="monotone"
+              dataKey="received"
+              stroke={theme.palette.success.main}
+              strokeWidth={2}
+              dot={false}
+              name="received"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </Box>
     </Paper>
   );
 }

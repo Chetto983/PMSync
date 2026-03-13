@@ -16,6 +16,7 @@ import {
   useMediaQuery,
   IconButton,
   Tooltip,
+  Chip,
   Divider,
   ToggleButtonGroup,
   ToggleButton,
@@ -76,6 +77,7 @@ export function FollowupsKanbanBoard() {
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'WAITING_FOR' | 'TODO' | undefined>(undefined);
+  const [mobileColumnId, setMobileColumnId] = useState<KanbanColumnId>('PENDING');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false);
   const [snoozeTargetId, setSnoozeTargetId] = useState<string | null>(null);
@@ -130,6 +132,10 @@ export function FollowupsKanbanBoard() {
         if (!matchesSearch) return;
       }
 
+      if (typeFilter && f.followUpType !== typeFilter) {
+        return;
+      }
+
       // Group by actionable status
       if (f.status === 'RESOLVED') {
         grouped.RESOLVED.push(f);
@@ -148,7 +154,7 @@ export function FollowupsKanbanBoard() {
     });
 
     return grouped;
-  }, [data?.followUps, searchQuery]);
+  }, [data?.followUps, searchQuery, typeFilter]);
 
   // Get active item for drag overlay
   const activeItem = useMemo(() => {
@@ -393,6 +399,7 @@ export function FollowupsKanbanBoard() {
           typeFilter={typeFilter}
           onTypeFilterChange={setTypeFilter}
           onShowHelp={() => setHelpDialogOpen(true)}
+          isMobile={isMobile}
         />
         <KanbanSkeleton />
       </Box>
@@ -418,59 +425,106 @@ export function FollowupsKanbanBoard() {
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
         onShowHelp={() => setHelpDialogOpen(true)}
+        isMobile={isMobile}
       />
 
-      {/* Kanban Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            gap: isMobile ? 1.5 : 2,
-            overflowX: 'auto',
-            p: isMobile ? 1 : 2,
-            minHeight: isMobile ? 400 : 500,
-            // Mobile: snap scrolling for columns
-            scrollSnapType: isMobile ? 'x mandatory' : 'none',
-            '& > *': {
-              scrollSnapAlign: isMobile ? 'start' : 'none',
-              // Mobile: narrower columns
-              minWidth: isMobile ? 260 : 300,
-              maxWidth: isMobile ? 260 : 300,
-            },
-          }}
-        >
-          {COLUMNS.map((col, idx) => (
+      {isMobile ? (
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, px: 2, pb: 2 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 1,
+              mb: 2,
+            }}
+          >
+            {COLUMNS.map((col) => (
+              <ToggleButton
+                key={col.id}
+                value={col.id}
+                selected={mobileColumnId === col.id}
+                onChange={() => setMobileColumnId(col.id)}
+                sx={{
+                  justifyContent: 'space-between',
+                  textTransform: 'none',
+                  px: 1.5,
+                  py: 1,
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                <span>{getColumnTitle(col.titleKey)}</span>
+                <Chip label={columns[col.id].length} size="small" />
+              </ToggleButton>
+            ))}
+          </Box>
+
+          <Box sx={{ flex: 1, minHeight: 0 }}>
             <KanbanColumn
-              key={col.id}
-              id={col.id}
-              title={getColumnTitle(col.titleKey)}
-              color={col.color}
-              items={columns[col.id]}
+              id={mobileColumnId}
+              title={getColumnTitle(COLUMNS.find((col) => col.id === mobileColumnId)?.titleKey || 'pending')}
+              color={COLUMNS.find((col) => col.id === mobileColumnId)?.color || 'warning.main'}
+              items={columns[mobileColumnId]}
+              fullWidth
               onResolve={handleResolve}
               onSnooze={handleOpenSnooze}
               onViewEmail={handleViewEmail}
               onDelete={handleDelete}
               resolvingId={resolvingId}
-              selectedId={selectedColumnIdx === idx ? selectedId : null}
+              selectedId={selectedId}
             />
-          ))}
+          </Box>
         </Box>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              p: 2,
+              minHeight: 500,
+              '& > *': {
+                minWidth: 300,
+                maxWidth: 300,
+              },
+            }}
+          >
+            {COLUMNS.map((col, idx) => (
+              <KanbanColumn
+                key={col.id}
+                id={col.id}
+                title={getColumnTitle(col.titleKey)}
+                color={col.color}
+                items={columns[col.id]}
+                onResolve={handleResolve}
+                onSnooze={handleOpenSnooze}
+                onViewEmail={handleViewEmail}
+                onDelete={handleDelete}
+                resolvingId={resolvingId}
+                selectedId={selectedColumnIdx === idx ? selectedId : null}
+              />
+            ))}
+          </Box>
 
-        {/* Drag overlay */}
-        <DragOverlay>
-          {activeItem ? (
-            <Box sx={{ opacity: 0.9, transform: 'rotate(3deg)' }}>
-              <FollowUpCard followUp={activeItem} />
-            </Box>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+          {/* Drag overlay */}
+          <DragOverlay>
+            {activeItem ? (
+              <Box sx={{ opacity: 0.9, transform: 'rotate(3deg)' }}>
+                <FollowUpCard followUp={activeItem} />
+              </Box>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {/* Snooze Dialog */}
       <SnoozeDialog
@@ -571,12 +625,13 @@ interface HeaderProps {
   stats?: { pending: number; overdue: number; dueToday: number; resolved: number } | null;
   searchQuery: string;
   onSearchChange: (value: string) => void;
+  isMobile: boolean;
   typeFilter?: 'WAITING_FOR' | 'TODO';
   onTypeFilterChange?: (value: 'WAITING_FOR' | 'TODO' | undefined) => void;
   onShowHelp?: () => void;
 }
 
-function Header({ theme, t, stats, searchQuery, onSearchChange, typeFilter, onTypeFilterChange, onShowHelp }: HeaderProps) {
+function Header({ theme, t, stats, searchQuery, onSearchChange, isMobile, typeFilter, onTypeFilterChange, onShowHelp }: HeaderProps) {
   return (
     <Box sx={{ mb: 2, px: 2, pt: 2 }}>
       {/* Title */}
@@ -604,15 +659,17 @@ function Header({ theme, t, stats, searchQuery, onSearchChange, typeFilter, onTy
           </Typography>
         </Box>
         {/* Keyboard shortcuts hint */}
-        <Tooltip title={t.ai.followUpTracker.kanban?.keyboard?.title || 'Keyboard Shortcuts'}>
-          <IconButton
-            size="small"
-            onClick={onShowHelp}
-            sx={{ color: 'text.secondary' }}
-          >
-            <Keyboard size={20} />
-          </IconButton>
-        </Tooltip>
+        {!isMobile && (
+          <Tooltip title={t.ai.followUpTracker.kanban?.keyboard?.title || 'Keyboard Shortcuts'}>
+            <IconButton
+              size="small"
+              onClick={onShowHelp}
+              sx={{ color: 'text.secondary' }}
+            >
+              <Keyboard size={20} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Stats */}
@@ -668,7 +725,15 @@ function Header({ theme, t, stats, searchQuery, onSearchChange, typeFilter, onTy
 
       {/* Type Filter */}
       {onTypeFilterChange && (
-        <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Box
+          sx={{
+            mt: 2,
+            display: 'flex',
+            gap: 1,
+            alignItems: isMobile ? 'stretch' : 'center',
+            flexDirection: isMobile ? 'column' : 'row',
+          }}
+        >
           <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
             {t.ai.followUpTracker.types.all}:
           </Typography>
@@ -678,6 +743,7 @@ function Header({ theme, t, stats, searchQuery, onSearchChange, typeFilter, onTy
             onChange={(_, newValue) => onTypeFilterChange(newValue === '' ? undefined : newValue)}
             size="small"
             sx={{
+              flexWrap: 'wrap',
               '& .MuiToggleButton-root': {
                 textTransform: 'none',
                 px: 2,

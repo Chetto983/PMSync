@@ -17,6 +17,7 @@ interface KanbanColumnProps {
   title: string;
   color: string;
   items: EmailFollowUp[];
+  fullWidth?: boolean;
   onResolve?: (id: string) => void;
   onSnooze?: (id: string) => void;
   onViewEmail?: (emailId: string) => void;
@@ -30,6 +31,7 @@ export function KanbanColumn({
   title,
   color,
   items,
+  fullWidth = false,
   onResolve,
   onSnooze,
   onViewEmail,
@@ -74,8 +76,9 @@ export function KanbanColumn({
     <Box
       ref={setNodeRef}
       sx={{
-        minWidth: 300,
-        maxWidth: 300,
+        width: fullWidth ? '100%' : undefined,
+        minWidth: fullWidth ? 0 : 300,
+        maxWidth: fullWidth ? '100%' : 300,
         bgcolor: isOver ? alpha(columnColor, 0.08) : 'background.default',
         borderRadius: 2,
         p: 1.5,

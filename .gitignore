@@ -164,3 +164,4 @@ frontend/e2e/screenshots/*
 frontend/docs/screenshots/*
 backend/tmp/*
 frontend/docs/screenshots/*
+test-screenshots/*
