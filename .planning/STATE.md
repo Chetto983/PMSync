@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Completed 71-02-PLAN.md
-last_updated: "2026-03-12T14:03:12.698Z"
+stopped_at: Completed 73-01-PLAN.md
+last_updated: "2026-03-13T19:29:52.476Z"
 last_activity: 2026-03-10 -- Completed 66-04-PLAN.md
 progress:
-  total_phases: 7
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 25
+  total_phases: 9
+  completed_phases: 5
+  total_plans: 28
+  completed_plans: 26
   percent: 91
 ---
 
@@ -87,6 +87,7 @@ Progress: [██████████] 100%
 | Phase 71 P04 | 3 | 1 tasks | 1 files |
 | Phase 71 P03 | 3 | 1 tasks | 1 files |
 | Phase 71 P02 | 7 | 1 tasks | 1 files |
+| Phase 73 P01 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -145,6 +146,8 @@ Recent decisions affecting current work:
 - [Phase 71]: Onboarding E2E spec already committed — validated against plan, component source, seed data; no changes needed
 - [Phase 71]: test.describe.serial for stateful ban/unban E2E sequence with try/finally afterAll cleanup
 - [Phase 71]: API-based cleanup and org switch in E2E tests instead of fragile UI interactions
+- [Phase 73]: OpenAPI generation wrapped in try/catch with warning-only fallback so unit tests never fail due to spec generation
+- [Phase 73]: precontract-test npm lifecycle hook ensures contract-test always has a fresh spec without manual steps
 
 ### Pending Todos
 
@@ -159,6 +162,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T14:03:12.695Z
-Stopped at: Completed 71-02-PLAN.md
+Last session: 2026-03-13T19:29:52.471Z
+Stopped at: Completed 73-01-PLAN.md
 Resume file: None
