@@ -55,6 +55,48 @@ describe('MicrosoftCalendarSyncService', () => {
     ]);
   });
 
+  it('forces a full sync when a legacy Microsoft deltaLink still contains $select', async () => {
+    await expect(
+      (service as any).fetchEvents(
+        'token',
+        'calendar-1',
+        'https://graph.microsoft.com/v1.0/me/calendars/calendar-1/calendarView/delta?$select=id,subject',
+        false,
+      ),
+    ).rejects.toMatchObject({
+      code: 410,
+      message: expect.stringContaining('unsupported $select'),
+    });
+  });
+
+  it('does not add $select to Microsoft calendarView delta requests', async () => {
+    const request = {
+      header: jest.fn().mockReturnThis(),
+      query: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue({
+        value: [],
+        '@odata.deltaLink': 'https://graph.microsoft.com/v1.0/me/calendars/calendar-1/calendarView/delta?$deltatoken=abc',
+      }),
+    };
+    const client = {
+      api: jest.fn().mockReturnValue(request),
+    };
+
+    jest.spyOn(service as any, 'createGraphClient').mockReturnValue(client as any);
+
+    const result = await (service as any).fetchEvents('token', 'calendar-1', undefined, true);
+
+    expect(result).toEqual({
+      events: [],
+      nextDeltaLink:
+        'https://graph.microsoft.com/v1.0/me/calendars/calendar-1/calendarView/delta?$deltatoken=abc',
+    });
+    expect(request.header).toHaveBeenCalledWith('Prefer', 'odata.maxpagesize=200');
+    expect(request.query).toHaveBeenCalled();
+    expect(request.select).not.toHaveBeenCalled();
+  });
+
   it('infers all-day birthday events even when Microsoft omits isAllDay in delta payloads', () => {
     const result = (service as any).extractEventData(
       {

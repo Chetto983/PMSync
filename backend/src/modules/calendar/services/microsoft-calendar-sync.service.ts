@@ -103,15 +103,10 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
     const allEvents: MicrosoftDeltaEvent[] = [];
     let nextDeltaLink: string | undefined;
 
-    // Fields to select (2025 best practice: reduce bandwidth)
-    const selectFields = [
-      'id', 'subject', 'start', 'end', 'location', 'organizer', 'attendees',
-      'isAllDay', 'isCancelled', 'recurrence', 'seriesMasterId', 'iCalUId',
-      'showAs', 'sensitivity', 'webLink', 'lastModifiedDateTime', 'body', 'bodyPreview',
-    ].join(',');
-
     if (isFullSync) {
-      // Full sync: use calendarView/delta with time range
+      // Full sync: use calendarView/delta with time range.
+      // Microsoft Graph does not support $select on calendarView delta requests,
+      // so request the full event shape and let the provider drive paging.
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
       const sixtyDaysAhead = new Date();
@@ -122,7 +117,9 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
       this.logger.debug(`Fetching initial sync from Microsoft Graph`);
 
       while (nextLink) {
-        let request = client.api(nextLink);
+        let request = client
+          .api(nextLink)
+          .header('Prefer', 'odata.maxpagesize=200');
 
         // Only add query params on first request (nextLink already includes them)
         if (!nextLink.includes('@odata')) {
@@ -130,8 +127,7 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
             .query({
               startDateTime: sixtyDaysAgo.toISOString(),
               endDateTime: sixtyDaysAhead.toISOString(),
-            })
-            .select(selectFields);
+            });
         }
 
         const response: MicrosoftDeltaResponse = await request.get();
@@ -155,6 +151,10 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
         }
       }
     } else {
+      if (this.hasLegacyDeltaSelect(deltaLink)) {
+        throw this.createLegacyDeltaLinkError();
+      }
+
       // Incremental sync: use deltaLink directly
       let currentLink: string | undefined = deltaLink;
 
@@ -162,6 +162,7 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
         // For delta links, we need to use the full URL
         const response: MicrosoftDeltaResponse = await client
           .api(currentLink)
+          .header('Prefer', 'odata.maxpagesize=200')
           .get();
 
         const events = response.value || [];
@@ -350,6 +351,22 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
 
   private hasText(value?: string | null): value is string {
     return typeof value === 'string' && value.trim().length > 0;
+  }
+
+  private hasLegacyDeltaSelect(deltaLink?: string): boolean {
+    if (!deltaLink) {
+      return false;
+    }
+
+    return deltaLink.includes('$select=') || deltaLink.includes('%24select=');
+  }
+
+  private createLegacyDeltaLinkError(): Error & { code: number } {
+    const error = new Error(
+      'Legacy Microsoft deltaLink uses unsupported $select. Forcing full sync.',
+    ) as Error & { code: number };
+    error.code = 410;
+    return error;
   }
 
   private inferAllDay(
