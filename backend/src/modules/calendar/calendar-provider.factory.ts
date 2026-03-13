@@ -139,7 +139,7 @@ export class CalendarProviderFactory {
    * Validate calendar provider configuration
    */
   static validateConfig(config: CalendarProviderConfig): void {
-    const required = ['userId', 'providerId', 'providerType', 'email', 'accessToken'];
+    const required = ['userId', 'tenantId', 'providerId', 'providerType', 'email', 'accessToken'];
     const missing = required.filter((field) => !config[field as keyof CalendarProviderConfig]);
 
     if (missing.length > 0) {

@@ -12,6 +12,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
 import { AbstractCalendarWebhookService } from './abstract-calendar-webhook.service';
+import { CalendarWebhookAuthService } from './calendar-webhook-auth.service';
 import { nanoid } from 'nanoid';
 
 export interface GoogleCalendarPushNotification {
@@ -36,6 +37,7 @@ export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService
     crypto: CryptoService,
     config: ConfigService,
     calendarSyncQueue: CalendarSyncQueueService,
+    private readonly calendarWebhookAuth: CalendarWebhookAuthService,
   ) {
     super(prisma, crypto, config, calendarSyncQueue);
 
@@ -45,10 +47,7 @@ export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService
       this.config.get<string>('BACKEND_URL') ||
       'http://localhost:3000';
     const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    // Include webhook token in URL for authentication (Google Calendar doesn't support custom headers)
-    const webhookToken = this.config.get<string>('EMAIL_SYNC_WEBHOOK_TOKEN');
-    const tokenParam = webhookToken ? `?token=${webhookToken}` : '';
-    this.WEBHOOK_URL = `${normalizedBase}/webhooks/calendar/google/push${tokenParam}`;
+    this.WEBHOOK_URL = `${normalizedBase}/webhooks/calendar/google/push`;
     this.webhookExpirationDays = this.config.get<number>('GOOGLE_CALENDAR_WEBHOOK_EXPIRATION_DAYS', 7);
 
     // Log disabled state after logger is initialized
@@ -125,6 +124,9 @@ export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService
             id: channelId,
             type: 'web_hook',
             address: this.WEBHOOK_URL,
+            ...(this.calendarWebhookAuth.getGoogleWebhookToken()
+              ? { token: this.calendarWebhookAuth.getGoogleWebhookToken() }
+              : {}),
             expiration: expiration.toString(),
           },
         });

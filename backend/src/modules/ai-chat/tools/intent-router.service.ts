@@ -113,6 +113,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'semantic_search',
     'save_memory',
     'run_code',
+    'code_assistant',
     'ask_user',
   ],
 
@@ -190,6 +191,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'view_calendar',
     'list_folders',
     'run_code',
+    'code_assistant',
     'ask_user',
   ],
 
@@ -216,6 +218,7 @@ const INTENT_TOOL_MAP: Record<PrimaryIntent, string[]> = {
     'list_folders',
     'save_memory',
     'run_code',
+    'code_assistant',
     'ask_user',
   ],
 };
@@ -308,6 +311,9 @@ const EXPANSION_RULES: Record<string, string[]> = {
     'create_folder',
     'move_email',
   ],
+  // After code fails or produces data: allow the other code tool
+  run_code: ['code_assistant'],
+  code_assistant: ['run_code'],
 };
 
 @Injectable()

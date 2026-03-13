@@ -117,7 +117,7 @@ export abstract class BaseCalendarProvider implements ICalendarProvider {
       const placeholderEventId = `placeholder-event-${calendarId}`;
       await this.prisma.calendarEvent.create({
         data: {
-          tenantId: this.config.userId,
+          tenantId: this.config.tenantId,
           providerId: this.config.providerId,
           externalId: placeholderEventId,
           calendarId: calendarId,
@@ -262,7 +262,7 @@ export abstract class BaseCalendarProvider implements ICalendarProvider {
 
       await this.prisma.calendarEvent.create({
         data: {
-          tenantId: this.config.userId,
+          tenantId: this.config.tenantId,
           providerId: this.config.providerId,
           externalId: eventId,
           calendarId,

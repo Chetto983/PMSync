@@ -109,4 +109,31 @@ Each follow-up links to an email. If user wants context:
 1. Get the emailId from the follow-up result
 2. \`read_email({ emailId })\` to show the original email
 3. Offer to reply or forward based on the follow-up type`,
+
+  'code-assistant': `# Code Assistant (Devstral)
+
+## When To Use
+- \`code_assistant\`: When the task requires **non-trivial** code — data analysis, CSV/JSON processing, statistical calculations, date math, complex formatting, report generation. You describe WHAT you want and Devstral writes the code.
+- \`run_code\`: When you already know the **exact code** to run — simple calculations, quick data formatting, one-liners.
+
+## Using code_assistant
+1. **Describe the task clearly** in the \`task\` parameter. Include:
+   - What format the input data is in
+   - What the expected output should look like
+   - Any edge cases or constraints
+2. **Pass data** via \`inputData\` — the code reads it from INPUT_DATA_PATH.
+3. **Choose language**: JavaScript (default, Node.js) or Python (standard library only).
+4. Devstral generates and runs the code. If it fails, it auto-retries once with error context.
+
+## Example Patterns
+- "Count emails per sender from this list" + pass email index as inputData
+- "Parse these dates and calculate business days between them"
+- "Format this JSON data as a markdown table sorted by priority"
+- "Analyze this text and extract all dates, amounts, and names"
+
+## Limitations
+- No npm/pip packages — standard library only
+- No network access — all data must be passed via inputData
+- 30 second timeout, 16K max output
+- No side effects — cannot send emails, modify contacts, or call APIs`,
 };

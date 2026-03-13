@@ -99,7 +99,7 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
           calendarId,
           maxResults: this.maxEventsPerRequest,
           showDeleted: true, // Required for incremental sync to detect deletions
-          fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties)',
+          fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties,attachments)',
           pageToken,
         });
 
@@ -137,7 +137,7 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
           syncToken,
           maxResults: this.maxEventsPerRequest,
           showDeleted: true, // Required to detect event deletions
-          fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties)',
+          fields: 'nextPageToken,nextSyncToken,items(id,summary,description,location,organizer,attendees,start,end,status,recurrence,recurringEventId,htmlLink,created,updated,extendedProperties,attachments)',
           pageToken,
         });
 

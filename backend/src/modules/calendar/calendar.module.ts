@@ -8,6 +8,7 @@ import { GoogleCalendarSyncService } from './services/google-calendar-sync.servi
 import { MicrosoftCalendarSyncService } from './services/microsoft-calendar-sync.service';
 import { GoogleCalendarWebhookService } from './services/google-calendar-webhook.service';
 import { MicrosoftCalendarWebhookService } from './services/microsoft-calendar-webhook.service';
+import { CalendarWebhookAuthService } from './services/calendar-webhook-auth.service';
 import { CalendarSyncQueueService } from './services/calendar-sync-queue.service';
 import { CalendarSyncWorker } from './workers/calendar-sync.worker';
 import { IcsParserService } from './services/ics-parser.service';
@@ -54,6 +55,7 @@ import { CalendarTool } from './tools/calendar.tool';
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,
     MicrosoftCalendarWebhookService,
+    CalendarWebhookAuthService,
     CalendarSyncQueueService,
     CalendarSyncWorker,
     IcsParserService,
@@ -76,6 +78,7 @@ import { CalendarTool } from './tools/calendar.tool';
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,
     MicrosoftCalendarWebhookService,
+    CalendarWebhookAuthService,
     CalendarSyncQueueService,
     IcsParserService,
     IcsGeneratorService,

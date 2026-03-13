@@ -30,7 +30,7 @@ const INTENT_SKILL_MAP: Partial<Record<PrimaryIntent, string[]>> = {
   email_reply: ['email-workflows'],
   email_forward: ['email-workflows'],
   email_read: ['email-workflows'],
-  email_summarize: ['email-workflows'],
+  email_summarize: ['email-workflows', 'code-assistant'],
   email_delete: ['email-workflows'],
   email_archive: ['email-workflows'],
   email_move: ['email-workflows'],
@@ -44,6 +44,9 @@ const INTENT_SKILL_MAP: Partial<Record<PrimaryIntent, string[]>> = {
 
   // Status/briefing → triage (has briefing section) + follow-ups
   status_check: ['triage-organization', 'follow-up-management'],
+
+  // Data analysis → code assistant skill
+  data_analysis: ['code-assistant'],
 
   // Unknown → all skills for best coverage
   unknown: ['email-workflows', 'triage-organization', 'follow-up-management'],

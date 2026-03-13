@@ -13,7 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
 import { GoogleCalendarWebhookService } from '../services/google-calendar-webhook.service';
 import { MicrosoftCalendarWebhookService, MicrosoftCalendarNotification } from '../services/microsoft-calendar-webhook.service';
-import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
+import { CalendarWebhookAuthService } from '../services/calendar-webhook-auth.service';
 import { getErrorDetails } from '../../../common/utils';
 import { Public } from '../../../common/auth/public.decorator';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
@@ -29,7 +29,7 @@ export class CalendarWebhookController {
   constructor(
     private readonly googleCalendarWebhook: GoogleCalendarWebhookService,
     private readonly microsoftCalendarWebhook: MicrosoftCalendarWebhookService,
-    private readonly syncAuth: SyncAuthService,
+    private readonly calendarWebhookAuth: CalendarWebhookAuthService,
   ) { }
 
   /**
@@ -39,6 +39,7 @@ export class CalendarWebhookController {
   @Post('google/push')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Google Calendar webhook', description: 'Receives push notifications from Google Calendar API' })
+  @ApiHeader({ name: 'x-goog-channel-token', description: 'Google channel token', required: false })
   @ApiHeader({ name: 'x-webhook-token', description: 'Webhook authentication token', required: false })
   @ApiHeader({ name: 'x-goog-channel-id', description: 'Google channel ID', required: true })
   @ApiHeader({ name: 'x-goog-resource-id', description: 'Google resource ID', required: true })
@@ -47,12 +48,13 @@ export class CalendarWebhookController {
   @ApiResponse({ status: 401, description: 'Unauthorized - invalid token or missing headers' })
   async handleGoogleCalendarPush(
     @Headers() headers: Record<string, string>,
+    @Headers('x-goog-channel-token') channelToken?: string,
     @Headers('x-webhook-token') webhookToken?: string,
     @Query('token') queryToken?: string,
   ) {
     try {
-      // Validate webhook authentication (token can be in header or query param)
-      this.syncAuth.validateWebhookToken(webhookToken, queryToken);
+      // Accept legacy header/query tokens while new subscriptions move to Google's channel token header.
+      this.calendarWebhookAuth.validateGoogleWebhookToken(channelToken, webhookToken, queryToken);
 
       this.logger.log('Received Google Calendar push notification');
 

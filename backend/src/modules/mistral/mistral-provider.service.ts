@@ -29,6 +29,13 @@ export class MistralProviderService {
     return this.provider(modelId ?? this.defaultChatModel);
   }
 
+  /** Get Devstral coding model for code generation tasks. */
+  getCodeModel(): LanguageModel {
+    return this.provider(
+      this.config.get<string>('MISTRAL_CODE_MODEL', 'devstral-small-latest'),
+    );
+  }
+
   /** Get an embedding model. Defaults to mistral-embed (1024 dims). */
   getEmbeddingModel(modelId?: string): EmbeddingModel {
     return this.provider.embedding(modelId ?? 'mistral-embed');

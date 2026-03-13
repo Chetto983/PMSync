@@ -20,6 +20,7 @@ import {
   NormalizedCalendarEvent,
   FetchEventsResult,
 } from '../interfaces/calendar-sync.interface';
+import { parseDateTimeInTimeZone } from '../utils/calendar-timezone.util';
 
 // Re-export for backward compatibility
 export type { CalendarSyncResult as MicrosoftCalendarSyncResult } from '../interfaces/calendar-sync.interface';
@@ -204,9 +205,9 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
     const attendees = event.attendees || null;
 
     const isAllDay = event.isAllDay || false;
-    const startTime = new Date(event.start!.dateTime! + (event.start!.dateTime!.endsWith('Z') ? '' : 'Z'));
-    const endTime = new Date(event.end!.dateTime! + (event.end!.dateTime!.endsWith('Z') ? '' : 'Z'));
     const timeZone = event.start?.timeZone || event.end?.timeZone || 'UTC';
+    const startTime = parseDateTimeInTimeZone(event.start!.dateTime!, timeZone);
+    const endTime = parseDateTimeInTimeZone(event.end!.dateTime!, timeZone);
 
     const recurrence = event.recurrence ? [JSON.stringify(event.recurrence)] : [];
     const recurringEventId = event.seriesMasterId || null;

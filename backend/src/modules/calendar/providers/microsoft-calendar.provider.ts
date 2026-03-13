@@ -102,7 +102,7 @@ export class MicrosoftCalendarProvider extends BaseCalendarProvider {
 
       await this.prisma.calendarEvent.create({
         data: {
-          tenantId: this.config.userId,
+          tenantId: this.config.tenantId,
           providerId: this.config.providerId,
           externalId: eventId,
           calendarId,

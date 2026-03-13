@@ -5,7 +5,13 @@
  * to Google Calendar and Microsoft Graph APIs.
  */
 
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { calendar_v3, google } from 'googleapis';
 import axios from 'axios';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -16,7 +22,12 @@ import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { withRetry, getCircuitBreaker } from '../utils';
-import { ConflictException } from '@nestjs/common';
+import {
+  formatDateOnlyForTimeZone,
+  formatDateTimeForTimeZone,
+  parseRRuleUntilToDateOnly,
+  resolveCalendarTimeZone,
+} from '../utils/calendar-timezone.util';
 
 // ============================================================================
 // INTERFACES
@@ -293,10 +304,20 @@ export class CalendarEventsService {
     await withRetry(
       async () => {
         await circuitBreaker.execute(async () => {
+          const providerUpdateData =
+            data.timeZone === undefined && (data.startTime !== undefined || data.endTime !== undefined)
+              ? { ...data, timeZone: event.timeZone }
+              : data;
+
           if (provider.providerType === 'google') {
-            await this.updateGoogleEvent(accessToken, event.externalId, event.calendarId || 'primary', data);
+            await this.updateGoogleEvent(
+              accessToken,
+              event.externalId,
+              event.calendarId || 'primary',
+              providerUpdateData,
+            );
           } else if (provider.providerType === 'microsoft') {
-            await this.updateMicrosoftEvent(accessToken, event.externalId, data);
+            await this.updateMicrosoftEvent(accessToken, event.externalId, providerUpdateData);
           }
         });
       },
@@ -719,6 +740,7 @@ export class CalendarEventsService {
     accessToken: string,
     data: CreateEventDto,
   ): Promise<{ id: string; iCalUId: string | null }> {
+    const timeZone = resolveCalendarTimeZone(data.timeZone);
     const event: Record<string, unknown> = {
       subject: data.title,
       body: {
@@ -727,12 +749,12 @@ export class CalendarEventsService {
       },
       location: data.location ? { displayName: data.location } : undefined,
       start: {
-        dateTime: new Date(data.startTime).toISOString(),
-        timeZone: data.timeZone || 'UTC',
+        dateTime: formatDateTimeForTimeZone(data.startTime, timeZone),
+        timeZone,
       },
       end: {
-        dateTime: new Date(data.endTime).toISOString(),
-        timeZone: data.timeZone || 'UTC',
+        dateTime: formatDateTimeForTimeZone(data.endTime, timeZone),
+        timeZone,
       },
       isAllDay: data.isAllDay || false,
       attendees: data.attendees?.map((a) => ({
@@ -743,7 +765,11 @@ export class CalendarEventsService {
 
     // Add recurrence if provided
     if (data.recurrence && data.recurrence.length > 0) {
-      const msRecurrence = this.convertRecurrenceToMicrosoft(data.recurrence);
+      const msRecurrence = this.convertRecurrenceToMicrosoft(
+        data.recurrence,
+        data.startTime,
+        timeZone,
+      );
       if (msRecurrence) {
         event.recurrence = msRecurrence;
       }
@@ -795,7 +821,11 @@ export class CalendarEventsService {
    * Convert RRULE strings to Microsoft Graph recurrence format
    * Basic implementation - supports common patterns
    */
-  private convertRecurrenceToMicrosoft(rrules: string[]): Record<string, unknown> | undefined {
+  private convertRecurrenceToMicrosoft(
+    rrules: string[],
+    startTime: Date | string,
+    timeZone?: string,
+  ): Record<string, unknown> | undefined {
     if (!rrules || rrules.length === 0) return undefined;
 
     // Parse first RRULE (most common case)
@@ -825,15 +855,18 @@ export class CalendarEventsService {
 
     const range: Record<string, unknown> = {
       type: 'noEnd',
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: formatDateOnlyForTimeZone(startTime, timeZone),
     };
 
     if (parts.COUNT) {
       range.type = 'numbered';
       range.numberOfOccurrences = parseInt(parts.COUNT, 10);
     } else if (parts.UNTIL) {
-      range.type = 'endDate';
-      range.endDate = parts.UNTIL.substring(0, 10);
+      const endDate = parseRRuleUntilToDateOnly(parts.UNTIL, timeZone);
+      if (endDate) {
+        range.type = 'endDate';
+        range.endDate = endDate;
+      }
     }
 
     return { pattern, range };
@@ -848,6 +881,7 @@ export class CalendarEventsService {
     data: UpdateEventDto,
   ): Promise<void> {
     const event: Record<string, unknown> = {};
+    const timeZone = resolveCalendarTimeZone(data.timeZone);
 
     if (data.title !== undefined) event.subject = data.title;
     if (data.description !== undefined) {
@@ -856,14 +890,14 @@ export class CalendarEventsService {
     if (data.location !== undefined) event.location = { displayName: data.location };
     if (data.startTime !== undefined) {
       event.start = {
-        dateTime: new Date(data.startTime).toISOString(),
-        timeZone: data.timeZone || 'UTC',
+        dateTime: formatDateTimeForTimeZone(data.startTime, timeZone),
+        timeZone,
       };
     }
     if (data.endTime !== undefined) {
       event.end = {
-        dateTime: new Date(data.endTime).toISOString(),
-        timeZone: data.timeZone || 'UTC',
+        dateTime: formatDateTimeForTimeZone(data.endTime, timeZone),
+        timeZone,
       };
     }
     if (data.isAllDay !== undefined) event.isAllDay = data.isAllDay;

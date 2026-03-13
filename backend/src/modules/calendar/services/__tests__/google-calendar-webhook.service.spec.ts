@@ -37,6 +37,10 @@ const mockCalendarSyncQueue = {
   addSyncJob: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockCalendarWebhookAuth = {
+  getGoogleWebhookToken: jest.fn().mockReturnValue(undefined),
+};
+
 // ─── Test Suite ──────────────────────────────────────────────────────────────
 
 describe('GoogleCalendarWebhookService', () => {
@@ -55,6 +59,7 @@ describe('GoogleCalendarWebhookService', () => {
       mockCrypto as any,
       mockConfig as any,
       mockCalendarSyncQueue as any,
+      mockCalendarWebhookAuth as any,
     );
     // Do NOT call onModuleInit — JOBS_ENABLED=false prevents Redis startup anyway
   });
