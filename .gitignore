@@ -165,3 +165,5 @@ frontend/docs/screenshots/*
 backend/tmp/*
 frontend/docs/screenshots/*
 test-screenshots/*
+frontend/docs/screenshots/*
+frontend/e2e/visual-regression-splits.spec.ts-snapshots/*

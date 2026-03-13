@@ -15,12 +15,16 @@ import { ChatThread } from './ChatThread';
 export function ChatMobileLayout() {
   const [showSidebar, setShowSidebar] = useState(false);
   const t = useTranslations();
+  const closeLabel = t.common?.close || 'Close';
 
   const openSidebar = useCallback(() => setShowSidebar(true), []);
   const closeSidebar = useCallback(() => setShowSidebar(false), []);
 
   return (
-    <div className="chat-mobile-layout">
+    <div
+      className="chat-mobile-layout"
+      data-sidebar-open={showSidebar ? 'true' : 'false'}
+    >
       <div className="chat-mobile-slide-container">
         {/* Thread panel — base layer, always visible */}
         <div className="chat-mobile-slide-thread">
@@ -38,9 +42,18 @@ export function ChatMobileLayout() {
         </div>
 
         {/* Sidebar panel — slides over from left */}
+        <button
+          type="button"
+          className="chat-mobile-backdrop"
+          onClick={closeSidebar}
+          aria-label={closeLabel}
+          tabIndex={showSidebar ? 0 : -1}
+        />
+
         <div
           className="chat-mobile-slide-sidebar"
           data-visible={showSidebar ? 'true' : 'false'}
+          aria-hidden={showSidebar ? 'false' : 'true'}
         >
           <div className="chat-mobile-sidebar-panel">
             <div className="chat-mobile-sidebar-header">

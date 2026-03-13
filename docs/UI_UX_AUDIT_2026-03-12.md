@@ -987,3 +987,44 @@ The following mobile email regressions were fixed and redeployed to `https://mai
   2. follow-up board is not genuinely mobile
   3. admin users is not genuinely mobile
   4. tasks still looks like demo content
+
+## 2026-03-13 Mobile Analytics And Follow-up Remediation Verification
+
+The two highest-priority issues from the continued mobile product audit were fixed and redeployed to production.
+
+### Fixed
+
+- `/dashboard/analytics`
+  - no longer fires the analytics endpoint when `email_analytics` consent is missing
+  - now renders a consent-aware empty state instead of a broken chart
+  - page heading is localized as `Analisi`
+  - trend labels are now localized from the client locale when analytics data is available
+- `/dashboard/ai/follow-ups`
+  - now uses a single active status lane on phone width instead of forcing the full desktop kanban
+  - no longer produces trapped desktop-width overflow inside the mobile layout
+  - keyboard shortcut affordance is hidden on mobile
+  - the type filter now actually affects the board contents
+
+### Production Verification
+
+- Deployment target: `https://mail-agent-indol.vercel.app`
+- Viewport: `412x915`
+- Auth mode: authenticated mobile session
+
+### Verification Results
+
+- `/dashboard/analytics`
+  - failed first-party requests: none
+  - console errors: none
+  - page body showed consent state copy:
+    - `Analisi`
+    - `Attività Email`
+    - `Elabora i metadati delle email per le dashboard analitiche`
+    - `Privacy e consenso`
+  - document width matched viewport width (`412px`)
+- `/dashboard/ai/follow-ups`
+  - failed first-party requests: none
+  - console errors: none
+  - page showed mobile lane selector plus a single active lane
+  - document width matched viewport width (`412px`)
+  - no oversized elements were detected beyond the viewport

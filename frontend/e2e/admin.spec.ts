@@ -190,16 +190,16 @@ test.describe.serial('Admin panel -- ban/unban', () => {
       await bannedPage.fill('input[name="password"], input[type="password"]', MEMBER_PASSWORD);
       await bannedPage.click('button[type="submit"]');
 
-      // Wait briefly for the auth response to come back
-      await bannedPage.waitForTimeout(3_000);
+      // Wait for the auth response — either an error alert appears on the
+      // login page or a navigation to /dashboard (which should NOT happen).
+      // better-auth returns USER_IS_BANNED for banned users.
+      const errorAlert = bannedPage.locator('[role="alert"]').first();
+      await expect(errorAlert.or(bannedPage.locator('text=/dashboard/'))).toBeVisible({ timeout: 10_000 }).catch(() => {
+        // Neither appeared — the page stayed on login without an alert, which is also acceptable
+      });
 
-      // Banned users should either:
-      // 1. See an error alert on the login page
-      // 2. Stay on the login page (not reach dashboard)
-      // better-auth returns USER_IS_BANNED for banned users
       const currentUrl = bannedPage.url();
-      const errorAlert = bannedPage.locator('[role="alert"]');
-      const hasError = await errorAlert.first().isVisible().catch(() => false);
+      const hasError = await errorAlert.isVisible().catch(() => false);
 
       // Either we see an error message or we're still on the login page
       expect(hasError || currentUrl.includes('/auth/login')).toBeTruthy();
