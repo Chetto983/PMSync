@@ -152,6 +152,16 @@ export interface AiAgentStepEventPayload {
   };
 }
 
+export interface FollowUpReminderPayload {
+  followUpId: string;
+  emailId: string;
+  subject: string | null;
+  dueDate: string;
+  reason: string | null;
+  tenantId: string;
+  userId: string;
+  timestamp: string;
+}
 
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
@@ -226,6 +236,10 @@ export interface RealtimeEventPayloads {
   'ai:session:update': AiSessionEventPayload;
   // AI Agent Activity Streaming (2025 UX pattern)
   'ai:agent:step': AiAgentStepEventPayload;
+  // Follow-up Reminder Events
+  'followup:reminder:upcoming': FollowUpReminderPayload;
+  'followup:reminder:imminent': FollowUpReminderPayload;
+  'followup:reminder:overdue': FollowUpReminderPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

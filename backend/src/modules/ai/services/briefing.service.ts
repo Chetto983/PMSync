@@ -138,8 +138,10 @@ export class BriefingService {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
     // 1. Pre-fetch all data in parallel
-    const [unreadEmails, todayEvents, followUps, staleContacts, todayReceivedCount, todaySentCount, weeklyReceivedCount, weeklySentCount] =
+    const [unreadEmails, todayEvents, followUps, staleContacts, todayReceivedCount, todaySentCount, weeklyReceivedCount, weeklySentCount, deadlineCount, actionItemCount] =
       await Promise.all([
         this.prisma.email.findMany({
           where: { tenantId, isRead: false, isDeleted: false },
@@ -183,6 +185,22 @@ export class BriefingService {
         this.prisma.email.count({
           where: { tenantId, sentAt: { gte: sevenDaysAgo }, isDraft: false, folder: 'SENT', isDeleted: false },
         }),
+        // Deadlines: follow-ups with detected deadline in next 7 days
+        this.prisma.emailFollowUp.count({
+          where: {
+            tenantId,
+            status: { in: ['PENDING', 'REMINDED'] },
+            detectedDeadline: { not: null, gte: now, lte: sevenDaysFromNow },
+          },
+        }),
+        // Action items: TODO follow-ups pending
+        this.prisma.emailFollowUp.count({
+          where: {
+            tenantId,
+            status: 'PENDING',
+            followUpType: 'TODO',
+          },
+        }),
       ]);
 
     // 2. Build data context for LLM
@@ -206,6 +224,8 @@ export class BriefingService {
         reason: f.reason,
         dueDate: f.dueDate?.toISOString(),
       })),
+      upcomingDeadlines: deadlineCount,
+      pendingActionItems: actionItemCount,
       staleContacts: staleContacts.map(c => ({
         id: c.id,
         name: c.displayName || 'Unknown',

@@ -18,8 +18,6 @@ import {
 import { Response } from 'express';
 import { createReadStream } from 'fs';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
-import { RolesGuard } from '../../../common/auth/roles.guard';
-import { Roles } from '../../../common/auth/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { DataExportService } from '../services/data-export.service';
 import { DataExportResponseDto, DataExportListDto } from '../dto/data-export.dto';
@@ -40,8 +38,7 @@ import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
 @ApiBearerAuth()
 @SkipLegalCheck()
 @Controller('compliance/data-export')
-@UseGuards(TenantGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(TenantGuard)
 export class DataExportController {
   constructor(private readonly dataExportService: DataExportService) {}
 

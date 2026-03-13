@@ -38,6 +38,10 @@ import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   usePendingFollowUps,
+  useFollowUpStats,
+  useUpdateFollowUpStatus,
+  useSnoozeFollowUp,
+  useDeleteFollowUp,
   type EmailFollowUp,
 } from '@/hooks/queries';
 import type { Theme } from '@mui/material';
@@ -85,12 +89,12 @@ export function FollowupsKanbanBoard() {
   // Queries — only pending follow-ups supported by backend
   const { data: pendingData, isLoading, error } = usePendingFollowUps(200);
   const data = pendingData ? { followUps: pendingData.followUps as unknown as EmailFollowUp[], count: pendingData.count } : undefined;
-  const stats = null; // Follow-up stats endpoint removed
+  const { data: stats } = useFollowUpStats();
 
-  // Mutations — follow-up CRUD endpoints removed, stub as no-ops
-  const updateStatus = { mutateAsync: async (_p: { id: string; status: string }) => {} };
-  const snoozeFollowUp = { mutateAsync: async (_p: { id: string; dueDate: string }) => {} };
-  const deleteFollowUp = { mutateAsync: async (_id: string) => {} };
+  // Mutations
+  const updateStatus = useUpdateFollowUpStatus();
+  const snoozeFollowUp = useSnoozeFollowUp();
+  const deleteFollowUp = useDeleteFollowUp();
 
   // Sensors for pointer (mouse/touch) and keyboard
   const sensors = useSensors(

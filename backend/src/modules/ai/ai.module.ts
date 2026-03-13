@@ -63,6 +63,7 @@ import { EmailEmbeddingCleanupService } from './services/email-embedding-cleanup
 import { AiRunLedgerService } from './services/ai-run-ledger.service';
 // Phase 35 Plan 02: AI Observability endpoints (runs query + cost summary)
 import { AiObservabilityController } from './controllers/ai-observability.controller';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 /**
  * AiModule - AI/ML services, embeddings, triage, and RAG.
@@ -75,6 +76,7 @@ import { AiObservabilityController } from './controllers/ai-observability.contro
     StorageModule, // Provides STORAGE_SERVICE without pulling EmailModule into AI graph
     SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
     ComplianceModule, // Phase 28: ConsentGuard + ConsentEnforcementService for @RequiresConsent
+    RealtimeModule, // Phase 4: Socket.IO reminder events for follow-up notifications
     // ToolRegistryModule is @Global() -- no import needed
   ],
   providers: [

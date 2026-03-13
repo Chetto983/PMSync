@@ -12,12 +12,13 @@
  *
  * Phase CONSOLIDATION: Triage + Follow-Up + Reminder unification.
  */
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { Job, Queue, Worker } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { FollowUpStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
 interface ReminderJobData {
   type: 'scheduled' | 'manual';
@@ -45,6 +46,7 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    @Optional() private readonly realtimeEvents?: RealtimeEventsService,
   ) {
     this.ENABLED =
       (this.configService.get<string>('REMINDER_SCHEDULER_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -148,6 +150,16 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
           },
         });
         result.imminent++;
+        this.realtimeEvents?.emitFollowUpReminderImminent(followUp.tenantId, {
+          followUpId: followUp.id,
+          emailId: followUp.emailId,
+          subject: followUp.email?.subject ?? null,
+          dueDate: followUp.dueDate.toISOString(),
+          reason: followUp.reason ?? null,
+          tenantId: followUp.tenantId,
+          userId: followUp.userId,
+          timestamp: new Date().toISOString(),
+        });
         this.logger.debug(
           `Imminent reminder: ${followUp.emailId} (${followUp.email?.subject}), due in ${Math.round(timeUntilDue / 60000)}min`,
         );
@@ -161,6 +173,16 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
           },
         });
         result.upcoming++;
+        this.realtimeEvents?.emitFollowUpReminderUpcoming(followUp.tenantId, {
+          followUpId: followUp.id,
+          emailId: followUp.emailId,
+          subject: followUp.email?.subject ?? null,
+          dueDate: followUp.dueDate.toISOString(),
+          reason: followUp.reason ?? null,
+          tenantId: followUp.tenantId,
+          userId: followUp.userId,
+          timestamp: new Date().toISOString(),
+        });
       }
     }
 
@@ -169,6 +191,9 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
       where: {
         status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] },
         dueDate: { lt: new Date(now) },
+      },
+      include: {
+        email: { select: { subject: true } },
       },
       take: 100,
     });
@@ -185,6 +210,16 @@ export class ReminderSchedulerService implements OnModuleInit, OnModuleDestroy {
         result.expired++;
       } else {
         result.overdue++;
+        this.realtimeEvents?.emitFollowUpReminderOverdue(followUp.tenantId, {
+          followUpId: followUp.id,
+          emailId: followUp.emailId,
+          subject: followUp.email?.subject ?? null,
+          dueDate: followUp.dueDate.toISOString(),
+          reason: followUp.reason ?? null,
+          tenantId: followUp.tenantId,
+          userId: followUp.userId,
+          timestamp: new Date().toISOString(),
+        });
       }
     }
 

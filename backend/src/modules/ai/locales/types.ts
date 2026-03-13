@@ -402,10 +402,12 @@ export interface BriefingTranslations {
     unavailable: string;
   };
   deadlines: {
-    placeholder: string;
+    summary: (count: number) => string;
+    none: string;
   };
   actionItems: {
-    placeholder: string;
+    summary: (count: number) => string;
+    none: string;
   };
   calendar: {
     available: string;

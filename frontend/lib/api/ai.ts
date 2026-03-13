@@ -556,6 +556,33 @@ export const voltAgentApi = {
     }>('/ai/follow-ups/pending', { params });
   },
 
+  getFollowUpStats() {
+    return apiClient.get<{
+      success: boolean;
+      stats: { pending: number; reminded: number; resolved: number; expired: number; overdue: number; dueToday: number };
+    }>('/ai/follow-ups/stats');
+  },
+
+  updateFollowUpStatus(id: string, status: string) {
+    return apiClient.patch<{ success: boolean; updated?: number; error?: string }>(
+      `/ai/follow-ups/${id}/status`,
+      { status },
+    );
+  },
+
+  snoozeFollowUp(id: string, dueDate: string) {
+    return apiClient.patch<{ success: boolean; dueDate?: string; error?: string }>(
+      `/ai/follow-ups/${id}/snooze`,
+      { dueDate },
+    );
+  },
+
+  deleteFollowUp(id: string) {
+    return apiClient.delete<{ success: boolean; error?: string }>(
+      `/ai/follow-ups/${id}`,
+    );
+  },
+
   // Analytics
   getEmailAnalytics(params?: { period?: 'day' | 'week' | 'month' }) {
     return apiClient.get<{ success: boolean; analytics: Record<string, unknown> }>(

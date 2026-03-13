@@ -1,12 +1,10 @@
 /**
  * TanStack Query hooks for Follow-Up Tracker
  *
- * Only pending follow-ups are supported by the backend.
- * Other follow-up operations (list, overdue, stats, CRUD) were removed
- * as part of ghost code cleanup — no backend endpoints exist for them.
+ * Supports: pending list, stats, status update, snooze, delete.
  */
 
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { followUpKeys } from './follow-up-keys';
 import { voltAgentApi } from '@/lib/api/ai';
 
@@ -64,6 +62,15 @@ export interface EmailFollowUpListData {
   count: number;
 }
 
+export interface FollowUpStats {
+  pending: number;
+  reminded: number;
+  resolved: number;
+  expired: number;
+  overdue: number;
+  dueToday: number;
+}
+
 // ============================================================================
 // Query Options
 // ============================================================================
@@ -89,13 +96,74 @@ export function pendingFollowUpsOptions(limit = 20) {
   });
 }
 
+export function followUpStatsOptions() {
+  return queryOptions({
+    queryKey: followUpKeys.stats(),
+    queryFn: async (): Promise<FollowUpStats> => {
+      const response = await voltAgentApi.getFollowUpStats();
+      return response.data?.stats || { pending: 0, reminded: 0, resolved: 0, expired: 0, overdue: 0, dueToday: 0 };
+    },
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+}
+
 // ============================================================================
 // Hooks
 // ============================================================================
 
-/**
- * Hook for pending follow-ups
- */
+/** Hook for pending follow-ups */
 export function usePendingFollowUps(limit = 20) {
   return useQuery(pendingFollowUpsOptions(limit));
+}
+
+/** Hook for follow-up stats (counts by status) */
+export function useFollowUpStats() {
+  return useQuery(followUpStatsOptions());
+}
+
+/** Mutation: update follow-up status */
+export function useUpdateFollowUpStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await voltAgentApi.updateFollowUpStatus(id, status);
+      if (!res.data?.success) throw new Error(res.data?.error || 'Failed to update status');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: followUpKeys.all });
+    },
+  });
+}
+
+/** Mutation: snooze follow-up */
+export function useSnoozeFollowUp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, dueDate }: { id: string; dueDate: string }) => {
+      const res = await voltAgentApi.snoozeFollowUp(id, dueDate);
+      if (!res.data?.success) throw new Error(res.data?.error || 'Failed to snooze');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: followUpKeys.all });
+    },
+  });
+}
+
+/** Mutation: soft-delete follow-up */
+export function useDeleteFollowUp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await voltAgentApi.deleteFollowUp(id);
+      if (!res.data?.success) throw new Error(res.data?.error || 'Failed to delete');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: followUpKeys.all });
+    },
+  });
 }

@@ -11,6 +11,7 @@ import {
   AiActionEventPayload,
   AiSessionEventPayload,
   AiAgentStepEventPayload,
+  FollowUpReminderPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -26,6 +27,7 @@ export type {
   AiActionEventPayload,
   AiSessionEventPayload,
   AiAgentStepEventPayload,
+  FollowUpReminderPayload,
 } from '../types/realtime.types';
 
 /**
@@ -566,6 +568,22 @@ export class RealtimeEventsService implements OnModuleDestroy {
    */
   emitAiAgentStep(tenantId: string, payload: AiAgentStepEventPayload) {
     this.emitToTenant(tenantId, 'ai:agent:step', payload);
+  }
+
+  /**
+   * FOLLOW-UP REMINDER EVENTS
+   */
+
+  emitFollowUpReminderUpcoming(tenantId: string, payload: FollowUpReminderPayload): void {
+    this.emitToTenant(tenantId, 'followup:reminder:upcoming', payload);
+  }
+
+  emitFollowUpReminderImminent(tenantId: string, payload: FollowUpReminderPayload): void {
+    this.emitToTenant(tenantId, 'followup:reminder:imminent', payload);
+  }
+
+  emitFollowUpReminderOverdue(tenantId: string, payload: FollowUpReminderPayload): void {
+    this.emitToTenant(tenantId, 'followup:reminder:overdue', payload);
   }
 
   /**

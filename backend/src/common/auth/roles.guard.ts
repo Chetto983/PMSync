@@ -25,6 +25,7 @@ import { ROLES_KEY } from './roles.decorator';
 @Injectable()
 export class RolesGuard implements CanActivate {
   private readonly logger = new Logger(RolesGuard.name);
+  private static readonly SUPER_ADMIN_ROLE = 'super-admin';
 
   constructor(private reflector: Reflector) {}
 
@@ -54,8 +55,11 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User has no role assigned');
     }
 
-    // Check if user has one of the required roles
-    const hasRole = requiredRoles.includes(user.role);
+    // super-admin is the only hierarchical role in the current RBAC model.
+    // It must satisfy legacy @Roles('admin') and @Roles('admin', 'manager') decorators.
+    const hasRole =
+      user.role === RolesGuard.SUPER_ADMIN_ROLE ||
+      requiredRoles.includes(user.role);
 
     if (!hasRole) {
       this.logger.warn(

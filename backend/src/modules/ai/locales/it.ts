@@ -402,10 +402,12 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
       unavailable: 'Dati follow-up non disponibili.',
     },
     deadlines: {
-      placeholder: '✓ Tracciamento scadenze disponibile in futuro aggiornamento.',
+      summary: (count) => `📅 ${count} scadenz${count > 1 ? 'e' : 'a'} nei prossimi 7 giorni.`,
+      none: '✓ Nessuna scadenza imminente.',
     },
     actionItems: {
-      placeholder: '✓ Tracciamento attività disponibile in futuro aggiornamento.',
+      summary: (count) => `📋 ${count} attività in sospeso.`,
+      none: '✓ Nessuna attività in sospeso.',
     },
     calendar: {
       available: '📆 Sincronizzazione calendario disponibile via /api/v1/calendar.',

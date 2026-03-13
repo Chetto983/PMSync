@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Delete,
   Body,
   Query,
   UseGuards,
@@ -621,6 +623,111 @@ export class AiController {
       count: deadlines.length,
       deadlines,
     };
+  }
+
+  @Get('follow-ups/stats')
+  @ApiOperation({ summary: 'Follow-up status counts' })
+  @ApiResponse({ status: 200, description: 'Follow-up stats returned' })
+  async getFollowUpStats(@Request() req: AuthenticatedRequest) {
+    const where = { tenantId: req.user.tenantId, userId: req.user.userId };
+    const now = new Date();
+
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+    const [pending, reminded, resolved, expired, overdue, dueToday] = await Promise.all([
+      this.prisma.emailFollowUp.count({ where: { ...where, status: FollowUpStatus.PENDING } }),
+      this.prisma.emailFollowUp.count({ where: { ...where, status: FollowUpStatus.REMINDED } }),
+      this.prisma.emailFollowUp.count({ where: { ...where, status: FollowUpStatus.RESOLVED } }),
+      this.prisma.emailFollowUp.count({ where: { ...where, status: FollowUpStatus.EXPIRED } }),
+      this.prisma.emailFollowUp.count({
+        where: { ...where, status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] }, dueDate: { lt: now } },
+      }),
+      this.prisma.emailFollowUp.count({
+        where: { ...where, status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] }, dueDate: { gte: now, lt: endOfDay } },
+      }),
+    ]);
+
+    return { success: true, stats: { pending, reminded, resolved, expired, overdue, dueToday } };
+  }
+
+  @Patch('follow-ups/:id/status')
+  @ApiOperation({ summary: 'Update follow-up status' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  @ApiResponse({ status: 200, description: 'Status updated' })
+  async updateFollowUpStatus(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body('status') status: string,
+  ) {
+    const validStatuses: string[] = [FollowUpStatus.RESOLVED, FollowUpStatus.EXPIRED, FollowUpStatus.PENDING];
+    if (!validStatuses.includes(status)) {
+      return { success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` };
+    }
+
+    const followUp = await this.prisma.emailFollowUp.updateMany({
+      where: { id, tenantId: req.user.tenantId, userId: req.user.userId },
+      data: {
+        status: status as FollowUpStatus,
+        ...(status === FollowUpStatus.RESOLVED ? { resolvedAt: new Date() } : {}),
+      },
+    });
+
+    if (followUp.count === 0) {
+      return { success: false, error: 'Follow-up not found' };
+    }
+
+    return { success: true, updated: followUp.count };
+  }
+
+  @Patch('follow-ups/:id/snooze')
+  @ApiOperation({ summary: 'Snooze a follow-up' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  @ApiResponse({ status: 200, description: 'Follow-up snoozed' })
+  async snoozeFollowUp(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body('dueDate') dueDateStr: string,
+  ) {
+    const dueDate = new Date(dueDateStr);
+    if (isNaN(dueDate.getTime()) || dueDate.getTime() <= Date.now()) {
+      return { success: false, error: 'dueDate must be a valid future date' };
+    }
+
+    const followUp = await this.prisma.emailFollowUp.updateMany({
+      where: {
+        id,
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] },
+      },
+      data: { dueDate, status: FollowUpStatus.PENDING, remindCount: 0 },
+    });
+
+    if (followUp.count === 0) {
+      return { success: false, error: 'Follow-up not found or already resolved' };
+    }
+
+    return { success: true, dueDate: dueDate.toISOString() };
+  }
+
+  @Delete('follow-ups/:id')
+  @ApiOperation({ summary: 'Soft-delete a follow-up' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  @ApiResponse({ status: 200, description: 'Follow-up deleted' })
+  async deleteFollowUp(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const followUp = await this.prisma.emailFollowUp.updateMany({
+      where: { id, tenantId: req.user.tenantId, userId: req.user.userId },
+      data: { status: FollowUpStatus.RESOLVED, resolvedAt: new Date() },
+    });
+
+    if (followUp.count === 0) {
+      return { success: false, error: 'Follow-up not found' };
+    }
+
+    return { success: true };
   }
 
   @Get('analytics/email')

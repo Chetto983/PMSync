@@ -9,7 +9,11 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  fullyParallel: true,
+  fullyParallel: false,
+  // Tests share mutable user state (passwords, TOTP, bans) on a single
+  // backend instance. Parallel workers cause session revocation cross-talk
+  // (e.g. security password change revokes admin session in another worker).
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
   reporter: [['html', { open: 'never' }], ['list']],
   use: {

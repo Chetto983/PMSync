@@ -195,6 +195,28 @@ describe('RolesGuard - role-based access', () => {
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
+  it('allows super-admin when route requires admin', () => {
+    const { ctx } = createMockContext(
+      {},
+      { userId: 'user-1', role: 'super-admin' },
+    );
+
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['admin']);
+
+    expect(guard.canActivate(ctx)).toBe(true);
+  });
+
+  it('allows super-admin when route requires admin or manager', () => {
+    const { ctx } = createMockContext(
+      {},
+      { userId: 'user-1', role: 'super-admin' },
+    );
+
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['admin', 'manager']);
+
+    expect(guard.canActivate(ctx)).toBe(true);
+  });
+
   it('rejects request when user lacks required role', () => {
     const { ctx } = createMockContext(
       {},

@@ -527,10 +527,12 @@ Reply ONLY in JSON: {"body":"...", "subject":"..."}. Avoid markdown.`;
       unavailable: 'Follow-up data unavailable.',
     },
     deadlines: {
-      placeholder: '✓ Deadline tracking available in future update.',
+      summary: (count) => `📅 ${count} upcoming deadline${count > 1 ? 's' : ''} in the next 7 days.`,
+      none: '✓ No upcoming deadlines.',
     },
     actionItems: {
-      placeholder: '✓ Action items tracking available in future update.',
+      summary: (count) => `📋 ${count} action item${count > 1 ? 's' : ''} pending.`,
+      none: '✓ No pending action items.',
     },
     calendar: {
       available: '📆 Calendar sync available via /api/v1/calendar endpoints.',
