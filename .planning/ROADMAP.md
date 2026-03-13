@@ -81,7 +81,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [x] **Phase 70: Frontend Unit Tests** - Zustand stores, TanStack Query hooks, settings components (completed 2026-03-11)
 - [x] **Phase 71: Frontend E2E Tests** - Org flows, admin panel, onboarding wizard, security settings (completed 2026-03-12)
 - [ ] **Phase 72: MUI Audit & Polish** - Automated scanner, violation fixes, accessibility audit, visual regression
-- [ ] **Phase 73: Test Hardening & Cleanup** - Gap closure: contract test generation, Chromium skip, TRUNCATE race fix, seed automation, dead code
+- [x] **Phase 73: Test Hardening & Cleanup** - Gap closure: contract test generation, Chromium skip, TRUNCATE race fix, seed automation, dead code (completed 2026-03-13)
 - [ ] **Phase 74: E2E Runtime Validation** - Gap closure: run Playwright suite against live backend, fix runtime failures, capture evidence
 
 ## Phase Details
@@ -205,7 +205,7 @@ Plans:
   3. Subscription spec cleanup uses targeted `deleteMany` instead of global TRUNCATE — no FK race with calendar specs in parallel execution
   4. `onboarding.spec.ts` has seed automation (prisma db seed or equivalent) so the test is repeatable without manual intervention
   5. Orphaned exports removed from `fixtures.ts` (`authedPage`, `mockEmails`, `mockFolders`, `mockUser`)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 73-01-PLAN.md -- OpenAPI spec generation in Jest global-setup + subscription TRUNCATE-to-deleteMany fix
 - [ ] 73-02-PLAN.md -- Onboarding seed automation, passkey skip verification, legacy mock E2E spec cleanup
@@ -239,7 +239,7 @@ Phase 74 depends on 73 (runs E2E after hardening fixes applied).
 | 70. Frontend Unit Tests | 3/3 | Complete | 2026-03-11 |
 | 71. Frontend E2E Tests | 5/6 | Gap closure | 2026-03-12 |
 | 72. MUI Audit & Polish | 0/? | Not started | - |
-| 73. Test Hardening & Cleanup | 1/2 | In Progress|  |
+| 73. Test Hardening & Cleanup | 2/2 | Complete   | 2026-03-13 |
 | 74. E2E Runtime Validation | 0/? | Not started | - |
 
 ---
