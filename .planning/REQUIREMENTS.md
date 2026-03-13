@@ -40,7 +40,7 @@ Requirements for test coverage, MUI audit, and production polish. Each maps to r
 
 ### Frontend E2E Tests
 
-- [x] **FE2E-01**: Organization flows tested end-to-end (create org, invite member, accept invitation, switch org)
+- [ ] **FE2E-01**: Organization flows tested end-to-end (create org, invite member, accept invitation, switch org)
 - [x] **FE2E-02**: Admin panel tested end-to-end (user list, search, ban/unban, impersonation, session revocation)
 - [x] **FE2E-03**: Onboarding wizard tested end-to-end (all steps: name, workspace, email provider, MFA, avatar)
 - [x] **FE2E-04**: Security settings tested end-to-end (password change, TOTP setup/remove, session management)
@@ -94,11 +94,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BTEST-08 | Phase 67 | Complete |
 | BINT-01 | Phase 69 | Complete |
 | BINT-02 | Phase 69 | Complete |
-| BINT-03 | Phase 69, Phase 73 (hardening) | Complete (openapi-spec pending) |
+| BINT-03 | Phase 69, Phase 73 (hardening), Phase 76 (CI gate) | Pending |
 | FTEST-01 | Phase 70 | Complete |
 | FTEST-02 | Phase 70 | Complete |
 | FTEST-03 | Phase 70 | Complete |
-| FE2E-01 | Phase 71, Phase 74 (runtime) | Complete (runtime pending) |
+| FE2E-01 | Phase 71, Phase 74 (runtime), Phase 75 (fix) | Pending |
 | FE2E-02 | Phase 71, Phase 74 (runtime) | Complete (runtime pending) |
 | FE2E-03 | Phase 71, Phase 74 (runtime) | Complete (runtime pending) |
 | FE2E-04 | Phase 71, Phase 73 (Chromium skip), Phase 74 (runtime) | Complete (runtime pending) |
@@ -114,4 +114,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after roadmap creation (27/27 mapped)*
+*Last updated: 2026-03-13 after gap closure phases 75-76 added (27/27 mapped, 2 reset to Pending)*
