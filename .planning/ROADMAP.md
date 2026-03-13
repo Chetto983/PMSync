@@ -239,7 +239,7 @@ Phase 74 depends on 73 (runs E2E after hardening fixes applied).
 | 70. Frontend Unit Tests | 3/3 | Complete | 2026-03-11 |
 | 71. Frontend E2E Tests | 5/6 | Gap closure | 2026-03-12 |
 | 72. MUI Audit & Polish | 0/? | Not started | - |
-| 73. Test Hardening & Cleanup | 2/2 | Complete   | 2026-03-13 |
+| 73. Test Hardening & Cleanup | 2/2 | Complete    | 2026-03-13 |
 | 74. E2E Runtime Validation | 0/? | Not started | - |
 
 ---
