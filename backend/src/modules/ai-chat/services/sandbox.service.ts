@@ -1,15 +1,19 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { compute, type Sandbox as ComputeSandbox } from 'computesdk';
+import { Sandbox as ComputeSandbox } from 'computesdk';
 
 /**
  * SandboxService -- Production-safe isolated code execution via ComputeSDK.
  *
- * Uses ComputeSDK gateway with Railway provider for real container isolation.
- * Each tenant gets a namespaced sandbox (findOrCreate) for horizontal scaling.
+ * Connects directly to the ComputeSDK sandbox service deployed on Railway.
+ * Uses the Sandbox class with access token auth for code execution.
  *
  * Supports JavaScript (Node.js) and Python runtimes.
- * Sandboxes are ephemeral containers with no access to host APIs or secrets.
+ * The sandbox is an isolated container with no access to host APIs or secrets.
+ *
+ * Required env vars:
+ * - COMPUTESDK_ACCESS_TOKEN: JWT from the compute service
+ * - COMPUTESDK_SANDBOX_URL: Sandbox URL (or RAILWAY_PRIVATE_DOMAIN for internal)
  */
 
 export interface ExecuteCodeParams {
@@ -32,37 +36,38 @@ const MAX_OUTPUT_CHARS = 16_000;
 /** Default timeout in milliseconds */
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-/** Sandbox name prefix */
-const SANDBOX_NAME = 'pmsync-exec';
-
 @Injectable()
 export class SandboxService implements OnModuleInit {
   private readonly logger = new Logger(SandboxService.name);
-  private configured = false;
+  private sandbox: ComputeSandbox | null = null;
 
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit() {
-    const apiKey = this.config.get<string>('COMPUTESDK_API_KEY');
-    if (!apiKey) {
+    // Try direct connection to compute service (Railway internal or public URL)
+    const accessToken = this.config.get<string>('COMPUTESDK_ACCESS_TOKEN');
+    const sandboxUrl =
+      this.config.get<string>('COMPUTESDK_SANDBOX_URL') ||
+      this.config.get<string>('COMPUTESDK_SANDBOX_PUBLIC_URL');
+
+    if (!accessToken || !sandboxUrl) {
       this.logger.warn(
-        'COMPUTESDK_API_KEY not set — sandbox execution will be unavailable',
+        'COMPUTESDK_ACCESS_TOKEN or COMPUTESDK_SANDBOX_URL not set — sandbox execution unavailable',
       );
       return;
     }
 
-    compute.setConfig({
+    // Extract sandbox ID from the URL (e.g., "reluctant-seahorse-rvynzg" from the JWT)
+    const sandboxId = this.extractSandboxId(accessToken);
+
+    this.sandbox = new ComputeSandbox({
+      sandboxUrl,
+      sandboxId: sandboxId || 'default',
       provider: 'railway',
-      computesdkApiKey: apiKey,
-      railway: {
-        apiToken: this.config.get<string>('RAILWAY_API_KEY'),
-        projectId: this.config.get<string>('RAILWAY_PROJECT_ID'),
-        environmentId: this.config.get<string>('RAILWAY_ENVIRONMENT_ID'),
-      },
+      token: accessToken,
     });
 
-    this.configured = true;
-    this.logger.log('ComputeSDK configured with Railway provider');
+    this.logger.log(`ComputeSDK sandbox connected: ${sandboxUrl}`);
   }
 
   async executeCode(params: ExecuteCodeParams): Promise<ExecuteCodeResult> {
@@ -71,13 +76,12 @@ export class SandboxService implements OnModuleInit {
       language,
       timeout,
       inputData,
-      tenantId = 'default',
     } = params;
 
-    if (!this.configured) {
+    if (!this.sandbox) {
       return {
         stdout: '',
-        stderr: 'Sandbox execution is not available — COMPUTESDK_API_KEY not configured.',
+        stderr: 'Sandbox execution is not available — ComputeSDK not configured.',
         exitCode: 1,
       };
     }
@@ -85,20 +89,11 @@ export class SandboxService implements OnModuleInit {
     const timeoutMs = Math.min(timeout ?? DEFAULT_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
     const runtime = language === 'python' ? 'python' as const : 'node' as const;
 
-    let sandbox: ComputeSandbox | null = null;
-
     try {
-      // Tenant-namespaced sandbox: reuse if exists, create if not
-      sandbox = await compute.sandbox.findOrCreate({
-        name: SANDBOX_NAME,
-        namespace: `tenant-${tenantId}`,
-        timeout: timeoutMs,
-      });
-
       // Write input data to sandbox filesystem if provided
       const inputPath = '/tmp/input.txt';
       if (inputData) {
-        await sandbox.filesystem.writeFile(inputPath, inputData);
+        await this.sandbox.filesystem.writeFile(inputPath, inputData);
       }
 
       // Wrap code to inject INPUT_DATA_PATH variable
@@ -107,7 +102,7 @@ export class SandboxService implements OnModuleInit {
         : code;
 
       // Execute code in the sandbox
-      const result = await sandbox.runCode(wrappedCode, runtime);
+      const result = await this.sandbox.runCode(wrappedCode, runtime);
 
       return {
         stdout: (result.output ?? '').slice(0, MAX_OUTPUT_CHARS),
@@ -118,7 +113,6 @@ export class SandboxService implements OnModuleInit {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Sandbox execution failed: ${message}`);
 
-      // Check for timeout-like errors
       if (message.toLowerCase().includes('timeout')) {
         return {
           stdout: '',
@@ -132,6 +126,20 @@ export class SandboxService implements OnModuleInit {
         stderr: message.slice(0, 4_000),
         exitCode: 1,
       };
+    }
+  }
+
+  /**
+   * Extract sandbox_id from JWT access token payload.
+   */
+  private extractSandboxId(token: string): string | null {
+    try {
+      const payload = JSON.parse(
+        Buffer.from(token.split('.')[1], 'base64').toString(),
+      );
+      return payload.sandbox_id || null;
+    } catch {
+      return null;
     }
   }
 
