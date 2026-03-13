@@ -205,7 +205,10 @@ Plans:
   3. Subscription spec cleanup uses targeted `deleteMany` instead of global TRUNCATE — no FK race with calendar specs in parallel execution
   4. `onboarding.spec.ts` has seed automation (prisma db seed or equivalent) so the test is repeatable without manual intervention
   5. Orphaned exports removed from `fixtures.ts` (`authedPage`, `mockEmails`, `mockFolders`, `mockUser`)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 73-01-PLAN.md -- OpenAPI spec generation in Jest global-setup + subscription TRUNCATE-to-deleteMany fix
+- [ ] 73-02-PLAN.md -- Onboarding seed automation, passkey skip verification, legacy mock E2E spec cleanup
 
 ### Phase 74: E2E Runtime Validation
 **Goal**: All four E2E spec suites run against a real backend and produce passing evidence — proving FE2E-01 through FE2E-04 at runtime level, not just artifact level
@@ -236,7 +239,7 @@ Phase 74 depends on 73 (runs E2E after hardening fixes applied).
 | 70. Frontend Unit Tests | 3/3 | Complete | 2026-03-11 |
 | 71. Frontend E2E Tests | 5/6 | Gap closure | 2026-03-12 |
 | 72. MUI Audit & Polish | 0/? | Not started | - |
-| 73. Test Hardening & Cleanup | 0/? | Not started | - |
+| 73. Test Hardening & Cleanup | 0/2 | Not started | - |
 | 74. E2E Runtime Validation | 0/? | Not started | - |
 
 ---
