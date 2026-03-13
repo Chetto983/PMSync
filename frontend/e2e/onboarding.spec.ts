@@ -4,10 +4,12 @@
  * Proves all 6 onboarding steps complete against a real backend using
  * test@pmsync.local which has onboardingComplete: false by default.
  *
- * ONCE-PER-SEED: The POST /onboarding/complete endpoint permanently sets
- * onboardingComplete: true. Re-run requires: `cd backend && npx prisma db seed`
+ * Self-resetting: runs `prisma db seed` in beforeAll to reset user state
+ * automatically, so the test is repeatable without manual intervention.
  */
 
+import { execSync } from 'child_process';
+import * as path from 'path';
 import { test, expect } from '@playwright/test';
 import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
 
@@ -23,6 +25,24 @@ function generateTotpCode(secret: string): Promise<string> {
 const ONBOARDING_USER_EMAIL = 'test@pmsync.local';
 const ONBOARDING_USER_PASSWORD = 'UserPassword123!';
 const ONBOARDING_AUTH_FILE = 'playwright/.auth/onboarding-user.json';
+
+// Reset onboarding state before the entire suite
+test.beforeAll(async () => {
+  try {
+    console.log('[onboarding] Resetting test user state via prisma db seed...');
+    execSync('npx prisma db seed', {
+      cwd: path.resolve(__dirname, '../../backend'),
+      stdio: 'pipe',
+      timeout: 30_000,
+    });
+    console.log('[onboarding] Seed complete — test@pmsync.local reset.');
+  } catch (e) {
+    console.warn(
+      '[onboarding] prisma db seed failed — test may skip if onboarding already completed.',
+      (e as Error).message,
+    );
+  }
+});
 
 test.describe('Onboarding wizard', () => {
   test.beforeAll(async ({ browser }) => {
@@ -46,13 +66,13 @@ test.describe('Onboarding wizard', () => {
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/(onboarding|dashboard)/, { timeout: 30_000 });
 
-    // Guard: if middleware sent us to /dashboard, onboardingComplete is already true.
-    // No reset API exists — only `cd backend && npx prisma db seed` can reset it.
+    // Guard: if middleware sent us to /dashboard, onboardingComplete is still true
+    // despite the seed reset (e.g., seed failed silently or DB mismatch).
     if (page.url().includes('/dashboard')) {
       await ctx.close();
       test.skip(
         true,
-        'test@pmsync.local already completed onboarding — run `cd backend && npx prisma db seed` to reset',
+        'test@pmsync.local already completed onboarding — prisma db seed may have failed',
       );
       return;
     }

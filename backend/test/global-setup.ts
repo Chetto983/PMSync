@@ -25,4 +25,18 @@ export default async function globalSetup(): Promise<void> {
     );
     throw error;
   }
+
+  // Generate OpenAPI spec for contract tests (non-blocking — needs full NestJS app)
+  try {
+    console.log('[test:setup] Generating OpenAPI spec...');
+    execSync('npm run openapi:generate', {
+      stdio: 'inherit',
+      cwd: __dirname + '/..',
+    });
+    console.log('[test:setup] OpenAPI spec generated.');
+  } catch {
+    console.log(
+      '[test:setup] OpenAPI spec generation skipped (app bootstrap failed). Contract tests will skip.',
+    );
+  }
 }

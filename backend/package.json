@@ -37,6 +37,7 @@
     "dep:baseline": "depcruise --config .dependency-cruiser.cjs --output-type baseline --output-to .dependency-cruiser-known-violations.json src",
     "openapi:generate": "ts-node scripts/generate-openapi.ts",
     "openapi:lint": "spectral lint ./openapi-spec.json --ruleset .spectral.yaml",
+    "precontract-test": "npm run openapi:generate",
     "contract-test": "jest --testPathPatterns=contract --forceExit"
   },
   "dependencies": {
