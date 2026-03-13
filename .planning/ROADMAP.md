@@ -244,7 +244,7 @@ Phase 74 depends on 73 (runs E2E after hardening fixes applied).
 | 71. Frontend E2E Tests | 5/6 | Gap closure | 2026-03-12 |
 | 72. MUI Audit & Polish | 0/? | Not started | - |
 | 73. Test Hardening & Cleanup | 2/2 | Complete    | 2026-03-13 |
-| 74. E2E Runtime Validation | 1/1 | Complete   | 2026-03-13 |
+| 74. E2E Runtime Validation | 1/1 | Complete    | 2026-03-13 |
 
 ---
 *Roadmap created: 2026-02-09*
