@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import { logger } from '@/lib/logger';
@@ -20,16 +20,26 @@ import type {
   EventFormErrors,
   EditedEventData,
   EditFormErrors,
+  CalendarPreference,
 } from '@/components/calendar';
 import type { useCalendarData } from './useCalendarData';
+import {
+  getDefaultCalendarSelection,
+  resolveSelectedCalendarPreference,
+} from './calendar-event-form';
+import { formatDateTimeLocalInput } from './calendar-date-time';
 
 type CalendarData = ReturnType<typeof useCalendarData>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSnackbar: (s: { open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }) => void) {
+export function useCalendarHandlers(
+  data: CalendarData,
+  calendarPrefs: Map<string, CalendarPreference>,
+  calendarCopy: any,
+  setSnackbar: (s: { open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }) => void,
+) {
   const {
     calendarRef,
-    providers,
     updateCalendarHeader,
     loadData,
     queryClient,
@@ -38,6 +48,10 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
   const createEventMutation = useCreateCalendarEvent();
   const updateEventMutation = useUpdateCalendarEvent();
   const deleteEventMutation = useDeleteCalendarEvent();
+  const defaultCalendarSelection = useMemo(
+    () => getDefaultCalendarSelection(calendarPrefs),
+    [calendarPrefs],
+  );
 
   // Quick event state
   const [quickEventText, setQuickEventText] = useState('');
@@ -46,7 +60,7 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
     title: '',
     start: '',
     end: '',
-    calendar: 'work',
+    calendar: '',
     description: '',
   });
   const [formErrors, setFormErrors] = useState<EventFormErrors>({});
@@ -70,6 +84,22 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
   const [attachments, setAttachments] = useState<CalendarEventAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [editFormErrors, setEditFormErrors] = useState<EditFormErrors>({});
+
+  useEffect(() => {
+    if (!defaultCalendarSelection) return;
+
+    setNewEvent((prev) => {
+      const selectedCalendar = resolveSelectedCalendarPreference(calendarPrefs, prev.calendar);
+      if (selectedCalendar?.id === prev.calendar) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        calendar: selectedCalendar?.id ?? defaultCalendarSelection,
+      };
+    });
+  }, [calendarPrefs, defaultCalendarSelection]);
 
   // Navigation handlers
   const handlePrevMonth = useCallback(() => {
@@ -103,14 +133,14 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
 
     setNewEvent({
       title: quickEventText,
-      start: start.toISOString().slice(0, 16),
-      end: end.toISOString().slice(0, 16),
-      calendar: 'primary',
+      start: formatDateTimeLocalInput(start),
+      end: formatDateTimeLocalInput(end),
+      calendar: defaultCalendarSelection,
       description: '',
     });
     setQuickEventText('');
     setEventDialogOpen(true);
-  }, [quickEventText]);
+  }, [defaultCalendarSelection, quickEventText]);
 
   // Date selection handler
   const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
@@ -119,13 +149,13 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
 
     setNewEvent({
       title: '',
-      start: start.toISOString().slice(0, 16),
-      end: end.toISOString().slice(0, 16),
-      calendar: 'primary',
+      start: formatDateTimeLocalInput(start),
+      end: formatDateTimeLocalInput(end),
+      calendar: defaultCalendarSelection,
       description: '',
     });
     setEventDialogOpen(true);
-  }, []);
+  }, [defaultCalendarSelection]);
 
   // Event click handler
   const handleEventClick = useCallback(
@@ -139,8 +169,8 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
           title: event.title,
           description: event.description || '',
           location: event.location || '',
-          start: new Date(event.startTime).toISOString().slice(0, 16),
-          end: new Date(event.endTime).toISOString().slice(0, 16),
+          start: formatDateTimeLocalInput(event.startTime),
+          end: formatDateTimeLocalInput(event.endTime),
         });
         setEventDetailsOpen(true);
 
@@ -233,6 +263,10 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
     if (!newEvent.title.trim()) errors.title = calendarCopy.validation.titleRequired;
     if (!newEvent.start) errors.start = calendarCopy.validation.startRequired;
     if (!newEvent.end) errors.end = calendarCopy.validation.endRequired;
+    const selectedCalendar = resolveSelectedCalendarPreference(calendarPrefs, newEvent.calendar);
+    if (!selectedCalendar) {
+      errors.calendar = calendarCopy.validation.calendarRequired ?? calendarCopy.noProviderAlert;
+    }
     if (newEvent.start && newEvent.end && new Date(newEvent.start) >= new Date(newEvent.end)) {
       errors.end = calendarCopy.validation.endAfterStart;
     }
@@ -243,19 +277,19 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
     }
 
     try {
-      const firstProvider = providers.find((p) => p.supportsCalendar);
-      if (!firstProvider) {
+      if (!selectedCalendar) {
         setSnackbar({ open: true, message: calendarCopy.noProviderAlert, severity: 'error' });
         return;
       }
 
       const createDto: CreateEventDto = {
-        providerId: firstProvider.id,
+        providerId: selectedCalendar.providerId,
         title: newEvent.title,
         startTime: new Date(newEvent.start).toISOString(),
         endTime: new Date(newEvent.end).toISOString(),
         description: newEvent.description,
-        calendarId: newEvent.calendar,
+        calendarId: selectedCalendar.calendarId,
+        calendarName: selectedCalendar.calendarName,
         ...(newEvent.recurrence && newEvent.recurrence.length > 0 && { recurrence: newEvent.recurrence }),
         ...(newEvent.reminders && { reminders: newEvent.reminders }),
         ...(newEvent.attendees && newEvent.attendees.length > 0 && {
@@ -268,7 +302,7 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
       setEventDialogOpen(false);
       setFormErrors({});
       setNewEvent({
-        title: '', start: '', end: '', calendar: 'primary', description: '',
+        title: '', start: '', end: '', calendar: defaultCalendarSelection, description: '',
         recurrence: undefined, reminders: undefined, attendees: undefined,
       });
       void loadData(false);
@@ -276,7 +310,7 @@ export function useCalendarHandlers(data: CalendarData, calendarCopy: any, setSn
       logger.error('Failed to create event', { error });
       setSnackbar({ open: true, message: calendarCopy.failedToCreateEvent, severity: 'error' });
     }
-  }, [newEvent, providers, calendarCopy, loadData, createEventMutation, setSnackbar]);
+  }, [calendarPrefs, calendarCopy, createEventMutation, defaultCalendarSelection, loadData, newEvent, setSnackbar]);
 
   // Update event handler
   const handleUpdateEvent = useCallback(async () => {

@@ -1028,3 +1028,122 @@ The two highest-priority issues from the continued mobile product audit were fix
   - page showed mobile lane selector plus a single active lane
   - document width matched viewport width (`412px`)
   - no oversized elements were detected beyond the viewport
+
+## 2026-03-13 Mobile Chat Drawer Verification
+
+The mobile AI assistant conversation drawer was audited and fixed after a production screenshot showed the drawer content visually overlapping the thread.
+
+### Root Cause
+
+- The mobile conversation drawer used a translucent sidebar background.
+- The floating thread menu button had a higher z-index than the drawer itself.
+- When the drawer opened, the thread remained visible underneath and the menu trigger still floated above the open panel.
+
+### Fixed
+
+- The mobile conversation list now opens as an opaque side sheet.
+- A backdrop is rendered behind the drawer.
+- The floating menu trigger is hidden and non-interactive while the drawer is open.
+- The drawer panel now sits above the thread with its own elevation and border.
+
+### Production Verification
+
+- URL: `/dashboard/ai`
+- Viewport: `375x812`
+- Auth mode: authenticated mobile session
+
+### Verification Results
+
+- drawer width measured `320px`
+- backdrop opacity was `1` with `pointer-events: auto`
+- floating menu trigger opacity was `0` with `pointer-events: none` while open
+- drawer panel background rendered as opaque white
+- the open drawer no longer visually blends with the thread underneath
+
+## 2026-03-13 Mobile Thread Header Date Fix
+
+The expanded mobile email message header was updated so the timestamp no longer competes horizontally with sender and recipient metadata.
+
+### Fixed
+
+- the right-side metadata/actions area in expanded thread messages now drops to its own row on phone widths
+- sender, recipient, and CC lines can wrap safely instead of being compressed by the timestamp
+- the collapse control remains reachable without forcing the date into the sender line
+
+### Implementation
+
+- `frontend/components/email/thread/ExpandedMessage.tsx`
+
+### Verification
+
+- `npm run type-check` passed
+- `npm run build` passed
+- Vercel production deploy completed to `https://mail-agent-indol.vercel.app`
+- limitation: the stored authenticated mobile test session had an empty inbox, so this specific fix was verified through the responsive layout change and clean production build rather than by reopening a live production thread from that test state
+
+## 2026-03-13 Calendar Functionality Audit
+
+The production calendar was audited with a real authenticated Edge profile on both desktop and mobile against `https://mail-agent-indol.vercel.app`.
+
+### Root Causes Found
+
+- event creation from `Nuovo evento` was broken because the form stored an invalid placeholder calendar value and then paired it with the first provider on submit
+- event edit mode populated `datetime-local` inputs with UTC ISO strings, so saving an unchanged event could silently shift it by one hour
+- event deletion was immediate from the detail dialog with no confirmation, which is a poor destructive-action pattern for a scheduling surface
+
+### Fixed
+
+- calendar creation now stores a provider-qualified calendar selection and submits the matching `providerId`, `calendarId`, and `calendarName`
+- calendar forms now default to the first real available calendar instead of legacy placeholder values
+- quick-event and edit flows now use local `datetime-local` formatting instead of UTC ISO slicing
+- event deletion now requires explicit confirmation before the `DELETE` request is sent
+
+### Implementation
+
+- `frontend/components/dashboard/calendar/calendar-event-form.ts`
+- `frontend/components/dashboard/calendar/calendar-date-time.ts`
+- `frontend/components/dashboard/calendar/useCalendarHandlers.ts`
+- `frontend/components/dashboard/Calendar.tsx`
+- `frontend/components/calendar/CalendarEventDialog.tsx`
+- `frontend/components/calendar/CalendarEventDetail.tsx`
+
+### Automated Validation
+
+- `npm run test -- components/dashboard/calendar/calendar-event-form.test.ts components/dashboard/calendar/calendar-date-time.test.ts`
+- `npm run type-check`
+- `npm run build`
+- Vercel production deploy completed to `https://mail-agent-indol.vercel.app`
+
+### Production Verification
+
+- auth mode: local authenticated Edge profile
+- desktop viewport: `1440x900`
+- mobile viewport: `390x664`
+
+### Verification Results
+
+- desktop `Nuovo evento` create flow
+  - `POST /api/v1/calendar/events` returned `201`
+  - created event rendered immediately in month view
+- desktop event edit flow
+  - `PATCH /api/v1/calendar/events/:id` returned `200`
+  - event title, location, and description persisted
+  - event time remained stable at `11:00 - 12:00` after save
+- desktop delete flow
+  - confirmation dialog appeared before deletion
+  - `DELETE /api/v1/calendar/events/:id` returned `204` only after explicit confirm
+- desktop refresh flow
+  - sync trigger returned `POST /api/v1/calendar/sync/:providerId` with no failed first-party requests
+- desktop quick-event flow
+  - pressing Enter in the quick-event input opened the create dialog with the real calendar preselected
+- mobile create flow from calendar sidebar drawer
+  - drawer closed before the event dialog opened
+  - dialog fit within viewport width (`326px` inside `390px`)
+  - `POST /api/v1/calendar/events` returned `201`
+- mobile event open/delete flow
+  - created event opened from list view without console or network failures
+  - delete completed cleanly and removed the event from the view
+
+### Residual Risk
+
+- I did not validate drag-and-drop move/resize on touch hardware because the mobile audit used a desktop automation environment emulating phone viewport, not a physical touchscreen

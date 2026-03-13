@@ -393,6 +393,14 @@ export class AiChatService {
               toolCallCount: 0,
             }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
+            // Generate smart title after second response (4 messages: u1+a1+u2+a2)
+            this.maybeGenerateSmartTitle(conversation.id, tenantId).catch(
+              (err) =>
+                this.logger.warn(
+                  `Title generation failed: ${err.message}`,
+                ),
+            );
+
             // Check if summary generation is needed (> 20 messages)
             this.maybeTriggerSummaryGeneration(conversation.id, tenantId).catch(
               (err) =>
@@ -493,6 +501,66 @@ export class AiChatService {
       return 'CREATE_TASK';
     }
     return actionType;
+  }
+
+  /**
+   * Generate a smart conversation title using LLM after the second exchange.
+   *
+   * Triggers at exactly 4 messages (user + assistant + user + assistant).
+   * Uses a cheap/fast model call to create a concise title from the
+   * conversation content, replacing the crude initial title.
+   *
+   * Fire-and-forget from onFinish callback.
+   */
+  private async maybeGenerateSmartTitle(
+    conversationId: string,
+    tenantId = 'system',
+  ): Promise<void> {
+    const messageCount =
+      await this.conversationService.getMessageCount(conversationId);
+
+    // Only generate on the second exchange (4 messages)
+    if (messageCount !== 4) return;
+
+    const messages = await this.conversationService.getRecentMessages(
+      conversationId,
+      4,
+    );
+
+    if (messages.length < 4) return;
+
+    const messageText = messages
+      .map((m) => {
+        const content = m.content as Record<string, unknown>;
+        const text =
+          typeof content === 'string'
+            ? content
+            : (content as { text?: string })?.text ?? JSON.stringify(content);
+        return `${m.role}: ${text.slice(0, 200)}`;
+      })
+      .join('\n');
+
+    const { text: title } = await generateText({
+      model: this.mistralProvider.getChatModel(),
+      system:
+        'Generate a short conversation title (max 6 words) for the following chat. ' +
+        'The title should capture the main topic or intent. ' +
+        'Write in the same language as the conversation. ' +
+        'Return ONLY the title, no quotes, no punctuation at the end.',
+      messages: [{ role: 'user', content: messageText }],
+    });
+
+    const cleanTitle = title.replace(/^["']|["']$/g, '').trim().slice(0, 80);
+
+    if (cleanTitle) {
+      await this.conversationService.updateConversationTitle(
+        conversationId,
+        cleanTitle,
+      );
+      this.logger.log(
+        `Smart title generated for conversation ${conversationId}: "${cleanTitle}"`,
+      );
+    }
   }
 
   /**

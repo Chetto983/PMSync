@@ -26,6 +26,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormHelperText,
   alpha,
   useTheme,
   Divider,
@@ -195,7 +196,7 @@ export function CalendarEventDialog({
           />
 
           {/* Calendar Selector */}
-          <FormControl fullWidth>
+          <FormControl fullWidth error={!!formErrors.calendar}>
             <InputLabel>{calendarCopy.calendarLabel}</InputLabel>
             <Select
               value={newEvent.calendar}
@@ -206,7 +207,7 @@ export function CalendarEventDialog({
               }}
             >
               {Array.from(calendarPrefs.values()).map((cal) => (
-                <MenuItem key={cal.id} value={cal.calendarId}>
+                <MenuItem key={cal.id} value={cal.id}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box
                       sx={{
@@ -222,6 +223,7 @@ export function CalendarEventDialog({
                 </MenuItem>
               ))}
             </Select>
+            {formErrors.calendar && <FormHelperText>{formErrors.calendar}</FormHelperText>}
           </FormControl>
 
           {/* Description */}

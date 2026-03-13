@@ -1576,6 +1576,9 @@ export interface AppTranslations {
       medium: string;
       low: string;
     };
+    emptyTitle: string;
+    emptyDescription: string;
+    comingSoon: string;
   };
   contacts: {
     title: string;
@@ -3599,6 +3602,7 @@ export interface AppTranslations {
       unban: string;
       impersonate: string;
       sessions: string;
+      noUsers: string;
       banDialog: {
         title: string;
         reason: string;

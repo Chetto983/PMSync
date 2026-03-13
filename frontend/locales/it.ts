@@ -1680,6 +1680,9 @@ export const it: AppTranslations = {
       medium: 'Media',
       low: 'Bassa',
     },
+    emptyTitle: 'Nessuna attività',
+    emptyDescription: 'La gestione attività sarà disponibile a breve. Nel frattempo, usa l\'assistente AI per monitorare follow-up e scadenze.',
+    comingSoon: 'In arrivo',
   },
   providers: {
     title: 'Provider e integrazioni',
@@ -3740,6 +3743,7 @@ export const it: AppTranslations = {
       unban: 'Sblocca',
       impersonate: 'Impersona',
       sessions: 'Sessioni',
+      noUsers: 'Nessun utente trovato',
       banDialog: {
         title: 'Banna Utente',
         reason: 'Motivo del Ban',

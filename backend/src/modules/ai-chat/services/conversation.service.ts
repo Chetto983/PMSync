@@ -240,6 +240,22 @@ export class ConversationService {
   }
 
   /**
+   * Get the N most recent messages in chronological order.
+   */
+  async getRecentMessages(
+    conversationId: string,
+    count: number,
+  ): Promise<AiMessage[]> {
+    const messages = await this.prisma.aiMessage.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+      take: count,
+    });
+    messages.reverse();
+    return messages;
+  }
+
+  /**
    * Get total message count for a conversation (used for summary trigger).
    */
   async getMessageCount(conversationId: string): Promise<number> {

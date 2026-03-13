@@ -201,7 +201,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           px: 2,
           py: 1.5,
         }}
-      >
+        >
         {/* Avatar */}
         <Avatar
           src={message.avatarUrl}
@@ -217,67 +217,51 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           {getInitials(message.from)}
         </Avatar>
 
-        {/* Sender Info */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          {/* Sender Name */}
-          <Tooltip title={message.from} placement="top-start">
-            <Typography
-              variant="body1"
-              sx={{
-                fontWeight: 600,
-                fontSize: '0.9375rem',
-                cursor: 'default'
-              }}
-            >
-              {formatSender(message.from)}
-            </Typography>
-          </Tooltip>
-
-          {/* To Recipients */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>
-            <Typography variant="caption" color="text.secondary">
-              {t.threadMessage?.to || 'To:'}
-            </Typography>
-            {(showAllRecipients ? message.to : message.to.slice(0, 3)).map((recipient, idx, arr) => (
-              <Typography key={idx} variant="caption" color="text.secondary">
-                {formatRecipient(recipient)}
-                {idx < arr.length - 1 && ','}
-              </Typography>
-            ))}
-            {!showAllRecipients && message.to.length > 3 && (
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'stretch', sm: 'flex-start' },
+            gap: { xs: 0.75, sm: 1.5 },
+          }}
+        >
+          {/* Sender Info */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {/* Sender Name */}
+            <Tooltip title={message.from} placement="top-start">
               <Typography
-                variant="caption"
-                component="button"
-                onClick={() => setShowAllRecipients(true)}
+                variant="body1"
                 sx={{
-                  color: 'primary.main',
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: 'none',
-                  p: 0,
-                  fontFamily: 'inherit',
-                  fontSize: 'inherit',
-                  '&:hover': { textDecoration: 'underline' },
+                  fontWeight: 600,
+                  fontSize: '0.9375rem',
+                  cursor: 'default',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
                 }}
               >
-                +{message.to.length - 3}
+                {formatSender(message.from)}
               </Typography>
-            )}
-          </Box>
+            </Tooltip>
 
-          {/* CC Recipients */}
-          {message.cc && message.cc.length > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+            {/* To Recipients */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>
               <Typography variant="caption" color="text.secondary">
-                {t.threadMessage?.cc || 'CC:'}
+                {t.threadMessage?.to || 'To:'}
               </Typography>
-              {(showAllRecipients ? message.cc : message.cc.slice(0, 2)).map((recipient, idx, arr) => (
-                <Typography key={idx} variant="caption" color="text.secondary">
+              {(showAllRecipients ? message.to : message.to.slice(0, 3)).map((recipient, idx, arr) => (
+                <Typography
+                  key={idx}
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                >
                   {formatRecipient(recipient)}
                   {idx < arr.length - 1 && ','}
                 </Typography>
               ))}
-              {!showAllRecipients && message.cc.length > 2 && (
+              {!showAllRecipients && message.to.length > 3 && (
                 <Typography
                   variant="caption"
                   component="button"
@@ -293,70 +277,129 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                     '&:hover': { textDecoration: 'underline' },
                   }}
                 >
-                  +{message.cc.length - 2}
+                  +{message.to.length - 3}
                 </Typography>
               )}
             </Box>
-          )}
 
-          {/* Show less button when expanded */}
-          {showAllRecipients && (message.to.length > 3 || (message.cc && message.cc.length > 2)) && (
-            <Typography
-              variant="caption"
-              component="button"
-              onClick={() => setShowAllRecipients(false)}
-              sx={{
-                color: 'primary.main',
-                cursor: 'pointer',
-                border: 'none',
-                background: 'none',
-                p: 0,
-                mt: 0.25,
-                fontFamily: 'inherit',
-                fontSize: 'inherit',
-                '&:hover': { textDecoration: 'underline' },
-              }}
-            >
-              {t.common?.showLess || 'Show less'}
-            </Typography>
-          )}
+            {/* CC Recipients */}
+            {message.cc && message.cc.length > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t.threadMessage?.cc || 'CC:'}
+                </Typography>
+                {(showAllRecipients ? message.cc : message.cc.slice(0, 2)).map((recipient, idx, arr) => (
+                  <Typography
+                    key={idx}
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                  >
+                    {formatRecipient(recipient)}
+                    {idx < arr.length - 1 && ','}
+                  </Typography>
+                ))}
+                {!showAllRecipients && message.cc.length > 2 && (
+                  <Typography
+                    variant="caption"
+                    component="button"
+                    onClick={() => setShowAllRecipients(true)}
+                    sx={{
+                      color: 'primary.main',
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: 'none',
+                      p: 0,
+                      fontFamily: 'inherit',
+                      fontSize: 'inherit',
+                      '&:hover': { textDecoration: 'underline' },
+                    }}
+                  >
+                    +{message.cc.length - 2}
+                  </Typography>
+                )}
+              </Box>
+            )}
 
-        </Box>
+            {/* Show less button when expanded */}
+            {showAllRecipients && (message.to.length > 3 || (message.cc && message.cc.length > 2)) && (
+              <Typography
+                variant="caption"
+                component="button"
+                onClick={() => setShowAllRecipients(false)}
+                sx={{
+                  color: 'primary.main',
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: 'none',
+                  p: 0,
+                  mt: 0.25,
+                  fontFamily: 'inherit',
+                  fontSize: 'inherit',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                {t.common?.showLess || 'Show less'}
+              </Typography>
+            )}
+          </Box>
 
-        {/* Right Side: Date + Actions */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-          {/* Action Icons (visible on hover) - Reply actions only, others in action bar below */}
-          {showActions && (
-            <Box sx={{ display: 'flex', gap: 0.25 }}>
-              <Tooltip title={t.threadMessage?.reply || 'Reply'}>
-                <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
-                  <Reply size={16} />
-                </IconButton>
-              </Tooltip>
-              {onReplyAll && (
-                <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
-                  <IconButton size="small" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
-                    <ReplyAll size={16} />
+          {/* Right Side: Date + Actions */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: { xs: 'space-between', sm: 'flex-end' },
+              gap: 1,
+              flexShrink: 0,
+              width: { xs: '100%', sm: 'auto' },
+              minWidth: 0,
+              pt: { xs: 0.25, sm: 0 },
+            }}
+          >
+            {/* Action Icons (visible on hover) - Reply actions only, others in action bar below */}
+            {showActions && (
+              <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
+                <Tooltip title={t.threadMessage?.reply || 'Reply'}>
+                  <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
+                    <Reply size={16} />
                   </IconButton>
                 </Tooltip>
-              )}
-              <Tooltip title={t.threadMessage?.forward || 'Forward'}>
-                <IconButton size="small" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
-                  <Forward size={16} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          )}
+                {onReplyAll && (
+                  <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
+                    <IconButton size="small" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
+                      <ReplyAll size={16} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title={t.threadMessage?.forward || 'Forward'}>
+                  <IconButton size="small" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
+                    <Forward size={16} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
 
-          {/* Date */}
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-            {message.date}
-          </Typography>
+            {/* Date */}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                fontSize: '0.75rem',
+                minWidth: 0,
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+                textAlign: { xs: 'left', sm: 'right' },
+              }}
+            >
+              {message.date}
+            </Typography>
 
-          {/* Collapse button */}
-          <IconButton size="small" onClick={onCollapse} sx={{ p: 0.5 }}>
-            <ChevronUp size={18} />
-          </IconButton>
+            {/* Collapse button */}
+            <IconButton size="small" onClick={onCollapse} sx={{ p: 0.5, flexShrink: 0 }}>
+              <ChevronUp size={18} />
+            </IconButton>
+          </Box>
         </Box>
       </Box>
 

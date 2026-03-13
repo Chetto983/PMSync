@@ -48,6 +48,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CalendarEvent as ApiCalendarEvent, CalendarEventAttachment } from '@/lib/api/calendar';
 import { AttendeesPicker, type Attendee } from './AttendeesPicker';
 import { RSVPButtons, type RSVPResponse } from './RSVPButtons';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 // ============================================================================
 // INTERFACES
@@ -185,12 +186,14 @@ export function CalendarEventDetail({
   const theme = useTheme();
   const t = useTranslations();
   const calendarCopy = t.calendar;
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
 
   // Handle close with state cleanup
   const handleClose = () => {
     onClose();
     onEditModeChange(false);
     onFormErrorChange({});
+    setDeleteConfirmOpen(false);
   };
 
   // Handle field change with error clearing
@@ -205,6 +208,15 @@ export function CalendarEventDetail({
   const handleCancelEdit = () => {
     onEditModeChange(false);
     onFormErrorChange({});
+  };
+
+  const handleDeleteRequest = () => {
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    await onDelete();
+    setDeleteConfirmOpen(false);
   };
 
   if (!selectedEvent) return null;
@@ -256,7 +268,7 @@ export function CalendarEventDetail({
               <IconButton
                 size="small"
                 color="error"
-                onClick={onDelete}
+                onClick={handleDeleteRequest}
                 disabled={isDeleting}
                 sx={{
                   '&:hover': {
@@ -536,6 +548,18 @@ export function CalendarEventDetail({
           </Button>
         )}
       </DialogActions>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title={calendarCopy.deleteEvent}
+        message={calendarCopy.deleteConfirm}
+        confirmText={calendarCopy.deleteEvent}
+        cancelText={calendarCopy.cancelEvent}
+        isLoading={isDeleting}
+        variant="danger"
+      />
     </Dialog>
   );
 }

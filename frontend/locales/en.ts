@@ -1691,6 +1691,9 @@ export const en: AppTranslations = {
       medium: 'Medium',
       low: 'Low',
     },
+    emptyTitle: 'No tasks yet',
+    emptyDescription: 'Task management will be available soon. In the meantime, use the AI assistant to track follow-ups and deadlines.',
+    comingSoon: 'Coming soon',
   },
   providers: {
     title: 'Providers & Integrations',
@@ -3763,6 +3766,7 @@ export const en: AppTranslations = {
       unban: 'Unban',
       impersonate: 'Impersonate',
       sessions: 'Sessions',
+      noUsers: 'No users found',
       banDialog: {
         title: 'Ban User',
         reason: 'Ban Reason',

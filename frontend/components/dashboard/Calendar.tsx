@@ -48,7 +48,7 @@ export function Calendar() {
 
   const prefs = useCalendarPreferences(calendarCopy);
   const data = useCalendarData(prefs.calendarPrefs, prefs.loadCalendars, prefs.setSnackbar, calendarCopy);
-  const handlers = useCalendarHandlers(data, calendarCopy, prefs.setSnackbar);
+  const handlers = useCalendarHandlers(data, prefs.calendarPrefs, calendarCopy, prefs.setSnackbar);
 
   const {
     calendarPrefs,
