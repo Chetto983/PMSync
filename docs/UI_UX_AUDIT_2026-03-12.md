@@ -707,3 +707,59 @@ Browser diagnostics reported missing `autocomplete` attributes for the new passw
   - `GET /api/v1/labels` -> `200`
   - `POST /api/v1/contacts/lookup-by-emails` -> `200`
   - temporary audit draft was deleted after testing
+
+## 2026-03-13 Mobile Email Remediation Verification
+
+The following mobile email regressions were fixed and redeployed to `https://mail-agent-indol.vercel.app`.
+
+### Fixed
+
+- Reply now routes to `/dashboard/email/compose?mode=reply&emailId=...` and opens with:
+  - prefilled `Re:` subject
+  - original sender in recipients
+  - quoted thread content visible
+- Forward now routes to `/dashboard/email/compose?mode=forward&emailId=...` and opens with:
+  - prefilled `Fwd:` subject
+  - forwarded content visible
+- Draft autosave now updates with `id` instead of the invalid legacy `existingDraftId` field.
+- Tapping a draft from the mobile email list now routes to `/dashboard/email/compose?draftId=...` instead of thread view.
+- Draft subject and body both restore correctly inside the editor when reopening a draft.
+- The thread important menu now renders a single truthful action:
+  - before flagging: `Contrassegna tutti i messaggi`
+  - after flagging: `Rimuovi contrassegno da tutti`
+- The thread content gutter was removed on phone width:
+  - measured body host left edge is now about `19px`
+  - parent left padding is now `16px`
+- AI compose popovers no longer block adjacent composer controls via modal pointer interception.
+
+### Production Verification Notes
+
+- Validation ran against the deployed production frontend after the Vercel redeploy on March 13, 2026.
+- The authenticated mobile storage state used for verification had an empty live inbox, so reply/forward/thread-state checks were executed against mocked email/thread API responses on the deployed frontend shell.
+- Draft autosave/open and compose overlay behavior were verified on the deployed mobile composer itself.
+
+### Verification Results
+
+- Reply verification:
+  - URL: `/dashboard/email/compose?mode=reply&emailId=mock-email-1`
+  - subject: `Re: Mock Mobile Thread`
+  - quoted content visible: yes
+  - recipient restored: yes
+- Forward verification:
+  - URL: `/dashboard/email/compose?mode=forward&emailId=mock-email-1`
+  - subject: `Fwd: Mock Mobile Thread`
+  - forwarded content visible: yes
+- Draft autosave verification:
+  - autosave requests observed: `2`
+  - legacy `existingDraftId` present: no
+  - update request uses `id`: yes
+- Draft reopen verification:
+  - URL: `/dashboard/email/compose?draftId=mock-draft-created`
+  - subject restored: yes
+  - body restored: yes
+- Important menu verification:
+  - initial menu shows only `Contrassegna tutti i messaggi`
+  - post-flag menu shows only `Rimuovi contrassegno da tutti`
+- AI compose verification:
+  - AI popover opens
+  - tapping the subject field while the AI popover is open no longer throws a pointer interception error

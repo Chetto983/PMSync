@@ -129,6 +129,7 @@ export default function AiComposeMenu({
             onClose={onClose}
             hideBackdrop
             disableScrollLock
+            style={{ pointerEvents: 'none' }}
             anchorOrigin={{
                 vertical: 'bottom',
                 horizontal: 'left',
@@ -138,12 +139,17 @@ export default function AiComposeMenu({
                 horizontal: 'left',
             }}
             slotProps={{
+                backdrop: {
+                    invisible: true,
+                    style: { pointerEvents: 'none' },
+                },
                 transition: {
                     onExited: () => setSelectedTone(null), // Reset tone when popover closes
                 },
             }}
             PaperProps={{
                 sx: {
+                    pointerEvents: 'auto',
                     width: 320,
                     maxWidth: 'calc(100vw - 32px)',
                     borderRadius: 3,

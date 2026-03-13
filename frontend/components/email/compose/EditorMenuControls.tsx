@@ -260,11 +260,17 @@ export default function EditorMenuControls({ onAiCompose, onAttach, aiButtonRef 
           onClose={handleCloseMore}
           hideBackdrop
           disableScrollLock
+          style={{ pointerEvents: 'none' }}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
           transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           slotProps={{
+            backdrop: {
+              invisible: true,
+              style: { pointerEvents: 'none' },
+            },
             paper: {
               sx: {
+                pointerEvents: 'auto',
                 maxWidth: 320,
                 maxHeight: 400,
                 overflow: 'auto',
