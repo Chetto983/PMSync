@@ -306,7 +306,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       const result = await voltAgentApi.getPendingActions();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/ai/actions/pending');
+      expect(apiClient.get).toHaveBeenCalledWith('/ai/chat/pending-actions');
       expect(result.data.total).toBe(1);
     });
   });
@@ -320,8 +320,9 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       const result = await voltAgentApi.approveAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/approve', {
-        payload: undefined,
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
+        actionId: 'exec-1',
+        decision: 'approve',
       });
       expect(result.data.status).toBe('approved');
     });
@@ -334,8 +335,9 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       await voltAgentApi.rejectAction('exec-1', 'Not needed');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/reject', {
-        approved: false,
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
+        actionId: 'exec-1',
+        decision: 'reject',
         rejectionReason: 'Not needed',
       });
     });
@@ -346,9 +348,9 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       await voltAgentApi.rejectAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/reject', {
-        approved: false,
-        rejectionReason: undefined,
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
+        actionId: 'exec-1',
+        decision: 'reject',
       });
     });
   });
@@ -423,7 +425,7 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       await multiAgentApi.getPendingActions();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/ai/actions/pending');
+      expect(apiClient.get).toHaveBeenCalledWith('/ai/chat/pending-actions');
     });
   });
 
@@ -434,8 +436,9 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       await multiAgentApi.approveAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/approve', {
-        payload: undefined,
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
+        actionId: 'exec-1',
+        decision: 'approve',
       });
     });
   });
@@ -447,8 +450,9 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       await multiAgentApi.rejectAction('exec-1', 'Not needed');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/actions/exec-1/reject', {
-        approved: false,
+      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
+        actionId: 'exec-1',
+        decision: 'reject',
         rejectionReason: 'Not needed',
       });
     });

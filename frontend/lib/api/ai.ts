@@ -477,21 +477,29 @@ export const voltAgentApi = {
   // Pending Actions (HITL)
   getPendingActions() {
     return apiClient.get<{ actions: PendingAction[]; total: number }>(
-      '/ai/actions/pending',
+      '/ai/chat/pending-actions',
     );
   },
 
   approveAction(executionId: string, payload?: Record<string, unknown>) {
     return apiClient.post<ApprovalResponse>(
-      `/ai/actions/${executionId}/approve`,
-      { payload },
+      '/ai/chat/approve',
+      {
+        actionId: executionId,
+        decision: 'approve' as const,
+        ...(payload ? { modifiedPayload: payload } : {}),
+      },
     );
   },
 
   rejectAction(executionId: string, rejectionReason?: string) {
     return apiClient.post<ApprovalResponse>(
-      `/ai/actions/${executionId}/reject`,
-      { approved: false, rejectionReason },
+      '/ai/chat/approve',
+      {
+        actionId: executionId,
+        decision: 'reject' as const,
+        ...(rejectionReason ? { rejectionReason } : {}),
+      },
     );
   },
 
