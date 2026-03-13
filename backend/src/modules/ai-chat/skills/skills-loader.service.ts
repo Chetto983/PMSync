@@ -1,26 +1,22 @@
 /**
- * SkillsLoaderService -- Loads contextual skill documents based on intent.
+ * SkillsLoaderService -- Contextual skill injection based on intent.
  *
  * Skills are markdown knowledge docs that teach the LLM HOW and WHEN to use
- * tools for specific workflows. Loaded once at startup, selected per-request
- * based on intent classification from IntentRouterService.
+ * tools for specific workflows. Selected per-request based on intent
+ * classification from IntentRouterService, injected into system prompt.
  *
- * Design: 1-2 skills per intent (~400-600 tokens added), cached in memory.
+ * Content is inline (not file-based) because tsc doesn't copy .md to dist/.
+ * The .md files in this directory are canonical docs — keep in sync.
+ *
+ * Design: 1-2 skills per intent (~400-600 tokens added).
  * Phase SKILLS: Nanobot-inspired progressive context loading.
  */
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { Injectable, Logger } from '@nestjs/common';
 import type { PrimaryIntent } from '../../ai/nlp/intent-taxonomy';
-
-/** Loaded skill with metadata */
-interface Skill {
-  name: string;
-  content: string;
-}
+import { SKILL_CONTENT } from './skill-content';
 
 /**
- * Maps each intent to the skill files that should be injected.
+ * Maps each intent to the skill keys that should be injected.
  *
  * Rules:
  * - Max 2 skills per intent (keeps token cost low)
@@ -49,54 +45,23 @@ const INTENT_SKILL_MAP: Partial<Record<PrimaryIntent, string[]>> = {
   // Status/briefing → triage (has briefing section) + follow-ups
   status_check: ['triage-organization', 'follow-up-management'],
 
-  // Data analysis → no specific skill yet
-  // Calendar/contact intents → no specific skill yet (system prompt covers them)
-
   // Unknown → all skills for best coverage
   unknown: ['email-workflows', 'triage-organization', 'follow-up-management'],
 };
 
 @Injectable()
-export class SkillsLoaderService implements OnModuleInit {
+export class SkillsLoaderService {
   private readonly logger = new Logger(SkillsLoaderService.name);
-  private readonly skillCache = new Map<string, Skill>();
-  private readonly skillsDir = join(__dirname, '.');
 
-  onModuleInit() {
-    this.loadAllSkills();
-  }
-
-  /**
-   * Load all skill markdown files into memory cache.
-   * Called once at startup. Skills are static — no runtime reloading needed.
-   */
-  private loadAllSkills(): void {
-    const skillFiles = [
-      'email-workflows',
-      'triage-organization',
-      'follow-up-management',
-    ];
-
-    for (const name of skillFiles) {
-      try {
-        const filePath = join(this.skillsDir, `${name}.md`);
-        const content = readFileSync(filePath, 'utf-8');
-        this.skillCache.set(name, { name, content });
-        this.logger.log(`Skill loaded: ${name} (${content.length} chars)`);
-      } catch (err) {
-        this.logger.warn(
-          `Failed to load skill "${name}": ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-
-    this.logger.log(`Skills loaded: ${this.skillCache.size}/${skillFiles.length}`);
+  constructor() {
+    const loaded = Object.keys(SKILL_CONTENT);
+    this.logger.log(`Skills available: ${loaded.length} (${loaded.join(', ')})`);
   }
 
   /**
    * Get relevant skills for a classified intent.
    *
-   * @returns Formatted skill block to append to system prompt, or empty string if no skills.
+   * @returns Formatted skill block to append to system prompt, or empty string.
    */
   getSkillsForIntent(intent: PrimaryIntent): string {
     const skillNames = INTENT_SKILL_MAP[intent];
@@ -104,9 +69,9 @@ export class SkillsLoaderService implements OnModuleInit {
 
     const blocks: string[] = [];
     for (const name of skillNames) {
-      const skill = this.skillCache.get(name);
-      if (skill) {
-        blocks.push(skill.content);
+      const content = SKILL_CONTENT[name];
+      if (content) {
+        blocks.push(content);
       }
     }
 
@@ -118,8 +83,8 @@ export class SkillsLoaderService implements OnModuleInit {
     );
   }
 
-  /** Get all loaded skill names (for debugging/metrics). */
+  /** Get all available skill names (for debugging/metrics). */
   getLoadedSkills(): string[] {
-    return Array.from(this.skillCache.keys());
+    return Object.keys(SKILL_CONTENT);
   }
 }
