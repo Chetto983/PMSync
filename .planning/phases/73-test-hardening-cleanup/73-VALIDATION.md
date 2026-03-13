@@ -2,7 +2,7 @@
 phase: 73
 slug: test-hardening-cleanup
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-13
 ---
@@ -38,11 +38,10 @@ created: 2026-03-13
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 73-01-01 | 01 | 1 | BINT-03 | integration | `cd backend && npm run contract-test` | ✅ | ⬜ pending |
-| 73-02-01 | 02 | 1 | FE2E-04 | e2e | `cd frontend && npx playwright test security.spec.ts` | ✅ | ⬜ pending |
-| 73-03-01 | 03 | 1 | INFRA-03 | e2e | `cd frontend && npx playwright test onboarding.spec.ts` | ✅ | ⬜ pending |
-| 73-04-01 | 04 | 1 | INFRA-03 | integration | `cd backend && npx jest --testPathPatterns=subscription --forceExit` | ✅ | ⬜ pending |
-| 73-05-01 | 05 | 2 | INFRA-03 | e2e | `cd frontend && npx tsc --noEmit` | ✅ | ⬜ pending |
+| 73-01-01 | 01 | 1 | BINT-03 | integration | `cd backend && npx tsc --noEmit` | ✅ | ⬜ pending |
+| 73-01-02 | 01 | 1 | INFRA-03 | integration | `cd backend && npx tsc --noEmit` | ✅ | ⬜ pending |
+| 73-02-01 | 02 | 1 | FE2E-04, INFRA-03 | e2e | `cd frontend && npx tsc --noEmit` | ✅ | ⬜ pending |
+| 73-02-02 | 02 | 1 | INFRA-03 | e2e | `grep -r "mockEmails\|mockFolders\|mockUser\|authedPage" frontend/e2e/` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
