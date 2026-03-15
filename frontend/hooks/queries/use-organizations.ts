@@ -128,6 +128,12 @@ export function useCreateOrg() {
   return useMutation({
     mutationFn: async (data: { name: string; slug: string }) => {
       const res = await authClient.organization.create(data);
+      if (res.error) {
+        const errMsg = res.error.message
+          || (res.error as any).code
+          || JSON.stringify(res.error);
+        throw new Error(errMsg);
+      }
       return res.data;
     },
     onSuccess: () => {
@@ -143,6 +149,9 @@ export function useDeleteOrg() {
   return useMutation({
     mutationFn: async (organizationId: string) => {
       const res = await authClient.organization.delete({ organizationId });
+      if (res.error) {
+        throw new Error(res.error.message || 'Failed to delete organization');
+      }
       return res.data;
     },
     onSuccess: () => {
@@ -166,6 +175,9 @@ export function useInviteMember() {
         organizationId: data.organizationId,
         role: (data.role || 'admin') as 'admin' | 'member' | 'owner',
       });
+      if (res.error) {
+        throw new Error(res.error.message || 'Failed to invite member');
+      }
       return res.data;
     },
     onSuccess: (_data, variables) => {

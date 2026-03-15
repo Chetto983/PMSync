@@ -74,6 +74,17 @@ function copyRequestHeaders(
   headers['x-forwarded-for'] =
     (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '';
 
+  // Ensure Origin header is set on state-changing requests forwarded to backend.
+  // Same-origin requests (browser → Next.js proxy) may omit Origin,
+  // but the backend's better-auth CSRF protection requires it on POST.
+  // Use the frontend's own origin (always in backend's trustedOrigins).
+  if (!headers.origin && req.method && !['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase())) {
+    const forwardedHost = req.headers['x-forwarded-host'] as string | undefined;
+    const proto = (req.headers['x-forwarded-proto'] as string) || 'http';
+    const host = forwardedHost || req.headers.host || 'localhost:3001';
+    headers.origin = `${proto}://${host}`;
+  }
+
   return headers;
 }
 

@@ -77,6 +77,7 @@ const CSRF_EXCLUDED_PATHS = [
   '/webhooks',               // Webhook endpoints excluded from global prefix
   '/api/v1/providers/oauth', // OAuth callbacks
   '/api/auth',               // better-auth handles its own CSRF via trustedOrigins
+  '/api/v1/telegram/webhook', // Telegram bot webhook uses secret token header validation
 ];
 
 /**

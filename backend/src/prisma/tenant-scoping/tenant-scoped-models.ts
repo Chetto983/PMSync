@@ -6,6 +6,7 @@
  *
  * Models WITHOUT tenantId (excluded):
  * - Tenant (root entity)
+ * - Session (tenantId deprecated — nullable, used cross-tenant by better-auth)
  * - AiMessage (scoped via AiConversation)
  * - voltagent_memory_* (internal agent memory tables)
  */
@@ -42,7 +43,6 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   'ProviderConfig',
   'ProviderContact',
   'ScheduledEmail',
-  'Session',
   'Subscription',
   'TrustedDevice',
   'User',
