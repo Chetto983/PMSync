@@ -83,7 +83,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 - [ ] **Phase 72: MUI Audit & Polish** - Automated scanner, violation fixes, accessibility audit, visual regression
 - [x] **Phase 73: Test Hardening & Cleanup** - Gap closure: contract test generation, Chromium skip, TRUNCATE race fix, seed automation, dead code (completed 2026-03-13)
 - [x] **Phase 74: E2E Runtime Validation** - Gap closure: run Playwright suite against live backend, fix runtime failures, capture evidence (completed 2026-03-13)
-- [ ] **Phase 75: Organization E2E Fix** - Gap closure: fix backend org creation 500, clean member auth setup, re-run org E2E
+- [x] **Phase 75: Organization E2E Fix** - Gap closure: fix backend org creation 500, clean member auth setup, re-run org E2E (completed 2026-03-15)
 - [ ] **Phase 76: CI Test Reliability Gate** - Gap closure: fail-fast when openapi-spec.json generation fails in CI
 
 ## Phase Details
@@ -236,7 +236,7 @@ Plans:
   1. `better-auth` organization.create no longer returns HTTP 500 — root cause identified and fixed (migration, config, or code bug)
   2. `auth.setup.member.ts` only runs as dependency for projects that actually consume member auth (not all 5 browser projects)
   3. `organizations.spec.ts` passes all 4 tests against real backend with evidence captured
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 75-01-PLAN.md -- Add Tenant metadata column, fix better-auth mapping, un-skip org E2E, scope setup-member
 
@@ -273,7 +273,7 @@ Phases 72, 75, and 76 can run in parallel.
 | 72. MUI Audit & Polish | 0/? | Not started | - |
 | 73. Test Hardening & Cleanup | 2/2 | Complete    | 2026-03-13 |
 | 74. E2E Runtime Validation | 1/1 | Complete    | 2026-03-13 |
-| 75. Organization E2E Fix | 0/1 | Planned | - |
+| 75. Organization E2E Fix | 1/1 | Complete   | 2026-03-15 |
 | 76. CI Test Reliability Gate | 0/? | Not started | - |
 
 ---

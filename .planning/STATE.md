@@ -3,29 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.1
 milestone_name: Test Coverage & Polish
 status: completed
-stopped_at: Completed 74-01-PLAN.md (Phase 74 complete)
-last_updated: "2026-03-13T20:18:01.085Z"
-last_activity: 2026-03-13 -- Completed 74-01-PLAN.md
+stopped_at: Completed 75-01-PLAN.md (Phase 75 complete)
+last_updated: "2026-03-15T20:15:00.000Z"
+last_activity: 2026-03-15 -- Completed 75-01-PLAN.md
 progress:
-  total_phases: 9
-  completed_phases: 7
-  total_plans: 29
-  completed_plans: 28
----
-
----
-gsd_state_version: 1.0
-milestone: v5.1
-milestone_name: Test Coverage & Polish
-status: completed
-stopped_at: Completed 74-01-PLAN.md (Phase 74 complete)
-last_updated: "2026-03-13T20:12:00.000Z"
-last_activity: 2026-03-13 -- Completed 74-01-PLAN.md
-progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 29
-  completed_plans: 29
+  total_phases: 11
+  completed_phases: 9
+  total_plans: 30
+  completed_plans: 30
   percent: 100
 ---
 
@@ -36,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 74 - E2E Runtime Validation (COMPLETE)
+**Current focus:** Phase 75 - Organization E2E Fix (COMPLETE)
 
 ## Current Position
 
-Phase: 74 (8 of 9 in v5.1)
+Phase: 75 (9 of 11 in v5.1)
 Plan: 1 of 1 in current phase (COMPLETE)
 Status: Phase Complete
-Last activity: 2026-03-13 -- Completed 74-01-PLAN.md
+Last activity: 2026-03-15 -- Completed 75-01-PLAN.md
 
 Progress: [██████████] 100%
 
@@ -89,6 +74,7 @@ Progress: [██████████] 100%
 | Phase 73 P01 | 2 | 2 tasks | 4 files |
 | Phase 73 P02 | 2 | 2 tasks | 10 files |
 | Phase 74-e2e-runtime-validation P01 | 15 | 3 tasks | 8 files |
+| Phase 75-organization-e2e-fix P01 | 15 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -153,6 +139,8 @@ Recent decisions affecting current work:
 - [Phase 74]: Used Railway backend instead of local Docker -- Railway already running with seeded Neon DB
 - [Phase 74]: search.spec.ts fully skipped -- search API returns 500 on Railway (known backend issue)
 - [Phase 74]: waitForTimeout anti-patterns replaced with proper Playwright wait conditions in admin.spec.ts
+- [Phase 75]: Tenant.metadata nullable String? required by better-auth organization plugin -- missing column caused 500 on org creation
+- [Phase 75]: setup-member Playwright dependency scoped to chromium only -- other browsers don't run org E2E tests
 
 ### Pending Todos
 
@@ -167,6 +155,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T20:12:00.000Z
-Stopped at: Completed 74-01-PLAN.md (Phase 74 complete)
+Last session: 2026-03-15T20:15:00.000Z
+Stopped at: Completed 75-01-PLAN.md (Phase 75 complete)
 Resume file: None
