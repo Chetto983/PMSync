@@ -35,6 +35,7 @@ import { LabelsModule } from './modules/labels/labels.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { MistralModule } from './modules/mistral/mistral.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { ReminderModule } from './modules/reminder/reminder.module';
 import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { HttpMetricsInterceptor } from './common/metrics/http-metrics.interceptor';
@@ -96,6 +97,7 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     RealtimeModule, // WebSocket Gateway per eventi realtime multi-tenant
     LabelsModule,
     SubscriptionModule, // P10: Billing & subscription management with Autumn
+    ReminderModule, // Follow-Up AI: Smart reminder system with Telegram
   ],
   providers: [
     // Apply throttler globally to all routes

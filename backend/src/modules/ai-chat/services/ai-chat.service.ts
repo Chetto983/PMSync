@@ -34,6 +34,7 @@ import {
   ConversationToolsService,
   SandboxToolsService,
   ProductivityToolsService,
+  ReminderToolsService,
 } from '../tools/index';
 import { IntentRouterService } from '../tools/intent-router.service';
 import { SkillsLoaderService } from '../skills/skills-loader.service';
@@ -90,6 +91,8 @@ export class AiChatService {
     private readonly sandboxToolsService: SandboxToolsService,
     // Phase CONSOLIDATION: Productivity tools (follow-ups, labels, stars, email index)
     private readonly productivityToolsService: ProductivityToolsService,
+    // Phase REMINDER: Smart follow-up reminder tools
+    private readonly reminderToolsService: ReminderToolsService,
     // Phase 25 Plan 02: Intent routing + memory injection
     private readonly intentRouterService: IntentRouterService,
     // Phase SKILLS: Contextual skill loading based on intent
@@ -460,6 +463,8 @@ export class AiChatService {
       ...this.ragToolsService.getTools(tenantId, userId, conversationId, piiResolve),
       // Phase CONSOLIDATION: Productivity tools (follow-ups, labels, stars, email index)
       ...this.productivityToolsService.getTools(tenantId, userId, conversationId, piiResolve),
+      // Phase REMINDER: Smart follow-up reminder tools
+      ...this.reminderToolsService.getTools(tenantId, userId, conversationId, piiResolve),
       // Phase AI-AUDIT: Conversation tools (ask_user) + sandbox (run_code)
       ...this.conversationToolsService.getTools(),
       ...this.sandboxToolsService.getTools(tenantId),

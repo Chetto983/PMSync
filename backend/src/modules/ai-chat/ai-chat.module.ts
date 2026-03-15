@@ -7,6 +7,7 @@ import { EmailModule } from '../email/email.module';
 import { CalendarModule } from '../calendar/calendar.module';
 import { ContactsModule } from '../contacts/contacts.module';
 import { AiModule } from '../ai/ai.module';
+import { ReminderModule } from '../reminder/reminder.module';
 import { AiChatController } from './controllers/ai-chat.controller';
 import { HitlController } from './controllers/hitl.controller';
 import { AiChatService } from './services/ai-chat.service';
@@ -24,6 +25,7 @@ import {
   ConversationToolsService,
   SandboxToolsService,
   ProductivityToolsService,
+  ReminderToolsService,
 } from './tools/index';
 import { SandboxService } from './services/sandbox.service';
 import { IntentRouterService } from './tools/intent-router.service';
@@ -54,6 +56,7 @@ import { HybridSearchService } from './services/hybrid-search.service';
     CalendarModule, // CalendarEventsService
     ContactsModule, // ContactsService
     AiModule, // EmbeddingsService, KnowledgeBaseService
+    ReminderModule, // ReminderService (for AI reminder tools)
   ],
   controllers: [AiChatController, HitlController],
   providers: [
@@ -75,6 +78,8 @@ import { HybridSearchService } from './services/hybrid-search.service';
     SandboxToolsService,
     // Phase CONSOLIDATION: Follow-up, label, star, email index tools
     ProductivityToolsService,
+    // Phase REMINDER: Smart follow-up reminder tools
+    ReminderToolsService,
     SandboxService,
     // Phase 25 Plan 02: Intent routing + memory
     IntentRouterService,
