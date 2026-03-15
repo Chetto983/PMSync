@@ -31,7 +31,7 @@ import {
   useSetDefaultSignature,
 } from '@/hooks/queries/use-signatures';
 
-export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'dataRights' | 'account' | 'billing';
+export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'dataRights' | 'account' | 'billing' | 'telegram';
 
 export function useSettingsState() {
   const router = useRouter();

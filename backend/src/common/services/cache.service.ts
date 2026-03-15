@@ -44,6 +44,8 @@ export enum CacheNamespace {
   AI_ANALYTICS = 'ai:analytics',
   /** PII resolution mappings for agent tool execution (session-scoped) */
   PII_RESOLUTION = 'pii:resolution',
+  /** Telegram QR link tokens for user→chatId binding (5 min TTL) */
+  TELEGRAM_LINK = 'telegram:link',
 }
 
 /**

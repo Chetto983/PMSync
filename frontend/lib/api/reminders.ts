@@ -154,6 +154,17 @@ export const remindersApi = {
 // Telegram Settings API
 // =============================================================================
 
+export interface TelegramLinkToken {
+  token: string;
+  deepLink: string;
+  expiresIn: number;
+}
+
+export interface TelegramLinkStatus {
+  linked: boolean;
+  active: boolean;
+}
+
 export const telegramApi = {
   getSettings: () =>
     apiClient.get<{ data: TelegramSettings | null }>('/telegram/settings'),
@@ -163,4 +174,12 @@ export const telegramApi = {
 
   disconnect: () =>
     apiClient.delete<{ data: null }>('/telegram/settings'),
+
+  /** Generate a QR link token (deep link to bot with /start token) */
+  generateLinkToken: () =>
+    apiClient.post<{ data: TelegramLinkToken }>('/telegram/settings/link-token'),
+
+  /** Poll link status after QR scan */
+  checkLinkStatus: () =>
+    apiClient.get<{ data: TelegramLinkStatus }>('/telegram/settings/link-status'),
 };

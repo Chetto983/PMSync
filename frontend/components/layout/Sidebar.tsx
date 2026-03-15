@@ -23,6 +23,7 @@ import {
   Settings,
   Sparkles,
   Bell,
+  AlarmClock,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -85,6 +86,11 @@ export function Sidebar({
       label: t.ai.followUpTracker?.title || 'Follow-ups',
       icon: <Bell size={20} />,
       href: '/dashboard/ai/follow-ups',
+    },
+    {
+      label: t.ai.reminders?.title || 'Reminders',
+      icon: <AlarmClock size={20} />,
+      href: '/dashboard/reminders',
     },
   ];
 

@@ -17,6 +17,7 @@ import {
   FileSignature,
   ShieldCheck,
   DatabaseZap,
+  Send,
 } from 'lucide-react';
 import { WritingStyleSettings } from '@/components/email/compose/WritingStyleSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
@@ -31,6 +32,7 @@ import { ConsentSettings } from '@/components/dashboard/consent/ConsentSettings'
 import { DataExportPanel } from '@/components/dashboard/data-rights/DataExportPanel';
 import { AccountDeletionPanel } from '@/components/dashboard/data-rights/AccountDeletionPanel';
 import { BillingPanel } from '@/components/billing';
+import { TelegramSettingsPanel } from '@/components/reminders/TelegramSettingsPanel';
 import { providersApi } from '@/lib/api/providers';
 import { useSettingsState } from './settings/useSettingsState';
 import type { SettingsSection } from './settings/useSettingsState';
@@ -54,6 +56,7 @@ export function Settings() {
       { id: 'dataRights', label: settingsCopy.sections.dataRights || 'Data & Privacy', icon: <DatabaseZap size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
       { id: 'billing', label: settingsCopy.sections.billing || 'Billing', icon: <CreditCard size={18} /> },
+      { id: 'telegram', label: t.ai.reminders?.telegram?.title || 'Telegram', icon: <Send size={18} /> },
     ],
     [settingsCopy.sections],
   );
@@ -182,6 +185,7 @@ export function Settings() {
               <AccountSettings accountName={s.accountName} email={s.user?.email || ''} role={s.user?.role || ''} language={s.language} avatarUrl={s.avatarUrl} avatarUploading={s.avatarUploading} onAvatarUpload={h.handleAvatarUpload} onAvatarSave={h.handleAvatarSave} onAvatarRemove={h.handleAvatarRemove} deleteDialogOpen={s.deleteDialogOpen} deleteConfirmText={s.deleteConfirmText} deleteLoading={s.deleteLoading} deleteError={s.deleteError} onOpenDeleteDialog={() => s.setDeleteDialogOpen(true)} onCloseDeleteDialog={h.handleCloseDeleteDialog} onDeleteConfirmTextChange={s.setDeleteConfirmText} onDeleteAccount={h.handleDeleteAccount} copy={accountCopy} />
             )}
             {s.selectedSection === 'billing' && <BillingPanel />}
+            {s.selectedSection === 'telegram' && <TelegramSettingsPanel />}
           </Box>
         </Box>
       </Box>

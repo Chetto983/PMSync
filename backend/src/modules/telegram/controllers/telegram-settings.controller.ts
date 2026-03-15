@@ -3,15 +3,18 @@ import {
   Controller,
   Delete,
   Get,
+  Post,
   Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString, Matches } from 'class-validator';
+import { randomBytes } from 'crypto';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 
 class UpdateTelegramSettingsDto {
   @IsOptional()
@@ -47,7 +50,10 @@ interface AuthenticatedRequest {
 @UseGuards(TenantGuard, RolesGuard)
 @Controller('telegram/settings')
 export class TelegramSettingsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get Telegram settings for current user' })
@@ -84,6 +90,47 @@ export class TelegramSettingsController {
       },
     });
     return { data: settings };
+  }
+
+  /**
+   * Generate a QR link token for Telegram bot binding.
+   * Returns a deep link: https://t.me/PMSAgent_Bot?start={token}
+   * Token is stored in Redis with 5 min TTL, keyed to tenantId + userId.
+   */
+  @Post('link-token')
+  @ApiOperation({ summary: 'Generate Telegram QR link token' })
+  async generateLinkToken(@Req() req: AuthenticatedRequest) {
+    const token = randomBytes(16).toString('hex');
+
+    await this.cache.set(
+      token,
+      { tenantId: req.user.tenantId, userId: req.user.id },
+      { namespace: CacheNamespace.TELEGRAM_LINK, ttl: 300 },
+    );
+
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || 'PMSAgent_Bot';
+    const deepLink = `https://t.me/${botUsername}?start=${token}`;
+
+    return { data: { token, deepLink, expiresIn: 300 } };
+  }
+
+  /**
+   * Check if the current user's Telegram has been linked (poll from frontend).
+   */
+  @Get('link-status')
+  @ApiOperation({ summary: 'Check if Telegram is linked' })
+  async checkLinkStatus(@Req() req: AuthenticatedRequest) {
+    const settings = await this.prisma.telegramSettings.findUnique({
+      where: { userId: req.user.id },
+      select: { telegramChatId: true, isActive: true },
+    });
+
+    return {
+      data: {
+        linked: !!settings?.telegramChatId,
+        active: settings?.isActive ?? false,
+      },
+    };
   }
 
   @Delete()
