@@ -545,28 +545,9 @@ export function createBetterAuthInstance(
             });
           }
         }
-        // ORG-05: Block non-super-admin from org management routes
-        const orgMgmtPaths = [
-          '/organization/create',
-          '/organization/update',
-          '/organization/delete',
-          '/organization/invite-member',
-          '/organization/remove-member',
-          '/organization/cancel-invitation',
-        ];
-        if (orgMgmtPaths.some((p) => ctx.path.includes(p))) {
-          const session = await ctx.context.getSession(ctx);
-          if (!session?.user) {
-            throw new APIError('UNAUTHORIZED', {
-              message: 'Authentication required',
-            });
-          }
-          if ((session.user).role !== 'super-admin') {
-            throw new APIError('FORBIDDEN', {
-              message: 'Only super-admins can manage organizations',
-            });
-          }
-        }
+        // ORG-05: Org management authorization is enforced by the organization()
+        // plugin via allowUserToCreateOrganization + built-in role checks.
+        // No duplicate middleware guard needed here.
 
         if (ctx.path === '/sign-up/email' || ctx.path === '/reset-password') {
           const password = (ctx.body?.password ?? ctx.body?.newPassword) as
