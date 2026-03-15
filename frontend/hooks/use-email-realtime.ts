@@ -14,7 +14,11 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { websocketClient, RealtimeEmailEvent, RealtimeFolderCountsEvent } from '@/lib/websocket-client';
+import {
+  websocketClient,
+  RealtimeEmailEvent,
+  RealtimeFolderCountsEvent,
+} from '@/lib/websocket-client';
 import { emailKeys } from '@/hooks/queries/email-keys';
 import { folderKeys } from '@/hooks/queries/use-folders';
 import { labelKeys } from '@/hooks/queries/use-labels';
@@ -262,6 +266,10 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     [folder]
   );
 
+  const handleLabelMutation = useCallback(() => {
+    invalidatorRef.current.schedule('labels');
+  }, []);
+
   // Handler for thread update
   const handleThreadUpdate = useCallback(
     (event: { threadId: string; emailIds: string[] }) => {
@@ -299,6 +307,7 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     handleEmailDelete,
     handleBatchProcessed,
     handleFolderCountsUpdate,
+    handleLabelMutation,
     handleThreadUpdate,
     handleUnreadCountUpdate,
   });
@@ -311,6 +320,7 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       handleEmailDelete,
       handleBatchProcessed,
       handleFolderCountsUpdate,
+      handleLabelMutation,
       handleThreadUpdate,
       handleUnreadCountUpdate,
     };
@@ -320,6 +330,7 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     handleEmailDelete,
     handleBatchProcessed,
     handleFolderCountsUpdate,
+    handleLabelMutation,
     handleThreadUpdate,
     handleUnreadCountUpdate,
   ]);
@@ -345,6 +356,15 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     const unsubFolderCounts = websocketClient.onFolderCountsUpdate((event) =>
       handlersRef.current.handleFolderCountsUpdate(event)
     );
+    const unsubLabelNew = websocketClient.onLabelNew(() =>
+      handlersRef.current.handleLabelMutation()
+    );
+    const unsubLabelUpdate = websocketClient.onLabelUpdate(() =>
+      handlersRef.current.handleLabelMutation()
+    );
+    const unsubLabelDelete = websocketClient.onLabelDelete(() =>
+      handlersRef.current.handleLabelMutation()
+    );
     const unsubThread = websocketClient.onThreadUpdate((event) =>
       handlersRef.current.handleThreadUpdate(event)
     );
@@ -358,6 +378,9 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       unsubDelete();
       unsubBatch();
       unsubFolderCounts();
+      unsubLabelNew();
+      unsubLabelUpdate();
+      unsubLabelDelete();
       unsubThread();
       unsubUnread();
     };

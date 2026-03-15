@@ -39,6 +39,7 @@ const mockKnowledgeBaseService = {
 
 const mockRealtimeEventsService = {
   emitEmailUpdate: jest.fn(),
+  emitLabelUpdate: jest.fn(),
   emitEmailDelete: jest.fn(),
 };
 
@@ -464,6 +465,13 @@ describe('EmailBulkService', () => {
           reason: 'labels-updated',
         })
       );
+      expect(mockRealtimeEventsService.emitLabelUpdate).toHaveBeenCalledWith(
+        'tenant-1',
+        expect.objectContaining({
+          labelId: 'label-1',
+          reason: 'label-updated',
+        }),
+      );
     });
 
     it('should throw BadRequestException for empty email array', async () => {
@@ -524,6 +532,13 @@ describe('EmailBulkService', () => {
         expect.objectContaining({
           reason: 'labels-updated',
         })
+      );
+      expect(mockRealtimeEventsService.emitLabelUpdate).toHaveBeenCalledWith(
+        'tenant-1',
+        expect.objectContaining({
+          labelId: 'label-1',
+          reason: 'label-updated',
+        }),
       );
     });
 

@@ -274,15 +274,7 @@ export class LabelsService {
       },
     });
 
-    // Emit realtime events for each updated email
-    console.log('[LABELS] About to emit events for', updatedEmails.length, 'emails');
     updatedEmails.forEach((email) => {
-      console.log('[LABELS] Emitting email:update', {
-        emailId: email.id,
-        providerId: email.providerId,
-        reason: 'labels-updated',
-        tenantId,
-      });
       this.realtimeEvents.emitEmailUpdate(tenantId, {
         emailId: email.id,
         providerId: email.providerId,
@@ -290,6 +282,12 @@ export class LabelsService {
         reason: 'labels-updated',
         email: email, // Include complete email object with labels
       });
+    });
+
+    this.realtimeEvents.emitLabelUpdate(tenantId, {
+      labelId,
+      reason: 'label-updated',
+      timestamp: new Date().toISOString(),
     });
 
     return { count: validEmails.length, emails: updatedEmails };
@@ -350,6 +348,12 @@ export class LabelsService {
         email: updatedEmail as any, // Include complete email object with labels
       });
     }
+
+    this.realtimeEvents.emitLabelUpdate(tenantId, {
+      labelId,
+      reason: 'label-updated',
+      timestamp: new Date().toISOString(),
+    });
 
     return updatedEmail || null;
   }

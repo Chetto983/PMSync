@@ -540,6 +540,14 @@ export class EmailBulkService {
       });
     }
 
+    for (const labelId of new Set(labelIds)) {
+      this.realtimeEvents.emitLabelUpdate(tenantId, {
+        labelId,
+        reason: 'label-updated',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     return { updated: result.count, emails: updatedEmails };
   }
 
@@ -594,6 +602,14 @@ export class EmailBulkService {
         threadId: email.threadId ?? undefined,
         email: email,
         reason: 'labels-updated',
+      });
+    }
+
+    for (const labelId of new Set(labelIds)) {
+      this.realtimeEvents.emitLabelUpdate(tenantId, {
+        labelId,
+        reason: 'label-updated',
+        timestamp: new Date().toISOString(),
       });
     }
 
