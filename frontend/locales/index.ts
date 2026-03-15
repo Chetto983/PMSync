@@ -3098,6 +3098,13 @@ export interface AppTranslations {
         disconnectConfirm: string;
         notConfigured: string;
         sent: string;
+        connect: string;
+        qrHint: string;
+        regenerateQr: string;
+        linkExpired: string;
+        linkError: string;
+        connected: string;
+        saved: string;
       };
       loading: string;
       error: string;

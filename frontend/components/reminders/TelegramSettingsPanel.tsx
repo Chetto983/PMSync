@@ -78,7 +78,7 @@ export function TelegramSettingsPanel() {
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
           setDeepLink(null);
-          setLinkError('Link expired. Generate a new QR code.');
+          setLinkError(tr.linkExpired);
           return;
         }
         try {
@@ -94,7 +94,7 @@ export function TelegramSettingsPanel() {
         }
       }, 3000);
     } catch (err) {
-      setLinkError((err as Error).message || 'Failed to generate link');
+      setLinkError((err as Error).message || tr.linkError);
     } finally {
       setLinkLoading(false);
     }
@@ -119,7 +119,7 @@ export function TelegramSettingsPanel() {
       <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>{tr.title}</Typography>
 
       {updateMutation.isSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => updateMutation.reset()}>Saved</Alert>
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => updateMutation.reset()}>{tr.saved}</Alert>
       )}
       {updateMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => updateMutation.reset()}>
@@ -140,10 +140,10 @@ export function TelegramSettingsPanel() {
                 <QRCodeSVG value={deepLink} size={200} level="M" />
               </Paper>
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 300 }}>
-                Scan this QR code with your phone camera or Telegram app. The link will expire in 5 minutes.
+                {tr.qrHint}
               </Typography>
               <Button size="small" variant="text" onClick={startLinkFlow}>
-                Regenerate QR
+                {tr.regenerateQr}
               </Button>
             </Box>
           ) : (
@@ -153,7 +153,7 @@ export function TelegramSettingsPanel() {
               disabled={linkLoading}
               startIcon={linkLoading ? <CircularProgress size={16} /> : undefined}
             >
-              Connect Telegram
+              {tr.connect}
             </Button>
           )}
 
@@ -161,7 +161,7 @@ export function TelegramSettingsPanel() {
         </Box>
       ) : (
         <Alert severity="success" sx={{ mb: 2 }}>
-          Telegram connected (Chat ID: {settings?.telegramChatId})
+          {tr.connected} (Chat ID: {settings?.telegramChatId})
         </Alert>
       )}
 
