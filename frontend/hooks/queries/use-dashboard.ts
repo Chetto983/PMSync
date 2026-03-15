@@ -2,7 +2,7 @@
  * TanStack Query hooks for dashboard widgets
  *
  * Best practices implemented:
- * - Uses existing API modules (voltAgentApi, crmApi, contactsApi, calendarApi)
+ * - Uses existing API modules (aiChatApi, crmApi, contactsApi, calendarApi)
  * - queryOptions for type-safe, reusable query configurations
  * - Proper staleTime and gcTime for optimal caching
  * - Errors propagate to TanStack Query for explicit UI error states (Phase 33)
@@ -12,7 +12,7 @@ import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import axios from 'axios';
 import { dashboardKeys } from './dashboard-keys';
-import { voltAgentApi, type CachedDeadline } from '@/lib/api/ai';
+import { aiChatApi, type CachedDeadline } from '@/lib/api/ai';
 import { crmApi, type ContactRelationshipStats } from '@/lib/api/crm';
 import { contactsApi } from '@/lib/api/contacts';
 import { calendarApi } from '@/lib/api/calendar';
@@ -86,13 +86,13 @@ export interface StaleContact {
 
 /**
  * Query options for daily briefing
- * Uses voltAgentApi.getBriefing()
+ * Uses aiChatApi.getBriefing()
  */
 export function briefingOptions(enabled = true) {
   return queryOptions({
     queryKey: dashboardKeys.briefing(),
     queryFn: async (): Promise<BriefingData> => {
-      const response = await voltAgentApi.getBriefing();
+      const response = await aiChatApi.getBriefing();
       const briefing = response.data?.briefing || {};
       return {
         summary: (briefing as Record<string, unknown>).summary as string || '',
@@ -113,7 +113,7 @@ export function briefingOptions(enabled = true) {
 
 /**
  * Query options for deadlines
- * Uses voltAgentApi.getUpcomingDeadlines()
+ * Uses aiChatApi.getUpcomingDeadlines()
  */
 export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }) {
   return queryOptions({
@@ -122,7 +122,7 @@ export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }
       const limit = params?.limit || 5;
 
       try {
-        const response = await voltAgentApi.getUpcomingDeadlines({ days: 7 });
+        const response = await aiChatApi.getUpcomingDeadlines({ days: 7 });
         const items = response.data?.deadlines || [];
 
         const todayEnd = new Date();
@@ -185,7 +185,7 @@ export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }
 
 /**
  * Query options for follow-ups
- * Uses voltAgentApi.getPendingFollowUps() - backend calculates overdue from dueDate
+ * Uses aiChatApi.getPendingFollowUps() - backend calculates overdue from dueDate
  */
 export function followUpsOptions(params?: { status?: string; limit?: number }) {
   return queryOptions({
@@ -194,7 +194,7 @@ export function followUpsOptions(params?: { status?: string; limit?: number }) {
       const limit = params?.limit || 5;
 
       // Use dedicated pending endpoint - it returns items ordered by dueDate
-      const response = await voltAgentApi.getPendingFollowUps({ limit });
+      const response = await aiChatApi.getPendingFollowUps({ limit });
       const items = (response.data?.followUps || []) as unknown as ApiFollowUpItem[];
       const now = new Date();
 

@@ -3,7 +3,7 @@
  * Phase 19-04: Writing Style Settings panel.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { voltAgentApi, type WritingStyleProfile, type DraftStats } from '@/lib/api/ai';
+import { aiChatApi, type WritingStyleProfile, type DraftStats } from '@/lib/api/ai';
 
 // ============ Query Keys ============
 
@@ -25,7 +25,7 @@ export function useWritingStyle(_providerId?: string, options?: { enabled?: bool
     queryKey: writingStyleKeys.profile(_providerId),
     queryFn: async () => {
       try {
-        const { data } = await voltAgentApi.getWritingStyle();
+        const { data } = await aiChatApi.getWritingStyle();
         return data.profile ?? null;
       } catch {
         // If no profile exists yet, return null instead of throwing
@@ -46,7 +46,7 @@ export function useUpdateManualSamples() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (params: { samples: string; providerId?: string }) => {
-      const { data } = await voltAgentApi.updateManualSamples(params);
+      const { data } = await aiChatApi.updateManualSamples(params);
       return data;
     },
     onSuccess: () => {
@@ -63,7 +63,7 @@ export function useDraftStats(options?: { enabled?: boolean }) {
     queryKey: writingStyleKeys.draftStats,
     queryFn: async () => {
       try {
-        const { data } = await voltAgentApi.getDraftStats();
+        const { data } = await aiChatApi.getDraftStats();
         return data.stats ?? null;
       } catch {
         return null;

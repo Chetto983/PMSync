@@ -32,7 +32,7 @@ import {
   Send,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { multiAgentApi } from '@/lib/api/ai';
+import { aiChatApi } from '@/lib/api/ai';
 import { type CreateEventDto } from '@/lib/api/calendar';
 import { useCreateCalendarEvent, calendarEventsOptions } from '@/hooks/queries/use-calendar';
 import { useQueryClient } from '@tanstack/react-query';
@@ -221,15 +221,14 @@ export function SchedulingDrawer({
     setSelectedSlot(null);
 
     try {
-      // Call multi-agent system to process scheduling request
-      const response = await multiAgentApi.processMessage({
+      // Call AI chat to process scheduling request
+      const response = await aiChatApi.chat({
         message: prompt,
         locale,
-        forceAgent: 'calendar', // Force calendar agent for scheduling
       });
 
       // Store AI response for display
-      const aiMessage = response.messages?.join('\n') || '';
+      const aiMessage = response.data?.text || '';
       setAiResponse(aiMessage);
 
       // Generate suggested time slots based on business days

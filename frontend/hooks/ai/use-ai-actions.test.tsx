@@ -6,12 +6,12 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 import { useAiActions, aiActionsKeys } from './use-ai-actions';
-import { voltAgentApi } from '@/lib/api/ai';
+import { aiChatApi } from '@/lib/api/ai';
 import { websocketClient } from '@/lib/websocket-client';
 
 // Mock the APIs
 jest.mock('@/lib/api/ai', () => ({
-  voltAgentApi: {
+  aiChatApi: {
     getPendingActions: jest.fn(),
     approveAction: jest.fn(),
     rejectAction: jest.fn(),
@@ -95,7 +95,7 @@ describe('useAiActions', () => {
 
   describe('pending actions', () => {
     it('should fetch pending actions on mount when autoFetch is true', async () => {
-      (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
+      (aiChatApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
 
@@ -108,7 +108,7 @@ describe('useAiActions', () => {
       });
 
       expect(result.current.pendingCount).toBe(2);
-      expect(voltAgentApi.getPendingActions).toHaveBeenCalled();
+      expect(aiChatApi.getPendingActions).toHaveBeenCalled();
     });
 
     it('should not fetch when autoFetch is false', () => {
@@ -116,14 +116,14 @@ describe('useAiActions', () => {
         wrapper: createWrapper(),
       });
 
-      expect(voltAgentApi.getPendingActions).not.toHaveBeenCalled();
+      expect(aiChatApi.getPendingActions).not.toHaveBeenCalled();
       expect(result.current.pendingActions).toEqual([]);
     });
   });
 
   describe('getAction', () => {
     it('should find action by executionId', async () => {
-      (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
+      (aiChatApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
 
@@ -140,7 +140,7 @@ describe('useAiActions', () => {
     });
 
     it('should find action by id', async () => {
-      (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
+      (aiChatApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
         data: { actions: mockPendingActions, total: 2 },
       });
 
@@ -159,7 +159,7 @@ describe('useAiActions', () => {
 
   describe('approveAction', () => {
     it('should approve action successfully', async () => {
-      (voltAgentApi.approveAction as jest.Mock).mockResolvedValueOnce({
+      (aiChatApi.approveAction as jest.Mock).mockResolvedValueOnce({
         data: { status: 'approved' },
       });
 
@@ -173,13 +173,13 @@ describe('useAiActions', () => {
         await result.current.approveAction('exec-1');
       });
 
-      expect(voltAgentApi.approveAction).toHaveBeenCalledWith('exec-1', undefined);
+      expect(aiChatApi.approveAction).toHaveBeenCalledWith('exec-1', undefined);
       expect(onApprove).toHaveBeenCalledWith('exec-1', undefined);
     });
 
     it('should handle approval error', async () => {
       const mockError = new Error('Approval failed');
-      (voltAgentApi.approveAction as jest.Mock).mockRejectedValueOnce(mockError);
+      (aiChatApi.approveAction as jest.Mock).mockRejectedValueOnce(mockError);
 
       const onError = jest.fn();
       const { result } = renderHook(
@@ -201,7 +201,7 @@ describe('useAiActions', () => {
 
   describe('rejectAction', () => {
     it('should reject action successfully', async () => {
-      (voltAgentApi.rejectAction as jest.Mock).mockResolvedValueOnce({
+      (aiChatApi.rejectAction as jest.Mock).mockResolvedValueOnce({
         data: { status: 'rejected' },
       });
 
@@ -215,12 +215,12 @@ describe('useAiActions', () => {
         await result.current.rejectAction('exec-1');
       });
 
-      expect(voltAgentApi.rejectAction).toHaveBeenCalledWith('exec-1', undefined);
+      expect(aiChatApi.rejectAction).toHaveBeenCalledWith('exec-1', undefined);
       expect(onReject).toHaveBeenCalledWith('exec-1');
     });
 
     it('should reject action with reason', async () => {
-      (voltAgentApi.rejectAction as jest.Mock).mockResolvedValueOnce({
+      (aiChatApi.rejectAction as jest.Mock).mockResolvedValueOnce({
         data: { status: 'rejected' },
       });
 
@@ -233,7 +233,7 @@ describe('useAiActions', () => {
         await result.current.rejectAction('exec-1', 'Not appropriate');
       });
 
-      expect(voltAgentApi.rejectAction).toHaveBeenCalledWith('exec-1', 'Not appropriate');
+      expect(aiChatApi.rejectAction).toHaveBeenCalledWith('exec-1', 'Not appropriate');
     });
   });
 
@@ -243,7 +243,7 @@ describe('useAiActions', () => {
       const pendingPromise = new Promise((resolve) => {
         resolveApprove = resolve;
       });
-      (voltAgentApi.approveAction as jest.Mock).mockReturnValueOnce(pendingPromise);
+      (aiChatApi.approveAction as jest.Mock).mockReturnValueOnce(pendingPromise);
 
       const { result } = renderHook(() => useAiActions({ autoFetch: false }), {
         wrapper: createWrapper(),
@@ -269,7 +269,7 @@ describe('useAiActions', () => {
       const pendingPromise = new Promise((resolve) => {
         resolveReject = resolve;
       });
-      (voltAgentApi.rejectAction as jest.Mock).mockReturnValueOnce(pendingPromise);
+      (aiChatApi.rejectAction as jest.Mock).mockReturnValueOnce(pendingPromise);
 
       const { result } = renderHook(() => useAiActions({ autoFetch: false }), {
         wrapper: createWrapper(),

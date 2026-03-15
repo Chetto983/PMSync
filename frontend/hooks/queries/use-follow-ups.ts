@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { followUpKeys } from './follow-up-keys';
-import { voltAgentApi } from '@/lib/api/ai';
+import { aiChatApi } from '@/lib/api/ai';
 
 // ============================================================================
 // Types
@@ -83,7 +83,7 @@ export function pendingFollowUpsOptions(limit = 20) {
   return queryOptions({
     queryKey: followUpKeys.pending(),
     queryFn: async (): Promise<EmailFollowUpListData> => {
-      const response = await voltAgentApi.getPendingFollowUps({ limit });
+      const response = await aiChatApi.getPendingFollowUps({ limit });
       const followUps = response.data?.followUps || [];
       return {
         followUps: followUps as unknown as EmailFollowUp[],
@@ -100,7 +100,7 @@ export function followUpStatsOptions() {
   return queryOptions({
     queryKey: followUpKeys.stats(),
     queryFn: async (): Promise<FollowUpStats> => {
-      const response = await voltAgentApi.getFollowUpStats();
+      const response = await aiChatApi.getFollowUpStats();
       return response.data?.stats || { pending: 0, reminded: 0, resolved: 0, expired: 0, overdue: 0, dueToday: 0 };
     },
     staleTime: 60 * 1000,
@@ -128,7 +128,7 @@ export function useUpdateFollowUpStatus() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const res = await voltAgentApi.updateFollowUpStatus(id, status);
+      const res = await aiChatApi.updateFollowUpStatus(id, status);
       if (!res.data?.success) throw new Error(res.data?.error || 'Failed to update status');
       return res.data;
     },
@@ -143,7 +143,7 @@ export function useSnoozeFollowUp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, dueDate }: { id: string; dueDate: string }) => {
-      const res = await voltAgentApi.snoozeFollowUp(id, dueDate);
+      const res = await aiChatApi.snoozeFollowUp(id, dueDate);
       if (!res.data?.success) throw new Error(res.data?.error || 'Failed to snooze');
       return res.data;
     },
@@ -158,7 +158,7 @@ export function useDeleteFollowUp() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await voltAgentApi.deleteFollowUp(id);
+      const res = await aiChatApi.deleteFollowUp(id);
       if (!res.data?.success) throw new Error(res.data?.error || 'Failed to delete');
       return res.data;
     },

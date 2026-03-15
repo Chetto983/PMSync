@@ -20,7 +20,7 @@ import {
 import { useRouter } from 'next/router';
 
 import { authClient } from '@/lib/auth-client';
-import { multiAgentApi, type PendingAction } from '@/lib/api/ai';
+import { aiChatApi, type PendingAction } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThemeToggle } from './ThemeToggle';
@@ -81,7 +81,7 @@ export function Header({
     setAiActionsAnchor(event.currentTarget);
     setActionsLoading(true);
     try {
-      const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
+      const response = await aiChatApi.getPendingActions();
       const data = response.data;
       setPendingActionsList(data?.actions || []);
       setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
@@ -95,7 +95,7 @@ export function Header({
   const handleApproveAction = async (executionId: string) => {
     setApprovingId(executionId);
     try {
-      await multiAgentApi.approveAction(executionId);
+      await aiChatApi.approveAction(executionId);
       setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
       setPendingAiActions((prev) => Math.max(0, prev - 1));
     } catch {
@@ -108,7 +108,7 @@ export function Header({
   const handleRejectAction = async (executionId: string) => {
     setRejectingId(executionId);
     try {
-      await multiAgentApi.rejectAction(executionId);
+      await aiChatApi.rejectAction(executionId);
       setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
       setPendingAiActions((prev) => Math.max(0, prev - 1));
     } catch {

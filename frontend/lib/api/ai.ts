@@ -391,9 +391,9 @@ export const aiApi = {
   },
 };
 
-// ============ VoltAgent Chat API ============
+// ============ AI Chat API ============
 
-export const voltAgentApi = {
+export const aiChatApi = {
   chat(payload: {
     message: string;
     conversationId?: string;
@@ -528,20 +528,13 @@ export const voltAgentApi = {
     return apiClient.get<{
       success: boolean;
       conversations: ConversationSummary[];
-      count: number;
-    }>('/ai/conversations', { params });
-  },
-
-  getConversation(conversationId: string, params?: { messageLimit?: number }) {
-    return apiClient.get<{
-      success: boolean;
-      conversation: ConversationDetail;
-    }>(`/ai/conversations/${encodeURIComponent(conversationId)}`, { params });
+      total: number;
+    }>('/ai/chat/conversations', { params });
   },
 
   deleteConversation(conversationId: string) {
-    return apiClient.post<{ success: boolean; message: string }>(
-      `/ai/conversations/${encodeURIComponent(conversationId)}/delete`,
+    return apiClient.delete<{ success: boolean }>(
+      `/ai/chat/conversations/${encodeURIComponent(conversationId)}`,
     );
   },
 
@@ -632,7 +625,10 @@ export const voltAgentApi = {
   },
 };
 
-// Legacy API alias (maps to voltAgentApi)
+/** @deprecated Use aiChatApi directly */
+export const voltAgentApi = aiChatApi;
+
+// Legacy API alias (maps to aiChatApi)
 export const multiAgentApi = {
   processMessage: async (payload: {
     message: string;
@@ -643,7 +639,7 @@ export const multiAgentApi = {
     locale?: string;
   }): Promise<MultiAgentResponse> => {
     const convId = payload.conversationId || payload.sessionId;
-    const response = await voltAgentApi.chat({
+    const response = await aiChatApi.chat({
       message: payload.message,
       conversationId: convId,
       locale: payload.locale,
@@ -663,7 +659,7 @@ export const multiAgentApi = {
   },
   getAgents: () => Promise.resolve({ agents: [] as AgentInfo[] }),
   getPendingActions: (_params?: { status?: string; limit?: number; offset?: number }) =>
-    voltAgentApi.getPendingActions(),
-  approveAction: voltAgentApi.approveAction,
-  rejectAction: voltAgentApi.rejectAction,
+    aiChatApi.getPendingActions(),
+  approveAction: aiChatApi.approveAction,
+  rejectAction: aiChatApi.rejectAction,
 };

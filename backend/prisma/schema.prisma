@@ -55,6 +55,8 @@ model Tenant {
   aiMemories               AIMemory[]
   members                  Member[]
   invitations              Invitation[]
+  reminders                Reminder[]
+  telegramLogs             TelegramLog[]
 
   @@map("tenants")
 }
@@ -104,6 +106,9 @@ model User {
   aiConversations     AiConversation[]
   members             Member[]
   sentInvitations     Invitation[]        @relation("InvitationInviter")
+  reminders           Reminder[]
+  telegramSettings    TelegramSettings?
+  telegramLogs        TelegramLog[]
 
   /// @deprecated Legacy compound unique -- email is now globally unique. Remove in Phase 58.
   @@unique([tenantId, email])
@@ -1607,4 +1612,147 @@ model AiRunLedger {
   @@index([tenantId, userId, createdAt(sort: Desc)])
   @@index([tenantId, runType])
   @@map("ai_run_ledger")
+}
+
+/// ========================================================================
+/// Follow-Up AI — Smart Reminder System con Telegram
+/// User-initiated reminders with natural language parsing, email monitoring,
+/// and Telegram notifications at configurable time slots.
+/// ========================================================================
+
+enum ReminderPeriodo {
+  mattina
+  pomeriggio
+  sera
+  tutto_il_giorno
+}
+
+enum ReminderAzione {
+  chiama
+  scrivi_mail
+  verifica
+  conferma
+  controlla
+  altro
+}
+
+enum ReminderPriorita {
+  alta
+  media
+  bassa
+}
+
+enum ReminderCondizioneTipo {
+  sempre
+  se_risponde_mail
+  se_non_risponde_mail
+  manuale
+}
+
+enum ReminderStatus {
+  attivo
+  completato
+  annullato
+  sospeso
+}
+
+model Reminder {
+  id                  String                @id @default(cuid())
+  tenantId            String
+  userId              String
+
+  // Content
+  titolo              String
+  descrizione         String?
+  contatto            String?
+
+  // Deadline
+  scadenzaTesto       String?               // Raw user input: "Lunedi pomeriggio"
+  scadenzaDatetime    DateTime?             // Computed by AI parser
+  periodo             ReminderPeriodo?
+
+  // Action & priority
+  azione              ReminderAzione        @default(altro)
+  priorita            ReminderPriorita      @default(media)
+
+  // Conditional logic
+  condizioneTipo      ReminderCondizioneTipo @default(sempre)
+  condizioneDettaglio String?
+
+  // Email monitoring
+  monitoraEmail       Boolean               @default(false)
+  emailKeywords       String[]              @default([])
+  emailMittente       String?
+  emailRilevata       Boolean               @default(false)
+  emailRilevataAt     DateTime?
+
+  // Telegram notification
+  messaggioTelegram   String?
+  telegramInviato     Boolean               @default(false)
+  telegramInviatoAt   DateTime?
+
+  // Status
+  status              ReminderStatus        @default(attivo)
+  completatoAt        DateTime?
+
+  // AI debug
+  inputUtente         String?
+  aiRawResponse       Json?
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  // Relations
+  tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, userId, status])
+  @@index([tenantId, monitoraEmail, status])
+  @@index([scadenzaDatetime])
+  @@map("reminders")
+}
+
+model TelegramSettings {
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String   @unique
+
+  telegramChatId   String?
+  isActive         Boolean  @default(false)
+
+  // Notification slot times (HH:mm format)
+  slotMattina      String   @default("08:30")
+  slotPomeriggio   String   @default("14:00")
+  slotSera         String   @default("18:00")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("telegram_settings")
+}
+
+model TelegramLog {
+  id                String   @id @default(cuid())
+  tenantId          String
+  userId            String
+
+  reminderIds       String[]
+  slot              String
+  messaggioCompleto String
+  inviatoAt         DateTime @default(now())
+  isError           Boolean  @default(false)
+  errorMessage      String?
+
+  // Relations
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, inviatoAt])
+  @@map("telegram_logs")
 }

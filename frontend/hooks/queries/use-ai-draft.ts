@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { voltAgentApi } from '@/lib/api/ai';
+import { aiChatApi } from '@/lib/api/ai';
 
 /**
  * Fetches an AI-generated reply draft for a given email.
@@ -12,7 +12,7 @@ export function useAiDraft(
   return useQuery({
     queryKey: ['ai', 'draft', emailId, options?.tone],
     queryFn: async () => {
-      const { data } = await voltAgentApi.generateReplyDraft({
+      const { data } = await aiChatApi.generateReplyDraft({
         emailId: emailId!,
         tone: options?.tone,
         locale: options?.locale,
@@ -39,7 +39,7 @@ export function useRegenerateDraft() {
       instructions?: string;
       locale?: string;
     }) => {
-      const { data } = await voltAgentApi.generateReplyDraft(params);
+      const { data } = await aiChatApi.generateReplyDraft(params);
       return data;
     },
     onSuccess: (_data, variables) => {
@@ -57,6 +57,6 @@ export function useRecordDraftFeedback() {
       draftId: string;
       action: 'accepted' | 'edited' | 'rejected' | 'regenerated';
       sentBody?: string;
-    }) => voltAgentApi.recordDraftFeedback(params),
+    }) => aiChatApi.recordDraftFeedback(params),
   });
 }

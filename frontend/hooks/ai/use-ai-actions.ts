@@ -15,7 +15,7 @@
 import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  voltAgentApi,
+  aiChatApi,
   PendingAction,
   ActionCounts,
   LearningProfileStats,
@@ -104,7 +104,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   const pendingQuery = useQuery({
     queryKey: aiActionsKeys.pending(),
     queryFn: async () => {
-      const response = await voltAgentApi.getPendingActions();
+      const response = await aiChatApi.getPendingActions();
       return response.data;
     },
     enabled: autoFetch,
@@ -124,7 +124,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   // Approve Mutation - returns full response with execution result for user feedback
   const approveMutation = useMutation({
     mutationFn: async ({ executionId, payload }: { executionId: string; payload?: Record<string, unknown> }) => {
-      const response = await voltAgentApi.approveAction(executionId, payload);
+      const response = await aiChatApi.approveAction(executionId, payload);
       return { executionId, ...response.data };
     },
     onSuccess: (result) => {
@@ -141,7 +141,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   // Reject Mutation
   const rejectMutation = useMutation({
     mutationFn: async ({ executionId, reason }: { executionId: string; reason?: string }) => {
-      const response = await voltAgentApi.rejectAction(executionId, reason);
+      const response = await aiChatApi.rejectAction(executionId, reason);
       return { executionId, ...response.data };
     },
     onSuccess: (result) => {

@@ -1,4 +1,4 @@
-import { multiAgentApi } from '@/lib/api/ai';
+import { aiChatApi } from '@/lib/api/ai';
 
 // Module-level throttle to prevent duplicate getPendingActions calls (React StrictMode double-fires effects)
 let lastPendingActionsFetch = 0;
@@ -11,7 +11,7 @@ export async function throttledGetPendingActions(): Promise<{ total: number }> {
     return { total: -1 }; // -1 = skip update
   }
   pendingActionsFetchPromise = (async () => {
-    const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
+    const response = await aiChatApi.getPendingActions();
     lastPendingActionsFetch = Date.now();
     const data = response.data;
     return { total: data?.total ?? data?.actions?.length ?? 0 };
