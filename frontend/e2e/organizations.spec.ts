@@ -13,11 +13,7 @@ const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL ?? 'member@pmsync.local';
 // Serial execution -- tests share mutable state (orgId, invitationId)
 test.describe.configure({ mode: 'serial' });
 
-// SKIP: better-auth organization.create API returns 500 on the deployed backend.
-// The backend's organization plugin may have a production configuration issue.
-// All 4 tests in this suite depend on org creation succeeding, so the entire
-// suite is skipped. The spec itself is correct -- verified against local backend.
-test.describe.skip('Organization flows', () => {
+test.describe('Organization flows', () => {
   let createdOrgId: string | undefined;
   let invitationId: string | undefined;
 

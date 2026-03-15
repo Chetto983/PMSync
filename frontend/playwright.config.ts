@@ -66,7 +66,7 @@ export default defineConfig({
         ...devices['Desktop Firefox'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup', 'setup-member'],
+      dependencies: ['setup'],
     },
     {
       name: 'webkit',
@@ -74,7 +74,7 @@ export default defineConfig({
         ...devices['Desktop Safari'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup', 'setup-member'],
+      dependencies: ['setup'],
     },
 
     // Mobile device projects
@@ -84,7 +84,7 @@ export default defineConfig({
         ...devices['Pixel 7'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup', 'setup-member'],
+      dependencies: ['setup'],
     },
     {
       name: 'mobile-safari',
@@ -92,7 +92,7 @@ export default defineConfig({
         ...devices['iPhone 14'],
         storageState: 'playwright/.auth/user.json',
       },
-      dependencies: ['setup', 'setup-member'],
+      dependencies: ['setup'],
     },
   ],
 });
