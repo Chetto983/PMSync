@@ -22,8 +22,6 @@ import {
   DialogTitle,
   List,
   ListItem,
-  ListItemIcon,
-  ListItemText,
   Checkbox,
   CircularProgress,
   IconButton,
@@ -363,14 +361,60 @@ export function CalendarSidebar({
                     disablePadding
                     sx={{
                       mb: 0.25,
+                      px: 0.5,
+                      py: 0.375,
                       borderRadius: 1.5,
                       transition: 'all 0.2s ease',
                       '&:hover': {
                         bgcolor: alpha(theme.palette.primary.main, 0.08),
                       },
                     }}
-                    secondaryAction={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        width: '100%',
+                        minWidth: 0,
+                      }}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={cal.enabled}
+                        onChange={() => onToggleCalendar(cal.id)}
+                        sx={{
+                          color: cal.color,
+                          '&.Mui-checked': { color: cal.color },
+                          p: 0.5,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontSize: '0.8125rem',
+                            fontWeight: cal.enabled ? 500 : 400,
+                            color: cal.enabled ? 'text.primary' : 'text.secondary',
+                            lineHeight: 1.35,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {cal.calendarName}
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.25,
+                          flexShrink: 0,
+                          ml: 'auto',
+                        }}
+                      >
                         <Tooltip title={calendarCopy.colorPicker?.title || 'Change color'}>
                           <IconButton
                             size="small"
@@ -406,29 +450,7 @@ export function CalendarSidebar({
                           </Tooltip>
                         )}
                       </Box>
-                    }
-                  >
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <Checkbox
-                        size="small"
-                        checked={cal.enabled}
-                        onChange={() => onToggleCalendar(cal.id)}
-                        sx={{
-                          color: cal.color,
-                          '&.Mui-checked': { color: cal.color },
-                          p: 0.5,
-                        }}
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={cal.calendarName}
-                      primaryTypographyProps={{
-                        fontSize: '0.8125rem',
-                        noWrap: true,
-                        fontWeight: cal.enabled ? 500 : 400,
-                        color: cal.enabled ? 'text.primary' : 'text.secondary',
-                      }}
-                    />
+                    </Box>
                   </ListItem>
                 ))}
               </List>
