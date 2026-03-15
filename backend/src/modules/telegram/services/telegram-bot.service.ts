@@ -179,6 +179,27 @@ export class TelegramBotService implements OnModuleInit {
   }
 
   /**
+   * Send a chat action (e.g., 'typing') to indicate the bot is processing.
+   */
+  async sendChatAction(chatId: string, action: 'typing' | 'upload_photo' | 'upload_document'): Promise<void> {
+    if (!this.botToken) return;
+
+    try {
+      await fetch(
+        `https://api.telegram.org/bot${this.botToken}/sendChatAction`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, action }),
+        },
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`sendChatAction failed: ${msg}`);
+    }
+  }
+
+  /**
    * Answer a callback query (acknowledge button press).
    */
   async answerCallbackQuery(
