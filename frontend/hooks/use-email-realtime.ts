@@ -17,6 +17,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { websocketClient, RealtimeEmailEvent, RealtimeFolderCountsEvent } from '@/lib/websocket-client';
 import { emailKeys } from '@/hooks/queries/email-keys';
 import { folderKeys } from '@/hooks/queries/use-folders';
+import { labelKeys } from '@/hooks/queries/use-labels';
 import { useSyncStore } from '@/stores/sync-store';
 
 interface UseEmailRealtimeOptions {
@@ -80,6 +81,9 @@ function executeInvalidations(
   }
   if (keys.has('folders')) {
     queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+  }
+  if (keys.has('labels')) {
+    queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
   }
   if (keys.has('threads')) {
     queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
@@ -181,6 +185,14 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         event.reason === 'flagged-updated'
       ) {
         invalidateListAndStats();
+        return;
+      }
+
+      if (event.reason === 'labels-updated') {
+        inv.schedule('labels');
+        if (!folder || !event.folder || event.folder === folder) {
+          inv.schedule('list');
+        }
         return;
       }
 

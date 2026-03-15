@@ -3027,6 +3027,82 @@ export interface AppTranslations {
         };
       };
     };
+    // Reminders (Follow-Up AI)
+    reminders: {
+      title: string;
+      subtitle: string;
+      searchPlaceholder: string;
+      noReminders: string;
+      noRemindersDescription: string;
+      newReminder: string;
+      createDialog: {
+        title: string;
+        placeholder: string;
+        hint: string;
+        create: string;
+        cancel: string;
+      };
+      status: {
+        attivo: string;
+        completato: string;
+        annullato: string;
+        sospeso: string;
+      };
+      priorita: {
+        alta: string;
+        media: string;
+        bassa: string;
+      };
+      periodo: {
+        mattina: string;
+        pomeriggio: string;
+        sera: string;
+        tutto_il_giorno: string;
+      };
+      azione: {
+        chiama: string;
+        scrivi_mail: string;
+        verifica: string;
+        conferma: string;
+        controlla: string;
+        altro: string;
+      };
+      condizione: {
+        sempre: string;
+        se_risponde_mail: string;
+        se_non_risponde_mail: string;
+        manuale: string;
+      };
+      actions: {
+        complete: string;
+        delete: string;
+        edit: string;
+      };
+      fields: {
+        contact: string;
+        deadline: string;
+        condition: string;
+        telegramMessage: string;
+        emailMonitoring: string;
+      };
+      telegram: {
+        title: string;
+        chatId: string;
+        chatIdHelper: string;
+        active: string;
+        slotMattina: string;
+        slotPomeriggio: string;
+        slotSera: string;
+        save: string;
+        disconnect: string;
+        disconnectConfirm: string;
+        notConfigured: string;
+        sent: string;
+      };
+      loading: string;
+      error: string;
+      retry: string;
+    };
     // HITL Inline Action Card
     inlineAction: {
       actionTypes: {

@@ -1,0 +1,166 @@
+/**
+ * Reminders & Telegram Settings API Module
+ *
+ * Provides typed API methods for reminder CRUD and Telegram configuration.
+ * Backend endpoints: /api/v1/reminders, /api/v1/telegram/settings
+ */
+
+import { apiClient } from '../api-client';
+
+// =============================================================================
+// Types - Reminder Entity
+// =============================================================================
+
+export type ReminderPeriodo = 'mattina' | 'pomeriggio' | 'sera' | 'tutto_il_giorno';
+export type ReminderAzione = 'chiama' | 'scrivi_mail' | 'verifica' | 'conferma' | 'controlla' | 'altro';
+export type ReminderPriorita = 'alta' | 'media' | 'bassa';
+export type ReminderCondizioneTipo = 'sempre' | 'se_risponde_mail' | 'se_non_risponde_mail' | 'manuale';
+export type ReminderStatus = 'attivo' | 'completato' | 'annullato' | 'sospeso';
+
+export interface Reminder {
+  id: string;
+  tenantId: string;
+  userId: string;
+  titolo: string;
+  descrizione?: string | null;
+  contatto?: string | null;
+  scadenzaTesto?: string | null;
+  scadenzaDatetime?: string | null;
+  periodo?: ReminderPeriodo | null;
+  azione: ReminderAzione;
+  priorita: ReminderPriorita;
+  condizioneTipo: ReminderCondizioneTipo;
+  condizioneDettaglio?: string | null;
+  monitoraEmail: boolean;
+  emailKeywords: string[];
+  emailMittente?: string | null;
+  emailRilevata: boolean;
+  emailRilevataAt?: string | null;
+  messaggioTelegram?: string | null;
+  telegramInviato: boolean;
+  telegramInviatoAt?: string | null;
+  status: ReminderStatus;
+  completatoAt?: string | null;
+  inputUtente?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// =============================================================================
+// Types - DTOs
+// =============================================================================
+
+export interface CreateReminderDto {
+  inputUtente?: string;
+  titolo?: string;
+  descrizione?: string;
+  contatto?: string;
+  scadenzaTesto?: string;
+  scadenzaDatetime?: string;
+  periodo?: ReminderPeriodo;
+  azione?: ReminderAzione;
+  priorita?: ReminderPriorita;
+  condizioneTipo?: ReminderCondizioneTipo;
+  condizioneDettaglio?: string;
+  monitoraEmail?: boolean;
+  emailKeywords?: string[];
+  emailMittente?: string;
+  messaggioTelegram?: string;
+}
+
+export interface UpdateReminderDto {
+  titolo?: string;
+  descrizione?: string;
+  contatto?: string;
+  scadenzaTesto?: string;
+  scadenzaDatetime?: string;
+  periodo?: ReminderPeriodo;
+  azione?: ReminderAzione;
+  priorita?: ReminderPriorita;
+  condizioneTipo?: ReminderCondizioneTipo;
+  condizioneDettaglio?: string;
+  monitoraEmail?: boolean;
+  emailKeywords?: string[];
+  emailMittente?: string;
+  messaggioTelegram?: string;
+  status?: ReminderStatus;
+}
+
+export interface ListRemindersParams {
+  status?: ReminderStatus;
+  priorita?: ReminderPriorita;
+  periodo?: ReminderPeriodo;
+  page?: number;
+  limit?: number;
+}
+
+export interface ListRemindersResponse {
+  reminders: Reminder[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// =============================================================================
+// Types - Telegram Settings
+// =============================================================================
+
+export interface TelegramSettings {
+  id: string;
+  tenantId: string;
+  userId: string;
+  telegramChatId?: string | null;
+  isActive: boolean;
+  slotMattina: string;
+  slotPomeriggio: string;
+  slotSera: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateTelegramSettingsDto {
+  telegramChatId?: string;
+  isActive?: boolean;
+  slotMattina?: string;
+  slotPomeriggio?: string;
+  slotSera?: string;
+}
+
+// =============================================================================
+// Reminders API
+// =============================================================================
+
+export const remindersApi = {
+  list: (params?: ListRemindersParams) =>
+    apiClient.get<{ data: ListRemindersResponse }>('/reminders', { params }),
+
+  get: (id: string) =>
+    apiClient.get<{ data: Reminder }>(`/reminders/${id}`),
+
+  create: (dto: CreateReminderDto) =>
+    apiClient.post<{ data: Reminder }>('/reminders', dto),
+
+  update: (id: string, dto: UpdateReminderDto) =>
+    apiClient.patch<{ data: Reminder }>(`/reminders/${id}`, dto),
+
+  delete: (id: string) =>
+    apiClient.delete<{ data: Reminder }>(`/reminders/${id}`),
+
+  complete: (id: string) =>
+    apiClient.post<{ data: Reminder }>(`/reminders/${id}/complete`),
+};
+
+// =============================================================================
+// Telegram Settings API
+// =============================================================================
+
+export const telegramApi = {
+  getSettings: () =>
+    apiClient.get<{ data: TelegramSettings | null }>('/telegram/settings'),
+
+  updateSettings: (dto: UpdateTelegramSettingsDto) =>
+    apiClient.put<{ data: TelegramSettings }>('/telegram/settings', dto),
+
+  disconnect: () =>
+    apiClient.delete<{ data: null }>('/telegram/settings'),
+};

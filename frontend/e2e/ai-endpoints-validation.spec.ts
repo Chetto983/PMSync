@@ -5,58 +5,34 @@
  * Authenticates via the Vercel frontend edge proxy (cookies stay first-party).
  * All API calls go through the frontend proxy at /api/v1/*.
  *
- * Run:
- *   E2E_USER_PASSWORD=<password> npx playwright test e2e/ai-endpoints-validation.spec.ts --project=chromium
+ * Run (manual login via Edge — browser opens, you log in, then tests proceed):
+ *   npx playwright test e2e/ai-endpoints-validation.spec.ts --headed --project=chromium
  */
 
 import { test, expect } from '@playwright/test';
 
-const FRONTEND = process.env.E2E_FRONTEND_URL || 'https://pm-sync-chetto1983s-projects.vercel.app';
+const FRONTEND = process.env.E2E_FRONTEND_URL || 'http://localhost:3001';
 const API = `${FRONTEND}/api/v1`;
-const EMAIL = process.env.E2E_USER_EMAIL || 'dvdmarchetto@gmail.com';
 
 // Shared browser context with auth cookies
 let authCookieHeader: string = '';
 
 test.beforeAll(async ({ browser }) => {
-  const password = process.env.E2E_USER_PASSWORD;
-  if (!password) throw new Error('Set E2E_USER_PASSWORD env var');
-
-  const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
+  const ctx = await browser.newContext({
+    ignoreHTTPSErrors: true,
+  });
   const page = await ctx.newPage();
 
-  // Set cookie consent
-  await page.addInitScript(() => {
-    localStorage.setItem(
-      'pmsync:cookie-consent',
-      JSON.stringify({ necessary: true, analytics: false, marketing: false }),
-    );
-  });
+  // Navigate to login page
+  await page.goto(`${FRONTEND}/auth/login`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
-  // Login through the Vercel frontend
-  await page.goto(`${FRONTEND}/auth/login`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  await page.waitForSelector('input[name="email"], input[type="email"]', { timeout: 15_000 });
-  await page.fill('input[name="email"], input[type="email"]', EMAIL);
-  await page.fill('input[name="password"], input[type="password"]', password);
-  await page.click('button[type="submit"]');
+  // Pause — you log in manually in the browser, then press "Resume" in the inspector
+  await page.pause();
 
-  // Wait for redirect after login
-  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 30_000 });
+  // After resume, wait for dashboard/onboarding URL (you should already be there)
+  await page.waitForURL(/\/(dashboard|onboarding|settings|mail)/, { timeout: 60_000 }).catch(() => {});
 
-  // Handle onboarding wizard if needed
-  if (page.url().includes('/onboarding')) {
-    const tosCheckbox = page.getByRole('checkbox').first();
-    if (await tosCheckbox.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await tosCheckbox.check({ force: true });
-      const ppCheckbox = page.getByRole('checkbox').nth(1);
-      if (await ppCheckbox.isVisible().catch(() => false)) await ppCheckbox.check({ force: true });
-      const btn = page.getByRole('button', { name: /get started|continue/i });
-      if (await btn.isVisible().catch(() => false)) await btn.click();
-    }
-    await page.waitForURL(/\/dashboard/, { timeout: 30_000 }).catch(() => {});
-  }
-
-  console.log(`Authenticated as ${EMAIL}. URL: ${page.url()}`);
+  console.log(`Authenticated. URL: ${page.url()}`);
 
   // Extract cookies for API calls
   const allCookies = await ctx.cookies();
@@ -65,6 +41,10 @@ test.beforeAll(async ({ browser }) => {
   );
   authCookieHeader = authCookies.map(c => `${c.name}=${c.value}`).join('; ');
   console.log(`Cookies: ${authCookies.map(c => c.name).join(', ')}`);
+
+  if (!authCookieHeader) {
+    throw new Error('No auth cookies captured — did you log in before pressing Resume?');
+  }
 
   await ctx.close();
 });

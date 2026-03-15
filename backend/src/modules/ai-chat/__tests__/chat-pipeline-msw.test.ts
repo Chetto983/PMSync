@@ -179,6 +179,7 @@ describe('Chat Pipeline (MSW)', () => {
       toolsServiceStub, // ConversationToolsService
       toolsServiceStub, // SandboxToolsService
       toolsServiceStub, // ProductivityToolsService
+      toolsServiceStub, // ReminderToolsService
       intentRouterService,
       { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       memoryServiceMock,

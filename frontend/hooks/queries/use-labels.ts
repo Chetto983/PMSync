@@ -173,6 +173,7 @@ export function useAddEmailsToLabel() {
     mutationFn: ({ labelId, emailIds }: { labelId: string; emailIds: string[] }) =>
       labelsApi.addEmailsToLabel(labelId, { emailIds }),
     onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
       queryClient.invalidateQueries({
         queryKey: labelKeys.emails(variables.labelId),
       });
@@ -190,6 +191,7 @@ export function useRemoveEmailFromLabel() {
     mutationFn: ({ labelId, emailId }: { labelId: string; emailId: string }) =>
       labelsApi.removeEmailFromLabel(labelId, emailId),
     onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
       queryClient.invalidateQueries({
         queryKey: labelKeys.emails(variables.labelId),
       });

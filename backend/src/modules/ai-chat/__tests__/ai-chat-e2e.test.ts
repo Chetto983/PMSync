@@ -151,6 +151,7 @@ describe('AiChatService E2E (real Mistral API)', () => {
       toolsServiceStub,        // ConversationToolsService stub
       toolsServiceStub,        // SandboxToolsService stub
       toolsServiceStub,        // ProductivityToolsService stub
+      toolsServiceStub,        // ReminderToolsService stub
       // Phase 25 Plan 02: IntentRouterService + MemoryService stubs
       { classifyAndRoute: async () => ({ intent: 'unknown', confidence: 0.5, activeTools: [] }), expandForFollowUp: () => [] } as any,
       { getSkillsForIntent: () => '' } as any, // SkillsLoaderService

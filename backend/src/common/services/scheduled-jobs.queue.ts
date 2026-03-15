@@ -53,6 +53,12 @@ export enum ScheduledJobType {
 
   // Log rotation
   LOG_ROTATION = 'log-rotation',
+
+  // Telegram reminder system
+  TELEGRAM_SLOT_MATTINA = 'telegram-slot-mattina',
+  TELEGRAM_SLOT_POMERIGGIO = 'telegram-slot-pomeriggio',
+  TELEGRAM_SLOT_SERA = 'telegram-slot-sera',
+  REMINDER_EMAIL_MONITOR = 'reminder-email-monitor',
 }
 
 /**
@@ -72,6 +78,11 @@ export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.ORPHAN_EMBEDDING_CLEANUP]: '0 2 * * 0', // Weekly on Sunday at 2 AM
   [ScheduledJobType.MEMORY_CLEANUP]: '0 1 * * *', // Daily at 1 AM - cleanup expired memories
   [ScheduledJobType.LOG_ROTATION]: '0 0 * * *', // Daily at midnight
+  // Telegram reminder system
+  [ScheduledJobType.TELEGRAM_SLOT_MATTINA]: '30 8 * * *', // 08:30 daily
+  [ScheduledJobType.TELEGRAM_SLOT_POMERIGGIO]: '0 14 * * *', // 14:00 daily
+  [ScheduledJobType.TELEGRAM_SLOT_SERA]: '0 18 * * *', // 18:00 daily
+  [ScheduledJobType.REMINDER_EMAIL_MONITOR]: '*/5 * * * *', // Every 5 minutes
 };
 
 export interface ScheduledJobData {

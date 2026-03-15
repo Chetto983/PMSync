@@ -26,6 +26,7 @@ import {
 } from '@/lib/api/emails';
 import { emailKeys } from './email-keys';
 import { folderKeys } from './use-folders';
+import { labelKeys } from './use-labels';
 import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
@@ -586,6 +587,7 @@ export function useBulkAddLabels() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.addLabelsFailed);
@@ -606,6 +608,7 @@ export function useBulkRemoveLabels() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.removeLabelsFailed);

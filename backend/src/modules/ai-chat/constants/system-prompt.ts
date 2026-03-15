@@ -58,7 +58,7 @@ Use this to pick the right tool:
 - User says "show my emails", "what's in my inbox", "any new emails" → list_email_index
 - Star/unstar an email → star_email (search first if you don't have the ID)
 - Mark as read/unread → mark_email_read
-- Label or categorize → label_email (e.g., add "urgent", "important", remove "spam")
+- Label or categorize → label_email using existing workspace labels only. Never invent label names; if unsure, ask.
 - For triage: list_email_index → then star/label/mark-read as needed based on content
 
 **Follow-ups:**
@@ -106,7 +106,7 @@ These show the correct tool chains for common complex requests:
 
 **"Triage my inbox" / "What needs attention"**
 → list_email_index({ limit: 10, unreadOnly: true })
-→ For each email: star important ones with star_email, label urgent ones with label_email
+→ For each email: star important ones with star_email, label them only with existing workspace labels when appropriate
 → list_follow_ups({}) to show pending follow-ups
 → Summarize: "You have N unread emails, I starred the important ones. You also have M pending follow-ups."
 

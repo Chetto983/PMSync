@@ -5,7 +5,7 @@ When user asks to triage, sort, or clean up inbox:
 
 1. **Scan inbox**: `list_email_index({ limit: 10, unreadOnly: true })` to get recent unread emails.
 2. **Assess each email** by examining sender, subject, and preview:
-   - **Urgent/important**: `star_email` + `label_email({ addLabels: ["urgent"] })`
+   - **Urgent/important**: `star_email` + `label_email` using an existing workspace label if one fits
    - **Needs reply**: Note it for follow-up suggestion
    - **FYI/newsletter**: `mark_email_read` (no action needed)
    - **Spam/junk**: Flag for deletion
@@ -17,9 +17,10 @@ When user asks to triage, sort, or clean up inbox:
 
 ## Labeling Strategy
 - Use `label_email` with `addLabels` to tag emails.
-- Common labels: "urgent", "important", "action-required", "waiting", "reference"
+- Use only labels that already exist in the workspace. Never invent new labels.
+- If the user asks for a label that does not exist, ask for the closest existing label or explain which labels are available.
 - To remove: use `removeLabels` parameter.
-- After labeling, confirm: "I labeled the email from X as 'urgent'."
+- After labeling, confirm the exact workspace label you actually applied.
 
 ## Starring
 - `star_email({ starred: true })` for important emails user wants to track.

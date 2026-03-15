@@ -19,8 +19,11 @@ import {
   useEmails,
   useSendEmail,
   useUpdateEmail,
+  useBulkAddLabels,
+  useBulkRemoveLabels,
 } from './use-emails';
 import { emailKeys } from './email-keys';
+import { labelKeys } from './use-labels';
 import { emailsApi } from '@/lib/api/emails';
 
 jest.mock('@/lib/api/emails', () => ({
@@ -214,5 +217,47 @@ describe('useUpdateEmail mutation', () => {
       await result.current.mutateAsync({ emailId: 'e1', dto: { isRead: true } });
     });
     expect(emailsApi.updateEmail).toHaveBeenCalledWith('e1', { isRead: true });
+  });
+});
+
+describe('bulk label mutations', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('invalidates labels list after bulk add labels', async () => {
+    (emailsApi.bulkAddLabels as jest.Mock).mockResolvedValue({ updated: 1 });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+    });
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useBulkAddLabels(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ emailIds: ['e1'], labelIds: ['l1'] });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: labelKeys.lists() });
+  });
+
+  it('invalidates labels list after bulk remove labels', async () => {
+    (emailsApi.bulkRemoveLabels as jest.Mock).mockResolvedValue({ updated: 1 });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+    });
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useBulkRemoveLabels(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ emailIds: ['e1'], labelIds: ['l1'] });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: labelKeys.lists() });
   });
 });

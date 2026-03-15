@@ -117,5 +117,21 @@ export { usersApi } from './users';
 export { crmApi } from './crm';
 export type { ContactRelationshipStats, StaleContactsParams } from './crm';
 
+export { remindersApi, telegramApi } from './reminders';
+export type {
+  Reminder,
+  ReminderPeriodo,
+  ReminderAzione,
+  ReminderPriorita,
+  ReminderCondizioneTipo,
+  ReminderStatus,
+  CreateReminderDto,
+  UpdateReminderDto,
+  ListRemindersParams,
+  ListRemindersResponse,
+  TelegramSettings,
+  UpdateTelegramSettingsDto,
+} from './reminders';
+
 // Export the base API client for custom requests
 export { apiClient } from '../api-client';

@@ -319,6 +319,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       { getTools: () => ({}) } as any, // ConversationToolsService
       { getTools: () => ({}) } as any, // SandboxToolsService
       { getTools: () => ({}) } as any, // ProductivityToolsService
+      { getTools: () => ({}) } as any, // ReminderToolsService
       intentRouterService,
       { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       memoryService,
