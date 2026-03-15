@@ -6,7 +6,11 @@
  */
 
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ProviderConfig } from '@prisma/client';
+import axios from 'axios';
+import { calendar_v3, google } from 'googleapis';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
 // ============================================================================
@@ -23,6 +27,7 @@ export interface CalendarInfo {
   eventCount: number;
   backgroundColor?: string;
   primary?: boolean;
+  removable?: boolean;
 }
 
 export interface CreateCalendarDto {
@@ -46,6 +51,14 @@ interface CalendarPref {
   isVisible: boolean;
 }
 
+interface RemoteCalendarInfo {
+  calendarId: string;
+  calendarName: string;
+  primary: boolean;
+  removable: boolean;
+  backgroundColor?: string;
+}
+
 // ============================================================================
 // SERVICE
 // ============================================================================
@@ -53,9 +66,11 @@ interface CalendarPref {
 @Injectable()
 export class CalendarListService {
   private readonly logger = new Logger(CalendarListService.name);
+  private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly providerTokenService: ProviderTokenService,
     private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
@@ -113,7 +128,7 @@ export class CalendarListService {
       },
     });
 
-    // Build calendars map from single query result
+    // Build calendars map from local DB state first.
     const calendarsMap = new Map<
       string,
       {
@@ -125,6 +140,7 @@ export class CalendarListService {
         eventCount: number;
         primary: boolean;
         backgroundColor?: string;
+        removable: boolean;
       }
     >();
 
@@ -146,6 +162,7 @@ export class CalendarListService {
         eventCount: cal._count.id,
         primary: cal.calendarId === 'primary',
         backgroundColor: pref?.color || undefined,
+        removable: cal.calendarId !== 'primary',
       });
     }
 
@@ -163,6 +180,7 @@ export class CalendarListService {
           eventCount: 0,
           primary: true,
           backgroundColor: pref?.color || undefined,
+          removable: false,
         });
       }
     }
@@ -183,8 +201,56 @@ export class CalendarListService {
             eventCount: 0,
             primary: pref.calendarId === 'primary',
             backgroundColor: pref.color || undefined,
+            removable: pref.calendarId !== 'primary',
           });
         }
+      }
+    }
+
+    // Overlay remote provider calendars so zero-event calendars and provider-native
+    // metadata are reflected accurately in the UI.
+    const remoteCalendarsByProvider = await Promise.all(
+      providers.map(async (provider) => {
+        try {
+          const calendars = await this.listProviderCalendars(tenantId, provider);
+          return [provider.id, calendars] as const;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `Failed to fetch remote calendars for provider ${provider.id}: ${message}`,
+          );
+          return [provider.id, [] as RemoteCalendarInfo[]] as const;
+        }
+      }),
+    );
+
+    for (const [providerId, remoteCalendars] of remoteCalendarsByProvider) {
+      const provider = providerMap.get(providerId);
+      if (!provider) {
+        continue;
+      }
+
+      for (const remote of remoteCalendars) {
+        const key = `${providerId}:${remote.calendarId}`;
+        const pref = prefMap.get(key);
+        const existing = calendarsMap.get(key);
+
+        calendarsMap.set(key, {
+          calendarId: remote.calendarId,
+          calendarName:
+            pref?.displayName ||
+            remote.calendarName ||
+            existing?.calendarName ||
+            remote.calendarId,
+          providerId,
+          providerEmail: provider.email || '',
+          providerType: provider.providerType,
+          eventCount: existing?.eventCount || 0,
+          primary: remote.primary,
+          backgroundColor:
+            pref?.color || remote.backgroundColor || existing?.backgroundColor,
+          removable: remote.removable,
+        });
       }
     }
 
@@ -212,62 +278,44 @@ export class CalendarListService {
   async createCalendar(
     tenantId: string,
     data: CreateCalendarDto,
-  ): Promise<{
-    id: string;
-    calendarId: string;
-    calendarName: string;
-    providerId: string;
-    color?: string;
-  }> {
-    // Verify provider belongs to tenant
-    const provider = await this.prisma.providerConfig.findFirst({
+  ): Promise<CalendarInfo> {
+    const { provider, accessToken } = await this.getProviderWithToken(tenantId, data.providerId);
+    const remoteCalendar =
+      provider.providerType === 'google'
+        ? await this.createGoogleCalendar(accessToken, data)
+        : await this.createMicrosoftCalendar(accessToken, data);
+
+    await (this.prisma as any).calendarPreference.upsert({
       where: {
-        id: data.providerId,
-        tenantId,
-        supportsCalendar: true,
-        isActive: true,
+        tenantId_providerId_calendarId: {
+          tenantId,
+          providerId: provider.id,
+          calendarId: remoteCalendar.calendarId,
+        },
       },
-    });
-
-    if (!provider) {
-      throw new NotFoundException('Provider not found or does not support calendar');
-    }
-
-    // Generate a unique calendar ID
-    const calendarId = `custom-${data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`;
-
-    // Check if calendar name already exists for this provider
-    const existing = await this.prisma.calendarEvent.findFirst({
-      where: {
-        providerId: data.providerId,
-        calendarName: data.name,
-      },
-    });
-
-    if (existing) {
-      throw new BadRequestException('Calendar with this name already exists');
-    }
-
-    // Persist calendar to CalendarPreference table so it shows up in listCalendars
-    // This ensures the calendar persists even before any events are added
-    await (this.prisma as any).calendarPreference.create({
-      data: {
-        tenantId,
-        providerId: data.providerId,
-        calendarId,
+      update: {
         color: data.color || null,
-        displayName: data.name,
+        displayName: remoteCalendar.calendarName,
+        isVisible: true,
+      },
+      create: {
+        tenantId,
+        providerId: provider.id,
+        calendarId: remoteCalendar.calendarId,
+        color: data.color || null,
+        displayName: remoteCalendar.calendarName,
         isVisible: true,
       },
     });
 
-    this.logger.log(`Created calendar "${data.name}" (${calendarId}) for provider ${data.providerId}`);
+    this.logger.log(
+      `Created provider calendar "${remoteCalendar.calendarName}" (${remoteCalendar.calendarId}) for provider ${provider.id}`,
+    );
 
-    // Emit real-time event
     this.realtimeEvents.emitCalendarListUpdate(tenantId, {
-      calendarId,
-      calendarName: data.name,
-      providerId: data.providerId,
+      calendarId: remoteCalendar.calendarId,
+      calendarName: remoteCalendar.calendarName,
+      providerId: provider.id,
       providerEmail: provider.email || undefined,
       color: data.color,
       reason: 'calendar-created',
@@ -275,11 +323,16 @@ export class CalendarListService {
     });
 
     return {
-      id: `${data.providerId}:${calendarId}`,
-      calendarId,
-      calendarName: data.name,
-      providerId: data.providerId,
-      color: data.color,
+      id: `${provider.id}:${remoteCalendar.calendarId}`,
+      calendarId: remoteCalendar.calendarId,
+      calendarName: remoteCalendar.calendarName,
+      providerId: provider.id,
+      providerEmail: provider.email || '',
+      providerType: provider.providerType,
+      eventCount: 0,
+      backgroundColor: data.color || remoteCalendar.backgroundColor,
+      primary: false,
+      removable: true,
     };
   }
 
@@ -292,16 +345,12 @@ export class CalendarListService {
     calendarId: string,
     data: UpdateCalendarPreferencesDto,
   ): Promise<{ success: boolean; calendarId: string; providerId: string; color?: string }> {
-    // Verify provider belongs to tenant
-    const provider = await this.prisma.providerConfig.findFirst({
-      where: {
-        id: providerId,
-        tenantId,
-      },
-    });
+    const { provider, accessToken } = await this.getProviderWithToken(tenantId, providerId);
 
-    if (!provider) {
-      throw new NotFoundException('Provider not found');
+    if (provider.providerType === 'google') {
+      await this.updateGoogleCalendar(accessToken, calendarId, data);
+    } else if (provider.providerType === 'microsoft') {
+      await this.updateMicrosoftCalendar(accessToken, calendarId, data);
     }
 
     // Update calendarName on all events with this calendarId if name is provided
@@ -362,5 +411,346 @@ export class CalendarListService {
       providerId,
       color: data.color,
     };
+  }
+
+  /**
+   * Delete a calendar from the provider and hide its local events immediately.
+   */
+  async deleteCalendar(
+    tenantId: string,
+    providerId: string,
+    calendarId: string,
+  ): Promise<{ success: boolean; calendarId: string; providerId: string }> {
+    const { provider, accessToken } = await this.getProviderWithToken(tenantId, providerId);
+
+    if (provider.providerType === 'google') {
+      await this.deleteGoogleCalendar(accessToken, calendarId);
+    } else if (provider.providerType === 'microsoft') {
+      await this.deleteMicrosoftCalendar(accessToken, calendarId);
+    }
+
+    await Promise.all([
+      (this.prisma as any).calendarPreference.deleteMany({
+        where: {
+          tenantId,
+          providerId,
+          calendarId,
+        },
+      }),
+      this.prisma.calendarSyncState.deleteMany({
+        where: {
+          tenantId,
+          providerId,
+          calendarId,
+        },
+      }),
+      this.prisma.calendarEvent.updateMany({
+        where: {
+          tenantId,
+          providerId,
+          calendarId,
+          isDeleted: false,
+        },
+        data: {
+          isDeleted: true,
+          isCancelled: true,
+          status: 'cancelled',
+          lastSyncedAt: new Date(),
+        },
+      }),
+    ]);
+
+    this.realtimeEvents.emitCalendarListUpdate(tenantId, {
+      calendarId,
+      calendarName: calendarId,
+      providerId,
+      providerEmail: provider.email || undefined,
+      reason: 'calendar-deleted',
+      timestamp: new Date().toISOString(),
+    });
+
+    this.logger.log(`Deleted calendar ${calendarId} for provider ${providerId}`);
+
+    return {
+      success: true,
+      calendarId,
+      providerId,
+    };
+  }
+
+  private async getProviderWithToken(tenantId: string, providerId: string): Promise<{
+    provider: ProviderConfig;
+    accessToken: string;
+  }> {
+    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+      providerId,
+      tenantId,
+    );
+
+    if (!provider.supportsCalendar || !provider.isActive) {
+      throw new NotFoundException('Provider not found or does not support calendar');
+    }
+
+    return { provider, accessToken };
+  }
+
+  private async listProviderCalendars(
+    tenantId: string,
+    provider: Pick<ProviderConfig, 'id' | 'providerType'>,
+  ): Promise<RemoteCalendarInfo[]> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(
+      provider.id,
+      tenantId,
+    );
+
+    if (provider.providerType === 'google') {
+      return this.listGoogleCalendars(accessToken);
+    }
+
+    if (provider.providerType === 'microsoft') {
+      return this.listMicrosoftCalendars(accessToken);
+    }
+
+    return [];
+  }
+
+  private async listGoogleCalendars(accessToken: string): Promise<RemoteCalendarInfo[]> {
+    const client = this.createGoogleCalendarClient(accessToken);
+    const calendars: RemoteCalendarInfo[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const response = await client.calendarList.list({
+        maxResults: 250,
+        pageToken,
+        fields:
+          'items(id,summary,summaryOverride,primary,backgroundColor,accessRole),nextPageToken',
+      });
+
+      for (const calendarItem of response.data.items || []) {
+        if (!calendarItem.id) {
+          continue;
+        }
+
+        calendars.push({
+          calendarId: calendarItem.id,
+          calendarName:
+            calendarItem.summaryOverride ||
+            calendarItem.summary ||
+            calendarItem.id,
+          primary: !!calendarItem.primary,
+          removable: !calendarItem.primary,
+          backgroundColor: calendarItem.backgroundColor || undefined,
+        });
+      }
+
+      pageToken = response.data.nextPageToken || undefined;
+    } while (pageToken);
+
+    return calendars;
+  }
+
+  private async listMicrosoftCalendars(accessToken: string): Promise<RemoteCalendarInfo[]> {
+    const response = await axios.get(`${this.GRAPH_API_BASE}/me/calendars`, {
+      headers: this.getGraphHeaders(accessToken),
+      params: {
+        $select: 'id,name,isDefaultCalendar,isRemovable,hexColor',
+      },
+    });
+
+    return (response.data.value || [])
+      .filter((calendar: { id?: string }) => !!calendar.id)
+      .map(
+        (calendar: {
+          id: string;
+          name?: string;
+          isDefaultCalendar?: boolean;
+          isRemovable?: boolean;
+          hexColor?: string;
+        }) => ({
+          calendarId: calendar.id,
+          calendarName: calendar.name || calendar.id,
+          primary: !!calendar.isDefaultCalendar,
+          removable:
+            calendar.isRemovable === undefined
+              ? !calendar.isDefaultCalendar
+              : !!calendar.isRemovable,
+          backgroundColor: this.normalizeHexColor(calendar.hexColor),
+        }),
+      );
+  }
+
+  private async createGoogleCalendar(
+    accessToken: string,
+    data: CreateCalendarDto,
+  ): Promise<RemoteCalendarInfo> {
+    const client = this.createGoogleCalendarClient(accessToken);
+    const response = await client.calendars.insert({
+      requestBody: {
+        summary: data.name,
+        description: data.description,
+      },
+    });
+
+    const calendarId = response.data.id;
+    if (!calendarId) {
+      throw new BadRequestException('Google Calendar did not return a calendar id');
+    }
+
+    const normalizedColor = this.normalizeHexColor(data.color);
+    if (normalizedColor) {
+      await client.calendarList.patch({
+        calendarId,
+        colorRgbFormat: true,
+        requestBody: {
+          backgroundColor: normalizedColor,
+        },
+      });
+    }
+
+    return {
+      calendarId,
+      calendarName: response.data.summary || data.name,
+      primary: false,
+      removable: true,
+      backgroundColor: normalizedColor,
+    };
+  }
+
+  private async createMicrosoftCalendar(
+    accessToken: string,
+    data: CreateCalendarDto,
+  ): Promise<RemoteCalendarInfo> {
+    const response = await axios.post(
+      `${this.GRAPH_API_BASE}/me/calendars`,
+      {
+        name: data.name,
+      },
+      {
+        headers: {
+          ...this.getGraphHeaders(accessToken),
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    return {
+      calendarId: response.data.id,
+      calendarName: response.data.name || data.name,
+      primary: false,
+      removable: true,
+      backgroundColor: this.normalizeHexColor(data.color),
+    };
+  }
+
+  private async updateGoogleCalendar(
+    accessToken: string,
+    calendarId: string,
+    data: UpdateCalendarPreferencesDto,
+  ): Promise<void> {
+    const client = this.createGoogleCalendarClient(accessToken);
+    const normalizedColor = this.normalizeHexColor(data.color);
+
+    if (data.name === undefined && normalizedColor === undefined) {
+      return;
+    }
+
+    await client.calendarList.patch({
+      calendarId,
+      colorRgbFormat: normalizedColor ? true : undefined,
+      requestBody: {
+        ...(data.name !== undefined ? { summaryOverride: data.name } : {}),
+        ...(normalizedColor ? { backgroundColor: normalizedColor } : {}),
+      },
+    });
+  }
+
+  private async updateMicrosoftCalendar(
+    accessToken: string,
+    calendarId: string,
+    data: UpdateCalendarPreferencesDto,
+  ): Promise<void> {
+    if (data.name === undefined) {
+      return;
+    }
+
+    await axios.patch(
+      `${this.GRAPH_API_BASE}/me/calendars/${encodeURIComponent(calendarId)}`,
+      {
+        name: data.name,
+      },
+      {
+        headers: {
+          ...this.getGraphHeaders(accessToken),
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+  }
+
+  private async deleteGoogleCalendar(accessToken: string, calendarId: string): Promise<void> {
+    const client = this.createGoogleCalendarClient(accessToken);
+
+    if (calendarId === 'primary') {
+      throw new BadRequestException('Primary Google calendar cannot be deleted');
+    }
+
+    let accessRole: string | undefined;
+    try {
+      const calendarEntry = await client.calendarList.get({ calendarId });
+      accessRole = calendarEntry.data.accessRole || undefined;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to inspect Google calendar ${calendarId} before delete: ${message}`);
+    }
+
+    if (accessRole && accessRole !== 'owner') {
+      await client.calendarList.delete({ calendarId });
+      return;
+    }
+
+    await client.calendars.delete({ calendarId });
+  }
+
+  private async deleteMicrosoftCalendar(accessToken: string, calendarId: string): Promise<void> {
+    const metadataResponse = await axios.get(
+      `${this.GRAPH_API_BASE}/me/calendars/${encodeURIComponent(calendarId)}`,
+      {
+        headers: this.getGraphHeaders(accessToken),
+        params: {
+          $select: 'id,isDefaultCalendar,isRemovable',
+        },
+      },
+    );
+
+    if (metadataResponse.data?.isDefaultCalendar || metadataResponse.data?.isRemovable === false) {
+      throw new BadRequestException('This Microsoft calendar cannot be deleted');
+    }
+
+    await axios.delete(`${this.GRAPH_API_BASE}/me/calendars/${encodeURIComponent(calendarId)}`, {
+      headers: this.getGraphHeaders(accessToken),
+    });
+  }
+
+  private createGoogleCalendarClient(accessToken: string): calendar_v3.Calendar {
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    return google.calendar({ version: 'v3', auth: oauth2Client });
+  }
+
+  private getGraphHeaders(accessToken: string): Record<string, string> {
+    return {
+      Authorization: `Bearer ${accessToken}`,
+      'client-request-id': crypto.randomUUID(),
+    };
+  }
+
+  private normalizeHexColor(color?: string | null): string | undefined {
+    if (!color) {
+      return undefined;
+    }
+
+    const normalized = color.startsWith('#') ? color : `#${color}`;
+    return /^#[0-9A-Fa-f]{6}$/.test(normalized) ? normalized.toUpperCase() : undefined;
   }
 }

@@ -157,6 +157,25 @@ export class CalendarController {
   }
 
   /**
+   * Delete a calendar
+   * DELETE /api/calendar/calendars/:providerId/:calendarId
+   */
+  @Delete('calendars/:providerId/:calendarId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete calendar', description: 'Deletes a provider calendar' })
+  @ApiParam({ name: 'providerId', description: 'Provider ID' })
+  @ApiParam({ name: 'calendarId', description: 'Calendar ID' })
+  @ApiResponse({ status: 200, description: 'Calendar deleted successfully' })
+  async deleteCalendar(
+    @Req() req: any,
+    @Param('providerId') providerId: string,
+    @Param('calendarId') calendarId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.calendarService.deleteCalendar(tenantId, providerId, calendarId);
+  }
+
+  /**
    * List calendar events
    * GET /api/calendar/events
    */

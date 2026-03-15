@@ -190,6 +190,19 @@ export function useCalendarData(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleCalendarsRefresh = () => {
+      void loadData(false);
+    };
+
+    window.addEventListener('calendars:refresh', handleCalendarsRefresh as EventListener);
+    return () => {
+      window.removeEventListener('calendars:refresh', handleCalendarsRefresh as EventListener);
+    };
+  }, [loadData]);
+
   // Update calendar header on mount and view change
   useEffect(() => {
     updateCalendarHeader();

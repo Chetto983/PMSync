@@ -407,9 +407,41 @@ export function useUpdateCalendarPreferences() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: calendarKeys.calendars() });
+      queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
     },
     onError: (error, variables) => {
       logger.error('Failed to update calendar preferences', {
+        error: error instanceof Error ? error.message : String(error),
+        providerId: variables.providerId,
+        calendarId: variables.calendarId,
+      });
+    },
+  });
+}
+
+/**
+ * Hook for deleting calendars
+ */
+export function useDeleteCalendar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      providerId,
+      calendarId,
+    }: {
+      providerId: string;
+      calendarId: string;
+    }) => {
+      const response = await calendarApi.deleteCalendar(providerId, calendarId);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: calendarKeys.calendars() });
+      queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
+    },
+    onError: (error, variables) => {
+      logger.error('Failed to delete calendar', {
         error: error instanceof Error ? error.message : String(error),
         providerId: variables.providerId,
         calendarId: variables.calendarId,

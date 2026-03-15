@@ -144,6 +144,7 @@ export type CalendarInfo = {
   eventCount: number;
   backgroundColor?: string;
   primary?: boolean;
+  removable?: boolean;
 };
 
 export type CalendarListResponse = {
@@ -254,6 +255,16 @@ export const calendarApi = {
     return apiClient.patch<{ success: boolean; calendarId: string; providerId: string; color?: string }>(
       `/calendar/calendars/${providerId}/${encodeURIComponent(calendarId)}`,
       data
+    );
+  },
+
+  /**
+   * Delete a calendar
+   * DELETE /calendar/calendars/:providerId/:calendarId
+   */
+  deleteCalendar(providerId: string, calendarId: string) {
+    return apiClient.delete<{ success: boolean; calendarId: string; providerId: string }>(
+      `/calendar/calendars/${providerId}/${encodeURIComponent(calendarId)}`
     );
   },
 

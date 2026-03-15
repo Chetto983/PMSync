@@ -11,17 +11,24 @@
  * @see https://fullcalendar.io/docs
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Box,
   Typography,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
   Checkbox,
+  CircularProgress,
   IconButton,
+  MenuItem,
+  Stack,
   TextField,
   Tooltip,
   Accordion,
@@ -30,10 +37,11 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Plus, Sparkles, ChevronDown, Palette } from 'lucide-react';
+import { Plus, Sparkles, ChevronDown, Palette, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { CalendarColorPicker } from './CalendarColorPicker';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 // ============================================================================
 // INTERFACES
@@ -48,6 +56,8 @@ export interface CalendarPreference {
   providerType: string;
   color: string;
   enabled: boolean;
+  primary?: boolean;
+  removable?: boolean;
 }
 
 export interface ProviderGroup {
@@ -67,6 +77,15 @@ interface CalendarSidebarProps {
   onQuickEvent: () => void;
   /** Handler for opening create event dialog */
   onOpenEventDialog: () => void;
+  /** Handler for creating a new calendar */
+  onCreateCalendar: (data: {
+    providerId: string;
+    name: string;
+    description?: string;
+    color?: string;
+  }) => Promise<void>;
+  /** Handler for deleting a calendar */
+  onDeleteCalendar: (providerId: string, calendarId: string) => Promise<void>;
   /** Provider groups with calendars */
   providerGroups: ProviderGroup[];
   /** Calendar preferences map */
@@ -102,6 +121,8 @@ export function CalendarSidebar({
   onQuickEventTextChange,
   onQuickEvent,
   onOpenEventDialog,
+  onCreateCalendar,
+  onDeleteCalendar,
   providerGroups,
   calendarPrefs,
   onToggleCalendar,
@@ -119,6 +140,25 @@ export function CalendarSidebar({
   const theme = useTheme();
   const t = useTranslations();
   const calendarCopy = t.calendar;
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [isCreatingCalendar, setIsCreatingCalendar] = useState(false);
+  const [isDeletingCalendar, setIsDeletingCalendar] = useState(false);
+  const [calendarName, setCalendarName] = useState('');
+  const [calendarDescription, setCalendarDescription] = useState('');
+  const [calendarColor, setCalendarColor] = useState('#0B7EFF');
+  const [calendarProviderId, setCalendarProviderId] = useState('');
+  const [calendarFormError, setCalendarFormError] = useState('');
+  const [calendarToDelete, setCalendarToDelete] = useState<CalendarPreference | null>(null);
+
+  const providerOptions = useMemo(
+    () =>
+      providerGroups.map((group) => ({
+        providerId: group.providerId,
+        providerEmail: group.providerEmail,
+        providerType: group.providerType,
+      })),
+    [providerGroups]
+  );
 
   // Handle color selection from picker
   const handleColorSelect = useCallback(
@@ -138,6 +178,63 @@ export function CalendarSidebar({
     onOpenEventDialog();
     onCloseMobileDrawer?.();
   }, [onOpenEventDialog, onCloseMobileDrawer]);
+
+  const handleOpenCreateCalendarDialog = useCallback(() => {
+    setCalendarProviderId(providerOptions[0]?.providerId ?? '');
+    setCalendarName('');
+    setCalendarDescription('');
+    setCalendarColor('#0B7EFF');
+    setCalendarFormError('');
+    setCreateDialogOpen(true);
+    onCloseMobileDrawer?.();
+  }, [onCloseMobileDrawer, providerOptions]);
+
+  const handleCreateCalendar = useCallback(async () => {
+    if (!calendarName.trim()) {
+      setCalendarFormError(calendarCopy.calendarNameRequired);
+      return;
+    }
+
+    if (!calendarProviderId) {
+      setCalendarFormError(calendarCopy.providerRequired);
+      return;
+    }
+
+    setIsCreatingCalendar(true);
+    try {
+      await onCreateCalendar({
+        providerId: calendarProviderId,
+        name: calendarName.trim(),
+        description: calendarDescription.trim() || undefined,
+        color: calendarColor,
+      });
+      setCreateDialogOpen(false);
+    } finally {
+      setIsCreatingCalendar(false);
+    }
+  }, [
+    calendarColor,
+    calendarCopy.calendarNameRequired,
+    calendarCopy.providerRequired,
+    calendarDescription,
+    calendarName,
+    calendarProviderId,
+    onCreateCalendar,
+  ]);
+
+  const handleConfirmDeleteCalendar = useCallback(async () => {
+    if (!calendarToDelete) {
+      return;
+    }
+
+    setIsDeletingCalendar(true);
+    try {
+      await onDeleteCalendar(calendarToDelete.providerId, calendarToDelete.calendarId);
+      setCalendarToDelete(null);
+    } finally {
+      setIsDeletingCalendar(false);
+    }
+  }, [calendarToDelete, onDeleteCalendar]);
 
   return (
     <>
@@ -166,25 +263,42 @@ export function CalendarSidebar({
             },
           }}
         />
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={<Plus size={18} />}
-          onClick={handleOpenEventDialog}
-          sx={{
-            minHeight: 48,
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.3)}`,
-            '&:hover': {
-              boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-            },
-          }}
-        >
-          {calendarCopy.createEvent}
-        </Button>
+        <Stack spacing={1}>
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={<Plus size={18} />}
+            onClick={handleOpenEventDialog}
+            sx={{
+              minHeight: 48,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.3)}`,
+              '&:hover': {
+                boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+              },
+            }}
+          >
+            {calendarCopy.createEvent}
+          </Button>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<Plus size={16} />}
+            onClick={handleOpenCreateCalendarDialog}
+            disabled={providerOptions.length === 0}
+            sx={{
+              minHeight: 42,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            {calendarCopy.createCalendarAction}
+          </Button>
+        </Stack>
       </Box>
 
       {/* Calendars - Grouped by Provider */}
@@ -256,22 +370,42 @@ export function CalendarSidebar({
                       },
                     }}
                     secondaryAction={
-                      <Tooltip title={calendarCopy.colorPicker?.title || 'Change color'}>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => onOpenColorPicker(e, cal.id)}
-                          sx={{
-                            p: 0.5,
-                            color: 'text.secondary',
-                            '&:hover': {
-                              bgcolor: alpha(theme.palette.primary.main, 0.1),
-                              color: 'primary.main',
-                            },
-                          }}
-                        >
-                          <Palette size={14} />
-                        </IconButton>
-                      </Tooltip>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Tooltip title={calendarCopy.colorPicker?.title || 'Change color'}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => onOpenColorPicker(e, cal.id)}
+                            sx={{
+                              p: 0.5,
+                              color: 'text.secondary',
+                              '&:hover': {
+                                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                color: 'primary.main',
+                              },
+                            }}
+                          >
+                            <Palette size={14} />
+                          </IconButton>
+                        </Tooltip>
+                        {cal.removable !== false && (
+                          <Tooltip title={calendarCopy.deleteCalendarAction}>
+                            <IconButton
+                              size="small"
+                              onClick={() => setCalendarToDelete(cal)}
+                              sx={{
+                                p: 0.5,
+                                color: 'text.secondary',
+                                '&:hover': {
+                                  bgcolor: alpha(theme.palette.error.main, 0.1),
+                                  color: 'error.main',
+                                },
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     }
                   >
                     <ListItemIcon sx={{ minWidth: 32 }}>
@@ -381,6 +515,93 @@ export function CalendarSidebar({
         onColorSelect={handleColorSelect}
         onClose={onCloseColorPicker}
         anchorEl={colorPickerAnchor}
+      />
+
+      <Dialog
+        open={createDialogOpen}
+        onClose={() => !isCreatingCalendar && setCreateDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>{calendarCopy.createCalendarDialogTitle}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2}>
+            <TextField
+              select
+              fullWidth
+              label={calendarCopy.providerLabel}
+              value={calendarProviderId}
+              onChange={(event) => {
+                setCalendarProviderId(event.target.value);
+                setCalendarFormError('');
+              }}
+            >
+              {providerOptions.map((provider) => (
+                <MenuItem key={provider.providerId} value={provider.providerId}>
+                  {provider.providerEmail}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              label={calendarCopy.calendarNameLabel}
+              value={calendarName}
+              onChange={(event) => {
+                setCalendarName(event.target.value);
+                setCalendarFormError('');
+              }}
+              error={!!calendarFormError}
+              helperText={calendarFormError || ' '}
+            />
+            <TextField
+              fullWidth
+              label={calendarCopy.calendarDescriptionLabel}
+              value={calendarDescription}
+              onChange={(event) => setCalendarDescription(event.target.value)}
+              multiline
+              minRows={3}
+            />
+            <TextField
+              fullWidth
+              type="color"
+              label={calendarCopy.calendarColorLabel}
+              value={calendarColor}
+              onChange={(event) => setCalendarColor(event.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCreateDialogOpen(false)} disabled={isCreatingCalendar} color="inherit">
+            {calendarCopy.cancelEvent}
+          </Button>
+          <Button
+            onClick={handleCreateCalendar}
+            disabled={isCreatingCalendar || providerOptions.length === 0}
+            variant="contained"
+            startIcon={
+              isCreatingCalendar ? <CircularProgress size={16} color="inherit" /> : <Plus size={16} />
+            }
+          >
+            {calendarCopy.createCalendarAction}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!calendarToDelete}
+        onClose={() => setCalendarToDelete(null)}
+        onConfirm={handleConfirmDeleteCalendar}
+        title={calendarCopy.deleteCalendarAction}
+        message={
+          calendarToDelete
+            ? calendarCopy.deleteCalendarConfirm.replace('{name}', calendarToDelete.calendarName)
+            : ''
+        }
+        confirmText={calendarCopy.deleteCalendarAction}
+        cancelText={calendarCopy.cancelEvent}
+        isLoading={isDeletingCalendar}
+        variant="danger"
       />
     </>
   );

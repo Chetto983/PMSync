@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import {
   useCalendars,
+  useCreateCalendar,
+  useDeleteCalendar,
   useUpdateCalendarPreferences,
 } from '@/hooks/queries/use-calendar';
 import {
@@ -14,12 +16,19 @@ import { CALENDAR_COLORS, CALENDAR_PREFS_KEY } from './calendar-constants';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useCalendarPreferences(calendarCopy: any) {
   const { data: calendarsData, refetch: refetchCalendars } = useCalendars();
+  const createCalendarMutation = useCreateCalendar();
+  const deleteCalendarMutation = useDeleteCalendar();
   const updatePreferencesMutation = useUpdateCalendarPreferences();
 
   const [calendarPrefs, setCalendarPrefs] = useState<Map<string, CalendarPreference>>(new Map());
   const [providerGroups, setProviderGroups] = useState<ProviderGroup[]>([]);
   const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
   const [colorPickerCalendarId, setColorPickerCalendarId] = useState<string | null>(null);
+
+  const dispatchCalendarRefresh = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('calendars:refresh'));
+  }, []);
 
   // Load UI-only preferences from localStorage (enabled state)
   const loadEnabledState = useCallback((): Record<string, boolean> => {
@@ -111,6 +120,8 @@ export function useCalendarPreferences(calendarCopy: any) {
         providerType: cal.providerType,
         color: cal.backgroundColor || CALENDAR_COLORS[index % CALENDAR_COLORS.length],
         enabled: savedEnabled[key] ?? true,
+        primary: cal.primary ?? false,
+        removable: cal.removable ?? !(cal.primary ?? false),
       });
     });
     setCalendarPrefs(newPrefs);
@@ -202,6 +213,67 @@ export function useCalendarPreferences(calendarCopy: any) {
     [updateCalendarColor]
   );
 
+  const handleCreateCalendar = useCallback(
+    async ({
+      providerId,
+      name,
+      description,
+      color,
+    }: {
+      providerId: string;
+      name: string;
+      description?: string;
+      color?: string;
+    }) => {
+      try {
+        await createCalendarMutation.mutateAsync({
+          providerId,
+          name,
+          description,
+          color,
+        });
+        setSnackbar({
+          open: true,
+          message: calendarCopy.calendarCreated,
+          severity: 'success',
+        });
+        dispatchCalendarRefresh();
+      } catch (error) {
+        logger.error('Failed to create calendar', { error });
+        setSnackbar({
+          open: true,
+          message: calendarCopy.failedToCreateCalendar,
+          severity: 'error',
+        });
+        throw error;
+      }
+    },
+    [calendarCopy, createCalendarMutation, dispatchCalendarRefresh]
+  );
+
+  const handleDeleteCalendar = useCallback(
+    async (providerId: string, calendarId: string) => {
+      try {
+        await deleteCalendarMutation.mutateAsync({ providerId, calendarId });
+        setSnackbar({
+          open: true,
+          message: calendarCopy.calendarDeleted,
+          severity: 'success',
+        });
+        dispatchCalendarRefresh();
+      } catch (error) {
+        logger.error('Failed to delete calendar', { error });
+        setSnackbar({
+          open: true,
+          message: calendarCopy.failedToDeleteCalendar,
+          severity: 'error',
+        });
+        throw error;
+      }
+    },
+    [calendarCopy, deleteCalendarMutation, dispatchCalendarRefresh]
+  );
+
   // Snackbar state (shared with parent via return)
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -226,5 +298,7 @@ export function useCalendarPreferences(calendarCopy: any) {
     handleOpenColorPicker,
     handleCloseColorPicker,
     handleColorSelect,
+    handleCreateCalendar,
+    handleDeleteCalendar,
   };
 }

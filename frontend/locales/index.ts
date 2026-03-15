@@ -1434,6 +1434,20 @@ export interface AppTranslations {
     eventDeleted: string;
     failedToDeleteEvent: string;
     failedToLoadEventDetails: string;
+    createCalendarAction: string;
+    createCalendarDialogTitle: string;
+    deleteCalendarAction: string;
+    deleteCalendarConfirm: string;
+    calendarNameLabel: string;
+    calendarNameRequired: string;
+    calendarDescriptionLabel: string;
+    calendarColorLabel: string;
+    providerLabel: string;
+    providerRequired: string;
+    calendarCreated: string;
+    failedToCreateCalendar: string;
+    calendarDeleted: string;
+    failedToDeleteCalendar: string;
     validation: {
       titleRequired: string;
       startRequired: string;

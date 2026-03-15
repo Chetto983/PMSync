@@ -54,13 +54,7 @@ export class CalendarService {
   async createCalendar(
     tenantId: string,
     data: CreateCalendarDto,
-  ): Promise<{
-    id: string;
-    calendarId: string;
-    calendarName: string;
-    providerId: string;
-    color?: string;
-  }> {
+  ): Promise<CalendarInfo> {
     return this.listService.createCalendar(tenantId, data);
   }
 
@@ -74,6 +68,17 @@ export class CalendarService {
     data: UpdateCalendarPreferencesDto,
   ): Promise<{ success: boolean; calendarId: string; providerId: string; color?: string }> {
     return this.listService.updateCalendarPreferences(tenantId, providerId, calendarId, data);
+  }
+
+  /**
+   * Delete a calendar from a provider.
+   */
+  async deleteCalendar(
+    tenantId: string,
+    providerId: string,
+    calendarId: string,
+  ): Promise<{ success: boolean; calendarId: string; providerId: string }> {
+    return this.listService.deleteCalendar(tenantId, providerId, calendarId);
   }
 
   // ============================================================================

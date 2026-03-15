@@ -62,6 +62,8 @@ export function Calendar() {
     handleOpenColorPicker,
     handleCloseColorPicker,
     handleColorSelect,
+    handleCreateCalendar,
+    handleDeleteCalendar,
   } = prefs;
 
   React.useEffect(() => {
@@ -128,6 +130,8 @@ export function Calendar() {
     onQuickEventTextChange: setQuickEventText,
     onQuickEvent: handleQuickEvent,
     onOpenEventDialog: () => setEventDialogOpen(true),
+    onCreateCalendar: handleCreateCalendar,
+    onDeleteCalendar: handleDeleteCalendar,
     providerGroups,
     calendarPrefs,
     onToggleCalendar: handleToggleCalendar,

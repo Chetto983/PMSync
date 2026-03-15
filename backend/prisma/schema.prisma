@@ -12,6 +12,7 @@ model Tenant {
   name                     String
   slug                     String                    @unique
   description              String?
+  metadata                 String?
   isActive                 Boolean                   @default(true)
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt

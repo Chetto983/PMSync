@@ -383,6 +383,7 @@ export function createBetterAuthInstance(
               name: 'name',
               slug: 'slug',
               logo: 'description', // Reuse description column for logo URL
+              metadata: 'metadata', // Required by better-auth organization plugin
             },
           },
         },
