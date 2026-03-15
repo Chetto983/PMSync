@@ -385,11 +385,16 @@ describe('EmailCrudService', () => {
     });
 
     it('should hard delete already-deleted email', async () => {
+      const actionQueueUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+
       mockPrismaService.$transaction.mockImplementation(async (callback) => {
         const tx = {
           $queryRaw: jest.fn().mockResolvedValue([
             { id: 'email-1', externalId: 'ext-1', providerId: 'provider-1', tenantId: 'tenant-1', folder: 'TRASH', isDeleted: true },
           ]),
+          actionQueue: {
+            updateMany: actionQueueUpdateMany,
+          },
           email: {
             delete: jest.fn().mockResolvedValue({}),
           },
@@ -400,6 +405,10 @@ describe('EmailCrudService', () => {
       const result = await service.deleteEmail('email-1', 'tenant-1');
 
       expect(result).toEqual({ success: true });
+      expect(actionQueueUpdateMany).toHaveBeenCalledWith({
+        where: { tenantId: 'tenant-1', emailId: 'email-1' },
+        data: { emailId: null },
+      });
       expect(mockEmailSyncBackService.syncOperationToProvider).toHaveBeenCalledWith(
         expect.objectContaining({ operation: 'hardDelete' }),
       );

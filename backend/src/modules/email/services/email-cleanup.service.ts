@@ -515,6 +515,11 @@ export class EmailCleanupService implements OnModuleInit {
 
     // 3. Delete email from database (cascade deletes EmailAttachment records)
     // RACE CONDITION FIX RC-4: Use deleteMany for idempotent delete (no error if already deleted)
+    await this.prisma.actionQueue.updateMany({
+      where: { tenantId, emailId: id },
+      data: { emailId: null },
+    });
+
     const deleteResult = await this.prisma.email.deleteMany({
       where: { id, tenantId },
     });
@@ -618,6 +623,11 @@ export class EmailCleanupService implements OnModuleInit {
     let s3Deleted = 0;
     let s3Failed = 0;
     const orphanedKeys: string[] = [];
+
+    await this.prisma.actionQueue.updateMany({
+      where: { tenantId, emailId: id },
+      data: { emailId: null },
+    });
 
     // Skip embedding delete — caller already handled it in bulk
 

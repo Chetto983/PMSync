@@ -355,6 +355,9 @@ describe('EmailBulkService', () => {
       prisma.email.findMany.mockResolvedValue(mockEmails);
       mockPrismaService.$transaction.mockImplementation(async (callback) => {
         return callback({
+          actionQueue: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
           email: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
             deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -383,6 +386,32 @@ describe('EmailBulkService', () => {
       await service.bulkDelete(['email-1', 'email-2'], 'tenant-1');
 
       expect(mockRealtimeEventsService.emitEmailDelete).toHaveBeenCalledTimes(2);
+    });
+
+    it('should clear action queue email references before hard delete', async () => {
+      const actionQueueUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        return callback({
+          actionQueue: {
+            updateMany: actionQueueUpdateMany,
+          },
+          email: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+        });
+      });
+
+      await service.bulkDelete(['email-1', 'email-2'], 'tenant-1');
+
+      expect(actionQueueUpdateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: 'tenant-1',
+          emailId: { in: ['email-2'] },
+        },
+        data: { emailId: null },
+      });
     });
 
     it('should sync delete operations to provider', async () => {
