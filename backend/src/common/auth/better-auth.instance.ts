@@ -355,7 +355,7 @@ export function createBetterAuthInstance(
         allowUserToCreateOrganization: async (user) => {
           return (user as any).role === 'super-admin';
         },
-        creatorRole: 'admin', // Flat role model: everyone is admin (ORG-03)
+        creatorRole: 'owner', // Creator needs owner role for delete/update operations
         membershipLimit: 100,
         invitationExpiresIn: 48 * 60 * 60, // 48 hours
         sendInvitationEmail: async (data) => {

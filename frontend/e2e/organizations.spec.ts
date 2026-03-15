@@ -14,6 +14,7 @@ const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL ?? 'member@pmsync.local';
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Organization flows', () => {
+  let originalOrgId: string | undefined;
   let createdOrgId: string | undefined;
   let invitationId: string | undefined;
 
@@ -53,6 +54,15 @@ test.describe('Organization flows', () => {
       waitUntil: 'networkidle',
     });
 
+    // Save the original active org so we can switch back after creation
+    const sessionRes = await page.request.get('/api/auth/get-session', {
+      headers: { Accept: 'application/json' },
+    });
+    if (sessionRes.ok()) {
+      const session = await sessionRes.json();
+      originalOrgId = (session as any)?.session?.activeOrganizationId;
+    }
+
     // Click "Create Organization" button
     const createBtn = page.getByRole('button', { name: /create organization/i });
     await expect(createBtn).toBeVisible({ timeout: 10_000 });
@@ -87,6 +97,16 @@ test.describe('Organization flows', () => {
     const created = (orgs as any[]).find((o: any) => o.name === ORG_NAME);
     expect(created).toBeTruthy();
     createdOrgId = created.id;
+
+    // Switch back to the original org to prevent onboarding redirect.
+    // better-auth org.create may auto-activate the new org, but the new org
+    // has no onboarding completed, which triggers a redirect.
+    if (originalOrgId) {
+      await page.request.post('/api/auth/organization/set-active', {
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        data: { organizationId: originalOrgId },
+      });
+    }
   });
 
   test('invite member by email', async ({ page }) => {
