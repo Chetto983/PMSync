@@ -11,6 +11,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { TelegramBotService } from './telegram-bot.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { AiChatService } from '../../ai-chat/services/ai-chat.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 interface TelegramUpdate {
   callback_query?: {
@@ -160,13 +161,19 @@ export class TelegramWebhookService {
     await this.telegramBot.sendChatAction(chatId, 'typing');
 
     try {
-      const stream = await this.aiChatService.streamChat({
-        tenantId: settings.tenantId,
-        userId: settings.userId,
-        message: text,
-      });
-
-      const responseText = await this.collectStreamText(stream);
+      // Run inside CorrelationContext so Prisma tenant-scoping middleware
+      // can resolve tenantId from AsyncLocalStorage (same pattern as workers/cron).
+      const responseText = await CorrelationContext.run(
+        { tenantId: settings.tenantId, userId: settings.userId },
+        async () => {
+          const stream = await this.aiChatService.streamChat({
+            tenantId: settings.tenantId,
+            userId: settings.userId,
+            message: text,
+          });
+          return this.collectStreamText(stream);
+        },
+      );
 
       if (!responseText.trim()) {
         await this.telegramBot.sendMessage(chatId, 'Nessuna risposta generata.');
