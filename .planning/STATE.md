@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
 status: in-progress
-stopped_at: Completed 77-02 (Frontend SDK-Native HITL Pivot)
-last_updated: "2026-03-18T15:00:25.346Z"
-last_activity: 2026-03-18 -- Roadmap created for v6.0
+stopped_at: Completed 77-01 (Backend Tool Governance Foundation)
+last_updated: "2026-03-18T16:10:00Z"
+last_activity: 2026-03-18 -- Completed 77-01 (governance metadata + HITL cleanup)
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 11
+  completed_plans: 2
+  percent: 22
 ---
 
 # Project State
@@ -26,27 +26,27 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 77 of 85 (AI Control Plane -- HITL & Tool Governance)
-Plan: 2 of 3 (77-02 complete)
+Plan: 2 of 3 (77-01 + 77-02 complete)
 Status: In progress
-Last activity: 2026-03-18 -- Completed 77-02 (Frontend SDK-Native HITL Pivot)
+Last activity: 2026-03-18 -- Completed 77-01 (Backend Tool Governance Foundation)
 
-Progress: [█░░░░░░░░░] 11%
+Progress: [██░░░░░░░░] 22%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (v6.0)
-- Average duration: 17min
-- Total execution time: 0.3 hours
+- Total plans completed: 2 (v6.0)
+- Average duration: 26min
+- Total execution time: 0.9 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 77 | 1 | 17min | 17min |
+| 77 | 2 | 52min | 26min |
 
 **Recent Trend:**
-- Last 5 plans: 17min
+- Last 5 plans: 17min, 35min
 - Trend: starting
 
 *Updated after each plan completion*
@@ -64,6 +64,8 @@ Recent decisions affecting current work:
 - [v6.0]: MUI chat migration (Phase 84) sequenced after AI remediation (Phase 82) to avoid concurrent chat surface edits
 - [77-02]: Kept PendingAction type and HITL API methods in ai.ts for Header/AiActionsBell compatibility (deferred cleanup)
 - [77-02]: Two type systems for tool states -- assistant-ui uses requires-action, AI SDK uses approval-requested
+- [77-01]: Governance fields optional in TypeScript but enforced at runtime by registerTool() -- keeps tsc green during incremental adoption
+- [77-01]: OnModuleInit pattern for tool governance registration at startup
 
 ### Pending Todos
 
@@ -71,13 +73,13 @@ None yet.
 
 ### Blockers/Concerns
 
-- In-progress HITL refactor in backend/src/modules/ai-chat/ -- uncommitted changes must be absorbed into Phase 77
+- RESOLVED: In-progress HITL refactor absorbed into Phase 77 (77-01 + 77-02)
 - Research flag: BullMQ OTel instrumentation package compatibility unverified (Phase 80)
 - Research flag: Memory store canonicalization needs codebase audit (Phase 82)
 - Research flag: Async HITL approval design for workflow steps unresolved (Phase 83)
 
 ## Session Continuity
 
-Last session: 2026-03-18T15:52:15Z
-Stopped at: Completed 77-02 (Frontend SDK-Native HITL Pivot)
-Resume file: .planning/phases/77-ai-control-plane-hitl-tool-governance/77-02-SUMMARY.md
+Last session: 2026-03-18T16:10:00Z
+Stopped at: Completed 77-01 (Backend Tool Governance Foundation)
+Resume file: .planning/phases/77-ai-control-plane-hitl-tool-governance/77-01-SUMMARY.md

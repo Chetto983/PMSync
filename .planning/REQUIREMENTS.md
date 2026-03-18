@@ -11,8 +11,8 @@ Requirements for v6.0 Enterprise Platform & AI Governance. Each maps to roadmap 
 
 - [x] **AICP-01**: HITL uses one canonical pending-actions DTO and one approval lifecycle
 - [x] **AICP-02**: Approve/reject endpoints return real execution outcome (executed/failed/approved_only)
-- [ ] **AICP-03**: Every mutating tool declares name, domain, riskLevel, requiresApproval, inputSchema
-- [ ] **AICP-04**: Action taxonomy is correct (no invalid mappings like delete_event → SCHEDULE_MEETING)
+- [x] **AICP-03**: Every mutating tool declares name, domain, riskLevel, requiresApproval, inputSchema
+- [x] **AICP-04**: Action taxonomy is correct (no invalid mappings like delete_event → SCHEDULE_MEETING)
 - [ ] **AICP-05**: Long-term memory save and retrieve use the same vector store
 - [ ] **AICP-06**: Memory retrieval returns tenant/user-scoped results only
 - [ ] **AICP-07**: System prompt references only tools and behaviors the frontend can render
@@ -162,8 +162,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | AICP-01 | Phase 77 | Complete |
 | AICP-02 | Phase 77 | Complete |
-| AICP-03 | Phase 77 | Pending |
-| AICP-04 | Phase 77 | Pending |
+| AICP-03 | Phase 77 | Complete |
+| AICP-04 | Phase 77 | Complete |
 | AICP-05 | Phase 82 | Pending |
 | AICP-06 | Phase 82 | Pending |
 | AICP-07 | Phase 82 | Pending |
