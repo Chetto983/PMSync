@@ -263,12 +263,14 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
     );
 
     // ── ToolsServices with spied stubs ──
+    const noopRegistry = { registerTool: vi.fn(), getTool: vi.fn(), getAllTools: vi.fn(() => []), getToolNames: vi.fn(() => []) } as any;
     emailToolsService = new EmailToolsService(
       { searchEmails: emailSearchSpy } as any,
       { updateEmail: vi.fn(), deleteEmail: vi.fn() } as any,
       { queueSend: vi.fn().mockResolvedValue({ jobId: 'stub' }) } as any,
       {} as any,
       prisma as any,
+      noopRegistry,
     );
     calendarToolsService = new CalendarToolsService(
       {
@@ -278,22 +280,26 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
         deleteEvent: vi.fn(),
       } as any,
       prisma as any,
+      noopRegistry,
     );
     contactToolsService = new ContactToolsService(
       {
         listContacts: contactsListSpy,
         createContact: vi.fn(),
         updateContact: vi.fn(),
+        deleteContact: vi.fn(),
       } as any,
       prisma as any,
+      noopRegistry,
     );
-    folderToolsService = new FolderToolsService(prisma as any);
+    folderToolsService = new FolderToolsService(prisma as any, noopRegistry);
     hybridSearchService = new HybridSearchService(prisma as any, mistralEmbeddingService);
     ragToolsService = new RagToolsService(
       { saveEmbedding: vi.fn() } as any,
       mistralEmbeddingService,
       prisma as any,
       hybridSearchService,
+      noopRegistry,
     );
 
     // ── Phase 25 services ──

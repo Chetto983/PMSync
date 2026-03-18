@@ -1,8 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -21,11 +25,34 @@ type PiiResolveFn = (
  *
  * Phase 25: Tools & RAG
  */
+const schemas = {
+  list_folders: z.object({}),
+  create_folder: z.object({ name: z.string().describe('Name for the new folder') }),
+};
+
 @Injectable()
-export class FolderToolsService {
+export class FolderToolsService implements OnModuleInit {
   private readonly logger = new Logger(FolderToolsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
+  ) {}
+
+  onModuleInit() {
+    const noop = async () => ({});
+    const tools = [
+      { name: 'list_folders', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.list_folders },
+      { name: 'create_folder', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_folder },
+    ];
+    for (const t of tools) {
+      this.toolRegistry.registerTool({
+        name: t.name, description: t.name, parameters: {}, execute: noop,
+        domain: 'email', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
+      });
+    }
+  }
 
   /**
    * Returns all folder tools with PII resolution via closure.
@@ -47,7 +74,7 @@ export class FolderToolsService {
         'List all email folders for the user (Inbox, Sent, Drafts, Archive, and custom folders). ' +
         'Use before move_email to verify the target folder exists. ' +
         'Returns: array of { id, name, path, type, unreadCount }.',
-      inputSchema: z.object({}),
+      inputSchema: schemas.list_folders,
       execute: async () => {
         const folders = await this.prisma.folder.findMany({
           where: { tenantId },
@@ -86,9 +113,7 @@ export class FolderToolsService {
         'Create a new custom email folder. ' +
         'Use list_folders first to check if a similar folder already exists. ' +
         'Returns: { id, name, path, status: "created" }.',
-      inputSchema: z.object({
-        name: z.string().describe('Name for the new folder'),
-      }),
+      inputSchema: schemas.create_folder,
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,

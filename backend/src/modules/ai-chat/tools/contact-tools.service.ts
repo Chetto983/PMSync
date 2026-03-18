@@ -1,9 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ContactsService } from '../../contacts/services/contacts.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -12,24 +16,73 @@ type PiiResolveFn = (
   payload: Record<string, unknown>,
 ) => Promise<Record<string, unknown>>;
 
+/** Zod schemas for contact tools */
+const schemas = {
+  search_contacts: z.object({
+    query: z.string().describe('Search query (name, email, or company)'),
+    limit: z.number().optional().describe('Max results to return (default 20, max 50)'),
+  }),
+  create_contact: z.object({
+    firstName: z.string().optional().describe('Contact first name'),
+    lastName: z.string().optional().describe('Contact last name'),
+    email: z.string().optional().describe('Contact email address'),
+    company: z.string().optional().describe('Company name'),
+    jobTitle: z.string().optional().describe('Job title or role'),
+    phone: z.string().optional().describe('Phone number'),
+  }),
+  update_contact: z.object({
+    contactId: z.string().describe('The ID of the contact to update'),
+    firstName: z.string().optional().describe('Updated first name'),
+    lastName: z.string().optional().describe('Updated last name'),
+    email: z.string().optional().describe('Updated email address'),
+    company: z.string().optional().describe('Updated company name'),
+    jobTitle: z.string().optional().describe('Updated job title'),
+  }),
+  delete_contact: z.object({
+    contactId: z.string().describe('The ID of the contact to delete'),
+  }),
+};
+
 /**
- * ContactToolsService -- 3 contact tools for the AI chat pipeline.
+ * ContactToolsService -- 4 contact tools for the AI chat pipeline.
  *
- * Tools: search_contacts, create_contact, update_contact
- *
- * Note: delete_contact uses needsApproval: true since it's destructive.
- * However, no delete tool is included per plan spec (only search/create/update).
+ * Tools: search_contacts, create_contact, update_contact, delete_contact
  *
  * Phase 25: Tools & RAG
+ * Phase 77: Added delete_contact with needsApproval: true
  */
 @Injectable()
-export class ContactToolsService {
+export class ContactToolsService implements OnModuleInit {
   private readonly logger = new Logger(ContactToolsService.name);
 
   constructor(
     private readonly contactsService: ContactsService,
     private readonly prisma: PrismaService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
   ) {}
+
+  onModuleInit() {
+    const noop = async () => ({});
+    const tools = [
+      { name: 'search_contacts', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.search_contacts },
+      { name: 'create_contact', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_contact },
+      { name: 'update_contact', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.update_contact },
+      { name: 'delete_contact', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_contact },
+    ];
+    for (const t of tools) {
+      this.toolRegistry.registerTool({
+        name: t.name,
+        description: t.name,
+        parameters: {},
+        execute: noop,
+        domain: 'contacts',
+        riskLevel: t.riskLevel,
+        requiresApproval: t.requiresApproval,
+        inputSchema: t.inputSchema,
+      });
+    }
+  }
 
   /**
    * Returns all contact tools with PII resolution via closure.
@@ -43,6 +96,7 @@ export class ContactToolsService {
       search_contacts: this.buildSearchContacts(tenantId, piiResolve),
       create_contact: this.buildCreateContact(tenantId, piiResolve),
       update_contact: this.buildUpdateContact(tenantId, piiResolve),
+      delete_contact: this.buildDeleteContact(tenantId, piiResolve),
     };
   }
 
@@ -53,15 +107,7 @@ export class ContactToolsService {
         'ALWAYS use this before composing emails to verify recipient addresses. ' +
         'Also use before create_contact to check if the contact already exists. ' +
         'Returns: array of { id, name, email, company, jobTitle, phoneNumbers }.',
-      inputSchema: z.object({
-        query: z
-          .string()
-          .describe('Search query (name, email, or company)'),
-        limit: z
-          .number()
-          .optional()
-          .describe('Max results to return (default 20, max 50)'),
-      }),
+      inputSchema: schemas.search_contacts,
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -99,20 +145,7 @@ export class ContactToolsService {
         'Add a new contact to the address book. Provide at least a name or email address. ' +
         'ALWAYS search_contacts first to check if the contact already exists — avoid duplicates. ' +
         'Returns: { id, name, email, company, jobTitle, status: "created" }.',
-      inputSchema: z.object({
-        firstName: z.string().optional().describe('Contact first name'),
-        lastName: z.string().optional().describe('Contact last name'),
-        email: z
-          .string()
-          .optional()
-          .describe('Contact email address'),
-        company: z.string().optional().describe('Company name'),
-        jobTitle: z.string().optional().describe('Job title or role'),
-        phone: z
-          .string()
-          .optional()
-          .describe('Phone number'),
-      }),
+      inputSchema: schemas.create_contact,
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -158,14 +191,7 @@ export class ContactToolsService {
         'Update an existing contact. Provide the contact ID and only the fields to change. ' +
         'ALWAYS use search_contacts first to find the contact and confirm the ID. ' +
         'Returns: { id, name, company, jobTitle, status: "updated" }.',
-      inputSchema: z.object({
-        contactId: z.string().describe('The ID of the contact to update'),
-        firstName: z.string().optional().describe('Updated first name'),
-        lastName: z.string().optional().describe('Updated last name'),
-        email: z.string().optional().describe('Updated email address'),
-        company: z.string().optional().describe('Updated company name'),
-        jobTitle: z.string().optional().describe('Updated job title'),
-      }),
+      inputSchema: schemas.update_contact,
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -199,6 +225,22 @@ export class ContactToolsService {
           jobTitle: contact.jobTitle,
           status: 'updated',
         });
+      },
+    });
+  }
+
+  private buildDeleteContact(tenantId: string, _piiResolve: PiiResolveFn) {
+    return tool({
+      description:
+        'Permanently delete a contact from the address book. This action CANNOT be undone. ' +
+        'Use ONLY when the user explicitly asks to delete a contact. ' +
+        'ALWAYS use search_contacts first to confirm the contact exists and get the ID. ' +
+        'Returns: { contactId, deleted: true }. Requires user approval before execution.',
+      inputSchema: schemas.delete_contact,
+      needsApproval: true,
+      execute: async (args) => {
+        await this.contactsService.deleteContact(tenantId, args.contactId);
+        return truncateToolResult({ contactId: args.contactId, deleted: true });
       },
     });
   }

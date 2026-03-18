@@ -1,9 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool, generateText } from 'ai';
 import { z } from 'zod';
 import { SandboxService } from '../services/sandbox.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 /**
  * SandboxToolsService -- Code execution tools for AI chat.
@@ -15,14 +19,43 @@ import { truncateToolResult } from '../utils/tool-result-truncator';
  *
  * Both execute in an isolated sandbox with no API access.
  */
+const schemas = {
+  run_code: z.object({
+    code: z.string().describe('The code to execute'),
+    language: z.enum(['python', 'javascript']).describe('Programming language'),
+    inputData: z.string().optional().describe('Optional data to pass to the code.'),
+  }),
+  code_assistant: z.object({
+    task: z.string().describe('Natural language description of what the code should do.'),
+    language: z.enum(['python', 'javascript']).default('javascript').describe('Preferred language (default: javascript)'),
+    inputData: z.string().optional().describe('Data to process.'),
+  }),
+};
+
 @Injectable()
-export class SandboxToolsService {
+export class SandboxToolsService implements OnModuleInit {
   private readonly logger = new Logger(SandboxToolsService.name);
 
   constructor(
     private readonly sandboxService: SandboxService,
     private readonly mistralProvider: MistralProviderService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
   ) {}
+
+  onModuleInit() {
+    const noop = async () => ({});
+    const tools = [
+      { name: 'run_code', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.run_code },
+      { name: 'code_assistant', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.code_assistant },
+    ];
+    for (const t of tools) {
+      this.toolRegistry.registerTool({
+        name: t.name, description: t.name, parameters: {}, execute: noop,
+        domain: 'system', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
+      });
+    }
+  }
 
   /**
    * Returns sandbox tools scoped to a tenant.
@@ -45,18 +78,7 @@ export class SandboxToolsService {
         'Output is captured from stdout (use print() or console.log()). ' +
         'Timeout: 30 seconds. Max output: 16,000 characters. ' +
         'Returns: { stdout, stderr, exitCode, success }.',
-      inputSchema: z.object({
-        code: z.string().describe('The code to execute'),
-        language: z
-          .enum(['python', 'javascript'])
-          .describe('Programming language'),
-        inputData: z
-          .string()
-          .optional()
-          .describe(
-            'Optional data to pass to the code. Available as INPUT_DATA_PATH variable pointing to a temp file.',
-          ),
-      }),
+      inputSchema: schemas.run_code,
       execute: async (args) => {
         this.logger.debug(
           `run_code: ${args.language}, ${args.code.length} chars`,
@@ -88,23 +110,7 @@ export class SandboxToolsService {
         'Prefer over run_code when you would need complex logic. ' +
         'Pass any data the code needs via the inputData parameter. ' +
         'Returns: { stdout, stderr, exitCode, success, generatedCode }.',
-      inputSchema: z.object({
-        task: z
-          .string()
-          .describe(
-            'Natural language description of what the code should do. Be specific about input format, expected output, and edge cases.',
-          ),
-        language: z
-          .enum(['python', 'javascript'])
-          .default('javascript')
-          .describe('Preferred language (default: javascript)'),
-        inputData: z
-          .string()
-          .optional()
-          .describe(
-            'Data to process. The code can read it from the file at INPUT_DATA_PATH.',
-          ),
-      }),
+      inputSchema: schemas.code_assistant,
       execute: async (args) => {
         this.logger.debug(`code_assistant: "${args.task.slice(0, 80)}..."`);
 

@@ -167,11 +167,14 @@ These show the correct tool chains for common complex requests:
 ## Actions That Require User Approval
 These tools will pause for user approval before executing (HITL):
 - send_email, reply_email, forward_email (emails leaving the system)
-- delete_email, delete_event (destroying data)
+- delete_email, delete_event, delete_contact (destroying data)
 
 These tools execute immediately without approval:
 - All search/read/view tools, archive, move, create, update, save_memory, run_code, ask_user
-- list_email_index, star_email, mark_email_read, label_email, list_follow_ups, update_follow_up`;
+- list_email_index, star_email, mark_email_read, label_email, list_follow_ups, update_follow_up
+
+## Tool Denial Handling
+When a tool execution is denied by the user, do not retry it. Inform the user that the action was not performed and ask how they would like to proceed.`;
 
 /**
  * Build the static system prompt (behavioral instructions only).

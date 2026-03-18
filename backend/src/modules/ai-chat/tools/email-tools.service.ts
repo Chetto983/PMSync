@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -7,6 +7,10 @@ import { EmailCrudService } from '../../email/services/email-crud.service';
 import { EmailSendService } from '../../email/services/email-send.service';
 import { EmailFetchService } from '../../email/services/email-fetch.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -23,8 +27,51 @@ type PiiResolveFn = (
  *
  * Phase 25: Tools & RAG
  */
+/** Zod schemas for email tools -- shared between tool() calls and registry */
+const schemas = {
+  send_email: z.object({
+    to: z.string().describe('Recipient email address'),
+    cc: z.string().optional().describe('CC recipients, comma-separated'),
+    bcc: z.string().optional().describe('BCC recipients, comma-separated'),
+    subject: z.string().describe('Email subject line'),
+    body: z.string().describe('Email body in plain text or HTML'),
+  }),
+  search_emails: z.object({
+    query: z.string().describe('Search query (keywords, sender name, subject text)'),
+    limit: z.number().optional().describe('Max results to return (default 20, max 50)'),
+  }),
+  read_email: z.object({
+    emailId: z.string().describe('The ID of the email to read'),
+  }),
+  archive_email: z.object({
+    emailId: z.string().describe('The ID of the email to archive'),
+  }),
+  move_email: z.object({
+    emailId: z.string().describe('The ID of the email to move'),
+    folder: z.string().describe('Target folder name or path'),
+  }),
+  delete_email: z.object({
+    emailId: z.string().describe('The ID of the email to delete'),
+  }),
+  forward_email: z.object({
+    emailId: z.string().describe('The ID of the email to forward'),
+    to: z.string().describe('Recipient email address for forwarding'),
+    message: z.string().optional().describe('Optional message to prepend'),
+  }),
+  reply_email: z.object({
+    emailId: z.string().describe('The ID of the email to reply to'),
+    body: z.string().describe('Reply message body'),
+    replyAll: z.boolean().optional().describe('Reply to all recipients (default false)'),
+  }),
+  draft_email: z.object({
+    to: z.string().describe('Recipient email address'),
+    subject: z.string().describe('Email subject line'),
+    body: z.string().describe('Email body content'),
+  }),
+};
+
 @Injectable()
-export class EmailToolsService {
+export class EmailToolsService implements OnModuleInit {
   private readonly logger = new Logger(EmailToolsService.name);
 
   constructor(
@@ -33,7 +80,36 @@ export class EmailToolsService {
     private readonly emailSendService: EmailSendService,
     private readonly emailFetchService: EmailFetchService,
     private readonly prisma: PrismaService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
   ) {}
+
+  onModuleInit() {
+    const noop = async () => ({});
+    const tools = [
+      { name: 'search_emails', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.search_emails },
+      { name: 'read_email', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.read_email },
+      { name: 'send_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.send_email },
+      { name: 'delete_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_email },
+      { name: 'forward_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.forward_email },
+      { name: 'reply_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.reply_email },
+      { name: 'draft_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.draft_email },
+      { name: 'archive_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.archive_email },
+      { name: 'move_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.move_email },
+    ];
+    for (const t of tools) {
+      this.toolRegistry.registerTool({
+        name: t.name,
+        description: t.name,
+        parameters: {},
+        execute: noop,
+        domain: 'email',
+        riskLevel: t.riskLevel,
+        requiresApproval: t.requiresApproval,
+        inputSchema: t.inputSchema,
+      });
+    }
+  }
 
   /**
    * Returns all email tools with PII resolution via closure.
@@ -64,13 +140,7 @@ export class EmailToolsService {
         'Always verify the recipient address first via search_contacts if you only have a name. ' +
         'Returns: { jobId, to, subject, status: "queued" }. ' +
         'Requires user approval before execution.',
-      inputSchema: z.object({
-        to: z.string().describe('Recipient email address'),
-        cc: z.string().optional().describe('CC recipients, comma-separated'),
-        bcc: z.string().optional().describe('BCC recipients, comma-separated'),
-        subject: z.string().describe('Email subject line'),
-        body: z.string().describe('Email body in plain text or HTML'),
-      }),
+      inputSchema: schemas.send_email,
       needsApproval: true,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
@@ -108,10 +178,7 @@ export class EmailToolsService {
         'Do NOT use for vague/meaning-based queries — use semantic_search instead. ' +
         'Returns: array of { id, from, subject, date, snippet, labels, aiPriority, aiSentiment, aiLabels }. ' +
         'Max 50 results. Default 20.',
-      inputSchema: z.object({
-        query: z.string().describe('Search query (keywords, sender name, subject text)'),
-        limit: z.number().optional().describe('Max results to return (default 20, max 50)'),
-      }),
+      inputSchema: schemas.search_emails,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const limit = Math.min(resolved.limit ?? 20, 50);
@@ -147,9 +214,7 @@ export class EmailToolsService {
         'Returns: { id, from, to, cc, subject, date, bodyText (max 2000 chars), labels, isRead, isStarred, ' +
         'aiPriority, aiSentiment, aiLabels, analysis: { summary, keyPoints, sentiment, priority, category, ' +
         'hasDeadline, deadlineDate, needsFollowUp, followUpDate, suggestedActions } }.',
-      inputSchema: z.object({
-        emailId: z.string().describe('The ID of the email to read'),
-      }),
+      inputSchema: schemas.read_email,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const email = await this.prisma.email.findFirst({
@@ -206,9 +271,7 @@ export class EmailToolsService {
         'This does NOT delete the email — it can still be found via search. ' +
         'Use when user says "archive", "clean up", or "done with this". ' +
         'Returns: { id, archived: true }.',
-      inputSchema: z.object({
-        emailId: z.string().describe('The ID of the email to archive'),
-      }),
+      inputSchema: schemas.archive_email,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         await this.emailCrudService.updateEmail(
@@ -226,10 +289,7 @@ export class EmailToolsService {
       description:
         'Move an email to a specific folder. Use list_folders first if you do not know the exact folder name. ' +
         'Returns: { id, movedTo: <folder name> }.',
-      inputSchema: z.object({
-        emailId: z.string().describe('The ID of the email to move'),
-        folder: z.string().describe('Target folder name or path'),
-      }),
+      inputSchema: schemas.move_email,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         await this.emailCrudService.updateEmail(
@@ -248,9 +308,7 @@ export class EmailToolsService {
         'Permanently delete an email. This action CANNOT be undone. ' +
         'Use ONLY when the user explicitly asks to delete. For cleanup, prefer archive_email. ' +
         'Returns: { id, deleted: true }. Requires user approval before execution.',
-      inputSchema: z.object({
-        emailId: z.string().describe('The ID of the email to delete'),
-      }),
+      inputSchema: schemas.delete_email,
       needsApproval: true,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
@@ -267,11 +325,7 @@ export class EmailToolsService {
         'ALWAYS search first to get the email ID, then verify the recipient via search_contacts. ' +
         'Returns: { jobId, forwardedEmailId, to, subject, status: "queued" }. ' +
         'Requires user approval before execution.',
-      inputSchema: z.object({
-        emailId: z.string().describe('The ID of the email to forward'),
-        to: z.string().describe('Recipient email address for forwarding'),
-        message: z.string().optional().describe('Optional message to prepend'),
-      }),
+      inputSchema: schemas.forward_email,
       needsApproval: true,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
@@ -314,11 +368,7 @@ export class EmailToolsService {
         'Set replyAll: true to include all original recipients (CC). ' +
         'Returns: { jobId, repliedToEmailId, to, subject, status: "queued" }. ' +
         'Requires user approval before execution.',
-      inputSchema: z.object({
-        emailId: z.string().describe('The ID of the email to reply to'),
-        body: z.string().describe('Reply message body'),
-        replyAll: z.boolean().optional().describe('Reply to all recipients (default false)'),
-      }),
+      inputSchema: schemas.reply_email,
       needsApproval: true,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
@@ -362,11 +412,7 @@ export class EmailToolsService {
         'Use when user says "write", "draft", "compose", or "prepare" — NOT when they say "send". ' +
         'The user can review and send the draft later. ' +
         'Returns: { id, subject, to, status: "draft" }.',
-      inputSchema: z.object({
-        to: z.string().describe('Recipient email address'),
-        subject: z.string().describe('Email subject line'),
-        body: z.string().describe('Email body content'),
-      }),
+      inputSchema: schemas.draft_email,
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const provider = await this.getDefaultProvider(tenantId);

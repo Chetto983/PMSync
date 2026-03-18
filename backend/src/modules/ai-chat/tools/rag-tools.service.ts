@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -8,6 +8,10 @@ import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.ser
 import { HybridSearchService } from '../services/hybrid-search.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
 import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -28,8 +32,21 @@ type PiiResolveFn = (
  *
  * Phase 25: Tools & RAG
  */
+const schemas = {
+  semantic_search: z.object({
+    query: z.string().describe('Natural language search query'),
+    sources: z.array(z.enum(['emails', 'contacts', 'calendar'])).optional().describe('Sources to search. Omit to search all.'),
+    limit: z.number().min(1).max(20).optional().describe('Maximum results (default 10)'),
+  }),
+  save_memory: z.object({
+    content: z.string().describe('The information to remember'),
+    category: z.string().optional().describe('Category for organizing memories (e.g., "preference", "fact", "decision")'),
+    tags: z.string().optional().describe('Comma-separated tags for filtering'),
+  }),
+};
+
 @Injectable()
-export class RagToolsService {
+export class RagToolsService implements OnModuleInit {
   private readonly logger = new Logger(RagToolsService.name);
 
   constructor(
@@ -37,7 +54,23 @@ export class RagToolsService {
     private readonly mistralEmbeddingService: MistralEmbeddingService,
     private readonly prisma: PrismaService,
     private readonly hybridSearchService: HybridSearchService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
   ) {}
+
+  onModuleInit() {
+    const noop = async () => ({});
+    const tools = [
+      { name: 'semantic_search', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.semantic_search },
+      { name: 'save_memory', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.save_memory },
+    ];
+    for (const t of tools) {
+      this.toolRegistry.registerTool({
+        name: t.name, description: t.name, parameters: {}, execute: noop,
+        domain: 'knowledge', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
+      });
+    }
+  }
 
   /**
    * Returns all RAG tools with PII resolution via closure.
@@ -63,23 +96,7 @@ export class RagToolsService {
         'Do NOT use for specific keyword/sender lookups — use search_emails instead. ' +
         'Optionally filter by source: emails, contacts, calendar. Omit to search all. ' +
         'Returns: array of unified results ranked by semantic similarity. Max 20 results.',
-      inputSchema: z.object({
-        query: z
-          .string()
-          .describe('Natural language search query'),
-        sources: z
-          .array(z.enum(['emails', 'contacts', 'calendar']))
-          .optional()
-          .describe(
-            'Sources to search. Omit to search all.',
-          ),
-        limit: z
-          .number()
-          .min(1)
-          .max(20)
-          .optional()
-          .describe('Maximum results (default 10)'),
-      }),
+      inputSchema: schemas.semantic_search,
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -106,21 +123,7 @@ export class RagToolsService {
         'Categories: "preference" (user preferences), "fact" (important info), ' +
         '"contact_note" (notes about specific contacts), "workflow" (user workflows). ' +
         'Returns: { id, content, category, savedAt }.',
-      inputSchema: z.object({
-        content: z
-          .string()
-          .describe('The information to remember'),
-        category: z
-          .string()
-          .optional()
-          .describe(
-            'Category for organizing memories (e.g., "preference", "fact", "decision")',
-          ),
-        tags: z
-          .string()
-          .optional()
-          .describe('Comma-separated tags for filtering'),
-      }),
+      inputSchema: schemas.save_memory,
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,

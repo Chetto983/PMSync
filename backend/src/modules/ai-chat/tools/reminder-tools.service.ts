@@ -5,23 +5,53 @@
  *
  * Phase REMINDER: Natural language reminder creation and listing.
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool } from 'ai';
 import { z } from 'zod';
 import { ReminderService } from '../../reminder/services/reminder.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 type PiiResolveFn = (
   payload: Record<string, unknown>,
 ) => Promise<Record<string, unknown>>;
 
+const reminderSchemas = {
+  create_reminder: z.object({
+    inputUtente: z.string().describe('Natural language description of the reminder in Italian or English'),
+  }),
+  list_reminders: z.object({
+    status: z.enum(['attivo', 'completato', 'annullato', 'sospeso']).optional().describe('Filter by status (default: attivo)'),
+    limit: z.number().min(1).max(20).optional().describe('Max results (default 10)'),
+  }),
+};
+
 @Injectable()
-export class ReminderToolsService {
+export class ReminderToolsService implements OnModuleInit {
   private readonly logger = new Logger(ReminderToolsService.name);
 
   constructor(
     private readonly reminderService: ReminderService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
   ) {}
+
+  onModuleInit() {
+    const noop = async () => ({});
+    const tools = [
+      { name: 'create_reminder', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: reminderSchemas.create_reminder },
+      { name: 'list_reminders', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: reminderSchemas.list_reminders },
+    ];
+    for (const t of tools) {
+      this.toolRegistry.registerTool({
+        name: t.name, description: t.name, parameters: {}, execute: noop,
+        domain: 'productivity', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
+      });
+    }
+  }
 
   getTools(
     tenantId: string,
@@ -42,11 +72,7 @@ export class ReminderToolsService {
         "'ricordami di...', 'remind me to...', 'follow up with...', 'se non risponde...', " +
         "'controllare se...'. Parses Italian/English input into a structured reminder " +
         'with optional email monitoring and Telegram notifications.',
-      inputSchema: z.object({
-        inputUtente: z.string().describe(
-          'Natural language description of the reminder in Italian or English',
-        ),
-      }),
+      inputSchema: reminderSchemas.create_reminder,
       execute: async (args) => {
         try {
           const result = await this.reminderService.createReminder(
@@ -81,18 +107,7 @@ export class ReminderToolsService {
         "List user's reminders/follow-ups. Use when user says 'i miei promemoria', " +
         "'my reminders', 'cosa devo fare', 'show reminders', 'promemoria attivi', " +
         "'what do I need to do'.",
-      inputSchema: z.object({
-        status: z
-          .enum(['attivo', 'completato', 'annullato', 'sospeso'])
-          .optional()
-          .describe('Filter by status (default: attivo)'),
-        limit: z
-          .number()
-          .min(1)
-          .max(20)
-          .optional()
-          .describe('Max results (default 10)'),
-      }),
+      inputSchema: reminderSchemas.list_reminders,
       execute: async (args) => {
         try {
           const status = args.status || 'attivo';

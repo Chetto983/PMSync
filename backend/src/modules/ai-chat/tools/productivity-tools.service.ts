@@ -6,7 +6,7 @@
  *
  * Phase CONSOLIDATION: Completes the agent tool gap.
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { FollowUpStatus } from '@prisma/client';
 import { tool } from 'ai';
 import { z } from 'zod';
@@ -14,6 +14,10 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailBulkService } from '../../email/services/email-bulk.service';
 import { EmailCrudService } from '../../email/services/email-crud.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
+import {
+  TOOL_REGISTRY_SERVICE,
+  IToolRegistryService,
+} from '../../../common/interfaces/tool-registry.interface';
 
 type PiiResolveFn = (
   payload: Record<string, unknown>,
@@ -30,15 +34,65 @@ type ResolvedWorkspaceLabels = {
   unmatched: string[];
 };
 
+const productivitySchemas = {
+  list_email_index: z.object({
+    folder: z.string().optional().describe('Filter by folder'),
+    limit: z.number().min(1).max(20).optional().describe('Number of emails (default 10)'),
+    unreadOnly: z.boolean().optional().describe('Only show unread emails'),
+  }),
+  star_email: z.object({
+    emailId: z.string().describe('Email ID to star/unstar'),
+    starred: z.boolean().describe('true to star, false to unstar'),
+  }),
+  mark_email_read: z.object({
+    emailId: z.string().describe('Email ID'),
+    read: z.boolean().describe('true = mark read, false = mark unread'),
+  }),
+  label_email: z.object({
+    emailId: z.string().describe('Email ID'),
+    addLabels: z.array(z.string()).optional().describe('Labels to add'),
+    removeLabels: z.array(z.string()).optional().describe('Labels to remove'),
+  }),
+  list_follow_ups: z.object({
+    status: z.enum(['PENDING', 'REMINDED', 'RESOLVED', 'EXPIRED']).optional().describe('Filter by status'),
+    limit: z.number().min(1).max(20).optional().describe('Max results (default 10)'),
+  }),
+  update_follow_up: z.object({
+    followUpId: z.string().describe('Follow-up ID'),
+    action: z.enum(['resolve', 'snooze', 'reopen']).describe('Action to take'),
+    snoozeDays: z.number().min(1).max(30).optional().describe('Days to snooze'),
+  }),
+};
+
 @Injectable()
-export class ProductivityToolsService {
+export class ProductivityToolsService implements OnModuleInit {
   private readonly logger = new Logger(ProductivityToolsService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailCrudService: EmailCrudService,
     private readonly emailBulkService: EmailBulkService,
+    @Inject(TOOL_REGISTRY_SERVICE)
+    private readonly toolRegistry: IToolRegistryService,
   ) {}
+
+  onModuleInit() {
+    const noop = async () => ({});
+    const tools = [
+      { name: 'list_email_index', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: productivitySchemas.list_email_index },
+      { name: 'star_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: productivitySchemas.star_email },
+      { name: 'mark_email_read', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: productivitySchemas.mark_email_read },
+      { name: 'label_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: productivitySchemas.label_email },
+      { name: 'list_follow_ups', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: productivitySchemas.list_follow_ups },
+      { name: 'update_follow_up', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: productivitySchemas.update_follow_up },
+    ];
+    for (const t of tools) {
+      this.toolRegistry.registerTool({
+        name: t.name, description: t.name, parameters: {}, execute: noop,
+        domain: 'productivity', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
+      });
+    }
+  }
 
   getTools(
     tenantId: string,
@@ -62,22 +116,7 @@ export class ProductivityToolsService {
         'Get a numbered index of recent emails. Useful for browsing inbox, showing what arrived, ' +
         'or when user says "show my emails", "what\'s in my inbox", "any new emails". ' +
         'Returns: { count, index: [{ idx, id, from, subject, date, preview, unread, starred }] }.',
-      inputSchema: z.object({
-        folder: z
-          .string()
-          .optional()
-          .describe('Filter by folder (INBOX, SENT, DRAFTS, etc.)'),
-        limit: z
-          .number()
-          .min(1)
-          .max(20)
-          .optional()
-          .describe('Number of emails (default 10)'),
-        unreadOnly: z
-          .boolean()
-          .optional()
-          .describe('Only show unread emails'),
-      }),
+      inputSchema: productivitySchemas.list_email_index,
       execute: async (args) => {
         try {
           const limit = args.limit ?? 10;
@@ -144,10 +183,7 @@ export class ProductivityToolsService {
     return tool({
       description:
         'Star or unstar an email. Use when user says "star this", "unstar", "mark as important".',
-      inputSchema: z.object({
-        emailId: z.string().describe('Email ID to star/unstar'),
-        starred: z.boolean().describe('true to star, false to unstar'),
-      }),
+      inputSchema: productivitySchemas.star_email,
       execute: async ({ emailId, starred }) => {
         try {
           await this.emailCrudService.updateEmail(emailId, tenantId, {
@@ -169,10 +205,7 @@ export class ProductivityToolsService {
   private buildMarkEmailRead(tenantId: string) {
     return tool({
       description: 'Mark an email as read or unread.',
-      inputSchema: z.object({
-        emailId: z.string().describe('Email ID'),
-        read: z.boolean().describe('true = mark read, false = mark unread'),
-      }),
+      inputSchema: productivitySchemas.mark_email_read,
       execute: async ({ emailId, read }) => {
         try {
           await this.emailCrudService.updateEmail(emailId, tenantId, {
@@ -197,14 +230,7 @@ export class ProductivityToolsService {
         'Add or remove existing workspace labels on an email. ' +
         'Only use labels that already exist for this tenant. Never invent new label names. ' +
         'Use when user says "tag this", "label as", "remove label", "categorize".',
-      inputSchema: z.object({
-        emailId: z.string().describe('Email ID'),
-        addLabels: z.array(z.string()).optional().describe('Labels to add'),
-        removeLabels: z
-          .array(z.string())
-          .optional()
-          .describe('Labels to remove'),
-      }),
+      inputSchema: productivitySchemas.label_email,
       execute: async ({ emailId, addLabels, removeLabels }) => {
         try {
           const email = await this.prisma.email.findFirst({
@@ -307,18 +333,7 @@ export class ProductivityToolsService {
         'List pending follow-ups. Shows emails needing action or waiting for response. ' +
         'Use for "what do I need to follow up on", "my follow-ups", "pending tasks", ' +
         '"what needs my attention", "any overdue items".',
-      inputSchema: z.object({
-        status: z
-          .enum(['PENDING', 'REMINDED', 'RESOLVED', 'EXPIRED'])
-          .optional()
-          .describe('Filter by status (default: pending + reminded)'),
-        limit: z
-          .number()
-          .min(1)
-          .max(20)
-          .optional()
-          .describe('Max results (default 10)'),
-      }),
+      inputSchema: productivitySchemas.list_follow_ups,
       execute: async (args) => {
         try {
           const limit = args.limit ?? 10;
@@ -393,18 +408,7 @@ export class ProductivityToolsService {
       description:
         'Update a follow-up: resolve, snooze, or reopen. ' +
         'Use when user says "mark as done", "snooze for 3 days", "resolve follow-up", "reopen".',
-      inputSchema: z.object({
-        followUpId: z.string().describe('Follow-up ID'),
-        action: z
-          .enum(['resolve', 'snooze', 'reopen'])
-          .describe('Action to take'),
-        snoozeDays: z
-          .number()
-          .min(1)
-          .max(30)
-          .optional()
-          .describe('Days to snooze (only for snooze action, default 3)'),
-      }),
+      inputSchema: productivitySchemas.update_follow_up,
       execute: async ({ followUpId, action, snoozeDays }) => {
         try {
           const where = { id: followUpId, tenantId, userId };
