@@ -28,6 +28,3 @@ export type { RemindersPickerProps, RemindersData, Reminder } from './RemindersP
 export type { AttendeesPickerProps, Attendee } from './AttendeesPicker';
 export type { RSVPButtonsProps, RSVPResponse } from './RSVPButtons';
 
-// AI components
-export * from './ai/SchedulingDrawer';
-export * from './ai/TimeSlotPicker';

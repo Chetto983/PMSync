@@ -234,6 +234,20 @@ export interface MemorySearchResult {
   memories: MemoryItem[];
 }
 
+export interface SavedMemoryResult {
+  id: string;
+  content: string;
+  category: string | null;
+  savedAt: string;
+}
+
+export interface AskUserResult {
+  type: 'clarification_request';
+  question: string;
+  options: string[];
+  context: string | null;
+}
+
 // --- Briefing Tool Output ---
 
 export interface BriefingSectionItem {

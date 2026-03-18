@@ -234,6 +234,27 @@ export function CalendarSidebar({
     }
   }, [calendarToDelete, onDeleteCalendar]);
 
+  const handleOpenAiAssistant = useCallback(() => {
+    const prompt = calendarCopy.openAiAssistantPrompt.replace(
+      '{count}',
+      eventCount.toString(),
+    );
+
+    onCloseMobileDrawer?.();
+    void router.push({
+      pathname: '/dashboard/ai',
+      query: {
+        prompt,
+        seed: Date.now().toString(),
+      },
+    });
+  }, [
+    calendarCopy.openAiAssistantPrompt,
+    eventCount,
+    onCloseMobileDrawer,
+    router,
+  ]);
+
   return (
     <>
       {/* Quick Event Input */}
@@ -503,7 +524,7 @@ export function CalendarSidebar({
                 boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.15)}`,
               },
             }}
-            onClick={() => router.push('/dashboard/ai')}
+            onClick={handleOpenAiAssistant}
           >
             {calendarCopy.openAiAssistant}
           </Button>
