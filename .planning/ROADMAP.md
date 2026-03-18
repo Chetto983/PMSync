@@ -8,7 +8,8 @@
 - ✅ **v4.0 Enterprise Stabilization** - Phases 31-41 (shipped 2026-03-04)
 - ✅ **v4.1 Security Hardening & Debt Reduction** - Phases 42-49 (shipped 2026-03-06)
 - ✅ **v5.0 better-auth Migration** - Phases 50-65 (shipped 2026-03-10)
-- **v5.1 Test Coverage & Polish** - Phases 66-74 (in progress)
+- ✅ **v5.1 Test Coverage & Polish** - Phases 66-76 (shipped 2026-03-15)
+- 🚧 **v6.0 Enterprise Platform & AI Governance** - Phases 77-85 (in progress)
 
 ## Phases
 
@@ -50,236 +51,164 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 <details>
 <summary>v5.0 better-auth Migration (Phases 50-65) - SHIPPED 2026-03-10</summary>
 
-- [x] Phase 50: Schema & Infrastructure (2/2 plans)
-- [x] Phase 51: Core Email/Password Auth (2/2 plans)
-- [x] Phase 52: NestJS Session Validation (3/3 plans)
-- [x] Phase 53: Frontend Auth UI (2/2 plans)
-- [x] Phase 54: WebSocket Auth (1/1 plans)
-- [x] Phase 55: Social Login & MFA (5/5 plans)
-- [x] Phase 56: Organizations (3/3 plans)
-- [x] Phase 57: Admin Panel (2/2 plans)
-- [x] Phase 58: Compliance & Cleanup (3/3 plans)
-- [x] Phase 59: Safety Hardening (5/5 plans)
-- [x] Phase 60: Middleware & Auth Cleanup (2/2 plans)
-- [x] Phase 61: GDPR Org Compliance (1/1 plans)
-- [x] Phase 62: Auth Audit Remediation (1/1 plans)
-- [x] Phase 63: Email Invitation Accept Page (1/1 plans)
-- [x] Phase 64: WS Org-Switch Reconnect (1/1 plans)
-
 15 phases, 34 plans, 51/51 requirements.
 
 </details>
 
-### v5.1 Test Coverage & Polish (In Progress)
+<details>
+<summary>v5.1 Test Coverage & Polish (Phases 66-76) - SHIPPED 2026-03-15</summary>
 
-**Milestone Goal:** Deep automated test coverage across backend and frontend, MUI consistency enforcement, and production polish. All tests run against real database and real backend -- no Prisma mocking, no mocked API routes.
+11 phases, 30 plans. Test infrastructure, backend unit/integration tests, frontend unit/E2E tests, MUI audit, test hardening, E2E runtime validation, org E2E fix, CI reliability gate. See `.planning/milestones/v5.1-ROADMAP.md` for full details.
 
-- [x] **Phase 66: Test Infrastructure** - Real DB test environment, shared helpers, factories, coverage thresholds (completed 2026-03-10)
-- [x] **Phase 67: Backend Tests - Simple Modules** - Unit tests for health, users, tenants, labels (completed 2026-03-11)
-- [x] **Phase 68: Backend Tests - Complex Modules** - Unit tests for calendar, contacts, providers, subscription (completed 2026-03-11)
-- [x] **Phase 69: Backend Integration Tests** - Cross-tenant isolation, auth guard chain, contract tests (completed 2026-03-11)
-- [x] **Phase 70: Frontend Unit Tests** - Zustand stores, TanStack Query hooks, settings components (completed 2026-03-11)
-- [x] **Phase 71: Frontend E2E Tests** - Org flows, admin panel, onboarding wizard, security settings (completed 2026-03-12)
-- [ ] **Phase 72: MUI Audit & Polish** - Automated scanner, violation fixes, accessibility audit, visual regression
-- [x] **Phase 73: Test Hardening & Cleanup** - Gap closure: contract test generation, Chromium skip, TRUNCATE race fix, seed automation, dead code (completed 2026-03-13)
-- [x] **Phase 74: E2E Runtime Validation** - Gap closure: run Playwright suite against live backend, fix runtime failures, capture evidence (completed 2026-03-13)
-- [x] **Phase 75: Organization E2E Fix** - Gap closure: fix backend org creation 500, clean member auth setup, re-run org E2E (completed 2026-03-15)
-- [ ] **Phase 76: CI Test Reliability Gate** - Gap closure: fail-fast when openapi-spec.json generation fails in CI
+</details>
+
+### v6.0 Enterprise Platform & AI Governance (In Progress)
+
+**Milestone Goal:** Harden AI control plane, add CRM domain, workflow automation, enterprise authorization, distributed tracing, and close all audit findings.
+
+- [ ] **Phase 77: AI Control Plane -- HITL & Tool Governance** - Unify HITL contract, add tool governance metadata, fix action taxonomy, contract + E2E tests
+- [ ] **Phase 78: Security Fixes** - BOLA fix, CSRF secret enforcement, /metrics restriction, HNSW vector indexes
+- [ ] **Phase 79: Authorization** - Resource-scoped permissions on better-auth org roles, backend + frontend enforcement
+- [ ] **Phase 80: OpenTelemetry** - Distributed tracing across HTTP, BullMQ, AI/Mistral call chains
+- [ ] **Phase 81: CRM Domain** - Accounts, Deals, Pipelines, Activities with AI tool integration and daily briefing
+- [ ] **Phase 82: AI Remediation Completion** - Memory repair, prompt/runtime alignment, legacy removal, tool validation tests
+- [ ] **Phase 83: Workflow Automation** - Trigger-condition-action rules with BullMQ execution and policy-aware enforcement
+- [ ] **Phase 84: MUI Chat Migration** - Command Palette rebuild, chat CSS to MUI sx, Tailwind removal
+- [ ] **Phase 85: UI/UX Polish** - Email UI density, responsive fixes, empty states, accessibility audit items
 
 ## Phase Details
 
-### Phase 66: Test Infrastructure
-**Goal**: All test tooling, helpers, and environment config exist so every subsequent phase can write tests against real PostgreSQL/Redis without setup friction
-**Depends on**: Nothing (first phase of v5.1)
-**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
+### Phase 77: AI Control Plane -- HITL & Tool Governance
+**Goal**: AI tool execution has a single, correct approval lifecycle and every mutating tool declares its governance metadata
+**Depends on**: Nothing (first phase of v6.0; absorbs in-progress HITL controller refactor)
+**Requirements**: AICP-01, AICP-02, AICP-03, AICP-04, AICP-12, AICP-14
 **Success Criteria** (what must be TRUE):
-  1. Running `npm test` in backend starts tests against a real PostgreSQL database and real Redis instance (Docker Compose or existing)
-  2. Test helpers provide `createTestTenant()`, `createTestUser()`, and `createTestSession()` factories that insert real rows and return typed objects
-  3. Each test suite starts with a clean database state (seeded baseline data, cleaned between suites) so tests are isolated and deterministic
-  4. Frontend E2E tests (`npx playwright test`) execute against a real running backend server -- no MSW route mocking for API calls
-  5. Jest coverage thresholds are configured (50% backend, 30% frontend) and `npm test` fails if coverage drops below threshold
-**Plans:** 4/4 plans complete
-Plans:
-- [ ] 66-01-PLAN.md -- Docker Compose, .env.test, globalSetup/Teardown, Prisma test client
-- [ ] 66-02-PLAN.md -- Factory helpers, cleanup utility, smoke test
-- [ ] 66-03-PLAN.md -- Playwright real backend config, E2E auth, coverage thresholds
-- [ ] 66-04-PLAN.md -- Fix TS2769 type error in playwright.config.ts (gap closure)
+  1. Pending-actions endpoint returns a single canonical DTO shape for all pending approvals -- no variant shapes depending on tool type
+  2. Approving or rejecting a pending action returns the real execution outcome (executed, failed, or approved_only) -- not just a 200 OK
+  3. Every mutating AI tool in ToolRegistryService declares name, domain, riskLevel, requiresApproval, and inputSchema -- tools missing any field fail registration
+  4. Action taxonomy maps every tool to a semantically correct action type (no mismatches like delete_event mapped to SCHEDULE_MEETING)
+  5. Contract tests validate pending-actions DTO shape, approve/reject response, and HITL E2E flow (trigger, approve, execute, verify)
+**Plans**: TBD
 
-### Phase 67: Backend Tests - Simple Modules
-**Goal**: Health, users, tenants, and labels modules have comprehensive test coverage proving correct behavior against real database
-**Depends on**: Phase 66
-**Requirements**: BTEST-05, BTEST-06, BTEST-07, BTEST-08
+### Phase 78: Security Fixes
+**Goal**: All known security audit findings from v5.1 are closed -- no BOLA, no CSRF fallback, no open /metrics, vector search is indexed
+**Depends on**: Nothing (independent of Phase 77; can run in parallel)
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04
 **Success Criteria** (what must be TRUE):
-  1. Health endpoint tests verify DB, Redis, and BullMQ connectivity probes return correct status under healthy and degraded conditions
-  2. Users module tests verify profile CRUD and preferences update/retrieval with tenant isolation (user A cannot read user B's profile in a different tenant)
-  3. Tenants module tests verify tenant creation, update, and deletion with cascading cleanup and cross-tenant isolation
-  4. Labels module tests verify CRUD, nested label tree operations (create child, move, delete with children), and tenant scoping
-**Plans:** 6 plans (5 complete, 1 gap closure)
-Plans:
-- [ ] 67-01-PLAN.md -- Extend test helpers: createTestLabel factory + user_labels cleanup
-- [ ] 67-02-PLAN.md -- Health service tests (BTEST-08): DB probe, Redis probe, Mistral disabled, BullMQ optional
-- [ ] 67-03-PLAN.md -- Users service tests (BTEST-07): profile CRUD, preferences upsert, account deletion
-- [ ] 67-04-PLAN.md -- Tenants service tests (BTEST-06): CRUD, soft/hard delete, event emission, isolation
-- [ ] 67-05-PLAN.md -- Labels service tests (BTEST-05): CRUD, nested cascade delete, circular guard, isolation
+  1. deleteConversation rejects requests where the conversation's userId does not match the authenticated user -- returns 403, not silent success
+  2. Application refuses to start in production when CSRF_SECRET is not set -- no silent fallback to JWT_SECRET
+  3. /metrics endpoint returns 401/403 for non-admin users and unauthenticated requests
+  4. HNSW indexes exist on embeddings and ai_memories vector columns -- EXPLAIN ANALYZE confirms index scan, not sequential scan
+**Plans**: TBD
 
-### Phase 68: Backend Tests - Complex Modules
-**Goal**: Calendar, contacts, providers, and subscription modules have comprehensive test coverage proving correct behavior for security-sensitive and business-critical flows
-**Depends on**: Phase 66
-**Requirements**: BTEST-01, BTEST-02, BTEST-03, BTEST-04
+### Phase 79: Authorization
+**Goal**: Users experience permission-based access control -- org roles determine what actions are allowed across the entire application
+**Depends on**: Phase 77 (ToolGovernanceService needs permission awareness), Phase 78
+**Requirements**: AUTHZ-01, AUTHZ-02, AUTHZ-03, AUTHZ-04, AUTHZ-05, AUTHZ-06, AUTHZ-07
 **Success Criteria** (what must be TRUE):
-  1. Calendar module tests cover sync lifecycle, webhook processing, conflict resolution logic, and ICS parsing edge cases (recurring events, timezone handling)
-  2. Contacts module tests cover sync flow, CRM relationship scoring calculation, cache invalidation, and webhook processing
-  3. Providers module tests cover OAuth token acquisition, refresh, and revocation flows; IMAP config validation; and token lifecycle (expiry, rotation)
-  4. Subscription module tests cover billing state transitions, quota calculation, usage tracking increments, and QuotaGuard rejection when limits are exceeded
-**Plans:** 6 plans (5 complete, 1 gap closure)
-Plans:
-- [ ] 68-00-PLAN.md -- Extend test helpers: 4 new factories + 9 new cleanup tables
-- [ ] 68-01-PLAN.md -- Calendar module tests (BTEST-01): ICS parsing, conflict detection, sync, webhook
-- [ ] 68-02-PLAN.md -- Contacts module tests (BTEST-02): sync flow, CRM scoring, Redis cache, webhook
-- [ ] 68-03-PLAN.md -- Providers module tests (BTEST-03): OAuth token lifecycle, IMAP validation, provider config
-- [ ] 68-04-PLAN.md -- Subscription module tests (BTEST-04): billing transitions, quota guard, usage tracking, lifecycle
+  1. A member-role user cannot access owner/admin-only endpoints (e.g., delete tenant, manage billing) -- returns 403 with clear error
+  2. Permission checks resolve in under 5ms from Redis cache after first load -- cache invalidates within seconds of a role change
+  3. Frontend UI hides or disables controls the current user lacks permission for (e.g., delete buttons hidden for members)
+  4. Role-to-permission mapping is defined in one file -- changing a role's permissions requires editing exactly one place
+  5. All write and delete API endpoints enforce permissions via @RequirePermission decorator -- undecorated write endpoints fail a CI/audit check
+**Plans**: TBD
 
-### Phase 69: Backend Integration Tests
-**Goal**: Integration tests prove cross-cutting concerns work correctly with real database -- tenant isolation prevents data leaks, auth guard pipeline rejects unauthorized access, and API contracts match expected response shapes
-**Depends on**: Phase 67, Phase 68
-**Requirements**: BINT-01, BINT-02, BINT-03
+### Phase 80: OpenTelemetry
+**Goal**: Every request can be traced from HTTP entry through queue processing to AI provider call -- with trace IDs visible in response headers
+**Depends on**: Nothing (independent infrastructure; can run in parallel with Phases 77-79)
+**Requirements**: OTEL-01, OTEL-02, OTEL-03, OTEL-04, OTEL-05, OTEL-06
 **Success Criteria** (what must be TRUE):
-  1. Cross-tenant isolation test creates two tenants with distinct data, then proves queries scoped to tenant A return zero rows from tenant B (and vice versa) across all tenant-scoped models
-  2. Auth guard chain test validates the full BetterAuth -> Tenant -> Roles pipeline: unauthenticated request gets 401, wrong-tenant request gets 403, insufficient-role request gets 403, valid request succeeds
-  3. Contract tests exist for calendar, labels, providers, subscription, organizations, and admin endpoints -- each validates response envelope shape, required fields, and error format
-**Plans:** 3/3 plans complete
-Plans:
-- [ ] 69-01-PLAN.md -- Cross-tenant isolation tests (BINT-01): 5 domains, scoped Prisma client + CorrelationContext
-- [ ] 69-02-PLAN.md -- Auth guard chain test (BINT-02): NestJS bootstrap + supertest, 4 scenarios
-- [ ] 69-03-PLAN.md -- Contract tests for 6 endpoint groups (BINT-03): calendar, labels, providers, subscription, orgs, admin
+  1. OTel SDK initializes before NestJS bootstrap -- early HTTP requests are captured, not missed
+  2. A single user request that triggers a BullMQ job and an AI call produces one connected trace with spans for HTTP, queue processing, and AI provider call
+  3. Response headers include a traceId that correlates to the backend trace for that request
+  4. AI run ledger entries include the OTel traceId -- querying by traceId returns the matching AI cost/latency record
+**Plans**: TBD
 
-### Phase 70: Frontend Unit Tests
-**Goal**: Frontend data layer and security-critical UI components have test coverage proving correct state management, data fetching, and user interaction behavior
-**Depends on**: Phase 66
-**Requirements**: FTEST-01, FTEST-02, FTEST-03
+### Phase 81: CRM Domain
+**Goal**: Users can manage accounts, deals, pipelines, and activities -- with AI chat integration and daily briefing insights
+**Depends on**: Phase 79 (CRM controllers need @RequirePermission), Phase 77 (CRM AI tools need ToolGovernanceService)
+**Requirements**: CRM-01, CRM-02, CRM-03, CRM-04, CRM-05, CRM-06, CRM-07, CRM-08, CRM-09, CRM-10, CRM-11, CRM-12
 **Success Criteria** (what must be TRUE):
-  1. All 14 Zustand store files have tests verifying state transitions, action side effects, and store isolation (no cross-store leakage between tests)
-  2. Critical TanStack Query hooks (emails, folders, contacts, organizations) have tests verifying correct query key construction, cache behavior, and error/loading state handling
-  3. Security settings components (MFA toggle, passkey management, session list, password change) have tests verifying user interactions trigger correct API calls and display correct feedback
-**Plans:** 3/3 plans complete
-Plans:
-- [ ] 70-01-PLAN.md -- Zustand store tests (FTEST-01): 14 store files + jest.setup.ts next/image mock
-- [ ] 70-02-PLAN.md -- TanStack Query hook tests (FTEST-02): 10 hook files, query keys + loading/error + cache invalidation
-- [ ] 70-03-PLAN.md -- Security settings component tests (FTEST-03): MFA, password, sessions, accounts
+  1. User can create an account, link contacts to it, create a deal on a pipeline, and drag the deal between stages on a Kanban board
+  2. Sending or receiving an email automatically creates an activity on the linked account -- no manual logging required
+  3. Calendar events with attendees matching known contacts auto-generate activities on the relevant account
+  4. User can ask the AI chat "what deals are closing this week" and get accurate results from the CRM data
+  5. Daily AI briefing includes CRM insights (deals closing soon, accounts with recent activity)
+**Plans**: TBD
 
-### Phase 71: Frontend E2E Tests
-**Goal**: All v5.0 features have end-to-end Playwright tests proving complete user workflows against a real running backend
-**Depends on**: Phase 66, Phase 69
-**Requirements**: FE2E-01, FE2E-02, FE2E-03, FE2E-04
+### Phase 82: AI Remediation Completion
+**Goal**: AI memory, prompts, and transport are clean -- one vector store, correct runtime context, accurate tool renderers, no legacy code
+**Depends on**: Phase 77 (HITL contract must be stable before memory/prompt work)
+**Requirements**: AICP-05, AICP-06, AICP-07, AICP-08, AICP-09, AICP-10, AICP-11, AICP-13
 **Success Criteria** (what must be TRUE):
-  1. Organization E2E test completes the full flow: create org, invite member by email, accept invitation (as invited user), switch between organizations -- all against real backend
-  2. Admin panel E2E test completes: navigate to admin, search users, ban a user (verify they cannot log in), unban, impersonate a user, revoke a session
-  3. Onboarding wizard E2E test completes all steps: set display name, create/join workspace, connect email provider, configure MFA, upload avatar -- wizard marks complete and redirects to dashboard
-  4. Security settings E2E test completes: change password, enable TOTP (scan QR, enter code), disable TOTP, register passkey (via virtual authenticator), view and revoke active sessions
-**Plans:** 6 plans (5 complete, 1 gap closure)
-Plans:
-- [ ] 71-01-PLAN.md -- Seed fix (super-admin + member user), auth.setup.member.ts, playwright.config.ts update, otplib install
-- [ ] 71-02-PLAN.md -- organizations.spec.ts: create org, invite, accept invitation, switch org (FE2E-01)
-- [ ] 71-03-PLAN.md -- admin.spec.ts: user list, search, ban/unban, impersonate, revoke sessions (FE2E-02)
-- [ ] 71-04-PLAN.md -- onboarding.spec.ts: all 6 wizard steps including TOTP setup (FE2E-03)
-- [ ] 71-05-PLAN.md -- security.spec.ts: password change, TOTP lifecycle, passkey CDP, session revoke (FE2E-04)
-- [ ] 71-06-PLAN.md -- Gap closure: run full Playwright suite against live backend, fix runtime failures, capture evidence
+  1. AI save_memory and memory retrieval use the same vector store -- saving a fact and retrieving it in a new conversation returns the saved content
+  2. Memory retrieval is tenant-and-user-scoped -- user A cannot retrieve user B's memories, even within the same tenant
+  3. System prompt accurately reflects available tools and the frontend renders every tool the AI can invoke (no phantom tools, no unrenderable results)
+  4. AI responses reference the correct timezone, locale, and email provider for the current user -- not hardcoded defaults
+  5. Only one chat streaming transport exists in the codebase -- legacy endpoints and compatibility shims are deleted
+**Plans**: TBD
 
-### Phase 72: MUI Audit & Polish
-**Goal**: Zero non-MUI patterns exist in the codebase, all v5.0 pages pass accessibility audit, and visual regression baselines prevent future drift
-**Depends on**: Phase 71
+### Phase 83: Workflow Automation
+**Goal**: Users can create event-driven automation rules that execute actions respecting permissions and HITL policies
+**Depends on**: Phase 79 (workflow steps need permission checks), Phase 81 (CRM actions in action registry)
+**Requirements**: WF-01, WF-02, WF-03, WF-04, WF-05, WF-06, WF-07, WF-08
+**Success Criteria** (what must be TRUE):
+  1. User can create a rule "when email received from VIP, apply label Priority and create activity on linked account" via a form-based builder
+  2. Workflow rules execute via BullMQ with correct tenant context -- a rule in tenant A never touches tenant B data
+  3. Workflow execution history shows each run with success/failure status and which actions were executed
+  4. A workflow step that requires HITL approval (e.g., send_email) pauses and waits for approval before executing -- it does not bypass the AI approval path
+  5. AI suggests automation rules based on repeated user behavior patterns (e.g., "you always label emails from X as Priority -- create a rule?")
+**Plans**: TBD
+
+### Phase 84: MUI Chat Migration
+**Goal**: Chat UI uses MUI components exclusively -- no CSS files, no Tailwind, no ChatThemeBridge
+**Depends on**: Phase 82 (chat surface changes should happen after AI remediation to avoid concurrent edits)
 **Requirements**: MUI-01, MUI-02, MUI-03, MUI-04
 **Success Criteria** (what must be TRUE):
-  1. An automated scanner (ESLint rule or CI script) detects Tailwind utility classes, hardcoded color values, and raw CSS-in-JS in .tsx/.ts files -- and it runs in CI
-  2. Running the scanner produces zero violations across the entire frontend codebase
-  3. axe-core accessibility audit passes on all v5.0 pages (organizations, admin panel, onboarding wizard, security settings) with zero critical or serious violations
-  4. Playwright visual regression baselines exist for all v5.0 pages and can detect unintended visual changes in CI
-**Plans:** 1 plan
-Plans:
-- [ ] 74-01-PLAN.md -- Run Playwright suite against live backend, fix runtime failures, capture evidence
+  1. Command Palette opens as a MUI Dialog with MUI List items -- cmdk dependency is removed from package.json
+  2. Chat layout uses MUI sx props -- the 3 chat CSS files (~950 lines) are deleted (streaming message container may retain minimal inline styles)
+  3. ChatThemeBridge component/file no longer exists in the codebase
+  4. tailwindcss package is removed from frontend package.json and no Tailwind config files remain
+**Plans**: TBD
 
-### Phase 73: Test Hardening & Cleanup
-**Goal**: Close integration and tech debt gaps found by v5.1 audit — contract tests actually assert, E2E specs are cross-browser safe, parallel test execution is race-free, and dead code is removed
-**Depends on**: Phase 69, Phase 71
-**Requirements**: BINT-03, FE2E-04, INFRA-03 (gap closure — hardening existing implementations)
-**Gap Closure:** Closes integration gaps from v5.1-MILESTONE-AUDIT.md
+### Phase 85: UI/UX Polish
+**Goal**: Email UI reaches professional density and all March 12 audit findings are resolved
+**Depends on**: Nothing (independent; can run in parallel with Phases 83-84)
+**Requirements**: EMUIX-01, EMUIX-02, EMUIX-03, EMUIX-04, EMUIX-05, EMUIX-06, UIUX-01, UIUX-02, UIUX-03, UIUX-04, UIUX-05
 **Success Criteria** (what must be TRUE):
-  1. `openapi-spec.json` is generated by a script and a CI/lifecycle hook ensures it stays current — contract tests exercise all 67 assertions instead of skipping
-  2. `security.spec.ts` passkey test has `test.skip` annotation for non-Chromium browsers (firefox, webkit, mobile-chrome, mobile-safari)
-  3. Subscription spec cleanup uses targeted `deleteMany` instead of global TRUNCATE — no FK race with calendar specs in parallel execution
-  4. `onboarding.spec.ts` has seed automation (prisma db seed or equivalent) so the test is repeatable without manual intervention
-  5. Orphaned exports removed from `fixtures.ts` (`authedPage`, `mockEmails`, `mockFolders`, `mockUser`)
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 73-01-PLAN.md -- OpenAPI spec generation in Jest global-setup + subscription TRUNCATE-to-deleteMany fix
-- [ ] 73-02-PLAN.md -- Onboarding seed automation, passkey skip verification, legacy mock E2E spec cleanup
-
-### Phase 74: E2E Runtime Validation
-**Goal**: All four E2E spec suites run against a real backend and produce passing evidence — proving FE2E-01 through FE2E-04 at runtime level, not just artifact level
-**Depends on**: Phase 73
-**Requirements**: FE2E-01, FE2E-02, FE2E-03, FE2E-04 (runtime validation — artifacts exist from Phase 71)
-**Gap Closure:** Closes flow gaps from v5.1-MILESTONE-AUDIT.md (Plan 71-06 was never executed)
-**Success Criteria** (what must be TRUE):
-  1. Full Playwright suite (`npx playwright test`) executes against a running backend with real database
-  2. All four spec files pass (organizations, admin, onboarding, security) or have documented skip reasons for environment-specific tests
-  3. Test run evidence (HTML report or CI log) is captured and stored in phase directory
-**Plans:** 1/1 plans complete
-Plans:
-- [ ] 74-01-PLAN.md -- Run Playwright suite against live backend, fix runtime failures, capture evidence
-
-### Phase 75: Organization E2E Fix
-**Goal**: Organization E2E tests pass against real backend — the org creation 500 is diagnosed and fixed, member auth setup is scoped correctly, and FE2E-01 is satisfied at runtime level
-**Depends on**: Phase 74
-**Requirements**: FE2E-01 (runtime fix — spec exists from Phase 71, skipped due to backend 500)
-**Gap Closure:** Closes requirement gap FE2E-01, flow gap "Organization lifecycle", integration gap "member auth setup latency"
-**Success Criteria** (what must be TRUE):
-  1. `better-auth` organization.create no longer returns HTTP 500 — root cause identified and fixed (migration, config, or code bug)
-  2. `auth.setup.member.ts` only runs as dependency for projects that actually consume member auth (not all 5 browser projects)
-  3. `organizations.spec.ts` passes all 4 tests against real backend with evidence captured
-**Plans:** 2 plans (1 complete, 1 gap closure)
-Plans:
-- [ ] 75-01-PLAN.md -- Add Tenant metadata column, fix better-auth mapping, un-skip org E2E, scope setup-member
-- [ ] 75-02-PLAN.md -- Gap closure: run org E2E suite against real backend, capture runtime evidence
-
-### Phase 76: CI Test Reliability Gate
-**Goal**: Contract tests cannot silently pass with zero assertions — CI fails fast if openapi-spec.json generation fails
-**Depends on**: Phase 73
-**Requirements**: BINT-03 (hardening — contract tests exist from Phase 69/73, but can silently skip)
-**Gap Closure:** Closes integration gap "contract tests silently pass when openapi-spec.json absent"
-**Success Criteria** (what must be TRUE):
-  1. `contract-helpers.ts` `loadSpec()` throws (not returns null) when openapi-spec.json is absent — tests fail instead of silently passing
-  2. CI pipeline (or Jest global-setup) includes an assertion that openapi-spec.json was generated successfully before contract test suites run
-**Plans:** TBD
+  1. Email list density, typography, and hover states match professional email clients (Superhuman/Outlook level) -- not generic MUI table
+  2. Thread reading pane is visible and usable on tablet-width viewports (768px+) without requiring a separate navigation action
+  3. Compose dialog renders correctly on mobile with safe area insets -- no content overflow or hidden send button
+  4. Empty states are consistent across inbox, search, VIP, and folder views -- each shows an illustration and actionable message
+  5. Admin users table switches to card layout below mobile breakpoint; tasks page shows real data or proper empty state; analytics has consent gate
+**Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases 67, 68, and 70 can run in parallel after Phase 66 completes.
-Phase 69 depends on 67 + 68. Phase 71 depends on 66 + 69.
-Phase 72 depends on 71 (needs pages working to screenshot).
-Phase 73 depends on 69 + 71 (hardens existing test artifacts).
-Phase 74 depends on 73 (runs E2E after hardening fixes applied).
-Phase 75 depends on 74 (fixes org E2E that Phase 74 confirmed broken).
-Phase 76 depends on 73 (hardens contract test CI gate from Phase 73 work).
-Phases 72, 75, and 76 can run in parallel.
+Phase 77 and 78 can run in parallel (no dependency).
+Phase 80 can run in parallel with 77-79 (independent infrastructure).
+Phase 79 depends on 77 + 78.
+Phase 81 depends on 79 + 77.
+Phase 82 depends on 77.
+Phase 83 depends on 79 + 81.
+Phase 84 depends on 82.
+Phase 85 can run in parallel with 83-84.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 66. Test Infrastructure | 4/4 | Complete | 2026-03-10 |
-| 67. Backend Tests - Simple Modules | 5/5 | Complete | 2026-03-11 |
-| 68. Backend Tests - Complex Modules | 5/5 | Complete | 2026-03-11 |
-| 69. Backend Integration Tests | 3/3 | Complete | 2026-03-11 |
-| 70. Frontend Unit Tests | 3/3 | Complete | 2026-03-11 |
-| 71. Frontend E2E Tests | 5/6 | Gap closure | 2026-03-12 |
-| 72. MUI Audit & Polish | 0/? | Not started | - |
-| 73. Test Hardening & Cleanup | 2/2 | Complete    | 2026-03-13 |
-| 74. E2E Runtime Validation | 1/1 | Complete    | 2026-03-13 |
-| 75. Organization E2E Fix | 1/2 | Gap closure | 2026-03-15 |
-| 76. CI Test Reliability Gate | 0/? | Not started | - |
+| 77. AI Control Plane -- HITL & Tool Governance | 0/? | Not started | - |
+| 78. Security Fixes | 0/? | Not started | - |
+| 79. Authorization | 0/? | Not started | - |
+| 80. OpenTelemetry | 0/? | Not started | - |
+| 81. CRM Domain | 0/? | Not started | - |
+| 82. AI Remediation Completion | 0/? | Not started | - |
+| 83. Workflow Automation | 0/? | Not started | - |
+| 84. MUI Chat Migration | 0/? | Not started | - |
+| 85. UI/UX Polish | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
 *v5.0 completed: 2026-03-10 -- 15 phases, 34 plans, 51/51 requirements*
-*v5.1 roadmap added: 2026-03-10 -- 7 phases, 27 requirements*
-*v5.1 gap closure: 2026-03-13 -- 2 phases added (73-74) from milestone audit*
-*v5.1 gap closure: 2026-03-13 -- 2 phases added (75-76) from second milestone audit*
+*v5.1 completed: 2026-03-15 -- 11 phases, 30 plans*
+*v6.0 roadmap added: 2026-03-18 -- 9 phases, 66 requirements across 9 domains*

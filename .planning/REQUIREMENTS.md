@@ -160,13 +160,78 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| — | — | — |
+| AICP-01 | Phase 77 | Pending |
+| AICP-02 | Phase 77 | Pending |
+| AICP-03 | Phase 77 | Pending |
+| AICP-04 | Phase 77 | Pending |
+| AICP-05 | Phase 82 | Pending |
+| AICP-06 | Phase 82 | Pending |
+| AICP-07 | Phase 82 | Pending |
+| AICP-08 | Phase 82 | Pending |
+| AICP-09 | Phase 82 | Pending |
+| AICP-10 | Phase 82 | Pending |
+| AICP-11 | Phase 82 | Pending |
+| AICP-12 | Phase 77 | Pending |
+| AICP-13 | Phase 82 | Pending |
+| AICP-14 | Phase 77 | Pending |
+| AUTHZ-01 | Phase 79 | Pending |
+| AUTHZ-02 | Phase 79 | Pending |
+| AUTHZ-03 | Phase 79 | Pending |
+| AUTHZ-04 | Phase 79 | Pending |
+| AUTHZ-05 | Phase 79 | Pending |
+| AUTHZ-06 | Phase 79 | Pending |
+| AUTHZ-07 | Phase 79 | Pending |
+| SEC-01 | Phase 78 | Pending |
+| SEC-02 | Phase 78 | Pending |
+| SEC-03 | Phase 78 | Pending |
+| SEC-04 | Phase 78 | Pending |
+| CRM-01 | Phase 81 | Pending |
+| CRM-02 | Phase 81 | Pending |
+| CRM-03 | Phase 81 | Pending |
+| CRM-04 | Phase 81 | Pending |
+| CRM-05 | Phase 81 | Pending |
+| CRM-06 | Phase 81 | Pending |
+| CRM-07 | Phase 81 | Pending |
+| CRM-08 | Phase 81 | Pending |
+| CRM-09 | Phase 81 | Pending |
+| CRM-10 | Phase 81 | Pending |
+| CRM-11 | Phase 81 | Pending |
+| CRM-12 | Phase 81 | Pending |
+| WF-01 | Phase 83 | Pending |
+| WF-02 | Phase 83 | Pending |
+| WF-03 | Phase 83 | Pending |
+| WF-04 | Phase 83 | Pending |
+| WF-05 | Phase 83 | Pending |
+| WF-06 | Phase 83 | Pending |
+| WF-07 | Phase 83 | Pending |
+| WF-08 | Phase 83 | Pending |
+| OTEL-01 | Phase 80 | Pending |
+| OTEL-02 | Phase 80 | Pending |
+| OTEL-03 | Phase 80 | Pending |
+| OTEL-04 | Phase 80 | Pending |
+| OTEL-05 | Phase 80 | Pending |
+| OTEL-06 | Phase 80 | Pending |
+| MUI-01 | Phase 84 | Pending |
+| MUI-02 | Phase 84 | Pending |
+| MUI-03 | Phase 84 | Pending |
+| MUI-04 | Phase 84 | Pending |
+| EMUIX-01 | Phase 85 | Pending |
+| EMUIX-02 | Phase 85 | Pending |
+| EMUIX-03 | Phase 85 | Pending |
+| EMUIX-04 | Phase 85 | Pending |
+| EMUIX-05 | Phase 85 | Pending |
+| EMUIX-06 | Phase 85 | Pending |
+| UIUX-01 | Phase 85 | Pending |
+| UIUX-02 | Phase 85 | Pending |
+| UIUX-03 | Phase 85 | Pending |
+| UIUX-04 | Phase 85 | Pending |
+| UIUX-05 | Phase 85 | Pending |
 
 **Coverage:**
-- v6.0 requirements: 63 total
-- Mapped to phases: 0
-- Unmapped: 63
+- v6.0 requirements: 66 total
+- Mapped to phases: 66
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 after roadmap creation (phases 77-85)*
