@@ -63,6 +63,24 @@ export function ChatRuntimeProvider({
         },
       }),
     }),
+    // Auto-resubmit after user approves/denies a tool requiring action.
+    // When all tool invocations in the last assistant message have been resolved
+    // (none remain in approval-requested state), the runtime continues the AI loop.
+    sendAutomaticallyWhen: ({ messages }) => {
+      const last = messages[messages.length - 1];
+      if (!last || last.role !== 'assistant') return false;
+      // UIMessage parts use tool-invocation type with AI SDK states
+      const toolParts = last.parts?.filter(
+        (p) => p.type === 'tool-invocation',
+      );
+      if (!toolParts?.length) return false;
+      // Auto-send when all tool invocations are resolved (no pending approvals)
+      return !toolParts.some(
+        (p) =>
+          p.type === 'tool-invocation' &&
+          p.state === 'approval-requested',
+      );
+    },
   });
 
   return (

@@ -5,10 +5,23 @@ import { Code, Loader2 } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { HitlApprovalWrapper } from '../HitlApprovalCard';
 
 export const FallbackToolUI = makeAssistantToolUI<unknown, unknown>({
   toolName: '*',
-  render: ({ status, toolName, args, result }) => {
+  render: ({ status, toolName, args, result, addResult }) => {
+    // SDK-native HITL: show approval card when tool requires action
+    if (status.type === 'requires-action') {
+      return (
+        <HitlApprovalWrapper
+          status={status}
+          addResult={addResult}
+          toolName={toolName}
+          args={args as Record<string, unknown>}
+        />
+      );
+    }
+
     const isRunning = status.type === 'running';
 
     return (

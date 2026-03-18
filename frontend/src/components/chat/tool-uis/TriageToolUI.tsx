@@ -6,7 +6,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import type { BulkActionResult } from '../types';
-import { HitlApprovalCardFromStatus } from '../HitlApprovalCard';
+import { HitlApprovalWrapper } from '../HitlApprovalCard';
 
 function severitySx(severity: string): { bgcolor: string; color: string } {
   switch (severity) {
@@ -27,7 +27,7 @@ export const TriageToolUI = makeAssistantToolUI<
   render: ({ status, result, addResult, toolName, args }) => {
     if (status.type === 'requires-action') {
       return (
-        <HitlApprovalCardFromStatus
+        <HitlApprovalWrapper
           status={status}
           addResult={addResult}
           toolName={toolName}
