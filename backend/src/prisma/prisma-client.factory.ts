@@ -18,7 +18,7 @@ export function createPrismaAdapter() {
   }
 
   // Ensure connection pool configuration for production.
-  // Neon free tier + 54 BullMQ workers need explicit pool sizing to avoid
+  // 54 BullMQ workers need explicit pool sizing to avoid
   // connection starvation with the default pool (~5-9 connections).
   if (!connectionString.includes('connection_limit')) {
     const separator = connectionString.includes('?') ? '&' : '?';
@@ -27,7 +27,6 @@ export function createPrismaAdapter() {
 
   return new PrismaPg({
     connectionString,
-    // Prevent infinite hang when Neon is cold-starting (default is 0 = no timeout)
     connectionTimeoutMillis: 15_000,
   });
 }
