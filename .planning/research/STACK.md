@@ -1,240 +1,316 @@
-# Technology Stack: v5.1 Test Coverage & Polish
+# Technology Stack
 
-**Project:** PMSync
-**Researched:** 2026-03-10
-**Scope:** NEW additions only for test infrastructure, MUI audit, and production polish
-**Overall confidence:** HIGH
+**Project:** PMSync v6.0 -- Enterprise Platform & AI Governance
+**Researched:** 2026-03-18
 
-## Existing Test Infrastructure (DO NOT CHANGE)
+## Existing Stack (DO NOT re-add)
 
-Already installed and configured -- these are the foundation:
+These are already installed and working. Listed for reference to prevent duplication.
 
-| Technology | Version | Role |
-|------------|---------|------|
-| Jest | ^30.2.0 | Backend unit tests (`.spec.ts`), frontend unit tests |
-| ts-jest | ^29.4.6 | TypeScript transform for Jest (both ends) |
-| Vitest | ^4.0.18 | Backend streaming/MSW tests (`.test.ts`) |
-| Playwright | ^1.58.2 | Frontend E2E + visual regression |
-| @testing-library/react | ^16.3.2 | Frontend component/hook testing (includes `renderHook`) |
-| @testing-library/jest-dom | ^6.9.1 | DOM assertion matchers |
-| @testing-library/dom | ^10.4.1 | DOM query utilities |
-| @nestjs/testing | ^11.1.13 | NestJS TestingModule for DI-based tests |
-| supertest | ^7.2.2 | HTTP integration tests |
-| msw | ^2.12.10 | API mocking (backend Vitest tests) |
-| @axe-core/playwright | ^4.11.1 | Accessibility testing in E2E |
-| axios-mock-adapter | ^2.1.0 | Frontend API mocking |
-| jest-environment-jsdom | ^30.2.0 | Browser env for frontend Jest |
-| unplugin-swc | ^1.5.9 | SWC transform for Vitest |
-| knip | ^5.85.0 | Dead code detection |
-
-**Established conventions:**
-- Backend: `.spec.ts` = Jest, `.test.ts` = Vitest (no overlap)
-- Frontend: `.test.ts/.tsx` = Jest, `e2e/*.spec.ts` = Playwright
-- Visual regression: Playwright `toHaveScreenshot()` with `maxDiffPixelRatio: 0.005`
-- Coverage reporters: text, lcov, html (both Jest configs)
-- Backend test setup: `test/setup.ts` (30s timeout, silenced console)
-- Frontend test setup: `jest.setup.ts` (jest-dom, mocked router/localStorage/matchMedia)
-
-**Existing test counts:**
-- Backend: ~60 `.spec.ts` unit/integration tests + 5 contract tests + 1 vitest config
-- Frontend: ~5 `.test.ts/tsx` unit tests + 13 Playwright E2E specs
-- Visual regression: 2 specs (visual-regression-splits, chat-visual-audit)
+| Technology | Package | Purpose |
+|------------|---------|---------|
+| NestJS 11 | `@nestjs/common`, `@nestjs/core` | Backend framework |
+| Prisma 7 | `@prisma/client`, `prisma` | ORM + migrations |
+| BullMQ | `bullmq` | Job queues |
+| Redis | `ioredis`, `redis` | Cache, pub/sub, locks |
+| Socket.IO | `socket.io`, `@socket.io/redis-adapter` | Real-time |
+| prom-client | `prom-client`, `@willsoto/nestjs-prometheus` | Prometheus metrics |
+| AI SDK v6 | `ai`, `@ai-sdk/mistral`, `@ai-sdk/react` | LLM orchestration |
+| assistant-ui | `@assistant-ui/react`, `@assistant-ui/react-ai-sdk` | Chat frontend |
+| MUI 7 | `@mui/material`, `@mui/icons-material` | UI components |
+| better-auth | `better-auth`, `@thallesp/nestjs-better-auth` | Auth framework |
+| TanStack Query 5 | `@tanstack/react-query` | Server state |
+| Zustand 5 | `zustand` | Client state |
+| Zod 4 | `zod` | Validation |
+| EventEmitter2 | `@nestjs/event-emitter` | Domain events |
+| @dnd-kit | `@dnd-kit/core`, `@dnd-kit/sortable` | Drag-and-drop |
 
 ---
 
-## Recommended Additions
+## New Stack Additions
 
-### 1. jest-mock-extended (Backend)
+### 1. OpenTelemetry Distributed Tracing
 
-| | |
-|---|---|
-| **Package** | `jest-mock-extended` |
-| **Version** | `^4.0.0` |
-| **Purpose** | Type-safe deep mocking for Prisma Client and complex NestJS services |
-| **Why** | The v5.1 scope includes unit tests for calendar, labels, providers, subscription, tenants, users, and health modules. Every one of these injects PrismaService. Currently, backend tests manually construct mock objects with `jest.fn()` -- this loses type safety and misses method signature changes when Prisma schema evolves. `mockDeep<PrismaClient>()` auto-generates typed mocks matching the full Prisma 7 interface. This is the officially recommended approach from Prisma's testing documentation. |
-| **Confidence** | HIGH -- Prisma official docs recommend this exact library |
+**Why:** The project has Prometheus metrics (prom-client) but zero distributed tracing. HTTP -> BullMQ -> AI -> Provider call chains are invisible. The TRANSFORMATION_ROADMAP scores observability 6/10 specifically because of this gap.
 
-**Integration with existing NestJS TestingModule:**
+**Approach:** Use the official `@opentelemetry/sdk-node` with auto-instrumentation, not a NestJS-specific wrapper. OTel must instrument before NestJS bootstraps (Node.js `--require` or top-of-file import), so NestJS module wrappers like `nestjs-otel` add abstraction without value. The bootstrap file pattern is the standard approach.
+
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| `@opentelemetry/sdk-node` | `^0.213.0` | Core SDK (Node.js convenience package) | HIGH |
+| `@opentelemetry/api` | `^1.9.0` | API surface for manual spans | HIGH |
+| `@opentelemetry/auto-instrumentations-node` | `^0.61.0` | HTTP, Express, pg, ioredis auto-instrumentation | HIGH |
+| `@opentelemetry/exporter-trace-otlp-http` | `^0.213.0` | OTLP exporter (works with Jaeger, Grafana Tempo, etc.) | HIGH |
+| `@opentelemetry/resources` | `^2.0.0` | Service resource attributes | HIGH |
+| `@opentelemetry/semantic-conventions` | `^1.30.0` | Standard attribute names | HIGH |
+| `@appsignal/opentelemetry-instrumentation-bullmq` | `^0.7.3` | BullMQ queue/worker auto-instrumentation | MEDIUM |
+
+**Why NOT `nestjs-otel` or `@metinseylan/nestjs-opentelemetry`:**
+- OTel SDK must initialize before any NestJS module loads (it monkey-patches `http`, `pg`, etc.)
+- NestJS wrappers delay initialization to module load time, missing early HTTP calls
+- The bootstrap file pattern (`tracing.ts` loaded via `--require`) is the canonical approach from OpenTelemetry docs
+- NestJS-specific span decoration (controller/guard/pipe names) can be added manually with `@opentelemetry/api` in a NestJS interceptor
+
+**Coexistence with prom-client:**
+- Keep prom-client for Prometheus metrics (already wired to `/metrics`)
+- OTel handles TRACES only; do not replace prom-client with OTel metrics yet
+- Later: consider OTel metrics export to Prometheus via `@opentelemetry/exporter-prometheus` if consolidation desired
+
+**Installation:**
+
+```bash
+cd backend
+npm install @opentelemetry/sdk-node @opentelemetry/api @opentelemetry/auto-instrumentations-node @opentelemetry/exporter-trace-otlp-http @opentelemetry/resources @opentelemetry/semantic-conventions @appsignal/opentelemetry-instrumentation-bullmq
+```
+
+**Sources:**
+- [OpenTelemetry Node.js Getting Started](https://opentelemetry.io/docs/languages/js/getting-started/nodejs/) -- HIGH confidence
+- [OpenTelemetry JS SDK 2.0 Announcement](https://opentelemetry.io/blog/2025/otel-js-sdk-2-0/) -- HIGH confidence
+- [AppSignal BullMQ Instrumentation](https://github.com/appsignal/opentelemetry-instrumentation-bullmq) -- MEDIUM confidence
+- [BullMQ Telemetry Docs](https://docs.bullmq.io/guide/telemetry/getting-started) -- HIGH confidence
+
+---
+
+### 2. Authorization (Resource-Scoped Permissions on better-auth)
+
+**Why:** Current auth is coarse RBAC (owner/admin/member roles). CRM needs resource-level permissions (e.g., `deals:delete` only for admins, `contacts:write` for members). The `IPolicyService` interface and `Permission` enum exist in `backend/src/common/interfaces/policy-service.interface.ts` but have no runtime implementation.
+
+**Approach:** Use better-auth's built-in `createAccessControl` from `better-auth/plugins/access`. This is already part of the installed `better-auth@^1.5.4` -- no new package needed.
+
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| *(none new)* | -- | `createAccessControl` is in `better-auth/plugins/access` | HIGH |
+
+**What to build (no new packages):**
+1. Shared `access-control.ts` defining resources + actions via `createAccessControl`
+2. Custom roles via `ac.newRole()` extending the 3 default org roles
+3. `@RequirePermission('deals:write')` NestJS decorator using `auth.api.hasPermission()`
+4. `PolicyService` implementation wrapping better-auth access control (fulfills existing `IPolicyService` interface)
+5. Frontend `usePermission()` hook calling `authClient.organization.hasPermission()`
+6. Frontend `<PermissionGate permission="deals:write">` component
+7. Redis cache layer (5min TTL) for permission checks in hot paths
+
+**CRM permission additions to existing taxonomy:**
+
 ```typescript
-import { Test } from '@nestjs/testing';
-import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { PrismaService } from '@/prisma/prisma.service';
-
-const prisma = mockDeep<PrismaService>();
-const module = await Test.createTestingModule({
-  providers: [
-    CalendarService, // or any module under test
-    { provide: PrismaService, useValue: prisma },
-  ],
-}).compile();
-
-// Type-safe: auto-complete on prisma.calendarEvent.findMany
-prisma.calendarEvent.findMany.mockResolvedValue([mockEvent]);
+const statement = {
+  // Existing resources (from Permission enum in policy-service.interface.ts)
+  email: ["read", "write", "delete", "send"],
+  ai: ["chat", "briefing", "triage", "draft", "runs:read", "runs:export"],
+  calendar: ["read", "write", "delete"],
+  contacts: ["read", "write", "delete", "export"],
+  admin: ["users", "billing", "audit", "settings"],
+  // NEW CRM resources
+  accounts: ["read", "write", "delete"],
+  deals: ["read", "write", "delete", "reassign"],
+  pipelines: ["read", "write", "delete"],
+  activities: ["read", "write", "delete"],
+  workflows: ["read", "write", "delete", "execute"],
+} as const;
 ```
 
-### 2. eslint-plugin-mui (Frontend Dev)
-
-| | |
-|---|---|
-| **Package** | `eslint-plugin-mui` |
-| **Version** | `^1.0.0` |
-| **Purpose** | Automated MUI pattern enforcement -- catches literal colors, enforces named imports |
-| **Why** | v5.1 includes an explicit MUI audit. The project migrated from shadcn/Tailwind to MUI in multiple waves. Automated linting catches violations that manual review misses and prevents regression. The `no-literal-colors` rule flags `sx={{ color: '#ff0000' }}` (should use `theme.palette.*`). The `prefer-named-imports` rule catches barrel imports that bloat bundles. |
-| **Confidence** | MEDIUM -- small community plugin (verify rules work with MUI v7 sx API before relying on it). If incompatible, fall back to custom ESLint rules or grep-based CI check. |
-
-**Key rules to enable:**
-- `mui/no-literal-colors` -- flags hardcoded hex/rgb/hsl in sx props
-- `mui/sort-sx-keys` -- consistent sx object key ordering
-- `mui/prefer-named-imports` -- prevents `import * from '@mui/material'`
-
-**Fallback if incompatible with MUI v7:** Write a custom grep-based CI script:
-```bash
-# Detect hardcoded colors in sx props (rough but effective)
-grep -rn "sx={{" frontend/src/ | grep -E "'#[0-9a-fA-F]|rgb\(|hsl\("
-```
-
-### 3. k6 (Load Testing -- Standalone Binary)
-
-| | |
-|---|---|
-| **Tool** | Grafana k6 |
-| **Version** | v1.6.0 |
-| **Purpose** | API load testing and scalability validation |
-| **Why** | PROJECT.md lists performance budgets (<100ms list scroll, <200ms thread load). k6 is the industry standard for API load testing: Go-based runtime with JS scripting, 70% less CPU than Node-based alternatives. Supports HTTP and WebSocket (relevant for Socket.IO testing). Native TypeScript support. NOT an npm dependency -- standalone binary, zero conflict risk. |
-| **Confidence** | HIGH -- industry standard, actively maintained |
-
-**Install (Windows):**
-```bash
-winget install grafana.k6
-# or: choco install k6
-```
-
-**Integration:** Scripts in `backend/test/load/*.js`. Run independently from Jest/Vitest. Target `localhost:3000/api/v1/*`. No build system integration needed.
-
-### 4. Coverage Threshold Enforcement (Config Change Only)
-
-| | |
-|---|---|
-| **Package** | None -- Jest built-in |
-| **Purpose** | Fail tests when coverage drops below threshold |
-| **Why** | v5.1 is specifically about increasing test coverage. Without enforcement, coverage regresses silently. Jest 30 has built-in `coverageThreshold`. |
-| **Confidence** | HIGH -- built into Jest 30 |
-
-**Add to both `jest.config.js` files:**
-```javascript
-coverageThreshold: {
-  global: {
-    branches: 50,    // Start conservative
-    functions: 60,
-    lines: 65,
-    statements: 65,
-  },
-},
-```
-
-**Process:** Run `jest --coverage` first to get current baseline, then set thresholds at current levels to prevent regression. Ratchet up as tests are written.
+**Sources:**
+- [better-auth Organization Plugin Docs](https://better-auth.com/docs/plugins/organization) -- HIGH confidence
+- [better-auth Access Control Tutorial](https://www.premieroctet.com/blog/en/better-auth-structure-and-permissions-with-the-organization-plugin) -- MEDIUM confidence
 
 ---
 
-## What NOT to Add
+### 3. CRM Domain (Accounts, Deals, Pipelines, Activities)
 
-| Tool | Why Not |
-|------|---------|
-| **Storybook** | 300+ package dependency. MUI audit is better done with eslint rules + Playwright visual regression already in place. Not a component library project. |
-| **Chromatic / Percy** | Cloud SaaS for visual regression. Playwright `toHaveScreenshot()` already works, is free, runs locally and in CI. No need for paid SaaS. |
-| **prismock / jest-prisma** | Simulate Prisma query engine in-memory. Breaks on Prisma 7's new query compiler. `jest-mock-extended` + `@nestjs/testing` TestingModule is more reliable and doesn't couple tests to Prisma internals. |
-| **Artillery** | Node.js-based load tester. k6 is faster (Go runtime), has better reporting, and uses 70% less CPU for equivalent scenarios. |
-| **autocannon** | Good for micro-benchmarks but lacks scenario scripting, ramp-up patterns, and WebSocket support that k6 provides. |
-| **@testing-library/user-event** | Only needed for complex mouse/keyboard interaction simulation. Most frontend tests target hooks/stores, not interactive components. Add later only if specific component tests demand it. |
-| **Cypress** | Playwright already handles E2E with multi-browser support (chromium, firefox, webkit) + mobile device emulation. Already configured with auth state setup. Adding a second E2E framework is waste. |
-| **Vitest for frontend** | Frontend uses Jest 30 with jsdom. Migration would require rewriting config, setup files, and all existing tests. No measurable benefit for component/hook tests. |
-| **nyc / c8 / istanbul CLI** | Jest 30 uses Istanbul reporters internally. Standalone coverage tools duplicate what Jest already does. |
-| **Suites (formerly Automock)** | NestJS official `@nestjs/testing` + `Test.createTestingModule()` is sufficient. Suites adds abstraction over what's already clean -- more magic, harder debugging. |
-| **react-hooks-testing-library** | Deprecated. `renderHook` is built into `@testing-library/react` v16 (already installed). |
-| **Codecov / Coveralls** | Adds CI complexity and external service dependency. Jest `coverageThreshold` fails locally too -- simpler and sufficient for this project. |
-| **jest-mock-extended for frontend** | Frontend tests mock axios via `axios-mock-adapter` (already installed). No deep Prisma mocking needed on frontend. |
+**Why:** Core v6.0 feature. Extends existing contacts module into full CRM.
+
+**Approach:** Pure Prisma models + NestJS modules. No CRM framework or external library.
+
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| *(none new)* | -- | Prisma models, NestJS services, existing patterns | HIGH |
+
+**What to build (no new packages):**
+- `CrmModule` with `AccountsService`, `DealsService`, `PipelinesService`, `ActivitiesService`
+- Prisma models: `Account`, `Deal`, `Pipeline`, `PipelineStage`, `Activity`
+- Link `Contact` <-> `Account` via M:N join table (`ContactAccount`)
+- Auto-generate `Activity` records from email/calendar domain events (existing EventEmitter2)
+- AI tools: `search_accounts`, `search_deals`, `create_deal`, `update_deal_stage`, `log_activity`
+
+**Frontend (no new packages):**
+- MUI DataGrid patterns for accounts/deals lists (MUI 7 already installed)
+- Deals Kanban board: reuse existing `@dnd-kit/core` + `@dnd-kit/sortable` (already installed)
+
+---
+
+### 4. Workflow Automation Engine
+
+**Why:** Phase 4 of the transformation roadmap. User-defined rules with policy-aware execution.
+
+**Approach:** Build internally on BullMQ + Prisma for backend. Use `@xyflow/react` for visual editor.
+
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| `@xyflow/react` | `^12.10.0` | Visual node editor for workflow builder | HIGH |
+
+**Why NOT Temporal, n8n, or Inngest:**
+- Temporal requires a separate server infrastructure; overkill for 20 built-in actions
+- n8n and Inngest are platforms, not embeddable libraries
+- The workflow engine scope is limited: trigger -> condition -> action chains, not arbitrary code execution
+- BullMQ already provides durable job execution with retries and compensation
+
+**Backend (no new packages):**
+- Prisma models: `Workflow`, `WorkflowStep`, `WorkflowRun`, `WorkflowRunStep`
+- `WorkflowEngineService`: state machine evaluator using BullMQ for durable execution
+- `ActionRegistryService`: typed action catalog (email, AI, CRM, calendar, webhook)
+- Policy integration: each step checked against `PolicyService` before execution
+
+**Frontend:**
+- `@xyflow/react` for the visual node editor (drag-and-drop workflow builder)
+- Nodes are React components, styled with MUI `sx` props
+- Already have `@dnd-kit` for action palette drag interactions
+
+**Why `@xyflow/react` specifically:**
+- De facto standard for node-based UIs in React (97K+ GitHub stars)
+- Used by major workflow builders (n8n's editor uses it)
+- MIT licensed, actively maintained (v12.10.1, March 2026)
+- Works with any styling system (MUI, CSS, etc.)
+
+**Installation:**
+
+```bash
+cd frontend
+npm install @xyflow/react
+```
+
+**Sources:**
+- [@xyflow/react npm](https://www.npmjs.com/package/@xyflow/react) -- HIGH confidence
+- [xyflow GitHub](https://github.com/xyflow/xyflow) -- HIGH confidence
+
+---
+
+### 5. AI Control Plane Hardening
+
+**Why:** AI_AGENT_REMEDIATION_ROADMAP identifies 4 structural problems: HITL contract inconsistency, tool execution governance gaps, memory write/retrieval disconnect, and legacy chat surface drift.
+
+**Approach:** Architecture refactoring, not new libraries. The problems are internal contract misalignment.
+
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| *(none new)* | -- | All work is refactoring existing code | HIGH |
+
+**What changes (no new packages):**
+1. **HITL Contract Unification:** Normalize pending-actions DTO, make approve endpoint return execution outcome (approved_only / executed / failed)
+2. **Tool Execution Governance:** Extend `IAiTool` interface with `riskLevel`, `requiresApproval`, `domain` metadata. Fix action-to-tool mapping mismatches (e.g., `delete_event` -> `SCHEDULE_MEETING`). Contract tests per action type
+3. **Memory Repair:** Unify `save_memory` and retrieval to same vector store (either `AIMemory.vector` or embeddings table, not both)
+4. **Prompt/Runtime Alignment:** Pass real runtime context (timezone, locale, provider). Add missing frontend tool renderers for `ask_user`, `save_memory`
+5. **Legacy Removal:** Delete dead chat endpoints, fake learning facade, old approval paths
+
+**The existing `ToolRegistryService` needs extension, not replacement.** Add metadata fields to `IAiTool`:
+
+```typescript
+interface IAiTool {
+  name: string;
+  // NEW fields for governance
+  domain: 'email' | 'calendar' | 'contacts' | 'crm' | 'ai' | 'system';
+  riskLevel: 'read-only' | 'reversible-write' | 'persistent-mutation' | 'destructive';
+  requiresApproval: boolean;
+  inputSchema: ZodType;
+  outputSchema: ZodType;
+}
+```
+
+---
+
+### 6. MUI Chat CSS Migration (Wave 3-4)
+
+**Why:** Waves 1-2 complete (all Radix/shadcn packages removed, zero `@radix-ui` in package.json, `cmdk` gone). Wave 3 (Command Palette rebuild) and Wave 4 (chat CSS to MUI `sx`) remain.
+
+**Approach:** No new packages. Convert 3 CSS files (~950 lines) to MUI styled components and `sx` props. Command Palette already rebuilt or needs rebuilding with MUI Dialog + List.
+
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| *(none new)* | -- | MUI 7 already installed | HIGH |
+
+**Remaining CSS files to convert:**
+- `chat-layout.css` (344 lines) -> MUI `Box`/`Stack` with `sx`
+- `chat-thread.css` (501 lines) -> MUI `Paper`/`Typography` with `sx`
+- `chat-sidebar.css` (100+ lines) -> MUI `Drawer`/`List` with `sx`
+
+**After Wave 4 completes, REMOVE:**
+- `tailwind-merge` from frontend dependencies (no Tailwind classes left)
+- `ChatThemeBridge` component (CSS custom properties no longer consumed)
+- Consider removing `tailwindcss` entirely if `@tailwind base` is no longer needed in globals.css
 
 ---
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not Alternative |
-|----------|-------------|-------------|---------------------|
-| Prisma mocking | jest-mock-extended | prismock | prismock simulates query engine -- fragile with Prisma 7 new compiler |
-| Prisma mocking | jest-mock-extended | jest-prisma | Requires running PG; unit tests should be isolated |
-| Load testing | k6 (binary) | Artillery | Node.js overhead, less efficient, weaker WebSocket support |
-| Load testing | k6 (binary) | autocannon | No scenario scripting, no ramp-up, no WS |
-| MUI lint | eslint-plugin-mui | Manual grep | Grep is one-shot; eslint prevents regression |
-| MUI lint | eslint-plugin-mui | Storybook + visual audit | 300+ deps for what 1 eslint plugin does |
-| Visual regression | Playwright (existing) | Percy/Chromatic | Already have working Playwright screenshots; no SaaS needed |
-| Coverage gate | Jest thresholds | Codecov | Jest thresholds fail locally; simpler, no external service |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Tracing | `@opentelemetry/sdk-node` (bootstrap) | `nestjs-otel` wrapper | OTel must init before NestJS; wrappers delay initialization |
+| Tracing | `@opentelemetry/sdk-node` | Sentry Performance | Vendor lock-in; OTel is open standard with any backend |
+| BullMQ tracing | `@appsignal/opentelemetry-instrumentation-bullmq` | Manual span creation | Auto-instrumentation is less maintenance |
+| Authorization | `better-auth/plugins/access` (built-in) | CASL, Casbin, Permit.io | Already have better-auth with org plugin; adding another auth library creates dual-stack |
+| Workflow engine | BullMQ + Prisma (custom) | Temporal | Temporal requires separate server infrastructure; overkill for 20 actions |
+| Workflow engine | BullMQ + Prisma (custom) | Inngest | Platform service, not embeddable library |
+| Workflow UI | `@xyflow/react` | Custom SVG/Canvas | Massive effort for standard functionality |
+| CRM | Custom Prisma models | Twenty (open-source CRM) | External application, not an embeddable module |
+| Chat CSS | MUI `sx` props | Keep CSS files | Inconsistent with MUI-only design system decision |
 
 ---
 
-## Installation
+## Complete Installation Commands
+
+### Backend (new dependencies only)
 
 ```bash
-# Backend -- one new dev dependency
-cd backend && npm install -D jest-mock-extended@^4.0.0
-
-# Frontend -- one new dev dependency (verify MUI v7 compat first)
-cd frontend && npm install -D eslint-plugin-mui@^1.0.0
-
-# Load testing -- standalone binary (NOT npm)
-winget install grafana.k6
+cd backend
+npm install @opentelemetry/sdk-node @opentelemetry/api @opentelemetry/auto-instrumentations-node @opentelemetry/exporter-trace-otlp-http @opentelemetry/resources @opentelemetry/semantic-conventions @appsignal/opentelemetry-instrumentation-bullmq
 ```
 
-**Total new npm dependencies: 2** (one per workspace, both devDependencies only).
-**Total new binary tools: 1** (k6, standalone).
+### Frontend (new dependencies only)
+
+```bash
+cd frontend
+npm install @xyflow/react
+```
+
+### Summary
+
+| Area | New Backend Packages | New Frontend Packages |
+|------|---------------------|----------------------|
+| OpenTelemetry | 7 packages | 0 |
+| Authorization | 0 (built-in to better-auth) | 0 |
+| CRM | 0 | 0 |
+| Workflow Engine | 0 | 1 (`@xyflow/react`) |
+| AI Hardening | 0 | 0 |
+| MUI Chat Migration | 0 | 0 |
+| **Total** | **7** | **1** |
 
 ---
 
-## Integration Points
+## What NOT to Add
 
-### jest-mock-extended + Existing Backend Test Pattern
-
-The backend already uses `@nestjs/testing` `Test.createTestingModule()`. `jest-mock-extended` slots in as the mock provider value:
-
-```typescript
-// Current pattern (manual, no type safety):
-const mockPrisma = { email: { findMany: jest.fn() } };
-
-// New pattern (type-safe, auto-complete):
-import { mockDeep } from 'jest-mock-extended';
-const mockPrisma = mockDeep<PrismaService>();
-```
-
-No changes to jest.config.js, setup.ts, or test runner needed.
-
-### eslint-plugin-mui + Existing Frontend ESLint
-
-Add to frontend ESLint config plugins array. Rules are opt-in:
-1. Start with `mui/no-literal-colors: "warn"` to audit scope
-2. Fix violations found during MUI audit phase
-3. Promote to `"error"` to prevent regression
-
-### k6 + Existing Backend
-
-Scripts in `backend/test/load/` directory. Run via `k6 run backend/test/load/emails-list.js`. No Jest/Vitest integration -- independent tool. Target the same `localhost:3000/api/v1/*` endpoints that contract tests verify.
-
-### Coverage Thresholds + Existing Jest Config
-
-Add `coverageThreshold` object to both `backend/jest.config.js` and `frontend/jest.config.js`. Existing `coverageReporters` and `collectCoverageFrom` patterns remain unchanged.
+| Package | Why people might suggest it | Why NOT for PMSync |
+|---------|---------------------------|-------------------|
+| `@nestjs/cqrs` | CRM event sourcing | Overkill; EventEmitter2 already handles domain events |
+| `nestjs-otel` | NestJS OTel wrapper | OTel must init before NestJS bootstrap; wrapper adds no value |
+| `casl` or `casbin` | Authorization library | better-auth `createAccessControl` already provides resource-scoped RBAC |
+| `temporal-sdk` | Workflow durability | Requires Temporal server; BullMQ already provides durable execution |
+| `inngest` | Event-driven workflows | SaaS platform, not a library; vendor lock-in |
+| `xstate` | State machine for workflows | Additional abstraction over BullMQ job states; unnecessary complexity |
+| `@sentry/nestjs` | Error tracking + tracing | Can add later for error tracking, but tracing should be OTel-native |
+| `tailwind-merge` | Still in package.json | REMOVE after Wave 4 completes (no Tailwind classes will remain) |
+| `@opentelemetry/sdk-metrics` | OTel metrics | prom-client already handles metrics well; don't create dual metrics stack |
+| `@mui/x-data-grid` | Advanced data grid | Standard MUI `Table` + `TablePagination` sufficient for CRM lists; avoid MUI X license cost |
 
 ---
 
 ## Sources
 
-- [Prisma Unit Testing (official)](https://www.prisma.io/docs/orm/prisma-client/testing/unit-testing) -- recommends jest-mock-extended
-- [Jest Configuration (official)](https://jestjs.io/docs/configuration) -- coverageThreshold docs
-- [Grafana k6 Documentation](https://grafana.com/docs/k6/latest/) -- v1.6.0
-- [k6 GitHub Releases](https://github.com/grafana/k6/releases) -- latest version verification
-- [eslint-plugin-mui (npm)](https://www.npmjs.com/package/eslint-plugin-mui) -- MUI linting rules
-- [MUI Testing Guide (official)](https://mui.com/material-ui/guides/testing/) -- ThemeProvider wrapping pattern
-- [Playwright Visual Comparisons (official)](https://playwright.dev/docs/test-snapshots) -- toHaveScreenshot API
-- [NestJS Testing (official)](https://docs.nestjs.com/fundamentals/testing) -- TestingModule patterns
-- [@testing-library/react API](https://testing-library.com/docs/react-testing-library/api/) -- renderHook built-in
-
----
-
-*Last updated: 2026-03-10 -- v5.1 Test Coverage & Polish research*
+- [OpenTelemetry Node.js Docs](https://opentelemetry.io/docs/languages/js/getting-started/nodejs/) -- HIGH confidence
+- [OpenTelemetry JS SDK 2.0](https://opentelemetry.io/blog/2025/otel-js-sdk-2-0/) -- HIGH confidence
+- [@opentelemetry/sdk-node npm](https://www.npmjs.com/package/@opentelemetry/sdk-node) -- HIGH confidence
+- [BullMQ Telemetry Docs](https://docs.bullmq.io/guide/telemetry/getting-started) -- HIGH confidence
+- [AppSignal BullMQ OTel Instrumentation](https://github.com/appsignal/opentelemetry-instrumentation-bullmq) -- MEDIUM confidence
+- [better-auth Organization Plugin](https://better-auth.com/docs/plugins/organization) -- HIGH confidence
+- [better-auth Access Control Tutorial](https://www.premieroctet.com/blog/en/better-auth-structure-and-permissions-with-the-organization-plugin) -- MEDIUM confidence
+- [@xyflow/react npm](https://www.npmjs.com/package/@xyflow/react) -- HIGH confidence
+- [xyflow GitHub](https://github.com/xyflow/xyflow) -- HIGH confidence
+- [SigNoz OTel NestJS Guide](https://signoz.io/blog/opentelemetry-nestjs/) -- MEDIUM confidence

@@ -1,554 +1,692 @@
-# Architecture Patterns: Test Infrastructure for PMSync v5.1
+# Architecture Patterns
 
-**Domain:** Deep test coverage for NestJS + Next.js multi-tenant email platform
-**Researched:** 2026-03-10
-**Overall confidence:** HIGH (based on existing codebase patterns + established testing libraries)
-
-## Current Test Infrastructure Inventory
-
-### What Exists
-
-| Layer | Runner | Count | Pattern |
-|-------|--------|-------|---------|
-| Backend unit (.spec.ts) | Jest + ts-jest | ~80 files | NestJS `Test.createTestingModule` with manual mocks |
-| Backend integration (.spec.ts) | Jest | 4 files | Real Redis/Prisma, skip-on-unavailable |
-| Backend AI pipeline (.test.ts) | Vitest + MSW | 8 files | MSW streaming handlers, no real API |
-| Backend contract (.spec.ts) | Jest | 5 files | OpenAPI spec validation |
-| Frontend unit (.test.ts/.tsx) | Jest + jsdom | 5 files | @testing-library/react, manual mocks |
-| Frontend E2E (.spec.ts) | Playwright | 12 specs + 1 setup | Route interception, auth cookie injection |
-
-### What is Missing
-
-| Gap | Impact | Priority |
-|-----|--------|----------|
-| Backend: calendar, labels, providers, subscription, tenants, users, health modules | Zero test coverage on 7/16 modules | HIGH |
-| Frontend: hooks/queries/* unit tests | TanStack Query hooks untested | HIGH |
-| Frontend: Zustand store tests | State management logic untested | HIGH |
-| Frontend: MUI component rendering tests | No visual regression at unit level | MEDIUM |
-| Backend: BullMQ worker tests | 7 workers with zero unit tests | HIGH |
-| Backend: AI tool tests (individual) | ~20 injectable tools untested as units | MEDIUM |
-| Frontend: org/admin/security E2E | v5.0 features with zero E2E coverage | HIGH |
+**Domain:** Enterprise platform expansion -- CRM, workflow automation, authorization, OpenTelemetry, AI control plane hardening
+**Researched:** 2026-03-18
+**Overall confidence:** HIGH (based on codebase analysis + official docs + audit reports)
 
 ## Recommended Architecture
 
-### Test Pyramid for This Stack
+The existing modular monolith architecture is correct for this milestone. No topology changes needed. All new features integrate as new NestJS modules or extensions to existing modules, following established patterns (self-registering tools, domain events, global guards, Prisma tenant scoping).
+
+### System Overview After v6.0
 
 ```
-                    /\
-                   /  \     Playwright E2E (12 existing + ~8 new)
-                  /    \    Full browser, mocked API, auth cookie injection
-                 /------\
-                /        \  Integration (4 existing + ~6 new)
-               /          \ Real Redis/Prisma, skip-on-unavailable
-              /------------\
-             /              \ Vitest AI pipeline (8 existing + ~4 new)
-            /                \ MSW streaming, deterministic AI responses
-           /------------------\
-          /                    \ Jest backend unit (~80 existing + ~60 new)
-         /                      \ NestJS TestingModule, manual Prisma mocks
-        /------------------------\
-       /                          \ Frontend Jest unit (~5 existing + ~25 new)
-      /                            \ RTL, mock hooks, Zustand store tests
-     /------------------------------\
+Guard Chain (unchanged order, one addition):
+  ThrottlerGuard -> BetterAuthGuard -> PermissionGuard(NEW) -> LegalAcceptanceGuard -> ConsentGuard
+
+New Modules:
+  AuthorizationModule(@Global)  -- permission evaluation, caching, @RequirePermission
+  CrmModule                     -- Accounts, Deals, Pipelines, Activities
+  WorkflowModule                -- engine, step execution, triggers
+  TracingModule(@Global)        -- OTel bootstrap, context propagation
+
+Modified Modules:
+  AiChatModule                  -- HITL contract unification, tool governance
+  ToolRegistryModule            -- tool metadata (riskLevel, requiresApproval, schemas)
+  ContactsModule                -- Account<->Contact linking
+  Common/Auth                   -- PermissionGuard, @RequirePermission decorator
 ```
 
-**Target ratio:** 60% unit : 20% integration/pipeline : 15% E2E : 5% contract
+### Component Boundaries
 
-### Dual Runner Strategy (Keep It -- Do NOT Consolidate)
+| Component | Responsibility | Communicates With | New/Modified |
+|-----------|---------------|-------------------|--------------|
+| **AuthorizationModule** | Permission evaluation, caching, guard | BetterAuth org roles, Redis cache, all controllers | NEW |
+| **CrmModule** | Account, Deal, Pipeline, Activity CRUD | ContactsModule, EmailModule, CalendarModule (via events), AiChatModule (via tool registry) | NEW |
+| **WorkflowModule** | Workflow definition, execution, triggers | BullMQ, CrmModule, EmailModule, CalendarModule, AuthorizationModule | NEW |
+| **TracingModule** | OTel SDK bootstrap, span creation, context propagation | All modules (via auto-instrumentation), BullMQ workers | NEW |
+| **AiChatModule** | Chat orchestration, HITL, tool execution | ToolRegistryModule, all domain modules (via tools) | MODIFIED |
+| **ToolRegistryModule** | Tool discovery, metadata, governance | All domain modules (self-register) | MODIFIED |
+| **ContactsModule** | Contact CRUD, sync, scoring | CrmModule (Account linking) | MODIFIED |
+| **Common/Auth** | Guards, decorators, session validation | AuthorizationModule | MODIFIED |
 
-The codebase already splits cleanly:
+### Data Flow
 
-- **Jest** (.spec.ts): NestJS unit tests, contract tests, frontend unit tests. CJS-compatible, NestJS Testing module works natively.
-- **Vitest** (.test.ts): AI pipeline tests requiring MSW + ESM streaming. SWC plugin handles decorators.
+```
+1. AUTHORIZATION FLOW:
+   Request -> BetterAuthGuard (session) -> PermissionGuard (@RequirePermission)
+     -> PermissionService.hasPermission(userId, orgId, resource, action)
+     -> Redis cache (5min TTL) || better-auth org role + permission map
+     -> allow/deny
 
-Do NOT consolidate runners. The split is intentional: Jest handles NestJS DI well; Vitest handles ESM-only MSW/AI SDK streaming. Mixing causes transform hell.
+2. CRM ACTIVITY AUTO-GENERATION:
+   EmailSyncedEvent / CalendarEventCreated -> CrmEventHandler (@OnEvent)
+     -> match Contact -> Account link
+     -> create Activity record (tenant-scoped)
 
-## Component Boundaries
+3. WORKFLOW EXECUTION:
+   Trigger (event/schedule/manual) -> WorkflowEngine.start(workflowId, input)
+     -> BullMQ job per step -> StepExecutor.run(step, context)
+     -> PermissionService.check(step.action) -> ActionRegistry.execute(action, params)
+     -> persist state -> next step or complete
 
-### Backend Test Utilities (New -- to be created)
+4. OTEL TRACE PROPAGATION:
+   HTTP request (auto-instrumented) -> traceId in AsyncLocalStorage
+     -> BullMQ job (traceId in job.data) -> worker picks up context
+     -> AI call (custom span) -> provider call (custom span)
+     -> export to OTLP endpoint
 
-| Utility | Location | Purpose |
-|---------|----------|---------|
-| `createMockPrisma()` | `backend/test/helpers/mock-prisma.ts` | Typed Prisma mock factory replacing per-file manual mocks |
-| `createMockUser()` | `backend/test/helpers/mock-auth.ts` | Standard tenant-scoped user with better-auth session |
-| `createMockExecutionContext()` | `backend/test/helpers/mock-context.ts` | NestJS ExecutionContext with request.user pre-populated |
-| `createMockJob()` | `backend/test/helpers/mock-bullmq.ts` | BullMQ Job mock for worker testing |
-| `createMockSocket()` | `backend/test/helpers/mock-socket.ts` | Socket.IO client mock for realtime testing |
+5. AI TOOL GOVERNANCE:
+   User message -> AiChatService -> tool call
+     -> ToolGovernanceService.evaluate(tool, context)
+     -> if requiresApproval: HitlService.createPendingAction()
+     -> if approved: ToolExecutorService.execute(tool, params) (same code path)
+     -> AiRunLedger.record(traceId, toolCall, outcome)
+```
 
-### Frontend Test Utilities (New -- to be created)
+## New Modules: Detailed Design
 
-| Utility | Location | Purpose |
-|---------|----------|---------|
-| `renderWithProviders()` | `frontend/test/helpers/render.tsx` | MUI ThemeProvider + QueryProvider + Zustand wrapper |
-| `createMockSession()` | `frontend/test/helpers/mock-session.ts` | better-auth session mock for hook/component tests |
-| `mockApiRoute()` | `frontend/test/helpers/mock-api.ts` | axios-mock-adapter convenience wrapper |
+### 1. AuthorizationModule (NEW, @Global)
 
-### Existing Utilities (Keep -- Already Working)
+**Location:** `backend/src/common/authorization/`
 
-| Utility | Location | Used By |
-|---------|----------|---------|
-| `contract-helpers.ts` | `backend/test/contract/` | All 5 contract tests |
-| `msw-handlers/` | `backend/src/test/msw-handlers/` | AI pipeline Vitest tests |
-| `fixtures.ts` | `frontend/e2e/` | All Playwright E2E specs |
-| `auth.setup.ts` | `frontend/e2e/` | Playwright auth state bootstrapping |
-| `better-auth-node.mock.ts` | `backend/test/mocks/` | Jest moduleNameMapper for ESM boundary |
+**Why @Global:** Every controller needs permission checks. Same pattern as MetricsModule and ToolRegistryModule.
+
+```
+common/authorization/
+  authorization.module.ts          -- @Global, exports PermissionService
+  permission.service.ts            -- evaluate permissions, Redis caching
+  permission.guard.ts              -- CanActivate, reads @RequirePermission metadata
+  require-permission.decorator.ts  -- @RequirePermission('contacts.write')
+  permission.constants.ts          -- resource+action definitions
+  __tests__/
+    permission.service.spec.ts
+    permission.guard.spec.ts
+```
+
+**Key design decisions:**
+
+- Build ON TOP of better-auth org roles, not replace them. The org plugin already provides `owner/admin/member` roles with `createAccessControl()`. Extend this with resource-scoped permissions.
+- Permission format: `resource.action` (e.g., `contacts.write`, `deals.delete`, `workflows.execute`).
+- Permission map stored per org role in config (not DB). This avoids a migration-heavy custom Permission model while still giving resource-level granularity.
+- Redis cache with 5min TTL per `userId:orgId` key. Invalidate on role change via domain event.
+- The guard reads `@RequirePermission()` metadata. If no decorator, the route is open to any authenticated user (backward compatible with existing controllers).
+
+**Permission map shape:**
+
+```typescript
+const PERMISSION_MAP: Record<string, Record<string, string[]>> = {
+  owner: {
+    '*': ['*'],  // full access
+  },
+  admin: {
+    contacts: ['read', 'write', 'delete'],
+    deals: ['read', 'write', 'delete'],
+    pipelines: ['read', 'write'],
+    workflows: ['read', 'write', 'execute'],
+    emails: ['read', 'write', 'send', 'delete'],
+    calendar: ['read', 'write', 'delete'],
+    ai: ['chat', 'approve'],
+    settings: ['read', 'write'],
+  },
+  member: {
+    contacts: ['read', 'write'],
+    deals: ['read', 'write'],
+    pipelines: ['read'],
+    workflows: ['read', 'execute'],
+    emails: ['read', 'write', 'send'],
+    calendar: ['read', 'write'],
+    ai: ['chat', 'approve'],
+    settings: ['read'],
+  },
+};
+```
+
+**Integration with existing guards:** PermissionGuard slots into the global guard chain AFTER BetterAuthGuard (which sets `request.user.role`) but BEFORE LegalAcceptanceGuard. This means it runs only for authenticated users.
+
+### 2. CrmModule (NEW)
+
+**Location:** `backend/src/modules/crm/`
+
+```
+modules/crm/
+  crm.module.ts
+  controllers/
+    accounts.controller.ts       -- CRUD, search, timeline
+    deals.controller.ts          -- CRUD, pipeline movement
+    pipelines.controller.ts      -- Pipeline + Stage CRUD
+    activities.controller.ts     -- Activity list, filters
+  services/
+    account.service.ts           -- Account CRUD, Contact linking
+    deal.service.ts              -- Deal CRUD, stage transitions
+    pipeline.service.ts          -- Pipeline/Stage management
+    activity.service.ts          -- Activity CRUD, auto-generation
+    crm-event-handler.service.ts -- @OnEvent listeners for email/calendar
+  dto/
+    create-account.dto.ts
+    update-account.dto.ts
+    create-deal.dto.ts
+    update-deal.dto.ts
+    pipeline.dto.ts
+    activity-filter.dto.ts
+  tools/
+    crm.tool.ts                  -- IAiTool for ToolRegistry
+  __tests__/
+```
+
+**Prisma models needed (6 new models):**
+
+```prisma
+model CrmAccount {
+  id          String   @default(cuid())
+  tenantId    String
+  name        String
+  domain      String?
+  industry    String?
+  size        String?            // startup, small, medium, enterprise
+  website     String?
+  phone       String?
+  address     Json?
+  notes       String?
+  ownerId     String?            // User who owns this account
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  metadata    Json?
+
+  contacts    CrmAccountContact[]
+  deals       CrmDeal[]
+  activities  CrmActivity[]
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner       User?    @relation(fields: [ownerId], references: [id])
+
+  @@id([id, tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, domain])
+  @@index([tenantId, ownerId])
+  @@map("crm_accounts")
+}
+
+model CrmAccountContact {
+  id         String  @id @default(cuid())
+  accountId  String
+  contactId  String
+  tenantId   String
+  role       String? // decision-maker, technical, billing
+  isPrimary  Boolean @default(false)
+  createdAt  DateTime @default(now())
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, contactId, tenantId])
+  @@index([tenantId, accountId])
+  @@index([tenantId, contactId])
+  @@map("crm_account_contacts")
+}
+
+model CrmPipeline {
+  id          String     @id @default(cuid())
+  tenantId    String
+  name        String
+  isDefault   Boolean    @default(false)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  stages      CrmStage[]
+  deals       CrmDeal[]
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("crm_pipelines")
+}
+
+model CrmStage {
+  id          String      @id @default(cuid())
+  pipelineId  String
+  tenantId    String
+  name        String
+  order       Int
+  probability Float       @default(0)
+  color       String?
+  isWon       Boolean     @default(false)
+  isLost      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+
+  pipeline    CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals       CrmDeal[]
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineId, order])
+  @@index([tenantId, pipelineId])
+  @@map("crm_stages")
+}
+
+model CrmDeal {
+  id                String      @default(cuid())
+  tenantId          String
+  accountId         String?
+  pipelineId        String
+  stageId           String
+  name              String
+  value             Float?
+  currency          String      @default("EUR")
+  ownerId           String?
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+  isWon             Boolean?
+  notes             String?
+  tags              String[]    @default([])
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  metadata          Json?
+
+  pipeline    CrmPipeline @relation(fields: [pipelineId], references: [id])
+  stage       CrmStage    @relation(fields: [stageId], references: [id])
+  activities  CrmActivity[]
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([id, tenantId])
+  @@index([tenantId, pipelineId, stageId])
+  @@index([tenantId, accountId])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, expectedCloseDate])
+  @@map("crm_deals")
+}
+
+model CrmActivity {
+  id          String   @id @default(cuid())
+  tenantId    String
+  accountId   String?
+  dealId      String?
+  contactId   String?
+  userId      String
+  type        String   // email_sent, email_received, meeting, call, note, task, deal_stage_change
+  subject     String?
+  body        String?
+  occurredAt  DateTime @default(now())
+  sourceType  String?  // manual, auto_email, auto_calendar
+  sourceId    String?  // emailId, calendarEventId
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, accountId, occurredAt(sort: Desc)])
+  @@index([tenantId, dealId, occurredAt(sort: Desc)])
+  @@index([tenantId, contactId, occurredAt(sort: Desc)])
+  @@index([tenantId, type])
+  @@map("crm_activities")
+}
+```
+
+**Tenant scoping:** All 6 new CRM models must be added to `TENANT_SCOPED_MODELS` in `tenant-scoped-models.ts`. CrmAccount and CrmDeal use composite PKs and must be added to `COMPOSITE_PK_MODELS`.
+
+**Domain events for activity auto-generation:**
+
+New events file: `common/events/crm.events.ts`
+
+```typescript
+export class CrmActivityCreatedEvent {
+  static readonly eventName = 'crm.activity.created' as const;
+  constructor(
+    public readonly tenantId: string,
+    public readonly activityId: string,
+    public readonly type: string,
+    public readonly accountId: string | null,
+    public readonly dealId: string | null,
+  ) {}
+}
+
+export class DealStageChangedEvent {
+  static readonly eventName = 'crm.deal.stage-changed' as const;
+  constructor(
+    public readonly tenantId: string,
+    public readonly dealId: string,
+    public readonly fromStageId: string,
+    public readonly toStageId: string,
+    public readonly userId: string,
+  ) {}
+}
+```
+
+**Contact -> Account linking:** The existing Contact model already has `company` field. The `CrmAccountContact` join table creates the M:N relationship. The `ContactsModule` does NOT need to import CrmModule -- instead, CrmModule listens to `ContactUpdatedEvent` via domain events to suggest account associations.
+
+**AI tool registration:** CrmModule self-registers a `CrmTool` via `OnModuleInit` following the exact pattern in ContactsModule. The tool exposes: `search_accounts`, `create_deal`, `update_deal_stage`, `get_account_timeline`, `search_deals`.
+
+### 3. WorkflowModule (NEW)
+
+**Location:** `backend/src/modules/workflow/`
+
+```
+modules/workflow/
+  workflow.module.ts
+  controllers/
+    workflow.controller.ts        -- Workflow CRUD
+    workflow-run.controller.ts    -- Start, status, history
+  services/
+    workflow.service.ts           -- Workflow definition CRUD
+    workflow-engine.service.ts    -- Execution engine, step orchestration
+    step-executor.service.ts      -- Individual step execution
+    action-registry.service.ts    -- Maps action types to executors
+    workflow-trigger.service.ts   -- Event-based and scheduled triggers
+  dto/
+    create-workflow.dto.ts
+    workflow-step.dto.ts
+  workers/
+    workflow-step.worker.ts       -- BullMQ worker for step execution
+  __tests__/
+```
+
+**Prisma models (3 new models):**
+
+```prisma
+model Workflow {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  trigger     Json     // { type: 'event'|'schedule'|'manual', config: {...} }
+  steps       Json     // Array of step definitions
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  runs        WorkflowRun[]
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
+  @@map("workflows")
+}
+
+model WorkflowRun {
+  id          String   @id @default(cuid())
+  workflowId  String
+  tenantId    String
+  status      String   // pending, running, completed, failed, cancelled
+  input       Json?
+  output      Json?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  error       String?
+  traceId     String?  // OTel trace ID for distributed tracing
+
+  workflow    Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  steps       WorkflowStepRun[]
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, workflowId])
+  @@index([tenantId, status])
+  @@map("workflow_runs")
+}
+
+model WorkflowStepRun {
+  id          String   @id @default(cuid())
+  runId       String
+  tenantId    String
+  stepIndex   Int
+  stepName    String
+  actionType  String
+  status      String   // pending, running, completed, failed, skipped
+  input       Json?
+  output      Json?
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+  retryCount  Int      @default(0)
+
+  run         WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, runId])
+  @@map("workflow_step_runs")
+}
+```
+
+**Execution model:** Each workflow step runs as a BullMQ job. The engine creates a `WorkflowRun`, then enqueues step-0. When step-0 completes, the worker evaluates conditions and enqueues step-1, etc. This reuses the existing BullMQ infrastructure (20 named queues already exist).
+
+**Action registry:** Maps action type strings to executor functions. Initial actions: `send_email`, `create_contact`, `update_deal_stage`, `add_label`, `send_notification`, `ai_generate_draft`, `webhook_call`, `delay`. Each action checks permissions via `PermissionService` before execution.
+
+**Dependency on AuthorizationModule:** Workflow steps execute with the workflow creator's permissions. The engine passes `userId` + `tenantId` context to `PermissionService.hasPermission()` before each step action.
+
+### 4. TracingModule (NEW, @Global)
+
+**Location:** `backend/src/common/tracing/`
+
+```
+common/tracing/
+  tracing.module.ts          -- @Global, conditional on OTEL_ENABLED env
+  tracing.bootstrap.ts       -- OTel SDK init (MUST run before NestJS bootstrap)
+  tracing.service.ts         -- Helper for custom spans (AI calls, etc.)
+  bullmq-trace.plugin.ts     -- Inject/extract traceId in BullMQ job data
+  __tests__/
+```
+
+**Critical: Bootstrap order.** OpenTelemetry SDK MUST initialize before NestJS. This means `tracing.bootstrap.ts` is `--require`d in the Node startup command, NOT initialized in a module constructor.
+
+```typescript
+// tracing.bootstrap.ts -- loaded via -r flag
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { Resource } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+
+if (process.env.OTEL_ENABLED === 'true') {
+  const sdk = new NodeSDK({
+    resource: new Resource({ [ATTR_SERVICE_NAME]: 'pmsync-backend' }),
+    traceExporter: new OTLPTraceExporter({
+      url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    }),
+    instrumentations: [getNodeAutoInstrumentations({
+      '@opentelemetry/instrumentation-fs': { enabled: false },
+    })],
+  });
+  sdk.start();
+}
+```
+
+**BullMQ context propagation:** Inject `traceparent` header into `job.data` on enqueue. Extract and set active context in worker before processing. This bridges HTTP -> Queue -> Worker spans.
+
+**AI call tracing:** `TracingService.startSpan('ai.chat')` wraps Mistral calls. Records `model`, `tokens`, `toolCalls` as span attributes. Links to parent HTTP span via context.
+
+**Coexistence with prom-client:** OTel metrics exporter is NOT used. Keep existing prom-client for Prometheus metrics. OTel is traces-only. This avoids dual-metric confusion.
+
+### 5. AI Control Plane Hardening (MODIFICATIONS)
+
+**Affected files (not new modules, modifications to existing):**
+
+```
+MODIFIED: common/interfaces/tool-registry.interface.ts
+  -- Add: riskLevel, requiresApproval, domain, inputSchema, outputSchema to IAiTool
+
+MODIFIED: common/modules/tool-registry/tool-registry.service.ts
+  -- Add: getToolsByDomain(), getMutatingTools(), validateToolMetadata()
+
+NEW: modules/ai-chat/services/tool-governance.service.ts
+  -- Single source of truth for tool execution policy
+  -- Evaluates: tool.requiresApproval + user permissions + risk level
+  -- Returns: EXECUTE | REQUIRE_APPROVAL | DENY
+
+MODIFIED: modules/ai-chat/services/hitl.service.ts
+  -- Approve returns execution outcome (not just status change)
+  -- Reuse same ToolExecutorService for both direct and approved execution
+
+NEW: modules/ai-chat/services/tool-executor.service.ts
+  -- Extracted from scattered execution logic
+  -- Single execution path for both auto-approved and HITL-approved tools
+  -- Records to AiRunLedger with traceId
+
+MODIFIED: modules/ai-chat/services/ai-chat.service.ts
+  -- Route tool calls through ToolGovernanceService
+  -- Use ToolExecutorService instead of inline execution
+
+MODIFIED: All tool services (email-tools, calendar-tools, contact-tools, etc.)
+  -- Add riskLevel, requiresApproval metadata to tool registration
+```
+
+**Tool metadata extension:**
+
+```typescript
+export interface IAiTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  domain: string;              // NEW: 'email', 'calendar', 'contacts', 'crm', 'system'
+  riskLevel: 'read' | 'write' | 'destructive';  // NEW
+  requiresApproval: boolean;   // NEW
+  execute(input: Record<string, unknown>, context: IToolContext): Promise<unknown>;
+}
+```
+
+**ActionType enum extension:** Add `CREATE_ACCOUNT`, `UPDATE_ACCOUNT`, `CREATE_DEAL`, `UPDATE_DEAL`, `MOVE_DEAL_STAGE` to the Prisma ActionType enum.
+
+## Existing Modules: Required Modifications
+
+| Module | Change | Effort | Risk |
+|--------|--------|--------|------|
+| **ToolRegistryModule** | Extend IAiTool interface with governance metadata | Low | Low -- additive, backward compatible with default values |
+| **AiChatModule** | Extract ToolExecutorService, add ToolGovernanceService, HITL contract fix | High | Medium -- core AI flow changes, needs thorough testing |
+| **ContactsModule** | Add CrmAccountContact relation awareness to ContactCrudService | Low | Low -- additive join table queries |
+| **Common/Auth** | Add PermissionGuard, @RequirePermission decorator | Medium | Low -- new guard in chain, no existing guard changes |
+| **AppModule** | Register AuthorizationModule, TracingModule, CrmModule, WorkflowModule | Low | Low -- import additions only |
+| **Prisma schema** | Add 9 models, extend ActionType enum, add to tenant scoping | Medium | Low -- migration, no existing model changes |
+| **All controllers** | Add @RequirePermission decorators to write/delete endpoints | Medium | Low -- decorator additions, incremental |
 
 ## Patterns to Follow
 
-### Pattern 1: Multi-Tenant Prisma Query Testing
+### Pattern 1: Domain Event for Cross-Module Communication
 
-Every Prisma service test MUST verify tenant isolation. The existing pattern (email-crud.service.spec.ts) is the canonical reference.
+**What:** Use EventEmitter2 `@OnEvent` instead of direct module imports when CRM needs to react to email/calendar events.
 
-**What:** Mock PrismaService with jest.fn() for each model method. Verify every query includes `tenantId` in the `where` clause.
+**When:** CRM auto-generating activities from email sends, calendar events. Workflow triggers.
 
-**When:** Every service that touches the database (all 7 untested modules).
+**Why:** Preserves zero-circular-dependency achievement. CrmModule listens to events, never imported by EmailModule or CalendarModule.
 
-**Example (follow email-crud.service.spec.ts exactly):**
 ```typescript
-const mockPrismaService = {
-  calendar: {
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-  },
-  $transaction: jest.fn(),
-};
-
-// In test -- verify tenantId is ALWAYS in the where clause:
-expect(prisma.calendar.findMany).toHaveBeenCalledWith(
-  expect.objectContaining({
-    where: expect.objectContaining({ tenantId: 'tenant-1' }),
-  }),
-);
-```
-
-**Critical:** The tenant-scoping extension (tested in tenant-scoping.extension.spec.ts) provides runtime enforcement via AsyncLocalStorage, but unit tests operate OUTSIDE that context. A service that forgets tenantId would pass unit tests but rely on runtime injection -- masking the bug until `withoutTenantScoping()` is used in migration scripts or raw queries. Test the service's intent explicitly.
-
-### Pattern 2: better-auth Session Mocking
-
-The existing pattern (better-auth.guard.spec.ts) is the canonical reference.
-
-**What:** Mock the BETTER_AUTH injection token with `{ api: { getSession: jest.fn() } }`. Mock the ESM module BEFORE importing the class under test.
-
-**When:** Any guard, controller, or service test that needs authenticated context.
-
-**Example (follow better-auth.guard.spec.ts exactly):**
-```typescript
-// MUST mock before importing -- better-auth is ESM-only
-jest.mock('../better-auth.module', () => ({
-  BETTER_AUTH: 'BETTER_AUTH',
-}));
-
-const mockAuth = {
-  api: {
-    getSession: jest.fn().mockResolvedValue({
-      session: { id: 'sess-1', activeOrganizationId: 'tenant-1' },
-      user: {
-        id: 'user-1',
-        email: 'test@example.com',
-        tenantId: 'tenant-1',
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'admin',
-        isActive: true,
-      },
-    }),
-  },
-};
-```
-
-**Critical:** Always mock `better-auth.module` with `jest.mock()` BEFORE importing the guard/service. The real module is ESM and causes Jest transform failures. The existing `backend/test/mocks/better-auth-node.mock.ts` handles the `better-auth/node` import via moduleNameMapper.
-
-### Pattern 3: BullMQ Worker Testing
-
-Workers extend `BaseWorker` which handles Redis lifecycle. Unit tests should NOT spin up Redis.
-
-**What:** Test the job processing logic in isolation by creating fake Job objects and mocking service dependencies.
-
-**When:** All 7 workers (sync, sync-back, folder-ops, email-send, bulk-ops, contacts-sync, calendar-sync).
-
-**Example:**
-```typescript
-const mockJob = {
-  id: 'job-1',
-  name: 'sync-emails',
-  data: {
-    tenantId: 'tenant-1',
-    providerId: 'provider-1',
-    operation: 'full-sync',
-  },
-  attemptsMade: 0,
-  updateProgress: jest.fn(),
-  log: jest.fn(),
-  moveToFailed: jest.fn(),
-} as unknown as Job;
-
-// Test the processing method directly -- skip Worker constructor (needs Redis)
-// Option A: If worker exposes a processJob method, call it directly
-// Option B: Extract processing logic into a testable service
-await workerService.handleSyncJob(mockJob);
-
-expect(mockSyncService.syncEmails).toHaveBeenCalledWith(
-  expect.objectContaining({ tenantId: 'tenant-1' }),
-);
-```
-
-**Key insight:** The `BaseWorker` constructor creates a BullMQ `Worker` instance which requires Redis. Two strategies:
-1. **Extract processing logic** into a separate `@Injectable()` service that the worker calls. Test the service, not the worker lifecycle.
-2. **Mock the Worker constructor** and test the callback passed to it.
-
-Strategy 1 is preferred because it follows existing NestJS patterns and makes the logic independently testable.
-
-### Pattern 4: WebSocket / Realtime Testing
-
-Two tiers exist and should continue:
-
-**Unit tier** (existing in realtime-handshake.cookie.spec.ts):
-- Direct instantiation of service with mocked dependencies
-- Mock `BETTER_AUTH`, PrismaService, RealtimeAuthTokenService
-- Test authentication logic, room assignment, tenant isolation
-- No actual Socket.IO server
-
-**Integration tier** (existing in realtime-redis-adapter.spec.ts):
-- Real Socket.IO servers with Redis adapter
-- Tests cross-instance message delivery and room isolation
-- Skips gracefully when Redis unavailable: `if (!redisAvailable) return;`
-
-**New tests needed:**
-- RealtimeEventsService unit tests: verify correct events emitted to correct tenant rooms
-- WebSocket reconnection behavior after org switch
-
-### Pattern 5: AI SDK Mocking (Vitest + MSW)
-
-The existing MSW pattern (chat-pipeline-msw.test.ts) is the gold standard.
-
-**What:** MSW intercepts HTTP calls to Mistral API, returns deterministic streaming/non-streaming responses. Vitest runs these because MSW v2 requires ESM.
-
-**When:** Testing AI pipeline logic (intent routing, tool selection, HITL triggers, PII handling).
-
-**DO NOT test AI pipeline with Jest.** MSW + streaming requires ESM module resolution that Vitest handles natively via SWC plugin.
-
-**Example (existing -- follow chat-pipeline-msw.test.ts):**
-```typescript
-import { setupServer } from 'msw/node';
-import { mistralChatHandler, mistralEmbedHandler } from '../../../test/msw-handlers';
-
-const server = setupServer(mistralChatHandler, mistralEmbedHandler);
-
-beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
-```
-
-**New tests needed:**
-- Individual tool unit tests (Jest, NOT Vitest -- tools are plain @Injectable NestJS classes with no ESM dependency)
-- Tool registry integration (verify all ~20 tools register and are discoverable)
-- Rate limiter edge cases in AI pipeline
-
-### Pattern 6: MUI Component Testing (Frontend)
-
-**What:** Use @testing-library/react with MUI ThemeProvider wrapper. Test rendering, accessibility, interaction.
-
-**When:** Critical components. Focus on components that were migrated from shadcn/Radix in v5.0 (highest risk of inconsistency).
-
-**Example:**
-```typescript
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { ThemeProvider } from '@mui/material/styles';
-import { theme } from '@/lib/theme';
-
-function renderWithTheme(ui: React.ReactElement) {
-  return render(
-    <ThemeProvider theme={theme}>{ui}</ThemeProvider>
-  );
+// In CrmModule: crm-event-handler.service.ts
+@OnEvent(EmailSyncedEvent.eventName, { async: true })
+async handleEmailSynced(event: EmailSyncedEvent) {
+  // Match sender/recipient to Contact -> Account -> create Activity
 }
-
-it('renders email list item with sender name', () => {
-  renderWithTheme(<EmailListItem email={mockEmail} />);
-  expect(screen.getByText('Alice Smith')).toBeInTheDocument();
-});
-
-it('calls onSelect when clicked', async () => {
-  const onSelect = jest.fn();
-  renderWithTheme(<EmailListItem email={mockEmail} onSelect={onSelect} />);
-  await userEvent.click(screen.getByRole('listitem'));
-  expect(onSelect).toHaveBeenCalledWith('email-1');
-});
 ```
 
-**Key:** Do NOT test MUI internals (popover positioning, animation timing, ripple effects). Test that YOUR component renders the right content and responds to user interaction correctly.
+### Pattern 2: Self-Registering AI Tools via OnModuleInit
 
-### Pattern 7: TanStack Query Hook Testing
+**What:** CrmModule registers its CrmTool with ToolRegistryService at startup.
 
-**What:** Use `renderHook` with `QueryProvider` wrapper. Mock the underlying API module (not axios directly).
+**When:** Any new module that exposes AI-callable actions.
 
-**When:** All hooks in `frontend/hooks/queries/`.
+**Why:** Established pattern (ContactsModule, CalendarModule, EmailModule all do this).
 
-**Example (follow query-client.test.tsx pattern):**
 ```typescript
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryProvider } from '@/lib/query-client';
-import { useEmails } from '@/hooks/queries/use-emails';
-
-jest.mock('@/lib/api/emails', () => ({
-  emailsApi: {
-    list: jest.fn().mockResolvedValue({
-      data: { emails: mockEmails, pagination: { total: 3, page: 1, limit: 50 } },
-    }),
-  },
-}));
-
-it('fetches emails and returns data', async () => {
-  const { result } = renderHook(() => useEmails({ folder: 'INBOX' }), {
-    wrapper: QueryProvider,
-  });
-
-  await waitFor(() => expect(result.current.isSuccess).toBe(true));
-  expect(result.current.data.emails).toHaveLength(3);
-});
+@Module({ ... })
+export class CrmModule implements OnModuleInit {
+  constructor(
+    @Inject(TOOL_REGISTRY_SERVICE) private readonly toolRegistry: IToolRegistryService,
+    private readonly crmTool: CrmTool,
+  ) {}
+  onModuleInit() {
+    this.toolRegistry.registerTool(this.crmTool);
+  }
+}
 ```
 
-### Pattern 8: Zustand Store Testing
+### Pattern 3: BullMQ Worker for Workflow Steps
 
-**What:** Test stores by calling actions directly and asserting state changes. No React rendering needed for pure store logic.
+**What:** Each workflow step executes as a separate BullMQ job, enabling retries, timeouts, and observability.
 
-**When:** All stores in `frontend/stores/`.
+**When:** Workflow automation engine step execution.
 
-**Example:**
-```typescript
-import { useEmailUiStore } from '@/stores/email-ui-store';
+**Why:** Reuses existing BullMQ infrastructure (20 queues, 7 workers already established). Durable execution without new dependencies.
 
-beforeEach(() => {
-  // Reset store to initial state between tests
-  useEmailUiStore.setState(useEmailUiStore.getInitialState());
-});
+### Pattern 4: Global Guard Chain Extension
 
-it('selects an email', () => {
-  useEmailUiStore.getState().selectEmail('email-1');
-  expect(useEmailUiStore.getState().selectedEmailId).toBe('email-1');
-});
+**What:** PermissionGuard inserts into global APP_GUARD chain after BetterAuthGuard.
 
-it('clears selection', () => {
-  useEmailUiStore.getState().selectEmail('email-1');
-  useEmailUiStore.getState().clearSelection();
-  expect(useEmailUiStore.getState().selectedEmailId).toBeNull();
-});
-```
+**When:** Resource-scoped authorization checks.
 
-### Pattern 9: Playwright E2E for v5.0 Features
-
-**What:** Extend existing fixtures.ts with new route mocks for org/admin/security endpoints.
-
-**When:** Testing v5.0 features (orgs, admin, onboarding, security settings).
-
-**Example (extend existing fixtures pattern):**
-```typescript
-import { test as base, Page } from '@playwright/test';
-import { injectAuthCookie, mockUser } from './fixtures';
-
-const orgTest = base.extend<{ orgPage: Page }>({
-  orgPage: async ({ page }, use) => {
-    await injectAuthCookie(page.context(), 'test-session-token');
-
-    // Mock org-specific endpoints
-    await page.route('**/localhost:3000/api/v1/organizations', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          data: [{ id: 'org-1', name: 'Test Org', slug: 'test-org' }],
-        }),
-      });
-    });
-
-    await page.route('**/localhost:3000/api/v1/organizations/*/members', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          data: [{ userId: 'user-1', role: 'admin', ...mockUser }],
-        }),
-      });
-    });
-
-    await use(page);
-  },
-});
-```
+**Why:** Backward compatible -- routes without @RequirePermission pass through (guard returns true when no metadata found).
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Testing NestJS Modules via Full App Bootstrap
-**What:** Using `NestFactory.create(AppModule)` in unit tests
-**Why bad:** Pulls entire dependency graph, requires all env vars, slow (seconds per test), flaky with external services
-**Instead:** Use `Test.createTestingModule` with only the service under test and its direct mocked dependencies
+### Anti-Pattern 1: Custom Permission DB Model
 
-### Anti-Pattern 2: Real Database in Unit Tests
-**What:** Using PrismaClient connected to PostgreSQL for service-level tests
-**Why bad:** Tests become slow, order-dependent, require DB setup/teardown, flaky on CI
-**Instead:** Mock PrismaService at the unit level. Reserve real DB for integration tests only (like hitl.test.ts pattern with explicit cleanup)
+**What:** Creating a Permission, RolePermission, UserPermission table hierarchy.
 
-### Anti-Pattern 3: Shared Mutable State Between Test Files
-**What:** Global mock state that leaks between describe blocks
-**Why bad:** Order-dependent failures, impossible to debug in isolation
-**Instead:** `jest.clearAllMocks()` in `beforeEach`. New mock instances per test via `Test.createTestingModule`
+**Why bad:** Massive schema complexity for the current scale. better-auth org roles already provide owner/admin/member. A config-based permission map achieves resource-scoped control without DB overhead.
 
-### Anti-Pattern 4: Relying on Tenant-Scoping Extension as Substitute for Service Tests
-**What:** Not testing tenantId in service methods because "the extension adds it"
-**Why bad:** Extension can be bypassed (`withoutTenantScoping()`), migration scripts bypass it, raw `$queryRaw` bypasses it
-**Instead:** Unit tests must verify services pass tenantId explicitly in every query
+**Instead:** Define permission map in code. Extend to DB-backed custom roles only when tenant-specific role customization is actually needed (Phase 4+).
 
-### Anti-Pattern 5: Mixing Jest and Vitest Patterns
-**What:** Using `vi.fn()` in .spec.ts files or `jest.fn()` in .test.ts files
-**Why bad:** Wrong runner picks up wrong file, cryptic failures
-**Instead:** .spec.ts = Jest (jest.fn/jest.mock). .test.ts = Vitest (vi.fn/vi.mock). No exceptions
+### Anti-Pattern 2: CrmModule Importing into AiChatModule Directly
 
-### Anti-Pattern 6: Testing MUI Component Internals
-**What:** Asserting on MUI internal class names, DOM structure, or animation states
-**Why bad:** MUI internal implementation changes between versions, breaking tests that test nothing useful
-**Instead:** Test user-visible behavior: text content, accessibility roles, click handlers, form values
+**What:** Adding CrmModule to AiChatModule imports.
 
-## Data Flow for Test Fixtures
+**Why bad:** AiChatModule already imports 5 domain modules (Email, Calendar, Contacts, Ai, Reminder). Adding more increases coupling and risks circular dependencies.
+
+**Instead:** CrmTool self-registers via ToolRegistry. AiChatModule discovers it at runtime. No import needed.
+
+### Anti-Pattern 3: OTel Metrics Replacing prom-client
+
+**What:** Switching from prom-client to OTel metrics exporter.
+
+**Why bad:** Existing Prometheus metrics (HTTP histograms, BullMQ depth, AI cost counters) are working and battle-tested. OTel metrics would require rewriting all metric definitions.
+
+**Instead:** Use OTel for traces only. Keep prom-client for metrics. They coexist without conflict.
+
+### Anti-Pattern 4: Workflow Engine with Custom Scheduler
+
+**What:** Building a custom cron/scheduler for workflow triggers instead of using BullMQ delayed jobs.
+
+**Why bad:** Reinvents existing BullMQ `delay` and `repeat` capabilities. Adds complexity without value.
+
+**Instead:** Use BullMQ's built-in repeat options for scheduled workflow triggers. Use `@OnEvent` for event-triggered workflows.
+
+### Anti-Pattern 5: Inline HITL Execution in Controller
+
+**What:** Keeping approval + execution in HitlController directly.
+
+**Why bad:** Current bug -- approval can succeed while execution fails. No single execution path.
+
+**Instead:** HitlController calls HitlService.approve() which calls ToolExecutorService.execute(). Same executor used by auto-approved tools.
+
+## Suggested Build Order (Dependency-Driven)
 
 ```
-backend/test/helpers/           (NEW -- shared utilities)
-  mock-prisma.ts        -> All backend .spec.ts files
-  mock-auth.ts          -> Guard/controller/service tests needing auth
-  mock-context.ts       -> Controller/interceptor tests
-  mock-bullmq.ts        -> Worker tests
-  mock-socket.ts        -> Realtime unit tests
-
-backend/test/mocks/             (EXISTING -- Jest moduleNameMapper mocks)
-  better-auth-node.mock.ts -> better-auth ESM boundary
-  nanoid.mock.ts           -> ESM nanoid
-  p-retry.mock.ts          -> ESM p-retry
-  jsdom.mock.ts            -> ESM jsdom
-  is-network-error.mock.ts -> ESM is-network-error
-
-backend/src/test/msw-handlers/  (EXISTING -- Vitest MSW handlers)
-  mistral-chat.handler.ts  -> AI pipeline .test.ts
-  mistral-embed.handler.ts -> Embedding .test.ts
-  index.ts                 -> Re-exports
-
-backend/test/contract/          (EXISTING -- contract test helpers)
-  contract-helpers.ts   -> All 5 contract .spec.ts files
-
-frontend/test/helpers/          (NEW -- shared utilities)
-  render.tsx            -> All component .test.tsx files
-  mock-session.ts       -> Auth-dependent component tests
-  mock-api.ts           -> API-dependent hook tests
-
-frontend/e2e/                   (EXISTING -- Playwright infrastructure)
-  fixtures.ts           -> All Playwright .spec.ts files
-  auth.setup.ts         -> Shared auth state (better-auth cookie injection)
+Phase 1: Authorization + AI Control Plane (parallel, no deps between them)
+  |
+  |-- AuthorizationModule: needed by CRM, Workflow, and AI tools
+  |-- AI HITL + Tool Governance: independent, fixes critical audit finding
+  |
+Phase 2: OpenTelemetry (independent infrastructure, can parallel with Phase 1)
+  |
+  |-- TracingModule: no business logic deps
+  |
+Phase 3: CRM Domain (depends on Authorization)
+  |
+  |-- CRM schema + module: needs @RequirePermission on controllers
+  |-- CRM AI tools: needs ToolGovernance from Phase 1
+  |-- Activity auto-generation: needs domain events (existing)
+  |
+Phase 4: Workflow Engine (depends on Authorization + CRM)
+  |
+  |-- Workflow engine: needs CRM actions in ActionRegistry
+  |-- Workflow permission checks: needs AuthorizationModule
+  |-- Workflow triggers: needs domain events from CRM and Email
 ```
 
-## Build Order for Test Infrastructure
-
-Dependencies flow downward. Build in this order:
-
-### Phase 1: Shared Test Utilities (foundation -- no dependencies)
-1. `backend/test/helpers/mock-prisma.ts` -- typed Prisma mock factory
-2. `backend/test/helpers/mock-auth.ts` -- standard session/user shapes for better-auth
-3. `backend/test/helpers/mock-context.ts` -- NestJS ExecutionContext factory
-4. `backend/test/helpers/mock-bullmq.ts` -- BullMQ Job/Queue mocks
-5. `frontend/test/helpers/render.tsx` -- MUI ThemeProvider + QueryProvider wrapper
-6. `frontend/test/helpers/mock-session.ts` -- better-auth session mock
-
-### Phase 2: Backend Unit Tests for Untested Modules
-**Depends on:** Phase 1 utilities
-
-Order by dependency complexity (simpler modules first):
-1. **health** -- zero dependencies beyond NestJS, trivial health check
-2. **users** -- Prisma-only, CRUD operations
-3. **tenants** -- Prisma-only, CRUD + tenant lifecycle
-4. **labels** -- Prisma-only, CRUD + tree structure
-5. **providers** -- Prisma + OAuth config, provider lifecycle
-6. **subscription** -- Prisma, may have payment logic
-7. **calendar** -- Prisma + BullMQ worker + external calendar API mocks
-
-### Phase 3: BullMQ Worker Tests
-**Depends on:** Phase 1 (mock-bullmq.ts)
-
-All 7 workers follow BaseWorker pattern. Test `processJob()` logic:
-1. sync.worker -- email sync orchestration
-2. sync-back.worker -- write-back to provider
-3. email-send.worker -- SMTP/API send path
-4. folder-operations.worker -- folder CRUD with Redis locks
-5. bulk-operations.worker -- batch email operations
-6. contacts-sync.worker -- contacts import from provider
-7. calendar-sync.worker -- calendar event sync
-
-### Phase 4: Frontend Unit Tests
-**Depends on:** Phase 1 (render helpers)
-
-1. **Zustand stores** -- pure logic, no rendering needed
-2. **TanStack Query hooks** -- renderHook + API module mocks
-3. **Critical MUI components** -- rendering + interaction tests for migrated components
-
-### Phase 5: Frontend E2E for v5.0 Features
-**Depends on:** existing Playwright fixtures (extend with new route mocks)
-
-1. Organization create/switch flow
-2. Admin user management (list, ban/unban, impersonation)
-3. Security settings (2FA setup, passkeys, backup codes)
-4. Onboarding flow (new user first-time experience)
-5. Invitation accept flow
-
-### Phase 6: MUI Consistency Audit
-**Depends on:** Phase 4 component tests (reveal non-MUI patterns during testing)
-
-1. Grep for non-MUI patterns (Tailwind utility classes in .tsx, raw CSS, Radix remnants)
-2. Fix violations found
-3. Add regression tests for fixed components
-
-## Integration Points with Existing Architecture
-
-### NestJS DI Container
-All backend unit tests use `Test.createTestingModule()`. New tests follow the same pattern. The module under test gets its real class; dependencies get mock providers via `{ provide: ServiceClass, useValue: mockObject }`.
-
-### Prisma Tenant-Scoping Extension
-The extension auto-injects tenantId via AsyncLocalStorage context. Tests operate OUTSIDE this context (no CorrelationContext active), so mocked Prisma calls do not go through the extension. This is correct -- unit tests verify the service's intent, not the runtime enforcement layer.
-
-### better-auth ESM Boundary
-The `better-auth` package is ESM-only. All tests touching auth MUST use the `jest.mock('../better-auth.module')` pattern before importing the class under test. The existing `backend/test/mocks/better-auth-node.mock.ts` handles the `better-auth/node` import via Jest moduleNameMapper in jest.config.js.
-
-### Vitest/Jest Split
-- `backend/jest.config.js` testMatch: `*.spec.ts` only
-- `backend/vitest.config.ts` include: `*.test.ts` only
-- No overlap. New tests MUST use the correct extension for the correct runner.
-
-### Playwright Auth State
-Playwright uses `auth.setup.ts` project to inject `better-auth.session_token` httpOnly cookie. All browser projects depend on the `setup` project. New E2E specs get auth state for free via `storageState: 'playwright/.auth/user.json'`.
-
-### Frontend Jest Setup
-`frontend/jest.setup.ts` provides: @testing-library/jest-dom matchers, next/router mock, localStorage mock, matchMedia mock. New component tests inherit all of this automatically.
+**Rationale:** Authorization is the foundation -- CRM controllers need `@RequirePermission`, workflow steps need permission checks, AI tools need governance. AI control plane fixes are independent but equally urgent (critical audit finding). OTel is pure infrastructure with no business deps. CRM must exist before workflows can reference CRM actions.
 
 ## Scalability Considerations
 
-| Concern | Current (~120 tests) | Target (~250 tests) | At 500+ tests |
-|---------|---------------------|---------------------|---------------|
-| Test speed | ~30s backend, ~15s frontend | ~60s backend, ~30s frontend | Shard with `jest --shard` |
-| Flakiness | Low (mocked I/O) | Low if patterns followed | Redis integration tests: `--runInBand` |
-| CI time | ~2min total | ~4min total | Parallel matrix: unit / integration / e2e |
-| Fixture duplication | Per-file manual mocks | Shared helpers from Phase 1 | Factory functions with overrides |
-| Coverage tracking | No coverage gates | Add `--coverage` with thresholds | Per-module coverage enforcement |
+| Concern | Current (hundreds of users) | At 10K users | At 100K users |
+|---------|----------------------------|--------------|---------------|
+| Permission caching | In-process config map | Redis 5min TTL (already planned) | Redis + read replica, shorter TTL |
+| CRM Activity volume | Direct Prisma writes | BullMQ batched writes | Partitioned activities table by month |
+| Workflow execution | BullMQ single worker | BullMQ with concurrency tuning | Dedicated workflow worker pool |
+| OTel trace volume | Sample 100% | Sample 10% | Sample 1% + always sample errors |
+| AI tool governance | Inline evaluation | Inline (fast config lookup) | Same -- config-based, no DB hit |
 
 ## Sources
 
-- Existing test patterns in codebase (HIGH confidence -- direct inspection):
-  - `backend/src/modules/email/services/email-crud.service.spec.ts` -- canonical Prisma mock pattern
-  - `backend/src/common/auth/__tests__/better-auth.guard.spec.ts` -- canonical auth mock pattern
-  - `backend/test/integration/realtime-redis-adapter.spec.ts` -- canonical integration test pattern
-  - `backend/src/modules/ai-chat/__tests__/chat-pipeline-msw.test.ts` -- canonical MSW/Vitest pattern
-  - `backend/src/modules/realtime/services/__tests__/realtime-handshake.cookie.spec.ts` -- canonical WS unit test
-  - `frontend/lib/query-client.test.tsx` -- canonical TanStack Query test
-  - `frontend/e2e/fixtures.ts` -- canonical Playwright fixture
-- Config files (HIGH confidence):
-  - `backend/jest.config.js`, `backend/vitest.config.ts`, `frontend/jest.config.js`, `frontend/playwright.config.ts`
-- NestJS testing docs: https://docs.nestjs.com/fundamentals/testing (HIGH confidence)
-- Playwright fixture docs: https://playwright.dev/docs/test-fixtures (HIGH confidence)
-- @testing-library/react docs: https://testing-library.com/docs/react-testing-library/intro (HIGH confidence)
+- [OpenTelemetry NestJS Implementation Guide (SigNoz 2026)](https://signoz.io/blog/opentelemetry-nestjs/)
+- [Production-Ready OpenTelemetry in NestJS (OneUptime 2026)](https://oneuptime.com/blog/post/2026-02-06-production-ready-opentelemetry-tracing-nestjs/view)
+- [@opentelemetry/instrumentation-nestjs-core (npm)](https://www.npmjs.com/package/@opentelemetry/instrumentation-nestjs-core)
+- [Better Auth Organization Plugin](https://better-auth.com/docs/plugins/organization)
+- [better-auth ABAC Discussion (GitHub #2167)](https://github.com/better-auth/better-auth/issues/2167)
+- [NestJS Workflow Module (jescrich)](https://github.com/jescrich/nestjs-workflow)
+- [@hazeljs/flow Durable Execution Engine](https://dev.to/arslan_mecom/hazeljsflow-a-durable-execution-graph-engine-for-nodejs-1l14)
+- [BullMQ NestJS Integration (official docs)](https://docs.bullmq.io/guide/nestjs)
+- Internal: `docs/AUDIT.md`, `docs/AI_AGENT_REMEDIATION_ROADMAP_2026-03-15.md`, `docs/CTO_PLATFORM_ENGINEERING_REPORT_2026-03-09.md`, `docs/TRANSFORMATION_ROADMAP.md`

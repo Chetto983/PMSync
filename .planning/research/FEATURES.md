@@ -1,235 +1,323 @@
 # Feature Landscape
 
-**Domain:** Test coverage, MUI consistency audit, and production polish for full-stack NestJS + Next.js app
-**Researched:** 2026-03-10
+**Domain:** AI-powered email CRM with workflow automation, enterprise authorization, AI control plane, and observability
+**Researched:** 2026-03-18
+**Milestone:** v6.0 Enterprise Platform & AI Governance
 
-## Current State Inventory
+## Scope Note
 
-Before defining features, here is what exists today:
+This document covers only NEW features for v6.0. The following are already shipped and NOT re-listed here:
+- Email client (VList, TipTap, kanban, keyboard shortcuts, search)
+- AI chat with streaming, 20 tools, HITL approval, tool renderers, intent routing
+- Calendar sync (Google, CalDAV), contacts sync, CRM relationship scoring
+- better-auth orgs (create, invite, roles, switch), admin panel (ban, impersonate, revoke)
+- GDPR compliance (PII tokenization, encryption at rest, consent, data export/erasure)
+- Prometheus metrics, AI run ledger, structured logging
 
-**Backend tests (56 spec files):**
-- Email module: CRUD, bulk, search (3 unit), controller + sync-back pre-split (2)
-- Email-sync: folder sync (4), IMAP drivers (5), Gmail folder (1), Microsoft folder (1), sync-token (1), sync-message-processor (1)
-- AI: embeddings (3), PII (2), prompt guard (1), email-insights pre-split (1)
-- AI-chat: conversation, HITL, hybrid-search, chat-pipeline, ledger, RAG E2E (7 test files)
-- Auth: better-auth guard (1), org guards (3), member provisioning (1), seed health (1), auth flows (1), audit hooks (1), admin plugin (1)
-- Common: prisma-retry (1), tool-registry (1), event-wiring (1), response-envelope interceptor (1), api-exception filter (1), crypto (1), hash-search (1), vector-validation (1), tenant-key (1), data-cleanup audit (1)
-- Compliance: consent service (1), consent guard (1), GDPR integration (1), legal acceptance (1), data export (1), account deletion (1)
-- Encryption: field-encryption utils (1), extension (1), integration (1)
-- Tenant-scoping: extension (1)
-- Audit: interceptor (1), service (1)
-- Realtime: handshake cookie (1), auth-token service (1)
-- Scripts: backfill encryption (1), backfill from hash (1)
-- Contract tests: 5 (auth-login, emails-list, contacts-list, ai-chat, briefing)
-- Integration tests: 4 (realtime-redis, social-login, csrf-token, auto-connect-social)
-- Module bootstrap: 1
+---
 
-**Frontend tests (15 files, excluding E2E):**
-- Unit tests: query-client (1), store-hydration (1), SearchHighlight (1), LabelTreeDndWrapper (1), api-client-interceptor (1), error-utils (1), constants (1)
-- Hook tests: use-ai-compose (1), use-ai-actions (1)
-- Component tests: OrgSwitcher (1), login page (1), register page (1), SocialLoginButtons (1), invitation accept (1)
+## Domain 1: CRM (Accounts, Deals, Activities, Pipelines)
 
-**Frontend E2E (13 Playwright specs):**
-- auth, chat-e2e, chat-mobile, chat-visual-audit, compose, email-list, keyboard-navigation, accessibility, screenshot-settings, search, search-clear, visual-regression-splits, middleware-redirects
+### Table Stakes
 
-**Zero-test modules (backend):**
-- calendar (33 source files, 0 tests)
-- labels (4 source files, 0 tests)
-- providers (17 source files, 0 tests)
-- subscription (13 source files, 0 tests)
-- tenants (5 source files, 0 tests)
-- users (4 source files, 0 tests)
-- health (3 source files, 0 tests)
-- contacts (27 source files, 1 stale pre-split test)
-- mistral (5 source files, 1 test)
+Features users expect from any CRM module in an email-native product.
 
-**Zero-test areas (frontend):**
-- Zustand stores (8 stores + 6 email-ui slices = 14 files, 0 tests)
-- TanStack Query hooks (~30 hook files, 0 tests except 2 AI hooks)
-- Settings components (14 files, 0 tests)
-- Admin components (4 files, 0 tests)
-- Onboarding components (7 files, 0 tests)
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Account entity (company-level) | Every CRM distinguishes person vs organization. Contacts already have `company` string field; Accounts formalize it | Med | Prisma schema, existing Contact model | M:N Contact-Account link. Salesforce/HubSpot/Pipedrive all have this |
+| Deal entity with monetary value + close date | Core unit of sales pipeline. Without deals, pipeline is meaningless | Med | Account, Pipeline | Amount, currency, expectedCloseDate, probability, owner |
+| Pipeline + Stages (configurable) | Users need at least one pipeline with ordered stages. Pipedrive popularized this as the primary UX | Med | None | Default pipeline with 5 stages (Lead, Qualified, Proposal, Negotiation, Closed Won/Lost) |
+| Activity timeline on Account/Deal | Every CRM shows interaction history. Users expect to see emails, meetings, notes in chronological order | Med | Email, Calendar, Contact links | Auto-capture from existing email sends/receives and calendar events |
+| Deal board (Kanban view) | Pipedrive/HubSpot trained users to expect drag-drop deal cards across stage columns | Med | Pipeline, Stages, Deal | Reuse existing kanban pattern from email/follow-ups |
+| Contact-to-Account linking | Users must associate people with companies. Existing `company` string field is not relational enough | Low | Contact, Account models | M:N because one person can represent multiple companies |
+| Activity auto-capture from email | When an email is sent/received involving a contact linked to a deal/account, log it automatically | Med | Email sync, Contact-Account links | HubSpot and Salesforce do this transparently; manual logging kills adoption |
+| Activity auto-capture from calendar | Calendar events with attendees matching contacts should auto-log as activities | Med | Calendar sync, Contact links | Same principle as email auto-capture |
+| Account/Deal CRUD API | Standard REST endpoints for create/read/update/delete with tenant scoping | Med | Prisma models, TenantGuard | Follow existing NestJS module pattern |
+| CRM navigation + i18n | Sidebar nav entries, page titles, form labels in en + it | Low | Frontend translations | Follow existing translation procedure |
 
-## Table Stakes
+### Differentiators
 
-Features the test suite must have. Missing = cannot confidently release.
+Features that set the product apart from generic CRMs.
 
-### Backend Unit Tests (untested modules)
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| AI-powered deal scoring | Use email sentiment, response times, and interaction frequency to predict deal probability. Leverages existing relationship scoring + AI stack | High | AI embeddings, Contact relationship score, Deal | Competitive edge: Salesforce charges enterprise tier for this |
+| AI deal summary tool | Chat tool that summarizes all interactions for a deal/account in natural language | Med | AI chat tools, Activity timeline | Add to existing ToolRegistryService; register as read-only tool |
+| Email-to-deal linking | Automatically associate emails with open deals based on participants and context | High | Email, Deal, Contact-Account, AI | Goes beyond manual linking; uses existing RAG for context matching |
+| CRM insights in AI briefing | Daily briefing already exists; extend to include "3 deals closing this week" or "account X went silent" | Low | AI briefing, Deal, Account | Low-hanging fruit; high perceived value |
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Calendar module tests | 33 files, zero tests. Webhooks, sync, conflict resolution, ICS parsing, meeting prep, focus time. Business-critical scheduling logic. | High | ~15 service/util files need tests. Abstract classes + provider factory need mock strategies. Calendar-sync worker is BullMQ job processor. |
-| Labels module tests | CRUD + nested label support. Used by AI triage. Simple but untested. | Low | 1 service, 1 controller. Straightforward Prisma mock tests. |
-| Providers module tests | OAuth flows, IMAP config, token lifecycle. Security-sensitive: handles OAuth tokens, client secrets. | Med | 7 services. oauth-state, google-oauth, microsoft-oauth need external API mocking. provider-config is pure logic. |
-| Subscription module tests | Billing, quotas, cost protection, usage tracking. Money-adjacent = must be tested. | Med | 7 services + 1 guard. Autumn billing provider needs mock. QuotaGuard is security-critical (enforces plan limits). |
-| Tenants module tests | Multi-tenant isolation is the core security invariant. | Low | 1 service, 1 controller. Must verify tenantId in every query. |
-| Users module tests | Profile management, preferences. | Low | 1 service, 1 controller. Basic CRUD. |
-| Health module tests | Deployment readiness probes. If health check lies, bad deploys happen. | Low | 1 service, 1 controller. Verify DB/Redis/queue connectivity assertions. |
-| Contacts module tests (refresh) | 27 files, only 1 stale pre-split spec. Sync, webhooks, CRM scoring, cache. | High | Similar scope to calendar. Relationship scoring and sync scheduler are business-critical. Pre-split test needs full rewrite. |
+### Anti-Features
 
-### Backend Integration Tests (gaps)
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Cross-tenant data isolation proof | Verify Prisma tenant-scoping extension actually prevents cross-tenant leaks under real DB conditions. | Med | Create 2 tenants in test DB, seed data, query from wrong tenant context, assert empty results. Covers the 42-model scoping from v4.1. |
-| Auth guard chain integration | BetterAuthGuard -> TenantGuard -> RolesGuard as a full pipeline. Individual unit tests exist but the chain is untested. | Med | Test: unauthenticated (401), wrong tenant (403), wrong role (403), correct (200). On real controller endpoints. |
-| BullMQ worker tests | Calendar-sync and contacts-sync workers process jobs but have zero tests. Job failure = silent data staleness. | High | Requires BullMQ test setup with mocked external APIs. Workers orchestrate multiple services internally. |
-
-### Backend Contract Tests (expansion)
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Calendar contract test | Calendar endpoints response shape validation. | Low | Follow `backend/test/contract/` existing pattern. |
-| Labels contract test | Label CRUD response envelope. | Low | Same pattern. |
-| Providers contract test | OAuth + IMAP provider response shapes. | Low | Same pattern. |
-| Subscription contract test | Billing/quota endpoint shapes. | Low | Same pattern. |
-| Organizations contract test | Org CRUD, invite, member management response shapes. | Low | Same pattern. |
-| Admin contract test | User list, ban, impersonation response shapes. | Low | Same pattern. |
-
-### Frontend Unit Tests (critical gaps)
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Zustand store tests | 14 store files drive all UI state. Zero tests. Selection, filter, compose, kanban, sidebar state. | Med | Pure logic testing via `getState()/setState()`. No DOM needed. Priority: email-ui slices (selection, filter, view, compose) -- they handle the main email interaction. |
-| TanStack Query hook tests | ~30 hook files, 0 tested (except 2 AI hooks). Entire data fetching layer between API and UI is untested. | Med | Use `@tanstack/react-query` test utils with `QueryClientProvider` wrapper. Test cache keys, error states, staleTime behavior. Priority: use-emails, use-folders, use-contacts, use-organizations. |
-| Settings component tests | 14 settings components, 0 tests. Security settings components handle TOTP, passkeys, sessions -- security-critical UI. | Med | MUI form interaction tests. SecurityMfaSection and SecuritySessionsSection are highest priority (expose 2FA management). |
-
-### Frontend E2E Tests (new v5.0 features)
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Organization flows E2E | Create org, invite member, accept invitation, switch org, role-based visibility. Core v5.0 feature with zero E2E. | High | Multi-user scenario: needs second auth state in Playwright. Invitation acceptance is cross-session flow. |
-| Admin panel E2E | User list, search, ban/unban, impersonation, session revocation. Admin operations must work correctly. | High | Requires admin role setup in test fixture. Impersonation changes auth context mid-test (tricky). |
-| Onboarding wizard E2E | 6-step wizard: name, MFA, avatar, workspace, email provider, legal consent. New user entry point. | Med | Linear flow but each step has validation. MFA step needs TOTP mock or conditional skip. |
-| Security settings E2E | Password change, TOTP setup/remove, passkey registration, session management, backup codes. | High | WebAuthn/passkey needs Playwright virtual authenticator via CDP protocol. TOTP needs shared secret injection. |
-| Settings page E2E | General, notifications, accounts, signatures, AI settings. | Med | Form interactions with save/cancel. Some settings trigger backend API calls. |
-
-### MUI Consistency Audit
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Automated MUI pattern scanner | CLAUDE.md mandates "ALL components use MUI" and "Zero Tailwind utility classes in .tsx/.ts files." Manual audit does not scale. | Med | ESLint rule or standalone AST script that flags: (1) Tailwind classes in className props, (2) hardcoded color values in sx, (3) raw CSS-in-JS outside MUI's sx/styled, (4) non-theme color references. |
-| Fix audit findings | Whatever the scanner catches needs fixing. v5.0 was a large migration; some non-MUI patterns likely slipped through. | Unknown | Complexity depends on how many violations exist. Could be 5 files or 50. |
-
-## Differentiators
-
-Features that elevate the test suite from "adequate" to "trustworthy." Not required for MVP.
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Coverage threshold enforcement | Jest `coverageThreshold` in both configs. Prevents regression once coverage improves. | Low | Backend target: 50% lines (realistic given current state). Frontend target: 30% lines. Increase over time. |
-| Visual regression baseline expansion | `visual-regression-splits.spec.ts` exists. Extend to new v5.0 pages (orgs, admin, onboarding, security settings). | Med | Baseline management: store in git or artifact? Git is simpler but adds repo bloat. |
-| Accessibility audit expansion | `accessibility.spec.ts` exists. Add axe-core checks for every new page. | Low | Playwright + @axe-core/playwright. One assertion per page. High value-to-effort ratio. |
-| API schema validation in contract tests | Validate responses against generated OpenAPI spec using `ajv`. Catch Swagger-vs-reality drift. | Med | `spectral lint` already validates the spec itself. This validates runtime responses match the spec. |
-| Performance regression assertions | Assert p95 response times in integration tests. Backend already has Prometheus histograms. | Med | Useful but premature without baseline data. Better as a future milestone concern. |
-| Mutation testing on security paths | Stryker-js on auth guards, tenant scoping, crypto services. Validates tests actually catch regressions. | High | Slow to run. Best as a one-time audit, not CI gate. Focus: `common/auth/`, `prisma/encryption/`, `prisma/tenant-scoping/`. |
-
-## Anti-Features
-
-Features to explicitly NOT build.
+Features to explicitly NOT build in v6.0.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| 100% code coverage target | Diminishing returns past 70%. Incentivizes testing getters/setters and writing trivial assertions. | Set pragmatic thresholds (50% backend, 30% frontend). Focus on business logic and security paths. |
-| Component snapshot tests | Brittle: every MUI theme token change breaks snapshots. High maintenance, low signal. | Visual regression via Playwright for layout. Unit tests for behavior/logic only. |
-| Full E2E for every page | Slow, flaky, expensive. E2E pyramid inversion is a common anti-pattern. | E2E for critical user journeys only. Unit/integration for everything else. |
-| Backend supertest E2E bootstrap | Full NestJS app bootstrap per test is slow and fragile. `module-bootstrap.spec.ts` already verifies wiring. | Unit tests (mocked deps) + contract tests (shape validation) + targeted integration tests. |
-| Cypress migration | Playwright is configured with 13 specs, multi-browser setup, auth state management. Zero reason to switch. | Extend existing Playwright infrastructure. |
-| Testing third-party internals | Testing that MUI renders a button, or TanStack caches correctly. Waste of effort. | Test your code's interaction with libraries -- not the libraries themselves. |
-| Mocking Prisma with real DB for unit tests | Test DB management complexity, seed data rot, migration conflicts. | Mock Prisma at service level for unit tests. Reserve real DB for specific integration tests. |
-| Test file colocation everywhere | Moving all tests next to source files. Some modules already use `__tests__/` dirs, others use colocated `.spec.ts`. | Keep existing conventions per module. Don't reorganize test locations as part of this milestone. |
+| Custom objects / dynamic entity types | Massive schema complexity (JSONB schema definitions, dynamic validation, UI generation). Salesforce spent years on this | Hardcode Account, Deal, Activity, Pipeline. Custom fields via JSONB on those four entities is acceptable later (Phase 4 in roadmap) |
+| Lead entity separate from Contact | Leads vs contacts is a Salesforce anti-pattern that confuses users. HubSpot unified them years ago | Use Contact with a lifecycle stage field (lead/customer/partner/etc.) |
+| Forecasting / revenue analytics | Requires statistical modeling, historical data, and a mature pipeline. Premature at launch | Show simple pipeline value totals per stage. Defer forecasting to post-launch |
+| Products/line items on deals | Over-engineering for v1 CRM. Most email CRMs (Streak, Copper) skip this | Single deal amount field. No product catalog |
+| Territory management | Enterprise-only feature requiring org hierarchy modeling. Irrelevant for initial CRM | Simple deal ownership via userId. No territory trees |
+| Quoting / CPQ | Completely different domain. Not a CRM table stake | Out of scope permanently for an email CRM |
+
+---
+
+## Domain 2: Workflow Automation Engine
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Trigger-based rules (event-driven) | "When email arrives from X, do Y" is the minimum viable automation. Every email CRM has this (HubSpot, Pipedrive, Streak) | High | Domain events (already wired via EventEmitter2), BullMQ | Triggers: email received, deal stage changed, contact created, calendar event created |
+| Action execution (email, label, move, assign) | Rules without actions are useless. Minimum: send email, apply label, move to folder, assign deal owner | Med | Existing email/label/folder services, CRM module | Reuse existing service methods; wrap in typed action contracts |
+| Conditional branching (if/else) | "If deal value > 10K, route to senior rep" is expected even in simple automation | Med | None beyond rule engine | Simple predicate evaluation, not a full expression language |
+| Workflow CRUD API | Create/read/update/delete/enable/disable rules | Med | Prisma models, TenantGuard | Standard NestJS module |
+| Workflow execution history | Users need to see what ran, when, and whether it succeeded or failed | Med | BullMQ job tracking, Prisma | Essential for debugging; otherwise rules are black boxes |
+| Policy-aware execution | Workflows must respect the same permission model as manual actions. A workflow should not bypass HITL or authorization | High | Authorization system (Domain 3), AI control plane (Domain 4) | Critical: without this, workflows become a privilege escalation vector |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| AI-suggested automations | "You reply to support@ emails within 2 hours 90% of the time. Want to auto-draft replies?" | High | AI analysis of user patterns, workflow engine | Killer feature for AI-native CRM; nobody else does this well |
+| Natural language rule creation via AI chat | "Set up a rule that labels urgent emails from VIP contacts" -> AI creates the workflow | High | AI chat tools, workflow CRUD | 2026 trend: natural language interfaces for automation |
+| Workflow templates (pre-built) | "Lead nurture sequence", "Deal stage notifications", "Follow-up reminder chain" | Low | Workflow engine, seed data | Low effort, high perceived value. Ship 5-10 templates |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Visual node editor (v6.0) | 16+ hours of UI complexity (xyflow/react). Premature for first release of workflow engine | Simple form-based rule builder. Visual editor is Phase 4 material |
+| Custom code nodes / JavaScript execution | Security nightmare (sandbox escape, resource exhaustion). Salesforce Apex took a decade to get right | Limit to 20-30 built-in action types. No user-authored code |
+| Multi-step sequential workflows (v6.0) | State machine with retries, compensation, and durable execution is Phase 4 scope | Simple trigger -> condition -> action rules. One level of branching max |
+| Webhook triggers/actions | Requires endpoint management, retry logic, authentication handling | Defer to Phase 4 when extension point API exists |
+| Scheduled/cron triggers | Adds timer infrastructure complexity beyond event-driven rules | Defer; existing BullMQ scheduled jobs handle system cron internally |
+
+---
+
+## Domain 3: Authorization & Permissions
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Resource-scoped permissions on org roles | owner/admin/member roles exist but grant blanket access. "Admin can do everything" is not enterprise-grade | Med | better-auth org roles (shipped), PolicyService interface (exists but unimplemented) | Extend existing `Permission` enum and implement `IPolicyService` |
+| `@RequirePermission` decorator | Controllers need declarative permission checks. Pattern is standard in NestJS auth | Med | PolicyService, existing RolesGuard | Layer on top of existing BetterAuthGuard -> TenantGuard -> RolesGuard chain |
+| Permission caching (Redis) | Permission checks on every request must not add latency. 5min TTL cache in Redis | Low | Redis (already running for BullMQ/sessions) | Simple key-value cache; invalidate on role change |
+| Frontend `PermissionGate` component | Hide/disable UI elements based on user permissions. Every enterprise app needs this | Med | Permission check API endpoint, React context | `<PermissionGate requires="contacts.write">` pattern |
+| `usePermission()` hook | Programmatic permission checking in components for conditional logic | Low | PermissionGate infrastructure | Companion to PermissionGate component |
+| Role-to-permission mapping | Define which permissions each org role (owner/admin/member) gets by default | Low | Permission enum, PolicyService | Hardcoded mapping table initially; configurable per-org later |
+| Permission enforcement on all write/delete endpoints | Every mutating API endpoint must check permissions, not just role | High | @RequirePermission on all controllers | Audit pass across all controllers; ~25+ endpoints |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| Resource ownership checks | "Members can edit their own deals but not others'" requires ownership validation beyond role | Med | Deal.ownerId, PolicyService context | ABAC-lite: check `resource.ownerId === user.id` in policy evaluation |
+| Conditional permissions | "Can edit deals only if status is DRAFT" -- attribute-based rules within the policy engine | High | PolicyService with context evaluation | Use CASL-style ability definitions. Do NOT build a full ABAC engine; keep it to 3-4 conditions |
+| AI tool permission scoping | AI tools should respect the same permissions as manual actions. If user lacks `contacts.write`, AI cannot create contacts | Med | ToolRegistryService, PolicyService | Critical for trust: AI must not bypass what the user cannot do manually |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Full ABAC policy engine (OPA, Cedar) | Massive complexity for current scale. PROJECT.md explicitly lists this as out of scope until CRM object model exists | RBAC+ with ownership checks and 3-4 attribute conditions. Revisit ABAC post-CRM maturity |
+| Per-field permissions | "Admin can see deal.amount but member cannot" requires field-level access control in every query and serialization | Per-entity permissions only. Field masking is a future concern |
+| Custom roles beyond owner/admin/member | Role explosion problem. Custom roles need a role editor UI, role-permission matrix, migration path | Stick with 3 built-in roles. Add a 4th "viewer" role at most |
+| Database RLS (Row-Level Security) | PROJECT.md explicitly rules this out: "Prisma 7 + PostgreSQL RLS interaction problematic; TenantGuard sufficient" | Continue using Prisma extension for tenant scoping |
+
+---
+
+## Domain 4: AI Control Plane Hardening
+
+### Table Stakes
+
+Based on the AI Agent Remediation Roadmap (2026-03-15), these are structural fixes, not new features.
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| HITL contract unification | One canonical pending-actions DTO, one approval lifecycle. Currently: approve can report success when execution fails | High | hitl.controller.ts, hitl.service.ts, frontend ai hooks | Phase 1 of remediation roadmap. Blocks everything else |
+| Tool execution governance | Every mutating tool must declare name, domain, riskLevel, requiresApproval, inputSchema. Currently: registry has read tools but HITL tries to execute write tools from it | High | ToolRegistryService, tool interfaces | Phase 2 of remediation roadmap. Current `IAiTool` interface lacks riskLevel/requiresApproval metadata |
+| HITL execution returns real outcome | approve/reject must return `executed`, `failed`, or `approved_only` -- not always 200 | Med | hitl.service.ts | False-positive success is a safety bug |
+| Long-term memory repair | `save_memory` writes to one store, retrieval reads from another. Memory appears broken to users | High | memory.service.ts, embeddings.service.ts, AIMemory model | Phase 3 of remediation roadmap. Unify vector storage |
+| Prompt/runtime alignment | System prompt references tools and behaviors the frontend cannot render (ask_user, save_memory fall through to generic JSON) | Med | system-prompt.ts, skill-content.ts, frontend tool UIs | Phase 4 of remediation roadmap |
+| Legacy chat surface removal | Frontend still calls old non-streaming endpoints and dead compatibility shims | Med | Frontend api/ai.ts, ChatRuntimeProvider, SchedulingDrawer | Phase 5 of remediation roadmap. Eliminate drift source |
+| Action taxonomy fix | `delete_event` maps to `SCHEDULE_MEETING` action type -- invalid mapping | Low | hitl.service.ts | Simple but critical correctness fix |
+| Runtime context injection | Pass real timezone, locale, provider into system prompt instead of hardcoded assumptions | Low | ai-chat.service.ts | Improves AI behavior quality significantly |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| HITL approval timeout with auto-reject | Pending actions should expire after configurable timeout (e.g., 30min) instead of hanging forever | Med | hitl.service.ts, BullMQ delayed job | Transformation roadmap Phase 3.4 |
+| Approval audit trail linked to AI Run Ledger | Every approve/reject/timeout with who, when, and execution outcome linked to the AI run | Med | AiRunLedger, hitl.service.ts | Enables compliance reporting |
+| AI tool permission enforcement | AI tools check user permissions before executing. If user cannot `contacts.write`, AI tool cannot create contacts | Med | PolicyService, ToolRegistryService | Cross-cuts with Domain 3 (Authorization) |
+| Dedicated ask_user and save_memory renderers | Frontend renders structured UI for these tools instead of falling back to generic JSON cards | Med | Frontend tool-uis registry | Improves perceived AI quality dramatically |
+| CRM tools for AI chat | search_deals, get_account_summary, create_activity as new AI tools registered in ToolRegistryService | Med | CRM module (Domain 1), ToolRegistryService | Extends AI capabilities into CRM domain |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| AI action rollback registry (v6.0) | Compensation actions (un-create contact, un-send email) are complex and the undo semantics are domain-specific | Defer to Phase 3 of transformation roadmap. Focus on preventing bad actions (HITL) rather than reversing them |
+| Token budget enforcement per request | Requires tuning against real usage patterns that don't exist yet. Premature hard limits will frustrate users | Implement soft limits (warn in AI ledger). Hard caps are Phase 3 material |
+| Per-user daily cost cap | Same issue: needs usage baseline data. Cutting users off prematurely is worse than overspending | Log costs accurately first. Alerting before enforcement |
+| Push notifications for pending approvals | Requires notification infrastructure (FCM/APNs or web push) that doesn't exist | In-app indicator (badge count) on the chat panel. WebSocket event for real-time update |
+
+---
+
+## Domain 5: OpenTelemetry Distributed Tracing
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| OTel SDK bootstrap | Initialize `@opentelemetry/sdk-node` with auto-instrumentations for HTTP, Prisma, BullMQ | Med | npm packages | Must load before NestJS bootstrap (--require flag or bootstrap file) |
+| HTTP request trace context | Every API request gets a traceId propagated through the entire call chain | Med | OTel HTTP instrumentation | Replaces/supplements existing correlationId |
+| BullMQ trace propagation | Queue jobs carry parent trace context so async work links back to the originating request | Med | Custom BullMQ instrumentation | OTel does not auto-instrument BullMQ; needs manual span creation |
+| AI call trace spans | Mistral API calls wrapped in OTel spans with model, tokens, latency attributes | Med | Custom instrumentation in AI services | Links AI cost to specific user requests |
+| Trace export to collector | Ship traces to Jaeger, Tempo, or OTLP-compatible backend | Low | OTel exporter config | Start with console exporter for dev, OTLP for prod |
+| traceId in response headers | Frontend can correlate errors with backend traces for debugging | Low | OTel HTTP instrumentation | `X-Trace-Id` header or similar |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| AI run ledger linked to OTel traces | Each AI run links to its distributed trace, enabling drill-down from cost to exact call chain | Med | AiRunLedger, OTel trace IDs | Unique observability depth for AI costs |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Full Grafana/Tempo stack deployment | Infrastructure complexity beyond app scope | Export traces; let ops team choose visualization. Ship OTLP exporter, not a monitoring stack |
+| Frontend OTel instrumentation | Browser OTel SDK adds bundle size and complexity for marginal benefit at current scale | Backend-only tracing. Frontend correlates via response header traceId |
+| Custom metrics via OTel (replacing Prometheus) | Prometheus metrics already work and are scraped. Migrating creates churn with no benefit | Keep prom-client for metrics. Use OTel only for traces |
+
+---
+
+## Domain 6: MUI Chat CSS Migration (Wave 3-4)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Command Palette rebuild in MUI | Current command palette uses CSS that predates MUI migration. Needs MUI Dialog + List patterns | Med | MUI theme | Wave 3 scope. Follow existing MUI patterns |
+| Chat layout CSS to MUI sx | Three chat CSS files (~950 lines) use custom properties bridged via ChatThemeBridge. Migrate to MUI sx | High | MUI theme, ChatThemeBridge | Wave 4 scope. Largest remaining CSS migration |
+| Remove ChatThemeBridge after migration | Once chat CSS is in sx, the CSS variable bridge is dead code | Low | Chat CSS migration complete | Cleanup step |
+| Remove tailwindcss package | Currently kept solely for `@tailwind base` CSS var injection. After chat migration, no longer needed | Low | All CSS migrated to MUI sx | Final cleanup of Tailwind dependency |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Rewrite assistant-ui chat components | assistant-ui provides the chat runtime; its internals should not be rewritten | Style assistant-ui components via MUI theme integration, not replacement |
+
+---
+
+## Domain 7: UI/UX Fixes (March 12 Audit)
+
+### Table Stakes (Unfixed from Audit)
+
+These are bugs/regressions identified in the March 12-13 UI/UX audit that were NOT fixed in the post-audit remediation passes.
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Admin users table mobile responsive | Table renders at 879px inside 412px viewport. Columns and actions clip | Med | UserListTable.tsx | Switch to card layout below mobile breakpoint. Audit Finding: "High severity" |
+| Tasks page: remove hardcoded demo content | Page shows English demo tasks in production Italian app | Low | Tasks.tsx | Replace with empty state + real task data source. Audit: "Medium severity" |
+| Analytics consent gate + localization | Analytics page fires 403 when consent missing; page title still English | Low | AnalyticsChart.tsx | Partially fixed per audit; verify localized weekday labels |
+| Password autocomplete semantics | Security settings missing `autocomplete="new-password"` | Low | Security settings form | Browser diagnostic warning. Low effort fix |
+| Chart container -1 width/height warning | Admin organizations chart logs negative dimensions | Low | Admin organizations page | Layout initialization timing issue |
+
+### Already Fixed (Do NOT Re-list)
+
+The following were identified and fixed during the March 12-13 audit passes:
+- Mobile security CTA clipping (TOTP setup)
+- Admin route generic error -> role-aware access
+- Mobile inbox toolbar density
+- Mixed localization in settings (password toggle, Save button)
+- Disabled actions without explanation (contacts, security)
+- Reply/forward blank composer
+- Draft autosave contradictory states
+- Draft opens in read-only view
+- Important/flag menu state inconsistency
+- Thread body left gutter on mobile
+- AI compose backdrop blocking controls
+- Dashboard AI briefing consent gate
+- Profile page localization
+- Follow-up board mobile kanban -> single lane
+- Analytics consent gate (partial)
+
+---
 
 ## Feature Dependencies
 
 ```
-MUI consistency scanner ---------> (standalone, no deps)
-Fix audit findings --------------> MUI consistency scanner (finds what to fix)
+Authorization (Domain 3)
+  |
+  +---> CRM (Domain 1) -- CRM needs permission checks on CRUD
+  |
+  +---> Workflow Engine (Domain 2) -- Rules must respect permissions
+  |
+  +---> AI Control Plane (Domain 4) -- AI tools must check user permissions
+  |
+  +---> AI Control Plane (Domain 4)
+          |
+          +---> CRM AI Tools (Domain 1 differentiator) -- New tools need governance first
 
-Backend unit tests (all modules) -> (standalone, no deps)
-Backend contract tests expansion -> (standalone, follows existing pattern)
-Cross-tenant isolation test -----> (standalone, needs test DB)
-Auth guard chain integration ----> Backend unit tests for guards (already exist)
-BullMQ worker tests -------------> Backend unit tests for services (workers call services)
+OpenTelemetry (Domain 5) -- Independent, no blockers
 
-Zustand store tests -------------> (standalone, no deps)
-TanStack Query hook tests -------> (standalone, no deps)
-Settings component tests --------> (standalone, no deps)
+MUI Chat Migration (Domain 6) -- Independent, no blockers
 
-Organization flows E2E ----------> Auth E2E setup (already exists in auth.spec.ts)
-Admin panel E2E -----------------> Org flows E2E (admin needs org context)
-Security settings E2E -----------> Auth E2E setup (needs authenticated state)
-Onboarding wizard E2E -----------> Auth E2E setup (new user flow)
-Settings page E2E ---------------> Auth E2E setup (needs authenticated state)
+UI/UX Fixes (Domain 7) -- Independent, no blockers
 
-Coverage threshold enforcement --> Backend + Frontend unit tests (need tests first)
-Visual regression expansion -----> New E2E specs exist (pages must be navigable)
-Accessibility audit expansion ---> New E2E specs exist (pages must be reachable)
+HITL Contract Unification (Domain 4 table stake)
+  |
+  +---> Tool Execution Governance (Domain 4) -- Can't fix tools until HITL contract is stable
+          |
+          +---> Memory Repair (Domain 4) -- Memory is a tool; governance must be settled first
+                  |
+                  +---> Prompt/Runtime Alignment (Domain 4) -- Don't tune prompt until tools/memory work
+                          |
+                          +---> Legacy Chat Removal (Domain 4) -- Remove old code last
 ```
+
+---
 
 ## MVP Recommendation
 
-### Phase 1 - Backend unit tests + MUI audit tooling (highest impact, no deps)
+### Must ship (table stakes across all domains):
 
-1. **Calendar module tests** -- Largest untested module. ~15 service/util files.
-2. **Labels module tests** -- Small, quick win.
-3. **Providers module tests** -- Security-sensitive OAuth handling.
-4. **Subscription module tests** -- Money-adjacent logic.
-5. **Tenants + Users + Health module tests** -- Small modules, fast to cover.
-6. **MUI consistency scanner** -- Build once, run forever.
-7. **Fix MUI audit findings** -- Address whatever the scanner catches.
+1. **AI Control Plane: HITL + Tool Governance** -- Structural safety fixes. Ship first or everything built on top is unsafe. Blocks CRM AI tools and workflow policy enforcement.
 
-Prioritize: Calendar and providers are highest risk. Labels/tenants/users/health are quick wins.
+2. **Authorization: @RequirePermission + PermissionGate** -- Implement the already-designed PolicyService interface. Every new feature (CRM, workflows) needs this from day one.
 
-### Phase 2 - Frontend unit tests + contract expansion
+3. **CRM: Account + Deal + Pipeline + Activity** -- Core data model and CRUD. Activity auto-capture from existing email/calendar. Deal board (Kanban). No AI tools yet.
 
-8. **Zustand store tests** -- Pure logic, high value per effort.
-9. **TanStack Query hook tests** -- Data layer coverage.
-10. **Settings component tests** -- Security settings UI coverage.
-11. **Contract tests expansion** -- 6 new contracts, follows existing pattern.
-12. **Contacts module tests** -- Apply calendar test patterns to contacts.
+4. **AI Control Plane: Memory repair + Prompt alignment + Legacy removal** -- Complete the remediation roadmap once HITL/governance is stable.
 
-### Phase 3 - E2E for v5.0 features
+5. **OpenTelemetry: Bootstrap + HTTP + AI spans** -- Independent work that adds visibility across all other features.
 
-13. **Organization flows E2E** -- Most complex new feature.
-14. **Admin panel E2E** -- Security-sensitive operations.
-15. **Security settings E2E** -- MFA/passkey management.
-16. **Onboarding wizard E2E** -- New user entry point.
+6. **Workflow Engine: Simple trigger-condition-action rules** -- NOT the visual editor. Form-based rule builder with 10-15 built-in actions. Policy-aware execution.
 
-### Phase 4 - Hardening
+### Defer:
 
-17. **Cross-tenant isolation integration test** -- Security proof.
-18. **Coverage threshold enforcement** -- Lock in gains.
-19. **Accessibility audit expansion** -- axe-core on new pages.
-20. **Visual regression baseline expansion** -- Screenshot comparison for new pages.
+- **AI deal scoring** (High complexity, needs CRM data maturity)
+- **Visual workflow editor** (Phase 4; form-based rules first)
+- **Token budget enforcement** (needs usage baseline)
+- **AI action rollback** (focus on prevention via HITL, not reversal)
+- **Custom CRM fields** (Phase 4)
+- **MUI Chat CSS migration** (independent; can run in parallel but lower priority than structural fixes)
+- **Admin users mobile responsive** (lower risk than structural domains)
 
-### Defer to future milestones
+### Ordering rationale:
 
-- **Mutation testing**: High value but extremely slow. Run manually after this milestone.
-- **BullMQ worker integration tests**: Complex setup for diminishing returns. Workers delegate to services that will be unit-tested.
-- **Performance regression assertions**: Need baseline data first.
-- **API schema validation**: Nice-to-have once OpenAPI spec is stabilized.
+Authorization must be built before CRM and workflows because both need permission enforcement from the start. Retrofitting permissions onto shipped features creates security gaps. AI control plane must be fixed before adding CRM AI tools because the tool registry and HITL lifecycle are currently broken. OpenTelemetry is independent and can run in parallel with any phase. UI/UX fixes are low-complexity items that can fill gaps between major features.
 
-## Complexity Summary
-
-| Category | Items | Est. Test Files | Complexity |
-|----------|-------|-----------------|------------|
-| Backend untested modules (unit) | 8 modules, ~106 source files | 25-35 spec files | High (calendar + contacts dominate) |
-| Backend contract tests | 6 new contracts | 6 spec files | Low |
-| Backend integration tests | 2-3 scenarios | 2-3 spec files | Med |
-| Frontend store tests | 14 store files | 8-10 test files | Med |
-| Frontend hook tests | ~30 hooks | 10-15 test files | Med |
-| Frontend component tests | ~25 untested components | 8-12 test files | Med |
-| Frontend E2E | 5 new journeys | 5 spec files | High (multi-user, WebAuthn) |
-| MUI audit tooling | 1 scanner + fixes | 1-2 files + edits | Med |
-| Coverage enforcement | Config changes | 0 new files | Low |
-
-**Total estimated new test files: 65-90**
-**Total estimated effort: 4-6 phases of focused work**
+---
 
 ## Sources
 
-- Direct codebase analysis: module listings, test file inventory, jest/playwright configs
-- Existing test patterns in `backend/test/contract/`, `backend/src/**/__tests__/`, `frontend/e2e/`, `frontend/__tests__/`
-- PROJECT.md v5.1 milestone definition
-- CLAUDE.md MUI mandate and testing rules
-- MEMORY.md MUI migration history (v5.0 removed all shadcn/Radix, converted to MUI)
+- Salesforce/HubSpot/Pipedrive CRM data models: [CRM Data Management 2026](https://monday.com/blog/crm-and-sales/crm-data-management/), [Pipeline Management Best Practices](https://www.outreach.io/resources/blog/sales-pipeline-management-best-practices)
+- Workflow automation trends: [AI Workflow Automation Trends 2026](https://kissflow.com/workflow/7-workflow-automation-trends-every-it-leader-must-watch-in-2025/), [CRM Trends 2026-2027](https://www.4crms.com/blog/crm-trends-2026-2027)
+- NestJS authorization patterns: [NestJS Auth 2026: Stop Shipping Roles](https://medium.com/@bhagyarana80/nestjs-auth-in-2026-stop-shipping-roles-9f94d3a2c8b6), [CASL with Prisma ORM](https://blog.devgenius.io/mastering-complex-rbac-in-nestjs-integrating-casl-with-prisma-orm-for-granular-authorization-767941a05ef1), [NestJS Authorization Docs](https://docs.nestjs.com/security/authorization)
+- HITL patterns: [Human-in-the-Loop Agentic AI 2026](https://onereach.ai/blog/human-in-the-loop-agentic-ai-systems/), [HITL Patterns in AWS](https://nxgcloud.com/2026/03/12/mastering-human-in-the-loop-hitl-patterns-in-aws-agentic-ai-workflows/), [IBM HITL](https://www.ibm.com/think/topics/human-in-the-loop)
+- Internal: AI Agent Remediation Roadmap (2026-03-15), UI/UX Audit (2026-03-12), Transformation Roadmap, PROJECT.md

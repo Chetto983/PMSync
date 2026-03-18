@@ -1,204 +1,225 @@
 # Project Research Summary
 
-**Project:** PMSync
-**Domain:** Test coverage, MUI consistency audit, and production polish for full-stack NestJS + Next.js multi-tenant email platform
-**Researched:** 2026-03-10
+**Project:** PMSync v6.0 — Enterprise Platform & AI Governance
+**Domain:** AI-powered email CRM with workflow automation, enterprise authorization, distributed tracing, and AI control plane hardening
+**Researched:** 2026-03-18
 **Confidence:** HIGH
 
 ## Executive Summary
 
-PMSync v5.1 is a test coverage and polish milestone for an existing multi-tenant email + calendar + AI platform. The codebase is architecturally mature but has severe coverage gaps: 7 of 16 backend modules have zero tests, the entire frontend data layer (30 TanStack Query hooks, 14 Zustand store files) is untested, and v5.0 org/admin/security features have no E2E coverage. The recommended approach is a layered build-out that starts with shared test infrastructure (mocks, factories, helpers), then covers backend modules by complexity order, then frontend stores and hooks, and finally E2E for the new v5.0 feature surface. This order is non-negotiable due to strict dependencies: shared helpers must exist before module tests, module tests must exist before coverage enforcement, and E2E specs must be written after the auth strategy is locked in.
+PMSync v6.0 is a multi-tenant SaaS platform already shipping email client, AI chat, calendar sync, contacts, and RBAC auth. The v6.0 milestone transforms it from a smart email tool into an enterprise-grade CRM with workflow automation, resource-scoped authorization, and production-quality observability. The research consensus is clear: the existing modular monolith architecture is correct and no topology change is needed. All six expansion areas (CRM, workflow engine, authorization, OpenTelemetry, AI control plane hardening, and MUI chat migration) integrate as new NestJS modules or extensions to existing ones, following patterns already established in the codebase.
 
-The key risk is false confidence from poorly written tests. Three failure modes are likely without explicit guardrails: tenant isolation bypass (unit tests that mock Prisma without CorrelationContext pass locally but mask real security bugs), ESM/CJS boundary confusion (better-auth is ESM-only and will crash Jest if the mock pattern is not followed exactly), and happy-path-only coverage gaming (hitting line coverage targets with tests that avoid error paths and cross-tenant boundary violations). All three must be addressed at the infrastructure phase, not discovered mid-execution.
+The most important finding across all four research dimensions is a hard dependency chain that dictates build order. Authorization must come before CRM and workflows because both need permission enforcement from day one — retrofitting permissions onto shipped features creates exploitable security gaps. The workflow engine in particular becomes a privilege escalation vector if it can invoke AI tools outside the HITL approval path. AI control plane remediation (HITL contract unification, tool governance, memory repair) must precede any new AI tooling, including CRM tools, because the registry and approval lifecycle are currently structurally broken per the 2026-03-15 remediation roadmap. OpenTelemetry is the one fully independent infrastructure item and can run in parallel with any phase.
 
-The MUI consistency audit is a parallel track that does not block other phases. The migration from shadcn/Radix/Tailwind to MUI (completed in v5.0) covered 25 components and 12 chat files but cannot be trusted without automated scanning. A grep-based or ESLint-based scanner should be built first to measure violation scope, then violations fixed. The audit is unlikely to be massive but must be instrumented before declaring the migration complete.
+The key risk is feature interaction complexity: the three-way combination of CRM, workflow automation, and AI governance creates dangerous silent failure modes if any link in the chain is missing. The research recommendation is to ship and stabilize each system independently before testing their interaction, and to treat "AI-powered CRM workflow automation" as the final integration deliverable, not a phase-1 demo target. Minimum viable package additions are 7 backend OTel packages and 1 frontend package (`@xyflow/react`), where the latter is explicitly deferred to the visual workflow editor phase and not needed for v6.0 initial workflow delivery.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing test stack (Jest 30 + Vitest 4 + Playwright 1.58 + @testing-library/react 16) is sufficient and must not be replaced or consolidated. The dual-runner split (Jest for .spec.ts NestJS unit tests, Vitest for .test.ts AI pipeline MSW tests) is intentional — mixing causes ESM transform failures. Three targeted additions are needed.
+The existing stack requires almost no new dependencies. Better-auth's built-in `createAccessControl` from `better-auth/plugins/access` handles resource-scoped RBAC without adding an authorization library. CRM entities are pure Prisma models with no CRM framework. The workflow engine runs on existing BullMQ infrastructure. The only net-new packages are 7 OpenTelemetry packages for distributed tracing (backend only) and `@xyflow/react` for the visual workflow editor — which FEATURES.md explicitly defers to Phase 4, meaning it is not needed for v6.0 workflow rules.
 
 **Core technologies:**
-- `jest-mock-extended@^4.0.0` (backend devDep): type-safe `mockDeep<PrismaService>()` replaces fragile manual mock objects — Prisma official recommendation; HIGH confidence
-- `eslint-plugin-mui@^1.0.0` (frontend devDep): `no-literal-colors` + `prefer-named-imports` automate MUI audit and prevent regression — MEDIUM confidence, small community plugin; verified fallback is a grep-based CI script
-- `k6 v1.6.0` (standalone binary, NOT npm): Go-based load testing, 70% less CPU than Node alternatives, native WebSocket support for Socket.IO — HIGH confidence, industry standard
-- Jest `coverageThreshold` (config change only): built-in enforcement, no new dependency
+- `@opentelemetry/sdk-node` + 6 companion packages: distributed tracing via bootstrap pattern (--require flag, not NestJS module) — required because OTel must instrument before NestJS loads or it misses early HTTP calls
+- `better-auth/plugins/access` (built-in, no install): resource-scoped RBAC extending existing org roles — avoids introducing a second auth library alongside better-auth
+- Prisma 7 (existing): 9 new models for CRM (6) and Workflow (3) entities, all using `@@id([id, tenantId])` composite keys
+- BullMQ (existing): workflow step execution as one-job-per-step with durable retries — no new workflow infrastructure needed
+- `@xyflow/react` (deferred to visual editor phase): form-based rules ship first; visual editor is Phase 4 material
 
-**What to avoid:** Storybook (300+ deps for what one ESLint rule does), Cypress (Playwright already configured with 13 specs), prismock/jest-prisma (fragile with Prisma 7 compiler), Codecov/Coveralls (Jest thresholds fail locally — simpler and sufficient).
+**What NOT to add:** `nestjs-otel` (delays OTel init past NestJS bootstrap, defeating the purpose), `casl`/`casbin` (better-auth createAccessControl already covers this), `temporal-sdk` (requires separate server; overkill for 20 action types), `@mui/x-data-grid` (MUI X license cost; standard MUI Table is sufficient for CRM lists).
 
 ### Expected Features
 
-The v5.1 feature set is entirely about test coverage and code quality. It is not a product feature milestone.
+Full feature inventory is in `.planning/research/FEATURES.md`.
 
 **Must have (table stakes):**
-- Backend unit tests for calendar (33 files), contacts (27 files), providers (17 files), subscription (13 files) — highest-risk untested surface (security, money, scheduling)
-- Backend unit tests for labels (4 files), tenants (5 files), users (4 files), health (3 files) — quick wins with zero coverage
-- Frontend Zustand store tests — 14 store files, zero tests; drive all UI state
-- Frontend TanStack Query hook tests — ~30 hooks, zero tests; entire data-fetching layer untested
-- MUI consistency scanner + fixes — CLAUDE.md mandates zero Tailwind classes in .tsx/.ts; automated enforcement required
-- Cross-tenant data isolation integration test — security proof that Prisma tenant-scoping extension prevents leaks under real DB conditions
+- HITL contract unification + tool execution governance — structural safety fix; blocks everything downstream that touches AI tools
+- `@RequirePermission` decorator + `PermissionGuard` + Redis-cached `PermissionService` (backend); `PermissionGate` + `usePermission()` (frontend)
+- CRM: Account, Deal, Pipeline, Stage, Activity entities with CRUD API and Kanban deal board (reusing @dnd-kit)
+- Activity auto-capture from existing email/calendar domain events — mandatory for email-native CRM; manual logging kills adoption
+- Workflow engine: trigger-condition-action rules with BullMQ-backed execution and policy-aware step execution
+- OpenTelemetry: bootstrap + HTTP spans + BullMQ trace propagation + AI call spans
+- AI memory repair + prompt/runtime alignment + legacy chat surface removal (remediation phases 3-5)
 
-**Should have (quality differentiators):**
-- Settings component tests — TOTP, passkeys, session management UI (security-critical)
-- Frontend E2E for org flows, admin panel, security settings, onboarding wizard — all v5.0 features with zero E2E
-- Contract tests expansion (6 new contracts: calendar, labels, providers, subscription, organizations, admin)
-- Coverage threshold enforcement in both Jest configs
-- Accessibility audit expansion (axe-core on new pages)
-- Visual regression baseline expansion for v5.0 pages
+**Should have (differentiators):**
+- AI deal summary tool (chat tool against Activity timeline)
+- CRM insights in existing AI daily briefing ("3 deals closing this week")
+- HITL approval audit trail linked to AI Run Ledger
+- AI tool permission enforcement (AI cannot exceed user's own permissions)
+- Workflow execution history UI
+- HITL approval timeout with auto-reject
 
-**Defer to future milestones:**
-- Mutation testing with Stryker (slow, one-time audit; not a CI gate)
-- BullMQ worker integration tests (workers delegate to services; service unit tests provide most value)
-- Performance regression assertions (need baseline data first)
-- API schema runtime validation against OpenAPI spec (premature before spec stabilizes)
+**Defer:**
+- AI deal scoring (needs CRM data maturity baseline before modeling works)
+- Visual workflow node editor with `@xyflow/react` (form-based rules first; visual editor is Phase 4)
+- AI-suggested automations and natural language rule creation via chat
+- Token budget enforcement and per-user cost caps (needs usage baseline data)
+- AI action rollback registry (HITL prevention is the strategy, not reversal)
+- Custom CRM fields, forecasting, products/line items, territory management
 
 ### Architecture Approach
 
-The test architecture follows a strict pyramid (60% unit : 20% integration/pipeline : 15% E2E : 5% contract) with the existing dual-runner strategy preserved. Nine canonical patterns govern all new tests, all based on existing codebase examples: multi-tenant Prisma query testing (verify tenantId in every where clause, from `email-crud.service.spec.ts`), better-auth session mocking (mock the module before importing, from `better-auth.guard.spec.ts`), BullMQ worker testing (extract processing logic into injectable service, bypass Worker constructor that needs Redis), WebSocket unit and integration tiers, AI SDK mocking via `MockLanguageModelV3` from `ai/test` (not global module mocks), MUI component testing with ThemeProvider wrapper, TanStack Query hook testing with fresh QueryClient per test, Zustand store testing via direct action calls with `setState` reset in `beforeEach`, and Playwright E2E via route interception extending existing `fixtures.ts`.
+The system stays a modular monolith. Four new NestJS modules are added: `AuthorizationModule` (@Global, permission evaluation + Redis cache), `CrmModule` (split into 4 sub-modules: Accounts, Deals, Pipelines, Activities), `WorkflowModule` (engine, BullMQ workers, action registry), and `TracingModule` (@Global, OTel bootstrap wrapper). Existing modules modified: `AiChatModule` (HITL contract unification, extraction of `ToolExecutorService` and new `ToolGovernanceService`), `ToolRegistryModule` (IAiTool interface extended with riskLevel/requiresApproval/domain/inputSchema/outputSchema), `ContactsModule` (Account-Contact linking), and all controllers (add `@RequirePermission` decorators to write/delete endpoints).
 
 **Major components:**
-1. Backend test helpers (NEW: `backend/test/helpers/` — mock-prisma, mock-auth, mock-context, mock-bullmq): typed factory functions replacing per-file manual mocks across all backend unit tests
-2. Frontend test helpers (NEW: `frontend/test/helpers/` — render.tsx with MUI ThemeProvider + QueryProvider, mock-session.ts): wrapper functions for component and hook tests
-3. Playwright fixture extensions (extend existing `frontend/e2e/fixtures.ts`): route mocks for org/admin/security/onboarding endpoints required by v5.0 E2E specs
+1. `AuthorizationModule` — global permission evaluation over better-auth org roles; Redis 5-min TTL cache per userId:orgId; config-based permission map (no custom Permission DB table needed at current scale)
+2. `CrmModule` — 6 new Prisma models with composite PKs; self-registers CrmTool via ToolRegistry on init; uses EventEmitter2 `@OnEvent` for activity auto-generation; never imported by Email or Calendar modules
+3. `WorkflowModule` — 3 new Prisma models; BullMQ one-job-per-step execution; ActionRegistryService maps action type strings to executors; every step calls PermissionService before execution
+4. `TracingModule` — OTel SDK bootstrapped via `--require` flag before NestJS; custom spans for AI calls; `traceparent` serialized into every BullMQ job payload via TracedJobData wrapper
+5. `ToolGovernanceService` (new, inside AiChatModule) — single execution path for both chat and workflow tool calls; evaluates tool.requiresApproval + user permissions + riskLevel; returns EXECUTE | REQUIRE_APPROVAL | DENY
+6. `PermissionGuard` — applied per-controller following existing RolesGuard pattern, NOT as APP_GUARD; returns true when no @RequirePermission metadata present for backward compatibility
 
 ### Critical Pitfalls
 
-1. **Tenant scoping bypass in test mocks (C1)** — mocking PrismaService without CorrelationContext gives false confidence; services that skip tenantId pass unit tests but expose cross-tenant data in production. The tenant-scoping Prisma extension (AsyncLocalStorage) is not active in unit tests. Prevention: require explicit tenantId assertion in every service test for tenant-scoped models; create a `TestTenantContext` helper.
+Full pitfall inventory is in `.planning/research/PITFALLS.md`. Top 5:
 
-2. **better-auth ESM/CJS boundary (C2)** — `better-auth` is ESM-only; Jest crashes with `ERR_REQUIRE_ESM` unless `jest.mock('../better-auth.module')` is used before importing the class under test. Existing `backend/test/mocks/better-auth-node.mock.ts` handles `better-auth/node` but not all subpath exports. Prevention: proactively add all better-auth subpath exports to `moduleNameMapper`, document the pattern prominently.
+1. **CRM models without composite PKs** — Every new CRM model MUST use `@@id([id, tenantId])`. Omitting this silently breaks the Prisma tenant-scoping extension and creates cross-tenant data leakage. Simple `@id` on new models is a security breach, not a minor oversight.
 
-3. **AI SDK streamText mocking (C3)** — do not mock `fetch` or the Mistral provider; use `MockLanguageModelV3` from `ai/test` (official AI SDK test utilities). Tool-call/tool-result cycles in streams are non-trivial to fake any other way. Source: [AI SDK Core: Testing](https://ai-sdk.dev/docs/ai-sdk-core/testing).
+2. **Workflow BullMQ jobs losing tenant context** — Chained workflow steps must serialize `tenantId` + `userId` into every `WorkflowJobData` payload and restore context in every worker. Using `withoutTenantScopingAsync` as a workaround is unacceptable in new modules; treat it as a lint error for CRM and workflow code specifically.
 
-4. **Stale Playwright auth state (C4)** — stored `playwright/.auth/user.json` expires; mid-suite tests hit auth redirects that look like application bugs. The existing `injectAuthCookie` pattern only works with fully-mocked backends. Prevention: validate auth state at start of each E2E spec; keep catch-all API mock robust.
+3. **PermissionGuard inserted as APP_GUARD in wrong chain position** — Follow the existing `RolesGuard` pattern (per-controller). If global, must be inserted AFTER ConsentGuard. A misplaced guard either sees no `request.user` (runs before BetterAuthGuard) or bypasses consent checks (runs before ConsentGuard).
 
-5. **Happy-path coverage gaming (C5)** — line coverage targets incentivize skipping error paths. Prevention: require at least one `expect(...).rejects` or `expect(...).toThrow()` per spec file; define coverage goals by risk category (tenant isolation 100%, auth guard deny cases 100%), not raw percentage.
+4. **OTel auto-instrumentation corrupting AI SSE streaming** — `@opentelemetry/auto-instrumentations-node` tries to buffer response bodies, which corrupts chunked SSE transfer encoding. Use selective instrumentation; exclude AI streaming endpoints from HTTP response body capture; create custom spans for AI calls.
+
+5. **AI control plane work colliding with in-progress HITL refactor** — Adding tool governance metadata to a DTO shape that is about to be replaced creates semantically dangerous merge conflicts that both compile but behave incorrectly. Complete HITL contract unification (remediation Phase 1) before adding governance fields to IAiTool.
 
 ## Implications for Roadmap
 
-Based on research, the natural phase structure follows a strict dependency graph. Shared helpers must precede module tests; module tests must precede coverage gates; E2E auth strategy must be locked before E2E specs are written.
+Based on research, suggested phase structure:
 
-### Phase 1: Shared Test Infrastructure
+### Phase 1: Foundation — Authorization + AI Control Plane Remediation (Phases 1-2)
 
-**Rationale:** ESM/CJS mock failures (C2), missing ThemeProvider crashes (M1), shared QueryClient state leakage (M2), and incomplete request.user shape bugs (M6) will sabotage every subsequent phase if not addressed here. Build once, reuse everywhere.
-**Delivers:** `backend/test/helpers/` (mock-prisma, mock-auth, mock-context, mock-bullmq), `frontend/test/helpers/` (render-with-theme, mock-session, mock-api), all better-auth subpath exports in `moduleNameMapper`, documented test pattern guide.
-**Addresses:** All infrastructure prerequisites; unblocks all later phases.
-**Avoids:** C2 (ESM boundary), M1 (missing ThemeProvider), M2 (shared QueryClient), M6 (incomplete request.user shape), L4 (ESM transform gap for new dependencies).
+**Rationale:** These are the two highest-priority items with the most downstream dependencies. Authorization is a prerequisite for CRM and workflows. AI HITL unification is a prerequisite for tool governance and any new AI tooling. Both are parallelizable within this phase; neither blocks the other.
 
-### Phase 2: Backend Unit Tests — Simple Modules
+**Delivers:** `@RequirePermission` decorator + `PermissionGuard` + `PermissionService` with Redis caching (backend); `PermissionGate` + `usePermission()` hook (frontend); unified HITL contract with real execution outcomes; `IAiTool` extended with governance metadata; `ToolGovernanceService` as single execution path for chat and workflow tool calls.
 
-**Rationale:** Start with modules that have minimal external dependency complexity (no OAuth, no BullMQ, no external APIs). Quick wins that establish the Prisma mock + tenantId assertion pattern as the codebase standard before tackling the 33-file calendar surface.
-**Delivers:** Unit tests for health (3 files), users (4 files), tenants (5 files), labels (4 files) — roughly 12-16 new spec files.
-**Uses:** `mock-prisma.ts` from Phase 1, `jest-mock-extended` for typed Prisma mocks.
-**Avoids:** C1 (tenant scoping bypass — pattern established here propagates to complex modules in Phase 3).
+**Addresses:** Authorization table stakes (all 6 items), AI control plane table stakes items 1-2 (HITL contract, tool governance, action taxonomy fix).
 
-### Phase 3: Backend Unit Tests — Complex Modules
+**Avoids:** Pitfall 3 (guard chain breakage), Pitfall 5 (HITL collision), Pitfall 8 (workflow HITL bypass later), Integration landmine: CRM + Authorization.
 
-**Rationale:** Providers (OAuth, token lifecycle — security-sensitive), subscription (billing, QuotaGuard — money-adjacent), contacts (27 files, CRM scoring, sync scheduler — business-critical), and calendar (33 files, BullMQ worker, ICS parsing, conflict resolution — business-critical) are the highest-risk untested surface.
-**Delivers:** Unit tests for providers (~7 services), subscription (~7 services + QuotaGuard), contacts (full rewrite of stale pre-split test), calendar (~15 service/util files). Estimated 25-35 new spec files.
-**Uses:** `mock-bullmq.ts` for calendar-sync worker, `mock-auth.ts` for OAuth guard tests.
-**Avoids:** C1 (tenant isolation in complex modules), M4 (BullMQ without Redis — extract processor logic into injectable service), M7 (composite PK models — Email/Folder/CalendarEvent use composite PKs, not simple `id`).
+**Research flag:** Standard NestJS patterns — no additional research needed. better-auth org plugin docs are HIGH confidence.
 
-### Phase 4: Backend Contract + Integration Tests
+### Phase 2: Observability — OpenTelemetry Distributed Tracing
 
-**Rationale:** Contract tests are low-complexity (established pattern in `backend/test/contract/`) and validate response shapes for 6 untested endpoint groups. Cross-tenant isolation integration test is the security proof that unit tests cannot provide — validates Prisma extension behavior under real DB conditions with two real tenants.
-**Delivers:** 6 new contract specs (calendar, labels, providers, subscription, organizations, admin), 1 cross-tenant isolation integration test, 1 auth guard chain integration test.
-**Avoids:** L3 (contract tests silently skipping on missing spec — fail in CI if spec file absent), M3 (encryption key setup for integration tests via `.env.test`).
+**Rationale:** Independent infrastructure with no business logic dependencies. Can start in parallel with Phase 1 but listed separately because it touches every module via auto-instrumentation and must be validated before CRM and workflow add more code paths.
 
-### Phase 5: Frontend Unit Tests
+**Delivers:** OTel SDK bootstrapped via `--require`; HTTP + Prisma auto-instrumentation; custom BullMQ trace propagation via TracedJobData; custom AI streaming spans; traceId in response headers; OTLP export configured.
 
-**Rationale:** Zustand stores are pure logic (no DOM) — highest value per effort ratio. TanStack Query hooks follow a near-identical pattern once the QueryProvider wrapper from Phase 1 exists. Security settings components (TOTP/passkey management) are highest priority in the component subset.
-**Delivers:** Zustand store tests (8-10 files), TanStack Query hook tests (10-15 files), settings component tests (8-12 files). Frontend coverage rises from near-zero to meaningful.
-**Uses:** `render-with-theme.tsx` from Phase 1, fresh QueryClient per test, Zustand `setState` reset in `beforeEach`.
-**Avoids:** M1 (ThemeProvider missing), M2 (QueryClient shared state), L5 (Zustand state leakage between tests).
+**Addresses:** OpenTelemetry table stakes (all 6 items), AI run ledger linked to traces (differentiator).
 
-### Phase 6: Frontend E2E for v5.0 Features
+**Avoids:** Pitfall 4 (SSE streaming corruption), Pitfall 10 (trace context lost at BullMQ boundary).
 
-**Rationale:** E2E specs depend on the auth strategy being stable (locked in Phase 1) and require explicit route mocks. Organization flows must precede admin panel E2E (admin needs org context). Security settings E2E requires Playwright virtual authenticator for WebAuthn (CDP protocol) — the most technically complex item.
-**Delivers:** 5 new Playwright specs — org create/invite/switch, admin user management, security settings (MFA/passkeys), onboarding wizard, settings page.
-**Avoids:** C4 (stale auth state — validate before each spec), M5 (catch-all mock hiding bugs — explicit route mocks first, log or return 500 on catch-all hits in CI).
+**Research flag:** The `@appsignal/opentelemetry-instrumentation-bullmq` package is MEDIUM confidence — verify it works with the current BullMQ version before committing. Manual BullMQ span injection via TracedJobData is the confirmed fallback.
 
-### Phase 7: MUI Consistency Audit
+### Phase 3: CRM Domain — Accounts, Deals, Pipelines, Activities
 
-**Rationale:** Standalone track that does not block other phases. Build the scanner to measure violation scope (unknown — could be 5 or 50 files), fix findings, promote ESLint rules from `warn` to `error`.
-**Delivers:** ESLint plugin or grep-based CI script for MUI enforcement, fixed violations, regression prevention.
-**Uses:** `eslint-plugin-mui` if MUI v7 compatible; grep-based fallback script otherwise.
-**Avoids:** Regression into Tailwind/hardcoded-color patterns that violate CLAUDE.md mandate.
+**Rationale:** Depends on Phase 1 authorization. CRM controllers need `@RequirePermission` from day one. CRM AI tools need the unified `IAiTool` interface and `ToolGovernanceService` from Phase 1. Do not ship CRM before both are in place.
 
-### Phase 8: Hardening + Coverage Gates
+**Delivers:** 6 new Prisma models with composite PKs; `CrmModule` split into 4 sub-modules from day one (CrmAccounts, CrmDeals, CrmPipelines, CrmActivities); deal Kanban board reusing @dnd-kit; activity auto-capture via domain events; CrmTool self-registered in ToolRegistry; CRM navigation + i18n in en/it.
 
-**Rationale:** Coverage enforcement requires tests to exist first. Visual regression and accessibility additions compound E2E investment at low marginal cost. These are the final locks preventing future regression.
-**Delivers:** `coverageThreshold` in both Jest configs (backend 50% lines, frontend 30% lines as conservative baselines — ratchet up over time), visual regression baselines for org/admin/onboarding/security pages, axe-core assertions on every new page.
-**Avoids:** C5 (happy-path gaming — thresholds enforce minimum quality bars at the CI gate level).
+**Addresses:** CRM table stakes (all 10 items), AI deal summary and briefing insights (differentiators).
+
+**Avoids:** Pitfall 1 (composite PK omission), Pitfall 7 (N+1 on activity timeline — batch FK resolution from start), Pitfall 11 (CRM kanban must use its own Zustand slice and `['crm', 'pipeline', ...]` query keys), Pitfall 12 (no withoutTenantScopingAsync in new modules), Pitfall 13 (god module — split into 4 sub-modules).
+
+**Research flag:** Standard NestJS/Prisma patterns — no additional research needed.
+
+### Phase 4: AI Remediation Completion — Memory Repair + Prompt Alignment + Legacy Removal
+
+**Rationale:** AI remediation phases 3-5 depend on the unified HITL contract (Phase 1) being stable. Memory repair cannot be done while the HITL DTO is still in flux. Prompt alignment is meaningless until tools work correctly. Legacy removal is always last.
+
+**Delivers:** Unified vector store for save_memory and retrieval; real timezone/locale/provider in system prompt; frontend renderers for `ask_user` and `save_memory` tools; deletion of dead chat endpoints and compatibility shims.
+
+**Addresses:** AI control plane table stakes items 3-6 (memory repair, prompt alignment, legacy removal, runtime context injection).
+
+**Avoids:** Pitfall 5 (HITL collision — resolved in Phase 1 before this phase begins).
+
+**Research flag:** Memory unification approach (AIMemory.vector vs embeddings table) needs a brief codebase audit at the start of this phase. The research identifies the problem but not which store to canonicalize on — this requires reading the two service implementations.
+
+### Phase 5: Workflow Automation Engine
+
+**Rationale:** Depends on Phase 1 (authorization for step permission checks) and Phase 3 (CRM actions in ActionRegistry). Cannot ship before both are stable because workflow-as-privilege-escalation is the highest-risk integration pitfall in the entire v6.0 scope.
+
+**Delivers:** `WorkflowModule` with 3 Prisma models; BullMQ one-job-per-step execution engine; ActionRegistryService with 8+ initial action types (send_email, update_deal_stage, add_label, ai_generate_draft, etc.); Workflow CRUD API + execution history; policy-aware step execution; form-based rule builder UI (NOT the visual node editor).
+
+**Addresses:** Workflow table stakes (all 6 items), workflow templates differentiator (5-10 pre-built templates).
+
+**Avoids:** Pitfall 2 (BullMQ tenant context loss — WorkflowJobData mandates tenantId), Pitfall 8 (HITL bypass — workflow steps use same ToolGovernanceService as chat), Integration landmine: Workflow + AI Control Plane.
+
+**Research flag:** Async HITL approval design for BullMQ-executed workflow steps is unresolved and needs an explicit design decision before implementation. Synchronous approval (chat) has a waiting user; async approval (workflow steps) does not. Two modes required: (1) pre-approve at rule creation time, or (2) queue for async approval at execution time with notification. This must be decided before Phase 5 planning begins.
+
+### Phase 6: MUI Chat CSS Migration + UI/UX Fixes
+
+**Rationale:** Independent of all other phases. Lower business priority than structural features. Kept last to avoid concurrent changes to the chat surface during AI remediation work in Phase 4.
+
+**Delivers:** Command Palette rebuilt in MUI Dialog + List (Wave 3); chat CSS migrated from 3 CSS files (~950 lines) to MUI `sx` props, explicitly excluding the streaming message container (Wave 4); `tailwind-merge` and `ChatThemeBridge` removed; 5 unfixed UI/UX audit items resolved (admin users mobile table, demo task content removal, analytics consent/localization, password autocomplete semantics, chart dimension warning).
+
+**Addresses:** MUI Chat Migration table stakes (all 4 items), UI/UX audit unfixed findings (all 5 items).
+
+**Avoids:** Pitfall 6 (streaming UI performance regression — streaming container stays as static CSS), Pitfall 14 (theme inconsistency — use theme semantic tokens, never raw hex/hsl in sx props).
+
+**Research flag:** No additional research needed. Performance validation using Chrome DevTools Performance panel during AI streaming is mandatory before declaring Wave 4 complete.
 
 ### Phase Ordering Rationale
 
-- Phase 1 is mandatory first: pitfalls C2, M1, and M2 will cause cryptic failures in every subsequent phase if not pre-empted.
-- Phases 2-3 sequence simple-before-complex because the tenantId assertion pattern established on health/users/tenants propagates cleanly to calendar's 33-file surface.
-- Phase 4 (integration tests) follows unit tests because the auth guard chain integration test depends on individual guard unit tests existing.
-- Phases 5 and 6 are independent of each other after Phase 1; they can run in parallel if team capacity allows.
-- Phase 7 (MUI audit) is genuinely parallel — can run alongside Phases 2-6.
-- Phase 8 must be last: thresholds set before tests exist will break CI immediately.
+- Authorization precedes CRM and workflow because retrofitting permissions is harder to get right and creates audit-period security gaps.
+- AI control plane remediation (HITL + governance) precedes CRM AI tools because adding tools to a broken registry and broken HITL lifecycle compounds the structural problems.
+- OTel has no business logic dependencies and can run in parallel with Phase 1, but benefits from being complete before CRM and workflow add request volume.
+- CRM precedes workflow because CRM actions (update_deal_stage, create_activity) must exist in the ActionRegistry before workflow rules can reference them.
+- AI remediation completion (memory, prompt, legacy) runs after HITL is stable (Phase 1) and can overlap with CRM (Phase 3) since they touch different files.
+- MUI migration is last because it touches the chat surface that AI remediation also touches — sequencing avoids concurrent changes to the same components.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 3 (Calendar + Contacts):** ICS parsing, BullMQ job processor extraction, external calendar API mock shapes — read actual calendar source files before writing test specs.
-- **Phase 6 (Security settings E2E):** WebAuthn virtual authenticator via Playwright CDP (`addVirtualAuthenticator`) and TOTP shared-secret injection approach need verification before planning this spec.
-- **Phase 3 (Providers):** OAuth token refresh flow and provider factory pattern — read actual implementation to determine mock level (OAuth client vs service).
+Phases needing deeper research during planning:
+- **Phase 2 (OTel):** Validate `@appsignal/opentelemetry-instrumentation-bullmq` compatibility with current BullMQ version before committing. MEDIUM confidence only. Test SSE streaming empirically after adding OTel.
+- **Phase 4 (AI Memory):** Brief codebase audit needed at phase start to determine which vector store to canonicalize on (AIMemory.vector vs embeddings table).
+- **Phase 5 (Workflow + AI):** Async HITL approval design for BullMQ-executed workflow steps is unresolved. Needs explicit design decision before implementation — this is not a standard pattern.
 
-Phases with standard patterns (skip deeper research):
-- **Phase 2 (Simple backend modules):** Canonical Prisma mock + TestingModule pattern. Well-documented, no external dependencies.
-- **Phase 4 (Contract tests):** Pattern established in `backend/test/contract/`. Direct copy-and-adapt.
-- **Phase 5 (Zustand stores):** Pure state logic, no async. Pattern is trivial.
-- **Phase 7 (MUI audit):** Run scanner, fix findings. No pre-planning needed.
-- **Phase 8 (Coverage gates):** Jest `coverageThreshold` config change. Minimal work.
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (Authorization):** better-auth org plugin + NestJS guard patterns are well-documented and HIGH confidence.
+- **Phase 3 (CRM):** Pure Prisma + NestJS module following existing patterns. No novel integration points.
+- **Phase 6 (MUI Migration):** Known scope, established patterns, no external dependencies.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Additions are minimal (2 devDeps + 1 binary). All based on official documentation. Only uncertainty: eslint-plugin-mui compat with MUI v7 — has a documented fallback. |
-| Features | HIGH | Based on direct codebase analysis: module listings, test file inventory, config inspection. No guesswork. |
-| Architecture | HIGH | Based on existing canonical test patterns already in the codebase. Patterns are proven and in use today. |
-| Pitfalls | HIGH | Based on codebase analysis + official library documentation. ESM/CJS boundary, tenant scoping gap, and QueryClient leakage are concrete verified failure modes. |
+| Stack | HIGH | Minimal new dependencies; all recommendations backed by official docs. BullMQ OTel instrumentation is the one MEDIUM item. |
+| Features | HIGH | Derived from internal audit docs, existing codebase analysis, and established CRM/workflow SaaS patterns. Anti-features are explicitly justified. |
+| Architecture | HIGH | Based on direct codebase analysis (43 existing models, guard chain ordering, module patterns). No guesswork about existing wiring. |
+| Pitfalls | HIGH | Almost all pitfalls derived from existing audit docs (AUDIT.md, CTO report, AI remediation roadmap) plus direct codebase analysis of the tenant-scoping extension. Not speculative. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **eslint-plugin-mui MUI v7 compatibility:** Not verified. Install and test during Phase 7. If incompatible, use grep-based fallback.
-- **Calendar module internal structure:** 33 source files identified as zero-test. Read actual service boundaries and BullMQ worker structure before Phase 3 planning.
-- **MUI violation scope:** Unknown count. Run scanner first in Phase 7 before estimating remediation effort.
-- **Playwright WebAuthn CDP API:** Passkey test implementation details need verification before Phase 6 security settings spec is planned.
-- **Current coverage baselines:** Unknown. Run `jest --coverage` on both workspaces before setting `coverageThreshold` values in Phase 8.
+- **Async HITL for workflow execution:** The research identifies that synchronous approval (chat) and async approval (workflow) need different modes, but does not define the exact DTO shape or BullMQ queue design for async approval. Resolve before Phase 5 planning.
+- **Memory store canonicalization:** Two vector stores exist (AIMemory.vector and embeddings table). Research identifies the problem but not which to keep. Requires a 30-minute codebase read at the start of Phase 4 before any implementation.
+- **OTel sampling strategy:** Research recommends less than 100% sampling in production but does not specify rates or head-vs-tail sampling approach. Low urgency — document as a post-Phase 2 tuning item, not a blocker.
+- **withoutTenantScopingAsync expansion audit:** 50 existing usages are grandfathered. Before Phase 3 and 5 ship, confirm no new usages have crept into CRM or workflow code. Consider an ESLint rule for new modules.
+- **CRM Activity write volume at scale:** Auto-generation from every email/calendar event could create high write volume for active accounts. May need BullMQ batching if activity writes become a bottleneck. Low urgency at current user scale.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-- PMSync codebase — direct inspection of test configs, spec files, module inventories, jest.config.js, playwright.config.ts
-- [Prisma Unit Testing (official)](https://www.prisma.io/docs/orm/prisma-client/testing/unit-testing) — jest-mock-extended recommendation
-- [Jest Configuration (official)](https://jestjs.io/docs/configuration) — coverageThreshold API
-- [NestJS Testing (official)](https://docs.nestjs.com/fundamentals/testing) — TestingModule patterns
-- [Playwright Fixtures (official)](https://playwright.dev/docs/test-fixtures) — fixture extension patterns
-- [Playwright Authentication (official)](https://playwright.dev/docs/auth) — session reuse patterns
-- [AI SDK Core: Testing (official)](https://ai-sdk.dev/docs/ai-sdk-core/testing) — MockLanguageModelV3, simulateReadableStream
-- [MUI Testing Guide (official)](https://mui.com/material-ui/guides/testing/) — ThemeProvider wrapping pattern
-- [@testing-library/react API (official)](https://testing-library.com/docs/react-testing-library/api/) — renderHook built-in
-- [Grafana k6 Documentation](https://grafana.com/docs/k6/latest/) — v1.6.0
+- `docs/AUDIT.md` — Architecture and security audit, guard chain ordering, anti-patterns
+- `docs/AI_AGENT_REMEDIATION_ROADMAP_2026-03-15.md` — AI control plane phases 0-6, structural problem definitions
+- `docs/CTO_PLATFORM_ENGINEERING_REPORT_2026-03-09.md` — Engineering debt, oversized modules, N+1 findings
+- `docs/TRANSFORMATION_ROADMAP.md` — Observability gap (6/10 score), phase structure
+- [OpenTelemetry Node.js Getting Started](https://opentelemetry.io/docs/languages/js/getting-started/nodejs/) — OTel bootstrap pattern
+- [OpenTelemetry JS SDK 2.0](https://opentelemetry.io/blog/2025/otel-js-sdk-2-0/) — Version compatibility
+- [BullMQ Telemetry Docs](https://docs.bullmq.io/guide/telemetry/getting-started) — BullMQ OTel integration approach
+- [better-auth Organization Plugin](https://better-auth.com/docs/plugins/organization) — createAccessControl API
 
 ### Secondary (MEDIUM confidence)
-
-- [eslint-plugin-mui (npm)](https://www.npmjs.com/package/eslint-plugin-mui) — MUI linting rules; small community plugin, MUI v7 compat unverified
-- [better-auth test utilities discussion](https://github.com/better-auth/better-auth/issues/5609) — programmatic session creation for E2E
-- [NestJS + Prisma multi-tenant test rollback](https://blog.callgent.com/nestjs-prisma-transaction-propagation-test-rollback-multi-tenancy) — multi-tenant test patterns
+- [AppSignal BullMQ OTel Instrumentation](https://github.com/appsignal/opentelemetry-instrumentation-bullmq) — BullMQ auto-instrumentation
+- [better-auth Access Control Tutorial](https://www.premieroctet.com/blog/en/better-auth-structure-and-permissions-with-the-organization-plugin) — Permission mapping patterns
+- [SigNoz OTel NestJS Guide](https://signoz.io/blog/opentelemetry-nestjs/) — NestJS-specific OTel wiring
+- [NestJS Auth 2026: Stop Shipping Roles](https://medium.com/@bhagyarana80/nestjs-auth-in-2026-stop-shipping-roles-9f94d3a2c8b6) — RBAC+ patterns
 
 ### Tertiary (LOW confidence)
-
-- [Testing Streaming Responses with AI SDK](https://blog.atrera.com/post/unit-testing-streaming-ai-vercel-sdk/) — streamText mock patterns; needs verification against AI SDK v6 specifics
-- [Full Test Coverage: Myths vs Reality](https://www.testdevlab.com/blog/full-test-coverage-explained) — coverage metric pitfalls; general guidance
+- CRM industry benchmarks (HubSpot/Pipedrive/Salesforce data models) — Used to validate table stakes feature list; no implementation risk from these sources
 
 ---
-*Research completed: 2026-03-10*
+*Research completed: 2026-03-18*
 *Ready for roadmap: yes*

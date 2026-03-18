@@ -1,326 +1,315 @@
-# Domain Pitfalls: Adding Test Coverage to PMSync
+# Domain Pitfalls
 
-**Domain:** Deep test coverage for existing multi-tenant NestJS + Next.js codebase with better-auth, AI SDK v6, MUI, and Playwright
-**Researched:** 2026-03-10
-**Overall confidence:** HIGH (based on codebase analysis + verified documentation)
+**Domain:** Adding CRM, workflow automation, enterprise authorization, OpenTelemetry, AI control plane hardening, and MUI chat CSS migration to an existing NestJS multi-tenant email platform
+**Researched:** 2026-03-18
+**System context:** PMSync v6.0 -- 43 tenant-scoped Prisma models, global guard chain (Throttler > BetterAuth > Legal > Consent), BullMQ workers with tenant context, AI SDK v6 streaming chat, assistant-ui frontend with CSS-based styling
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, false confidence, or multi-day debugging sessions.
+Mistakes that cause rewrites, data leaks, or major architectural regression.
 
----
+### Pitfall 1: CRM Models Without Composite Primary Keys
 
-### Pitfall C1: Tenant Scoping Bypass in Test Mocks
+**What goes wrong:** New CRM tables (Account, Deal, Pipeline, Activity) are created with simple `id` primary keys instead of the `@@id([id, tenantId])` composite pattern used by the existing 43 models. This silently breaks tenant-scoped Prisma extension auto-filtering and creates cross-tenant data leakage risk.
 
-**What goes wrong:** Tests mock PrismaService or individual repositories without engaging the tenant-scoping Prisma extension. Tests pass with raw queries that would throw `TenantContextRequiredError` in production because the `CorrelationContext` (AsyncLocalStorage) is never set up in the test harness.
+**Why it happens:** Developers copy generic Prisma model templates or follow standard NestJS/Prisma tutorials that use `@id` only. The tenant-scoping extension in `backend/src/prisma/tenant-scoping/` relies on composite keys for its `where` injection to work correctly. Simple `id` fields bypass this.
 
-**Why it happens:** The existing tenant-scoping extension (`prisma/tenant-scoping/`) relies on `CorrelationContext.getContext()` returning a context with `tenantId`. In unit tests, there is no HTTP request to trigger the NestJS middleware that populates this. Developers mock Prisma methods directly (e.g., `prisma.email.findMany.mockResolvedValue(...)`) and never discover that their service code would fail without a tenant context.
-
-**Consequences:** Tests give false confidence. A service that works in tests may silently return cross-tenant data or throw in production. The existing test for `tenant-scoping.extension.spec.ts` only tests the extension itself -- it does not validate that services USE it correctly.
-
-**Prevention:**
-1. Create a `TestTenantContext` helper that wraps test execution in `CorrelationContext.run({ tenantId: 'test-tenant', correlationId: 'test' })`.
-2. For integration-level tests of any service that touches Prisma, always run through the tenant-scoping layer rather than mocking Prisma directly.
-3. Add a lint rule or test helper that fails if any new `.spec.ts` file mocks `PrismaService` methods on tenant-scoped models without also setting up tenant context.
-
-**Detection:** Tests that mock `prisma.X.findMany` without setting `mockTenantId` or wrapping in `CorrelationContext`. Search for `prisma.*.find` in spec files that lack any tenant context setup.
-
-**Phase:** Backend unit test phase. Address FIRST, before writing any new service tests.
-
----
-
-### Pitfall C2: better-auth ESM/CJS Boundary in Jest
-
-**What goes wrong:** `better-auth` is an ESM-only package. Jest (CJS by default) cannot import it. Tests crash with `SyntaxError: Cannot use import statement outside a module` or `ERR_REQUIRE_ESM`. The existing codebase already has `better-auth-node.mock.ts` and `jest.mock('../better-auth.module')` patterns, but new test authors do not know to follow them.
-
-**Why it happens:** `better-auth` ships ESM-only. The existing `moduleNameMapper` in `jest.config.js` maps `better-auth/node` to a CJS mock. But any test that imports a module that imports from `better-auth` (not just `better-auth/node`) will fail unless that import chain is also mocked. The `BetterAuthGuard` test already demonstrates the pattern (`jest.mock('../better-auth.module')`), but this is easy to miss.
-
-**Consequences:** New tests hang or crash. Developers spend hours debugging ESM vs CJS issues instead of writing tests. Some give up and skip testing auth-adjacent modules.
+**Consequences:**
+- Cross-tenant data visible in queries (security breach)
+- FK references from CRM models to existing email/contact models fail on composite key mismatch
+- The existing pattern of `email_labels` and `email_attachments` referencing only `emailId` without `tenantId` (flagged in CTO audit as incomplete FK) gets repeated in CRM
 
 **Prevention:**
-1. Document the mandatory mock pattern in a `TESTING.md` or inline comment at the top of `test/setup.ts`.
-2. Create a shared `test/helpers/mock-better-auth.ts` that exports a pre-configured mock factory for the auth instance.
-3. Add `better-auth` and all its subpath exports to `moduleNameMapper` in `jest.config.js` proactively.
+- Every new CRM model MUST use `@@id([id, tenantId])` and include `tenantId String`
+- FK references to existing models must include tenantId in the composite FK
+- Add a Prisma schema linting step or code review checklist that rejects models without `tenantId`
+- Reference existing models like `Email`, `Contact`, `CalendarEvent` as the pattern source
 
-**Detection:** Jest test runs that fail with `SyntaxError` mentioning `import` or `export` in `node_modules/better-auth`.
+**Detection:** Query a CRM entity without tenant context and check if results leak across tenants. If they do, the composite key is missing.
 
-**Phase:** Test infrastructure setup phase. Must be solved before any new guard/auth tests are written.
+**Phase:** CRM domain expansion (must be correct from the first migration)
 
----
+### Pitfall 2: Workflow Engine BullMQ Jobs Losing Tenant Context
 
-### Pitfall C3: AI SDK streamText Mocking Without Official Test Utilities
+**What goes wrong:** Workflow automation rules trigger BullMQ jobs that execute without tenant context. The `withoutTenantScopingAsync` escape hatch gets used as a workaround, creating a tenant isolation bypass in automated rule execution.
 
-**What goes wrong:** Tests for AI chat streaming either (a) mock at too high a level (mock the entire service, test nothing), or (b) try to mock `streamText` at the HTTP level and get the SSE format wrong, causing tests to hang or produce garbled output.
+**Why it happens:** BullMQ workers run outside the HTTP request lifecycle. The current system propagates tenant context into workers via job data (seen in 50+ files using `withoutTenantScopingAsync`). A new workflow engine that dispatches jobs must manually serialize `tenantId` and `userId` into every job payload and restore them in every worker handler. This is easy to forget, especially for chained workflows (rule A triggers rule B triggers rule C).
 
-**Why it happens:** AI SDK v6 provides `MockLanguageModelV3` and `simulateReadableStream` from `ai/test`, but most developers are unaware of these. They instead mock `fetch` or mock the Mistral provider, neither of which correctly simulates the streaming protocol. The `AiChatService` likely calls `streamText()` from `ai`, and the tool loop + streaming response shape is non-trivial.
-
-**Consequences:** AI module tests are either trivially mocked (testing nothing real) or impossibly fragile (break on any AI SDK update). Tool calls within streams are especially hard to test -- the mock must simulate the tool-call / tool-result cycle.
-
-**Prevention:**
-1. Use `MockLanguageModelV3` from `ai/test` as the model in unit tests. This is the officially supported approach.
-2. Use `simulateReadableStream` for tests that need to verify streaming behavior (e.g., SSE endpoint tests).
-3. For service-level tests, inject the mock model via DI rather than mocking the `ai` module globally.
-4. Create a `test/helpers/mock-ai-model.ts` that provides pre-configured mock models with common tool responses.
-
-**Detection:** AI test files that `jest.mock('ai')` globally or that mock `fetch` for streaming endpoints.
-
-**Phase:** AI module test phase. Create the mock helpers first, then write the tests.
-
-**Sources:**
-- [AI SDK Core: Testing](https://ai-sdk.dev/docs/ai-sdk-core/testing) (official docs)
-- [Testing Streaming Responses with AI SDK](https://blog.atrera.com/post/unit-testing-streaming-ai-vercel-sdk/)
-
----
-
-### Pitfall C4: Playwright E2E Tests With Stale Auth State
-
-**What goes wrong:** E2E tests use stored `playwright/.auth/user.json` (from `auth.setup.ts`), but the session token in the cookie expires or the backend session is invalidated between test runs. Tests fail with auth redirects that look like application bugs.
-
-**Why it happens:** The current Playwright config uses a `setup` project that creates auth state, then all browser projects depend on that `storageState`. If the backend session has a short TTL (better-auth `cookieCache` with 300s maxAge), and the test suite takes longer than that, mid-suite tests hit expired sessions. Worse: the existing fixtures use `'test-jwt-token'` as a hardcoded cookie value, which only works when ALL API calls are mocked. If any test hits a real backend, it fails.
-
-**Consequences:** Flaky tests that pass locally (fast) but fail in CI (slow). Tests that pass in isolation but fail in suite order. Debugging auth-related E2E failures is especially painful because the symptoms (blank page, redirect loops) don't point to the root cause.
+**Consequences:**
+- Workflow actions execute against wrong tenant's data
+- Audit trail loses tenant attribution
+- Cascading workflow chains silently drop tenant context at each hop
 
 **Prevention:**
-1. For fully-mocked E2E tests (current pattern): ensure the catch-all mock at `**/localhost:3000/**` is robust and returns correct shapes for new endpoints.
-2. For any future real-backend E2E tests: implement programmatic session creation via `better-auth` test utilities (see [GitHub issue #5609](https://github.com/better-auth/better-auth/issues/5609)) and refresh before each test.
-3. Add a test-health check at the start of each E2E spec that validates the auth state is still valid.
-4. Keep the current `injectAuthCookie` pattern but add explicit comments that it ONLY works with fully-mocked backends.
+- Create a `WorkflowJobData` base interface that mandates `tenantId` and `userId`
+- Wrap all workflow worker handlers in a `withTenantContext(jobData)` utility that sets the Prisma extension context
+- Never allow `withoutTenantScopingAsync` in workflow execution code -- treat it as a lint error for that module
+- Add integration tests that verify tenant isolation across chained workflow executions
 
-**Detection:** E2E tests that intermittently redirect to `/auth/login` when they should be on authenticated pages.
+**Detection:** Log `tenantId` at the start and end of every workflow step. Alert on mismatches or nulls.
 
-**Phase:** E2E test phase. Establish the auth strategy BEFORE writing new E2E tests.
+**Phase:** Workflow automation engine
 
----
+### Pitfall 3: Authorization Layer Breaking the Existing Guard Chain
 
-### Pitfall C5: Coverage Metric Gaming -- Testing Happy Paths Only
+**What goes wrong:** Adding a `@RequirePermission()` decorator and `PermissionGuard` that conflicts with the existing global guard ordering (ThrottlerGuard > BetterAuthGuard > LegalAcceptanceGuard > ConsentGuard). The new guard either runs before auth (sees no user) or after consent (too late to short-circuit), causing 500 errors or bypassing consent checks.
 
-**What goes wrong:** Coverage target (e.g., 80%) is hit by testing only happy paths through services. The resulting test suite has high line coverage but zero confidence in error handling, edge cases, multi-tenant boundary violations, race conditions, or partial failure scenarios.
+**Why it happens:** NestJS `APP_GUARD` ordering is registration-order dependent. The existing chain is carefully ordered in `app.module.ts` providers array. Inserting a new global guard in the wrong position, or making it controller-level when it should be global (or vice versa), breaks the pipeline. The current `RolesGuard` is NOT an `APP_GUARD` -- it's applied per-controller via `@UseGuards(RolesGuard)`, which is a deliberate design choice.
 
-**Why it happens:** Happy path tests are fast to write. Error paths require understanding failure modes. Multi-tenant boundary tests require careful setup of two tenant contexts. Developers gravitate toward the easiest tests that move the coverage number.
-
-**Consequences:** False confidence. The test suite is green but production bugs slip through in error handling, concurrent access, and tenant isolation -- the exact areas where PMSync has the most historical issues (see v1 race condition fixes, v4.1 security hardening).
+**Consequences:**
+- Permission checks fail with cryptic errors because `request.user` is not populated yet
+- Legal/consent guards get bypassed if permission guard short-circuits before them
+- Existing controllers that work fine today start returning 403 or 500 after the guard is added
 
 **Prevention:**
-1. Define coverage goals by risk category, not raw percentage:
-   - Tenant isolation: 100% of tenant-scoped services must have cross-tenant rejection tests.
-   - Error handling: Every Prisma P2002/P2034 retry path must be tested.
-   - Auth boundaries: Every guard (BetterAuthGuard, TenantGuard, RolesGuard, ConsentGuard) must have deny-case tests.
-2. Use mutation testing (e.g., Stryker) on critical modules to validate test quality, not just coverage.
-3. Require that every `.spec.ts` file has at least one negative/error test case.
+- Do NOT add `PermissionGuard` as a global `APP_GUARD`. Follow the existing `RolesGuard` pattern: apply per-controller with `@UseGuards(PermissionGuard)` or combine with `@RequirePermission()`
+- If it must be global, insert it AFTER ConsentGuard in the providers array
+- The guard must gracefully pass through when no `@RequirePermission()` decorator is present (same pattern as `RolesGuard` which returns true when no `@Roles()` is set -- though that itself was flagged as a LOW finding in the CTO audit)
+- Write integration tests that verify the full guard chain with and without the permission decorator
 
-**Detection:** Coverage report shows >80% lines but `git log` shows production bugs in "covered" code. Spec files with zero `expect(...).rejects` or `expect(...).toThrow()`.
+**Detection:** Any controller that previously worked starts returning unexpected 403s after the guard is deployed.
 
-**Phase:** All phases. Enforce from the start via PR review checklist.
+**Phase:** Authorization/permissions
 
-**Sources:**
-- [Full Test Coverage: Myths vs Reality](https://www.testdevlab.com/blog/full-test-coverage-explained)
+### Pitfall 4: OpenTelemetry Instrumentation Breaking BullMQ and AI Streaming
 
----
+**What goes wrong:** Adding `@opentelemetry/auto-instrumentations-node` auto-patches HTTP, pg, ioredis, and Express. This can break BullMQ's Redis connection handling (double-patching ioredis connections shared between pub/sub and job processing) and interfere with AI SDK SSE streaming (the HTTP instrumentation tries to buffer/measure response bodies, corrupting chunked transfer encoding).
+
+**Why it happens:** OpenTelemetry auto-instrumentation is designed for request-response HTTP. It struggles with:
+- Long-lived Redis connections used by BullMQ (pub/sub subscribers are not "requests")
+- Server-Sent Events streaming used by AI SDK `streamText()` (response never "completes" in the normal sense)
+- The system already uses TWO Redis client libraries (ioredis + node-redis, flagged in CTO audit), and OTel may only patch one
+
+**Consequences:**
+- AI chat streaming breaks silently -- responses hang or get truncated
+- BullMQ workers appear to process jobs but OTel spans are malformed or missing
+- Redis connection pool exhaustion from duplicated instrumented connections
+- 20-30% latency increase on hot paths from excessive span creation
+
+**Prevention:**
+- Use selective instrumentation, NOT auto-instrumentation. Explicitly instrument: HTTP incoming, Prisma/pg outgoing, and manual spans for BullMQ job lifecycle and AI tool calls
+- Exclude SSE endpoints from HTTP response body capture
+- Test AI streaming end-to-end after OTel is added -- verify chunked responses still work
+- Use `@opentelemetry/instrumentation-bullmq` (if it exists) rather than generic Redis instrumentation for queue tracing
+- Set span sampling rate to < 100% in production to control overhead
+
+**Detection:** AI chat responses start timing out or truncating after OTel deployment. BullMQ job completion rates drop.
+
+**Phase:** OpenTelemetry distributed tracing
+
+### Pitfall 5: AI Control Plane Hardening Colliding with In-Progress HITL Refactor
+
+**What goes wrong:** The AI remediation roadmap (6 phases) requires changes to HITL controller, tool registry, memory service, and system prompt. The codebase already has uncommitted HITL controller refactor in progress. Concurrent changes to the same files create merge conflicts and semantic contradictions (e.g., one branch unifies the HITL DTO while another adds governance metadata to the old DTO shape).
+
+**Why it happens:** The AI Agent Remediation Roadmap (2026-03-15) defines Phases 0-6 covering HITL contract unification, tool execution governance, memory repair, prompt alignment, and legacy removal. These touch the same files as any new AI governance work. The system prompt in `system-prompt.ts`, the tool registry in `tool-registry.service.ts`, and the HITL service in `hitl.service.ts` are all active change targets.
+
+**Consequences:**
+- Merge conflicts that are semantically dangerous (both sides compile but the combined behavior is wrong)
+- Tool governance metadata gets added to a DTO shape that's about to be replaced
+- Tests written against the old HITL contract become invalid
+- Memory repair work gets blocked by concurrent prompt changes
+
+**Prevention:**
+- Sequence AI work strictly: complete HITL contract unification FIRST, then add governance metadata to the unified contract
+- Do not add new tools or governance fields until Phase 2 (Tool Execution Governance) of the remediation roadmap is complete
+- Resolve the in-progress HITL refactor before starting any v6.0 AI governance work
+- Use the remediation roadmap's phase ordering as the canonical sequence
+
+**Detection:** The tool registry has tools with governance metadata but the HITL execution path doesn't know how to read it.
+
+**Phase:** AI control plane (must be sequenced after HITL unification)
+
+### Pitfall 6: MUI Chat CSS Migration Breaking Streaming UI
+
+**What goes wrong:** Replacing CSS-based chat styling with MUI `sx` props breaks the assistant-ui streaming render. The chat uses CSS that updates during token streaming -- MUI's `sx` prop generates classNames at render time, which means every streamed token triggers a style recalculation and className regeneration, causing visible jank and dropped frames during AI responses.
+
+**Why it happens:** The current chat CSS (3 files, ~950 lines) was intentionally kept as pure CSS with custom properties (documented in CLAUDE.md memory). assistant-ui's streaming architecture updates the DOM incrementally during SSE token delivery. MUI's `sx` prop uses Emotion under the hood, which computes styles at render time. During streaming, this means hundreds of re-renders per second each triggering Emotion's style injection.
+
+**Consequences:**
+- Chat becomes visually janky during streaming (the one place users notice performance most)
+- Token-by-token rendering slows down noticeably
+- Mobile devices stutter or drop frames during AI responses
+- Users perceive the AI as "slow" even though backend latency hasn't changed
+
+**Prevention:**
+- Keep streaming-critical CSS as static CSS or CSS modules, NOT MUI `sx` props
+- Only migrate non-streaming chat elements to MUI (headers, input bar, sidebar, tool cards)
+- Test streaming performance before and after migration using Chrome DevTools Performance panel
+- The Wave 3-4 migration scope should explicitly exclude the message streaming container
+- Use `className` with static styles for the message bubble content area
+
+**Detection:** Open Chrome DevTools Performance panel during an AI streaming response. If you see continuous "Recalculate Style" entries during token delivery, the migration broke streaming performance.
+
+**Phase:** MUI Chat CSS migration (Waves 3-4)
 
 ## Moderate Pitfalls
 
----
+### Pitfall 7: CRM Activity Model Creating N+1 Queries Against Email/Contact
 
-### Pitfall M1: MUI Theme Provider Missing in Component Tests
+**What goes wrong:** CRM Activities reference Emails, Contacts, and Calendar Events via FKs. Loading a deal's activity timeline triggers N+1 queries: one query for activities, then one query per activity to load the linked email/contact/event.
 
-**What goes wrong:** Component unit tests render MUI components without wrapping them in `ThemeProvider`. Components that use `useTheme()` or `sx` props with theme tokens crash with cryptic errors like "Cannot read properties of undefined (reading 'palette')".
-
-**Why it happens:** The existing `jest.setup.ts` mocks `next/router`, `localStorage`, and `matchMedia`, but does NOT set up a MUI `ThemeProvider`. Every component test must manually wrap in a provider, and developers forget.
+**Why it happens:** Prisma's `include` is convenient but generates separate SQL queries per relation. With CRM, a single Deal page might load 50+ activities, each linking to different entity types. The existing system already fixed N+1 in email listing (PERF-02 in v2.0), but new CRM code won't inherit those fixes -- they were endpoint-specific.
 
 **Prevention:**
-1. Create a `test/helpers/render-with-theme.tsx` that wraps `@testing-library/react`'s `render` with the project's MUI theme.
-2. Export this as the default `render` function in test utils so developers use it by default.
-3. The wrapper should include: `ThemeProvider`, `QueryClientProvider` (with fresh client per test), and the translation provider.
+- Use Prisma `include` with `select` to load only needed fields
+- Implement a CRM-specific data loader pattern (batch FK resolution)
+- Set `staleTime: 5min` on CRM TanStack Query hooks to avoid refetching on every tab switch
+- Add query logging in dev mode to catch N+1 patterns early
 
-**Detection:** Component tests that fail with "Cannot read properties of undefined" on `theme.*` or `palette.*`.
+**Phase:** CRM domain expansion
 
-**Phase:** Frontend test infrastructure phase. Create the wrapper BEFORE any component tests.
+### Pitfall 8: Workflow Rules Executing AI Tools Without HITL Approval
 
-**Sources:**
-- [MUI Testing Guide](https://mui.com/material-ui/guides/testing/)
+**What goes wrong:** A user creates a workflow rule: "When email from VIP arrives, draft a reply." The workflow engine calls the AI draft tool directly, bypassing the HITL approval flow that would normally gate a mutating action. The workflow acts as a privilege escalation path.
 
----
-
-### Pitfall M2: QueryClient Shared Across Tests
-
-**What goes wrong:** Multiple frontend tests share a single `QueryClient` instance. Cached data from one test bleeds into the next, causing order-dependent test failures. Test A populates a query cache; Test B runs and sees stale data.
-
-**Why it happens:** TanStack Query's `QueryClient` retains cache across renders. If tests use a module-level `QueryClient` (or the one from `lib/query-client.ts`), all tests in a file share state.
+**Why it happens:** The HITL approval flow is tied to the chat streaming path (`AiChatService.streamChat()`). Workflow rules that invoke AI tools outside the chat context don't go through the same approval pipeline. The current system only checks `requiresApproval` during chat tool execution.
 
 **Prevention:**
-1. Create a fresh `QueryClient` in `beforeEach` or in the test wrapper function.
-2. Set `retry: false` and `gcTime: 0` in test QueryClient to prevent retry delays and cache leakage.
-3. Never import the production `queryClient` instance in tests.
+- Workflow engine must use the same tool execution registry and approval policies as the chat path
+- Add a `WorkflowExecutionContext` that enforces the same HITL rules
+- Workflow rules involving mutating actions must either pre-approve at rule creation time or queue for approval at execution time
+- This is the intersection of the authorization system and the AI control plane -- both must be in place before workflow automation ships
 
-**Detection:** Tests that pass individually (`jest --testPathPattern=MyTest`) but fail when run with the full suite.
+**Phase:** Workflow automation (depends on AI control plane Phase 2 being complete)
 
-**Phase:** Frontend test infrastructure phase.
+### Pitfall 9: Frontend PermissionGate Causing Layout Shifts
 
----
+**What goes wrong:** Adding `<PermissionGate>` components that conditionally hide UI elements causes Cumulative Layout Shift (CLS). Buttons, menu items, and sections pop in/out as permissions load asynchronously, making the page jump.
 
-### Pitfall M3: Testing Encrypted Fields Without Encryption Setup
-
-**What goes wrong:** Integration tests that touch encrypted fields (AES-256-GCM) fail because the encryption keys are not configured in the test environment. The Prisma encryption extension either throws or returns garbled data.
-
-**Why it happens:** PMSync uses per-tenant HKDF key derivation for field encryption. Test environments typically don't have `ENCRYPTION_MASTER_KEY` or the per-tenant key derivation configured. The `withoutTenantScoping` bypass exists but doesn't bypass encryption.
+**Why it happens:** Permissions are loaded from the backend after initial render. The frontend currently has no permission model (flagged in both audits). When added, permission-gated components will initially render nothing, then render their content once permissions arrive, causing layout shifts.
 
 **Prevention:**
-1. For unit tests: mock the encryption extension or use `jest.mock` on `field-encryption.utils.ts`.
-2. For integration tests: provide a stable test `ENCRYPTION_MASTER_KEY` in `.env.test` and ensure the test tenant has derived keys.
-3. Never test with production encryption keys.
+- Prefetch permissions with the session (load in the auth provider, not per-component)
+- Use skeleton placeholders for permission-gated sections during loading
+- Cache permissions in Zustand (not just TanStack Query) so they're available synchronously on subsequent renders
+- Follow the existing pattern of `staleTime: 5min` for permission queries
 
-**Detection:** Tests that fail with "Invalid key length" or produce Base64-encoded garbage in assertions.
+**Phase:** Authorization/permissions (frontend)
 
-**Phase:** Backend integration test phase.
+### Pitfall 10: OpenTelemetry Trace Context Not Propagating Through BullMQ
 
----
+**What goes wrong:** A user action triggers an HTTP request that enqueues a BullMQ job. The OTel trace ID from the HTTP request is not carried into the job payload. The distributed trace shows the HTTP request and the BullMQ job as separate, unconnected traces.
 
-### Pitfall M4: BullMQ Job Testing Without Redis
-
-**What goes wrong:** Tests for queue processors (email sync, contact embedding, cleanup) either require a running Redis instance or fail silently when the queue is mocked too aggressively.
-
-**Why it happens:** BullMQ requires Redis. In unit tests, developers mock the queue entirely, but then the processor logic (which handles retries, DLQ, rate limiting) is untested. In integration tests, spinning up Redis adds CI complexity.
+**Why it happens:** BullMQ jobs are serialized to Redis as JSON. OTel trace context lives in the in-memory context object. Unless the trace context is explicitly serialized into the job data and deserialized in the worker, the trace chain breaks. This is the entire point of adding OTel, and it's the part most likely to be done wrong.
 
 **Prevention:**
-1. For processor logic: extract the processing function from the BullMQ handler so it can be tested without the queue infrastructure.
-2. For queue behavior (retry, DLQ): use a dedicated Redis test container in CI.
-3. Never mock the processor function itself -- mock only the external dependencies it calls.
+- Create a `TracedJobData` wrapper that serializes `traceparent` and `tracestate` into every job payload
+- In every worker, extract the trace context from job data before processing
+- Test the full chain: HTTP request > BullMQ enqueue > worker processing > Prisma query -- all should appear in one trace
+- This applies to all 20 existing BullMQ queues, not just new workflow queues
 
-**Detection:** Queue processor spec files that mock the processor's own method instead of its dependencies.
+**Phase:** OpenTelemetry distributed tracing
 
-**Phase:** Backend unit test phase for processors; integration test phase for queue behavior.
+### Pitfall 11: CRM Deal Pipeline Model Conflicting with Existing Kanban State
 
----
+**What goes wrong:** The new CRM Pipeline/Stage model creates its own notion of "stages" and "columns" that conflicts with the existing email kanban board's stage management. Shared state stores or API endpoints accidentally mix email kanban stages with CRM pipeline stages.
 
-### Pitfall M5: Playwright Catch-All Mock Hiding Bugs
-
-**What goes wrong:** The existing E2E fixtures have a catch-all route handler (`**/localhost:3000/**`) that returns `200 {}` for any unmocked API call. New features that add API calls appear to work in E2E tests even when the response shape is completely wrong, because the catch-all returns an empty object instead of a 404.
-
-**Why it happens:** The catch-all was added (see `fixtures.ts` line 222) to prevent E2E failures when new endpoints are added. This is pragmatic but dangerous -- it masks missing mocks and makes E2E tests unable to catch frontend code that mishandles empty/malformed responses.
+**Why it happens:** The frontend already has a `KanbanBoard` component (701 lines, flagged in CTO audit as oversized). If CRM pipelines reuse this component without proper domain isolation, email and CRM states bleed into each other through shared Zustand slices or TanStack Query cache keys.
 
 **Prevention:**
-1. Log a warning (to Playwright trace) whenever the catch-all is triggered, including the URL that was not explicitly mocked.
-2. In strict mode (for CI), make the catch-all return 500 instead of 200 so unmocked endpoints fail loudly.
-3. When adding new E2E tests for a feature, always add explicit mocks for that feature's endpoints FIRST.
+- CRM pipeline UI gets its own Zustand slice and TanStack Query key prefix (`['crm', 'pipeline', ...]` not `['pipeline', ...]`)
+- Do NOT reuse the email KanbanBoard component directly -- extract a generic `DragDropBoard` component, then compose domain-specific boards from it
+- API routes must be domain-prefixed: `/api/v1/crm/pipelines` not `/api/v1/pipelines`
 
-**Detection:** E2E tests that pass despite having no explicit mock for the endpoints they exercise.
+**Phase:** CRM domain expansion
 
-**Phase:** E2E test infrastructure phase.
+### Pitfall 12: `withoutTenantScopingAsync` Usage Expanding Into CRM/Workflow
 
----
+**What goes wrong:** CRM or workflow code uses `withoutTenantScopingAsync` to "fix" queries that don't work because the developer didn't understand the tenant-scoping extension. Already used in 50 files across the codebase, it becomes normalized for new code.
 
-### Pitfall M6: Mocking `request.user` Incorrectly in Controller/Guard Tests
-
-**What goes wrong:** Controller tests set `request.user = { id, tenantId }` but miss fields that guards or decorators rely on (e.g., `userId`, `role`, `sessionId`, `email`). The `BetterAuthGuard` maps session data to a specific shape with BOTH `id` and `userId` (for backward compatibility). Tests that use a partial mock pass the guard but fail in service calls that expect the full shape.
-
-**Why it happens:** The `request.user` shape in PMSync has evolved through multiple auth migrations (JWT -> better-auth). It now has both `id` and `userId` pointing to the same value, plus `sessionId`, `role`, `email`, `firstName`, `lastName`. Missing any field may not cause an immediate crash but leads to subtle bugs.
+**Why it happens:** When a developer writes a CRM query and gets empty results (because tenant context isn't set in their test), the fastest "fix" is wrapping in `withoutTenantScopingAsync`. The real fix is ensuring tenant context is properly propagated.
 
 **Prevention:**
-1. Create a `test/factories/mock-user.factory.ts` that returns the full `SessionUser` shape with sensible defaults.
-2. Use this factory in ALL controller and guard tests.
-3. Type the mock: `const mockUser: SessionUser = createMockUser({ tenantId: 'test' })`.
+- Code review rule: `withoutTenantScopingAsync` is NEVER acceptable in CRM or workflow modules
+- Add an ESLint custom rule or dependency-cruiser constraint that flags `withoutTenantScopingAsync` imports in new modules
+- Only the 50 existing usages (mostly in workers, webhooks, system tasks) are grandfathered
 
-**Detection:** Controller tests where `request.user` is assigned an object literal with fewer than 5 properties.
-
-**Phase:** Backend test infrastructure phase.
-
----
-
-### Pitfall M7: Composite Primary Key Confusion in Test Data
-
-**What goes wrong:** Tests create Email, Folder, Contact, CalendarEvent, or Embedding records using simple `id` fields, but these models use composite primary keys (e.g., `@@id([tenantId, externalId, providerId])` for Email). Test assertions using `findUnique({ where: { id } })` fail because `id` is not the primary key.
-
-**Why it happens:** 5 core models use composite PKs (documented in `COMPOSITE_PK_MODELS` set). Developers accustomed to simple `id`-based lookups write tests that don't account for the composite key structure.
-
-**Prevention:**
-1. Create test data factories for each composite PK model that generate valid composite keys.
-2. Document the composite PK models in the test README with examples of correct `findUnique` calls.
-3. In test helpers, always use `where: { tenantId_externalId_providerId: { ... } }` patterns.
-
-**Detection:** Tests with `prisma.email.findUnique({ where: { id: ... } })` -- this will fail at runtime.
-
-**Phase:** Backend test infrastructure phase.
-
----
+**Phase:** CRM and Workflow (both)
 
 ## Minor Pitfalls
 
----
+### Pitfall 13: God Module Pattern Spreading to CRM Module
 
-### Pitfall L1: Console Silence Hiding Test Failures
+**What goes wrong:** The CRM module follows the pattern of EmailModule (22 services, 8 controllers) and AiModule (28 providers) by putting all CRM functionality into a single `CrmModule`.
 
-**What goes wrong:** The current `test/setup.ts` silences `console.log` and `console.debug` globally. Errors that are logged (not thrown) are invisible during test runs. A service that catches an error and logs it will appear to pass in tests.
+**Prevention:** Split from the start: `CrmAccountsModule`, `CrmDealsModule`, `CrmPipelinesModule`, `CrmActivitiesModule`. Each with focused exports.
 
-**Prevention:** Only silence `console.log`/`console.debug`, keep `console.error` and `console.warn` visible. The current setup already does this correctly (only mocks `log` and `debug`), but verify this is preserved as test infrastructure evolves.
+**Phase:** CRM domain expansion
 
-**Phase:** All phases. Monitor during test infrastructure setup.
+### Pitfall 14: MUI Theme Inconsistency in Chat Migration
 
----
+**What goes wrong:** Chat components migrated to MUI use hardcoded colors or the wrong semantic tokens instead of the established theme palette (primary: teal, secondary: purple, ai: teal semantic color).
 
-### Pitfall L2: Playwright `waitForSelector` vs Web-First Assertions
+**Prevention:** Reference the existing theme tokens documented in CLAUDE.md memory. Never use raw hex/hsl values in `sx` props. Use `theme.palette.primary.main`, `theme.palette.semantic.ai`, etc.
 
-**What goes wrong:** Existing E2E tests mix `waitForSelector` (Playwright classic) with `expect(locator).toBeVisible()` (web-first assertions). The `waitForSelector` approach is more fragile and does not auto-retry like web-first assertions.
+**Phase:** MUI Chat CSS migration
 
-**Prevention:** Prefer `expect(page.getByRole(...)).toBeVisible()` over `page.waitForSelector('css-selector')`. Refactor existing tests during the E2E phase. The current `auth.spec.ts` already uses both patterns -- standardize on web-first.
+### Pitfall 15: Authorization Adding Latency to Every Request
 
-**Phase:** E2E test phase.
+**What goes wrong:** The permission check queries the database on every request to check resource-level permissions, adding 5-20ms per request. With the existing 4-guard chain already adding overhead, this becomes noticeable.
 
----
+**Prevention:**
+- Cache permissions per-session with 5-minute TTL (matches existing `cookieCache` 300s maxAge pattern)
+- Permission checks should be in-memory lookups against cached permission sets, not DB queries
+- Only invalidate on role/permission change events
 
-### Pitfall L3: Contract Tests Depending on Live OpenAPI Spec
-
-**What goes wrong:** The existing contract tests (`test/contract/`) load the OpenAPI spec from a file and skip if unavailable (`if (!spec) return`). This means contract tests silently pass (by skipping) in environments where the spec isn't generated, giving false confidence.
-
-**Prevention:** In CI, fail contract tests if the spec file is missing rather than skipping. Locally, document how to generate the spec before running contract tests.
-
-**Phase:** CI/infrastructure phase.
-
----
-
-### Pitfall L4: Frontend Test Transform for ESM Packages
-
-**What goes wrong:** The frontend `jest.config.js` has `transformIgnorePatterns` for `@tanstack`, `clsx`, and `tailwind-merge`. New dependencies added during v5.1 (e.g., `assistant-ui`, `@ai-sdk/*`) may also need to be transformed, causing cryptic import errors.
-
-**Prevention:** When adding any new ESM-only dependency to the frontend, immediately add it to `transformIgnorePatterns` in `jest.config.js`. Keep a comment in the config explaining why each package is listed.
-
-**Phase:** All phases. Ongoing vigilance.
-
----
-
-### Pitfall L5: Zustand Store Testing Without Reset
-
-**What goes wrong:** Zustand stores persist state across tests in the same file. Test A modifies store state; Test B sees the modified state instead of the initial state.
-
-**Prevention:** Call `useStore.setState(initialState)` in `beforeEach`, or use Zustand's `create` with a factory function in tests. The email-ui-store uses domain slices -- each slice's initial state must be reset independently.
-
-**Phase:** Frontend unit test phase.
-
----
+**Phase:** Authorization/permissions
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Test infrastructure setup | ESM/CJS boundary issues (C2) | Build all mocks and helpers first |
-| Backend unit tests (services) | Tenant scoping bypass (C1) | Require CorrelationContext in all service tests |
-| Backend unit tests (guards) | Incomplete request.user shape (M6) | Use typed mock user factory |
-| Backend unit tests (queues) | Missing Redis / over-mocked processors (M4) | Extract processor logic from queue handler |
-| Backend integration tests | Encryption key setup (M3) | Provide .env.test with test encryption keys |
-| Frontend unit tests (components) | Missing ThemeProvider (M1) | Use render-with-theme wrapper |
-| Frontend unit tests (hooks/stores) | Shared QueryClient / Zustand state (M2, L5) | Fresh instances per test |
-| AI module tests | streamText mock complexity (C3) | Use MockLanguageModelV3 from ai/test |
-| E2E auth flows | Stale session state (C4) | Validate auth before each test spec |
-| E2E feature tests | Catch-all mock hiding bugs (M5) | Log or fail on catch-all hits |
-| Coverage reporting | Happy-path-only gaming (C5) | Require negative tests per spec file |
-| Contract tests | Silent skip on missing spec (L3) | Fail in CI if spec missing |
+| CRM domain | Composite PK omission on new models | Schema review checklist, test tenant isolation on every model |
+| CRM domain | N+1 queries on Activity timeline | Data loader pattern, query logging in dev |
+| CRM domain | God module pattern | Split into sub-modules from day 1 |
+| Workflow engine | Tenant context loss in chained jobs | `WorkflowJobData` base interface, integration tests |
+| Workflow engine | HITL bypass through workflow execution | Shared tool execution policy, not a separate path |
+| Authorization | Guard chain breakage | Controller-level guards, not APP_GUARD; integration tests |
+| Authorization | Frontend layout shifts from PermissionGate | Prefetch with session, skeleton placeholders |
+| Authorization | Per-request DB queries for permissions | In-memory cache with session-scoped TTL |
+| OpenTelemetry | SSE streaming corruption | Selective instrumentation, exclude SSE from response capture |
+| OpenTelemetry | Trace context lost at BullMQ boundary | Explicit serialization of traceparent into job data |
+| OpenTelemetry | Dual Redis library patching issues | Instrument explicitly, don't auto-patch |
+| AI control plane | Collision with in-progress HITL refactor | Complete HITL unification before adding governance metadata |
+| AI control plane | New tools added before registry is unified | Follow remediation roadmap Phase 2 before expanding tools |
+| MUI chat migration | Streaming performance regression | Keep streaming container as static CSS, only migrate non-streaming elements |
+| MUI chat migration | Hardcoded colors | Use theme semantic tokens consistently |
+| UI/UX fixes | Generic error states hiding permission failures | Distinguish 403 from 500 in error boundaries (already flagged in UI audit) |
+
+## Integration Landmines
+
+These are pitfalls that only appear when two new features interact.
+
+### CRM + Authorization
+
+The CRM needs object-level permissions (e.g., "can this user see this Deal?") but the authorization system is being built simultaneously. If CRM ships before authorization, it ships with no access control beyond tenant scoping. If authorization ships first without CRM's object model, the permission schema won't cover CRM entities.
+
+**Mitigation:** Design the permission model with CRM entity types included from the start, even if CRM models don't exist yet. Use a resource-type enum that includes `account`, `deal`, `pipeline`, `activity`.
+
+### Workflow + AI Control Plane
+
+Workflows calling AI tools must go through the same governance as chat. But workflow execution is BullMQ-based (async) while AI chat governance is HTTP-based (sync). The approval flow doesn't work when there's no user waiting at a browser.
+
+**Mitigation:** Define two approval modes: (1) synchronous/interactive for chat, (2) async/pre-approved for workflows. Workflow rules that involve mutating tools must declare their approval policy at creation time.
+
+### OpenTelemetry + AI Streaming
+
+OTel HTTP instrumentation wants to measure response time and size. AI streaming responses never "complete" in the normal HTTP sense -- they stream until the model stops generating. OTel will either report incorrect latency (time to first byte instead of total) or hang waiting for the response to end.
+
+**Mitigation:** Create custom spans for AI streaming that start when `streamText()` is called and end when the stream closes. Do not rely on HTTP auto-instrumentation for these endpoints.
+
+### CRM + Workflow + AI
+
+The three-way interaction is the most dangerous. A workflow rule triggers on a CRM event (deal stage change), calls an AI tool (draft email to contact), and needs tenant context, permission checks, HITL governance, and OTel tracing all working together. Any missing link in this chain creates a silent failure.
+
+**Mitigation:** This combination should be the LAST thing shipped, after each individual system is battle-tested. Do not attempt to demo "AI-powered CRM workflow automation" until CRM, workflow, authorization, and AI governance are each independently stable.
 
 ## Sources
 
-- PMSync codebase analysis (backend/test/, frontend/e2e/, jest configs, existing spec files)
-- [AI SDK Core: Testing](https://ai-sdk.dev/docs/ai-sdk-core/testing) -- official mock utilities documentation
-- [MUI Testing Guide](https://mui.com/material-ui/guides/testing/) -- official component testing guidance
-- [Playwright Authentication](https://playwright.dev/docs/auth) -- session reuse patterns
-- [better-auth test utilities discussion](https://github.com/better-auth/better-auth/issues/5609) -- programmatic session creation for E2E
-- [NestJS + Prisma transaction propagation & test rollback](https://blog.callgent.com/nestjs-prisma-transaction-propagation-test-rollback-multi-tenancy) -- multi-tenant test patterns
-- [Testing Streaming Responses with AI SDK](https://blog.atrera.com/post/unit-testing-streaming-ai-vercel-sdk/) -- streamText mock patterns
-- [Full Test Coverage: Myths vs Reality](https://www.testdevlab.com/blog/full-test-coverage-explained) -- coverage metric pitfalls
+- `docs/AUDIT.md` -- Architecture and security audit (2026-03-09)
+- `docs/CTO_PLATFORM_AUDIT_2026-03-09.md` -- CTO engineering audit with anti-patterns
+- `docs/AI_AGENT_REMEDIATION_ROADMAP_2026-03-15.md` -- AI control plane remediation phases
+- `docs/UI_UX_AUDIT_2026-03-12.md` -- UI/UX findings for mobile, accessibility, error states
+- `backend/src/app.module.ts` -- Guard chain ordering (lines 104-139)
+- `backend/src/prisma/tenant-scoping/` -- Tenant-scoping extension (50 files use withoutTenantScopingAsync)
+- `.planning/PROJECT.md` -- Project context, constraints, key decisions
