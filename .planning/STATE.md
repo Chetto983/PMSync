@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.1
-milestone_name: Test Coverage & Polish
-status: completed
-stopped_at: Completed 75-01-PLAN.md (Phase 75 complete)
-last_updated: "2026-03-15T20:15:00.000Z"
-last_activity: 2026-03-15 -- Completed 75-01-PLAN.md
+milestone: v6.0
+milestone_name: Enterprise Platform & AI Governance
+status: active
+stopped_at: null
+last_updated: "2026-03-18T00:00:00.000Z"
+last_activity: 2026-03-18 -- Milestone v6.0 started
 progress:
-  total_phases: 11
-  completed_phases: 9
-  total_plans: 30
-  completed_plans: 30
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-10)
+See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 75 - Organization E2E Fix (COMPLETE)
+**Current focus:** Defining requirements
 
 ## Current Position
 
-Phase: 75 (9 of 11 in v5.1)
-Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase Complete
-Last activity: 2026-03-15 -- Completed 75-01-PLAN.md
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-18 — Milestone v6.0 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 

@@ -8,24 +8,28 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v5.1 Test Coverage & Polish
+## Current Milestone: v6.0 Enterprise Platform & AI Governance
 
-**Goal:** Deep automated test coverage across all functionality, MUI consistency audit, and production polish.
+**Goal:** Harden AI control plane, add CRM domain, workflow automation, enterprise authorization, distributed tracing, and close all audit findings.
 
 **Target features:**
-- Backend unit + integration tests for all untested modules (calendar, labels, providers, subscription, tenants, users, health)
-- Frontend E2E tests for all v5.0 features (orgs, admin, onboarding, security settings, invitations)
-- Frontend unit tests for critical hooks and stores
-- MUI audit — catch and fix any non-MUI patterns from v5.0
-- Fix whatever the tests reveal
+- AI control plane: HITL contract unification, tool execution governance, memory repair, prompt/runtime alignment, legacy chat removal
+- Security fixes: BOLA in deleteConversation, CSRF secret fallback, /metrics restriction, pgvector HNSW indexes
+- Auth residue cleanup: remove remaining legacy JWT code paths
+- CRM domain expansion: Accounts, Deals, Activities, Pipelines with AI tool integration
+- Workflow automation engine: user-defined rules with policy-aware execution
+- Authorization/permissions: resource-scoped permissions on better-auth org roles, @RequirePermission decorator, frontend PermissionGate
+- OpenTelemetry distributed tracing: HTTP → Queue → AI → Provider chains
+- MUI Chat CSS migration: Wave 3-4 (Command Palette rebuild, chat layout CSS → MUI sx)
+- UI/UX fixes from March 12 audit: mobile issues, empty states, accessibility
 
 ## Current State
 
-**Version:** v5.1 in progress
+**Version:** v6.0 in progress
 **Status:** Defining requirements
-**Base:** v5.0 better-auth Migration (completed 2026-03-10)
+**Base:** v5.1 Test Coverage & Polish (completed 2026-03-15)
 
-**Previous:** v5.0 better-auth Migration completed 2026-03-10 (16 phases, 35 plans, 51/51 requirements).
+**Previous:** v5.1 Test Coverage & Polish completed 2026-03-15 (9 phases, 30 plans).
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
@@ -136,9 +140,9 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- v5.1 requirements - defined during milestone planning -->
+<!-- v6.0 requirements - defined during milestone planning -->
 
-**v5.1 - Test Coverage & Polish (in progress):**
+**v6.0 - Enterprise Platform & AI Governance (in progress):**
 - TBD — requirements being defined
 
 ### Out of Scope
@@ -257,4 +261,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | cookieCache compact with 300s maxAge | Reduces DB session lookups; 5-min cache with compact strategy | ✓ Good |
 
 ---
-*Last updated: 2026-03-10 after v5.1 milestone start*
+*Last updated: 2026-03-18 after v6.0 milestone start*
