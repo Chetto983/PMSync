@@ -88,7 +88,11 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. Every mutating AI tool in ToolRegistryService declares name, domain, riskLevel, requiresApproval, and inputSchema -- tools missing any field fail registration
   4. Action taxonomy maps every tool to a semantically correct action type (no mismatches like delete_event mapped to SCHEDULE_MEETING)
   5. Contract tests validate pending-actions DTO shape, approve/reject response, and HITL E2E flow (trigger, approve, execute, verify)
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 77-01-PLAN.md -- Prisma migration, extended IAiTool interface, registry validation, governance metadata on all tools
+- [ ] 77-02-PLAN.md -- Controller refactor (registry-based), DTO cleanup, frontend adaptation
+- [ ] 77-03-PLAN.md -- Contract tests, registry governance assertions, E2E HITL flow tests
 
 ### Phase 78: Security Fixes
 **Goal**: All known security audit findings from v5.1 are closed -- no BOLA, no CSRF fallback, no open /metrics, vector search is indexed
@@ -197,7 +201,7 @@ Phase 85 can run in parallel with 83-84.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 77. AI Control Plane -- HITL & Tool Governance | 0/? | Not started | - |
+| 77. AI Control Plane -- HITL & Tool Governance | 0/3 | Planning complete | - |
 | 78. Security Fixes | 0/? | Not started | - |
 | 79. Authorization | 0/? | Not started | - |
 | 80. OpenTelemetry | 0/? | Not started | - |
