@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
-status: active
-stopped_at: null
-last_updated: "2026-03-18T00:00:00.000Z"
-last_activity: 2026-03-18 -- Roadmap created for v6.0 (9 phases, 66 requirements)
+status: planning
+stopped_at: Phase 77 context gathered
+last_updated: "2026-03-18T10:13:54.889Z"
+last_activity: 2026-03-18 -- Roadmap created for v6.0
 progress:
   total_phases: 9
   completed_phases: 0
@@ -76,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18
-Stopped at: Roadmap created for v6.0 milestone
-Resume file: None
+Last session: 2026-03-18T10:13:54.886Z
+Stopped at: Phase 77 context gathered
+Resume file: .planning/phases/77-ai-control-plane-hitl-tool-governance/77-CONTEXT.md
