@@ -88,7 +88,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
   3. Every mutating AI tool in ToolRegistryService declares name, domain, riskLevel, requiresApproval, and inputSchema -- tools missing any field fail registration
   4. Action taxonomy maps every tool to a semantically correct action type (no mismatches like delete_event mapped to SCHEDULE_MEETING)
   5. Contract tests validate registry governance metadata, tool approval flags, and HITL E2E flow (trigger, approve/deny, verify)
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 - [ ] 77-01-PLAN.md -- Prisma migration (drop ActionQueue), extend IAiTool with governance, delete HitlController/Service, governance metadata on all 30 tools
 - [ ] 77-02-PLAN.md -- Frontend SDK-native HITL pivot: HitlApprovalWrapper, FallbackToolUI requires-action, auto-resubmission, delete poll-based HITL code
@@ -201,7 +201,7 @@ Phase 85 can run in parallel with 83-84.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 77. AI Control Plane -- HITL & Tool Governance | 0/3 | Planning complete | - |
+| 77. AI Control Plane -- HITL & Tool Governance | 1/3 | In Progress|  |
 | 78. Security Fixes | 0/? | Not started | - |
 | 79. Authorization | 0/? | Not started | - |
 | 80. OpenTelemetry | 0/? | Not started | - |
