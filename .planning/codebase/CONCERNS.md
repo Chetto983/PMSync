@@ -37,9 +37,9 @@
 **Issue:** Three nearly-identical implementations of LLM response sanitization scattered across the codebase.
 
 **Files:**
-- `backend/src/modules/ai/voltagent/services/chat-context-builder.service.ts` (lines 23-36) - `sanitizeLlmResponse()` (exported)
-- `backend/src/modules/ai/voltagent/services/conversation-management.service.ts` (lines 17-40) - `sanitizeMessageContent()` (private)
-- `backend/src/modules/ai/voltagent/observability/hooks.ts` (lines 107-120) - `stripInternalMarkers()` (private)
+- `backend/src/modules/ai/services/chat-context-builder.service.ts` (lines 23-36) - `sanitizeLlmResponse()` (exported)
+- `backend/src/modules/ai/services/conversation-management.service.ts` (lines 17-40) - `sanitizeMessageContent()` (private)
+- `backend/src/modules/ai/observability/hooks.ts` (lines 107-120) - `stripInternalMarkers()` (private)
 
 **Impact:**
 - If one is fixed, other two may still have bugs
@@ -48,7 +48,7 @@
 - Each implementation has slightly different regex patterns
 
 **Fix Approach:**
-- Consolidate into single utility: `backend/src/modules/ai/voltagent/utils/sanitize.utils.ts`
+- Consolidate into single utility: `backend/src/modules/ai/utils/sanitize.utils.ts`
 - Export `sanitizeLlmResponse()` for all three use cases
 - Add comprehensive test suite for edge cases
 
@@ -59,13 +59,13 @@
 **Issue:** Code marked as deprecated or never called is still in the codebase, creating confusion and bloat.
 
 **Files:**
-- `backend/src/modules/ai/voltagent/services/mistral.provider.ts` (line 46) - DEPRECATED Mistral `MEDIUM` model (slow & expensive)
+- `backend/src/modules/ai/services/mistral.provider.ts` (line 46) - DEPRECATED Mistral `MEDIUM` model (slow & expensive)
 - `backend/src/modules/ai/services/mistral.service.ts` (line 97) - Maps deprecated MEDIUM to FAST (workaround)
-- `backend/src/modules/ai/voltagent/tools/email.tools.ts` (line 599-983) - DEPRECATED individual tool creators
-- `backend/src/modules/ai/voltagent/tools/folder.tools.ts` (line 312) - DEPRECATED folder tools (consolidated)
-- `backend/src/modules/ai/voltagent/tools/calendar.tools.ts` (line 309) - DEPRECATED calendar tools (consolidated)
-- `backend/src/modules/ai/voltagent/tools/document-library.tools.ts` (line 231) - DEPRECATED individual tool creators
-- `backend/src/modules/ai/voltagent/tools/contacts.tools.ts` (line 314) - DEPRECATED contact tools (consolidated)
+- `backend/src/modules/ai/tools/email.tools.ts` (line 599-983) - DEPRECATED individual tool creators
+- `backend/src/modules/ai/tools/folder.tools.ts` (line 312) - DEPRECATED folder tools (consolidated)
+- `backend/src/modules/ai/tools/calendar.tools.ts` (line 309) - DEPRECATED calendar tools (consolidated)
+- `backend/src/modules/ai/tools/document-library.tools.ts` (line 231) - DEPRECATED individual tool creators
+- `backend/src/modules/ai/tools/contacts.tools.ts` (line 314) - DEPRECATED contact tools (consolidated)
 - `backend/src/modules/subscription/services/usage-tracking.service.ts` (line 317) - DEPRECATED license check (always returns true)
 - `backend/src/modules/email-sync/services/base-email-sync.service.ts` (line 1331) - Comment noting dead code was deleted
 - `backend/src/app.module.ts` (line 32) - AnalyticsModule removed (unused)
@@ -149,7 +149,7 @@ await this.redisLock.withLock(lockKey, lockTtl, async () => {
 **Status:** ACTIVE TECHNICAL DEBT - Works but should be removed
 
 **Files:**
-- `backend/src/modules/ai/voltagent/providers/mistral.provider.ts` (line 46)
+- `backend/src/modules/ai/providers/mistral.provider.ts` (line 46)
 - `backend/src/modules/ai/services/mistral.service.ts` (line 97)
 
 **Problem:**
@@ -294,7 +294,7 @@ const counts = await prisma.email.groupBy({
 
 **Problem:** Vector similarity search may not use indexes properly
 
-**Files:** `backend/src/modules/ai/voltagent/rag/unified-retriever.ts` (line 1092, embedding search)
+**Files:** `backend/src/modules/ai/rag/unified-retriever.ts` (line 1092, embedding search)
 
 **Current State:**
 - Uses pgvector similarity operator
@@ -369,7 +369,7 @@ const counts = await prisma.email.groupBy({
 
 ### VoltAgent Conversation State Not Atomic
 
-**Files:** `backend/src/modules/ai/voltagent/services/conversation-management.service.ts`
+**Files:** `backend/src/modules/ai/services/conversation-management.service.ts`
 
 **Issue:**
 - Conversation history and user context updated separately
@@ -390,7 +390,7 @@ const counts = await prisma.email.groupBy({
 
 ### API Response Timeouts Not Enforced
 
-**Files:** `backend/src/modules/ai/voltagent/services/chat-response-processor.service.ts`
+**Files:** `backend/src/modules/ai/services/chat-response-processor.service.ts`
 
 **Issue:**
 - No request timeout configured for LLM API calls
@@ -454,7 +454,7 @@ const counts = await prisma.email.groupBy({
 
 **Risk:** Using both SMALL and FAST creates confusion, cost tracking issues
 
-**Files:** `backend/src/modules/ai/voltagent/providers/mistral.provider.ts`
+**Files:** `backend/src/modules/ai/providers/mistral.provider.ts`
 
 **Issue:**
 - Multiple model options: TINY, SMALL, FAST, MEDIUM, LARGE
@@ -615,7 +615,7 @@ const counts = await prisma.email.groupBy({
 
 **Limit:** Vector search becomes O(n) without index
 
-**Files:** `backend/src/modules/ai/voltagent/rag/unified-retriever.ts`
+**Files:** `backend/src/modules/ai/rag/unified-retriever.ts`
 
 **At Risk When:**
 - Single user has >500k emails with embeddings
@@ -636,7 +636,7 @@ const counts = await prisma.email.groupBy({
 
 **Issue:** GDPR Art. 17 (Right to Erasure) compliance risk
 
-**Files:** `backend/src/modules/ai/voltagent/services/agent-pool.service.ts`
+**Files:** `backend/src/modules/ai/services/agent-pool.service.ts`
 
 **Scenario:**
 - User requests account deletion
