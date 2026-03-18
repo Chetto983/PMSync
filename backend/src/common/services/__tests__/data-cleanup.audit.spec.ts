@@ -18,7 +18,6 @@ function createMockPrisma() {
     agentActionFeedback: { deleteMany: jest.fn(), count: jest.fn() },
     agentLearningProfile: { deleteMany: jest.fn(), count: jest.fn() },
     aIMemory: { deleteMany: jest.fn(), count: jest.fn() },
-    actionQueue: { deleteMany: jest.fn(), count: jest.fn() },
     $executeRaw: jest.fn(),
     $queryRaw: jest.fn(),
   } as any;

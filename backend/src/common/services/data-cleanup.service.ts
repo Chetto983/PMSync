@@ -91,17 +91,8 @@ export class DataCleanupService implements OnModuleInit {
       results.aiMemories = memoryResult.count;
       this.logger.debug(`Deleted ${memoryResult.count} expired AI memories`);
 
-      // 4. Clean expired ActionQueue entries (still pending after expiration)
-      const actionResult = await this.prisma.actionQueue.deleteMany({
-        where: {
-          status: 'PENDING_APPROVAL',
-          expiresAt: {
-            lt: now,
-          },
-        },
-      });
-      results.expiredActions = actionResult.count;
-      this.logger.debug(`Deleted ${actionResult.count} expired pending actions`);
+      // 4. ActionQueue removed (Phase 77 -- replaced by AI SDK native HITL)
+      results.expiredActions = 0;
 
       // 5. Clean old VoltAgent conversations (30 days)
       results.conversations = await this.cleanupOldConversations(now);
@@ -224,7 +215,7 @@ export class DataCleanupService implements OnModuleInit {
     const conversationCutoff = new Date();
     conversationCutoff.setDate(conversationCutoff.getDate() - 30);
 
-    const [feedback, profiles, memories, actions, conversations] = await Promise.all([
+    const [feedback, profiles, memories, conversations] = await Promise.all([
       this.prisma.agentActionFeedback.count({
         where: { expiresAt: { lt: now } },
       }),
@@ -234,9 +225,6 @@ export class DataCleanupService implements OnModuleInit {
       this.prisma.aIMemory.count({
         where: { expiresAt: { lt: now } },
       }),
-      this.prisma.actionQueue.count({
-        where: { status: 'PENDING_APPROVAL', expiresAt: { lt: now } },
-      }),
       this.getOldConversationCount(conversationCutoff),
     ]);
 
@@ -244,9 +232,9 @@ export class DataCleanupService implements OnModuleInit {
       agentFeedback: feedback,
       learningProfiles: profiles,
       aiMemories: memories,
-      expiredActions: actions,
+      expiredActions: 0, // ActionQueue removed (Phase 77)
       conversations,
-      total: feedback + profiles + memories + actions + conversations,
+      total: feedback + profiles + memories + conversations,
     };
   }
 

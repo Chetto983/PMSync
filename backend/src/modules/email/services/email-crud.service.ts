@@ -407,10 +407,6 @@ export class EmailCrudService {
       // If already deleted, permanent delete
       if (email.isDeleted) {
         await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
-        await tx.actionQueue.updateMany({
-          where: { tenantId, emailId: id },
-          data: { emailId: null },
-        });
         await tx.email.delete({ where: { id_tenantId: { id, tenantId } } });
         return { action: 'hard_delete' as const, email };
       }

@@ -417,14 +417,6 @@ export class EmailBulkService {
 
       // Hard delete
       if (toHardDelete.length > 0) {
-        await tx.actionQueue.updateMany({
-          where: {
-            tenantId,
-            emailId: { in: toHardDelete.map((e) => e.id) },
-          },
-          data: { emailId: null },
-        });
-
         const result = await tx.email.deleteMany({
           where: { id: { in: toHardDelete.map((e) => e.id) }, tenantId },
         });

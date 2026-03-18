@@ -63,17 +63,7 @@ export type ChatMessage = {
 
 export type ChatResult = {
   text: string;
-  requiresApproval?: boolean;
-  pendingActions?: PendingActionSummary[];
   conversationId?: string;
-};
-
-export type PendingActionSummary = {
-  id: string;
-  actionType: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
-  payload: Record<string, unknown>;
-  summary: string;
 };
 
 export type MemorySearchItem = {
@@ -259,8 +249,7 @@ export type StreamEvent =
   | { type: 'done'; conversationId?: string }
   | { type: 'error'; message: string }
   | { type: 'text-delta'; delta: string }
-  | { type: 'finish' }
-  | { type: 'data-needs-approval'; data: Record<string, unknown> };
+  | { type: 'finish' };
 
 export interface CachedDeadline {
   id: string;
@@ -289,55 +278,6 @@ type StreamConsumerCallbacks = {
 };
 
 const AI_CHAT_ENDPOINT = `${API_BASE_URL}/api/v1/ai/chat`;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function humanizeActionType(actionType: string): string {
-  return actionType
-    .toLowerCase()
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-}
-
-function inferPendingSeverity(actionType: string): PendingActionSummary['severity'] {
-  if (actionType.startsWith('DELETE_')) {
-    return 'HIGH';
-  }
-  if (
-    actionType.startsWith('SEND_') ||
-    actionType.startsWith('MOVE_') ||
-    actionType.startsWith('ARCHIVE_')
-  ) {
-    return 'MEDIUM';
-  }
-  return 'LOW';
-}
-
-function mapPendingActionSummary(data: unknown): PendingActionSummary | null {
-  if (!isRecord(data)) {
-    return null;
-  }
-
-  const actionId = typeof data.actionId === 'string' ? data.actionId : null;
-  const actionType =
-    typeof data.actionType === 'string' ? data.actionType : 'UNKNOWN_ACTION';
-  const payload = isRecord(data.actionPayload) ? data.actionPayload : {};
-
-  if (!actionId) {
-    return null;
-  }
-
-  return {
-    id: actionId,
-    actionType,
-    severity: inferPendingSeverity(actionType),
-    payload,
-    summary: `${humanizeActionType(actionType)} requires approval`,
-  };
-}
 
 function extractSsePayload(frame: string): string | null {
   const lines = frame
@@ -434,15 +374,6 @@ async function consumeChatStream(
         state.text += event.delta;
         callbacks.onChunk?.(event.delta);
         break;
-      case 'data-needs-approval': {
-        const pendingAction = mapPendingActionSummary(event.data);
-        if (!pendingAction) {
-          break;
-        }
-        state.requiresApproval = true;
-        state.pendingActions = [...(state.pendingActions ?? []), pendingAction];
-        break;
-      }
       case 'done':
         if (event.conversationId) {
           state.conversationId = event.conversationId;
@@ -816,14 +747,9 @@ export const multiAgentApi = {
       sessionId: responseConvId,
       conversationId: responseConvId,
       messages: result.text ? [result.text] : [],
-      pendingActionIds:
-        result.pendingActions?.map((a: PendingActionSummary) => a.id) ?? [],
+      pendingActionIds: [],
       executedActionIds: [],
     };
   },
   getAgents: () => Promise.resolve({ agents: [] as AgentInfo[] }),
-  getPendingActions: (_params?: { status?: string; limit?: number; offset?: number }) =>
-    aiChatApi.getPendingActions(),
-  approveAction: aiChatApi.approveAction,
-  rejectAction: aiChatApi.rejectAction,
 };

@@ -3,14 +3,12 @@
  *
  * Centralized exports for AI-related React hooks.
  * Chat UI uses assistant-ui runtime (see src/components/chat/).
- * These hooks cover HITL actions, compose, and email AI analysis.
+ * These hooks cover compose and email AI analysis.
+ * HITL approval is now SDK-native (see HitlApprovalWrapper in chat components).
  */
 
 // Compose hooks
 export { useAiCompose, type ComposeOptions, type ComposeResult } from './use-ai-compose';
-
-// AI actions hooks (HITL)
-export { useAiActions, aiActionsKeys } from './use-ai-actions';
 
 // Email AI analysis hooks (Phase 8)
 export {
@@ -27,10 +25,6 @@ export {
 export type {
   ChatMessage,
   ChatResult,
-  PendingAction,
-  PendingActionSummary,
-  ActionCounts,
-  LearningProfileStats,
   SentimentResult,
   PriorityResult,
   EmailAnalysisResult,

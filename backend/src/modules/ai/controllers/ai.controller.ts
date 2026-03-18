@@ -23,7 +23,7 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
-import { ActionStatus, FollowUpStatus } from '@prisma/client';
+import { FollowUpStatus } from '@prisma/client';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -467,56 +467,7 @@ export class AiController {
     return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
   }
 
-  @Get('actions/pending')
-  @ApiOperation({ summary: 'List pending actions', description: 'Returns pending HITL actions for current user' })
-  @ApiResponse({ status: 200, description: 'Pending actions listed' })
-  async getPendingActions(
-    @Request() req: AuthenticatedRequest,
-    @Query('conversationId') conversationId?: string,
-  ) {
-    const now = new Date();
-    const actions = await this.prisma.actionQueue.findMany({
-      where: {
-        tenantId: req.user.tenantId,
-        userId: req.user.userId,
-        status: ActionStatus.PENDING_APPROVAL,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        actionType: true,
-        actionPayload: true,
-        confidence: true,
-        reasoning: true,
-        createdAt: true,
-      },
-    });
-
-    const filtered = conversationId
-      ? actions.filter((action) => {
-          const payload = (action.actionPayload || {}) as Record<string, unknown>;
-          return payload.conversationId === conversationId;
-        })
-      : actions;
-
-    const mapped = filtered.map((action) => ({
-      id: action.id,
-      executionId: action.id,
-      actionType: action.actionType,
-      severity: this.mapActionSeverity(action.actionType),
-      payload: action.actionPayload || {},
-      summary: action.reasoning || `${action.actionType} requires approval`,
-      suspendReason: 'requires_approval',
-      suspendedAt: action.createdAt,
-      userId: req.user.userId,
-      agentName: 'ai-chat',
-      confidence: action.confidence ?? undefined,
-      status: 'PENDING' as const,
-    }));
-
-    return { success: true, actions: mapped, total: mapped.length };
-  }
+  // Phase 77: actions/pending endpoint removed -- ActionQueue replaced by AI SDK native HITL
 
   @Get('follow-ups/pending')
   @ApiOperation({ summary: 'List pending follow-ups', description: 'Returns pending/overdue follow-ups' })
@@ -993,15 +944,6 @@ export class AiController {
       });
     }
     return { success: true };
-  }
-
-  private mapActionSeverity(actionType: string): 'LOW' | 'MEDIUM' | 'HIGH' {
-    const highSeverity = new Set(['SEND_EMAIL', 'DELETE_EMAIL', 'DELETE_CONTACT']);
-    const mediumSeverity = new Set(['SCHEDULE_MEETING', 'REPLY_EMAIL', 'FORWARD_EMAIL']);
-
-    if (highSeverity.has(actionType)) return 'HIGH';
-    if (mediumSeverity.has(actionType)) return 'MEDIUM';
-    return 'LOW';
   }
 
   private extractPrimaryEmail(rawEmails: unknown): string {

@@ -10,7 +10,7 @@
  * Phase CONSOLIDATION: Triage + Follow-Up + Reminder unification.
  */
 import { Injectable, Logger } from '@nestjs/common';
-import { ActionStatus, FollowUpStatus, FollowUpType } from '@prisma/client';
+import { FollowUpStatus, FollowUpType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { UnifiedEmailAnalysis } from '../types/email-insights.types';
 
@@ -128,14 +128,7 @@ export class TriageActionService {
         `Follow-up created for email ${context.emailId}: type=${followUpType}, due=${dueDate.toISOString()}, confidence=${analysis.confidence}`,
       );
 
-      // Phase 3: Create HITL-gated calendar reminder for high-urgency deadlines
-      if (
-        analysis.hasDeadline &&
-        dueDate &&
-        (analysis.urgency === 'critical' || analysis.urgency === 'high')
-      ) {
-        await this.createReminderAction(context, followUp.id, dueDate, reason);
-      }
+      // Phase 77: Calendar reminder via ActionQueue removed (AI SDK native HITL)
 
       return {
         followUpCreated: true,
@@ -190,64 +183,7 @@ export class TriageActionService {
     return FollowUpType.TODO; // User received this, needs to take action
   }
 
-  /**
-   * Create a HITL-gated ActionQueue entry for calendar reminder.
-   * User must approve before the calendar event is created.
-   */
-  private async createReminderAction(
-    context: TriageEmailContext,
-    followUpId: string,
-    dueDate: Date,
-    reason: string,
-  ): Promise<void> {
-    try {
-      // Check if a reminder action already exists for this email
-      const existing = await this.prisma.actionQueue.findFirst({
-        where: {
-          tenantId: context.tenantId,
-          userId: context.userId,
-          actionType: 'CREATE_REMINDER',
-          status: ActionStatus.PENDING_APPROVAL,
-          actionPayload: { path: ['emailId'], equals: context.emailId },
-        },
-      });
-      if (existing) return; // Already pending
-
-      const reminderTime = new Date(dueDate);
-      reminderTime.setMinutes(reminderTime.getMinutes() - 30); // 30 min before deadline
-
-      await this.prisma.actionQueue.create({
-        data: {
-          tenantId: context.tenantId,
-          userId: context.userId,
-          emailId: context.emailId,
-          actionType: 'CREATE_REMINDER',
-          actionPayload: {
-            title: `Follow up: ${context.subject || 'Email'}`,
-            startTime: reminderTime.toISOString(),
-            endTime: dueDate.toISOString(),
-            emailId: context.emailId,
-            followUpId,
-            description: reason,
-          },
-          confidence: 0.8,
-          reasoning: `Auto-triage detected high-urgency deadline for "${context.subject || 'email'}"`,
-          status: ActionStatus.PENDING_APPROVAL,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour expiry
-        },
-      });
-
-      this.logger.debug(
-        `Reminder action created for email ${context.emailId}: due=${dueDate.toISOString()}`,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Failed to create reminder action for ${context.emailId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
+  // Phase 77: createReminderAction removed -- ActionQueue replaced by AI SDK native HITL
 
   /**
    * Build a human-readable reason from analysis data.

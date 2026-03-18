@@ -240,34 +240,7 @@ describe('aiChatApi (AI Chat)', () => {
       );
     });
 
-    it('should collect pending actions from streamed approval chunks', async () => {
-      mockFetch.mockResolvedValue(
-        createStreamResponse([
-          streamFrame({ type: 'text-delta', delta: 'I will send the email' }),
-          streamFrame({
-            type: 'data-needs-approval',
-            data: {
-              actionId: 'action-1',
-              actionType: 'SEND_EMAIL',
-              actionPayload: { to: 'test@example.com' },
-            },
-          }),
-          streamFrame({ type: 'finish' }),
-        ]),
-      );
-
-      const result = await aiChatApi.chat({ message: 'Send email' });
-
-      expect(result.data.requiresApproval).toBe(true);
-      expect(result.data.pendingActions).toHaveLength(1);
-      expect(result.data.pendingActions?.[0]).toEqual({
-        id: 'action-1',
-        actionType: 'SEND_EMAIL',
-        severity: 'MEDIUM',
-        summary: 'Send Email requires approval',
-        payload: { to: 'test@example.com' },
-      });
-    });
+    // data-needs-approval test removed: poll-based HITL replaced by SDK-native approval flow
   });
 
   describe('streamChat', () => {
@@ -716,43 +689,6 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
     });
   });
 
-  describe('getPendingActions', () => {
-    it('should delegate to aiChatApi', async () => {
-      const mockResponse = { data: { actions: [], total: 0 } };
-      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
-
-      await multiAgentApi.getPendingActions();
-
-      expect(apiClient.get).toHaveBeenCalledWith('/ai/chat/pending-actions');
-    });
-  });
-
-  describe('approveAction', () => {
-    it('should delegate to aiChatApi', async () => {
-      const mockResponse = { data: { status: 'approved' } };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
-
-      await multiAgentApi.approveAction('exec-1');
-
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
-        actionId: 'exec-1',
-        decision: 'approve',
-      });
-    });
-  });
-
-  describe('rejectAction', () => {
-    it('should delegate to aiChatApi', async () => {
-      const mockResponse = { data: { status: 'rejected' } };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
-
-      await multiAgentApi.rejectAction('exec-1', 'Not needed');
-
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
-        actionId: 'exec-1',
-        decision: 'reject',
-        rejectionReason: 'Not needed',
-      });
-    });
-  });
+  // getPendingActions, approveAction, rejectAction tests removed:
+  // poll-based HITL replaced by SDK-native approval flow
 });

@@ -17,7 +17,6 @@ model Tenant {
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   deletedAt                DateTime?
-  actionQueue              ActionQueue[]
   actionFeedback           AgentActionFeedback[]
   learningProfiles         AgentLearningProfile[]
   auditLogs                AuditLog[]
@@ -82,7 +81,6 @@ model User {
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   deletedAt           DateTime?
-  actionQueue         ActionQueue[]
   actionFeedback      AgentActionFeedback[]
   learningProfiles    AgentLearningProfile[]
   auditLogs           AuditLog[]
@@ -504,7 +502,6 @@ model Email {
   aiLabels             String[]                @default([]) // AI-suggested labels
   isAutoTriaged        Boolean                 @default(false) // Flag if auto-triaged
   autoTriagedAt        DateTime? // When auto-triage ran
-  actionQueue          ActionQueue[]
   analysis             EmailAnalysis?
   attachments          EmailAttachment[]
   followUp             EmailFollowUp?
@@ -1283,38 +1280,6 @@ model EmailAnalysis {
   @@map("email_analyses")
 }
 
-/// HITL Action Queue - AI suggested actions awaiting approval
-/// userId is optional to allow system-initiated actions and test scenarios
-model ActionQueue {
-  id              String       @id @default(cuid())
-  tenantId        String
-  userId          String? // Made optional for system actions and test scenarios
-  emailId         String?
-  actionType      ActionType
-  actionPayload   Json
-  confidence      Float        @default(0)
-  reasoning       String?
-  status          ActionStatus @default(PENDING_APPROVAL)
-  approvedBy      String?
-  approvedAt      DateTime?
-  rejectedReason  String?
-  executedAt      DateTime?
-  executionResult Json?
-  executionError  String?
-  retryCount      Int          @default(0)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  expiresAt       DateTime?
-  email           Email?       @relation(fields: [emailId, tenantId], references: [id, tenantId])
-  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, status])
-  @@index([tenantId, userId, status])
-  @@index([expiresAt])
-  @@map("action_queue")
-}
-
 /// Learning profile for agent confidence adjustment
 model AgentLearningProfile {
   id                    String    @id @default(cuid())
@@ -1531,36 +1496,6 @@ enum DealSignal {
   NEGOTIATION
   READY_TO_BUY
   CHURNING
-}
-
-enum ActionType {
-  SEND_EMAIL
-  SCHEDULE_MEETING
-  CREATE_TASK
-  UPDATE_CONTACT
-  UPDATE_DEAL
-  ADD_LABEL
-  ARCHIVE_EMAIL
-  SNOOZE_EMAIL
-  // Contact CRUD (P6 fix)
-  CREATE_CONTACT
-  DELETE_CONTACT
-  // Email CRUD (P6 fix)
-  DELETE_EMAIL
-  REPLY_EMAIL
-  FORWARD_EMAIL
-  // Phase CONSOLIDATION: Triage → calendar reminder
-  CREATE_REMINDER
-}
-
-enum ActionStatus {
-  PENDING_APPROVAL
-  APPROVED
-  AUTO_APPROVED
-  REJECTED
-  EXECUTED
-  FAILED
-  EXPIRED
 }
 
 enum SubscriptionPlan {

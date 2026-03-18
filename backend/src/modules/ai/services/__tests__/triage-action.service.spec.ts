@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TriageActionService } from '../triage-action.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { FollowUpStatus, FollowUpType, ActionStatus } from '@prisma/client';
+import { FollowUpStatus, FollowUpType } from '@prisma/client';
 import type { UnifiedEmailAnalysis } from '../../types/email-insights.types';
 
 const mockPrisma = {
@@ -10,10 +10,6 @@ const mockPrisma = {
   },
   providerConfig: {
     findMany: jest.fn(),
-  },
-  actionQueue: {
-    findFirst: jest.fn(),
-    create: jest.fn(),
   },
 };
 
@@ -198,85 +194,7 @@ describe('TriageActionService', () => {
       expect(result.followUpType).toBe(FollowUpType.TODO);
     });
 
-    it('should create HITL reminder action for high-urgency deadlines', async () => {
-      const deadline = new Date('2026-04-01T10:00:00Z');
-      mockPrisma.providerConfig.findMany.mockResolvedValue([]);
-      mockPrisma.emailFollowUp.upsert.mockResolvedValue({ id: 'fu-7' });
-      mockPrisma.actionQueue.findFirst.mockResolvedValue(null); // No existing
-      mockPrisma.actionQueue.create.mockResolvedValue({ id: 'aq-1' });
-
-      const analysis = makeAnalysis({
-        hasDeadline: true,
-        deadlineDate: deadline,
-        urgency: 'high',
-      });
-
-      await service.processTriageSignals(ctx, analysis);
-
-      expect(mockPrisma.actionQueue.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          actionType: 'CREATE_REMINDER',
-          status: ActionStatus.PENDING_APPROVAL,
-          actionPayload: expect.objectContaining({
-            title: 'Follow up: Test Subject',
-            emailId: 'email-1',
-            followUpId: 'fu-7',
-          }),
-        }),
-      });
-    });
-
-    it('should create HITL reminder action for critical-urgency deadlines', async () => {
-      const deadline = new Date('2026-04-01T10:00:00Z');
-      mockPrisma.providerConfig.findMany.mockResolvedValue([]);
-      mockPrisma.emailFollowUp.upsert.mockResolvedValue({ id: 'fu-8' });
-      mockPrisma.actionQueue.findFirst.mockResolvedValue(null);
-      mockPrisma.actionQueue.create.mockResolvedValue({ id: 'aq-2' });
-
-      const analysis = makeAnalysis({
-        hasDeadline: true,
-        deadlineDate: deadline,
-        urgency: 'critical',
-      });
-
-      await service.processTriageSignals(ctx, analysis);
-
-      expect(mockPrisma.actionQueue.create).toHaveBeenCalled();
-    });
-
-    it('should NOT create reminder action for medium/low urgency', async () => {
-      const deadline = new Date('2026-04-01T10:00:00Z');
-      mockPrisma.providerConfig.findMany.mockResolvedValue([]);
-      mockPrisma.emailFollowUp.upsert.mockResolvedValue({ id: 'fu-9' });
-
-      const analysis = makeAnalysis({
-        hasDeadline: true,
-        deadlineDate: deadline,
-        urgency: 'medium',
-      });
-
-      await service.processTriageSignals(ctx, analysis);
-
-      expect(mockPrisma.actionQueue.findFirst).not.toHaveBeenCalled();
-      expect(mockPrisma.actionQueue.create).not.toHaveBeenCalled();
-    });
-
-    it('should skip duplicate reminder actions', async () => {
-      const deadline = new Date('2026-04-01T10:00:00Z');
-      mockPrisma.providerConfig.findMany.mockResolvedValue([]);
-      mockPrisma.emailFollowUp.upsert.mockResolvedValue({ id: 'fu-10' });
-      mockPrisma.actionQueue.findFirst.mockResolvedValue({ id: 'existing-aq' }); // Already exists
-
-      const analysis = makeAnalysis({
-        hasDeadline: true,
-        deadlineDate: deadline,
-        urgency: 'high',
-      });
-
-      await service.processTriageSignals(ctx, analysis);
-
-      expect(mockPrisma.actionQueue.create).not.toHaveBeenCalled();
-    });
+    // Phase 77: ActionQueue reminder tests removed (AI SDK native HITL)
 
     it('should return empty result on prisma error (non-blocking)', async () => {
       mockPrisma.providerConfig.findMany.mockResolvedValue([]);
