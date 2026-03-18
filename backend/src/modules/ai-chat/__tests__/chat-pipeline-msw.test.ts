@@ -30,7 +30,6 @@ import { ConfigService } from '@nestjs/config';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
-import { HitlService } from '../services/hitl.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { IntentRouterService } from '../tools/intent-router.service';
 import { IntentClassifierService } from '../../ai/nlp/intent-classifier.service';
@@ -101,15 +100,6 @@ const conversationServiceMock = {
   saveAssistantMessage: vi.fn().mockResolvedValue(undefined),
 } as any;
 
-/** Mock HitlService */
-const hitlServiceMock = {
-  createAction: vi.fn().mockResolvedValue({
-    id: 'hitl-001',
-    status: 'pending',
-  }),
-  getAction: vi.fn().mockResolvedValue(null),
-} as any;
-
 /** Mock AuditService */
 const auditServiceMock = {
   logAudit: vi.fn().mockResolvedValue(undefined),
@@ -166,7 +156,6 @@ describe('Chat Pipeline (MSW)', () => {
     aiChatService = new AiChatService(
       mistralProvider,
       conversationServiceMock,
-      hitlServiceMock,
       new PiiDetectionService(),
       piiResolutionStub,
       auditServiceMock,

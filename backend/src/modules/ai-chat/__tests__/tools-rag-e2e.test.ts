@@ -29,7 +29,6 @@ import { ConfigService } from '@nestjs/config';
 import { createPrismaClient } from '../../../prisma/prisma-client.factory';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
-import { HitlService } from '../services/hitl.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
@@ -107,7 +106,6 @@ async function drainStream(stream: ReadableStream): Promise<string> {
 describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
   let prisma: PrismaClient;
   let conversationService: ConversationService;
-  let hitlService: HitlService;
   let auditService: AuditService;
   let piiDetectionService: PiiDetectionService;
   let mistralProvider: MistralProviderService;
@@ -160,7 +158,6 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
 
     // 4. Create real service instances
     conversationService = new ConversationService(prisma as any);
-    hitlService = new HitlService(prisma as any);
     auditService = new AuditService(prisma as any);
     piiDetectionService = new PiiDetectionService();
 
@@ -181,7 +178,6 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
     aiChatService = new AiChatService(
       mistralProvider,
       conversationService,
-      hitlService,
       piiDetectionService,
       piiResolutionStub,
       auditService,

@@ -545,40 +545,45 @@ export class SyncMessageProcessorService {
       });
     });
 
-    // Execute all upserts in a single transaction with P2002/P2034 retry logic
-    // Per Prisma best practices: handle P2002 (unique constraint) and P2034 (deadlock) and retry
-    // See: https://github.com/prisma/prisma/issues/3242
-    // P2034: Transaction failed due to a write conflict or deadlock
+    // Execute upserts in chunked transactions to avoid interactive transaction timeout (5s default).
+    // Large batches (100+ messages) can exceed the timeout over network to Railway Postgres.
+    // Per Prisma best practices: handle P2002 (unique constraint) and P2034 (deadlock) and retry.
     const MAX_RETRIES = 3;
-    let retryCount = 0;
-    let results: Awaited<ReturnType<typeof this.prisma.email.upsert>>[];
+    const CHUNK_SIZE = 25;
+    const results: Awaited<ReturnType<typeof this.prisma.email.upsert>>[] = [];
 
-    while (true) {
-      try {
-        results = await this.prisma.$transaction(upsertOps);
-        break; // Success - exit retry loop
-      } catch (error: unknown) {
-        const isPrismaError = error && typeof error === 'object' && 'code' in error;
-        const errorCode = isPrismaError ? (error as { code: string }).code : null;
-        const isRetryable = errorCode === 'P2002' || errorCode === 'P2034';
+    for (let chunkStart = 0; chunkStart < upsertOps.length; chunkStart += CHUNK_SIZE) {
+      const chunk = upsertOps.slice(chunkStart, chunkStart + CHUNK_SIZE);
+      let retryCount = 0;
 
-        if (isRetryable && retryCount < MAX_RETRIES) {
-          retryCount++;
-          const errorType = errorCode === 'P2002' ? 'unique constraint' : 'deadlock/write conflict';
-          this.logger.warn(
-            `${errorCode} ${errorType} error on batch upsert (attempt ${retryCount}/${MAX_RETRIES}). ` +
-              `Retrying in ${100 * retryCount}ms...`,
+      while (true) {
+        try {
+          const chunkResults = await this.prisma.$transaction(chunk);
+          results.push(...chunkResults);
+          break; // Success - exit retry loop
+        } catch (error: unknown) {
+          const isPrismaError = error && typeof error === 'object' && 'code' in error;
+          const errorCode = isPrismaError ? (error as { code: string }).code : null;
+          const isRetryable = errorCode === 'P2002' || errorCode === 'P2034';
+
+          if (isRetryable && retryCount < MAX_RETRIES) {
+            retryCount++;
+            const errorType = errorCode === 'P2002' ? 'unique constraint' : 'deadlock/write conflict';
+            this.logger.warn(
+              `${errorCode} ${errorType} error on batch upsert chunk ${chunkStart / CHUNK_SIZE + 1} (attempt ${retryCount}/${MAX_RETRIES}). ` +
+                `Retrying in ${100 * retryCount}ms...`,
+            );
+            // Exponential backoff: 100ms, 200ms, 300ms
+            await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
+            continue;
+          }
+
+          // Non-retryable error or max retries exceeded
+          this.logger.error(
+            `Batch upsert failed after ${retryCount} retries: ${error instanceof Error ? error.message : String(error)}`,
           );
-          // Exponential backoff: 100ms, 200ms, 300ms
-          await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
-          continue;
+          throw error;
         }
-
-        // Non-retryable error or max retries exceeded
-        this.logger.error(
-          `Batch upsert failed after ${retryCount} retries: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        throw error;
       }
     }
 

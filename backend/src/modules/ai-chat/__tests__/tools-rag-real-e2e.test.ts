@@ -28,7 +28,6 @@ import { ConfigService } from '@nestjs/config';
 import { createPrismaClient } from '../../../prisma/prisma-client.factory';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
-import { HitlService } from '../services/hitl.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
@@ -306,7 +305,6 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
     aiChatService = new AiChatService(
       mistralProvider,
       new ConversationService(prisma as any),
-      new HitlService(prisma as any),
       new PiiDetectionService(),
       piiResolutionStub,
       new AuditService(prisma as any),

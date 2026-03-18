@@ -9,10 +9,8 @@ import { ContactsModule } from '../contacts/contacts.module';
 import { AiModule } from '../ai/ai.module';
 import { ReminderModule } from '../reminder/reminder.module';
 import { AiChatController } from './controllers/ai-chat.controller';
-import { HitlController } from './controllers/hitl.controller';
 import { AiChatService } from './services/ai-chat.service';
 import { ConversationService } from './services/conversation.service';
-import { HitlService } from './services/hitl.service';
 import { PiiDetectionService } from '../ai/guards/pii-detection-sentinel.service';
 import { PiiResolutionService } from '../ai/guards/pii-resolution.service';
 import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
@@ -58,11 +56,10 @@ import { HybridSearchService } from './services/hybrid-search.service';
     AiModule, // EmbeddingsService, KnowledgeBaseService
     ReminderModule, // ReminderService (for AI reminder tools)
   ],
-  controllers: [AiChatController, HitlController],
+  controllers: [AiChatController],
   providers: [
     AiChatService,
     ConversationService,
-    HitlService,
     // PII services not in any module yet -- registered directly
     PiiDetectionService,
     PiiResolutionService,
@@ -89,6 +86,6 @@ import { HybridSearchService } from './services/hybrid-search.service';
     // Phase 25 Plan 03: Hybrid search (vector + FTS)
     HybridSearchService,
   ],
-  exports: [AiChatService, ConversationService, HitlService],
+  exports: [AiChatService, ConversationService],
 })
 export class AiChatModule {}

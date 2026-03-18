@@ -27,7 +27,6 @@ import { ConfigService } from '@nestjs/config';
 import { createPrismaClient } from '../../../prisma/prisma-client.factory';
 import { AiChatService, StreamChatParams } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
-import { HitlService } from '../services/hitl.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
@@ -87,7 +86,7 @@ async function drainStream(stream: ReadableStream): Promise<string> {
 describe('AiChatService E2E (real Mistral API)', () => {
   let prisma: PrismaClient;
   let conversationService: ConversationService;
-  let hitlService: HitlService;
+
   let auditService: AuditService;
   let piiDetectionService: PiiDetectionService;
   let aiChatService: AiChatService;
@@ -114,7 +113,7 @@ describe('AiChatService E2E (real Mistral API)', () => {
 
     // 3. Create real service instances
     conversationService = new ConversationService(prisma as any);
-    hitlService = new HitlService(prisma as any);
+
     auditService = new AuditService(prisma as any);
     piiDetectionService = new PiiDetectionService();
 
@@ -138,7 +137,6 @@ describe('AiChatService E2E (real Mistral API)', () => {
     aiChatService = new AiChatService(
       mistralProvider,
       conversationService,
-      hitlService,
       piiDetectionService,
       piiResolutionStub,       // Redis-dependent, stubbed
       auditService,            // Real -- will be spied on

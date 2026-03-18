@@ -55,7 +55,6 @@ describe('AiChatService ledger wiring', () => {
       getOlderMessages: vi.fn().mockResolvedValue([]),
       updateConversationSummary: vi.fn().mockResolvedValue(undefined),
     };
-    const mockHitlService = {};
     const mockPiiDetection = { detect: vi.fn(() => ({ hasPii: false, redactedText: 'test' })) };
     const mockPiiResolution = {};
     const mockAudit = { logAudit: vi.fn().mockResolvedValue(undefined), logToolExecution: vi.fn().mockResolvedValue(undefined) };
@@ -79,7 +78,6 @@ describe('AiChatService ledger wiring', () => {
     aiChatService = new AiChatService(
       mockMistralProvider as any,
       mockConversationService as any,
-      mockHitlService as any,
       mockPiiDetection as any,
       mockPiiResolution as any,
       mockAudit as any,

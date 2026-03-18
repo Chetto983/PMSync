@@ -14,7 +14,6 @@ import {
 } from 'ai';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { ConversationService } from './conversation.service';
-import { HitlService } from './hitl.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { PiiResolutionService } from '../../ai/guards/pii-resolution.service';
 import { AuditService } from '../../../common/services/audit.service';
@@ -76,7 +75,6 @@ export class AiChatService {
   constructor(
     private readonly mistralProvider: MistralProviderService,
     private readonly conversationService: ConversationService,
-    private readonly hitlService: HitlService,
     // Plan 02: Cross-cutting concerns
     private readonly piiDetectionService: PiiDetectionService,
     private readonly piiResolutionService: PiiResolutionService,
@@ -323,46 +321,7 @@ export class AiChatService {
               }
             }
 
-            // HITL: Detect tool-approval-request in content
-            if (content?.length) {
-              for (const part of content) {
-                if (part.type === 'tool-approval-request') {
-                  const tc = part.toolCall;
-                  try {
-                    const pendingAction =
-                      await this.hitlService.createPendingAction({
-                        tenantId,
-                        userId,
-                        conversationId: conversation.id,
-                        actionType: this.mapToolToActionType(tc.toolName),
-                        toolName: tc.toolName,
-                        actionPayload: tc.input as Record<string, unknown>,
-                        confidence: 0.8,
-                        reasoning: `Tool ${tc.toolName} requires approval before execution`,
-                      });
-
-                    // Emit needs-approval chunk with ActionQueue details
-                    // Using type assertion since UIMessageChunk doesn't include custom data types by default
-                    (writer as any).write({
-                      type: 'data-needs-approval',
-                      data: {
-                        actionId: pendingAction.id,
-                        actionType: pendingAction.actionType,
-                        actionPayload: pendingAction.actionPayload,
-                        confidence: pendingAction.confidence,
-                        reasoning: pendingAction.reasoning,
-                        expiresAt: pendingAction.expiresAt,
-                        toolCallId: tc.toolCallId,
-                      },
-                    });
-                  } catch (err) {
-                    this.logger.error(
-                      `Failed to create HITL action: ${err instanceof Error ? err.message : String(err)}`,
-                    );
-                  }
-                }
-              }
-            }
+            // Phase 77: HITL via ActionQueue removed -- AI SDK handles approval natively
           },
           onFinish: async ({ text, usage }) => {
             // Circuit breaker: record success
@@ -499,27 +458,6 @@ export class AiChatService {
     this.logger.debug(`Tool set created: ${toolNames.length} tools`);
 
     return toolSets;
-  }
-
-  /**
-   * Map tool name to ActionType enum for ActionQueue.
-   *
-   * Phase 25: Complete mapping for all HITL-enabled tools.
-   */
-  private mapToolToActionType(toolName: string): string {
-    const mapping: Record<string, string> = {
-      send_email: 'SEND_EMAIL',
-      reply_email: 'REPLY_EMAIL',
-      forward_email: 'FORWARD_EMAIL',
-      delete_email: 'DELETE_EMAIL',
-      delete_event: 'SCHEDULE_MEETING', // Closest existing enum until DELETE_EVENT exists
-    };
-    const actionType = mapping[toolName];
-    if (!actionType) {
-      this.logger.warn(`No ActionType mapping for tool "${toolName}", using CREATE_TASK`);
-      return 'CREATE_TASK';
-    }
-    return actionType;
   }
 
   private async getRuntimeContextMetadata(
