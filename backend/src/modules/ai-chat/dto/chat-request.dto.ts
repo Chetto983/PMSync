@@ -39,4 +39,12 @@ export class ChatRequestDto {
   @IsOptional()
   @IsString()
   model?: string;
+
+  @ApiPropertyOptional({
+    description: 'Preferred locale for AI responses and runtime context',
+    example: 'it',
+  })
+  @IsOptional()
+  @IsString()
+  locale?: string;
 }

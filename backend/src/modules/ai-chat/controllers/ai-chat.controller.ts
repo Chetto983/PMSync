@@ -111,6 +111,7 @@ export class AiChatController {
       message: dto.message,
       conversationId: dto.conversationId,
       model: dto.model,
+      locale: dto.locale,
       abortSignal: abortController.signal,
     });
 

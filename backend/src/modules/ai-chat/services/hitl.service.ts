@@ -17,6 +17,7 @@ export interface CreateActionParams {
   userId: string;
   conversationId: string;
   actionType: string;
+  toolName?: string;
   actionPayload: Record<string, unknown>;
   confidence: number;
   reasoning: string;
@@ -56,6 +57,7 @@ export class HitlService {
         actionPayload: {
           ...params.actionPayload,
           conversationId: params.conversationId,
+          ...(params.toolName ? { toolName: params.toolName } : {}),
         },
         confidence: params.confidence,
         reasoning: params.reasoning,
@@ -91,7 +93,10 @@ export class HitlService {
     };
 
     if (modifiedPayload) {
-      updateData.actionPayload = modifiedPayload;
+      updateData.actionPayload = {
+        ...(action.actionPayload as Record<string, unknown>),
+        ...modifiedPayload,
+      };
     }
 
     const updated = await this.prisma.actionQueue.update({

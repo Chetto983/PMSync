@@ -37,10 +37,18 @@ export class ApproveActionDto {
  */
 export interface PendingActionResponse {
   id: string;
+  executionId: string;
   actionType: string;
-  actionPayload: unknown;
-  confidence: number;
-  reasoning: string | null;
-  createdAt: Date;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  summary: string;
+  payload: Record<string, unknown>;
+  suspendReason: string;
+  suspendedAt: Date;
+  userId: string;
+  agentName: string;
+  confidence?: number;
+  adjustedConfidence?: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED';
   expiresAt: Date | null;
+  reasoningSteps?: string;
 }

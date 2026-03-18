@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { tool } from 'ai';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from '../../ai/services/embeddings.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
+import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 
 /**
  * PII resolve function type -- provided by AiChatService closure.
@@ -130,6 +132,10 @@ export class RagToolsService {
           undefined,
           { tenantId },
         );
+        const validatedVector = validateEmbeddingVector(vector);
+        const vectorLiteral = Prisma.raw(
+          `'[${validatedVector.join(',')}]'::vector`,
+        );
 
         // Save memory to AIMemory table
         const memory = await this.prisma.aIMemory.create({
@@ -145,10 +151,18 @@ export class RagToolsService {
           },
         });
 
+        await this.prisma.$executeRaw(
+          Prisma.sql`
+            UPDATE "ai_memories"
+            SET "vector" = ${vectorLiteral}
+            WHERE "id" = ${memory.id}
+          `,
+        );
+
         // Save the embedding vector for later semantic search
         await this.embeddingsService.saveEmbedding({
           tenantId,
-          embedding: vector,
+          embedding: validatedVector,
           model: 'mistral-embed',
           documentName: `memory:${memory.id}`,
           metadata: {
@@ -167,5 +181,4 @@ export class RagToolsService {
       },
     });
   }
-
 }

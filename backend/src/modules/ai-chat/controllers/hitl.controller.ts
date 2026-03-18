@@ -1,42 +1,56 @@
 import {
-  Controller,
-  Post,
-  Get,
   Body,
-  Req,
-  UseGuards,
-  Query,
+  Controller,
+  Get,
   HttpCode,
   HttpStatus,
+  Logger,
+  Post,
+  Query,
+  Req,
+  UseGuards,
   UsePipes,
   ValidationPipe,
-  Inject,
-  Logger,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
   ApiBearerAuth,
+  ApiOperation,
   ApiQuery,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
-import { HitlService } from '../services/hitl.service';
-import { ApproveActionDto } from '../dto/hitl.dto';
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
+import { PiiResolutionService } from '../../ai/guards/pii-resolution.service';
 import {
-  TOOL_REGISTRY_SERVICE,
-  IToolRegistryService,
-} from '../../../common/interfaces/tool-registry.interface';
+  ApproveActionDto,
+  PendingActionResponse,
+} from '../dto/hitl.dto';
+import { HitlService } from '../services/hitl.service';
+import {
+  CalendarToolsService,
+  ContactToolsService,
+  EmailToolsService,
+} from '../tools';
+
+type ExecutionResult = {
+  success: boolean;
+  error?: string;
+  summary?: string;
+  data?: Record<string, unknown>;
+  executionTimeMs: number;
+};
+
+type ExecutableTool = {
+  execute?: (input: Record<string, unknown>) => Promise<unknown>;
+};
 
 /**
  * HitlController -- HITL approval endpoints for AI chat actions.
  *
- * POST /ai/chat/approve      -- Approve, reject, or modify a pending action
+ * POST /ai/chat/approve -- Approve, reject, or modify a pending action
  * GET  /ai/chat/pending-actions -- List pending HITL actions for the user
- *
- * Phase 24: Backend Core Pipeline (Plan 02)
  */
 @ApiTags('AI Chat - HITL')
 @ApiBearerAuth()
@@ -48,13 +62,12 @@ export class HitlController {
 
   constructor(
     private readonly hitlService: HitlService,
-    @Inject(TOOL_REGISTRY_SERVICE)
-    private readonly toolRegistry: IToolRegistryService,
+    private readonly emailToolsService: EmailToolsService,
+    private readonly calendarToolsService: CalendarToolsService,
+    private readonly contactToolsService: ContactToolsService,
+    private readonly piiResolutionService: PiiResolutionService,
   ) {}
 
-  /**
-   * Approve, reject, or modify a pending HITL action.
-   */
   @Post('approve')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -75,6 +88,7 @@ export class HitlController {
     const { tenantId, userId } = req.user;
 
     let action;
+    let executionResult: ExecutionResult | undefined;
 
     switch (dto.decision) {
       case 'approve':
@@ -83,7 +97,7 @@ export class HitlController {
           tenantId,
           userId,
         );
-        await this.executeApprovedAction(
+        executionResult = await this.executeApprovedAction(
           dto.actionId,
           action.actionPayload as Record<string, unknown>,
           action.actionType as string,
@@ -99,10 +113,9 @@ export class HitlController {
           userId,
           dto.modifiedPayload,
         );
-        // Use the modified payload stored by approveAction
-        await this.executeApprovedAction(
+        executionResult = await this.executeApprovedAction(
           dto.actionId,
-          (dto.modifiedPayload ?? action.actionPayload) as Record<string, unknown>,
+          action.actionPayload as Record<string, unknown>,
           action.actionType as string,
           tenantId,
           userId,
@@ -116,15 +129,24 @@ export class HitlController {
           userId,
           dto.rejectionReason,
         );
-        break;
+        return {
+          status: 'rejected' as const,
+          approved: false,
+          rejectionReason: dto.rejectionReason,
+          action: this.mapApprovalAction(action),
+        };
     }
 
-    return { success: true, action };
+    return {
+      status: 'approved' as const,
+      approved: true,
+      approvedBy: userId,
+      approvedAt: action.approvedAt,
+      executionResult,
+      action: this.mapApprovalAction(action),
+    };
   }
 
-  /**
-   * List pending HITL actions for the authenticated user.
-   */
   @Get('pending-actions')
   @ApiOperation({
     summary: 'List pending HITL actions',
@@ -147,22 +169,166 @@ export class HitlController {
       conversationId,
     );
 
-    return { success: true, actions, total: actions.length };
+    const mapped = actions.map((action) =>
+      this.mapPendingAction(action, req.user.userId),
+    );
+
+    return { success: true, actions: mapped, total: mapped.length };
   }
 
-  /**
-   * Execute an approved action via the tool registry.
-   * Maps ActionType back to a tool name, locates the registered tool,
-   * and invokes it. Marks the action EXECUTED on success, FAILED on error.
-   */
   private async executeApprovedAction(
     actionId: string,
     payload: Record<string, unknown>,
     actionType: string,
     tenantId: string,
     userId: string,
-  ): Promise<void> {
-    // Map ActionType enum value -> tool name registered in ToolRegistry
+  ): Promise<ExecutionResult> {
+    const startedAt = Date.now();
+    const toolName = this.resolveToolName(actionType, payload);
+
+    if (!toolName) {
+      const msg = `No tool mapping for actionType ${actionType}`;
+      this.logger.warn(`HITL execution skipped: ${msg}`);
+      await this.hitlService.markFailed(actionId, msg);
+      return {
+        success: false,
+        error: msg,
+        executionTimeMs: Date.now() - startedAt,
+      };
+    }
+
+    const conversationId =
+      typeof payload.conversationId === 'string'
+        ? payload.conversationId
+        : undefined;
+
+    const tool = this.getExecutableTool(
+      toolName,
+      tenantId,
+      userId,
+      conversationId,
+    );
+    if (!tool?.execute) {
+      const msg = `Tool '${toolName}' not available for actionType ${actionType}`;
+      this.logger.warn(`HITL execution skipped: ${msg}`);
+      await this.hitlService.markFailed(actionId, msg);
+      return {
+          success: false,
+        error: msg,
+        executionTimeMs: Date.now() - startedAt,
+      };
+    }
+
+    try {
+      const result = await tool.execute(this.stripInternalPayload(payload));
+      await this.hitlService.markExecuted(actionId, {
+        result: result as Record<string, unknown>,
+        toolName,
+        executedAt: new Date().toISOString(),
+      });
+      this.logger.log(`HITL action ${actionId} executed via tool '${toolName}'`);
+      return {
+        success: true,
+        summary: `Executed ${toolName}`,
+        data: result as Record<string, unknown>,
+        executionTimeMs: Date.now() - startedAt,
+      };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`HITL action ${actionId} execution failed: ${errorMsg}`);
+      await this.hitlService.markFailed(actionId, errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+        executionTimeMs: Date.now() - startedAt,
+      };
+    }
+  }
+
+  private mapPendingAction(
+    action: {
+      id: string;
+      actionType: string;
+      actionPayload: unknown;
+      confidence: number;
+      reasoning: string | null;
+      createdAt: Date;
+      expiresAt: Date | null;
+    },
+    userId: string,
+  ): PendingActionResponse {
+    const payload = (action.actionPayload || {}) as Record<string, unknown>;
+    const toolName =
+      typeof payload.toolName === 'string' ? payload.toolName : undefined;
+
+    return {
+      id: action.id,
+      executionId: action.id,
+      actionType: action.actionType,
+      severity: this.mapSeverity(action.actionType, toolName),
+      summary:
+        action.reasoning ??
+        `${toolName ?? action.actionType} requires approval`,
+      payload,
+      suspendReason: 'requires_approval',
+      suspendedAt: action.createdAt,
+      userId,
+      agentName: 'ai-chat',
+      confidence: action.confidence ?? undefined,
+      status: 'PENDING',
+      expiresAt: action.expiresAt,
+      reasoningSteps: action.reasoning ?? undefined,
+    };
+  }
+
+  private mapApprovalAction(action: {
+    actionType: string;
+    actionPayload: unknown;
+    reasoning?: string | null;
+  }) {
+    return {
+      actionType: action.actionType,
+      summary:
+        action.reasoning ??
+        `${action.actionType} requires approval`,
+      payload: (action.actionPayload ?? {}) as Record<string, unknown>,
+    };
+  }
+
+  private mapSeverity(
+    actionType: string,
+    toolName?: string,
+  ): 'LOW' | 'MEDIUM' | 'HIGH' {
+    if (toolName === 'delete_event') return 'HIGH';
+
+    const highSeverity = new Set(['SEND_EMAIL', 'DELETE_EMAIL', 'DELETE_CONTACT']);
+    const mediumSeverity = new Set([
+      'SCHEDULE_MEETING',
+      'REPLY_EMAIL',
+      'FORWARD_EMAIL',
+    ]);
+
+    if (highSeverity.has(actionType)) return 'HIGH';
+    if (mediumSeverity.has(actionType)) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  private resolveToolName(
+    actionType: string,
+    payload: Record<string, unknown>,
+  ): string | undefined {
+    if (typeof payload.toolName === 'string') {
+      return payload.toolName;
+    }
+
+    if (
+      actionType === 'DELETE_EMAIL' &&
+      typeof payload.eventId === 'string' &&
+      typeof payload.emailId !== 'string'
+    ) {
+      return 'delete_event';
+    }
+
     const actionTypeToTool: Record<string, string> = {
       SEND_EMAIL: 'send_email',
       REPLY_EMAIL: 'reply_email',
@@ -172,34 +338,51 @@ export class HitlController {
       DELETE_CONTACT: 'delete_contact',
     };
 
-    const toolName = actionTypeToTool[actionType];
-    if (!toolName) {
-      const msg = `No tool mapping for actionType ${actionType}`;
-      this.logger.warn(`HITL execution skipped: ${msg}`);
-      await this.hitlService.markFailed(actionId, msg);
-      return;
-    }
+    return actionTypeToTool[actionType];
+  }
 
-    const tool = this.toolRegistry.getTool(toolName);
-    if (!tool) {
-      const msg = `Tool '${toolName}' not found in registry for actionType ${actionType}`;
-      this.logger.warn(`HITL execution skipped: ${msg}`);
-      await this.hitlService.markFailed(actionId, msg);
-      return;
-    }
+  private getExecutableTool(
+    toolName: string,
+    tenantId: string,
+    userId: string,
+    conversationId?: string,
+  ): ExecutableTool | undefined {
+    const resolvedConversationId = conversationId ?? `hitl:${userId}`;
+    const piiResolve = async (
+      rawPayload: Record<string, unknown>,
+    ): Promise<Record<string, unknown>> =>
+      this.piiResolutionService.resolvePayload(
+        tenantId,
+        resolvedConversationId,
+        rawPayload,
+      );
 
-    try {
-      const result = await tool.execute(payload, { tenantId, userId });
-      await this.hitlService.markExecuted(actionId, {
-        result: result as Record<string, unknown>,
-        toolName,
-        executedAt: new Date().toISOString(),
-      });
-      this.logger.log(`HITL action ${actionId} executed via tool '${toolName}'`);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`HITL action ${actionId} execution failed: ${errorMsg}`);
-      await this.hitlService.markFailed(actionId, errorMsg);
-    }
+    const tools = {
+      ...this.emailToolsService.getTools(
+        tenantId,
+        resolvedConversationId,
+        piiResolve,
+      ),
+      ...this.calendarToolsService.getTools(
+        tenantId,
+        resolvedConversationId,
+        piiResolve,
+      ),
+      ...this.contactToolsService.getTools(
+        tenantId,
+        resolvedConversationId,
+        piiResolve,
+      ),
+    };
+
+    return (tools as unknown as Record<string, ExecutableTool>)[toolName];
+  }
+
+  private stripInternalPayload(
+    payload: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const { conversationId: _conversationId, toolName: _toolName, ...rest } =
+      payload;
+    return rest;
   }
 }

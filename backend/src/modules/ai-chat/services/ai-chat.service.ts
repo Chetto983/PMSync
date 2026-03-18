@@ -44,6 +44,7 @@ import {
   IToolRegistryService,
 } from '../../../common/interfaces/tool-registry.interface';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 /**
  * Parameters for streamChat method.
@@ -54,6 +55,7 @@ export interface StreamChatParams {
   message: string;
   conversationId?: string;
   model?: string;
+  locale?: string;
   abortSignal?: AbortSignal;
 }
 
@@ -106,6 +108,7 @@ export class AiChatService {
     private readonly usageTrackingService?: UsageTrackingService,
     // Phase 35: AI Run Ledger telemetry
     @Optional() private readonly ledgerService?: AiRunLedgerService,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   /**
@@ -127,6 +130,7 @@ export class AiChatService {
       message,
       conversationId,
       model,
+      locale,
       abortSignal,
     } = params;
 
@@ -191,7 +195,16 @@ export class AiChatService {
 
     // Append current user message with runtime context (redacted for LLM)
     // Phase AI-AUDIT: Runtime context separated from system prompt (nanobot pattern)
-    const runtimeContext = buildRuntimeContext();
+    const runtimeContextMeta = await this.getRuntimeContextMetadata(
+      tenantId,
+      userId,
+      locale,
+    );
+    const runtimeContext = buildRuntimeContext(
+      runtimeContextMeta.timezone,
+      runtimeContextMeta.providerType,
+      runtimeContextMeta.locale,
+    );
     messages.push({ role: 'user', content: `${runtimeContext}\n\n${llmMessage}` });
 
     // 7. Audit log (fire-and-forget)
@@ -322,6 +335,7 @@ export class AiChatService {
                         userId,
                         conversationId: conversation.id,
                         actionType: this.mapToolToActionType(tc.toolName),
+                        toolName: tc.toolName,
                         actionPayload: tc.input as Record<string, unknown>,
                         confidence: 0.8,
                         reasoning: `Tool ${tc.toolName} requires approval before execution`,
@@ -498,7 +512,7 @@ export class AiChatService {
       reply_email: 'REPLY_EMAIL',
       forward_email: 'FORWARD_EMAIL',
       delete_email: 'DELETE_EMAIL',
-      delete_event: 'DELETE_EMAIL', // Destructive calendar action — no DELETE_EVENT enum yet
+      delete_event: 'SCHEDULE_MEETING', // Closest existing enum until DELETE_EVENT exists
     };
     const actionType = mapping[toolName];
     if (!actionType) {
@@ -506,6 +520,43 @@ export class AiChatService {
       return 'CREATE_TASK';
     }
     return actionType;
+  }
+
+  private async getRuntimeContextMetadata(
+    tenantId: string,
+    userId: string,
+    requestedLocale?: string,
+  ): Promise<{
+    timezone?: string;
+    providerType?: string;
+    locale?: string;
+  }> {
+    if (!this.prisma) {
+      return {
+        locale: requestedLocale,
+      };
+    }
+
+    const [preferences, provider] = await Promise.all([
+      this.prisma.userPreferences.findUnique({
+        where: { userId },
+        select: { timezone: true, language: true },
+      }),
+      this.prisma.providerConfig.findFirst({
+        where: {
+          tenantId,
+          isActive: true,
+          supportsEmail: true,
+        },
+        select: { providerType: true },
+      }),
+    ]);
+
+    return {
+      timezone: preferences?.timezone ?? undefined,
+      providerType: provider?.providerType ?? undefined,
+      locale: requestedLocale ?? preferences?.language ?? undefined,
+    };
   }
 
   /**

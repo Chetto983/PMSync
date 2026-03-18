@@ -5,7 +5,7 @@
  */
 
 import { aiApi, aiChatApi, multiAgentApi } from './ai';
-import { apiClient } from '../api-client';
+import { apiClient, getCsrfToken } from '../api-client';
 
 // Mock the apiClient
 jest.mock('../api-client', () => ({
@@ -16,6 +16,7 @@ jest.mock('../api-client', () => ({
     delete: jest.fn(),
   },
   API_BASE_URL: 'http://localhost:3000',
+  getCsrfToken: jest.fn().mockResolvedValue('csrf-token'),
 }));
 
 // Mock localStorage
@@ -27,9 +28,41 @@ const mockLocalStorage = {
 };
 Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
 
+const { TextDecoder } = require('util');
+Object.defineProperty(global, 'TextDecoder', {
+  value: TextDecoder,
+  writable: true,
+});
+
 // Mock fetch for SSE streaming
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+const mockGetCsrfToken = getCsrfToken as jest.MockedFunction<typeof getCsrfToken>;
+
+function streamFrame(payload: object | string): string {
+  return `data: ${typeof payload === 'string' ? payload : JSON.stringify(payload)}\n\n`;
+}
+
+function createStreamResponse(frames: string[]) {
+  let index = 0;
+
+  return {
+    ok: true,
+    body: {
+      getReader: () => ({
+        read: jest.fn().mockImplementation(() => {
+          if (index >= frames.length) {
+            return Promise.resolve({ done: true, value: undefined });
+          }
+
+          const value = Buffer.from(frames[index], 'utf-8');
+          index += 1;
+          return Promise.resolve({ done: false, value });
+        }),
+      }),
+    },
+  };
+}
 
 describe('aiApi (Email Insights)', () => {
   beforeEach(() => {
@@ -146,23 +179,46 @@ describe('aiApi (Email Insights)', () => {
 describe('aiChatApi (AI Chat)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCsrfToken.mockResolvedValue('csrf-token');
   });
 
   describe('chat', () => {
-    it('should call correct endpoint with message', async () => {
-      const mockResponse = {
-        data: { text: 'Hello! How can I help?', requiresApproval: false },
-      };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
+    it('should stream the chat response and collect text chunks', async () => {
+      mockFetch.mockResolvedValue(
+        createStreamResponse([
+          streamFrame({ type: 'text-delta', delta: 'Hello! ' }),
+          streamFrame({ type: 'text-delta', delta: 'How can I help?' }),
+          streamFrame({ type: 'finish' }),
+        ]),
+      );
 
-      await aiChatApi.chat({ message: 'Hello' });
+      const result = await aiChatApi.chat({ message: 'Hello' });
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat', { message: 'Hello' });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api/v1/ai/chat',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': 'csrf-token',
+          }),
+          body: JSON.stringify({ message: 'Hello' }),
+        }),
+      );
+      expect(result.data).toEqual({
+        text: 'Hello! How can I help?',
+        conversationId: undefined,
+      });
     });
 
-    it('should pass all options', async () => {
-      const mockResponse = { data: { text: 'Response', requiresApproval: false } };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
+    it('should pass all options to the streamed transport', async () => {
+      mockFetch.mockResolvedValue(
+        createStreamResponse([
+          streamFrame({ type: 'text-delta', delta: 'Response' }),
+          streamFrame({ type: 'finish' }),
+        ]),
+      );
 
       await aiChatApi.chat({
         message: 'Send email',
@@ -171,70 +227,73 @@ describe('aiChatApi (AI Chat)', () => {
         model: 'large',
       });
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat', {
-        message: 'Send email',
-        conversationId: 'conv-123',
-        locale: 'it',
-        model: 'large',
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api/v1/ai/chat',
+        expect.objectContaining({
+          body: JSON.stringify({
+            message: 'Send email',
+            conversationId: 'conv-123',
+            locale: 'it',
+            model: 'large',
+          }),
+        }),
+      );
     });
 
-    it('should return pending actions when approval required', async () => {
-      const mockResponse = {
-        data: {
-          text: 'I will send the email',
-          requiresApproval: true,
-          pendingActions: [
-            {
-              id: 'action-1',
+    it('should collect pending actions from streamed approval chunks', async () => {
+      mockFetch.mockResolvedValue(
+        createStreamResponse([
+          streamFrame({ type: 'text-delta', delta: 'I will send the email' }),
+          streamFrame({
+            type: 'data-needs-approval',
+            data: {
+              actionId: 'action-1',
               actionType: 'SEND_EMAIL',
-              severity: 'MEDIUM',
-              summary: 'Send email to test@example.com',
-              payload: { to: 'test@example.com' },
+              actionPayload: { to: 'test@example.com' },
             },
-          ],
-        },
-      };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
+          }),
+          streamFrame({ type: 'finish' }),
+        ]),
+      );
 
       const result = await aiChatApi.chat({ message: 'Send email' });
 
       expect(result.data.requiresApproval).toBe(true);
       expect(result.data.pendingActions).toHaveLength(1);
+      expect(result.data.pendingActions?.[0]).toEqual({
+        id: 'action-1',
+        actionType: 'SEND_EMAIL',
+        severity: 'MEDIUM',
+        summary: 'Send Email requires approval',
+        payload: { to: 'test@example.com' },
+      });
     });
   });
 
   describe('streamChat', () => {
-    it('should initiate SSE stream and return AbortController', () => {
-      // Mock a successful response with an empty reader (we just test the fetch call)
-      const mockReader = {
-        read: jest.fn().mockResolvedValue({ done: true, value: undefined }),
-      };
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        body: {
-          getReader: () => mockReader,
-        },
-      });
+    it('should initiate SSE stream and return AbortController', async () => {
+      mockFetch.mockResolvedValue(createStreamResponse([streamFrame({ type: 'finish' })]));
 
       const onChunk = jest.fn();
       const onDone = jest.fn();
 
       const controller = aiChatApi.streamChat({ message: 'Hi' }, onChunk, onDone);
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(controller).toBeInstanceOf(AbortController);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/v1/ai/chat/stream',
+        'http://localhost:3000/api/v1/ai/chat',
         expect.objectContaining({
           method: 'POST',
           credentials: 'include',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
+            'X-CSRF-Token': 'csrf-token',
           }),
           body: JSON.stringify({ message: 'Hi' }),
         }),
       );
+      expect(onDone).toHaveBeenCalled();
     });
 
     it('should handle missing response body', async () => {
@@ -586,18 +645,17 @@ describe('aiChatApi (AI Chat)', () => {
 describe('multiAgentApi (Backwards Compatibility)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCsrfToken.mockResolvedValue('csrf-token');
   });
 
   describe('processMessage', () => {
-    it('should map to aiChatApi.chat and transform response', async () => {
-      const mockResponse = {
-        data: {
-          text: 'Hello!',
-          requiresApproval: false,
-          pendingActions: [],
-        },
-      };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
+    it('should map to streamed aiChatApi.chat and transform response', async () => {
+      mockFetch.mockResolvedValue(
+        createStreamResponse([
+          streamFrame({ type: 'text-delta', delta: 'Hello!' }),
+          streamFrame({ type: 'finish' }),
+        ]),
+      );
 
       const result = await multiAgentApi.processMessage({
         message: 'Hi',
@@ -605,28 +663,44 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
         locale: 'en',
       });
 
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat', {
-        message: 'Hi',
-        conversationId: 'session-123',
-        locale: 'en',
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api/v1/ai/chat',
+        expect.objectContaining({
+          body: JSON.stringify({
+            message: 'Hi',
+            conversationId: 'session-123',
+            locale: 'en',
+          }),
+        }),
+      );
       expect(result.messages).toEqual(['Hello!']);
       expect(result.pendingActionIds).toEqual([]);
       expect(result.executedActionIds).toEqual([]);
     });
 
     it('should extract pendingActionIds from pendingActions', async () => {
-      const mockResponse = {
-        data: {
-          text: 'I will send the email',
-          requiresApproval: true,
-          pendingActions: [
-            { id: 'action-1', actionType: 'SEND_EMAIL', severity: 'MEDIUM', summary: 'Send' },
-            { id: 'action-2', actionType: 'DRAFT_EMAIL', severity: 'LOW', summary: 'Draft' },
-          ],
-        },
-      };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
+      mockFetch.mockResolvedValue(
+        createStreamResponse([
+          streamFrame({ type: 'text-delta', delta: 'I will send the email' }),
+          streamFrame({
+            type: 'data-needs-approval',
+            data: {
+              actionId: 'action-1',
+              actionType: 'SEND_EMAIL',
+              actionPayload: {},
+            },
+          }),
+          streamFrame({
+            type: 'data-needs-approval',
+            data: {
+              actionId: 'action-2',
+              actionType: 'DRAFT_EMAIL',
+              actionPayload: {},
+            },
+          }),
+          streamFrame({ type: 'finish' }),
+        ]),
+      );
 
       const result = await multiAgentApi.processMessage({ message: 'Send email' });
 

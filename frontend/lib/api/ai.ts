@@ -1,4 +1,4 @@
-import { apiClient, API_BASE_URL } from '../api-client';
+import { apiClient, API_BASE_URL, getCsrfToken } from '../api-client';
 
 // ============ Types (kept for Settings/component compatibility) ============
 
@@ -257,7 +257,10 @@ export type StreamEvent =
   | { type: 'metadata'; conversationId: string }
   | { type: 'chunk'; content: string }
   | { type: 'done'; conversationId?: string }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'text-delta'; delta: string }
+  | { type: 'finish' }
+  | { type: 'data-needs-approval'; data: Record<string, unknown> };
 
 export interface CachedDeadline {
   id: string;
@@ -270,6 +273,215 @@ export interface CachedDeadline {
   confidence?: number;
   remindBefore: number[];
   createdAt: string;
+}
+
+type ChatRequestPayload = {
+  message: string;
+  conversationId?: string;
+  locale?: string;
+  model?: 'small' | 'medium' | 'large';
+};
+
+type StreamConsumerCallbacks = {
+  onChunk?: (chunk: string) => void;
+  onDone?: () => void;
+  onConversationId?: (conversationId: string) => void;
+};
+
+const AI_CHAT_ENDPOINT = `${API_BASE_URL}/api/v1/ai/chat`;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function humanizeActionType(actionType: string): string {
+  return actionType
+    .toLowerCase()
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+function inferPendingSeverity(actionType: string): PendingActionSummary['severity'] {
+  if (actionType.startsWith('DELETE_')) {
+    return 'HIGH';
+  }
+  if (
+    actionType.startsWith('SEND_') ||
+    actionType.startsWith('MOVE_') ||
+    actionType.startsWith('ARCHIVE_')
+  ) {
+    return 'MEDIUM';
+  }
+  return 'LOW';
+}
+
+function mapPendingActionSummary(data: unknown): PendingActionSummary | null {
+  if (!isRecord(data)) {
+    return null;
+  }
+
+  const actionId = typeof data.actionId === 'string' ? data.actionId : null;
+  const actionType =
+    typeof data.actionType === 'string' ? data.actionType : 'UNKNOWN_ACTION';
+  const payload = isRecord(data.actionPayload) ? data.actionPayload : {};
+
+  if (!actionId) {
+    return null;
+  }
+
+  return {
+    id: actionId,
+    actionType,
+    severity: inferPendingSeverity(actionType),
+    payload,
+    summary: `${humanizeActionType(actionType)} requires approval`,
+  };
+}
+
+function extractSsePayload(frame: string): string | null {
+  const lines = frame
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart());
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return lines.join('\n');
+}
+
+async function createChatStreamResponse(
+  payload: ChatRequestPayload,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const csrfToken = await getCsrfToken();
+
+  return fetch(AI_CHAT_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+    },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+async function consumeChatStream(
+  payload: ChatRequestPayload,
+  callbacks: StreamConsumerCallbacks = {},
+  signal?: AbortSignal,
+): Promise<ChatResult> {
+  const response = await createChatStreamResponse(payload, signal);
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body');
+  }
+
+  const decoder = new TextDecoder();
+  const state: ChatResult = {
+    text: '',
+    conversationId: payload.conversationId,
+  };
+
+  let buffer = '';
+  let didNotifyDone = false;
+
+  const notifyDone = () => {
+    if (didNotifyDone) {
+      return;
+    }
+    didNotifyDone = true;
+    callbacks.onDone?.();
+  };
+
+  const handleFrame = (frame: string) => {
+    const rawPayload = extractSsePayload(frame);
+    if (!rawPayload) {
+      return;
+    }
+
+    if (rawPayload === '[DONE]') {
+      notifyDone();
+      return;
+    }
+
+    let event: StreamEvent;
+    try {
+      event = JSON.parse(rawPayload) as StreamEvent;
+    } catch {
+      return;
+    }
+
+    switch (event.type) {
+      case 'metadata':
+        state.conversationId = event.conversationId;
+        callbacks.onConversationId?.(event.conversationId);
+        break;
+      case 'chunk':
+        state.text += event.content;
+        callbacks.onChunk?.(event.content);
+        break;
+      case 'text-delta':
+        state.text += event.delta;
+        callbacks.onChunk?.(event.delta);
+        break;
+      case 'data-needs-approval': {
+        const pendingAction = mapPendingActionSummary(event.data);
+        if (!pendingAction) {
+          break;
+        }
+        state.requiresApproval = true;
+        state.pendingActions = [...(state.pendingActions ?? []), pendingAction];
+        break;
+      }
+      case 'done':
+        if (event.conversationId) {
+          state.conversationId = event.conversationId;
+          callbacks.onConversationId?.(event.conversationId);
+        }
+        notifyDone();
+        break;
+      case 'finish':
+        notifyDone();
+        break;
+      case 'error':
+        throw new Error(event.message);
+      default:
+        break;
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split(/\r?\n\r?\n/);
+    buffer = frames.pop() || '';
+
+    for (const frame of frames) {
+      handleFrame(frame);
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    handleFrame(buffer);
+  }
+
+  notifyDone();
+  return state;
 }
 
 // ============ Email Intelligence Types ============
@@ -394,22 +606,13 @@ export const aiApi = {
 // ============ AI Chat API ============
 
 export const aiChatApi = {
-  chat(payload: {
-    message: string;
-    conversationId?: string;
-    locale?: string;
-    model?: 'small' | 'medium' | 'large';
-  }) {
-    return apiClient.post<ChatResult>('/ai/chat', payload);
+  async chat(payload: ChatRequestPayload): Promise<{ data: ChatResult }> {
+    const data = await consumeChatStream(payload);
+    return { data };
   },
 
   streamChat(
-    payload: {
-      message: string;
-      conversationId?: string;
-      locale?: string;
-      model?: 'small' | 'medium' | 'large';
-    },
+    payload: ChatRequestPayload,
     onChunk: (chunk: string) => void,
     onDone?: () => void,
     onError?: (error: string) => void,
@@ -417,54 +620,15 @@ export const aiChatApi = {
   ): AbortController {
     const controller = new AbortController();
 
-    fetch(`${API_BASE_URL}/api/v1/ai/chat/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    consumeChatStream(
+      payload,
+      {
+        onChunk,
+        onDone,
+        onConversationId,
       },
-      credentials: 'include',
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          onError?.(`HTTP ${response.status}: ${response.statusText}`);
-          return;
-        }
-        const reader = response.body?.getReader();
-        if (!reader) {
-          onError?.('No response body');
-          return;
-        }
-        const decoder = new TextDecoder();
-        let buffer = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const event: StreamEvent = JSON.parse(line.slice(6));
-                if (event.type === 'metadata') {
-                  onConversationId?.(event.conversationId);
-                } else if (event.type === 'chunk') {
-                  onChunk(event.content);
-                } else if (event.type === 'done') {
-                  if (event.conversationId) onConversationId?.(event.conversationId);
-                  onDone?.();
-                } else if (event.type === 'error') {
-                  onError?.(event.message);
-                }
-              } catch {
-                // Ignore parse errors
-              }
-            }
-          }
-        }
-      })
+      controller.signal,
+    )
       .catch((error) => {
         if (error.name !== 'AbortError') {
           onError?.(error.message || 'Stream failed');
