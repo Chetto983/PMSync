@@ -66,7 +66,7 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 
 **Milestone Goal:** Harden AI control plane, add CRM domain, workflow automation, enterprise authorization, distributed tracing, and close all audit findings.
 
-- [ ] **Phase 77: AI Control Plane -- HITL & Tool Governance** - Unify HITL contract, add tool governance metadata, fix action taxonomy, contract + E2E tests
+- [ ] **Phase 77: AI Control Plane -- HITL & Tool Governance** - SDK-native HITL pivot, tool governance metadata, ActionQueue removal, contract + E2E tests
 - [ ] **Phase 78: Security Fixes** - BOLA fix, CSRF secret enforcement, /metrics restriction, HNSW vector indexes
 - [ ] **Phase 79: Authorization** - Resource-scoped permissions on better-auth org roles, backend + frontend enforcement
 - [ ] **Phase 80: OpenTelemetry** - Distributed tracing across HTTP, BullMQ, AI/Mistral call chains
@@ -79,20 +79,20 @@ Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, c
 ## Phase Details
 
 ### Phase 77: AI Control Plane -- HITL & Tool Governance
-**Goal**: AI tool execution has a single, correct approval lifecycle and every mutating tool declares its governance metadata
+**Goal**: AI tool execution uses SDK-native approval flow and every tool declares governance metadata in a single registry
 **Depends on**: Nothing (first phase of v6.0; absorbs in-progress HITL controller refactor)
 **Requirements**: AICP-01, AICP-02, AICP-03, AICP-04, AICP-12, AICP-14
 **Success Criteria** (what must be TRUE):
-  1. Pending-actions endpoint returns a single canonical DTO shape for all pending approvals -- no variant shapes depending on tool type
-  2. Approving or rejecting a pending action returns the real execution outcome (executed, failed, or approved_only) -- not just a 200 OK
+  1. AI SDK native `needsApproval` + `requires-action` state is the only HITL path -- no custom ActionQueue, HitlController, or polling
+  2. Approving or denying a tool in the chat UI flows through `addResult({approved})` and the AI continues or acknowledges denial
   3. Every mutating AI tool in ToolRegistryService declares name, domain, riskLevel, requiresApproval, and inputSchema -- tools missing any field fail registration
   4. Action taxonomy maps every tool to a semantically correct action type (no mismatches like delete_event mapped to SCHEDULE_MEETING)
-  5. Contract tests validate pending-actions DTO shape, approve/reject response, and HITL E2E flow (trigger, approve, execute, verify)
+  5. Contract tests validate registry governance metadata, tool approval flags, and HITL E2E flow (trigger, approve/deny, verify)
 **Plans:** 3 plans
 Plans:
-- [ ] 77-01-PLAN.md -- Prisma migration, extended IAiTool interface, registry validation, governance metadata on all tools
-- [ ] 77-02-PLAN.md -- Controller refactor (registry-based), DTO cleanup, frontend adaptation
-- [ ] 77-03-PLAN.md -- Contract tests, registry governance assertions, E2E HITL flow tests
+- [ ] 77-01-PLAN.md -- Prisma migration (drop ActionQueue), extend IAiTool with governance, delete HitlController/Service, governance metadata on all 30 tools
+- [ ] 77-02-PLAN.md -- Frontend SDK-native HITL pivot: HitlApprovalWrapper, FallbackToolUI requires-action, auto-resubmission, delete poll-based HITL code
+- [ ] 77-03-PLAN.md -- Registry governance assertion tests, HITL contract integration tests, Playwright E2E smoke test
 
 ### Phase 78: Security Fixes
 **Goal**: All known security audit findings from v5.1 are closed -- no BOLA, no CSRF fallback, no open /metrics, vector search is indexed
