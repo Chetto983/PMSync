@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
-import { CanonicalMessage } from '../drivers/interfaces/canonical.types';
+//import { CanonicalMessage } from '../drivers/interfaces/canonical.types';
 import { SyncMessageProcessorService } from './sync-message-processor.service';
 import { SyncTokenService, GetDriverCredentialsCallback, CreateDriverCallback } from './sync-token.service';
 import { MessageProcessorContext } from '../interfaces/sync-context.interface';
@@ -70,11 +70,11 @@ export interface IncrementalHookResult {
 export class SyncOrchestrationService {
   private readonly logger = new Logger(SyncOrchestrationService.name);
   private static readonly FULL_SYNC_FOLDER_WEIGHTS = [
-    { folder: 'INBOX', weight: 0.5 },
-    { folder: 'SENT', weight: 0.2 },
+    { folder: 'INBOX', weight: 0.60 },
+    { folder: 'SENT', weight: 0.20 },
     { folder: 'ARCHIVE', weight: 0.15 },
-    { folder: 'DRAFTS', weight: 0.1 },
-    { folder: 'TRASH', weight: 0.05 },
+    { folder: 'DRAFTS', weight: 0.04 },
+    { folder: 'TRASH', weight: 0.01 },
   ] as const;
 
   constructor(
