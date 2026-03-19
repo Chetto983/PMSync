@@ -13,6 +13,7 @@ import {
   UsePipes,
   ValidationPipe,
   Query,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -38,7 +39,8 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  * AiChatController -- Streaming chat endpoint + conversation management.
  *
  * POST /ai/chat         -- Stream a chat response (SSE via AI SDK v6)
- * GET  /ai/chat/conversations   -- List conversations
+ * GET  /ai/chat/conversations       -- List conversations
+ * GET  /ai/chat/conversations/:id   -- Get conversation with messages
  * DELETE /ai/chat/conversations/:id -- Delete a conversation
  *
  * Guards: TenantGuard, ConsentGuard, QuotaGuard
@@ -152,6 +154,42 @@ export class AiChatController {
       success: true,
       conversations,
       total: conversations.length,
+    };
+  }
+
+  /**
+   * Get a single conversation with its messages.
+   */
+  @Get('chat/conversations/:id')
+  @ApiOperation({
+    summary: 'Get AI chat conversation with messages',
+    description: 'Returns a conversation and its messages for the current user',
+  })
+  @ApiParam({ name: 'id', description: 'Conversation ID' })
+  @ApiResponse({ status: 200, description: 'Conversation with messages' })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  async getConversation(
+    @Req() req: Request & { user: AuthenticatedRequest['user'] },
+    @Param('id') conversationId: string,
+  ) {
+    const conversation = await this.conversationService.getConversation(
+      conversationId,
+      req.user.tenantId,
+    );
+    if (!conversation) {
+      throw new NotFoundException(
+        `Conversation ${conversationId} not found`,
+      );
+    }
+
+    const messages = await this.conversationService.getRecentMessages(
+      conversationId,
+      200,
+    );
+
+    return {
+      success: true,
+      conversation: { ...conversation, messages },
     };
   }
 

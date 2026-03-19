@@ -16,7 +16,9 @@ import { MemoryToolUI, MemorySearchToolUI } from './MemoryToolUI';
 import { BriefingToolUI } from './BriefingToolUI';
 import { CrmToolUI } from './CrmToolUI';
 import { TriageToolUI } from './TriageToolUI';
+import { AskUserToolUI, SaveMemoryToolUI } from './ConversationToolUI';
 import { CreateReminderToolUI, ListRemindersToolUI } from './ReminderToolUI';
+import { FallbackToolUI } from './FallbackToolUI';
 
 export function AllToolUIs() {
   return (
@@ -39,9 +41,14 @@ export function AllToolUIs() {
       <BriefingToolUI />
       <CrmToolUI />
       <TriageToolUI />
+      {/* Conversation tools */}
+      <AskUserToolUI />
+      <SaveMemoryToolUI />
       {/* Reminder tools (Follow-Up AI) */}
       <CreateReminderToolUI />
       <ListRemindersToolUI />
+      {/* Fallback for unregistered tools + HITL approval */}
+      <FallbackToolUI />
     </>
   );
 }

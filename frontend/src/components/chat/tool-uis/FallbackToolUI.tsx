@@ -1,6 +1,6 @@
 'use client';
 
-import type { ToolCallMessagePartProps } from '@assistant-ui/react';
+import { makeAssistantToolUI, type ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Code, Loader2 } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -8,10 +8,17 @@ import Typography from '@mui/material/Typography';
 import { HitlApprovalWrapper } from '../HitlApprovalCard';
 
 /**
- * Generic tool renderer used as MessagePrimitive/ChainOfThought fallback.
- * assistant-ui resolves exact tool registrations first, then falls back here.
+ * Generic fallback tool renderer for ALL unregistered tools.
+ *
+ * Registered as toolName: '*' so assistant-ui uses it when no specific
+ * makeAssistantToolUI matches. Handles:
+ * - HITL approval (requires-action status → HitlApprovalWrapper)
+ * - Running state (spinner + tool name)
+ * - Complete state (icon + collapsible details)
+ *
+ * Also exported as a plain function for ChainOfThoughtPrimitive.Parts fallback.
  */
-export function FallbackToolUI({
+export function FallbackToolUIRender({
   status,
   toolName,
   args,
@@ -114,3 +121,12 @@ export function FallbackToolUI({
     </Paper>
   );
 }
+
+/**
+ * Self-registering wildcard tool UI.
+ * Mount via <FallbackToolUI /> inside AssistantRuntimeProvider.
+ */
+export const FallbackToolUI = makeAssistantToolUI<unknown, unknown>({
+  toolName: '*',
+  render: FallbackToolUIRender,
+});
