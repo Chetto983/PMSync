@@ -3,7 +3,6 @@ import { tool } from 'ai';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { EmbeddingsService } from '../../ai/services/embeddings.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
@@ -50,7 +49,6 @@ export class RagToolsService implements OnModuleInit {
   private readonly logger = new Logger(RagToolsService.name);
 
   constructor(
-    private readonly embeddingsService: EmbeddingsService,
     private readonly mistralEmbeddingService: MistralEmbeddingService,
     private readonly prisma: PrismaService,
     private readonly hybridSearchService: HybridSearchService,
@@ -154,6 +152,8 @@ export class RagToolsService implements OnModuleInit {
           },
         });
 
+        // Single embedding path: write directly to ai_memories.vector column.
+        // getRelevantMemories queries this column. No dual write to embeddings table.
         await this.prisma.$executeRaw(
           Prisma.sql`
             UPDATE "ai_memories"
@@ -161,19 +161,6 @@ export class RagToolsService implements OnModuleInit {
             WHERE "id" = ${memory.id}
           `,
         );
-
-        // Save the embedding vector for later semantic search
-        await this.embeddingsService.saveEmbedding({
-          tenantId,
-          embedding: validatedVector,
-          model: 'mistral-embed',
-          documentName: `memory:${memory.id}`,
-          metadata: {
-            memoryId: memory.id,
-            category: resolved.category,
-            type: 'ai_memory',
-          },
-        });
 
         return truncateToolResult({
           id: memory.id,

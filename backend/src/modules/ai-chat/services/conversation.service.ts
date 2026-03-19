@@ -88,25 +88,8 @@ export class ConversationService {
       return existing;
     }
 
-    // Auto-resolve: reuse user's most recent active conversation if updated within 30 min.
-    // This ensures context continuity even when the frontend doesn't pass conversationId.
-    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
-    const recent = await this.prisma.aiConversation.findFirst({
-      where: {
-        tenantId,
-        userId,
-        updatedAt: { gte: thirtyMinAgo },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    if (recent) {
-      this.logger.debug(
-        `Reusing recent conversation ${recent.id} (updated ${recent.updatedAt.toISOString()})`,
-      );
-      return recent;
-    }
-
+    // Frontend always sends a real conversationId via eager initialize().
+    // No auto-resolve fallback -- create a fresh conversation.
     return this.createConversation(tenantId, userId);
   }
 
