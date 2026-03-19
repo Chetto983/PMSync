@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
 status: in-progress
-stopped_at: Completed 77-01 (Backend Tool Governance Foundation)
-last_updated: "2026-03-18T16:10:00Z"
-last_activity: 2026-03-18 -- Completed 77-01 (governance metadata + HITL cleanup)
+stopped_at: Completed 86-02 (Thread Persistence & SDK sendAutomaticallyWhen)
+last_updated: "2026-03-19T13:22:10Z"
+last_activity: 2026-03-19 -- Completed 86-02 (thread history adapter + SDK helper)
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 3
-  completed_plans: 2
-  percent: 22
+  completed_plans: 3
+  percent: 33
 ---
 
 # Project State
@@ -21,33 +21,34 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 77 -- AI Control Plane (HITL & Tool Governance)
+**Current focus:** Phase 86 -- AI Chat Bug Fix (Migrate to Official Patterns)
 
 ## Current Position
 
-Phase: 77 of 85 (AI Control Plane -- HITL & Tool Governance)
-Plan: 2 of 3 (77-01 + 77-02 complete)
+Phase: 86 (AI Chat Bug Fix -- Migrate to Official Patterns)
+Plan: 02 complete, advancing to 03
 Status: In progress
-Last activity: 2026-03-18 -- Completed 77-01 (Backend Tool Governance Foundation)
+Last activity: 2026-03-19 -- Completed 86-02 (Thread Persistence & SDK sendAutomaticallyWhen)
 
-Progress: [██░░░░░░░░] 22%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (v6.0)
-- Average duration: 26min
-- Total execution time: 0.9 hours
+- Total plans completed: 3 (v6.0)
+- Average duration: 19min
+- Total execution time: 1.0 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 77 | 2 | 52min | 26min |
+| 86 | 1 | 6min | 6min |
 
 **Recent Trend:**
-- Last 5 plans: 17min, 35min
-- Trend: starting
+- Last 5 plans: 17min, 35min, 6min
+- Trend: improving
 
 *Updated after each plan completion*
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - [77-02]: Two type systems for tool states -- assistant-ui uses requires-action, AI SDK uses approval-requested
 - [77-01]: Governance fields optional in TypeScript but enforced at runtime by registerTool() -- keeps tsc green during incremental adoption
 - [77-01]: OnModuleInit pattern for tool governance registration at startup
+- [86-02]: Factory function over class for thread list adapter -- enables unstable_Provider and avoids this-binding issues
+- [86-02]: Closure-based deleteThread extraction instead of this.delete() to avoid plain-object method destructuring bugs
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T16:10:00Z
-Stopped at: Completed 77-01 (Backend Tool Governance Foundation)
-Resume file: .planning/phases/77-ai-control-plane-hitl-tool-governance/77-01-SUMMARY.md
+Last session: 2026-03-19T13:22:10Z
+Stopped at: Completed 86-02 (Thread Persistence & SDK sendAutomaticallyWhen)
+Resume file: .planning/phases/86-ai-chat-bug-fix-migrate-to-official-patterns/86-02-SUMMARY.md
