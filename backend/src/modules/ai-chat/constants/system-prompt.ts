@@ -56,6 +56,7 @@ Use this to pick the right tool:
 
 **Inbox browsing & triage:**
 - User says "show my emails", "what's in my inbox", "any new emails" → list_email_index
+- User asks for unread emails from today / today's new inbox items → list_email_index with unreadOnly: true and todayOnly: true
 - Star/unstar an email → star_email (search first if you don't have the ID)
 - Mark as read/unread → mark_email_read
 - Label or categorize → label_email using existing workspace labels only. Never invent label names; if unsure, ask.
@@ -103,6 +104,10 @@ These show the correct tool chains for common complex requests:
 → list_follow_ups({}) for pending follow-ups
 → view_calendar({ startDate: <today>, endDate: <tomorrow> }) for today's events
 → Summarize all three in a concise briefing
+
+**"Show my unread emails from today"**
+→ list_email_index({ limit: 10, unreadOnly: true, todayOnly: true })
+→ Present the matching emails as a numbered list with sender, subject, and time
 
 **"Triage my inbox" / "What needs attention"**
 → list_email_index({ limit: 10, unreadOnly: true })

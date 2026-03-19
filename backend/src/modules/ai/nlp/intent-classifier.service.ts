@@ -40,7 +40,7 @@ interface FastTextClassifier {
  */
 const FALLBACK_PATTERNS: Array<{ pattern: RegExp; intent: PrimaryIntent }> = [
   // Email actions
-  { pattern: /\b(search|find|cerca|trova|show|mostra)\b.*\b(email|mail|messag)/i, intent: 'email_search' },
+  { pattern: /\b(search|find|cerca|trova|show|mostra|mostrami|fammi vedere|vedi)\b.*\b(email|mail|messag)/i, intent: 'email_search' },
   { pattern: /\b(compose|write|scrivi|componi|new|nuov[ao])\b.*\b(email|mail|messag)/i, intent: 'email_compose' },
   { pattern: /\b(reply|respond|rispondi|risposta)\b/i, intent: 'email_reply' },
   { pattern: /\b(forward|inoltra|fwd)\b/i, intent: 'email_forward' },
@@ -70,7 +70,7 @@ const FALLBACK_PATTERNS: Array<{ pattern: RegExp; intent: PrimaryIntent }> = [
   { pattern: /\b(setting|impostazion|preference|preferenz|config)/i, intent: 'settings_view' },
 
   // Status
-  { pattern: /\b(inbox|posta in arrivo|unread|non lett|status|stato)\b/i, intent: 'status_check' },
+  { pattern: /\b(inbox|posta in arrivo|unread|non lett\w*|status|stato|novit[àa]|aggiornament\w*)\b/i, intent: 'status_check' },
   { pattern: /\b(how many|quant[ie]|count|contare)\b/i, intent: 'status_check' },
 
   // Social intents
@@ -88,22 +88,15 @@ const FALLBACK_PATTERNS: Array<{ pattern: RegExp; intent: PrimaryIntent }> = [
 function detectLanguage(text: string): 'en' | 'it' | 'unknown' {
   const lower = text.toLowerCase();
 
-  // Italian indicators
-  const italianWords = /\b(ciao|grazie|email|cerca|trova|mostra|scrivi|rispondi|elimina|calendario|riunione|contatto|cartella|impostazioni|aiuto|buongiorno|buonasera|arrivederci|prego)\b/;
-  // English indicators
-  const englishWords = /\b(hello|thanks|email|search|find|show|write|reply|delete|calendar|meeting|contact|folder|settings|help|goodbye|please)\b/;
+  // Use language-specific markers rather than shared nouns like "email".
+  const italianMarkers = /\b(ciao|grazie|cerc\w*|trov\w*|mostr\w*|fammi vedere|scriv\w*|rispon\w*|elimin\w*|calendario|riunion\w*|contatt\w*|cartell\w*|impostazion\w*|aiuto|buongiorno|buonasera|arrivederci|prego|oggi|domani|ieri|quant[ei]|lett\w*|posta)\b/g;
+  const englishMarkers = /\b(hello|thanks|search\w*|find|show|write|reply|delete|calendar|meeting|contact|folder|settings|help|goodbye|please|today|tomorrow|yesterday|how many|unread|inbox)\b/g;
 
-  const hasItalian = italianWords.test(lower);
-  const hasEnglish = englishWords.test(lower);
+  const itCount = (lower.match(italianMarkers) || []).length;
+  const enCount = (lower.match(englishMarkers) || []).length;
 
-  if (hasItalian && !hasEnglish) return 'it';
-  if (hasEnglish && !hasItalian) return 'en';
-  if (hasItalian && hasEnglish) {
-    // Mixed - count words
-    const itCount = (lower.match(italianWords) || []).length;
-    const enCount = (lower.match(englishWords) || []).length;
-    return itCount > enCount ? 'it' : 'en';
-  }
+  if (itCount > enCount) return 'it';
+  if (enCount > itCount) return 'en';
 
   return 'unknown';
 }

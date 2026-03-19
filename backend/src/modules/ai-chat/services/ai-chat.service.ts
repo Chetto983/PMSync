@@ -38,6 +38,7 @@ import {
 import { IntentRouterService } from '../tools/intent-router.service';
 import { SkillsLoaderService } from '../skills/skills-loader.service';
 import { MemoryService } from './memory.service';
+import type { PrimaryIntent } from '../../ai/nlp/intent-taxonomy';
 import {
   TOOL_REGISTRY_SERVICE,
   IToolRegistryService,
@@ -61,6 +62,24 @@ export interface StreamChatParams {
 /** Rate limit: 30 requests per 60 seconds per user */
 const CHAT_RATE_LIMIT_MAX = 30;
 const CHAT_RATE_LIMIT_WINDOW = 60;
+
+/**
+ * Intents that must ground themselves via at least one tool call on step 0.
+ * This prevents generic "I cannot access your inbox" style answers for
+ * queries that clearly require live workspace data.
+ */
+const TOOL_REQUIRED_INTENTS = new Set<PrimaryIntent>([
+  'email_search',
+  'email_read',
+  'email_summarize',
+  'email_triage',
+  'follow_up_manage',
+  'calendar_view',
+  'contact_search',
+  'folder_list',
+  'status_check',
+  'data_analysis',
+]);
 
 /**
  * AiChatService -- Core chat orchestration with AI SDK v6.
@@ -261,13 +280,21 @@ export class AiChatService {
           // come from INTENT_TOOL_MAP which mirrors createToolSet() keys.
           prepareStep: async ({ stepNumber, steps }) => {
             if (stepNumber === 0) {
+              const activeTools = intentResult.activeTools.filter((toolName) =>
+                allToolNames.includes(toolName),
+              );
+
               // Step 0: reuse intent classified above (already done for skill injection)
               this.logger.debug(
-                `Intent: ${intentResult.intent} (${intentResult.confidence.toFixed(2)}), tools: ${intentResult.activeTools.join(', ')}`,
+                `Intent: ${intentResult.intent} (${intentResult.confidence.toFixed(2)}), tools: ${activeTools.join(', ')}`,
               );
               return {
-                activeTools:
-                  intentResult.activeTools as (keyof typeof tools)[],
+                activeTools: activeTools as (keyof typeof tools)[],
+                toolChoice:
+                  activeTools.length > 0 &&
+                  TOOL_REQUIRED_INTENTS.has(intentResult.intent)
+                    ? 'required'
+                    : undefined,
               };
             }
             // Subsequent steps: expand based on what tools were just called

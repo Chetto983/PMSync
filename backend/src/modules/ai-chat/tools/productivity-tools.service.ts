@@ -39,6 +39,7 @@ const productivitySchemas = {
     folder: z.string().optional().describe('Filter by folder'),
     limit: z.number().min(1).max(20).optional().describe('Number of emails (default 10)'),
     unreadOnly: z.boolean().optional().describe('Only show unread emails'),
+    todayOnly: z.boolean().optional().describe('Only show emails received today'),
   }),
   star_email: z.object({
     emailId: z.string().describe('Email ID to star/unstar'),
@@ -115,6 +116,7 @@ export class ProductivityToolsService implements OnModuleInit {
       description:
         'Get a numbered index of recent emails. Useful for browsing inbox, showing what arrived, ' +
         'or when user says "show my emails", "what\'s in my inbox", "any new emails". ' +
+        'Supports unreadOnly and todayOnly for focused inbox views. ' +
         'Returns: { count, index: [{ idx, id, from, subject, date, preview, unread, starred }] }.',
       inputSchema: productivitySchemas.list_email_index,
       execute: async (args) => {
@@ -131,6 +133,14 @@ export class ProductivityToolsService implements OnModuleInit {
 
           if (args.unreadOnly) {
             where.isRead = false;
+          }
+
+          if (args.todayOnly) {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const endOfToday = new Date();
+            endOfToday.setHours(23, 59, 59, 999);
+            where.receivedAt = { gte: startOfToday, lte: endOfToday };
           }
 
           const emails = await this.prisma.email.findMany({
