@@ -229,7 +229,7 @@ export class ContactToolsService implements OnModuleInit {
     });
   }
 
-  private buildDeleteContact(tenantId: string, _piiResolve: PiiResolveFn) {
+  private buildDeleteContact(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
         'Permanently delete a contact from the address book. This action CANNOT be undone. ' +
@@ -239,8 +239,9 @@ export class ContactToolsService implements OnModuleInit {
       inputSchema: schemas.delete_contact,
       needsApproval: true,
       execute: async (args) => {
-        await this.contactsService.deleteContact(tenantId, args.contactId);
-        return truncateToolResult({ contactId: args.contactId, deleted: true });
+        const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
+        await this.contactsService.deleteContact(tenantId, resolved.contactId);
+        return truncateToolResult({ contactId: resolved.contactId, deleted: true });
       },
     });
   }

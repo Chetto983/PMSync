@@ -444,7 +444,7 @@ export class EmailToolsService implements OnModuleInit {
             folder: 'Drafts',
             isDraft: true,
             isRead: true,
-            sentAt: new Date(),
+            sentAt: new Date(), // BUG-3: Should be null for drafts, but Email.sentAt is non-nullable in schema. Requires migration to fix.
             receivedAt: new Date(),
           },
         });
