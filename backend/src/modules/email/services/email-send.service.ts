@@ -412,7 +412,7 @@ export class EmailSendService {
       <p><br></p>
       <p>---------- Forwarded message ---------</p>
       <p><strong>From:</strong> ${escapeHtml(originalEmail.from)}</p>
-      <p><strong>Date:</strong> ${originalEmail.sentAt.toLocaleString()}</p>
+      <p><strong>Date:</strong> ${originalEmail.sentAt?.toLocaleString() ?? 'Unknown'}</p>
       <p><strong>Subject:</strong> ${escapeHtml(originalEmail.subject)}</p>
       <p><strong>To:</strong> ${escapeHtml(originalEmail.to.join(', '))}</p>
       <p><br></p>
@@ -427,7 +427,7 @@ export class EmailSendService {
     const bodyText = `
 ---------- Forwarded message ---------
 From: ${originalEmail.from}
-Date: ${originalEmail.sentAt.toLocaleString()}
+Date: ${originalEmail.sentAt?.toLocaleString() ?? 'Unknown'}
 Subject: ${originalEmail.subject}
 To: ${originalEmail.to.join(', ')}
 

@@ -481,7 +481,7 @@ model Email {
   isDraft              Boolean                 @default(false)
   isDeleted            Boolean                 @default(false)
   isArchived           Boolean                 @default(false)
-  sentAt               DateTime
+  sentAt               DateTime?
   receivedAt           DateTime
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
