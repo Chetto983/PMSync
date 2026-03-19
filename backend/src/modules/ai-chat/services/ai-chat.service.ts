@@ -244,6 +244,9 @@ export class AiChatService {
     // Note: conversationId continuity is handled by backend auto-resolve in ConversationService
     const chatStartTime = Date.now();
     let completedStepCount = 0;
+    // Track saved message count to avoid TOCTOU race on title/summary triggers.
+    // Starts at 1 for the user message saved above.
+    let savedMessageCount = 1;
     const tools = this.createToolSet(tenantId, userId, conversation.id);
     const agent = new ToolLoopAgent({
       id: 'ai-chat',
@@ -263,6 +266,7 @@ export class AiChatService {
               usage?.totalTokens,
               stepIndex,
             )
+            .then(() => { savedMessageCount++; })
             .catch((err) =>
               this.logger.warn(
                 `Failed to persist step: ${err.message}`,
@@ -275,7 +279,8 @@ export class AiChatService {
             conversation.id,
             stepIndex,
             toolResults,
-          ).catch((err) =>
+          ).then(() => { savedMessageCount += toolResults.length; })
+          .catch((err) =>
             this.logger.warn(
               `Failed to persist tool results: ${err.message}`,
             ),
@@ -350,14 +355,14 @@ export class AiChatService {
           toolCallCount,
         }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
-        this.maybeGenerateSmartTitle(conversation.id, tenantId).catch(
+        this.maybeGenerateSmartTitle(conversation.id, tenantId, savedMessageCount).catch(
           (err) =>
             this.logger.warn(
               `Title generation failed: ${err.message}`,
             ),
         );
 
-        this.maybeTriggerSummaryGeneration(conversation.id, tenantId).catch(
+        this.maybeTriggerSummaryGeneration(conversation.id, tenantId, savedMessageCount).catch(
           (err) =>
             this.logger.warn(
               `Summary generation failed: ${err.message}`,
@@ -406,29 +411,15 @@ export class AiChatService {
     stepIndex: number,
     toolResults: StepResult<ToolSet>['toolResults'],
   ): Promise<void> {
-    if (
-      'saveToolMessagesBatch' in this.conversationService &&
-      typeof this.conversationService.saveToolMessagesBatch === 'function'
-    ) {
-      await this.conversationService.saveToolMessagesBatch(
-        conversationId,
-        toolResults.map((toolResult) => ({
-          content: this.serializeToolResult(toolResult),
-          toolCallId: toolResult.toolCallId,
-          stepIndex,
-        })),
-      );
-      return;
-    }
-
-    for (const toolResult of toolResults) {
-      await this.conversationService.saveToolMessage(
-        conversationId,
-        this.serializeToolResult(toolResult),
-        toolResult.toolCallId,
+    // RACE-4: All tool results persisted in a single transaction via saveToolMessagesBatch.
+    await this.conversationService.saveToolMessagesBatch(
+      conversationId,
+      toolResults.map((toolResult) => ({
+        content: this.serializeToolResult(toolResult),
+        toolCallId: toolResult.toolCallId,
         stepIndex,
-      );
-    }
+      })),
+    );
   }
 
   private serializeToolResult(
@@ -606,12 +597,15 @@ export class AiChatService {
   private async maybeGenerateSmartTitle(
     conversationId: string,
     tenantId = 'system',
+    messageCount?: number,
   ): Promise<void> {
-    const messageCount =
+    // Use provided count from save operation to avoid TOCTOU race (RACE-2).
+    // Falls back to DB query only if count not provided (backward compat).
+    const count = messageCount ??
       await this.conversationService.getMessageCount(conversationId, tenantId);
 
     // Only generate on the second exchange (4 messages)
-    if (messageCount !== 4) return;
+    if (count !== 4) return;
 
     const messages = await this.conversationService.getRecentMessages(
       conversationId,
@@ -666,13 +660,16 @@ export class AiChatService {
   private async maybeTriggerSummaryGeneration(
     conversationId: string,
     tenantId = 'system',
+    messageCount?: number,
   ): Promise<void> {
-    const messageCount =
+    // Use provided count from save operation to avoid TOCTOU race (RACE-2).
+    // Falls back to DB query only if count not provided (backward compat).
+    const count = messageCount ??
       await this.conversationService.getMessageCount(conversationId, tenantId);
 
     // Only at 20-message intervals (±2 tolerance for multi-step bursts).
     // Prevents redundant LLM summary calls on every message after 20.
-    if (messageCount < 20 || (messageCount - 20) % 10 !== 0) return;
+    if (count < 20 || (count - 20) % 10 !== 0) return;
 
     // Load older messages to summarize
     const olderMessages =
