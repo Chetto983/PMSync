@@ -7,9 +7,8 @@ import {
   Inject,
 } from '@nestjs/common';
 import {
-  streamText,
   generateText,
-  createUIMessageStream,
+  ToolLoopAgent,
   stepCountIs,
 } from 'ai';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
@@ -35,14 +34,7 @@ import {
   ProductivityToolsService,
   ReminderToolsService,
 } from '../tools/index';
-import { IntentRouterService } from '../tools/intent-router.service';
-import { SkillsLoaderService } from '../skills/skills-loader.service';
 import { MemoryService } from './memory.service';
-import type { PrimaryIntent } from '../../ai/nlp/intent-taxonomy';
-import {
-  TOOL_REGISTRY_SERVICE,
-  IToolRegistryService,
-} from '../../../common/interfaces/tool-registry.interface';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 
@@ -64,28 +56,10 @@ const CHAT_RATE_LIMIT_MAX = 30;
 const CHAT_RATE_LIMIT_WINDOW = 60;
 
 /**
- * Intents that must ground themselves via at least one tool call on step 0.
- * This prevents generic "I cannot access your inbox" style answers for
- * queries that clearly require live workspace data.
- */
-const TOOL_REQUIRED_INTENTS = new Set<PrimaryIntent>([
-  'email_search',
-  'email_read',
-  'email_summarize',
-  'email_triage',
-  'follow_up_manage',
-  'calendar_view',
-  'contact_search',
-  'folder_list',
-  'status_check',
-  'data_analysis',
-]);
-
-/**
  * AiChatService -- Core chat orchestration with AI SDK v6.
  *
- * Pipeline: rate limit -> circuit breaker -> PII tokenize -> streamText
- * Phase 25: 20 tools via 5 ToolsService classes, intent routing, memory injection
+ * Pipeline: rate limit -> circuit breaker -> PII tokenize -> ToolLoopAgent
+ * Phase 25+: full tool access with memory injection and agent-native tool loops
  */
 @Injectable()
 export class AiChatService {
@@ -112,14 +86,7 @@ export class AiChatService {
     private readonly productivityToolsService: ProductivityToolsService,
     // Phase REMINDER: Smart follow-up reminder tools
     private readonly reminderToolsService: ReminderToolsService,
-    // Phase 25 Plan 02: Intent routing + memory injection
-    private readonly intentRouterService: IntentRouterService,
-    // Phase SKILLS: Contextual skill loading based on intent
-    private readonly skillsLoaderService: SkillsLoaderService,
     private readonly memoryService: MemoryService,
-    // Phase 32: Tool discovery via registry (domain modules self-register)
-    @Inject(TOOL_REGISTRY_SERVICE)
-    private readonly toolRegistry: IToolRegistryService,
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,
@@ -137,7 +104,7 @@ export class AiChatService {
    * 4. PII tokenize user message
    * 5. Save original message, send redacted to LLM
    * 6. Load conversation history
-   * 7. Create UI message stream wrapping streamText
+   * 7. Run ToolLoopAgent and stream UI messages
    * 8. Audit log + usage tracking
    */
   async streamChat(params: StreamChatParams): Promise<ReadableStream> {
@@ -241,12 +208,8 @@ export class AiChatService {
         this.logger.warn(`Audit log failed: ${err.message}`),
       );
 
-    // 8. Build dynamic system prompt with current date/timezone + memory + skills injection
+    // 8. Build dynamic system prompt with current date/timezone + memory
     const basePrompt = buildSystemPrompt();
-
-    // Phase SKILLS: Classify intent early so we can inject relevant skill docs
-    const intentResult = await this.intentRouterService.classifyAndRoute(message);
-    const skillBlock = this.skillsLoaderService.getSkillsForIntent(intentResult.intent);
 
     const memories = await this.memoryService.getRelevantMemories(
       tenantId,
@@ -256,186 +219,153 @@ export class AiChatService {
     );
     const memoryBlock = this.memoryService.formatMemoriesForPrompt(memories);
 
-    // Compose: base prompt + skills + memory
+    // Compose: base prompt + memory
     let systemPromptWithMemory = basePrompt;
-    if (skillBlock) systemPromptWithMemory += skillBlock;
     if (memoryBlock) systemPromptWithMemory += '\n\n' + memoryBlock;
 
-    // 9. Create UI message stream
+    // 9. Run the chat as a first-class AI SDK agent
     // Note: conversationId continuity is handled by backend auto-resolve in ConversationService
     const chatStartTime = Date.now();
-    return createUIMessageStream({
-      execute: async ({ writer }) => {
-        const tools = this.createToolSet(tenantId, userId, conversation.id);
-        const allToolNames = Object.keys(tools);
-
-        const result = streamText({
-          model: this.mistralProvider.getChatModel(model),
-          system: systemPromptWithMemory,
-          messages,
-          tools,
-          // Phase 25 Plan 02: Intent-based tool routing via prepareStep
-          // Type assertion needed: activeTools is string[] from IntentRouterService,
-          // but AI SDK expects exact tool name literals. Safe because all names
-          // come from INTENT_TOOL_MAP which mirrors createToolSet() keys.
-          prepareStep: async ({ stepNumber, steps }) => {
-            if (stepNumber === 0) {
-              const activeTools = intentResult.activeTools.filter((toolName) =>
-                allToolNames.includes(toolName),
-              );
-
-              // Step 0: reuse intent classified above (already done for skill injection)
-              this.logger.debug(
-                `Intent: ${intentResult.intent} (${intentResult.confidence.toFixed(2)}), tools: ${activeTools.join(', ')}`,
-              );
-              return {
-                activeTools: activeTools as (keyof typeof tools)[],
-                toolChoice:
-                  activeTools.length > 0 &&
-                  TOOL_REQUIRED_INTENTS.has(intentResult.intent)
-                    ? 'required'
-                    : undefined,
-              };
-            }
-            // Subsequent steps: expand based on what tools were just called
-            const lastStep = steps[steps.length - 1];
-            const lastToolCalls = lastStep?.toolCalls ?? [];
-            const expanded = this.intentRouterService.expandForFollowUp(
-              lastToolCalls,
-              allToolNames,
-            );
-            return {
-              activeTools: expanded as (keyof typeof tools)[],
-            };
-          },
-          stopWhen: stepCountIs(5),
-          abortSignal,
-          onStepFinish: async ({ text, usage, toolCalls, content }) => {
-            // Persist assistant message after each step
-            if (text) {
-              await this.conversationService
-                .saveAssistantMessage(
-                  conversation.id,
-                  { type: 'text', text },
-                  usage?.totalTokens,
-                )
-                .catch((err) =>
-                  this.logger.warn(
-                    `Failed to persist step: ${err.message}`,
-                  ),
-                );
-            }
-
-            // Audit tool calls (fire-and-forget)
-            if (toolCalls?.length) {
-              for (const tc of toolCalls) {
-                this.auditService
-                  .logToolExecution({
-                    tenantId,
-                    userId,
-                    toolName: tc.toolName,
-                    agentName: 'ai-chat',
-                    inputSummary: JSON.stringify(tc.input).slice(0, 200),
-                    outputSummary: '(pending)',
-                    durationMs: 0,
-                    status: 'success',
-                  })
-                  .catch((err) =>
-                    this.logger.warn(
-                      `Tool audit failed: ${err.message}`,
-                    ),
-                  );
-              }
-            }
-
-            // Phase 77: HITL via ActionQueue removed -- AI SDK handles approval natively
-          },
-          onFinish: async ({ text, usage }) => {
-            // Circuit breaker: record success
-            circuitBreaker.reset(); // Reset failures on success
-
-            // Generate title for new conversations (first message)
-            if (!conversationId && text) {
-              const title = text
-                .slice(0, 100)
-                .replace(/\n/g, ' ')
-                .trim();
-              await this.conversationService
-                .updateConversationTitle(
-                  conversation.id,
-                  title || 'New conversation',
-                )
-                .catch((err) =>
-                  this.logger.warn(
-                    `Failed to set title: ${err.message}`,
-                  ),
-                );
-            }
-
-            // Usage tracking (fire-and-forget)
-            if (this.usageTrackingService && usage) {
-              this.usageTrackingService
-                .trackUsage(tenantId, 'ai-calls', 1)
-                .catch((err) =>
-                  this.logger.warn(
-                    `Usage tracking failed: ${err instanceof Error ? err.message : String(err)}`,
-                  ),
-                );
-            }
-
-            // Phase 35: Fire-and-forget ledger write
-            this.ledgerService?.recordRun({
-              tenantId,
-              userId,
-              runType: 'chat',
-              model: model || 'mistral-small-latest',
-              promptTokens: usage?.inputTokens ?? 0,
-              completionTokens: usage?.outputTokens ?? 0,
-              totalTokens: usage?.totalTokens ?? 0,
-              latencyMs: Date.now() - chatStartTime,
-              toolCallCount: 0,
-            }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-            // Generate smart title after second response (4 messages: u1+a1+u2+a2)
-            this.maybeGenerateSmartTitle(conversation.id, tenantId).catch(
-              (err) =>
-                this.logger.warn(
-                  `Title generation failed: ${err.message}`,
-                ),
-            );
-
-            // Check if summary generation is needed (> 20 messages)
-            this.maybeTriggerSummaryGeneration(conversation.id, tenantId).catch(
-              (err) =>
-                this.logger.warn(
-                  `Summary generation failed: ${err.message}`,
-                ),
-            );
-          },
-          onError: (error) => {
-            // Circuit breaker: record failure so the breaker can open on repeated errors
-            if (
-              error instanceof Error &&
-              !(error instanceof CircuitBreakerOpenError)
-            ) {
+    const tools = this.createToolSet(tenantId, userId, conversation.id);
+    const agent = new ToolLoopAgent({
+      id: 'ai-chat',
+      model: this.mistralProvider.getChatModel(model),
+      instructions: systemPromptWithMemory,
+      tools,
+      toolChoice: 'auto',
+      stopWhen: stepCountIs(5),
+      onStepFinish: async ({ text, usage, toolCalls }) => {
+        if (text) {
+          await this.conversationService
+            .saveAssistantMessage(
+              conversation.id,
+              { type: 'text', text },
+              usage?.totalTokens,
+            )
+            .catch((err) =>
               this.logger.warn(
-                `Stream error, recording circuit breaker failure: ${error.message}`,
-              );
-              circuitBreaker.recordFailure();
-            }
-          },
-        });
+                `Failed to persist step: ${err.message}`,
+              ),
+            );
+        }
 
-        // Merge streamText output into UI message stream
-        writer.merge(
-          result.toUIMessageStream({
-            sendReasoning: false,
-            onError: (error) =>
-              error instanceof Error ? error.message : String(error),
-          }),
+        if (toolCalls?.length) {
+          for (const tc of toolCalls) {
+            this.auditService
+              .logToolExecution({
+                tenantId,
+                userId,
+                toolName: tc.toolName,
+                agentName: 'ai-chat',
+                inputSummary: JSON.stringify(tc.input).slice(0, 200),
+                outputSummary: '(pending)',
+                durationMs: 0,
+                status: 'success',
+              })
+              .catch((err) =>
+                this.logger.warn(
+                  `Tool audit failed: ${err.message}`,
+                ),
+              );
+          }
+        }
+      },
+      onFinish: async ({ text, usage, steps }) => {
+        circuitBreaker.reset();
+
+        if (!conversationId && text) {
+          const title = text
+            .slice(0, 100)
+            .replace(/\n/g, ' ')
+            .trim();
+          await this.conversationService
+            .updateConversationTitle(
+              conversation.id,
+              title || 'New conversation',
+            )
+            .catch((err) =>
+              this.logger.warn(
+                `Failed to set title: ${err.message}`,
+              ),
+            );
+        }
+
+        if (this.usageTrackingService && usage) {
+          this.usageTrackingService
+            .trackUsage(tenantId, 'ai-calls', 1)
+            .catch((err) =>
+              this.logger.warn(
+                `Usage tracking failed: ${err instanceof Error ? err.message : String(err)}`,
+              ),
+            );
+        }
+
+        const toolCallCount = steps.reduce(
+          (count, step) => count + (step.toolCalls?.length ?? 0),
+          0,
+        );
+
+        this.ledgerService?.recordRun({
+          tenantId,
+          userId,
+          runType: 'chat',
+          model: model || 'mistral-small-latest',
+          promptTokens: usage?.inputTokens ?? 0,
+          completionTokens: usage?.outputTokens ?? 0,
+          totalTokens: usage?.totalTokens ?? 0,
+          latencyMs: Date.now() - chatStartTime,
+          toolCallCount,
+        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
+        this.maybeGenerateSmartTitle(conversation.id, tenantId).catch(
+          (err) =>
+            this.logger.warn(
+              `Title generation failed: ${err.message}`,
+            ),
+        );
+
+        this.maybeTriggerSummaryGeneration(conversation.id, tenantId).catch(
+          (err) =>
+            this.logger.warn(
+              `Summary generation failed: ${err.message}`,
+            ),
         );
       },
     });
+
+    try {
+      const result = await agent.stream({
+        messages,
+        abortSignal,
+      });
+
+      return result.toUIMessageStream({
+        sendReasoning: false,
+        onError: (error) => {
+          if (
+            error instanceof Error &&
+            !(error instanceof CircuitBreakerOpenError)
+          ) {
+            this.logger.warn(
+              `Stream error, recording circuit breaker failure: ${error.message}`,
+            );
+            circuitBreaker.recordFailure();
+          }
+          return error instanceof Error ? error.message : String(error);
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        !(error instanceof CircuitBreakerOpenError)
+      ) {
+        this.logger.warn(
+          `Agent stream failed, recording circuit breaker failure: ${error.message}`,
+        );
+        circuitBreaker.recordFailure();
+      }
+      throw error;
+    }
   }
 
   /**

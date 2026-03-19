@@ -3,7 +3,7 @@
  *
  * Validates the full Phase 25 pipeline end-to-end with REAL Mistral API:
  * - Tool execution through the full AiChatService pipeline
- * - Intent routing selects correct tool subsets (6-8 per request, not all 20)
+ * - The model decides directly across the available tool surface
  * - HybridSearchService called for semantic search queries
  * - Memory auto-injection populates system prompt with Known Facts
  * - No regressions in Phase 24 conversation persistence
@@ -33,8 +33,6 @@ import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.serv
 import { AuditService } from '../../../common/services/audit.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
-import { IntentRouterService } from '../tools/intent-router.service';
-import { IntentClassifierService } from '../../ai/nlp/intent-classifier.service';
 import { MemoryService } from '../services/memory.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
 
@@ -71,7 +69,7 @@ const piiResolutionStub = {
     ),
 } as any;
 
-/** ToolsService stub -- empty tools (tool execution tested via intent routing) */
+/** ToolsService stub -- empty tools (tool execution is covered elsewhere) */
 const toolsServiceStub = { getTools: () => ({}) } as any;
 
 /**
@@ -110,7 +108,6 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
   let piiDetectionService: PiiDetectionService;
   let mistralProvider: MistralProviderService;
   let mistralEmbeddingService: MistralEmbeddingService;
-  let intentRouterService: IntentRouterService;
   let memoryService: MemoryService;
   let hybridSearchService: HybridSearchService;
   let aiChatService: AiChatService;
@@ -162,12 +159,6 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
     piiDetectionService = new PiiDetectionService();
 
     // 5. Phase 25 services -- REAL instances for spying
-    const intentClassifier = new IntentClassifierService(configService);
-    // No onModuleInit call -- regex fallback is sufficient for E2E
-    intentRouterService = new IntentRouterService(
-      intentClassifier,
-      mistralProvider,
-    );
     memoryService = new MemoryService(prisma as any, mistralEmbeddingService);
     hybridSearchService = new HybridSearchService(
       prisma as any,
@@ -191,11 +182,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       toolsServiceStub, // SandboxToolsService
       toolsServiceStub, // ProductivityToolsService
       toolsServiceStub, // ReminderToolsService
-      intentRouterService, // REAL -- will be spied on
-      { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       memoryService, // REAL -- will be spied on
-      // Phase 32: ToolRegistryService stub for tool discovery
-      { getAllTools: () => [], getToolNames: () => [], getTool: () => undefined, registerTool: () => {} } as any,
       undefined, // UsageTrackingService is @Optional
     );
   }, 30_000);
@@ -218,14 +205,8 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
   // ─── Test 1: Tool execution -- email search intent routes correctly ───
 
   it(
-    'tool execution -- search emails query triggers email intent with correct tool subset (AI-02)',
+    'tool execution -- search emails query completes without router middleware (AI-02)',
     async () => {
-      // Spy on IntentRouterService.classifyAndRoute
-      const routerSpy = vi.spyOn(
-        intentRouterService,
-        'classifyAndRoute',
-      );
-
       const stream = await aiChatService.streamChat({
         tenantId: testTenantId,
         userId: testUserId,
@@ -237,17 +218,6 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
 
       const text = await drainStream(stream);
       expect(text.length).toBeGreaterThan(0);
-
-      // Verify intent routing was invoked
-      expect(routerSpy).toHaveBeenCalledTimes(1);
-      const routeResult = await routerSpy.mock.results[0].value;
-
-      // Intent should be email-related
-      expect(routeResult.intent).toMatch(/^email_/);
-      // activeTools should contain search_emails
-      expect(routeResult.activeTools).toContain('search_emails');
-      // Should NOT serve all 20 tools -- max 8
-      expect(routeResult.activeTools.length).toBeLessThanOrEqual(8);
 
       // Cleanup
       const conversations =
@@ -266,13 +236,8 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
   // ─── Test 2: Intent routing gates calendar tools correctly ────────
 
   it(
-    'intent routing -- calendar query activates calendar tools, not email tools (AI-03)',
+    'calendar query streams a response without intent gating (AI-03)',
     async () => {
-      const routerSpy = vi.spyOn(
-        intentRouterService,
-        'classifyAndRoute',
-      );
-
       const stream = await aiChatService.streamChat({
         tenantId: testTenantId,
         userId: testUserId,
@@ -281,19 +246,6 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
 
       const text = await drainStream(stream);
       expect(text.length).toBeGreaterThan(0);
-
-      expect(routerSpy).toHaveBeenCalledTimes(1);
-      const routeResult = await routerSpy.mock.results[0].value;
-
-      // Intent should be calendar-related
-      expect(routeResult.intent).toMatch(/^calendar_/);
-      // Should contain view_calendar
-      expect(routeResult.activeTools).toContain('view_calendar');
-      // Should NOT contain email-only tools
-      expect(routeResult.activeTools).not.toContain('send_email');
-      expect(routeResult.activeTools).not.toContain('draft_email');
-      // Gated to <= 8 tools
-      expect(routeResult.activeTools.length).toBeLessThanOrEqual(8);
 
       // Cleanup
       const conversations =
@@ -316,9 +268,8 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
     async () => {
       const hybridSpy = vi.spyOn(hybridSearchService, 'search');
 
-      // This message should trigger semantic_search tool selection
-      // via intent routing. Even if tools are stubbed, we verify
-      // that the HybridSearchService is wired and the spy detects calls.
+      // Even with model-driven tool choice, verify that
+      // HybridSearchService remains wired and callable.
       // Note: with stubbed ToolsServices, tool execution won't happen,
       // so we directly verify HybridSearchService can be called.
       const result = await hybridSearchService.search(

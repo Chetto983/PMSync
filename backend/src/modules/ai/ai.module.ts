@@ -28,7 +28,6 @@ import { StorageModule } from '../email/storage.module';
 import { AlertingService } from '../../common/services/alerting.service';
 import { CachePrewarmingService } from './services/cache-prewarming.service';
 import { MistralOcrService } from './services/mistral-ocr.service';
-import { IntentClassifierService } from './nlp';
 // Phase 7: Extracted RAG sub-services (registered BEFORE KnowledgeBaseService facade)
 import { EmbeddingComposerService } from './services/embedding-composer.service';
 import { EmbeddingCrudService } from './services/embedding-crud.service';
@@ -109,7 +108,6 @@ import { RealtimeModule } from '../realtime/realtime.module';
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
     CachePrewarmingService, // Pre-warm query cache for common searches
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
-    IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
     TriageActionService, // CONSOLIDATION: Triage → follow-up/reminder creation
@@ -145,7 +143,6 @@ import { RealtimeModule } from '../realtime/realtime.module';
     EmbeddingBackfillSchedulerService,
     TriageBackfillSchedulerService, // Recovers missed auto-triage emails
     MistralOcrService, // On-demand OCR for attachment extraction (cost-saving)
-    IntentClassifierService, // FastText-based intent classification (bilingual EN/IT)
     OrphanEmbeddingCleanupService, // PERF-03: Cleanup orphaned embeddings weekly
     TriageLearningService, // TRIAGE-03: Implicit signal tracking + sender behavior scoring
     // Phase 26: Non-chat AI services

@@ -3,7 +3,7 @@
  *
  * Uses REAL ToolsService instances with SPIED Prisma-backed domain stubs.
  * Proves tools ACTUALLY execute against the tenant's 500 emails,
- * 560 contacts, 409 events — not just that intent routing fires.
+ * 560 contacts, 409 events — not just that a custom router would fire.
  *
  * Every pipeline test:
  *   1. Uses real sender/contact/event names from the DB
@@ -32,8 +32,6 @@ import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.serv
 import { AuditService } from '../../../common/services/audit.service';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
-import { IntentRouterService } from '../tools/intent-router.service';
-import { IntentClassifierService } from '../../ai/nlp/intent-classifier.service';
 import { MemoryService } from '../services/memory.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
 import {
@@ -123,7 +121,6 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
   let ragToolsService: RagToolsService;
 
   // Phase 25 services
-  let intentRouterService: IntentRouterService;
   let memoryService: MemoryService;
   let hybridSearchService: HybridSearchService;
   let aiChatService: AiChatService;
@@ -303,8 +300,6 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
     );
 
     // ── Phase 25 services ──
-    const ic = new IntentClassifierService(configService);
-    intentRouterService = new IntentRouterService(ic, mistralProvider);
     memoryService = new MemoryService(prisma as any, mistralEmbeddingService);
 
     // ── AiChatService with REAL ToolsServices ──
@@ -324,11 +319,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       { getTools: () => ({}) } as any, // SandboxToolsService
       { getTools: () => ({}) } as any, // ProductivityToolsService
       { getTools: () => ({}) } as any, // ReminderToolsService
-      intentRouterService,
-      { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       memoryService,
-      // Phase 32: ToolRegistryService stub for tool discovery
-      { getAllTools: () => [], getToolNames: () => [], getTool: () => undefined, registerTool: () => {} } as any,
       undefined,
     );
   }, 30_000);
@@ -639,16 +630,20 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       expect(Object.keys(all).length).toBe(20);
     });
 
-    it('C2: intent routing accuracy across domains', async () => {
-      const e = await intentRouterService.classifyAndRoute('Search emails about invoices');
-      expect(e.activeTools).toContain('search_emails');
-
-      const c = await intentRouterService.classifyAndRoute('View my calendar next week');
-      expect(c.activeTools).toContain('view_calendar');
-
-      const co = await intentRouterService.classifyAndRoute('Find phone for John Smith');
-      expect(co.activeTools).toContain('search_contacts');
-    }, 60_000);
+    it('C2: full tool surface exposes cross-domain actions', () => {
+      const all = {
+        ...emailToolsService.getTools(testTenantId, 't', identityPiiResolve),
+        ...calendarToolsService.getTools(testTenantId, 't', identityPiiResolve),
+        ...contactToolsService.getTools(testTenantId, 't', identityPiiResolve),
+        ...folderToolsService.getTools(testTenantId, 't', identityPiiResolve),
+        ...ragToolsService.getTools(testTenantId, testUserId, 't', identityPiiResolve),
+      };
+      expect(Object.keys(all)).toContain('search_emails');
+      expect(Object.keys(all)).toContain('view_calendar');
+      expect(Object.keys(all)).toContain('search_contacts');
+      expect(Object.keys(all)).toContain('list_folders');
+      expect(Object.keys(all)).toContain('semantic_search');
+    });
 
     it('C3: hybrid RRF ranked correctly', async () => {
       const r = await hybridSearchService.search(
@@ -682,14 +677,5 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       expect(fr).not.toEqual({ success: true });
     });
 
-    it('C5: expansion rules after search_emails', () => {
-      const expanded = intentRouterService.expandForFollowUp(
-        [{ toolName: 'search_emails' }],
-        ['search_emails', 'read_email', 'reply_email', 'forward_email', 'save_memory'],
-      );
-      expect(expanded).toContain('read_email');
-      expect(expanded).toContain('reply_email');
-      expect(expanded).toContain('save_memory');
-    });
   });
 });

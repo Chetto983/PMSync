@@ -131,8 +131,8 @@ describe('AiChatService E2E (real Mistral API)', () => {
     } as unknown as ConfigService;
     const mistralProvider = new MistralProviderService(configService);
 
-    // 5. Compose AiChatService with real + stub dependencies
-    // Phase 25: ToolsService stubs -- tools won't be invoked in basic chat tests
+    // 5. Compose AiChatService with real + stub dependencies.
+    // Tools are model-driven now; these basic chat tests keep tool services stubbed.
     const toolsServiceStub = { getTools: () => ({}) } as any;
     aiChatService = new AiChatService(
       mistralProvider,
@@ -150,12 +150,7 @@ describe('AiChatService E2E (real Mistral API)', () => {
       toolsServiceStub,        // SandboxToolsService stub
       toolsServiceStub,        // ProductivityToolsService stub
       toolsServiceStub,        // ReminderToolsService stub
-      // Phase 25 Plan 02: IntentRouterService + MemoryService stubs
-      { classifyAndRoute: async () => ({ intent: 'unknown', confidence: 0.5, activeTools: [] }), expandForFollowUp: () => [] } as any,
-      { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       { getRelevantMemories: async () => [], formatMemoriesForPrompt: () => '' } as any,
-      // Phase 32: ToolRegistryService stub for tool discovery
-      { getAllTools: () => [], getToolNames: () => [], getTool: () => undefined, registerTool: () => {} } as any,
       undefined,               // UsageTrackingService is @Optional
     );
   }, 30_000);

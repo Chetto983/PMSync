@@ -12,22 +12,22 @@ let capturedOnFinish: ((...args: any[]) => any) | null = null;
 let capturedOnStepFinish: ((...args: any[]) => any) | null = null;
 
 vi.mock('ai', () => ({
-  streamText: vi.fn((opts: any) => {
-    capturedOnFinish = opts.onFinish;
-    capturedOnStepFinish = opts.onStepFinish;
-    return {
-      toUIMessageStream: vi.fn(() => new ReadableStream()),
-    };
-  }),
+  ToolLoopAgent: class {
+    private readonly settings: any;
+
+    constructor(settings: any) {
+      this.settings = settings;
+      capturedOnFinish = settings.onFinish;
+      capturedOnStepFinish = settings.onStepFinish;
+    }
+
+    stream() {
+      return Promise.resolve({
+        toUIMessageStream: vi.fn(() => new ReadableStream()),
+      });
+    }
+  },
   generateText: vi.fn().mockResolvedValue({ text: 'Summary text', usage: { inputTokens: 50, outputTokens: 30, totalTokens: 80 } }),
-  createUIMessageStream: vi.fn(({ execute }: any) => {
-    // Execute the callback with a mock writer to capture streamText call
-    const mockWriter = {
-      merge: vi.fn(),
-    };
-    execute({ writer: mockWriter });
-    return new ReadableStream();
-  }),
   stepCountIs: vi.fn(() => () => false),
 }));
 
@@ -64,15 +64,10 @@ describe('AiChatService ledger wiring', () => {
     const mockContactTools = { getTools: vi.fn(() => ({})) };
     const mockFolderTools = { getTools: vi.fn(() => ({})) };
     const mockRagTools = { getTools: vi.fn(() => ({})) };
-    const mockIntentRouter = {
-      classifyAndRoute: vi.fn().mockResolvedValue({ intent: 'general', confidence: 0.9, activeTools: [] }),
-      expandForFollowUp: vi.fn(() => []),
-    };
     const mockMemoryService = {
       getRelevantMemories: vi.fn().mockResolvedValue([]),
       formatMemoriesForPrompt: vi.fn(() => ''),
     };
-    const mockToolRegistry = { registerTool: vi.fn(), getTools: vi.fn(() => []) };
     const mockUsageTracking = { trackUsage: vi.fn().mockResolvedValue(undefined) };
 
     aiChatService = new AiChatService(
@@ -91,10 +86,7 @@ describe('AiChatService ledger wiring', () => {
       { getTools: () => ({}) } as any, // SandboxToolsService
       { getTools: () => ({}) } as any, // ProductivityToolsService
       { getTools: () => ({}) } as any, // ReminderToolsService
-      mockIntentRouter as any,
-      { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       mockMemoryService as any,
-      mockToolRegistry as any,
       mockUsageTracking as any,
       mockLedger as unknown as AiRunLedgerService,
     );
@@ -109,7 +101,6 @@ describe('AiChatService ledger wiring', () => {
     (mockPiiDetection.detect as any).mockReturnValue({ hasPii: false, redactedText: 'test' });
     (mockRateLimiter.checkRateLimit as any).mockResolvedValue({ allowed: true });
     (mockAudit.logAudit as any).mockResolvedValue(undefined);
-    (mockIntentRouter.classifyAndRoute as any).mockResolvedValue({ intent: 'general', confidence: 0.9, activeTools: [] });
     (mockMemoryService.getRelevantMemories as any).mockResolvedValue([]);
     (mockMemoryService.formatMemoriesForPrompt as any).mockReturnValue('');
     (mockMistralProvider.getChatModel as any).mockReturnValue('mock-model');

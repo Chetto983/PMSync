@@ -29,11 +29,7 @@ import { mistralEmbedHandler } from '../../../test/msw-handlers/mistral-embed.ha
 import { ConfigService } from '@nestjs/config';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { AiChatService } from '../services/ai-chat.service';
-import { ConversationService } from '../services/conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
-import { IntentRouterService } from '../tools/intent-router.service';
-import { IntentClassifierService } from '../../ai/nlp/intent-classifier.service';
-import { MemoryService } from '../services/memory.service';
 
 // MSW server with default handlers
 const server = setupServer(mistralChatHandler, mistralEmbedHandler);
@@ -98,6 +94,10 @@ const conversationServiceMock = {
   getMessagesForContext: vi.fn().mockResolvedValue([]),
   listConversations: vi.fn().mockResolvedValue([]),
   saveAssistantMessage: vi.fn().mockResolvedValue(undefined),
+  updateConversationTitle: vi.fn().mockResolvedValue(undefined),
+  getMessageCount: vi.fn().mockResolvedValue(0),
+  getOlderMessages: vi.fn().mockResolvedValue([]),
+  updateConversationSummary: vi.fn().mockResolvedValue(undefined),
 } as any;
 
 /** Mock AuditService */
@@ -137,20 +137,12 @@ async function drainStream(stream: ReadableStream): Promise<string> {
 
 describe('Chat Pipeline (MSW)', () => {
   let mistralProvider: MistralProviderService;
-  let intentRouterService: IntentRouterService;
   let aiChatService: AiChatService;
 
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'bypass' });
 
     mistralProvider = new MistralProviderService(configService);
-
-    // IntentRouterService with regex fallback (no FastText model)
-    const intentClassifier = new IntentClassifierService(configService);
-    intentRouterService = new IntentRouterService(
-      intentClassifier,
-      mistralProvider,
-    );
 
     // AiChatService with all mocked dependencies
     aiChatService = new AiChatService(
@@ -169,11 +161,7 @@ describe('Chat Pipeline (MSW)', () => {
       toolsServiceStub, // SandboxToolsService
       toolsServiceStub, // ProductivityToolsService
       toolsServiceStub, // ReminderToolsService
-      intentRouterService,
-      { getSkillsForIntent: () => '' } as any, // SkillsLoaderService
       memoryServiceMock,
-      // Phase 32: ToolRegistryService stub for tool discovery
-      { getAllTools: () => [], getToolNames: () => [], getTool: () => undefined, registerTool: () => {} } as any,
       undefined, // UsageTrackingService
     );
   });
@@ -185,7 +173,7 @@ describe('Chat Pipeline (MSW)', () => {
 
   afterAll(() => server.close());
 
-  it('message -> intent routing -> streaming response collected', async () => {
+  it('message -> streaming response collected without router middleware', async () => {
     // Override with custom streaming chunks
     server.use(
       createStreamingHandler([
@@ -194,9 +182,6 @@ describe('Chat Pipeline (MSW)', () => {
         { content: ' from John.' },
       ]),
     );
-
-    // Spy on intent routing
-    const routerSpy = vi.spyOn(intentRouterService, 'classifyAndRoute');
 
     const stream = await aiChatService.streamChat({
       tenantId: 'test-tenant',
@@ -208,9 +193,6 @@ describe('Chat Pipeline (MSW)', () => {
 
     const text = await drainStream(stream);
     expect(text.length).toBeGreaterThan(0);
-
-    // Intent routing was invoked
-    expect(routerSpy).toHaveBeenCalledTimes(1);
 
     // Conversation was created/retrieved
     expect(conversationServiceMock.getOrCreateConversation).toHaveBeenCalled();

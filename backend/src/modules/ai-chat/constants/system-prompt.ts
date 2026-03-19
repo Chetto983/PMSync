@@ -2,7 +2,7 @@
  * System prompt for AI Chat Assistant.
  *
  * This is server-side only -- never exposed to the client.
- * Injected by AiChatService into every streamText call.
+ * Injected by AiChatService into every ToolLoopAgent call.
  *
  * Phase 24: Backend Core Pipeline
  * Phase AI-AUDIT: Deep rewrite based on 2026 best practices

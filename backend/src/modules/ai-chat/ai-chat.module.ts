@@ -26,8 +26,6 @@ import {
   ReminderToolsService,
 } from './tools/index';
 import { SandboxService } from './services/sandbox.service';
-import { IntentRouterService } from './tools/intent-router.service';
-import { SkillsLoaderService } from './skills/skills-loader.service';
 import { MemoryService } from './services/memory.service';
 import { HybridSearchService } from './services/hybrid-search.service';
 
@@ -78,10 +76,6 @@ import { HybridSearchService } from './services/hybrid-search.service';
     // Phase REMINDER: Smart follow-up reminder tools
     ReminderToolsService,
     SandboxService,
-    // Phase 25 Plan 02: Intent routing + memory
-    IntentRouterService,
-    // Phase SKILLS: Contextual skill loading based on intent
-    SkillsLoaderService,
     MemoryService,
     // Phase 25 Plan 03: Hybrid search (vector + FTS)
     HybridSearchService,
