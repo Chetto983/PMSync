@@ -3735,7 +3735,7 @@ export const it: AppTranslations = {
     },
     hitl: {
       approveLabel: 'Approva',
-      rejectLabel: 'Rifiuta',
+      rejectLabel: 'Nega',
       pendingTitle: 'Azione richiede approvazione',
     },
     suggestions: {

@@ -69,27 +69,6 @@ test('GET /ai/chat/conversations — list conversations', async ({ request }) =>
   expect(Array.isArray(data.conversations)).toBe(true);
 });
 
-// ========== HITL ==========
-
-test('GET /ai/chat/pending-actions — list pending HITL actions', async ({ request }) => {
-  const res = await request.get(`${API}/ai/chat/pending-actions`, { headers: h() });
-  const body = await res.json();
-  const data = unwrap(body);
-  console.log(`[${res.status()}] pending-actions: ${data.actions?.length ?? 0} actions`);
-  expect(res.status()).toBe(200);
-  expect(data.success).toBe(true);
-  expect(Array.isArray(data.actions)).toBe(true);
-});
-
-test('POST /ai/chat/approve — bad actionId returns 404', async ({ request }) => {
-  const res = await request.post(`${API}/ai/chat/approve`, {
-    headers: h(),
-    data: { actionId: 'nonexistent-action-id', decision: 'reject' },
-  });
-  console.log(`[${res.status()}] approve-bad-id: ${(await res.text()).slice(0, 200)}`);
-  expect([400, 404]).toContain(res.status());
-});
-
 // ========== Briefing ==========
 
 test('GET /ai/briefing — daily briefing', async ({ request }) => {

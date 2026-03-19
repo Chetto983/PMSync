@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   IAiTool,
   IToolContext,
+  ToolDomain,
+  RiskLevel,
 } from '../../../common/interfaces/tool-registry.interface';
 import { ContactsService } from '../services/contacts.service';
 

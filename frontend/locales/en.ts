@@ -3758,7 +3758,7 @@ export const en: AppTranslations = {
     },
     hitl: {
       approveLabel: 'Approve',
-      rejectLabel: 'Reject',
+      rejectLabel: 'Deny',
       pendingTitle: 'Action requires approval',
     },
     suggestions: {

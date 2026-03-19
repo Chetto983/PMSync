@@ -96,6 +96,8 @@ export function HitlApprovalWrapper({
 
   return (
     <Box
+      data-testid="hitl-approval"
+      data-tool-name={toolName}
       sx={{
         border: 2,
         borderColor: 'warning.main',
@@ -175,6 +177,7 @@ export function HitlApprovalWrapper({
       {/* Approve / Deny buttons */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Button
+          data-testid="hitl-approve"
           variant="contained"
           size="small"
           onClick={handleApprove}
@@ -196,6 +199,7 @@ export function HitlApprovalWrapper({
           {t.chat.hitl.approveLabel}
         </Button>
         <Button
+          data-testid="hitl-deny"
           variant="contained"
           size="small"
           onClick={handleReject}

@@ -38,7 +38,7 @@ export const en: VoltAgentTranslations = {
       noSubject: '(No subject)',
       serviceUnavailable: 'Email service is temporarily unavailable. Please try again in a moment, or check your email provider connection in Settings → Connected Accounts.',
       notFound: 'Email not found. It may have been deleted or moved. Try searching for it or refresh your inbox.',
-      requiresApproval: 'This action requires your approval. Check the Pending Actions panel to approve or reject it.',
+      requiresApproval: 'This action requires your approval. Use the inline approval card to approve or deny it.',
     },
     calendar: {
       eventsFound: (count) => `${count} events found`,
@@ -49,7 +49,7 @@ export const en: VoltAgentTranslations = {
       slotConflict: (count) => `There are ${count} conflicting events`,
       serviceUnavailable: 'Calendar service is temporarily unavailable. Please try again, or check your calendar provider connection in Settings → Connected Accounts.',
       notFound: 'Event not found. It may have been deleted or rescheduled. Try checking your calendar directly.',
-      requiresApproval: 'This calendar action requires your approval. Check the Pending Actions panel to approve or reject it.',
+      requiresApproval: 'This calendar action requires your approval. Use the inline approval card to approve or deny it.',
     },
     contacts: {
       found: (count, query) => `Found ${count} contacts for "${query}"`,
@@ -59,7 +59,7 @@ export const en: VoltAgentTranslations = {
       deleted: (name) => `Contact "${name}" deleted`,
       alreadyExists: (email) => `Contact with email ${email} already exists. Search for the existing contact to update it.`,
       notFound: 'Contact not found. It may have been deleted. Try searching for similar contacts.',
-      requiresApproval: 'This contact action requires your approval. Check the Pending Actions panel to approve or reject it.',
+      requiresApproval: 'This contact action requires your approval. Use the inline approval card to approve or deny it.',
     },
     attachments: {
       list: {

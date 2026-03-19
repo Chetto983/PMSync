@@ -26,7 +26,7 @@ export const it: VoltAgentTranslations = {
       noSubject: '(Nessun oggetto)',
       serviceUnavailable: 'Servizio email temporaneamente non disponibile. Riprova tra un momento, oppure verifica la connessione al provider email in Impostazioni → Account collegati.',
       notFound: 'Email non trovata. Potrebbe essere stata eliminata o spostata. Prova a cercarla o aggiorna la posta in arrivo.',
-      requiresApproval: 'Questa azione richiede la tua approvazione. Controlla il pannello Azioni in Sospeso per approvarla o rifiutarla.',
+      requiresApproval: "Questa azione richiede la tua approvazione. Usa la scheda inline per approvarla o negarla.",
     },
     calendar: {
       eventsFound: (count) => `${count} eventi trovati`,
@@ -37,7 +37,7 @@ export const it: VoltAgentTranslations = {
       slotConflict: (count) => `Ci sono ${count} eventi in conflitto`,
       serviceUnavailable: 'Servizio calendario temporaneamente non disponibile. Riprova tra un momento, oppure verifica la connessione al calendario in Impostazioni → Account collegati.',
       notFound: 'Evento non trovato. Potrebbe essere stato eliminato o spostato. Prova a cercarlo o aggiorna la vista del calendario.',
-      requiresApproval: 'Questa azione richiede la tua approvazione. Controlla il pannello Azioni in Sospeso per approvarla o rifiutarla.',
+      requiresApproval: "Questa azione richiede la tua approvazione. Usa la scheda inline per approvarla o negarla.",
     },
     contacts: {
       found: (count, query) => `Trovati ${count} contatti per "${query}"`,
@@ -47,7 +47,7 @@ export const it: VoltAgentTranslations = {
       deleted: (name) => `Contatto "${name}" eliminato`,
       alreadyExists: (email) => `Un contatto con email ${email} esiste già. Cerca il contatto esistente oppure usa un indirizzo email diverso.`,
       notFound: 'Contatto non trovato. Potrebbe essere stato eliminato o unito con un altro. Prova a cercarlo per nome o email.',
-      requiresApproval: 'Questa azione richiede la tua approvazione. Controlla il pannello Azioni in Sospeso per approvarla o rifiutarla.',
+      requiresApproval: "Questa azione richiede la tua approvazione. Usa la scheda inline per approvarla o negarla.",
     },
     askUser: {
       description: `Strumento OBBLIGATORIO per richiedere input utente. È una chiamata BLOCCANTE - l'esecuzione si FERMA fino alla risposta. QUANDO USARE: Più risultati trovati, info mancanti, o richiesta ambigua. COME FUNZIONA: Chiama questo tool → Frontend mostra modale → Utente clicca scelta → Esecuzione riprende. MAI fare domande in testo - USA SEMPRE questo tool.`,

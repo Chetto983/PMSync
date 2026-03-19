@@ -311,6 +311,7 @@ describe('aiChatApi (AI Chat)', () => {
     });
   });
 
+  /*
   describe('getPendingActions', () => {
     it('should call correct endpoint', async () => {
       const mockResponse = {
@@ -385,6 +386,7 @@ describe('aiChatApi (AI Chat)', () => {
     });
   });
 
+  */
   // getActionCounts, resetLearning, getLearningStats, getAggregateStats, getFeedback
   // tests removed — endpoints removed from aiChatApi
 
@@ -651,6 +653,7 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
       expect(result.executedActionIds).toEqual([]);
     });
 
+    /*
     it('should extract pendingActionIds from pendingActions', async () => {
       mockFetch.mockResolvedValue(
         createStreamResponse([
@@ -679,6 +682,7 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       expect(result.pendingActionIds).toEqual(['action-1', 'action-2']);
     });
+    */
   });
 
   describe('getAgents', () => {
@@ -689,6 +693,6 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
     });
   });
 
-  // getPendingActions, approveAction, rejectAction tests removed:
-  // poll-based HITL replaced by SDK-native approval flow
+  // Legacy REST HITL tests removed:
+  // poll-based approval endpoints were replaced by SDK-native inline approvals.
 });

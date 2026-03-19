@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -20,14 +20,11 @@ import {
 import { useRouter } from 'next/router';
 
 import { authClient } from '@/lib/auth-client';
-import { aiChatApi, type PendingAction } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThemeToggle } from './ThemeToggle';
-import { throttledGetPendingActions } from './header/header-utils';
 import { UserMenu } from './header/UserMenu';
 import { NotificationBell } from './header/NotificationBell';
-import { AiActionsBell } from './header/AiActionsBell';
 import { LanguageMenu } from './header/LanguageMenu';
 import { OrgSwitcher } from '@/components/organizations/OrgSwitcher';
 
@@ -60,63 +57,10 @@ export function Header({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null);
   const [languageAnchor, setLanguageAnchor] = useState<null | HTMLElement>(null);
-  const [aiActionsAnchor, setAiActionsAnchor] = useState<null | HTMLElement>(null);
   // Notifications disabled during email rebuild - static empty state
   const notifications: HeaderNotification[] = [];
   const notificationsLoading = false;
-  const [pendingAiActions, setPendingAiActions] = useState(0);
-  const [pendingActionsList, setPendingActionsList] = useState<PendingAction[]>([]);
-  const [actionsLoading, setActionsLoading] = useState(false);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
   const { locale, changeLocale } = useLocale();
-
-  // Notifications disabled during email rebuild - no-op function
-  const fetchNotifications = useCallback(() => {
-    // Disabled during rebuild - state already initialized to empty
-  }, []);
-
-  // AI Actions Menu handlers
-  const handleAiActionsOpen = async (event: React.MouseEvent<HTMLElement>) => {
-    setAiActionsAnchor(event.currentTarget);
-    setActionsLoading(true);
-    try {
-      const response = await aiChatApi.getPendingActions();
-      const data = response.data;
-      setPendingActionsList(data?.actions || []);
-      setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
-    } catch {
-      // Silently fail
-    } finally {
-      setActionsLoading(false);
-    }
-  };
-
-  const handleApproveAction = async (executionId: string) => {
-    setApprovingId(executionId);
-    try {
-      await aiChatApi.approveAction(executionId);
-      setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
-      setPendingAiActions((prev) => Math.max(0, prev - 1));
-    } catch {
-      // Silently fail
-    } finally {
-      setApprovingId(null);
-    }
-  };
-
-  const handleRejectAction = async (executionId: string) => {
-    setRejectingId(executionId);
-    try {
-      await aiChatApi.rejectAction(executionId);
-      setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
-      setPendingAiActions((prev) => Math.max(0, prev - 1));
-    } catch {
-      // Silently fail
-    } finally {
-      setRejectingId(null);
-    }
-  };
 
   const handleLogout = async () => {
     setAnchorEl(null);
@@ -128,44 +72,6 @@ export function Header({
     changeLocale(newLocale);
     setLanguageAnchor(null);
   };
-
-  // Fix race condition: use useRef instead of local variable for mounted check
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    const initFetch = async () => {
-      fetchNotifications();
-      try {
-        const result = await throttledGetPendingActions();
-        if (mountedRef.current && result.total >= 0) {
-          setPendingAiActions(result.total);
-        }
-      } catch {
-        // Silently fail - AI stats are not critical
-      }
-    };
-
-    initFetch();
-
-    const interval = setInterval(async () => {
-      if (!mountedRef.current) return;
-      try {
-        const result = await throttledGetPendingActions();
-        if (mountedRef.current && result.total >= 0) {
-          setPendingAiActions(result.total);
-        }
-      } catch {
-        // Silently fail
-      }
-    }, 60000);
-
-    return () => {
-      mountedRef.current = false;
-      clearInterval(interval);
-    };
-  }, [fetchNotifications]);
 
   const unreadCount = notifications.length;
   const displayName =
@@ -215,38 +121,19 @@ export function Header({
 
         {/* Right Side Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {/* AI Actions Quick Access */}
-          <Tooltip title={pendingAiActions > 0 ? (t.ai?.pendingActions || 'Pending Actions') : (t.ai?.title || 'AI Assistant')}>
+          {/* AI Assistant entry point. HITL approvals are handled inline in chat. */}
+          <Tooltip title={t.ai?.title || 'AI Assistant'}>
             <IconButton
-              onClick={pendingAiActions > 0 ? handleAiActionsOpen : () => router.push('/dashboard/ai')}
+              onClick={() => router.push('/dashboard/ai')}
               sx={{
                 position: 'relative',
-                background: pendingAiActions > 0
-                  ? (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`
-                  : 'transparent',
-                color: pendingAiActions > 0 ? 'white' : 'inherit',
+                color: 'inherit',
                 '&:hover': {
-                  background: (theme) =>
-                    pendingAiActions > 0
-                      ? `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, #6d28d9 100%)`
-                      : alpha(theme.palette.primary.main, 0.1),
+                  background: (theme) => alpha(theme.palette.primary.main, 0.1),
                 },
               }}
             >
-              <Badge
-                badgeContent={pendingAiActions}
-                color="warning"
-                invisible={pendingAiActions === 0}
-                sx={{
-                  '& .MuiBadge-badge': {
-                    fontSize: '0.65rem',
-                    height: 16,
-                    minWidth: 16,
-                  },
-                }}
-              >
-                <Sparkles size={20} />
-              </Badge>
+              <Sparkles size={20} />
             </IconButton>
           </Tooltip>
 
@@ -273,7 +160,7 @@ export function Header({
 
           {/* Notifications */}
           <Tooltip title={t.nav.notifications}>
-            <IconButton color="inherit" onClick={(e) => { setNotificationAnchor(e.currentTarget); fetchNotifications(); }}>
+            <IconButton color="inherit" onClick={(e) => setNotificationAnchor(e.currentTarget)}>
               <Badge
                 badgeContent={Math.min(99, unreadCount)}
                 color="error"
@@ -335,19 +222,6 @@ export function Header({
           unreadCount={unreadCount}
           onViewAll={() => router.push('/dashboard/email')}
           onNotificationClick={() => router.push('/dashboard/email')}
-        />
-
-        <AiActionsBell
-          anchorEl={aiActionsAnchor}
-          onClose={() => setAiActionsAnchor(null)}
-          pendingAiActions={pendingAiActions}
-          pendingActionsList={pendingActionsList}
-          actionsLoading={actionsLoading}
-          approvingId={approvingId}
-          rejectingId={rejectingId}
-          onApprove={handleApproveAction}
-          onReject={handleRejectAction}
-          onViewAll={() => router.push('/dashboard/ai')}
         />
 
         <LanguageMenu

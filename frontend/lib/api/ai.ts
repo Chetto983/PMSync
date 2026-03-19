@@ -86,55 +86,6 @@ export type AgentInfo = {
   supportedIntents: string[];
 };
 
-export type PendingAction = {
-  id: string;
-  executionId: string;
-  actionType: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
-  summary: string;
-  payload: Record<string, unknown>;
-  suspendReason: string;
-  suspendedAt: string;
-  userId: string;
-  agentName: string;
-  confidence?: number;
-  adjustedConfidence?: number;
-  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED';
-  sessionId?: string;
-  reasoningSteps?: string;
-};
-
-export type ActionCounts = {
-  PENDING?: number;
-  APPROVED?: number;
-  REJECTED?: number;
-  EXECUTED?: number;
-  FAILED?: number;
-  EXPIRED?: number;
-};
-
-export type ActionExecutionResult = {
-  success: boolean;
-  error?: string;
-  summary?: string | string[];
-  data?: Record<string, unknown>;
-  executionTimeMs: number;
-};
-
-export type ApprovalResponse = {
-  status: 'approved' | 'rejected';
-  approved: boolean;
-  approvedBy?: string;
-  approvedAt?: string;
-  rejectionReason?: string;
-  executionResult?: ActionExecutionResult;
-  action?: {
-    actionType: string;
-    summary: string;
-    payload?: Record<string, unknown>;
-  };
-};
-
 export type LearningProfileStats = {
   agentName: string;
   actionType: string;
@@ -567,35 +518,6 @@ export const aiChatApi = {
       });
 
     return controller;
-  },
-
-  // Pending Actions (HITL)
-  getPendingActions() {
-    return apiClient.get<{ actions: PendingAction[]; total: number }>(
-      '/ai/chat/pending-actions',
-    );
-  },
-
-  approveAction(executionId: string, payload?: Record<string, unknown>) {
-    return apiClient.post<ApprovalResponse>(
-      '/ai/chat/approve',
-      {
-        actionId: executionId,
-        decision: 'approve' as const,
-        ...(payload ? { modifiedPayload: payload } : {}),
-      },
-    );
-  },
-
-  rejectAction(executionId: string, rejectionReason?: string) {
-    return apiClient.post<ApprovalResponse>(
-      '/ai/chat/approve',
-      {
-        actionId: executionId,
-        decision: 'reject' as const,
-        ...(rejectionReason ? { rejectionReason } : {}),
-      },
-    );
   },
 
   // Stats
