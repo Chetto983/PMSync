@@ -8,8 +8,8 @@
  * Design decisions:
  * - Unread: 3px left accent border (not background tint)
  * - AI-suggested labels hidden in list (noise) — visible in detail view
- * - Action bar: hover-only on ALL viewports (eliminates mobile overlap)
- * - Checkbox: appears on hover or when selected
+ * - Action bar: hover on desktop, selected-row on touch so bulk flows stay reachable
+ * - Checkbox: always reachable on touch, hover/selection on desktop
  * - ~52px row height for high information density
  */
 
@@ -23,6 +23,8 @@ import {
   Chip,
   Fade,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap } from 'lucide-react';
@@ -93,8 +95,12 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   onMouseEnter, onMouseLeave,
 }: ThreadListItemProps) {
   const t = useTranslations();
+  const theme = useTheme();
   const queryClient = useQueryClient();
   const prefetchRef = useRef<NodeJS.Timeout | null>(null);
+  const isNarrowViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
+  const isTouchLayout = isNarrowViewport || hasTouchPointer;
 
   // Debounced prefetch on hover (300ms)
   const handleMouseEnter = useCallback(() => {
@@ -128,6 +134,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   const hasS = thread.aiSentiment === 'urgent' || thread.aiSentiment === 'negative';
   const userLabels = (thread.labels || []).slice(0, 2);
   const showIndicators = hasP || hasS || userLabels.length > 0;
+  const showSelectionAffordance = isTouchLayout || isHovered || isSelected;
+  const showQuickActions = isHovered || (isTouchLayout && isSelected);
 
   // Snippet: merge with subject on line 2 if non-redundant
   const showSnippet = thread.snippet && !isSnippetRedundant(thread.subject, thread.snippet);
@@ -167,9 +175,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           bgcolor: isSelected ? 'action.selected' : 'action.hover',
         },
       }}
-    >
-      {/* Checkbox — visible on hover or when selected */}
-      <Fade in={isHovered || isSelected}>
+      >
+        {/* Checkbox — visible on hover or when selected */}
+      <Fade in={showSelectionAffordance}>
         <Box sx={{ width: 36, flexShrink: 0 }}>
           <Checkbox
             checked={isSelected}
@@ -329,8 +337,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
         )}
       </Box>
 
-      {/* Action bar — hover-only on ALL viewports (no mobile overlap) */}
-      <Fade in={isHovered}>
+      {/* Touch layouts need a visible path into bulk actions; desktop keeps hover density. */}
+      <Fade in={showQuickActions}>
         <Box
           className="thread-action-bar"
           sx={{

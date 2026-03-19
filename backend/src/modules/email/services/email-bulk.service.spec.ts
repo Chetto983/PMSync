@@ -327,7 +327,9 @@ describe('EmailBulkService', () => {
       expect(mockRealtimeEventsService.emitEmailUpdate).toHaveBeenCalledWith(
         'tenant-1',
         expect.objectContaining({
+          folder: 'Archive',
           reason: 'folder-updated',
+          sourceFolder: 'INBOX',
         })
       );
     });

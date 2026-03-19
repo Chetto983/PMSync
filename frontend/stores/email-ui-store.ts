@@ -69,11 +69,6 @@ export const useEmailUIStore = create<EmailUIState>()(
           }),
         clearPendingActions: () => set({ pendingActions: new Set<string>() }),
 
-        // AI prompt bridge
-        pendingAiPrompt: null,
-        setPendingAiPrompt: (prompt: string) => set({ pendingAiPrompt: prompt }),
-        clearPendingAiPrompt: () => set({ pendingAiPrompt: null }),
-
         // Reset (touches all slices)
         reset: () =>
           set({
@@ -89,7 +84,6 @@ export const useEmailUIStore = create<EmailUIState>()(
             compose: initialComposeState,
             pendingActions: new Set<string>(),
             kanbanAssignments: {},
-            pendingAiPrompt: null,
           }),
       }),
       {

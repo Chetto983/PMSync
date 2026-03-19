@@ -117,9 +117,6 @@ export interface EmailUIState {
   // Loading states (for optimistic UI)
   pendingActions: Set<string>; // emailIds with pending actions
 
-  // AI prompt bridge (ephemeral, not persisted)
-  pendingAiPrompt: string | null;
-
   // Kanban state (LOCAL ONLY - not persisted to backend)
   kanbanAssignments: KanbanColumnAssignments;
 
@@ -156,10 +153,6 @@ export interface EmailUIState {
   addPendingAction: (emailId: string) => void;
   removePendingAction: (emailId: string) => void;
   clearPendingActions: () => void;
-
-  // Actions - AI prompt bridge
-  setPendingAiPrompt: (prompt: string) => void;
-  clearPendingAiPrompt: () => void;
 
   // Actions - Sidebar
   setSidebarWidth: (width: number) => void;

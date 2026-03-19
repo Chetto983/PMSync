@@ -22,6 +22,7 @@ export interface RealtimeEmailEvent<T = any> {
   externalId?: string;
   providerId: string;
   folder?: string;
+  sourceFolder?: string;
   reason:
     | 'message-processed'
     | 'message-deleted'

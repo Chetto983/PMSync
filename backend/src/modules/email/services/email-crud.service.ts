@@ -351,6 +351,8 @@ export class EmailCrudService {
       emailId: updated.id,
       providerId: updated.providerId,
       folder: targetFolder,
+      sourceFolder:
+        data.folder && data.folder !== originalFolder ? originalFolder : undefined,
       threadId: updated.threadId ?? undefined,
       updates: data,
       reason,

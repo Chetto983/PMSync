@@ -19,7 +19,6 @@ import {
   Trash2,
   FolderInput,
   Tag,
-  Zap,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EmailSearchBar } from './EmailSearchBar';
@@ -45,8 +44,6 @@ interface ThreadListHeaderProps {
   onDelete: () => void;
   onMoveToFolder: () => void;
   onAddLabel: () => void;
-  /** Apply AI triage suggestions to selected emails */
-  onApplyAiSuggestions?: () => void;
   /** Bulk action in-flight */
   isBulkActionPending?: boolean;
 }
@@ -73,7 +70,6 @@ export function ThreadListHeader({
   onDelete,
   onMoveToFolder,
   onAddLabel,
-  onApplyAiSuggestions,
   isBulkActionPending = false,
 }: ThreadListHeaderProps) {
   const t = useTranslations();
@@ -238,20 +234,6 @@ export function ThreadListHeader({
             </IconButton>
           </Tooltip>
 
-          {/* Apply AI suggestions */}
-          {onApplyAiSuggestions && (
-            <Tooltip title={t.emailList.applyAiSuggestions}>
-              <IconButton
-                size="small"
-                onClick={onApplyAiSuggestions}
-                disabled={isBulkActionPending}
-                aria-label={t.emailList.applyAiSuggestions}
-                sx={{ color: 'info.main' }}
-              >
-                <Zap size={18} />
-              </IconButton>
-            </Tooltip>
-          )}
         </>
       )}
 

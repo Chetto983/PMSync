@@ -45,7 +45,6 @@ export interface UseEmailPageActionsParams {
 }
 
 export interface EmailPageStateSnapshot {
-  emails: Email[];
   lists: [QueryKey, ListEmailsResponse | undefined][];
 }
 

@@ -337,6 +337,31 @@ describe('EmailCrudService', () => {
       );
     });
 
+    it('should include sourceFolder when moving an email between folders', async () => {
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          $queryRaw: jest.fn().mockResolvedValue([
+            { id: 'email-1', providerId: 'provider-1', folder: 'INBOX', externalId: 'ext-1' },
+          ]),
+          email: {
+            update: jest.fn().mockResolvedValue({ ...mockEmail, folder: 'Archive' }),
+          },
+        };
+        return callback(tx);
+      });
+
+      await service.updateEmail('email-1', 'tenant-1', { folder: 'Archive' });
+
+      expect(mockRealtimeEventsService.emitEmailUpdate).toHaveBeenCalledWith(
+        'tenant-1',
+        expect.objectContaining({
+          folder: 'Archive',
+          reason: 'folder-updated',
+          sourceFolder: 'INBOX',
+        }),
+      );
+    });
+
     it('should throw NotFoundException when email not found', async () => {
       mockPrismaService.$transaction.mockImplementation(async (callback) => {
         const tx = {

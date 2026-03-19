@@ -19,6 +19,7 @@ import { ThreadListItem, ThreadListItemData } from './ThreadListItem';
 
 interface DraggableThreadListItemProps {
   thread: ThreadListItemData & { providerId: string };
+  draggedEmailIds: string[] | null;
   isSelected: boolean;
   isHovered: boolean;
   /** Keyboard navigation focus state */
@@ -39,6 +40,7 @@ interface DraggableThreadListItemProps {
  */
 export const DraggableThreadListItem = memo<DraggableThreadListItemProps>(function DraggableThreadListItem({
   thread,
+  draggedEmailIds,
   isSelected,
   isHovered,
   isFocused = false,
@@ -51,11 +53,14 @@ export const DraggableThreadListItem = memo<DraggableThreadListItemProps>(functi
   onMouseEnter,
   onMouseLeave,
 }: DraggableThreadListItemProps) {
+  const emailIds = draggedEmailIds ?? [thread.id];
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: thread.id,
     data: {
       type: 'email',
       emailId: thread.id,
+      emailIds,
+      emailCount: emailIds.length,
       providerId: thread.providerId,
       thread,
     },
@@ -104,6 +109,7 @@ export const DraggableThreadListItem = memo<DraggableThreadListItemProps>(functi
   prev.thread.hasAttachments === next.thread.hasAttachments &&
   prev.thread.threadCount === next.thread.threadCount &&
   prev.thread.providerId === next.thread.providerId &&
+  (prev.draggedEmailIds?.join('|') ?? '') === (next.draggedEmailIds?.join('|') ?? '') &&
   prev.isSelected === next.isSelected &&
   prev.isHovered === next.isHovered &&
   prev.isFocused === next.isFocused

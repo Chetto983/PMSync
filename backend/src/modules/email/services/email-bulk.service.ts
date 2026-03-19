@@ -349,12 +349,14 @@ export class EmailBulkService {
     });
 
     const updatedEmails = await this.emailCrud.getEmailsByIds(emailIds, tenantId);
+    const sourceFolderByEmailId = new Map(emails.map((email) => [email.id, email.folder]));
 
     for (const email of updatedEmails) {
       this.realtimeEvents.emitEmailUpdate(tenantId, {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
+        sourceFolder: sourceFolderByEmailId.get(email.id),
         threadId: email.threadId ?? undefined,
         email: email,
         reason: 'folder-updated',

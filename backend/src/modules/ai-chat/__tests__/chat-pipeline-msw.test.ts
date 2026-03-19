@@ -329,7 +329,7 @@ describe('Chat Pipeline (MSW)', () => {
 
     expect(getContextOrder).toBeTypeOf('number');
     expect(saveUserOrder).toBeTypeOf('number');
-    expect(getContextOrder!).toBeLessThan(saveUserOrder!);
+    expect(getContextOrder).toBeLessThan(saveUserOrder);
   }, 30_000);
 
   it('rate limiter rejection returns 429', async () => {

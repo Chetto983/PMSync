@@ -19,6 +19,7 @@ import {
   RealtimeEmailEvent,
   RealtimeFolderCountsEvent,
 } from '@/lib/websocket-client';
+import { emailUpdateTouchesCurrentFolder } from '@/components/email/utils/email-behavior';
 import { emailKeys } from '@/hooks/queries/email-keys';
 import { folderKeys } from '@/hooks/queries/use-folders';
 import { labelKeys } from '@/hooks/queries/use-labels';
@@ -194,14 +195,14 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
 
       if (event.reason === 'labels-updated') {
         inv.schedule('labels');
-        if (!folder || !event.folder || event.folder === folder) {
+        if (emailUpdateTouchesCurrentFolder(folder, event)) {
           inv.schedule('list');
         }
         return;
       }
 
-      // For other updates (labels, folder move), only invalidate if folder matches
-      if (folder && event.folder && event.folder !== folder) {
+      // Folder moves affect both the source and destination list.
+      if (!emailUpdateTouchesCurrentFolder(folder, event)) {
         return;
       }
 

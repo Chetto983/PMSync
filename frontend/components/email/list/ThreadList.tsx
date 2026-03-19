@@ -21,9 +21,9 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 // DragOverlay is centralized in EmailLayout
-import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailUIStore } from '@/stores/email-ui-store';
+import { getDraggedEmailIds } from '@/components/email/utils/email-behavior';
 // DnD state is managed by EmailLayout - no need to access here
 import { ThreadListHeader } from './ThreadListHeader';
 import { ThreadListItem, ThreadListItemData } from './ThreadListItem';
@@ -94,8 +94,6 @@ export function ThreadList({
   // Mobile uses touch scroll, and DndContext isn't available in mobile layouts anyway
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
-  const router = useRouter();
-
   // Selection state from Zustand store (replaces local useState)
   const {
     selectedIds,
@@ -105,7 +103,6 @@ export function ThreadList({
     selectRange,
     selectAll,
     clearSelection,
-    setPendingAiPrompt,
   } = useEmailUIStore();
 
   // Local UI state (hover, refreshing, folder picker)
@@ -130,6 +127,19 @@ export function ThreadList({
   // Selection helpers
   const allSelected = threads.length > 0 && selectedIds.size === threads.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
+  const selectedIdsByProvider = useMemo(() => {
+    const idsByProvider = new Map<string, string[]>();
+
+    threads.forEach((thread) => {
+      if (!thread.providerId || !selectedIds.has(thread.id)) return;
+
+      const current = idsByProvider.get(thread.providerId) ?? [];
+      current.push(thread.id);
+      idsByProvider.set(thread.providerId, current);
+    });
+
+    return idsByProvider;
+  }, [selectedIds, threads]);
 
   const handleSelectAll = useCallback(() => {
     selectAll(threads.map((t) => t.id));
@@ -207,17 +217,6 @@ export function ThreadList({
     onBulkLabel?.(Array.from(selectedIds));
     // Keep selection for label picker
   }, [onBulkLabel, selectedIds]);
-
-  const handleApplyAiSuggestions = useCallback(() => {
-    if (selectedIds.size === 0) return;
-    const selected = threads.filter((t) => selectedIds.has(t.id));
-    const emailLines = selected
-      .map((t, i) => `${i + 1}. From: ${t.from} - Subject: ${t.subject || 'No subject'}`)
-      .join('\n');
-    const prompt = `Triage these ${selected.length} emails:\n${emailLines}\n\nAssign appropriate labels and create follow-ups where needed.`;
-    setPendingAiPrompt(prompt);
-    router.push('/dashboard/ai');
-  }, [selectedIds, threads, setPendingAiPrompt, router]);
 
   // Individual action handlers - FIXED: Memoized
   const handleFlag = useCallback((id: string) => onFlag?.(id), [onFlag]);
@@ -340,7 +339,6 @@ export function ThreadList({
         onDelete={handleBulkDelete}
         onMoveToFolder={handleBulkMove}
         onAddLabel={handleBulkLabel}
-        onApplyAiSuggestions={handleApplyAiSuggestions}
         isBulkActionPending={isBulkActionPending}
       />
 
@@ -371,6 +369,12 @@ export function ThreadList({
             const isSelected = selectedIds.has(thread.id);
             const isHovered = hoveredId === thread.id;
             const isFocused = focusedId === thread.id;
+            const draggedEmailIds = isSelected
+              ? getDraggedEmailIds(
+                  thread.id,
+                  selectedIdsByProvider.get(thread.providerId ?? '') ?? [thread.id],
+                )
+              : null;
 
             return (
               <Box
@@ -389,6 +393,7 @@ export function ThreadList({
                 {thread.providerId && isDesktop ? (
                   <DraggableThreadListItem
                     thread={thread as ThreadListItemData & { providerId: string }}
+                    draggedEmailIds={draggedEmailIds}
                     isSelected={isSelected}
                     isHovered={isHovered}
                     isFocused={isFocused}

@@ -143,6 +143,11 @@ export function EmailLayout({
       // Email dropped on folder
       if (activeType === 'email' && overType === 'folder' && onEmailDrop) {
         const emailId = active.id as string;
+        const emailIds =
+          Array.isArray(active.data.current?.emailIds) &&
+          active.data.current.emailIds.every((value) => typeof value === 'string')
+            ? active.data.current.emailIds
+            : [emailId];
         const folderId = over.id as string;
         const folderName = over.data.current?.folderName || 'folder';
         const emailProviderId = active.data.current?.providerId;
@@ -153,7 +158,7 @@ export function EmailLayout({
           return; // Invalid cross-provider drop
         }
 
-        onEmailDrop([emailId], folderId, folderName);
+        onEmailDrop(emailIds, folderId, folderName);
       }
 
       // Folder reordering (sortable folders within same provider)
@@ -382,7 +387,9 @@ export function EmailLayout({
                     <>
                       <Mail size={18} style={{ color: theme.palette.primary.main }} />
                       <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-                        {activeData.thread?.subject || 'Email'}
+                        {activeData.emailCount && activeData.emailCount > 1
+                          ? `${activeData.emailCount} emails`
+                          : activeData.thread?.subject || 'Email'}
                       </Typography>
                     </>
                   ) : (
@@ -482,7 +489,9 @@ export function EmailLayout({
                 <>
                   <Mail size={18} style={{ color: theme.palette.primary.main }} />
                   <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-                    {activeData.thread?.subject || 'Email'}
+                    {activeData.emailCount && activeData.emailCount > 1
+                      ? `${activeData.emailCount} emails`
+                      : activeData.thread?.subject || 'Email'}
                   </Typography>
                 </>
               ) : (

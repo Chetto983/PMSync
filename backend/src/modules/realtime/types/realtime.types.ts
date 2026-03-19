@@ -16,6 +16,7 @@ export interface EmailEventPayload {
   externalId?: string;
   providerId: string;
   folder?: string;
+  sourceFolder?: string;
   reason: EmailEventReason;
   email?: Record<string, unknown>;
   updates?: Record<string, unknown>;

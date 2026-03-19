@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
@@ -37,6 +37,7 @@ import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 import { extractEmailAddress, formatEmailToThread } from '@/components/email/utils/email-formatters';
+import { getEffectiveEmailListPage } from '@/components/email/utils/email-behavior';
 import { useEmailPageActions, type EmailPageStateSnapshot } from '@/components/email/hooks/use-email-page-actions';
 
 export default function EmailPage() {
@@ -63,17 +64,22 @@ export default function EmailPage() {
 
   // Handle ?id= query param from dashboard widgets
   useEffect(() => {
-    const emailId = router.query.id as string;
-    if (emailId) {
-      if (isDesktop) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelectedThreadId(emailId);
-      } else {
-        router.replace(`/dashboard/email/thread/${emailId}`);
-      }
-      router.replace('/dashboard/email', undefined, { shallow: true });
+    if (!router.isReady) return;
+
+    const emailId =
+      typeof router.query.id === 'string' ? router.query.id : null;
+
+    if (!emailId) return;
+
+    if (isDesktop) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedThreadId(emailId);
+      void router.replace('/dashboard/email', undefined, { shallow: true });
+      return;
     }
-  }, [router.query.id, isDesktop, router]);
+
+    void router.replace(`/dashboard/email/thread/${emailId}`);
+  }, [router.isReady, router.query.id, isDesktop, router]);
 
   const filters = useEmailFilters();
   const { data: foldersData } = useFolders();
@@ -125,13 +131,20 @@ export default function EmailPage() {
   );
 
   const filterKey = useMemo(() => JSON.stringify(baseEmailParams), [baseEmailParams]);
+  const previousFilterKeyRef = useRef<string | null>(filterKey);
+  const effectivePage = getEffectiveEmailListPage({
+    page,
+    filterKey,
+    previousFilterKey: previousFilterKeyRef.current,
+  });
 
   useEffect(() => {
+    previousFilterKeyRef.current = filterKey;
     setPage(1); // eslint-disable-line react-hooks/set-state-in-effect
   }, [filterKey]);
 
   const emailQueries = useQueries({
-    queries: Array.from({ length: page }, (_, index) =>
+    queries: Array.from({ length: effectivePage }, (_, index) =>
       emailsListOptions({ ...baseEmailParams, page: index + 1 })
     ),
   });
@@ -149,9 +162,10 @@ export default function EmailPage() {
     return Array.from(merged.values());
   }, [emailQueries]);
 
-  const responsePagination = emailQueries[page - 1]?.data?.pagination;
+  const responsePagination = emailQueries[effectivePage - 1]?.data?.pagination;
   const hasMore = responsePagination ? responsePagination.page < responsePagination.totalPages : false;
-  const loadingMore = page > 1 && (emailQueries[page - 1]?.isFetching ?? false);
+  const loadingMore =
+    effectivePage > 1 && (emailQueries[effectivePage - 1]?.isFetching ?? false);
 
   const handleLoadMore = useCallback(() => {
     if (!isFetching && hasMore) setPage((p) => p + 1);
@@ -159,6 +173,15 @@ export default function EmailPage() {
 
   const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');
   const { data: preferences } = useUserPreferences();
+
+  useEffect(() => {
+    if (!selectedThreadId || !isDesktop || loading) return;
+
+    const selectedStillVisible = emails.some((email) => email.id === selectedThreadId);
+    if (!selectedStillVisible) {
+      setSelectedThreadId(null); // eslint-disable-line react-hooks/set-state-in-effect
+    }
+  }, [emails, isDesktop, loading, selectedThreadId]);
 
   const senderEmails = useMemo(() => {
     if (!emails.length) return [];
@@ -239,10 +262,9 @@ export default function EmailPage() {
 
   const captureEmailsState = useCallback(
     (): EmailPageStateSnapshot => ({
-      emails: emails.map((email) => ({ ...email })),
       lists: queryClient.getQueriesData<ListEmailsResponse>({ queryKey: emailKeys.list() }),
     }),
-    [emails, queryClient]
+    [queryClient]
   );
   const restoreEmailsState = useCallback((snapshot: EmailPageStateSnapshot) => {
     snapshot.lists.forEach(([queryKey, data]) => {
