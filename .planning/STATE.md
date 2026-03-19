@@ -78,6 +78,7 @@ None yet.
 ### Roadmap Evolution
 
 - Phase 86 added: AI Chat Bug Fix — Migrate to Official Patterns (deprecation cleanup, thread persistence, tool rendering via components.tools)
+- Phase 87 added: AI-CHAT-MODULE FIX (security fixes, bug fixes, race conditions, dead code cleanup from module audit)
 
 ### Blockers/Concerns
 

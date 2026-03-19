@@ -18,29 +18,22 @@ function createMockPrisma() {
   } as any;
 }
 
-function createMockMistralProvider() {
+function createMockEmbeddingService() {
   return {
-    getEmbeddingModel: vi.fn().mockReturnValue('mock-embed-model'),
+    generateEmbedding: vi.fn().mockResolvedValue(new Array(1024).fill(0.1)),
   } as any;
 }
-
-// Mock the 'ai' module embed function
-vi.mock('ai', () => ({
-  embed: vi.fn().mockResolvedValue({
-    embedding: new Array(1024).fill(0.1),
-  }),
-}));
 
 describe('HybridSearchService', () => {
   let service: HybridSearchService;
   let mockPrisma: ReturnType<typeof createMockPrisma>;
-  let mockMistral: ReturnType<typeof createMockMistralProvider>;
+  let mockEmbeddingService: ReturnType<typeof createMockEmbeddingService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma = createMockPrisma();
-    mockMistral = createMockMistralProvider();
-    service = new HybridSearchService(mockPrisma, mockMistral);
+    mockEmbeddingService = createMockEmbeddingService();
+    service = new HybridSearchService(mockPrisma, mockEmbeddingService);
   });
 
   describe('searchEmails', () => {

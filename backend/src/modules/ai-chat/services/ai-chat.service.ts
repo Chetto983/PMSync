@@ -606,9 +606,9 @@ export class AiChatService {
   /**
    * Async summary generation for long conversations.
    *
-   * Triggers when conversation exceeds 20 messages.
-   * Summarizes older messages (all except the last 10)
-   * and stores the summary in AiConversation.summary.
+   * Triggers at 20-message intervals (20, 40, 60, ...) with a ±2 tolerance
+   * window for multi-step tool call bursts. Summarizes older messages
+   * (all except the last 10) and stores in AiConversation.summary.
    *
    * Fire-and-forget from onFinish callback -- failures are logged, not thrown.
    */
@@ -619,7 +619,9 @@ export class AiChatService {
     const messageCount =
       await this.conversationService.getMessageCount(conversationId);
 
-    if (messageCount <= 20) return;
+    // Only at 20-message intervals (±2 tolerance for multi-step bursts).
+    // Prevents redundant LLM summary calls on every message after 20.
+    if (messageCount < 20 || messageCount % 20 > 2) return;
 
     // Load older messages to summarize
     const olderMessages =
