@@ -62,13 +62,21 @@ describe('ConversationService (real Prisma)', () => {
     expect(conversation.userId).toBe(testUserId);
 
     // Retrieve with matching tenant
-    const retrieved = await service.getConversation(conversation.id, testTenantId);
+    const retrieved = await service.getConversation(conversation.id, testTenantId, testUserId);
     expect(retrieved).not.toBeNull();
     expect(retrieved!.id).toBe(conversation.id);
 
     // Retrieve with wrong tenant -- should return null (tenant isolation)
-    const wrongTenant = await service.getConversation(conversation.id, 'nonexistent-tenant');
+    const wrongTenant = await service.getConversation(conversation.id, 'nonexistent-tenant', testUserId);
     expect(wrongTenant).toBeNull();
+
+    // Retrieve with wrong userId -- should return null (user isolation / BOLA fix)
+    const wrongUser = await service.getConversation(conversation.id, testTenantId, 'nonexistent-user');
+    expect(wrongUser).toBeNull();
+
+    // Retrieve without userId (backward compat) -- should still work
+    const noUser = await service.getConversation(conversation.id, testTenantId);
+    expect(noUser).not.toBeNull();
   }, 10_000);
 
   it('saves and loads messages in correct order', async () => {
@@ -134,11 +142,20 @@ describe('ConversationService (real Prisma)', () => {
     const count = await service.getMessageCount(conversation.id);
     expect(count).toBe(2);
 
-    // Delete conversation
-    await service.deleteConversation(conversation.id, testTenantId);
+    // Attempt delete with wrong userId -- should return false (BOLA fix)
+    const wrongDelete = await service.deleteConversation(conversation.id, testTenantId, 'nonexistent-user');
+    expect(wrongDelete).toBe(false);
+
+    // Verify conversation still exists after failed delete
+    const stillExists = await service.getConversation(conversation.id, testTenantId, testUserId);
+    expect(stillExists).not.toBeNull();
+
+    // Delete conversation with correct userId
+    const didDelete = await service.deleteConversation(conversation.id, testTenantId, testUserId);
+    expect(didDelete).toBe(true);
 
     // Verify conversation is gone
-    const deleted = await service.getConversation(conversation.id, testTenantId);
+    const deleted = await service.getConversation(conversation.id, testTenantId, testUserId);
     expect(deleted).toBeNull();
 
     // Verify messages are cascade-deleted

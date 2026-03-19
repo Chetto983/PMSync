@@ -201,6 +201,7 @@ export class AiChatController {
     const conversation = await this.conversationService.getConversation(
       conversationId,
       req.user.tenantId,
+      req.user.userId,
     );
     if (!conversation) {
       throw new NotFoundException(
@@ -235,10 +236,17 @@ export class AiChatController {
     @Req() req: Request & { user: AuthenticatedRequest['user'] },
     @Param('id') conversationId: string,
   ) {
-    await this.conversationService.deleteConversation(
+    const deleted = await this.conversationService.deleteConversation(
       conversationId,
       req.user.tenantId,
+      req.user.userId,
     );
+
+    if (!deleted) {
+      throw new NotFoundException(
+        `Conversation ${conversationId} not found`,
+      );
+    }
 
     return { success: true };
   }

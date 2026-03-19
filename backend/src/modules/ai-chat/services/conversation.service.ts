@@ -55,11 +55,13 @@ export class ConversationService {
   async getConversation(
     conversationId: string,
     tenantId: string,
+    userId?: string,
   ): Promise<AiConversation | null> {
     return this.prisma.aiConversation.findFirst({
       where: {
         id: conversationId,
         tenantId,
+        ...(userId ? { userId } : {}),
         updatedAt: { gte: this.getRetentionCutoff() },
       },
     });
@@ -76,7 +78,7 @@ export class ConversationService {
     userId: string,
   ): Promise<AiConversation> {
     if (conversationId) {
-      const existing = await this.getConversation(conversationId, tenantId);
+      const existing = await this.getConversation(conversationId, tenantId, userId);
       if (!existing) {
         throw new NotFoundException(
           `Conversation ${conversationId} not found`,
@@ -270,16 +272,12 @@ export class ConversationService {
   async deleteConversation(
     conversationId: string,
     tenantId: string,
-  ): Promise<void> {
-    const conversation = await this.getConversation(conversationId, tenantId);
-    if (!conversation) {
-      throw new NotFoundException(
-        `Conversation ${conversationId} not found`,
-      );
-    }
-    await this.prisma.aiConversation.delete({
-      where: { id: conversationId },
+    userId: string,
+  ): Promise<boolean> {
+    const result = await this.prisma.aiConversation.deleteMany({
+      where: { id: conversationId, tenantId, userId },
     });
+    return result.count > 0;
   }
 
   /**
