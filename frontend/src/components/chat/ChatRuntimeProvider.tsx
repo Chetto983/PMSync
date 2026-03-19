@@ -8,7 +8,8 @@ import { useRemoteThreadListRuntime } from '@assistant-ui/core/react';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
 import { API_BASE_URL, getCsrfToken } from '@/lib/api-client';
 import type { UIMessage } from 'ai';
-import { PmSyncThreadListAdapter } from './chat-thread-list-adapter';
+import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
+import { createPmSyncThreadListAdapter } from './chat-thread-list-adapter';
 
 /**
  * Extract plain text from the last user message in AI SDK message array.
@@ -55,19 +56,8 @@ function useThreadRuntime() {
     id,
     transport,
     // Auto-resubmit after user approves/denies a tool requiring action.
-    sendAutomaticallyWhen: ({ messages }) => {
-      const last = messages[messages.length - 1];
-      if (!last || last.role !== 'assistant') return false;
-      const toolParts = last.parts?.filter(
-        (p) => p.type === 'tool-invocation',
-      );
-      if (!toolParts?.length) return false;
-      return !toolParts.some(
-        (p) =>
-          p.type === 'tool-invocation' &&
-          p.state === 'approval-requested',
-      );
-    },
+    // SDK helper handles edge cases: multiple tool calls, partial approvals.
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
   const runtime = useAISDKRuntime(chat);
@@ -92,7 +82,7 @@ export function ChatRuntimeProvider({
   }, []);
 
   // Singleton adapter — survives re-renders but not page reloads.
-  const adapter = useMemo(() => new PmSyncThreadListAdapter(), []);
+  const adapter = useMemo(() => createPmSyncThreadListAdapter(), []);
 
   const runtime = useRemoteThreadListRuntime({
     runtimeHook: useThreadRuntime,
