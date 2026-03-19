@@ -6,149 +6,154 @@ async function main() {
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
   const context = browser.contexts()[0];
 
-  let page = context.pages().find(p => p.url().includes('/dashboard'));
+  let page = context.pages().find(p => p.url().includes('localhost:3001'));
   if (!page) {
     page = await context.newPage();
     await page.goto(`${APP_URL}/dashboard`, { waitUntil: 'networkidle' });
   }
+
+  // Navigate fresh to dashboard to clear any open drawers
+  await page.goto(`${APP_URL}/dashboard`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
 
   // --- BUG-4: Refresh spin animation ---
   console.log('\n=== BUG-4: Refresh spin ===');
-  // Find ALL buttons in widget headers (the small icon buttons top-right)
-  const headerBtns = await page.locator('.MuiIconButton-root').all();
-  console.log(`MuiIconButton buttons on page: ${headerBtns.length}`);
+  // The refresh icons are in widget headers — find them by looking at IconButtons INSIDE paper/card widgets
+  const widgetRefreshBtns = await page.locator('.MuiPaper-root .MuiIconButton-root, .MuiCard-root .MuiIconButton-root').all();
+  console.log(`Widget-scoped IconButtons: ${widgetRefreshBtns.length}`);
+  for (let i = 0; i < Math.min(widgetRefreshBtns.length, 6); i++) {
+    const label = await widgetRefreshBtns[i].getAttribute('aria-label').catch(() => '');
+    console.log(`  ${i}: aria-label="${label}"`);
+  }
 
-  // Click the first header refresh button and check for animation class/style
-  if (headerBtns.length > 0) {
-    // The refresh buttons are in the widget headers — click one
-    for (let i = 0; i < Math.min(headerBtns.length, 5); i++) {
-      const ariaLabel = await headerBtns[i].getAttribute('aria-label').catch(() => '');
-      const title = await headerBtns[i].getAttribute('title').catch(() => '');
-      console.log(`  Button ${i}: aria-label="${ariaLabel}", title="${title}"`);
-    }
+  // Click a refresh button that's inside a widget
+  if (widgetRefreshBtns.length > 0) {
+    const btn = widgetRefreshBtns[0];
+    await btn.scrollIntoViewIfNeeded();
+    await btn.click();
+    await page.waitForTimeout(500);
 
-    // Click the first one (likely a refresh)
-    await headerBtns[0].click();
-    await page.waitForTimeout(300);
-
-    // Check if any SVG has a spin animation applied
-    const spinning = await page.evaluate(() => {
-      const svgs = document.querySelectorAll('.MuiIconButton-root svg');
-      return Array.from(svgs).map(s => {
-        const style = getComputedStyle(s);
-        return {
-          animation: style.animation || style.animationName || 'none',
-          hasKeyframes: style.animation?.includes('spin') || false,
-        };
-      }).filter(s => s.animation !== 'none').slice(0, 3);
+    // Check for spin animation on the SVG inside
+    const animState = await btn.evaluate(el => {
+      const svg = el.querySelector('svg');
+      if (!svg) return { found: false };
+      const style = getComputedStyle(svg);
+      return {
+        found: true,
+        animation: style.animation,
+        animationName: style.animationName,
+        transform: style.transform,
+      };
     });
-    console.log(`Spinning SVGs: ${JSON.stringify(spinning)}`);
+    console.log(`Refresh SVG animation state: ${JSON.stringify(animState)}`);
     await page.screenshot({ path: 'scripts/verify-88-spin.png' });
+    console.log('Screenshot: After refresh click → scripts/verify-88-spin.png');
   }
 
   // --- BUG-1: Follow-up snooze ---
   console.log('\n=== BUG-1: Follow-up snooze ===');
-  // Scroll to Follow-up widget
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: 'scripts/verify-88-followup-area.png', fullPage: false });
 
-  // Find follow-up items and hover each to reveal actions
-  const followUpItems = await page.locator('text="Follow-up"').locator('xpath=ancestor::*[contains(@class, "MuiPaper") or contains(@class, "MuiCard")]').first();
-  if (await followUpItems.isVisible().catch(() => false)) {
-    // Get the list items within the follow-up widget
-    const items = await followUpItems.locator('.MuiListItem-root, .MuiListItemButton-root, [role="listitem"]').all();
-    console.log(`Follow-up list items: ${items.length}`);
-
-    if (items.length > 0) {
-      // Hover the first item
-      await items[0].hover();
-      await page.waitForTimeout(500);
-      await page.screenshot({ path: 'scripts/verify-88-snooze-hover.png' });
-      console.log('Screenshot: Hover on follow-up item → scripts/verify-88-snooze-hover.png');
-
-      // Check for any action buttons that appeared on hover
-      const actionBtns = await items[0].locator('button, [role="button"]').all();
-      for (const btn of actionBtns) {
-        const label = await btn.getAttribute('aria-label').catch(() => '');
-        const text = await btn.textContent().catch(() => '');
-        console.log(`  Action button: aria="${label}" text="${text.trim().substring(0, 30)}"`);
-      }
+  // Find the Follow-up widget container
+  const followUpWidget = page.locator('text="Follow-up"').locator('xpath=ancestor::*[contains(@class, "MuiPaper")]').first();
+  if (await followUpWidget.isVisible().catch(() => false)) {
+    // Get all interactive elements inside
+    const btns = await followUpWidget.locator('button, [role="button"], .MuiIconButton-root').all();
+    console.log(`Buttons in Follow-up widget: ${btns.length}`);
+    for (const btn of btns) {
+      const label = await btn.getAttribute('aria-label').catch(() => '');
+      const text = (await btn.textContent().catch(() => '')).trim().substring(0, 40);
+      const visible = await btn.isVisible().catch(() => false);
+      if (visible) console.log(`  btn: aria="${label}" text="${text}"`);
     }
 
-    // Also check for a snooze menu or icon anywhere in the widget
-    const allBtnsInWidget = await followUpItems.locator('button').all();
-    console.log(`Total buttons in Follow-up widget: ${allBtnsInWidget.length}`);
-    for (const btn of allBtnsInWidget.slice(0, 8)) {
-      const label = await btn.getAttribute('aria-label').catch(() => '');
-      const text = await btn.textContent().catch(() => '');
-      const visible = await btn.isVisible().catch(() => false);
-      if (visible) {
-        console.log(`  Visible btn: aria="${label}" text="${text.trim().substring(0, 40)}"`);
+    // Check individual follow-up items for hover actions
+    const listItems = await followUpWidget.locator('.MuiListItemButton-root, .MuiListItem-root').all();
+    console.log(`List items in Follow-up: ${listItems.length}`);
+    if (listItems.length > 0) {
+      await listItems[0].hover();
+      await page.waitForTimeout(500);
+
+      // Check for newly visible action buttons
+      const hoverBtns = await listItems[0].locator('button, .MuiIconButton-root').all();
+      console.log(`Buttons after hover on first item: ${hoverBtns.length}`);
+      for (const btn of hoverBtns) {
+        const label = await btn.getAttribute('aria-label').catch(() => '');
+        console.log(`  hover btn: aria="${label}"`);
       }
+      await page.screenshot({ path: 'scripts/verify-88-snooze-hover.png' });
+      console.log('Screenshot: Hover on follow-up item → scripts/verify-88-snooze-hover.png');
     }
   }
 
   // --- BUG-6: Insight card navigation ---
-  console.log('\n=== BUG-6: Insight card navigation ===');
+  console.log('\n=== BUG-6: Insight card click ===');
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(500);
 
-  // The insight cards with arrows — check if they have onClick handlers
-  const insightCard = page.locator(':text("in ritardo")').first();
-  if (await insightCard.isVisible().catch(() => false)) {
-    // Find the clickable parent
-    const cardContainer = insightCard.locator('xpath=ancestor::*[contains(@class, "MuiCard") or contains(@class, "MuiPaper") or contains(@class, "MuiButtonBase")]').first();
-    const cursor = await cardContainer.evaluate(el => getComputedStyle(el).cursor).catch(() => 'unknown');
-    console.log(`Insight card cursor: ${cursor}`);
+  const insightCards = await page.locator(':text("in ritardo")').locator('xpath=ancestor::*[contains(@class, "MuiCard") or contains(@class, "MuiPaper") or contains(@class, "MuiButtonBase")]').all();
+  console.log(`Insight card ancestors: ${insightCards.length}`);
+  for (const card of insightCards) {
+    const tag = await card.evaluate(el => el.tagName);
+    const cursor = await card.evaluate(el => getComputedStyle(el).cursor);
+    const cls = await card.evaluate(el => el.className.substring(0, 80));
+    console.log(`  ${tag} cursor=${cursor} class="${cls}"`);
+  }
 
-    // Check if it has onClick by looking for pointer cursor or role
-    const hasClick = cursor === 'pointer';
-    console.log(`Insight card appears clickable: ${hasClick}`);
-
-    if (hasClick) {
-      // Intercept navigation
+  // Try clicking the arrow (→) icon next to "in ritardo"
+  const arrowIcon = page.locator(':text("in ritardo")').locator('..').locator('svg, [data-testid*="Arrow"]').first();
+  if (await arrowIcon.isVisible().catch(() => false)) {
+    const currentUrl = page.url();
+    await arrowIcon.click();
+    await page.waitForTimeout(2000);
+    const newUrl = page.url();
+    console.log(`Navigation: ${currentUrl === newUrl ? 'SAME PAGE' : newUrl}`);
+    if (newUrl !== currentUrl) {
+      await page.goBack();
+      await page.waitForTimeout(1000);
+    }
+  } else {
+    // Try clicking the card text itself
+    const card = page.locator(':text("in ritardo")').first();
+    const clickParent = card.locator('xpath=ancestor::*[@role="button" or self::a or @tabindex]').first();
+    if (await clickParent.isVisible().catch(() => false)) {
       const currentUrl = page.url();
-      const [response] = await Promise.all([
-        page.waitForNavigation({ timeout: 3000 }).catch(() => null),
-        cardContainer.click(),
-      ]);
+      await clickParent.click();
+      await page.waitForTimeout(2000);
       const newUrl = page.url();
-      console.log(`Navigation: ${currentUrl} → ${newUrl}`);
-
+      console.log(`Card parent click navigation: ${currentUrl === newUrl ? 'SAME PAGE' : newUrl}`);
       if (newUrl !== currentUrl) {
-        console.log('✓ Card navigated — going back');
         await page.goBack();
         await page.waitForTimeout(1000);
-      } else {
-        console.log('Card clicked but no navigation happened');
       }
+    } else {
+      console.log('No clickable ancestor found for insight card');
     }
   }
 
-  // --- BUG-2: Widget persistence — toggle a widget off, reload, check ---
-  console.log('\n=== BUG-2: Widget visibility persistence ===');
-  // Open Personalizza
-  const customizeBtn = page.locator(':text("Personalizza")');
-  if (await customizeBtn.isVisible().catch(() => false)) {
-    await customizeBtn.click();
-    await page.waitForTimeout(1000);
+  // --- BUG-2: Widget visibility persistence ---
+  console.log('\n=== BUG-2: Widget visibility (Personalizza) ===');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(500);
+  const customizeBtn = page.locator('button:has-text("Personalizza")');
+  await customizeBtn.click();
+  await page.waitForTimeout(1000);
 
-    // Find toggle switches
-    const switches = await page.locator('.MuiSwitch-root').all();
-    console.log(`Toggle switches: ${switches.length}`);
-
-    // Get labels for each switch
-    for (let i = 0; i < Math.min(switches.length, 10); i++) {
-      const label = await switches[i].locator('xpath=ancestor::*[contains(@class,"MuiFormControlLabel")]').textContent().catch(() => `switch-${i}`);
-      const checked = await switches[i].locator('input').isChecked().catch(() => 'unknown');
-      console.log(`  ${label.trim()}: ${checked ? 'ON' : 'OFF'}`);
-    }
-
-    // Close panel
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
+  const switches = await page.locator('.MuiSwitch-root').all();
+  console.log(`Toggle switches: ${switches.length}`);
+  for (let i = 0; i < Math.min(switches.length, 12); i++) {
+    const label = await switches[i].locator('xpath=ancestor::*[contains(@class,"MuiFormControlLabel") or contains(@class, "MuiStack")]').first().textContent().catch(() => `switch-${i}`);
+    const checked = await switches[i].locator('input').isChecked().catch(() => 'unknown');
+    console.log(`  ${label.trim().substring(0, 35)}: ${checked ? 'ON' : 'OFF'}`);
   }
+
+  await page.screenshot({ path: 'scripts/verify-88-personalizza.png' });
+
+  // Close drawer
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
 
   console.log('\n=== All checks done ===');
   await browser.close();
