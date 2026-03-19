@@ -1,7 +1,7 @@
 ---
 phase: 88-reminder-and-follows-ups-fix
 verified: 2026-03-19T17:00:00Z
-status: human_needed
+status: passed
 score: 7/7 must-haves verified
 human_verification:
   - test: "Open dashboard, toggle a widget off (via Customize drawer), reload the page, confirm the widget is still hidden"
