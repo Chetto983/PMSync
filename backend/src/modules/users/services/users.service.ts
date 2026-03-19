@@ -229,6 +229,24 @@ export class UsersService {
 
     return result;
   }
+
+  /**
+   * Delete all AI memory entries for the current user.
+   */
+  async clearUserAiMemory(tenantId: string, userId: string) {
+    const result = await this.prisma.aIMemory.deleteMany({
+      where: {
+        tenantId,
+        userId,
+      },
+    });
+
+    return {
+      success: true,
+      deletedCount: result.count,
+    };
+  }
+
   /**
    * Get dashboard preferences
    */

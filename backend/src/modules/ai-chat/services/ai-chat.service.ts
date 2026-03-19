@@ -25,7 +25,10 @@ import {
   getAiCircuitBreaker,
   CircuitBreakerOpenError,
 } from '../../ai/utils/index';
-import { buildSystemPrompt, buildRuntimeContext } from '../constants/system-prompt';
+import {
+  buildSystemPrompt,
+  buildExtendedRuntimeContext,
+} from '../constants/system-prompt';
 import {
   EmailToolsService,
   CalendarToolsService,
@@ -199,11 +202,7 @@ export class AiChatService {
 
     // Append current user message with runtime context (redacted for LLM)
     // Phase AI-AUDIT: Runtime context separated from system prompt (nanobot pattern)
-    const runtimeContext = buildRuntimeContext(
-      runtimeContextMeta.timezone,
-      runtimeContextMeta.providerType,
-      runtimeContextMeta.locale,
-    );
+    const runtimeContext = buildExtendedRuntimeContext(runtimeContextMeta);
     messages.push({
       role: 'user',
       content: redactTextForModel(
@@ -515,6 +514,11 @@ export class AiChatService {
     timezone?: string;
     providerType?: string;
     locale?: string;
+    displayName?: string;
+    jobTitle?: string;
+    communicationStyle?: string;
+    responseLength?: string;
+    proactivityLevel?: string;
   }> {
     if (!this.prisma) {
       return {
@@ -522,10 +526,17 @@ export class AiChatService {
       };
     }
 
-    const [preferences, provider] = await Promise.all([
+    const [preferences, provider, user] = await Promise.all([
       this.prisma.userPreferences.findUnique({
         where: { userId },
-        select: { timezone: true, language: true },
+        select: {
+          timezone: true,
+          language: true,
+          jobTitle: true,
+          communicationStyle: true,
+          responseLength: true,
+          proactivityLevel: true,
+        },
       }),
       this.prisma.providerConfig.findFirst({
         where: {
@@ -535,12 +546,30 @@ export class AiChatService {
         },
         select: { providerType: true },
       }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          firstName: true,
+          lastName: true,
+          name: true,
+        },
+      }),
     ]);
+
+    const displayName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+      user?.name?.trim() ||
+      undefined;
 
     return {
       timezone: preferences?.timezone ?? undefined,
       providerType: provider?.providerType ?? undefined,
       locale: requestedLocale ?? preferences?.language ?? undefined,
+      displayName,
+      jobTitle: preferences?.jobTitle ?? undefined,
+      communicationStyle: preferences?.communicationStyle ?? undefined,
+      responseLength: preferences?.responseLength ?? undefined,
+      proactivityLevel: preferences?.proactivityLevel ?? undefined,
     };
   }
 

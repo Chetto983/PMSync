@@ -237,3 +237,52 @@ export function buildRuntimeContext(
 
   return lines.join('\n');
 }
+
+export interface ExtendedRuntimeContextMetadata {
+  timezone?: string;
+  providerType?: string;
+  locale?: string;
+  displayName?: string;
+  jobTitle?: string;
+  communicationStyle?: string;
+  responseLength?: string;
+  proactivityLevel?: string;
+}
+
+export function buildExtendedRuntimeContext(
+  metadata: ExtendedRuntimeContextMetadata,
+): string {
+  const lines = [
+    buildRuntimeContext(
+      metadata.timezone,
+      metadata.providerType,
+      metadata.locale,
+    ),
+  ];
+
+  if (metadata.displayName) {
+    lines.push(`Authenticated user: ${metadata.displayName}`);
+  }
+
+  const profileLines = [
+    metadata.jobTitle
+      ? `Profile role/title: ${metadata.jobTitle}`
+      : null,
+    metadata.communicationStyle
+      ? `Preferred communication style: ${metadata.communicationStyle}`
+      : null,
+    metadata.responseLength
+      ? `Preferred response length: ${metadata.responseLength}`
+      : null,
+    metadata.proactivityLevel
+      ? `Preferred proactivity level: ${metadata.proactivityLevel}`
+      : null,
+  ].filter((line): line is string => Boolean(line));
+
+  if (profileLines.length > 0) {
+    lines.push('Saved AI profile preferences:');
+    lines.push(...profileLines);
+  }
+
+  return lines.join('\n');
+}

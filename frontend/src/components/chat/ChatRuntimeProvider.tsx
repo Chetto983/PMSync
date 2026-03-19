@@ -37,14 +37,19 @@ const transport = new AssistantChatTransport({
   api: `${API_BASE_URL}/api/v1/ai/chat`,
   credentials: 'include',
   headers: getHeaders,
-  prepareSendMessagesRequest: ({ messages, body }) => ({
-    body: {
-      message: extractLastUserText(messages),
-      conversationId: resolveConversationIdFromRequestBody(
-        body as Record<string, unknown> | undefined,
-      ),
-    },
-  }),
+  prepareSendMessagesRequest: ({ id, messages, body }) => {
+    const conversationId = resolveConversationIdFromRequestBody(
+      body as Record<string, unknown> | undefined,
+      id,
+    );
+
+    return {
+      body: {
+        message: extractLastUserText(messages),
+        ...(conversationId ? { conversationId } : {}),
+      },
+    };
+  },
 });
 
 /**

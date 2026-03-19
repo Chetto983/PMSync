@@ -124,6 +124,14 @@ export const usersApi = {
   },
 
   /**
+   * Clear user AI memory entries.
+   */
+  clearAiMemory: async (): Promise<{ success: boolean; deletedCount: number }> => {
+    const response = await apiClient.delete('/users/me/ai-memory');
+    return response.data;
+  },
+
+  /**
    * Delete user account (GDPR)
    * Permanently deletes user and all associated data
    */

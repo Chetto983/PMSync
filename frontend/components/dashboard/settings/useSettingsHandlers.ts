@@ -59,22 +59,46 @@ export function useSettingsHandlers(s: State, settingsCopy: Record<string, any>)
     try {
       s.setAiError('');
       s.setAiSuccess('');
+      const jobTitle = s.jobRole.trim();
       await s.updatePreferencesMutation.mutateAsync({
         aiSmartRepliesEnabled: s.smartRepliesEnabled,
         aiSummarizationEnabled: s.summarizationEnabled,
         aiSchedulingEnabled: s.schedulingEnabled,
         aiAutoTriageEnabled: s.triageEnabled,
         aiAutoApproveThreshold: s.autoApproveThreshold / 100,
+        jobTitle: jobTitle || undefined,
+        communicationStyle: s.communicationStyle,
+        responseLength: s.responseLength,
+        proactivityLevel: s.proactivityLevel,
       });
       s.setAiSuccess(settingsCopy.aiPanel?.savePreferences || 'Saved');
     } catch {
       s.setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
     }
-  }, [s.smartRepliesEnabled, s.summarizationEnabled, s.schedulingEnabled, s.triageEnabled, s.autoApproveThreshold, s.updatePreferencesMutation, s.setAiError, s.setAiSuccess, settingsCopy]);
+  }, [s.smartRepliesEnabled, s.summarizationEnabled, s.schedulingEnabled, s.triageEnabled, s.autoApproveThreshold, s.jobRole, s.communicationStyle, s.responseLength, s.proactivityLevel, s.updatePreferencesMutation, s.setAiError, s.setAiSuccess, settingsCopy]);
 
   const handleClearAiMemory = useCallback(async () => {
-    s.setAiSuccess(settingsCopy.aiPanel?.clearMemory || 'Memory cleared');
-  }, [s.setAiSuccess, settingsCopy]);
+    if (
+      !confirm(
+        settingsCopy.aiPanel?.clearMemoryConfirm ||
+          'This will delete your AI memory. Continue?',
+      )
+    ) {
+      return;
+    }
+
+    try {
+      s.setAiDataLoading(true);
+      s.setAiError('');
+      s.setAiSuccess('');
+      await usersApi.clearAiMemory();
+      s.setAiSuccess(settingsCopy.aiPanel?.clearMemory || 'Memory cleared');
+    } catch {
+      s.setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
+    } finally {
+      s.setAiDataLoading(false);
+    }
+  }, [s.setAiDataLoading, s.setAiError, s.setAiSuccess, settingsCopy]);
 
   const handleDeleteAccount = useCallback(async () => {
     const confirmWord = s.language === 'it' ? 'ELIMINA' : 'DELETE';

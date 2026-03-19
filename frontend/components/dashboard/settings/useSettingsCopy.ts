@@ -59,6 +59,7 @@ export function useSettingsCopy() {
     dataManagementTitle: settingsCopy.aiPanel?.dataManagementTitle || 'Data',
     dataManagementDescription: settingsCopy.aiPanel?.dataManagementDescription || '',
     clearMemory: settingsCopy.aiPanel?.clearMemory || 'Clear',
+    clearMemoryConfirm: settingsCopy.aiPanel?.clearMemoryConfirm || 'Clear AI memory?',
     // Toggle button labels (must match backend enums)
     styles: settingsCopy.aiPanel?.personalization?.styles || { FORMAL: 'Formal', CASUAL: 'Casual', TECHNICAL: 'Technical', CREATIVE: 'Creative' },
     lengths: settingsCopy.aiPanel?.personalization?.lengths || { BRIEF: 'Brief', MODERATE: 'Moderate', DETAILED: 'Detailed' },

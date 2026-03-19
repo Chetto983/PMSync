@@ -27,4 +27,21 @@ describe('resolveConversationIdFromRequestBody', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('falls back to prepared transport id when body only contains local ids', () => {
+    expect(
+      resolveConversationIdFromRequestBody(
+        {
+          id: '__LOCALID_thread-123',
+        },
+        'conv-456',
+      ),
+    ).toBe('conv-456');
+  });
+
+  it('ignores local fallback ids', () => {
+    expect(
+      resolveConversationIdFromRequestBody(undefined, '__LOCALID_thread-789'),
+    ).toBeUndefined();
+  });
 });

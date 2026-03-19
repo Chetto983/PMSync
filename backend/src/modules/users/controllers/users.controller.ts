@@ -98,6 +98,21 @@ export class UsersController {
   ) {
     return this.usersService.updateUserPreferences(req.user.tenantId, req.user.userId, body);
   }
+
+  /**
+   * Delete AI memories for the current user.
+   * DELETE /users/me/ai-memory
+   */
+  @Delete('me/ai-memory')
+  @ApiOperation({ summary: 'Clear user AI memory' })
+  @ApiResponse({ status: 200, description: 'AI memory deleted successfully' })
+  async clearMyAiMemory(@Request() req: AuthenticatedRequest) {
+    return this.usersService.clearUserAiMemory(
+      req.user.tenantId,
+      req.user.userId,
+    );
+  }
+
   /**
    * Get dashboard preferences
    * GET /users/me/dashboard-preferences

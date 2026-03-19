@@ -126,6 +126,58 @@ describe('UsersService', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // clearUserAiMemory
+  // ---------------------------------------------------------------------------
+  describe('clearUserAiMemory', () => {
+    it('deletes only the current user memory rows', async () => {
+      const prisma = getTestPrismaClient();
+      const memoryUser = await createTestUser(tenant.id);
+      const otherUser = await createTestUser(tenant.id);
+
+      await prisma.aIMemory.createMany({
+        data: [
+          {
+            tenantId: tenant.id,
+            userId: memoryUser.id,
+            content: 'Prefers Italian email replies',
+            memoryType: 'FACT',
+            confidence: 1,
+          },
+          {
+            tenantId: tenant.id,
+            userId: memoryUser.id,
+            content: 'Name is Alice',
+            memoryType: 'FACT',
+            confidence: 1,
+          },
+          {
+            tenantId: tenant.id,
+            userId: otherUser.id,
+            content: 'Other user memory',
+            memoryType: 'FACT',
+            confidence: 1,
+          },
+        ],
+      });
+
+      const result = await service.clearUserAiMemory(tenant.id, memoryUser.id);
+
+      expect(result.success).toBe(true);
+      expect(result.deletedCount).toBe(2);
+
+      const remainingForUser = await prisma.aIMemory.findMany({
+        where: { tenantId: tenant.id, userId: memoryUser.id },
+      });
+      const remainingForOtherUser = await prisma.aIMemory.findMany({
+        where: { tenantId: tenant.id, userId: otherUser.id },
+      });
+
+      expect(remainingForUser).toHaveLength(0);
+      expect(remainingForOtherUser).toHaveLength(1);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // deleteUserAccount
   // ---------------------------------------------------------------------------
   describe('deleteUserAccount', () => {

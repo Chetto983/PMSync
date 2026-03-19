@@ -8,6 +8,7 @@
  */
 export function resolveConversationIdFromRequestBody(
   body: Record<string, unknown> | undefined,
+  fallbackId?: string,
 ): string | undefined {
   const conversationId = body?.conversationId;
   if (
@@ -25,6 +26,14 @@ export function resolveConversationIdFromRequestBody(
     !id.startsWith('__LOCALID_')
   ) {
     return id;
+  }
+
+  if (
+    typeof fallbackId === 'string' &&
+    fallbackId.length > 0 &&
+    !fallbackId.startsWith('__LOCALID_')
+  ) {
+    return fallbackId;
   }
 
   return undefined;

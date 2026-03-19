@@ -2090,6 +2090,7 @@ export const en: AppTranslations = {
       dataManagementTitle: 'Data Management',
       dataManagementDescription: 'Manage your AI data and learning history',
       clearMemory: 'Clear Memory',
+      clearMemoryConfirm: 'This will delete all learned preferences and interaction history. Are you sure?',
       resetLearning: 'Reset Learning',
       autoApproveLabel: 'Auto-Approve Threshold',
       autoApproveHint: 'Actions with confidence above this threshold will be auto-approved',

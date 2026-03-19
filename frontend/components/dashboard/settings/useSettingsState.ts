@@ -33,6 +33,60 @@ import {
 
 export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'dataRights' | 'account' | 'billing' | 'telegram';
 
+const COMMUNICATION_STYLES = new Set<CommunicationStyle>([
+  'FORMAL',
+  'CASUAL',
+  'TECHNICAL',
+  'CREATIVE',
+]);
+const RESPONSE_LENGTHS = new Set<ResponseLength>([
+  'BRIEF',
+  'MODERATE',
+  'DETAILED',
+]);
+const PROACTIVITY_LEVELS = new Set<ProactivityLevel>([
+  'LOW',
+  'MEDIUM',
+  'HIGH',
+]);
+
+function isCommunicationStyle(
+  value: string | null | undefined,
+): value is CommunicationStyle {
+  return typeof value === 'string' && COMMUNICATION_STYLES.has(value as CommunicationStyle);
+}
+
+function isResponseLength(
+  value: string | null | undefined,
+): value is ResponseLength {
+  return typeof value === 'string' && RESPONSE_LENGTHS.has(value as ResponseLength);
+}
+
+function isProactivityLevel(
+  value: string | null | undefined,
+): value is ProactivityLevel {
+  return typeof value === 'string' && PROACTIVITY_LEVELS.has(value as ProactivityLevel);
+}
+
+function getDisplayedRole(
+  jobTitle: string | null | undefined,
+  jobRole: string | null | undefined,
+): string {
+  if (typeof jobTitle === 'string' && jobTitle.trim().length > 0) {
+    return jobTitle;
+  }
+
+  if (
+    typeof jobRole === 'string' &&
+    jobRole.trim().length > 0 &&
+    jobRole !== 'OTHER'
+  ) {
+    return jobRole;
+  }
+
+  return '';
+}
+
 export function useSettingsState() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
@@ -46,12 +100,12 @@ export function useSettingsState() {
 
   // TanStack Query hooks
   const { data: providers = [], isLoading: providersLoading, refetch: refetchProviders } = useProviders();
-  const { data: userPrefsData } = useUserPreferences();
+  const { data: userPrefsData, isLoading: userPrefsLoading } = useUserPreferences();
   const { data: subscriptionFeatures } = useSubscriptionFeatures();
   const { data: subscriptionLimits, refetch: refetchLimits } = useSubscriptionLimits();
   const updatePreferencesMutation = useUpdatePreferences();
   const syncAllMutation = useSyncAllProviders();
-  const aiProfileLoading = false; // AI profile endpoint removed
+  const aiProfileLoading = userPrefsLoading;
   const aiSaveLoading = updatePreferencesMutation.isPending;
 
   // Feature flags based on subscription plan
@@ -67,7 +121,7 @@ export function useSettingsState() {
   const [generalError, setGeneralError] = useState('');
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
-  const [aiDataLoading] = useState(false);
+  const [aiDataLoading, setAiDataLoading] = useState(false);
 
   // AI state
   const [jobRole, setJobRole] = useState<string>('');
@@ -114,6 +168,22 @@ export function useSettingsState() {
       setTriageEnabled(userPrefsData.aiAutoTriageEnabled ?? false);
       setAutoApproveThreshold((userPrefsData.aiAutoApproveThreshold ?? 0.85) * 100);
       setEmailDensity(userPrefsData.emailDensity ?? 'comfortable');
+      setJobRole(getDisplayedRole(userPrefsData.jobTitle, userPrefsData.jobRole));
+      setCommunicationStyle(
+        isCommunicationStyle(userPrefsData.communicationStyle)
+          ? userPrefsData.communicationStyle
+          : 'CASUAL',
+      );
+      setResponseLength(
+        isResponseLength(userPrefsData.responseLength)
+          ? userPrefsData.responseLength
+          : 'MODERATE',
+      );
+      setProactivityLevel(
+        isProactivityLevel(userPrefsData.proactivityLevel)
+          ? userPrefsData.proactivityLevel
+          : 'MEDIUM',
+      );
     }
   }, [userPrefsData]);
 
@@ -155,7 +225,7 @@ export function useSettingsState() {
     providerError, setProviderError, providerSuccess, setProviderSuccess,
     saveLoading, setSaveLoading,
     generalSuccess, setGeneralSuccess, generalError, setGeneralError,
-    aiError, setAiError, aiSuccess, setAiSuccess, aiDataLoading,
+    aiError, setAiError, aiSuccess, setAiSuccess, aiDataLoading, setAiDataLoading,
     jobRole, setJobRole,
     communicationStyle, setCommunicationStyle,
     responseLength, setResponseLength,

@@ -2079,6 +2079,7 @@ export const it: AppTranslations = {
       dataManagementTitle: 'Gestione dati',
       dataManagementDescription: 'Gestisci i tuoi dati AI e la cronologia di apprendimento',
       clearMemory: 'Cancella memoria',
+      clearMemoryConfirm: 'Questo eliminerà tutte le preferenze apprese e la cronologia delle interazioni. Sei sicuro?',
       resetLearning: 'Ripristina apprendimento',
       autoApproveLabel: 'Soglia approvazione automatica',
       autoApproveHint: 'Le azioni con confidenza superiore a questa soglia saranno approvate automaticamente',

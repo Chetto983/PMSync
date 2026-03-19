@@ -2124,6 +2124,7 @@ export interface AppTranslations {
       dataManagementTitle: string;
       dataManagementDescription: string;
       clearMemory: string;
+      clearMemoryConfirm: string;
       resetLearning: string;
       autoApproveLabel: string;
       autoApproveHint: string;
