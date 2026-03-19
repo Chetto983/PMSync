@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
 status: executing
-stopped_at: Completed 87-03-PLAN.md (Medium-Severity Bug Fixes)
-last_updated: "2026-03-19T15:47:27.277Z"
+stopped_at: Completed 87-04-PLAN.md (Dead Code Removal and File Splits)
+last_updated: "2026-03-19T16:03:59.203Z"
 last_activity: 2026-03-19 -- Completed 87-01 (Security Isolation Fix)
 progress:
-  total_phases: 11
-  completed_phases: 0
-  total_plans: 11
-  completed_plans: 8
+  total_phases: 12
+  completed_phases: 1
+  total_plans: 13
+  completed_plans: 9
   percent: 55
 ---
 
@@ -54,6 +54,7 @@ Progress: [█████░░░░░] 55%
 *Updated after each plan completion*
 | Phase 87 P02 | 3min | 2 tasks | 3 files |
 | Phase 87 P03 | 8min | 3 tasks | 7 files |
+| Phase 87 P04 | 14min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Recent decisions affecting current work:
 - [Phase 87]: Summary trigger uses modulo (messageCount - 20) % 10 === 0 for periodic generation
 - [Phase 87]: BUG-3 draft_email sentAt deferred -- requires schema migration (Email.sentAt non-nullable)
 - [Phase 87]: savedMessageCount closure pattern for TOCTOU-safe title/summary triggers
+- [Phase 87]: Delete ProductivityToolsService entirely, replaced by EmailProductivityToolsService + FollowUpToolsService
+- [Phase 87]: ChatEnrichmentService extracts title gen, summary gen, runtime context from AiChatService for 500-line compliance
 
 ### Pending Todos
 
@@ -89,6 +92,7 @@ None yet.
 
 - Phase 86 added: AI Chat Bug Fix — Migrate to Official Patterns (deprecation cleanup, thread persistence, tool rendering via components.tools)
 - Phase 87 added: AI-CHAT-MODULE FIX (security fixes, bug fixes, race conditions, dead code cleanup from module audit)
+- Phase 88 added: reminder and follows ups fix
 
 ### Blockers/Concerns
 
@@ -99,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T15:47:27.273Z
-Stopped at: Completed 87-03-PLAN.md (Medium-Severity Bug Fixes)
+Last session: 2026-03-19T16:03:59.201Z
+Stopped at: Completed 87-04-PLAN.md (Dead Code Removal and File Splits)
 Resume file: None
