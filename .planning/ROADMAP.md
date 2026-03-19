@@ -228,9 +228,10 @@ Plans:
 **Goal:** All bugs, race conditions, security holes, and dead code from the AI-Chat module audit are fixed -- userId/tenantId isolation enforced, transactions retry-safe, oversized files split
 **Requirements**: BUG-1, BUG-2, BUG-3, BUG-5, BUG-6, BUG-7, BUG-8, RACE-1, RACE-2, RACE-3, RACE-4, RULE-1, RULE-3, DEAD-1, DEAD-2, DEAD-3, DEAD-4, DEAD-5
 **Depends on:** Phase 86
-**Plans:** 4 plans
+**Plans:** 5 plans
 
 Plans:
+- [ ] 87-00-PLAN.md -- Wave 0: Failing unit tests for security fixes (BUG-2, RULE-1) and bug fixes (BUG-1, BUG-5, RACE-1, RACE-4)
 - [ ] 87-01-PLAN.md -- Critical security: userId check on conversations (BUG-2), tenantId on message queries (RULE-1)
 - [ ] 87-02-PLAN.md -- High severity: reply_email replyAll+CC (BUG-1), summary trigger fix (BUG-5), Prisma retry wrappers (RACE-1)
 - [ ] 87-03-PLAN.md -- Medium severity: draft sentAt (BUG-3), piiResolve (BUG-6), auto-resolve removal (BUG-7), embedding dedup (BUG-8), batched persistence (RACE-4), count-from-save (RACE-2)

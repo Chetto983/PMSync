@@ -18,7 +18,7 @@ Does NOT cover: new features, UI changes, or non-ai-chat modules.
 
 ### Priority Order (locked)
 - Pass 1: Critical security (BUG-2, RULE-1) — must land first
-- Pass 2: High severity (BUG-1, BUG-5, RACE-1, RULE-2)
+- Pass 2: High severity (BUG-1, BUG-5, RACE-1)
 - Pass 3: Medium severity (BUG-3, BUG-6, BUG-7, BUG-8, RACE-2/3/4)
 - Pass 4: Low / cleanup (DEAD-1-5, RULE-3 file splits, PRACTICE-1/2/3)
 
@@ -32,7 +32,7 @@ Does NOT cover: new features, UI changes, or non-ai-chat modules.
 - BUG-5: maybeTriggerSummaryGeneration must check message count since last summary (not just total > 20). Only trigger every N messages (e.g., every 10 after threshold)
 - BUG-6: delete_contact must call _piiResolve on contactId before using it
 - BUG-7: Remove 30-min auto-resolve fallback from getOrCreateConversation — frontend now always sends real conversationId via eager initialize()
-- BUG-8: Deduplicate embedding save in save_memory — pick one storage path (embeddingsService.saveEmbedding) and remove raw SQL
+- BUG-8: Deduplicate embedding save in save_memory — keep raw SQL write to ai_memories.vector (because getRelevantMemories queries that column) and remove the embeddingsService.saveEmbedding() call (the duplicate). Full canonicalization to use a single vector store is tracked in Phase 82 (AICP-05/06). Rationale: RESEARCH.md Open Question 1 confirmed that getRelevantMemories queries ai_memories.vector directly; removing the raw SQL write would break retrieval without also migrating the query path, which is out of scope for this phase.
 
 ### Race Condition Fixes (locked)
 - RACE-1: Add P2002/P2034 retry wrapper for all Prisma transactions in conversation.service
