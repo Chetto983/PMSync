@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   IAiTool,
   IToolContext,
+  ToolDomain,
+  RiskLevel,
 } from '../../../common/interfaces/tool-registry.interface';
 import { KnowledgeBaseService } from '../services/knowledge-base.service';
 
@@ -28,6 +30,23 @@ export class RagTool implements IAiTool {
         description: 'Sources to search (omit to search all)',
       },
       limit: { type: 'number', description: 'Max results (default 10, max 20)' },
+    },
+    required: ['query'],
+  };
+
+  // Phase 77: Governance metadata
+  readonly domain: ToolDomain = 'knowledge';
+  readonly riskLevel: RiskLevel = 'LOW';
+  readonly requiresApproval = false;
+  readonly inputSchema = {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Natural language search query' },
+      sources: {
+        type: 'array',
+        items: { type: 'string', enum: ['emails', 'contacts', 'calendar'] },
+      },
+      limit: { type: 'number' },
     },
     required: ['query'],
   };
