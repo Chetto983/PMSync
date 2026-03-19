@@ -37,6 +37,11 @@ import {
 import { MemoryService } from './memory.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  extractSafeMessageTextForModel,
+  redactModelMessagesForModel,
+  redactTextForModel,
+} from '../utils/model-redaction';
 
 /**
  * Parameters for streamChat method.
@@ -102,8 +107,8 @@ export class AiChatService {
    * 2. Circuit breaker check
    * 3. Get or create conversation
    * 4. PII tokenize user message
-   * 5. Save original message, send redacted to LLM
-   * 6. Load conversation history
+   * 5. Load/redact prior context before appending the current turn
+   * 6. Save the original message for conversation history
    * 7. Run ToolLoopAgent and stream UI messages
    * 8. Audit log + usage tracking
    */
@@ -166,30 +171,43 @@ export class AiChatService {
       );
     }
 
-    // 5. Save original message to conversation, send redacted to LLM
-    await this.conversationService.saveUserMessage(
-      conversation.id,
-      message, // Save original
+    // 5. Load/redact prior context before persisting the current raw turn.
+    // This keeps the active model call from seeing raw PII or a duplicated user message.
+    const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
+      this.conversationService.getMessagesForContext(conversation.id),
+      this.getRuntimeContextMetadata(tenantId, userId, locale),
+      this.memoryService.getRelevantMemories(
+        tenantId,
+        userId,
+        llmMessage,
+        3,
+      ),
+    ]);
+    const messages = redactModelMessagesForModel(
+      this.piiDetectionService,
+      contextMessages,
     );
 
-    // 6. Load conversation history (last 10 messages + summary)
-    const messages = await this.conversationService.getMessagesForContext(
+    // 6. Save original message to conversation after context load
+    await this.conversationService.saveUserMessage(
       conversation.id,
+      message, // Save original for audit/history; model sees only redacted content.
     );
 
     // Append current user message with runtime context (redacted for LLM)
     // Phase AI-AUDIT: Runtime context separated from system prompt (nanobot pattern)
-    const runtimeContextMeta = await this.getRuntimeContextMetadata(
-      tenantId,
-      userId,
-      locale,
-    );
     const runtimeContext = buildRuntimeContext(
       runtimeContextMeta.timezone,
       runtimeContextMeta.providerType,
       runtimeContextMeta.locale,
     );
-    messages.push({ role: 'user', content: `${runtimeContext}\n\n${llmMessage}` });
+    messages.push({
+      role: 'user',
+      content: redactTextForModel(
+        this.piiDetectionService,
+        `${runtimeContext}\n\n${llmMessage}`,
+      ),
+    });
 
     // 7. Audit log (fire-and-forget)
     this.auditService
@@ -211,13 +229,10 @@ export class AiChatService {
     // 8. Build dynamic system prompt with current date/timezone + memory
     const basePrompt = buildSystemPrompt();
 
-    const memories = await this.memoryService.getRelevantMemories(
-      tenantId,
-      userId,
-      message,
-      3,
+    const memoryBlock = redactTextForModel(
+      this.piiDetectionService,
+      this.memoryService.formatMemoriesForPrompt(memories),
     );
-    const memoryBlock = this.memoryService.formatMemoriesForPrompt(memories);
 
     // Compose: base prompt + memory
     let systemPromptWithMemory = basePrompt;
@@ -482,11 +497,10 @@ export class AiChatService {
 
     const messageText = messages
       .map((m) => {
-        const content = m.content as Record<string, unknown>;
-        const text =
-          typeof content === 'string'
-            ? content
-            : (content as { text?: string })?.text ?? JSON.stringify(content);
+        const text = extractSafeMessageTextForModel(
+          this.piiDetectionService,
+          m,
+        );
         return `${m.role}: ${text.slice(0, 200)}`;
       })
       .join('\n');
@@ -541,11 +555,10 @@ export class AiChatService {
     // Format messages for summarization prompt
     const messageText = olderMessages
       .map((m) => {
-        const content = m.content as Record<string, unknown>;
-        const text =
-          typeof content === 'string'
-            ? content
-            : (content as { text?: string })?.text ?? JSON.stringify(content);
+        const text = extractSafeMessageTextForModel(
+          this.piiDetectionService,
+          m,
+        );
         return `${m.role}: ${text}`;
       })
       .join('\n');

@@ -211,6 +211,16 @@ Phase 85 can run in parallel with 83-84.
 | 84. MUI Chat Migration | 0/? | Not started | - |
 | 85. UI/UX Polish | 0/? | Not started | - |
 
+### Phase 86: AI Chat Bug Fix — Migrate to Official Patterns
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 85
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 86 to break down)
+
 ---
 *Roadmap created: 2026-02-09*
 *v5.0 completed: 2026-03-10 -- 15 phases, 34 plans, 51/51 requirements*

@@ -20,6 +20,7 @@ import {
   vi,
 } from 'vitest';
 import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
 import {
   mistralChatHandler,
   createStreamingHandler,
@@ -202,6 +203,130 @@ describe('Chat Pipeline (MSW)', () => {
 
     // Audit log was called
     expect(auditServiceMock.logAudit).toHaveBeenCalled();
+  }, 30_000);
+
+  it('redacts historical, memory, and current-turn PII before calling the model', async () => {
+    let capturedMessages: Array<{ role: string; content: unknown }> = [];
+
+    server.use(
+      http.post('https://api.mistral.ai/v1/chat/completions', async ({ request }) => {
+        const body = (await request.json()) as {
+          stream?: boolean;
+          model?: string;
+          messages?: Array<{ role: string; content: unknown }>;
+        };
+
+        capturedMessages = body.messages ?? [];
+
+        if (!body.stream) {
+          return HttpResponse.json({
+            id: 'chatcmpl-msw-test',
+            object: 'chat.completion',
+            model: body.model ?? 'mistral-small-latest',
+            choices: [
+              {
+                index: 0,
+                message: { role: 'assistant', content: 'OK' },
+                finish_reason: 'stop',
+              },
+            ],
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 1,
+              total_tokens: 11,
+            },
+          });
+        }
+
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            const firstChunk = JSON.stringify({
+              id: 'chatcmpl-msw-redaction',
+              object: 'chat.completion.chunk',
+              model: body.model ?? 'mistral-small-latest',
+              choices: [
+                {
+                  index: 0,
+                  delta: { content: 'Redacted' },
+                  finish_reason: null,
+                },
+              ],
+            });
+            const finalChunk = JSON.stringify({
+              id: 'chatcmpl-msw-redaction',
+              object: 'chat.completion.chunk',
+              model: body.model ?? 'mistral-small-latest',
+              choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+              usage: {
+                prompt_tokens: 20,
+                completion_tokens: 1,
+                total_tokens: 21,
+              },
+            });
+
+            controller.enqueue(encoder.encode(`data: ${firstChunk}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${finalChunk}\n\n`));
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+          },
+        });
+
+        return new HttpResponse(stream, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+          },
+        });
+      }),
+    );
+
+    conversationServiceMock.getMessagesForContext.mockResolvedValueOnce([
+      {
+        role: 'user',
+        content: 'My old email is history@example.com',
+      },
+      {
+        role: 'assistant',
+        content: 'I previously replied to history@example.com',
+      },
+    ]);
+    memoryServiceMock.getRelevantMemories.mockResolvedValueOnce([
+      {
+        content: 'Preferred contact: memory@example.com',
+        category: 'contact',
+        createdAt: new Date('2026-03-18T00:00:00.000Z'),
+      },
+    ]);
+    memoryServiceMock.formatMemoriesForPrompt.mockReturnValueOnce(
+      '## Known Facts About This User\n- Preferred contact: memory@example.com',
+    );
+
+    const stream = await aiChatService.streamChat({
+      tenantId: 'test-tenant',
+      userId: 'test-user',
+      message: 'Send a note to current@example.com',
+      conversationId: 'conv-msw-001',
+    });
+
+    await drainStream(stream);
+
+    const requestPayload = JSON.stringify(capturedMessages);
+    expect(requestPayload).not.toContain('history@example.com');
+    expect(requestPayload).not.toContain('memory@example.com');
+    expect(requestPayload).not.toContain('current@example.com');
+    expect(requestPayload).toContain('[EMAIL_REDACTED');
+
+    const getContextOrder =
+      conversationServiceMock.getMessagesForContext.mock.invocationCallOrder.at(-1);
+    const saveUserOrder =
+      conversationServiceMock.saveUserMessage.mock.invocationCallOrder.at(-1);
+
+    expect(getContextOrder).toBeTypeOf('number');
+    expect(saveUserOrder).toBeTypeOf('number');
+    expect(getContextOrder!).toBeLessThan(saveUserOrder!);
   }, 30_000);
 
   it('rate limiter rejection returns 429', async () => {

@@ -71,6 +71,10 @@ Recent decisions affecting current work:
 
 None yet.
 
+### Roadmap Evolution
+
+- Phase 86 added: AI Chat Bug Fix — Migrate to Official Patterns (deprecation cleanup, thread persistence, tool rendering via components.tools)
+
 ### Blockers/Concerns
 
 - RESOLVED: In-progress HITL refactor absorbed into Phase 77 (77-01 + 77-02)
