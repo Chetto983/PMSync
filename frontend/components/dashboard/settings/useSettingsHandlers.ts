@@ -6,6 +6,7 @@
 
 import { useCallback } from 'react';
 import { usersApi } from '@/lib/api/users';
+import { authClient } from '@/lib/auth-client';
 import { persistUserSettings } from '@/lib/utils/user-settings';
 import { logger } from '@/lib/logger';
 import { resizeImage } from './settings-utils';
@@ -138,6 +139,8 @@ export function useSettingsHandlers(s: State, settingsCopy: Record<string, any>)
   const handleAvatarRemove = useCallback(async () => {
     try {
       s.setAvatarUploading(true);
+      // Clear from better-auth session + R2 storage + DB
+      await authClient.updateUser({ image: '' });
       await usersApi.deleteAvatar();
       s.setAvatarUrl(null);
     } catch (error) {
@@ -147,11 +150,22 @@ export function useSettingsHandlers(s: State, settingsCopy: Record<string, any>)
     }
   }, [s.setAvatarUrl, s.setAvatarUploading]);
 
-  const handleAvatarSave = useCallback(async (dataUrl: string) => {
+  const handleAvatarSave = useCallback(async (avatarValue: string) => {
     try {
       s.setAvatarUploading(true);
-      const result = await usersApi.uploadAvatar(dataUrl);
-      s.setAvatarUrl(result.avatarUrl);
+
+      const isUrl = avatarValue.startsWith('https://');
+
+      if (isUrl) {
+        // Small external URL (DiceBear etc.) — store via better-auth + sync avatarUrl
+        await authClient.updateUser({ image: avatarValue });
+        await usersApi.updateProfile({ avatarUrl: avatarValue });
+        s.setAvatarUrl(avatarValue);
+      } else {
+        // Base64 data URL (photo upload) — upload to R2 via backend
+        const result = await usersApi.uploadAvatar(avatarValue);
+        s.setAvatarUrl(result.avatarUrl);
+      }
     } catch (error) {
       logger.error('Failed to save avatar', { error });
       throw error;

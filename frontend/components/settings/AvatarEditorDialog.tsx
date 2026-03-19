@@ -133,19 +133,14 @@ export function AvatarEditorDialog({
     setSaving(true);
     try {
       if (activeTab === 0 && image && editorRef.current) {
-        // Get cropped image from editor
+        // Get cropped image from editor — base64 data URL for R2 upload
         const canvas = editorRef.current.getImageScaledToCanvas();
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         await onSave(dataUrl);
       } else if (activeTab === 1) {
-        // Use DiceBear SVG URL - fetch and convert to base64 (UTF-8 safe)
+        // DiceBear: pass the URL directly — stored via better-auth (no R2)
         const url = generateDiceBearUrl(selectedStyle, seed, 256);
-        const response = await fetch(url);
-        const svgText = await response.text();
-        // btoa() fails with non-ASCII chars, use encodeURIComponent + unescape for UTF-8
-        const base64 = btoa(unescape(encodeURIComponent(svgText)));
-        const dataUrl = `data:image/svg+xml;base64,${base64}`;
-        await onSave(dataUrl);
+        await onSave(url);
       }
       onClose();
     } catch {
