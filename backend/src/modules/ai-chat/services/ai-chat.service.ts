@@ -7,7 +7,6 @@ import {
   Inject,
 } from '@nestjs/common';
 import {
-  generateText,
   ToolLoopAgent,
   stepCountIs,
   type StepResult,
@@ -37,14 +36,14 @@ import {
   RagToolsService,
   ConversationToolsService,
   SandboxToolsService,
-  ProductivityToolsService,
   ReminderToolsService,
 } from '../tools/index';
+import { EmailProductivityToolsService } from '../tools/email-productivity-tools.service';
+import { FollowUpToolsService } from '../tools/follow-up-tools.service';
 import { MemoryService } from './memory.service';
+import { ChatEnrichmentService } from './chat-enrichment.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
-import { PrismaService } from '../../../prisma/prisma.service';
 import {
-  extractSafeMessageTextForModel,
   redactModelMessagesForModel,
   redactTextForModel,
 } from '../utils/model-redaction';
@@ -93,17 +92,19 @@ export class AiChatService {
     // Phase AI-AUDIT: Conversation + sandbox tools
     private readonly conversationToolsService: ConversationToolsService,
     private readonly sandboxToolsService: SandboxToolsService,
-    // Phase CONSOLIDATION: Productivity tools (follow-ups, labels, stars, email index)
-    private readonly productivityToolsService: ProductivityToolsService,
+    // Phase 87: Split productivity tools into focused services
+    private readonly emailProductivityToolsService: EmailProductivityToolsService,
+    private readonly followUpToolsService: FollowUpToolsService,
     // Phase REMINDER: Smart follow-up reminder tools
     private readonly reminderToolsService: ReminderToolsService,
     private readonly memoryService: MemoryService,
+    // Phase 87: Extracted enrichment service (title, summary, runtime context)
+    private readonly chatEnrichmentService: ChatEnrichmentService,
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,
     // Phase 35: AI Run Ledger telemetry
     @Optional() private readonly ledgerService?: AiRunLedgerService,
-    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   /**
@@ -181,7 +182,7 @@ export class AiChatService {
     // This keeps the active model call from seeing raw PII or a duplicated user message.
     const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
       this.conversationService.getMessagesForContext(conversation.id, 10, tenantId),
-      this.getRuntimeContextMetadata(tenantId, userId, locale),
+      this.chatEnrichmentService.getRuntimeContextMetadata(tenantId, userId, locale),
       this.memoryService.getRelevantMemories(
         tenantId,
         userId,
@@ -355,14 +356,14 @@ export class AiChatService {
           toolCallCount,
         }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
-        this.maybeGenerateSmartTitle(conversation.id, tenantId, savedMessageCount).catch(
+        this.chatEnrichmentService.maybeGenerateSmartTitle(conversation.id, tenantId, savedMessageCount).catch(
           (err) =>
             this.logger.warn(
               `Title generation failed: ${err.message}`,
             ),
         );
 
-        this.maybeTriggerSummaryGeneration(conversation.id, tenantId, savedMessageCount).catch(
+        this.chatEnrichmentService.maybeTriggerSummaryGeneration(conversation.id, tenantId, savedMessageCount).catch(
           (err) =>
             this.logger.warn(
               `Summary generation failed: ${err.message}`,
@@ -463,28 +464,10 @@ export class AiChatService {
     return serialized as Prisma.InputJsonValue;
   }
 
-  private async generateModelText(
-    args: Parameters<typeof generateText>[0],
-  ): ReturnType<typeof generateText> {
-    return generateText(args);
-  }
-
-  /**
-   * Create tool set with PII resolution via closure.
-   *
-   * Phase 25: Merges tools from 5 ToolsService classes.
-   * Each service's getTools() receives tenantId, conversationId, and piiResolve closure.
-   * Tools get PII-resolved args automatically -- no static getToolSet() export.
-   */
+  /** Create tool set with PII resolution via closure. */
   private createToolSet(tenantId: string, userId: string, conversationId: string) {
-    const piiResolve = async (
-      payload: Record<string, unknown>,
-    ): Promise<Record<string, unknown>> =>
-      this.piiResolutionService.resolvePayload(
-        tenantId,
-        conversationId,
-        payload,
-      );
+    const piiResolve = async (payload: Record<string, unknown>) =>
+      this.piiResolutionService.resolvePayload(tenantId, conversationId, payload);
 
     const toolSets = {
       ...this.emailToolsService.getTools(tenantId, piiResolve),
@@ -492,231 +475,20 @@ export class AiChatService {
       ...this.contactToolsService.getTools(tenantId, piiResolve),
       ...this.folderToolsService.getTools(tenantId, piiResolve),
       ...this.ragToolsService.getTools(tenantId, userId, piiResolve),
-      // Phase CONSOLIDATION: Productivity tools (follow-ups, labels, stars, email index)
-      ...this.productivityToolsService.getTools(tenantId, userId),
-      // Phase REMINDER: Smart follow-up reminder tools
+      ...this.emailProductivityToolsService.getTools(tenantId),
+      ...this.followUpToolsService.getTools(tenantId, userId),
       ...this.reminderToolsService.getTools(tenantId, userId),
-      // Phase AI-AUDIT: Conversation tools (ask_user) + sandbox (run_code)
       ...this.conversationToolsService.getTools(),
       ...this.sandboxToolsService.getTools(tenantId),
     };
 
-    // Runtime duplicate check -- fail fast if tool names collide
+    // Runtime duplicate check
     const toolNames = Object.keys(toolSets);
-    const uniqueNames = new Set(toolNames);
-    if (toolNames.length !== uniqueNames.size) {
-      const duplicates = toolNames.filter(
-        (name, i) => toolNames.indexOf(name) !== i,
-      );
-      throw new Error(
-        `Duplicate tool names detected: ${duplicates.join(', ')}`,
-      );
+    if (toolNames.length !== new Set(toolNames).size) {
+      const dupes = toolNames.filter((n, i) => toolNames.indexOf(n) !== i);
+      throw new Error(`Duplicate tool names: ${dupes.join(', ')}`);
     }
-
     this.logger.debug(`Tool set created: ${toolNames.length} tools`);
-
     return toolSets;
-  }
-
-  private async getRuntimeContextMetadata(
-    tenantId: string,
-    userId: string,
-    requestedLocale?: string,
-  ): Promise<{
-    timezone?: string;
-    providerType?: string;
-    locale?: string;
-    displayName?: string;
-    jobTitle?: string;
-    communicationStyle?: string;
-    responseLength?: string;
-    proactivityLevel?: string;
-  }> {
-    if (!this.prisma) {
-      return {
-        locale: requestedLocale,
-      };
-    }
-
-    const [preferences, provider, user] = await Promise.all([
-      this.prisma.userPreferences.findUnique({
-        where: { userId },
-        select: {
-          timezone: true,
-          language: true,
-          jobTitle: true,
-          communicationStyle: true,
-          responseLength: true,
-          proactivityLevel: true,
-        },
-      }),
-      this.prisma.providerConfig.findFirst({
-        where: {
-          tenantId,
-          isActive: true,
-          supportsEmail: true,
-        },
-        select: { providerType: true },
-      }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          firstName: true,
-          lastName: true,
-          name: true,
-        },
-      }),
-    ]);
-
-    const displayName =
-      [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
-      user?.name?.trim() ||
-      undefined;
-
-    return {
-      timezone: preferences?.timezone ?? undefined,
-      providerType: provider?.providerType ?? undefined,
-      locale: requestedLocale ?? preferences?.language ?? undefined,
-      displayName,
-      jobTitle: preferences?.jobTitle ?? undefined,
-      communicationStyle: preferences?.communicationStyle ?? undefined,
-      responseLength: preferences?.responseLength ?? undefined,
-      proactivityLevel: preferences?.proactivityLevel ?? undefined,
-    };
-  }
-
-  /**
-   * Generate a smart conversation title using LLM after the second exchange.
-   *
-   * Triggers at exactly 4 messages (user + assistant + user + assistant).
-   * Uses a cheap/fast model call to create a concise title from the
-   * conversation content, replacing the crude initial title.
-   *
-   * Fire-and-forget from onFinish callback.
-   */
-  private async maybeGenerateSmartTitle(
-    conversationId: string,
-    tenantId: string,
-    messageCount?: number,
-  ): Promise<void> {
-    // Use provided count from save operation to avoid TOCTOU race (RACE-2).
-    // Falls back to DB query only if count not provided (backward compat).
-    const count = messageCount ??
-      await this.conversationService.getMessageCount(conversationId, tenantId);
-
-    // Only generate on the second exchange (4 messages)
-    if (count !== 4) return;
-
-    const messages = await this.conversationService.getRecentMessages(
-      conversationId,
-      4,
-      tenantId,
-    );
-
-    if (messages.length < 4) return;
-
-    const messageText = messages
-      .map((m) => {
-        const text = extractSafeMessageTextForModel(
-          this.piiDetectionService,
-          m,
-        );
-        return `${m.role}: ${text.slice(0, 200)}`;
-      })
-      .join('\n');
-
-    const { text: title } = await this.generateModelText({
-      model: this.mistralProvider.getChatModel(),
-      system:
-        'Generate a short conversation title (max 6 words) for the following chat. ' +
-        'The title should capture the main topic or intent. ' +
-        'Write in the same language as the conversation. ' +
-        'Return ONLY the title, no quotes, no punctuation at the end.',
-      messages: [{ role: 'user', content: messageText }],
-    });
-
-    const cleanTitle = title.replace(/^["']|["']$/g, '').trim().slice(0, 80);
-
-    if (cleanTitle) {
-      await this.conversationService.updateConversationTitle(
-        conversationId,
-        cleanTitle,
-      );
-      this.logger.log(
-        `Smart title generated for conversation ${conversationId}: "${cleanTitle}"`,
-      );
-    }
-  }
-
-  /**
-   * Async summary generation for long conversations.
-   *
-   * Triggers at 20-message intervals (20, 40, 60, ...) with a ±2 tolerance
-   * window for multi-step tool call bursts. Summarizes older messages
-   * (all except the last 10) and stores in AiConversation.summary.
-   *
-   * Fire-and-forget from onFinish callback -- failures are logged, not thrown.
-   */
-  private async maybeTriggerSummaryGeneration(
-    conversationId: string,
-    tenantId: string,
-    messageCount?: number,
-  ): Promise<void> {
-    // Use provided count from save operation to avoid TOCTOU race (RACE-2).
-    // Falls back to DB query only if count not provided (backward compat).
-    const count = messageCount ??
-      await this.conversationService.getMessageCount(conversationId, tenantId);
-
-    // Only at 20-message intervals (±2 tolerance for multi-step bursts).
-    // Prevents redundant LLM summary calls on every message after 20.
-    if (count < 20 || (count - 20) % 10 !== 0) return;
-
-    // Load older messages to summarize
-    const olderMessages =
-      await this.conversationService.getOlderMessages(conversationId, 10, tenantId);
-
-    if (olderMessages.length === 0) return;
-
-    // Format messages for summarization prompt
-    const messageText = olderMessages
-      .map((m) => {
-        const text = extractSafeMessageTextForModel(
-          this.piiDetectionService,
-          m,
-        );
-        return `${m.role}: ${text}`;
-      })
-      .join('\n');
-
-    const summaryStart = Date.now();
-    const { text: summary, usage } = await this.generateModelText({
-      model: this.mistralProvider.getChatModel(),
-      system:
-        'Summarize the following conversation history in 2-3 concise paragraphs. ' +
-        'Preserve key facts, decisions, and action items. ' +
-        'Write in the same language as the conversation.',
-      messages: [{ role: 'user', content: messageText }],
-    });
-
-    // Phase 35: Fire-and-forget ledger for summary generation
-    this.ledgerService?.recordRun({
-      tenantId,
-      userId: 'system',
-      runType: 'chat-summary',
-      model: 'mistral-small-latest',
-      promptTokens: usage?.inputTokens ?? 0,
-      completionTokens: usage?.outputTokens ?? 0,
-      totalTokens: usage?.totalTokens ?? 0,
-      latencyMs: Date.now() - summaryStart,
-    }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-    await this.conversationService.updateConversationSummary(
-      conversationId,
-      summary,
-    );
-
-    this.logger.log(
-      `Summary generated for conversation ${conversationId} (${olderMessages.length} messages summarized)`,
-    );
   }
 }

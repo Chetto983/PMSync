@@ -180,9 +180,11 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       toolsServiceStub, // RagToolsService
       toolsServiceStub, // ConversationToolsService
       toolsServiceStub, // SandboxToolsService
-      toolsServiceStub, // ProductivityToolsService
+      toolsServiceStub, // EmailProductivityToolsService
+      toolsServiceStub, // FollowUpToolsService
       toolsServiceStub, // ReminderToolsService
       memoryService, // REAL -- will be spied on
+      { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
       undefined, // UsageTrackingService is @Optional
     );
   }, 30_000);

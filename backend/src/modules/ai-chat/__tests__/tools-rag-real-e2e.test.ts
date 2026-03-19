@@ -316,9 +316,11 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       ragToolsService,
       { getTools: () => ({}) } as any, // ConversationToolsService
       { getTools: () => ({}) } as any, // SandboxToolsService
-      { getTools: () => ({}) } as any, // ProductivityToolsService
+      { getTools: () => ({}) } as any, // EmailProductivityToolsService
+      { getTools: () => ({}) } as any, // FollowUpToolsService
       { getTools: () => ({}) } as any, // ReminderToolsService
       memoryService,
+      { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
       undefined,
     );
   }, 30_000);

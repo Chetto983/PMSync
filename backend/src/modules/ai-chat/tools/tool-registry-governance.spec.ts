@@ -19,7 +19,8 @@ import { FolderToolsService } from './folder-tools.service';
 import { RagToolsService } from './rag-tools.service';
 import { ConversationToolsService } from './conversation-tools.service';
 import { SandboxToolsService } from './sandbox-tools.service';
-import { ProductivityToolsService } from './productivity-tools.service';
+import { EmailProductivityToolsService } from './email-productivity-tools.service';
+import { FollowUpToolsService } from './follow-up-tools.service';
 import { ReminderToolsService } from './reminder-tools.service';
 
 /**
@@ -38,7 +39,8 @@ function buildPopulatedRegistry(): ToolRegistryService {
     new RagToolsService(null as any, null as any, null as any, null as any, registry),
     new ConversationToolsService(registry),
     new SandboxToolsService(null as any, null as any, registry),
-    new ProductivityToolsService(null as any, null as any, null as any, registry),
+    new EmailProductivityToolsService(null as any, null as any, null as any, registry),
+    new FollowUpToolsService(null as any, registry),
     new ReminderToolsService(null as any, registry),
   ];
 

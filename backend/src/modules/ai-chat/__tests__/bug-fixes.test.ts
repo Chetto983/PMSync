@@ -128,15 +128,14 @@ describe('BUG-1: reply_email replyAll CC handling', () => {
 // ---- BUG-5: summary trigger frequency ----
 
 describe('BUG-5: maybeTriggerSummaryGeneration frequency', () => {
-  // We test the private method via its observable side effects:
-  // it calls getMessageCount, and if the count hits a trigger point,
-  // it calls getOlderMessages + updateConversationSummary.
+  // Summary generation moved to ChatEnrichmentService in phase 87.
+  // We verify the trigger cadence there via the public method.
 
   let conversationService: Record<string, any>;
   let mistralProvider: Record<string, any>;
-  let service: any;
+  let piiDetectionService: Record<string, any>;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     conversationService = {
       getMessageCount: vi.fn().mockResolvedValue(0),
       getOlderMessages: vi.fn().mockResolvedValue([
@@ -149,28 +148,27 @@ describe('BUG-5: maybeTriggerSummaryGeneration frequency', () => {
     mistralProvider = {
       getChatModel: vi.fn().mockReturnValue('mock-model'),
     };
+
+    piiDetectionService = {
+      detect: vi.fn().mockReturnValue({ hasPii: false, redactedText: '' }),
+    };
   });
 
-  /**
-   * Helper to invoke the private maybeTriggerSummaryGeneration.
-   * We access it via prototype since it's private.
-   */
   async function callMaybeTrigger(messageCount: number) {
-    const { AiChatService } = await import('../services/ai-chat.service');
+    const { ChatEnrichmentService } = await import(
+      '../services/chat-enrichment.service'
+    );
 
     conversationService.getMessageCount.mockResolvedValue(messageCount);
 
-    // Create a minimal instance with just the deps we need
-    const instance = Object.create(AiChatService.prototype);
-    instance.conversationService = conversationService;
-    instance.mistralProvider = mistralProvider;
-    instance.piiDetectionService = {
-      detect: vi.fn().mockReturnValue({ hasPii: false, redactedText: '' }),
-    };
-    instance.ledgerService = null;
-    instance.logger = { log: vi.fn(), warn: vi.fn(), debug: vi.fn() };
+    const instance = new ChatEnrichmentService(
+      mistralProvider as any,
+      conversationService as any,
+      piiDetectionService as any,
+      undefined,
+      undefined,
+    );
 
-    // generateText is mocked at module level via vi.mock('ai')
     await instance.maybeTriggerSummaryGeneration('conv-1', 'tenant-1');
   }
 

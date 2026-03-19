@@ -76,9 +76,17 @@ describe('AiChatService ledger wiring', () => {
     const mockContactTools = { getTools: vi.fn(() => ({})) };
     const mockFolderTools = { getTools: vi.fn(() => ({})) };
     const mockRagTools = { getTools: vi.fn(() => ({})) };
+    const mockEmailProductivityTools = { getTools: vi.fn(() => ({})) };
+    const mockFollowUpTools = { getTools: vi.fn(() => ({})) };
+    const mockReminderTools = { getTools: vi.fn(() => ({})) };
     const mockMemoryService = {
       getRelevantMemories: vi.fn().mockResolvedValue([]),
       formatMemoriesForPrompt: vi.fn(() => ''),
+    };
+    const mockChatEnrichmentService = {
+      getRuntimeContextMetadata: vi.fn().mockResolvedValue({}),
+      maybeGenerateSmartTitle: vi.fn().mockResolvedValue(undefined),
+      maybeTriggerSummaryGeneration: vi.fn().mockResolvedValue(undefined),
     };
     const mockUsageTracking = { trackUsage: vi.fn().mockResolvedValue(undefined) };
 
@@ -96,9 +104,11 @@ describe('AiChatService ledger wiring', () => {
       mockRagTools as any,
       { getTools: () => ({}) } as any, // ConversationToolsService
       { getTools: () => ({}) } as any, // SandboxToolsService
-      { getTools: () => ({}) } as any, // ProductivityToolsService
-      { getTools: () => ({}) } as any, // ReminderToolsService
+      mockEmailProductivityTools as any,
+      mockFollowUpTools as any,
+      mockReminderTools as any,
       mockMemoryService as any,
+      mockChatEnrichmentService as any,
       mockUsageTracking as any,
       mockLedger as unknown as AiRunLedgerService,
     );
@@ -119,6 +129,9 @@ describe('AiChatService ledger wiring', () => {
     (mockMemoryService.formatMemoriesForPrompt as any).mockReturnValue('');
     (mockMistralProvider.getChatModel as any).mockReturnValue('mock-model');
     (mockUsageTracking.trackUsage as any).mockResolvedValue(undefined);
+    (mockChatEnrichmentService.getRuntimeContextMetadata as any).mockResolvedValue({});
+    (mockChatEnrichmentService.maybeGenerateSmartTitle as any).mockResolvedValue(undefined);
+    (mockChatEnrichmentService.maybeTriggerSummaryGeneration as any).mockResolvedValue(undefined);
   });
 
   afterEach(() => vi.restoreAllMocks());

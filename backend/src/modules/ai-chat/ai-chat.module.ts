@@ -22,9 +22,11 @@ import {
   RagToolsService,
   ConversationToolsService,
   SandboxToolsService,
-  ProductivityToolsService,
+  EmailProductivityToolsService,
+  FollowUpToolsService,
   ReminderToolsService,
 } from './tools/index';
+import { ChatEnrichmentService } from './services/chat-enrichment.service';
 import { SandboxService } from './services/sandbox.service';
 import { MemoryService } from './services/memory.service';
 import { HybridSearchService } from './services/hybrid-search.service';
@@ -71,10 +73,13 @@ import { HybridSearchService } from './services/hybrid-search.service';
     // Phase AI-AUDIT: Conversation + sandbox tools
     ConversationToolsService,
     SandboxToolsService,
-    // Phase CONSOLIDATION: Follow-up, label, star, email index tools
-    ProductivityToolsService,
+    // Phase 87: Split productivity tools into focused services
+    EmailProductivityToolsService,
+    FollowUpToolsService,
     // Phase REMINDER: Smart follow-up reminder tools
     ReminderToolsService,
+    // Phase 87: Extracted enrichment service (title, summary, runtime context)
+    ChatEnrichmentService,
     SandboxService,
     MemoryService,
     // Phase 25 Plan 03: Hybrid search (vector + FTS)

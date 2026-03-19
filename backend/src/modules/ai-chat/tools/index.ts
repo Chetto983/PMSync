@@ -16,5 +16,6 @@ export { FolderToolsService } from './folder-tools.service';
 export { RagToolsService } from './rag-tools.service';
 export { ConversationToolsService } from './conversation-tools.service';
 export { SandboxToolsService } from './sandbox-tools.service';
-export { ProductivityToolsService } from './productivity-tools.service';
+export { EmailProductivityToolsService } from './email-productivity-tools.service';
+export { FollowUpToolsService } from './follow-up-tools.service';
 export { ReminderToolsService } from './reminder-tools.service';

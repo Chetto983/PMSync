@@ -23,7 +23,8 @@ import { FolderToolsService } from '../tools/folder-tools.service';
 import { RagToolsService } from '../tools/rag-tools.service';
 import { ConversationToolsService } from '../tools/conversation-tools.service';
 import { SandboxToolsService } from '../tools/sandbox-tools.service';
-import { ProductivityToolsService } from '../tools/productivity-tools.service';
+import { EmailProductivityToolsService } from '../tools/email-productivity-tools.service';
+import { FollowUpToolsService } from '../tools/follow-up-tools.service';
 import { ReminderToolsService } from '../tools/reminder-tools.service';
 
 const HIGH_RISK_TOOLS = [
@@ -44,7 +45,8 @@ function buildPopulatedRegistry(): ToolRegistryService {
     new RagToolsService(null as any, null as any, null as any, registry),
     new ConversationToolsService(registry),
     new SandboxToolsService(null as any, null as any, registry),
-    new ProductivityToolsService(null as any, null as any, null as any, registry),
+    new EmailProductivityToolsService(null as any, null as any, null as any, registry),
+    new FollowUpToolsService(null as any, registry),
     new ReminderToolsService(null as any, registry),
   ];
   for (const svc of services) {

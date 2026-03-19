@@ -1,8 +1,7 @@
-import { ProductivityToolsService } from './productivity-tools.service';
+import { EmailProductivityToolsService } from './email-productivity-tools.service';
 
-describe('ProductivityToolsService', () => {
+describe('EmailProductivityToolsService', () => {
   const tenantId = 'tenant-1';
-  const userId = 'user-1';
 
   const createService = () => {
     const prisma = {
@@ -24,7 +23,7 @@ describe('ProductivityToolsService', () => {
       bulkRemoveLabels: jest.fn(),
     } as any;
 
-    const service = new ProductivityToolsService(
+    const service = new EmailProductivityToolsService(
       prisma,
       emailCrudService,
       emailBulkService,
@@ -47,7 +46,7 @@ describe('ProductivityToolsService', () => {
       ],
     });
 
-    const tools = service.getTools(tenantId, userId);
+    const tools = service.getTools(tenantId);
     const result = await (tools.label_email as any).execute({
       emailId: 'email-1',
       addLabels: ['urgent'],
@@ -74,7 +73,7 @@ describe('ProductivityToolsService', () => {
       { id: 'label-spam', name: 'Spam' },
     ]);
 
-    const tools = service.getTools(tenantId, userId);
+    const tools = service.getTools(tenantId);
     const result = await (tools.label_email as any).execute({
       emailId: 'email-1',
       addLabels: ['reference'],

@@ -161,9 +161,11 @@ describe('Chat Pipeline (MSW)', () => {
       toolsServiceStub, // RagToolsService
       toolsServiceStub, // ConversationToolsService
       toolsServiceStub, // SandboxToolsService
-      toolsServiceStub, // ProductivityToolsService
+      toolsServiceStub, // EmailProductivityToolsService
+      toolsServiceStub, // FollowUpToolsService
       toolsServiceStub, // ReminderToolsService
       memoryServiceMock,
+      { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
       undefined, // UsageTrackingService
     );
   });
