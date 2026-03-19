@@ -1,6 +1,4 @@
-'use client';
-
-import { makeAssistantToolUI } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Brain, AlertTriangle, Tag } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -131,18 +129,22 @@ function MemoryRender({
   );
 }
 
-export const MemoryToolUI = makeAssistantToolUI<
+export function MemoryRenderer({
+  status,
+  result,
+}: ToolCallMessagePartProps<
   { query: string },
   MemorySearchResult
->({
-  toolName: 'search_memory',
-  render: (props) => <MemoryRender status={props.status} result={props.result} />,
-});
+>) {
+  return <MemoryRender status={status} result={result} />;
+}
 
-export const MemorySearchToolUI = makeAssistantToolUI<
+export function MemorySearchRenderer({
+  status,
+  result,
+}: ToolCallMessagePartProps<
   { query: string },
   MemorySearchResult
->({
-  toolName: 'memory_search',
-  render: (props) => <MemoryRender status={props.status} result={props.result} />,
-});
+>) {
+  return <MemoryRender status={status} result={result} />;
+}

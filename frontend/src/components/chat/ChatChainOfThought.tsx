@@ -5,7 +5,7 @@ import { ChainOfThoughtPrimitive, useAui, useAuiState } from '@assistant-ui/reac
 import { ChevronDown } from 'lucide-react';
 import Box from '@mui/material/Box';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { FallbackToolUIRender } from './tool-uis/FallbackToolUI';
+import { FallbackToolRenderer } from './tool-uis/FallbackToolUI';
 
 /**
  * Chain of thought collapsible accordion for AI reasoning steps.
@@ -45,7 +45,7 @@ export function ChatChainOfThought() {
       <ChainOfThoughtPrimitive.Parts
         components={{
           tools: {
-            Fallback: FallbackToolUIRender,
+            Fallback: FallbackToolRenderer,
           },
           Layout: ({ children }) => (
             <div className="chat-cot-content">

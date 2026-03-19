@@ -1,4 +1,4 @@
-import { makeAssistantToolUI } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Search, Mail, Star, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -135,41 +135,44 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
   );
 }
 
-export const EmailSearchToolUI = makeAssistantToolUI<
+export function EmailSearchRenderer({
+  args,
+  result,
+  status,
+}: ToolCallMessagePartProps<
   { query: string; folder?: string; maxResults?: number },
   EmailSearchResult
->({
-  toolName: 'search_emails',
-  render: ({ args, result, status }) => {
-    if (status.type === 'running') return <RunningState label={`Searching "${args.query}"...`} />;
-    if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
-    if (!result) return null;
-    return <ResultCard result={result} label="Email Search" />;
-  },
-});
+>) {
+  if (status.type === 'running') return <RunningState label={`Searching "${args.query}"...`} />;
+  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
+  if (!result) return null;
+  return <ResultCard result={result} label="Email Search" />;
+}
 
-export const ListEmailsToolUI = makeAssistantToolUI<
+export function ListEmailsRenderer({
+  args,
+  result,
+  status,
+}: ToolCallMessagePartProps<
   { folder?: string; limit?: number; unreadOnly?: boolean },
   EmailSearchResult
->({
-  toolName: 'list_emails',
-  render: ({ args, result, status }) => {
-    if (status.type === 'running') return <RunningState label={`Loading emails${args.folder ? ` from ${args.folder}` : ''}...`} />;
-    if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
-    if (!result) return null;
-    return <ResultCard result={result} label={args.folder ?? 'Inbox'} />;
-  },
-});
+>) {
+  if (status.type === 'running') return <RunningState label={`Loading emails${args.folder ? ` from ${args.folder}` : ''}...`} />;
+  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
+  if (!result) return null;
+  return <ResultCard result={result} label={args.folder ?? 'Inbox'} />;
+}
 
-export const SemanticSearchToolUI = makeAssistantToolUI<
+export function SemanticSearchRenderer({
+  args,
+  result,
+  status,
+}: ToolCallMessagePartProps<
   { query: string },
   EmailSearchResult
->({
-  toolName: 'semantic_search_emails',
-  render: ({ args, result, status }) => {
-    if (status.type === 'running') return <RunningState label={`Semantic search "${args.query}"...`} />;
-    if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
-    if (!result) return null;
-    return <ResultCard result={result} label="Semantic Search" />;
-  },
-});
+>) {
+  if (status.type === 'running') return <RunningState label={`Semantic search "${args.query}"...`} />;
+  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
+  if (!result) return null;
+  return <ResultCard result={result} label="Semantic Search" />;
+}

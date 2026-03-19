@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback } from 'react';
-import { makeAssistantToolUI, useThreadRuntime } from '@assistant-ui/react';
+import { useThreadRuntime } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import {
   Brain,
   CheckCircle2,
@@ -192,18 +193,22 @@ function SaveMemoryCard({
   );
 }
 
-export const AskUserToolUI = makeAssistantToolUI<
+export function AskUserRenderer({
+  status,
+  result,
+}: ToolCallMessagePartProps<
   { question: string; options?: string[]; context?: string },
   AskUserResult
->({
-  toolName: 'ask_user',
-  render: (props) => <AskUserCard status={props.status} result={props.result} />,
-});
+>) {
+  return <AskUserCard status={status} result={result} />;
+}
 
-export const SaveMemoryToolUI = makeAssistantToolUI<
+export function SaveMemoryRenderer({
+  status,
+  result,
+}: ToolCallMessagePartProps<
   { content: string; category?: string; tags?: string },
   SavedMemoryResult
->({
-  toolName: 'save_memory',
-  render: (props) => <SaveMemoryCard status={props.status} result={props.result} />,
-});
+>) {
+  return <SaveMemoryCard status={status} result={result} />;
+}

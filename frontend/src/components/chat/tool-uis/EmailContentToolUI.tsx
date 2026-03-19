@@ -1,4 +1,4 @@
-import { makeAssistantToolUI } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Mail, Paperclip, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -64,53 +64,53 @@ function EmailCard({ email }: { email: EmailContentItem }) {
   );
 }
 
-export const EmailContentToolUI = makeAssistantToolUI<
+export function EmailContentRenderer({
+  result,
+  status,
+}: ToolCallMessagePartProps<
   { emailId?: string; emailIds?: string[] },
   EmailContentResult
->({
-  toolName: 'get_email_content',
-  render: ({ result, status }) => {
-    if (status.type === 'running') {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
-          <Mail size={16} style={{ opacity: 0.6 }} />
-          <Typography variant="body2" color="text.secondary">Loading email content...</Typography>
-        </Box>
-      );
-    }
-    if (status.type === 'incomplete') {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
-          <AlertCircle size={16} />
-          <Typography variant="body2" color="error.main">
-            Failed to load email: {'reason' in status ? status.reason : 'unknown'}
-          </Typography>
-        </Box>
-      );
-    }
-    if (!result) return null;
-    if (result.error) {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
-          <AlertCircle size={16} />
-          <Typography variant="body2" color="error.main">{result.error}</Typography>
-        </Box>
-      );
-    }
-    const emails = result.emails ?? [];
-    if (emails.length === 0) {
-      return (
-        <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
-          No email content found.
-        </Typography>
-      );
-    }
+>) {
+  if (status.type === 'running') {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {emails.map((email) => (
-          <EmailCard key={email.id} email={email} />
-        ))}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
+        <Mail size={16} style={{ opacity: 0.6 }} />
+        <Typography variant="body2" color="text.secondary">Loading email content...</Typography>
       </Box>
     );
-  },
-});
+  }
+  if (status.type === 'incomplete') {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">
+          Failed to load email: {'reason' in status ? status.reason : 'unknown'}
+        </Typography>
+      </Box>
+    );
+  }
+  if (!result) return null;
+  if (result.error) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">{result.error}</Typography>
+      </Box>
+    );
+  }
+  const emails = result.emails ?? [];
+  if (emails.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
+        No email content found.
+      </Typography>
+    );
+  }
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {emails.map((email) => (
+        <EmailCard key={email.id} email={email} />
+      ))}
+    </Box>
+  );
+}

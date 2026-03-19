@@ -1,4 +1,4 @@
-import { makeAssistantToolUI } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { User, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -48,63 +48,64 @@ function ContactCard({ contact, isFirst }: { contact: ContactItem; isFirst: bool
   );
 }
 
-export const ContactToolUI = makeAssistantToolUI<
+export function ContactRenderer({
+  args,
+  result,
+  status,
+}: ToolCallMessagePartProps<
   { query: string },
   ContactSearchResult
->({
-  toolName: 'search_contacts',
-  render: ({ args, result, status }) => {
-    if (status.type === 'running') {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
-          <User size={16} style={{ opacity: 0.6 }} />
-          <Typography variant="body2" color="text.secondary">Searching contacts for &ldquo;{args.query}&rdquo;...</Typography>
-        </Box>
-      );
-    }
-    if (status.type === 'incomplete') {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
-          <AlertCircle size={16} />
-          <Typography variant="body2" color="error.main">
-            Contact search failed: {'reason' in status ? status.reason : 'unknown'}
-          </Typography>
-        </Box>
-      );
-    }
-    if (!result) return null;
-    if (result.error) {
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
-          <AlertCircle size={16} />
-          <Typography variant="body2" color="error.main">{result.error}</Typography>
-        </Box>
-      );
-    }
-    const contacts = result.data ?? [];
+>) {
+  if (status.type === 'running') {
     return (
-      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Contacts
-          </Typography>
-          <Typography variant="caption" color="text.secondary">{contacts.length} found</Typography>
-        </Box>
-        {contacts.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No contacts found.</Typography>
-        ) : (
-          <Box>
-            {contacts.map((c, idx) => (
-              <ContactCard key={c.id} contact={c} isFirst={idx === 0} />
-            ))}
-          </Box>
-        )}
-        {result.summary && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
-            {result.summary}
-          </Typography>
-        )}
-      </Paper>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
+        <User size={16} style={{ opacity: 0.6 }} />
+        <Typography variant="body2" color="text.secondary">Searching contacts for &ldquo;{args.query}&rdquo;...</Typography>
+      </Box>
     );
-  },
-});
+  }
+  if (status.type === 'incomplete') {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">
+          Contact search failed: {'reason' in status ? status.reason : 'unknown'}
+        </Typography>
+      </Box>
+    );
+  }
+  if (!result) return null;
+  if (result.error) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">{result.error}</Typography>
+      </Box>
+    );
+  }
+  const contacts = result.data ?? [];
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Contacts
+        </Typography>
+        <Typography variant="caption" color="text.secondary">{contacts.length} found</Typography>
+      </Box>
+      {contacts.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No contacts found.</Typography>
+      ) : (
+        <Box>
+          {contacts.map((c, idx) => (
+            <ContactCard key={c.id} contact={c} isFirst={idx === 0} />
+          ))}
+        </Box>
+      )}
+      {result.summary && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+          {result.summary}
+        </Typography>
+      )}
+    </Paper>
+  );
+}

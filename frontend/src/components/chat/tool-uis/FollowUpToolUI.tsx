@@ -1,4 +1,4 @@
-import { makeAssistantToolUI } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Clock, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -82,104 +82,104 @@ function FollowUpRow({ item, isFirst }: { item: FollowUpItem; isFirst: boolean }
   );
 }
 
-export const FollowUpToolUI = makeAssistantToolUI<
+export function FollowUpRenderer({
+  result,
+  status,
+}: ToolCallMessagePartProps<
   { status?: string; limit?: number },
   FollowUpResult
->({
-  toolName: 'list_follow_ups',
-  render: ({ result, status }) => {
-    if (status.type === 'running') {
-      return (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            width: 'fit-content',
-            borderRadius: '10px',
-            border: 1,
-            borderColor: 'divider',
-            bgcolor: 'action.hover',
-            p: 1.5,
-          }}
-        >
-          <Clock size={16} />
-          <Typography variant="body2" color="text.secondary">
-            Loading follow-ups...
-          </Typography>
-        </Box>
-      );
-    }
-    if (status.type === 'incomplete') {
-      return (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            p: 1.5,
-            borderRadius: '10px',
-            border: 1,
-            borderColor: 'error.light',
-            bgcolor: 'error.light',
-          }}
-        >
-          <AlertCircle size={16} />
-          <Typography variant="body2" color="error.main">
-            Failed to load follow-ups: {'reason' in status ? (status as { reason?: string }).reason : 'unknown'}
-          </Typography>
-        </Box>
-      );
-    }
-    if (!result) return null;
-    if (result.error) {
-      return (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            p: 1.5,
-            borderRadius: '10px',
-            border: 1,
-            borderColor: 'error.light',
-            bgcolor: 'error.light',
-          }}
-        >
-          <AlertCircle size={16} />
-          <Typography variant="body2" color="error.main">
-            {result.error}
-          </Typography>
-        </Box>
-      );
-    }
-    const items = result.followUps ?? [];
+>) {
+  if (status.type === 'running') {
     return (
-      <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}
-          >
-            Follow-ups
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {result.count} item{result.count !== 1 ? 's' : ''}
-          </Typography>
-        </Box>
-        {items.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-            {result.message ?? 'No follow-ups found.'}
-          </Typography>
-        ) : (
-          <Box>
-            {items.map((item, idx) => (
-              <FollowUpRow key={item.followUpId} item={item} isFirst={idx === 0} />
-            ))}
-          </Box>
-        )}
-      </Paper>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          width: 'fit-content',
+          borderRadius: '10px',
+          border: 1,
+          borderColor: 'divider',
+          bgcolor: 'action.hover',
+          p: 1.5,
+        }}
+      >
+        <Clock size={16} />
+        <Typography variant="body2" color="text.secondary">
+          Loading follow-ups...
+        </Typography>
+      </Box>
     );
-  },
-});
+  }
+  if (status.type === 'incomplete') {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          p: 1.5,
+          borderRadius: '10px',
+          border: 1,
+          borderColor: 'error.light',
+          bgcolor: 'error.light',
+        }}
+      >
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">
+          Failed to load follow-ups: {'reason' in status ? (status as { reason?: string }).reason : 'unknown'}
+        </Typography>
+      </Box>
+    );
+  }
+  if (!result) return null;
+  if (result.error) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          p: 1.5,
+          borderRadius: '10px',
+          border: 1,
+          borderColor: 'error.light',
+          bgcolor: 'error.light',
+        }}
+      >
+        <AlertCircle size={16} />
+        <Typography variant="body2" color="error.main">
+          {result.error}
+        </Typography>
+      </Box>
+    );
+  }
+  const items = result.followUps ?? [];
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+        >
+          Follow-ups
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {result.count} item{result.count !== 1 ? 's' : ''}
+        </Typography>
+      </Box>
+      {items.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+          {result.message ?? 'No follow-ups found.'}
+        </Typography>
+      ) : (
+        <Box>
+          {items.map((item, idx) => (
+            <FollowUpRow key={item.followUpId} item={item} isFirst={idx === 0} />
+          ))}
+        </Box>
+      )}
+    </Paper>
+  );
+}
