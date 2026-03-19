@@ -62,12 +62,12 @@ export class FolderToolsService implements OnModuleInit {
     piiResolve: PiiResolveFn,
   ) {
     return {
-      list_folders: this.buildListFolders(tenantId, piiResolve),
+      list_folders: this.buildListFolders(tenantId),
       create_folder: this.buildCreateFolder(tenantId, piiResolve),
     };
   }
 
-  private buildListFolders(tenantId: string, _piiResolve: PiiResolveFn) {
+  private buildListFolders(tenantId: string) {
     return tool({
       description:
         'List all email folders for the user (Inbox, Sent, Drafts, Archive, and custom folders). ' +
