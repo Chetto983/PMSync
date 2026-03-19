@@ -228,7 +228,7 @@ Plans:
 **Goal:** All bugs, race conditions, security holes, and dead code from the AI-Chat module audit are fixed -- userId/tenantId isolation enforced, transactions retry-safe, oversized files split
 **Requirements**: BUG-1, BUG-2, BUG-3, BUG-5, BUG-6, BUG-7, BUG-8, RACE-1, RACE-2, RACE-3, RACE-4, RULE-1, RULE-3, DEAD-1, DEAD-2, DEAD-3, DEAD-4, DEAD-5
 **Depends on:** Phase 86
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 - [ ] 87-00-PLAN.md -- Wave 0: Failing unit tests for security fixes (BUG-2, RULE-1) and bug fixes (BUG-1, BUG-5, RACE-1, RACE-4)

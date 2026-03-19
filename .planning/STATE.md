@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
-status: in-progress
-stopped_at: Completed 87-00 and 87-01 (Wave 0 RED tests + Security Isolation Fix)
-last_updated: "2026-03-19T15:30:00Z"
-last_activity: 2026-03-19 -- Completed 87-00 (Wave 0 RED tests for BUG-1/2/5, RULE-1, RACE-1/4)
+status: executing
+stopped_at: Completed 87-02-PLAN.md (High-Severity Bug Fixes)
+last_updated: "2026-03-19T15:37:03.566Z"
+last_activity: 2026-03-19 -- Completed 87-01 (Security Isolation Fix)
 progress:
-  total_phases: 9
+  total_phases: 11
   completed_phases: 0
-  total_plans: 4
-  completed_plans: 6
-  percent: 60
+  total_plans: 11
+  completed_plans: 7
+  percent: 55
 ---
 
 # Project State
@@ -52,6 +52,7 @@ Progress: [█████░░░░░] 55%
 - Trend: improving
 
 *Updated after each plan completion*
+| Phase 87 P02 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [87-01]: userId optional on getConversation (backward compat), required on deleteConversation (atomic ownership via deleteMany)
 - [87-01]: tenantId relation filter optional on message queries -- callers opt in for defense-in-depth
 - [87-00]: BUG-2/RULE-1 WIP implementation committed with tests (was already in working tree before plan execution)
+- [Phase 87]: replyAll CC includes original CC + To minus sender, deduplicated via Set
+- [Phase 87]: Summary trigger uses modulo (messageCount - 20) % 10 === 0 for periodic generation
 
 ### Pending Todos
 
@@ -93,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T15:30:00Z
-Stopped at: Completed 87-00 (Wave 0 RED tests)
-Resume file: .planning/phases/87-ai-chat-module-fix/87-00-SUMMARY.md
+Last session: 2026-03-19T15:37:03.562Z
+Stopped at: Completed 87-02-PLAN.md (High-Severity Bug Fixes)
+Resume file: None
