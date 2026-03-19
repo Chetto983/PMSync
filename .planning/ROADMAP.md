@@ -243,7 +243,7 @@ Plans:
 **Goal:** All dashboard widget bugs, follow-up snooze wiring, widget persistence, dead code, and reminder error feedback are fixed
 **Requirements**: BUG-1, BUG-2, BUG-3, BUG-4, BUG-5, BUG-6, BUG-7
 **Depends on:** Phase 87
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 88-01-PLAN.md -- Wire snooze mutation, persist widget visibility, fix spin/nav/error (BUG-1,2,4,6,7)
