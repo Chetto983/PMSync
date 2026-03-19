@@ -487,15 +487,15 @@ export class AiChatService {
       );
 
     const toolSets = {
-      ...this.emailToolsService.getTools(tenantId, conversationId, piiResolve),
-      ...this.calendarToolsService.getTools(tenantId, conversationId, piiResolve),
-      ...this.contactToolsService.getTools(tenantId, conversationId, piiResolve),
-      ...this.folderToolsService.getTools(tenantId, conversationId, piiResolve),
-      ...this.ragToolsService.getTools(tenantId, userId, conversationId, piiResolve),
+      ...this.emailToolsService.getTools(tenantId, piiResolve),
+      ...this.calendarToolsService.getTools(tenantId, piiResolve),
+      ...this.contactToolsService.getTools(tenantId, piiResolve),
+      ...this.folderToolsService.getTools(tenantId, piiResolve),
+      ...this.ragToolsService.getTools(tenantId, userId, piiResolve),
       // Phase CONSOLIDATION: Productivity tools (follow-ups, labels, stars, email index)
-      ...this.productivityToolsService.getTools(tenantId, userId, conversationId, piiResolve),
+      ...this.productivityToolsService.getTools(tenantId, userId),
       // Phase REMINDER: Smart follow-up reminder tools
-      ...this.reminderToolsService.getTools(tenantId, userId, conversationId, piiResolve),
+      ...this.reminderToolsService.getTools(tenantId, userId),
       // Phase AI-AUDIT: Conversation tools (ask_user) + sandbox (run_code)
       ...this.conversationToolsService.getTools(),
       ...this.sandboxToolsService.getTools(tenantId),
@@ -596,7 +596,7 @@ export class AiChatService {
    */
   private async maybeGenerateSmartTitle(
     conversationId: string,
-    tenantId = 'system',
+    tenantId: string,
     messageCount?: number,
   ): Promise<void> {
     // Use provided count from save operation to avoid TOCTOU race (RACE-2).
@@ -659,7 +659,7 @@ export class AiChatService {
    */
   private async maybeTriggerSummaryGeneration(
     conversationId: string,
-    tenantId = 'system',
+    tenantId: string,
     messageCount?: number,
   ): Promise<void> {
     // Use provided count from save operation to avoid TOCTOU race (RACE-2).

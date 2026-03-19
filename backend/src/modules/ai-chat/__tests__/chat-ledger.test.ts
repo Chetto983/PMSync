@@ -42,7 +42,7 @@ describe('AiChatService ledger wiring', () => {
     saveUserMessage: ReturnType<typeof vi.fn>;
     getMessagesForContext: ReturnType<typeof vi.fn>;
     saveAssistantMessage: ReturnType<typeof vi.fn>;
-    saveToolMessage: ReturnType<typeof vi.fn>;
+    saveToolMessagesBatch: ReturnType<typeof vi.fn>;
     updateConversationTitle: ReturnType<typeof vi.fn>;
     getMessageCount: ReturnType<typeof vi.fn>;
     getOlderMessages: ReturnType<typeof vi.fn>;
@@ -61,7 +61,7 @@ describe('AiChatService ledger wiring', () => {
       saveUserMessage: vi.fn().mockResolvedValue(undefined),
       getMessagesForContext: vi.fn().mockResolvedValue([]),
       saveAssistantMessage: vi.fn().mockResolvedValue(undefined),
-      saveToolMessage: vi.fn().mockResolvedValue(undefined),
+      saveToolMessagesBatch: vi.fn().mockResolvedValue(undefined),
       updateConversationTitle: vi.fn().mockResolvedValue(undefined),
       getMessageCount: vi.fn().mockResolvedValue(5),
       getOlderMessages: vi.fn().mockResolvedValue([]),
@@ -110,7 +110,7 @@ describe('AiChatService ledger wiring', () => {
     (mockConversationService.saveUserMessage as any).mockResolvedValue(undefined);
     (mockConversationService.getMessagesForContext as any).mockResolvedValue([]);
     (mockConversationService.saveAssistantMessage as any).mockResolvedValue(undefined);
-    (mockConversationService.saveToolMessage as any).mockResolvedValue(undefined);
+    (mockConversationService.saveToolMessagesBatch as any).mockResolvedValue(undefined);
     (mockConversationService.getMessageCount as any).mockResolvedValue(5);
     (mockPiiDetection.detect as any).mockReturnValue({ hasPii: false, redactedText: 'test' });
     (mockRateLimiter.checkRateLimit as any).mockResolvedValue({ allowed: true });
@@ -203,17 +203,21 @@ describe('AiChatService ledger wiring', () => {
       ],
     });
 
-    expect(mockConversationService.saveToolMessage).toHaveBeenCalledWith(
+    expect(mockConversationService.saveToolMessagesBatch).toHaveBeenCalledWith(
       'conv-1',
-      expect.objectContaining({
-        type: 'tool-result',
-        toolCallId: 'tool-1',
-        toolName: 'list_email_index',
-        input: { folder: 'inbox' },
-        output: { count: 3 },
-      }),
-      'tool-1',
-      0,
+      [
+        expect.objectContaining({
+          content: expect.objectContaining({
+            type: 'tool-result',
+            toolCallId: 'tool-1',
+            toolName: 'list_email_index',
+            input: { folder: 'inbox' },
+            output: { count: 3 },
+          }),
+          toolCallId: 'tool-1',
+          stepIndex: 0,
+        }),
+      ],
     );
   });
 });

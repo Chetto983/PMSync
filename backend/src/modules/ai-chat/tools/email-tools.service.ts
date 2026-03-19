@@ -116,7 +116,6 @@ export class EmailToolsService implements OnModuleInit {
    */
   getTools(
     tenantId: string,
-    _conversationId: string,
     piiResolve: PiiResolveFn,
   ) {
     return {

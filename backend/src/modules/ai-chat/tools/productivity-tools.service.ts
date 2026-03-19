@@ -19,10 +19,6 @@ import {
   IToolRegistryService,
 } from '../../../common/interfaces/tool-registry.interface';
 
-type PiiResolveFn = (
-  payload: Record<string, unknown>,
-) => Promise<Record<string, unknown>>;
-
 type WorkspaceLabel = {
   id: string;
   name: string;
@@ -98,8 +94,6 @@ export class ProductivityToolsService implements OnModuleInit {
   getTools(
     tenantId: string,
     userId: string,
-    _conversationId: string,
-    _piiResolve: PiiResolveFn,
   ) {
     return {
       list_email_index: this.buildListEmailIndex(tenantId),

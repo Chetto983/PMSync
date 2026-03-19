@@ -353,7 +353,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
   describe('A: Direct tool execution on real DB', () => {
     it('A1: search_emails finds emails from top sender with triage fields', async () => {
       const t0 = Date.now();
-      const tools = emailToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const tools = emailToolsService.getTools(testTenantId, identityPiiResolve);
       const r = await (tools.search_emails as any).execute({
         query: realSenderEmail.split('@')[0], // "federico.leggiero"
         limit: 30,
@@ -373,7 +373,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
 
     it('A2: read_email returns full body+metadata+triage+analysis', async () => {
       const t0 = Date.now();
-      const tools = emailToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const tools = emailToolsService.getTools(testTenantId, identityPiiResolve);
       const email = await prisma.email.findFirst({
         where: { tenantId: testTenantId, bodyText: { not: null } },
         select: { id: true, subject: true },
@@ -401,7 +401,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
 
     it('A3: view_calendar returns real events', async () => {
       const t0 = Date.now();
-      const tools = calendarToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const tools = calendarToolsService.getTools(testTenantId, identityPiiResolve);
       const r = await (tools.view_calendar as any).execute({ limit: 20 });
       expect(r.events.length).toBeGreaterThan(0);
       expect(r.events[0]).toHaveProperty('title');
@@ -412,7 +412,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
 
     it('A4: search_contacts finds real contact by name', async () => {
       const t0 = Date.now();
-      const tools = contactToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const tools = contactToolsService.getTools(testTenantId, identityPiiResolve);
       const searchTerm = realContactName.split(' ')[0]; // "BORGHINO"
       const r = await (tools.search_contacts as any).execute({ query: searchTerm, limit: 5 });
       expect(r.contacts.length).toBeGreaterThan(0);
@@ -423,7 +423,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
 
     it('A5: list_folders returns INBOX/SENT/DRAFTS', async () => {
       const t0 = Date.now();
-      const tools = folderToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const tools = folderToolsService.getTools(testTenantId, identityPiiResolve);
       const r = await (tools.list_folders as any).execute({});
       const names = r.folders.map((f: any) => f.name);
       expect(names).toContain('INBOX');
@@ -435,7 +435,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
 
     it('A6: semantic_search returns hybrid RRF with real scores', async () => {
       const t0 = Date.now();
-      const tools = ragToolsService.getTools(testTenantId, testUserId, 't', identityPiiResolve);
+      const tools = ragToolsService.getTools(testTenantId, testUserId, identityPiiResolve);
       const r = await (tools.semantic_search as any).execute({
         query: 'conversione Inverter', // real subject from emails
         sources: ['emails'],
@@ -620,22 +620,22 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
   describe('C: Validation', () => {
     it('C1: 20 tools across 5 services', () => {
       const all = {
-        ...emailToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...calendarToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...contactToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...folderToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...ragToolsService.getTools(testTenantId, testUserId, 't', identityPiiResolve),
+        ...emailToolsService.getTools(testTenantId, identityPiiResolve),
+        ...calendarToolsService.getTools(testTenantId, identityPiiResolve),
+        ...contactToolsService.getTools(testTenantId, identityPiiResolve),
+        ...folderToolsService.getTools(testTenantId, identityPiiResolve),
+        ...ragToolsService.getTools(testTenantId, testUserId, identityPiiResolve),
       };
       expect(Object.keys(all).length).toBe(20);
     });
 
     it('C2: full tool surface exposes cross-domain actions', () => {
       const all = {
-        ...emailToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...calendarToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...contactToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...folderToolsService.getTools(testTenantId, 't', identityPiiResolve),
-        ...ragToolsService.getTools(testTenantId, testUserId, 't', identityPiiResolve),
+        ...emailToolsService.getTools(testTenantId, identityPiiResolve),
+        ...calendarToolsService.getTools(testTenantId, identityPiiResolve),
+        ...contactToolsService.getTools(testTenantId, identityPiiResolve),
+        ...folderToolsService.getTools(testTenantId, identityPiiResolve),
+        ...ragToolsService.getTools(testTenantId, testUserId, identityPiiResolve),
       };
       expect(Object.keys(all)).toContain('search_emails');
       expect(Object.keys(all)).toContain('view_calendar');
@@ -658,7 +658,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
     }, 60_000);
 
     it('C4: tool results are rich objects with triage data', async () => {
-      const et = emailToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const et = emailToolsService.getTools(testTenantId, identityPiiResolve);
       const sr = await (et.search_emails as any).execute({ query: 'test', limit: 1 });
       expect(sr).toHaveProperty('results');
       expect(sr).toHaveProperty('count');
@@ -670,7 +670,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
         expect(sr.results[0]).toHaveProperty('aiLabels');
       }
 
-      const ft = folderToolsService.getTools(testTenantId, 't', identityPiiResolve);
+      const ft = folderToolsService.getTools(testTenantId, identityPiiResolve);
       const fr = await (ft.list_folders as any).execute({});
       expect(fr).toHaveProperty('folders');
       expect(fr).not.toEqual({ success: true });

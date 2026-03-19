@@ -76,7 +76,6 @@ export class RagToolsService implements OnModuleInit {
   getTools(
     tenantId: string,
     userId: string,
-    _conversationId: string,
     piiResolve: PiiResolveFn,
   ) {
     return {

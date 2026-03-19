@@ -47,7 +47,7 @@ describe('ProductivityToolsService', () => {
       ],
     });
 
-    const tools = service.getTools(tenantId, userId, 'conv-1', async (payload) => payload);
+    const tools = service.getTools(tenantId, userId);
     const result = await (tools.label_email as any).execute({
       emailId: 'email-1',
       addLabels: ['urgent'],
@@ -74,7 +74,7 @@ describe('ProductivityToolsService', () => {
       { id: 'label-spam', name: 'Spam' },
     ]);
 
-    const tools = service.getTools(tenantId, userId, 'conv-1', async (payload) => payload);
+    const tools = service.getTools(tenantId, userId);
     const result = await (tools.label_email as any).execute({
       emailId: 'email-1',
       addLabels: ['reference'],

@@ -89,7 +89,6 @@ export class CalendarToolsService implements OnModuleInit {
    */
   getTools(
     tenantId: string,
-    _conversationId: string,
     piiResolve: PiiResolveFn,
   ) {
     return {

@@ -18,16 +18,3 @@ export { ConversationToolsService } from './conversation-tools.service';
 export { SandboxToolsService } from './sandbox-tools.service';
 export { ProductivityToolsService } from './productivity-tools.service';
 export { ReminderToolsService } from './reminder-tools.service';
-
-/**
- * Common interface for tool service getTools() signature.
- */
-export interface ToolsServiceInterface {
-  getTools(
-    tenantId: string,
-    conversationId: string,
-    piiResolve: (
-      payload: Record<string, unknown>,
-    ) => Promise<Record<string, unknown>>,
-  ): Record<string, unknown>;
-}

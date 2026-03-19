@@ -15,10 +15,6 @@ import {
   IToolRegistryService,
 } from '../../../common/interfaces/tool-registry.interface';
 
-type PiiResolveFn = (
-  payload: Record<string, unknown>,
-) => Promise<Record<string, unknown>>;
-
 const reminderSchemas = {
   create_reminder: z.object({
     inputUtente: z.string().describe('Natural language description of the reminder in Italian or English'),
@@ -56,8 +52,6 @@ export class ReminderToolsService implements OnModuleInit {
   getTools(
     tenantId: string,
     userId: string,
-    _conversationId: string,
-    _piiResolve: PiiResolveFn,
   ) {
     return {
       create_reminder: this.buildCreateReminder(tenantId, userId),

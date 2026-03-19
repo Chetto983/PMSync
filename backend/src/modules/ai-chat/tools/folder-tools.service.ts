@@ -59,7 +59,6 @@ export class FolderToolsService implements OnModuleInit {
    */
   getTools(
     tenantId: string,
-    _conversationId: string,
     piiResolve: PiiResolveFn,
   ) {
     return {

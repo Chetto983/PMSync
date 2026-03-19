@@ -86,7 +86,7 @@ describe('BUG-1: reply_email replyAll CC handling', () => {
       toolRegistry as any,
     );
 
-    const tools = service.getTools('tenant-1', 'conv-1', piiResolve);
+    const tools = service.getTools('tenant-1', piiResolve);
     return tools.reply_email;
   }
 

@@ -89,7 +89,6 @@ export class ContactToolsService implements OnModuleInit {
    */
   getTools(
     tenantId: string,
-    _conversationId: string,
     piiResolve: PiiResolveFn,
   ) {
     return {
