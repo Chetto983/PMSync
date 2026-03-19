@@ -180,7 +180,7 @@ export class AiChatService {
     // 5. Load/redact prior context before persisting the current raw turn.
     // This keeps the active model call from seeing raw PII or a duplicated user message.
     const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
-      this.conversationService.getMessagesForContext(conversation.id),
+      this.conversationService.getMessagesForContext(conversation.id, 10, tenantId),
       this.getRuntimeContextMetadata(tenantId, userId, locale),
       this.memoryService.getRelevantMemories(
         tenantId,
@@ -587,7 +587,7 @@ export class AiChatService {
     tenantId = 'system',
   ): Promise<void> {
     const messageCount =
-      await this.conversationService.getMessageCount(conversationId);
+      await this.conversationService.getMessageCount(conversationId, tenantId);
 
     // Only generate on the second exchange (4 messages)
     if (messageCount !== 4) return;
@@ -595,6 +595,7 @@ export class AiChatService {
     const messages = await this.conversationService.getRecentMessages(
       conversationId,
       4,
+      tenantId,
     );
 
     if (messages.length < 4) return;
@@ -646,7 +647,7 @@ export class AiChatService {
     tenantId = 'system',
   ): Promise<void> {
     const messageCount =
-      await this.conversationService.getMessageCount(conversationId);
+      await this.conversationService.getMessageCount(conversationId, tenantId);
 
     // Only at 20-message intervals (±2 tolerance for multi-step bursts).
     // Prevents redundant LLM summary calls on every message after 20.
@@ -654,7 +655,7 @@ export class AiChatService {
 
     // Load older messages to summarize
     const olderMessages =
-      await this.conversationService.getOlderMessages(conversationId, 10);
+      await this.conversationService.getOlderMessages(conversationId, 10, tenantId);
 
     if (olderMessages.length === 0) return;
 

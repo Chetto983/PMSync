@@ -99,10 +99,8 @@ describe('Security Isolation (BUG-2 + RULE-1)', () => {
 
   describe('RULE-1: tenantId relation filter on getMessagesForContext', () => {
     it('should include tenantId in the where clause via conversation relation', async () => {
-      await service.getMessagesForContext(CONV_ID);
+      await service.getMessagesForContext(CONV_ID, 10, TENANT_ID);
 
-      // The findMany call for messages should include a tenantId filter
-      // Either directly or via conversation relation: { conversation: { tenantId } }
       const call = prisma.aiMessage.findMany.mock.calls[0][0];
       const whereStr = JSON.stringify(call.where);
       expect(whereStr).toContain('tenantId');
@@ -111,7 +109,7 @@ describe('Security Isolation (BUG-2 + RULE-1)', () => {
 
   describe('RULE-1: tenantId relation filter on getRecentMessages', () => {
     it('should include tenantId in the where clause via conversation relation', async () => {
-      await service.getRecentMessages(CONV_ID, 10);
+      await service.getRecentMessages(CONV_ID, 10, TENANT_ID);
 
       const call = prisma.aiMessage.findMany.mock.calls[0][0];
       const whereStr = JSON.stringify(call.where);
@@ -121,7 +119,7 @@ describe('Security Isolation (BUG-2 + RULE-1)', () => {
 
   describe('RULE-1: tenantId relation filter on getMessageCount', () => {
     it('should include tenantId in the where clause via conversation relation', async () => {
-      await service.getMessageCount(CONV_ID);
+      await service.getMessageCount(CONV_ID, TENANT_ID);
 
       const call = prisma.aiMessage.count.mock.calls[0][0];
       const whereStr = JSON.stringify(call.where);
@@ -134,7 +132,7 @@ describe('Security Isolation (BUG-2 + RULE-1)', () => {
       prisma.aiMessage.count.mockResolvedValue(20);
       prisma.aiMessage.findMany.mockResolvedValue([]);
 
-      await service.getOlderMessages(CONV_ID, 10);
+      await service.getOlderMessages(CONV_ID, 10, TENANT_ID);
 
       const findManyCall = prisma.aiMessage.findMany.mock.calls[0][0];
       const whereStr = JSON.stringify(findManyCall.where);

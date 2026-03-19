@@ -119,6 +119,7 @@ export class ConversationService {
   async getMessagesForContext(
     conversationId: string,
     maxMessages = 10,
+    tenantId?: string,
   ): Promise<ModelMessage[]> {
     const conversation = await this.prisma.aiConversation.findUnique({
       where: { id: conversationId },
@@ -126,7 +127,10 @@ export class ConversationService {
     });
 
     const messages = await this.prisma.aiMessage.findMany({
-      where: { conversationId },
+      where: {
+        conversationId,
+        ...(tenantId ? { conversation: { tenantId } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: maxMessages,
     });
@@ -286,9 +290,13 @@ export class ConversationService {
   async getRecentMessages(
     conversationId: string,
     count: number,
+    tenantId?: string,
   ): Promise<AiMessage[]> {
     const messages = await this.prisma.aiMessage.findMany({
-      where: { conversationId },
+      where: {
+        conversationId,
+        ...(tenantId ? { conversation: { tenantId } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: count,
     });
@@ -299,9 +307,12 @@ export class ConversationService {
   /**
    * Get total message count for a conversation (used for summary trigger).
    */
-  async getMessageCount(conversationId: string): Promise<number> {
+  async getMessageCount(conversationId: string, tenantId?: string): Promise<number> {
     return this.prisma.aiMessage.count({
-      where: { conversationId },
+      where: {
+        conversationId,
+        ...(tenantId ? { conversation: { tenantId } } : {}),
+      },
     });
   }
 
@@ -312,13 +323,17 @@ export class ConversationService {
   async getOlderMessages(
     conversationId: string,
     recentCount = 10,
+    tenantId?: string,
   ): Promise<AiMessage[]> {
-    const total = await this.getMessageCount(conversationId);
+    const total = await this.getMessageCount(conversationId, tenantId);
     if (total <= recentCount) return [];
 
     const olderCount = total - recentCount;
     return this.prisma.aiMessage.findMany({
-      where: { conversationId },
+      where: {
+        conversationId,
+        ...(tenantId ? { conversation: { tenantId } } : {}),
+      },
       orderBy: { createdAt: 'asc' },
       take: olderCount,
     });

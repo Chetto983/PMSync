@@ -212,6 +212,7 @@ export class AiChatController {
     const messages = await this.conversationService.getRecentMessages(
       conversationId,
       200,
+      req.user.tenantId,
     );
 
     return {

@@ -379,6 +379,8 @@ describe('Chat Pipeline (MSW)', () => {
     // getMessagesForContext should have been called for the second message
     expect(conversationServiceMock.getMessagesForContext).toHaveBeenCalledWith(
       'conv-msw-001',
+      10,
+      'test-tenant',
     );
   }, 30_000);
 
