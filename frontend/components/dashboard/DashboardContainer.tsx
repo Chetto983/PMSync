@@ -11,7 +11,7 @@
 
 'use client';
 
-import React, { Suspense, useState, useCallback } from 'react';
+import React, { Suspense, useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -24,6 +24,7 @@ import {
 import { LayoutDashboard, Settings } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ALL_WIDGETS } from '@/stores/dashboard-store';
+import { useDashboardPreferences, useSaveDashboardLayout } from '@/hooks/queries/use-dashboard';
 import { WIDGETS, type WidgetId } from './dashboard/widget-registry';
 import { WidgetSkeleton } from './dashboard/WidgetSkeleton';
 import { WidgetCard } from './dashboard/WidgetCard';
@@ -36,19 +37,39 @@ export default function DashboardContainer() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Customization state - show all widgets by default (backend controls via API)
+  // Customization state - persisted via backend preferences API
   const [customizeOpen, setCustomizeOpen] = useState(false);
-  const [visibleWidgets, setVisibleWidgets] = useState<WidgetId[]>(ALL_WIDGETS as WidgetId[]);
+  const { data: preferences } = useDashboardPreferences();
+  const saveMutation = useSaveDashboardLayout();
+
+  const visibleWidgets = useMemo(() => {
+    if (!preferences?.widgets?.length) return ALL_WIDGETS as WidgetId[];
+    return preferences.widgets
+      .map((w) => w.widgetId as WidgetId)
+      .filter((id) => (ALL_WIDGETS as readonly string[]).includes(id));
+  }, [preferences]);
+
+  const buildLayout = useCallback((widgetIds: WidgetId[]) => {
+    return widgetIds.map((widgetId, i) => ({
+      i: `${widgetId}-1`,
+      widgetId,
+      x: (i % 2) * 6,
+      y: Math.floor(i / 2) * 4,
+      w: widgetId === 'briefing' ? 12 : 6,
+      h: 4,
+    }));
+  }, []);
 
   const handleToggleWidget = useCallback((id: WidgetId) => {
-    setVisibleWidgets((prev) =>
-      prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]
-    );
-  }, []);
+    const newVisible = visibleWidgets.includes(id)
+      ? visibleWidgets.filter((w) => w !== id)
+      : [...visibleWidgets, id];
+    saveMutation.mutate(buildLayout(newVisible));
+  }, [visibleWidgets, saveMutation, buildLayout]);
 
   const handleResetWidgets = useCallback(() => {
-    setVisibleWidgets(ALL_WIDGETS as WidgetId[]);
-  }, []);
+    saveMutation.mutate(buildLayout(ALL_WIDGETS as WidgetId[]));
+  }, [saveMutation, buildLayout]);
 
   // Get visible widgets in order
   const widgetsToShow = WIDGETS.filter((w) => visibleWidgets.includes(w.id));

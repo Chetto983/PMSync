@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useFollowUps } from '@/hooks/queries';
+import { useFollowUps, useSnoozeFollowUp } from '@/hooks/queries';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import {
@@ -28,8 +28,7 @@ export function FollowUpWidget() {
   const t = useTranslations();
   const router = useRouter();
   const { data, isLoading, error, refetch } = useFollowUps({ limit: 5 });
-  // Snooze endpoint removed — no backend CRUD for follow-ups
-  const snoozeMutation = { mutateAsync: async (_p: { id: string; dueDate: string }) => {} };
+  const snoozeMutation = useSnoozeFollowUp();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
