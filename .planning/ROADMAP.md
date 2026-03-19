@@ -216,7 +216,7 @@ Phase 85 can run in parallel with 83-84.
 **Goal:** Chat frontend uses official assistant-ui 0.12.x patterns -- tool UIs via components.tools.by_name, thread persistence via ThreadHistoryAdapter, HITL via SDK-native sendAutomaticallyWhen
 **Requirements**: None (bug fix / tech debt)
 **Depends on:** Phase 85
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 86-01-PLAN.md -- Convert 21 makeAssistantToolUI calls to plain components, wire via components.tools.by_name, delete AllToolUIs

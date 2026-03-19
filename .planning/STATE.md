@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
 status: in-progress
-stopped_at: Completed 86-02 (Thread Persistence & SDK sendAutomaticallyWhen)
-last_updated: "2026-03-19T13:22:10Z"
-last_activity: 2026-03-19 -- Completed 86-02 (thread history adapter + SDK helper)
+stopped_at: Completed 86-01 (Tool UI Migration to Official Patterns)
+last_updated: "2026-03-19T13:27:08Z"
+last_activity: 2026-03-19 -- Completed 86-01 (makeAssistantToolUI -> ToolCallMessagePartProps)
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 3
-  completed_plans: 3
-  percent: 33
+  completed_plans: 4
+  percent: 44
 ---
 
 # Project State
@@ -26,28 +26,28 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 86 (AI Chat Bug Fix -- Migrate to Official Patterns)
-Plan: 02 complete, advancing to 03
+Plan: 01 + 02 complete, advancing to 03
 Status: In progress
-Last activity: 2026-03-19 -- Completed 86-02 (Thread Persistence & SDK sendAutomaticallyWhen)
+Last activity: 2026-03-19 -- Completed 86-01 (Tool UI Migration)
 
-Progress: [███░░░░░░░] 33%
+Progress: [████░░░░░░] 44%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v6.0)
-- Average duration: 19min
-- Total execution time: 1.0 hours
+- Total plans completed: 4 (v6.0)
+- Average duration: 17min
+- Total execution time: 1.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 77 | 2 | 52min | 26min |
-| 86 | 1 | 6min | 6min |
+| 86 | 2 | 17min | 9min |
 
 **Recent Trend:**
-- Last 5 plans: 17min, 35min, 6min
+- Last 5 plans: 17min, 35min, 6min, 11min
 - Trend: improving
 
 *Updated after each plan completion*
@@ -69,6 +69,7 @@ Recent decisions affecting current work:
 - [77-01]: OnModuleInit pattern for tool governance registration at startup
 - [86-02]: Factory function over class for thread list adapter -- enables unstable_Provider and avoids this-binding issues
 - [86-02]: Closure-based deleteThread extraction instead of this.delete() to avoid plain-object method destructuring bugs
+- [86-01]: ToolDispatcher pattern in ChainOfThought instead of MessagePrimitive.Content tools.by_name (mutually exclusive with ChainOfThought in assistant-ui types)
 
 ### Pending Todos
 
@@ -87,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T13:22:10Z
-Stopped at: Completed 86-02 (Thread Persistence & SDK sendAutomaticallyWhen)
-Resume file: .planning/phases/86-ai-chat-bug-fix-migrate-to-official-patterns/86-02-SUMMARY.md
+Last session: 2026-03-19T13:27:08Z
+Stopped at: Completed 86-01 (Tool UI Migration to Official Patterns)
+Resume file: .planning/phases/86-ai-chat-bug-fix-migrate-to-official-patterns/86-01-SUMMARY.md
