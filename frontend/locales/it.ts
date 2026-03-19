@@ -1516,6 +1516,8 @@ export const it: AppTranslations = {
     aiInsightsTitle: 'Suggerimenti AI',
     aiOptimizeMessage: 'Hai {count} eventi programmati. Vuoi che l\'AI ottimizzi il tuo calendario?',
     openAiAssistant: 'Apri assistente AI',
+    openAiAssistantPrompt:
+      'Ho {count} eventi in calendario. Aiutami a rivedere, dare priorita e ottimizzare la mia agenda.',
     noEventsMessage: 'Nessun evento programmato. Clicca sul calendario per creare il tuo primo evento!',
     failedToCreateEvent: 'Creazione evento fallita. Riprova.',
     failedToLoadEvents: 'Caricamento eventi fallito',

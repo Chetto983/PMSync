@@ -1526,6 +1526,8 @@ export const en: AppTranslations = {
     aiInsightsTitle: 'AI Insights',
     aiOptimizeMessage: 'You have {count} events scheduled. Would you like AI to optimize your calendar?',
     openAiAssistant: 'Open AI Assistant',
+    openAiAssistantPrompt:
+      'I have {count} calendar events. Help me review, prioritize, and optimize my schedule.',
     noEventsMessage: 'No events scheduled. Click on the calendar to create your first event!',
     failedToCreateEvent: 'Failed to create event. Please try again.',
     failedToLoadEvents: 'Failed to load events',

@@ -1,9 +1,11 @@
 'use client';
 
-import { ChainOfThoughtPrimitive } from '@assistant-ui/react';
+import { useEffect } from 'react';
+import { ChainOfThoughtPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { ChevronDown } from 'lucide-react';
 import Box from '@mui/material/Box';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { FallbackToolUI } from './tool-uis/FallbackToolUI';
 
 /**
  * Chain of thought collapsible accordion for AI reasoning steps.
@@ -13,6 +15,18 @@ import { useTranslations } from '@/lib/hooks/use-translations';
  */
 export function ChatChainOfThought() {
   const t = useTranslations();
+  const aui = useAui();
+  const hasPendingApproval = useAuiState((s) =>
+    s.chainOfThought.parts.some(
+      (part) => part.type === 'tool-call' && part.status?.type === 'requires-action',
+    ),
+  );
+
+  useEffect(() => {
+    if (hasPendingApproval) {
+      aui.chainOfThought().setCollapsed(false);
+    }
+  }, [aui, hasPendingApproval]);
 
   return (
     <ChainOfThoughtPrimitive.Root className="chat-cot-root">
@@ -30,6 +44,9 @@ export function ChatChainOfThought() {
       </ChainOfThoughtPrimitive.AccordionTrigger>
       <ChainOfThoughtPrimitive.Parts
         components={{
+          tools: {
+            Fallback: FallbackToolUI,
+          },
           Layout: ({ children }) => (
             <div className="chat-cot-content">
               {children}

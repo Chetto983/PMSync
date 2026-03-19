@@ -1418,6 +1418,7 @@ export interface AppTranslations {
     aiInsightsTitle: string;
     aiOptimizeMessage: string;
     openAiAssistant: string;
+    openAiAssistantPrompt: string;
     noEventsMessage: string;
     failedToCreateEvent: string;
     failedToLoadEvents: string;
