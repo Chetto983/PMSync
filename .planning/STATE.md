@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
 status: executing
-stopped_at: Completed 87-02-PLAN.md (High-Severity Bug Fixes)
-last_updated: "2026-03-19T15:37:03.566Z"
+stopped_at: Completed 87-03-PLAN.md (Medium-Severity Bug Fixes)
+last_updated: "2026-03-19T15:47:27.277Z"
 last_activity: 2026-03-19 -- Completed 87-01 (Security Isolation Fix)
 progress:
   total_phases: 11
   completed_phases: 0
   total_plans: 11
-  completed_plans: 7
+  completed_plans: 8
   percent: 55
 ---
 
@@ -53,6 +53,7 @@ Progress: [█████░░░░░] 55%
 
 *Updated after each plan completion*
 | Phase 87 P02 | 3min | 2 tasks | 3 files |
+| Phase 87 P03 | 8min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [87-00]: BUG-2/RULE-1 WIP implementation committed with tests (was already in working tree before plan execution)
 - [Phase 87]: replyAll CC includes original CC + To minus sender, deduplicated via Set
 - [Phase 87]: Summary trigger uses modulo (messageCount - 20) % 10 === 0 for periodic generation
+- [Phase 87]: BUG-3 draft_email sentAt deferred -- requires schema migration (Email.sentAt non-nullable)
+- [Phase 87]: savedMessageCount closure pattern for TOCTOU-safe title/summary triggers
 
 ### Pending Todos
 
@@ -96,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T15:37:03.562Z
-Stopped at: Completed 87-02-PLAN.md (High-Severity Bug Fixes)
+Last session: 2026-03-19T15:47:27.273Z
+Stopped at: Completed 87-03-PLAN.md (Medium-Severity Bug Fixes)
 Resume file: None
