@@ -236,6 +236,18 @@ Plans:
 - [ ] 87-02-PLAN.md -- High severity: reply_email replyAll+CC (BUG-1), summary trigger fix (BUG-5), Prisma retry wrappers (RACE-1)
 - [ ] 87-03-PLAN.md -- Medium severity: draft sentAt (BUG-3), piiResolve (BUG-6), auto-resolve removal (BUG-7), embedding dedup (BUG-8), batched persistence (RACE-4), count-from-save (RACE-2)
 - [ ] 87-04-PLAN.md -- Cleanup: dead code removal (DEAD-1-5), file splits under 500 lines (RULE-3)
+
+### Phase 88: Reminder and Follow-Ups Fix
+
+**Goal:** All dashboard widget bugs, follow-up snooze wiring, widget persistence, dead code, and reminder error feedback are fixed
+**Requirements**: BUG-1, BUG-2, BUG-3, BUG-4, BUG-5, BUG-6, BUG-7
+**Depends on:** Phase 87
+**Plans:** 2 plans
+
+Plans:
+- [ ] 88-01-PLAN.md -- Wire snooze mutation, persist widget visibility, fix spin/nav/error (BUG-1,2,4,6,7)
+- [ ] 88-02-PLAN.md -- Create StaleContactsWidget, remove DashboardGrid dead code (BUG-5,3)
+
 ---
 *Roadmap created: 2026-02-09*
 *v5.0 completed: 2026-03-10 -- 15 phases, 34 plans, 51/51 requirements*
