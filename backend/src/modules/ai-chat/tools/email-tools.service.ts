@@ -382,11 +382,23 @@ export class EmailToolsService implements OnModuleInit {
 
         const provider = await this.getDefaultProvider(tenantId);
         const toAddress = typeof original.from === 'string' ? original.from : '';
+        const ccAddresses = resolved.replyAll
+          ? Array.from(
+              new Set(
+                [...(original.cc ?? []), ...(original.to ?? [])].filter(
+                  (address) =>
+                    Boolean(address) &&
+                    address !== toAddress,
+                ),
+              ),
+            )
+          : undefined;
 
         const result = await this.emailSendService.queueSend({
           tenantId,
           providerId: provider.id,
           to: [toAddress],
+          cc: ccAddresses && ccAddresses.length > 0 ? ccAddresses : undefined,
           subject: `Re: ${original.subject}`,
           bodyHtml: resolved.body,
           bodyText: resolved.body,

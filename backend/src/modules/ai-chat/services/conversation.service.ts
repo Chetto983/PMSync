@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { AiConversation, AiMessage, Prisma } from '@prisma/client';
 import type { ModelMessage } from 'ai';
+import * as PrismaRetry from '../../../common/services/prisma-retry.service';
 
 /**
  * ConversationService -- CRUD for AI chat conversations and message persistence.
@@ -158,17 +159,19 @@ export class ConversationService {
     conversationId: string,
     content: string,
   ): Promise<AiMessage> {
-    const [message] = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.aiMessage.create({
-        data: {
-          conversationId,
-          role: 'user',
-          content: { type: 'text', text: content },
-        },
-      });
-      await this.touchConversationTx(tx, conversationId);
-      return [created];
-    });
+    const [message] = await PrismaRetry.withPrismaRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        const created = await tx.aiMessage.create({
+          data: {
+            conversationId,
+            role: 'user',
+            content: { type: 'text', text: content },
+          },
+        });
+        await this.touchConversationTx(tx, conversationId);
+        return [created];
+      }),
+    );
 
     return message;
   }
@@ -182,19 +185,21 @@ export class ConversationService {
     tokenCount?: number,
     stepIndex?: number,
   ): Promise<AiMessage> {
-    const [message] = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.aiMessage.create({
-        data: {
-          conversationId,
-          role: 'assistant',
-          content,
-          tokenCount,
-          stepIndex,
-        },
-      });
-      await this.touchConversationTx(tx, conversationId);
-      return [created];
-    });
+    const [message] = await PrismaRetry.withPrismaRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        const created = await tx.aiMessage.create({
+          data: {
+            conversationId,
+            role: 'assistant',
+            content,
+            tokenCount,
+            stepIndex,
+          },
+        });
+        await this.touchConversationTx(tx, conversationId);
+        return [created];
+      }),
+    );
 
     return message;
   }
@@ -208,21 +213,52 @@ export class ConversationService {
     toolCallId: string,
     stepIndex: number,
   ): Promise<AiMessage> {
-    const [message] = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.aiMessage.create({
-        data: {
-          conversationId,
-          role: 'tool',
-          content,
-          toolCallId,
-          stepIndex,
-        },
-      });
-      await this.touchConversationTx(tx, conversationId);
-      return [created];
-    });
+    const [message] = await PrismaRetry.withPrismaRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        const created = await tx.aiMessage.create({
+          data: {
+            conversationId,
+            role: 'tool',
+            content,
+            toolCallId,
+            stepIndex,
+          },
+        });
+        await this.touchConversationTx(tx, conversationId);
+        return [created];
+      }),
+    );
 
     return message;
+  }
+
+  /**
+   * Persist multiple tool result messages in a single transaction.
+   */
+  async saveToolMessagesBatch(
+    conversationId: string,
+    entries: Array<{
+      content: Prisma.InputJsonValue;
+      toolCallId: string;
+      stepIndex: number;
+    }>,
+  ): Promise<void> {
+    if (entries.length === 0) return;
+
+    await PrismaRetry.withPrismaRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        await tx.aiMessage.createMany({
+          data: entries.map((entry) => ({
+            conversationId,
+            role: 'tool',
+            content: entry.content,
+            toolCallId: entry.toolCallId,
+            stepIndex: entry.stepIndex,
+          })),
+        });
+        await this.touchConversationTx(tx, conversationId);
+      }),
+    );
   }
 
   /**

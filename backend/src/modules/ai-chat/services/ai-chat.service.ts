@@ -406,6 +406,21 @@ export class AiChatService {
     stepIndex: number,
     toolResults: StepResult<ToolSet>['toolResults'],
   ): Promise<void> {
+    if (
+      'saveToolMessagesBatch' in this.conversationService &&
+      typeof this.conversationService.saveToolMessagesBatch === 'function'
+    ) {
+      await this.conversationService.saveToolMessagesBatch(
+        conversationId,
+        toolResults.map((toolResult) => ({
+          content: this.serializeToolResult(toolResult),
+          toolCallId: toolResult.toolCallId,
+          stepIndex,
+        })),
+      );
+      return;
+    }
+
     for (const toolResult of toolResults) {
       await this.conversationService.saveToolMessage(
         conversationId,
@@ -455,6 +470,12 @@ export class AiChatService {
     }
 
     return serialized as Prisma.InputJsonValue;
+  }
+
+  private async generateModelText(
+    args: Parameters<typeof generateText>[0],
+  ): ReturnType<typeof generateText> {
+    return generateText(args);
   }
 
   /**
@@ -610,7 +631,7 @@ export class AiChatService {
       })
       .join('\n');
 
-    const { text: title } = await generateText({
+    const { text: title } = await this.generateModelText({
       model: this.mistralProvider.getChatModel(),
       system:
         'Generate a short conversation title (max 6 words) for the following chat. ' +
@@ -651,7 +672,7 @@ export class AiChatService {
 
     // Only at 20-message intervals (±2 tolerance for multi-step bursts).
     // Prevents redundant LLM summary calls on every message after 20.
-    if (messageCount < 20 || messageCount % 20 > 2) return;
+    if (messageCount < 20 || (messageCount - 20) % 10 !== 0) return;
 
     // Load older messages to summarize
     const olderMessages =
@@ -671,7 +692,7 @@ export class AiChatService {
       .join('\n');
 
     const summaryStart = Date.now();
-    const { text: summary, usage } = await generateText({
+    const { text: summary, usage } = await this.generateModelText({
       model: this.mistralProvider.getChatModel(),
       system:
         'Summarize the following conversation history in 2-3 concise paragraphs. ' +

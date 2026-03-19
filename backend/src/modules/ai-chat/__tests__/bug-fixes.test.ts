@@ -1,5 +1,5 @@
 /**
- * Bug Fix and Race Condition Tests -- RED phase (Wave 0)
+ * Bug Fix and Race Condition Tests
  *
  * Tests for:
  * - BUG-1: reply_email replyAll CC handling
@@ -7,7 +7,7 @@
  * - RACE-1: Prisma retry wrapper on saveUserMessage
  * - RACE-4: batched tool result persistence
  *
- * These tests MUST FAIL until Plans 01-03 implement the fixes.
+ * These tests validate the phase 87 behavioral fixes.
  */
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
@@ -203,11 +203,12 @@ describe('RACE-1: saveUserMessage uses withPrismaRetry', () => {
       '../services/conversation.service'
     );
 
-    // Spy on withPrismaRetry to see if it's called
     const retryModule = await import(
       '../../../common/services/prisma-retry.service'
     );
-    const retrySpy = vi.spyOn(retryModule, 'withPrismaRetry');
+    const retrySpy = vi
+      .spyOn(retryModule, 'withPrismaRetry')
+      .mockImplementation(async (fn: () => Promise<unknown>) => fn());
 
     const tx = {
       aiMessage: { create: vi.fn().mockResolvedValue({ id: 'msg-1' }) },
@@ -221,7 +222,6 @@ describe('RACE-1: saveUserMessage uses withPrismaRetry', () => {
     const svc = new ConversationService(prisma as any);
     await svc.saveUserMessage('conv-1', 'hello');
 
-    // This FAILS because current code does NOT use withPrismaRetry
     expect(retrySpy).toHaveBeenCalled();
 
     retrySpy.mockRestore();
@@ -235,18 +235,15 @@ describe('RACE-4: persistToolResults uses single transaction', () => {
     const { AiChatService } = await import('../services/ai-chat.service');
 
     const saveToolMessage = vi.fn().mockResolvedValue({ id: 'msg-1' });
+    const saveToolMessagesBatch = vi.fn().mockResolvedValue(undefined);
     const conversationServiceMock = {
       saveToolMessage,
-    };
-
-    const prismaMock = {
-      $transaction: vi.fn(async (cb: any) => cb(prismaMock)),
+      saveToolMessagesBatch,
     };
 
     // Create a minimal instance to test persistToolResults
     const instance = Object.create(AiChatService.prototype);
     instance.conversationService = conversationServiceMock;
-    instance.prisma = prismaMock;
     instance.logger = { log: vi.fn(), warn: vi.fn(), debug: vi.fn() };
 
     const toolResults = [
@@ -273,20 +270,24 @@ describe('RACE-4: persistToolResults uses single transaction', () => {
     // Call the private persistToolResults method
     await instance.persistToolResults('conv-1', 0, toolResults);
 
-    // RACE-4 fix: should use a single transaction, not N saveToolMessage calls
-    // Current code calls saveToolMessage in a loop (3 times for 3 results)
-    // Fixed code should batch into one $transaction call
-    // We check: either prisma.$transaction was called, or saveToolMessage
-    // was called fewer times than toolResults.length (meaning batching occurred)
-
-    // If NOT batched (current bug): saveToolMessage called 3 times
-    // If batched (fixed): $transaction called once with all 3
-    // We assert batching by checking saveToolMessage was NOT called 3 separate times
-    // OR that $transaction was called for batching
-
-    // The simplest assertion: the method should NOT call saveToolMessage
-    // once per result. After fix, it uses $transaction directly.
-    const saveCallCount = saveToolMessage.mock.calls.length;
-    expect(saveCallCount).toBeLessThan(toolResults.length);
+    expect(saveToolMessagesBatch).toHaveBeenCalledTimes(1);
+    expect(saveToolMessagesBatch).toHaveBeenCalledWith(
+      'conv-1',
+      expect.arrayContaining([
+        expect.objectContaining({
+          toolCallId: 'tc-1',
+          stepIndex: 0,
+        }),
+        expect.objectContaining({
+          toolCallId: 'tc-2',
+          stepIndex: 0,
+        }),
+        expect.objectContaining({
+          toolCallId: 'tc-3',
+          stepIndex: 0,
+        }),
+      ]),
+    );
+    expect(saveToolMessage).not.toHaveBeenCalled();
   });
 });
