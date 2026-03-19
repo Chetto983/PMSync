@@ -8,6 +8,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Box, Typography, Stack, alpha, useTheme } from '@mui/material';
 import {
   Sparkles,
@@ -43,6 +44,7 @@ interface Insight {
 export function PredictiveInsightsWidget() {
   const t = useTranslations();
   const theme = useTheme();
+  const router = useRouter();
   const { data: consentList, isLoading: consentLoading } = useConsent();
   const hasAiConsent =
     consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
@@ -204,8 +206,8 @@ export function PredictiveInsightsWidget() {
           return (
             <Box
               key={insight.id}
-              component={insight.action ? 'a' : 'div'}
-              href={insight.action?.href}
+              component="div"
+              onClick={() => insight.action && router.push(insight.action.href)}
               sx={{
                 display: 'flex',
                 alignItems: 'flex-start',

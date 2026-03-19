@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -59,6 +60,11 @@ export function ReminderCreateDialog({ open, onClose }: ReminderCreateDialogProp
           disabled={createMutation.isPending}
           sx={{ mt: 1 }}
         />
+        {createMutation.isError && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {createMutation.error?.message || t.common?.genericError || 'An error occurred'}
+          </Alert>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={createMutation.isPending}>

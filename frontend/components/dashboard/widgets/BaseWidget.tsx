@@ -189,7 +189,21 @@ export function BaseWidget({
                   },
                 }}
               >
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                <Box
+                  component="span"
+                  sx={{
+                    display: 'inline-flex',
+                    ...(loading && {
+                      '@keyframes spin': {
+                        from: { transform: 'rotate(0deg)' },
+                        to: { transform: 'rotate(360deg)' },
+                      },
+                      animation: 'spin 1s linear infinite',
+                    }),
+                  }}
+                >
+                  <RefreshCw size={16} />
+                </Box>
               </IconButton>
             )}
           </Box>
