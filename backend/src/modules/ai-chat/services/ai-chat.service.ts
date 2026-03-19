@@ -10,7 +10,10 @@ import {
   generateText,
   ToolLoopAgent,
   stepCountIs,
+  type StepResult,
+  type ToolSet,
 } from 'ai';
+import { Prisma } from '@prisma/client';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { ConversationService } from './conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
@@ -241,6 +244,7 @@ export class AiChatService {
     // 9. Run the chat as a first-class AI SDK agent
     // Note: conversationId continuity is handled by backend auto-resolve in ConversationService
     const chatStartTime = Date.now();
+    let completedStepCount = 0;
     const tools = this.createToolSet(tenantId, userId, conversation.id);
     const agent = new ToolLoopAgent({
       id: 'ai-chat',
@@ -249,19 +253,34 @@ export class AiChatService {
       tools,
       toolChoice: 'auto',
       stopWhen: stepCountIs(5),
-      onStepFinish: async ({ text, usage, toolCalls }) => {
+      onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
+        const stepIndex = completedStepCount++;
+
         if (text) {
           await this.conversationService
             .saveAssistantMessage(
               conversation.id,
               { type: 'text', text },
               usage?.totalTokens,
+              stepIndex,
             )
             .catch((err) =>
               this.logger.warn(
                 `Failed to persist step: ${err.message}`,
               ),
             );
+        }
+
+        if (toolResults?.length) {
+          await this.persistToolResults(
+            conversation.id,
+            stepIndex,
+            toolResults,
+          ).catch((err) =>
+            this.logger.warn(
+              `Failed to persist tool results: ${err.message}`,
+            ),
+          );
         }
 
         if (toolCalls?.length) {
@@ -381,6 +400,62 @@ export class AiChatService {
       }
       throw error;
     }
+  }
+
+  private async persistToolResults(
+    conversationId: string,
+    stepIndex: number,
+    toolResults: StepResult<ToolSet>['toolResults'],
+  ): Promise<void> {
+    for (const toolResult of toolResults) {
+      await this.conversationService.saveToolMessage(
+        conversationId,
+        this.serializeToolResult(toolResult),
+        toolResult.toolCallId,
+        stepIndex,
+      );
+    }
+  }
+
+  private serializeToolResult(
+    toolResult: StepResult<ToolSet>['toolResults'][number],
+  ): Prisma.InputJsonValue {
+    const serialized: Record<string, Prisma.InputJsonValue> = {
+      type: 'tool-result',
+      toolCallId: toolResult.toolCallId,
+      toolName: toolResult.toolName,
+      input: toolResult.input as Prisma.InputJsonValue,
+      output: toolResult.output as Prisma.InputJsonValue,
+    };
+
+    if ('dynamic' in toolResult && toolResult.dynamic !== undefined) {
+      serialized.dynamic = toolResult.dynamic;
+    }
+
+    if (
+      'providerExecuted' in toolResult &&
+      toolResult.providerExecuted !== undefined
+    ) {
+      serialized.providerExecuted = toolResult.providerExecuted;
+    }
+
+    if ('preliminary' in toolResult && toolResult.preliminary !== undefined) {
+      serialized.preliminary = toolResult.preliminary;
+    }
+
+    if ('title' in toolResult && toolResult.title !== undefined) {
+      serialized.title = toolResult.title;
+    }
+
+    if (
+      'providerMetadata' in toolResult &&
+      toolResult.providerMetadata !== undefined
+    ) {
+      serialized.providerMetadata =
+        toolResult.providerMetadata as Prisma.InputJsonValue;
+    }
+
+    return serialized as Prisma.InputJsonValue;
   }
 
   /**

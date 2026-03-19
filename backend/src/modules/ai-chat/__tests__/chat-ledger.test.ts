@@ -37,6 +37,17 @@ import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 describe('AiChatService ledger wiring', () => {
   let mockLedger: { recordRun: ReturnType<typeof vi.fn> };
   let aiChatService: AiChatService;
+  let mockConversationService: {
+    getOrCreateConversation: ReturnType<typeof vi.fn>;
+    saveUserMessage: ReturnType<typeof vi.fn>;
+    getMessagesForContext: ReturnType<typeof vi.fn>;
+    saveAssistantMessage: ReturnType<typeof vi.fn>;
+    saveToolMessage: ReturnType<typeof vi.fn>;
+    updateConversationTitle: ReturnType<typeof vi.fn>;
+    getMessageCount: ReturnType<typeof vi.fn>;
+    getOlderMessages: ReturnType<typeof vi.fn>;
+    updateConversationSummary: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     capturedOnFinish = null;
@@ -45,11 +56,12 @@ describe('AiChatService ledger wiring', () => {
 
     // Build AiChatService with minimal mocks
     const mockMistralProvider = { getChatModel: vi.fn(() => 'mock-model') };
-    const mockConversationService = {
+    mockConversationService = {
       getOrCreateConversation: vi.fn().mockResolvedValue({ id: 'conv-1' }),
       saveUserMessage: vi.fn().mockResolvedValue(undefined),
       getMessagesForContext: vi.fn().mockResolvedValue([]),
       saveAssistantMessage: vi.fn().mockResolvedValue(undefined),
+      saveToolMessage: vi.fn().mockResolvedValue(undefined),
       updateConversationTitle: vi.fn().mockResolvedValue(undefined),
       getMessageCount: vi.fn().mockResolvedValue(5),
       getOlderMessages: vi.fn().mockResolvedValue([]),
@@ -97,6 +109,8 @@ describe('AiChatService ledger wiring', () => {
     (mockConversationService.getOrCreateConversation as any).mockResolvedValue({ id: 'conv-1' });
     (mockConversationService.saveUserMessage as any).mockResolvedValue(undefined);
     (mockConversationService.getMessagesForContext as any).mockResolvedValue([]);
+    (mockConversationService.saveAssistantMessage as any).mockResolvedValue(undefined);
+    (mockConversationService.saveToolMessage as any).mockResolvedValue(undefined);
     (mockConversationService.getMessageCount as any).mockResolvedValue(5);
     (mockPiiDetection.detect as any).mockReturnValue({ hasPii: false, redactedText: 'test' });
     (mockRateLimiter.checkRateLimit as any).mockResolvedValue({ allowed: true });
@@ -155,5 +169,51 @@ describe('AiChatService ledger wiring', () => {
         steps: [],
       }),
     ).resolves.not.toThrow();
+  });
+
+  it('onStepFinish persists tool results into conversation history', async () => {
+    await aiChatService.streamChat({
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      message: 'List my unread emails',
+    });
+
+    expect(capturedOnStepFinish).toBeDefined();
+
+    await capturedOnStepFinish!({
+      text: '',
+      usage: { totalTokens: 42 },
+      toolCalls: [
+        {
+          toolCallId: 'tool-1',
+          toolName: 'list_email_index',
+          input: { folder: 'inbox' },
+          dynamic: true,
+        },
+      ],
+      toolResults: [
+        {
+          type: 'tool-result',
+          toolCallId: 'tool-1',
+          toolName: 'list_email_index',
+          input: { folder: 'inbox' },
+          output: { count: 3 },
+          dynamic: true,
+        },
+      ],
+    });
+
+    expect(mockConversationService.saveToolMessage).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({
+        type: 'tool-result',
+        toolCallId: 'tool-1',
+        toolName: 'list_email_index',
+        input: { folder: 'inbox' },
+        output: { count: 3 },
+      }),
+      'tool-1',
+      0,
+    );
   });
 });

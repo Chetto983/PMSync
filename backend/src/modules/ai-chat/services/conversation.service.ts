@@ -304,17 +304,7 @@ export class ConversationService {
         }
 
         if (m.role === 'tool') {
-          return {
-            role: 'tool',
-            content: [
-              {
-                type: 'tool-result',
-                toolCallId: m.toolCallId ?? 'unknown',
-                toolName: (content as any)?.toolName ?? 'unknown',
-                result: (content as any)?.result ?? content,
-              },
-            ],
-          } as any; // ModelMessage union type needs cast for tool
+          return this.formatStoredToolMessage(content, m.toolCallId);
         }
 
         // assistant
@@ -324,5 +314,41 @@ export class ConversationService {
             : (content as { text?: string })?.text ?? '';
         return { role: 'assistant', content: text };
       });
+  }
+
+  private formatStoredToolMessage(
+    content: Record<string, unknown>,
+    fallbackToolCallId?: string | null,
+  ): ModelMessage {
+    const toolResult = {
+      type: 'tool-result',
+      toolCallId:
+        typeof content.toolCallId === 'string'
+          ? content.toolCallId
+          : fallbackToolCallId ?? 'unknown',
+      toolName:
+        typeof content.toolName === 'string' ? content.toolName : 'unknown',
+      input: content.input ?? {},
+      output: content.output ?? content.result ?? content,
+      ...(typeof content.dynamic === 'boolean'
+        ? { dynamic: content.dynamic }
+        : { dynamic: true }),
+      ...(typeof content.providerExecuted === 'boolean'
+        ? { providerExecuted: content.providerExecuted }
+        : {}),
+      ...(typeof content.preliminary === 'boolean'
+        ? { preliminary: content.preliminary }
+        : {}),
+      ...(typeof content.title === 'string' ? { title: content.title } : {}),
+      ...(content.providerMetadata &&
+      typeof content.providerMetadata === 'object'
+        ? { providerMetadata: content.providerMetadata }
+        : {}),
+    };
+
+    return {
+      role: 'tool',
+      content: [toolResult],
+    } as any; // ModelMessage union type needs cast for tool
   }
 }

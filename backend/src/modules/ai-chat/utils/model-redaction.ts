@@ -90,6 +90,12 @@ function normalizeConversationMessageContent(
     return record.text;
   }
 
+  if (role === 'tool' && record.output !== undefined) {
+    return typeof record.output === 'string'
+      ? record.output
+      : JSON.stringify(record.output);
+  }
+
   if (role === 'tool' && record.result !== undefined) {
     return typeof record.result === 'string'
       ? record.result

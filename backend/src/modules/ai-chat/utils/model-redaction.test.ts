@@ -35,13 +35,15 @@ describe('model-redaction', () => {
             type: 'tool-result',
             toolCallId: 'tool-1',
             toolName: 'send_email',
-            result: {
+            input: {},
+            output: {
               to: 'nested@example.com',
               body: 'CC owner@example.com',
             },
+            dynamic: true,
           },
         ],
-      } as ModelMessage,
+      } as unknown as ModelMessage,
     ];
 
     const redacted = redactModelMessagesForModel(piiDetectorStub, messages);

@@ -95,6 +95,7 @@ const conversationServiceMock = {
   getMessagesForContext: vi.fn().mockResolvedValue([]),
   listConversations: vi.fn().mockResolvedValue([]),
   saveAssistantMessage: vi.fn().mockResolvedValue(undefined),
+  saveToolMessage: vi.fn().mockResolvedValue(undefined),
   updateConversationTitle: vi.fn().mockResolvedValue(undefined),
   getMessageCount: vi.fn().mockResolvedValue(0),
   getOlderMessages: vi.fn().mockResolvedValue([]),
