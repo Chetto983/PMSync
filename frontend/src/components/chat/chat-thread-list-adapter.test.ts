@@ -1,5 +1,12 @@
+import { createElement } from 'react';
+import { render } from '@testing-library/react';
 import { apiClient } from '@/lib/api-client';
+import { useAuiState } from '@assistant-ui/store';
 import { createPmSyncThreadListAdapter } from './chat-thread-list-adapter';
+
+const runtimeAdapterProviderMock = jest.fn(
+  ({ children }: { children: unknown; adapters: unknown }) => children,
+);
 
 jest.mock('assistant-stream', () => ({
   createAssistantStream: (
@@ -40,7 +47,10 @@ jest.mock('assistant-stream', () => ({
 }));
 
 jest.mock('@assistant-ui/core/react', () => ({
-  RuntimeAdapterProvider: ({ children }: { children: unknown }) => children,
+  RuntimeAdapterProvider: (props: { children: unknown; adapters: unknown }) => {
+    runtimeAdapterProviderMock(props);
+    return props.children;
+  },
 }));
 
 jest.mock('@assistant-ui/core', () => ({
@@ -57,12 +67,22 @@ jest.mock('@/lib/api-client', () => ({
   apiClient: {
     get: jest.fn(),
     delete: jest.fn(),
+    post: jest.fn(),
   },
 }));
 
 describe('createPmSyncThreadListAdapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    runtimeAdapterProviderMock.mockClear();
+    (useAuiState as jest.Mock).mockImplementation((selector) =>
+      selector({
+        threadListItem: {
+          id: 'thread-1',
+          remoteId: 'conv-1',
+        },
+      }),
+    );
   });
 
   it('streams the backend-generated title instead of throwing', async () => {
@@ -95,5 +115,126 @@ describe('createPmSyncThreadListAdapter', () => {
         }),
       ]),
     );
+  });
+
+  it('loads persisted backend messages through withFormat for existing threads', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        conversation: {
+          id: 'conv-1',
+          messages: [
+            {
+              id: 'user-1',
+              role: 'user',
+              content: { type: 'text', text: 'Quali riunioni ho oggi?' },
+              createdAt: '2026-03-19T10:00:00.000Z',
+            },
+            {
+              id: 'tool-1',
+              role: 'tool',
+              toolCallId: 'call-1',
+              content: {
+                toolName: 'view_calendar',
+                input: { day: 'today' },
+                output: { total: 1 },
+              },
+              createdAt: '2026-03-19T10:00:01.000Z',
+            },
+            {
+              id: 'assistant-1',
+              role: 'assistant',
+              content: {
+                type: 'text',
+                text: 'Oggi hai solo un evento in calendario.',
+              },
+              createdAt: '2026-03-19T10:00:02.000Z',
+            },
+          ],
+        },
+      },
+    });
+
+    const adapter = createPmSyncThreadListAdapter();
+    const Provider = adapter.unstable_Provider;
+
+    render(
+      createElement(
+        Provider,
+        null,
+        createElement('div', null, 'child'),
+      ),
+    );
+
+    const providerProps = runtimeAdapterProviderMock.mock.calls.at(-1)?.[0] as
+      | {
+          adapters?: {
+            history?: {
+      withFormat?: (format: {
+        format: string;
+        encode: (value: unknown) => unknown;
+        decode: (value: unknown) => unknown;
+        getId: (message: { id: string }) => string;
+      }) => {
+        load: () => Promise<{
+          headId?: string | null;
+          messages: Array<{
+            parentId: string | null;
+            message: {
+              id: string;
+              role: string;
+              parts: Array<{ type: string; toolName?: string }>;
+            };
+          }>;
+        }>;
+      };
+            };
+          };
+        }
+      | undefined;
+
+    const history = providerProps?.adapters?.history;
+    expect(history).toBeDefined();
+
+    const formattedHistory = history!.withFormat?.({
+      format: 'ai-sdk/v6',
+      encode: (value) => value,
+      decode: (value) => value,
+      getId: (message) => message.id,
+    });
+
+    expect(formattedHistory).toBeDefined();
+
+    const repo = await formattedHistory!.load();
+
+    expect(apiClient.get).toHaveBeenCalledWith('/ai/chat/conversations/conv-1');
+    expect(repo).toMatchObject({
+      headId: 'assistant-1',
+      messages: [
+        {
+          parentId: null,
+          message: {
+            id: 'user-1',
+            role: 'user',
+            parts: [{ type: 'text' }],
+          },
+        },
+        {
+          parentId: 'user-1',
+          message: {
+            id: 'tool-1',
+            role: 'assistant',
+            parts: [{ type: 'dynamic-tool', toolName: 'view_calendar' }],
+          },
+        },
+        {
+          parentId: 'tool-1',
+          message: {
+            id: 'assistant-1',
+            role: 'assistant',
+            parts: [{ type: 'text' }],
+          },
+        },
+      ],
+    });
   });
 });

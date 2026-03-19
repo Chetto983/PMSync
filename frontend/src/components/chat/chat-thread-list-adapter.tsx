@@ -4,17 +4,21 @@ import { type ReactNode, useMemo } from 'react';
 import { RuntimeAdapterProvider } from '@assistant-ui/core/react';
 import { ExportedMessageRepository } from '@assistant-ui/core';
 import type {
+  GenericThreadHistoryAdapter,
+  MessageFormatAdapter,
+  MessageFormatRepository,
   ThreadMessage,
   ThreadMessageLike,
   ThreadHistoryAdapter,
 } from '@assistant-ui/core';
 import { createAssistantStream, type AssistantStream } from 'assistant-stream';
 import { useAuiState } from '@assistant-ui/store';
+import type { UIMessage } from 'ai';
 import { apiClient } from '@/lib/api-client';
 
 /**
  * RemoteThreadListAdapter types from @assistant-ui/core.
- * Declared inline to avoid deep import path issues — shapes match exactly.
+ * Declared inline to avoid deep import path issues - shapes match exactly.
  */
 interface RemoteThreadMetadata {
   readonly status: 'regular' | 'archived';
@@ -32,6 +36,14 @@ interface RemoteThreadInitializeResponse {
   externalId: string | undefined;
 }
 
+interface DbConversationMessage {
+  id: string;
+  role: string;
+  content: unknown;
+  createdAt: string;
+  toolCallId?: string | null;
+}
+
 const TITLE_FETCH_RETRIES = 3;
 const TITLE_FETCH_RETRY_MS = 150;
 
@@ -39,17 +51,120 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeTextParts(content: unknown): UIMessage['parts'] {
+  if (Array.isArray(content)) {
+    return content.filter(
+      (part): part is UIMessage['parts'][number] =>
+        Boolean(
+          part &&
+            typeof part === 'object' &&
+            'type' in part &&
+            typeof (part as { type?: unknown }).type === 'string',
+        ),
+    );
+  }
+
+  if (typeof content === 'string') {
+    return content.length > 0 ? [{ type: 'text', text: content }] : [];
+  }
+
+  if (content && typeof content === 'object') {
+    const record = content as Record<string, unknown>;
+    const text =
+      typeof record.text === 'string'
+        ? record.text
+        : typeof record.content === 'string'
+          ? record.content
+          : '';
+
+    return text.length > 0 ? [{ type: 'text', text }] : [];
+  }
+
+  return [];
+}
+
+function convertStoredToolResultToUIMessage(
+  message: DbConversationMessage,
+): UIMessage | null {
+  const content =
+    message.content && typeof message.content === 'object'
+      ? (message.content as Record<string, unknown>)
+      : null;
+
+  if (!content) return null;
+
+  const toolName =
+    typeof content.toolName === 'string' ? content.toolName : 'unknown';
+  const toolCallId =
+    typeof content.toolCallId === 'string'
+      ? content.toolCallId
+      : message.toolCallId || message.id;
+
+  return {
+    id: message.id,
+    role: 'assistant',
+    parts: [
+      {
+        type: 'dynamic-tool',
+        toolName,
+        toolCallId,
+        state: 'output-available',
+        input: content.input ?? {},
+        output: content.output ?? content.result ?? content,
+        ...(typeof content.preliminary === 'boolean'
+          ? { preliminary: content.preliminary }
+          : {}),
+        ...(typeof content.providerExecuted === 'boolean'
+          ? { providerExecuted: content.providerExecuted }
+          : {}),
+        ...(typeof content.title === 'string' ? { title: content.title } : {}),
+      },
+    ],
+  };
+}
+
+function convertDbMessagesToUIMessages(
+  messages: DbConversationMessage[],
+): UIMessage[] {
+  return messages
+    .map((message) => {
+      if (message.role === 'tool') {
+        return convertStoredToolResultToUIMessage(message);
+      }
+
+      if (message.role !== 'user' && message.role !== 'assistant') {
+        return null;
+      }
+
+      return {
+        id: message.id,
+        role: message.role,
+        parts: normalizeTextParts(message.content),
+      } satisfies UIMessage;
+    })
+    .filter((message): message is UIMessage => Boolean(message));
+}
+
+function convertDbMessagesToMessageFormatRepository(
+  messages: DbConversationMessage[],
+): MessageFormatRepository<UIMessage> {
+  const uiMessages = convertDbMessagesToUIMessages(messages);
+
+  return {
+    ...(uiMessages.length > 0 ? { headId: uiMessages.at(-1)?.id ?? null } : {}),
+    messages: uiMessages.map((message, index) => ({
+      parentId: index === 0 ? null : uiMessages[index - 1]?.id ?? null,
+      message,
+    })),
+  };
+}
+
 /**
- * Convert backend DB messages to ThreadMessageLike format for the history adapter.
- * Only keeps user and assistant messages (tool messages are internal).
+ * Convert backend DB messages to ThreadMessageLike format for the legacy history adapter.
+ * Only keeps user and assistant text messages.
  */
 function convertDbMessagesToThreadMessageLike(
-  messages: Array<{
-    id: string;
-    role: string;
-    content: unknown;
-    createdAt: string;
-  }>,
+  messages: DbConversationMessage[],
 ): ThreadMessageLike[] {
   return messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -59,7 +174,6 @@ function convertDbMessagesToThreadMessageLike(
       if (typeof raw === 'string') {
         text = raw;
       } else if (Array.isArray(raw)) {
-        // AI SDK stores content as parts array: [{ type: 'text', text: '...' }]
         text = raw
           .filter((p: Record<string, unknown>) => p.type === 'text')
           .map((p: Record<string, unknown>) => String(p.text ?? ''))
@@ -67,6 +181,7 @@ function convertDbMessagesToThreadMessageLike(
       } else if (raw && typeof raw === 'object') {
         text = String((raw as Record<string, unknown>).text ?? '');
       }
+
       return {
         role: m.role as 'user' | 'assistant',
         content: text,
@@ -82,6 +197,7 @@ function convertDbMessagesToThreadMessageLike(
  */
 function ThreadHistoryProvider({ children }: { children: ReactNode }) {
   const remoteId = useAuiState((s) => s.threadListItem.remoteId);
+  const threadId = useAuiState((s) => s.threadListItem.id);
 
   const history = useMemo<ThreadHistoryAdapter>(
     () => ({
@@ -99,15 +215,42 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
           return { messages: [] };
         }
       },
+      withFormat<TMessage, TStorageFormat extends Record<string, unknown>>(
+        _formatAdapter: MessageFormatAdapter<TMessage, TStorageFormat>,
+      ): GenericThreadHistoryAdapter<TMessage> {
+        return {
+          async load() {
+            if (!remoteId) return { messages: [] };
+
+            try {
+              const { data } = await apiClient.get(
+                `/ai/chat/conversations/${remoteId}`,
+              );
+              const dbMessages = data?.conversation?.messages ?? [];
+              return convertDbMessagesToMessageFormatRepository(
+                dbMessages,
+              ) as MessageFormatRepository<TMessage>;
+            } catch {
+              return { messages: [] };
+            }
+          },
+          async append() {
+            /* no-op - backend persists during SSE streaming */
+          },
+        };
+      },
       async append() {
-        /* no-op — backend persists during SSE streaming */
+        /* no-op - backend persists during SSE streaming */
       },
     }),
     [remoteId],
   );
 
   return (
-    <RuntimeAdapterProvider adapters={{ history }}>
+    <RuntimeAdapterProvider
+      key={`${threadId}:${remoteId ?? 'pending'}`}
+      adapters={{ history }}
+    >
       {children}
     </RuntimeAdapterProvider>
   );
@@ -122,7 +265,7 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
  * Routes:
  * - list()       -> GET /ai/chat/conversations
  * - delete()     -> DELETE /ai/chat/conversations/:id
- * - initialize() -> Returns threadId as-is (backend creates on first message)
+ * - initialize() -> POST /ai/chat/conversations (eagerly creates, returns real CUID)
  * - fetch()      -> GET /ai/chat/conversations/:id
  * - rename()     -> no-op (backend auto-generates titles)
  * - archive()    -> DELETE (no archive concept)
@@ -205,7 +348,7 @@ export function createPmSyncThreadListAdapter() {
     },
 
     async rename(_remoteId: string, _newTitle: string): Promise<void> {
-      // Backend auto-generates titles — no rename endpoint needed
+      // Backend auto-generates titles - no rename endpoint needed
     },
 
     async archive(remoteId: string): Promise<void> {
@@ -221,10 +364,15 @@ export function createPmSyncThreadListAdapter() {
     },
 
     async initialize(
-      threadId: string,
+      _threadId: string,
     ): Promise<RemoteThreadInitializeResponse> {
-      // Backend creates conversation on first POST /ai/chat message.
-      return { remoteId: threadId, externalId: undefined };
+      // Eagerly create the conversation on the backend so we get a real
+      // server-assigned CUID. assistant-ui calls this before the first
+      // message send; the returned remoteId is then forwarded as
+      // conversationId on every subsequent request.
+      const { data } = await apiClient.post('/ai/chat/conversations');
+      const remoteId: string = data?.conversation?.id ?? _threadId;
+      return { remoteId, externalId: undefined };
     },
 
     async generateTitle(
