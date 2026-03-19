@@ -15,7 +15,7 @@ import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping';
  * - AgentLearningProfile (90 day retention, auto-renews on update)
  * - AIMemory (variable retention via expiresAt)
  * - ActionQueue (expired pending actions)
- * - VoltAgent conversations (30 day retention)
+ * - AI chat conversations (30 day retention)
  *
  * Cron schedule:
  * - 2 AM: Purge expired account deletion requests (GDPR Art. 17)
@@ -26,6 +26,7 @@ import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping';
 @Injectable()
 export class DataCleanupService implements OnModuleInit {
   private readonly logger = new Logger(DataCleanupService.name);
+  private static readonly AI_CHAT_RETENTION_DAYS = 30;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -94,7 +95,7 @@ export class DataCleanupService implements OnModuleInit {
       // 4. ActionQueue removed (Phase 77 -- replaced by AI SDK native HITL)
       results.expiredActions = 0;
 
-      // 5. Clean old VoltAgent conversations (30 days)
+      // 5. Clean old AI chat conversations (30 days)
       results.conversations = await this.cleanupOldConversations(now);
 
       results.duration = Date.now() - startTime;
@@ -213,7 +214,9 @@ export class DataCleanupService implements OnModuleInit {
   async getExpiredCounts(): Promise<ExpiredCounts> {
     const now = new Date();
     const conversationCutoff = new Date();
-    conversationCutoff.setDate(conversationCutoff.getDate() - 30);
+    conversationCutoff.setDate(
+      conversationCutoff.getDate() - DataCleanupService.AI_CHAT_RETENTION_DAYS,
+    );
 
     const [feedback, profiles, memories, conversations] = await Promise.all([
       this.prisma.agentActionFeedback.count({
@@ -239,62 +242,26 @@ export class DataCleanupService implements OnModuleInit {
   }
 
   /**
-   * Clean up old VoltAgent conversations (30 days).
-   * VoltAgent uses voltagent_memory_* tables with PostgreSQLMemoryAdapter.
+   * Clean up AI chat conversations older than the retention window.
    */
   private async cleanupOldConversations(now: Date): Promise<number> {
     const cutoffDate = new Date(now);
-    cutoffDate.setDate(cutoffDate.getDate() - 30);
+    cutoffDate.setDate(
+      cutoffDate.getDate() - DataCleanupService.AI_CHAT_RETENTION_DAYS,
+    );
 
     try {
-      // Check if VoltAgent tables exist
-      const tableExists = await this.checkVoltAgentTablesExist();
-      if (!tableExists) {
-        this.logger.debug('VoltAgent memory tables not found, skipping conversation cleanup');
-        return 0;
-      }
+      const result = await this.prisma.aiConversation.deleteMany({
+        where: {
+          updatedAt: { lt: cutoffDate },
+        },
+      });
 
-      // Delete messages first (FK constraint), then conversations
-      await this.prisma.$executeRaw`
-        DELETE FROM voltagent_memory_messages
-        WHERE conversation_id IN (
-          SELECT id FROM voltagent_memory_conversations
-          WHERE updated_at < ${cutoffDate}
-        )
-      `;
-
-      const result = await this.prisma.$executeRaw`
-        DELETE FROM voltagent_memory_conversations
-        WHERE updated_at < ${cutoffDate}
-      `;
-
-      this.logger.debug(`Deleted ${result} old conversations`);
-      return result;
+      this.logger.debug(`Deleted ${result.count} expired AI chat conversations`);
+      return result.count;
     } catch (error) {
-      // Table might not exist yet
-      if (String(error).includes('does not exist') || String(error).includes('relation')) {
-        this.logger.debug('VoltAgent memory tables not found, skipping');
-        return 0;
-      }
-      this.logger.error(`Failed to cleanup conversations: ${error}`);
+      this.logger.error(`Failed to cleanup AI chat conversations: ${error}`);
       return 0;
-    }
-  }
-
-  /**
-   * Check if VoltAgent memory tables exist.
-   */
-  private async checkVoltAgentTablesExist(): Promise<boolean> {
-    try {
-      const result = await this.prisma.$queryRaw<Array<{ exists: boolean }>>`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables
-          WHERE table_name = 'voltagent_memory_conversations'
-        ) as exists
-      `;
-      return result[0]?.exists ?? false;
-    } catch {
-      return false;
     }
   }
 
@@ -303,14 +270,11 @@ export class DataCleanupService implements OnModuleInit {
    */
   private async getOldConversationCount(cutoffDate: Date): Promise<number> {
     try {
-      const tableExists = await this.checkVoltAgentTablesExist();
-      if (!tableExists) return 0;
-
-      const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
-        SELECT COUNT(*) as count FROM voltagent_memory_conversations
-        WHERE updated_at < ${cutoffDate}
-      `;
-      return Number(result[0]?.count ?? 0);
+      return this.prisma.aiConversation.count({
+        where: {
+          updatedAt: { lt: cutoffDate },
+        },
+      });
     } catch {
       return 0;
     }

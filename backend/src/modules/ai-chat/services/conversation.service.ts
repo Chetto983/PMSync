@@ -16,8 +16,25 @@ import type { ModelMessage } from 'ai';
 @Injectable()
 export class ConversationService {
   private readonly logger = new Logger(ConversationService.name);
+  static readonly RETENTION_DAYS = 30;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private getRetentionCutoff(): Date {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - ConversationService.RETENTION_DAYS);
+    return cutoff;
+  }
+
+  private async touchConversationTx(
+    tx: Prisma.TransactionClient,
+    conversationId: string,
+  ): Promise<void> {
+    await tx.aiConversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
+    });
+  }
 
   /**
    * Create a new conversation for a user within a tenant.
@@ -40,7 +57,11 @@ export class ConversationService {
     tenantId: string,
   ): Promise<AiConversation | null> {
     return this.prisma.aiConversation.findFirst({
-      where: { id: conversationId, tenantId },
+      where: {
+        id: conversationId,
+        tenantId,
+        updatedAt: { gte: this.getRetentionCutoff() },
+      },
     });
   }
 
@@ -131,13 +152,19 @@ export class ConversationService {
     conversationId: string,
     content: string,
   ): Promise<AiMessage> {
-    return this.prisma.aiMessage.create({
-      data: {
-        conversationId,
-        role: 'user',
-        content: { type: 'text', text: content },
-      },
+    const [message] = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.aiMessage.create({
+        data: {
+          conversationId,
+          role: 'user',
+          content: { type: 'text', text: content },
+        },
+      });
+      await this.touchConversationTx(tx, conversationId);
+      return [created];
     });
+
+    return message;
   }
 
   /**
@@ -149,15 +176,21 @@ export class ConversationService {
     tokenCount?: number,
     stepIndex?: number,
   ): Promise<AiMessage> {
-    return this.prisma.aiMessage.create({
-      data: {
-        conversationId,
-        role: 'assistant',
-        content,
-        tokenCount,
-        stepIndex,
-      },
+    const [message] = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.aiMessage.create({
+        data: {
+          conversationId,
+          role: 'assistant',
+          content,
+          tokenCount,
+          stepIndex,
+        },
+      });
+      await this.touchConversationTx(tx, conversationId);
+      return [created];
     });
+
+    return message;
   }
 
   /**
@@ -169,15 +202,21 @@ export class ConversationService {
     toolCallId: string,
     stepIndex: number,
   ): Promise<AiMessage> {
-    return this.prisma.aiMessage.create({
-      data: {
-        conversationId,
-        role: 'tool',
-        content,
-        toolCallId,
-        stepIndex,
-      },
+    const [message] = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.aiMessage.create({
+        data: {
+          conversationId,
+          role: 'tool',
+          content,
+          toolCallId,
+          stepIndex,
+        },
+      });
+      await this.touchConversationTx(tx, conversationId);
+      return [created];
     });
+
+    return message;
   }
 
   /**
@@ -215,7 +254,11 @@ export class ConversationService {
     limit = 20,
   ): Promise<AiConversation[]> {
     return this.prisma.aiConversation.findMany({
-      where: { tenantId, userId },
+      where: {
+        tenantId,
+        userId,
+        updatedAt: { gte: this.getRetentionCutoff() },
+      },
       orderBy: { updatedAt: 'desc' },
       take: limit,
     });

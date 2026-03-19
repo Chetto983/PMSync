@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { useAuiState } from '@assistant-ui/store';
 import { useAISDKRuntime, AssistantChatTransport } from '@assistant-ui/react-ai-sdk';
@@ -10,6 +10,7 @@ import { API_BASE_URL, getCsrfToken } from '@/lib/api-client';
 import type { UIMessage } from 'ai';
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
 import { createPmSyncThreadListAdapter } from './chat-thread-list-adapter';
+import { resolveConversationIdFromRequestBody } from './chat-request-body';
 
 /**
  * Extract plain text from the last user message in AI SDK message array.
@@ -39,8 +40,9 @@ const transport = new AssistantChatTransport({
   prepareSendMessagesRequest: ({ messages, body }) => ({
     body: {
       message: extractLastUserText(messages),
-      conversationId:
-        (body as Record<string, unknown>)?.conversationId ?? undefined,
+      conversationId: resolveConversationIdFromRequestBody(
+        body as Record<string, unknown> | undefined,
+      ),
     },
   }),
 });
@@ -74,6 +76,8 @@ export function ChatRuntimeProvider({
 }: {
   children: ReactNode;
 }) {
+  const restoredInitialThreadRef = useRef(false);
+
   // Warm CSRF cache eagerly.
   useEffect(() => {
     getCsrfToken().then((t) => {
@@ -88,6 +92,24 @@ export function ChatRuntimeProvider({
     runtimeHook: useThreadRuntime,
     adapter,
   });
+
+  useEffect(() => {
+    const restoreMostRecentConversation = () => {
+      if (restoredInitialThreadRef.current) return;
+
+      const state = runtime.threads.getState();
+      if (state.isLoading || state.threadIds.length === 0) return;
+
+      restoredInitialThreadRef.current = true;
+
+      if (state.newThreadId && state.mainThreadId === state.newThreadId) {
+        void runtime.threads.switchToThread(state.threadIds[0]!);
+      }
+    };
+
+    restoreMostRecentConversation();
+    return runtime.threads.subscribe(restoreMostRecentConversation);
+  }, [runtime]);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
