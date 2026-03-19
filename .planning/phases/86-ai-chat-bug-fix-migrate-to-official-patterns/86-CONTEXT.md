@@ -37,8 +37,8 @@ Migrate the entire chat frontend from deprecated assistant-ui patterns to offici
 ### HITL Approval Flow
 - Backend tools use `needsApproval: true` on HIGH-risk tools (already in place)
 - Frontend uses `sendAutomaticallyWhen` from AI SDK for auto-continue after approval
-- Tool part states: `approval-requested` → render approve/deny UI → `addToolApprovalResponse()`
-- Delete old `addResult()` pattern from FallbackToolUI
+- Tool part states: `approval-requested` -> render approve/deny UI
+- **CLARIFIED (2026-03-19):** `addResult` from `ToolCallMessagePartProps` IS the correct API when using assistant-ui primitives. The assistant-ui runtime bridge maps `addResult` to the appropriate AI SDK call internally. `addToolApprovalResponse` is only relevant when using raw `useChat` directly (we do not). Since all our tool UIs receive props from assistant-ui's `MessagePrimitive.Content`, `addResult` is correct and must be kept. The `HitlApprovalWrapper` pattern using `addResult` is correct as-is.
 
 ### Runtime Configuration
 - Keep `useChatRuntime` but pass custom adapter via `useRemoteThreadListRuntime`
