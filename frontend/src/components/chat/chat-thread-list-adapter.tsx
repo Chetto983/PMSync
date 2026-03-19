@@ -3,7 +3,12 @@
 import { type ReactNode, useMemo } from 'react';
 import { RuntimeAdapterProvider } from '@assistant-ui/core/react';
 import { ExportedMessageRepository } from '@assistant-ui/core';
-import type { ThreadMessageLike, ThreadHistoryAdapter } from '@assistant-ui/core';
+import type {
+  ThreadMessage,
+  ThreadMessageLike,
+  ThreadHistoryAdapter,
+} from '@assistant-ui/core';
+import { createAssistantStream, type AssistantStream } from 'assistant-stream';
 import { useAuiState } from '@assistant-ui/store';
 import { apiClient } from '@/lib/api-client';
 
@@ -25,6 +30,13 @@ interface RemoteThreadListResponse {
 interface RemoteThreadInitializeResponse {
   remoteId: string;
   externalId: string | undefined;
+}
+
+const TITLE_FETCH_RETRIES = 3;
+const TITLE_FETCH_RETRY_MS = 150;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -120,8 +132,52 @@ export function createPmSyncThreadListAdapter() {
     try {
       await apiClient.delete(`/ai/chat/conversations/${remoteId}`);
     } catch {
-      // Swallow — thread may already be deleted
+      // Swallow delete errors so the list stays usable if the thread is already gone.
     }
+  }
+
+  async function fetchThreadMetadata(
+    threadId: string,
+  ): Promise<RemoteThreadMetadata> {
+    try {
+      const { data } = await apiClient.get(`/ai/chat/conversations/${threadId}`);
+      const conv = data?.conversation ?? data?.data?.conversation;
+      return {
+        status: 'regular' as const,
+        remoteId: conv?.id ?? threadId,
+        title: conv?.title ?? undefined,
+      };
+    } catch {
+      return {
+        status: 'regular' as const,
+        remoteId: threadId,
+        title: undefined,
+      };
+    }
+  }
+
+  async function fetchThreadTitleWithRetry(
+    remoteId: string,
+  ): Promise<string | undefined> {
+    for (let attempt = 0; attempt < TITLE_FETCH_RETRIES; attempt += 1) {
+      const metadata = await fetchThreadMetadata(remoteId);
+      const title = metadata.title?.trim();
+      if (title) return title;
+
+      if (attempt < TITLE_FETCH_RETRIES - 1) {
+        await sleep(TITLE_FETCH_RETRY_MS);
+      }
+    }
+
+    return undefined;
+  }
+
+  function createTitleStream(title?: string): AssistantStream {
+    return createAssistantStream((controller) => {
+      if (title) {
+        controller.appendText(title);
+      }
+    });
   }
 
   return {
@@ -171,29 +227,16 @@ export function createPmSyncThreadListAdapter() {
       return { remoteId: threadId, externalId: undefined };
     },
 
-    async generateTitle(): Promise<never> {
-      // Backend auto-generates titles after ~4 messages.
-      throw new Error('Title generation handled by backend');
+    async generateTitle(
+      remoteId: string,
+      _messages: readonly ThreadMessage[],
+    ): Promise<AssistantStream> {
+      const title = await fetchThreadTitleWithRetry(remoteId);
+      return createTitleStream(title);
     },
 
     async fetch(threadId: string): Promise<RemoteThreadMetadata> {
-      try {
-        const { data } = await apiClient.get(
-          `/ai/chat/conversations/${threadId}`,
-        );
-        const conv = data?.conversation ?? data?.data?.conversation;
-        return {
-          status: 'regular' as const,
-          remoteId: conv.id,
-          title: conv.title ?? undefined,
-        };
-      } catch {
-        return {
-          status: 'regular' as const,
-          remoteId: threadId,
-          title: undefined,
-        };
-      }
+      return fetchThreadMetadata(threadId);
     },
   };
 }
