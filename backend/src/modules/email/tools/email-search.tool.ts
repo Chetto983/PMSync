@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   IAiTool,
   IToolContext,
+  ToolDomain,
+  RiskLevel,
 } from '../../../common/interfaces/tool-registry.interface';
 import { EmailSearchService } from '../services/email-search.service';
 
@@ -23,6 +25,19 @@ export class EmailSearchTool implements IAiTool {
     properties: {
       query: { type: 'string', description: 'Search query' },
       limit: { type: 'number', description: 'Max results (default 20, max 50)' },
+    },
+    required: ['query'],
+  };
+
+  // Phase 77: Governance metadata
+  readonly domain: ToolDomain = 'email';
+  readonly riskLevel: RiskLevel = 'LOW';
+  readonly requiresApproval = false;
+  readonly inputSchema = {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query' },
+      limit: { type: 'number' },
     },
     required: ['query'],
   };

@@ -29,6 +29,19 @@ export class ContactsTool implements IAiTool {
     required: ['query'],
   };
 
+  // Phase 77: Governance metadata
+  readonly domain: ToolDomain = 'contacts';
+  readonly riskLevel: RiskLevel = 'LOW';
+  readonly requiresApproval = false;
+  readonly inputSchema = {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query (name, email, or company)' },
+      limit: { type: 'number' },
+    },
+    required: ['query'],
+  };
+
   private readonly logger = new Logger(ContactsTool.name);
 
   constructor(private readonly contactsService: ContactsService) {}

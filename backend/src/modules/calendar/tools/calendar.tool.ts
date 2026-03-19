@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   IAiTool,
   IToolContext,
+  ToolDomain,
+  RiskLevel,
 } from '../../../common/interfaces/tool-registry.interface';
 import { CalendarEventsService } from '../services/calendar-events.service';
 
@@ -23,6 +25,20 @@ export class CalendarTool implements IAiTool {
       startDate: { type: 'string', description: 'Start of date range (ISO 8601)' },
       endDate: { type: 'string', description: 'End of date range (ISO 8601)' },
       limit: { type: 'number', description: 'Max events (default 20, max 50)' },
+    },
+    required: [],
+  };
+
+  // Phase 77: Governance metadata
+  readonly domain: ToolDomain = 'calendar';
+  readonly riskLevel: RiskLevel = 'LOW';
+  readonly requiresApproval = false;
+  readonly inputSchema = {
+    type: 'object',
+    properties: {
+      startDate: { type: 'string', description: 'Start of date range (ISO 8601)' },
+      endDate: { type: 'string', description: 'End of date range (ISO 8601)' },
+      limit: { type: 'number' },
     },
     required: [],
   };
