@@ -223,6 +223,18 @@ Plans:
 - [ ] 86-02-PLAN.md -- Thread persistence via ThreadHistoryAdapter + unstable_Provider, SDK sendAutomaticallyWhen helper
 - [ ] 86-03-PLAN.md -- Final validation sweep + human verification checkpoint
 
+### Phase 87: AI-CHAT-MODULE FIX
+
+**Goal:** All bugs, race conditions, security holes, and dead code from the AI-Chat module audit are fixed -- userId/tenantId isolation enforced, transactions retry-safe, oversized files split
+**Requirements**: BUG-1, BUG-2, BUG-3, BUG-5, BUG-6, BUG-7, BUG-8, RACE-1, RACE-2, RACE-3, RACE-4, RULE-1, RULE-3, DEAD-1, DEAD-2, DEAD-3, DEAD-4, DEAD-5
+**Depends on:** Phase 86
+**Plans:** 4 plans
+
+Plans:
+- [ ] 87-01-PLAN.md -- Critical security: userId check on conversations (BUG-2), tenantId on message queries (RULE-1)
+- [ ] 87-02-PLAN.md -- High severity: reply_email replyAll+CC (BUG-1), summary trigger fix (BUG-5), Prisma retry wrappers (RACE-1)
+- [ ] 87-03-PLAN.md -- Medium severity: draft sentAt (BUG-3), piiResolve (BUG-6), auto-resolve removal (BUG-7), embedding dedup (BUG-8), batched persistence (RACE-4), count-from-save (RACE-2)
+- [ ] 87-04-PLAN.md -- Cleanup: dead code removal (DEAD-1-5), file splits under 500 lines (RULE-3)
 ---
 *Roadmap created: 2026-02-09*
 *v5.0 completed: 2026-03-10 -- 15 phases, 34 plans, 51/51 requirements*
