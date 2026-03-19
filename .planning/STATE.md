@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Enterprise Platform & AI Governance
 status: in-progress
-stopped_at: Completed 87-01 (Security Isolation Fix)
-last_updated: "2026-03-19T15:28:03Z"
-last_activity: 2026-03-19 -- Completed 87-01 (BOLA fix + tenantId relation filter)
+stopped_at: Completed 87-00 and 87-01 (Wave 0 RED tests + Security Isolation Fix)
+last_updated: "2026-03-19T15:30:00Z"
+last_activity: 2026-03-19 -- Completed 87-00 (Wave 0 RED tests for BUG-1/2/5, RULE-1, RACE-1/4)
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 4
-  completed_plans: 5
-  percent: 55
+  completed_plans: 6
+  percent: 60
 ---
 
 # Project State
@@ -35,9 +35,9 @@ Progress: [█████░░░░░] 55%
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (v6.0)
-- Average duration: 15min
-- Total execution time: 1.3 hours
+- Total plans completed: 6 (v6.0)
+- Average duration: 14min
+- Total execution time: 1.5 hours
 
 **By Phase:**
 
@@ -45,10 +45,10 @@ Progress: [█████░░░░░] 55%
 |-------|-------|-------|----------|
 | 77 | 2 | 52min | 26min |
 | 86 | 2 | 17min | 9min |
-| 87 | 1 | 7min | 7min |
+| 87 | 2 | 16min | 8min |
 
 **Recent Trend:**
-- Last 5 plans: 7min, 17min, 35min, 6min, 11min
+- Last 5 plans: 9min, 7min, 17min, 35min, 6min
 - Trend: improving
 
 *Updated after each plan completion*
@@ -73,6 +73,7 @@ Recent decisions affecting current work:
 - [86-01]: ToolDispatcher pattern in ChainOfThought instead of MessagePrimitive.Content tools.by_name (mutually exclusive with ChainOfThought in assistant-ui types)
 - [87-01]: userId optional on getConversation (backward compat), required on deleteConversation (atomic ownership via deleteMany)
 - [87-01]: tenantId relation filter optional on message queries -- callers opt in for defense-in-depth
+- [87-00]: BUG-2/RULE-1 WIP implementation committed with tests (was already in working tree before plan execution)
 
 ### Pending Todos
 
@@ -92,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T15:28:03Z
-Stopped at: Completed 87-01 (Security Isolation Fix)
-Resume file: .planning/phases/87-ai-chat-module-fix/87-01-SUMMARY.md
+Last session: 2026-03-19T15:30:00Z
+Stopped at: Completed 87-00 (Wave 0 RED tests)
+Resume file: .planning/phases/87-ai-chat-module-fix/87-00-SUMMARY.md
