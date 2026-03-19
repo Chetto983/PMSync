@@ -121,6 +121,32 @@ export class AiChatController {
   }
 
   /**
+   * Create a new empty conversation.
+   * Used by the frontend thread list adapter to get a server-assigned ID
+   * before the first message is sent.
+   */
+  @Post('chat/conversations')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create a new AI chat conversation',
+    description: 'Creates an empty conversation and returns its server-assigned ID.',
+  })
+  @ApiResponse({ status: 201, description: 'Conversation created' })
+  async createConversation(
+    @Req() req: Request & { user: AuthenticatedRequest['user'] },
+  ) {
+    const conversation = await this.conversationService.createConversation(
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      conversation: { id: conversation.id },
+    };
+  }
+
+  /**
    * List conversations for the current user.
    */
   @Get('chat/conversations')
