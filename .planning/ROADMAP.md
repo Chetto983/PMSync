@@ -211,15 +211,17 @@ Phase 85 can run in parallel with 83-84.
 | 84. MUI Chat Migration | 0/? | Not started | - |
 | 85. UI/UX Polish | 0/? | Not started | - |
 
-### Phase 86: AI Chat Bug Fix — Migrate to Official Patterns
+### Phase 86: AI Chat Bug Fix -- Migrate to Official Patterns
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Chat frontend uses official assistant-ui 0.12.x patterns -- tool UIs via components.tools.by_name, thread persistence via ThreadHistoryAdapter, HITL via SDK-native sendAutomaticallyWhen
+**Requirements**: None (bug fix / tech debt)
 **Depends on:** Phase 85
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 86 to break down)
+- [ ] 86-01-PLAN.md -- Convert 21 makeAssistantToolUI calls to plain components, wire via components.tools.by_name, delete AllToolUIs
+- [ ] 86-02-PLAN.md -- Thread persistence via ThreadHistoryAdapter + unstable_Provider, SDK sendAutomaticallyWhen helper
+- [ ] 86-03-PLAN.md -- Final validation sweep + human verification checkpoint
 
 ---
 *Roadmap created: 2026-02-09*
