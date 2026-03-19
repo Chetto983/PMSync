@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import { ChatRuntimeProvider } from './ChatRuntimeProvider';
 import { ChatThemeBridge } from './ChatThemeBridge';
-import { AllToolUIs } from './tool-uis';
 import { ChatDesktopLayout } from './ChatDesktopLayout';
 import { ChatMobileLayout } from './ChatMobileLayout';
 
@@ -49,7 +48,6 @@ export function ChatPage() {
 
   return (
     <ChatRuntimeProvider>
-      <AllToolUIs />
       <ChatThemeBridge>
         <div className="chat-page">
           <div className="chat-surface">

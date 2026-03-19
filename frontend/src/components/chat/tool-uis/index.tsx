@@ -1,54 +1,45 @@
 /**
- * Barrel export for all chat tool UIs.
- * Each tool UI self-registers in the assistant-ui runtime when mounted.
- * Mount <AllToolUIs /> inside <AssistantRuntimeProvider> to activate all renderers.
+ * Barrel export for chat tool UI renderers.
+ * TOOL_RENDERERS maps tool names to renderer components for MessagePrimitive.Content.
+ * FallbackToolRenderer handles unregistered tools and HITL approval cards.
  */
-import { EmailSearchToolUI, ListEmailsToolUI, SemanticSearchToolUI } from './EmailSearchToolUI';
-import { EmailListToolUI } from './EmailListToolUI';
-import { EmailContentToolUI } from './EmailContentToolUI';
-import { FollowUpToolUI } from './FollowUpToolUI';
-import { ContactToolUI } from './ContactToolUI';
-import { EventToolUI } from './EventToolUI';
-import { CountToolUI } from './CountToolUI';
-import { FolderToolUI } from './FolderToolUI';
-import { AnalysisToolUI } from './AnalysisToolUI';
-import { MemoryToolUI, MemorySearchToolUI } from './MemoryToolUI';
-import { BriefingToolUI } from './BriefingToolUI';
-import { CrmToolUI } from './CrmToolUI';
-import { TriageToolUI } from './TriageToolUI';
-import { AskUserToolUI, SaveMemoryToolUI } from './ConversationToolUI';
-import { CreateReminderToolUI, ListRemindersToolUI } from './ReminderToolUI';
-import { FallbackToolUI } from './FallbackToolUI';
+import { EmailSearchRenderer, ListEmailsRenderer, SemanticSearchRenderer } from './EmailSearchToolUI';
+import { EmailListRenderer } from './EmailListToolUI';
+import { EmailContentRenderer } from './EmailContentToolUI';
+import { FollowUpRenderer } from './FollowUpToolUI';
+import { ContactRenderer } from './ContactToolUI';
+import { EventRenderer } from './EventToolUI';
+import { CountRenderer } from './CountToolUI';
+import { FolderRenderer } from './FolderToolUI';
+import { AnalysisRenderer } from './AnalysisToolUI';
+import { MemoryRenderer, MemorySearchRenderer } from './MemoryToolUI';
+import { BriefingRenderer } from './BriefingToolUI';
+import { CrmRenderer } from './CrmToolUI';
+import { TriageRenderer } from './TriageToolUI';
+import { AskUserRenderer, SaveMemoryRenderer } from './ConversationToolUI';
+import { CreateReminderRenderer, ListRemindersRenderer } from './ReminderToolUI';
 
-export function AllToolUIs() {
-  return (
-    <>
-      {/* Email/data tools (Plan 02) */}
-      <EmailSearchToolUI />
-      <ListEmailsToolUI />
-      <SemanticSearchToolUI />
-      <EmailListToolUI />
-      <EmailContentToolUI />
-      <FollowUpToolUI />
-      <ContactToolUI />
-      <EventToolUI />
-      <CountToolUI />
-      <FolderToolUI />
-      {/* Analysis/AI tools (Plan 03) */}
-      <AnalysisToolUI />
-      <MemoryToolUI />
-      <MemorySearchToolUI />
-      <BriefingToolUI />
-      <CrmToolUI />
-      <TriageToolUI />
-      {/* Conversation tools */}
-      <AskUserToolUI />
-      <SaveMemoryToolUI />
-      {/* Reminder tools (Follow-Up AI) */}
-      <CreateReminderToolUI />
-      <ListRemindersToolUI />
-      {/* Fallback for unregistered tools + HITL approval */}
-      <FallbackToolUI />
-    </>
-  );
-}
+export { FallbackToolRenderer } from './FallbackToolUI';
+
+export const TOOL_RENDERERS = {
+  search_emails: EmailSearchRenderer,
+  list_emails: ListEmailsRenderer,
+  semantic_search_emails: SemanticSearchRenderer,
+  list_email_index: EmailListRenderer,
+  get_email_content: EmailContentRenderer,
+  list_follow_ups: FollowUpRenderer,
+  search_contacts: ContactRenderer,
+  get_events: EventRenderer,
+  count_emails: CountRenderer,
+  list_folders: FolderRenderer,
+  analyze_email: AnalysisRenderer,
+  search_memory: MemoryRenderer,
+  memory_search: MemorySearchRenderer,
+  get_daily_briefing: BriefingRenderer,
+  get_relationship_stats: CrmRenderer,
+  bulk_email_actions: TriageRenderer,
+  ask_user: AskUserRenderer,
+  save_memory: SaveMemoryRenderer,
+  create_reminder: CreateReminderRenderer,
+  list_reminders: ListRemindersRenderer,
+} as const;

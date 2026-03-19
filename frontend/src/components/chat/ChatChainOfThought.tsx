@@ -1,11 +1,22 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { ChainOfThoughtPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { ChevronDown } from 'lucide-react';
 import Box from '@mui/material/Box';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { FallbackToolRenderer } from './tool-uis/FallbackToolUI';
+import { TOOL_RENDERERS, FallbackToolRenderer } from './tool-uis';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
+
+/**
+ * Dispatching tool renderer: routes tool calls to specific renderers by name,
+ * falling back to FallbackToolRenderer for unregistered tools.
+ */
+function ToolDispatcher(props: ToolCallMessagePartProps) {
+  const Renderer = (TOOL_RENDERERS as Record<string, React.ComponentType<ToolCallMessagePartProps> | undefined>)[props.toolName];
+  if (Renderer) return <Renderer {...props} />;
+  return <FallbackToolRenderer {...props} />;
+}
 
 /**
  * Chain of thought collapsible accordion for AI reasoning steps.
@@ -45,7 +56,7 @@ export function ChatChainOfThought() {
       <ChainOfThoughtPrimitive.Parts
         components={{
           tools: {
-            Fallback: FallbackToolRenderer,
+            Fallback: ToolDispatcher,
           },
           Layout: ({ children }) => (
             <div className="chat-cot-content">
