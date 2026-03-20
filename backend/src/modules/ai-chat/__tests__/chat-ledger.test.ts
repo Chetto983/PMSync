@@ -54,7 +54,7 @@ describe('AiChatService ledger wiring', () => {
     mockLedger = { recordRun: vi.fn().mockResolvedValue(undefined) };
 
     // Build AiChatService with minimal mocks
-    const mockMistralProvider = { getChatModel: vi.fn(() => 'mock-model') };
+    const mockMistralProvider = { getChatModel: vi.fn(() => 'mock-model'), getChatModelName: vi.fn(() => 'mistral-small-latest') };
     mockConversationService = {
       getOrCreateConversation: vi.fn().mockResolvedValue({ id: 'conv-1' }),
       saveUserMessage: vi.fn().mockResolvedValue(undefined),
@@ -127,6 +127,7 @@ describe('AiChatService ledger wiring', () => {
     (mockMemoryService.getRelevantMemories as any).mockResolvedValue([]);
     (mockMemoryService.formatMemoriesForPrompt as any).mockReturnValue('');
     (mockMistralProvider.getChatModel as any).mockReturnValue('mock-model');
+    (mockMistralProvider.getChatModelName as any).mockReturnValue('mistral-small-latest');
     (mockUsageTracking.trackUsage as any).mockResolvedValue(undefined);
     (mockChatEnrichmentService.getRuntimeContextMetadata as any).mockResolvedValue({});
     (mockChatEnrichmentService.maybeGenerateSmartTitle as any).mockResolvedValue(undefined);
