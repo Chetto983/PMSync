@@ -10,10 +10,10 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 ### Backend API Testing
 
 - [x] **BAPI-01**: User can authenticate via all auth flows (login, register, forgot-password, reset-password, verify-email, 2FA, OAuth)
-- [ ] **BAPI-02**: User can perform all email operations (list, get, send, reply, forward, draft, delete, bulk read/star/flag/move/labels)
-- [ ] **BAPI-03**: User can manage folders (list, create, rename, move, delete, sync)
-- [ ] **BAPI-04**: User can manage signatures (list, create, update, delete, set-default)
-- [ ] **BAPI-05**: User can manage email templates (list, create, update, delete, duplicate, set-default)
+- [x] **BAPI-02**: User can perform all email operations (list, get, send, reply, forward, draft, delete, bulk read/star/flag/move/labels)
+- [x] **BAPI-03**: User can manage folders (list, create, rename, move, delete, sync)
+- [x] **BAPI-04**: User can manage signatures (list, create, update, delete, set-default)
+- [x] **BAPI-05**: User can manage email templates (list, create, update, delete, duplicate, set-default)
 - [ ] **BAPI-06**: User can perform all calendar operations (list calendars, CRUD events, sync, conflicts, focus-time, meeting-prep)
 - [ ] **BAPI-07**: User can perform all contact operations (list, create, update, delete, bulk-delete, VIP toggle, import vCard, sync, extract-from-emails)
 - [ ] **BAPI-08**: User can manage labels (list, create, update, delete, add/remove emails, reorder)
@@ -33,7 +33,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **BAPI-22**: Webhook endpoints process notifications (Gmail push, Microsoft Graph, Calendar, Contacts)
 - [ ] **BAPI-23**: Calendar invite operations work (get invite, respond, send, cancel)
 - [x] **BAPI-24**: User profile operations work (get/update me, avatar upload/delete, preferences, dashboard preferences, clear AI memory)
-- [ ] **BAPI-25**: Email attachment download works (both controller paths)
+- [x] **BAPI-25**: Email attachment download works (both controller paths)
 
 ### Frontend Verification
 
@@ -126,10 +126,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | BAPI-01 | Phase 89 | Complete |
-| BAPI-02 | Phase 90 | Pending |
-| BAPI-03 | Phase 90 | Pending |
-| BAPI-04 | Phase 90 | Pending |
-| BAPI-05 | Phase 90 | Pending |
+| BAPI-02 | Phase 90 | Complete |
+| BAPI-03 | Phase 90 | Complete |
+| BAPI-04 | Phase 90 | Complete |
+| BAPI-05 | Phase 90 | Complete |
 | BAPI-06 | Phase 91 | Pending |
 | BAPI-07 | Phase 91 | Pending |
 | BAPI-08 | Phase 93 | Pending |
@@ -149,7 +149,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-22 | Phase 94 | Pending |
 | BAPI-23 | Phase 91 | Pending |
 | BAPI-24 | Phase 89 | Complete |
-| BAPI-25 | Phase 90 | Pending |
+| BAPI-25 | Phase 90 | Complete |
 | FE-01 | Phase 89 | Complete |
 | FE-02 | Phase 89 | Complete |
 | FE-03 | Phase 90 | Pending |

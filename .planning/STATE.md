@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: System Audit & Hardening
 status: unknown
-stopped_at: Phase 90 email hotfix stream with lint baseline closed
-last_updated: "2026-03-20T10:30:54.892Z"
+stopped_at: Completed 90-01-PLAN.md
+last_updated: "2026-03-20T11:17:17.722Z"
 progress:
   total_phases: 10
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 90 - email-operations-verification
+**Current focus:** Phase 90 — email-operations-verification
 
 ## Current Position
 
-Phase: 90 (email-operations-verification) - IN PROGRESS
-Plan: Hotfix stream / live revalidation
+Phase: 90 (email-operations-verification) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Plan: Hotfix stream / live revalidation
 *Updated after each plan completion*
 | Phase 89 P01 | 40min | 3 tasks | 6 files |
 | Phase 89 P03 | 3min | 1 tasks | 1 files |
+| Phase 90 P01 | 3min | 2 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,7 @@ Recent decisions affecting current work:
 - [Phase 89]: Used input[type=password] selector to avoid MUI PasswordField toggle ambiguity
 - [Phase 89]: Added backend health skip guards so auth E2E tests pass without running backend
 - [Phase 89]: Weak password test uses server-side validation (better-auth rejects 123), not client-side check
+- [Phase 90]: All email controllers use class-level @UseGuards(TenantGuard, RolesGuard) -- equivalent to per-method @Auth(), no changes needed
 
 ### Pending Todos
 
@@ -80,6 +82,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-20T11:01:15.1893598+01:00
-Stopped at: Phase 90 email hotfix stream with lint baseline closed
+Last session: 2026-03-20T11:17:17.717Z
+Stopped at: Completed 90-01-PLAN.md
 Resume file: None
