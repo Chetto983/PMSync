@@ -179,13 +179,14 @@ export class TelegramWebhookService {
             settings.userId,
           );
 
-          const stream = await this.aiChatService.streamChat({
+          // Use AI SDK native generateChat (non-streaming) — no manual stream parsing.
+          const result = await this.aiChatService.generateChat({
             tenantId: settings.tenantId,
             userId: settings.userId,
             message: text,
             conversationId,
           });
-          return this.collectStreamText(stream);
+          return result.text;
         },
       );
 
@@ -274,91 +275,6 @@ export class TelegramWebhookService {
 
     await this.telegramBot.sendMessage(chatId, 'Conversazione cancellata. Il prossimo messaggio inizierà una nuova chat.');
     this.logger.log(`Telegram conversation cleared for settings ${settings.id}`);
-  }
-
-  /**
-   * Consume a UI message stream and extract all text content.
-   * AI SDK v6 toUIMessageStream() emits objects or SSE-formatted strings.
-   * Handles both: raw objects with { type: 'text-delta', textDelta } and
-   * SSE strings like `data: {"type":"text-delta","textDelta":"..."}\n\n`.
-   */
-  private async collectStreamText(stream: ReadableStream): Promise<string> {
-    const reader = stream.getReader();
-    let fullText = '';
-    let streamError = '';
-    let chunkCount = 0;
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunkCount++;
-
-        const valType = typeof value;
-
-        // Raw object chunks (from toUIMessageStream)
-        if (value && valType === 'object') {
-          // AI SDK v6: { type: 'text-delta', delta: '...' }
-          if (value.type === 'text-delta') {
-            fullText += value.delta ?? '';
-            continue;
-          }
-
-          // Capture error chunks instead of silently discarding them
-          if (value.type === 'error') {
-            streamError = value.errorText ?? 'Unknown stream error';
-            this.logger.error(`AI stream error chunk: ${streamError}`);
-            continue;
-          }
-
-          continue;
-        }
-
-        // String chunks — could be SSE or data stream protocol
-        if (valType === 'string') {
-          const str = value as string;
-
-          // AI SDK data stream protocol: lines like 0:"text chunk"
-          for (const line of str.split('\n')) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-
-            // Data stream v4/v5: 0:"text"
-            if (trimmed.startsWith('0:')) {
-              try {
-                const parsed = JSON.parse(trimmed.slice(2));
-                if (typeof parsed === 'string') fullText += parsed;
-              } catch { /* skip */ }
-              continue;
-            }
-
-            // SSE format: data: {"type":"text-delta","delta":"..."}
-            if (trimmed.startsWith('data:')) {
-              try {
-                const parsed = JSON.parse(trimmed.slice(5).trim());
-                if (parsed.type === 'text-delta') {
-                  fullText += parsed.delta ?? parsed.textDelta ?? '';
-                } else if (parsed.type === 'error') {
-                  streamError = parsed.errorText ?? 'Unknown stream error';
-                  this.logger.error(`AI stream error (SSE): ${streamError}`);
-                }
-              } catch { /* skip */ }
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-
-    this.logger.debug(`collectStreamText: chunks=${chunkCount} textLen=${fullText.length} error=${streamError || 'none'}`);
-
-    // If no text was collected but we got an error, throw so the caller can surface it
-    if (!fullText.trim() && streamError) {
-      throw new Error(`AI stream error: ${streamError}`);
-    }
-
-    return fullText;
   }
 
   /**

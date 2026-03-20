@@ -42,6 +42,7 @@ describe('TelegramWebhookService', () => {
 
   const mockAiChatService = {
     streamChat: jest.fn(),
+    generateChat: jest.fn(),
   };
 
   const mockConversationService = {
@@ -194,30 +195,10 @@ describe('TelegramWebhookService', () => {
     const chatId = 12345;
     const linkedSettings = { id: 'settings-1', tenantId: 'tenant1', userId: 'user1', aiConversationId: null };
 
-    /**
-     * Build a ReadableStream matching toUIMessageStream() output.
-     * AI SDK v6 emits raw objects with { type, textDelta, ... }.
-     */
-    function makeUIMessageStream(textContent: string): ReadableStream {
-      return new ReadableStream({
-        start(controller) {
-          controller.enqueue({ type: 'start' });
-          controller.enqueue({ type: 'start-step' });
-          controller.enqueue({ type: 'text-start', id: '0' });
-          controller.enqueue({ type: 'text-delta', id: '0', delta: textContent });
-          controller.enqueue({ type: 'text-end', id: '0' });
-          controller.enqueue({ type: 'finish-step', finishReason: 'stop', usage: { inputTokens: 0, outputTokens: 0 } });
-          controller.enqueue({ type: 'finish', finishReason: 'stop', usage: { inputTokens: 0, outputTokens: 0 } });
-          controller.close();
-        },
-      });
-    }
-
     it('should relay to AI chat and send response back', async () => {
       mockPrisma.telegramSettings.findFirst.mockResolvedValue(linkedSettings);
 
-      const stream = makeUIMessageStream('Hello world');
-      mockAiChatService.streamChat.mockResolvedValue(stream);
+      mockAiChatService.generateChat.mockResolvedValue({ text: 'Hello world', conversationId: 'conv-1' });
 
       const update = {
         message: { chat: { id: chatId }, text: 'What is the weather?' },
@@ -228,7 +209,7 @@ describe('TelegramWebhookService', () => {
         where: { telegramChatId: String(chatId), isActive: true },
         select: { id: true, tenantId: true, userId: true, aiConversationId: true },
       });
-      expect(mockAiChatService.streamChat).toHaveBeenCalledWith(
+      expect(mockAiChatService.generateChat).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: 'tenant1',
           userId: 'user1',
@@ -253,7 +234,7 @@ describe('TelegramWebhookService', () => {
       };
       await service.handleUpdate(update as any);
 
-      expect(mockAiChatService.streamChat).not.toHaveBeenCalled();
+      expect(mockAiChatService.generateChat).not.toHaveBeenCalled();
       expect(mockBotService.sendMessage).toHaveBeenCalledWith(
         String(chatId),
         expect.stringContaining('collegato'),
@@ -267,8 +248,7 @@ describe('TelegramWebhookService', () => {
 
       // Build a string > 4000 chars with newlines to allow splitting
       const longText = ('A'.repeat(3900) + '\n').repeat(2); // ~7802 chars
-      const stream = makeUIMessageStream(longText);
-      mockAiChatService.streamChat.mockResolvedValue(stream);
+      mockAiChatService.generateChat.mockResolvedValue({ text: longText, conversationId: 'conv-1' });
 
       const update = {
         message: { chat: { id: chatId }, text: 'give long response' },

@@ -108,27 +108,12 @@ export class AiChatService {
   ) {}
 
   /**
-   * Stream a chat response.
-   *
-   * 1. Rate limit check (per-user)
-   * 2. Circuit breaker check
-   * 3. Get or create conversation
-   * 4. PII tokenize user message
-   * 5. Load/redact prior context before appending the current turn
-   * 6. Save the original message for conversation history
-   * 7. Run ToolLoopAgent and stream UI messages
-   * 8. Audit log + usage tracking
+   * Shared preparation: rate limit, circuit breaker, conversation, PII,
+   * context loading, message sanitization, system prompt, agent creation.
+   * Returns everything needed for both stream and generate paths.
    */
-  async streamChat(params: StreamChatParams): Promise<ReadableStream> {
-    const {
-      tenantId,
-      userId,
-      message,
-      conversationId,
-      model,
-      locale,
-      abortSignal,
-    } = params;
+  private async prepareChatAgent(params: StreamChatParams) {
+    const { tenantId, userId, message, conversationId, model, locale } = params;
 
     // 1. Rate limit check (per-user, 30 req/min)
     const rateLimitResult = await this.rateLimiterService.checkRateLimit(
@@ -169,7 +154,6 @@ export class AiChatService {
       ? piiResult.redactedText
       : message;
 
-    // Store PII mapping if PII detected
     if (piiResult.hasPii) {
       await this.piiResolutionService.storeMapping(
         tenantId,
@@ -178,31 +162,21 @@ export class AiChatService {
       );
     }
 
-    // 5. Load/redact prior context before persisting the current raw turn.
-    // This keeps the active model call from seeing raw PII or a duplicated user message.
+    // 5. Load/redact prior context
     const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
       this.conversationService.getMessagesForContext(conversation.id, 10, tenantId),
       this.chatEnrichmentService.getRuntimeContextMetadata(tenantId, userId, locale),
-      this.memoryService.getRelevantMemories(
-        tenantId,
-        userId,
-        llmMessage,
-        3,
-      ),
+      this.memoryService.getRelevantMemories(tenantId, userId, llmMessage, 3),
     ]);
     const messages = redactModelMessagesForModel(
       this.piiDetectionService,
       contextMessages,
     );
 
-    // 6. Save original message to conversation after context load
-    await this.conversationService.saveUserMessage(
-      conversation.id,
-      message, // Save original for audit/history; model sees only redacted content.
-    );
+    // 6. Save original message to conversation
+    await this.conversationService.saveUserMessage(conversation.id, message);
 
-    // Append current user message with runtime context (redacted for LLM)
-    // Phase AI-AUDIT: Runtime context separated from system prompt (nanobot pattern)
+    // Append current user message with runtime context (redacted)
     const runtimeContext = buildExtendedRuntimeContext(runtimeContextMeta);
     messages.push({
       role: 'user',
@@ -212,49 +186,32 @@ export class AiChatService {
       ),
     });
 
-    // Sanitize message sequence for model compatibility:
-    // 1. Drop orphaned tool messages (no preceding assistant with tool_calls)
-    // 2. Merge consecutive same-role user messages
-    // 3. Ensure sequence starts with user (not tool/assistant fragment)
+    // Sanitize message sequence for model compatibility
     this.sanitizeMessages(messages);
 
     // 7. Audit log (fire-and-forget)
     this.auditService
-      .logAudit(
-        tenantId,
-        userId,
-        'ai_chat',
-        'AiConversation',
-        conversation.id,
-        {
-          messageLength: message.length,
-          hasPii: piiResult.hasPii,
-        },
-      )
-      .catch((err) =>
-        this.logger.warn(`Audit log failed: ${err.message}`),
-      );
+      .logAudit(tenantId, userId, 'ai_chat', 'AiConversation', conversation.id, {
+        messageLength: message.length,
+        hasPii: piiResult.hasPii,
+      })
+      .catch((err) => this.logger.warn(`Audit log failed: ${err.message}`));
 
-    // 8. Build dynamic system prompt with current date/timezone + memory
+    // 8. Build system prompt with memory
     const basePrompt = buildSystemPrompt();
-
     const memoryBlock = redactTextForModel(
       this.piiDetectionService,
       this.memoryService.formatMemoriesForPrompt(memories),
     );
-
-    // Compose: base prompt + memory
     let systemPromptWithMemory = basePrompt;
     if (memoryBlock) systemPromptWithMemory += '\n\n' + memoryBlock;
 
-    // 9. Run the chat as a first-class AI SDK agent
-    // Note: conversationId continuity is handled by backend auto-resolve in ConversationService
+    // 9. Create the agent
     const chatStartTime = Date.now();
     let completedStepCount = 0;
-    // Track saved message count to avoid TOCTOU race on title/summary triggers.
-    // Starts at 1 for the user message saved above.
     let savedMessageCount = 1;
     const tools = this.createToolSet(tenantId, userId, conversation.id);
+
     const agent = new ToolLoopAgent({
       id: 'ai-chat',
       model: this.mistralProvider.getChatModel(model),
@@ -263,13 +220,7 @@ export class AiChatService {
       toolChoice: 'auto',
       stopWhen: stepCountIs(5),
       prepareStep: async ({ stepNumber }) => {
-        // Step 1+: always 'auto' so the model can synthesize tool results into text.
         if (stepNumber > 0) return {};
-
-        // Step 0: force tool use for substantive requests so the model
-        // gathers real data instead of hallucinating. Skip ONLY for
-        // minimal follow-ups (numeric refs, yes/no, confirmations) that
-        // clearly reference prior context and don't need fresh data.
         const trimmed = message.trim().toLowerCase();
         const wordCount = trimmed.split(/\s+/).length;
         const isMinimalFollowUp =
@@ -277,10 +228,6 @@ export class AiChatService {
           trimmed.length <= 30 &&
           /^(\d+|s[iì]|no|ok|va bene|grazie|thanks|yes|confirm|cancel)$/i.test(trimmed);
         if (isMinimalFollowUp) return {};
-
-        // Use 'required' to force tool call before generating text.
-        // Mistral small sometimes fails validation with 'required', so
-        // we use 'auto' as base but the system prompt instructs tool use.
         return { toolChoice: 'required' as const };
       },
       onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
@@ -296,23 +243,16 @@ export class AiChatService {
             )
             .then(() => { savedMessageCount++; })
             .catch((err) =>
-              this.logger.warn(
-                `Failed to persist step: ${err.message}`,
-              ),
+              this.logger.warn(`Failed to persist step: ${err.message}`),
             );
         }
 
         if (toolResults?.length) {
-          await this.persistToolResults(
-            conversation.id,
-            stepIndex,
-            toolResults,
-          ).then(() => { savedMessageCount += toolResults.length; })
-          .catch((err) =>
-            this.logger.warn(
-              `Failed to persist tool results: ${err.message}`,
-            ),
-          );
+          await this.persistToolResults(conversation.id, stepIndex, toolResults)
+            .then(() => { savedMessageCount += toolResults.length; })
+            .catch((err) =>
+              this.logger.warn(`Failed to persist tool results: ${err.message}`),
+            );
         }
 
         if (toolCalls?.length) {
@@ -329,9 +269,7 @@ export class AiChatService {
                 status: 'success',
               })
               .catch((err) =>
-                this.logger.warn(
-                  `Tool audit failed: ${err.message}`,
-                ),
+                this.logger.warn(`Tool audit failed: ${err.message}`),
               );
           }
         }
@@ -340,20 +278,10 @@ export class AiChatService {
         circuitBreaker.reset();
 
         if (!conversationId && text) {
-          const title = text
-            .slice(0, 100)
-            .replace(/\n/g, ' ')
-            .trim();
+          const title = text.slice(0, 100).replace(/\n/g, ' ').trim();
           await this.conversationService
-            .updateConversationTitle(
-              conversation.id,
-              title || 'New conversation',
-            )
-            .catch((err) =>
-              this.logger.warn(
-                `Failed to set title: ${err.message}`,
-              ),
-            );
+            .updateConversationTitle(conversation.id, title || 'New conversation')
+            .catch((err) => this.logger.warn(`Failed to set title: ${err.message}`));
         }
 
         if (this.usageTrackingService && usage) {
@@ -383,26 +311,31 @@ export class AiChatService {
           toolCallCount,
         }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
-        this.chatEnrichmentService.maybeGenerateSmartTitle(conversation.id, tenantId, savedMessageCount).catch(
-          (err) =>
-            this.logger.warn(
-              `Title generation failed: ${err.message}`,
-            ),
-        );
+        this.chatEnrichmentService.maybeGenerateSmartTitle(
+          conversation.id, tenantId, savedMessageCount,
+        ).catch((err) => this.logger.warn(`Title generation failed: ${err.message}`));
 
-        this.chatEnrichmentService.maybeTriggerSummaryGeneration(conversation.id, tenantId, savedMessageCount).catch(
-          (err) =>
-            this.logger.warn(
-              `Summary generation failed: ${err.message}`,
-            ),
-        );
+        this.chatEnrichmentService.maybeTriggerSummaryGeneration(
+          conversation.id, tenantId, savedMessageCount,
+        ).catch((err) => this.logger.warn(`Summary generation failed: ${err.message}`));
       },
     });
+
+    return { agent, messages, circuitBreaker, conversation };
+  }
+
+  /**
+   * Stream a chat response (for web frontend via SSE).
+   * Returns a UI message stream consumed by AI SDK useChat().
+   */
+  async streamChat(params: StreamChatParams): Promise<ReadableStream> {
+    const { agent, messages, circuitBreaker } =
+      await this.prepareChatAgent(params);
 
     try {
       const result = await agent.stream({
         messages,
-        abortSignal,
+        abortSignal: params.abortSignal,
       });
 
       return result.toUIMessageStream({
@@ -427,6 +360,35 @@ export class AiChatService {
       ) {
         this.logger.warn(
           `Agent stream failed, recording circuit breaker failure: ${error.message}`,
+        );
+        circuitBreaker.recordFailure();
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generate a chat response (non-streaming, for Telegram and other non-SSE consumers).
+   * Uses AI SDK native agent.generate() — no manual stream parsing needed.
+   */
+  async generateChat(params: StreamChatParams): Promise<{ text: string; conversationId: string }> {
+    const { agent, messages, circuitBreaker, conversation } =
+      await this.prepareChatAgent(params);
+
+    try {
+      const result = await agent.generate({
+        messages,
+        abortSignal: params.abortSignal,
+      });
+
+      return { text: result.text, conversationId: conversation.id };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        !(error instanceof CircuitBreakerOpenError)
+      ) {
+        this.logger.warn(
+          `Agent generate failed, recording circuit breaker failure: ${error.message}`,
         );
         circuitBreaker.recordFailure();
       }
