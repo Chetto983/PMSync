@@ -12,7 +12,8 @@
 - ✅ **v4.1 Security Hardening & Debt Reduction** — Phases 42-49 (shipped 2026-03-06)
 - ✅ **v5.0 better-auth Migration** — Phases 50-65 (shipped 2026-03-10)
 - ✅ **v5.1 Test Coverage & Polish** — Phases 66-76 (shipped 2026-03-15)
-- 🚧 **v6.0 Enterprise Platform & AI Governance** — Phases 77-88 (in progress)
+- ✅ **v6.0 Enterprise Platform & AI Governance** — Phases 77-88 (partial, archived 2026-03-20)
+- 🚧 **v7.0 System Audit & Hardening** — Phases 89-98 (in progress)
 
 ## Phases
 
@@ -86,195 +87,173 @@
 
 </details>
 
-### v6.0 Enterprise Platform & AI Governance (In Progress)
+<details>
+<summary>✅ v6.0 Enterprise Platform & AI Governance (Phases 77-88) — PARTIAL, archived 2026-03-20</summary>
 
-**Milestone Goal:** Harden AI control plane, add CRM domain, workflow automation, enterprise authorization, distributed tracing, and close all audit findings.
+12 phases (77-88), 4/66 requirements completed. Phases 86-88 (bug fixes) completed. Phases 77-85 (enterprise features) deferred to v8.0+. See `milestones/v6.0-ROADMAP.md` for full details.
 
-- [ ] **Phase 77: AI Control Plane -- HITL & Tool Governance** - SDK-native HITL pivot, tool governance metadata, ActionQueue removal, contract + E2E tests
-- [ ] **Phase 78: Security Fixes** - BOLA fix, CSRF secret enforcement, /metrics restriction, HNSW vector indexes
-- [ ] **Phase 79: Authorization** - Resource-scoped permissions on better-auth org roles, backend + frontend enforcement
-- [ ] **Phase 80: OpenTelemetry** - Distributed tracing across HTTP, BullMQ, AI/Mistral call chains
-- [ ] **Phase 81: CRM Domain** - Accounts, Deals, Pipelines, Activities with AI tool integration and daily briefing
-- [ ] **Phase 82: AI Remediation Completion** - Memory repair, prompt/runtime alignment, legacy removal, tool validation tests
-- [ ] **Phase 83: Workflow Automation** - Trigger-condition-action rules with BullMQ execution and policy-aware enforcement
-- [ ] **Phase 84: MUI Chat Migration** - Command Palette rebuild, chat CSS to MUI sx, Tailwind removal
-- [ ] **Phase 85: UI/UX Polish** - Email UI density, responsive fixes, empty states, accessibility audit items
+</details>
+
+### v7.0 System Audit & Hardening (In Progress)
+
+**Milestone Goal:** Test every endpoint and feature, clean dead code and inconsistencies, polish UI/UX -- verify everything works before adding new functionality.
+
+- [ ] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard
+- [ ] **Phase 90: Email Operations Verification** - Verify all email CRUD, folders, signatures, templates, attachments, compose, labels
+- [ ] **Phase 91: Calendar, Contacts & Reminders Verification** - Verify calendar events, contacts management, reminders, invites
+- [ ] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability
+- [ ] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram
+- [ ] **Phase 94: Infrastructure & Remaining Pages** - Verify WebSocket, health, webhooks, dashboard, tasks, analytics, landing, legal
+- [ ] **Phase 95: Dead Code & Cleanup** - Remove dead code, stale shims, unused deps, console.logs, dead routes
+- [ ] **Phase 96: UI/UX Polish** - Empty states, loading skeletons, error states, mobile, dark mode, keyboard nav, i18n
+- [ ] **Phase 97: MUI Chat Migration** - Migrate chat CSS to MUI sx, remove ChatThemeBridge, remove Tailwind
+- [ ] **Phase 98: Security Verification** - Auth guards, tenant isolation, CSRF, rate limiting, RBAC on all routes
 
 ## Phase Details
 
-### Phase 77: AI Control Plane -- HITL & Tool Governance
-**Goal**: AI tool execution uses SDK-native approval flow and every tool declares governance metadata in a single registry
-**Depends on**: Nothing (first phase of v6.0; absorbs in-progress HITL controller refactor)
-**Requirements**: AICP-01, AICP-02, AICP-03, AICP-04, AICP-12, AICP-14
+### Phase 89: Auth & Onboarding Verification
+**Goal**: Users can authenticate through every supported flow and complete onboarding without errors
+**Depends on**: Nothing (first phase of v7.0)
+**Requirements**: BAPI-01, BAPI-24, FE-01, FE-02
 **Success Criteria** (what must be TRUE):
-  1. AI SDK native `needsApproval` + `requires-action` state is the only HITL path -- no custom ActionQueue, HitlController, or polling
-  2. Approving or denying a tool in the chat UI flows through `addResult({approved})` and the AI continues or acknowledges denial
-  3. Every mutating AI tool in ToolRegistryService declares name, domain, riskLevel, requiresApproval, and inputSchema -- tools missing any field fail registration
-  4. Action taxonomy maps every tool to a semantically correct action type (no mismatches like delete_event mapped to SCHEDULE_MEETING)
-  5. Contract tests validate registry governance metadata, tool approval flags, and HITL E2E flow (trigger, approve/deny, verify)
-**Plans:** 2/3 plans executed
-Plans:
-- [ ] 77-01-PLAN.md -- Prisma migration (drop ActionQueue), extend IAiTool with governance, delete HitlController/Service, governance metadata on all 30 tools
-- [ ] 77-02-PLAN.md -- Frontend SDK-native HITL pivot: HitlApprovalWrapper, FallbackToolUI requires-action, auto-resubmission, delete poll-based HITL code
-- [ ] 77-03-PLAN.md -- Registry governance assertion tests, HITL contract integration tests, Playwright E2E smoke test
-
-### Phase 78: Security Fixes
-**Goal**: All known security audit findings from v5.1 are closed -- no BOLA, no CSRF fallback, no open /metrics, vector search is indexed
-**Depends on**: Nothing (independent of Phase 77; can run in parallel)
-**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04
-**Success Criteria** (what must be TRUE):
-  1. deleteConversation rejects requests where the conversation's userId does not match the authenticated user -- returns 403, not silent success
-  2. Application refuses to start in production when CSRF_SECRET is not set -- no silent fallback to JWT_SECRET
-  3. /metrics endpoint returns 401/403 for non-admin users and unauthenticated requests
-  4. HNSW indexes exist on embeddings and ai_memories vector columns -- EXPLAIN ANALYZE confirms index scan, not sequential scan
+  1. User can register, log in, log out, reset password, verify email, and complete 2FA -- all 7 auth endpoints return correct responses
+  2. User profile operations work end-to-end: get/update profile, upload/delete avatar, update preferences, clear AI memory
+  3. Auth pages render correctly in the browser and form submissions produce expected results (success redirects, error messages)
+  4. Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent) without getting stuck or skipping required steps
 **Plans**: TBD
 
-### Phase 79: Authorization
-**Goal**: Users experience permission-based access control -- org roles determine what actions are allowed across the entire application
-**Depends on**: Phase 77 (ToolGovernanceService needs permission awareness), Phase 78
-**Requirements**: AUTHZ-01, AUTHZ-02, AUTHZ-03, AUTHZ-04, AUTHZ-05, AUTHZ-06, AUTHZ-07
+### Phase 90: Email Operations Verification
+**Goal**: Users can perform the complete email workflow -- list, read, compose, reply, forward, organize with folders and labels, manage signatures and templates
+**Depends on**: Phase 89 (auth must work to access email)
+**Requirements**: BAPI-02, BAPI-03, BAPI-04, BAPI-05, BAPI-25, FE-03, FE-04, FE-05, FE-12, FE-13
 **Success Criteria** (what must be TRUE):
-  1. A member-role user cannot access owner/admin-only endpoints (e.g., delete tenant, manage billing) -- returns 403 with clear error
-  2. Permission checks resolve in under 5ms from Redis cache after first load -- cache invalidates within seconds of a role change
-  3. Frontend UI hides or disables controls the current user lacks permission for (e.g., delete buttons hidden for members)
-  4. Role-to-permission mapping is defined in one file -- changing a role's permissions requires editing exactly one place
-  5. All write and delete API endpoints enforce permissions via @RequirePermission decorator -- undecorated write endpoints fail a CI/audit check
+  1. Email list loads, filters, searches, and paginates -- both backend API and frontend rendering verified
+  2. Email thread view displays messages and attachments correctly, and all actions (reply, forward, delete, star, flag, move) execute successfully
+  3. Email compose works for new messages, replies, and forwards -- draft save, schedule send, and undo send all function
+  4. Folder operations (list, create, rename, move, delete, sync) work via API and sidebar drag-drop in the frontend
+  5. Labels sidebar renders with create/edit/delete/reorder, drag-drop assigns labels to emails, and signatures/templates CRUD all work via API
 **Plans**: TBD
 
-### Phase 80: OpenTelemetry
-**Goal**: Every request can be traced from HTTP entry through queue processing to AI provider call -- with trace IDs visible in response headers
-**Depends on**: Nothing (independent infrastructure; can run in parallel with Phases 77-79)
-**Requirements**: OTEL-01, OTEL-02, OTEL-03, OTEL-04, OTEL-05, OTEL-06
+### Phase 91: Calendar, Contacts & Reminders Verification
+**Goal**: Users can manage their calendar events, contacts, and reminders through both API and frontend
+**Depends on**: Phase 89 (auth must work)
+**Requirements**: BAPI-06, BAPI-07, BAPI-12, BAPI-23, FE-07, FE-08, FE-14
 **Success Criteria** (what must be TRUE):
-  1. OTel SDK initializes before NestJS bootstrap -- early HTTP requests are captured, not missed
-  2. A single user request that triggers a BullMQ job and an AI call produces one connected trace with spans for HTTP, queue processing, and AI provider call
-  3. Response headers include a traceId that correlates to the backend trace for that request
-  4. AI run ledger entries include the OTel traceId -- querying by traceId returns the matching AI cost/latency record
+  1. Calendar events can be listed, created, edited, deleted, and synced -- conflict detection and focus-time work via API
+  2. Calendar invite operations work: get invite details, RSVP (accept/decline/tentative), send invites, cancel events
+  3. Contacts can be listed, created, edited, deleted, bulk-deleted, VIP toggled, imported via vCard, synced, and extracted from emails
+  4. Reminders page works end-to-end: list, create, complete, delete, and Kanban view renders correctly
 **Plans**: TBD
 
-### Phase 81: CRM Domain
-**Goal**: Users can manage accounts, deals, pipelines, and activities -- with AI chat integration and daily briefing insights
-**Depends on**: Phase 79 (CRM controllers need @RequirePermission), Phase 77 (CRM AI tools need ToolGovernanceService)
-**Requirements**: CRM-01, CRM-02, CRM-03, CRM-04, CRM-05, CRM-06, CRM-07, CRM-08, CRM-09, CRM-10, CRM-11, CRM-12
+### Phase 92: AI & Knowledge Base Verification
+**Goal**: Users can use all AI-powered features including chat, compose assistance, and knowledge base search
+**Depends on**: Phase 89 (auth must work)
+**Requirements**: BAPI-13, BAPI-14, BAPI-15, BAPI-16, FE-06
 **Success Criteria** (what must be TRUE):
-  1. User can create an account, link contacts to it, create a deal on a pipeline, and drag the deal between stages on a Kanban board
-  2. Sending or receiving an email automatically creates an activity on the linked account -- no manual logging required
-  3. Calendar events with attendees matching known contacts auto-generate activities on the relevant account
-  4. User can ask the AI chat "what deals are closing this week" and get accurate results from the CRM data
-  5. Daily AI briefing includes CRM insights (deals closing soon, accounts with recent activity)
+  1. AI non-chat features work: compose, summarize, smart-reply, categorize, sentiment, priority scoring, triage, follow-ups, briefing, and draft generation all return valid responses
+  2. AI chat streams messages correctly, conversation CRUD works, and HITL approve/reject flow completes without errors
+  3. Knowledge base operations work: backfill embeddings, list/delete embeddings, semantic search returns relevant results
+  4. AI observability endpoints return run history and cost summaries for admin users
+  5. AI chat frontend displays streaming responses, tool results render correctly, and HITL approval UI functions in the browser
 **Plans**: TBD
 
-### Phase 82: AI Remediation Completion
-**Goal**: AI memory, prompts, and transport are clean -- one vector store, correct runtime context, accurate tool renderers, no legacy code
-**Depends on**: Phase 77 (HITL contract must be stable before memory/prompt work)
-**Requirements**: AICP-05, AICP-06, AICP-07, AICP-08, AICP-09, AICP-10, AICP-11, AICP-13
+### Phase 93: Admin, Subscriptions & Integrations
+**Goal**: Admin operations, settings, billing, compliance, provider connections, and organization management all work correctly
+**Depends on**: Phase 89 (auth must work)
+**Requirements**: BAPI-08, BAPI-09, BAPI-10, BAPI-11, BAPI-17, BAPI-18, BAPI-19, FE-10, FE-11, FE-19, FE-20
 **Success Criteria** (what must be TRUE):
-  1. AI save_memory and memory retrieval use the same vector store -- saving a fact and retrieving it in a new conversation returns the saved content
-  2. Memory retrieval is tenant-and-user-scoped -- user A cannot retrieve user B's memories, even within the same tenant
-  3. System prompt accurately reflects available tools and the frontend renders every tool the AI can invoke (no phantom tools, no unrenderable results)
-  4. AI responses reference the correct timezone, locale, and email provider for the current user -- not hardcoded defaults
-  5. Only one chat streaming transport exists in the codebase -- legacy endpoints and compatibility shims are deleted
+  1. Admin can list users, ban/unban, impersonate, and revoke sessions -- admin pages render and function in the browser
+  2. Label management API works (list, create, update, delete, add/remove emails, reorder) beyond what Phase 90 covers in the frontend
+  3. Provider management works end-to-end: list, connect Google/Microsoft/IMAP, test connections, delete -- frontend OAuth flows complete successfully
+  4. Subscription, compliance, and tenant management APIs all return correct responses (get status, usage, GDPR export/delete, tenant CRUD)
+  5. Organization flows work in the frontend: create org, invite members, switch orgs, accept invitations -- and settings pages function for all categories
 **Plans**: TBD
 
-### Phase 83: Workflow Automation
-**Goal**: Users can create event-driven automation rules that execute actions respecting permissions and HITL policies
-**Depends on**: Phase 79 (workflow steps need permission checks), Phase 81 (CRM actions in action registry)
-**Requirements**: WF-01, WF-02, WF-03, WF-04, WF-05, WF-06, WF-07, WF-08
+### Phase 94: Infrastructure & Remaining Pages
+**Goal**: WebSocket connectivity, health monitoring, webhook processing, and all remaining frontend pages work correctly
+**Depends on**: Phase 89 (auth must work)
+**Requirements**: BAPI-20, BAPI-21, BAPI-22, FE-09, FE-15, FE-16, FE-17, FE-18
 **Success Criteria** (what must be TRUE):
-  1. User can create a rule "when email received from VIP, apply label Priority and create activity on linked account" via a form-based builder
-  2. Workflow rules execute via BullMQ with correct tenant context -- a rule in tenant A never touches tenant B data
-  3. Workflow execution history shows each run with success/failure status and which actions were executed
-  4. A workflow step that requires HITL approval (e.g., send_email) pauses and waits for approval before executing -- it does not bypass the AI approval path
-  5. AI suggests automation rules based on repeated user behavior patterns (e.g., "you always label emails from X as Priority -- create a rule?")
+  1. Realtime auth token endpoint returns a valid token and WebSocket connects successfully with it
+  2. Health endpoints (health, ready, live, queues) all respond correctly and reflect actual system state
+  3. Webhook endpoints process incoming notifications (Gmail push, Microsoft Graph, Calendar, Contacts) without errors
+  4. Dashboard renders all widgets, customization drawer works, and layout persists across sessions
+  5. Tasks page renders real content (not placeholder), analytics page shows real data, landing page renders all sections, and legal pages render
 **Plans**: TBD
 
-### Phase 84: MUI Chat Migration
-**Goal**: Chat UI uses MUI components exclusively -- no CSS files, no Tailwind, no ChatThemeBridge
-**Depends on**: Phase 82 (chat surface changes should happen after AI remediation to avoid concurrent edits)
-**Requirements**: MUI-01, MUI-02, MUI-03, MUI-04
+### Phase 95: Dead Code & Cleanup
+**Goal**: Codebase is clean -- no dead code, stale shims, unused dependencies, debug statements, or orphaned routes
+**Depends on**: Phases 89-94 (testing phases identify what is actually dead vs. used)
+**Requirements**: CLN-01, CLN-02, CLN-03, CLN-04, CLN-05, CLN-06, CLN-07, CLN-08
 **Success Criteria** (what must be TRUE):
-  1. Command Palette opens as a MUI Dialog with MUI List items -- cmdk dependency is removed from package.json
-  2. Chat layout uses MUI sx props -- the 3 chat CSS files (~950 lines) are deleted (streaming message container may retain minimal inline styles)
+  1. Orphaned renderers (bulk_email_actions), unused exports, and stale compatibility shims are deleted from the codebase
+  2. All hardcoded user-visible strings are replaced with i18n keys in both en.ts and it.ts -- no English text in .tsx files
+  3. Legacy API artifacts removed: PendingAction type, deprecated voltAgentApi alias, multiAgentApi shim, stale HITL methods
+  4. Console.log/debug statements removed from production code, unused dependencies removed from both package.json files
+  5. Stale contract test assertions updated and any dead routes/controllers discovered during testing are removed
+**Plans**: TBD
+
+### Phase 96: UI/UX Polish
+**Goal**: Every page has proper empty states, loading skeletons, error feedback, mobile responsiveness, dark mode support, keyboard navigation, and complete Italian translation
+**Depends on**: Phase 95 (cleanup first, then polish -- avoid polishing dead code)
+**Requirements**: UIPOL-01, UIPOL-02, UIPOL-03, UIPOL-04, UIPOL-05, UIPOL-06, UIPOL-07
+**Success Criteria** (what must be TRUE):
+  1. Every page that can be empty shows a designed empty state with illustration and actionable guidance -- not a blank area or generic "no data"
+  2. Every async data fetch shows a loading skeleton matching the content layout -- not a spinner or blank screen
+  3. Every error shows a user-friendly message with a retry action -- no raw error codes or silent failures visible to users
+  4. All pages render correctly on mobile (375px+) with no overflow or hidden content, and dark mode works across all pages without white flash or unthemed elements
+  5. Keyboard navigation works on all interactive elements, and Italian translation is complete with no missing keys or English fallbacks visible
+**Plans**: TBD
+
+### Phase 97: MUI Chat Migration
+**Goal**: Chat UI uses MUI exclusively -- all chat CSS files migrated to sx props, ChatThemeBridge deleted, Tailwind removed from project
+**Depends on**: Phase 96 (UI polish establishes patterns that chat migration follows)
+**Requirements**: UIPOL-08, UIPOL-09, UIPOL-10, UIPOL-11
+**Success Criteria** (what must be TRUE):
+  1. All components use MUI theme exclusively -- no raw CSS classes, no Tailwind utilities, no hardcoded colors in any .tsx file
+  2. The 3 chat CSS files (~950 lines total) are deleted and their styles are expressed via MUI sx props
   3. ChatThemeBridge component/file no longer exists in the codebase
   4. tailwindcss package is removed from frontend package.json and no Tailwind config files remain
 **Plans**: TBD
 
-### Phase 85: UI/UX Polish
-**Goal**: Email UI reaches professional density and all March 12 audit findings are resolved
-**Depends on**: Nothing (independent; can run in parallel with Phases 83-84)
-**Requirements**: EMUIX-01, EMUIX-02, EMUIX-03, EMUIX-04, EMUIX-05, EMUIX-06, UIUX-01, UIUX-02, UIUX-03, UIUX-04, UIUX-05
+### Phase 98: Security Verification
+**Goal**: All security controls are verified working -- auth guards reject unauthorized access, tenant isolation holds, CSRF protects mutations, rate limiting throttles abuse, RBAC enforces roles
+**Depends on**: Phase 95 (cleanup may remove dead routes that would otherwise need security testing)
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05
 **Success Criteria** (what must be TRUE):
-  1. Email list density, typography, and hover states match professional email clients (Superhuman/Outlook level) -- not generic MUI table
-  2. Thread reading pane is visible and usable on tablet-width viewports (768px+) without requiring a separate navigation action
-  3. Compose dialog renders correctly on mobile with safe area insets -- no content overflow or hidden send button
-  4. Empty states are consistent across inbox, search, VIP, and folder views -- each shows an illustration and actionable message
-  5. Admin users table switches to card layout below mobile breakpoint; tasks page shows real data or proper empty state; analytics has consent gate
+  1. Every protected route returns 401 for unauthenticated requests -- no routes accidentally left unprotected
+  2. Tenant isolation holds: authenticated user A cannot read, update, or delete user B's data across all tested endpoints
+  3. CSRF protection rejects mutation requests that lack a valid CSRF token
+  4. Rate limiting activates on sensitive endpoints (login, send email, AI chat) -- exceeding the limit returns 429
+  5. Role-based access enforced: member-role user cannot access admin-only endpoints (returns 403)
 **Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phase 77 and 78 can run in parallel (no dependency).
-Phase 80 can run in parallel with 77-79 (independent infrastructure).
-Phase 79 depends on 77 + 78.
-Phase 81 depends on 79 + 77.
-Phase 82 depends on 77.
-Phase 83 depends on 79 + 81.
-Phase 84 depends on 82.
-Phase 85 can run in parallel with 83-84.
+Phases 89 must complete first (auth is prerequisite).
+Phases 90-94 can be worked in sequence (domain by domain) or partially parallel.
+Phase 95 depends on 89-94 (testing reveals dead code).
+Phase 96 depends on 95 (polish after cleanup).
+Phase 97 depends on 96 (MUI migration follows polish patterns).
+Phase 98 can run after 95 (security testing on clean codebase).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 77. AI Control Plane -- HITL & Tool Governance | 2/3 | In Progress|  |
-| 78. Security Fixes | 0/? | Not started | - |
-| 79. Authorization | 0/? | Not started | - |
-| 80. OpenTelemetry | 0/? | Not started | - |
-| 81. CRM Domain | 0/? | Not started | - |
-| 82. AI Remediation Completion | 0/? | Not started | - |
-| 83. Workflow Automation | 0/? | Not started | - |
-| 84. MUI Chat Migration | 0/? | Not started | - |
-| 85. UI/UX Polish | 0/? | Not started | - |
-
-### Phase 86: AI Chat Bug Fix -- Migrate to Official Patterns
-
-**Goal:** Chat frontend uses official assistant-ui 0.12.x patterns -- tool UIs via components.tools.by_name, thread persistence via ThreadHistoryAdapter, HITL via SDK-native sendAutomaticallyWhen
-**Requirements**: None (bug fix / tech debt)
-**Depends on:** Phase 85
-**Plans:** 2/3 plans executed
-
-Plans:
-- [ ] 86-01-PLAN.md -- Convert 21 makeAssistantToolUI calls to plain components, wire via components.tools.by_name, delete AllToolUIs
-- [ ] 86-02-PLAN.md -- Thread persistence via ThreadHistoryAdapter + unstable_Provider, SDK sendAutomaticallyWhen helper
-- [ ] 86-03-PLAN.md -- Final validation sweep + human verification checkpoint
-
-### Phase 87: AI-CHAT-MODULE FIX
-
-**Goal:** All bugs, race conditions, security holes, and dead code from the AI-Chat module audit are fixed -- userId/tenantId isolation enforced, transactions retry-safe, oversized files split
-**Requirements**: BUG-1, BUG-2, BUG-3, BUG-5, BUG-6, BUG-7, BUG-8, RACE-1, RACE-2, RACE-3, RACE-4, RULE-1, RULE-3, DEAD-1, DEAD-2, DEAD-3, DEAD-4, DEAD-5
-**Depends on:** Phase 86
-**Plans:** 6/6 plans complete
-
-Plans:
-- [ ] 87-00-PLAN.md -- Wave 0: Failing unit tests for security fixes (BUG-2, RULE-1) and bug fixes (BUG-1, BUG-5, RACE-1, RACE-4)
-- [ ] 87-01-PLAN.md -- Critical security: userId check on conversations (BUG-2), tenantId on message queries (RULE-1)
-- [ ] 87-02-PLAN.md -- High severity: reply_email replyAll+CC (BUG-1), summary trigger fix (BUG-5), Prisma retry wrappers (RACE-1)
-- [ ] 87-03-PLAN.md -- Medium severity: draft sentAt (BUG-3), piiResolve (BUG-6), auto-resolve removal (BUG-7), embedding dedup (BUG-8), batched persistence (RACE-4), count-from-save (RACE-2)
-- [ ] 87-04-PLAN.md -- Cleanup: dead code removal (DEAD-1-5), file splits under 500 lines (RULE-3)
-- [ ] 87-05-PLAN.md -- Gap closure: nullable Email.sentAt migration (BUG-3), folder-tools _piiResolve cleanup (DEAD-5)
-
-### Phase 88: Reminder and Follow-Ups Fix
-
-**Goal:** All dashboard widget bugs, follow-up snooze wiring, widget persistence, dead code, and reminder error feedback are fixed
-**Requirements**: BUG-1, BUG-2, BUG-3, BUG-4, BUG-5, BUG-6, BUG-7
-**Depends on:** Phase 87
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 88-01-PLAN.md -- Wire snooze mutation, persist widget visibility, fix spin/nav/error (BUG-1,2,4,6,7)
-- [ ] 88-02-PLAN.md -- Create StaleContactsWidget, remove DashboardGrid dead code (BUG-5,3)
+| 89. Auth & Onboarding Verification | 0/? | Not started | - |
+| 90. Email Operations Verification | 0/? | Not started | - |
+| 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
+| 92. AI & Knowledge Base Verification | 0/? | Not started | - |
+| 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
+| 94. Infrastructure & Remaining Pages | 0/? | Not started | - |
+| 95. Dead Code & Cleanup | 0/? | Not started | - |
+| 96. UI/UX Polish | 0/? | Not started | - |
+| 97. MUI Chat Migration | 0/? | Not started | - |
+| 98. Security Verification | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
 *v5.0 completed: 2026-03-10 -- 15 phases, 34 plans, 51/51 requirements*
 *v5.1 completed: 2026-03-15 -- 11 phases, 30 plans*
-*v6.0 roadmap added: 2026-03-18 -- 9 phases, 66 requirements across 9 domains*
+*v6.0 archived: 2026-03-20 -- 12 phases (77-88), 4/66 completed, remainder deferred to v8.0+*
+*v7.0 roadmap added: 2026-03-20 -- 10 phases, 69 requirements across 5 categories*

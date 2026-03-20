@@ -125,13 +125,81 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated during roadmap creation) | | |
+| BAPI-01 | Phase 89 | Pending |
+| BAPI-02 | Phase 90 | Pending |
+| BAPI-03 | Phase 90 | Pending |
+| BAPI-04 | Phase 90 | Pending |
+| BAPI-05 | Phase 90 | Pending |
+| BAPI-06 | Phase 91 | Pending |
+| BAPI-07 | Phase 91 | Pending |
+| BAPI-08 | Phase 93 | Pending |
+| BAPI-09 | Phase 93 | Pending |
+| BAPI-10 | Phase 93 | Pending |
+| BAPI-11 | Phase 93 | Pending |
+| BAPI-12 | Phase 91 | Pending |
+| BAPI-13 | Phase 92 | Pending |
+| BAPI-14 | Phase 92 | Pending |
+| BAPI-15 | Phase 92 | Pending |
+| BAPI-16 | Phase 92 | Pending |
+| BAPI-17 | Phase 93 | Pending |
+| BAPI-18 | Phase 93 | Pending |
+| BAPI-19 | Phase 93 | Pending |
+| BAPI-20 | Phase 94 | Pending |
+| BAPI-21 | Phase 94 | Pending |
+| BAPI-22 | Phase 94 | Pending |
+| BAPI-23 | Phase 91 | Pending |
+| BAPI-24 | Phase 89 | Pending |
+| BAPI-25 | Phase 90 | Pending |
+| FE-01 | Phase 89 | Pending |
+| FE-02 | Phase 89 | Pending |
+| FE-03 | Phase 90 | Pending |
+| FE-04 | Phase 90 | Pending |
+| FE-05 | Phase 90 | Pending |
+| FE-06 | Phase 92 | Pending |
+| FE-07 | Phase 91 | Pending |
+| FE-08 | Phase 91 | Pending |
+| FE-09 | Phase 94 | Pending |
+| FE-10 | Phase 93 | Pending |
+| FE-11 | Phase 93 | Pending |
+| FE-12 | Phase 90 | Pending |
+| FE-13 | Phase 90 | Pending |
+| FE-14 | Phase 91 | Pending |
+| FE-15 | Phase 94 | Pending |
+| FE-16 | Phase 94 | Pending |
+| FE-17 | Phase 94 | Pending |
+| FE-18 | Phase 94 | Pending |
+| FE-19 | Phase 93 | Pending |
+| FE-20 | Phase 93 | Pending |
+| CLN-01 | Phase 95 | Pending |
+| CLN-02 | Phase 95 | Pending |
+| CLN-03 | Phase 95 | Pending |
+| CLN-04 | Phase 95 | Pending |
+| CLN-05 | Phase 95 | Pending |
+| CLN-06 | Phase 95 | Pending |
+| CLN-07 | Phase 95 | Pending |
+| CLN-08 | Phase 95 | Pending |
+| UIPOL-01 | Phase 96 | Pending |
+| UIPOL-02 | Phase 96 | Pending |
+| UIPOL-03 | Phase 96 | Pending |
+| UIPOL-04 | Phase 96 | Pending |
+| UIPOL-05 | Phase 96 | Pending |
+| UIPOL-06 | Phase 96 | Pending |
+| UIPOL-07 | Phase 96 | Pending |
+| UIPOL-08 | Phase 97 | Pending |
+| UIPOL-09 | Phase 97 | Pending |
+| UIPOL-10 | Phase 97 | Pending |
+| UIPOL-11 | Phase 97 | Pending |
+| SEC-01 | Phase 98 | Pending |
+| SEC-02 | Phase 98 | Pending |
+| SEC-03 | Phase 98 | Pending |
+| SEC-04 | Phase 98 | Pending |
+| SEC-05 | Phase 98 | Pending |
 
 **Coverage:**
 - v7.0 requirements: 69 total
-- Mapped to phases: 0
-- Unmapped: 69 ⚠️
+- Mapped to phases: 69
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-20 after initial definition*
+*Last updated: 2026-03-20 after roadmap creation*

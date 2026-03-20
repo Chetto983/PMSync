@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: System Audit & Hardening
-status: defining_requirements
+status: ready_to_plan
 stopped_at: ""
 last_updated: "2026-03-20"
-last_activity: 2026-03-20 -- Milestone v7.0 started
+last_activity: 2026-03-20 -- Roadmap created for v7.0 (10 phases, 69 requirements)
 progress:
-  total_phases: 0
+  total_phases: 10
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,49 +21,57 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Defining v7.0 requirements
+**Current focus:** Phase 89 -- Auth & Onboarding Verification
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-20 — Milestone v7.0 started
+Phase: 89 (1 of 10) -- Auth & Onboarding Verification
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-20 -- Roadmap created for v7.0
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-No plans executed yet for v7.0.
+**Velocity:**
+- Total plans completed: 0
+- Average duration: -
+- Total execution time: 0 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: -
+- Trend: -
+
+*Updated after each plan completion*
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
 
-Carried from v6.0:
-- [77-02]: Two type systems for tool states -- assistant-ui uses requires-action, AI SDK uses approval-requested
-- [86-02]: Factory function over class for thread list adapter -- enables unstable_Provider
-- [86-01]: ToolDispatcher pattern in ChainOfThought instead of MessagePrimitive.Content tools.by_name
-- [87-01]: userId optional on getConversation (backward compat), required on deleteConversation
-- [Phase 87]: ChatEnrichmentService extracts title gen, summary gen, runtime context from AiChatService
-- [88-02]: WidgetId type sync pattern -- both widget-registry.ts and dashboard-store.ts must be updated together
+- v7.0: No new features -- verify/clean/polish existing functionality only
+- v7.0: MUI chat migration gets its own phase (97) due to ~950 lines of CSS changes
+- v7.0: Testing phases (89-94) run before cleanup (95) to identify what is actually dead code
 
 ### Pending Todos
 
 None yet.
 
-### Roadmap Evolution
-
-None yet.
-
 ### Blockers/Concerns
 
-- Integration check found: `bulk_email_actions` orphaned frontend renderer with no backend tool
-- Integration check found: `HitlApprovalCard.tsx` has hardcoded "View parameters" string (missing i18n)
-- SEC-01 (deleteConversation userId check) already implemented in Phase 87 but REQUIREMENTS.md still marks it Pending
+- v6.0 phases 77-85 deferred (enterprise features) -- not blocking v7.0 but context needed for what exists vs. what was planned
 
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: —
+Stopped at: Roadmap created, ready to plan Phase 89
 Resume file: None
