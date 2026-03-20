@@ -216,7 +216,7 @@ export class TelegramWebhookService {
 
         const valType = typeof value;
         // Log first few chunks for debugging
-        if (chunkCount <= 3) {
+        if (chunkCount <= 8) {
           const preview = valType === 'string'
             ? value.substring(0, 200)
             : JSON.stringify(value)?.substring(0, 200);
