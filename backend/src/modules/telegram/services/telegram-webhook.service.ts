@@ -206,30 +206,55 @@ export class TelegramWebhookService {
   private async collectStreamText(stream: ReadableStream): Promise<string> {
     const reader = stream.getReader();
     let fullText = '';
+    let chunkCount = 0;
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        chunkCount++;
+
+        const valType = typeof value;
+        // Log first few chunks for debugging
+        if (chunkCount <= 3) {
+          const preview = valType === 'string'
+            ? value.substring(0, 200)
+            : JSON.stringify(value)?.substring(0, 200);
+          this.logger.debug(`Stream chunk #${chunkCount}: type=${valType}, value=${preview}`);
+        }
 
         // Raw object chunks (from toUIMessageStream)
-        if (value && typeof value === 'object' && value.type === 'text-delta') {
+        if (value && valType === 'object' && value.type === 'text-delta') {
           fullText += value.textDelta ?? '';
           continue;
         }
 
-        // SSE string chunks (serialized format)
-        if (typeof value === 'string') {
-          for (const line of value.split('\n')) {
+        // String chunks — could be SSE or data stream protocol
+        if (valType === 'string') {
+          const str = value as string;
+
+          // AI SDK data stream protocol: lines like 0:"text chunk"
+          for (const line of str.split('\n')) {
             const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('data:')) continue;
-            try {
-              const parsed = JSON.parse(trimmed.slice(5).trim());
-              if (parsed.type === 'text-delta' && parsed.textDelta) {
-                fullText += parsed.textDelta;
-              }
-            } catch {
-              // Skip unparseable
+            if (!trimmed) continue;
+
+            // Data stream v4/v5: 0:"text"
+            if (trimmed.startsWith('0:')) {
+              try {
+                const parsed = JSON.parse(trimmed.slice(2));
+                if (typeof parsed === 'string') fullText += parsed;
+              } catch { /* skip */ }
+              continue;
+            }
+
+            // SSE format: data: {"type":"text-delta","textDelta":"..."}
+            if (trimmed.startsWith('data:')) {
+              try {
+                const parsed = JSON.parse(trimmed.slice(5).trim());
+                if (parsed.type === 'text-delta' && parsed.textDelta) {
+                  fullText += parsed.textDelta;
+                }
+              } catch { /* skip */ }
             }
           }
         }
@@ -238,6 +263,7 @@ export class TelegramWebhookService {
       reader.releaseLock();
     }
 
+    this.logger.debug(`Stream collected: ${chunkCount} chunks, text length=${fullText.length}`);
     return fullText;
   }
 
