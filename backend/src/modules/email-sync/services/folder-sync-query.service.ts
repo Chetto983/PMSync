@@ -240,6 +240,15 @@ export class FolderSyncQueryService {
       return;
     }
 
+    // Google providers: gmail-folder.service already wrote Gmail's authoritative
+    // messagesTotal/messagesUnread during folder sync. We must NOT overwrite those
+    // with DB counts because we may not have synced all emails (cap at 10k).
+    // Just emit realtime events for any folders that changed during the label sync.
+    if (provider.providerType === 'google') {
+      this.logger.debug(`Google provider ${providerId}: using Gmail API counts (set during folder sync)`);
+      return;
+    }
+
     const folders = await this.prisma.folder.findMany({
       where: { providerId, tenantId: provider.tenantId },
       select: {
@@ -261,55 +270,29 @@ export class FolderSyncQueryService {
 
     const folderCounts = new Map<string, { total: number; unread: number }>();
 
-    if (provider.providerType === 'google') {
-      const folderChunks = chunk(folders, PARALLEL_FOLDER_BATCH_SIZE);
+    // Non-Google providers: count from DB via groupBy (2 queries total)
+    const totalCounts = await this.prisma.email.groupBy({
+      by: ['folder'],
+      where: { providerId, tenantId: provider.tenantId },
+      _count: { id: true },
+    });
+    const unreadCounts = await this.prisma.email.groupBy({
+      by: ['folder'],
+      where: { providerId, tenantId: provider.tenantId, isRead: false },
+      _count: { id: true },
+    });
 
-      for (const folderChunk of folderChunks) {
-        const chunkResults = await Promise.all(
-          folderChunk.map(async (folder) => {
-            const baseWhere = this.buildFolderCountWhere({
-              providerId,
-              providerType: provider.providerType,
-              folder,
-              tenantId: provider.tenantId,
-            });
-            const [total, unread] = await Promise.all([
-              this.prisma.email.count({ where: baseWhere }),
-              this.prisma.email.count({ where: { ...baseWhere, isRead: false } }),
-            ]);
-            return { folderId: folder.id, total, unread };
-          }),
-        );
+    const totalCountMap = new Map(totalCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
+    const unreadCountMap = new Map(unreadCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
 
-        chunkResults.forEach(({ folderId, total, unread }) => {
-          folderCounts.set(folderId, { total, unread });
-        });
+    for (const folder of folders) {
+      let total = 0;
+      let unread = 0;
+      for (const key of this.getFolderKeys(folder)) {
+        total += totalCountMap.get(key.toUpperCase()) || 0;
+        unread += unreadCountMap.get(key.toUpperCase()) || 0;
       }
-    } else {
-      // Get counts via groupBy (2 queries total)
-      const totalCounts = await this.prisma.email.groupBy({
-        by: ['folder'],
-        where: { providerId, tenantId: provider.tenantId },
-        _count: { id: true },
-      });
-      const unreadCounts = await this.prisma.email.groupBy({
-        by: ['folder'],
-        where: { providerId, tenantId: provider.tenantId, isRead: false },
-        _count: { id: true },
-      });
-
-      const totalCountMap = new Map(totalCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
-      const unreadCountMap = new Map(unreadCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
-
-      for (const folder of folders) {
-        let total = 0;
-        let unread = 0;
-        for (const key of this.getFolderKeys(folder)) {
-          total += totalCountMap.get(key.toUpperCase()) || 0;
-          unread += unreadCountMap.get(key.toUpperCase()) || 0;
-        }
-        folderCounts.set(folder.id, { total, unread });
-      }
+      folderCounts.set(folder.id, { total, unread });
     }
 
     // Collect changed folders

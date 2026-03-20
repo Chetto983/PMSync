@@ -164,6 +164,10 @@ describe('AiChatService E2E (real Mistral API)', () => {
     }
     cleanupConversationIds.length = 0;
     vi.restoreAllMocks();
+
+    // Reset circuit breaker to prevent state leaking between tests
+    const { getAiCircuitBreaker } = await import('../../ai/utils/index');
+    getAiCircuitBreaker('mistral', 'chat-stream').reset();
   });
 
   afterAll(async () => {

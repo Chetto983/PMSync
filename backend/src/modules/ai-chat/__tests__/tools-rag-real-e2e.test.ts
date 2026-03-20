@@ -628,7 +628,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
         ...folderToolsService.getTools(testTenantId, identityPiiResolve),
         ...ragToolsService.getTools(testTenantId, testUserId, identityPiiResolve),
       };
-      expect(Object.keys(all).length).toBe(20);
+      expect(Object.keys(all).length).toBe(21);
     });
 
     it('C2: full tool surface exposes cross-domain actions', () => {

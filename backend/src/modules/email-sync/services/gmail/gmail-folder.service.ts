@@ -3,6 +3,7 @@ import { gmail_v1, google } from 'googleapis';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
 import { ProviderTokenService } from '../provider-token.service';
+import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { isSystemFolder } from '../../drivers/interfaces/canonical.types';
 
 /**
@@ -22,6 +23,7 @@ export class GmailFolderService {
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
     private readonly providerTokenService: ProviderTokenService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   getFolderPathForLabel(labelId: string, labelName: string): string {
@@ -143,18 +145,44 @@ export class GmailFolderService {
         });
       }
 
+      // Fetch real counts from Gmail API (labels.list doesn't include messagesTotal/messagesUnread)
+      const labelsToSync = labels.filter(
+        (l): l is gmail_v1.Schema$Label & { id: string; name: string } =>
+          !!l.id && !!l.name && l.id !== 'CATEGORY_PERSONAL',
+      );
+
+      // Batch labels.get calls (Gmail rate limit: 10 req/s per user)
+      const BATCH_SIZE = 8;
+      const enrichedLabels = new Map<string, { messagesTotal: number; messagesUnread: number }>();
+
+      for (let i = 0; i < labelsToSync.length; i += BATCH_SIZE) {
+        const batch = labelsToSync.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(async (label) => {
+            try {
+              const detail = await gmail.users.labels.get({ userId: 'me', id: label.id });
+              return {
+                id: label.id,
+                messagesTotal: detail.data.messagesTotal || 0,
+                messagesUnread: detail.data.messagesUnread || 0,
+              };
+            } catch {
+              // If labels.get fails for one label, fall back to 0
+              return { id: label.id, messagesTotal: 0, messagesUnread: 0 };
+            }
+          }),
+        );
+        results.forEach((r) => enrichedLabels.set(r.id, r));
+      }
+
+      // Build map of existing folders for change detection
+      const existingCountMap = new Map<string, { totalCount: number; unreadCount: number; id: string }>();
+      for (const f of existingFolders) {
+        existingCountMap.set(f.path, { totalCount: f.totalCount ?? 0, unreadCount: f.unreadCount ?? 0, id: f.id });
+      }
+
       // Sync each label as a folder
-      for (const label of labels) {
-        if (!label.id || !label.name) continue;
-
-        // Gmail categories (CATEGORY_SOCIAL, CATEGORY_PROMOTIONS, etc.) are synced as folders
-        // so emails with folder=UPDATES/PROMOTIONS/SOCIAL/FORUMS appear in the sidebar.
-        // CATEGORY_PERSONAL maps to INBOX (handled by labelIdToFolderPath), so it's
-        // effectively a no-op duplicate — skip it to avoid overwriting INBOX folder record.
-        if (label.id === 'CATEGORY_PERSONAL') {
-          continue;
-        }
-
+      for (const label of labelsToSync) {
         // CRITICAL: folder.path MUST match what determineFolderFromLabels returns
         // This ensures email.folder can join with folder.path
         // determineFolderFromLabels returns: INBOX, SENT, TRASH, SPAM, PROMOTIONS, SOCIAL, UPDATES, FORUMS, DRAFTS
@@ -169,7 +197,10 @@ export class GmailFolderService {
         // Determine if this is a system folder (protected from edit/delete)
         const isSystem = isSystemFolder(specialUse ?? '');
 
-        await (this.prisma as any).folder.upsert({
+        // Use Gmail's authoritative counts from labels.get
+        const counts = enrichedLabels.get(label.id) || { messagesTotal: 0, messagesUnread: 0 };
+
+        const upsertResult = await (this.prisma as any).folder.upsert({
           where: {
             providerId_path: {
               providerId,
@@ -180,30 +211,43 @@ export class GmailFolderService {
             tenantId,
             providerId,
             path: folderPath,
-            externalId: label.id, // Keep original label ID for API operations
-            name: label.name,  // Use Gmail's label display name
+            externalId: label.id,
+            name: label.name,
             delimiter: '/',
             specialUse,
-            isSystem,  // Set system flag based on specialUse
+            isSystem,
             isSelectable,
-            totalCount: label.messagesTotal || 0,
-            unreadCount: label.messagesUnread || 0,
+            totalCount: counts.messagesTotal,
+            unreadCount: counts.messagesUnread,
             level: 0,
           },
           update: {
-            name: label.name,  // Use Gmail's label display name
-            externalId: label.id, // Update external ID if needed
+            name: label.name,
+            externalId: label.id,
             specialUse,
-            isSystem,  // Update system flag
+            isSystem,
             isSelectable,
-            totalCount: label.messagesTotal || 0,
-            unreadCount: label.messagesUnread || 0,
+            totalCount: counts.messagesTotal,
+            unreadCount: counts.messagesUnread,
             lastSyncedAt: new Date(),
           },
         });
+
+        // Emit realtime event if counts changed
+        const existing = existingCountMap.get(folderPath);
+        if (!existing || existing.totalCount !== counts.messagesTotal || existing.unreadCount !== counts.messagesUnread) {
+          this.realtimeEvents.emitFolderCountsUpdate(tenantId, {
+            providerId,
+            folderId: upsertResult.id,
+            folderName: label.name,
+            totalCount: counts.messagesTotal,
+            unreadCount: counts.messagesUnread,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
 
-      this.logger.log(`Synced ${labels.length} Gmail labels as folders for provider ${providerId}`);
+      this.logger.log(`Synced ${labelsToSync.length} Gmail labels as folders for provider ${providerId}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
