@@ -111,12 +111,14 @@ export function KanbanCard({
       onClick={handleCardClick}
       sx={{
         transform: transform ? CSS.Transform.toString(transform) : undefined,
-        transition,
+        transition: [transition, 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease']
+          .filter(Boolean)
+          .join(', '),
         opacity: isDragging ? 0.4 : 1,
         cursor: 'grab',
         borderRadius: 2.5,
         border: '1px solid',
-        borderColor,
+        borderColor: isSelected ? theme.palette.primary.main : borderColor,
         borderLeft: isOverdue
           ? `3px solid ${theme.palette.error.main}`
           : isDueToday
@@ -130,18 +132,20 @@ export function KanbanCard({
             ? theme.palette.warning.main
             : followUp.status === 'RESOLVED'
               ? theme.palette.success.main
-              : borderColor,
+              : isSelected ? theme.palette.primary.main : borderColor,
         bgcolor: isOverdue
-          ? alpha(theme.palette.error.main, 0.02)
+          ? alpha(theme.palette.error.main, 0.03)
           : 'background.paper',
-        outline: isSelected ? `2px solid ${theme.palette.primary.main}` : 'none',
-        outlineOffset: 1,
+        boxShadow: isSelected
+          ? `0 0 0 1px ${theme.palette.primary.main}, 0 2px 8px ${alpha(theme.palette.primary.main, 0.15)}`
+          : `0 1px 3px ${alpha(theme.palette.common.black, 0.04)}, 0 1px 2px ${alpha(theme.palette.common.black, 0.06)}`,
         p: 1.5,
         '&:hover': {
           borderColor: alpha(theme.palette.primary.main, 0.4),
-          boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.06)}`,
+          boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.08)}, 0 2px 4px ${alpha(theme.palette.common.black, 0.04)}`,
+          transform: 'translateY(-1px)',
         },
-        '&:active': { cursor: 'grabbing' },
+        '&:active': { cursor: 'grabbing', transform: 'none' },
       }}
       {...attributes}
       {...listeners}
@@ -158,7 +162,8 @@ export function KanbanCard({
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              fontSize: '0.825rem',
+              fontSize: '0.8125rem',
+              lineHeight: 1.3,
             }}
           >
             {followUp.email?.subject || t.ai.followUpTracker.noReason}
@@ -174,6 +179,8 @@ export function KanbanCard({
               whiteSpace: 'nowrap',
               display: 'block',
               mt: 0.25,
+              fontSize: '0.75rem',
+              lineHeight: 1.4,
             }}
           >
             {followUp.email?.from || followUp.email?.to?.join(', ') || ''}
@@ -194,8 +201,9 @@ export function KanbanCard({
                 sx={{
                   width: 28,
                   height: 28,
-                  opacity: 0.5,
-                  '&:hover': { opacity: 1, color: 'success.main' },
+                  opacity: 0.6,
+                  transition: 'all 0.15s ease',
+                  '&:hover': { opacity: 1, color: 'success.main', bgcolor: alpha(theme.palette.success.main, 0.08) },
                 }}
               >
                 <Check size={14} />
@@ -213,8 +221,9 @@ export function KanbanCard({
                 sx={{
                   width: 28,
                   height: 28,
-                  opacity: 0.5,
-                  '&:hover': { opacity: 1, color: 'warning.main' },
+                  opacity: 0.6,
+                  transition: 'all 0.15s ease',
+                  '&:hover': { opacity: 1, color: 'warning.main', bgcolor: alpha(theme.palette.warning.main, 0.08) },
                 }}
               >
                 <Clock size={14} />
@@ -253,7 +262,7 @@ export function KanbanCard({
             variant="outlined"
             sx={{
               height: 20,
-              fontSize: '0.65rem',
+              fontSize: '0.675rem',
               '& .MuiChip-icon': { fontSize: 10 },
               color:
                 followUp.followUpType === 'WAITING_FOR'
@@ -261,8 +270,12 @@ export function KanbanCard({
                   : 'secondary.main',
               borderColor:
                 followUp.followUpType === 'WAITING_FOR'
-                  ? 'info.main'
-                  : 'secondary.main',
+                  ? alpha(theme.palette.info.main, 0.4)
+                  : alpha(theme.palette.secondary.main, 0.4),
+              bgcolor:
+                followUp.followUpType === 'WAITING_FOR'
+                  ? alpha(theme.palette.info.main, 0.06)
+                  : alpha(theme.palette.secondary.main, 0.06),
             }}
           />
         )}
@@ -274,7 +287,7 @@ export function KanbanCard({
             icon={<AlertTriangle size={10} />}
             label={t.ai.followUpTracker.overdueWarning}
             color="error"
-            sx={{ height: 20, fontSize: '0.65rem', '& .MuiChip-icon': { fontSize: 10 } }}
+            sx={{ height: 20, fontSize: '0.675rem', '& .MuiChip-icon': { fontSize: 10 } }}
           />
         )}
         {isDueToday && !isOverdue && (
@@ -283,7 +296,7 @@ export function KanbanCard({
             icon={<Clock size={10} />}
             label={t.ai.followUpTracker.dueTodayWarning}
             color="warning"
-            sx={{ height: 20, fontSize: '0.65rem', '& .MuiChip-icon': { fontSize: 10 } }}
+            sx={{ height: 20, fontSize: '0.675rem', '& .MuiChip-icon': { fontSize: 10 } }}
           />
         )}
 
@@ -297,7 +310,7 @@ export function KanbanCard({
             <Typography
               variant="caption"
               sx={{
-                fontSize: '0.65rem',
+                fontSize: '0.7rem',
                 color: isOverdue ? 'error.main' : 'text.secondary',
                 fontWeight: isOverdue ? 600 : 400,
               }}
@@ -434,7 +447,7 @@ function ExtractionBlock({
       <Box sx={{ minWidth: 0 }}>
         <Typography
           variant="caption"
-          sx={{ fontWeight: 600, color, fontSize: '0.65rem', display: 'block' }}
+          sx={{ fontWeight: 600, color, fontSize: '0.7rem', display: 'block', textTransform: 'uppercase', letterSpacing: 0.3 }}
         >
           {title}
         </Typography>
@@ -445,8 +458,8 @@ function ExtractionBlock({
             sx={{
               display: 'block',
               color: 'text.secondary',
-              fontSize: '0.65rem',
-              lineHeight: 1.4,
+              fontSize: '0.7rem',
+              lineHeight: 1.5,
             }}
           >
             {item}

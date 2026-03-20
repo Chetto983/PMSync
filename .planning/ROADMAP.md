@@ -140,8 +140,10 @@ Plans:
 - Fixed: reply recipient resolution now handles display-name senders, reply-to headers, and self-sent messages
 - Fixed: provider-folder reorder no longer collides with email drop targets in the same DnD context
 - Fixed: thread row drag no longer owns the whole row; checkbox and quick actions are isolated from row-open behavior
+- Fixed: label drag-drop now persists stable sibling order and cross-parent level shifts after refresh
+- Fixed: move dialog now behaves like a real mail client -- only Inbox, Archive, and user folders are offered, not raw Gmail category/state pseudo-labels
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
-- Remaining: thread-route reply/forward UI still needs live revalidation, label reorder persistence is still open, and move dialog UX still exposes raw Gmail categories
+- Remaining: thread-route reply/forward UI still needs live revalidation on production Gmail flows
 **Plans**: TBD (live audit hotfix stream active)
 
 ### Phase 91: Calendar, Contacts & Reminders Verification

@@ -115,9 +115,35 @@ export class LabelsService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateLabelDto) {
-    await this.findOne(tenantId, id);
+    const currentLabel = await this.prisma.userLabel.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        tenantId: true,
+        slug: true,
+        parentId: true,
+        level: true,
+        orderIndex: true,
+      },
+    });
+    if (!currentLabel || currentLabel.tenantId !== tenantId) {
+      throw new NotFoundException('Label not found');
+    }
+
+    const tenantLabels = await this.prisma.userLabel.findMany({
+      where: { tenantId, isArchived: false },
+      select: {
+        id: true,
+        parentId: true,
+        level: true,
+        orderIndex: true,
+      },
+      orderBy: [{ parentId: 'asc' }, { orderIndex: 'asc' }],
+    });
 
     const data: Prisma.UserLabelUncheckedUpdateInput = {};
+    let nextParentId = currentLabel.parentId;
+    let nextLevel = currentLabel.level;
 
     if (dto.name) {
       const slug = this.generateSlug(dto.name);
@@ -144,14 +170,11 @@ export class LabelsService {
     if (dto.icon !== undefined) {
       data.icon = dto.icon;
     }
-    if (dto.orderIndex !== undefined) {
-      data.orderIndex = dto.orderIndex;
-    }
 
     if (dto.parentId !== undefined) {
       if (dto.parentId === null) {
-        data.parentId = null;
-        data.level = 0;
+        nextParentId = null;
+        nextLevel = 0;
       } else {
         const parent = await this.prisma.userLabel.findUnique({ where: { id: dto.parentId } });
         if (!parent || parent.tenantId !== tenantId) {
@@ -160,22 +183,120 @@ export class LabelsService {
         if (await this.wouldCreateCircularReference(id, dto.parentId)) {
           throw new ConflictException('Cannot create circular label hierarchy');
         }
-        data.parentId = dto.parentId;
-        data.level = parent.level + 1;
+        nextParentId = dto.parentId;
+        nextLevel = parent.level + 1;
       }
     }
 
-    const updatedLabel = await this.prisma.userLabel.update({
-      where: { id },
-      data,
-      include: {
-        children: {
-          where: { isArchived: false },
-          orderBy: { orderIndex: 'asc' },
+    const shouldReorder =
+      dto.orderIndex !== undefined || nextParentId !== currentLabel.parentId;
+
+    if (!shouldReorder) {
+      const updatedLabel = await this.prisma.userLabel.update({
+        where: { id },
+        data,
+        include: {
+          children: {
+            where: { isArchived: false },
+            orderBy: { orderIndex: 'asc' },
+          },
+          _count: { select: { emailLabels: true } },
         },
-        _count: { select: { emailLabels: true } },
-      },
+      });
+
+      // Emit WebSocket event for updated label
+      this.realtimeEvents.emitLabelUpdate(tenantId, {
+        labelId: updatedLabel.id,
+        reason: 'label-updated',
+        label: updatedLabel as any,
+        updates: dto as any,
+        timestamp: new Date().toISOString(),
+      });
+
+      return updatedLabel;
+    }
+
+    const sourceParentId = currentLabel.parentId;
+    const targetSiblings = tenantLabels
+      .filter((label) => label.parentId === nextParentId && label.id !== id)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    const desiredIndex =
+      dto.orderIndex !== undefined
+        ? dto.orderIndex
+        : sourceParentId === nextParentId
+          ? currentLabel.orderIndex
+          : targetSiblings.length;
+    const clampedIndex = Math.max(0, Math.min(desiredIndex, targetSiblings.length));
+    const targetOrderIds = [...targetSiblings.map((label) => label.id)];
+    targetOrderIds.splice(clampedIndex, 0, id);
+
+    const sourceSiblings =
+      sourceParentId !== nextParentId
+        ? tenantLabels
+            .filter((label) => label.parentId === sourceParentId && label.id !== id)
+            .sort((a, b) => a.orderIndex - b.orderIndex)
+        : [];
+
+    const levelDelta = nextLevel - currentLabel.level;
+    const descendants =
+      levelDelta === 0
+        ? []
+        : this.getDescendantLabels(tenantLabels, id);
+
+    const updatedLabel = await this.prisma.$transaction(async (tx) => {
+      if (sourceSiblings.length > 0) {
+        await Promise.all(
+          sourceSiblings.map((label, index) =>
+            tx.userLabel.update({
+              where: { id: label.id },
+              data: { orderIndex: index },
+            }),
+          ),
+        );
+      }
+
+      await Promise.all(
+        targetOrderIds.map((labelId, index) =>
+          tx.userLabel.update({
+            where: { id: labelId },
+            data:
+              labelId === id
+                ? {
+                    ...data,
+                    parentId: nextParentId,
+                    level: nextLevel,
+                    orderIndex: index,
+                  }
+                : { orderIndex: index },
+          }),
+        ),
+      );
+
+      if (descendants.length > 0) {
+        await Promise.all(
+          descendants.map((label) =>
+            tx.userLabel.update({
+              where: { id: label.id },
+              data: { level: label.level + levelDelta },
+            }),
+          ),
+        );
+      }
+
+      return tx.userLabel.findUnique({
+        where: { id },
+        include: {
+          children: {
+            where: { isArchived: false },
+            orderBy: { orderIndex: 'asc' },
+          },
+          _count: { select: { emailLabels: true } },
+        },
+      });
     });
+    if (!updatedLabel) {
+      throw new NotFoundException('Label not found');
+    }
 
     // Emit WebSocket event for updated label
     this.realtimeEvents.emitLabelUpdate(tenantId, {
@@ -440,6 +561,26 @@ export class LabelsService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
     return base || `label-${Date.now()}`;
+  }
+
+  private getDescendantLabels(
+    labels: Array<{ id: string; parentId: string | null; level: number }>,
+    parentId: string,
+  ) {
+    const descendants: Array<{ id: string; parentId: string | null; level: number }> = [];
+    const queue = [parentId];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      for (const label of labels) {
+        if (label.parentId === currentId) {
+          descendants.push(label);
+          queue.push(label.id);
+        }
+      }
+    }
+
+    return descendants;
   }
 
   private async wouldCreateCircularReference(labelId: string, newParentId: string) {

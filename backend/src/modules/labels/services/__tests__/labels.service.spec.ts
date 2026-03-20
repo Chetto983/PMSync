@@ -149,6 +149,73 @@ describe('LabelsService', () => {
         service.update(tenant.id, labelA.id, { parentId: labelB.id }),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('reindexes siblings when a label is moved within the same parent', async () => {
+      const tenant = await createTestTenant();
+      const labelA = await createTestLabel(tenant.id, { name: 'Label Reorder A' });
+      const labelB = await createTestLabel(tenant.id, { name: 'Label Reorder B' });
+      const labelC = await createTestLabel(tenant.id, { name: 'Label Reorder C' });
+
+      await prisma.userLabel.update({ where: { id: labelA.id }, data: { orderIndex: 0 } });
+      await prisma.userLabel.update({ where: { id: labelB.id }, data: { orderIndex: 1 } });
+      await prisma.userLabel.update({ where: { id: labelC.id }, data: { orderIndex: 2 } });
+
+      await service.update(tenant.id, labelC.id, { orderIndex: 0 });
+
+      const labels = await prisma.userLabel.findMany({
+        where: { tenantId: tenant.id, id: { in: [labelA.id, labelB.id, labelC.id] } },
+        orderBy: { orderIndex: 'asc' },
+      });
+
+      expect(labels.map((label) => label.id)).toEqual([labelC.id, labelA.id, labelB.id]);
+      expect(labels.map((label) => label.orderIndex)).toEqual([0, 1, 2]);
+    });
+
+    it('reindexes source/target siblings and shifts descendant levels when moving across parents', async () => {
+      const tenant = await createTestTenant();
+      const rootA = await createTestLabel(tenant.id, { name: 'Root A Move' });
+      const rootB = await createTestLabel(tenant.id, { name: 'Root B Move' });
+      const parentB = await createTestLabel(tenant.id, {
+        name: 'Parent B Move',
+        parentId: rootB.id,
+      });
+      const moving = await createTestLabel(tenant.id, {
+        name: 'Moving Node',
+        parentId: rootA.id,
+      });
+      const child = await createTestLabel(tenant.id, {
+        name: 'Moving Child',
+        parentId: moving.id,
+      });
+
+      await prisma.userLabel.update({ where: { id: rootA.id }, data: { orderIndex: 0 } });
+      await prisma.userLabel.update({ where: { id: rootB.id }, data: { orderIndex: 1 } });
+      await prisma.userLabel.update({
+        where: { id: parentB.id },
+        data: { orderIndex: 0, level: 1 },
+      });
+      await prisma.userLabel.update({
+        where: { id: moving.id },
+        data: { orderIndex: 0, level: 1 },
+      });
+      await prisma.userLabel.update({
+        where: { id: child.id },
+        data: { orderIndex: 0, level: 2 },
+      });
+
+      await service.update(tenant.id, moving.id, {
+        parentId: parentB.id,
+        orderIndex: 0,
+      });
+
+      const moved = await prisma.userLabel.findUnique({ where: { id: moving.id } });
+      const movedChild = await prisma.userLabel.findUnique({ where: { id: child.id } });
+
+      expect(moved?.parentId).toBe(parentB.id);
+      expect(moved?.level).toBe(2);
+      expect(moved?.orderIndex).toBe(0);
+      expect(movedChild?.level).toBe(3);
+    });
   });
 
   describe('delete', () => {

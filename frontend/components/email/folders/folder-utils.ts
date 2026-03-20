@@ -173,6 +173,26 @@ export function sortFoldersByOrder(
   return [...folders].sort(defaultFolderSort);
 }
 
+const MOVE_ALLOWED_SYSTEM_SPECIAL_USES = new Set(['INBOX', 'ARCHIVE']);
+
+/**
+ * True only for folders that make sense as explicit move destinations in the UI.
+ * Aligns the dialog with email-client UX: show canonical destinations plus user folders,
+ * not provider-specific pseudo-labels such as Gmail categories or state labels.
+ */
+export function canMoveToFolder(folder: FolderType): boolean {
+  if (!folder.isSystem) {
+    return true;
+  }
+
+  const specialUse = folder.specialUse?.toUpperCase();
+  if (!specialUse) {
+    return false;
+  }
+
+  return MOVE_ALLOWED_SYSTEM_SPECIAL_USES.has(specialUse);
+}
+
 // =============================================================================
 // FOLDER TRANSLATIONS HELPER
 // =============================================================================

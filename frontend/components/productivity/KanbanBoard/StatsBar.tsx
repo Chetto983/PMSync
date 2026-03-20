@@ -29,12 +29,15 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
         px: 2,
         py: 1.25,
         borderRadius: 2,
-        bgcolor: highlight ? alpha(color, 0.08) : 'transparent',
-        border: highlight ? `1px solid ${alpha(color, 0.2)}` : '1px solid transparent',
+        bgcolor: highlight ? alpha(color, 0.06) : alpha(color, 0.02),
+        border: highlight
+          ? `1px solid ${alpha(color, 0.2)}`
+          : `1px solid ${alpha(color, 0.08)}`,
         transition: 'all 0.2s ease',
         minWidth: 0,
         '&:hover': {
-          bgcolor: alpha(color, 0.06),
+          bgcolor: alpha(color, 0.08),
+          borderColor: alpha(color, 0.2),
         },
       }}
     >
@@ -48,7 +51,7 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
-          color,
+          color: color,
         }}
       >
         {icon}
@@ -117,7 +120,7 @@ export function StatsBar({ stats, isLoading }: StatsBarProps) {
     <Box
       sx={{
         display: 'flex',
-        gap: 0.5,
+        gap: 1,
         flexWrap: 'wrap',
       }}
     >

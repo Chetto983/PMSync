@@ -69,7 +69,7 @@ Recent decisions affecting current work:
 
 - Revalidate live Gmail Inbox after backend deploy (authenticated session)
 - Revalidate row checkbox and quick actions in the desktop thread list after frontend deploy
-- Re-audit remaining email issues: thread-route reply/forward UI, label reorder persistence, move-dialog category UX
+- Re-audit remaining email issues: thread-route reply/forward UI on live Gmail flows
 
 ### Blockers/Concerns
 

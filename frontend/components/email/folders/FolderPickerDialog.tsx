@@ -31,7 +31,13 @@ import { useFolders, useBulkMoveEmails } from '@/hooks/queries';
 import { useUserPreferences } from '@/hooks/queries/use-settings';
 import type { Folder as IFolder } from '@/lib/api/folders';
 import { getFolderTargetValue, matchesFolderValue } from '../utils/folder-targets';
-import { sortFoldersByOrder } from './folder-utils';
+import {
+    canMoveToFolder,
+    createFolderLabelGetter,
+    getFolderDisplayName,
+    sortFoldersByOrder,
+    type FolderTranslations,
+} from './folder-utils';
 
 interface FolderPickerDialogProps {
     open: boolean;
@@ -55,6 +61,10 @@ export function FolderPickerDialog({
     providerId,
 }: FolderPickerDialogProps) {
     const t = useTranslations();
+    const getFolderLabel = useMemo(
+        () => createFolderLabelGetter(t as FolderTranslations),
+        [t]
+    );
 
     // Fetch folders
     const { data, isLoading: isLoadingFolders } = useFolders();
@@ -82,13 +92,9 @@ export function FolderPickerDialog({
     // Filter folders by:
     // 1. Provider ID (if specified) - only show folders from the same provider as selected emails
     // 2. Search term
-    // 3. Exclude non-movable system folders:
-    //    - DRAFTS, SENT: For composing/sent emails only
-    //    - SPAM, JUNK: Use "Mark as spam" action instead
-    //    - TRASH, BIN: Use "Delete" action instead
-    //    - ALL: Virtual "All Mail" folder (read-only aggregate)
+    // 3. Exclude pseudo-destinations such as system categories/state labels.
+    //    Keep only canonical system destinations (Inbox/Archive) plus user folders.
     const filteredFoldersByProvider = useMemo(() => {
-        const NON_MOVABLE_SPECIAL_USES = ['DRAFTS', 'SENT', 'SPAM', 'JUNK', 'TRASH', 'BIN', 'ALL'];
         if (!foldersByProvider) return {};
 
         const searchLower = search.trim().toLowerCase();
@@ -101,12 +107,13 @@ export function FolderPickerDialog({
             }
 
             const filtered = folders.filter((folder) => {
-                // Exclude non-movable system folders
-                if (folder.specialUse && NON_MOVABLE_SPECIAL_USES.includes(folder.specialUse.toUpperCase())) {
+                if (!canMoveToFolder(folder)) {
                     return false;
                 }
                 // Apply search filter if provided
-                if (searchLower && !folder.name.toLowerCase().includes(searchLower)) {
+                const displayName = getFolderDisplayName(folder, getFolderLabel).toLowerCase();
+                const folderPath = folder.path.toLowerCase();
+                if (searchLower && !displayName.includes(searchLower) && !folderPath.includes(searchLower)) {
                     return false;
                 }
                 return true;
@@ -118,7 +125,7 @@ export function FolderPickerDialog({
         });
 
         return result;
-    }, [foldersByProvider, preferences?.folderOrders, search, providerId]);
+    }, [foldersByProvider, getFolderLabel, preferences?.folderOrders, search, providerId]);
 
     const visibleProviderIds = useMemo(
         () => Object.keys(filteredFoldersByProvider),
@@ -233,6 +240,13 @@ export function FolderPickerDialog({
                                         const targetFolderValue = getFolderTargetValue(folder);
                                         const isSelected = selectedFolderValue === targetFolderValue;
                                         const isCurrent = matchesFolderValue(folder, currentFolderValue);
+                                        const displayName = getFolderDisplayName(folder, getFolderLabel);
+                                        const secondaryText =
+                                            isCurrent
+                                                ? '(Current)'
+                                                : !folder.isSystem && folder.path !== displayName
+                                                    ? folder.path
+                                                    : undefined;
 
                                         return (
                                             <ListItem
@@ -248,8 +262,8 @@ export function FolderPickerDialog({
                                                         <Folder size={20} />
                                                     </ListItemIcon>
                                                     <ListItemText
-                                                        primary={folder.name}
-                                                        secondary={isCurrent ? '(Current)' : folder.level > 0 ? folder.path : undefined}
+                                                        primary={displayName}
+                                                        secondary={secondaryText}
                                                     />
                                                     {isSelected && <Check size={16} />}
                                                 </ListItemButton>
