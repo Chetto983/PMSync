@@ -566,7 +566,7 @@ export const aiChatApi = {
   },
 
   // Follow-ups
-  getPendingFollowUps(params?: { limit?: number }) {
+  getPendingFollowUps(params?: { limit?: number; includeResolved?: boolean }) {
     return apiClient.get<{
       success: boolean;
       count: number;

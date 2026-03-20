@@ -475,14 +475,16 @@ export class AiController {
   async getPendingFollowUps(
     @Request() req: AuthenticatedRequest,
     @Query('limit') limitParam?: string,
+    @Query('includeResolved') includeResolved?: string,
   ) {
     const limit = Math.min(Math.max(parseInt(limitParam || '50', 10) || 50, 1), 500);
+    const allStatuses = includeResolved === 'true';
 
     const followUps = await this.prisma.emailFollowUp.findMany({
       where: {
         tenantId: req.user.tenantId,
         userId: req.user.userId,
-        status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] },
+        ...(allStatuses ? {} : { status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] } }),
       },
       include: {
         email: {

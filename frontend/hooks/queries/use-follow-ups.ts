@@ -79,11 +79,11 @@ export interface FollowUpStats {
  * Query options for pending follow-ups
  * Backend: GET /api/v1/ai/follow-ups/pending
  */
-export function pendingFollowUpsOptions(limit = 20) {
+export function pendingFollowUpsOptions(limit = 20, includeResolved = false) {
   return queryOptions({
-    queryKey: followUpKeys.pending(),
+    queryKey: [...followUpKeys.pending(), { includeResolved }],
     queryFn: async (): Promise<EmailFollowUpListData> => {
-      const response = await aiChatApi.getPendingFollowUps({ limit });
+      const response = await aiChatApi.getPendingFollowUps({ limit, includeResolved });
       const followUps = response.data?.followUps || [];
       return {
         followUps: followUps as unknown as EmailFollowUp[],
@@ -114,8 +114,8 @@ export function followUpStatsOptions() {
 // ============================================================================
 
 /** Hook for pending follow-ups */
-export function usePendingFollowUps(limit = 20) {
-  return useQuery(pendingFollowUpsOptions(limit));
+export function usePendingFollowUps(limit = 20, includeResolved = false) {
+  return useQuery(pendingFollowUpsOptions(limit, includeResolved));
 }
 
 /** Hook for follow-up stats (counts by status) */

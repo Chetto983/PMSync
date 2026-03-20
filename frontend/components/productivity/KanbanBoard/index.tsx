@@ -84,7 +84,7 @@ export function FollowupsKanbanBoard() {
   const [collapsedSections, setCollapsedSections] = useState<Set<SectionId>>(new Set(['RESOLVED']));
 
   // Queries
-  const { data: pendingData, isLoading, error, refetch } = usePendingFollowUps(200);
+  const { data: pendingData, isLoading, error, refetch } = usePendingFollowUps(200, true);
   const followUps = useMemo<EmailFollowUp[]>(
     () => (pendingData?.followUps as EmailFollowUp[] | undefined) ?? [],
     [pendingData?.followUps],
