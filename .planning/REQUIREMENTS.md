@@ -42,7 +42,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **FE-03**: Email list loads, filters, searches, and paginates correctly
 - [x] **FE-04**: Email thread view renders messages, attachments, and actions
 - [x] **FE-05**: Email compose works (new, reply, forward, draft save, schedule send, undo send)
-- [ ] **FE-06**: AI chat interface works (send message, receive stream, HITL approval, conversation history)
+- [x] **FE-06**: AI chat interface works (send message, receive stream, HITL approval, conversation history)
 - [x] **FE-07**: Calendar view renders events, create/edit/delete works, RSVP functions
 - [x] **FE-08**: Contacts list loads, create/edit/delete works, VIP toggle, import vCard
 - [ ] **FE-09**: Dashboard renders with all widgets, customization drawer works, layout persists
@@ -155,7 +155,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-03 | Phase 90 | Complete |
 | FE-04 | Phase 90 | Complete |
 | FE-05 | Phase 90 | Complete |
-| FE-06 | Phase 92 | Pending |
+| FE-06 | Phase 92 | Complete |
 | FE-07 | Phase 91 | Complete |
 | FE-08 | Phase 91 | Complete |
 | FE-09 | Phase 94 | Pending |
