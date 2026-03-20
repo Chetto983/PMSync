@@ -2985,6 +2985,7 @@ export const it: AppTranslations = {
           noExpired: 'Nessun elemento scaduto',
           noExpiredHint: 'I follow-up scaduti vengono spostati qui dopo la deadline',
         },
+        deleteConfirm: 'Questo follow-up verrà eliminato definitivamente. Questa azione non può essere annullata.',
         keyboard: {
           title: 'Scorciatoie da Tastiera',
           navigation: 'Navigazione',

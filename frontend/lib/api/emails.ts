@@ -188,6 +188,7 @@ export interface SendEmailDto {
 }
 
 export interface ReplyEmailDto {
+  subject?: string;
   bodyHtml: string;
   bodyText?: string;
   cc?: string[];
@@ -199,6 +200,9 @@ export interface ReplyEmailDto {
 
 export interface ForwardEmailDto {
   to: string[];
+  subject?: string;
+  bodyHtml?: string;
+  bodyText?: string;
   cc?: string[];
   bcc?: string[];
   attachments?: File[];
@@ -422,6 +426,7 @@ export const emailsApi = {
     );
 
     const payload = {
+      subject: dto.subject,
       bodyHtml: dto.bodyHtml,
       bodyText: dto.bodyText,
       cc: dto.cc,
@@ -446,6 +451,9 @@ export const emailsApi = {
 
     const payload = {
       to: dto.to,
+      subject: dto.subject,
+      bodyHtml: dto.bodyHtml,
+      bodyText: dto.bodyText,
       cc: dto.cc,
       bcc: dto.bcc,
       attachments: attachments.length > 0 ? attachments : undefined,

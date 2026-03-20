@@ -103,6 +103,11 @@ export class SendEmailRequestDto extends BaseComposeEmailDto {
  * from the original email by the service.
  */
 export class ReplyEmailRequestDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(998, { message: 'Subject exceeds RFC 5322 limit (998 chars)' })
+  subject?: string;
+
   @IsString()
   @MaxLength(10000000, { message: 'HTML body exceeds 10MB limit' })
   bodyHtml!: string;
@@ -148,6 +153,21 @@ export class ForwardEmailRequestDto {
   @IsEmail({}, { each: true, message: 'Invalid email address in "to" field' })
   @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "to" field' })
   to!: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(998, { message: 'Subject exceeds RFC 5322 limit (998 chars)' })
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000000, { message: 'HTML body exceeds 10MB limit' })
+  bodyHtml?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000000, { message: 'Text body exceeds 10MB limit' })
+  bodyText?: string;
 
   @IsOptional()
   @IsArray()

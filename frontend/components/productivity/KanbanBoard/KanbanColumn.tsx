@@ -32,10 +32,10 @@ interface KanbanColumnProps {
 }
 
 const COLUMN_ICONS: Record<KanbanColumnId, React.ReactNode> = {
-  PENDING: <Clock size={14} />,
-  OVERDUE: <AlertTriangle size={14} />,
-  RESOLVED: <CheckCircle size={14} />,
-  EXPIRED: <Archive size={14} />,
+  PENDING: <Clock size={15} />,
+  OVERDUE: <AlertTriangle size={15} />,
+  RESOLVED: <CheckCircle size={15} />,
+  EXPIRED: <Archive size={15} />,
 };
 
 export function KanbanColumn({
@@ -65,7 +65,6 @@ export function KanbanColumn({
   };
 
   const columnColor = getColor(color);
-
   const emptyConfig = getEmptyConfig(id, t);
 
   return (
@@ -73,12 +72,14 @@ export function KanbanColumn({
       ref={setNodeRef}
       sx={{
         width: fullWidth ? '100%' : undefined,
-        minWidth: fullWidth ? 0 : 300,
-        maxWidth: fullWidth ? '100%' : 340,
-        flex: fullWidth ? undefined : '1 1 300px',
+        minWidth: fullWidth ? 0 : 310,
+        maxWidth: fullWidth ? '100%' : 360,
+        flex: fullWidth ? undefined : '1 1 310px',
         bgcolor: isOver
           ? alpha(columnColor, 0.06)
-          : alpha(theme.palette.background.default, 0.4),
+          : theme.palette.mode === 'dark'
+            ? alpha(theme.palette.background.paper, 0.4)
+            : alpha(theme.palette.grey[50], 0.7),
         borderRadius: 3,
         p: 1.5,
         display: 'flex',
@@ -86,8 +87,7 @@ export function KanbanColumn({
         transition: 'all 0.2s ease',
         border: isOver
           ? `2px dashed ${alpha(columnColor, 0.4)}`
-          : `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-        boxShadow: `inset 0 1px 0 ${alpha(theme.palette.common.white, 0.5)}`,
+          : `1px solid ${alpha(theme.palette.divider, 0.4)}`,
       }}
     >
       {/* Column header */}
@@ -97,10 +97,22 @@ export function KanbanColumn({
           alignItems: 'center',
           gap: 1,
           mb: 1.5,
-          px: 0.5,
+          px: 0.75,
         }}
       >
-        <Box sx={{ color: columnColor, display: 'flex', alignItems: 'center' }}>
+        <Box
+          sx={{
+            color: columnColor,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 28,
+            height: 28,
+            borderRadius: 1.5,
+            bgcolor: alpha(columnColor, 0.08),
+            flexShrink: 0,
+          }}
+        >
           {COLUMN_ICONS[id]}
         </Box>
         <Typography
@@ -120,17 +132,18 @@ export function KanbanColumn({
           size="small"
           sx={{
             ml: 'auto',
-            height: 22,
-            minWidth: 28,
-            fontSize: '0.7rem',
+            height: 24,
+            minWidth: 32,
+            fontSize: '0.75rem',
             fontWeight: 700,
             bgcolor: items.length > 0 ? alpha(columnColor, 0.12) : 'action.hover',
             color: items.length > 0 ? columnColor : 'text.secondary',
+            borderRadius: 1.5,
           }}
         />
       </Box>
 
-      {/* Cards container */}
+      {/* Cards */}
       <SortableContext
         items={items.map((item) => item.id)}
         strategy={verticalListSortingStrategy}
@@ -138,18 +151,19 @@ export function KanbanColumn({
         <Box
           sx={{
             flex: 1,
-            minHeight: 120,
-            maxHeight: 'calc(100vh - 300px)',
+            minHeight: 100,
+            maxHeight: 'calc(100vh - 280px)',
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
             gap: 1,
             pr: 0.5,
-            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar': { width: 5 },
             '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
             '&::-webkit-scrollbar-thumb': {
-              bgcolor: 'action.hover',
-              borderRadius: 2,
+              bgcolor: alpha(theme.palette.text.primary, 0.08),
+              borderRadius: 3,
+              '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.15) },
             },
           }}
         >
@@ -166,7 +180,6 @@ export function KanbanColumn({
             />
           ))}
 
-          {/* Contextual empty state */}
           {items.length === 0 && (
             <Box
               sx={{
@@ -175,15 +188,27 @@ export function KanbanColumn({
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minHeight: 140,
+                minHeight: 160,
                 borderRadius: 2.5,
                 bgcolor: alpha(columnColor, 0.02),
-                border: `1px dashed ${alpha(columnColor, 0.15)}`,
-                px: 2,
-                py: 3,
+                border: `1px dashed ${alpha(columnColor, 0.12)}`,
+                px: 3,
+                py: 4,
               }}
             >
-              <Box sx={{ color: alpha(columnColor, 0.3), mb: 1.5 }}>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 3,
+                  bgcolor: alpha(columnColor, 0.06),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: alpha(columnColor, 0.4),
+                  mb: 2,
+                }}
+              >
                 {emptyConfig.icon}
               </Box>
               <Typography
@@ -193,6 +218,7 @@ export function KanbanColumn({
                   fontWeight: 600,
                   textAlign: 'center',
                   fontSize: '0.8125rem',
+                  lineHeight: 1.4,
                 }}
               >
                 {emptyConfig.message}
@@ -226,25 +252,25 @@ function getEmptyConfig(
   switch (id) {
     case 'PENDING':
       return {
-        icon: <Inbox size={32} strokeWidth={1.5} />,
+        icon: <Inbox size={24} strokeWidth={1.5} />,
         message: empty?.noPending || 'All clear',
         hint: empty?.noPendingHint || 'Follow-ups appear here when emails need a response',
       };
     case 'OVERDUE':
       return {
-        icon: <AlertTriangle size={32} strokeWidth={1.5} />,
+        icon: <AlertTriangle size={24} strokeWidth={1.5} />,
         message: empty?.noOverdue || 'Nothing overdue',
         hint: empty?.noOverdueHint || 'Overdue items will appear here automatically',
       };
     case 'RESOLVED':
       return {
-        icon: <CheckCircle size={32} strokeWidth={1.5} />,
+        icon: <CheckCircle size={24} strokeWidth={1.5} />,
         message: empty?.noResolved || 'Nothing resolved yet',
         hint: empty?.noResolvedHint || 'Drag cards here or click resolve',
       };
     case 'EXPIRED':
       return {
-        icon: <Archive size={32} strokeWidth={1.5} />,
+        icon: <Archive size={24} strokeWidth={1.5} />,
         message: empty?.noExpired || 'No expired items',
         hint: empty?.noExpiredHint || 'Expired follow-ups are moved here after the deadline',
       };

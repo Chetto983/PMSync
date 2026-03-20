@@ -122,4 +122,76 @@ describe('EmailSendService', () => {
       }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it('preserves a custom reply subject when provided by the composer', async () => {
+    mockPrisma.email.findFirst.mockResolvedValue({
+      id: 'email-1',
+      providerId: 'provider-1',
+      from: 'Sender <sender@example.com>',
+      to: ['davide@example.com'],
+      cc: [],
+      replyTo: null,
+      subject: 'Original subject',
+      messageId: '<msg-4>',
+      references: null,
+      threadId: 'thread-4',
+    });
+    mockPrisma.providerConfig.findFirst.mockResolvedValue({
+      email: 'davide@example.com',
+    });
+
+    const sendSpy = jest
+      .spyOn(service, 'sendEmail')
+      .mockResolvedValue({ success: true, messageId: 'sent-4' });
+
+    await service.replyToEmail('email-1', 'tenant-1', {
+      subject: 'Re: Updated by user',
+      bodyHtml: '<p>Reply</p>',
+      bodyText: 'Reply',
+    });
+
+    expect(sendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Re: Updated by user',
+      }),
+    );
+  });
+
+  it('preserves custom forward subject and body when provided by the composer', async () => {
+    mockPrisma.email.findFirst.mockResolvedValue({
+      id: 'email-1',
+      providerId: 'provider-1',
+      from: 'Sender <sender@example.com>',
+      to: ['davide@example.com'],
+      subject: 'Original forward subject',
+      bodyHtml: '<p>Original body</p>',
+      bodyText: 'Original body',
+      sentAt: new Date('2026-03-20T10:00:00Z'),
+      threadId: 'thread-5',
+    });
+
+    const sendSpy = jest
+      .spyOn(service, 'sendEmail')
+      .mockResolvedValue({ success: true, messageId: 'sent-5' });
+
+    await service.forwardEmail(
+      'email-1',
+      'tenant-1',
+      {
+        to: ['target@example.com'],
+        subject: 'Fwd: User edited subject',
+        bodyHtml: '<p>Custom forward body</p>',
+        bodyText: 'Custom forward body',
+      },
+      '<p>Signature</p>',
+    );
+
+    expect(sendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Fwd: User edited subject',
+        bodyHtml: expect.stringContaining('<p>Custom forward body</p>'),
+        bodyText: 'Custom forward body',
+      }),
+    );
+  });
 });

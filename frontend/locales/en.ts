@@ -3004,6 +3004,7 @@ export const en: AppTranslations = {
           noExpired: 'No expired items',
           noExpiredHint: 'Expired follow-ups are moved here after the deadline',
         },
+        deleteConfirm: 'This follow-up will be permanently removed. This action cannot be undone.',
         keyboard: {
           title: 'Keyboard Shortcuts',
           navigation: 'Navigation',

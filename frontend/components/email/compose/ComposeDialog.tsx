@@ -486,6 +486,7 @@ export default function ComposeDialog({
       await replyToEmail.mutateAsync({
         emailId: originalEmail.id,
         dto: {
+          subject,
           bodyHtml: fullBodyHtml,
           bodyText: fullBodyText,
           cc: cc.map((r) => r.email),
@@ -503,6 +504,9 @@ export default function ComposeDialog({
         emailId: originalEmail.id,
         dto: {
           to: to.map((r) => r.email),
+          subject,
+          bodyHtml: fullBodyHtml,
+          bodyText: fullBodyText,
           cc: cc.map((r) => r.email),
           bcc: bcc.map((r) => r.email),
           attachments: attachmentFiles,

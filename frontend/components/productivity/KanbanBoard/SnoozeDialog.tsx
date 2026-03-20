@@ -44,25 +44,25 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
     () => [
       {
         label: t.ai.followUpTracker.snooze.tomorrow,
-        icon: <Sun size={14} />,
+        icon: <Sun size={16} />,
         getDate: () => addDays(new Date(), 1),
         description: format(addDays(new Date(), 1), 'EEEE, MMM d'),
       },
       {
         label: t.ai.followUpTracker.snooze.inThreeDays || 'In 3 days',
-        icon: <Clock size={14} />,
+        icon: <Clock size={16} />,
         getDate: () => addDays(new Date(), 3),
         description: format(addDays(new Date(), 3), 'EEEE, MMM d'),
       },
       {
         label: t.ai.followUpTracker.snooze.nextWeek,
-        icon: <Calendar size={14} />,
+        icon: <Calendar size={16} />,
         getDate: () => addWeeks(new Date(), 1),
         description: format(addWeeks(new Date(), 1), 'EEEE, MMM d'),
       },
       {
         label: t.ai.followUpTracker.snooze.nextMonth || 'Next month',
-        icon: <ArrowRight size={14} />,
+        icon: <ArrowRight size={16} />,
         getDate: () => addMonths(new Date(), 1),
         description: format(addMonths(new Date(), 1), 'MMM d'),
       },
@@ -96,19 +96,31 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
       onClose={handleClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{
-        sx: { borderRadius: 3 },
-      }}
+      PaperProps={{ sx: { borderRadius: 3 } }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
+      <DialogTitle sx={{ pb: 0.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Clock size={18} />
-          {t.ai.followUpTracker.snooze.title}
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.warning.main, 0.08),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'warning.main',
+            }}
+          >
+            <Clock size={16} />
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
+            {t.ai.followUpTracker.snooze.title}
+          </Typography>
         </Box>
       </DialogTitle>
       <DialogContent>
-        {/* Quick preset chips */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 0.5 }}>
           {presets.map((preset) => (
             <Box
               key={preset.label}
@@ -118,24 +130,45 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
                 alignItems: 'center',
                 gap: 1.5,
                 px: 2,
-                py: 1.25,
-                borderRadius: 2,
+                py: 1.5,
+                borderRadius: 2.5,
                 cursor: 'pointer',
                 border: '1px solid',
-                borderColor: 'divider',
+                borderColor: alpha(theme.palette.divider, 0.6),
+                bgcolor: 'background.paper',
                 transition: 'all 0.15s ease',
                 '&:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.04),
                   borderColor: alpha(theme.palette.primary.main, 0.3),
+                  boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.06)}`,
+                  transform: 'translateY(-1px)',
                 },
+                '&:active': { transform: 'none' },
               }}
             >
-              <Box sx={{ color: 'text.secondary', display: 'flex' }}>{preset.icon}</Box>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.primary.main, 0.06),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'text.secondary',
+                  flexShrink: 0,
+                }}
+              >
+                {preset.icon}
+              </Box>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
                   {preset.label}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'text.secondary', fontSize: '0.75rem' }}
+                >
                   {preset.description}
                 </Typography>
               </Box>
@@ -143,8 +176,7 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
           ))}
         </Box>
 
-        {/* Custom date toggle */}
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 2.5 }}>
           {!showCustom ? (
             <Chip
               label={t.ai.followUpTracker.snooze.pickDate || 'Pick date'}
@@ -153,7 +185,12 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
               onClick={() => setShowCustom(true)}
               sx={{
                 cursor: 'pointer',
-                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                borderRadius: 2,
+                height: 32,
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  borderColor: alpha(theme.palette.primary.main, 0.3),
+                },
               }}
             />
           ) : (
@@ -167,13 +204,22 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
                 inputProps={{ min: minDate }}
                 label={t.ai.followUpTracker.snooze.custom}
                 InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               />
               <Button
                 variant="contained"
                 size="small"
                 disabled={!customDateStr}
                 onClick={handleCustomDate}
-                sx={{ minWidth: 80, height: 40 }}
+                sx={{
+                  minWidth: 80,
+                  height: 40,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: 'none',
+                  '&:hover': { boxShadow: 'none' },
+                }}
               >
                 {t.common.apply}
               </Button>
@@ -181,8 +227,14 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
           )}
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>{t.common.cancel}</Button>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button
+          onClick={handleClose}
+          variant="text"
+          sx={{ borderRadius: 2, textTransform: 'none', color: 'text.secondary' }}
+        >
+          {t.common.cancel}
+        </Button>
       </DialogActions>
     </Dialog>
   );

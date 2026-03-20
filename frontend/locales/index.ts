@@ -3020,6 +3020,7 @@ export interface AppTranslations {
           noExpired: string;
           noExpiredHint?: string;
         };
+        deleteConfirm?: string;
         keyboard: {
           title: string;
           navigation: string;

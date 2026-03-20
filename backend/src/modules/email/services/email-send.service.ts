@@ -30,6 +30,29 @@ export interface SendEmailDto {
   scheduledAt?: string;
 }
 
+type SendAttachmentDto = NonNullable<SendEmailDto['attachments']>;
+
+type ReplyToEmailDto = {
+  subject?: string;
+  bodyHtml: string;
+  bodyText?: string;
+  cc?: string[];
+  bcc?: string[];
+  attachments?: SendAttachmentDto;
+  scheduledAt?: string;
+};
+
+type ForwardEmailDto = {
+  to: string[];
+  subject?: string;
+  bodyHtml?: string;
+  bodyText?: string;
+  cc?: string[];
+  bcc?: string[];
+  attachments?: SendAttachmentDto;
+  scheduledAt?: string;
+};
+
 const escapeHtml = (str: string): string =>
   str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -349,7 +372,7 @@ export class EmailSendService {
   async replyToEmail(
     emailId: string,
     tenantId: string,
-    data: Omit<SendEmailDto, 'tenantId' | 'providerId' | 'inReplyTo' | 'references' | 'to' | 'subject'>,
+    data: ReplyToEmailDto,
   ): Promise<{ success: boolean; messageId: string }> {
     const originalEmail = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId },
@@ -377,9 +400,10 @@ export class EmailSendService {
     const to = [recipient];
 
     // Derive subject with "Re: " prefix
-    const subject = originalEmail.subject.startsWith('Re:')
+    const derivedSubject = originalEmail.subject.startsWith('Re:')
       ? originalEmail.subject
       : `Re: ${originalEmail.subject}`;
+    const subject = data.subject?.trim() || derivedSubject;
 
     return this.sendEmail({
       ...data,
@@ -439,7 +463,7 @@ export class EmailSendService {
   async forwardEmail(
     emailId: string,
     tenantId: string,
-    data: Omit<SendEmailDto, 'tenantId' | 'providerId' | 'subject' | 'bodyHtml' | 'bodyText'>,
+    data: ForwardEmailDto,
     signatureContent?: string | null,
   ): Promise<{ success: boolean; messageId: string }> {
     const originalEmail = await this.prisma.email.findFirst({
@@ -451,12 +475,12 @@ export class EmailSendService {
     }
 
     // Prepare forwarded content
-    const subject = originalEmail.subject.startsWith('Fwd:')
+    const derivedSubject = originalEmail.subject.startsWith('Fwd:')
       ? originalEmail.subject
       : `Fwd: ${originalEmail.subject}`;
+    const subject = data.subject?.trim() || derivedSubject;
 
-    // Build HTML body with forwarded content and optional signature
-    let bodyHtml = `
+    const generatedBodyHtml = `
       <p><br></p>
       <p>---------- Forwarded message ---------</p>
       <p><strong>From:</strong> ${escapeHtml(originalEmail.from)}</p>
@@ -466,13 +490,14 @@ export class EmailSendService {
       <p><br></p>
       ${originalEmail.bodyHtml || ''}
     `;
+    let bodyHtml = data.bodyHtml?.trim() || generatedBodyHtml;
 
     // Append signature if provided
     if (signatureContent) {
       bodyHtml = `${bodyHtml}<br><br>${signatureContent}`;
     }
 
-    const bodyText = `
+    const generatedBodyText = `
 ---------- Forwarded message ---------
 From: ${originalEmail.from}
 Date: ${originalEmail.sentAt?.toLocaleString() ?? 'Unknown'}
@@ -481,6 +506,7 @@ To: ${originalEmail.to.join(', ')}
 
 ${originalEmail.bodyText || ''}
     `;
+    const bodyText = data.bodyText?.trim() || generatedBodyText;
 
     return this.sendEmail({
       ...data,

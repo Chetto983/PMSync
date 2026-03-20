@@ -28,30 +28,32 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
         gap: 1.5,
         px: 2,
         py: 1.25,
-        borderRadius: 2,
+        borderRadius: 2.5,
         bgcolor: highlight ? alpha(color, 0.06) : alpha(color, 0.02),
         border: highlight
           ? `1px solid ${alpha(color, 0.2)}`
-          : `1px solid ${alpha(color, 0.08)}`,
+          : `1px solid ${alpha(color, 0.06)}`,
         transition: 'all 0.2s ease',
         minWidth: 0,
+        flex: '1 1 0',
         '&:hover': {
           bgcolor: alpha(color, 0.08),
           borderColor: alpha(color, 0.2),
+          boxShadow: `0 2px 8px ${alpha(color, 0.08)}`,
         },
       }}
     >
       <Box
         sx={{
-          width: 32,
-          height: 32,
-          borderRadius: 1.5,
+          width: 36,
+          height: 36,
+          borderRadius: 2,
           bgcolor: alpha(color, 0.1),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
-          color: color,
+          color,
         }}
       >
         {icon}
@@ -61,7 +63,7 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
           variant="h6"
           sx={{
             fontWeight: 700,
-            fontSize: '1.125rem',
+            fontSize: '1.25rem',
             lineHeight: 1.2,
             color: highlight ? color : 'text.primary',
           }}
@@ -72,8 +74,8 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
           variant="caption"
           sx={{
             color: 'text.secondary',
-            fontSize: '0.7rem',
-            fontWeight: 500,
+            fontSize: '0.6875rem',
+            fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: 0.5,
             whiteSpace: 'nowrap',
@@ -88,11 +90,20 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
 
 function StatSkeleton() {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25 }}>
-      <Skeleton variant="rounded" width={32} height={32} sx={{ borderRadius: 1.5 }} />
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2,
+        py: 1.25,
+        flex: '1 1 0',
+      }}
+    >
+      <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 2 }} />
       <Box>
-        <Skeleton width={28} height={22} />
-        <Skeleton width={52} height={14} />
+        <Skeleton width={32} height={24} />
+        <Skeleton width={56} height={14} />
       </Box>
     </Box>
   );
@@ -104,7 +115,7 @@ export function StatsBar({ stats, isLoading }: StatsBarProps) {
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
         {Array.from({ length: 4 }).map((_, i) => (
           <StatSkeleton key={i} />
         ))}
@@ -120,32 +131,32 @@ export function StatsBar({ stats, isLoading }: StatsBarProps) {
     <Box
       sx={{
         display: 'flex',
-        gap: 1,
+        gap: 1.5,
         flexWrap: 'wrap',
       }}
     >
       <StatItem
-        icon={<Clock size={16} />}
+        icon={<Clock size={18} />}
         label={s.pending}
         value={stats.pending}
         color={theme.palette.warning.main}
       />
       <StatItem
-        icon={<AlertTriangle size={16} />}
+        icon={<AlertTriangle size={18} />}
         label={s.overdue}
         value={stats.overdue}
         color={theme.palette.error.main}
         highlight={stats.overdue > 0}
       />
       <StatItem
-        icon={<Calendar size={16} />}
+        icon={<Calendar size={18} />}
         label={s.dueToday}
         value={stats.dueToday}
         color={theme.palette.info.main}
         highlight={stats.dueToday > 0}
       />
       <StatItem
-        icon={<CheckCircle size={16} />}
+        icon={<CheckCircle size={18} />}
         label={s.resolved}
         value={stats.resolved}
         color={theme.palette.success.main}

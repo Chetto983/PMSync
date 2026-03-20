@@ -8,6 +8,12 @@ import {
   useMediaQuery,
   Chip,
   ToggleButton,
+  alpha,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import { useHotkeys } from 'react-hotkeys-hook';
 import {
@@ -69,11 +75,12 @@ export function FollowupsKanbanBoard() {
   const [snoozeTargetId, setSnoozeTargetId] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [selectedColumnIdx, setSelectedColumnIdx] = useState(0);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   // Queries
-  const { data: pendingData, isLoading, error } = usePendingFollowUps(200);
+  const { data: pendingData, isLoading, error, refetch } = usePendingFollowUps(200);
   const followUps = useMemo<EmailFollowUp[]>(
     () => (pendingData?.followUps as EmailFollowUp[] | undefined) ?? [],
     [pendingData?.followUps],
@@ -247,9 +254,16 @@ export function FollowupsKanbanBoard() {
     finally { setResolvingId(null); }
   }, [updateStatus]);
 
-  const handleDelete = useCallback(async (id: string) => {
-    try { await deleteFollowUp.mutateAsync(id); } catch { /* handled */ }
-  }, [deleteFollowUp]);
+  const handleRequestDelete = useCallback((id: string) => {
+    setDeleteTargetId(id);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTargetId) return;
+    try { await deleteFollowUp.mutateAsync(deleteTargetId); }
+    catch { /* handled */ }
+    finally { setDeleteTargetId(null); }
+  }, [deleteTargetId, deleteFollowUp]);
 
   const handleOpenSnooze = useCallback((id: string) => {
     setSnoozeTargetId(id);
@@ -300,8 +314,11 @@ export function FollowupsKanbanBoard() {
 
   if (error) {
     return (
-      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
         <Typography color="error">{t.ai.followUpTracker.error}</Typography>
+        <Button variant="outlined" size="small" onClick={() => refetch()} sx={{ borderRadius: 2, textTransform: 'none' }}>
+          {t.common.retry || 'Retry'}
+        </Button>
       </Box>
     );
   }
@@ -353,7 +370,7 @@ export function FollowupsKanbanBoard() {
               onResolve={handleResolve}
               onSnooze={handleOpenSnooze}
               onViewEmail={handleViewEmail}
-              onDelete={handleDelete}
+              onDelete={handleRequestDelete}
               resolvingId={resolvingId}
               selectedId={selectedId}
             />
@@ -388,7 +405,7 @@ export function FollowupsKanbanBoard() {
                 onResolve={handleResolve}
                 onSnooze={handleOpenSnooze}
                 onViewEmail={handleViewEmail}
-                onDelete={handleDelete}
+                onDelete={handleRequestDelete}
                 resolvingId={resolvingId}
                 selectedId={selectedColumnIdx === idx ? selectedId : null}
               />
@@ -397,7 +414,16 @@ export function FollowupsKanbanBoard() {
 
           <DragOverlay>
             {activeItem ? (
-              <Box sx={{ opacity: 0.85, transform: 'rotate(2deg)', maxWidth: 340 }}>
+              <Box
+                sx={{
+                  opacity: 0.92,
+                  transform: 'rotate(2deg) scale(1.02)',
+                  maxWidth: 360,
+                  boxShadow: (t) =>
+                    `0 16px 40px ${alpha(t.palette.common.black, 0.15)}, 0 4px 12px ${alpha(t.palette.common.black, 0.08)}`,
+                  borderRadius: 2.5,
+                }}
+              >
                 <KanbanCard followUp={activeItem} />
               </Box>
             ) : null}
@@ -417,6 +443,36 @@ export function FollowupsKanbanBoard() {
         onClose={() => setHelpDialogOpen(false)}
         t={t}
       />
+
+      {/* Delete confirmation */}
+      <Dialog
+        open={!!deleteTargetId}
+        onClose={() => setDeleteTargetId(null)}
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem' }}>
+          {t.ai.followUpTracker.actions.delete}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {t.ai.followUpTracker.kanban?.deleteConfirm || 'This follow-up will be permanently removed.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteTargetId(null)} sx={{ borderRadius: 2, textTransform: 'none' }}>
+            {t.common.cancel}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, boxShadow: 'none' }}
+          >
+            {t.ai.followUpTracker.actions.delete}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
