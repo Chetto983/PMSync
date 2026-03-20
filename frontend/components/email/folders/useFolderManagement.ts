@@ -7,9 +7,8 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useFolders } from '@/hooks/queries/use-folders';
 import { useFolderMetadata } from '@/hooks/queries/use-folder-metadata';
-import type { Folder as FolderType } from '@/lib/api/folders';
+import type { Folder as FolderType, FoldersResponse } from '@/lib/api/folders';
 import type { SpecialFolder } from '@/stores/email-ui-store';
 import {
   FOLDER_ORDER,
@@ -66,9 +65,12 @@ const NO_BADGE_FOLDERS = new Set([
   'STARRED', 'FLAGGED', 'CHAT', 'UNREAD',
 ]);
 
-export function useFolderManagement(): FolderManagementState {
+interface UseFolderManagementOptions {
+  foldersData?: FoldersResponse;
+}
+
+export function useFolderManagement({ foldersData }: UseFolderManagementOptions = {}): FolderManagementState {
   const t = useTranslations() as FolderTranslations;
-  const { data } = useFolders();
   const { data: metadata } = useFolderMetadata();
 
   // Dialog state
@@ -91,8 +93,8 @@ export function useFolderManagement(): FolderManagementState {
   const folderCounts = useMemo(() => {
     const counts: Partial<Record<SpecialFolder, number>> = {};
 
-    if (data?.foldersByProvider) {
-      Object.values(data.foldersByProvider).forEach((folders) => {
+    if (foldersData?.foldersByProvider) {
+      Object.values(foldersData.foldersByProvider).forEach((folders) => {
         folders.forEach((folder) => {
           if (folder.specialUse) {
             const rawSpecialUse = folder.specialUse.toUpperCase();
@@ -108,7 +110,7 @@ export function useFolderManagement(): FolderManagementState {
     }
 
     return counts;
-  }, [data, metadata]);
+  }, [foldersData, metadata]);
 
   // ==========================================================================
   // Dialog Handlers

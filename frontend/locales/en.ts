@@ -104,6 +104,7 @@ export const en: AppTranslations = {
     parent: 'Parent',
     processing: 'Processing...',
     success: 'Success',
+    undo: 'Undo',
     syncStarted: 'Sync started',
     syncInProgress: 'Syncing...',
     syncCompleted: 'Sync complete',
@@ -3563,6 +3564,8 @@ export const en: AppTranslations = {
     dragging: 'Dragging {count} email(s)',
     emailMoved: 'Email moved to {folder}',
     emailsMoved: '{count} emails moved to {folder}',
+    archived: 'Email archived',
+    deleted: 'Email deleted',
     cannotMoveCrossProvider: 'Cannot move email to folder from different account',
     dropHereToMove: 'Drop here to move',
     // Keyboard navigation (Phase 9)

@@ -35,7 +35,8 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { FolderSidebar } from '../sidebar/FolderSidebar';
 import { MobileEmailNav } from './MobileEmailNav';
-import { isFolderReorderDropTarget, resolveFolderReorderTargetId } from '../utils/folder-targets';
+import { resolveFolderReorderTargetId } from '../utils/folder-targets';
+import type { FoldersResponse } from '@/lib/api/folders';
 
 // ============================================================================
 // Shared DnD Context for Email Layout
@@ -67,6 +68,11 @@ interface EmailLayoutProps {
   onFolderReorder?: (providerId: string, activeId: string, overId: string) => void;
   /** Callback when a folder is dropped into another folder (reparenting) */
   onFolderMove?: (providerId: string, folderId: string, newParentId: string) => void;
+  /** Shared folders query state to avoid duplicate `/folders` fetches */
+  foldersData?: FoldersResponse;
+  foldersLoading?: boolean;
+  foldersFetching?: boolean;
+  onRefreshFolders?: () => Promise<unknown>;
 }
 
 /**
@@ -85,6 +91,10 @@ export function EmailLayout({
   onEmailDrop,
   onFolderReorder,
   onFolderMove,
+  foldersData,
+  foldersLoading,
+  foldersFetching,
+  onRefreshFolders,
 }: EmailLayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -168,8 +178,32 @@ export function EmailLayout({
         onEmailDrop(emailIds, targetFolder, folderName);
       }
 
+      // Folder dropped INTO another folder (reparenting)
+      if (activeType === 'sortable-folder' && overType === 'folder' && onFolderMove) {
+        const activeProviderId = active.data.current?.providerId;
+        const overProviderId = over.data.current?.providerId;
+        const activeFolderId =
+          typeof active.data.current?.folderId === 'string'
+            ? active.data.current.folderId
+            : (active.id as string);
+        const overFolderId = resolveFolderReorderTargetId(
+          over.id,
+          over.data.current?.folderId,
+        );
+
+        if (
+          activeProviderId &&
+          activeProviderId === overProviderId &&
+          overFolderId &&
+          activeFolderId !== overFolderId
+        ) {
+          onFolderMove(activeProviderId, activeFolderId, overFolderId);
+          return;
+        }
+      }
+
       // Folder reordering (sortable folders within same provider)
-      if (isFolderReorderDropTarget(activeType, overType) && onFolderReorder) {
+      if (activeType === 'sortable-folder' && overType === 'sortable-folder' && onFolderReorder) {
         const activeProviderId = active.data.current?.providerId;
         const overProviderId = over.data.current?.providerId;
         const activeFolderId =
@@ -192,7 +226,7 @@ export function EmailLayout({
         }
       }
     },
-    [onEmailDrop, onFolderReorder]
+    [onEmailDrop, onFolderReorder, onFolderMove]
   );
 
   // DnD context value for children
@@ -372,7 +406,13 @@ export function EmailLayout({
               {/* Sidebar Pane */}
               <Allotment.Pane minSize={150} maxSize={350}>
                 <Box sx={{ height: '100%', display: 'flex' }}>
-                  <FolderSidebar collapsed={false} />
+                  <FolderSidebar
+                    collapsed={false}
+                    foldersData={foldersData}
+                    foldersLoading={foldersLoading}
+                    foldersFetching={foldersFetching}
+                    onRefreshFolders={onRefreshFolders}
+                  />
                 </Box>
               </Allotment.Pane>
 
@@ -467,7 +507,13 @@ export function EmailLayout({
         {/* Sidebar Pane */}
         <Allotment.Pane minSize={150} maxSize={280}>
           <Box sx={{ height: '100%', display: 'flex' }}>
-            <FolderSidebar collapsed={false} />
+            <FolderSidebar
+              collapsed={false}
+              foldersData={foldersData}
+              foldersLoading={foldersLoading}
+              foldersFetching={foldersFetching}
+              onRefreshFolders={onRefreshFolders}
+            />
           </Box>
         </Allotment.Pane>
 

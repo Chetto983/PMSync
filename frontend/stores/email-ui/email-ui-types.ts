@@ -59,6 +59,7 @@ export interface EmailFilters {
   specialUse?: SpecialFolder;
   providerId?: string;
   folderId?: string; // Track specific folder selection
+  folderPath?: string; // Canonical provider folder value used by email APIs
   labelId?: string;
   isRead?: boolean;
   isImportant?: boolean;

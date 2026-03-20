@@ -130,7 +130,6 @@ export const ExpandedMessage = memo(function ExpandedMessage({
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
   const t = useTranslations();
-  const [showActions, setShowActions] = useState(false);
   const [showAllRecipients, setShowAllRecipients] = useState(false);
 
   // Move menu state
@@ -180,17 +179,15 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           borderLeftColor: 'primary.main',
         }),
       }}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
     >
-      {/* Subject Line - Restored */}
-      <Box sx={{ px: 2, pt: 2, pb: 1 }}>
-        <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600, lineHeight: 1.3 }}>
+      {/* Subject Line */}
+      <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
+        <Typography variant="h6" sx={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.4, letterSpacing: '-0.01em' }}>
           {message.subject || '(No Subject)'}
         </Typography>
       </Box>
 
-      <Divider sx={{ opacity: 0.5 }} />
+      <Divider sx={{ opacity: 0.3 }} />
 
       {/* Header */}
       <Box
@@ -357,28 +354,26 @@ export const ExpandedMessage = memo(function ExpandedMessage({
               pt: { xs: 0.25, sm: 0 },
             }}
           >
-            {/* Action Icons (visible on hover) - Reply actions only, others in action bar below */}
-            {showActions && (
-              <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
-                <Tooltip title={t.threadMessage?.reply || 'Reply'}>
-                  <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
-                    <Reply size={16} />
+            {/* Reply/Forward actions — always visible (hover-only is a UX anti-pattern) */}
+            <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
+              <Tooltip title={t.threadMessage?.reply || 'Reply'}>
+                <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
+                  <Reply size={16} />
+                </IconButton>
+              </Tooltip>
+              {onReplyAll && (
+                <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
+                  <IconButton size="small" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
+                    <ReplyAll size={16} />
                   </IconButton>
                 </Tooltip>
-                {onReplyAll && (
-                  <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
-                    <IconButton size="small" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
-                      <ReplyAll size={16} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip title={t.threadMessage?.forward || 'Forward'}>
-                  <IconButton size="small" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
-                    <Forward size={16} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            )}
+              )}
+              <Tooltip title={t.threadMessage?.forward || 'Forward'}>
+                <IconButton size="small" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
+                  <Forward size={16} />
+                </IconButton>
+              </Tooltip>
+            </Box>
 
             {/* Date */}
             <Typography
@@ -522,8 +517,8 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         summary={summary}
       />
 
-      {/* Body */}
-      <Box sx={{ px: 2, pb: 2, pl: { xs: 2, sm: 7.5 } }}>
+      {/* Body — max-width for comfortable line length */}
+      <Box sx={{ px: 2.5, pb: 2, pl: { xs: 2.5, sm: 7.5 }, maxWidth: 720 }}>
         <EmailHtmlContent html={message.body} attachments={message.attachments} />
       </Box>
 

@@ -11,10 +11,8 @@
  *
  * @see https://docs.dndkit.com/presets/sortable
  *
- * NOTE: Folder-to-folder nesting (drag a folder into another folder to reparent)
- * is out of scope. The backend has no PATCH /folders/:id { parentId } endpoint.
- * Existing level-based indentation displays server-side folder hierarchy read-only.
- * Drag-and-drop in this component is limited to: (1) reordering folders, (2) dropping emails onto folders.
+ * Drag-and-drop supports: (1) reordering folders, (2) dropping emails onto folders,
+ * (3) dropping a folder onto another folder to reparent (handled by EmailLayout's onFolderMove).
  */
 
 import React, { useRef, useCallback } from 'react';
@@ -69,17 +67,31 @@ import {
   sortFoldersByOrder,
 } from '../folders';
 import { getFolderTargetValue } from '../utils/folder-targets';
-import type { Folder as FolderType, Provider } from '@/lib/api/folders';
+import type { Folder as FolderType, FoldersResponse, Provider } from '@/lib/api/folders';
 
 interface FolderSidebarProps {
   collapsed?: boolean;
   width?: number;
+  foldersData?: FoldersResponse;
+  foldersLoading?: boolean;
+  foldersFetching?: boolean;
+  onRefreshFolders?: () => Promise<unknown>;
 }
 
-export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) {
+export function FolderSidebar({
+  collapsed = false,
+  width,
+  foldersData: providedFoldersData,
+  foldersLoading,
+  foldersFetching,
+  onRefreshFolders,
+}: FolderSidebarProps) {
   const t = useTranslations();
   const queryClient = useQueryClient();
-  const { data, isLoading, refetch, isFetching } = useFolders();
+  const foldersQuery = useFolders();
+  const data = providedFoldersData ?? foldersQuery.data;
+  const isLoading = foldersLoading ?? foldersQuery.isLoading;
+  const isFetching = foldersFetching ?? foldersQuery.isFetching;
   const { data: preferences } = useUserPreferences();
   const syncComplete = useSyncProviderComplete();
   const toast = useGlobalToast();
@@ -108,7 +120,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
     closeContextMenu: handleFolderMenuClose,
     getFolderLabel,
     folderCounts,
-  } = useFolderManagement();
+  } = useFolderManagement({ foldersData: data });
 
   // Note: DnD sensors are now in EmailLayout's shared DndContext
 
@@ -139,12 +151,11 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
     }
   }, []);
 
-  const handleProviderFolderMouseEnter = useCallback((folderId: string, providerId: string) => {
+  const handleProviderFolderMouseEnter = useCallback((folderId: string, providerId: string, folderValue: string) => {
     const key = `folder-${folderId}`;
     prefetchTimeoutRef.current[key] = setTimeout(async () => {
       await queryClient.prefetchQuery({
-        // API uses 'folder' not 'folderId' for folder filtering
-        ...emailsListOptions({ folder: folderId, providerId, limit: 50 }),
+        ...emailsListOptions({ folder: folderValue, providerId, limit: 50 }),
         staleTime: 30 * 1000,
       });
     }, 300);
@@ -163,9 +174,9 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const handleFolderClick = (folder: SpecialFolder) => {
     if (filters.specialUse === folder && !filters.providerId && !filters.folderId) {
       // Already selected — toggle off → back to INBOX
-      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined, specialUse: 'INBOX' });
+      setFilters({ providerId: undefined, folderId: undefined, folderPath: undefined, labelId: undefined, specialUse: 'INBOX' });
     } else {
-      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined, specialUse: folder });
+      setFilters({ providerId: undefined, folderId: undefined, folderPath: undefined, labelId: undefined, specialUse: folder });
     }
   };
 
@@ -173,11 +184,12 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const handleProviderFolderClick = (providerId: string, folder: FolderType) => {
     if (filters.folderId === folder.id && filters.providerId === providerId) {
       // Already selected — toggle off → back to INBOX
-      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined, specialUse: 'INBOX' });
+      setFilters({ providerId: undefined, folderId: undefined, folderPath: undefined, labelId: undefined, specialUse: 'INBOX' });
     } else {
       setFilters({
         providerId,
         folderId: folder.id,
+        folderPath: getFolderTargetValue(folder),
         specialUse: folder.specialUse?.toUpperCase() as SpecialFolder,
       });
     }
@@ -186,7 +198,11 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   // Handle refresh (basic refetch without sync)
   const handleRefresh = async () => {
     try {
-      await refetch();
+      if (onRefreshFolders) {
+        await onRefreshFolders();
+      } else {
+        await foldersQuery.refetch();
+      }
       toast.success(t.folders.refreshSuccess);
     } catch {
       toast.error(t.folders.refreshFailed);
@@ -496,7 +512,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                       label={folderName}
                                       selected={filters.folderId === folder.id}
                                       onClick={() => handleProviderFolderClick(provider.id, folder)}
-                                      onMouseEnter={() => handleProviderFolderMouseEnter(folder.id, provider.id)}
+                                      onMouseEnter={() => handleProviderFolderMouseEnter(folder.id, provider.id, getFolderTargetValue(folder))}
                                       onMouseLeave={() => handleProviderFolderMouseLeave(folder.id)}
                                       level={folderLevel}
                                     />

@@ -20,14 +20,23 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import { Snackbar, Alert, AlertColor } from '@mui/material';
+import { Snackbar, Alert, AlertColor, Button } from '@mui/material';
 import { getTranslations, type AppTranslations } from '@/locales';
 
+interface ToastOptions {
+  /** Label for the action button (e.g. "Undo") */
+  actionLabel?: string;
+  /** Callback when action button is clicked */
+  onAction?: () => void;
+  /** Auto-hide duration in ms (default 4000, use 6000 for undo toasts) */
+  duration?: number;
+}
+
 interface ToastContextType {
-  success: (message: string) => void;
-  error: (message: string) => void;
-  info: (message: string) => void;
-  warning: (message: string) => void;
+  success: (message: string, options?: ToastOptions) => void;
+  error: (message: string, options?: ToastOptions) => void;
+  info: (message: string, options?: ToastOptions) => void;
+  warning: (message: string, options?: ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -36,23 +45,49 @@ const ToastContext = createContext<ToastContextType | null>(null);
 // Using a mutable ref object to avoid lint errors about reassigning module-level vars
 const globalToastRef: { current: ToastContextType | null } = { current: null };
 
+interface ToastState {
+  open: boolean;
+  message: string;
+  severity: AlertColor;
+  actionLabel?: string;
+  onAction?: () => void;
+  duration: number;
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toast, setToast] = useState<{ open: boolean; message: string; severity: AlertColor }>({
+  const [toast, setToast] = useState<ToastState>({
     open: false,
     message: '',
     severity: 'info',
+    duration: 4000,
   });
 
-  const showToast = useCallback((message: string, severity: AlertColor) => {
-    setToast({ open: true, message, severity });
+  const showToast = useCallback((message: string, severity: AlertColor, options?: ToastOptions) => {
+    setToast({
+      open: true,
+      message,
+      severity,
+      actionLabel: options?.actionLabel,
+      onAction: options?.onAction,
+      duration: options?.duration ?? 4000,
+    });
   }, []);
+
+  const handleClose = useCallback(() => {
+    setToast((p) => ({ ...p, open: false }));
+  }, []);
+
+  const handleAction = () => {
+    toast.onAction?.();
+    handleClose();
+  };
 
   // Memoize context value to avoid unnecessary re-renders
   const contextValue = useMemo<ToastContextType>(() => ({
-    success: (msg) => showToast(msg, 'success'),
-    error: (msg) => showToast(msg, 'error'),
-    info: (msg) => showToast(msg, 'info'),
-    warning: (msg) => showToast(msg, 'warning'),
+    success: (msg, opts) => showToast(msg, 'success', opts),
+    error: (msg, opts) => showToast(msg, 'error', opts),
+    info: (msg, opts) => showToast(msg, 'info', opts),
+    warning: (msg, opts) => showToast(msg, 'warning', opts),
   }), [showToast]);
 
   // Set global singleton in effect (not during render)
@@ -65,11 +100,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <Snackbar
         open={toast.open}
-        autoHideDuration={4000}
-        onClose={() => setToast((p) => ({ ...p, open: false }))}
+        autoHideDuration={toast.duration}
+        onClose={handleClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={toast.severity} variant="filled" sx={{ width: '100%' }}>
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          sx={{ width: '100%', alignItems: 'center' }}
+          action={toast.actionLabel ? (
+            <Button
+              color="inherit"
+              size="small"
+              onClick={handleAction}
+              sx={{ fontWeight: 700, textTransform: 'uppercase', minWidth: 'auto' }}
+            >
+              {toast.actionLabel}
+            </Button>
+          ) : undefined}
+        >
           {toast.message}
         </Alert>
       </Snackbar>

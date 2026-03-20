@@ -130,6 +130,15 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
         e.preventDefault();
         inputRef.current?.focus();
         inputRef.current?.select();
+        return;
+      }
+      // "/" to focus search (Superhuman-style) — only when not typing in another input
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && !(e.target as HTMLElement)?.isContentEditable) {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }
       }
     };
 
@@ -150,7 +159,7 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
 
   // Use enhanced placeholder with filter hint
   const placeholderText =
-    placeholder || t.email?.search?.placeholder || 'Search... (try from:john has:attachment)';
+    placeholder || t.email?.search?.placeholder || 'Search (/)  from: to: has:attachment';
 
   return (
     <Box

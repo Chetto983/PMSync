@@ -93,13 +93,13 @@ export function ThreadListHeader({
         display: 'flex',
         alignItems: hasSelection ? 'center' : { xs: 'stretch', sm: 'center' },
         flexWrap: hasSelection ? 'nowrap' : { xs: 'wrap', sm: 'nowrap' },
-        gap: 1,
-        px: 2,
-        py: 1,
+        gap: 0.75,
+        px: 1.5,
+        py: 0.75,
         borderBottom: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
-        minHeight: 56,
+        minHeight: 44,
       }}
     >
       {/* Select all checkbox */}
@@ -119,7 +119,7 @@ export function ThreadListHeader({
           {t.emailList.selected.replace('{count}', selectedCount.toString())}
         </Typography>
       ) : !isMobile ? (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.75rem' }}>
           {(t.email?.headerStats?.totalEmails || '{count} emails').replace('{count}', totalCount.toString())}
         </Typography>
       ) : null}

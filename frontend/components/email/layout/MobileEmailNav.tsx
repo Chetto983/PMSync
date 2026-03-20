@@ -41,7 +41,7 @@ export function MobileEmailNav() {
   const setFilters = useEmailUIStore((state) => state.setFilters);
 
   const handleInboxClick = () => {
-    setFilters({ providerId: undefined, folderId: undefined, specialUse: 'INBOX' });
+    setFilters({ providerId: undefined, folderId: undefined, folderPath: undefined, specialUse: 'INBOX' });
   };
 
   // Navigate to compose page
@@ -53,11 +53,16 @@ export function MobileEmailNav() {
     setFolderSheetOpen(true);
   };
 
-  const handleFolderSelect = (folder: SpecialFolder, providerId?: string, folderId?: string) => {
+  const handleFolderSelect = (
+    folder: SpecialFolder,
+    providerId?: string,
+    folderId?: string,
+    folderPath?: string,
+  ) => {
     if (providerId && folderId) {
-      setFilters({ providerId, folderId, specialUse: folder });
+      setFilters({ providerId, folderId, folderPath, specialUse: folder });
     } else {
-      setFilters({ providerId: undefined, folderId: undefined, specialUse: folder });
+      setFilters({ providerId: undefined, folderId: undefined, folderPath: undefined, specialUse: folder });
     }
     setFolderSheetOpen(false);
   };

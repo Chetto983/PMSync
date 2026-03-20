@@ -146,7 +146,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   const userLabels = (thread.labels || []).slice(0, 2);
   const showIndicators = hasP || hasS || userLabels.length > 0;
   const showSelectionAffordance = isTouchLayout || isHovered || isSelected;
-  const showQuickActions = isHovered || (isTouchLayout && isSelected);
+  const showQuickActions = isHovered || isFocused || (isTouchLayout && isSelected);
 
   // Snippet: merge with subject on line 2 if non-redundant
   const showSnippet = thread.snippet && !isSnippetRedundant(thread.subject, thread.snippet);
@@ -163,8 +163,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
         alignItems: 'center',
         gap: 1.5,
         px: 2,
-        py: 1,
-        minHeight: 52,
+        py: 0.75,
+        minHeight: 48,
         cursor: 'pointer',
         position: 'relative',
         // Unread accent: 3px left border (transparent when read for alignment)
@@ -248,7 +248,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
               component="span"
               noWrap
               sx={{
-                fontWeight: thread.isUnread ? 700 : 400,
+                fontWeight: thread.isUnread ? 700 : 500,
                 fontSize: '0.8125rem',
                 flex: '1 1 auto',
                 minWidth: 0,
@@ -294,6 +294,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
               flexShrink: 0,
               whiteSpace: 'nowrap',
               ml: 'auto',
+              fontVariantNumeric: 'tabular-nums',
             }}
           >
             {thread.date}
@@ -307,12 +308,10 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           sx={{
             fontSize: '0.8125rem',
             fontWeight: thread.isUnread ? 500 : 400,
-            color: 'text.secondary',
+            color: thread.isUnread ? 'text.primary' : 'text.secondary',
           }}
         >
-          <Box component="span" sx={{ color: 'text.primary' }}>
-            {thread.subject || t.common.noSubject}
-          </Box>
+          {thread.subject || t.common.noSubject}
           {showSnippet && (
             <Box component="span" sx={{ color: 'text.disabled' }}>
               {' \u2014 '}{thread.snippet}
@@ -382,15 +381,21 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           onTouchStart={stopPointer}
           sx={{
             position: 'absolute',
-            right: 12,
-            top: '50%',
-            transform: 'translateY(-50%)',
+            right: 0,
+            top: 0,
+            bottom: 0,
             display: 'flex',
+            alignItems: 'center',
             gap: 0.25,
-            bgcolor: 'background.paper',
-            borderRadius: 1,
-            boxShadow: 2,
-            p: 0.25,
+            pr: 1.5,
+            pl: 4,
+            // Gradient fade from transparent → paper
+            background: (th) =>
+              `linear-gradient(to right, transparent, ${th.palette.background.paper} 24px)`,
+            '&:hover': {
+              background: (th) =>
+                `linear-gradient(to right, transparent, ${th.palette.action.hover} 24px)`,
+            },
           }}
         >
           <IconButton

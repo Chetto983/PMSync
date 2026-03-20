@@ -22,7 +22,14 @@ export function createFilterSlice(set: SetFn, get: GetFn) {
 
     setFolder: (folder: SpecialFolder) =>
       set({
-        filters: { ...get().filters, specialUse: folder, labelId: undefined },
+        filters: {
+          ...get().filters,
+          specialUse: folder,
+          providerId: undefined,
+          folderId: undefined,
+          folderPath: undefined,
+          labelId: undefined,
+        },
         selectedIds: new Set<string>(),
         activeEmailId: null,
       }),

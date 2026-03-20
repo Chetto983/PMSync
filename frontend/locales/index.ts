@@ -351,6 +351,7 @@ export interface AppTranslations {
     yes: string;
     no: string;
     discard: string;
+    undo: string;
     viewAll: string;
     join: string;
     retry: string;
@@ -3395,6 +3396,8 @@ export interface AppTranslations {
     dragging: string;
     emailMoved: string;
     emailsMoved: string;
+    archived: string;
+    deleted: string;
     cannotMoveCrossProvider: string;
     dropHereToMove: string;
     // Keyboard navigation (Phase 9)

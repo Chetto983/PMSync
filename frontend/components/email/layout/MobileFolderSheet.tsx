@@ -49,13 +49,19 @@ import {
   getFolderIcon,
   getFolderDisplayName,
 } from '../folders';
+import { getFolderTargetValue } from '../utils/folder-targets';
 import type { Provider } from '@/lib/api/folders';
 import type { Label } from '@/lib/api/labels';
 
 interface MobileFolderSheetProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (folder: SpecialFolder, providerId?: string, folderId?: string) => void;
+  onSelect: (
+    folder: SpecialFolder,
+    providerId?: string,
+    folderId?: string,
+    folderPath?: string,
+  ) => void;
 }
 
 export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheetProps) {
@@ -89,7 +95,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
     closeContextMenu: handleFolderMenuClose,
     getFolderLabel,
     folderCounts,
-  } = useFolderManagement();
+  } = useFolderManagement({ foldersData: data });
 
   // Filter to show only USER labels
   const userLabels = useMemo(() =>
@@ -103,6 +109,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
       labelId,
       providerId: undefined,
       folderId: undefined,
+      folderPath: undefined,
       specialUse: undefined,
     });
     onClose();
@@ -443,7 +450,8 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                               onSelect(
                                 (folder.specialUse?.toUpperCase() as SpecialFolder) || 'INBOX',
                                 provider.id,
-                                folder.id
+                                folder.id,
+                                getFolderTargetValue(folder),
                               )
                             }
                             sx={{

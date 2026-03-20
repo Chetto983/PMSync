@@ -131,6 +131,7 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
           labelId,
           providerId: undefined,
           folderId: undefined,
+          folderPath: undefined,
           specialUse: undefined,
         });
       }

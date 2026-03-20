@@ -104,6 +104,7 @@ export const it: AppTranslations = {
     parent: 'Principale',
     processing: 'Elaborazione...',
     success: 'Successo',
+    undo: 'Annulla',
     syncStarted: 'Sincronizzazione avviata',
     syncInProgress: 'Sincronizzazione...',
     syncCompleted: 'Sincronizzazione completata',
@@ -3540,6 +3541,8 @@ export const it: AppTranslations = {
     dragging: 'Trascinando {count} email',
     emailMoved: 'Email spostata in {folder}',
     emailsMoved: '{count} email spostate in {folder}',
+    archived: 'Email archiviata',
+    deleted: 'Email eliminata',
     cannotMoveCrossProvider: 'Impossibile spostare email in cartella di account diverso',
     dropHereToMove: 'Rilascia qui per spostare',
     // Keyboard navigation (Phase 9)

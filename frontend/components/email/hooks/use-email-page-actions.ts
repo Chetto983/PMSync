@@ -344,6 +344,14 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       }
       try {
         await moveEmails.mutateAsync({ emailIds: [id], targetFolder: 'ARCHIVE' });
+        toast.success(t.emailList?.archived ?? 'Archived', {
+          actionLabel: t.common?.undo ?? 'Undo',
+          onAction: () => {
+            restoreEmailsState(snapshot);
+            moveEmails.mutate({ emailIds: [id], targetFolder: 'INBOX' });
+          },
+          duration: 6000,
+        });
       } catch {
         restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
@@ -358,12 +366,21 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       optimisticRemoveEmail(id);
       try {
         await deleteEmail.mutateAsync(id);
+        toast.success(t.emailList?.deleted ?? 'Deleted', {
+          actionLabel: t.common?.undo ?? 'Undo',
+          onAction: () => {
+            restoreEmailsState(snapshot);
+            // Move back from trash to inbox
+            moveEmails.mutate({ emailIds: [id], targetFolder: 'INBOX' });
+          },
+          duration: 6000,
+        });
       } catch {
         restoreEmailsState(snapshot);
         toast.error(t.common.genericError);
       }
     },
-    [captureEmailsState, deleteEmail, optimisticRemoveEmail, restoreEmailsState, t, toast]
+    [captureEmailsState, deleteEmail, moveEmails, optimisticRemoveEmail, restoreEmailsState, t, toast]
   );
 
   const handleLabelPickerSuccess = useCallback(() => {

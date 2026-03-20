@@ -28,6 +28,7 @@ import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   useEmail, useFolders, useSenderPhotos, useUserPreferences, emailKeys, emailsListOptions,
+  useMoveFolder,
 } from '@/hooks/queries';
 import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
@@ -78,7 +79,8 @@ export default function EmailPage() {
   }, [router.isReady, router.query.id, isDesktop, router]);
 
   const filters = useEmailFilters();
-  const { data: foldersData } = useFolders();
+  const foldersQuery = useFolders();
+  const { data: foldersData } = foldersQuery;
 
   const selectedFolderPath = useMemo(() => {
     if (!filters.folderId || !filters.providerId) return undefined;
@@ -124,12 +126,6 @@ export default function EmailPage() {
   const filterKey = useMemo(() => JSON.stringify(baseEmailParams), [baseEmailParams]);
   const [pagingState, setPagingState] = useState(() => ({ page: 1, filterKey }));
 
-  useEffect(() => {
-    if (pagingState.filterKey !== filterKey) {
-      setPagingState({ page: 1, filterKey });
-    }
-  }, [filterKey, pagingState.filterKey]);
-
   const effectivePage = pagingState.filterKey === filterKey ? pagingState.page : 1;
   const emailQueryParams = useMemo(
     () => ({ ...baseEmailParams, page: effectivePage }),
@@ -163,9 +159,12 @@ export default function EmailPage() {
 
   const handleLoadMore = useCallback(() => {
     if (!isFetching && hasMore) {
-      setPagingState((current) => ({ ...current, page: current.page + 1 }));
+      setPagingState((current) => ({
+        page: (current.filterKey === filterKey ? current.page : 1) + 1,
+        filterKey,
+      }));
     }
-  }, [isFetching, hasMore]);
+  }, [filterKey, hasMore, isFetching]);
 
   const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');
   const { data: preferences } = useUserPreferences();
@@ -303,6 +302,15 @@ export default function EmailPage() {
     foldersData, preferences,
   });
 
+  // Folder move (reparenting via DnD)
+  const moveFolderMutation = useMoveFolder();
+  const handleFolderMove = useCallback(
+    (providerId: string, folderId: string, newParentId: string) => {
+      moveFolderMutation.mutate({ folderId, parentId: newParentId, providerId });
+    },
+    [moveFolderMutation],
+  );
+
   // Email click - mark as read and show in reading pane
   const handleThreadClick = useCallback(
     async (id: string) => {
@@ -388,7 +396,14 @@ export default function EmailPage() {
   if (loading && emails.length === 0) {
     return (
       <Layout>
-        <EmailLayout>
+        <EmailLayout
+          foldersData={foldersData}
+          foldersLoading={foldersQuery.isLoading}
+          foldersFetching={foldersQuery.isFetching}
+          onRefreshFolders={async () => {
+            await foldersQuery.refetch();
+          }}
+        >
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 2 }}>
             <CircularProgress size={40} />
             <Typography variant="body2" color="text.secondary">{t.emailList?.loading || 'Loading emails...'}</Typography>
@@ -401,7 +416,18 @@ export default function EmailPage() {
   return (
     <PageErrorBoundary pageName="Email">
       <Layout>
-        <EmailLayout readingPane={readingPane} onEmailDrop={handleEmailDrop} onFolderReorder={handleFolderReorder}>
+        <EmailLayout
+          readingPane={readingPane}
+          onEmailDrop={handleEmailDrop}
+          onFolderReorder={handleFolderReorder}
+          onFolderMove={handleFolderMove}
+          foldersData={foldersData}
+          foldersLoading={foldersQuery.isLoading}
+          foldersFetching={foldersQuery.isFetching}
+          onRefreshFolders={async () => {
+            await foldersQuery.refetch();
+          }}
+        >
           <ThreadList
             threads={threads}
             totalCount={totalEmailCount}

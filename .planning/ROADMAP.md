@@ -143,8 +143,12 @@ Plans:
 - Fixed: label drag-drop now persists stable sibling order and cross-parent level shifts after refresh
 - Fixed: move dialog now behaves like a real mail client -- only Inbox, Archive, and user folders are offered, not raw Gmail category/state pseudo-labels
 - Fixed: reply/forward compose now preserves user-edited subject and body instead of silently reverting to backend-generated defaults
+- Fixed locally: archive/delete row actions now expose undo toasts through the shared toast context
+- Fixed locally: email list pagination no longer relies on ref mutation or setState-in-effect to avoid double fetches on filter changes
+- Fixed locally: desktop email shell now shares a single folders query with the sidebar/folder management path, and provider-folder prefetch uses canonical folder values instead of raw ids
+- Fixed locally: folder DnD now wires folder-to-folder reparenting through `useMoveFolder` (pending live Gmail validation)
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
-- Remaining: thread-route reply/forward UI still needs live revalidation on production Gmail flows
+- Remaining: thread-route reply/forward UI and folder reparenting still need live revalidation on production Gmail flows
 **Plans:** 4/4 plans complete
 Plans:
 - [x] 90-01-PLAN.md -- Backend API verification (email CRUD, folders, signatures, templates, attachments)

@@ -18,12 +18,12 @@ milestone: v7.0
 milestone_name: System Audit & Hardening
 status: unknown
 stopped_at: Completed 90-03-PLAN.md
-last_updated: "2026-03-20T12:56:02.446Z"
+last_updated: "2026-03-20T14:11:32.9335716+01:00"
 progress:
   total_phases: 10
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -31,6 +31,8 @@ progress:
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-03-20)
+
+Follow-up note: local hardening for Phase 90 is ready. Undo toasts, filter-safe pagination, and folder reparenting are implemented and awaiting live Gmail revalidation.
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
 **Current focus:** Phase 90 — email-operations-verification
