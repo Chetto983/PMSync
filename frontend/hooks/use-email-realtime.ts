@@ -18,6 +18,7 @@ import {
   websocketClient,
   RealtimeEmailEvent,
   RealtimeFolderCountsEvent,
+  RealtimeSyncStatus,
 } from '@/lib/websocket-client';
 import { emailUpdateTouchesCurrentFolder } from '@/components/email/utils/email-behavior';
 import { emailKeys } from '@/hooks/queries/email-keys';
@@ -301,6 +302,28 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     [folder]
   );
 
+  // Handler for sync status events (started/completed/failed from webhook + worker)
+  const handleSyncStatus = useCallback(
+    (event: RealtimeSyncStatus) => {
+      setStatus({
+        providerId: event.providerId,
+        status: event.status,
+        progress: event.status === 'completed' ? 100 : event.progress,
+        error: event.error,
+        timestamp: event.timestamp || new Date().toISOString(),
+      });
+
+      // On completion/failure, also invalidate queries to pick up new data
+      if (event.status === 'completed' || event.status === 'failed') {
+        const inv = invalidatorRef.current;
+        inv.schedule('all');
+        inv.schedule('folders');
+        inv.schedule('labels');
+      }
+    },
+    [setStatus]
+  );
+
   // CRITICAL FIX: Store handlers in refs to prevent race conditions
   const handlersRef = useRef({
     handleEmailNew,
@@ -311,6 +334,7 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     handleLabelMutation,
     handleThreadUpdate,
     handleUnreadCountUpdate,
+    handleSyncStatus,
   });
 
   // Update refs when callbacks change (no WebSocket re-registration)
@@ -324,6 +348,7 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       handleLabelMutation,
       handleThreadUpdate,
       handleUnreadCountUpdate,
+      handleSyncStatus,
     };
   }, [
     handleEmailNew,
@@ -334,6 +359,7 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     handleLabelMutation,
     handleThreadUpdate,
     handleUnreadCountUpdate,
+    handleSyncStatus,
   ]);
 
   // Register WebSocket handlers ONCE with stable wrappers
@@ -372,6 +398,9 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
     const unsubUnread = websocketClient.onUnreadCountUpdate((event) =>
       handlersRef.current.handleUnreadCountUpdate(event)
     );
+    const unsubSyncStatus = websocketClient.onSyncStatus((event) =>
+      handlersRef.current.handleSyncStatus(event)
+    );
 
     return () => {
       unsubNew();
@@ -384,6 +413,7 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       unsubLabelDelete();
       unsubThread();
       unsubUnread();
+      unsubSyncStatus();
     };
   }, [enabled]);
 

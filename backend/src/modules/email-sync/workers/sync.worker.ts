@@ -29,6 +29,7 @@ import { ImapSyncService } from '../services/imap/imap-sync.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 import { EmailTriageService } from '../../ai/services/email-triage.service';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 @Injectable()
@@ -59,6 +60,7 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
     private readonly imapSyncService: ImapSyncService,
     // Week 3 Task 4: Auto-triage service for Superhuman-like priority/labels
     private readonly emailTriageService: EmailTriageService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {
     super(configService);
     // CRIT-2 FIX: Initialize sync timeout from config (default 10 minutes)
@@ -229,6 +231,14 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
 
       await this.applyAllPostSyncUpdates(providerId, tenantId, metadataUpdates);
 
+      // Emit sync completed so frontend can clear syncing indicator
+      this.realtimeEvents.emitSyncStatus(tenantId, {
+        providerId,
+        status: 'completed',
+        type: 'email',
+        processed: result.messagesProcessed,
+      });
+
       // Auto-triage for new emails (Superhuman-like feature).
       // Awaited so BullMQ manages backpressure — prevents OOM from floating promises.
       if (syncType === 'incremental' && result.newMessages > 0 && provider.userId) {
@@ -273,6 +283,14 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
         // Increment error streak (Smart Sync) only for non-auth errors
         await this.syncScheduler.incrementErrorStreak(providerId);
       }
+
+      // Emit sync failed so frontend can clear syncing indicator
+      this.realtimeEvents.emitSyncStatus(tenantId, {
+        providerId,
+        status: 'failed',
+        type: 'email',
+        error: isAuthError ? 'Authentication error' : 'Sync failed',
+      });
 
       // Return error result
       return {
