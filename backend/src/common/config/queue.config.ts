@@ -11,9 +11,12 @@
  * - Type-safe configuration
  */
 
+import { Logger } from '@nestjs/common';
 import { JobsOptions, WorkerOptions, QueueOptions } from 'bullmq';
 import { Redis } from 'ioredis';
 import { getRedisConnectionOptions, RedisConnectionOptions } from '../../config/configuration';
+
+const logger = new Logger('QueueConfig');
 
 /**
  * Shared Redis connection singleton for BullMQ
@@ -42,16 +45,12 @@ export function getSharedRedisConnection(): Redis {
     });
 
     sharedRedisConnection.on('error', (err) => {
-      // Always log errors - critical for production debugging
-      console.error('[BullMQ-Shared] Redis connection error:', err.message);
+      logger.error(`Redis connection error: ${err.message}`);
     });
 
-    // Only log connect in non-production (reduce noise in production logs)
-    if (process.env.NODE_ENV !== 'production') {
-      sharedRedisConnection.on('connect', () => {
-        console.log('[BullMQ-Shared] Redis connected');
-      });
-    }
+    sharedRedisConnection.on('connect', () => {
+      logger.log('Redis connected');
+    });
   }
   connectionRefCount++;
   return sharedRedisConnection;
