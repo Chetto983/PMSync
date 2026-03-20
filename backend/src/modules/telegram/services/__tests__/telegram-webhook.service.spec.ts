@@ -8,6 +8,7 @@ import {
   CacheNamespace,
 } from '../../../../common/services/cache.service';
 import { AiChatService } from '../../../ai-chat/services/ai-chat.service';
+import { ConversationService } from '../../../ai-chat/services/conversation.service';
 import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 
 describe('TelegramWebhookService', () => {
@@ -16,6 +17,10 @@ describe('TelegramWebhookService', () => {
   const mockPrisma = {
     telegramSettings: {
       upsert: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn().mockResolvedValue({} as any),
+    },
+    aiConversation: {
       findFirst: jest.fn(),
     },
     reminder: {
@@ -39,6 +44,10 @@ describe('TelegramWebhookService', () => {
     streamChat: jest.fn(),
   };
 
+  const mockConversationService = {
+    getOrCreateConversation: jest.fn().mockResolvedValue({ id: 'conv-1' }),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -53,6 +62,7 @@ describe('TelegramWebhookService', () => {
         { provide: TelegramBotService, useValue: mockBotService },
         { provide: CacheService, useValue: mockCacheService },
         { provide: AiChatService, useValue: mockAiChatService },
+        { provide: ConversationService, useValue: mockConversationService },
       ],
     }).compile();
 
@@ -182,7 +192,7 @@ describe('TelegramWebhookService', () => {
 
   describe('plain text relay', () => {
     const chatId = 12345;
-    const linkedSettings = { tenantId: 'tenant1', userId: 'user1' };
+    const linkedSettings = { id: 'settings-1', tenantId: 'tenant1', userId: 'user1', aiConversationId: null };
 
     /**
      * Build a ReadableStream matching toUIMessageStream() output.
@@ -216,13 +226,14 @@ describe('TelegramWebhookService', () => {
 
       expect(mockPrisma.telegramSettings.findFirst).toHaveBeenCalledWith({
         where: { telegramChatId: String(chatId), isActive: true },
-        select: { tenantId: true, userId: true },
+        select: { id: true, tenantId: true, userId: true, aiConversationId: true },
       });
       expect(mockAiChatService.streamChat).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: 'tenant1',
           userId: 'user1',
           message: 'What is the weather?',
+          conversationId: 'conv-1',
         }),
       );
       expect(mockBotService.sendMessage).toHaveBeenCalledWith(
