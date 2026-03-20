@@ -100,7 +100,7 @@
 
 - [x] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard (completed 2026-03-20)
 - [ ] **Phase 90: Email Operations Verification** - Reopened 2026-03-20 for Gmail parity blockers (label counts, sync parity, provider draft editing)
-- [x] **Phase 91: Calendar, Contacts & Reminders Verification** - Verify calendar events, contacts management, reminders, invites (completed 2026-03-20)
+- [ ] **Phase 91: Calendar, Contacts & Reminders Verification** - Reopened for gap closure: RSVP wiring, VIP toggle in detail, i18n fix
 - [ ] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability
 - [ ] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram
 - [ ] **Phase 94: Infrastructure & Remaining Pages** - Verify WebSocket, health, webhooks, dashboard, tasks, analytics, landing, legal
@@ -172,11 +172,13 @@ Plans:
   2. Calendar invite operations work: get invite details, RSVP (accept/decline/tentative), send invites, cancel events
   3. Contacts can be listed, created, edited, deleted, bulk-deleted, VIP toggled, imported via vCard, synced, and extracted from emails
   4. Reminders page works end-to-end: list, create, complete, delete, and Kanban view renders correctly
-**Plans:** 3/3 plans complete
+**Plans:** 5 plans (3 complete + 2 gap closure)
 Plans:
 - [ ] 91-01-PLAN.md -- Calendar full-stack verification (backend controllers + frontend UI + browser checkpoint)
 - [ ] 91-02-PLAN.md -- Contacts full-stack verification (backend controller + frontend UI + browser checkpoint)
 - [ ] 91-03-PLAN.md -- Reminders full-stack verification (backend controller + frontend UI + browser checkpoint)
+- [ ] 91-04-PLAN.md -- Gap closure: wire RSVP buttons in calendar event detail view
+- [ ] 91-05-PLAN.md -- Gap closure: VIP toggle in ContactDetail + i18n fix
 
 ### Phase 92: AI & Knowledge Base Verification
 **Goal**: Users can use all AI-powered features including chat, compose assistance, and knowledge base search
@@ -275,7 +277,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 |-------|----------------|--------|-----------|
 | 89. Auth & Onboarding Verification | 3/3 | Complete    | 2026-03-20 |
 | 90. Email Operations Verification | 4/4 | Complete    | 2026-03-20 |
-| 91. Calendar, Contacts & Reminders Verification | 3/3 | Complete   | 2026-03-20 |
+| 91. Calendar, Contacts & Reminders Verification | 3/5 | Gap closure | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
 | 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
 | 94. Infrastructure & Remaining Pages | 0/? | Not started | - |
