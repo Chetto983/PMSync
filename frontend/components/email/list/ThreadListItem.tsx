@@ -187,10 +187,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
         },
       }}
       >
-        {/* Checkbox — visible on hover or when selected */}
-      <Fade in={showSelectionAffordance}>
+        {/* Checkbox — visible on hover or when selected (no Fade to avoid CLS) */}
         <Box
-          sx={{ width: 36, flexShrink: 0 }}
+          sx={{ width: 36, flexShrink: 0, visibility: showSelectionAffordance ? 'visible' : 'hidden' }}
           onMouseDown={stopPointer}
           onPointerDown={stopPointer}
           onTouchStart={stopPointer}
@@ -206,7 +205,6 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             sx={{ p: 0.5 }}
           />
         </Box>
-      </Fade>
 
       {/* Avatar — 28px with color hash */}
       <Box

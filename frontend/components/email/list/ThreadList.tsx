@@ -160,7 +160,7 @@ export function ThreadList({
   const virtualizer = useVirtualizer({
     count: threads.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56, // Compact 2-line layout (~52-72px actual)
+    estimateSize: () => 52, // Compact 2-line layout: 48 minHeight + 12px py
     overscan: 10, // Production standard: 10 items above/below viewport
   });
 

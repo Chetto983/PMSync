@@ -99,7 +99,7 @@ export function ThreadListHeader({
         borderBottom: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
-        minHeight: 44,
+        minHeight: { xs: 44, sm: 48 },
       }}
     >
       {/* Select all checkbox */}
@@ -124,8 +124,8 @@ export function ThreadListHeader({
         </Typography>
       ) : null}
 
-      {!hasSelection && isMobile && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+      {isMobile && (
+        <Box sx={{ display: hasSelection ? 'none' : 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
           <EmailSearchBar compact placeholder={t.email?.search?.placeholder || t.common?.searchPlaceholder} />
           <Tooltip title={t.emailList.refresh}>
             <IconButton
