@@ -49,16 +49,16 @@ Exceptions: Touch targets on admin action buttons (ban, impersonate, revoke) use
 
 ## Typography
 
-All values from `frontend/theme/typography.ts` MUI theme configuration:
+All values from `frontend/theme/typography.ts` MUI theme configuration. 4-size scale:
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body (body1) | 14px (0.875rem) | 400 (normal) | 1.625 (relaxed) |
-| Label (body2/caption) | 13px (0.8125rem) / 12px (0.75rem) | 400 (normal) | 1.625 / 1.5 |
+| Caption (caption, body2 labels) | 12px (0.75rem) | 400 (normal) | 1.5 |
+| Body (body1, body2, button) | 14px (0.875rem) | 400 (normal), 600 for buttons | 1.625 (relaxed) |
 | Heading (h4) | 20px (1.25rem) | 600 (semibold) | 1.375 (snug) |
 | Page title (h3) | 24px (1.5rem) | 600 (semibold) | 1.375 (snug) |
 
-**Button text:** 14px at weight 600, line-height 1.5, textTransform none.
+**MUI variant mapping:** `body2` uses 14px (same as body1) at weight 400. `caption` uses 12px at weight 400. The theme `body2` fontSize should be set to `0.875rem` (14px), not `0.8125rem` (13px), to maintain the 4-size scale.
 
 ---
 
@@ -82,6 +82,15 @@ Accent reserved for:
 
 ---
 
+## Visual Anchors
+
+| Page | Primary Focal Point |
+|------|---------------------|
+| Admin Users (`/dashboard/admin/users`) | UserListTable -- the data table dominates the viewport. Search input is the entry point for interaction. Action buttons (Ban, Sessions, Impersonate) in each row are the secondary focal points. |
+| Settings (`/dashboard/settings`) | SettingsSidebar (left) + active section panel (right). The sidebar drives navigation; the active section form fields are the primary interaction surface. Save CTA at the bottom of each section anchors the action flow. |
+
+---
+
 ## Copywriting Contract
 
 All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.ts`. No hardcoded strings in components (known exception: admin access-denied fallback has Italian hardcoded strings, tracked as CLN-02 in Phase 95).
@@ -94,7 +103,7 @@ All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.t
 | Section labels | `settings.sections.*` (general, security, accounts, signatures, ai, consent, dataRights, account, billing, telegram) |
 | Save CTA | "Save Changes" / "Save" per section |
 | Provider connect CTA | `providers.connect.*` pattern |
-| Empty accounts | `providers.noProviders` = (verify exists) |
+| Empty accounts | `providers.noProviders` = "Connect a mail provider to send and receive email." |
 | Error (save fail) | Standard toast error with retry via re-submit |
 
 ### Admin Pages (FE-11)
@@ -103,7 +112,8 @@ All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.t
 |---------|------|
 | Page title | `admin.users.title` = "User Management" |
 | Search placeholder | `admin.users.searchPlaceholder` = "Search by email..." |
-| Empty state | `admin.users.noUsers` = "No users found" |
+| Empty state (zero users) | `admin.users.noUsers` = "No users have signed up yet." |
+| Empty state (search, no match) | `admin.users.noUsersSearch` = "No users match '{query}' -- try a different search term." (to-be-added if key does not exist; implementation must show the search-variant when a search query is active and the zero-variant when no query is present) |
 | Ban CTA | `admin.users.ban` = "Ban" |
 | Ban confirmation | `admin.users.banDialog.confirm` = "Ban User" (with reason + duration fields) |
 | Unban CTA | `admin.users.unban` = "Unban" |
@@ -123,7 +133,7 @@ All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.t
 | Delete confirmation | `organizations.deleteConfirm` = "Type the organization name to confirm deletion" |
 | Remove member confirmation | `organizations.removeConfirm` = "Remove this member from the organization?" |
 | Invitation accept | `organizations.invitationAccept.title` = "Accept Invitation" |
-| Invitation error | `organizations.invitationAccept.error` = "Failed to accept invitation" |
+| Invitation error | `organizations.invitationAccept.error` = "Failed to accept invitation. The link may be invalid or expired -- ask the organization owner to send a new invite." |
 | Invitation expired | `organizations.invitationAccept.expired` = "This invitation has expired" |
 
 ### Billing Section (FE-10 billing)
