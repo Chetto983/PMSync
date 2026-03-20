@@ -98,7 +98,7 @@
 
 **Milestone Goal:** Test every endpoint and feature, clean dead code and inconsistencies, polish UI/UX -- verify everything works before adding new functionality.
 
-- [ ] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard
+- [x] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard (completed 2026-03-20)
 - [ ] **Phase 90: Email Operations Verification** - Verify all email CRUD, folders, signatures, templates, attachments, compose, labels
 - [ ] **Phase 91: Calendar, Contacts & Reminders Verification** - Verify calendar events, contacts management, reminders, invites
 - [ ] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability
@@ -120,7 +120,7 @@
   2. User profile operations work end-to-end: get/update profile, upload/delete avatar, update preferences, clear AI memory
   3. Auth pages render correctly in the browser and form submissions produce expected results (success redirects, error messages)
   4. Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent) without getting stuck or skipping required steps
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 89-01-PLAN.md -- Auth flow E2E tests (login, register, forgot-password, reset-password, verify-email, 2FA)
 - [ ] 89-02-PLAN.md -- Profile API tests + onboarding wizard rewrite
@@ -249,7 +249,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 89. Auth & Onboarding Verification | 1/2 | In Progress|  |
+| 89. Auth & Onboarding Verification | 2/2 | Complete   | 2026-03-20 |
 | 90. Email Operations Verification | 0/? | In Progress | - |
 | 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |

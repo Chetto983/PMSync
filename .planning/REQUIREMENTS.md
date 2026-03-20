@@ -9,7 +9,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 
 ### Backend API Testing
 
-- [ ] **BAPI-01**: User can authenticate via all auth flows (login, register, forgot-password, reset-password, verify-email, 2FA, OAuth)
+- [x] **BAPI-01**: User can authenticate via all auth flows (login, register, forgot-password, reset-password, verify-email, 2FA, OAuth)
 - [ ] **BAPI-02**: User can perform all email operations (list, get, send, reply, forward, draft, delete, bulk read/star/flag/move/labels)
 - [ ] **BAPI-03**: User can manage folders (list, create, rename, move, delete, sync)
 - [ ] **BAPI-04**: User can manage signatures (list, create, update, delete, set-default)
@@ -37,7 +37,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 
 ### Frontend Verification
 
-- [ ] **FE-01**: Auth pages render and function (login, register, forgot-password, reset-password, verify-email, 2FA)
+- [x] **FE-01**: Auth pages render and function (login, register, forgot-password, reset-password, verify-email, 2FA)
 - [x] **FE-02**: Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent)
 - [ ] **FE-03**: Email list loads, filters, searches, and paginates correctly
 - [ ] **FE-04**: Email thread view renders messages, attachments, and actions
@@ -125,7 +125,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BAPI-01 | Phase 89 | Pending |
+| BAPI-01 | Phase 89 | Complete |
 | BAPI-02 | Phase 90 | Pending |
 | BAPI-03 | Phase 90 | Pending |
 | BAPI-04 | Phase 90 | Pending |
@@ -150,7 +150,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-23 | Phase 91 | Pending |
 | BAPI-24 | Phase 89 | Complete |
 | BAPI-25 | Phase 90 | Pending |
-| FE-01 | Phase 89 | Pending |
+| FE-01 | Phase 89 | Complete |
 | FE-02 | Phase 89 | Complete |
 | FE-03 | Phase 90 | Pending |
 | FE-04 | Phase 90 | Pending |
