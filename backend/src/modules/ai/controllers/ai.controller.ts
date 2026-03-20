@@ -708,12 +708,13 @@ export class AiController {
         isDeleted: false,
         OR: [
           { receivedAt: { gte: start } },
-          { sentAt: { gte: start } },
+          { sentAt: { gte: start }, folder: 'SENT' },
         ],
       },
       select: {
         receivedAt: true,
         sentAt: true,
+        folder: true,
       },
     });
 
@@ -728,16 +729,18 @@ export class AiController {
     }
 
     for (const email of emails) {
-      const receivedKey = email.receivedAt?.toISOString().slice(0, 10);
-      if (receivedKey && buckets.has(receivedKey)) {
-        const bucket = buckets.get(receivedKey)!;
-        bucket.received += 1;
-      }
-
-      const sentKey = email.sentAt?.toISOString().slice(0, 10);
-      if (sentKey && buckets.has(sentKey)) {
-        const bucket = buckets.get(sentKey)!;
-        bucket.sent += 1;
+      if (email.folder === 'SENT') {
+        // Sent emails: use sentAt date
+        const sentKey = email.sentAt?.toISOString().slice(0, 10);
+        if (sentKey && buckets.has(sentKey)) {
+          buckets.get(sentKey)!.sent += 1;
+        }
+      } else {
+        // Received emails: use receivedAt date
+        const receivedKey = email.receivedAt?.toISOString().slice(0, 10);
+        if (receivedKey && buckets.has(receivedKey)) {
+          buckets.get(receivedKey)!.received += 1;
+        }
       }
     }
 
