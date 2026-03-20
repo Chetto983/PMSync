@@ -28,9 +28,9 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **BAPI-17**: Admin can manage users (list, ban/unban, impersonate, revoke sessions)
 - [x] **BAPI-18**: Admin can manage tenants (list, create, update, delete)
 - [x] **BAPI-19**: User can manage Telegram integration (settings, link/unlink, webhook)
-- [ ] **BAPI-20**: User can get realtime auth token and WebSocket connects successfully
-- [ ] **BAPI-21**: Health endpoints respond correctly (health, ready, live, queues)
-- [ ] **BAPI-22**: Webhook endpoints process notifications (Gmail push, Microsoft Graph, Calendar, Contacts)
+- [x] **BAPI-20**: User can get realtime auth token and WebSocket connects successfully
+- [x] **BAPI-21**: Health endpoints respond correctly (health, ready, live, queues)
+- [x] **BAPI-22**: Webhook endpoints process notifications (Gmail push, Microsoft Graph, Calendar, Contacts)
 - [x] **BAPI-23**: Calendar invite operations work (get invite, respond, send, cancel)
 - [x] **BAPI-24**: User profile operations work (get/update me, avatar upload/delete, preferences, dashboard preferences, clear AI memory)
 - [x] **BAPI-25**: Email attachment download works (both controller paths)
@@ -144,9 +144,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-17 | Phase 93 | Complete |
 | BAPI-18 | Phase 93 | Complete |
 | BAPI-19 | Phase 93 | Complete |
-| BAPI-20 | Phase 94 | Pending |
-| BAPI-21 | Phase 94 | Pending |
-| BAPI-22 | Phase 94 | Pending |
+| BAPI-20 | Phase 94 | Complete |
+| BAPI-21 | Phase 94 | Complete |
+| BAPI-22 | Phase 94 | Complete |
 | BAPI-23 | Phase 91 | Complete |
 | BAPI-24 | Phase 89 | Complete |
 | BAPI-25 | Phase 90 | Complete |
