@@ -28,10 +28,10 @@ export default function OrganizationsPage() {
         <Box sx={{ p: 4 }}>
           <Alert severity="warning">
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-              Accesso limitato
+              {t.admin?.users.accessRestricted}
             </Typography>
             <Typography variant="body2">
-              Questa area e riservata ai super-admin. Se devi gestire organizzazioni, usa un account con privilegi adeguati oppure contatta l amministratore del workspace.
+              {t.admin?.users.accessRestrictedOrgs}
             </Typography>
           </Alert>
         </Box>

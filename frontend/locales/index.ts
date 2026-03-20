@@ -332,6 +332,8 @@ export interface AppTranslations {
     searchPlaceholder: string;
     genericError: string;
     passwordMismatch: string;
+    showPassword: string;
+    hidePassword: string;
     passwordSameAsOld: string;
     passwordTooShort: string;
     invalidToken: string;
@@ -3774,6 +3776,10 @@ export interface AppTranslations {
       impersonate: string;
       sessions: string;
       noUsers: string;
+      impersonateConfirm: string;
+      accessRestricted: string;
+      accessRestrictedUsers: string;
+      accessRestrictedOrgs: string;
       banDialog: {
         title: string;
         reason: string;

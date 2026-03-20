@@ -28,10 +28,10 @@ export default function AdminUsersPage() {
         <Box sx={{ p: 4 }}>
           <Alert severity="warning">
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-              Accesso limitato
+              {t.admin?.users.accessRestricted}
             </Typography>
             <Typography variant="body2">
-              Questa area e riservata ai super-admin. Il tuo account puo continuare a usare il resto della dashboard, ma non ha accesso alla gestione utenti.
+              {t.admin?.users.accessRestrictedUsers}
             </Typography>
           </Alert>
         </Box>

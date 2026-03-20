@@ -74,7 +74,7 @@ export function PriorityInboxWidget() {
             >
               <ListItemIcon sx={{ minWidth: 32 }}>
                 {email.isStarred ? (
-                  <Star size={16} fill="#FFB300" color="#FFB300" />
+                  <Star size={16} fill="var(--mui-palette-warning-main)" color="var(--mui-palette-warning-main)" />
                 ) : (
                   <AlertCircle size={16} color="error" />
                 )}

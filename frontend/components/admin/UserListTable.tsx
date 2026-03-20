@@ -79,10 +79,10 @@ export function UserListTable() {
   const total = data?.total ?? 0;
 
   const handleImpersonate = useCallback((userId: string) => {
-    if (window.confirm('Start impersonating this user?')) {
+    if (window.confirm(t.admin?.users.impersonateConfirm ?? '')) {
       impersonate.mutate(userId);
     }
-  }, [impersonate]);
+  }, [impersonate, t]);
 
   const formatDate = (date: string | Date) => {
     try { return new Date(date).toLocaleDateString(); }

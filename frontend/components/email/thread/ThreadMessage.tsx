@@ -104,7 +104,7 @@ export const ThreadMessage = memo(function ThreadMessage({
         unmountOnExit: false, // Keep content mounted for faster re-expansion
       }}
       sx={{
-        bgcolor: message.isUnread ? 'rgba(25, 118, 210, 0.04)' : 'transparent',
+        bgcolor: message.isUnread ? 'action.hover' : 'transparent',
         borderBottom: 1,
         borderColor: 'divider',
         // CSS containment for paint optimization
