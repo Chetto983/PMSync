@@ -9,7 +9,7 @@ import {
   useDeleteEmail,
   useUpdatePreferences,
 } from '@/hooks/queries';
-import { apiClient } from '@/lib/api';
+import { emailsApi } from '@/lib/api';
 import type { Email, ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailUIStore } from '@/stores/email-ui-store';
 import type { ThreadListItemData } from '@/components/email/list';
@@ -216,29 +216,14 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
 
   const handleDownloadAttachment = useCallback(async (messageId: string, attachmentId: string) => {
     try {
-      const response = await apiClient.get<Blob>(`/emails/${messageId}/attachments/${attachmentId}/download`, {
-        responseType: 'blob',
-      });
+      const blob = await emailsApi.downloadAttachment(messageId, attachmentId);
 
-      if (response.status !== 200) {
-        throw new Error(`Download failed with status: ${response.status}`);
-      }
-
-      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
 
-      const disposition = response.headers['content-disposition'];
       let filename = 'attachment';
-      if (disposition && disposition.indexOf('attachment') !== -1) {
-        const matches = /filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/.exec(disposition);
-        if (matches) {
-          filename = decodeURIComponent(matches[1] || matches[2]);
-        }
-      }
-
-      if (filename === 'attachment' && selectedEmailData) {
+      if (selectedEmailData) {
         const att = selectedEmailData.attachments?.find(a => a.id === attachmentId);
         if (att) filename = att.name;
       }
