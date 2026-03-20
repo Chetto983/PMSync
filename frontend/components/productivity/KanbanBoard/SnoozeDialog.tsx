@@ -16,6 +16,8 @@ import {
 } from '@mui/material';
 import { Calendar, Clock, Sun, ArrowRight } from 'lucide-react';
 import { format, addDays, addWeeks, addMonths } from 'date-fns';
+import { it as itLocale } from 'date-fns/locale';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface SnoozeDialogProps {
@@ -35,6 +37,8 @@ interface PresetOption {
 export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDialogProps) {
   const theme = useTheme();
   const t = useTranslations();
+  const { locale } = useLocale();
+  const dl = locale === 'it' ? { locale: itLocale } : undefined;
   const [showCustom, setShowCustom] = useState(false);
   const [customDateStr, setCustomDateStr] = useState('');
 
@@ -46,28 +50,28 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
         label: t.ai.followUpTracker.snooze.tomorrow,
         icon: <Sun size={16} />,
         getDate: () => addDays(new Date(), 1),
-        description: format(addDays(new Date(), 1), 'EEEE, MMM d'),
+        description: format(addDays(new Date(), 1), 'EEEE, MMM d', dl),
       },
       {
         label: t.ai.followUpTracker.snooze.inThreeDays || 'In 3 days',
         icon: <Clock size={16} />,
         getDate: () => addDays(new Date(), 3),
-        description: format(addDays(new Date(), 3), 'EEEE, MMM d'),
+        description: format(addDays(new Date(), 3), 'EEEE, MMM d', dl),
       },
       {
         label: t.ai.followUpTracker.snooze.nextWeek,
         icon: <Calendar size={16} />,
         getDate: () => addWeeks(new Date(), 1),
-        description: format(addWeeks(new Date(), 1), 'EEEE, MMM d'),
+        description: format(addWeeks(new Date(), 1), 'EEEE, MMM d', dl),
       },
       {
         label: t.ai.followUpTracker.snooze.nextMonth || 'Next month',
         icon: <ArrowRight size={16} />,
         getDate: () => addMonths(new Date(), 1),
-        description: format(addMonths(new Date(), 1), 'MMM d'),
+        description: format(addMonths(new Date(), 1), 'MMM d', dl),
       },
     ],
-    [t],
+    [t, dl],
   );
 
   const handlePreset = (preset: PresetOption) => {

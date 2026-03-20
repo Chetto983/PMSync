@@ -15,6 +15,7 @@ import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
+import { getLocale } from '../locales';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -75,6 +76,15 @@ Confidence calibration:
 
 Return valid JSON matching the exact schema.`;
 
+const LOCALE_SUFFIXES: Record<string, string> = {
+  it: '\n\nIMPORTANTE: Tutti i campi testuali (reason, suggestedDueDate description) DEVONO essere scritti in ITALIANO.',
+};
+
+function buildSystemPrompt(locale?: string): string {
+  const lang = getLocale(locale);
+  return SYSTEM_PROMPT + (LOCALE_SUFFIXES[lang] || '');
+}
+
 @Injectable()
 export class FollowUpDetectionService {
   private readonly logger = new Logger(FollowUpDetectionService.name);
@@ -94,6 +104,7 @@ export class FollowUpDetectionService {
   async detectFollowUps(
     tenantId: string,
     hoursWindow = 24,
+    locale?: string,
   ): Promise<{ data: FollowUpDetectionOutput; error?: string }> {
     const cutoffDate = new Date(Date.now() - hoursWindow * 60 * 60 * 1000);
 
@@ -143,20 +154,21 @@ export class FollowUpDetectionService {
     }, null, 0);
 
     // 3. Generate with graceful fallback
-    return this.generateWithFallback(batchPrompt, recentEmails.length, tenantId);
+    return this.generateWithFallback(batchPrompt, recentEmails.length, tenantId, locale);
   }
 
   private async generateWithFallback(
     batchPrompt: string,
     totalAnalyzed: number,
     tenantId = 'system',
+    locale?: string,
   ): Promise<{ data: FollowUpDetectionOutput; error?: string }> {
     const startTime = Date.now();
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(),
         output: Output.object({ schema: followUpDetectionSchema }),
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(locale),
         prompt: batchPrompt,
       });
 
@@ -194,7 +206,7 @@ export class FollowUpDetectionService {
           const retryResult = await generateText({
             model: this.mistralProvider.getChatModel(),
             output: Output.object({ schema: followUpDetectionSchema }),
-            system: SYSTEM_PROMPT + '\nIMPORTANT: Return ONLY valid JSON matching the exact schema. Every field must be present.',
+            system: buildSystemPrompt(locale) + '\nIMPORTANT: Return ONLY valid JSON matching the exact schema. Every field must be present.',
             prompt: batchPrompt,
           });
 

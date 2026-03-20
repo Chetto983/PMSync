@@ -28,6 +28,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { it as itLocale } from 'date-fns/locale';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailFollowUp } from '@/hooks/queries';
 
@@ -37,8 +39,7 @@ interface KanbanCardProps {
   onSnooze?: (id: string) => void;
   onViewEmail?: (emailId: string) => void;
   onDelete?: (id: string) => void;
-  isResolving?: boolean;
-  isSelected?: boolean;
+  isResolving?: boolean; isSelected?: boolean;
 }
 
 export function KanbanCard({
@@ -52,6 +53,8 @@ export function KanbanCard({
 }: KanbanCardProps) {
   const theme = useTheme();
   const t = useTranslations();
+  const { locale } = useLocale();
+  const dl = locale === 'it' ? { locale: itLocale } : undefined;
   const [expanded, setExpanded] = useState(false);
   const {
     attributes,
@@ -68,7 +71,7 @@ export function KanbanCard({
   const isDueToday = dueDate && dueDate.toDateString() === now.toDateString() && followUp.status === 'PENDING';
   const isResolved = followUp.status === 'RESOLVED';
   const formattedDate = dueDate
-    ? format(dueDate, dueDate.getFullYear() !== now.getFullYear() ? 'MMM d, yyyy' : 'MMM d')
+    ? format(dueDate, dueDate.getFullYear() !== now.getFullYear() ? 'MMM d, yyyy' : 'MMM d', dl)
     : null;
   const accentColor = isOverdue ? theme.palette.error.main : isDueToday ? theme.palette.warning.main : isResolved ? theme.palette.success.main : 'transparent';
   const hasAccent = isOverdue || isDueToday || isResolved;
@@ -393,7 +396,7 @@ export function KanbanCard({
               <Sparkles size={12} color={theme.palette.info.main} />
               <Typography variant="caption" sx={{ color: 'info.main', fontWeight: 500, fontSize: '0.75rem' }}>
                 {t.ai.followUpTracker.deadline.detected}:{' '}
-                {format(new Date(followUp.detectedDeadline), 'MMM d')}
+                {format(new Date(followUp.detectedDeadline), 'MMM d', dl)}
               </Typography>
             </Box>
           )}
@@ -438,16 +441,8 @@ export function KanbanCard({
   );
 }
 
-function ExtractionBlock({
-  icon,
-  color,
-  title,
-  items,
-}: {
-  icon: React.ReactNode;
-  color: string;
-  title: string;
-  items: string[];
+function ExtractionBlock({ icon, color, title, items }: {
+  icon: React.ReactNode; color: string; title: string; items: string[];
 }) {
   return (
     <Box

@@ -476,7 +476,7 @@ export class AiController {
     @Request() req: AuthenticatedRequest,
     @Query('limit') limitParam?: string,
   ) {
-    const limit = Math.min(Math.max(parseInt(limitParam || '10', 10) || 10, 1), 50);
+    const limit = Math.min(Math.max(parseInt(limitParam || '50', 10) || 50, 1), 500);
 
     const followUps = await this.prisma.emailFollowUp.findMany({
       where: {
@@ -848,8 +848,11 @@ export class AiController {
   @RequiresQuota('ai')
   @ApiOperation({ summary: 'Detect follow-ups', description: 'Analyze recent emails for follow-up needs' })
   @ApiResponse({ status: 200, description: 'Detection complete' })
-  async detectFollowUps(@Request() req: AuthenticatedRequest) {
-    const result = await this.followUpDetectionService.detectFollowUps(req.user.tenantId);
+  async detectFollowUps(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto?: { locale?: string },
+  ) {
+    const result = await this.followUpDetectionService.detectFollowUps(req.user.tenantId, 24, dto?.locale);
     return { success: true, ...result.data, ...(result.error ? { error: result.error } : {}) };
   }
 
