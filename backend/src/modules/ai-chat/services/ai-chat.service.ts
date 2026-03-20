@@ -9,6 +9,8 @@ import {
 import {
   ToolLoopAgent,
   stepCountIs,
+  InvalidPromptError,
+  type ModelMessage,
   type StepResult,
   type ToolSet,
 } from 'ai';
@@ -190,8 +192,8 @@ export class AiChatService {
     this.sanitizeMessages(messages);
 
     // DEBUG: Log message structure to diagnose ModelMessage[] schema errors
-    this.logger.debug(
-      `Message chain (${messages.length} msgs): ${messages.map((m, i) => `[${i}] role=${m.role} contentType=${typeof m.content === 'string' ? 'string' : Array.isArray(m.content) ? 'array(' + (m.content as any[]).length + ')' : typeof m.content}`).join(' | ')}`,
+    this.logger.warn(
+      `[DIAG] Message chain (${messages.length} msgs): ${messages.map((m, i) => `[${i}] role=${m.role} contentType=${typeof m.content === 'string' ? 'string' : Array.isArray(m.content) ? 'array(' + (m.content as any[]).length + ')' : typeof m.content}`).join(' | ')}`,
     );
 
     // 7. Audit log (fire-and-forget)
@@ -359,7 +361,7 @@ export class AiChatService {
 
     try {
       const result = await agent.stream({
-        messages,
+        messages: this.ensureValidMessages(messages),
         abortSignal: params.abortSignal,
       });
 
@@ -379,6 +381,20 @@ export class AiChatService {
         },
       });
     } catch (error) {
+      // Recovery: if history causes schema validation failure, retry with only
+      // user messages (drops corrupted tool/assistant parts from old format).
+      if (error instanceof InvalidPromptError) {
+        this.logger.warn(
+          `InvalidPromptError — retrying with stripped history: ${error.message}`,
+        );
+        const cleanMessages = this.stripToUserMessages(messages);
+        const result = await agent.stream({
+          messages: cleanMessages,
+          abortSignal: params.abortSignal,
+        });
+        return result.toUIMessageStream({ sendReasoning: false });
+      }
+
       if (
         error instanceof Error &&
         !(error instanceof CircuitBreakerOpenError)
@@ -402,12 +418,26 @@ export class AiChatService {
 
     try {
       const result = await agent.generate({
-        messages,
+        messages: this.ensureValidMessages(messages),
         abortSignal: params.abortSignal,
       });
 
       return { text: result.text, conversationId: conversation.id };
     } catch (error) {
+      // Recovery: if history causes schema validation failure, retry with only
+      // user messages (drops corrupted tool/assistant parts from old format).
+      if (error instanceof InvalidPromptError) {
+        this.logger.warn(
+          `InvalidPromptError — retrying with stripped history: ${error.message}`,
+        );
+        const cleanMessages = this.stripToUserMessages(messages);
+        const result = await agent.generate({
+          messages: cleanMessages,
+          abortSignal: params.abortSignal,
+        });
+        return { text: result.text, conversationId: conversation.id };
+      }
+
       if (
         error instanceof Error &&
         !(error instanceof CircuitBreakerOpenError)
@@ -513,6 +543,57 @@ export class AiChatService {
         messages.splice(i, 1);
       }
     }
+  }
+
+  /**
+   * Ensure message array has valid ModelMessage[] structure.
+   * Validates assistant messages with array content contain proper tool-call parts,
+   * and that tool messages reference existing tool-call IDs.
+   */
+  private ensureValidMessages(messages: { role: string; content: unknown }[]): ModelMessage[] {
+    const knownToolCallIds = new Set<string>();
+
+    // Pass 1: collect valid toolCallIds from assistant messages, fix broken ones
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        // Validate each part has required fields
+        const validParts = (msg.content as any[]).filter((part) => {
+          if (!part || typeof part !== 'object' || !('type' in part)) return false;
+          if (part.type === 'tool-call') {
+            if (!part.toolCallId || !part.toolName) return false;
+            knownToolCallIds.add(part.toolCallId);
+          }
+          return true;
+        });
+        if (validParts.length === 0) {
+          // Degenerate array — convert to empty text
+          msg.content = '';
+        } else if (validParts.length !== (msg.content as any[]).length) {
+          msg.content = validParts;
+        }
+      }
+    }
+
+    // Pass 2: drop tool messages referencing unknown toolCallIds
+    return messages.filter((msg) => {
+      if (msg.role !== 'tool') return true;
+      if (!Array.isArray(msg.content) || (msg.content as any[]).length === 0) return false;
+      const toolCallId = (msg.content as any[])[0]?.toolCallId;
+      return typeof toolCallId === 'string' && knownToolCallIds.has(toolCallId);
+    }) as ModelMessage[];
+  }
+
+  /**
+   * Last-resort fallback: keep only user text messages + the current user message (last).
+   * Used when history is too corrupted for ensureValidMessages to fix.
+   */
+  private stripToUserMessages(messages: { role: string; content: unknown }[]): ModelMessage[] {
+    const userMessages = messages.filter(
+      (m) => m.role === 'user' && typeof m.content === 'string',
+    );
+    // Keep at most the last 3 user messages for context
+    return userMessages.slice(-3) as ModelMessage[];
   }
 
   /** Create tool set with PII resolution via closure. */
