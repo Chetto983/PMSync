@@ -219,16 +219,10 @@ export class AiChatService {
       tools,
       toolChoice: 'auto',
       stopWhen: stepCountIs(5),
-      prepareStep: async ({ stepNumber }) => {
-        if (stepNumber > 0) return {};
-        const trimmed = message.trim().toLowerCase();
-        const wordCount = trimmed.split(/\s+/).length;
-        const isMinimalFollowUp =
-          wordCount <= 3 &&
-          trimmed.length <= 30 &&
-          /^(\d+|s[iì]|no|ok|va bene|grazie|thanks|yes|confirm|cancel)$/i.test(trimmed);
-        if (isMinimalFollowUp) return {};
-        return { toolChoice: 'required' as const };
+      prepareStep: async () => {
+        // toolChoice stays 'auto' — Qwen 3.5 Flash calls tools reliably without forcing.
+        // 'required' is not supported by all OpenRouter providers.
+        return {};
       },
       onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
         const stepIndex = completedStepCount++;
