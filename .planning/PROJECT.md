@@ -8,28 +8,27 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v6.0 Enterprise Platform & AI Governance
+## Current Milestone: v7.0 System Audit & Hardening
 
-**Goal:** Harden AI control plane, add CRM domain, workflow automation, enterprise authorization, distributed tracing, and close all audit findings.
+**Goal:** Test every endpoint and feature, clean dead code and inconsistencies, polish UI/UX — before adding any new functionality.
 
 **Target features:**
-- AI control plane: HITL contract unification, tool execution governance, memory repair, prompt/runtime alignment, legacy chat removal
-- Security fixes: BOLA in deleteConversation, CSRF secret fallback, /metrics restriction, pgvector HNSW indexes
-- Auth residue cleanup: remove remaining legacy JWT code paths
-- CRM domain expansion: Accounts, Deals, Activities, Pipelines with AI tool integration
-- Workflow automation engine: user-defined rules with policy-aware execution
-- Authorization/permissions: resource-scoped permissions on better-auth org roles, @RequirePermission decorator, frontend PermissionGate
-- OpenTelemetry distributed tracing: HTTP → Queue → AI → Provider chains
-- MUI Chat CSS migration: Wave 3-4 (Command Palette rebuild, chat layout CSS → MUI sx)
-- UI/UX fixes from March 12 audit: mobile issues, empty states, accessibility
+- Comprehensive API endpoint testing: all 350+ routes across 16 backend modules
+- Frontend feature verification: all 28 protected pages and critical user flows
+- Dead code removal: orphaned renderers, unused exports, stale compatibility shims
+- i18n completeness: no hardcoded strings, full Italian coverage
+- UI/UX polish: empty states, loading states, error states, mobile responsiveness
+- Test coverage expansion: controller tests, service tests, E2E for critical flows
+- Security verification: auth guards, tenant isolation, CSRF, rate limiting on all routes
+- Integration verification: frontend-to-backend contract alignment, WebSocket flows
 
 ## Current State
 
-**Version:** v6.0 in progress
+**Version:** v7.0 in progress
 **Status:** Defining requirements
-**Base:** v5.1 Test Coverage & Polish (completed 2026-03-15)
+**Base:** v6.0 Enterprise Platform & AI Governance (partial, 4/66 requirements completed 2026-03-19)
 
-**Previous:** v5.1 Test Coverage & Polish completed 2026-03-15 (9 phases, 30 plans).
+**Previous:** v6.0 Enterprise Platform & AI Governance (partial — 4/66 reqs, phases 77/86/87/88, archived 2026-03-20).
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
@@ -140,9 +139,9 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- v6.0 requirements - defined during milestone planning -->
+<!-- v7.0 requirements - defined during milestone planning -->
 
-**v6.0 - Enterprise Platform & AI Governance (in progress):**
+**v7.0 - System Audit & Hardening (in progress):**
 - TBD — requirements being defined
 
 ### Out of Scope
@@ -261,4 +260,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | cookieCache compact with 300s maxAge | Reduces DB session lookups; 5-min cache with compact strategy | ✓ Good |
 
 ---
-*Last updated: 2026-03-18 after v6.0 milestone start*
+*Last updated: 2026-03-20 after v7.0 milestone start*
