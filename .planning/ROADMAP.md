@@ -101,7 +101,7 @@
 - [x] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard (completed 2026-03-20)
 - [x] **Phase 90: Email Operations Verification** - Reclosed 2026-03-20 after live Gmail parity, draft, reply/forward, and folder DnD validation
 - [x] **Phase 91: Calendar, Contacts & Reminders Verification** - Reopened for gap closure: RSVP wiring, VIP toggle in detail, i18n fix (completed 2026-03-20)
-- [x] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability (completed 2026-03-20)
+- [x] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability (completed 2026-03-20)
 - [x] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram (completed 2026-03-20)
 - [x] **Phase 94: Infrastructure & Remaining Pages** - Verify WebSocket, health, webhooks, dashboard, tasks, analytics, landing, legal (completed 2026-03-20)
 - [ ] **Phase 95: Dead Code & Cleanup** - Remove dead code, stale shims, unused deps, console.logs, dead routes
@@ -242,11 +242,11 @@ Plans:
   3. Legacy API artifacts removed: PendingAction type, deprecated voltAgentApi alias, multiAgentApi shim, stale HITL methods
   4. Console.log/debug statements removed from production code, unused dependencies removed from both package.json files
   5. Stale contract test assertions updated and any dead routes/controllers discovered during testing are removed
-**Plans**: 3 plans
+**Plans:** 3 plans
 Plans:
-- [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
-- [ ] 94-02-PLAN.md -- Tasks page rebuild (follow-up data, i18n, Playwright test)
-- [ ] 94-03-PLAN.md -- Frontend page verification (dashboard, analytics, landing, legal)
+- [ ] 95-01-PLAN.md -- Legacy API shims, PendingAction types, orphaned renderers, stale test assertions
+- [ ] 95-02-PLAN.md -- Dead file deletion (frontend + backend unused files, VoltAgent cosmetic cleanup)
+- [ ] 95-03-PLAN.md -- Console.log cleanup, unused dependencies, i18n hardcoded strings
 
 ### Phase 96: UI/UX Polish
 **Goal**: Every page has proper empty states, loading skeletons, error feedback, mobile responsiveness, dark mode support, keyboard navigation, and complete Italian translation
@@ -313,7 +313,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 92. AI & Knowledge Base Verification | 3/3 | Complete    | 2026-03-20 |
 | 93. Admin, Subscriptions & Integrations | 4/4 | Complete    | 2026-03-20 |
 | 94. Infrastructure & Remaining Pages | 3/3 | Complete    | 2026-03-20 |
-| 95. Dead Code & Cleanup | 0/? | Not started | - |
+| 95. Dead Code & Cleanup | 0/3 | Not started | - |
 | 96. UI/UX Polish | 0/? | Not started | - |
 | 97. MUI Chat Migration | 0/? | Not started | - |
 | 98. Security Verification | 0/? | Not started | - |
