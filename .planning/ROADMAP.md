@@ -193,7 +193,11 @@ Plans:
   3. Knowledge base operations work: backfill embeddings, list/delete embeddings, semantic search returns relevant results
   4. AI observability endpoints return run history and cost summaries for admin users
   5. AI chat frontend displays streaming responses, tool results render correctly, and HITL approval UI functions in the browser
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 92-01-PLAN.md -- Backend AI non-chat endpoints + knowledge base + observability verification
+- [ ] 92-02-PLAN.md -- Backend AI chat streaming + conversation CRUD verification
+- [ ] 92-03-PLAN.md -- Frontend chat UI browser verification
 
 ### Phase 93: Admin, Subscriptions & Integrations
 **Goal**: Admin operations, settings, billing, compliance, provider connections, and organization management all work correctly
@@ -281,7 +285,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 89. Auth & Onboarding Verification | 3/3 | Complete    | 2026-03-20 |
 | 90. Email Operations Verification | 4/4 | Complete    | 2026-03-20 |
 | 91. Calendar, Contacts & Reminders Verification | 5/5 | Complete    | 2026-03-20 |
-| 92. AI & Knowledge Base Verification | 0/? | Not started | - |
+| 92. AI & Knowledge Base Verification | 0/3 | Planned | - |
 | 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
 | 94. Infrastructure & Remaining Pages | 0/? | Not started | - |
 | 95. Dead Code & Cleanup | 0/? | Not started | - |
