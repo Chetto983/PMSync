@@ -209,7 +209,12 @@ Plans:
   3. Provider management works end-to-end: list, connect Google/Microsoft/IMAP, test connections, delete -- frontend OAuth flows complete successfully
   4. Subscription, compliance, and tenant management APIs all return correct responses (get status, usage, GDPR export/delete, tenant CRUD)
   5. Organization flows work in the frontend: create org, invite members, switch orgs, accept invitations -- and settings pages function for all categories
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 93-01-PLAN.md -- Backend verification: Labels, Providers, Subscription, Compliance tests
+- [ ] 93-02-PLAN.md -- Backend verification: Admin, Tenants, Telegram tests
+- [ ] 93-03-PLAN.md -- Frontend verification: Settings pages + Provider connection flows
+- [ ] 93-04-PLAN.md -- Frontend verification: Admin pages + Organization flows
 
 ### Phase 94: Infrastructure & Remaining Pages
 **Goal**: WebSocket connectivity, health monitoring, webhook processing, and all remaining frontend pages work correctly
@@ -286,7 +291,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 90. Email Operations Verification | 4/4 | Complete    | 2026-03-20 |
 | 91. Calendar, Contacts & Reminders Verification | 5/5 | Complete    | 2026-03-20 |
 | 92. AI & Knowledge Base Verification | 3/3 | Complete    | 2026-03-20 |
-| 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
+| 93. Admin, Subscriptions & Integrations | 0/4 | Planned | - |
 | 94. Infrastructure & Remaining Pages | 0/? | Not started | - |
 | 95. Dead Code & Cleanup | 0/? | Not started | - |
 | 96. UI/UX Polish | 0/? | Not started | - |
