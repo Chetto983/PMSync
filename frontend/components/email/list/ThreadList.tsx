@@ -358,7 +358,7 @@ export function ThreadList({
           onAddLabel={handleBulkLabel}
           isBulkActionPending={isBulkActionPending}
         />
-        <EmptyState variant={emptyVariant} />
+        <EmptyState variant={emptyVariant} onAction={onEmptyAction} />
       </Box>
     );
   }

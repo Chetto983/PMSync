@@ -80,6 +80,7 @@ export default function EmailPage() {
 
   const filters = useEmailFilters();
   const setFilters = useEmailUIStore((s) => s.setFilters);
+  const clearFilters = useEmailUIStore((s) => s.clearFilters);
 
   // ── URL ↔ Filter Sync (anti-pattern #3: filters not in URL) ──
   // On mount: seed store from URL query params
@@ -409,6 +410,15 @@ export default function EmailPage() {
     queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
   }, [filterKey, queryClient]);
 
+  // Empty state CTA (anti-pattern #9 fix)
+  const handleEmptyAction = useCallback(() => {
+    if (filters.search) {
+      clearFilters();
+    } else {
+      handleCompose();
+    }
+  }, [filters.search, clearFilters, handleCompose]);
+
   // Reading pane for 3-panel desktop view
   const readingPane = useMemo(() => {
     if (!selectedThreadId || !isDesktop) return undefined;
@@ -429,11 +439,14 @@ export default function EmailPage() {
           height: '100%',
           overflow: 'auto',
           p: 2,
-          // Fade-in on thread switch
-          animation: 'fadeIn 150ms ease-out',
+          // Fade-in on thread switch (respects reduced-motion)
           '@keyframes fadeIn': {
             from: { opacity: 0 },
             to: { opacity: 1 },
+          },
+          animation: 'fadeIn 150ms ease-out',
+          '@media (prefers-reduced-motion: reduce)': {
+            animation: 'none',
           },
         }}
       >
@@ -504,6 +517,7 @@ export default function EmailPage() {
             onBulkMove={handleBulkMove} onBulkLabel={handleBulkLabel}
             onFlag={handleFlag} onArchive={handleArchive} onDelete={handleDelete}
             isBulkActionPending={isBulkActionPending}
+            onEmptyAction={handleEmptyAction}
           />
         </EmailLayout>
 
