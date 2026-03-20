@@ -267,11 +267,16 @@ export class AiChatService {
         if (stepNumber > 0) return {};
 
         // Step 0: force tool use for substantive requests so the model
-        // gathers real data instead of hallucinating. Skip for short
-        // follow-ups (e.g. "1", "yes", "ok", "grazie") that don't need tools.
-        const trimmed = message.trim();
+        // gathers real data instead of hallucinating. Skip ONLY for
+        // minimal follow-ups (numeric refs, yes/no, confirmations) that
+        // clearly reference prior context and don't need fresh data.
+        const trimmed = message.trim().toLowerCase();
         const wordCount = trimmed.split(/\s+/).length;
-        if (trimmed.length <= 30 && wordCount <= 3) return {};
+        const isMinimalFollowUp =
+          wordCount <= 3 &&
+          trimmed.length <= 30 &&
+          /^(\d+|s[iì]|no|ok|va bene|grazie|thanks|yes|confirm|cancel)$/i.test(trimmed);
+        if (isMinimalFollowUp) return {};
 
         // Use 'required' to force tool call before generating text.
         // Mistral small sometimes fails validation with 'required', so
