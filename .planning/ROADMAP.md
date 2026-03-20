@@ -140,6 +140,9 @@ Plans:
 - Fixed locally: Gmail folder and label counts now derive from provider label membership (`externalId`) instead of only `email.folder`, so Inbox/custom-label totals stay aligned with Gmail semantics
 - Fixed locally: Gmail/custom label list queries now match by label membership as well as canonical folder path, so label views no longer disappear when the primary folder differs from the label
 - Fixed locally: draft save/update now syncs through the provider driver and persists the provider draft id, so editing a draft updates Gmail instead of diverging in the local DB
+- Validated live: `specialUse=INBOX` on production Gmail now returns the same total as the provider Inbox folder, including label-backed messages stored under category folders
+- Validated live: provider-scoped Gmail folder queries used by the sidebar now return matching totals for system labels such as `UPDATES` and `IMPORTANT`
+- Validated live: draft create/update/delete works end-to-end on production Gmail, with a stable provider draft id across updates
 - Fixed: reply recipient resolution now handles display-name senders, reply-to headers, and self-sent messages
 - Fixed: provider-folder reorder no longer collides with email drop targets in the same DnD context
 - Fixed: thread row drag no longer owns the whole row; checkbox and quick actions are isolated from row-open behavior
@@ -151,8 +154,8 @@ Plans:
 - Fixed locally: desktop email shell now shares a single folders query with the sidebar/folder management path, and provider-folder prefetch uses canonical folder values instead of raw ids
 - Fixed locally: folder DnD now wires folder-to-folder reparenting through `useMoveFolder` (pending live Gmail validation)
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
-- Release blocker: Phase 90 is not production-ready until Railway/Vercel live validation confirms Gmail Inbox parity, custom-label counts, and provider-backed draft editing
-- Remaining: thread-route reply/forward UI, folder reparenting, Gmail label counts, and draft editing still need live revalidation on production Gmail flows
+- Residual risk: no custom Gmail labels existed in the audited mailbox, so that branch remains covered by automated tests but not by live production Gmail verification
+- Remaining: thread-route reply/forward UI and folder reparenting still need their own live Gmail revalidation pass
 **Plans:** 4/4 plans complete
 Plans:
 - [x] 90-01-PLAN.md -- Backend API verification (email CRUD, folders, signatures, templates, attachments)

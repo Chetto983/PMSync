@@ -6,18 +6,20 @@
 
 ---
 
-## Current Release Blockers
+## Current Release Status
 
-These items were confirmed after the initial UI audit and currently block production rollout:
+The original production blockers from the Gmail audit were re-tested on the live Railway/Vercel deployment.
 
 1. Gmail folder/list parity drift:
    - Folder and label counts were being recomputed from `email.folder`, which does not reflect Gmail label semantics for Inbox/category mail and custom labels.
    - Local fix applied in [email-folder.service.ts](/d:/MailAgent/backend/src/modules/email/services/email-folder.service.ts), [folder-sync-query.service.ts](/d:/MailAgent/backend/src/modules/email-sync/services/folder-sync-query.service.ts), and [sync.worker.ts](/d:/MailAgent/backend/src/modules/email-sync/workers/sync.worker.ts).
+   - Live validated on 2026-03-20 for the audited mailbox: Inbox parity and provider-scoped system labels now match the live query totals.
 2. Draft edits only updated the local DB:
    - Existing drafts were not being saved back to Gmail/provider, so the frontend could not reliably edit drafts already visible in Gmail.
    - Local fix applied in [email-crud.service.ts](/d:/MailAgent/backend/src/modules/email/services/email-crud.service.ts).
-3. Production status:
-   - Do not ship until Railway/Vercel are redeployed and the authenticated Gmail flow is revalidated live for Inbox counts, custom label counts, and draft editing.
+   - Live validated on 2026-03-20: production draft create/update/delete now succeeds with a stable Gmail draft id across updates.
+3. Residual risk:
+   - The audited mailbox does not contain any custom Gmail labels, so that specific branch is still covered by automated tests rather than live mailbox verification.
 
 ---
 
