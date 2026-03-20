@@ -20,7 +20,7 @@ export interface User {
 export interface UserPreferences {
   id: string;
   userId: string;
-  folderOrders?: Record<string, number> | null;
+  folderOrders?: Record<string, string[]> | null;
   sidebarSmartFiltersExpanded: boolean;
   sidebarLabelsExpanded: boolean;
   theme?: string | null;

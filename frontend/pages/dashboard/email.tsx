@@ -278,7 +278,7 @@ export default function EmailPage() {
     return emails.find((email) => email.id === firstEmailId)?.providerId;
   }, [emails, folderPickerEmailIds]);
 
-  const folderPickerCurrentFolderId = useMemo(() => {
+  const folderPickerCurrentFolderValue = useMemo(() => {
     if (folderPickerEmailIds.length !== 1) return undefined;
     return emails.find((email) => email.id === folderPickerEmailIds[0])?.folder;
   }, [emails, folderPickerEmailIds]);
@@ -431,7 +431,7 @@ export default function EmailPage() {
           onClose={() => { setFolderPickerOpen(false); setFolderPickerEmailIds([]); }}
           emailIds={folderPickerEmailIds}
           providerId={folderPickerProviderId}
-          currentFolderId={folderPickerCurrentFolderId}
+          currentFolderValue={folderPickerCurrentFolderValue}
           onMove={handleMoveEmailsToFolder}
           onSuccess={() => { setFolderPickerOpen(false); setFolderPickerEmailIds([]); setSelectedThreadId(null); }}
         />

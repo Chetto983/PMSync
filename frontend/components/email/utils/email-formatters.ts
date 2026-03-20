@@ -32,6 +32,7 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
     isFlagged: email.isFlagged || email.isStarred,
     hasAttachments: (email.attachments?.length ?? 0) > 0,
     providerId: email.providerId, // Provider ID for drag-and-drop validation
+    folder: email.folder,
     avatarUrl: getAvatarUrl(senderEmail, senderInfo?.photoUrl, isKnownContact), // Contact photo > initials > Gravatar
     // Map emailLabels to the format expected by ThreadListItem
     // Backend returns el.label.id, not el.labelId

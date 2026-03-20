@@ -241,6 +241,12 @@ export function ThreadList({
     return thread?.providerId;
   }, [moveEmailId, threads]);
 
+  const moveEmailCurrentFolderValue = useMemo(() => {
+    if (!moveEmailId) return undefined;
+    const thread = threads.find((t) => t.id === moveEmailId);
+    return thread?.folder;
+  }, [moveEmailId, threads]);
+
   // Note: Drag handlers and DragOverlay are now in EmailLayout's shared DndContext
 
   // CRITICAL FIX: Infinite scroll in useEffect (not during render!)
@@ -453,6 +459,7 @@ export function ThreadList({
         emailIds={moveEmailId ? [moveEmailId] : []}
         onSuccess={handleCloseFolderPicker}
         providerId={moveEmailProviderId}
+        currentFolderValue={moveEmailCurrentFolderValue}
       />
     </Box>
   );

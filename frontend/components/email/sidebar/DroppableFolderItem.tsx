@@ -17,6 +17,8 @@ import { ReactNode } from 'react';
 interface DroppableFolderItemProps {
   folderId: string;
   providerId: string;
+  folderName?: string;
+  targetFolder?: string;
   children: ReactNode;
   disabled?: boolean;
 }
@@ -27,6 +29,8 @@ interface DroppableFolderItemProps {
 export function DroppableFolderItem({
   folderId,
   providerId,
+  folderName,
+  targetFolder,
   children,
   disabled = false,
 }: DroppableFolderItemProps) {
@@ -36,6 +40,8 @@ export function DroppableFolderItem({
       type: 'folder',
       folderId,
       providerId,
+      folderName,
+      targetFolder,
     },
     disabled,
   });

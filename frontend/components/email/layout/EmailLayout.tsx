@@ -35,6 +35,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { FolderSidebar } from '../sidebar/FolderSidebar';
 import { MobileEmailNav } from './MobileEmailNav';
+import { isFolderReorderDropTarget } from '../utils/folder-targets';
 
 // ============================================================================
 // Shared DnD Context for Email Layout
@@ -148,7 +149,10 @@ export function EmailLayout({
           active.data.current.emailIds.every((value) => typeof value === 'string')
             ? active.data.current.emailIds
             : [emailId];
-        const folderId = over.id as string;
+        const targetFolder =
+          over.data.current?.targetFolder ||
+          over.data.current?.folderPath ||
+          (over.id as string);
         const folderName = over.data.current?.folderName || 'folder';
         const emailProviderId = active.data.current?.providerId;
         const folderProviderId = over.data.current?.providerId;
@@ -158,11 +162,11 @@ export function EmailLayout({
           return; // Invalid cross-provider drop
         }
 
-        onEmailDrop(emailIds, folderId, folderName);
+        onEmailDrop(emailIds, targetFolder, folderName);
       }
 
       // Folder reordering (sortable folders within same provider)
-      if (activeType === 'sortable-folder' && overType === 'sortable-folder' && onFolderReorder) {
+      if (isFolderReorderDropTarget(activeType, overType) && onFolderReorder) {
         const activeProviderId = active.data.current?.providerId;
         const overProviderId = over.data.current?.providerId;
 

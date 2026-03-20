@@ -68,6 +68,7 @@ import {
   getFolderDisplayName,
   sortFoldersByOrder,
 } from '../folders';
+import { getFolderTargetValue } from '../utils/folder-targets';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
 
 interface FolderSidebarProps {
@@ -479,6 +480,8 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                   key={folder.id}
                                   folderId={folder.id}
                                   providerId={provider.id}
+                                  folderName={folderName}
+                                  targetFolder={getFolderTargetValue(folder)}
                                 >
                                   <Box
                                     sx={{

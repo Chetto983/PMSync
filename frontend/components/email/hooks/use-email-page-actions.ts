@@ -425,7 +425,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   );
 
   const handleEmailDrop = useCallback(
-    async (emailIds: string[], folderId: string, folderName: string) => {
+    async (emailIds: string[], targetFolder: string, folderName: string) => {
       const draggedEmails = threads.filter((t) => emailIds.includes(t.id));
       if (draggedEmails.length === 0) return;
 
@@ -436,17 +436,17 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       }
 
       const snapshot = captureEmailsState();
-      if (shouldRemoveMovedEmailsFromCurrentView(folderId)) {
+      if (shouldRemoveMovedEmailsFromCurrentView(targetFolder)) {
         optimisticRemoveEmails(emailIds);
       } else {
         optimisticUpdateEmails(emailIds, {
-          folder: folderId,
-          isArchived: folderId.toUpperCase() === 'ARCHIVE',
+          folder: targetFolder,
+          isArchived: targetFolder.toUpperCase() === 'ARCHIVE',
         });
       }
 
       try {
-        await moveEmails.mutateAsync({ emailIds, targetFolder: folderId });
+        await moveEmails.mutateAsync({ emailIds, targetFolder });
         const message =
           emailIds.length === 1
             ? t.emailList.emailMoved.replace('{folder}', folderName)

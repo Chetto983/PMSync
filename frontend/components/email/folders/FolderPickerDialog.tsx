@@ -28,7 +28,10 @@ import {
 import { FolderInput, Search, Check, Folder } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useBulkMoveEmails } from '@/hooks/queries';
+import { useUserPreferences } from '@/hooks/queries/use-settings';
 import type { Folder as IFolder } from '@/lib/api/folders';
+import { getFolderTargetValue, matchesFolderValue } from '../utils/folder-targets';
+import { sortFoldersByOrder } from './folder-utils';
 
 interface FolderPickerDialogProps {
     open: boolean;
@@ -36,8 +39,8 @@ interface FolderPickerDialogProps {
     emailIds: string[];
     onSuccess?: () => void;
     onMove?: (params: { emailIds: string[]; targetFolder: string }) => Promise<void>;
-    /** Current folder ID of the selected emails (optional) */
-    currentFolderId?: string;
+    /** Current persisted folder value of the selected emails (optional) */
+    currentFolderValue?: string;
     /** Provider ID to filter folders - only show folders from this provider */
     providerId?: string;
 }
@@ -48,19 +51,20 @@ export function FolderPickerDialog({
     emailIds,
     onSuccess,
     onMove,
-    currentFolderId,
+    currentFolderValue,
     providerId,
 }: FolderPickerDialogProps) {
     const t = useTranslations();
 
     // Fetch folders
     const { data, isLoading: isLoadingFolders } = useFolders();
+    const { data: preferences } = useUserPreferences();
     const providers = data?.providers || [];
 
     const foldersByProvider = useMemo(() => data?.foldersByProvider || {}, [data]);
 
     // Selected folder to move to
-    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+    const [selectedFolderValue, setSelectedFolderValue] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +74,7 @@ export function FolderPickerDialog({
 
     // Reset state when dialog opens
     const handleEnter = useCallback(() => {
-        setSelectedFolderId(null);
+        setSelectedFolderValue(null);
         setSearch('');
         setError(null);
     }, []);
@@ -108,29 +112,35 @@ export function FolderPickerDialog({
                 return true;
             });
             if (filtered.length > 0) {
-                result[provId] = filtered;
+                const orderIds = preferences?.folderOrders?.[provId];
+                result[provId] = sortFoldersByOrder(filtered, orderIds);
             }
         });
 
         return result;
-    }, [foldersByProvider, search, providerId]);
+    }, [foldersByProvider, preferences?.folderOrders, search, providerId]);
+
+    const visibleProviderIds = useMemo(
+        () => Object.keys(filteredFoldersByProvider),
+        [filteredFoldersByProvider]
+    );
 
     // Handle folder selection
-    const handleSelect = useCallback((folderId: string) => {
-        setSelectedFolderId(folderId);
+    const handleSelect = useCallback((targetFolder: string) => {
+        setSelectedFolderValue(targetFolder);
     }, []);
 
     // Submit move
     const handleSubmit = useCallback(async () => {
-        if (!selectedFolderId) return;
+        if (!selectedFolderValue) return;
 
         try {
             if (onMove) {
-                await onMove({ emailIds, targetFolder: selectedFolderId });
+                await onMove({ emailIds, targetFolder: selectedFolderValue });
             } else {
                 await moveEmails.mutateAsync({
                     emailIds,
-                    targetFolder: selectedFolderId,
+                    targetFolder: selectedFolderValue,
                 });
             }
             onSuccess?.();
@@ -138,7 +148,7 @@ export function FolderPickerDialog({
         } catch {
             setError(t.email?.messages?.moveFailed || 'Failed to move emails');
         }
-    }, [selectedFolderId, emailIds, moveEmails, onMove, onSuccess, onClose, t]);
+    }, [selectedFolderValue, emailIds, moveEmails, onMove, onSuccess, onClose, t]);
 
     const emailCount = emailIds.length;
 
@@ -211,7 +221,7 @@ export function FolderPickerDialog({
                             return (
                                 <React.Fragment key={provider.id}>
                                     {/* Provider Header (if multiple providers) */}
-                                    {providers.length > 1 && (
+                                    {visibleProviderIds.length > 1 && (
                                         <ListItem sx={{ bgcolor: 'action.hover' }}>
                                             <Typography variant="caption" fontWeight="bold">
                                                 {provider.email}
@@ -220,8 +230,9 @@ export function FolderPickerDialog({
                                     )}
 
                                     {providerFolders.map((folder) => {
-                                        const isSelected = selectedFolderId === folder.id;
-                                        const isCurrent = currentFolderId === folder.id;
+                                        const targetFolderValue = getFolderTargetValue(folder);
+                                        const isSelected = selectedFolderValue === targetFolderValue;
+                                        const isCurrent = matchesFolderValue(folder, currentFolderValue);
 
                                         return (
                                             <ListItem
@@ -229,7 +240,7 @@ export function FolderPickerDialog({
                                                 disablePadding
                                             >
                                                 <ListItemButton
-                                                    onClick={() => handleSelect(folder.id)}
+                                                    onClick={() => handleSelect(targetFolderValue)}
                                                     selected={isSelected}
                                                     disabled={isCurrent}
                                                 >
@@ -238,14 +249,14 @@ export function FolderPickerDialog({
                                                     </ListItemIcon>
                                                     <ListItemText
                                                         primary={folder.name}
-                                                        secondary={isCurrent ? '(Current)' : undefined}
+                                                        secondary={isCurrent ? '(Current)' : folder.level > 0 ? folder.path : undefined}
                                                     />
                                                     {isSelected && <Check size={16} />}
                                                 </ListItemButton>
                                             </ListItem>
                                         );
                                     })}
-                                    {providers.length > 1 && <Divider />}
+                                    {visibleProviderIds.length > 1 && <Divider />}
                                 </React.Fragment>
                             );
                         })}
@@ -260,7 +271,7 @@ export function FolderPickerDialog({
                 <Button
                     onClick={handleSubmit}
                     variant="contained"
-                    disabled={isSubmitting || !selectedFolderId}
+                    disabled={isSubmitting || !selectedFolderValue}
                     startIcon={
                         isSubmitting ? (
                             <CircularProgress size={16} />

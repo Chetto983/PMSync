@@ -16,6 +16,11 @@
       "sourceType": "github",
       "computedHash": "645b891da1edbae76ab79c7b088d4e73397464f8396edaf773c0e01971ce75d6"
     },
+    "nestjs-best-practices": {
+      "source": "kadajett/agent-nestjs-skills",
+      "sourceType": "github",
+      "computedHash": "68658903272e1015f3ec5084c7d0988216a47f42f675ed819a675250fc6a23cd"
+    },
     "playwright-skill": {
       "source": "testdino-hq/playwright-skill",
       "sourceType": "github",
@@ -25,6 +30,11 @@
       "source": "assistant-ui/skills",
       "sourceType": "github",
       "computedHash": "aa75be74eb86ee13e370fcd56180d0b95017f1699b569295db93d002fa4e7255"
+    },
+    "prisma-client-api": {
+      "source": "prisma/skills",
+      "sourceType": "github",
+      "computedHash": "a982b2a15dc9d4223be7844f082e6481e1e24df1f379fbcf66b82d5b58e80bec"
     },
     "runtime": {
       "source": "assistant-ui/skills",

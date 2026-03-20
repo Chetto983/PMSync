@@ -69,6 +69,7 @@ export interface ThreadListItemData {
   labels?: { id: string; name: string; color: string }[];
   avatarUrl?: string;
   providerId?: string;
+  folder?: string;
   aiPriority?: number | null;
   aiSentiment?: string | null;
   aiLabels?: string[];
