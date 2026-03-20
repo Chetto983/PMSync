@@ -2,29 +2,15 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: System Audit & Hardening
-status: unknown
-stopped_at: Completed 95-02-PLAN.md
-last_updated: "2026-03-20T22:42:04.592Z"
+status: complete
+stopped_at: Completed 95-03-PLAN.md
+last_updated: "2026-03-21T00:16:00.000Z"
 progress:
   total_phases: 10
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 25
-  completed_plans: 24
-  percent: 92
----
-
----
-gsd_state_version: 1.0
-milestone: v7.0
-milestone_name: System Audit & Hardening
-status: unknown
-stopped_at: Phase 95 UI-SPEC approved
-last_updated: "2026-03-20T22:29:45.218Z"
-progress:
-  [█████████░] 92%
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 22
+  completed_plans: 25
+  percent: 100
 ---
 
 # Project State
@@ -40,14 +26,14 @@ Follow-up note: Gmail/frontend Phase 90 blockers are fully live-validated for th
 
 ## Current Position
 
-Phase: 95 (dead-code-cleanup) — EXECUTING
-Plan: 3 of 3
+Phase: 95 (dead-code-cleanup) — COMPLETE
+Plan: 3 of 3 (all complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 2
+- Total plans completed: 3
 - Average duration: 5.5min
 - Total execution time: 0.18 hours
 
@@ -84,6 +70,7 @@ Plan: 3 of 3
 | Phase 94 P01 | 14min | 2 tasks | 3 files |
 | Phase 95 P01 | 8min | 2 tasks | 11 files |
 | Phase 95 P02 | 10min | 2 tasks | 18 files |
+| Phase 95 P03 | 32min | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -120,6 +107,8 @@ Recent decisions affecting current work:
 - [Phase 94]: Added 401 to accepted webhook status codes for token-protected endpoints on Railway
 - [Phase 95]: Replaced AgentPendingAction refs in websocket.ts with Record<string, unknown> instead of deleting event types
 - [Phase 95]: Task 1 frontend deletions handled by plan 01 (parallel-safe overlap); VoltAgent cosmetic references cleaned except historical Phase 23 reference
+- [Phase 95]: Kept dotenv-cli, @types/multer, @typescript-eslint/eslint-plugin (all actively used despite plan marking them for removal)
+- [Phase 95]: Legal pages (privacy, terms) excluded from i18n; language names kept hardcoded as standard UX pattern
 
 ### Pending Todos
 
@@ -133,6 +122,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-20T22:42:04.586Z
-Stopped at: Completed 95-02-PLAN.md
+Last session: 2026-03-21T00:16:00.000Z
+Stopped at: Completed 95-03-PLAN.md (Phase 95 fully complete)
 Resume file: None
