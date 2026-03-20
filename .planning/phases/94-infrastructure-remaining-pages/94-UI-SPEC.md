@@ -34,8 +34,7 @@ Declared values from existing `frontend/theme/tokens.ts` spacing scale (8px base
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | 1 | 4px | Chip gaps, inline icon padding |
-| 2 | 8px | List item internal padding, compact gaps |
-| 3 | 12px | Between task item elements |
+| 2 | 8px | List item internal padding, compact gaps, between task item elements |
 | 4 | 16px | Card padding, section padding |
 | 6 | 24px | Sidebar section spacing |
 | 8 | 32px | Page-level content padding |
@@ -52,9 +51,11 @@ Existing MUI theme typography from `frontend/theme/typography.ts`. Tasks page us
 |------|------|--------|-------------|-------------|-------|
 | Body | 14px (0.875rem) | 400 | 1.625 | body1 | Follow-up reason text, action items |
 | Label | 13px (0.8125rem) | 400 | 1.625 | body2 | Email subject, sender, due date, meta |
-| Section heading | 14px (0.875rem) | 500 | 1.5 | subtitle2 | Sidebar section titles ("Workspace") |
+| Section heading | 14px (0.875rem) | 600 | 1.5 | subtitle2 | Sidebar section titles ("Workspace") |
 | Page heading | 16px (1rem) | 600 | 1.5 | h6 | "Tasks" page title (if rendered) |
 | Caption | 12px (0.75rem) | 400 | 1.5 | caption | Overdue badge text, count indicators |
+
+Two weights only: 400 (regular) for all body/label/caption roles, 600 (semibold) for all heading roles (section heading and page heading).
 
 Source: `frontend/theme/tokens.ts` fontSize + `frontend/theme/typography.ts`
 
@@ -73,6 +74,8 @@ Existing theme tokens apply. No new colors introduced.
 | Tasks semantic | `#22c55e` | Tasks module icon color (from `pmSyncColors.semantic.tasks`) |
 
 Accent reserved for: selected sidebar filter item background, active state ring on "All Tasks" / "Today" / "Upcoming" buttons. NOT used on task list items, chips, or text.
+
+**Focal point:** The follow-up list in the main content area is the primary visual anchor. The sidebar filters are secondary navigation; the eye should land on the first follow-up item row on page load.
 
 Status chips on follow-up items:
 - PENDING: `warning.main` (`#f59e0b` / `#d97706`)
@@ -101,7 +104,7 @@ All copy uses i18n keys under `t.tasks.*`. Existing keys in `frontend/locales/en
 | Empty state heading | No follow-ups to track | `tasks.emptyTitle` (UPDATE from "No tasks yet") |
 | Empty state body | When emails need follow-up, they will appear here automatically. Use the AI assistant to analyze your inbox. | `tasks.emptyDescription` (UPDATE) |
 | Error state | Failed to load follow-ups. Check your connection and try again. | `tasks.errorLoading` (NEW) |
-| Retry action | Retry | `common.retry` (verify exists, else NEW) |
+| Retry action | Retry Loading | `common.retryLoading` (NEW) |
 | Follow-up type: waiting | Waiting for reply | `tasks.waitingFor` (NEW) |
 | Follow-up type: todo | To do | `tasks.todo` (NEW) |
 | Overdue label | Overdue | `tasks.overdue` (NEW) |
