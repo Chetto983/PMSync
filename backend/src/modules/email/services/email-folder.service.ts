@@ -77,6 +77,14 @@ export interface FolderRecord {
   specialUse: string | null;
 }
 
+const GMAIL_CATEGORY_INBOX_LABELS = [
+  'CATEGORY_PERSONAL',
+  'CATEGORY_SOCIAL',
+  'CATEGORY_PROMOTIONS',
+  'CATEGORY_UPDATES',
+  'CATEGORY_FORUMS',
+] as const;
+
 @Injectable()
 export class EmailFolderService {
   private readonly logger = new Logger(EmailFolderService.name);
@@ -192,7 +200,20 @@ export class EmailFolderService {
       folderPaths.add(specialUseUpper);
 
       folderValues = Array.from(folderPaths);
-      folderFilter = { folder: { in: folderValues, mode: 'insensitive' } };
+      const labelFilters = [{ labels: { has: specialUseUpper } }];
+
+      // Gmail inbox mail can be persisted under category folders (UPDATES, SOCIAL, ...)
+      // while still carrying the INBOX label. Aggregate both representations.
+      if (specialUseUpper === 'INBOX') {
+        labelFilters.push({ labels: { hasSome: [...GMAIL_CATEGORY_INBOX_LABELS] } as any });
+      }
+
+      folderFilter = {
+        OR: [
+          { folder: { in: folderValues, mode: 'insensitive' } },
+          ...labelFilters,
+        ],
+      };
       isTrashView = specialUseUpper === 'TRASH';
     } else if (folder) {
       const folderUpper = folder.toUpperCase();

@@ -199,52 +199,39 @@ export class TelegramWebhookService {
 
   /**
    * Consume a UI message stream and extract all text content.
-   * The data stream protocol sends text chunks as lines starting with `0:`.
+   * AI SDK v6 toUIMessageStream() emits objects or SSE-formatted strings.
+   * Handles both: raw objects with { type: 'text-delta', textDelta } and
+   * SSE strings like `data: {"type":"text-delta","textDelta":"..."}\n\n`.
    */
   private async collectStreamText(stream: ReadableStream): Promise<string> {
     const reader = stream.getReader();
-    const decoder = new TextDecoder();
     let fullText = '';
-    let buffer = '';
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // toUIMessageStream emits string chunks; fall back to TextDecoder for binary
-        buffer += typeof value === 'string'
-          ? value
-          : decoder.decode(value, { stream: true });
+        // Raw object chunks (from toUIMessageStream)
+        if (value && typeof value === 'object' && value.type === 'text-delta') {
+          fullText += value.textDelta ?? '';
+          continue;
+        }
 
-        // Process complete lines
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? ''; // keep incomplete line in buffer
-
-        for (const line of lines) {
-          // Data stream protocol: text chunks are `0:"escaped text"`
-          if (line.startsWith('0:')) {
+        // SSE string chunks (serialized format)
+        if (typeof value === 'string') {
+          for (const line of value.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data:')) continue;
             try {
-              const parsed = JSON.parse(line.slice(2));
-              if (typeof parsed === 'string') {
-                fullText += parsed;
+              const parsed = JSON.parse(trimmed.slice(5).trim());
+              if (parsed.type === 'text-delta' && parsed.textDelta) {
+                fullText += parsed.textDelta;
               }
             } catch {
-              // Skip unparseable chunks
+              // Skip unparseable
             }
           }
-        }
-      }
-
-      // Process remaining buffer
-      if (buffer.startsWith('0:')) {
-        try {
-          const parsed = JSON.parse(buffer.slice(2));
-          if (typeof parsed === 'string') {
-            fullText += parsed;
-          }
-        } catch {
-          // Skip
         }
       }
     } finally {

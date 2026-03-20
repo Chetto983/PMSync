@@ -184,11 +184,15 @@ describe('TelegramWebhookService', () => {
     const chatId = 12345;
     const linkedSettings = { tenantId: 'tenant1', userId: 'user1' };
 
-    function makeReadableStream(text: string): ReadableStream {
-      const encoder = new TextEncoder();
+    /**
+     * Build a ReadableStream matching toUIMessageStream() output.
+     * AI SDK v6 emits raw objects with { type, textDelta, ... }.
+     */
+    function makeUIMessageStream(textContent: string): ReadableStream {
       return new ReadableStream({
         start(controller) {
-          controller.enqueue(encoder.encode(text));
+          controller.enqueue({ type: 'text-delta', textDelta: textContent });
+          controller.enqueue({ type: 'finish', finishReason: 'stop', usage: { inputTokens: 0, outputTokens: 0 } });
           controller.close();
         },
       });
@@ -197,7 +201,7 @@ describe('TelegramWebhookService', () => {
     it('should relay to AI chat and send response back', async () => {
       mockPrisma.telegramSettings.findFirst.mockResolvedValue(linkedSettings);
 
-      const stream = makeReadableStream('0:"Hello "\n0:"world"\n');
+      const stream = makeUIMessageStream('Hello world');
       mockAiChatService.streamChat.mockResolvedValue(stream);
 
       const update = {
@@ -247,8 +251,7 @@ describe('TelegramWebhookService', () => {
 
       // Build a string > 4000 chars with newlines to allow splitting
       const longText = ('A'.repeat(3900) + '\n').repeat(2); // ~7802 chars
-      const escaped = JSON.stringify(longText);
-      const stream = makeReadableStream(`0:${escaped}\n`);
+      const stream = makeUIMessageStream(longText);
       mockAiChatService.streamChat.mockResolvedValue(stream);
 
       const update = {
