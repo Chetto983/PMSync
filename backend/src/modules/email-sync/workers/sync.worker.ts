@@ -363,49 +363,11 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
           ...(shouldUpdateMetadata ? { metadata: mergedMetadata } : {}),
         },
       });
-
-      // 3. Update folder counts atomically using GROUP BY join (2 queries instead of 2N correlated subqueries)
-      // CITUS: tenantId in WHERE clause for shard routing
-
-      // 3a. Update folders that have matching emails (GROUP BY produces counts)
-      await tx.$executeRaw`
-        UPDATE "folders" f
-        SET
-          "totalCount" = COALESCE(c.total, 0),
-          "unreadCount" = COALESCE(c.unread, 0),
-          "updatedAt" = NOW()
-        FROM (
-          SELECT "folder",
-            COUNT(*) FILTER (WHERE "isDeleted" = false) AS total,
-            COUNT(*) FILTER (WHERE "isDeleted" = false AND "isRead" = false) AS unread
-          FROM "emails"
-          WHERE "providerId" = ${providerId}
-            AND "tenantId" = ${tenantId}
-          GROUP BY "folder"
-        ) c
-        WHERE f."tenantId" = ${tenantId}
-          AND f."providerId" = ${providerId}
-          AND f."name" = c."folder"
-      `;
-
-      // 3b. Zero out counts for folders with no emails (not matched by the join above)
-      await tx.$executeRaw`
-        UPDATE "folders" f
-        SET
-          "totalCount" = 0,
-          "unreadCount" = 0,
-          "updatedAt" = NOW()
-        WHERE f."tenantId" = ${tenantId}
-          AND f."providerId" = ${providerId}
-          AND NOT EXISTS (
-            SELECT 1 FROM "emails" e
-            WHERE e."providerId" = f."providerId"
-              AND e."tenantId" = f."tenantId"
-              AND e."folder" = f."name"
-              AND e."isDeleted" = false
-          )
-      `;
     });
+
+    // Refresh folder counters using provider-aware logic.
+    // Gmail counts must be derived from label membership, not only email.folder.
+    await this.folderSyncService.updateAllFolderCounts(providerId);
 
     // Update activity rate outside transaction (non-critical, can be async)
     // This is a "fire and forget" operation that updates Smart Sync priority

@@ -282,6 +282,10 @@ describe('FolderSyncQueryService', () => {
     });
 
     it('should return null when counts unchanged (debounce)', async () => {
+      mockPrismaService.providerConfig.findUnique.mockResolvedValue({
+        id: providerId,
+        providerType: 'imap',
+      });
       mockPrismaService.folder.findUnique.mockResolvedValue({
         id: 'folder-1',
         name: 'INBOX',
@@ -298,6 +302,43 @@ describe('FolderSyncQueryService', () => {
       expect(result).toBeNull();
       expect(mockPrismaService.folder.update).not.toHaveBeenCalled();
     });
+
+    it('should count Gmail folders by label externalId instead of email.folder', async () => {
+      mockPrismaService.providerConfig.findUnique.mockResolvedValue({
+        id: providerId,
+        providerType: 'google',
+      });
+      mockPrismaService.folder.findUnique.mockResolvedValue({
+        id: 'folder-label-1',
+        name: 'Projects',
+        path: 'Projects',
+        tenantId,
+        totalCount: 0,
+        unreadCount: 0,
+        specialUse: null,
+        externalId: 'Label_123',
+      });
+      mockPrismaService.email.count.mockResolvedValueOnce(7).mockResolvedValueOnce(3);
+      mockPrismaService.folder.update.mockResolvedValue({});
+
+      const result = await service.updateFolderCounts(providerId, 'Projects', tenantId);
+
+      expect(result).toEqual({
+        folderId: 'folder-label-1',
+        folderName: 'Projects',
+        totalCount: 7,
+        unreadCount: 3,
+        tenantId,
+      });
+      expect(mockPrismaService.email.count).toHaveBeenNthCalledWith(1, {
+        where: {
+          providerId,
+          tenantId,
+          isDeleted: false,
+          labels: { has: 'Label_123' },
+        },
+      });
+    });
   });
 
   describe('updateAllFolderCounts', () => {
@@ -305,7 +346,7 @@ describe('FolderSyncQueryService', () => {
     const tenantId = 'tenant-1';
 
     it('should update all folders for a provider', async () => {
-      mockPrismaService.providerConfig.findUnique.mockResolvedValue({ id: providerId, tenantId });
+      mockPrismaService.providerConfig.findUnique.mockResolvedValue({ id: providerId, tenantId, providerType: 'imap' });
       mockPrismaService.folder.findMany.mockResolvedValue([
         { id: 'f1', name: 'INBOX', path: 'INBOX', tenantId, totalCount: 0, unreadCount: 0, specialUse: null },
         { id: 'f2', name: 'Sent', path: 'Sent', tenantId, totalCount: 0, unreadCount: 0, specialUse: null },
@@ -324,8 +365,65 @@ describe('FolderSyncQueryService', () => {
       expect(mockRealtimeEvents.emitFolderCountsUpdate).toHaveBeenCalledTimes(2);
     });
 
+    it('should update Gmail label-backed folder counts using labels array', async () => {
+      mockPrismaService.providerConfig.findUnique.mockResolvedValue({
+        id: providerId,
+        tenantId,
+        providerType: 'google',
+      });
+      mockPrismaService.folder.findMany.mockResolvedValue([
+        {
+          id: 'f1',
+          name: 'Projects',
+          path: 'Projects',
+          tenantId,
+          totalCount: 0,
+          unreadCount: 0,
+          specialUse: null,
+          externalId: 'Label_123',
+        },
+        {
+          id: 'f2',
+          name: 'Inbox',
+          path: 'INBOX',
+          tenantId,
+          totalCount: 0,
+          unreadCount: 0,
+          specialUse: 'INBOX',
+          externalId: 'INBOX',
+        },
+      ]);
+      mockPrismaService.email.count
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(40)
+        .mockResolvedValueOnce(9);
+      mockPrismaService.$transaction.mockResolvedValue([]);
+
+      await service.updateAllFolderCounts(providerId);
+
+      expect(mockPrismaService.email.groupBy).not.toHaveBeenCalled();
+      expect(mockPrismaService.email.count).toHaveBeenNthCalledWith(1, {
+        where: {
+          providerId,
+          tenantId,
+          isDeleted: false,
+          labels: { has: 'Label_123' },
+        },
+      });
+      expect(mockPrismaService.email.count).toHaveBeenNthCalledWith(3, {
+        where: {
+          providerId,
+          tenantId,
+          isDeleted: false,
+          labels: { has: 'INBOX' },
+        },
+      });
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
+    });
+
     it('should handle empty folder list gracefully', async () => {
-      mockPrismaService.providerConfig.findUnique.mockResolvedValue({ id: providerId, tenantId });
+      mockPrismaService.providerConfig.findUnique.mockResolvedValue({ id: providerId, tenantId, providerType: 'imap' });
       mockPrismaService.folder.findMany.mockResolvedValue([]);
 
       await service.updateAllFolderCounts(providerId);

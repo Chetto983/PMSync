@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Folder } from '@prisma/client';
+import { Folder, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { PrismaRetryService } from '../../../common/services/prisma-retry.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -180,9 +180,23 @@ export class FolderSyncQueryService {
 
   /** Update folder counts (total and unread) for a single folder. Returns null if not found or unchanged. */
   async updateFolderCounts(providerId: string, folderPath: string, tenantId?: string): Promise<FolderCountResult | null> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+      select: { providerType: true },
+    });
+
     const folder = await this.prisma.folder.findUnique({
       where: { providerId_path: { providerId, path: folderPath } },
-      select: { id: true, name: true, path: true, tenantId: true, totalCount: true, unreadCount: true, specialUse: true },
+      select: {
+        id: true,
+        name: true,
+        path: true,
+        tenantId: true,
+        totalCount: true,
+        unreadCount: true,
+        specialUse: true,
+        externalId: true,
+      },
     });
 
     if (!folder) {
@@ -190,8 +204,12 @@ export class FolderSyncQueryService {
       return null;
     }
 
-    const folderKeys = this.getFolderKeys(folder);
-    const emailWhereBase = { providerId, folder: { in: folderKeys }, ...(tenantId && { tenantId }) };
+    const emailWhereBase = this.buildFolderCountWhere({
+      providerId,
+      providerType: provider?.providerType ?? null,
+      folder,
+      tenantId,
+    });
 
     const totalCount = await this.prisma.email.count({ where: emailWhereBase });
     const unreadCount = await this.prisma.email.count({ where: { ...emailWhereBase, isRead: false } });
@@ -214,7 +232,7 @@ export class FolderSyncQueryService {
 
     const provider = await this.prisma.providerConfig.findUnique({
       where: { id: providerId },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, providerType: true },
     });
 
     if (!provider) {
@@ -224,7 +242,16 @@ export class FolderSyncQueryService {
 
     const folders = await this.prisma.folder.findMany({
       where: { providerId, tenantId: provider.tenantId },
-      select: { id: true, name: true, path: true, tenantId: true, totalCount: true, unreadCount: true, specialUse: true },
+      select: {
+        id: true,
+        name: true,
+        path: true,
+        tenantId: true,
+        totalCount: true,
+        unreadCount: true,
+        specialUse: true,
+        externalId: true,
+      },
     });
 
     if (folders.length === 0) {
@@ -232,30 +259,57 @@ export class FolderSyncQueryService {
       return;
     }
 
-    // Build folder key map for matching
-    const folderKeyMap = new Map<string, typeof folders[0]>();
-    for (const folder of folders) {
-      for (const key of this.getFolderKeys(folder)) {
-        folderKeyMap.set(key.toUpperCase(), folder);
-      }
-    }
-
-    // Get counts via groupBy (2 queries total)
-    const totalCounts = await this.prisma.email.groupBy({ by: ['folder'], where: { providerId }, _count: { id: true } });
-    const unreadCounts = await this.prisma.email.groupBy({ by: ['folder'], where: { providerId, isRead: false }, _count: { id: true } });
-
-    const totalCountMap = new Map(totalCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
-    const unreadCountMap = new Map(unreadCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
-
-    // Aggregate counts per folder
     const folderCounts = new Map<string, { total: number; unread: number }>();
-    for (const folder of folders) {
-      let total = 0, unread = 0;
-      for (const key of this.getFolderKeys(folder)) {
-        total += totalCountMap.get(key.toUpperCase()) || 0;
-        unread += unreadCountMap.get(key.toUpperCase()) || 0;
+
+    if (provider.providerType === 'google') {
+      const folderChunks = chunk(folders, PARALLEL_FOLDER_BATCH_SIZE);
+
+      for (const folderChunk of folderChunks) {
+        const chunkResults = await Promise.all(
+          folderChunk.map(async (folder) => {
+            const baseWhere = this.buildFolderCountWhere({
+              providerId,
+              providerType: provider.providerType,
+              folder,
+              tenantId: provider.tenantId,
+            });
+            const [total, unread] = await Promise.all([
+              this.prisma.email.count({ where: baseWhere }),
+              this.prisma.email.count({ where: { ...baseWhere, isRead: false } }),
+            ]);
+            return { folderId: folder.id, total, unread };
+          }),
+        );
+
+        chunkResults.forEach(({ folderId, total, unread }) => {
+          folderCounts.set(folderId, { total, unread });
+        });
       }
-      folderCounts.set(folder.id, { total, unread });
+    } else {
+      // Get counts via groupBy (2 queries total)
+      const totalCounts = await this.prisma.email.groupBy({
+        by: ['folder'],
+        where: { providerId, tenantId: provider.tenantId },
+        _count: { id: true },
+      });
+      const unreadCounts = await this.prisma.email.groupBy({
+        by: ['folder'],
+        where: { providerId, tenantId: provider.tenantId, isRead: false },
+        _count: { id: true },
+      });
+
+      const totalCountMap = new Map(totalCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
+      const unreadCountMap = new Map(unreadCounts.map((c) => [c.folder.toUpperCase(), c._count.id]));
+
+      for (const folder of folders) {
+        let total = 0;
+        let unread = 0;
+        for (const key of this.getFolderKeys(folder)) {
+          total += totalCountMap.get(key.toUpperCase()) || 0;
+          unread += unreadCountMap.get(key.toUpperCase()) || 0;
+        }
+        folderCounts.set(folder.id, { total, unread });
+      }
     }
 
     // Collect changed folders
@@ -314,6 +368,37 @@ export class FolderSyncQueryService {
     }
     keys.add(folderNameToCanonical(folder.name));
     return Array.from(keys);
+  }
+
+  private buildFolderCountWhere(params: {
+    providerId: string;
+    providerType: string | null;
+    folder: {
+      name: string;
+      path?: string | null;
+      specialUse?: string | null;
+      externalId?: string | null;
+    };
+    tenantId?: string;
+  }): Prisma.EmailWhereInput {
+    const { providerId, providerType, folder, tenantId } = params;
+    const isTrashFolder = folder.specialUse?.toUpperCase() === 'TRASH';
+
+    if (providerType === 'google' && folder.externalId) {
+      return {
+        providerId,
+        ...(tenantId && { tenantId }),
+        ...(isTrashFolder ? {} : { isDeleted: false }),
+        labels: { has: folder.externalId },
+      };
+    }
+
+    return {
+      providerId,
+      ...(tenantId && { tenantId }),
+      ...(isTrashFolder ? {} : { isDeleted: false }),
+      folder: { in: this.getFolderKeys(folder) },
+    };
   }
 
   /** Compare DB vs server folder paths for audit. */

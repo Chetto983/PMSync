@@ -6,6 +6,21 @@
 
 ---
 
+## Current Release Blockers
+
+These items were confirmed after the initial UI audit and currently block production rollout:
+
+1. Gmail folder/list parity drift:
+   - Folder and label counts were being recomputed from `email.folder`, which does not reflect Gmail label semantics for Inbox/category mail and custom labels.
+   - Local fix applied in [email-folder.service.ts](/d:/MailAgent/backend/src/modules/email/services/email-folder.service.ts), [folder-sync-query.service.ts](/d:/MailAgent/backend/src/modules/email-sync/services/folder-sync-query.service.ts), and [sync.worker.ts](/d:/MailAgent/backend/src/modules/email-sync/workers/sync.worker.ts).
+2. Draft edits only updated the local DB:
+   - Existing drafts were not being saved back to Gmail/provider, so the frontend could not reliably edit drafts already visible in Gmail.
+   - Local fix applied in [email-crud.service.ts](/d:/MailAgent/backend/src/modules/email/services/email-crud.service.ts).
+3. Production status:
+   - Do not ship until Railway/Vercel are redeployed and the authenticated Gmail flow is revalidated live for Inbox counts, custom label counts, and draft editing.
+
+---
+
 ## Audit Results: 21/32 passed (66%)
 
 ### PASSED (21)

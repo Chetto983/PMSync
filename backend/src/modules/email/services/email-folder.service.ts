@@ -75,15 +75,8 @@ export interface FolderRecord {
   path: string;
   name: string;
   specialUse: string | null;
+  externalId?: string | null;
 }
-
-const GMAIL_CATEGORY_INBOX_LABELS = [
-  'CATEGORY_PERSONAL',
-  'CATEGORY_SOCIAL',
-  'CATEGORY_PROMOTIONS',
-  'CATEGORY_UPDATES',
-  'CATEGORY_FORUMS',
-] as const;
 
 @Injectable()
 export class EmailFolderService {
@@ -130,7 +123,7 @@ export class EmailFolderService {
           tenantId,
           ...(providerId && { providerId }),
         },
-        select: { path: true, name: true, specialUse: true },
+        select: { path: true, name: true, specialUse: true, externalId: true },
       });
 
       // Cache for 5 minutes
@@ -182,6 +175,14 @@ export class EmailFolderService {
 
     // PERFORMANCE: Single cached query replaces 3-4 sequential DB queries
     const folderMap = await this.getCachedFolderMap(tenantId, providerId);
+    const providerType = providerId
+      ? (
+          await this.prisma.providerConfig.findUnique({
+            where: { id: providerId },
+            select: { providerType: true },
+          })
+        )?.providerType ?? null
+      : null;
 
     let folderFilter: Prisma.EmailWhereInput | undefined;
     let folderValues: string[] = [];
@@ -200,13 +201,13 @@ export class EmailFolderService {
       folderPaths.add(specialUseUpper);
 
       folderValues = Array.from(folderPaths);
-      const labelFilters: Prisma.EmailWhereInput[] = [{ labels: { has: specialUseUpper } }];
-
-      // Gmail inbox mail can be persisted under category folders (UPDATES, SOCIAL, ...)
-      // while still carrying the INBOX label. Aggregate both representations.
-      if (specialUseUpper === 'INBOX') {
-        labelFilters.push({ labels: { hasSome: [...GMAIL_CATEGORY_INBOX_LABELS] } as any });
-      }
+      const labelToken =
+        providerType === 'google' && folderRecord?.externalId
+          ? folderRecord.externalId
+          : specialUseUpper;
+      const labelFilters: Prisma.EmailWhereInput[] = labelToken
+        ? [{ labels: { has: labelToken } }]
+        : [];
 
       folderFilter = {
         OR: [
@@ -219,6 +220,10 @@ export class EmailFolderService {
       const folderUpper = folder.toUpperCase();
       const isCanonicalFolder = isSystemFolder(folderUpper as CanonicalFolderType);
       const folderRecord = folderMap.get(folderUpper);
+      const googleLabelFilter =
+        providerType === 'google' && folderRecord?.externalId
+          ? { labels: { has: folderRecord.externalId } as Prisma.StringNullableListFilter }
+          : null;
 
       if (isCanonicalFolder) {
         if (folderRecord) {
@@ -227,7 +232,14 @@ export class EmailFolderService {
           if (folderRecord.name) folderPaths.add(folderRecord.name);
           folderPaths.add(folderUpper);
           folderValues = Array.from(folderPaths);
-          folderFilter = { folder: { in: folderValues, mode: 'insensitive' } };
+          folderFilter = googleLabelFilter
+            ? {
+                OR: [
+                  { folder: { in: folderValues, mode: 'insensitive' } },
+                  googleLabelFilter,
+                ],
+              }
+            : { folder: { in: folderValues, mode: 'insensitive' } };
         } else {
           folderValues = [folderUpper];
           folderFilter = { folder: { equals: folderUpper, mode: 'insensitive' } };
@@ -243,12 +255,24 @@ export class EmailFolderService {
           if (folderRecord.name) folderPaths.add(folderRecord.name);
           folderPaths.add(folder);
           folderValues = Array.from(folderPaths);
-          folderFilter = {
-            folder: {
-              in: folderValues,
-              mode: 'insensitive',
-            },
-          };
+          folderFilter = googleLabelFilter
+            ? {
+                OR: [
+                  {
+                    folder: {
+                      in: folderValues,
+                      mode: 'insensitive',
+                    },
+                  },
+                  googleLabelFilter,
+                ],
+              }
+            : {
+                folder: {
+                  in: folderValues,
+                  mode: 'insensitive',
+                },
+              };
         }
         isTrashView = folderRecord?.specialUse?.toUpperCase() === 'TRASH';
       }
@@ -447,6 +471,14 @@ export class EmailFolderService {
         return;
       }
 
+      const providerType =
+        (
+          await this.prisma.providerConfig.findUnique({
+            where: { id: providerId },
+            select: { providerType: true },
+          })
+        )?.providerType ?? null;
+
       const folderRecords = await this.prisma.folder.findMany({
         where: {
           providerId,
@@ -456,7 +488,7 @@ export class EmailFolderService {
             { specialUse: { in: uniqueFolders, mode: 'insensitive' } },
           ],
         },
-        select: { id: true, path: true, name: true, specialUse: true },
+        select: { id: true, path: true, name: true, specialUse: true, externalId: true },
       });
 
       const folderMap = new Map<string, (typeof folderRecords)[number]>();
@@ -464,6 +496,52 @@ export class EmailFolderService {
         if (folderRecord.path) folderMap.set(folderRecord.path.toUpperCase(), folderRecord);
         if (folderRecord.name) folderMap.set(folderRecord.name.toUpperCase(), folderRecord);
         if (folderRecord.specialUse) folderMap.set(folderRecord.specialUse.toUpperCase(), folderRecord);
+      }
+
+      if (providerType === 'google') {
+        const results = await Promise.all(
+          uniqueFolders.map(async (folder) => {
+            const folderKey = folder.toUpperCase();
+            const folderRecord = folderMap.get(folderKey);
+            const labelToken = folderRecord?.externalId;
+            const isTrash =
+              folderRecord?.specialUse?.toUpperCase() === 'TRASH' || folderKey === 'TRASH';
+
+            const baseWhere: Prisma.EmailWhereInput = {
+              tenantId,
+              providerId,
+              ...(labelToken
+                ? { labels: { has: labelToken } }
+                : { folder: { equals: folder, mode: 'insensitive' } }),
+              ...(!isTrash ? { isDeleted: false } : {}),
+            };
+
+            const [totalCount, unreadCount] = await Promise.all([
+              this.prisma.email.count({ where: baseWhere }),
+              this.prisma.email.count({
+                where: {
+                  ...baseWhere,
+                  isRead: false,
+                },
+              }),
+            ]);
+
+            return { folder, folderRecord, totalCount, unreadCount };
+          }),
+        );
+
+        const timestamp = new Date().toISOString();
+        for (const { folder, folderRecord, totalCount, unreadCount } of results) {
+          this.realtimeEvents.emitFolderCountsUpdate(tenantId, {
+            providerId,
+            folderId: folderRecord?.id || folder,
+            folderName: folderRecord?.name || folder,
+            totalCount,
+            unreadCount,
+            timestamp,
+          });
+        }
+        return;
       }
 
       // OPTIMIZATION: 2 groupBy queries instead of 2N individual COUNT queries

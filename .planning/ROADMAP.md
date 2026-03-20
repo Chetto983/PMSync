@@ -99,7 +99,7 @@
 **Milestone Goal:** Test every endpoint and feature, clean dead code and inconsistencies, polish UI/UX -- verify everything works before adding new functionality.
 
 - [x] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard (completed 2026-03-20)
-- [x] **Phase 90: Email Operations Verification** - Verify all email CRUD, folders, signatures, templates, attachments, compose, labels (completed 2026-03-20)
+- [ ] **Phase 90: Email Operations Verification** - Reopened 2026-03-20 for Gmail parity blockers (label counts, sync parity, provider draft editing)
 - [ ] **Phase 91: Calendar, Contacts & Reminders Verification** - Verify calendar events, contacts management, reminders, invites
 - [ ] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability
 - [ ] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram
@@ -137,6 +137,9 @@ Plans:
   5. Labels sidebar renders with create/edit/delete/reorder, drag-drop assigns labels to emails, and signatures/templates CRUD all work via API
 **Current audit status (2026-03-20):**
 - Fixed: Gmail Inbox aggregation now includes label-backed inbox mail (category-backed messages no longer disappear from Inbox queries)
+- Fixed locally: Gmail folder and label counts now derive from provider label membership (`externalId`) instead of only `email.folder`, so Inbox/custom-label totals stay aligned with Gmail semantics
+- Fixed locally: Gmail/custom label list queries now match by label membership as well as canonical folder path, so label views no longer disappear when the primary folder differs from the label
+- Fixed locally: draft save/update now syncs through the provider driver and persists the provider draft id, so editing a draft updates Gmail instead of diverging in the local DB
 - Fixed: reply recipient resolution now handles display-name senders, reply-to headers, and self-sent messages
 - Fixed: provider-folder reorder no longer collides with email drop targets in the same DnD context
 - Fixed: thread row drag no longer owns the whole row; checkbox and quick actions are isolated from row-open behavior
@@ -148,7 +151,8 @@ Plans:
 - Fixed locally: desktop email shell now shares a single folders query with the sidebar/folder management path, and provider-folder prefetch uses canonical folder values instead of raw ids
 - Fixed locally: folder DnD now wires folder-to-folder reparenting through `useMoveFolder` (pending live Gmail validation)
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
-- Remaining: thread-route reply/forward UI and folder reparenting still need live revalidation on production Gmail flows
+- Release blocker: Phase 90 is not production-ready until Railway/Vercel live validation confirms Gmail Inbox parity, custom-label counts, and provider-backed draft editing
+- Remaining: thread-route reply/forward UI, folder reparenting, Gmail label counts, and draft editing still need live revalidation on production Gmail flows
 **Plans:** 4/4 plans complete
 Plans:
 - [x] 90-01-PLAN.md -- Backend API verification (email CRUD, folders, signatures, templates, attachments)

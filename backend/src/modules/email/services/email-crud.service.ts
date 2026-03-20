@@ -11,13 +11,18 @@
  */
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProviderConfig } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { CryptoService } from '../../../common/services/crypto.service';
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { StorageService } from './storage.service';
 import { EmailFolderService, EmailListFilters } from './email-folder.service';
+import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
+import { EmailDriverFactory } from '../../email-sync/drivers/driver.factory';
+import type { DriverCredentials } from '../../email-sync/drivers/interfaces/email-driver.interface';
+import type { ComposeMessage } from '../../email-sync/drivers/interfaces/canonical.types';
 
 export interface EmailListParams {
   tenantId: string;
@@ -39,6 +44,9 @@ export class EmailCrudService {
     private realtimeEvents: RealtimeEventsService,
     private storageService: StorageService,
     private folderService: EmailFolderService,
+    private providerTokenService: ProviderTokenService,
+    private driverFactory: EmailDriverFactory,
+    private crypto: CryptoService,
   ) {}
 
   /**
@@ -522,16 +530,43 @@ export class EmailCrudService {
         isActive: true,
         supportsEmail: true,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        email: true,
+        providerType: true,
+        imapHost: true,
+        imapPort: true,
+        imapUseTls: true,
+        smtpHost: true,
+        smtpPort: true,
+        smtpUseTls: true,
+        smtpPassword: true,
+        smtpEncryptionIv: true,
+        imapPassword: true,
+        imapEncryptionIv: true,
+      },
     });
 
     if (!provider) {
       throw new NotFoundException('Provider not found or not active for this tenant');
     }
 
+    const currentDraft = dto.id
+      ? await this.prisma.email.findFirst({
+          where: { id: dto.id, tenantId, isDraft: true },
+          select: { id: true, externalId: true },
+        })
+      : null;
+
+    if (dto.id && !currentDraft) {
+      throw new NotFoundException('Draft not found');
+    }
+
+    const providerDraftId = await this.saveDraftToProvider(tenantId, provider, dto, currentDraft?.externalId, currentDraft?.id);
     const draftAttachments = dto.attachments ?? [];
     const draftsFolder = await this.folderService.getDraftsFolderPath(provider.id);
-    const draftExternalId = dto.id ?? `draft-${randomUUID()}`;
+    const draftExternalId =
+      providerDraftId || currentDraft?.externalId || dto.id || `draft-${randomUUID()}`;
     const createData: Prisma.EmailUncheckedCreateInput = {
       id: dto.id ?? undefined,
       tenantId,
@@ -698,6 +733,147 @@ export class EmailCrudService {
     if (operations.length > 0) {
       await this.emailSyncBack.syncOperationsBatch(operations);
     }
+  }
+
+  private async saveDraftToProvider(
+    tenantId: string,
+    provider: Pick<
+      ProviderConfig,
+      | 'id'
+      | 'email'
+      | 'providerType'
+      | 'imapHost'
+      | 'imapPort'
+      | 'imapUseTls'
+      | 'smtpHost'
+      | 'smtpPort'
+      | 'smtpUseTls'
+      | 'smtpPassword'
+      | 'smtpEncryptionIv'
+      | 'imapPassword'
+      | 'imapEncryptionIv'
+    >,
+    dto: {
+      id?: string;
+      threadId?: string;
+      inReplyTo?: string;
+      references?: string;
+      to?: string[];
+      cc?: string[];
+      bcc?: string[];
+      subject?: string;
+      bodyHtml?: string;
+      bodyText?: string;
+      attachments?: {
+        filename: string;
+        contentType: string;
+        size?: number;
+        contentBase64?: string;
+      }[];
+    },
+    existingExternalId?: string | null,
+    existingDraftId?: string,
+  ): Promise<string | null> {
+    const providerType = provider.providerType === 'generic' ? 'imap' : provider.providerType;
+    let driver: Awaited<ReturnType<EmailDriverFactory['createConnectedDriver']>> | null = null;
+
+    try {
+      const accessToken =
+        providerType === 'imap'
+          ? this.getSmtpPassword(provider)
+          : (await this.providerTokenService.getProviderWithToken(provider.id, tenantId)).accessToken;
+
+      const credentials: DriverCredentials =
+        providerType === 'imap'
+          ? {
+              type: 'basic',
+              username: provider.email,
+              password: accessToken,
+              imapHost: provider.imapHost || undefined,
+              imapPort: provider.imapPort || undefined,
+              imapTls: provider.imapUseTls ?? true,
+              smtpHost: provider.smtpHost || undefined,
+              smtpPort: provider.smtpPort || undefined,
+              smtpTls: provider.smtpUseTls ?? true,
+            }
+          : {
+              type: 'oauth2',
+              accessToken,
+              emailHint: provider.email,
+            };
+
+      driver = await this.driverFactory.createConnectedDriver(
+        providerType as 'google' | 'microsoft' | 'imap',
+        credentials,
+      );
+
+      const composeMessage: ComposeMessage = {
+        to: (dto.to ?? []).map((email) => ({ email })),
+        cc: dto.cc?.map((email) => ({ email })),
+        bcc: dto.bcc?.map((email) => ({ email })),
+        subject: dto.subject ?? '',
+        bodyHtml: dto.bodyHtml ?? '',
+        bodyText: dto.bodyText ?? '',
+        threadId: dto.threadId,
+        inReplyTo: dto.inReplyTo,
+        references: dto.references,
+        attachments: dto.attachments?.map((attachment, index) => ({
+          id: `draft-att-${index}`,
+          filename: attachment.filename,
+          mimeType: attachment.contentType,
+          size: attachment.size ?? 0,
+          isInline: false,
+          content: this.normalizeDraftAttachmentContent(attachment.contentBase64),
+        })),
+      };
+
+      const reusableExternalId =
+        existingExternalId &&
+        existingExternalId !== existingDraftId &&
+        !existingExternalId.startsWith('draft-')
+          ? existingExternalId
+          : undefined;
+
+      return await driver.saveDraft(composeMessage, reusableExternalId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to sync draft to provider ${provider.id}: ${message}`);
+      throw new BadRequestException(`Failed to sync draft to provider: ${message}`);
+    } finally {
+      if (driver) {
+        try {
+          await driver.disconnect();
+        } catch (error) {
+          this.logger.warn(
+            `Failed to disconnect draft driver for ${provider.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+    }
+  }
+
+  private normalizeDraftAttachmentContent(contentBase64?: string): string {
+    if (!contentBase64) return '';
+    return contentBase64.includes(',') ? contentBase64.split(',')[1] || '' : contentBase64;
+  }
+
+  private getSmtpPassword(
+    provider: Pick<
+      ProviderConfig,
+      'id' | 'smtpPassword' | 'smtpEncryptionIv' | 'imapPassword' | 'imapEncryptionIv'
+    >,
+  ): string {
+    if (provider.smtpPassword && provider.smtpEncryptionIv) {
+      return this.crypto.decrypt(provider.smtpPassword, provider.smtpEncryptionIv);
+    }
+    if (provider.imapPassword && provider.imapEncryptionIv) {
+      return this.crypto.decrypt(provider.imapPassword, provider.imapEncryptionIv);
+    }
+    throw new BadRequestException(
+      `SMTP password not configured for provider ${provider.id}. Please update provider settings.`,
+    );
   }
 
   /**

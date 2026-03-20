@@ -5,6 +5,9 @@ describe('EmailFolderService', () => {
     folder: {
       findMany: jest.fn(),
     },
+    providerConfig: {
+      findUnique: jest.fn(),
+    },
   };
 
   const mockCache = {
@@ -34,7 +37,7 @@ describe('EmailFolderService', () => {
     );
   });
 
-  it('aggregates Gmail inbox messages by folder and labels', async () => {
+  it('aggregates inbox messages by folder and INBOX label', async () => {
     const result = await service.buildEmailWhere({
       tenantId: 'tenant-1',
       specialUse: 'INBOX',
@@ -49,17 +52,35 @@ describe('EmailFolderService', () => {
             OR: [
               { folder: { in: ['INBOX', 'Inbox'], mode: 'insensitive' } },
               { labels: { has: 'INBOX' } },
-              {
-                labels: {
-                  hasSome: [
-                    'CATEGORY_PERSONAL',
-                    'CATEGORY_SOCIAL',
-                    'CATEGORY_PROMOTIONS',
-                    'CATEGORY_UPDATES',
-                    'CATEGORY_FORUMS',
-                  ],
-                },
-              },
+            ],
+          },
+        ],
+      }),
+    );
+  });
+
+  it('queries Gmail custom label folders by external label id', async () => {
+    mockPrisma.folder.findMany.mockResolvedValue([
+      { path: 'Projects', name: 'Projects', specialUse: null, externalId: 'Label_123' },
+    ]);
+    mockPrisma.providerConfig.findUnique.mockResolvedValue({ providerType: 'google' });
+
+    const result = await service.buildEmailWhere({
+      tenantId: 'tenant-1',
+      providerId: 'provider-1',
+      folder: 'Projects',
+    });
+
+    expect(result.where).toEqual(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        providerId: 'provider-1',
+        isDeleted: false,
+        AND: [
+          {
+            OR: [
+              { folder: { in: ['Projects'], mode: 'insensitive' } },
+              { labels: { has: 'Label_123' } },
             ],
           },
         ],

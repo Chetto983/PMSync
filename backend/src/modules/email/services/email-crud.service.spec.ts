@@ -6,6 +6,9 @@ import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { StorageService } from './storage.service';
 import { EmailFolderService } from './email-folder.service';
+import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
+import { EmailDriverFactory } from '../../email-sync/drivers/driver.factory';
+import { CryptoService } from '../../../common/services/crypto.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
 const mockPrismaService = {
@@ -47,6 +50,23 @@ const mockStorageService = {
   deleteObjects: jest.fn().mockResolvedValue({ deleted: 0, failed: 0 }),
 };
 
+const mockDriver = {
+  saveDraft: jest.fn().mockResolvedValue('gmail-draft-1'),
+  disconnect: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockProviderTokenService = {
+  getProviderWithToken: jest.fn().mockResolvedValue({ accessToken: 'oauth-token' }),
+};
+
+const mockEmailDriverFactory = {
+  createConnectedDriver: jest.fn().mockResolvedValue(mockDriver),
+};
+
+const mockCryptoService = {
+  decrypt: jest.fn().mockReturnValue('smtp-password'),
+};
+
 const mockEmailFolderService = {
   buildEmailWhere: jest.fn().mockResolvedValue({ where: { tenantId: 'tenant-1', isDeleted: false }, fromVip: false }),
   updateFolderCounts: jest.fn().mockResolvedValue(undefined),
@@ -70,6 +90,9 @@ describe('EmailCrudService', () => {
         { provide: RealtimeEventsService, useValue: mockRealtimeEventsService },
         { provide: StorageService, useValue: mockStorageService },
         { provide: EmailFolderService, useValue: mockEmailFolderService },
+        { provide: ProviderTokenService, useValue: mockProviderTokenService },
+        { provide: EmailDriverFactory, useValue: mockEmailDriverFactory },
+        { provide: CryptoService, useValue: mockCryptoService },
       ],
     }).compile();
 
@@ -443,17 +466,33 @@ describe('EmailCrudService', () => {
   });
 
   describe('saveDraft', () => {
-    const mockProvider = { id: 'provider-1' };
+    const mockProvider = {
+      id: 'provider-1',
+      email: 'user@example.com',
+      providerType: 'google',
+      imapHost: null,
+      imapPort: null,
+      imapUseTls: null,
+      smtpHost: null,
+      smtpPort: null,
+      smtpUseTls: null,
+      smtpPassword: null,
+      smtpEncryptionIv: null,
+      imapPassword: null,
+      imapEncryptionIv: null,
+    };
     const mockDraft = {
       id: 'draft-1',
       tenantId: 'tenant-1',
       providerId: 'provider-1',
       subject: 'Draft Subject',
       isDraft: true,
+      externalId: 'gmail-draft-1',
     };
 
     beforeEach(() => {
       prisma.providerConfig.findFirst.mockResolvedValue(mockProvider);
+      mockDriver.saveDraft.mockResolvedValue('gmail-draft-1');
     });
 
     it('should create new draft', async () => {
@@ -466,18 +505,29 @@ describe('EmailCrudService', () => {
       });
 
       expect(result).toEqual(mockDraft);
+      expect(mockEmailDriverFactory.createConnectedDriver).toHaveBeenCalled();
+      expect(mockDriver.saveDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: 'Draft Subject',
+          to: [{ email: 'recipient@example.com' }],
+        }),
+        undefined,
+      );
       expect(prisma.email.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenantId: 'tenant-1',
           isDraft: true,
           folder: 'DRAFTS',
+          externalId: 'gmail-draft-1',
         }),
       });
     });
 
     it('should update existing draft', async () => {
       prisma.email.updateMany.mockResolvedValue({ count: 1 });
-      prisma.email.findFirst.mockResolvedValue(mockDraft);
+      prisma.email.findFirst
+        .mockResolvedValueOnce({ id: 'draft-1', externalId: 'gmail-draft-1' })
+        .mockResolvedValueOnce(mockDraft);
 
       const result = await service.saveDraft('tenant-1', {
         id: 'draft-1',
@@ -486,6 +536,12 @@ describe('EmailCrudService', () => {
       });
 
       expect(result).toEqual(mockDraft);
+      expect(mockDriver.saveDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: 'Updated Draft',
+        }),
+        'gmail-draft-1',
+      );
       expect(prisma.email.updateMany).toHaveBeenCalledWith({
         where: { id: 'draft-1', tenantId: 'tenant-1', isDraft: true },
         data: expect.any(Object),
@@ -493,7 +549,7 @@ describe('EmailCrudService', () => {
     });
 
     it('should throw NotFoundException when updating nonexistent draft', async () => {
-      prisma.email.updateMany.mockResolvedValue({ count: 0 });
+      prisma.email.findFirst.mockResolvedValue(null);
 
       await expect(service.saveDraft('tenant-1', {
         id: 'nonexistent',
