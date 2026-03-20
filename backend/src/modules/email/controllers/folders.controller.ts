@@ -172,6 +172,39 @@ export class FoldersController {
     private readonly prisma: PrismaService,
   ) {}
 
+  private async findCreatedFolderFallback(
+    tenantId: string,
+    providerId: string,
+    folderName: string,
+    requestedAt: Date,
+    parentPath?: string,
+  ): Promise<FolderResponseDto | null> {
+    const trimmedName = folderName.trim();
+    const expectedPath = parentPath?.trim()
+      ? `${parentPath.trim().replace(/[\\/]+$/, '')}/${trimmedName}`
+      : trimmedName;
+
+    const createdFolder = await this.prisma.folder.findFirst({
+      where: {
+        tenantId,
+        providerId,
+        updatedAt: { gte: requestedAt },
+        OR: [
+          { path: expectedPath },
+          { name: trimmedName },
+        ],
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        path: true,
+        name: true,
+      },
+    });
+
+    return createdFolder ?? null;
+  }
+
   /**
    * Get canonical folder type metadata
    * Returns folder type definitions and localized name mappings
@@ -567,6 +600,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
   ): Promise<FolderResponseDto | { jobId: string; status: string }> {
     const tenantId = req.user.tenantId;
     const shouldWait = wait !== 'false'; // Default to waiting
+    const requestedAt = new Date(Date.now() - 5000);
 
     // Verify provider belongs to tenant
     const provider = await this.prisma.providerConfig.findFirst({
@@ -605,6 +639,18 @@ Frontend can use this to avoid duplicating folder type logic.`,
       const result = await this.folderQueue.waitForJob(jobId, 30000);
 
       if (!result) {
+        const createdFolder = await this.findCreatedFolderFallback(
+          tenantId,
+          dto.providerId,
+          dto.name,
+          requestedAt,
+          dto.parentPath,
+        );
+
+        if (createdFolder) {
+          return createdFolder;
+        }
+
         throw new BadRequestException('Failed to create folder: job not found');
       }
 
