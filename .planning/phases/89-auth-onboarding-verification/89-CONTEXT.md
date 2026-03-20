@@ -27,7 +27,7 @@ Requirements: BAPI-01, BAPI-24, FE-01, FE-02
 
 ### Test environment
 - Run against Railway deployment (not local dev)
-- Base URL via `PLAYWRIGHT_BASE_URL` env var
+- Base URL via `E2E_BASE_URL` env var
 - Fresh user registration per test run (e.g., test+timestamp@pmsync.local) — no pre-seeded test users
 - Email-dependent flows (verify-email, password-reset): test that API returns 200 and page shows correct message, don't verify actual email delivery
 
