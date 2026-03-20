@@ -14,6 +14,7 @@ test.describe('Auth Reset Password', () => {
 
   test('shows error when no token provided', async ({ page }) => {
     await page.goto('/auth/reset-password', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     // Submit the form without a token -- the page shows password fields but submit
     // triggers "Missing reset token" error
@@ -36,6 +37,7 @@ test.describe('Auth Reset Password', () => {
     await page.goto('/auth/reset-password?token=invalid-token-abc', {
       waitUntil: 'domcontentloaded',
     });
+    await page.waitForLoadState('networkidle');
 
     const passwordInputs = page.locator('input[type="password"]');
     await passwordInputs.first().fill('NewPassword123!');
