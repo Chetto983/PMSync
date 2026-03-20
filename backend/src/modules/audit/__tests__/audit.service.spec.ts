@@ -118,7 +118,7 @@ describe('AuditService', () => {
           tenantId: 'tenant-1',
           userId: 'user-1',
           action: 'AI_TOOL:get_email_content',
-          entity: 'VoltAgent',
+          entity: 'AiChat',
           entityId: 'PMSync',
           changes: {
             inputSummary: 'emailId',

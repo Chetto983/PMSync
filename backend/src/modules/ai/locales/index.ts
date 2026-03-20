@@ -1,7 +1,7 @@
 /**
- * VoltAgent Locales
+ * AI Locales
  *
- * Centralized localization for VoltAgent.
+ * Centralized localization for AI module.
  * To add a new language:
  * 1. Create a new file (e.g., de.ts for German)
  * 2. Copy en.ts as template
@@ -25,7 +25,7 @@ export type {
   ErrorTranslations,
   RouterPatternsTranslations,
   RolePatternsTranslations,
-  VoltAgentTranslations,
+  AiTranslations,
 } from './types';
 
 import type {
@@ -37,13 +37,13 @@ import type {
   ErrorTranslations,
   RouterPatternsTranslations,
   RolePatternsTranslations,
-  VoltAgentTranslations,
+  AiTranslations,
 } from './types';
 
 /**
  * All available locales
  */
-export const locales: Record<SupportedLocale, VoltAgentTranslations> = {
+export const locales: Record<SupportedLocale, AiTranslations> = {
   en,
   it,
 };
@@ -61,7 +61,7 @@ export function getLocale(language?: string): SupportedLocale {
 /**
  * Get translations for a specific locale
  */
-export function getTranslations(locale: SupportedLocale): VoltAgentTranslations {
+export function getTranslations(locale: SupportedLocale): AiTranslations {
   return locales[locale] || locales.en;
 }
 

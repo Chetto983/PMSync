@@ -30,13 +30,13 @@ export enum CacheNamespace {
   WEB_SEARCH_AGENT = 'websearch:agent',
   /** Web search results cache */
   WEB_SEARCH_RESULT = 'websearch:result',
-  /** Email content cache for VoltAgent insights tools (tenant-scoped) */
+  /** Email content cache for AI chat insights tools (tenant-scoped) */
   EMAIL_CONTENT = 'email:content',
-  /** Calendar event metadata cache for VoltAgent tools (tenant-scoped) */
+  /** Calendar event metadata cache for AI chat tools (tenant-scoped) */
   CALENDAR_EVENT = 'calendar:event',
-  /** Contact metadata cache for VoltAgent tools (tenant-scoped) */
+  /** Contact metadata cache for AI chat tools (tenant-scoped) */
   CONTACT_METADATA = 'contact:meta',
-  /** Folder metadata cache for VoltAgent tools (tenant-scoped) */
+  /** Folder metadata cache for AI chat tools (tenant-scoped) */
   FOLDER_METADATA = 'folder:meta',
   /** Upcoming deadlines cache (tenant:userId scoped) */
   DEADLINE_UPCOMING = 'deadline:upcoming',

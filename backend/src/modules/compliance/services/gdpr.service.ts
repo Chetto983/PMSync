@@ -8,7 +8,7 @@ import {
   GdprStatusDto,
   PendingActionDto,
 } from '../dto/gdpr-status.dto';
-// Phase 23: MistralAgentCleanupService removed (Mistral agents no longer used after VoltAgent removal)
+// Phase 23: MistralAgentCleanupService removed (Mistral agents no longer used)
 
 /**
  * Result of a GDPR data purge operation
@@ -177,7 +177,7 @@ export class GdprService {
     this.logger.log(`[GDPR] Starting external data purge for tenant ${tenantId}`);
     const errors: string[] = [];
 
-    // Phase 23: Mistral agent cleanup removed (agents no longer used after VoltAgent removal).
+    // Phase 23: Mistral agent cleanup removed (agents no longer used).
     // MistralAgent records in DB will be cascade-deleted with the tenant.
 
     // Add more external service cleanups here as needed

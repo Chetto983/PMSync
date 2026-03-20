@@ -296,7 +296,7 @@ export class UsageTrackingService {
   }
 
   // ==========================================================================
-  // Convenience Methods (P10: VoltAgent Integration)
+  // Convenience Methods
   // ==========================================================================
 
   /**

@@ -1,11 +1,11 @@
 /**
- * English (US) translations for VoltAgent
+ * English (US) translations for AI module
  *
  * To add a new language, copy this file and translate all strings.
  */
-import type { VoltAgentTranslations } from './types';
+import type { AiTranslations } from './types';
 
-export const en: VoltAgentTranslations = {
+export const en: AiTranslations = {
   tools: {
     email: {
       sent: (to, subject) => `Email sent to ${to} with subject "${subject}"`,

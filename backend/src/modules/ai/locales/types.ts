@@ -1,8 +1,8 @@
 /**
- * VoltAgent Translation Type Definitions
+ * AI Translation Type Definitions
  *
  * Extracted from index.ts to break circular dependency:
- *   index.ts -> en.ts -> index.ts (via VoltAgentTranslations type import)
+ *   index.ts -> en.ts -> index.ts (via AiTranslations type import)
  *
  * This file has ZERO imports -- pure type definitions only.
  */
@@ -489,9 +489,9 @@ export interface RolePatternsTranslations {
 }
 
 /**
- * Complete translation structure for VoltAgent
+ * Complete AI translation structure
  */
-export interface VoltAgentTranslations {
+export interface AiTranslations {
   tools: ToolTranslations;
   actions: ActionSummaryTranslations;
   observability: ObservabilityTranslations;

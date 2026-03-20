@@ -108,7 +108,7 @@ export class AuditService {
           tenantId: data.tenantId,
           userId: data.userId ?? null,
           action: `AI_TOOL:${data.toolName}`,
-          entity: 'VoltAgent',
+          entity: 'AiChat',
           entityId: data.agentName,
           changes: {
             inputSummary: truncatedInput,

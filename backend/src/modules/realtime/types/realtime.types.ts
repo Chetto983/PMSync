@@ -103,7 +103,7 @@ export interface AiSessionEventPayload {
 }
 
 /**
- * AI Agent types available in VoltAgent
+ * AI Agent types
  */
 export type AiAgentType =
   | 'supervisor'

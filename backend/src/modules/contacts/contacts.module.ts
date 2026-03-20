@@ -41,7 +41,7 @@ import { ContactsProviderEventHandlerService } from './services/provider-event-h
     ProvidersModule, // Phase 32: Direct import (circular broken -- ProvidersModule no longer imports ContactsModule)
     RealtimeModule, // WebSocket events
     EmailSyncModule, // Phase 32: Direct import for SyncAuthService (no circular -- EmailSyncModule doesn't import ContactsModule)
-    // VoltAgentModule deleted. CRM Relationship Intelligence rebuilt as RelationshipScoreService (Phase 26).
+    // AI agent module refactored; CRM Relationship Intelligence rebuilt as RelationshipScoreService (Phase 26).
     AiModule, // Phase 32: Direct import for ContactEmbeddingQueueService (no circular -- AiModule doesn't import ContactsModule)
     // ToolRegistryModule is @Global() -- no import needed
   ],
