@@ -120,7 +120,10 @@
   2. User profile operations work end-to-end: get/update profile, upload/delete avatar, update preferences, clear AI memory
   3. Auth pages render correctly in the browser and form submissions produce expected results (success redirects, error messages)
   4. Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent) without getting stuck or skipping required steps
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 89-01-PLAN.md -- Auth flow E2E tests (login, register, forgot-password, reset-password, verify-email, 2FA)
+- [ ] 89-02-PLAN.md -- Profile API tests + onboarding wizard rewrite
 
 ### Phase 90: Email Operations Verification
 **Goal**: Users can perform the complete email workflow -- list, read, compose, reply, forward, organize with folders and labels, manage signatures and templates
@@ -240,7 +243,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 89. Auth & Onboarding Verification | 0/? | Not started | - |
+| 89. Auth & Onboarding Verification | 0/2 | Planning | - |
 | 90. Email Operations Verification | 0/? | Not started | - |
 | 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
