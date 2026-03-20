@@ -11,6 +11,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { TelegramBotService } from './telegram-bot.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { AiChatService } from '../../ai-chat/services/ai-chat.service';
+import { ConversationService } from '../../ai-chat/services/conversation.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 interface TelegramUpdate {
@@ -43,6 +44,7 @@ export class TelegramWebhookService {
     private readonly telegramBot: TelegramBotService,
     private readonly cache: CacheService,
     private readonly aiChatService: AiChatService,
+    private readonly conversationService: ConversationService,
   ) {}
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
@@ -130,6 +132,12 @@ export class TelegramWebhookService {
       return;
     }
 
+    // Handle /clear — reset AI chat conversation
+    if (text === '/clear') {
+      await this.handleClearConversation(chatId);
+      return;
+    }
+
     // Ignore other slash commands
     if (text.startsWith('/')) return;
 
@@ -139,14 +147,13 @@ export class TelegramWebhookService {
 
   /**
    * Relay a Telegram message to the AI chat and send the response back.
-   * Looks up user by chatId, calls AiChatService.streamChat(), collects
-   * the full text response, and sends it as a Telegram message.
+   * Maintains persistent conversation history via aiConversationId on TelegramSettings.
    */
   private async handleChatRelay(chatId: string, text: string): Promise<void> {
-    // Look up linked user by chatId
+    // Look up linked user by chatId (include conversation ID for history)
     const settings = await this.prisma.telegramSettings.findFirst({
       where: { telegramChatId: chatId, isActive: true },
-      select: { tenantId: true, userId: true },
+      select: { id: true, tenantId: true, userId: true, aiConversationId: true },
     });
 
     if (!settings) {
@@ -161,15 +168,22 @@ export class TelegramWebhookService {
     await this.telegramBot.sendChatAction(chatId, 'typing');
 
     try {
-      // Run inside CorrelationContext so Prisma tenant-scoping middleware
-      // can resolve tenantId from AsyncLocalStorage (same pattern as workers/cron).
       const responseText = await CorrelationContext.run(
         { tenantId: settings.tenantId, userId: settings.userId },
         async () => {
+          // Ensure a persistent conversation exists for this Telegram chat
+          const conversationId = await this.ensureConversation(
+            settings.id,
+            settings.aiConversationId,
+            settings.tenantId,
+            settings.userId,
+          );
+
           const stream = await this.aiChatService.streamChat({
             tenantId: settings.tenantId,
             userId: settings.userId,
             message: text,
+            conversationId,
           });
           return this.collectStreamText(stream);
         },
@@ -195,6 +209,71 @@ export class TelegramWebhookService {
         'Si è verificato un errore. Riprova tra qualche istante.',
       );
     }
+  }
+
+  /**
+   * Ensure a persistent AiConversation exists for this Telegram chat.
+   * Creates one on first message and stores the ID in TelegramSettings.
+   */
+  private async ensureConversation(
+    settingsId: string,
+    existingConversationId: string | null,
+    tenantId: string,
+    userId: string,
+  ): Promise<string> {
+    if (existingConversationId) {
+      // Verify conversation still exists (may have been deleted from web UI)
+      const exists = await this.prisma.aiConversation.findFirst({
+        where: { id: existingConversationId, tenantId, userId },
+        select: { id: true },
+      });
+      if (exists) return existingConversationId;
+    }
+
+    // Create a new conversation via ConversationService
+    const conversation = await this.conversationService.getOrCreateConversation(
+      undefined,
+      tenantId,
+      userId,
+    );
+
+    // Persist the conversation ID on TelegramSettings
+    await this.prisma.telegramSettings.update({
+      where: { id: settingsId },
+      data: { aiConversationId: conversation.id },
+    });
+
+    this.logger.log(`Created Telegram conversation: ${conversation.id} for settings ${settingsId}`);
+    return conversation.id;
+  }
+
+  /**
+   * Handle /clear — reset the Telegram AI chat conversation.
+   * Detaches the current conversation so next message starts fresh.
+   */
+  private async handleClearConversation(chatId: string): Promise<void> {
+    const settings = await this.prisma.telegramSettings.findFirst({
+      where: { telegramChatId: chatId, isActive: true },
+      select: { id: true, aiConversationId: true },
+    });
+
+    if (!settings) {
+      await this.telegramBot.sendMessage(
+        chatId,
+        'Account non collegato. Vai su PMSync > Impostazioni > Telegram per collegare il tuo account.',
+      );
+      return;
+    }
+
+    if (settings.aiConversationId) {
+      await this.prisma.telegramSettings.update({
+        where: { id: settings.id },
+        data: { aiConversationId: null },
+      });
+    }
+
+    await this.telegramBot.sendMessage(chatId, 'Conversazione cancellata. Il prossimo messaggio inizierà una nuova chat.');
+    this.logger.log(`Telegram conversation cleared for settings ${settings.id}`);
   }
 
   /**

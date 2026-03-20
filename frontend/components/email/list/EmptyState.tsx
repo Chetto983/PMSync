@@ -8,7 +8,7 @@
  * Following MUI theme tokens for consistent styling
  */
 
-import { Box, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import { Inbox, Folder, SearchX, Crown } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -21,6 +21,8 @@ interface EmptyStateProps {
   title?: string;
   /** Optional custom description (overrides default) */
   description?: string;
+  /** Primary action callback (e.g. "Clear search", "Compose email") */
+  onAction?: () => void;
 }
 
 /**
@@ -31,7 +33,7 @@ interface EmptyStateProps {
  * - folder: "This folder is empty"
  * - search: "No results found"
  */
-export function EmptyState({ variant = 'inbox', title, description }: EmptyStateProps) {
+export function EmptyState({ variant = 'inbox', title, description, onAction }: EmptyStateProps) {
   const t = useTranslations();
 
   // Icon mapping for each variant
@@ -57,9 +59,17 @@ export function EmptyState({ variant = 'inbox', title, description }: EmptyState
     vip: t.email.empty.vipSubtitle,
   };
 
+  const defaultActions: Record<EmptyStateVariant, string | undefined> = {
+    inbox: t.emailList.emptyInboxAction,
+    folder: t.emailList.emptyFolderAction,
+    search: t.emailList.emptySearchAction,
+    vip: undefined,
+  };
+
   const Icon = icons[variant];
   const displayTitle = title || defaultTitles[variant];
   const displayDescription = description || defaultDescriptions[variant];
+  const actionLabel = onAction ? defaultActions[variant] : undefined;
 
   return (
     <Box
@@ -106,6 +116,18 @@ export function EmptyState({ variant = 'inbox', title, description }: EmptyState
       >
         {displayDescription}
       </Typography>
+
+      {/* Actionable CTA — anti-pattern #9 fix */}
+      {actionLabel && onAction && (
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={onAction}
+          sx={{ mt: 2.5 }}
+        >
+          {actionLabel}
+        </Button>
+      )}
     </Box>
   );
 }

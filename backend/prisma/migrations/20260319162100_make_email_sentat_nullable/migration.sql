@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "Email" ALTER COLUMN "sentAt" DROP NOT NULL;
+ALTER TABLE "emails" ALTER COLUMN "sentAt" DROP NOT NULL;

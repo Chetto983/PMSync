@@ -3519,6 +3519,9 @@ export const it: AppTranslations = {
     emptyFolderDesc: 'Nessuna email in questa cartella',
     emptySearch: 'Nessun risultato trovato',
     emptySearchDesc: 'Prova con termini di ricerca diversi',
+    emptySearchAction: 'Cancella ricerca',
+    emptyInboxAction: 'Scrivi email',
+    emptyFolderAction: 'Vai alla posta in arrivo',
     // List item
     flagged: 'Contrassegnato',
     unflagged: 'Non contrassegnato',

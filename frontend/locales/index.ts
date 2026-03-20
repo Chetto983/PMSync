@@ -3374,6 +3374,9 @@ export interface AppTranslations {
     emptyFolderDesc: string;
     emptySearch: string;
     emptySearchDesc: string;
+    emptySearchAction: string;
+    emptyInboxAction: string;
+    emptyFolderAction: string;
     // List item
     flagged: string;
     unflagged: string;

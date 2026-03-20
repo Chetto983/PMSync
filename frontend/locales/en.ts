@@ -3542,6 +3542,9 @@ export const en: AppTranslations = {
     emptyFolderDesc: 'No emails in this folder',
     emptySearch: 'No results found',
     emptySearchDesc: 'Try different search terms',
+    emptySearchAction: 'Clear search',
+    emptyInboxAction: 'Compose email',
+    emptyFolderAction: 'Go to Inbox',
     // List item
     flagged: 'Flagged',
     unflagged: 'Not flagged',

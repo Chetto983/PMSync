@@ -33,11 +33,16 @@ import { EmptyState, EmptyStateVariant } from './EmptyState';
 import { ThreadListSkeleton } from './ThreadListSkeleton';
 import { FolderPickerDialog } from '../folders/FolderPickerDialog';
 
+// Module-level scroll cache — survives remounts (mobile nav back)
+const scrollCache = new Map<string, number>();
+
 interface ThreadListProps {
   /** Email threads to display */
   threads: ThreadListItemData[];
   /** Total email count from API pagination (not just loaded count) */
   totalCount?: number;
+  /** Key for scroll position cache (e.g. folder+search hash) */
+  scrollKey?: string;
   /** Loading state */
   isLoading?: boolean;
   /** Loading more (pagination) */
@@ -62,6 +67,8 @@ interface ThreadListProps {
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
   isBulkActionPending?: boolean;
+  /** CTA callback for empty state (e.g. clear search, compose) */
+  onEmptyAction?: () => void;
 }
 
 /**
@@ -73,6 +80,7 @@ interface ThreadListProps {
 export function ThreadList({
   threads,
   totalCount,
+  scrollKey,
   isLoading = false,
   isLoadingMore = false,
   hasMore = false,
@@ -91,6 +99,7 @@ export function ThreadList({
   onArchive,
   onDelete,
   isBulkActionPending = false,
+  onEmptyAction,
 }: ThreadListProps) {
   const t = useTranslations();
   const theme = useTheme();
@@ -142,6 +151,22 @@ export function ThreadList({
     estimateSize: () => 56, // Compact 2-line layout (~52-72px actual)
     overscan: 10, // Production standard: 10 items above/below viewport
   });
+
+  // Scroll position restore on mount (anti-pattern #4 fix)
+  useEffect(() => {
+    if (!scrollKey || !parentRef.current) return;
+    const saved = scrollCache.get(scrollKey);
+    if (saved) parentRef.current.scrollTop = saved;
+  }, [scrollKey]);
+
+  // Scroll position save on unmount
+  useEffect(() => {
+    const el = parentRef.current;
+    const key = scrollKey;
+    return () => {
+      if (key && el) scrollCache.set(key, el.scrollTop);
+    };
+  }, [scrollKey]);
 
   // Selection helpers
   const allSelected = threads.length > 0 && selectedIds.size === threads.length;

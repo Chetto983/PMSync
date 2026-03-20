@@ -21,11 +21,15 @@ import {
   Tooltip,
 } from '@mui/material';
 import { formatDistanceToNow, addHours, startOfTomorrow, nextMonday } from 'date-fns';
+import { it as itLocale } from 'date-fns/locale';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { Clock, Bell, BellOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function FollowUpWidget() {
   const t = useTranslations();
+  const { locale } = useLocale();
+  const dl = locale === 'it' ? { locale: itLocale } : undefined;
   const router = useRouter();
   const { data, isLoading, error, refetch } = useFollowUps({ limit: 5 });
   const snoozeMutation = useSnoozeFollowUp();

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
@@ -32,7 +32,7 @@ import {
 } from '@/hooks/queries';
 import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
-import { useEmailFilters } from '@/stores/email-ui-store';
+import { useEmailFilters, useEmailUIStore } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
 import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
@@ -79,6 +79,55 @@ export default function EmailPage() {
   }, [router.isReady, router.query.id, isDesktop, router]);
 
   const filters = useEmailFilters();
+  const setFilters = useEmailUIStore((s) => s.setFilters);
+
+  // ── URL ↔ Filter Sync (anti-pattern #3: filters not in URL) ──
+  // On mount: seed store from URL query params
+  const urlSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!router.isReady || urlSyncedRef.current) return;
+    urlSyncedRef.current = true;
+
+    const q = router.query;
+    const patch: Record<string, string | boolean | undefined> = {};
+    if (typeof q.folder === 'string') patch.specialUse = q.folder;
+    if (typeof q.providerId === 'string') patch.providerId = q.providerId;
+    if (typeof q.folderId === 'string') patch.folderId = q.folderId;
+    if (typeof q.search === 'string') patch.search = q.search;
+    if (typeof q.labelId === 'string') patch.labelId = q.labelId;
+    if (q.unread === 'true') patch.isRead = false;
+    if (q.vip === 'true') patch.fromVip = true;
+
+    if (Object.keys(patch).length > 0) {
+      setFilters(patch);
+    }
+  }, [router.isReady, router.query, setFilters]);
+
+  // On filter change: push to URL (shallow, no refetch)
+  const prevFilterKeyRef = useRef('');
+  useEffect(() => {
+    if (!router.isReady || !urlSyncedRef.current) return;
+
+    const params: Record<string, string> = {};
+    if (filters.specialUse && filters.specialUse !== 'INBOX') params.folder = filters.specialUse;
+    if (filters.providerId) params.providerId = filters.providerId;
+    if (filters.folderId) params.folderId = filters.folderId;
+    if (filters.search) params.search = filters.search;
+    if (filters.labelId) params.labelId = filters.labelId;
+    if (filters.isRead === false) params.unread = 'true';
+    if (filters.fromVip) params.vip = 'true';
+
+    const key = JSON.stringify(params);
+    if (key === prevFilterKeyRef.current) return;
+    prevFilterKeyRef.current = key;
+
+    void router.replace(
+      { pathname: '/dashboard/email', query: params },
+      undefined,
+      { shallow: true },
+    );
+  }, [router, filters]);
+
   const foldersQuery = useFolders();
   const { data: foldersData } = foldersQuery;
 
@@ -445,6 +494,7 @@ export default function EmailPage() {
           <ThreadList
             threads={threads}
             totalCount={totalEmailCount}
+            scrollKey={filterKey}
             emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
             isLoading={loading} isLoadingMore={loadingMore} hasMore={hasMore}
             focusedId={focusedId}

@@ -6,12 +6,16 @@
 
 import { useDeadlines } from '@/hooks/queries/use-dashboard';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { BaseWidget } from './BaseWidget';
 import { Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
+import { it as itLocale } from 'date-fns/locale';
 
 export function DeadlinesWidget() {
     const t = useTranslations();
+    const { locale } = useLocale();
+    const dl = locale === 'it' ? { locale: itLocale } : undefined;
     const { data, isLoading, error, refetch } = useDeadlines({ limit: 5 });
 
     return (
@@ -34,7 +38,7 @@ export function DeadlinesWidget() {
                         <ListItem key={deadline.id} disablePadding sx={{ mb: 1 }}>
                             <ListItemText
                                 primary={deadline.title}
-                                secondary={formatDistanceToNow(new Date(deadline.dueDate), { addSuffix: true })}
+                                secondary={formatDistanceToNow(new Date(deadline.dueDate), { addSuffix: true, ...dl })}
                                 slotProps={{
                                     primary: {
                                         variant: 'body2',

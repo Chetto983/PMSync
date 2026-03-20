@@ -1181,9 +1181,10 @@ model AiConversation {
   metadata  Json?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
-  messages  AiMessage[]
-  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages          AiMessage[]
+  telegramSettings  TelegramSettings[]
+  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId, updatedAt(sort: Desc)])
   @@index([tenantId, updatedAt(sort: Desc)])
@@ -1653,19 +1654,23 @@ model TelegramSettings {
   tenantId         String
   userId           String   @unique
 
-  telegramChatId   String?
-  isActive         Boolean  @default(false)
+  telegramChatId     String?
+  isActive           Boolean  @default(false)
+
+  // AI chat conversation ID (persists chat history across Telegram messages)
+  aiConversationId   String?
 
   // Notification slot times (HH:mm format)
-  slotMattina      String   @default("08:30")
-  slotPomeriggio   String   @default("14:00")
-  slotSera         String   @default("18:00")
+  slotMattina        String   @default("08:30")
+  slotPomeriggio     String   @default("14:00")
+  slotSera           String   @default("18:00")
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relations
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiConversation     AiConversation? @relation(fields: [aiConversationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@map("telegram_settings")

@@ -83,6 +83,12 @@ export function TrendChartsWidget() {
                   fontSize: 12,
                 }}
                 labelStyle={{ color: theme.palette.text.primary, fontWeight: 600 }}
+                formatter={(value: number, name: string) => [
+                  value,
+                  name === 'received'
+                    ? t.dashboard.widgets.trendCharts.received
+                    : t.dashboard.widgets.trendCharts.sent,
+                ]}
               />
               <Legend
                 wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
