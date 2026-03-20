@@ -212,6 +212,12 @@ export class AiChatService {
       ),
     });
 
+    // Sanitize message sequence for model compatibility:
+    // 1. Drop orphaned tool messages (no preceding assistant with tool_calls)
+    // 2. Merge consecutive same-role user messages
+    // 3. Ensure sequence starts with user (not tool/assistant fragment)
+    this.sanitizeMessages(messages);
+
     // 7. Audit log (fire-and-forget)
     this.auditService
       .logAudit(
@@ -478,6 +484,43 @@ export class AiChatService {
     }
 
     return serialized as Prisma.InputJsonValue;
+  }
+
+  /**
+   * Sanitize message array in-place for model compatibility.
+   * Fixes issues from corrupted conversation history (failed AI responses).
+   */
+  private sanitizeMessages(messages: { role: string; content: unknown }[]): void {
+    // 1. Drop leading tool/assistant messages (orphaned from truncated history)
+    while (
+      messages.length > 0 &&
+      (messages[0].role === 'tool' || messages[0].role === 'assistant')
+    ) {
+      messages.shift();
+    }
+
+    // 2. Drop orphaned tool messages (not preceded by assistant)
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'tool') {
+        if (i === 0 || messages[i - 1].role !== 'assistant') {
+          messages.splice(i, 1);
+        }
+      }
+    }
+
+    // 3. Merge consecutive user messages
+    for (let i = messages.length - 1; i > 0; i--) {
+      if (
+        messages[i].role === 'user' &&
+        messages[i - 1].role === 'user' &&
+        typeof messages[i].content === 'string' &&
+        typeof messages[i - 1].content === 'string'
+      ) {
+        messages[i - 1].content =
+          (messages[i - 1].content as string) + '\n' + (messages[i].content as string);
+        messages.splice(i, 1);
+      }
+    }
   }
 
   /** Create tool set with PII resolution via closure. */
