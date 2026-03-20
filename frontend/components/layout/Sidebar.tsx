@@ -25,7 +25,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 const DRAWER_WIDTH_EXPANDED = 240;
@@ -148,8 +147,6 @@ export function Sidebar({
             arrow
           >
             <ListItemButton
-              component={Link}
-              href={item.href}
               selected={isActive(item.href)}
               sx={{
                 mb: 0.5,
@@ -157,6 +154,7 @@ export function Sidebar({
                 px: collapsed ? 1.5 : 2,
               }}
               onClick={() => {
+                router.push(item.href);
                 if (isMobile && onClose) {
                   onClose();
                 }
