@@ -84,8 +84,8 @@ function removeFromEmailLists(queryClient: QueryClient, ids: Set<string>) {
 export function emailsListOptions(params?: ListEmailsParams) {
   return queryOptions({
     queryKey: emailKeys.listFiltered(params),
-    queryFn: async () => {
-      return await emailsApi.listEmails(params);
+    queryFn: async ({ signal }) => {
+      return await emailsApi.listEmails(params, { signal });
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes

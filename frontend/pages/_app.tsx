@@ -26,10 +26,10 @@ import '@/src/components/chat/chat-layout.css';
 import '@/src/components/chat/chat-sidebar.css';
 import '@/src/components/chat/chat-thread.css';
 import '@assistant-ui/react-markdown/styles/dot.css';
-import '@fontsource/roboto/300.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
+import '@fontsource/inter/300.css';
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/700.css';
 
 /**
  * Material UI Theme Wrapper

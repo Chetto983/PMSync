@@ -333,8 +333,8 @@ export const emailsApi = {
   // List & Get
   // -------------------------------------------------------------------------
 
-  async listEmails(params: ListEmailsParams = {}): Promise<ListEmailsResponse> {
-    const response = await apiClient.get('/emails', { params });
+  async listEmails(params: ListEmailsParams = {}, options?: { signal?: AbortSignal }): Promise<ListEmailsResponse> {
+    const response = await apiClient.get('/emails', { params, signal: options?.signal });
     return response.data;
   },
 
