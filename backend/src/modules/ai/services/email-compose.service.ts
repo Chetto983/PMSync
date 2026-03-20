@@ -64,7 +64,7 @@ export class EmailComposeService {
       prompt: string; to?: string[]; subject?: string; tone?: string; locale?: string;
       threadContext?: Array<{ subject?: string; body?: string }>; senderName?: string; signature?: string;
     },
-    userId?: string,
+    _userId?: string,
   ) {
     const lang = this.analysis.resolveLocale(payload.locale);
     const toneKey = this.resolveTone(payload.tone);
