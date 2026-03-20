@@ -15,7 +15,6 @@ import { AnalysisRenderer } from './AnalysisToolUI';
 import { MemoryRenderer, MemorySearchRenderer } from './MemoryToolUI';
 import { BriefingRenderer } from './BriefingToolUI';
 import { CrmRenderer } from './CrmToolUI';
-import { TriageRenderer } from './TriageToolUI';
 import { AskUserRenderer, SaveMemoryRenderer } from './ConversationToolUI';
 import { CreateReminderRenderer, ListRemindersRenderer } from './ReminderToolUI';
 
@@ -37,7 +36,6 @@ export const TOOL_RENDERERS = {
   memory_search: MemorySearchRenderer,
   get_daily_briefing: BriefingRenderer,
   get_relationship_stats: CrmRenderer,
-  bulk_email_actions: TriageRenderer,
   ask_user: AskUserRenderer,
   save_memory: SaveMemoryRenderer,
   create_reminder: CreateReminderRenderer,

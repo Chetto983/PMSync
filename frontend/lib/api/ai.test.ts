@@ -4,7 +4,7 @@
  * Tests for both aiApi (email insights) and aiChatApi (AI chat)
  */
 
-import { aiApi, aiChatApi, multiAgentApi } from './ai';
+import { aiApi, aiChatApi } from './ai';
 import { apiClient, getCsrfToken } from '../api-client';
 import { TextDecoder } from 'util';
 
@@ -311,84 +311,8 @@ describe('aiChatApi (AI Chat)', () => {
     });
   });
 
-  /*
-  describe('getPendingActions', () => {
-    it('should call correct endpoint', async () => {
-      const mockResponse = {
-        data: {
-          actions: [
-            {
-              id: 'action-1',
-              executionId: 'exec-1',
-              actionType: 'SEND_EMAIL',
-              severity: 'MEDIUM',
-              summary: 'Send email',
-              payload: {},
-              suspendReason: 'Requires approval',
-              suspendedAt: '2025-01-01T00:00:00Z',
-              userId: 'user-123',
-              agentName: 'EmailAgent',
-            },
-          ],
-          total: 1,
-        },
-      };
-      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
-
-      const result = await aiChatApi.getPendingActions();
-
-      expect(apiClient.get).toHaveBeenCalledWith('/ai/chat/pending-actions');
-      expect(result.data.total).toBe(1);
-    });
-  });
-
-  // getPendingAction test removed — endpoint removed
-
-  describe('approveAction', () => {
-    it('should call correct endpoint', async () => {
-      const mockResponse = { data: { status: 'approved' } };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
-
-      const result = await aiChatApi.approveAction('exec-1');
-
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
-        actionId: 'exec-1',
-        decision: 'approve',
-      });
-      expect(result.data.status).toBe('approved');
-    });
-  });
-
-  describe('rejectAction', () => {
-    it('should call correct endpoint with reason', async () => {
-      const mockResponse = { data: { status: 'rejected' } };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
-
-      await aiChatApi.rejectAction('exec-1', 'Not needed');
-
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
-        actionId: 'exec-1',
-        decision: 'reject',
-        rejectionReason: 'Not needed',
-      });
-    });
-
-    it('should work without rejection reason', async () => {
-      const mockResponse = { data: { status: 'rejected' } };
-      (apiClient.post as jest.Mock).mockResolvedValue(mockResponse);
-
-      await aiChatApi.rejectAction('exec-1');
-
-      expect(apiClient.post).toHaveBeenCalledWith('/ai/chat/approve', {
-        actionId: 'exec-1',
-        decision: 'reject',
-      });
-    });
-  });
-
-  */
-  // getActionCounts, resetLearning, getLearningStats, getAggregateStats, getFeedback
-  // tests removed — endpoints removed from aiChatApi
+  // Legacy HITL tests (getPendingActions, approveAction, rejectAction) removed:
+  // poll-based approval endpoints were replaced by SDK-native inline approvals.
 
   describe('getWritingStyle', () => {
     it('should call correct endpoint', async () => {
@@ -617,82 +541,3 @@ describe('aiChatApi (AI Chat)', () => {
   });
 });
 
-describe('multiAgentApi (Backwards Compatibility)', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetCsrfToken.mockResolvedValue('csrf-token');
-  });
-
-  describe('processMessage', () => {
-    it('should map to streamed aiChatApi.chat and transform response', async () => {
-      mockFetch.mockResolvedValue(
-        createStreamResponse([
-          streamFrame({ type: 'text-delta', delta: 'Hello!' }),
-          streamFrame({ type: 'finish' }),
-        ]),
-      );
-
-      const result = await multiAgentApi.processMessage({
-        message: 'Hi',
-        sessionId: 'session-123',
-        locale: 'en',
-      });
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/v1/ai/chat',
-        expect.objectContaining({
-          body: JSON.stringify({
-            message: 'Hi',
-            conversationId: 'session-123',
-            locale: 'en',
-          }),
-        }),
-      );
-      expect(result.messages).toEqual(['Hello!']);
-      expect(result.pendingActionIds).toEqual([]);
-      expect(result.executedActionIds).toEqual([]);
-    });
-
-    /*
-    it('should extract pendingActionIds from pendingActions', async () => {
-      mockFetch.mockResolvedValue(
-        createStreamResponse([
-          streamFrame({ type: 'text-delta', delta: 'I will send the email' }),
-          streamFrame({
-            type: 'data-needs-approval',
-            data: {
-              actionId: 'action-1',
-              actionType: 'SEND_EMAIL',
-              actionPayload: {},
-            },
-          }),
-          streamFrame({
-            type: 'data-needs-approval',
-            data: {
-              actionId: 'action-2',
-              actionType: 'DRAFT_EMAIL',
-              actionPayload: {},
-            },
-          }),
-          streamFrame({ type: 'finish' }),
-        ]),
-      );
-
-      const result = await multiAgentApi.processMessage({ message: 'Send email' });
-
-      expect(result.pendingActionIds).toEqual(['action-1', 'action-2']);
-    });
-    */
-  });
-
-  describe('getAgents', () => {
-    it('should return empty agents array', async () => {
-      const result = await multiAgentApi.getAgents();
-
-      expect(result.agents).toEqual([]);
-    });
-  });
-
-  // Legacy REST HITL tests removed:
-  // poll-based approval endpoints were replaced by SDK-native inline approvals.
-});

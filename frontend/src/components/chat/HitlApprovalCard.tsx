@@ -38,11 +38,6 @@ const HIGH_RISK_TEMPLATES: Record<string, (args: Record<string, unknown>) => str
     const name = typeof args.name === 'string' ? args.name : typeof args.email === 'string' ? args.email : 'selected contact';
     return `Delete contact ${name}`;
   },
-  bulk_email_actions: (args) => {
-    const action = typeof args.action === 'string' ? args.action : 'bulk action';
-    const count = typeof args.count === 'number' ? ` on ${args.count} emails` : '';
-    return `${action}${count}`;
-  },
 };
 
 function generateToolSummary(toolName: string, args: Record<string, unknown>): string {
