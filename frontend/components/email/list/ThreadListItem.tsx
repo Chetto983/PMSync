@@ -77,6 +77,7 @@ export interface ThreadListItemData {
   avatarUrl?: string;
   providerId?: string;
   folder?: string;
+  isDraft?: boolean;
   aiPriority?: number | null;
   aiSentiment?: string | null;
   aiLabels?: string[];

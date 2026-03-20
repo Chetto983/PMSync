@@ -146,6 +146,7 @@ export class EmailCrudService {
           isRead: true,
           isStarred: true,
           isFlagged: true,
+          isDraft: true,
           sentAt: true,
           receivedAt: true,
           size: true,

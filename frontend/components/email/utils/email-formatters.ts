@@ -41,6 +41,7 @@ export function formatEmailToThread(email: Email, senderPhotos?: SenderContactMa
       name: el.label?.name || 'Label',
       color: el.label?.color?.backgroundColor || '#9E9E9E',
     })).filter((l) => l.id),
+    isDraft: email.isDraft,
     // AI Auto-Triage fields (VoltAgent analysis results)
     aiPriority: email.aiPriority,
     aiSentiment: email.aiSentiment,

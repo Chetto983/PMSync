@@ -10,7 +10,6 @@ import {
   IconButton,
   Tooltip,
   Divider,
-  Button,
   useMediaQuery,
   useTheme,
   alpha,
@@ -20,8 +19,6 @@ import {
   Mail,
   Calendar,
   Users,
-  Settings,
-  Sparkles,
   Bell,
   AlarmClock,
   ChevronLeft,
@@ -32,7 +29,7 @@ import Link from 'next/link';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 const DRAWER_WIDTH_EXPANDED = 240;
-const DRAWER_WIDTH_COLLAPSED = 72;
+const DRAWER_WIDTH_COLLAPSED = 56;
 
 interface NavigationItem {
   label: string;
@@ -187,70 +184,8 @@ export function Sidebar({
         ))}
       </List>
 
-      {/* Spacer */}
+      {/* Spacer — Settings & AI Chat are in the Header */}
       <Box sx={{ flex: 1 }} />
-
-      {/* AI Assistant Button */}
-      <Box sx={{ px: 1, pb: 2 }}>
-        <Tooltip title={collapsed ? t.nav.ai : ''} placement="right" arrow>
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={!collapsed && <Sparkles size={18} />}
-            sx={{
-              mb: 1,
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              minWidth: collapsed ? 48 : 'auto',
-              px: collapsed ? 0 : 2,
-            }}
-            onClick={() => router.push('/dashboard/ai')}
-          >
-            {collapsed ? <Sparkles size={18} /> : t.nav.ai}
-          </Button>
-        </Tooltip>
-      </Box>
-
-      <Divider />
-
-      {/* Settings */}
-      <Box sx={{ p: 1 }}>
-        <Tooltip title={collapsed ? t.nav.settings : ''} placement="right" arrow>
-          <ListItemButton
-            component={Link}
-            href="/dashboard/settings"
-            selected={isActive('/dashboard/settings')}
-            sx={{
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              px: collapsed ? 1.5 : 2,
-            }}
-            onClick={() => {
-              if (isMobile && onClose) {
-                onClose();
-              }
-            }}
-          >
-            <ListItemIcon
-              sx={{
-                minWidth: collapsed ? 'auto' : 40,
-                color: isActive('/dashboard/settings')
-                  ? 'primary.main'
-                  : 'text.secondary',
-              }}
-            >
-              <Settings size={20} />
-            </ListItemIcon>
-            {!collapsed && (
-              <ListItemText
-                primary={t.nav.settings}
-                primaryTypographyProps={{
-                  fontSize: '0.875rem',
-                  fontWeight: isActive('/dashboard/settings') ? 600 : 500,
-                }}
-              />
-            )}
-          </ListItemButton>
-        </Tooltip>
-      </Box>
     </Box>
   );
 

@@ -24,7 +24,7 @@ export function Layout({ children }: LayoutProps) {
 
   // Prefetch consent early so Dashboard widgets don't waterfall on useConsent()
   usePrefetchQuery(consentOptions());
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Get translated sync status message
