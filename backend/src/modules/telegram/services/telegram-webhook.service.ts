@@ -206,27 +206,18 @@ export class TelegramWebhookService {
   private async collectStreamText(stream: ReadableStream): Promise<string> {
     const reader = stream.getReader();
     let fullText = '';
-    let chunkCount = 0;
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        chunkCount++;
 
         const valType = typeof value;
-        // Log first few chunks for debugging
-        if (chunkCount <= 8) {
-          const preview = valType === 'string'
-            ? value.substring(0, 200)
-            : JSON.stringify(value)?.substring(0, 200);
-          this.logger.warn(`Stream chunk #${chunkCount}: type=${valType}, value=${preview}`);
-        }
 
         // Raw object chunks (from toUIMessageStream)
-        // AI SDK v6: { type: 'text-delta', delta: '...' } (note: field is 'delta', not 'textDelta')
+        // AI SDK v6: { type: 'text-delta', delta: '...' }
         if (value && valType === 'object' && value.type === 'text-delta') {
-          fullText += value.delta ?? value.textDelta ?? '';
+          fullText += value.delta ?? '';
           continue;
         }
 
@@ -264,7 +255,6 @@ export class TelegramWebhookService {
       reader.releaseLock();
     }
 
-    this.logger.warn(`Stream collected: ${chunkCount} chunks, text length=${fullText.length}`);
     return fullText;
   }
 
