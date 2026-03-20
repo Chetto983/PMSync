@@ -285,18 +285,32 @@ export class TelegramWebhookService {
   private async collectStreamText(stream: ReadableStream): Promise<string> {
     const reader = stream.getReader();
     let fullText = '';
+    let streamError = '';
+    let chunkCount = 0;
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        chunkCount++;
 
         const valType = typeof value;
 
         // Raw object chunks (from toUIMessageStream)
-        // AI SDK v6: { type: 'text-delta', delta: '...' }
-        if (value && valType === 'object' && value.type === 'text-delta') {
-          fullText += value.delta ?? '';
+        if (value && valType === 'object') {
+          // AI SDK v6: { type: 'text-delta', delta: '...' }
+          if (value.type === 'text-delta') {
+            fullText += value.delta ?? '';
+            continue;
+          }
+
+          // Capture error chunks instead of silently discarding them
+          if (value.type === 'error') {
+            streamError = value.errorText ?? 'Unknown stream error';
+            this.logger.error(`AI stream error chunk: ${streamError}`);
+            continue;
+          }
+
           continue;
         }
 
@@ -324,6 +338,9 @@ export class TelegramWebhookService {
                 const parsed = JSON.parse(trimmed.slice(5).trim());
                 if (parsed.type === 'text-delta') {
                   fullText += parsed.delta ?? parsed.textDelta ?? '';
+                } else if (parsed.type === 'error') {
+                  streamError = parsed.errorText ?? 'Unknown stream error';
+                  this.logger.error(`AI stream error (SSE): ${streamError}`);
                 }
               } catch { /* skip */ }
             }
@@ -332,6 +349,13 @@ export class TelegramWebhookService {
       }
     } finally {
       reader.releaseLock();
+    }
+
+    this.logger.debug(`collectStreamText: chunks=${chunkCount} textLen=${fullText.length} error=${streamError || 'none'}`);
+
+    // If no text was collected but we got an error, throw so the caller can surface it
+    if (!fullText.trim() && streamError) {
+      throw new Error(`AI stream error: ${streamError}`);
     }
 
     return fullText;
