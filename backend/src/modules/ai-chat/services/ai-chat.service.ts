@@ -189,6 +189,11 @@ export class AiChatService {
     // Sanitize message sequence for model compatibility
     this.sanitizeMessages(messages);
 
+    // DEBUG: Log message structure to diagnose ModelMessage[] schema errors
+    this.logger.debug(
+      `Message chain (${messages.length} msgs): ${messages.map((m, i) => `[${i}] role=${m.role} contentType=${typeof m.content === 'string' ? 'string' : Array.isArray(m.content) ? 'array(' + (m.content as any[]).length + ')' : typeof m.content}`).join(' | ')}`,
+    );
+
     // 7. Audit log (fire-and-forget)
     this.auditService
       .logAudit(tenantId, userId, 'ai_chat', 'AiConversation', conversation.id, {
