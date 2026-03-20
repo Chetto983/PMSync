@@ -212,7 +212,10 @@ export class TelegramWebhookService {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        // toUIMessageStream emits string chunks; fall back to TextDecoder for binary
+        buffer += typeof value === 'string'
+          ? value
+          : decoder.decode(value, { stream: true });
 
         // Process complete lines
         const lines = buffer.split('\n');
