@@ -2210,6 +2210,10 @@ export const it: AppTranslations = {
           label: 'Elaborazione email AI',
           description: 'Consenti all\'AI di elaborare il contenuto delle email per chat, analisi e raccomandazioni',
         },
+        ai_chat: {
+          label: 'Assistente chat AI',
+          description: 'Usa l\'assistente chat AI per fare domande sulle tue email ed eseguire azioni',
+        },
         ai_smart_replies: {
           label: 'Risposte intelligenti AI',
           description: 'Consenti all\'AI di generare suggerimenti di risposta basati sul contenuto delle email',
