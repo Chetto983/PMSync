@@ -263,10 +263,13 @@ export class AiChatService {
         // Step 0: force tool use for substantive requests so the model
         // gathers real data instead of hallucinating. Skip for short
         // follow-ups (e.g. "1", "yes", "ok", "grazie") that don't need tools.
-        // Use the original user message (before runtime context injection).
         const trimmed = message.trim();
-        if (trimmed.length <= 30 && trimmed.split(/\s+/).length <= 3) return {};
+        const wordCount = trimmed.split(/\s+/).length;
+        if (trimmed.length <= 30 && wordCount <= 3) return {};
 
+        // Use 'required' to force tool call before generating text.
+        // Mistral small sometimes fails validation with 'required', so
+        // we use 'auto' as base but the system prompt instructs tool use.
         return { toolChoice: 'required' as const };
       },
       onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
