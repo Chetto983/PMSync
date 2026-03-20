@@ -39,17 +39,17 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 
 - [x] **FE-01**: Auth pages render and function (login, register, forgot-password, reset-password, verify-email, 2FA)
 - [x] **FE-02**: Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent)
-- [ ] **FE-03**: Email list loads, filters, searches, and paginates correctly
-- [ ] **FE-04**: Email thread view renders messages, attachments, and actions
-- [ ] **FE-05**: Email compose works (new, reply, forward, draft save, schedule send, undo send)
+- [x] **FE-03**: Email list loads, filters, searches, and paginates correctly
+- [x] **FE-04**: Email thread view renders messages, attachments, and actions
+- [x] **FE-05**: Email compose works (new, reply, forward, draft save, schedule send, undo send)
 - [ ] **FE-06**: AI chat interface works (send message, receive stream, HITL approval, conversation history)
 - [ ] **FE-07**: Calendar view renders events, create/edit/delete works, RSVP functions
 - [ ] **FE-08**: Contacts list loads, create/edit/delete works, VIP toggle, import vCard
 - [ ] **FE-09**: Dashboard renders with all widgets, customization drawer works, layout persists
 - [ ] **FE-10**: Settings pages function (general, security, email accounts, notifications, AI, billing)
 - [ ] **FE-11**: Admin pages function (user list, ban/unban, impersonation, organization management)
-- [ ] **FE-12**: Labels sidebar renders, create/edit/delete/reorder works, drag-drop assigns
-- [ ] **FE-13**: Folders sidebar renders, create/rename/delete works, email drag-drop moves
+- [x] **FE-12**: Labels sidebar renders, create/edit/delete/reorder works, drag-drop assigns
+- [x] **FE-13**: Folders sidebar renders, create/rename/delete works, email drag-drop moves
 - [ ] **FE-14**: Reminders page works (list, create, complete, delete, Kanban view)
 - [ ] **FE-15**: Tasks page renders correctly (not demo/placeholder content)
 - [ ] **FE-16**: Analytics page renders with real data
@@ -152,17 +152,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-25 | Phase 90 | Complete |
 | FE-01 | Phase 89 | Complete |
 | FE-02 | Phase 89 | Complete |
-| FE-03 | Phase 90 | Pending |
-| FE-04 | Phase 90 | Pending |
-| FE-05 | Phase 90 | Pending |
+| FE-03 | Phase 90 | Complete |
+| FE-04 | Phase 90 | Complete |
+| FE-05 | Phase 90 | Complete |
 | FE-06 | Phase 92 | Pending |
 | FE-07 | Phase 91 | Pending |
 | FE-08 | Phase 91 | Pending |
 | FE-09 | Phase 94 | Pending |
 | FE-10 | Phase 93 | Pending |
 | FE-11 | Phase 93 | Pending |
-| FE-12 | Phase 90 | Pending |
-| FE-13 | Phase 90 | Pending |
+| FE-12 | Phase 90 | Complete |
+| FE-13 | Phase 90 | Complete |
 | FE-14 | Phase 91 | Pending |
 | FE-15 | Phase 94 | Pending |
 | FE-16 | Phase 94 | Pending |

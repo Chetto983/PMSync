@@ -99,7 +99,7 @@
 **Milestone Goal:** Test every endpoint and feature, clean dead code and inconsistencies, polish UI/UX -- verify everything works before adding new functionality.
 
 - [x] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard (completed 2026-03-20)
-- [ ] **Phase 90: Email Operations Verification** - Verify all email CRUD, folders, signatures, templates, attachments, compose, labels
+- [x] **Phase 90: Email Operations Verification** - Verify all email CRUD, folders, signatures, templates, attachments, compose, labels (completed 2026-03-20)
 - [ ] **Phase 91: Calendar, Contacts & Reminders Verification** - Verify calendar events, contacts management, reminders, invites
 - [ ] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability
 - [ ] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram
@@ -145,7 +145,7 @@ Plans:
 - Fixed: reply/forward compose now preserves user-edited subject and body instead of silently reverting to backend-generated defaults
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
 - Remaining: thread-route reply/forward UI still needs live revalidation on production Gmail flows
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 90-01-PLAN.md -- Backend API verification (email CRUD, folders, signatures, templates, attachments)
 - [ ] 90-02-PLAN.md -- Frontend email list, thread view, and compose verification
@@ -258,7 +258,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 89. Auth & Onboarding Verification | 3/3 | Complete    | 2026-03-20 |
-| 90. Email Operations Verification | 1/3 | In Progress|  |
+| 90. Email Operations Verification | 3/3 | Complete   | 2026-03-20 |
 | 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
 | 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
