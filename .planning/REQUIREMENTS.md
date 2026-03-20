@@ -22,7 +22,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **BAPI-11**: User can manage compliance (consent status/update, data export, data deletion, GDPR status, legal acceptance)
 - [x] **BAPI-12**: User can manage reminders (create, list, get, update, complete, delete)
 - [ ] **BAPI-13**: User can use AI features (compose, summarize, smart-reply, categorize, sentiment, priority, triage, follow-ups, briefing, drafts)
-- [ ] **BAPI-14**: User can use AI chat (stream message, CRUD conversations, HITL approve/reject)
+- [x] **BAPI-14**: User can use AI chat (stream message, CRUD conversations, HITL approve/reject)
 - [ ] **BAPI-15**: User can manage knowledge base (backfill, list/delete embeddings, semantic search)
 - [ ] **BAPI-16**: Admin can access AI observability (list runs, cost summary)
 - [ ] **BAPI-17**: Admin can manage users (list, ban/unban, impersonate, revoke sessions)
@@ -138,7 +138,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-11 | Phase 93 | Pending |
 | BAPI-12 | Phase 91 | Complete |
 | BAPI-13 | Phase 92 | Pending |
-| BAPI-14 | Phase 92 | Pending |
+| BAPI-14 | Phase 92 | Complete |
 | BAPI-15 | Phase 92 | Pending |
 | BAPI-16 | Phase 92 | Pending |
 | BAPI-17 | Phase 93 | Pending |
