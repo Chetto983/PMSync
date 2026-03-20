@@ -28,7 +28,16 @@ export function remindersListOptions(params?: ListRemindersParams) {
     queryKey: reminderKeys.list(params as Record<string, unknown>),
     queryFn: async (): Promise<ListRemindersResponse> => {
       const response = await remindersApi.list(params);
-      return response.data?.data ?? { reminders: [], total: 0, page: 1, limit: 20 };
+      const envelope = response.data as any;
+      // Backend returns { data: Reminder[], meta: { total, page, limit } }
+      const reminders = Array.isArray(envelope?.data) ? envelope.data : [];
+      const meta = envelope?.meta ?? {};
+      return {
+        reminders,
+        total: meta.total ?? reminders.length,
+        page: meta.page ?? 1,
+        limit: meta.limit ?? 20,
+      };
     },
     staleTime: 60_000,
     gcTime: 5 * 60_000,

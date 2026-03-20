@@ -132,7 +132,7 @@ export interface UpdateTelegramSettingsDto {
 
 export const remindersApi = {
   list: (params?: ListRemindersParams) =>
-    apiClient.get<{ data: ListRemindersResponse }>('/reminders', { params }),
+    apiClient.get<{ data: Reminder[]; meta: { total: number; page: number; limit: number } }>('/reminders', { params }),
 
   get: (id: string) =>
     apiClient.get<{ data: Reminder }>(`/reminders/${id}`),
