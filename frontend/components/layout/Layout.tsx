@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import { usePrefetchQuery } from '@tanstack/react-query';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { CommandPalette } from '@/components/ai/CommandPalette';
+import { consentOptions } from '@/hooks/queries/use-consent';
 
 // useWebSocket moved to _app.tsx PrivateRouteGate (prevents connection leak on Layout remount)
 import { useSyncStore } from '@/stores/sync-store';
@@ -19,6 +21,9 @@ export interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const t = useTranslations();
   const { lastStatus, clear } = useSyncStore();
+
+  // Prefetch consent early so Dashboard widgets don't waterfall on useConsent()
+  usePrefetchQuery(consentOptions());
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
