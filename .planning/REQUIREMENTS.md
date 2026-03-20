@@ -21,10 +21,10 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **BAPI-10**: User can manage subscription (get status, usage, limits, features, cost-breakdown, cancel)
 - [ ] **BAPI-11**: User can manage compliance (consent status/update, data export, data deletion, GDPR status, legal acceptance)
 - [x] **BAPI-12**: User can manage reminders (create, list, get, update, complete, delete)
-- [ ] **BAPI-13**: User can use AI features (compose, summarize, smart-reply, categorize, sentiment, priority, triage, follow-ups, briefing, drafts)
+- [x] **BAPI-13**: User can use AI features (compose, summarize, smart-reply, categorize, sentiment, priority, triage, follow-ups, briefing, drafts)
 - [x] **BAPI-14**: User can use AI chat (stream message, CRUD conversations, HITL approve/reject)
-- [ ] **BAPI-15**: User can manage knowledge base (backfill, list/delete embeddings, semantic search)
-- [ ] **BAPI-16**: Admin can access AI observability (list runs, cost summary)
+- [x] **BAPI-15**: User can manage knowledge base (backfill, list/delete embeddings, semantic search)
+- [x] **BAPI-16**: Admin can access AI observability (list runs, cost summary)
 - [ ] **BAPI-17**: Admin can manage users (list, ban/unban, impersonate, revoke sessions)
 - [ ] **BAPI-18**: Admin can manage tenants (list, create, update, delete)
 - [ ] **BAPI-19**: User can manage Telegram integration (settings, link/unlink, webhook)
@@ -137,10 +137,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-10 | Phase 93 | Pending |
 | BAPI-11 | Phase 93 | Pending |
 | BAPI-12 | Phase 91 | Complete |
-| BAPI-13 | Phase 92 | Pending |
+| BAPI-13 | Phase 92 | Complete |
 | BAPI-14 | Phase 92 | Complete |
-| BAPI-15 | Phase 92 | Pending |
-| BAPI-16 | Phase 92 | Pending |
+| BAPI-15 | Phase 92 | Complete |
+| BAPI-16 | Phase 92 | Complete |
 | BAPI-17 | Phase 93 | Pending |
 | BAPI-18 | Phase 93 | Pending |
 | BAPI-19 | Phase 93 | Pending |
