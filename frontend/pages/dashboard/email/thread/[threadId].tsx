@@ -333,7 +333,7 @@ export default function ThreadDetailPage() {
             gap: 2,
           }}
         >
-          <Typography color="text.secondary">No messages in this thread</Typography>
+          <Typography color="text.secondary">{t.threadView?.emptyThread || 'No messages in this thread'}</Typography>
           <Button variant="outlined" startIcon={<ArrowLeft />} onClick={handleBack}>
             {t.email?.view?.back || 'Back'}
           </Button>

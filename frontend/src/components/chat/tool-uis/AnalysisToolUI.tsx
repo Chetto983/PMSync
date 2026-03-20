@@ -1,6 +1,7 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Brain, AlertTriangle, Clock, TrendingUp, MessageSquare } from 'lucide-react';
 import { Box, Paper, Typography } from '@mui/material';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { AnalysisResult } from '../types';
 
 type SentimentKey = 'positive' | 'negative' | 'neutral' | 'mixed';
@@ -27,12 +28,14 @@ export function AnalysisRenderer({
   { emailId: string },
   AnalysisResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
           <Brain size={16} />
-          <Typography variant="body2">Analyzing email...</Typography>
+          <Typography variant="body2">{tu?.analyzingEmail || 'Analyzing email...'}</Typography>
         </Box>
       </Paper>
     );
@@ -43,7 +46,7 @@ export function AnalysisRenderer({
       <Box sx={{ borderRadius: '8px', border: 1, borderColor: 'error.light', bgcolor: 'error.50', p: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
           <AlertTriangle size={16} />
-          <Typography variant="body2">Analysis failed</Typography>
+          <Typography variant="body2">{tu?.analysisFailed || 'Analysis failed'}</Typography>
         </Box>
       </Box>
     );
@@ -121,12 +124,12 @@ export function AnalysisRenderer({
           {analysis.deadline && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'warning.main' }}>
               <Clock size={12} />
-              <Typography variant="caption">Deadline: {analysis.deadline}</Typography>
+              <Typography variant="caption">{(tu?.deadline || 'Deadline: {value}').replace('{value}', analysis.deadline)}</Typography>
             </Box>
           )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <TrendingUp size={12} />
-            <Typography variant="caption">Priority: {analysis.priority}/10</Typography>
+            <Typography variant="caption">{(tu?.priority || 'Priority: {value}/10').replace('{value}', String(analysis.priority))}</Typography>
           </Box>
         </Box>
       </Box>

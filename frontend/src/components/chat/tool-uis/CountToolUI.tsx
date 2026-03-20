@@ -3,6 +3,7 @@ import { Mail, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CountResult } from '../types';
 
 export function CountRenderer({
@@ -13,6 +14,8 @@ export function CountRenderer({
   { folder?: string; unreadOnly?: boolean },
   CountResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
@@ -57,15 +60,15 @@ export function CountRenderer({
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, textAlign: 'center' }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>{data.total}</Typography>
-          <Typography variant="caption" color="text.secondary">Total</Typography>
+          <Typography variant="caption" color="text.secondary">{tu?.total || 'Total'}</Typography>
         </Box>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>{data.unread}</Typography>
-          <Typography variant="caption" color="text.secondary">Unread</Typography>
+          <Typography variant="caption" color="text.secondary">{tu?.unread || 'Unread'}</Typography>
         </Box>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{data.read}</Typography>
-          <Typography variant="caption" color="text.secondary">Read</Typography>
+          <Typography variant="caption" color="text.secondary">{tu?.read || 'Read'}</Typography>
         </Box>
       </Box>
       {result.summary && (

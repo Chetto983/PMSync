@@ -217,7 +217,7 @@ export function SecurityAccountsSection() {
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setUnlinkTarget(null)}>Cancel</Button>
+          <Button onClick={() => setUnlinkTarget(null)}>{t.common.cancel}</Button>
           <Button
             variant="contained"
             color="error"

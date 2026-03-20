@@ -1,6 +1,7 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Folder, AlertCircle } from 'lucide-react';
 import { Box, Paper, Typography } from '@mui/material';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { FolderResult, FolderItem } from '../types';
 
 function FolderRow({ folder, isFirst }: { folder: FolderItem; isFirst: boolean }) {
@@ -54,6 +55,8 @@ export function FolderRenderer({
   Record<string, never>,
   FolderResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box
@@ -70,7 +73,7 @@ export function FolderRenderer({
         }}
       >
         <Folder size={16} color="var(--mui-palette-text-secondary)" />
-        <Typography variant="body2" color="text.secondary">Loading folders...</Typography>
+        <Typography variant="body2" color="text.secondary">{tu?.loadingFolders || 'Loading folders...'}</Typography>
       </Box>
     );
   }
@@ -111,7 +114,7 @@ export function FolderRenderer({
       </Box>
 
       {folders.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No folders found.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>{tu?.noFoldersFound || 'No folders found.'}</Typography>
       ) : (
         <Box>
           {folders.map((f, i) => (

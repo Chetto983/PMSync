@@ -1,6 +1,7 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Users, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
 import { Box, Paper, Typography } from '@mui/material';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CrmResult, CrmContactStat } from '../types';
 
 function ContactStatCard({ contact, isFirst }: { contact: CrmContactStat; isFirst: boolean }) {
@@ -59,12 +60,14 @@ export function CrmRenderer({
   { contactId?: string },
   CrmResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
           <Users size={16} />
-          <Typography variant="body2">Loading relationship data...</Typography>
+          <Typography variant="body2">{tu?.loadingRelationship || 'Loading relationship data...'}</Typography>
         </Box>
       </Paper>
     );
@@ -86,7 +89,7 @@ export function CrmRenderer({
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Users size={16} color="var(--mui-palette-primary-main)" />
-          <Typography variant="body2" fontWeight={500}>Relationship Stats</Typography>
+          <Typography variant="body2" fontWeight={500}>{tu?.relationshipStats || 'Relationship Stats'}</Typography>
         </Box>
         {result.averageScore != null && (
           <Typography variant="caption" color="text.secondary">
@@ -110,7 +113,7 @@ export function CrmRenderer({
       {result.contacts.some((c) => c.staleDays != null && c.staleDays > 30) && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1, color: 'warning.main' }}>
           <Clock size={12} />
-          <Typography variant="caption">Some contacts may need re-engagement</Typography>
+          <Typography variant="caption">{tu?.reEngagementHint || 'Some contacts may need re-engagement'}</Typography>
         </Box>
       )}
     </Paper>

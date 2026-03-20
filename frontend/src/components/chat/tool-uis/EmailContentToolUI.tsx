@@ -3,6 +3,7 @@ import { Mail, Paperclip, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailContentResult, EmailContentItem } from '../types';
 
 function formatDate(iso: string | null): string {
@@ -71,11 +72,13 @@ export function EmailContentRenderer({
   { emailId?: string; emailIds?: string[] },
   EmailContentResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
         <Mail size={16} style={{ opacity: 0.6 }} />
-        <Typography variant="body2" color="text.secondary">Loading email content...</Typography>
+        <Typography variant="body2" color="text.secondary">{tu?.loadingEmailContent || 'Loading email content...'}</Typography>
       </Box>
     );
   }

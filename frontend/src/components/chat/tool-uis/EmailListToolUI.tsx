@@ -3,6 +3,7 @@ import { List, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailIndexResult } from '../types';
 
 function formatDate(iso: string): string {
@@ -22,11 +23,13 @@ export function EmailListRenderer({
   { folder?: string; limit?: number },
   EmailIndexResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
         <List size={16} style={{ color: 'inherit', opacity: 0.6 }} />
-        <Typography variant="body2" color="text.secondary">Loading email index...</Typography>
+        <Typography variant="body2" color="text.secondary">{tu?.loadingEmailIndex || 'Loading email index...'}</Typography>
       </Box>
     );
   }
@@ -61,16 +64,16 @@ export function EmailListRenderer({
         </Typography>
       </Box>
       {items.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No emails in index.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>{tu?.noEmailsInIndex || 'No emails in index.'}</Typography>
       ) : (
         <Box sx={{ overflowX: 'auto' }}>
           <Box component="table" sx={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
             <Box component="thead">
               <Box component="tr" sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', width: 32, color: 'text.secondary', fontWeight: 500 }}>#</Box>
-                <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', color: 'text.secondary', fontWeight: 500 }}>From</Box>
-                <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', color: 'text.secondary', fontWeight: 500 }}>Subject</Box>
-                <Box component="th" sx={{ py: 0.5, textAlign: 'right', color: 'text.secondary', fontWeight: 500 }}>Date</Box>
+                <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', color: 'text.secondary', fontWeight: 500 }}>{tu?.from || 'From'}</Box>
+                <Box component="th" sx={{ py: 0.5, pr: 1, textAlign: 'left', color: 'text.secondary', fontWeight: 500 }}>{tu?.subject || 'Subject'}</Box>
+                <Box component="th" sx={{ py: 0.5, textAlign: 'right', color: 'text.secondary', fontWeight: 500 }}>{tu?.date || 'Date'}</Box>
               </Box>
             </Box>
             <Box component="tbody">

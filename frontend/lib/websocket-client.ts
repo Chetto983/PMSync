@@ -368,6 +368,14 @@ class WebSocketClient {
         return;
       }
 
+      // Clean up any stale socket before creating a new one to prevent connection leaks
+      if (this.socket) {
+        logger.debug('[WebSocket] Cleaning up stale socket before reconnect');
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
+        this.socket = null;
+      }
+
       this.socket = io(`${backendUrl}/realtime`, {
         transports: ['websocket', 'polling'],
         reconnection: true,

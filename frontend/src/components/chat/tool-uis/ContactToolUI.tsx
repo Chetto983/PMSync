@@ -3,6 +3,7 @@ import { User, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { ContactSearchResult, ContactItem } from '../types';
 
 function ContactCard({ contact, isFirst }: { contact: ContactItem; isFirst: boolean }) {
@@ -49,18 +50,20 @@ function ContactCard({ contact, isFirst }: { contact: ContactItem; isFirst: bool
 }
 
 export function ContactRenderer({
-  args,
+  args: _args,
   result,
   status,
 }: ToolCallMessagePartProps<
   { query: string },
   ContactSearchResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
         <User size={16} style={{ opacity: 0.6 }} />
-        <Typography variant="body2" color="text.secondary">Searching contacts for &ldquo;{args.query}&rdquo;...</Typography>
+        <Typography variant="body2" color="text.secondary">{tu?.searchingContacts || 'Searching contacts...'}</Typography>
       </Box>
     );
   }
@@ -93,7 +96,7 @@ export function ContactRenderer({
         <Typography variant="caption" color="text.secondary">{contacts.length} found</Typography>
       </Box>
       {contacts.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No contacts found.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>{tu?.noContactsFound || 'No contacts found.'}</Typography>
       ) : (
         <Box>
           {contacts.map((c, idx) => (

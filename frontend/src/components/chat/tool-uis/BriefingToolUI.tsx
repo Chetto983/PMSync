@@ -1,6 +1,7 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Sun, AlertTriangle, Mail, Star, Clock, CheckSquare, Calendar, MessageCircle } from 'lucide-react';
 import { Box, Paper, Typography } from '@mui/material';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { BriefingResult } from '../types';
 
 export function BriefingRenderer({
@@ -10,12 +11,14 @@ export function BriefingRenderer({
   Record<string, never>,
   BriefingResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
           <Sun size={16} />
-          <Typography variant="body2">Generating daily briefing...</Typography>
+          <Typography variant="body2">{tu?.generatingBriefing || 'Generating daily briefing...'}</Typography>
         </Box>
       </Paper>
     );
@@ -39,13 +42,13 @@ export function BriefingRenderer({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Sun size={16} color="var(--mui-palette-warning-main)" />
-          <Typography variant="body2" fontWeight={500}>Daily Briefing</Typography>
+          <Typography variant="body2" fontWeight={500}>{tu?.dailyBriefing || 'Daily Briefing'}</Typography>
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'info.light', color: 'info.main', px: 1, py: 0.5, borderRadius: 1 }}>
             <Mail size={12} />
-            <Typography variant="caption">{stats.totalUnread} unread</Typography>
+            <Typography variant="caption">{stats.totalUnread} {tu?.unread || 'unread'}</Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'error.light', color: 'error.main', px: 1, py: 0.5, borderRadius: 1 }}>
             <Star size={12} />
@@ -87,7 +90,7 @@ export function BriefingRenderer({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Clock size={12} color="var(--mui-palette-warning-main)" />
-              <Typography variant="caption" fontWeight={500}>Deadlines ({deadlines.count})</Typography>
+              <Typography variant="caption" fontWeight={500}>{(tu?.deadlinesCount || 'Deadlines ({count})').replace('{count}', String(deadlines.count))}</Typography>
             </Box>
             {deadlines.items.map((d, i) => (
               <Typography key={i} variant="caption" color="text.secondary" sx={{ pl: 2.5 }}>
@@ -102,7 +105,7 @@ export function BriefingRenderer({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <CheckSquare size={12} color="var(--mui-palette-success-main)" />
-              <Typography variant="caption" fontWeight={500}>Action Items ({actionItems.count})</Typography>
+              <Typography variant="caption" fontWeight={500}>{(tu?.actionItemsCount || 'Action Items ({count})').replace('{count}', String(actionItems.count))}</Typography>
             </Box>
             {actionItems.items.map((a, i) => (
               <Typography key={i} variant="caption" color="text.secondary" sx={{ pl: 2.5 }}>

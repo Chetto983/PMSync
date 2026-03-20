@@ -1,6 +1,7 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { Calendar, MapPin, AlertCircle } from 'lucide-react';
 import { Box, Paper, Typography } from '@mui/material';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EventResult, EventItem } from '../types';
 
 function formatTime(item: EventItem): string {
@@ -79,6 +80,8 @@ export function EventRenderer({
   { startDate?: string; endDate?: string },
   EventResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box
@@ -95,7 +98,7 @@ export function EventRenderer({
         }}
       >
         <Calendar size={16} color="var(--mui-palette-text-secondary)" />
-        <Typography variant="body2" color="text.secondary">Loading events...</Typography>
+        <Typography variant="body2" color="text.secondary">{tu?.loadingEvents || 'Loading events...'}</Typography>
       </Box>
     );
   }
@@ -136,7 +139,7 @@ export function EventRenderer({
       </Box>
 
       {events.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No events found.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>{tu?.noEventsFound || 'No events found.'}</Typography>
       ) : (
         <Box>
           {events.map((e, i) => (

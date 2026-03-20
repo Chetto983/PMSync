@@ -3,6 +3,7 @@ import { Brain, AlertTriangle, Tag } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { MemorySearchResult, MemoryItem } from '../types';
 
 function typeSx(type: string): { bgcolor: string; color: string } {
@@ -75,12 +76,14 @@ function MemoryRender({
   status: { type: string; reason?: string; error?: unknown };
   result: MemorySearchResult | undefined;
 }) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} color="text.secondary">
           <Brain size={16} />
-          <Typography variant="body2">Searching memories...</Typography>
+          <Typography variant="body2">{tu?.searchingMemories || 'Searching memories...'}</Typography>
         </Box>
       </Paper>
     );

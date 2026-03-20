@@ -5,6 +5,7 @@ import { Layers, AlertTriangle, ShieldAlert, CheckCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { BulkActionResult } from '../types';
 import { HitlApprovalWrapper } from '../HitlApprovalCard';
 
@@ -29,6 +30,9 @@ export function TriageRenderer({
   Record<string, unknown>,
   BulkActionResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
+
   if (status.type === 'requires-action') {
     return (
       <HitlApprovalWrapper
@@ -45,7 +49,7 @@ export function TriageRenderer({
       <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, bgcolor: 'action.hover' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} color="text.secondary">
           <Layers size={16} />
-          <Typography variant="body2">Processing bulk action...</Typography>
+          <Typography variant="body2">{tu?.processingBulkAction || 'Processing bulk action...'}</Typography>
         </Box>
       </Paper>
     );

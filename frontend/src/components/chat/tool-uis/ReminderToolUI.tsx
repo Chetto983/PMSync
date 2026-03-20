@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface CreateReminderResult {
   success: boolean;
@@ -51,11 +52,13 @@ export function CreateReminderRenderer({
   { inputUtente: string },
   CreateReminderResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5, width: 'fit-content' }}>
         <Bell size={16} />
-        <Typography variant="body2" color="text.secondary">Creating reminder...</Typography>
+        <Typography variant="body2" color="text.secondary">{tu?.creatingReminder || 'Creating reminder...'}</Typography>
       </Box>
     );
   }
@@ -63,7 +66,7 @@ export function CreateReminderRenderer({
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: '10px', border: 1, borderColor: 'error.light', bgcolor: 'error.light' }}>
         <AlertCircle size={16} />
-        <Typography variant="body2" color="error.main">Failed to create reminder</Typography>
+        <Typography variant="body2" color="error.main">{tu?.reminderFailed || 'Failed to create reminder'}</Typography>
       </Box>
     );
   }
@@ -106,11 +109,13 @@ export function ListRemindersRenderer({
   { status?: string; limit?: number },
   ListRemindersResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5, width: 'fit-content' }}>
         <Bell size={16} />
-        <Typography variant="body2" color="text.secondary">Loading reminders...</Typography>
+        <Typography variant="body2" color="text.secondary">{tu?.loadingReminders || 'Loading reminders...'}</Typography>
       </Box>
     );
   }
@@ -135,7 +140,7 @@ export function ListRemindersRenderer({
         </Typography>
       </Box>
       {items.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No reminders found.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>{tu?.noRemindersFound || 'No reminders found.'}</Typography>
       ) : (
         <Box>
           {items.map((item, idx) => (

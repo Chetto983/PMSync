@@ -284,7 +284,7 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Email</TableCell>
+            <TableCell>{t.organizations.emailHeader}</TableCell>
             <TableCell>{t.organizations.joinedAt}</TableCell>
             <TableCell align="right" />
           </TableRow>

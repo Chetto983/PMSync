@@ -3,6 +3,7 @@ import { Search, Mail, Star, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailSearchResult, EmailSearchItem } from '../types';
 
 function formatDate(iso: string | null): string {
@@ -94,15 +95,19 @@ function RunningState({ label }: { label: string }) {
 }
 
 function ErrorState({ reason }: { reason: string }) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
       <AlertCircle size={16} />
-      <Typography variant="body2" color="error.main">Search failed: {reason}</Typography>
+      <Typography variant="body2" color="error.main">{(tu?.searchFailed || 'Search failed: {reason}').replace('{reason}', reason)}</Typography>
     </Box>
   );
 }
 
 function ResultCard({ result, label }: { result: EmailSearchResult; label: string }) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (result.error) {
     return <ErrorState reason={result.error} />;
   }
@@ -118,7 +123,7 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
         </Typography>
       </Box>
       {items.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No emails found.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>{tu?.noEmailsFound || 'No emails found.'}</Typography>
       ) : (
         <Box>
           {items.map((item, idx) => (
@@ -143,10 +148,11 @@ export function EmailSearchRenderer({
   { query: string; folder?: string; maxResults?: number },
   EmailSearchResult
 >) {
+  const t = useTranslations();
   if (status.type === 'running') return <RunningState label={`Searching "${args.query}"...`} />;
   if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
   if (!result) return null;
-  return <ResultCard result={result} label="Email Search" />;
+  return <ResultCard result={result} label={t.ai.toolUi?.emailSearch || 'Email Search'} />;
 }
 
 export function ListEmailsRenderer({
@@ -171,8 +177,9 @@ export function SemanticSearchRenderer({
   { query: string },
   EmailSearchResult
 >) {
+  const t = useTranslations();
   if (status.type === 'running') return <RunningState label={`Semantic search "${args.query}"...`} />;
   if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
   if (!result) return null;
-  return <ResultCard result={result} label="Semantic Search" />;
+  return <ResultCard result={result} label={t.ai.toolUi?.semanticSearch || 'Semantic Search'} />;
 }

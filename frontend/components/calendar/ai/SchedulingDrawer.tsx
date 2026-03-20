@@ -382,11 +382,11 @@ export function SchedulingDrawer({
         {/* Provider Selector */}
         {providers.length > 0 && (
           <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Calendar</InputLabel>
+            <InputLabel>{t.nav.calendar}</InputLabel>
             <Select
               value={selectedProvider}
               onChange={(e) => setSelectedProvider(e.target.value)}
-              label="Calendar"
+              label={t.nav.calendar}
             >
               {providers.map((provider) => (
                 <MenuItem key={provider.id} value={provider.id}>

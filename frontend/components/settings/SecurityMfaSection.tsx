@@ -608,7 +608,7 @@ export function SecurityMfaSection() {
         </DialogContent>
         <DialogActions>
           {enableStep < 3 && (
-            <Button onClick={handleCloseEnable}>Cancel</Button>
+            <Button onClick={handleCloseEnable}>{t.common.cancel}</Button>
           )}
           {enableStep === 0 && (
             <Button
@@ -617,12 +617,12 @@ export function SecurityMfaSection() {
               disabled={stepLoading || !password}
               startIcon={stepLoading ? <CircularProgress size={16} /> : undefined}
             >
-              Continue
+              {t.common.continue}
             </Button>
           )}
           {enableStep === 1 && (
             <Button variant="contained" onClick={() => setEnableStep(2)}>
-              Continue
+              {t.common.continue}
             </Button>
           )}
           {enableStep === 2 && (
@@ -632,12 +632,12 @@ export function SecurityMfaSection() {
               disabled={stepLoading || verifyCode.length !== 6}
               startIcon={stepLoading ? <CircularProgress size={16} /> : undefined}
             >
-              {mfa?.totp.verifyCode || 'Verify'}
+              {mfa?.totp.verifyCode || t.common.confirm}
             </Button>
           )}
           {enableStep === 3 && (
             <Button variant="contained" onClick={handleCloseEnable}>
-              Done
+              {t.common.done}
             </Button>
           )}
         </DialogActions>
@@ -669,7 +669,7 @@ export function SecurityMfaSection() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDisableOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDisableOpen(false)}>{t.common.cancel}</Button>
           <Button
             type="submit"
             variant="contained"
@@ -692,7 +692,7 @@ export function SecurityMfaSection() {
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRemovePasskeyId(null)}>Cancel</Button>
+          <Button onClick={() => setRemovePasskeyId(null)}>{t.common.cancel}</Button>
           <Button
             variant="contained"
             color="error"
@@ -728,7 +728,7 @@ export function SecurityMfaSection() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setRegenOpen(false); setRegenPassword(''); }}>Cancel</Button>
+          <Button onClick={() => { setRegenOpen(false); setRegenPassword(''); }}>{t.common.cancel}</Button>
           <Button
             type="submit"
             variant="contained"
