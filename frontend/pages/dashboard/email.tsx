@@ -388,6 +388,28 @@ export default function EmailPage() {
 
   const handleCloseReadingPane = useCallback(() => setSelectedThreadId(null), []);
 
+  const handleMarkThreadAsRead = useCallback(
+    (id: string) => {
+      optimisticUpdateEmail(id, { isRead: true });
+      updateEmail.mutate(
+        { emailId: id, dto: { isRead: true } },
+        { onError: () => optimisticUpdateEmail(id, { isRead: false }) },
+      );
+    },
+    [optimisticUpdateEmail, updateEmail],
+  );
+
+  const handleMarkThreadAsUnread = useCallback(
+    (id: string) => {
+      optimisticUpdateEmail(id, { isRead: false });
+      updateEmail.mutate(
+        { emailId: id, dto: { isRead: false } },
+        { onError: () => optimisticUpdateEmail(id, { isRead: true }) },
+      );
+    },
+    [optimisticUpdateEmail, updateEmail],
+  );
+
   const { focusedId } = useKeyboardNavigation({
     items: threads,
     getItemId: (thread) => thread.id,
@@ -519,6 +541,10 @@ export default function EmailPage() {
             onBulkArchive={handleBulkArchive} onBulkDelete={handleBulkDelete}
             onBulkMove={handleBulkMove} onBulkLabel={handleBulkLabel}
             onFlag={handleFlag} onArchive={handleArchive} onDelete={handleDelete}
+            onReply={handleReply} onReplyAll={handleReplyAll} onForward={handleForward}
+            onMarkAsRead={handleMarkThreadAsRead}
+            onMarkAsUnread={handleMarkThreadAsUnread}
+            onLabel={handleLabelsMessage}
             isBulkActionPending={isBulkActionPending}
             onEmptyAction={handleEmptyAction}
           />

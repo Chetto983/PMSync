@@ -10,7 +10,7 @@
  * Matches Microsoft's New Outlook expanded message design.
  */
 
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -49,6 +49,7 @@ interface ExpandedMessageProps {
     to: string[];
     cc?: string[];
     date: string;
+    receivedAt?: string;
     subject: string;
     body: string;
     isUnread: boolean;
@@ -114,6 +115,57 @@ function formatRecipient(email: string): string {
   return addr;
 }
 
+function getDatePresentation(receivedAt: string | undefined, fallback: string) {
+  if (!receivedAt) {
+    return { relative: fallback, absolute: fallback };
+  }
+
+  const parsed = new Date(receivedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return { relative: fallback, absolute: fallback };
+  }
+
+  const now = new Date();
+  const diffMs = parsed.getTime() - now.getTime();
+  const diffMinutes = Math.round(diffMs / 60000);
+  const absolute = new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(parsed);
+
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+
+  if (Math.abs(diffMinutes) < 60) {
+    return { relative: rtf.format(diffMinutes, 'minute'), absolute };
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) {
+    return { relative: rtf.format(diffHours, 'hour'), absolute };
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  if (Math.abs(diffDays) < 7) {
+    return { relative: rtf.format(diffDays, 'day'), absolute };
+  }
+
+  return { relative: absolute, absolute };
+}
+
+function getRecipientSummary(recipients: string[], expanded: boolean, visibleCount: number) {
+  if (expanded) {
+    return {
+      visible: recipients,
+      remaining: 0,
+    };
+  }
+
+  return {
+    visible: recipients.slice(0, visibleCount),
+    remaining: Math.max(recipients.length - visibleCount, 0),
+  };
+}
+
 export const ExpandedMessage = memo(function ExpandedMessage({
   message,
   onCollapse,
@@ -164,6 +216,21 @@ export const ExpandedMessage = memo(function ExpandedMessage({
       onMove(message.id);
     }
   };
+
+  const datePresentation = useMemo(
+    () => getDatePresentation(message.receivedAt, message.date),
+    [message.date, message.receivedAt],
+  );
+  const toSummary = useMemo(
+    () => getRecipientSummary(message.to, showAllRecipients, 2),
+    [message.to, showAllRecipients],
+  );
+  const ccSummary = useMemo(
+    () => getRecipientSummary(message.cc || [], showAllRecipients, 1),
+    [message.cc, showAllRecipients],
+  );
+  const canToggleRecipients =
+    message.to.length > 2 || (message.cc?.length ?? 0) > 1;
 
   return (
     <Box
@@ -247,7 +314,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
               <Typography variant="caption" color="text.secondary">
                 {t.threadMessage?.to || 'To:'}
               </Typography>
-              {(showAllRecipients ? message.to : message.to.slice(0, 3)).map((recipient, idx, arr) => (
+              {toSummary.visible.map((recipient, idx, arr) => (
                 <Typography
                   key={idx}
                   variant="caption"
@@ -258,7 +325,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                   {idx < arr.length - 1 && ','}
                 </Typography>
               ))}
-              {!showAllRecipients && message.to.length > 3 && (
+              {!showAllRecipients && toSummary.remaining > 0 && (
                 <Typography
                   variant="caption"
                   component="button"
@@ -274,7 +341,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                     '&:hover': { textDecoration: 'underline' },
                   }}
                 >
-                  +{message.to.length - 3}
+                  +{toSummary.remaining}
                 </Typography>
               )}
             </Box>
@@ -285,7 +352,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                 <Typography variant="caption" color="text.secondary">
                   {t.threadMessage?.cc || 'CC:'}
                 </Typography>
-                {(showAllRecipients ? message.cc : message.cc.slice(0, 2)).map((recipient, idx, arr) => (
+                {ccSummary.visible.map((recipient, idx, arr) => (
                   <Typography
                     key={idx}
                     variant="caption"
@@ -296,7 +363,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                     {idx < arr.length - 1 && ','}
                   </Typography>
                 ))}
-                {!showAllRecipients && message.cc.length > 2 && (
+                {!showAllRecipients && ccSummary.remaining > 0 && (
                   <Typography
                     variant="caption"
                     component="button"
@@ -312,14 +379,14 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                       '&:hover': { textDecoration: 'underline' },
                     }}
                   >
-                    +{message.cc.length - 2}
+                    +{ccSummary.remaining}
                   </Typography>
                 )}
               </Box>
             )}
 
             {/* Show less button when expanded */}
-            {showAllRecipients && (message.to.length > 3 || (message.cc && message.cc.length > 2)) && (
+            {showAllRecipients && canToggleRecipients && (
               <Typography
                 variant="caption"
                 component="button"
@@ -376,19 +443,23 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             </Box>
 
             {/* Date */}
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                fontSize: '0.75rem',
-                minWidth: 0,
-                overflowWrap: 'anywhere',
-                wordBreak: 'break-word',
-                textAlign: { xs: 'left', sm: 'right' },
-              }}
-            >
-              {message.date}
-            </Typography>
+            <Tooltip title={datePresentation.absolute}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  fontSize: '0.75rem',
+                  minWidth: 0,
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  textAlign: { xs: 'left', sm: 'right' },
+                  fontVariantNumeric: 'tabular-nums',
+                  cursor: 'default',
+                }}
+              >
+                {datePresentation.relative}
+              </Typography>
+            </Tooltip>
 
             {/* Collapse button */}
             <IconButton size="small" onClick={onCollapse} sx={{ p: 0.5, flexShrink: 0 }}>

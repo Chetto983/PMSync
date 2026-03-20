@@ -158,6 +158,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      role="button"
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -398,60 +399,68 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             },
           }}
         >
-          <IconButton
-            size="small"
-            onClick={handleFlag}
-            onMouseDown={stopPointer}
-            onPointerDown={stopPointer}
-            onTouchStart={stopPointer}
-            sx={{ p: 0.5 }}
-            aria-label={thread.isFlagged ? t.emailList.unflagged : t.emailList.flagged}
-          >
-            <Flag
-              data-testid="flag-icon"
-              size={16}
-              fill={thread.isFlagged ? 'currentColor' : 'none'}
-              strokeWidth={2}
-              style={{
-                color: thread.isFlagged ? 'var(--mui-palette-error-main)' : 'currentColor',
-              }}
-            />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={handleArchive}
-            onMouseDown={stopPointer}
-            onPointerDown={stopPointer}
-            onTouchStart={stopPointer}
-            sx={{ p: 0.5 }}
-            aria-label={t.emailList.archive}
-          >
-            <Archive size={16} strokeWidth={2} />
-          </IconButton>
-          {onMove && (
+          <Tooltip title={thread.isFlagged ? t.emailList.unflagged : t.emailList.flagged}>
             <IconButton
               size="small"
-              onClick={handleMove}
+              onClick={handleFlag}
               onMouseDown={stopPointer}
               onPointerDown={stopPointer}
               onTouchStart={stopPointer}
               sx={{ p: 0.5 }}
-              aria-label={t.emailList?.moveToFolder || 'Move to folder'}
+              aria-label={thread.isFlagged ? t.emailList.unflagged : t.emailList.flagged}
             >
-              <FolderInput size={16} strokeWidth={2} />
+              <Flag
+                data-testid="flag-icon"
+                size={16}
+                fill={thread.isFlagged ? 'currentColor' : 'none'}
+                strokeWidth={2}
+                style={{
+                  color: thread.isFlagged ? 'var(--mui-palette-error-main)' : 'currentColor',
+                }}
+              />
             </IconButton>
+          </Tooltip>
+          <Tooltip title={t.emailList.archive}>
+            <IconButton
+              size="small"
+              onClick={handleArchive}
+              onMouseDown={stopPointer}
+              onPointerDown={stopPointer}
+              onTouchStart={stopPointer}
+              sx={{ p: 0.5 }}
+              aria-label={t.emailList.archive}
+            >
+              <Archive size={16} strokeWidth={2} />
+            </IconButton>
+          </Tooltip>
+          {onMove && (
+            <Tooltip title={t.emailList?.moveToFolder || 'Move to folder'}>
+              <IconButton
+                size="small"
+                onClick={handleMove}
+                onMouseDown={stopPointer}
+                onPointerDown={stopPointer}
+                onTouchStart={stopPointer}
+                sx={{ p: 0.5 }}
+                aria-label={t.emailList?.moveToFolder || 'Move to folder'}
+              >
+                <FolderInput size={16} strokeWidth={2} />
+              </IconButton>
+            </Tooltip>
           )}
-          <IconButton
-            size="small"
-            onClick={handleDelete}
-            onMouseDown={stopPointer}
-            onPointerDown={stopPointer}
-            onTouchStart={stopPointer}
-            sx={{ p: 0.5, color: 'error.main' }}
-            aria-label={t.emailList.delete}
-          >
-            <Trash2 size={16} strokeWidth={2} />
-          </IconButton>
+          <Tooltip title={t.emailList.delete}>
+            <IconButton
+              size="small"
+              onClick={handleDelete}
+              onMouseDown={stopPointer}
+              onPointerDown={stopPointer}
+              onTouchStart={stopPointer}
+              sx={{ p: 0.5, color: 'error.main' }}
+              aria-label={t.emailList.delete}
+            >
+              <Trash2 size={16} strokeWidth={2} />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Fade>
     </Box>

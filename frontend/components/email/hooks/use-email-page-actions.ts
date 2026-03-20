@@ -108,6 +108,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       to: selectedEmail.to || [],
       cc: selectedEmail.cc,
       date: new Date(selectedEmail.receivedAt).toLocaleDateString(),
+      receivedAt: selectedEmail.receivedAt,
       subject: selectedEmail.subject || '',
       body: selectedEmail.bodyHtml || selectedEmail.bodyText || '',
       isUnread: !selectedEmail.isRead,

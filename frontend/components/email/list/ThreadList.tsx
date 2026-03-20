@@ -66,6 +66,12 @@ interface ThreadListProps {
   onFlag?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onReply?: (id: string) => void;
+  onReplyAll?: (id: string) => void;
+  onForward?: (id: string) => void;
+  onMarkAsRead?: (id: string) => void;
+  onMarkAsUnread?: (id: string) => void;
+  onLabel?: (id: string) => void;
   isBulkActionPending?: boolean;
   /** CTA callback for empty state (e.g. clear search, compose) */
   onEmptyAction?: () => void;
@@ -98,6 +104,12 @@ export function ThreadList({
   onFlag,
   onArchive,
   onDelete,
+  onReply,
+  onReplyAll,
+  onForward,
+  onMarkAsRead,
+  onMarkAsUnread,
+  onLabel,
   isBulkActionPending = false,
   onEmptyAction,
 }: ThreadListProps) {
@@ -266,6 +278,12 @@ export function ThreadList({
   const handleFlag = useCallback((id: string) => onFlag?.(id), [onFlag]);
   const handleArchive = useCallback((id: string) => onArchive?.(id), [onArchive]);
   const handleDelete = useCallback((id: string) => onDelete?.(id), [onDelete]);
+  const handleReply = useCallback((id: string) => onReply?.(id), [onReply]);
+  const handleReplyAll = useCallback((id: string) => onReplyAll?.(id), [onReplyAll]);
+  const handleForward = useCallback((id: string) => onForward?.(id), [onForward]);
+  const handleMarkAsRead = useCallback((id: string) => onMarkAsRead?.(id), [onMarkAsRead]);
+  const handleMarkAsUnread = useCallback((id: string) => onMarkAsUnread?.(id), [onMarkAsUnread]);
+  const handleLabel = useCallback((id: string) => onLabel?.(id), [onLabel]);
 
   // Move to folder handler - opens folder picker (mobile alternative to drag)
   const handleMove = useCallback((id: string) => {
@@ -290,6 +308,10 @@ export function ThreadList({
     const thread = threads.find((t) => t.id === moveEmailId);
     return thread?.folder;
   }, [moveEmailId, threads]);
+  const contextThread = useMemo(
+    () => threads.find((thread) => thread.id === contextMenu.emailId) ?? null,
+    [contextMenu.emailId, threads],
+  );
 
   // Note: Drag handlers and DragOverlay are now in EmailLayout's shared DndContext
 
@@ -502,13 +524,19 @@ export function ThreadList({
       <EmailContextMenu
         anchorPosition={contextMenu.position}
         emailId={contextMenu.emailId}
-        isRead={contextMenu.emailId ? !threads.find(t => t.id === contextMenu.emailId)?.isUnread : true}
-        isFlagged={contextMenu.emailId ? threads.find(t => t.id === contextMenu.emailId)?.isFlagged : false}
+        isRead={contextThread ? !contextThread.isUnread : true}
+        isFlagged={contextThread?.isFlagged ?? false}
         onClose={handleCloseContextMenu}
         onOpen={onThreadClick}
+        onReply={handleReply}
+        onReplyAll={handleReplyAll}
+        onForward={handleForward}
         onFlag={handleFlag}
+        onMarkRead={handleMarkAsRead}
+        onMarkUnread={handleMarkAsUnread}
         onArchive={handleArchive}
         onMove={handleMove}
+        onLabel={handleLabel}
         onDelete={handleDelete}
       />
 
