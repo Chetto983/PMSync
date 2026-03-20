@@ -35,6 +35,8 @@ import { FolderPickerDialog } from '../folders/FolderPickerDialog';
 interface ThreadListProps {
   /** Email threads to display */
   threads: ThreadListItemData[];
+  /** Total email count from API pagination (not just loaded count) */
+  totalCount?: number;
   /** Loading state */
   isLoading?: boolean;
   /** Loading more (pagination) */
@@ -69,6 +71,7 @@ interface ThreadListProps {
  */
 export function ThreadList({
   threads,
+  totalCount,
   isLoading = false,
   isLoadingMore = false,
   hasMore = false,
@@ -331,7 +334,7 @@ export function ThreadList({
     >
         {/* Header with bulk actions */}
         <ThreadListHeader
-        totalCount={threads.length}
+        totalCount={totalCount ?? threads.length}
         selectedCount={selectedIds.size}
         allSelected={allSelected}
         someSelected={someSelected}

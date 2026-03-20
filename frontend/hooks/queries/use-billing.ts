@@ -40,7 +40,7 @@ export function usageOptions() {
   return queryOptions({
     queryKey: billingKeys.usage(),
     queryFn: billingApi.getUsage,
-    staleTime: 30 * 1000, // 30 seconds (more frequent updates)
+    staleTime: 2 * 60 * 1000, // 2 minutes (was 30s — excessive polling)
     gcTime: 5 * 60 * 1000,
     retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
@@ -50,8 +50,8 @@ export function costStatusOptions() {
   return queryOptions({
     queryKey: billingKeys.costStatus(),
     queryFn: billingApi.getCostStatus,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes (was 30s — too aggressive for Layout-mounted query)
+    gcTime: 10 * 60 * 1000,
     retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 1),
   });
 }

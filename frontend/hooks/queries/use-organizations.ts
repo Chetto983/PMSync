@@ -7,6 +7,10 @@
 
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { orgKeys } from './organization-keys';
+import { emailKeys } from './email-keys';
+import { folderKeys } from './use-folders';
+import { labelKeys } from './use-labels';
+import { billingKeys } from './billing-keys';
 import { authClient } from '@/lib/auth-client';
 import { websocketClient } from '@/lib/websocket-client';
 
@@ -138,8 +142,12 @@ export function useSetActiveOrg() {
           // WS reconnect failure is non-fatal; data still correct via HTTP
         }
       }
-      // Full cache invalidation -- switching org changes all data context
-      queryClient.invalidateQueries();
+      // Targeted invalidation — only org-scoped data, not auth/session cache
+      queryClient.invalidateQueries({ queryKey: orgKeys.all });
+      queryClient.invalidateQueries({ queryKey: emailKeys.all });
+      queryClient.invalidateQueries({ queryKey: folderKeys.all });
+      queryClient.invalidateQueries({ queryKey: labelKeys.all });
+      queryClient.invalidateQueries({ queryKey: billingKeys.all });
     },
   });
 }

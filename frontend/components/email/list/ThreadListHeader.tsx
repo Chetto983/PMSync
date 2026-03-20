@@ -109,6 +109,7 @@ export function ThreadListHeader({
         onChange={handleCheckboxChange}
         size="small"
         disabled={totalCount === 0}
+        inputProps={{ 'aria-label': allSelected ? (t.emailList?.deselectAll || 'Deselect all') : (t.emailList?.selectAll || 'Select all') }}
         sx={{ p: 0.5 }}
       />
 
@@ -119,7 +120,7 @@ export function ThreadListHeader({
         </Typography>
       ) : !isMobile ? (
         <Typography variant="body2" color="text.secondary">
-          {totalCount} {totalCount === 1 ? 'email' : 'emails'}
+          {(t.email?.headerStats?.totalEmails || '{count} emails').replace('{count}', totalCount.toString())}
         </Typography>
       ) : null}
 

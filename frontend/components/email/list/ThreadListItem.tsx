@@ -202,6 +202,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             onPointerDown={stopPointer}
             onTouchStart={stopPointer}
             size="small"
+            inputProps={{ 'aria-label': `${t.emailList?.selectAll || 'Select'}: ${formatSender(thread.from)}` }}
             sx={{ p: 0.5 }}
           />
         </Box>
@@ -224,6 +225,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
       >
         <Avatar
           src={thread.avatarUrl}
+          alt={formatSender(thread.from)}
           sx={{
             width: 28,
             height: 28,

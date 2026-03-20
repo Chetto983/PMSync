@@ -142,10 +142,8 @@ export default function EmailPage() {
       return;
     }
 
-    queueMicrotask(() => {
-      setAppliedFilterKey(filterKey);
-      setPage(1);
-    });
+    setAppliedFilterKey(filterKey);
+    setPage(1);
   }, [appliedFilterKey, filterKey]);
 
   const emailQueries = useQueries({
@@ -168,6 +166,7 @@ export default function EmailPage() {
   }, [emailQueries]);
 
   const responsePagination = emailQueries[effectivePage - 1]?.data?.pagination;
+  const totalEmailCount = responsePagination?.total ?? 0;
   const hasMore = responsePagination ? responsePagination.page < responsePagination.totalPages : false;
   const loadingMore =
     effectivePage > 1 && (emailQueries[effectivePage - 1]?.isFetching ?? false);
@@ -413,6 +412,7 @@ export default function EmailPage() {
         <EmailLayout readingPane={readingPane} onEmailDrop={handleEmailDrop} onFolderReorder={handleFolderReorder}>
           <ThreadList
             threads={threads}
+            totalCount={totalEmailCount}
             emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
             isLoading={loading} isLoadingMore={loadingMore} hasMore={hasMore}
             focusedId={focusedId}
@@ -445,7 +445,7 @@ export default function EmailPage() {
         <Tooltip title={`${t.email?.composer?.title || 'Compose'} (C)`} placement="left">
           <Fab
             color="primary" aria-label="compose" onClick={handleCompose}
-            sx={{ display: { xs: 'none', md: 'flex' }, position: 'fixed', bottom: 24, right: `calc(24px + ${safeArea.right})`, zIndex: 1200 }}
+            sx={{ position: 'fixed', bottom: 24, right: `calc(24px + ${safeArea.right})`, zIndex: 1250 }}
           >
             <Pencil size={24} />
           </Fab>

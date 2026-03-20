@@ -89,7 +89,6 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const prefetchTimeoutRef = useRef<Record<string, NodeJS.Timeout | null>>({});
 
   const filters = useEmailUIStore((state) => state.filters);
-  const setFolder = useEmailUIStore((state) => state.setFolder);
   const setFilters = useEmailUIStore((state) => state.setFilters);
   const toggleProviderCollapse = useEmailUIStore((state) => state.toggleProviderCollapse);
 
@@ -160,14 +159,13 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   }, []);
 
   // Handle aggregated folder selection (toggle: click again to deselect → INBOX)
+  // Single setFilters call to avoid double render → double API fetch
   const handleFolderClick = (folder: SpecialFolder) => {
     if (filters.specialUse === folder && !filters.providerId && !filters.folderId) {
       // Already selected — toggle off → back to INBOX
-      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined });
-      setFolder('INBOX');
+      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined, specialUse: 'INBOX' });
     } else {
-      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined });
-      setFolder(folder);
+      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined, specialUse: folder });
     }
   };
 
@@ -175,8 +173,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const handleProviderFolderClick = (providerId: string, folder: FolderType) => {
     if (filters.folderId === folder.id && filters.providerId === providerId) {
       // Already selected — toggle off → back to INBOX
-      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined });
-      setFolder('INBOX');
+      setFilters({ providerId: undefined, folderId: undefined, labelId: undefined, specialUse: 'INBOX' });
     } else {
       setFilters({
         providerId,
