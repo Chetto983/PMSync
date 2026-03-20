@@ -2,8 +2,8 @@
 phase: 92
 slug: ai-knowledge-base-verification
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-20
 ---
 
@@ -39,13 +39,13 @@ created: 2026-03-20
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 92-01-01 | 01 | 1 | BAPI-13 | manual API | curl /ai/compose, /ai/summarize/:id, etc. | N/A (manual) | ⬜ pending |
-| 92-01-02 | 01 | 1 | BAPI-13 | existing unit | `cd backend && npx vitest run` | ✅ | ⬜ pending |
+| 92-01-02 | 01 | 1 | BAPI-13 | existing unit | `cd backend && npx vitest run --reporter=verbose` | ✅ | ⬜ pending |
+| 92-01-03 | 01 | 1 | BAPI-15, BAPI-16 | manual API | curl /ai/knowledge-base/*, /ai/runs, /ai/runs/cost-summary | N/A (manual) | ⬜ pending |
+| 92-01-04 | 01 | 1 | BAPI-16 | existing test | `cd backend && npx vitest run ai-observability --reporter=verbose` | ✅ | ⬜ pending |
 | 92-02-01 | 02 | 1 | BAPI-14 | manual E2E | POST /ai/chat (SSE), conversation CRUD | N/A (manual) | ⬜ pending |
-| 92-02-02 | 02 | 1 | BAPI-14 | existing test | `cd backend && npx vitest run ai-chat` | ✅ | ⬜ pending |
-| 92-03-01 | 03 | 1 | BAPI-15 | manual API | curl /ai/knowledge-base/* endpoints | N/A (manual) | ⬜ pending |
-| 92-04-01 | 04 | 1 | BAPI-16 | manual API | curl /ai/runs, /ai/runs/cost-summary | N/A (manual) | ⬜ pending |
-| 92-04-02 | 04 | 1 | BAPI-16 | existing test | `cd backend && npx vitest run ai-observability` | ✅ | ⬜ pending |
-| 92-05-01 | 05 | 2 | FE-06 | manual browser | Load chat, send message, verify streaming + HITL | N/A (manual) | ⬜ pending |
+| 92-02-02 | 02 | 1 | BAPI-14 | existing test | `cd backend && npx vitest run ai-chat --reporter=verbose` | ✅ | ⬜ pending |
+| 92-03-01 | 03 | 2 | FE-06 | existing type-check | `cd frontend && npx tsc --noEmit` | ✅ | ⬜ pending |
+| 92-03-02 | 03 | 2 | FE-06 | manual browser | Load chat, send message, verify streaming + HITL | N/A (manual) | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
