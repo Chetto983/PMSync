@@ -200,7 +200,7 @@ export class EmailFolderService {
       folderPaths.add(specialUseUpper);
 
       folderValues = Array.from(folderPaths);
-      const labelFilters = [{ labels: { has: specialUseUpper } }];
+      const labelFilters: Prisma.EmailWhereInput[] = [{ labels: { has: specialUseUpper } }];
 
       // Gmail inbox mail can be persisted under category folders (UPDATES, SOCIAL, ...)
       // while still carrying the INBOX label. Aggregate both representations.

@@ -76,11 +76,8 @@ export const DraggableThreadListItem = memo<DraggableThreadListItemProps>(functi
     <Box
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
       sx={{
-        cursor: isDragging ? 'grabbing' : 'grab',
-        touchAction: 'none', // Prevent scrolling during drag on touch devices
+        userSelect: 'none',
       }}
     >
       <ThreadListItem
@@ -88,6 +85,7 @@ export const DraggableThreadListItem = memo<DraggableThreadListItemProps>(functi
         isSelected={isSelected}
         isHovered={isHovered}
         isFocused={isFocused}
+        dragHandleProps={{ ...listeners, ...attributes }}
         onSelect={onSelect}
         onClick={onClick}
         onFlag={onFlag}

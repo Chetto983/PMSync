@@ -1,7 +1,9 @@
 import {
+  createFolderDropTargetId,
   getFolderTargetValue,
   isFolderReorderDropTarget,
   matchesFolderValue,
+  resolveFolderReorderTargetId,
 } from './folder-targets';
 
 describe('folder-targets', () => {
@@ -28,5 +30,15 @@ describe('folder-targets', () => {
     expect(isFolderReorderDropTarget('sortable-folder', 'sortable-folder')).toBe(true);
     expect(isFolderReorderDropTarget('sortable-folder', 'folder')).toBe(true);
     expect(isFolderReorderDropTarget('email', 'folder')).toBe(false);
+  });
+
+  it('creates stable ids for folder drop targets', () => {
+    expect(createFolderDropTargetId('folder-1')).toBe('folder-drop:folder-1');
+  });
+
+  it('resolves reorder target ids from sortable and droppable wrappers', () => {
+    expect(resolveFolderReorderTargetId('folder-1')).toBe('folder-1');
+    expect(resolveFolderReorderTargetId('folder-drop:folder-2')).toBe('folder-2');
+    expect(resolveFolderReorderTargetId('ignored', 'folder-3')).toBe('folder-3');
   });
 });

@@ -359,13 +359,22 @@ export class EmailSendService {
       throw new NotFoundException('Original email not found');
     }
 
+    const providerIdentity = await this.prisma.providerConfig.findFirst({
+      where: { id: originalEmail.providerId, tenantId },
+      select: { email: true },
+    });
+
     // Build references chain
     const references = originalEmail.references
       ? `${originalEmail.references} ${originalEmail.messageId}`
       : originalEmail.messageId || '';
 
-    // Derive reply-to address from original email's from field
-    const to = [originalEmail.from];
+    const recipient = this.resolveReplyRecipient(originalEmail, providerIdentity?.email);
+    if (!recipient) {
+      throw new BadRequestException('Original email does not contain a reply recipient');
+    }
+
+    const to = [recipient];
 
     // Derive subject with "Re: " prefix
     const subject = originalEmail.subject.startsWith('Re:')
@@ -382,6 +391,45 @@ export class EmailSendService {
       inReplyTo: originalEmail.messageId || undefined,
       references,
     });
+  }
+
+  private resolveReplyRecipient(
+    originalEmail: {
+      replyTo?: string | null;
+      from: string;
+      to: string[];
+      cc?: string[] | null;
+    },
+    providerEmail?: string | null,
+  ): string | null {
+    const ownEmail = this.extractPrimaryEmail(providerEmail);
+    const replyTo = this.extractPrimaryEmail(originalEmail.replyTo);
+    if (replyTo && replyTo !== ownEmail) return replyTo;
+
+    const from = this.extractPrimaryEmail(originalEmail.from);
+    if (from && from !== ownEmail) return from;
+
+    const fallbackRecipients = [...(originalEmail.to || []), ...(originalEmail.cc || [])]
+      .map((address) => this.extractPrimaryEmail(address))
+      .filter((address): address is string => !!address);
+
+    const externalRecipient = fallbackRecipients.find((address) => address !== ownEmail);
+    if (externalRecipient) return externalRecipient;
+
+    return replyTo || from || fallbackRecipients[0] || null;
+  }
+
+  private extractPrimaryEmail(address?: string | null): string | null {
+    if (!address) return null;
+
+    const normalized = address.trim().replace(/^mailto:/i, '');
+    if (!normalized) return null;
+
+    const bracketMatch = normalized.match(/<([^>]+)>/);
+    const candidate = bracketMatch?.[1] || normalized;
+    const emailMatch = candidate.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+
+    return emailMatch ? emailMatch[0].trim() : null;
   }
 
   /**

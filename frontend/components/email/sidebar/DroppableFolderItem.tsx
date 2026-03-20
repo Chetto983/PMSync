@@ -13,6 +13,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { Box, alpha } from '@mui/material';
 import { ReactNode } from 'react';
+import { createFolderDropTargetId } from '../utils/folder-targets';
 
 interface DroppableFolderItemProps {
   folderId: string;
@@ -35,7 +36,7 @@ export function DroppableFolderItem({
   disabled = false,
 }: DroppableFolderItemProps) {
   const { setNodeRef, isOver, active } = useDroppable({
-    id: folderId,
+    id: createFolderDropTargetId(folderId),
     data: {
       type: 'folder',
       folderId,

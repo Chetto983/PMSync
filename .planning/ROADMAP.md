@@ -135,7 +135,13 @@ Plans:
   3. Email compose works for new messages, replies, and forwards -- draft save, schedule send, and undo send all function
   4. Folder operations (list, create, rename, move, delete, sync) work via API and sidebar drag-drop in the frontend
   5. Labels sidebar renders with create/edit/delete/reorder, drag-drop assigns labels to emails, and signatures/templates CRUD all work via API
-**Plans**: TBD
+**Current audit status (2026-03-20):**
+- Fixed: Gmail Inbox aggregation now includes label-backed inbox mail (category-backed messages no longer disappear from Inbox queries)
+- Fixed: reply recipient resolution now handles display-name senders, reply-to headers, and self-sent messages
+- Fixed: provider-folder reorder no longer collides with email drop targets in the same DnD context
+- Fixed: thread row drag no longer owns the whole row; checkbox and quick actions are isolated from row-open behavior
+- Remaining: thread-route reply/forward UI still needs live revalidation, label reorder persistence is still open, and move dialog UX still exposes raw Gmail categories
+**Plans**: TBD (live audit hotfix stream active)
 
 ### Phase 91: Calendar, Contacts & Reminders Verification
 **Goal**: Users can manage their calendar events, contacts, and reminders through both API and frontend
@@ -244,7 +250,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 89. Auth & Onboarding Verification | 1/2 | In Progress|  |
-| 90. Email Operations Verification | 0/? | Not started | - |
+| 90. Email Operations Verification | 0/? | In Progress | - |
 | 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
 | 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |

@@ -168,3 +168,4 @@ test-screenshots/*
 frontend/docs/screenshots/*
 frontend/e2e/visual-regression-splits.spec.ts-snapshots/*
 frontend/playwright-report/*
+scripts/*

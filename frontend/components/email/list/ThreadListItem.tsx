@@ -13,7 +13,14 @@
  * - ~52px row height for high information density
  */
 
-import { memo, MouseEvent, useRef, useCallback } from 'react';
+import {
+  memo,
+  MouseEvent,
+  useRef,
+  useCallback,
+  type HTMLAttributes,
+  type SyntheticEvent,
+} from 'react';
 import {
   Box,
   Checkbox,
@@ -80,6 +87,7 @@ interface ThreadListItemProps {
   isSelected: boolean;
   isHovered: boolean;
   isFocused?: boolean;
+  dragHandleProps?: HTMLAttributes<HTMLDivElement>;
   onSelect: (id: string, checked: boolean, event?: React.MouseEvent) => void;
   onClick: (id: string) => void;
   onFlag: (id: string) => void;
@@ -92,6 +100,7 @@ interface ThreadListItemProps {
 
 export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem({
   thread, isSelected, isHovered, isFocused = false,
+  dragHandleProps,
   onSelect, onClick, onFlag, onArchive, onDelete, onMove,
   onMouseEnter, onMouseLeave,
 }: ThreadListItemProps) {
@@ -123,6 +132,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   }, [onMouseLeave]);
 
   const stop = (e: MouseEvent) => e.stopPropagation();
+  const stopPointer = (event: SyntheticEvent) => event.stopPropagation();
   const handleCheckbox = (e: MouseEvent) => { stop(e); onSelect(thread.id, !isSelected, e); };
   const handleClick = () => onClick(thread.id);
   const handleFlag = (e: MouseEvent) => { stop(e); onFlag(thread.id); };
@@ -179,10 +189,18 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
       >
         {/* Checkbox — visible on hover or when selected */}
       <Fade in={showSelectionAffordance}>
-        <Box sx={{ width: 36, flexShrink: 0 }}>
+        <Box
+          sx={{ width: 36, flexShrink: 0 }}
+          onMouseDown={stopPointer}
+          onPointerDown={stopPointer}
+          onTouchStart={stopPointer}
+        >
           <Checkbox
             checked={isSelected}
             onClick={handleCheckbox}
+            onMouseDown={stopPointer}
+            onPointerDown={stopPointer}
+            onTouchStart={stopPointer}
             size="small"
             sx={{ p: 0.5 }}
           />
@@ -190,18 +208,33 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
       </Fade>
 
       {/* Avatar — 28px with color hash */}
-      <Avatar
-        src={thread.avatarUrl}
+      <Box
+        data-testid="thread-drag-handle"
+        {...dragHandleProps}
         sx={{
-          width: 28,
-          height: 28,
-          fontSize: '0.7rem',
+          display: 'flex',
+          alignItems: 'center',
           flexShrink: 0,
-          bgcolor: thread.avatarUrl ? undefined : stringToColor(thread.from),
+          cursor: dragHandleProps ? 'grab' : 'inherit',
+          touchAction: dragHandleProps ? 'none' : 'auto',
+          '&:active': {
+            cursor: dragHandleProps ? 'grabbing' : 'inherit',
+          },
         }}
       >
-        {getInitials(thread.from)}
-      </Avatar>
+        <Avatar
+          src={thread.avatarUrl}
+          sx={{
+            width: 28,
+            height: 28,
+            fontSize: '0.7rem',
+            flexShrink: 0,
+            bgcolor: thread.avatarUrl ? undefined : stringToColor(thread.from),
+          }}
+        >
+          {getInitials(thread.from)}
+        </Avatar>
+      </Box>
 
       {/* Content — 2-line compact layout */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -342,6 +375,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
       <Fade in={showQuickActions}>
         <Box
           className="thread-action-bar"
+          onMouseDown={stopPointer}
+          onPointerDown={stopPointer}
+          onTouchStart={stopPointer}
           sx={{
             position: 'absolute',
             right: 12,
@@ -358,6 +394,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           <IconButton
             size="small"
             onClick={handleFlag}
+            onMouseDown={stopPointer}
+            onPointerDown={stopPointer}
+            onTouchStart={stopPointer}
             sx={{ p: 0.5 }}
             aria-label={thread.isFlagged ? t.emailList.unflagged : t.emailList.flagged}
           >
@@ -374,6 +413,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           <IconButton
             size="small"
             onClick={handleArchive}
+            onMouseDown={stopPointer}
+            onPointerDown={stopPointer}
+            onTouchStart={stopPointer}
             sx={{ p: 0.5 }}
             aria-label={t.emailList.archive}
           >
@@ -383,6 +425,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             <IconButton
               size="small"
               onClick={handleMove}
+              onMouseDown={stopPointer}
+              onPointerDown={stopPointer}
+              onTouchStart={stopPointer}
               sx={{ p: 0.5 }}
               aria-label={t.emailList?.moveToFolder || 'Move to folder'}
             >
@@ -392,6 +437,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           <IconButton
             size="small"
             onClick={handleDelete}
+            onMouseDown={stopPointer}
+            onPointerDown={stopPointer}
+            onTouchStart={stopPointer}
             sx={{ p: 0.5, color: 'error.main' }}
             aria-label={t.emailList.delete}
           >

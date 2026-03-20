@@ -2,6 +2,8 @@ import type { Folder } from '@/lib/api/folders';
 
 type FolderLike = Pick<Folder, 'id' | 'path' | 'name' | 'specialUse'>;
 
+export const FOLDER_DROP_TARGET_PREFIX = 'folder-drop:';
+
 const normalize = (value: string) => value.trim().toUpperCase();
 
 /**
@@ -10,6 +12,10 @@ const normalize = (value: string) => value.trim().toUpperCase();
  */
 export function getFolderTargetValue(folder: FolderLike): string {
   return folder.path || folder.name || folder.specialUse || folder.id;
+}
+
+export function createFolderDropTargetId(folderId: string): string {
+  return `${FOLDER_DROP_TARGET_PREFIX}${folderId}`;
 }
 
 /**
@@ -38,4 +44,21 @@ export function isFolderReorderDropTarget(
   overType: unknown,
 ): boolean {
   return activeType === 'sortable-folder' && (overType === 'sortable-folder' || overType === 'folder');
+}
+
+export function resolveFolderReorderTargetId(
+  overId: unknown,
+  folderId?: unknown,
+): string | null {
+  if (typeof folderId === 'string' && folderId.trim()) {
+    return folderId;
+  }
+
+  if (typeof overId !== 'string' || !overId.trim()) {
+    return null;
+  }
+
+  return overId.startsWith(FOLDER_DROP_TARGET_PREFIX)
+    ? overId.slice(FOLDER_DROP_TARGET_PREFIX.length)
+    : overId;
 }
