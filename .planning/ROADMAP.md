@@ -145,7 +145,7 @@ Plans:
 - Fixed: reply/forward compose now preserves user-edited subject and body instead of silently reverting to backend-generated defaults
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
 - Remaining: thread-route reply/forward UI still needs live revalidation on production Gmail flows
-**Plans:** 4 plans (3 complete + 1 gap closure)
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 90-01-PLAN.md -- Backend API verification (email CRUD, folders, signatures, templates, attachments)
 - [x] 90-02-PLAN.md -- Frontend email list, thread view, and compose verification
@@ -259,7 +259,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 89. Auth & Onboarding Verification | 3/3 | Complete    | 2026-03-20 |
-| 90. Email Operations Verification | 3/4 | Gap closure   | - |
+| 90. Email Operations Verification | 4/4 | Complete   | 2026-03-20 |
 | 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
 | 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
