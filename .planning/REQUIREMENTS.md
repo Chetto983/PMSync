@@ -45,16 +45,16 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **FE-06**: AI chat interface works (send message, receive stream, HITL approval, conversation history)
 - [x] **FE-07**: Calendar view renders events, create/edit/delete works, RSVP functions
 - [x] **FE-08**: Contacts list loads, create/edit/delete works, VIP toggle, import vCard
-- [ ] **FE-09**: Dashboard renders with all widgets, customization drawer works, layout persists
+- [x] **FE-09**: Dashboard renders with all widgets, customization drawer works, layout persists
 - [x] **FE-10**: Settings pages function (general, security, email accounts, notifications, AI, billing)
 - [x] **FE-11**: Admin pages function (user list, ban/unban, impersonation, organization management)
 - [x] **FE-12**: Labels sidebar renders, create/edit/delete/reorder works, drag-drop assigns
 - [x] **FE-13**: Folders sidebar renders, create/rename/delete works, email drag-drop moves
 - [x] **FE-14**: Reminders page works (list, create, complete, delete, Kanban view)
 - [ ] **FE-15**: Tasks page renders correctly (not demo/placeholder content)
-- [ ] **FE-16**: Analytics page renders with real data
-- [ ] **FE-17**: Landing page renders all sections (hero, features, testimonials, CTA, footer)
-- [ ] **FE-18**: Legal pages render (privacy, terms)
+- [x] **FE-16**: Analytics page renders with real data
+- [x] **FE-17**: Landing page renders all sections (hero, features, testimonials, CTA, footer)
+- [x] **FE-18**: Legal pages render (privacy, terms)
 - [x] **FE-19**: Organization flows work (create, invite, switch, accept invitation)
 - [x] **FE-20**: Provider connection flows work (Google OAuth, Microsoft OAuth, generic IMAP/SMTP)
 
@@ -158,16 +158,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-06 | Phase 92 | Complete |
 | FE-07 | Phase 91 | Complete |
 | FE-08 | Phase 91 | Complete |
-| FE-09 | Phase 94 | Pending |
+| FE-09 | Phase 94 | Complete |
 | FE-10 | Phase 93 | Complete |
 | FE-11 | Phase 93 | Complete |
 | FE-12 | Phase 90 | Complete |
 | FE-13 | Phase 90 | Complete |
 | FE-14 | Phase 91 | Complete |
 | FE-15 | Phase 94 | Pending |
-| FE-16 | Phase 94 | Pending |
-| FE-17 | Phase 94 | Pending |
-| FE-18 | Phase 94 | Pending |
+| FE-16 | Phase 94 | Complete |
+| FE-17 | Phase 94 | Complete |
+| FE-18 | Phase 94 | Complete |
 | FE-19 | Phase 93 | Complete |
 | FE-20 | Phase 93 | Complete |
 | CLN-01 | Phase 95 | Pending |
