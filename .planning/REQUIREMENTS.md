@@ -51,7 +51,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **FE-12**: Labels sidebar renders, create/edit/delete/reorder works, drag-drop assigns
 - [x] **FE-13**: Folders sidebar renders, create/rename/delete works, email drag-drop moves
 - [x] **FE-14**: Reminders page works (list, create, complete, delete, Kanban view)
-- [ ] **FE-15**: Tasks page renders correctly (not demo/placeholder content)
+- [x] **FE-15**: Tasks page renders correctly (not demo/placeholder content)
 - [x] **FE-16**: Analytics page renders with real data
 - [x] **FE-17**: Landing page renders all sections (hero, features, testimonials, CTA, footer)
 - [x] **FE-18**: Legal pages render (privacy, terms)
@@ -164,7 +164,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-12 | Phase 90 | Complete |
 | FE-13 | Phase 90 | Complete |
 | FE-14 | Phase 91 | Complete |
-| FE-15 | Phase 94 | Pending |
+| FE-15 | Phase 94 | Complete |
 | FE-16 | Phase 94 | Complete |
 | FE-17 | Phase 94 | Complete |
 | FE-18 | Phase 94 | Complete |
