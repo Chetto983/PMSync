@@ -220,7 +220,7 @@ export class TelegramWebhookService {
           const preview = valType === 'string'
             ? value.substring(0, 200)
             : JSON.stringify(value)?.substring(0, 200);
-          this.logger.debug(`Stream chunk #${chunkCount}: type=${valType}, value=${preview}`);
+          this.logger.warn(`Stream chunk #${chunkCount}: type=${valType}, value=${preview}`);
         }
 
         // Raw object chunks (from toUIMessageStream)
@@ -263,7 +263,7 @@ export class TelegramWebhookService {
       reader.releaseLock();
     }
 
-    this.logger.debug(`Stream collected: ${chunkCount} chunks, text length=${fullText.length}`);
+    this.logger.warn(`Stream collected: ${chunkCount} chunks, text length=${fullText.length}`);
     return fullText;
   }
 
