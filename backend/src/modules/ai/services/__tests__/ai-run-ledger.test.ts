@@ -13,7 +13,7 @@ vi.mock('../../../../common/services/correlation-context.service', () => ({
   },
 }));
 
-import { AiRunLedgerService, COST_MAP, RecordRunParams } from '../ai-run-ledger.service';
+import { AiRunLedgerService, RecordRunParams } from '../ai-run-ledger.service';
 import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 
 describe('AiRunLedgerService', () => {

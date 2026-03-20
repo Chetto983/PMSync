@@ -5,7 +5,6 @@
  * Tests: ledger wiring in streamChat onFinish and maybeTriggerSummaryGeneration.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AiRunStatus } from '@prisma/client';
 
 // Capture the onFinish callback for simulated invocation
 let capturedOnFinish: ((...args: any[]) => any) | null = null;

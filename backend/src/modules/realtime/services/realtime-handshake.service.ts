@@ -4,10 +4,7 @@ import { BETTER_AUTH } from '../../../common/auth/better-auth.module';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 import { AuthenticatedSocket, buildTenantRoom } from '../types/realtime.types';
-import {
-  RealtimeAuthSessionResult,
-  RealtimeAuthTokenService,
-} from './realtime-auth-token.service';
+import { RealtimeAuthTokenService } from './realtime-auth-token.service';
 
 interface HandshakeResult {
   userId: string;

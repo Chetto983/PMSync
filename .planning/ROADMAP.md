@@ -140,8 +140,7 @@ Plans:
 - Fixed: reply recipient resolution now handles display-name senders, reply-to headers, and self-sent messages
 - Fixed: provider-folder reorder no longer collides with email drop targets in the same DnD context
 - Fixed: thread row drag no longer owns the whole row; checkbox and quick actions are isolated from row-open behavior
-- Fixed: email/frontend lint hotfix files are clean; global frontend/backend error-level lint now passes in `--quiet` mode
-- Warning backlog: backend lint has 52 warnings, frontend lint has 119 warnings, so full frontend `npm run lint` still fails because `--max-warnings=0`
+- Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
 - Remaining: thread-route reply/forward UI still needs live revalidation, label reorder persistence is still open, and move dialog UX still exposes raw Gmail categories
 **Plans**: TBD (live audit hotfix stream active)
 

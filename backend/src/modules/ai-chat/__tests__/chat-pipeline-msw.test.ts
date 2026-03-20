@@ -24,7 +24,6 @@ import { http, HttpResponse } from 'msw';
 import {
   mistralChatHandler,
   createStreamingHandler,
-  createGenerateHandler,
 } from '../../../test/msw-handlers/mistral-chat.handler';
 import { mistralEmbedHandler } from '../../../test/msw-handlers/mistral-embed.handler';
 import { ConfigService } from '@nestjs/config';

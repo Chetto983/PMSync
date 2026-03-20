@@ -6,7 +6,7 @@ import { type CreateEmailEmbeddingOptions } from '../../../common/interfaces/emb
 import { AiError } from '../errors';
 // Phase 7: Extracted sub-services
 import { EmbeddingComposerService } from './embedding-composer.service';
-import { EmbeddingCrudService, ListEmbeddingsResult } from './embedding-crud.service';
+import { EmbeddingCrudService } from './embedding-crud.service';
 import { EmbeddingSearchService, SearchOptions, SearchResult, KnowledgeBaseSearchHit } from './embedding-search.service';
 // Re-export for backward compatibility with controllers
 export type { KnowledgeBaseSearchHit };

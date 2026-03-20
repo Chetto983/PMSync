@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
-import { EmbeddingSearchService, SearchOptions, KnowledgeBaseSearchHit } from '../embedding-search.service';
+import { EmbeddingSearchService } from '../embedding-search.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { MistralService } from '../mistral.service';
 import { EmbeddingsService } from '../embeddings.service';

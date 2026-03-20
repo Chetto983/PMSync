@@ -104,7 +104,7 @@ describe('EmailBulkService', () => {
         mockUpdatedEmails.map(e => ({ ...e, isRead: false }))
       );
 
-      const result = await service.bulkUpdateRead(['email-1', 'email-2'], 'tenant-1', false);
+      await service.bulkUpdateRead(['email-1', 'email-2'], 'tenant-1', false);
 
       expect(prisma.email.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({

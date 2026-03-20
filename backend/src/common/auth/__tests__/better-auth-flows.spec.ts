@@ -19,8 +19,6 @@ jest.mock('better-auth/node', () => ({
 
 import { BetterAuthGuard } from '../better-auth.guard';
 import { RolesGuard } from '../roles.guard';
-import { IS_PUBLIC_KEY } from '../public.decorator';
-import { ROLES_KEY } from '../roles.decorator';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 

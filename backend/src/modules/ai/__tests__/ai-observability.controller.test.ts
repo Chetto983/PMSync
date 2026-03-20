@@ -6,7 +6,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AiObservabilityController } from '../controllers/ai-observability.controller';
-import { UseGuards } from '@nestjs/common';
 
 // Reflect metadata helper to verify guard decorators
 function getGuardMetadata(target: any): any[] {

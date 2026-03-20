@@ -12,7 +12,6 @@ import { DeadLetterQueueService } from '../common/services/dead-letter-queue.ser
 import { BulkOperationsQueueService } from '../modules/email-sync/services/bulk-operations-queue.service';
 import { EmailSendQueueService } from '../modules/email-sync/services/email-send-queue.service';
 import { ProviderSyncBackQueueService } from '../modules/email-sync/services/provider-sync-back-queue.service';
-import { BaseQueueService } from '../modules/email-sync/services/base-queue.service';
 
 // Mock BullMQ to avoid Redis connections
 jest.mock('bullmq', () => ({

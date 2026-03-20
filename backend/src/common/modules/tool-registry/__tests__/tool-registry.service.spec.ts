@@ -3,7 +3,6 @@ import { ToolRegistryService } from '../tool-registry.service';
 import { ToolRegistryModule } from '../tool-registry.module';
 import {
   IAiTool,
-  IToolContext,
   TOOL_REGISTRY_SERVICE,
   IToolRegistryService,
 } from '../../../interfaces/tool-registry.interface';

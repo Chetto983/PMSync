@@ -304,7 +304,7 @@ describe('EmailCrudService', () => {
         return callback(tx);
       });
 
-      const result = await service.updateEmail('email-1', 'tenant-1', { isStarred: true });
+      await service.updateEmail('email-1', 'tenant-1', { isStarred: true });
 
       expect(mockRealtimeEventsService.emitEmailUpdate).toHaveBeenCalledWith(
         'tenant-1',
@@ -327,7 +327,7 @@ describe('EmailCrudService', () => {
         return callback(tx);
       });
 
-      const result = await service.updateEmail('email-1', 'tenant-1', { isFlagged: true });
+      await service.updateEmail('email-1', 'tenant-1', { isFlagged: true });
 
       expect(mockRealtimeEventsService.emitEmailUpdate).toHaveBeenCalledWith(
         'tenant-1',

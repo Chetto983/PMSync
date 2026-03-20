@@ -9,7 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ToolRegistryService } from '../../../common/modules/tool-registry/tool-registry.service';
-import { IToolRegistryService, IAiTool } from '../../../common/interfaces/tool-registry.interface';
+import { IAiTool } from '../../../common/interfaces/tool-registry.interface';
 
 // Tool service imports
 import { EmailToolsService } from './email-tools.service';

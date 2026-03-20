@@ -226,7 +226,7 @@ describe('DataExportService', () => {
       const archive = archiverMock.__mockArchive;
 
       // Call generateExportZip - it will call archive.append for each file
-      const promise = service.generateExportZip('export-1', data);
+      void service.generateExportZip('export-1', data);
       // Let the close event fire
       await new Promise((r) => setTimeout(r, 50));
 
@@ -246,7 +246,7 @@ describe('DataExportService', () => {
       archive.append.mockClear();
 
       const data = await service.assembleUserData(mockUserId, mockTenantId);
-      const promise = service.generateExportZip('export-2', data);
+      void service.generateExportZip('export-2', data);
       await new Promise((r) => setTimeout(r, 50));
 
       // Find the metadata.json append call

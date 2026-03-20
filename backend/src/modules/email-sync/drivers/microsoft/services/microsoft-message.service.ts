@@ -10,7 +10,6 @@ import {
   AttachmentData,
   CanonicalFolderType,
   EmailAddress,
-  MICROSOFT_WELLKNOWN_TO_CANONICAL,
   folderNameToCanonical,
 } from '../../interfaces/canonical.types';
 import { withRetry, RetryOptions } from '../../../../../common/utils';

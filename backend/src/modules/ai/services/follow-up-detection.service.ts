@@ -36,13 +36,6 @@ export const followUpDetectionSchema = z.object({
 
 export type FollowUpDetectionOutput = z.infer<typeof followUpDetectionSchema>;
 
-// ============ Safe Fallback ============
-
-const SAFE_FALLBACK: FollowUpDetectionOutput = {
-  detectedFollowUps: [],
-  batchSummary: { totalAnalyzed: 0, totalDetected: 0, highUrgencyCount: 0 },
-};
-
 const SYSTEM_PROMPT = `Analyze the provided batch of recent emails and detect which ones require follow-up action from the user.
 
 For each detected follow-up:

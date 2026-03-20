@@ -22,7 +22,6 @@ import {
   AttachmentData,
   AttachmentMeta,
   EmailAddress,
-  CanonicalFolderType,
   ProviderChange,
 } from '../../interfaces/canonical.types';
 import {

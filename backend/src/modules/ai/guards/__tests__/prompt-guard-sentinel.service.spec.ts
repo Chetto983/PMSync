@@ -166,7 +166,7 @@ describe('PromptGuardService', () => {
       // Emails may contain HTML, which would trigger XSS in USER_PROMPT context
       const emailContent = '<p>Hello, this is a <b>normal</b> email with HTML</p>';
 
-      const userPromptResult = service.validateInput(emailContent, 'USER_PROMPT');
+      service.validateInput(emailContent, 'USER_PROMPT');
       const emailContextResult = service.validateInput(emailContent, 'EMAIL_CONTENT');
 
       // EMAIL_CONTENT should be more lenient than USER_PROMPT

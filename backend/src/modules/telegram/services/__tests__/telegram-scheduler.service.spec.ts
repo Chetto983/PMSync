@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
-import { ReminderStatus } from '@prisma/client';
 import { TelegramSchedulerService } from '../telegram-scheduler.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import {

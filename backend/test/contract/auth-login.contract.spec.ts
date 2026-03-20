@@ -12,7 +12,7 @@
  *   apiClient.post('/auth/login', { email, password })
  *   expects response.data.mfaRequired, response.data.mfaToken, response.data.availableMethods
  */
-import { loadSpec, expectPathExists, getResponseSchema, OpenApiSpec } from './contract-helpers';
+import { loadSpec, expectPathExists, OpenApiSpec } from './contract-helpers';
 
 describe('Auth Login Contract', () => {
   let spec: OpenApiSpec | null;

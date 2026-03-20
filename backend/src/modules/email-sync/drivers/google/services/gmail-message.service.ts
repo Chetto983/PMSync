@@ -9,7 +9,6 @@ import {
   CanonicalMessage,
   AttachmentData,
   CanonicalFolderType,
-  GMAIL_TO_CANONICAL,
   CANONICAL_TO_GMAIL,
 } from '../../interfaces/canonical.types';
 import { withRetry, RetryOptions } from '../../../../../common/utils';

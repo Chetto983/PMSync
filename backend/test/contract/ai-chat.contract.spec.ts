@@ -15,7 +15,6 @@
 import {
   loadSpec,
   expectPathExists,
-  getResponseSchema,
   OpenApiSpec,
 } from './contract-helpers';
 

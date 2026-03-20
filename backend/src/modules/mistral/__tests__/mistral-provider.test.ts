@@ -32,7 +32,7 @@ describe('MistralProviderService (real API)', () => {
   }, 45_000);
 
   it('generates text via chat model', async () => {
-    const { text, finishReason, usage } = await generateText({
+    const { text, usage } = await generateText({
       model: mistral('mistral-small-latest'),
       prompt: 'What is 2+2? Reply with just the number.',
       maxOutputTokens: 10,

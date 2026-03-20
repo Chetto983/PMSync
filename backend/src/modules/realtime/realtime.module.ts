@@ -1,4 +1,4 @@
-import { Module, Logger } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { RealtimeGateway } from './gateways/realtime.gateway';
 import { RealtimeController } from './controllers/realtime.controller';
 import { RealtimeEventsService } from './services/realtime-events.service';

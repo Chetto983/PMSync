@@ -3,7 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Folder } from '@prisma/client';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { AlertingService } from '../../../common/services/alerting.service';
-import { FolderSyncQueryService, FolderInfo, FolderCountResult } from './folder-sync-query.service';
+import { FolderSyncQueryService, FolderCountResult } from './folder-sync-query.service';
 import { ImapFolderSyncService } from './imap-folder-sync.service';
 import { GmailFolderService } from './gmail/gmail-folder.service';
 import { MicrosoftFolderService } from './microsoft/microsoft-folder.service';

@@ -5,7 +5,6 @@
  */
 import { CalendarConflictService } from '../calendar-conflict.service';
 import { getTestPrismaClient } from '../../../../../test/helpers/prisma-test-client';
-import { cleanupTestData } from '../../../../../test/helpers/cleanup';
 import {
   createTestTenant,
   createTestUser,

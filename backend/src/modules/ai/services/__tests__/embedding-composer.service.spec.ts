@@ -373,7 +373,7 @@ describe('EmbeddingComposerService', () => {
       const content = 'First sentence. Second sentence. Third sentence.';
       mockConfigService.get.mockReturnValue(30); // Low chunk size for testing
 
-      const testModule = Test.createTestingModule({
+      void Test.createTestingModule({
         providers: [
           EmbeddingComposerService,
           { provide: PrismaService, useValue: mockPrismaService },
@@ -393,8 +393,8 @@ describe('EmbeddingComposerService', () => {
 
       if (chunks.length > 1) {
         // Verify some overlap exists (not just sequential splits)
-        const firstChunkEnd = chunks[0].content.slice(-50);
-        const secondChunkStart = chunks[1].content.slice(0, 100);
+        void chunks[0].content.slice(-50);
+        void chunks[1].content.slice(0, 100);
         // At minimum, chunks should have contextual continuity
         expect(chunks[1].content.length).toBeGreaterThan(0);
       }

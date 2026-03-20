@@ -1,4 +1,4 @@
-import { Logger, OnModuleInit, Inject } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../prisma/prisma.service';

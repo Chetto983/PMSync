@@ -1,6 +1,6 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import { AxiosInstance } from 'axios';
-import { ComposeMessage, EmailAddress } from '../../interfaces/canonical.types';
+import { ComposeMessage } from '../../interfaces/canonical.types';
 import { withRetry, RetryOptions } from '../../../../../common/utils';
 
 /**

@@ -8,7 +8,6 @@ import {
 } from '../field-encryption.extension';
 import {
   encryptFieldValue,
-  decryptFieldValue,
   isEncrypted,
   hmacForBlindIndex,
 } from '../field-encryption.utils';

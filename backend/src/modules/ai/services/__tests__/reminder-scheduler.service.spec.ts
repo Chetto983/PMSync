@@ -30,7 +30,6 @@ import { ReminderSchedulerService } from '../reminder-scheduler.service';
 
 const MS_1H = 60 * 60 * 1000;
 const MS_24H = 24 * MS_1H;
-const MS_48H = 48 * MS_1H;
 
 const mockPrisma = {
   emailFollowUp: {

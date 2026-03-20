@@ -28,7 +28,6 @@ import { pipeUIMessageStreamToResponse } from 'ai';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { ConsentGuard } from '../../compliance/guards/consent.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
-import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
 import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';

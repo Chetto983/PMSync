@@ -28,7 +28,7 @@ jest.mock('../../src/common/auth/better-auth.instance', () => ({
 }));
 
 import { CsrfTokenController } from '../../src/common/auth/csrf-token.controller';
-import { csrfMiddleware, generateCsrfToken } from '../../src/common/middleware/csrf.middleware';
+import { csrfMiddleware } from '../../src/common/middleware/csrf.middleware';
 
 describe('CSRF Token Endpoint (E2E)', () => {
   let app: INestApplication;

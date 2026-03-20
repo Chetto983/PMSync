@@ -3,7 +3,7 @@ import { ImapFolderSyncService } from '../imap-folder-sync.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { ImapService } from '../../../providers/services/imap.service';
 import { ProviderTokenService } from '../provider-token.service';
-import { FolderSyncQueryService, FolderInfo } from '../folder-sync-query.service';
+import { FolderSyncQueryService } from '../folder-sync-query.service';
 import { ConflictException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 

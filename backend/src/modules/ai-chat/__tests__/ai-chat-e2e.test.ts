@@ -25,7 +25,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { createPrismaClient } from '../../../prisma/prisma-client.factory';
-import { AiChatService, StreamChatParams } from '../services/ai-chat.service';
+import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
