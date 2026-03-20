@@ -11,10 +11,10 @@
  *
  * @see https://docs.dndkit.com/presets/sortable
  *
- * TODO: Backend API update required for nested folders drag-into-folder
- * Current API: POST /folders { name, providerId, parentPath } - create only
- * Needed: PATCH /folders/:id { parentId } - move folder to new parent
- * Frontend level-based indentation works. Drag-into-folder needs backend endpoint.
+ * NOTE: Folder-to-folder nesting (drag a folder into another folder to reparent)
+ * is out of scope. The backend has no PATCH /folders/:id { parentId } endpoint.
+ * Existing level-based indentation displays server-side folder hierarchy read-only.
+ * Drag-and-drop in this component is limited to: (1) reordering folders, (2) dropping emails onto folders.
  */
 
 import React, { useRef, useCallback } from 'react';
