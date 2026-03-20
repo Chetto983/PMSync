@@ -43,7 +43,7 @@ Declared values from `frontend/theme/tokens.ts` spacing export (8px base, Tailwi
 | 2xl | 48px (spacing 12) | Large section breaks |
 | 3xl | 64px (spacing 16) | Header height, page-level spacing |
 
-Exceptions: Touch targets on admin action buttons (ban, impersonate, revoke) use 44px minimum (spacing 11) for accessibility.
+Exceptions: Interactive elements (admin action buttons: ban, impersonate, revoke; all clickable controls) must have a CSS `min-height: 44px` and `min-width: 44px` for touch-target accessibility. This is a sizing constraint on interactive elements, not a layout spacing token.
 
 ---
 
@@ -74,7 +74,7 @@ All values from `frontend/theme/tokens.ts` dark/light color exports. Theme-aware
 | Destructive | #ef4444 (error.main) | #dc2626 (error.main) | Ban, delete, cancel subscription, remove member, account deletion |
 
 Accent reserved for:
-- Primary CTA buttons (Connect Provider, Create Organization, Invite Member, Save Settings)
+- Primary CTA buttons (Connect Provider, Create Organization, Invite Member, Save Changes)
 - Active sidebar selection in settings navigation
 - Active tab indicator in billing tabs
 - OAuth provider connection success state
@@ -101,9 +101,10 @@ All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.t
 |---------|------|
 | Page title | `nav.settings` = "Settings" |
 | Section labels | `settings.sections.*` (general, security, accounts, signatures, ai, consent, dataRights, account, billing, telegram) |
-| Save CTA | "Save Changes" / "Save" per section |
+| Save CTA | "Save Changes" (uniform across all sections; never abbreviated to "Save") |
 | Provider connect CTA | `providers.connect.*` pattern |
 | Empty accounts | `providers.noProviders` = "Connect a mail provider to send and receive email." |
+| Provider connection error | `providers.connectionError` = "Failed to connect {provider}. Check your credentials or try reconnecting." (toast must include a "Retry" action button) |
 | Error (save fail) | Standard toast error with retry via re-submit |
 
 ### Admin Pages (FE-11)
@@ -128,7 +129,7 @@ All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.t
 |---------|------|
 | Page title | `organizations.title` = "Organizations" |
 | Create CTA | `organizations.create` = "Create Organization" |
-| Empty state | `organizations.noOrganizations` = "No organizations yet" |
+| Empty state | `organizations.noOrganizations` = "No organizations yet. Create one to collaborate with your team." (the "Create Organization" CTA button must be visually present within the empty state) |
 | Invite CTA | `organizations.inviteMember` = "Invite Member" |
 | Delete confirmation | `organizations.deleteConfirm` = "Type the organization name to confirm deletion" |
 | Remove member confirmation | `organizations.removeConfirm` = "Remove this member from the organization?" |
@@ -154,7 +155,7 @@ All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.t
 | Connect Google CTA | Provider card button (verify label in GoogleProviderCard) |
 | Connect Microsoft CTA | Provider card button (verify label in MicrosoftProviderCard) |
 | Connect IMAP CTA | Provider card button (verify label in GenericProviderCard) |
-| Connection error | Standard toast error pattern |
+| Connection error | `providers.connectionError` = "Failed to connect {provider}. Check your credentials or try reconnecting." (toast with "Retry" action button that re-triggers the connection flow) |
 
 ### Destructive Actions Summary
 
@@ -165,7 +166,7 @@ All copy uses i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.t
 | Remove org member | Confirmation dialog with "Remove this member from the organization?" |
 | Cancel subscription | Confirmation text + "Cancel at end of billing period" option |
 | Account deletion | DataExportPanel + AccountDeletionPanel flow (GDPR compliant) |
-| Revoke all sessions | Direct action on "Revoke All Sessions" button (no intermediate dialog) |
+| Revoke all sessions | Confirmation dialog: "This will sign out the user from all devices. Continue?" with "Revoke All Sessions" confirm button |
 | Delete provider | Confirmation dialog before disconnecting email account |
 
 ---
@@ -233,7 +234,7 @@ All pages must exhibit these states during verification:
 |-------|-------------------|
 | Loading | MUI Skeleton matching content layout (not spinner) |
 | Error | MUI Alert with user-friendly message + retry action |
-| Empty | Descriptive empty state with guidance (not blank area) |
+| Empty | Descriptive empty state with guidance and relevant CTA (not blank area) |
 | Success | MUI Snackbar toast (auto-dismiss 5s) |
 | Destructive success | MUI Snackbar toast confirming action completed |
 
