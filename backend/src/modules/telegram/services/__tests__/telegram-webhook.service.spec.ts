@@ -191,7 +191,12 @@ describe('TelegramWebhookService', () => {
     function makeUIMessageStream(textContent: string): ReadableStream {
       return new ReadableStream({
         start(controller) {
-          controller.enqueue({ type: 'text-delta', textDelta: textContent });
+          controller.enqueue({ type: 'start' });
+          controller.enqueue({ type: 'start-step' });
+          controller.enqueue({ type: 'text-start', id: '0' });
+          controller.enqueue({ type: 'text-delta', id: '0', delta: textContent });
+          controller.enqueue({ type: 'text-end', id: '0' });
+          controller.enqueue({ type: 'finish-step', finishReason: 'stop', usage: { inputTokens: 0, outputTokens: 0 } });
           controller.enqueue({ type: 'finish', finishReason: 'stop', usage: { inputTokens: 0, outputTokens: 0 } });
           controller.close();
         },

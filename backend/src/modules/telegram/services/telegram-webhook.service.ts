@@ -224,8 +224,9 @@ export class TelegramWebhookService {
         }
 
         // Raw object chunks (from toUIMessageStream)
+        // AI SDK v6: { type: 'text-delta', delta: '...' } (note: field is 'delta', not 'textDelta')
         if (value && valType === 'object' && value.type === 'text-delta') {
-          fullText += value.textDelta ?? '';
+          fullText += value.delta ?? value.textDelta ?? '';
           continue;
         }
 
@@ -247,12 +248,12 @@ export class TelegramWebhookService {
               continue;
             }
 
-            // SSE format: data: {"type":"text-delta","textDelta":"..."}
+            // SSE format: data: {"type":"text-delta","delta":"..."}
             if (trimmed.startsWith('data:')) {
               try {
                 const parsed = JSON.parse(trimmed.slice(5).trim());
-                if (parsed.type === 'text-delta' && parsed.textDelta) {
-                  fullText += parsed.textDelta;
+                if (parsed.type === 'text-delta') {
+                  fullText += parsed.delta ?? parsed.textDelta ?? '';
                 }
               } catch { /* skip */ }
             }
