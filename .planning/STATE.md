@@ -3,12 +3,27 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: System Audit & Hardening
 status: unknown
-stopped_at: Completed 94-01-PLAN.md
-last_updated: "2026-03-20T21:35:19.756Z"
+stopped_at: Completed 95-01-PLAN.md
+last_updated: "2026-03-20T22:40:10.544Z"
 progress:
   total_phases: 10
   completed_phases: 6
-  total_plans: 22
+  total_plans: 25
+  completed_plans: 23
+  percent: 92
+---
+
+---
+gsd_state_version: 1.0
+milestone: v7.0
+milestone_name: System Audit & Hardening
+status: unknown
+stopped_at: Phase 95 UI-SPEC approved
+last_updated: "2026-03-20T22:29:45.218Z"
+progress:
+  [█████████░] 92%
+  completed_phases: 6
+  total_plans: 25
   completed_plans: 22
 ---
 
@@ -21,11 +36,11 @@ See: `.planning/PROJECT.md` (updated 2026-03-20)
 Follow-up note: Gmail/frontend Phase 90 blockers are fully live-validated for the audited production mailbox, including custom folder counts, draft editing, reply/forward, row actions, and folder drag-drop.
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 94 — infrastructure-remaining-pages
+**Current focus:** Phase 95 — dead-code-cleanup
 
 ## Current Position
 
-Phase: 94 (infrastructure-remaining-pages) — EXECUTING
+Phase: 95 (dead-code-cleanup) — EXECUTING
 Plan: 2 of 3
 
 ## Performance Metrics
@@ -67,6 +82,7 @@ Plan: 2 of 3
 | Phase 94 P03 | 5min | 2 tasks | 4 files |
 | Phase 94 P02 | 5min | 2 tasks | 5 files |
 | Phase 94 P01 | 14min | 2 tasks | 3 files |
+| Phase 95 P01 | 8min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -101,6 +117,7 @@ Recent decisions affecting current work:
 - [Phase 94]: Used MUI CSS class selectors for dashboard widget locators; storageState bypass for public page testing
 - [Phase 94]: Playwright test skipped live run due to no local server; verified via code review + type check
 - [Phase 94]: Added 401 to accepted webhook status codes for token-protected endpoints on Railway
+- [Phase 95]: Replaced AgentPendingAction refs in websocket.ts with Record<string, unknown> instead of deleting event types
 
 ### Pending Todos
 
@@ -114,6 +131,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-20T21:13:11.653Z
-Stopped at: Completed 94-01-PLAN.md
+Last session: 2026-03-20T22:40:10.539Z
+Stopped at: Completed 95-01-PLAN.md
 Resume file: None

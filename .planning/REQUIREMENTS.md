@@ -62,9 +62,9 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 
 - [ ] **CLN-01**: Dead code removed (orphaned `bulk_email_actions` renderer, unused exports, stale shims)
 - [ ] **CLN-02**: All hardcoded strings replaced with i18n keys (en.ts + it.ts)
-- [ ] **CLN-03**: `PendingAction` type and legacy HITL API methods in ai.ts cleaned up
-- [ ] **CLN-04**: Unused API client methods removed (deprecated `voltAgentApi` alias, `multiAgentApi` shim)
-- [ ] **CLN-05**: Stale contract test assertions updated (SEC-01 status, missing coverage)
+- [x] **CLN-03**: `PendingAction` type and legacy HITL API methods in ai.ts cleaned up
+- [x] **CLN-04**: Unused API client methods removed (deprecated `voltAgentApi` alias, `multiAgentApi` shim)
+- [x] **CLN-05**: Stale contract test assertions updated (SEC-01 status, missing coverage)
 - [ ] **CLN-06**: Console.log/debug statements removed from production code
 - [ ] **CLN-07**: Unused dependencies removed from package.json (both backend and frontend)
 - [ ] **CLN-08**: Dead routes and controllers removed (if any found during testing)
@@ -172,9 +172,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-20 | Phase 93 | Complete |
 | CLN-01 | Phase 95 | Pending |
 | CLN-02 | Phase 95 | Pending |
-| CLN-03 | Phase 95 | Pending |
-| CLN-04 | Phase 95 | Pending |
-| CLN-05 | Phase 95 | Pending |
+| CLN-03 | Phase 95 | Complete |
+| CLN-04 | Phase 95 | Complete |
+| CLN-05 | Phase 95 | Complete |
 | CLN-06 | Phase 95 | Pending |
 | CLN-07 | Phase 95 | Pending |
 | CLN-08 | Phase 95 | Pending |
