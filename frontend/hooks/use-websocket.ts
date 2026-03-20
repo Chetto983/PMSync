@@ -9,19 +9,14 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
 import { websocketClient } from '@/lib/websocket-client';
 import { authClient } from '@/lib/auth-client';
-
-import { emailKeys } from '@/hooks/queries/email-keys';
 import { logger } from '@/lib/logger';
 
 interface UseWebSocketOptions {
   /** Whether to auto-connect when authenticated */
   autoConnect?: boolean;
-  /** Whether to refetch data on reconnect */
-  refetchOnReconnect?: boolean;
 }
 
 interface UseWebSocketReturn {
@@ -54,11 +49,10 @@ interface UseWebSocketReturn {
  * ```
  */
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
-  const { autoConnect = true, refetchOnReconnect = true } = options;
+  const { autoConnect = true } = options;
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const isAuthenticated = !!session;
-  const queryClient = useQueryClient();
   const handleLogout = useCallback(async () => {
     const result = await authClient.signOut();
     if (result.error) {
@@ -122,22 +116,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     };
   }, [disconnect, handleLogout]);
 
-  // Handle reconnection - refetch stale data
-  useEffect(() => {
-    if (!refetchOnReconnect) {
-      return;
-    }
-
-    const unsubReconnect = websocketClient.onReconnect(() => {
-      logger.debug('[useWebSocket] Reconnected - refetching data');
-      // Invalidate all email queries to get fresh data
-      queryClient.invalidateQueries({ queryKey: emailKeys.all });
-    });
-
-    return () => {
-      unsubReconnect();
-    };
-  }, [refetchOnReconnect, queryClient]);
+  // Note: reconnect data refresh is handled by useEmailRealtime's debounced
+  // invalidation via sync:status events — no blanket invalidateQueries here.
+  // A blanket invalidation on reconnect floods the API when many connections
+  // reconnect simultaneously (caused 429 storms with 500+ zombie sockets).
 
   // Track connection state changes
   useEffect(() => {

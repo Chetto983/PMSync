@@ -100,7 +100,7 @@ function PrivateRouteGate({
   const user = session?.user;
 
   // WebSocket: connect once at app level (not in Layout which remounts per page)
-  useWebSocket({ autoConnect: isPrivateRoute && !!user, refetchOnReconnect: true });
+  useWebSocket({ autoConnect: isPrivateRoute && !!user });
   const { data: legalStatus, isLoading: legalLoading } = useLegalStatus(isPrivateRoute && !!user);
   const legalAccepted = legalStatus?.allAccepted === true;
 
