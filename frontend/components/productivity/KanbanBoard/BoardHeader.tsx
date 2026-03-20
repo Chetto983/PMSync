@@ -88,7 +88,7 @@ export function PageHeader({
               lineHeight: 1.4,
             }}
           >
-            {t.ai.followUpTracker.kanban?.subtitle || t.ai.followUpTracker.subtitle}
+            {t.ai.followUpTracker.subtitle}
           </Typography>
         </Box>
         {!isMobile && (
@@ -222,8 +222,6 @@ export function KeyboardHelpDialog({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2.5 }}>
           <ShortcutRow keys="j" label={kb?.moveDown || 'Move down'} />
           <ShortcutRow keys="k" label={kb?.moveUp || 'Move up'} />
-          <ShortcutRow keys="h" label={kb?.prevColumn || 'Previous column'} />
-          <ShortcutRow keys="l" label={kb?.nextColumn || 'Next column'} />
         </Box>
         <Divider sx={{ my: 1.5 }} />
         <Typography
