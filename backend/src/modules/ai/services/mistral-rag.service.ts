@@ -167,7 +167,7 @@ export class MistralRagService {
             temperature: 0.7,
             maxOutputTokens: 1024,
             abortSignal: AbortSignal.timeout(timeoutMs),
-            providerOptions: { mistral: { safePrompt: true } },
+            // providerOptions.mistral removed — not supported by OpenRouter
           });
 
           return text || t.mistral.errors.tryAgain;

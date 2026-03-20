@@ -146,12 +146,8 @@ export class MistralService implements OnModuleInit {
             temperature,
             maxOutputTokens: maxTokens,
             abortSignal: AbortSignal.timeout(timeoutMs),
-            providerOptions: {
-              mistral: {
-                safePrompt: true,
-                ...(jsonMode && { responseFormat: { type: 'json_object' as const } }),
-              },
-            },
+            // JSON mode: use AI SDK Output.object() for structured output instead.
+            // providerOptions.mistral is not supported by OpenRouter.
           });
 
           // Phase 35: Fire-and-forget ledger write
@@ -213,7 +209,7 @@ export class MistralService implements OnModuleInit {
         temperature: 0.2,
         maxOutputTokens: 32,
         abortSignal: AbortSignal.timeout(15_000),
-        providerOptions: { mistral: { safePrompt: true } },
+        // providerOptions.mistral removed — not supported by OpenRouter
       });
 
       // Phase 35: Fire-and-forget ledger for title generation
