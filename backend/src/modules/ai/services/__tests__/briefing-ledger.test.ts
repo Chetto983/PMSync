@@ -28,11 +28,11 @@ describe('BriefingService ledger wiring', () => {
 
   beforeEach(() => {
     mockLedger = { recordRun: vi.fn().mockResolvedValue(undefined) };
-    mockMistralProvider = { getChatModel: vi.fn(() => 'mock-model') };
+    mockMistralProvider = { getChatModel: vi.fn(() => 'mock-model'), getChatModelName: vi.fn(() => 'mistral-small-latest') };
     mockPrisma = {
       email: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0) },
       calendarEvent: { findMany: vi.fn().mockResolvedValue([]) },
-      emailFollowUp: { findMany: vi.fn().mockResolvedValue([]) },
+      emailFollowUp: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0) },
       contact: { findMany: vi.fn().mockResolvedValue([]) },
     };
     mockGenerateText.mockReset();

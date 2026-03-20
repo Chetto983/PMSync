@@ -49,6 +49,7 @@ const mockPrisma = {
     findMany: vi.fn().mockResolvedValue([
       { id: 'fu-001', emailId: 'e-003', reason: 'Promised deliverables', dueDate: new Date() },
     ]),
+    count: vi.fn().mockResolvedValue(1),
   },
   contact: {
     findMany: vi.fn().mockResolvedValue([
