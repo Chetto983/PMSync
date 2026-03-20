@@ -383,21 +383,28 @@ export class FolderSyncQueryService {
   }): Prisma.EmailWhereInput {
     const { providerId, providerType, folder, tenantId } = params;
     const isTrashFolder = folder.specialUse?.toUpperCase() === 'TRASH';
+    const baseWhere: Prisma.EmailWhereInput = {
+      providerId,
+      ...(tenantId && { tenantId }),
+      ...(isTrashFolder ? {} : { isDeleted: false }),
+    };
+    const folderFilter: Prisma.EmailWhereInput = {
+      folder: { in: this.getFolderKeys(folder) },
+    };
 
     if (providerType === 'google' && folder.externalId) {
       return {
-        providerId,
-        ...(tenantId && { tenantId }),
-        ...(isTrashFolder ? {} : { isDeleted: false }),
-        labels: { has: folder.externalId },
+        ...baseWhere,
+        OR: [
+          folderFilter,
+          { labels: { has: folder.externalId } },
+        ],
       };
     }
 
     return {
-      providerId,
-      ...(tenantId && { tenantId }),
-      ...(isTrashFolder ? {} : { isDeleted: false }),
-      folder: { in: this.getFolderKeys(folder) },
+      ...baseWhere,
+      ...folderFilter,
     };
   }
 

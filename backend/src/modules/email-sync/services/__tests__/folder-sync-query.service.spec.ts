@@ -303,7 +303,7 @@ describe('FolderSyncQueryService', () => {
       expect(mockPrismaService.folder.update).not.toHaveBeenCalled();
     });
 
-    it('should count Gmail folders by label externalId instead of email.folder', async () => {
+    it('should count Gmail folders by label externalId or persisted folder path', async () => {
       mockPrismaService.providerConfig.findUnique.mockResolvedValue({
         id: providerId,
         providerType: 'google',
@@ -335,7 +335,10 @@ describe('FolderSyncQueryService', () => {
           providerId,
           tenantId,
           isDeleted: false,
-          labels: { has: 'Label_123' },
+          OR: [
+            { folder: { in: ['Projects', 'PROJECTS'] } },
+            { labels: { has: 'Label_123' } },
+          ],
         },
       });
     });
@@ -365,7 +368,7 @@ describe('FolderSyncQueryService', () => {
       expect(mockRealtimeEvents.emitFolderCountsUpdate).toHaveBeenCalledTimes(2);
     });
 
-    it('should update Gmail label-backed folder counts using labels array', async () => {
+    it('should update Gmail label-backed folder counts using labels array or persisted folder path', async () => {
       mockPrismaService.providerConfig.findUnique.mockResolvedValue({
         id: providerId,
         tenantId,
@@ -408,7 +411,10 @@ describe('FolderSyncQueryService', () => {
           providerId,
           tenantId,
           isDeleted: false,
-          labels: { has: 'Label_123' },
+          OR: [
+            { folder: { in: ['Projects', 'PROJECTS'] } },
+            { labels: { has: 'Label_123' } },
+          ],
         },
       });
       expect(mockPrismaService.email.count).toHaveBeenNthCalledWith(3, {
@@ -416,7 +422,10 @@ describe('FolderSyncQueryService', () => {
           providerId,
           tenantId,
           isDeleted: false,
-          labels: { has: 'INBOX' },
+          OR: [
+            { folder: { in: ['Inbox', 'INBOX'] } },
+            { labels: { has: 'INBOX' } },
+          ],
         },
       });
       expect(mockPrismaService.$transaction).toHaveBeenCalled();
