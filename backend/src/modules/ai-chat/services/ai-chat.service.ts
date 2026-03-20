@@ -254,14 +254,20 @@ export class AiChatService {
       model: this.mistralProvider.getChatModel(model),
       instructions: systemPromptWithMemory,
       tools,
-      toolChoice: 'required',
+      toolChoice: 'auto',
       stopWhen: stepCountIs(5),
       prepareStep: async ({ stepNumber }) => {
-        // Step 0: force tool use so the model gathers real data before answering.
-        // Step 1+: switch to 'auto' so it can synthesize results into text.
-        if (stepNumber > 0) {
-          return { toolChoice: 'auto' as const };
-        }
+        // Step 1+: always 'auto' so the model can synthesize tool results into text.
+        if (stepNumber > 0) return {};
+
+        // Step 0: force tool use for substantive requests so the model
+        // gathers real data instead of hallucinating. Skip for short
+        // follow-ups (e.g. "1", "yes", "ok", "grazie") that don't need tools.
+        // Use the original user message (before runtime context injection).
+        const trimmed = message.trim();
+        if (trimmed.length <= 30 && trimmed.split(/\s+/).length <= 3) return {};
+
+        return { toolChoice: 'required' as const };
       },
       onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
         const stepIndex = completedStepCount++;
