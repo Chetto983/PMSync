@@ -242,7 +242,7 @@ Plans:
   3. Legacy API artifacts removed: PendingAction type, deprecated voltAgentApi alias, multiAgentApi shim, stale HITL methods
   4. Console.log/debug statements removed from production code, unused dependencies removed from both package.json files
   5. Stale contract test assertions updated and any dead routes/controllers discovered during testing are removed
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 95-01-PLAN.md -- Legacy API shims, PendingAction types, orphaned renderers, stale test assertions
 - [ ] 95-02-PLAN.md -- Dead file deletion (frontend + backend unused files, VoltAgent cosmetic cleanup)
@@ -313,7 +313,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 92. AI & Knowledge Base Verification | 3/3 | Complete    | 2026-03-20 |
 | 93. Admin, Subscriptions & Integrations | 4/4 | Complete    | 2026-03-20 |
 | 94. Infrastructure & Remaining Pages | 3/3 | Complete    | 2026-03-20 |
-| 95. Dead Code & Cleanup | 1/3 | In Progress|  |
+| 95. Dead Code & Cleanup | 2/3 | In Progress|  |
 | 96. UI/UX Polish | 0/? | Not started | - |
 | 97. MUI Chat Migration | 0/? | Not started | - |
 | 98. Security Verification | 0/? | Not started | - |
