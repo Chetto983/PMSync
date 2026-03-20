@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { usePrefetchQuery } from '@tanstack/react-query';
 import { Box, Snackbar, Alert } from '@mui/material';
+import { useRouter } from 'next/router';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
@@ -19,6 +20,7 @@ export interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
+  const router = useRouter();
   const t = useTranslations();
   const { lastStatus, clear } = useSyncStore();
 
@@ -140,8 +142,9 @@ export function Layout({ children }: LayoutProps) {
           {/* Pending Invitation Banner -- visible until accepted/declined */}
           <PendingInvitationBanner />
 
-          {/* Page Content - Main content target for skip navigation */}
+          {/* Page Content - key forces remount on route change */}
           <Box
+            key={router.pathname}
             id="main-content"
             tabIndex={-1}
             sx={{
