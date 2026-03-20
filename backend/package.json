@@ -59,6 +59,7 @@
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.13",
+    "@openrouter/ai-sdk-provider": "^2.3.3",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "@sentinelseed/voltagent": "^0.2.2",
