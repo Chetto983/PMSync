@@ -16,10 +16,10 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **BAPI-05**: User can manage email templates (list, create, update, delete, duplicate, set-default)
 - [x] **BAPI-06**: User can perform all calendar operations (list calendars, CRUD events, sync, conflicts, focus-time, meeting-prep)
 - [x] **BAPI-07**: User can perform all contact operations (list, create, update, delete, bulk-delete, VIP toggle, import vCard, sync, extract-from-emails)
-- [ ] **BAPI-08**: User can manage labels (list, create, update, delete, add/remove emails, reorder)
-- [ ] **BAPI-09**: User can manage providers (list, connect Google/Microsoft/IMAP, test connections, delete, sync)
-- [ ] **BAPI-10**: User can manage subscription (get status, usage, limits, features, cost-breakdown, cancel)
-- [ ] **BAPI-11**: User can manage compliance (consent status/update, data export, data deletion, GDPR status, legal acceptance)
+- [x] **BAPI-08**: User can manage labels (list, create, update, delete, add/remove emails, reorder)
+- [x] **BAPI-09**: User can manage providers (list, connect Google/Microsoft/IMAP, test connections, delete, sync)
+- [x] **BAPI-10**: User can manage subscription (get status, usage, limits, features, cost-breakdown, cancel)
+- [x] **BAPI-11**: User can manage compliance (consent status/update, data export, data deletion, GDPR status, legal acceptance)
 - [x] **BAPI-12**: User can manage reminders (create, list, get, update, complete, delete)
 - [x] **BAPI-13**: User can use AI features (compose, summarize, smart-reply, categorize, sentiment, priority, triage, follow-ups, briefing, drafts)
 - [x] **BAPI-14**: User can use AI chat (stream message, CRUD conversations, HITL approve/reject)
@@ -132,10 +132,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-05 | Phase 90 | Complete |
 | BAPI-06 | Phase 91 | Complete |
 | BAPI-07 | Phase 91 | Complete |
-| BAPI-08 | Phase 93 | Pending |
-| BAPI-09 | Phase 93 | Pending |
-| BAPI-10 | Phase 93 | Pending |
-| BAPI-11 | Phase 93 | Pending |
+| BAPI-08 | Phase 93 | Complete |
+| BAPI-09 | Phase 93 | Complete |
+| BAPI-10 | Phase 93 | Complete |
+| BAPI-11 | Phase 93 | Complete |
 | BAPI-12 | Phase 91 | Complete |
 | BAPI-13 | Phase 92 | Complete |
 | BAPI-14 | Phase 92 | Complete |
