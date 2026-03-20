@@ -78,7 +78,7 @@ export function KanbanColumn({
         flex: fullWidth ? undefined : '1 1 300px',
         bgcolor: isOver
           ? alpha(columnColor, 0.06)
-          : alpha(theme.palette.background.default, 0.5),
+          : alpha(theme.palette.background.default, 0.4),
         borderRadius: 3,
         p: 1.5,
         display: 'flex',
@@ -86,7 +86,8 @@ export function KanbanColumn({
         transition: 'all 0.2s ease',
         border: isOver
           ? `2px dashed ${alpha(columnColor, 0.4)}`
-          : '2px solid transparent',
+          : `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+        boxShadow: `inset 0 1px 0 ${alpha(theme.palette.common.white, 0.5)}`,
       }}
     >
       {/* Column header */}
@@ -107,8 +108,9 @@ export function KanbanColumn({
           sx={{
             fontWeight: 700,
             color: 'text.primary',
-            fontSize: '0.8rem',
-            letterSpacing: 0.3,
+            fontSize: '0.75rem',
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
           }}
         >
           {title}
@@ -181,16 +183,16 @@ export function KanbanColumn({
                 py: 3,
               }}
             >
-              <Box sx={{ color: alpha(columnColor, 0.35), mb: 1 }}>
+              <Box sx={{ color: alpha(columnColor, 0.3), mb: 1.5 }}>
                 {emptyConfig.icon}
               </Box>
               <Typography
                 variant="body2"
                 sx={{
-                  color: alpha(columnColor, 0.7),
+                  color: 'text.secondary',
                   fontWeight: 600,
                   textAlign: 'center',
-                  fontSize: '0.8rem',
+                  fontSize: '0.8125rem',
                 }}
               >
                 {emptyConfig.message}
@@ -200,8 +202,10 @@ export function KanbanColumn({
                 sx={{
                   color: 'text.disabled',
                   textAlign: 'center',
-                  mt: 0.5,
-                  maxWidth: 200,
+                  mt: 0.75,
+                  maxWidth: 220,
+                  lineHeight: 1.5,
+                  fontSize: '0.75rem',
                 }}
               >
                 {emptyConfig.hint}
@@ -222,25 +226,25 @@ function getEmptyConfig(
   switch (id) {
     case 'PENDING':
       return {
-        icon: <Inbox size={28} />,
+        icon: <Inbox size={32} strokeWidth={1.5} />,
         message: empty?.noPending || 'All clear',
         hint: empty?.noPendingHint || 'Follow-ups appear here when emails need a response',
       };
     case 'OVERDUE':
       return {
-        icon: <AlertTriangle size={28} />,
+        icon: <AlertTriangle size={32} strokeWidth={1.5} />,
         message: empty?.noOverdue || 'Nothing overdue',
         hint: empty?.noOverdueHint || 'Overdue items will appear here automatically',
       };
     case 'RESOLVED':
       return {
-        icon: <CheckCircle size={28} />,
+        icon: <CheckCircle size={32} strokeWidth={1.5} />,
         message: empty?.noResolved || 'Nothing resolved yet',
         hint: empty?.noResolvedHint || 'Drag cards here or click resolve',
       };
     case 'EXPIRED':
       return {
-        icon: <Archive size={28} />,
+        icon: <Archive size={32} strokeWidth={1.5} />,
         message: empty?.noExpired || 'No expired items',
         hint: empty?.noExpiredHint || 'Expired follow-ups are moved here after the deadline',
       };

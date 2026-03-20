@@ -68,7 +68,7 @@ export function PageHeader({
           <Bell size={20} />
         </Box>
         <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, fontSize: '1.125rem' }}>
             {t.ai.followUpTracker.title}
           </Typography>
           <Typography variant="caption" color="text.secondary">

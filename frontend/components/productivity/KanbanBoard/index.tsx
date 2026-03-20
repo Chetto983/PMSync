@@ -373,7 +373,8 @@ export function FollowupsKanbanBoard() {
               display: 'flex',
               gap: 2,
               overflowX: 'auto',
-              p: 2,
+              px: 2,
+              py: 2,
               minHeight: 400,
             }}
           >
