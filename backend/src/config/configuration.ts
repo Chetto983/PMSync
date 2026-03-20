@@ -327,10 +327,13 @@ export function loadConfiguration(): Configuration {
   const defaultApiUrl = `http://${apiHost}:${apiPort}`;
   const apiUrl = process.env.API_PUBLIC_URL || defaultApiUrl;
   const trustProxyOverride = process.env.TRUST_PROXY;
+  // Auto-detect Railway/Render/Fly — these always run behind a reverse proxy
+  const isCloudPlatform = !!(process.env.RAILWAY_ENVIRONMENT || process.env.RENDER || process.env.FLY_APP_NAME);
   const trustProxy =
     trustProxyOverride === undefined || trustProxyOverride === ''
-      ? // Trust first proxy hops on local networks by default (nginx/traefik)
-      'loopback, linklocal, uniquelocal'
+      ? isCloudPlatform
+        ? true // Cloud platforms always have a reverse proxy
+        : 'loopback, linklocal, uniquelocal' // Local dev: trust local proxies only
       : ['true', '1'].includes(trustProxyOverride.toLowerCase())
         ? true
         : ['false', '0'].includes(trustProxyOverride.toLowerCase())

@@ -1,6 +1,8 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
+import { RedisThrottlerStorage } from './common/guards/redis-throttler-storage.service';
+import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LoggerModule } from 'nestjs-pino';
@@ -102,10 +104,15 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     TelegramModule, // Follow-Up AI: Telegram bot, scheduler, webhook
   ],
   providers: [
-    // Apply throttler globally to all routes
+    // Redis-backed throttler storage for distributed rate limiting
+    {
+      provide: ThrottlerStorage,
+      useClass: RedisThrottlerStorage,
+    },
+    // Apply throttler globally — uses userId for auth'd requests, IP for anon
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: UserThrottlerGuard,
     },
     // Phase 52: Global session validation via better-auth (BetterAuthGuard)
     // MUST be before Legal/Consent guards so unauthenticated requests are rejected first
