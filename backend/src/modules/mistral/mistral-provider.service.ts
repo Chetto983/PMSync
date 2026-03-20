@@ -42,7 +42,7 @@ export class MistralProviderService {
       'AI_CHAT_MODEL',
       this.config.get<string>(
         'MISTRAL_CHAT_MODEL',
-        'qwen/qwen3.5-flash-02-23',
+        'qwen/qwen3.5-plus-02-15',
       ),
     );
     this.defaultCodeModel = this.config.get<string>(
