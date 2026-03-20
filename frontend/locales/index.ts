@@ -973,6 +973,12 @@ export interface AppTranslations {
       scheduleSend: string;
       fullscreen: string;
       exitFullscreen: string;
+      selectSignature: string;
+      noSignature: string;
+      changeSignature: string;
+      loadTemplate: string;
+      templateApplied: string;
+      replaceContent: string;
     };
     aiDraft: {
       badge: string;
@@ -1357,6 +1363,33 @@ export interface AppTranslations {
       options: {
         [key: string]: string;
       };
+    };
+    // Scheduled Emails Management
+    scheduledEmails: {
+      title: string;
+      noScheduled: string;
+      cancel: string;
+      cancelConfirm: string;
+      cancelSuccess: string;
+      reschedule: string;
+      rescheduleSuccess: string;
+      status: {
+        pending: string;
+        processing: string;
+        sent: string;
+        failed: string;
+      };
+      scheduledFor: string;
+      recipients: string;
+    };
+    // Follow-up Indicator
+    followUpIndicator: {
+      pending: string;
+      overdue: string;
+      dueDate: string;
+      resolve: string;
+      snooze: string;
+      noFollowUp: string;
     };
     // Undo Send Feature (Phase 9)
     undoSend: {
@@ -1954,6 +1987,8 @@ export interface AppTranslations {
       ai: string;
       accounts: string;
       signatures: string;
+      templates: string;
+      scheduled: string;
       consent: string;
       dataRights: string;
       account: string;

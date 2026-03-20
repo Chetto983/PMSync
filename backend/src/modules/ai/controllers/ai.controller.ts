@@ -589,6 +589,26 @@ export class AiController {
     };
   }
 
+  @Get('follow-ups/by-email/:emailId')
+  @ApiOperation({ summary: 'Get active follow-up for a specific email' })
+  @ApiResponse({ status: 200, description: 'Follow-up for email (or null)' })
+  async getFollowUpByEmail(
+    @Request() req: AuthenticatedRequest,
+    @Param('emailId') emailId: string,
+  ) {
+    const followUp = await this.prisma.emailFollowUp.findFirst({
+      where: {
+        emailId,
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        status: { not: FollowUpStatus.RESOLVED },
+      },
+      include: { email: { select: { subject: true, from: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { success: true, followUp };
+  }
+
   @Get('follow-ups/stats')
   @ApiOperation({ summary: 'Follow-up status counts' })
   @ApiResponse({ status: 200, description: 'Follow-up stats returned' })

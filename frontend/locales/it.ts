@@ -1047,6 +1047,13 @@ export const it: AppTranslations = {
       // Fullscreen toggle
       fullscreen: 'Schermo intero',
       exitFullscreen: 'Esci da schermo intero',
+      // Signature/template picker
+      selectSignature: 'Seleziona firma',
+      noSignature: 'Nessuna firma',
+      changeSignature: 'Cambia firma',
+      loadTemplate: 'Carica modello',
+      templateApplied: 'Modello applicato',
+      replaceContent: 'Questo sostituirà il contenuto corrente. Continuare?',
     },
     aiDraft: {
       badge: 'Bozza AI',
@@ -1455,6 +1462,33 @@ export const it: AppTranslations = {
         nextMonday: 'Lunedì prossimo',
         custom: 'Scegli data e ora',
       },
+    },
+    // Scheduled Emails Management
+    scheduledEmails: {
+      title: 'Email Programmate',
+      noScheduled: 'Nessuna email programmata',
+      cancel: 'Annulla',
+      cancelConfirm: 'Sei sicuro di voler annullare questa email programmata?',
+      cancelSuccess: 'Email programmata annullata',
+      reschedule: 'Riprogramma',
+      rescheduleSuccess: 'Email riprogrammata',
+      status: {
+        pending: 'In attesa',
+        processing: 'Invio in corso',
+        sent: 'Inviata',
+        failed: 'Fallita',
+      },
+      scheduledFor: 'Programmata per',
+      recipients: 'A',
+    },
+    // Follow-up Indicator (thread-level)
+    followUpIndicator: {
+      pending: 'Follow-up in attesa',
+      overdue: 'Scaduto',
+      dueDate: 'Scadenza',
+      resolve: 'Risolvi',
+      snooze: 'Posticipa',
+      noFollowUp: 'Nessun follow-up attivo',
     },
     // Undo Send Feature (Phase 9)
     undoSend: {
@@ -1885,6 +1919,8 @@ export const it: AppTranslations = {
       notifications: 'Notifiche',
       billing: 'Abbonamento',
       signatures: 'Firme',
+      templates: 'Modelli',
+      scheduled: 'Programmate',
       consent: 'Privacy e consenso',
       dataRights: 'Dati e Privacy',
     },

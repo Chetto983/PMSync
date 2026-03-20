@@ -153,6 +153,21 @@ export function useSnoozeFollowUp() {
   });
 }
 
+/** Hook for follow-up by email ID */
+export function useFollowUpForEmail(emailId: string | undefined) {
+  return useQuery({
+    queryKey: [...followUpKeys.all, 'by-email', emailId],
+    queryFn: async (): Promise<EmailFollowUp | null> => {
+      if (!emailId) return null;
+      const response = await aiChatApi.getFollowUpByEmail(emailId);
+      return (response.data?.followUp as EmailFollowUp) || null;
+    },
+    enabled: !!emailId,
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+}
+
 /** Mutation: soft-delete follow-up */
 export function useDeleteFollowUp() {
   const queryClient = useQueryClient();

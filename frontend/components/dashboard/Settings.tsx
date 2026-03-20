@@ -28,12 +28,23 @@ import {
   AccountSettings,
 } from '@/components/settings';
 import { SignatureSettings } from '@/components/settings/SignatureSettings';
+import { TemplateSettings } from '@/components/settings/TemplateSettings';
+import { ScheduledEmailsList } from '@/components/settings/ScheduledEmailsList';
+import { FileText, Clock } from 'lucide-react';
 import { ConsentSettings } from '@/components/dashboard/consent/ConsentSettings';
 import { DataExportPanel } from '@/components/dashboard/data-rights/DataExportPanel';
 import { AccountDeletionPanel } from '@/components/dashboard/data-rights/AccountDeletionPanel';
 import { BillingPanel } from '@/components/billing';
 import { TelegramSettingsPanel } from '@/components/reminders/TelegramSettingsPanel';
 import { providersApi } from '@/lib/api/providers';
+import {
+  useTemplates,
+  useCreateTemplate,
+  useUpdateTemplate,
+  useDeleteTemplate,
+  useSetDefaultTemplate,
+  useDuplicateTemplate,
+} from '@/hooks/queries/use-templates';
 import { useSettingsState } from './settings/useSettingsState';
 import type { SettingsSection } from './settings/useSettingsState';
 import { useSettingsCopy } from './settings/useSettingsCopy';
@@ -60,6 +71,16 @@ function getProviderConnectError(error: unknown): string {
 export function Settings() {
   const s = useSettingsState();
   const { t, settingsCopy, generalCopy, aiCopy, accountsCopy, accountCopy, signaturesCopy } = useSettingsCopy();
+
+  // Template hooks
+  const { data: templatesRaw, isLoading: templatesLoading } = useTemplates();
+  const templatesData = templatesRaw?.templates ?? [];
+  const createTemplateMutation = useCreateTemplate();
+  const updateTemplateMutation = useUpdateTemplate();
+  const deleteTemplateMutation = useDeleteTemplate();
+  const setDefaultTemplateMutation = useSetDefaultTemplate();
+  const duplicateTemplateMutation = useDuplicateTemplate();
+  const [templateError, setTemplateError] = React.useState('');
   const h = useSettingsHandlers(s, settingsCopy);
   const {
     router,
@@ -78,6 +99,8 @@ export function Settings() {
       { id: 'ai', label: settingsCopy.sections.ai, icon: <Sparkles size={18} /> },
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
       { id: 'signatures', label: settingsCopy.sections.signatures || 'Signatures', icon: <FileSignature size={18} /> },
+      { id: 'templates', label: settingsCopy.sections.templates || 'Templates', icon: <FileText size={18} /> },
+      { id: 'scheduled', label: settingsCopy.sections.scheduled || 'Scheduled', icon: <Clock size={18} /> },
       { id: 'consent', label: settingsCopy.sections.consent || 'Privacy & Consent', icon: <ShieldCheck size={18} /> },
       { id: 'dataRights', label: settingsCopy.sections.dataRights || 'Data & Privacy', icon: <DatabaseZap size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
@@ -211,6 +234,58 @@ export function Settings() {
                 error={s.signatureError}
                 onClearError={() => s.setSignatureError('')}
                 copy={signaturesCopy}
+              />
+            )}
+            {s.selectedSection === 'templates' && (
+              <TemplateSettings
+                templates={templatesData}
+                onSave={(tmpl) => {
+                  const op = tmpl.id
+                    ? updateTemplateMutation.mutateAsync({ id: tmpl.id, dto: { name: tmpl.name, subject: tmpl.subject, bodyHtml: tmpl.bodyHtml, category: tmpl.category ?? undefined, isDefault: tmpl.isDefault } })
+                    : createTemplateMutation.mutateAsync({ name: tmpl.name, subject: tmpl.subject || '', bodyHtml: tmpl.bodyHtml, category: tmpl.category ?? undefined, isDefault: tmpl.isDefault });
+                  op.catch((err: unknown) => setTemplateError(err instanceof Error ? err.message : 'Failed to save template'));
+                }}
+                onDelete={(id) => deleteTemplateMutation.mutateAsync(id).catch((err: unknown) => setTemplateError(err instanceof Error ? err.message : 'Failed to delete'))}
+                onSetDefault={(id) => setDefaultTemplateMutation.mutateAsync(id).catch((err: unknown) => setTemplateError(err instanceof Error ? err.message : 'Failed'))}
+                onDuplicate={(id) => duplicateTemplateMutation.mutateAsync({ id }).catch((err: unknown) => setTemplateError(err instanceof Error ? err.message : 'Failed'))}
+                loading={templatesLoading || createTemplateMutation.isPending || updateTemplateMutation.isPending || deleteTemplateMutation.isPending}
+                error={templateError}
+                onClearError={() => setTemplateError('')}
+                copy={{
+                  title: t.email.templates?.title || 'Email Templates',
+                  description: 'Create and manage email templates.',
+                  create: t.email.templates?.create || 'Create Template',
+                  edit: t.email.templates?.edit || 'Edit Template',
+                  delete: t.email.templates?.delete || 'Delete',
+                  duplicate: t.email.templates?.duplicate || 'Duplicate',
+                  templateName: t.email.templates?.name || 'Template Name',
+                  templateNamePlaceholder: t.email.templates?.namePlaceholder || 'e.g., Meeting Follow-up',
+                  subject: t.email.templates?.subject || 'Subject',
+                  subjectPlaceholder: t.email.templates?.subjectPlaceholder || 'Email subject line',
+                  category: t.email.templates?.category || 'Category',
+                  body: t.email.templates?.body || 'Body',
+                  setAsDefault: t.email.templates?.setDefault || 'Set as Default',
+                  defaultBadge: 'Default',
+                  save: t.common?.save || 'Save',
+                  cancel: t.common?.cancel || 'Cancel',
+                  deleteConfirmTitle: 'Delete Template',
+                  deleteConfirmMessage: t.email.templates?.confirmDelete || 'Are you sure you want to delete this template?',
+                  noTemplates: t.email.templates?.noTemplates || 'No templates yet.',
+                }}
+              />
+            )}
+            {s.selectedSection === 'scheduled' && (
+              <ScheduledEmailsList
+                copy={{
+                  title: t.email.scheduledEmails.title,
+                  noScheduled: t.email.scheduledEmails.noScheduled,
+                  cancel: t.email.scheduledEmails.cancel,
+                  cancelConfirm: t.email.scheduledEmails.cancelConfirm,
+                  reschedule: t.email.scheduledEmails.reschedule,
+                  scheduledFor: t.email.scheduledEmails.scheduledFor,
+                  recipients: t.email.scheduledEmails.recipients,
+                  status: t.email.scheduledEmails.status,
+                }}
               />
             )}
             {s.selectedSection === 'consent' && <ConsentSettings />}

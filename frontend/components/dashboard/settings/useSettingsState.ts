@@ -30,7 +30,7 @@ import {
   useSetDefaultSignature,
 } from '@/hooks/queries/use-signatures';
 
-export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'consent' | 'dataRights' | 'account' | 'billing' | 'telegram';
+export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'templates' | 'scheduled' | 'consent' | 'dataRights' | 'account' | 'billing' | 'telegram';
 
 const COMMUNICATION_STYLES = new Set<CommunicationStyle>([
   'FORMAL',

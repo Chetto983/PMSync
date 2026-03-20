@@ -31,7 +31,7 @@ import { safeArea } from '@/theme/appTheme';
 
 
 
-import { X as CloseIcon, Send as SendIcon, Clock as ScheduleIcon, Maximize2 as OpenInFullIcon, Minimize2 as CloseFullscreenIcon, ChevronDown as ExpandMoreIcon, ChevronUp as ExpandLessIcon, RefreshCw } from 'lucide-react';
+import { X as CloseIcon, Send as SendIcon, Clock as ScheduleIcon, Maximize2 as OpenInFullIcon, Minimize2 as CloseFullscreenIcon, ChevronDown as ExpandMoreIcon, ChevronUp as ExpandLessIcon, RefreshCw, FileText as TemplateIcon, FileSignature as SignatureIcon } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useProviders } from '@/hooks/queries/use-providers';
@@ -66,6 +66,8 @@ const ComposeEditor = dynamic(
 );
 import ComposeAttachments, { type Attachment } from './ComposeAttachments';
 import ScheduleSendDialog from './ScheduleSendDialog';
+import TemplatePicker from './TemplatePicker';
+import SignaturePicker from './SignaturePicker';
 import logger from '@/lib/logger';
 import { useUndoSend } from '@/hooks/use-undo-send';
 import { UndoSendSnackbar } from './UndoSendSnackbar';
@@ -227,6 +229,8 @@ export default function ComposeDialog({
   const [draftId, setDraftId] = useState<string | undefined>(initialDraftId);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [templateAnchor, setTemplateAnchor] = useState<HTMLElement | null>(null);
+  const [signatureAnchor, setSignatureAnchor] = useState<HTMLElement | null>(null);
 
   // AI Draft state
   const [draftTone, setDraftTone] = useState<DraftTone | undefined>();
@@ -966,6 +970,20 @@ export default function ComposeDialog({
           <DialogActions sx={{ px: 2, py: 1.5 }}>
             <Box sx={{ flex: 1 }} />
 
+            {/* Template Picker Button */}
+            <Tooltip title={t.email.composer.loadTemplate}>
+              <IconButton size="small" onClick={(e) => setTemplateAnchor(e.currentTarget)}>
+                <TemplateIcon size={18} />
+              </IconButton>
+            </Tooltip>
+
+            {/* Signature Picker Button */}
+            <Tooltip title={t.email.composer.changeSignature}>
+              <IconButton size="small" onClick={(e) => setSignatureAnchor(e.currentTarget)}>
+                <SignatureIcon size={18} />
+              </IconButton>
+            </Tooltip>
+
             {/* Schedule Send Button - only for new emails */}
             {mode === 'new' && (
               <Button
@@ -996,6 +1014,39 @@ export default function ComposeDialog({
         open={showScheduleDialog}
         onClose={() => setShowScheduleDialog(false)}
         onSchedule={handleScheduleSend}
+      />
+
+      {/* Template Picker */}
+      <TemplatePicker
+        anchorEl={templateAnchor}
+        open={Boolean(templateAnchor)}
+        onClose={() => setTemplateAnchor(null)}
+        onSelect={(tmpl: { subject: string; bodyHtml: string }) => {
+          if (body && body !== '<p></p>' && !window.confirm(t.email.composer.replaceContent)) return;
+          setSubject(tmpl.subject);
+          setBody(tmpl.bodyHtml);
+          setTemplateAnchor(null);
+        }}
+      />
+
+      {/* Signature Picker */}
+      <SignaturePicker
+        anchorEl={signatureAnchor}
+        open={Boolean(signatureAnchor)}
+        onClose={() => setSignatureAnchor(null)}
+        currentSignatureId={null}
+        providerId={providerId || undefined}
+        onSelect={(_id, content) => {
+          // Replace or remove signature block in body
+          const sigRegex = /<!-- sig-start -->[\s\S]*<!-- sig-end -->/;
+          const newSig = content ? `<!-- sig-start --><div style="margin-top:16px">${content}</div><!-- sig-end -->` : '';
+          if (sigRegex.test(body)) {
+            setBody(body.replace(sigRegex, newSig));
+          } else if (content) {
+            setBody(body + newSig);
+          }
+          setSignatureAnchor(null);
+        }}
       />
 
       {/* Undo Send Snackbar - shows countdown during pending send */}

@@ -1056,6 +1056,13 @@ export const en: AppTranslations = {
       // Fullscreen toggle
       fullscreen: 'Fullscreen',
       exitFullscreen: 'Exit fullscreen',
+      // Signature/template picker
+      selectSignature: 'Select signature',
+      noSignature: 'No signature',
+      changeSignature: 'Change signature',
+      loadTemplate: 'Load template',
+      templateApplied: 'Template applied',
+      replaceContent: 'This will replace the current content. Continue?',
     },
     aiDraft: {
       badge: 'AI Draft',
@@ -1465,6 +1472,33 @@ export const en: AppTranslations = {
         nextMonday: 'Next Monday',
         custom: 'Pick date & time',
       },
+    },
+    // Scheduled Emails Management
+    scheduledEmails: {
+      title: 'Scheduled Emails',
+      noScheduled: 'No scheduled emails',
+      cancel: 'Cancel',
+      cancelConfirm: 'Are you sure you want to cancel this scheduled email?',
+      cancelSuccess: 'Scheduled email cancelled',
+      reschedule: 'Reschedule',
+      rescheduleSuccess: 'Email rescheduled',
+      status: {
+        pending: 'Pending',
+        processing: 'Sending',
+        sent: 'Sent',
+        failed: 'Failed',
+      },
+      scheduledFor: 'Scheduled for',
+      recipients: 'To',
+    },
+    // Follow-up Indicator (thread-level)
+    followUpIndicator: {
+      pending: 'Follow-up pending',
+      overdue: 'Overdue',
+      dueDate: 'Due',
+      resolve: 'Resolve',
+      snooze: 'Snooze',
+      noFollowUp: 'No active follow-up',
     },
     // Undo Send Feature (Phase 9)
     undoSend: {
@@ -1893,6 +1927,8 @@ export const en: AppTranslations = {
       ai: 'AI Agent',
       accounts: 'Mail Accounts',
       signatures: 'Signatures',
+      templates: 'Templates',
+      scheduled: 'Scheduled',
       consent: 'Privacy & Consent',
       dataRights: 'Data & Privacy',
       account: 'Account',

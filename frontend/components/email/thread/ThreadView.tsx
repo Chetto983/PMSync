@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadMessage, ThreadMessageData } from './ThreadMessage';
+import FollowUpIndicator from './FollowUpIndicator';
 
 interface ThreadViewProps {
   /** Thread ID */
@@ -401,6 +402,11 @@ export function ThreadView({
           )}
         </Menu>
       </Box>
+
+      {/* Follow-up indicator */}
+      {messages.length > 0 && (
+        <FollowUpIndicator emailId={messages[0].id} />
+      )}
 
       {/* Thread Messages - Virtual Scrolling */}
       <Box

@@ -602,6 +602,15 @@ export const aiChatApi = {
     );
   },
 
+  /**
+   * Get active follow-up for a specific email
+   */
+  getFollowUpByEmail(emailId: string) {
+    return apiClient.get<{ success: boolean; followUp: unknown | null }>(
+      `/ai/follow-ups/by-email/${emailId}`,
+    );
+  },
+
   // Analytics
   getEmailAnalytics(params?: { period?: 'day' | 'week' | 'month' }) {
     return apiClient.get<{ success: boolean; analytics: Record<string, unknown> }>(

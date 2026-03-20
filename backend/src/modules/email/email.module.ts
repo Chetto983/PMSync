@@ -30,6 +30,7 @@ import { EmailActionsController } from './controllers/email-actions.controller';
 import { AttachmentsController } from './controllers/attachments.controller';
 import { SignaturesController } from './controllers/signatures.controller';
 import { TemplatesController } from './controllers/templates.controller';
+import { ScheduledEmailsController } from './controllers/scheduled-emails.controller';
 import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { CalendarModule } from '../calendar/calendar.module';
@@ -109,6 +110,7 @@ import { EmailProviderEventHandlerService } from './services/provider-event-hand
   controllers: [
     SignaturesController,
     TemplatesController,
+    ScheduledEmailsController,
     AttachmentsController,
     EmailQueryController,        // GET /emails (list), /emails/stats, /emails/search
     EmailCalendarInviteController, // GET/POST /emails/:id/calendar-invite/*, /emails/calendar-invite/*

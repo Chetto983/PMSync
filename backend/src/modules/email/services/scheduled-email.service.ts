@@ -111,6 +111,28 @@ export class ScheduledEmailService implements OnModuleInit {
   }
 
   /**
+   * Reschedule a pending email to a new time
+   */
+  async rescheduleEmail(id: string, tenantId: string, scheduledAt: Date) {
+    const email = await this.prisma.scheduledEmail.findFirst({
+      where: { id, tenantId, status: 'pending' },
+    });
+
+    if (!email) {
+      return null;
+    }
+
+    const updated = await this.prisma.scheduledEmail.update({
+      where: { id },
+      data: { scheduledAt },
+      select: { id: true, to: true, subject: true, scheduledAt: true, status: true, createdAt: true },
+    });
+
+    this.logger.log(`Scheduled email rescheduled to ${scheduledAt.toISOString()}: ${id}`);
+    return updated;
+  }
+
+  /**
    * Get all scheduled emails for a tenant
    */
   async getScheduledEmails(tenantId: string): Promise<{

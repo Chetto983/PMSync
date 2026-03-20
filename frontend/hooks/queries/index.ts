@@ -20,6 +20,7 @@ export * from './use-labels';
 export * from './providers-keys';
 export * from './use-signatures';
 export * from './use-templates';
+export * from './use-scheduled-emails';
 export * from './billing-keys';
 export * from './use-billing';
 export * from './use-subscription-features';
