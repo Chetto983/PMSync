@@ -71,6 +71,24 @@ test.describe('Auth Register', () => {
     await expect(page.getByRole('alert').filter({ hasText: /passwords do not match/i })).toBeVisible();
   });
 
+  test('shows error for weak password', async ({ page }) => {
+    const apiURL = process.env.E2E_API_URL ?? 'http://localhost:3100';
+    const probe = await fetch(`${apiURL}/health`).catch(() => null);
+    test.skip(!probe?.ok, 'Backend API not reachable -- skipping weak password test');
+
+    await page.goto('/auth/register', { waitUntil: 'domcontentloaded' });
+
+    await page.getByLabel(/first name/i).fill('Weak');
+    await page.getByLabel(/last name/i).fill('Pass');
+    await page.getByLabel(/email/i).fill(`test+weak+${Date.now()}@pmsync.local`);
+    await page.locator('input[type="password"]').first().fill('123');
+    await page.locator('input[type="password"]').nth(1).fill('123');
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', { name: /create account/i }).click();
+
+    await expect(page.locator('.MuiAlert-colorError')).toBeVisible({ timeout: 15_000 });
+  });
+
   test('successful registration shows verification pending', async ({ page }) => {
     const apiURL = process.env.E2E_API_URL ?? 'http://localhost:3100';
     const probe = await fetch(`${apiURL}/health`).catch(() => null);
