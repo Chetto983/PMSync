@@ -161,8 +161,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1.5,
-        px: 2,
+        gap: { xs: 1, sm: 1.5 },
+        px: { xs: 1, sm: 2 },
         py: 0.75,
         minHeight: 48,
         cursor: 'pointer',

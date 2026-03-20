@@ -14,6 +14,7 @@ import { google, gmail_v1 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { ProviderTokenService } from './provider-token.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
 export const GMAIL_WEBHOOK_RESOURCE = 'gmail/mailbox';
 
@@ -39,6 +40,7 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
     configService: ConfigService,
     private providerTokenService: ProviderTokenService,
     redisLock: RedisLockService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {
     super(prisma, queueService, configService, redisLock);
 
@@ -240,6 +242,13 @@ export class GmailWebhookService extends BaseWebhookService implements OnModuleD
       syncType: hasGap || !subscriptionExists ? 'full' : 'incremental',
       lastSyncedAt: freshProvider?.lastSyncedAt ?? undefined,
     };
+
+    // Emit sync:status immediately so frontend shows syncing indicator
+    this.realtimeEvents.emitSyncStatus(tenantId, {
+      providerId,
+      status: 'started',
+      type: 'email',
+    });
 
     this.logger.log(`[GMAIL-WEBHOOK] Queueing ${syncJob.syncType} sync job for ${email}...`);
     await this.queueService.addSyncJob(syncJob);

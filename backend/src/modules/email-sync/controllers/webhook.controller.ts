@@ -109,9 +109,9 @@ export class WebhookController {
       return { success: true };
     } catch (error) {
       this.logger.error('[WEBHOOK] Error processing Gmail notification:', error);
-      // Processing errors return 200 to prevent Pub/Sub retries (intentional)
-      // Auth errors already thrown above will return 401
-      return { success: false, error: 'Processing failed' };
+      // Re-throw so Google Pub/Sub retries on transient failures (HTTP 5xx).
+      // Auth errors already thrown above will return 401.
+      throw error;
     }
   }
 
