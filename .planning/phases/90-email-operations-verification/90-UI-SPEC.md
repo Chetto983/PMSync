@@ -44,7 +44,7 @@ Declared values (must be multiples of 4):
 | 2xl | 48px | Large section breaks |
 | 3xl | 64px | Header height, page-level spacing |
 
-Exceptions: Touch targets at 44px (MuiTabs minHeight, icon button sizeLarge at 12px padding ~ 48px total).
+Exceptions: Touch targets use 48px minimum (MuiTabs minHeight, icon button sizeLarge — 12px padding on 24px icon = 48px total).
 
 > **Design Debt — Inherited Spacing Values**
 >
