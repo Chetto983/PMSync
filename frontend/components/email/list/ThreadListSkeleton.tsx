@@ -24,7 +24,7 @@ export const ThreadItemSkeleton = memo(function ThreadItemSkeleton({
         gap: 1.5,
         px: 2,
         py: 1,
-        minHeight: 52,
+        minHeight: 48,
         borderLeft: 3,
         borderLeftColor: 'transparent',
         borderBottom: '1px solid',

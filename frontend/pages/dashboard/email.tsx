@@ -373,7 +373,21 @@ export default function EmailPage() {
     }
     if (!selectedEmailData) return undefined;
     return (
-      <Box data-testid="reading-pane" sx={{ height: '100%', overflow: 'auto', p: 2 }}>
+      <Box
+        key={selectedThreadId}
+        data-testid="reading-pane"
+        sx={{
+          height: '100%',
+          overflow: 'auto',
+          p: 2,
+          // Fade-in on thread switch
+          animation: 'fadeIn 150ms ease-out',
+          '@keyframes fadeIn': {
+            from: { opacity: 0 },
+            to: { opacity: 1 },
+          },
+        }}
+      >
         <ExpandedMessage
           message={selectedEmailData}
           onCollapse={handleCloseReadingPane}
