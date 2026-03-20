@@ -224,7 +224,7 @@ export class ChatEnrichmentService {
       tenantId,
       userId: 'system',
       runType: 'chat-summary',
-      model: 'mistral-small-latest',
+      model: this.mistralProvider.getChatModelName(),
       promptTokens: usage?.inputTokens ?? 0,
       completionTokens: usage?.outputTokens ?? 0,
       totalTokens: usage?.totalTokens ?? 0,

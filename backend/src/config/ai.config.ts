@@ -23,13 +23,9 @@ export default registerAs('ai', () => ({
   // Used by: mistral.provider.ts
   // ===========================================
   models: {
-    /** Simple tasks: classification, labeling, search ($0.1/M) */
+    /** Simple tasks: classification, titles, RAG, fast completions */
     simple: process.env.AI_MODEL_SIMPLE || 'mistral-small-latest',
-    /** Medium tasks: supervisor delegation, multi-step (~$0.4/M) */
-    medium: process.env.AI_MODEL_MEDIUM || 'mistral-medium-latest',
-    /** Complex tasks: code generation, analytics (~$2.7/M) */
-    complex: process.env.AI_MODEL_COMPLEX || 'devstral-latest',
-    /** Creative tasks: email composition, smart replies ($0.1/M) */
+    /** Creative tasks: email composition, smart replies (no tool calls) */
     creative: process.env.AI_MODEL_CREATIVE || 'mistral-small-latest',
   },
 

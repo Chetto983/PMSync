@@ -14,6 +14,8 @@ import type { LanguageModel, EmbeddingModel } from 'ai';
 export class MistralProviderService {
   private readonly provider: ReturnType<typeof createMistral>;
   private readonly defaultChatModel: string;
+  private readonly defaultCodeModel: string;
+  private readonly defaultEmbeddingModel: string;
 
   constructor(private readonly config: ConfigService) {
     const apiKey = this.config.getOrThrow<string>('MISTRAL_API_KEY');
@@ -22,6 +24,14 @@ export class MistralProviderService {
       'MISTRAL_CHAT_MODEL',
       'mistral-medium-latest',
     );
+    this.defaultCodeModel = this.config.get<string>(
+      'MISTRAL_CODE_MODEL',
+      'devstral-small-latest',
+    );
+    this.defaultEmbeddingModel = this.config.get<string>(
+      'AI_EMBEDDING_MODEL',
+      'mistral-embed',
+    );
   }
 
   /** Get a chat/completion model. Defaults to MISTRAL_CHAT_MODEL env or mistral-medium-latest. */
@@ -29,15 +39,23 @@ export class MistralProviderService {
     return this.provider(modelId ?? this.defaultChatModel);
   }
 
-  /** Get Devstral coding model for code generation tasks. */
-  getCodeModel(): LanguageModel {
-    return this.provider(
-      this.config.get<string>('MISTRAL_CODE_MODEL', 'devstral-small-latest'),
-    );
+  /** Get the chat model name (for ledger/logging). */
+  getChatModelName(modelId?: string): string {
+    return modelId ?? this.defaultChatModel;
   }
 
-  /** Get an embedding model. Defaults to mistral-embed (1024 dims). */
+  /** Get Devstral coding model for code generation tasks. */
+  getCodeModel(): LanguageModel {
+    return this.provider(this.defaultCodeModel);
+  }
+
+  /** Get an embedding model. Defaults to AI_EMBEDDING_MODEL env or mistral-embed. */
   getEmbeddingModel(modelId?: string): EmbeddingModel {
-    return this.provider.embedding(modelId ?? 'mistral-embed');
+    return this.provider.embedding(modelId ?? this.defaultEmbeddingModel);
+  }
+
+  /** Get the embedding model name (for ledger/logging). */
+  getEmbeddingModelName(): string {
+    return this.defaultEmbeddingModel;
   }
 }

@@ -131,9 +131,18 @@ export class BriefingService {
    * Generate a comprehensive daily briefing for a tenant.
    * Pre-fetches all data in parallel, then makes a single LLM call.
    */
-  async generateBriefing(tenantId: string): Promise<{ data: BriefingOutput; error?: string }> {
+  async generateBriefing(tenantId: string, timezone?: string): Promise<{ data: BriefingOutput; error?: string }> {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Calculate "today" boundaries in user's timezone
+    const tz = timezone || 'UTC';
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+    // Parse midnight in user's timezone by computing UTC offset
+    const parts = todayStr.split('-').map(Number);
+    const naive = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])); // midnight UTC
+    // Find the actual UTC offset for this timezone at this date
+    const probe = new Date(naive.toLocaleString('en-US', { timeZone: tz }));
+    const offsetMs = probe.getTime() - naive.getTime();
+    const startOfDay = new Date(naive.getTime() - offsetMs);
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -262,7 +271,7 @@ export class BriefingService {
         tenantId,
         userId: 'system',
         runType: 'briefing',
-        model: 'mistral-small-latest',
+        model: this.mistralProvider.getChatModelName(),
         promptTokens: result.usage?.inputTokens ?? 0,
         completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: result.usage?.totalTokens ?? 0,
@@ -278,7 +287,7 @@ export class BriefingService {
           tenantId,
           userId: 'system',
           runType: 'briefing',
-          model: 'mistral-small-latest',
+          model: this.mistralProvider.getChatModelName(),
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
@@ -302,7 +311,7 @@ export class BriefingService {
             tenantId,
             userId: 'system',
             runType: 'briefing',
-            model: 'mistral-small-latest',
+            model: this.mistralProvider.getChatModelName(),
             promptTokens: retryResult.usage?.inputTokens ?? 0,
             completionTokens: retryResult.usage?.outputTokens ?? 0,
             totalTokens: retryResult.usage?.totalTokens ?? 0,
@@ -322,7 +331,7 @@ export class BriefingService {
         tenantId,
         userId: 'system',
         runType: 'briefing',
-        model: 'mistral-small-latest',
+        model: this.mistralProvider.getChatModelName(),
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,

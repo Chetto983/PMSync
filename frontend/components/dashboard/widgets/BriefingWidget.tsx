@@ -30,9 +30,9 @@ export function BriefingWidget() {
   const highlights = data?.highlights?.length
     ? data.highlights
     : recentEmails?.emails?.slice(0, 3).map((email) => {
-        const senderName = email.from?.name || email.from?.email || 'Unknown';
-        const subject = email.subject || '(No subject)';
-        return `Email from ${senderName}: ${subject}`;
+        const senderName = email.from?.name || email.from?.email || '';
+        const subject = email.subject || t.common?.noSubject || '(No subject)';
+        return `${senderName}: ${subject}`;
       }) || [];
 
   return (

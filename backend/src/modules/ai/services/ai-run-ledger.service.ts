@@ -17,13 +17,25 @@ import { CorrelationContext } from '../../../common/services/correlation-context
 
 /**
  * Per-million-token pricing for Mistral models (USD).
- * Source: https://mistral.ai/technology/#pricing (as of 2025)
+ * Source: https://docs.mistral.ai/deployment/ai-studio/pricing (2026-03)
  */
 export const COST_MAP: Record<string, { input: number; output: number }> = {
-  'mistral-small-latest': { input: 0.06, output: 0.18 },
-  'ministral-3b-latest': { input: 0.10, output: 0.10 },
-  'mistral-large-latest': { input: 2.00, output: 6.00 },
+  // Small tier
+  'mistral-small-latest': { input: 0.15, output: 0.60 },
+  'mistral-small-4-latest': { input: 0.15, output: 0.60 },
+  // Medium tier
+  'mistral-medium-latest': { input: 2.75, output: 8.10 },
+  // Large tier
+  'mistral-large-latest': { input: 0.50, output: 1.50 },
+  // Code
+  'devstral-latest': { input: 0.40, output: 2.00 },
+  'devstral-small-latest': { input: 0.10, output: 0.30 },
+  // Creative
+  'labs-mistral-small-creative': { input: 0.10, output: 0.30 },
+  // Embedding
   'mistral-embed': { input: 0.01, output: 0.01 },
+  // Legacy
+  'ministral-3b-latest': { input: 0.10, output: 0.10 },
 };
 
 const DEFAULT_COST = COST_MAP['mistral-small-latest'];

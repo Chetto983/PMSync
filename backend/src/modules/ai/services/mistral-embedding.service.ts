@@ -28,7 +28,7 @@ export class MistralEmbeddingService {
   }
 
   getEmbeddingModel(): string {
-    return 'mistral-embed';
+    return this.mistralProvider.getEmbeddingModelName();
   }
 
   /**

@@ -453,7 +453,11 @@ export class AiController {
   @ApiOperation({ summary: 'Get daily briefing', description: 'Comprehensive daily briefing' })
   @ApiResponse({ status: 200, description: 'Briefing generated' })
   async getBriefing(@Request() req: AuthenticatedRequest) {
-    const result = await this.briefingService.generateBriefing(req.user.tenantId);
+    const prefs = await this.prisma.userPreferences.findFirst({
+      where: { tenantId: req.user.tenantId, userId: req.user.userId },
+      select: { timezone: true },
+    });
+    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined);
     return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
   }
 
@@ -464,7 +468,11 @@ export class AiController {
   @ApiOperation({ summary: 'Refresh daily briefing', description: 'Force regenerate briefing' })
   @ApiResponse({ status: 200, description: 'Briefing refreshed' })
   async refreshBriefing(@Request() req: AuthenticatedRequest) {
-    const result = await this.briefingService.generateBriefing(req.user.tenantId);
+    const prefs = await this.prisma.userPreferences.findFirst({
+      where: { tenantId: req.user.tenantId, userId: req.user.userId },
+      select: { timezone: true },
+    });
+    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined);
     return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
   }
 

@@ -348,7 +348,7 @@ export class AiChatService {
           tenantId,
           userId,
           runType: 'chat',
-          model: model || 'mistral-small-latest',
+          model: this.mistralProvider.getChatModelName(model),
           promptTokens: usage?.inputTokens ?? 0,
           completionTokens: usage?.outputTokens ?? 0,
           totalTokens: usage?.totalTokens ?? 0,
