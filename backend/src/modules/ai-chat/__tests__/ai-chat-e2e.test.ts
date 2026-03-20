@@ -300,13 +300,19 @@ describe('AiChatService E2E (real Mistral API)', () => {
 
     await drainStream(stream);
 
-    // Verify PII detection was called
-    expect(piiSpy).toHaveBeenCalledTimes(1);
-    const piiArg = piiSpy.mock.calls[0][0];
+    // Verify PII detection was called (may be called multiple times:
+    // once for user message, once for history/memory redaction)
+    expect(piiSpy).toHaveBeenCalled();
+    // Find the call that contains our PII test email
+    const piiCallIndex = piiSpy.mock.calls.findIndex(
+      (args) => typeof args[0] === 'string' && args[0].includes('test-pii@example.com'),
+    );
+    expect(piiCallIndex).toBeGreaterThanOrEqual(0);
+    const piiArg = piiSpy.mock.calls[piiCallIndex][0];
     expect(piiArg).toContain('test-pii@example.com');
 
     // Verify the PII result detected an email
-    const piiResult = piiSpy.mock.results[0].value;
+    const piiResult = piiSpy.mock.results[piiCallIndex].value;
     expect(piiResult.hasPii).toBe(true);
     expect(piiResult.detectedTypes).toContain('EMAIL');
 
