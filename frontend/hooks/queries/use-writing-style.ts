@@ -17,15 +17,14 @@ export const writingStyleKeys = {
 // ============ Query Hooks ============
 
 /**
- * Fetch the user's writing style profile.
- * TODO: When per-provider support is added to the GET endpoint, pass providerId as query param.
+ * Fetch the user's writing style profile, optionally filtered by provider.
  */
-export function useWritingStyle(_providerId?: string, options?: { enabled?: boolean }) {
+export function useWritingStyle(providerId?: string, options?: { enabled?: boolean }) {
   return useQuery<WritingStyleProfile | null>({
-    queryKey: writingStyleKeys.profile(_providerId),
+    queryKey: writingStyleKeys.profile(providerId),
     queryFn: async () => {
       try {
-        const { data } = await aiChatApi.getWritingStyle();
+        const { data } = await aiChatApi.getWritingStyle(providerId);
         return data.profile ?? null;
       } catch {
         // If no profile exists yet, return null instead of throwing

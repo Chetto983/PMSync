@@ -22,6 +22,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { FollowUpStatus } from '@prisma/client';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
@@ -878,11 +879,19 @@ export class AiController {
 
   @Get('stats/writing-style')
   @RequiresConsent('ai_email_processing')
-  @ApiOperation({ summary: 'Get writing style profile', description: 'Returns the user writing style profile' })
+  @ApiOperation({ summary: 'Get writing style profile', description: 'Returns the user writing style profile, optionally filtered by provider' })
+  @ApiQuery({ name: 'providerId', required: false, description: 'Filter by email provider ID' })
   @ApiResponse({ status: 200, description: 'Writing style profile' })
-  async getWritingStyle(@Request() req: AuthenticatedRequest) {
+  async getWritingStyle(
+    @Request() req: AuthenticatedRequest,
+    @Query('providerId') providerId?: string,
+  ) {
     const profile = await this.prisma.writingStyleProfile.findFirst({
-      where: { tenantId: req.user.tenantId, userId: req.user.userId },
+      where: {
+        tenantId: req.user.tenantId,
+        userId: req.user.userId,
+        providerId: providerId ?? null,
+      },
     });
     return { success: true, profile: profile ?? null };
   }

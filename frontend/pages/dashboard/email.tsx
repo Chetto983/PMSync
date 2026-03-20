@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
@@ -37,7 +37,6 @@ import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 import { extractEmailAddress, formatEmailToThread } from '@/components/email/utils/email-formatters';
-// getEffectiveEmailListPage removed — page reset is now synchronous via ref
 import { useEmailPageActions, type EmailPageStateSnapshot } from '@/components/email/hooks/use-email-page-actions';
 
 export default function EmailPage() {
@@ -54,8 +53,6 @@ export default function EmailPage() {
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [folderPickerEmailIds, setFolderPickerEmailIds] = useState<string[]>([]);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
-  const [page, setPage] = useState(1);
-
   const queryClient = useQueryClient();
 
   const handleCompose = useCallback(() => {
@@ -124,24 +121,20 @@ export default function EmailPage() {
     limit: 50,
   }), [filters, selectedFolderPath, getApiSpecialUse]);
 
-  const emailQueryParams = useMemo(
-    () => ({ ...baseEmailParams, page }),
-    [baseEmailParams, page]
-  );
-
   const filterKey = useMemo(() => JSON.stringify(baseEmailParams), [baseEmailParams]);
-  const prevFilterKeyRef = useRef(filterKey);
+  const [pagingState, setPagingState] = useState(() => ({ page: 1, filterKey }));
 
-  // Reset page synchronously when filters change (no useEffect = no extra render)
-  if (prevFilterKeyRef.current !== filterKey) {
-    prevFilterKeyRef.current = filterKey;
-    if (page !== 1) {
-      setPage(1);
+  useEffect(() => {
+    if (pagingState.filterKey !== filterKey) {
+      setPagingState({ page: 1, filterKey });
     }
-  }
+  }, [filterKey, pagingState.filterKey]);
 
-  // When filters just changed and page hasn't reset yet, force page 1
-  const effectivePage = prevFilterKeyRef.current === filterKey ? page : 1;
+  const effectivePage = pagingState.filterKey === filterKey ? pagingState.page : 1;
+  const emailQueryParams = useMemo(
+    () => ({ ...baseEmailParams, page: effectivePage }),
+    [baseEmailParams, effectivePage]
+  );
 
   const emailQueries = useQueries({
     queries: Array.from({ length: effectivePage }, (_, index) =>
@@ -169,7 +162,9 @@ export default function EmailPage() {
     effectivePage > 1 && (emailQueries[effectivePage - 1]?.isFetching ?? false);
 
   const handleLoadMore = useCallback(() => {
-    if (!isFetching && hasMore) setPage((p) => p + 1);
+    if (!isFetching && hasMore) {
+      setPagingState((current) => ({ ...current, page: current.page + 1 }));
+    }
   }, [isFetching, hasMore]);
 
   const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');
@@ -352,10 +347,10 @@ export default function EmailPage() {
   });
 
   const handleRefresh = useCallback(() => {
-    setPage(1);
+    setPagingState({ page: 1, filterKey });
     queryClient.invalidateQueries({ queryKey: emailKeys.list() });
     queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-  }, [queryClient]);
+  }, [filterKey, queryClient]);
 
   // Reading pane for 3-panel desktop view
   const readingPane = useMemo(() => {

@@ -250,6 +250,10 @@ export interface RenameFolderRequest {
   newName: string;
 }
 
+export interface MoveFolderRequest {
+  parentId: string | null;
+}
+
 export interface RenameFolderResponse {
   id: string;
   path: string;
@@ -316,6 +320,17 @@ export async function renameFolder(
 }
 
 /**
+ * Move a folder to a new parent (or root if parentId is null)
+ */
+export async function moveFolder(
+  folderId: string,
+  data: MoveFolderRequest,
+): Promise<{ message: string }> {
+  const response = await apiClient.patch(`/folders/${folderId}`, data);
+  return response.data;
+}
+
+/**
  * Delete a folder
  */
 export async function deleteFolder(
@@ -348,6 +363,7 @@ export const foldersApi = {
   updateFolderCounts,
   createFolder,
   renameFolder,
+  moveFolder,
   deleteFolder,
   getFolderMetadata,
 };

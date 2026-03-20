@@ -521,9 +521,10 @@ export const aiChatApi = {
   },
 
   // Stats
-  getWritingStyle() {
+  getWritingStyle(providerId?: string) {
     return apiClient.get<{ success: boolean; profile: WritingStyleProfile }>(
       '/ai/stats/writing-style',
+      providerId ? { params: { providerId } } : undefined,
     );
   },
 

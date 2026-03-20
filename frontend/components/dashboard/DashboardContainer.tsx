@@ -1,12 +1,5 @@
 /**
- * DashboardContainer - Main dashboard with modern 2025 design
- *
- * Features:
- * - Clean 2-column responsive grid
- * - Glassmorphism card styling
- * - Full-width briefing at top
- * - 2x2 grid for smaller widgets
- * - Personalization drawer
+ * DashboardContainer - Main dashboard with unified Card variant="outlined" design
  */
 
 'use client';
@@ -15,13 +8,10 @@ import React, { Suspense, useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
-  alpha,
-  useTheme,
-  useMediaQuery,
   Button,
   Stack,
 } from '@mui/material';
-import { LayoutDashboard, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ALL_WIDGETS } from '@/stores/dashboard-store';
 import { useDashboardPreferences, useSaveDashboardLayout } from '@/hooks/queries/use-dashboard';
@@ -34,8 +24,6 @@ import { AiQuickAccess } from './dashboard/AiQuickAccess';
 
 export default function DashboardContainer() {
   const t = useTranslations();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Customization state - persisted via backend preferences API
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -79,7 +67,7 @@ export default function DashboardContainer() {
   return (
     <Box
       sx={{
-        maxWidth: 1400,
+        maxWidth: 1200,
         mx: 'auto',
         px: { xs: 2, sm: 3, md: 4 },
         py: { xs: 3, md: 4 },
@@ -97,58 +85,21 @@ export default function DashboardContainer() {
           gap: 2,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
-          <Box
-            sx={{
-              width: { xs: 52, md: 64 },
-              height: { xs: 52, md: 64 },
-              borderRadius: 4,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: `0 12px 40px ${alpha(theme.palette.primary.main, 0.35)}`,
-              flexShrink: 0,
-            }}
-          >
-            <LayoutDashboard size={isMobile ? 26 : 32} color="white" />
-          </Box>
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: 800,
-                fontSize: { xs: '1.75rem', md: '2.25rem' },
-                background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${alpha(theme.palette.text.primary, 0.7)} 100%)`,
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              {t.dashboard?.title || 'Dashboard'}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {t.dashboard?.subtitle || 'Your personal command center'}
-            </Typography>
-          </Box>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {t.dashboard?.title || 'Dashboard'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t.dashboard?.subtitle || 'Your personal command center'}
+          </Typography>
         </Box>
 
         <Button
           variant="outlined"
-          startIcon={<Settings size={18} />}
+          size="small"
+          startIcon={<Settings size={16} />}
           onClick={() => setCustomizeOpen(true)}
-          sx={{
-            borderRadius: 3,
-            px: 3,
-            py: 1,
-            textTransform: 'none',
-            fontWeight: 600,
-            borderWidth: 2,
-            '&:hover': {
-              borderWidth: 2,
-              bgcolor: alpha(theme.palette.primary.main, 0.05),
-            },
-          }}
+          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
         >
           {t.dashboard?.actions?.customize || 'Customize'}
         </Button>

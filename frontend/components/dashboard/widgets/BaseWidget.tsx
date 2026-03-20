@@ -117,15 +117,14 @@ export function BaseWidget({
           {icon && (
             <Box
               sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2.5,
-                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                width: 36,
+                height: 36,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'white',
-                boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.35)}`,
+                color: 'primary.main',
                 flexShrink: 0,
               }}
             >

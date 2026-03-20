@@ -21,10 +21,9 @@ export function DashboardEmptyState({ onCustomize }: DashboardEmptyStateProps) {
       sx={{
         p: { xs: 4, md: 6 },
         textAlign: 'center',
-        borderRadius: 4,
+        borderRadius: 2,
         border: '2px dashed',
-        borderColor: alpha(theme.palette.divider, 0.2),
-        bgcolor: alpha(theme.palette.background.paper, 0.5),
+        borderColor: 'divider',
       }}
     >
       <Box

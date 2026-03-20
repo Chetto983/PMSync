@@ -24,6 +24,7 @@ import {
   getFolderMetadata,
   createFolder,
   renameFolder,
+  moveFolder,
   deleteFolder,
   syncFolders,
   syncAllFolders,
@@ -227,6 +228,30 @@ export function useDeleteFolder() {
     }) => deleteFolder(folderId),
     onSuccess: (_, variables) => {
       // Invalidate both general and provider-specific queries
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: folderKeys.byProvider(variables.providerId),
+      });
+    },
+  });
+}
+
+/**
+ * Hook for moving a folder to a new parent (or to root with parentId: null)
+ */
+export function useMoveFolder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      folderId,
+      parentId,
+    }: {
+      folderId: string;
+      parentId: string | null;
+      providerId: string;
+    }) => moveFolder(folderId, { parentId }),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
       queryClient.invalidateQueries({
         queryKey: folderKeys.byProvider(variables.providerId),

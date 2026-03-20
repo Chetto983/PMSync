@@ -65,6 +65,8 @@ interface EmailLayoutProps {
   onEmailDrop?: (emailIds: string[], folderId: string, folderName: string) => void;
   /** Callback when folders are reordered (for persisting order) */
   onFolderReorder?: (providerId: string, activeId: string, overId: string) => void;
+  /** Callback when a folder is dropped into another folder (reparenting) */
+  onFolderMove?: (providerId: string, folderId: string, newParentId: string) => void;
 }
 
 /**
@@ -82,6 +84,7 @@ export function EmailLayout({
   onCloseReadingPane: _onCloseReadingPane,
   onEmailDrop,
   onFolderReorder,
+  onFolderMove,
 }: EmailLayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

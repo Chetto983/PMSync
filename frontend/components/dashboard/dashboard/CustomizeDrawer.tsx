@@ -51,8 +51,8 @@ export function CustomizeDrawer({
         sx: {
           width: { xs: '100%', sm: 380 },
           bgcolor: 'background.default',
-          borderTopLeftRadius: { sm: 24 },
-          borderBottomLeftRadius: { sm: 24 },
+          borderTopLeftRadius: { sm: 16 },
+          borderBottomLeftRadius: { sm: 16 },
         },
       }}
     >
@@ -70,23 +70,23 @@ export function CustomizeDrawer({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             sx={{
-              width: 48,
-              height: 48,
-              borderRadius: 3,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+              width: 36,
+              height: 36,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'white',
+              color: 'primary.main',
             }}
           >
-            <Settings size={24} />
+            <Settings size={18} />
           </Box>
           <Box>
-            <Typography variant="h6" fontWeight={700}>
+            <Typography variant="subtitle1" fontWeight={700}>
               {t.dashboard?.actions?.customize || 'Customize'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary">
               {t.dashboard?.customize?.description || 'Choose your widgets'}
             </Typography>
           </Box>
@@ -110,18 +110,15 @@ export function CustomizeDrawer({
             return (
               <Paper
                 key={widget.id}
-                elevation={0}
+                variant="outlined"
                 sx={{
-                  p: 2.5,
-                  borderRadius: 3,
-                  border: '2px solid',
+                  p: 2,
                   borderColor: isVisible
                     ? theme.palette.primary.main
-                    : alpha(theme.palette.divider, 0.15),
+                    : 'divider',
                   bgcolor: isVisible
-                    ? alpha(theme.palette.primary.main, 0.08)
-                    : alpha(theme.palette.background.paper, 0.5),
-                  transition: 'all 0.2s ease',
+                    ? alpha(theme.palette.primary.main, 0.04)
+                    : 'background.paper',
                   cursor: 'pointer',
                   '&:hover': {
                     borderColor: isVisible
@@ -134,17 +131,16 @@ export function CustomizeDrawer({
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Box
                     sx={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 3,
+                      width: 36,
+                      height: 36,
+                      borderRadius: 2,
                       bgcolor: isVisible
-                        ? alpha(theme.palette.primary.main, 0.15)
-                        : alpha(theme.palette.action.active, 0.08),
+                        ? alpha(theme.palette.primary.main, 0.1)
+                        : alpha(theme.palette.action.active, 0.06),
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       color: isVisible ? 'primary.main' : 'text.secondary',
-                      transition: 'all 0.2s ease',
                     }}
                   >
                     {widget.icon}
@@ -184,14 +180,14 @@ export function CustomizeDrawer({
           variant="outlined"
           startIcon={<RotateCcw size={18} />}
           onClick={onReset}
-          sx={{ borderRadius: 3, flex: 1 }}
+          sx={{ borderRadius: 2, flex: 1, textTransform: 'none' }}
         >
           {t.dashboard?.actions?.reset || 'Reset'}
         </Button>
         <Button
           variant="contained"
           onClick={onClose}
-          sx={{ borderRadius: 3, flex: 1 }}
+          sx={{ borderRadius: 2, flex: 1, textTransform: 'none' }}
         >
           {t.common?.done || 'Done'}
         </Button>
