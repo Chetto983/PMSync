@@ -281,17 +281,35 @@ export class TelegramWebhookService {
     data?: string;
     from: { id: number };
   }): Promise<void> {
-    const { id: callbackQueryId, data } = query;
+    const { id: callbackQueryId, data, from } = query;
 
     if (!data) return;
 
     // Handle "done:{reminderId}" callback
     if (data.startsWith('done:')) {
       const reminderId = data.replace('done:', '');
+      const chatId = String(from.id);
 
       try {
+        // SEC: Resolve the user via chatId to enforce tenant boundary.
+        // Without this, a crafted callback_data could complete another tenant's reminder.
+        const settings = await this.prisma.telegramSettings.findFirst({
+          where: { telegramChatId: chatId, isActive: true },
+          select: { tenantId: true, userId: true },
+        });
+
+        if (!settings) {
+          await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Account non collegato');
+          return;
+        }
+
         const reminder = await this.prisma.reminder.findFirst({
-          where: { id: reminderId, status: ReminderStatus.attivo },
+          where: {
+            id: reminderId,
+            tenantId: settings.tenantId,
+            userId: settings.userId,
+            status: ReminderStatus.attivo,
+          },
         });
 
         if (!reminder) {
@@ -306,7 +324,7 @@ export class TelegramWebhookService {
 
         await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Completato!');
 
-        this.logger.log(`Reminder ${reminderId} completed via Telegram callback`);
+        this.logger.log(`Reminder ${reminderId} completed via Telegram callback by user ${settings.userId}`);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.error(`Callback query error for reminder ${reminderId}: ${msg}`);
