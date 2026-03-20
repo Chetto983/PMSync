@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-03-20
+revised: 2026-03-20
 ---
 
 # Phase 90 — UI Design Contract
@@ -31,23 +32,32 @@ created: 2026-03-20
 
 ## Spacing Scale
 
-Declared values (MUI spacing factor = 8px base):
+Declared values (must be multiples of 4):
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| 0.5 | 2px | Tight inline gaps (chip margins) |
-| 1 | 4px | Icon gaps, inline padding, list/menu item margins |
-| 1.5 | 6px | Small icon button padding |
-| 2 | 8px | Base unit, compact element spacing, accordion margin |
-| 3 | 12px | Menu item padding, alert/dialog content padding |
-| 4 | 16px | Default element spacing, card padding (sm), accordion details |
-| 5 | 20px | Card padding (md), dialog title/actions vertical padding |
-| 6 | 24px | Section padding, card padding (lg), dialog horizontal padding |
-| 8 | 32px | Layout gaps, content padding (md) |
-| 12 | 48px | Large section breaks |
-| 16 | 64px | Header height, page-level spacing |
+| xs | 4px | Icon gaps, inline padding, list/menu item margins |
+| sm | 8px | Base unit, compact element spacing, accordion margin |
+| md | 16px | Default element spacing, card padding (sm), accordion details |
+| lg | 24px | Section padding, card padding (lg), dialog horizontal padding |
+| xl | 32px | Layout gaps, content padding (md) |
+| 2xl | 48px | Large section breaks |
+| 3xl | 64px | Header height, page-level spacing |
 
 Exceptions: Touch targets at 44px (MuiTabs minHeight, icon button sizeLarge at 12px padding ~ 48px total).
+
+> **Design Debt — Inherited Spacing Values**
+>
+> The codebase currently uses MUI's 8px base with half-step multipliers that resolve to non-multiples-of-4:
+>
+> | MUI Token | Pixel Value | Status |
+> |-----------|-------------|--------|
+> | 0.5 | 2px | Inherited — do not introduce new uses |
+> | 1.5 | 6px | Inherited — do not introduce new uses |
+> | 3 | 12px | Inherited — do not introduce new uses |
+> | 5 | 20px | Inherited — do not introduce new uses |
+>
+> These values exist in the codebase and should not be removed during this verification phase. However, any **new** spacing decisions introduced by bug fixes in this phase must use only the multiples-of-4 scale declared above. Do not add new instances of the non-conforming values.
 
 Source: `frontend/theme/tokens.ts` spacing scale + layout constants.
 
@@ -57,19 +67,27 @@ Source: `frontend/theme/tokens.ts` spacing scale + layout constants.
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Caption | 12px (0.75rem) | 400 (normal) | 1.5 |
-| Body2 | 13px (0.8125rem) | 400 (normal) | 1.625 |
-| Body1 (default) | 14px (0.875rem) | 400 (normal) | 1.625 |
-| Subtitle2 | 14px (0.875rem) | 500 (medium) | 1.5 |
-| Subtitle1 | 16px (1rem) | 500 (medium) | 1.5 |
-| H6 | 16px (1rem) | 600 (semibold) | 1.5 |
-| H5 | 18px (1.125rem) | 600 (semibold) | 1.5 |
-| H4 | 20px (1.25rem) | 600 (semibold) | 1.375 |
-| Button | 14px (0.875rem) | 600 (semibold) | 1.5 |
+| Caption / Label | 12px (0.75rem) | 400 (normal) | 1.5 |
+| Body (default) | 14px (0.875rem) | 400 (normal) | 1.625 |
+| Subtitle / Heading-sm | 16px (1rem) | 600 (semibold) | 1.5 |
+| Heading | 20px (1.25rem) | 600 (semibold) | 1.375 |
 
 Font family: `"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
 
 Monospace (code blocks): `"JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace`
+
+> **Design Debt — Inherited Typography Values**
+>
+> The codebase currently uses 6 distinct font sizes and 3 font weights in `frontend/theme/typography.ts`:
+>
+> | MUI Variant | Size | Weight | Status |
+> |-------------|------|--------|--------|
+> | Body2 | 13px | 400 | Inherited — do not introduce new uses (use 14px Body instead) |
+> | Subtitle2 | 14px | 500 | Inherited — do not introduce new uses (use 14px/400 or 14px/600 instead) |
+> | Subtitle1 | 16px | 500 | Inherited — do not introduce new uses (use 16px/600 instead) |
+> | H5 | 18px | 600 | Inherited — do not introduce new uses (use 20px Heading instead) |
+>
+> These variants exist in the theme and remain available in existing components. They should not be removed during this verification phase. However, any **new** typography decisions introduced by bug fixes in this phase must use only the 4-size / 2-weight scale declared above. The Button variant (14px / 600) is covered by Body size + semibold weight.
 
 Source: `frontend/theme/typography.ts`
 
@@ -105,6 +123,23 @@ Source: `frontend/theme/tokens.ts` darkColors/lightColors palettes.
 
 ---
 
+## Visual Hierarchy and Focal Points
+
+**Focal point:** The email thread list is the primary focal surface. When no thread is selected, the list occupies the dominant viewport area. When a thread is selected, the reading pane (thread view) becomes the co-focal surface.
+
+**Visual hierarchy (top to bottom):**
+1. **Thread list / Reading pane** — largest surface area, immediate user attention
+2. **Compose dialog** — modal overlay, highest z-index when active
+3. **Sidebar** — persistent navigation (folders + labels), secondary attention
+4. **Toolbar / action bar** — contextual actions for current selection
+
+**Icon-only actions:** All icon-only action buttons (archive, delete, star, flag, mark-read on thread row hover; reply, forward, more-actions in thread header) must have:
+- `aria-label` attribute with descriptive text (e.g., `aria-label="Archive email"`)
+- MUI `Tooltip` wrapper showing the same label on hover/focus
+- This ensures accessibility compliance and discoverability for all icon-only interactions
+
+---
+
 ## Copywriting Contract
 
 All copy uses existing i18n keys from `frontend/locales/en.ts` and `frontend/locales/it.ts`. This phase does NOT add new copy -- it verifies existing copy renders correctly.
@@ -119,9 +154,11 @@ All copy uses existing i18n keys from `frontend/locales/en.ts` and `frontend/loc
 | Send error | "Failed to send email. Please try again." | `email.composer.sendError` |
 | Delete confirmation | "Are you sure you want to delete {count} email(s)?" | `email.bulk.deleteConfirm` |
 | Move success | "Moved {count} email(s) to {folder}" | `email.bulk.moved` |
-| Move failure | "Failed to move emails" | `email.bulk.moveFailed` |
+| Move failure | "Failed to move emails. Check your connection and try again." | `email.bulk.moveFailed` |
 | No provider | "Connect a mail provider to send and receive email." | `email.noProviders` |
 | Compose placeholder | "Compose your message..." | `email.composer.bodyPlaceholder` |
+
+**CTA label note:** "Compose" and "Send" are single-word labels without an explicit noun. This is deliberate and consistent with established email client conventions (Gmail, Outlook, Apple Mail all use single-word CTAs for these actions). The noun is implied by context.
 
 **Verification rule:** During audit, confirm each of these strings renders at the correct moment. If a string is missing or shows a raw key, fix the i18n binding -- do not hardcode English text.
 
