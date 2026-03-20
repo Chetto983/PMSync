@@ -78,6 +78,10 @@ export interface StaleContact {
   lastInteraction: string;
   relationshipScore: number;
   daysSinceContact: number;
+  previousFrequency?: string;
+  suggestedAction?: string;
+  trend?: 'increasing' | 'stable' | 'decreasing';
+  totalInteractions?: number;
 }
 
 // ============================================================================
@@ -244,12 +248,16 @@ export function staleContactsOptions(params?: { limit?: number }) {
 
         const contacts: StaleContact[] = items.map((c: ContactRelationshipStats) => ({
           id: c.contactId,
-          name: c.displayName || c.email,
-          email: c.email,
+          name: c.displayName || c.email || 'Unknown',
+          email: c.email || '',
           company: undefined,
           lastInteraction: c.lastInteraction || '',
           relationshipScore: c.relationshipScore || 0,
           daysSinceContact: c.daysSinceLastContact || 0,
+          previousFrequency: c.previousFrequency,
+          suggestedAction: c.suggestedAction,
+          trend: c.trend,
+          totalInteractions: c.totalInteractions,
         }));
 
         const avgScore = contacts.length > 0

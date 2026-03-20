@@ -49,10 +49,12 @@ Exceptions: Touch targets for HITL approve/reject buttons must be at least 36px 
 
 All values from `frontend/theme/tokens.ts`. Chat components use these via MUI theme and CSS custom properties.
 
+Two-weight scale: 400 (normal) for all body and utility text, 600 (semibold) for headings and emphasis.
+
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (fontSize.base / 0.875rem) | 400 (fontWeight.normal) | 1.5 (lineHeight.normal) |
-| Label | 12px (fontSize.xs / 0.75rem) | 500 (fontWeight.medium) | 1.25 (lineHeight.tight) |
+| Label | 12px (fontSize.xs / 0.75rem) | 400 (fontWeight.normal) | 1.25 (lineHeight.tight) |
 | Heading | 20px (fontSize.xl / 1.25rem) | 600 (fontWeight.semibold) | 1.25 (lineHeight.tight) |
 | Display | 24px (fontSize.2xl / 1.5rem) | 600 (fontWeight.semibold) | 1.25 (lineHeight.tight) |
 
@@ -60,7 +62,7 @@ All values from `frontend/theme/tokens.ts`. Chat components use these via MUI th
 - Chat empty state title: 24px, weight 600
 - Chat composer input: 14px, weight 400
 - Tool UI parameter blocks: 12px, monospace (fontFamily.mono)
-- HITL risk chip: 12px, weight 500
+- HITL risk chip: 12px, weight 400 (color and background provide sufficient emphasis without a third weight)
 
 ---
 
@@ -86,6 +88,12 @@ Accent reserved for: chat send button, active conversation indicator in thread l
 
 ---
 
+## Visual Hierarchy
+
+Primary focal point: ChatComposer input field -- draws initial eye on empty state via centered placement and placeholder text; transitions to the active message stream during conversation as streaming tokens become the dominant motion element.
+
+---
+
 ## Copywriting Contract
 
 All copy already exists in `frontend/locales/en.ts` (and `it.ts`). This contract documents what must be verified during Phase 92.
@@ -96,8 +104,8 @@ All copy already exists in `frontend/locales/en.ts` (and `it.ts`). This contract
 | Chat empty state body | `chat.emptyState.subtitle` | "Ask me anything about your emails, calendar, or contacts" |
 | Chat composer placeholder | `chat.composer.placeholder` | "Ask anything about your emails..." |
 | HITL pending title | `chat.hitl.pendingTitle` | "Action requires approval" |
-| HITL approve CTA | `chat.hitl.approveLabel` | "Approve" |
-| HITL deny CTA | `chat.hitl.rejectLabel` | "Deny" |
+| HITL approve CTA | `chat.hitl.approveLabel` | "Approve Action" |
+| HITL deny CTA | `chat.hitl.rejectLabel` | "Deny Action" |
 | New chat CTA | `chat.threadList.newChat` | "New chat" |
 | Delete conversation confirmation | `chat.threadList.deleteConfirm` | "Delete this conversation?" |
 | No conversations empty state | `chat.threadList.noConversations` | "No conversations yet" |

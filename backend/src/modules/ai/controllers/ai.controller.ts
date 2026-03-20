@@ -37,6 +37,7 @@ import { ConsentGuard } from '../../compliance/guards/consent.guard';
 import { TriageBackfillSchedulerService } from '../services/triage-backfill-scheduler.service';
 // Phase 26: Non-chat AI services
 import { BriefingService } from '../services/briefing.service';
+import { RelationshipScoreService } from '../../contacts/services/relationship-score.service';
 import { FollowUpDetectionService } from '../services/follow-up-detection.service';
 import { DraftGenerationService } from '../services/draft-generation.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
@@ -82,6 +83,7 @@ export class AiController {
     private readonly briefingService: BriefingService,
     private readonly followUpDetectionService: FollowUpDetectionService,
     private readonly draftGenerationService: DraftGenerationService,
+    private readonly relationshipScoreService: RelationshipScoreService,
   ) {}
 
   // Phase 24: Chat endpoint moved to AiChatModule (ai-chat.controller.ts)
@@ -784,8 +786,8 @@ export class AiController {
   }
 
   @Get('crm/stale-contacts')
-  @ApiOperation({ summary: 'Get stale contacts', description: 'Returns contacts with stale interactions' })
-  @ApiResponse({ status: 200, description: 'Stale contacts listed' })
+  @ApiOperation({ summary: 'Get stale contacts with relationship scores', description: 'Returns contacts needing re-engagement, ranked by relationship intelligence' })
+  @ApiResponse({ status: 200, description: 'Stale contacts with scores listed' })
   async getStaleContacts(
     @Request() req: AuthenticatedRequest,
     @Query('days') daysParam?: string,
@@ -793,65 +795,45 @@ export class AiController {
   ) {
     const thresholdDays = Math.min(Math.max(parseInt(daysParam || '60', 10) || 60, 7), 365);
     const limit = Math.min(Math.max(parseInt(limitParam || '20', 10) || 20, 1), 100);
-    const thresholdDate = new Date();
-    thresholdDate.setDate(thresholdDate.getDate() - thresholdDays);
 
-    const contacts = await this.prisma.contact.findMany({
-      where: {
-        tenantId: req.user.tenantId,
-        isDeleted: false,
-        OR: [
-          { lastInteractedAt: { lt: thresholdDate } },
-          { lastInteractedAt: null },
-        ],
-      },
-      select: {
-        id: true,
-        displayName: true,
-        emails: true,
-        lastInteractedAt: true,
-        totalInteractions: true,
-        sentCount: true,
-        receivedCount: true,
-        relationshipScore: true,
-      },
-      orderBy: [
-        { lastInteractedAt: 'asc' },
-        { relationshipScore: 'asc' },
-      ],
-      take: limit,
-    });
+    // Use RelationshipScoreService for intelligent scoring
+    const [staleContacts, allScores] = await Promise.all([
+      this.relationshipScoreService.getStaleContacts(req.user.tenantId, {
+        daysSince: thresholdDays,
+        limit,
+      }),
+      this.relationshipScoreService.getRelationshipScores(req.user.tenantId, {
+        limit: 200,
+      }),
+    ]);
 
-    const now = new Date();
-    const staleContacts = contacts.map((contact) => {
-      const email = this.extractPrimaryEmail(contact.emails);
-      const lastInteraction = contact.lastInteractedAt;
-      const daysSince = lastInteraction
-        ? Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24))
-        : thresholdDays + 1;
+    // Build score lookup for enrichment
+    const scoreMap = new Map(allScores.map(s => [s.contactId, s]));
 
+    const enrichedContacts = staleContacts.map((contact) => {
+      const scores = scoreMap.get(contact.contactId);
       return {
-        contactId: contact.id,
-        email,
-        displayName: contact.displayName || email,
-        lastInteraction: lastInteraction ? lastInteraction.toISOString() : null,
-        totalInteractions: contact.totalInteractions ?? 0,
-        emailsSent: contact.sentCount ?? 0,
-        emailsReceived: contact.receivedCount ?? 0,
-        relationshipScore: contact.relationshipScore ?? 0,
-        recencyScore: null,
-        frequencyScore: null,
-        reciprocityScore: null,
-        trendScore: null,
+        contactId: contact.contactId,
+        displayName: contact.name,
+        daysSinceLastContact: contact.daysSinceContact,
+        previousFrequency: contact.previousFrequency,
+        suggestedAction: contact.suggestedAction,
+        // Relationship intelligence from scoring service
+        relationshipScore: scores?.totalScore ?? 0,
+        recencyScore: scores?.recencyScore ?? 0,
+        frequencyScore: scores?.frequencyScore ?? 0,
+        reciprocityScore: scores?.reciprocityScore ?? 0,
+        trendScore: scores?.trendScore ?? 0,
+        trend: scores?.trend ?? 'stable',
+        totalInteractions: scores?.totalInteractions ?? 0,
         isStale: true,
-        daysSinceLastContact: daysSince,
       };
     });
 
     return {
       success: true,
-      staleContacts,
-      count: staleContacts.length,
+      staleContacts: enrichedContacts,
+      count: enrichedContacts.length,
       thresholdDays,
     };
   }
@@ -971,25 +953,4 @@ export class AiController {
     return { success: true };
   }
 
-  private extractPrimaryEmail(rawEmails: unknown): string {
-    if (!rawEmails) return '';
-
-    if (Array.isArray(rawEmails)) {
-      for (const entry of rawEmails) {
-        if (typeof entry === 'string' && entry.length > 0) {
-          return entry;
-        }
-        if (
-          entry &&
-          typeof entry === 'object' &&
-          'value' in entry &&
-          typeof (entry as { value?: unknown }).value === 'string'
-        ) {
-          return (entry as { value: string }).value;
-        }
-      }
-    }
-
-    return '';
-  }
 }

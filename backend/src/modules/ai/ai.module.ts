@@ -54,6 +54,8 @@ import {
 } from '../../common/interfaces/embedding-queue.interface';
 import { RagTool } from './tools/rag.tool';
 import { AiProviderEventHandlerService } from './services/provider-event-handler.service';
+// CRM: Relationship scoring (dependencies: PrismaService + HashSearchService — both from PrismaModule, no circular dep)
+import { RelationshipScoreService } from '../contacts/services/relationship-score.service';
 // Phase 45-03: Event handler for email.indexed (EmailSync -> AI decoupling)
 import { EmailIndexedHandler } from './services/email-indexed.handler';
 // Phase 45-03: Moved from EmailSyncModule (AI concern, not sync concern)
@@ -122,6 +124,8 @@ import { RealtimeModule } from '../realtime/realtime.module';
     AiProviderEventHandlerService,
     // Phase 35: AI Run Ledger telemetry
     AiRunLedgerService,
+    // CRM: Relationship scoring for stale-contacts endpoint
+    RelationshipScoreService,
     // Phase 45-03: Event handler for email.indexed (EmailSync -> AI decoupling)
     EmailIndexedHandler,
     // Phase 45-03: Moved from EmailSyncModule (AI concern, not sync concern)

@@ -566,6 +566,15 @@ export interface AppTranslations {
         yearAgo: string;
         yearsAgo: string;
         daysAgo: string;
+        frequencyDaily: string;
+        frequencyWeekly: string;
+        frequencyMonthly: string;
+        frequencyOccasional: string;
+        trendDecreasing: string;
+        trendStable: string;
+        trendIncreasing: string;
+        interactions: string;
+        score: string;
       };
       unreadEmails: {
         title: string;

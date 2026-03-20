@@ -12,7 +12,7 @@ const mockPrisma = {
 import { AiController } from '../ai.controller';
 
 function makeController() {
-  // AiController constructor: (insights, kb, triage, backfill, prisma, briefing, followUp, draft)
+  // AiController constructor: (insights, kb, triage, backfill, prisma, briefing, followUp, draft, relationshipScore)
   return new AiController(
     {} as any, // emailInsightsService
     {} as any, // knowledgeBaseService
@@ -22,6 +22,7 @@ function makeController() {
     {} as any, // briefingService
     {} as any, // followUpDetectionService
     {} as any, // draftGenerationService
+    {} as any, // relationshipScoreService
   );
 }
 

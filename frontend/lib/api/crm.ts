@@ -9,12 +9,12 @@ import { apiClient } from '../api-client';
 
 export interface ContactRelationshipStats {
   contactId: string;
-  email: string;
+  email?: string;
   displayName?: string | null;
-  lastInteraction: string | null;
+  lastInteraction?: string | null;
   totalInteractions: number;
-  emailsSent: number;
-  emailsReceived: number;
+  emailsSent?: number;
+  emailsReceived?: number;
   relationshipScore: number | null;
   recencyScore: number | null;
   frequencyScore: number | null;
@@ -22,6 +22,9 @@ export interface ContactRelationshipStats {
   trendScore: number | null;
   isStale: boolean;
   daysSinceLastContact: number | null;
+  previousFrequency?: string;
+  suggestedAction?: string;
+  trend?: 'increasing' | 'stable' | 'decreasing';
 }
 
 export interface StaleContactsParams {
