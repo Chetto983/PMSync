@@ -254,8 +254,15 @@ export class AiChatService {
       model: this.mistralProvider.getChatModel(model),
       instructions: systemPromptWithMemory,
       tools,
-      toolChoice: 'auto',
+      toolChoice: 'required',
       stopWhen: stepCountIs(5),
+      prepareStep: async ({ stepNumber }) => {
+        // Step 0: force tool use so the model gathers real data before answering.
+        // Step 1+: switch to 'auto' so it can synthesize results into text.
+        if (stepNumber > 0) {
+          return { toolChoice: 'auto' as const };
+        }
+      },
       onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
         const stepIndex = completedStepCount++;
 

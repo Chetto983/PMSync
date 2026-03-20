@@ -1,9 +1,10 @@
 /**
- * Model Benchmark: mistral-medium-latest vs mistral-small-4-latest
+ * Model Benchmark: mistral-medium-latest vs mistral-small-latest
  * 50 hard real-world questions for a productivity/email AI assistant.
  *
  * Usage: npx tsx scripts/model-benchmark.ts
  */
+import 'dotenv/config';
 import { createMistral } from '@ai-sdk/mistral';
 import { generateText } from 'ai';
 import * as fs from 'fs';
@@ -14,13 +15,16 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const MODELS = ['mistral-medium-latest', 'mistral-small-4-latest'] as const;
+const MODELS = ['mistral-medium-latest', 'mistral-small-latest'] as const;
 
 const SYSTEM_PROMPT = `You are PMSync AI, an intelligent email and productivity assistant. You help users manage emails, calendars, contacts, tasks, and workflows. You can search emails, draft replies, schedule meetings, set reminders, and analyze communication patterns. Be concise but thorough.`;
 
+// Set to 0 to run all, or a number to limit (e.g. 5 for quick test)
+const LIMIT = parseInt(process.env.BENCH_LIMIT || '0', 10);
+
 // 50 hard, realistic questions spanning reasoning, email tasks, scheduling,
 // summarization, multi-step logic, edge cases, and tool-use decisions.
-const QUESTIONS: string[] = [
+const ALL_QUESTIONS: string[] = [
   // --- Reasoning & Logic ---
   `I have 3 meetings tomorrow: 9-10am with Alice, 11am-12:30pm with Bob, and 2-3pm with Carol. I need a 45-minute slot to prepare a presentation. When can I fit it in?`,
   `My inbox has 847 unread emails. If I can process 30 emails per hour and I have 2 hours today, 3 hours tomorrow, and 1.5 hours on Friday, will I clear my inbox by the weekend? What's the most efficient triage strategy?`,
@@ -83,6 +87,8 @@ const QUESTIONS: string[] = [
   `Our competitor just launched an AI email feature that auto-drafts replies. Our feature does the same but also learns writing style. Draft the competitive positioning email for our sales team.`,
 ];
 
+const QUESTIONS = LIMIT > 0 ? ALL_QUESTIONS.slice(0, LIMIT) : ALL_QUESTIONS;
+
 interface BenchResult {
   question: string;
   model: string;
@@ -136,7 +142,7 @@ async function runOne(
 // Cost per 1M tokens (March 2026 pricing)
 const COSTS: Record<string, { input: number; output: number }> = {
   'mistral-medium-latest': { input: 2.5, output: 7.5 },
-  'mistral-small-4-latest': { input: 0.2, output: 0.6 },
+  'mistral-small-latest': { input: 0.2, output: 0.6 },
 };
 
 async function main() {
@@ -223,7 +229,7 @@ async function main() {
     );
     const sm = results.find(
       (r) =>
-        r.model === 'mistral-small-4-latest' && r.question === QUESTIONS[i],
+        r.model === 'mistral-small-latest' && r.question === QUESTIONS[i],
     );
     const medT = med?.error ? 'ERR' : `${med?.totalMs ?? '?'}`;
     const smT = sm?.error ? 'ERR' : `${sm?.totalMs ?? '?'}`;
