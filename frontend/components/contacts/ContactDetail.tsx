@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -16,10 +16,11 @@ import {
   Edit,
   Trash2,
   X,
+  Star,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { Contact } from '@/lib/api/contacts';
-import { useContactPhoto } from '@/hooks/queries/use-contacts';
+import { useContactPhoto, useToggleVip } from '@/hooks/queries/use-contacts';
 import { TabPanel, getContactName, getPrimaryEmail } from './contact-detail/contact-detail-utils';
 import { ContactInfoPanel } from './contact-detail/ContactInfoPanel';
 import { ContactActivityFeed } from './contact-detail/ContactActivityFeed';
@@ -49,6 +50,11 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   const contactsCopy = t.contacts || {};
   const detailsCopy = contactsCopy.details || {};
   const [tabValue, setTabValue] = useState(0);
+
+  const toggleVipMutation = useToggleVip();
+  const handleToggleVip = useCallback(() => {
+    toggleVipMutation.mutate(contact.id);
+  }, [toggleVipMutation, contact.id]);
 
   const contactName = useMemo(() => getContactName(contact, t.common?.unnamedContact ?? 'Unnamed contact'), [contact, t.common?.unnamedContact]);
   const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
@@ -105,6 +111,16 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
             )}
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
+            <Tooltip title={contact.isVip ? (contactsCopy.actions?.removeVip || 'Remove VIP') : (contactsCopy.actions?.markVip || 'Mark as VIP')}>
+              <IconButton
+                size="small"
+                onClick={handleToggleVip}
+                disabled={isLoading || toggleVipMutation.isPending}
+                sx={{ color: contact.isVip ? 'warning.main' : 'action.disabled' }}
+              >
+                <Star size={18} fill={contact.isVip ? 'currentColor' : 'none'} />
+              </IconButton>
+            </Tooltip>
             {onEdit && (
               <Tooltip title={t.common?.edit || 'Edit'}>
                 <IconButton size="small" onClick={onEdit} disabled={isLoading}>
@@ -145,7 +161,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           </Button>
           {!primaryEmail && (
             <Typography variant="caption" color="text.secondary">
-              Aggiungi un indirizzo email al contatto per inviare un messaggio.
+              {detailsCopy.addEmailHint || 'Add an email address to the contact to send a message.'}
             </Typography>
           )}
         </Stack>

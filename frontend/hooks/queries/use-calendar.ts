@@ -420,6 +420,45 @@ export function useUpdateCalendarPreferences() {
 }
 
 /**
+ * Hook for responding to a calendar event invite (RSVP)
+ * Two-step: looks up source email, then calls email RSVP endpoint
+ */
+export function useRespondToCalendarEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      eventId,
+      response,
+    }: {
+      eventId: string;
+      response: 'accepted' | 'declined' | 'tentative';
+    }) => {
+      // Step 1: Get the source email for this calendar event
+      const { data } = await calendarApi.getEventSourceEmail(eventId);
+      if (!data.emailId) {
+        throw new Error('No email invite found for this calendar event');
+      }
+      // Step 2: Call the existing email RSVP endpoint
+      const { emailsApi } = await import('@/lib/api/emails');
+      await emailsApi.respondToCalendarInvite(data.emailId, { response });
+      return { eventId, emailId: data.emailId };
+    },
+    onSuccess: ({ eventId, emailId }) => {
+      queryClient.invalidateQueries({ queryKey: calendarKeys.eventDetail(eventId) });
+      queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
+      // Also invalidate the email detail if cached
+      queryClient.invalidateQueries({ queryKey: ['emails', 'detail', emailId] });
+    },
+    onError: (error) => {
+      logger.error('Failed to respond to calendar event', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
+}
+
+/**
  * Hook for deleting calendars
  */
 export function useDeleteCalendar() {

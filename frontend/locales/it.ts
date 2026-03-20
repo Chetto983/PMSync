@@ -3351,6 +3351,7 @@ export const it: AppTranslations = {
       vipLabel: 'Contatto VIP',
       vipHelper: 'Segna questo contatto come VIP per gestione prioritaria',
       relationshipScore: 'Punteggio',
+      addEmailHint: 'Aggiungi un indirizzo email al contatto per inviare un messaggio.',
     },
     list: {
       emptyTitle: 'Nessun contatto',

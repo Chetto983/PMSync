@@ -3373,6 +3373,7 @@ export const en: AppTranslations = {
       vipLabel: 'VIP Contact',
       vipHelper: 'Mark this contact as VIP for priority handling',
       relationshipScore: 'Score',
+      addEmailHint: 'Add an email address to the contact to send a message.',
     },
     list: {
       emptyTitle: 'No contacts yet',

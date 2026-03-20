@@ -289,4 +289,14 @@ export const calendarApi = {
       `/calendar/events/${eventId}/attachments/${attachmentId}`
     );
   },
+
+  // ===== RSVP =====
+
+  /**
+   * Get the source email ID for a calendar event (for RSVP)
+   * GET /calendar/events/:id/source-email
+   */
+  getEventSourceEmail(eventId: string) {
+    return apiClient.get<{ emailId: string | null }>(`/calendar/events/${eventId}/source-email`);
+  },
 };

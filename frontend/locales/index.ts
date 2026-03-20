@@ -1701,6 +1701,7 @@ export interface AppTranslations {
       vipLabel: string;
       vipHelper: string;
       relationshipScore: string;
+      addEmailHint: string;
     };
     list: {
       emptyTitle: string;

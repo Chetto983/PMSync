@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -317,5 +318,39 @@ export class CalendarController {
   ) {
     const tenantId = req.user.tenantId;
     return this.calendarService.getEventAttachment(tenantId, eventId, attachmentId);
+  }
+
+  // ─── RSVP / Calendar Invite Endpoints ────────────────────────
+
+  /**
+   * Get the source email ID for a calendar event (for RSVP)
+   * GET /api/calendar/events/:id/source-email
+   */
+  @Get('events/:id/source-email')
+  @ApiOperation({ summary: 'Get source email ID for a calendar event' })
+  @ApiParam({ name: 'id', description: 'Calendar event ID' })
+  @ApiResponse({ status: 200, description: 'Returns emailId or null' })
+  async getEventSourceEmail(
+    @Req() req: any,
+    @Param('id') id: string,
+  ) {
+    const tenantId = req.user.tenantId;
+
+    // Verify the event belongs to this tenant
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Calendar event not found');
+    }
+
+    // Find the email that has this calendar event linked
+    const email = await this.prisma.email.findFirst({
+      where: { tenantId, calendarEventId: id },
+      select: { id: true },
+    });
+
+    return { emailId: email?.id ?? null };
   }
 }
