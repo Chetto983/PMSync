@@ -365,7 +365,7 @@ export class ConversationService {
    * Content is stored as JSON (AI SDK UIMessage parts format).
    */
   private formatMessagesAsModelMessages(messages: AiMessage[]): ModelMessage[] {
-    return messages
+    const raw = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'tool')
       .map((m): ModelMessage => {
         const content = m.content as Record<string, unknown>;
@@ -389,6 +389,34 @@ export class ConversationService {
             : (content as { text?: string })?.text ?? '';
         return { role: 'assistant', content: text };
       });
+
+    // Merge consecutive same-role user messages to avoid InvalidPromptError.
+    // This happens when prior AI responses failed (no assistant message saved)
+    // leaving orphaned user messages in sequence.
+    return this.mergeConsecutiveUserMessages(raw);
+  }
+
+  /**
+   * Merge consecutive user messages into a single message.
+   * Mistral (and other providers) require strictly alternating user/assistant roles.
+   */
+  private mergeConsecutiveUserMessages(messages: ModelMessage[]): ModelMessage[] {
+    const result: ModelMessage[] = [];
+    for (const msg of messages) {
+      const prev = result[result.length - 1];
+      if (
+        prev &&
+        msg.role === 'user' &&
+        prev.role === 'user' &&
+        typeof msg.content === 'string' &&
+        typeof prev.content === 'string'
+      ) {
+        prev.content = prev.content + '\n' + msg.content;
+      } else {
+        result.push(msg);
+      }
+    }
+    return result;
   }
 
   private formatStoredToolMessage(
