@@ -1385,6 +1385,9 @@ export interface AppTranslations {
     title: string;
     description: string;
     refreshTooltip: string;
+    previousPeriod: string;
+    nextPeriod: string;
+    openSidebar: string;
     allCalendars: string;
     clearSelection: string;
     filterTitle: string;

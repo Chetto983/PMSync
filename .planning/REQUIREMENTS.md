@@ -20,7 +20,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **BAPI-09**: User can manage providers (list, connect Google/Microsoft/IMAP, test connections, delete, sync)
 - [ ] **BAPI-10**: User can manage subscription (get status, usage, limits, features, cost-breakdown, cancel)
 - [ ] **BAPI-11**: User can manage compliance (consent status/update, data export, data deletion, GDPR status, legal acceptance)
-- [ ] **BAPI-12**: User can manage reminders (create, list, get, update, complete, delete)
+- [x] **BAPI-12**: User can manage reminders (create, list, get, update, complete, delete)
 - [ ] **BAPI-13**: User can use AI features (compose, summarize, smart-reply, categorize, sentiment, priority, triage, follow-ups, briefing, drafts)
 - [ ] **BAPI-14**: User can use AI chat (stream message, CRUD conversations, HITL approve/reject)
 - [ ] **BAPI-15**: User can manage knowledge base (backfill, list/delete embeddings, semantic search)
@@ -50,7 +50,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **FE-11**: Admin pages function (user list, ban/unban, impersonation, organization management)
 - [x] **FE-12**: Labels sidebar renders, create/edit/delete/reorder works, drag-drop assigns
 - [x] **FE-13**: Folders sidebar renders, create/rename/delete works, email drag-drop moves
-- [ ] **FE-14**: Reminders page works (list, create, complete, delete, Kanban view)
+- [x] **FE-14**: Reminders page works (list, create, complete, delete, Kanban view)
 - [ ] **FE-15**: Tasks page renders correctly (not demo/placeholder content)
 - [ ] **FE-16**: Analytics page renders with real data
 - [ ] **FE-17**: Landing page renders all sections (hero, features, testimonials, CTA, footer)
@@ -136,7 +136,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-09 | Phase 93 | Pending |
 | BAPI-10 | Phase 93 | Pending |
 | BAPI-11 | Phase 93 | Pending |
-| BAPI-12 | Phase 91 | Pending |
+| BAPI-12 | Phase 91 | Complete |
 | BAPI-13 | Phase 92 | Pending |
 | BAPI-14 | Phase 92 | Pending |
 | BAPI-15 | Phase 92 | Pending |
@@ -163,7 +163,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-11 | Phase 93 | Pending |
 | FE-12 | Phase 90 | Complete |
 | FE-13 | Phase 90 | Complete |
-| FE-14 | Phase 91 | Pending |
+| FE-14 | Phase 91 | Complete |
 | FE-15 | Phase 94 | Pending |
 | FE-16 | Phase 94 | Pending |
 | FE-17 | Phase 94 | Pending |

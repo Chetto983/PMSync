@@ -402,6 +402,8 @@ export function useUpdateEmail() {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       // Refresh sidebar folder unread counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      // Refresh sidebar label counts
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
   });
 }
@@ -429,6 +431,8 @@ export function useDeleteEmail() {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       // Refresh sidebar folder unread counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      // Refresh sidebar label counts
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
     onError: (_, __, context) => {
       if (context?.previousLists) {
@@ -466,8 +470,9 @@ export function useBulkDeleteEmails() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
-      // Refresh sidebar folder unread counts
+      // Refresh sidebar folder + label counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
     onError: (_, __, context) => {
       if (context?.previousLists) {
@@ -503,8 +508,9 @@ export function useBulkMarkRead() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
-      // Refresh sidebar folder unread counts
+      // Refresh sidebar folder + label counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
     onError: (_, __, context) => {
       if (context?.previousLists) {
@@ -541,6 +547,9 @@ export function useBulkMarkImportant() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
+      // Refresh sidebar folder + label counts
+      queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
     onError: (_, __, context) => {
       if (context?.previousLists) {
@@ -565,8 +574,9 @@ export function useBulkMoveEmails() {
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.threads() });
-      // Refresh sidebar folder unread counts (source and target counts both change)
+      // Refresh sidebar folder + label counts
       queryClient.invalidateQueries({ queryKey: folderKeys.list() });
+      queryClient.invalidateQueries({ queryKey: labelKeys.lists() });
     },
     onError: () => {
       getGlobalToast().error(getGlobalTranslations().errors.moveEmailsFailed);

@@ -408,6 +408,9 @@ export default function EmailPage() {
     setPagingState({ page: 1, filterKey });
     queryClient.invalidateQueries({ queryKey: emailKeys.list() });
     queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+    // Also refresh folder + label counts on manual refresh
+    queryClient.invalidateQueries({ queryKey: ['folders'] });
+    queryClient.invalidateQueries({ queryKey: ['labels'] });
   }, [filterKey, queryClient]);
 
   // Empty state CTA (anti-pattern #9 fix)

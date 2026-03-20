@@ -95,19 +95,22 @@ export function CalendarHeader({
       }}
     >
       {/* Mobile hamburger menu */}
-      <IconButton
-        size="small"
-        onClick={onOpenMobileDrawer}
-        sx={{
-          display: { xs: 'flex', md: 'none' },
-          color: 'text.primary',
-          '&:hover': {
-            bgcolor: alpha(theme.palette.primary.main, 0.1),
-          },
-        }}
-      >
-        <Menu size={20} />
-      </IconButton>
+      <Tooltip title={calendarCopy.openSidebar}>
+        <IconButton
+          size="small"
+          onClick={onOpenMobileDrawer}
+          aria-label={calendarCopy.openSidebar}
+          sx={{
+            display: { xs: 'flex', md: 'none' },
+            color: 'text.primary',
+            '&:hover': {
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+            },
+          }}
+        >
+          <Menu size={20} />
+        </IconButton>
+      </Tooltip>
 
       {/* Month/Year Title */}
       <Typography
@@ -123,32 +126,38 @@ export function CalendarHeader({
 
       {/* Navigation Buttons */}
       <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <IconButton
-          size="small"
-          onClick={onPrev}
-          sx={{
-            color: 'text.secondary',
-            '&:hover': {
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              color: 'primary.main',
-            },
-          }}
-        >
-          <ChevronLeft size={20} />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={onNext}
-          sx={{
-            color: 'text.secondary',
-            '&:hover': {
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              color: 'primary.main',
-            },
-          }}
-        >
-          <ChevronRight size={20} />
-        </IconButton>
+        <Tooltip title={calendarCopy.previousPeriod}>
+          <IconButton
+            size="small"
+            onClick={onPrev}
+            aria-label={calendarCopy.previousPeriod}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                color: 'primary.main',
+              },
+            }}
+          >
+            <ChevronLeft size={20} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={calendarCopy.nextPeriod}>
+          <IconButton
+            size="small"
+            onClick={onNext}
+            aria-label={calendarCopy.nextPeriod}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                color: 'primary.main',
+              },
+            }}
+          >
+            <ChevronRight size={20} />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* Today Button */}
