@@ -2222,6 +2222,10 @@ export const en: AppTranslations = {
           label: 'AI Email Processing',
           description: 'Allow AI to process email content for chat, analysis, and recommendations',
         },
+        ai_chat: {
+          label: 'AI Chat Assistant',
+          description: 'Use the AI chat assistant to ask questions about your emails and perform actions',
+        },
         ai_smart_replies: {
           label: 'AI Smart Replies',
           description: 'Allow AI to generate reply suggestions based on email content',

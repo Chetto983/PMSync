@@ -27,6 +27,7 @@ import { Request, Response } from 'express';
 import { pipeUIMessageStreamToResponse } from 'ai';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { ConsentGuard } from '../../compliance/guards/consent.guard';
+import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator';
 import { AiChatService } from '../services/ai-chat.service';
@@ -48,7 +49,7 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  *
  * CHAT 403 ROOT CAUSE (Phase 31 investigation):
  * The guard chain is: BetterAuthGuard (global) -> TenantGuard -> ConsentGuard -> QuotaGuard.
- * ConsentGuard: @RequiresConsent('ai_chat') is commented out, so it passes.
+ * ConsentGuard: @RequiresConsent('ai_chat') enforces consent before chat access.
  * QuotaGuard: calls subscriptionService.getOrCreateSubscription() which auto-creates
  * a FREE subscription with ACTIVE status if none exists (with a transient fallback
  * on DB error). The 403 occurs when QuotaGuard detects:
@@ -79,8 +80,7 @@ export class AiChatController {
   @Post('chat')
   @SkipEnvelope()
   @HttpCode(HttpStatus.OK)
-  // TODO: Re-enable when consent onboarding UI exists. ai_chat is declared in CONSENT_FEATURES.
-  // @RequiresConsent('ai_chat')
+  @RequiresConsent('ai_chat')
   @RequiresQuota('ai')
   @ApiOperation({
     summary: 'AI chat (streaming)',

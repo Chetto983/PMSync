@@ -4,7 +4,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useConsent, useUpdateConsent } from '@/hooks/queries';
 import { ConsentToggle } from './ConsentToggle';
 
-const AI_FEATURES = ['ai_email_processing', 'ai_smart_replies', 'ai_summarization', 'ai_scheduling', 'ai_auto_triage'];
+const AI_FEATURES = ['ai_email_processing', 'ai_chat', 'ai_smart_replies', 'ai_summarization', 'ai_scheduling', 'ai_auto_triage'];
 const DATA_FEATURES = ['email_analytics', 'contact_enrichment'];
 
 export function ConsentSettings() {

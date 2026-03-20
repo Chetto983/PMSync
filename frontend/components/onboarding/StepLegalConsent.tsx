@@ -22,6 +22,7 @@ const CURRENT_PP_VERSION = '1.0';
 
 const AI_FEATURES = [
   'ai_email_processing',
+  'ai_chat',
   'ai_smart_replies',
   'ai_summarization',
   'ai_scheduling',

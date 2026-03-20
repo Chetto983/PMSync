@@ -16,7 +16,6 @@ import { it } from './it';
 export type {
   SupportedLocale,
   ToolTranslations,
-  AgentTranslations,
   ObservabilityTranslations,
   ActionSummaryTranslations,
   MistralTranslations,
@@ -32,7 +31,6 @@ export type {
 import type {
   SupportedLocale,
   ToolTranslations,
-  AgentTranslations,
   ActionSummaryTranslations,
   ObservabilityTranslations,
   DeadlineKeywordsTranslations,
@@ -72,13 +70,6 @@ export function getTranslations(locale: SupportedLocale): VoltAgentTranslations 
  */
 export function getToolTranslations(locale: SupportedLocale): ToolTranslations {
   return (locales[locale] || locales.en).tools;
-}
-
-/**
- * Get agent translations for a specific locale
- */
-export function getAgentTranslations(locale: SupportedLocale): AgentTranslations {
-  return (locales[locale] || locales.en).agents;
 }
 
 /**

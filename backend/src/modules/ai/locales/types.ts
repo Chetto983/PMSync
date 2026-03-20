@@ -216,34 +216,6 @@ export interface ToolTranslations {
 }
 
 /**
- * Translation structure for agents
- *
- * Architecture (2026-01-29):
- * - Supervisor: Wrapper that delegates to UnifiedAgent
- * - UnifiedAgent: Single agent with dynamic tool loading
- */
-export interface AgentTranslations {
-  supervisor: {
-    instructions: string;
-    delegateActions: string;
-    delegateIntelligence: string;
-    delegateWebSearch: string;
-  };
-  unified: {
-    instructions: string;
-  };
-  webSearch: {
-    instructions: string;
-  };
-  analytics: {
-    instructions: string;
-  };
-  documentLibrary: {
-    instructions: string;
-  };
-}
-
-/**
  * Observability translations for logging and metrics
  */
 export interface ObservabilityTranslations {
@@ -521,7 +493,6 @@ export interface RolePatternsTranslations {
  */
 export interface VoltAgentTranslations {
   tools: ToolTranslations;
-  agents: AgentTranslations;
   actions: ActionSummaryTranslations;
   observability: ObservabilityTranslations;
   mistral: MistralTranslations;

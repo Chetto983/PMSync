@@ -266,7 +266,6 @@ Rispondi SOLO con JSON valido (no markdown, nessuna spiegazione). Tutti i campi 
     },
   },
   // Agent prompts: use English (locale instruction handles response language)
-  agents: en.agents,
   actions: {
     emailSent: (to, subject) => `Email inviata a ${to} con oggetto "${subject}".`,
     emailSentNoSubject: '(Senza oggetto)',
