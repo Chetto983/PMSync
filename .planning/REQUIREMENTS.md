@@ -1,137 +1,111 @@
 # Requirements: PMSync
 
-**Defined:** 2026-03-18
+**Defined:** 2026-03-20
 **Core Value:** The best professional AI mail client — fast, intelligent, and secure
 
-## v6.0 Requirements
+## v7.0 Requirements
 
-Requirements for v6.0 Enterprise Platform & AI Governance. Each maps to roadmap phases.
+Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 
-### AI Control Plane
+### Backend API Testing
 
-- [x] **AICP-01**: HITL uses one canonical pending-actions DTO and one approval lifecycle
-- [x] **AICP-02**: Approve/reject endpoints return real execution outcome (executed/failed/approved_only)
-- [x] **AICP-03**: Every mutating tool declares name, domain, riskLevel, requiresApproval, inputSchema
-- [x] **AICP-04**: Action taxonomy is correct (no invalid mappings like delete_event → SCHEDULE_MEETING)
-- [ ] **AICP-05**: Long-term memory save and retrieve use the same vector store
-- [ ] **AICP-06**: Memory retrieval returns tenant/user-scoped results only
-- [ ] **AICP-07**: System prompt references only tools and behaviors the frontend can render
-- [ ] **AICP-08**: Runtime context (timezone, locale, provider) injected into system prompt
-- [ ] **AICP-09**: Dedicated frontend renderers for ask_user and save_memory tools
-- [ ] **AICP-10**: Legacy chat endpoints and compatibility shims removed from production code
-- [ ] **AICP-11**: One chat transport remains in production (no duplicate streaming paths)
-- [ ] **AICP-12**: Contract tests for pending-actions DTO, approve/reject, tool execution, memory lifecycle
-- [ ] **AICP-13**: Every registered AI tool has an end-to-end validation test (execute + verify result)
-- [ ] **AICP-14**: HITL approval flow tested E2E (trigger → approve → execute → verify outcome)
+- [ ] **BAPI-01**: User can authenticate via all auth flows (login, register, forgot-password, reset-password, verify-email, 2FA, OAuth)
+- [ ] **BAPI-02**: User can perform all email operations (list, get, send, reply, forward, draft, delete, bulk read/star/flag/move/labels)
+- [ ] **BAPI-03**: User can manage folders (list, create, rename, move, delete, sync)
+- [ ] **BAPI-04**: User can manage signatures (list, create, update, delete, set-default)
+- [ ] **BAPI-05**: User can manage email templates (list, create, update, delete, duplicate, set-default)
+- [ ] **BAPI-06**: User can perform all calendar operations (list calendars, CRUD events, sync, conflicts, focus-time, meeting-prep)
+- [ ] **BAPI-07**: User can perform all contact operations (list, create, update, delete, bulk-delete, VIP toggle, import vCard, sync, extract-from-emails)
+- [ ] **BAPI-08**: User can manage labels (list, create, update, delete, add/remove emails, reorder)
+- [ ] **BAPI-09**: User can manage providers (list, connect Google/Microsoft/IMAP, test connections, delete, sync)
+- [ ] **BAPI-10**: User can manage subscription (get status, usage, limits, features, cost-breakdown, cancel)
+- [ ] **BAPI-11**: User can manage compliance (consent status/update, data export, data deletion, GDPR status, legal acceptance)
+- [ ] **BAPI-12**: User can manage reminders (create, list, get, update, complete, delete)
+- [ ] **BAPI-13**: User can use AI features (compose, summarize, smart-reply, categorize, sentiment, priority, triage, follow-ups, briefing, drafts)
+- [ ] **BAPI-14**: User can use AI chat (stream message, CRUD conversations, HITL approve/reject)
+- [ ] **BAPI-15**: User can manage knowledge base (backfill, list/delete embeddings, semantic search)
+- [ ] **BAPI-16**: Admin can access AI observability (list runs, cost summary)
+- [ ] **BAPI-17**: Admin can manage users (list, ban/unban, impersonate, revoke sessions)
+- [ ] **BAPI-18**: Admin can manage tenants (list, create, update, delete)
+- [ ] **BAPI-19**: User can manage Telegram integration (settings, link/unlink, webhook)
+- [ ] **BAPI-20**: User can get realtime auth token and WebSocket connects successfully
+- [ ] **BAPI-21**: Health endpoints respond correctly (health, ready, live, queues)
+- [ ] **BAPI-22**: Webhook endpoints process notifications (Gmail push, Microsoft Graph, Calendar, Contacts)
+- [ ] **BAPI-23**: Calendar invite operations work (get invite, respond, send, cancel)
+- [ ] **BAPI-24**: User profile operations work (get/update me, avatar upload/delete, preferences, dashboard preferences, clear AI memory)
+- [ ] **BAPI-25**: Email attachment download works (both controller paths)
 
-### Authorization
+### Frontend Verification
 
-- [ ] **AUTHZ-01**: Resource-scoped permissions defined on better-auth org roles (owner/admin/member)
-- [ ] **AUTHZ-02**: @RequirePermission decorator enforces permissions on controllers
-- [ ] **AUTHZ-03**: Permission caching in Redis with 5min TTL, invalidated on role change
-- [ ] **AUTHZ-04**: Frontend PermissionGate component hides/disables UI based on permissions
-- [ ] **AUTHZ-05**: Frontend usePermission() hook for programmatic permission checks
-- [ ] **AUTHZ-06**: Role-to-permission mapping defined centrally (one source of truth)
-- [ ] **AUTHZ-07**: All write/delete API endpoints enforce permissions via @RequirePermission
+- [ ] **FE-01**: Auth pages render and function (login, register, forgot-password, reset-password, verify-email, 2FA)
+- [ ] **FE-02**: Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent)
+- [ ] **FE-03**: Email list loads, filters, searches, and paginates correctly
+- [ ] **FE-04**: Email thread view renders messages, attachments, and actions
+- [ ] **FE-05**: Email compose works (new, reply, forward, draft save, schedule send, undo send)
+- [ ] **FE-06**: AI chat interface works (send message, receive stream, HITL approval, conversation history)
+- [ ] **FE-07**: Calendar view renders events, create/edit/delete works, RSVP functions
+- [ ] **FE-08**: Contacts list loads, create/edit/delete works, VIP toggle, import vCard
+- [ ] **FE-09**: Dashboard renders with all widgets, customization drawer works, layout persists
+- [ ] **FE-10**: Settings pages function (general, security, email accounts, notifications, AI, billing)
+- [ ] **FE-11**: Admin pages function (user list, ban/unban, impersonation, organization management)
+- [ ] **FE-12**: Labels sidebar renders, create/edit/delete/reorder works, drag-drop assigns
+- [ ] **FE-13**: Folders sidebar renders, create/rename/delete works, email drag-drop moves
+- [ ] **FE-14**: Reminders page works (list, create, complete, delete, Kanban view)
+- [ ] **FE-15**: Tasks page renders correctly (not demo/placeholder content)
+- [ ] **FE-16**: Analytics page renders with real data
+- [ ] **FE-17**: Landing page renders all sections (hero, features, testimonials, CTA, footer)
+- [ ] **FE-18**: Legal pages render (privacy, terms)
+- [ ] **FE-19**: Organization flows work (create, invite, switch, accept invitation)
+- [ ] **FE-20**: Provider connection flows work (Google OAuth, Microsoft OAuth, generic IMAP/SMTP)
 
-### Security Fixes
+### Cleanup
 
-- [ ] **SEC-01**: deleteConversation checks userId (BOLA fix)
-- [ ] **SEC-02**: CSRF_SECRET is mandatory in production (no fallback to JWT_SECRET)
-- [ ] **SEC-03**: /metrics endpoint restricted to admin or internal network
-- [ ] **SEC-04**: HNSW vector indexes created on embeddings and ai_memories tables
+- [ ] **CLN-01**: Dead code removed (orphaned `bulk_email_actions` renderer, unused exports, stale shims)
+- [ ] **CLN-02**: All hardcoded strings replaced with i18n keys (en.ts + it.ts)
+- [ ] **CLN-03**: `PendingAction` type and legacy HITL API methods in ai.ts cleaned up
+- [ ] **CLN-04**: Unused API client methods removed (deprecated `voltAgentApi` alias, `multiAgentApi` shim)
+- [ ] **CLN-05**: Stale contract test assertions updated (SEC-01 status, missing coverage)
+- [ ] **CLN-06**: Console.log/debug statements removed from production code
+- [ ] **CLN-07**: Unused dependencies removed from package.json (both backend and frontend)
+- [ ] **CLN-08**: Dead routes and controllers removed (if any found during testing)
 
-### CRM
+### UI/UX Polish
 
-- [ ] **CRM-01**: Account entity with tenant-scoped composite PK and M:N Contact-Account links
-- [ ] **CRM-02**: Deal entity with amount, currency, expectedCloseDate, probability, owner
-- [ ] **CRM-03**: Pipeline and Stage entities with configurable ordered stages
-- [ ] **CRM-04**: Activity entity with auto-capture from email sends/receives
-- [ ] **CRM-05**: Activity auto-capture from calendar events with attendee matching
-- [ ] **CRM-06**: Account/Deal/Pipeline/Activity CRUD API with tenant scoping and permission checks
-- [ ] **CRM-07**: Deal board (Kanban view) with drag-drop between stages
-- [ ] **CRM-08**: Account detail page with activity timeline
-- [ ] **CRM-09**: CRM navigation entries and i18n (en.ts + it.ts)
-- [ ] **CRM-10**: AI chat tool: search_deals (read-only, registered in ToolRegistryService)
-- [ ] **CRM-11**: AI chat tool: get_account_summary (read-only)
-- [ ] **CRM-12**: CRM insights added to daily AI briefing (deals closing this week)
+- [ ] **UIPOL-01**: Every page has proper empty state (not blank or placeholder)
+- [ ] **UIPOL-02**: Every async operation shows loading skeleton (not spinner or blank)
+- [ ] **UIPOL-03**: Every error shows user-friendly message with retry action
+- [ ] **UIPOL-04**: Mobile responsiveness verified on all pages (no overflow, no hidden content)
+- [ ] **UIPOL-05**: Dark mode renders correctly on all pages (no white flash, no unthemed elements)
+- [ ] **UIPOL-06**: Keyboard navigation works on all interactive elements
+- [ ] **UIPOL-07**: Italian translation complete (no missing keys, no English fallbacks visible)
+- [ ] **UIPOL-08**: All components use MUI theme exclusively (no raw CSS, no Tailwind utilities, no hardcoded colors in .tsx files)
+- [ ] **UIPOL-09**: Chat CSS files (~950 lines) migrated to MUI sx props
+- [ ] **UIPOL-10**: ChatThemeBridge removed after CSS migration
+- [ ] **UIPOL-11**: tailwindcss package removed from frontend dependencies
 
-### Workflow Automation
+### Security Verification
 
-- [ ] **WF-01**: Trigger-condition-action rule model (event-driven via EventEmitter2)
-- [ ] **WF-02**: Form-based rule builder UI for creating workflow rules
-- [ ] **WF-03**: 10-15 built-in actions (send email, apply label, move folder, assign deal owner, etc.)
-- [ ] **WF-04**: Conditional branching (if/else predicates on event data)
-- [ ] **WF-05**: Workflow execution via BullMQ with tenant context propagation
-- [ ] **WF-06**: Workflow execution history with success/failure status
-- [ ] **WF-07**: Policy-aware execution (workflows respect permissions and HITL)
-- [ ] **WF-08**: AI-suggested automations based on user behavior patterns
-
-### OpenTelemetry
-
-- [ ] **OTEL-01**: OTel SDK bootstrap before NestJS via --require flag
-- [ ] **OTEL-02**: HTTP request trace context propagated through entire call chain
-- [ ] **OTEL-03**: BullMQ jobs carry parent trace context (manual span creation)
-- [ ] **OTEL-04**: AI/Mistral API calls wrapped in OTel spans with model/tokens/latency attributes
-- [ ] **OTEL-05**: traceId returned in response headers for frontend correlation
-- [ ] **OTEL-06**: AI run ledger linked to OTel traces
-
-### MUI Chat CSS Migration
-
-- [ ] **MUI-01**: Command Palette rebuilt with MUI Dialog + List (no cmdk dependency)
-- [ ] **MUI-02**: Chat layout CSS (~950 lines) migrated to MUI sx props (streaming container excluded)
-- [ ] **MUI-03**: ChatThemeBridge removed after CSS migration
-- [ ] **MUI-04**: tailwindcss package removed from frontend
-
-### Email UI/UX Polish
-
-- [ ] **EMUIX-01**: Email list density and typography match Superhuman/Outlook professional level
-- [ ] **EMUIX-02**: Thread reading pane responsive on tablet (preview pane visible, not hidden)
-- [ ] **EMUIX-03**: Compose dialog responsive on mobile (safe areas, no overflow)
-- [ ] **EMUIX-04**: Attachment cards polished (file type icons, size formatting, preview thumbnails)
-- [ ] **EMUIX-05**: Empty states consistent across inbox/search/VIP/folder with illustrations
-- [ ] **EMUIX-06**: Micro-interactions refined (hover, selection, transitions) for professional feel
-
-### UI/UX Audit Fixes
-
-- [ ] **UIUX-01**: Admin users table mobile responsive (card layout below mobile breakpoint)
-- [ ] **UIUX-02**: Tasks page demo content replaced with empty state + real data source
-- [ ] **UIUX-03**: Analytics consent gate and localized weekday labels
-- [ ] **UIUX-04**: Password autocomplete="new-password" on security settings
-- [ ] **UIUX-05**: Admin organizations chart container negative dimension fix
+- [ ] **SEC-01**: All protected routes reject unauthenticated requests (401)
+- [ ] **SEC-02**: Tenant isolation verified (user A cannot access user B's data)
+- [ ] **SEC-03**: CSRF protection verified on all mutation endpoints
+- [ ] **SEC-04**: Rate limiting verified on sensitive endpoints (login, send email, AI chat)
+- [ ] **SEC-05**: Role-based access verified (member cannot access admin endpoints)
 
 ## Future Requirements
 
-Deferred to v7.0+. Tracked but not in current roadmap.
+Deferred to v8.0+. Tracked but not in current roadmap.
 
-### CRM Advanced
+### Enterprise Features (from v6.0)
 
-- **CRM-F01**: AI-powered deal scoring based on email sentiment and interaction frequency
-- **CRM-F02**: Email-to-deal auto-linking via RAG context matching
-- **CRM-F03**: Custom CRM fields (JSONB on Account/Deal/Activity)
-
-### Workflow Advanced
-
-- **WF-F01**: Visual node editor using @xyflow/react
-- **WF-F02**: Multi-step sequential workflows with durable state machine
-- **WF-F03**: Webhook triggers and actions
-- **WF-F04**: Scheduled/cron triggers
-- **WF-F05**: Workflow templates (pre-built library)
-
-### Authorization Advanced
-
-- **AUTHZ-F01**: Resource ownership checks (members edit own deals only)
-- **AUTHZ-F02**: Conditional permissions (edit deals only if status is DRAFT)
-- **AUTHZ-F03**: AI tools respect user permissions (no privilege escalation)
-- **AUTHZ-F04**: Custom roles beyond owner/admin/member
-
-### AI Advanced
-
-- **AICP-F01**: Token budget enforcement per request (hard cap)
-- **AICP-F02**: Per-user daily cost cap with configurable threshold
-- **AICP-F03**: AI action rollback registry for non-email actions
-- **AICP-F04**: HITL approval timeout with configurable auto-reject
-- **AICP-F05**: Push notifications for pending approvals
+- **CRM-01..12**: CRM domain expansion (Accounts, Deals, Activities, Pipelines)
+- **WF-01..08**: Workflow automation engine
+- **AUTHZ-01..07**: Resource-scoped authorization
+- **OTEL-01..06**: OpenTelemetry distributed tracing
+- ~~MUI-01..04~~: Absorbed into v7.0 as UIPOL-08..11
+- **EMUIX-01..06**: Email UI/UX polish (professional density)
+- **UIUX-01..05**: UI/UX audit fixes
+- **AICP-05..14**: AI control plane completion (memory, prompts, legacy removal, tests)
+- **SEC-01..04**: v6.0 security fixes (CSRF mandatory, metrics restriction, HNSW indexes)
 
 ## Out of Scope
 
@@ -139,20 +113,11 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Custom objects / dynamic entity types | Massive schema complexity; hardcode Account/Deal/Activity/Pipeline |
-| Lead entity separate from Contact | Anti-pattern; use Contact with lifecycle stage field |
-| Revenue forecasting / analytics | Needs historical data maturity; show simple pipeline totals |
-| Products/line items on deals | Over-engineering for v1 CRM; single amount field |
-| Territory management | Enterprise-only; simple deal ownership via userId |
-| Quoting / CPQ | Different domain entirely |
-| Visual workflow node editor | Phase 4 material; form-based rules first |
-| Custom code nodes in workflows | Security nightmare; limit to built-in action types |
-| Full ABAC policy engine (OPA/Cedar) | Out of scope per PROJECT.md; RBAC+ sufficient |
-| Per-field permissions | Per-entity permissions only for now |
-| Database RLS | Prisma 7 + PostgreSQL RLS interaction problematic per PROJECT.md |
-| Frontend OTel instrumentation | Bundle size cost for marginal benefit; backend-only tracing |
-| Grafana/Tempo stack deployment | Ship OTLP exporter; ops team chooses visualization |
-| Replace Prometheus with OTel metrics | prom-client works; OTel for traces only |
+| New features (CRM, Workflow, OTel, Authorization) | v7.0 is test/clean/polish only — new features deferred to v8.0+ |
+| Automated test coverage expansion | v7.0 focuses on manual/E2E verification; coverage expansion is separate effort |
+| Performance optimization | Not in scope unless testing reveals performance bugs |
+| Database schema changes | Hardening only — no schema migrations |
+| Dependency upgrades | Unless required to fix a discovered bug |
 
 ## Traceability
 
@@ -160,78 +125,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AICP-01 | Phase 77 | Complete |
-| AICP-02 | Phase 77 | Complete |
-| AICP-03 | Phase 77 | Complete |
-| AICP-04 | Phase 77 | Complete |
-| AICP-05 | Phase 82 | Pending |
-| AICP-06 | Phase 82 | Pending |
-| AICP-07 | Phase 82 | Pending |
-| AICP-08 | Phase 82 | Pending |
-| AICP-09 | Phase 82 | Pending |
-| AICP-10 | Phase 82 | Pending |
-| AICP-11 | Phase 82 | Pending |
-| AICP-12 | Phase 77 | Pending |
-| AICP-13 | Phase 82 | Pending |
-| AICP-14 | Phase 77 | Pending |
-| AUTHZ-01 | Phase 79 | Pending |
-| AUTHZ-02 | Phase 79 | Pending |
-| AUTHZ-03 | Phase 79 | Pending |
-| AUTHZ-04 | Phase 79 | Pending |
-| AUTHZ-05 | Phase 79 | Pending |
-| AUTHZ-06 | Phase 79 | Pending |
-| AUTHZ-07 | Phase 79 | Pending |
-| SEC-01 | Phase 78 | Pending |
-| SEC-02 | Phase 78 | Pending |
-| SEC-03 | Phase 78 | Pending |
-| SEC-04 | Phase 78 | Pending |
-| CRM-01 | Phase 81 | Pending |
-| CRM-02 | Phase 81 | Pending |
-| CRM-03 | Phase 81 | Pending |
-| CRM-04 | Phase 81 | Pending |
-| CRM-05 | Phase 81 | Pending |
-| CRM-06 | Phase 81 | Pending |
-| CRM-07 | Phase 81 | Pending |
-| CRM-08 | Phase 81 | Pending |
-| CRM-09 | Phase 81 | Pending |
-| CRM-10 | Phase 81 | Pending |
-| CRM-11 | Phase 81 | Pending |
-| CRM-12 | Phase 81 | Pending |
-| WF-01 | Phase 83 | Pending |
-| WF-02 | Phase 83 | Pending |
-| WF-03 | Phase 83 | Pending |
-| WF-04 | Phase 83 | Pending |
-| WF-05 | Phase 83 | Pending |
-| WF-06 | Phase 83 | Pending |
-| WF-07 | Phase 83 | Pending |
-| WF-08 | Phase 83 | Pending |
-| OTEL-01 | Phase 80 | Pending |
-| OTEL-02 | Phase 80 | Pending |
-| OTEL-03 | Phase 80 | Pending |
-| OTEL-04 | Phase 80 | Pending |
-| OTEL-05 | Phase 80 | Pending |
-| OTEL-06 | Phase 80 | Pending |
-| MUI-01 | Phase 84 | Pending |
-| MUI-02 | Phase 84 | Pending |
-| MUI-03 | Phase 84 | Pending |
-| MUI-04 | Phase 84 | Pending |
-| EMUIX-01 | Phase 85 | Pending |
-| EMUIX-02 | Phase 85 | Pending |
-| EMUIX-03 | Phase 85 | Pending |
-| EMUIX-04 | Phase 85 | Pending |
-| EMUIX-05 | Phase 85 | Pending |
-| EMUIX-06 | Phase 85 | Pending |
-| UIUX-01 | Phase 85 | Pending |
-| UIUX-02 | Phase 85 | Pending |
-| UIUX-03 | Phase 85 | Pending |
-| UIUX-04 | Phase 85 | Pending |
-| UIUX-05 | Phase 85 | Pending |
+| (populated during roadmap creation) | | |
 
 **Coverage:**
-- v6.0 requirements: 66 total
-- Mapped to phases: 66
-- Unmapped: 0
+- v7.0 requirements: 69 total
+- Mapped to phases: 0
+- Unmapped: 69 ⚠️
 
 ---
-*Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after roadmap creation (phases 77-85)*
+*Requirements defined: 2026-03-20*
+*Last updated: 2026-03-20 after initial definition*
