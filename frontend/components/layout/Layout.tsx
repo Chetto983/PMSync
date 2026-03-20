@@ -5,7 +5,7 @@ import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { CommandPalette } from '@/components/ai/CommandPalette';
 
-import { useWebSocket } from '@/hooks/use-websocket';
+// useWebSocket moved to _app.tsx PrivateRouteGate (prevents connection leak on Layout remount)
 import { useSyncStore } from '@/stores/sync-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { QuotaAlertBanner } from '@/components/billing';
@@ -17,11 +17,6 @@ export interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  
-
-  // WebSocket connection - auto-connects when authenticated
-  useWebSocket({ autoConnect: true, refetchOnReconnect: true });
-
   const t = useTranslations();
   const { lastStatus, clear } = useSyncStore();
   const [collapsed, setCollapsed] = useState(false);

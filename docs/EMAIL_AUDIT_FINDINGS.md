@@ -181,8 +181,9 @@ Root cause: `page` state reset happens in `useEffect` (post-render), not atomica
 ## Remaining Work
 
 ### Priority 1 — Bugs
-- [ ] Fix 2x email fetch on folder click (page state reset)
-- [ ] Fix Gmail sync — deleted emails not removed from frontend
+- [x] Fix 2x email fetch on folder click — replaced useEffect with synchronous ref (95a3d8fe)
+- [x] Fix WebSocket connection leak — moved `useWebSocket` from Layout to `_app.tsx` PrivateRouteGate
+- [ ] Fix Gmail sync — deleted emails showing stale in frontend cache (backend correctly filters)
 - [ ] Fix 2x folders fetch on load
 
 ### Priority 2 — Missing Features
@@ -193,3 +194,27 @@ Root cause: `page` state reset happens in `useEffect` (post-render), not atomica
 ### Priority 3 — Polish
 - [ ] Bold sender for unread emails (font-weight may need verification)
 - [ ] Draft click → opens editor (currently navigates to /compose?draftId=)
+
+---
+
+## Railway Log Analysis (2026-03-20 11:44)
+
+### Gmail Sync Status
+- Provider: `cmmw6tnvl000s01qwgvk9n2su` (dvdmarchetto@gmail.com)
+- `historyId`: 14963646, `lastSyncToken`: 14963827
+- `lastSyncedAt`: 2026-03-20T11:42:57Z
+- `nextSyncAt`: 2026-03-20T17:42:58Z (6 hours gap!)
+- Manual sync triggered → incremental: "0 messages, 0 new"
+
+### Findings
+
+1. **Sync scheduler says "No providers need syncing"** — `nextSyncAt` is 6 hours out
+2. **Manual sync found 0 changes** — `historyId` already current
+3. **API returns 43 inbox emails**, frontend renders 22 — virtual scroll only renders visible
+4. **Backend correctly filters `isDeleted: false`** — deleted emails not returned by API
+5. **WebSocket connection leak**: 260+ connections from same user, no cleanup on navigation
+
+### Conclusion
+The Gmail sync IS working. Emails deleted in Gmail are being marked as deleted in the DB and filtered from API responses. The user may be seeing stale **frontend cache** (TanStack Query) that hasn't been invalidated yet. A page refresh should show updated data.
+
+The `nextSyncAt` being 6 hours out means the adaptive scheduler deprioritized this provider (low activity: 1 email/24h). Manual sync or Pub/Sub push should still trigger immediate sync.

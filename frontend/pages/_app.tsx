@@ -19,6 +19,7 @@ import { lightTheme, darkTheme } from '@/theme/appTheme';
 import { minViewportHeightSx } from '@/lib/ui/viewport';
 import { authClient } from '@/lib/auth-client';
 import { useLegalStatus } from '@/hooks/queries/use-data-rights';
+import { useWebSocket } from '@/hooks/use-websocket';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
 import '@/src/components/chat/chat-layout.css';
@@ -97,6 +98,9 @@ function PrivateRouteGate({
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
+
+  // WebSocket: connect once at app level (not in Layout which remounts per page)
+  useWebSocket({ autoConnect: isPrivateRoute && !!user, refetchOnReconnect: true });
   const { data: legalStatus, isLoading: legalLoading } = useLegalStatus(isPrivateRoute && !!user);
   const legalAccepted = legalStatus?.allAccepted === true;
 
