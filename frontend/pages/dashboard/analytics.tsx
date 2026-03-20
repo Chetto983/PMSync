@@ -2,8 +2,9 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/layout/Layout';
-import { Box, Typography, Skeleton } from '@mui/material';
+import { Skeleton } from '@mui/material';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
+import { PageContainer } from '@/components/common';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 const AnalyticsChart = dynamic(
@@ -17,12 +18,9 @@ export default function AnalyticsPage() {
   return (
     <Layout>
       <PageErrorBoundary pageName="Analytics">
-        <Box sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography variant="h4" sx={{ mb: 3 }}>
-            {t.nav.analytics}
-          </Typography>
+        <PageContainer title={t.nav.analytics}>
           <AnalyticsChart />
-        </Box>
+        </PageContainer>
       </PageErrorBoundary>
     </Layout>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { IconButton, InputAdornment, TextField, type TextFieldProps } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Eye, EyeOff } from 'lucide-react';
 
 /**
  * TextField with show/hide password toggle.
@@ -22,7 +22,7 @@ export function PasswordField(props: TextFieldProps) {
                 size="small"
                 aria-label={show ? 'Nascondi password' : 'Mostra password'}
               >
-                {show ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                {show ? <EyeOff size={18} /> : <Eye size={18} />}
               </IconButton>
             </InputAdornment>
           ),

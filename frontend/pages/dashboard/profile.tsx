@@ -1,9 +1,9 @@
 
 import React from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { Box, Typography } from '@mui/material';
 import { ProfileSettings } from '@/components/dashboard/ProfileSettings';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
+import { PageContainer } from '@/components/common';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export default function ProfilePage() {
@@ -12,12 +12,9 @@ export default function ProfilePage() {
   return (
     <Layout>
       <PageErrorBoundary pageName="Profile">
-        <Box>
-          <Typography variant="h4" sx={{ mb: 4 }}>
-            {t.settings?.profileTitle || 'Impostazioni profilo'}
-          </Typography>
+        <PageContainer title={t.settings?.profileTitle || 'Profile'}>
           <ProfileSettings />
-        </Box>
+        </PageContainer>
       </PageErrorBoundary>
     </Layout>
   );

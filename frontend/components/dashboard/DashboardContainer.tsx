@@ -7,12 +7,12 @@
 import React, { Suspense, useState, useCallback, useMemo } from 'react';
 import {
   Box,
-  Typography,
   Button,
   Stack,
 } from '@mui/material';
 import { Settings } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { PageContainer } from '@/components/common';
 import { ALL_WIDGETS } from '@/stores/dashboard-store';
 import { useDashboardPreferences, useSaveDashboardLayout } from '@/hooks/queries/use-dashboard';
 import { WIDGETS, type WidgetId } from './dashboard/widget-registry';
@@ -64,47 +64,24 @@ export default function DashboardContainer() {
   const briefingWidget = widgetsToShow.find((w) => w.id === 'briefing');
   const otherWidgets = widgetsToShow.filter((w) => w.id !== 'briefing');
 
-  return (
-    <Box
-      sx={{
-        maxWidth: 1200,
-        mx: 'auto',
-        px: { xs: 2, sm: 3, md: 4 },
-        py: { xs: 3, md: 4 },
-        width: '100%',
-      }}
+  const headerActions = (
+    <Button
+      variant="outlined"
+      size="small"
+      startIcon={<Settings size={16} />}
+      onClick={() => setCustomizeOpen(true)}
+      sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
     >
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          mb: { xs: 3, md: 4 },
-          flexWrap: 'wrap',
-          gap: 2,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {t.dashboard?.title || 'Dashboard'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t.dashboard?.subtitle || 'Your personal command center'}
-          </Typography>
-        </Box>
+      {t.dashboard?.actions?.customize || 'Customize'}
+    </Button>
+  );
 
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<Settings size={16} />}
-          onClick={() => setCustomizeOpen(true)}
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-        >
-          {t.dashboard?.actions?.customize || 'Customize'}
-        </Button>
-      </Box>
-
+  return (
+    <PageContainer
+      title={t.dashboard?.title || 'Dashboard'}
+      subtitle={t.dashboard?.subtitle || 'Your personal command center'}
+      actions={headerActions}
+    >
       {/* Widgets Grid */}
       {widgetsToShow.length > 0 ? (
         <Stack spacing={3}>
@@ -154,6 +131,6 @@ export default function DashboardContainer() {
         onToggleWidget={handleToggleWidget}
         onReset={handleResetWidgets}
       />
-    </Box>
+    </PageContainer>
   );
 }

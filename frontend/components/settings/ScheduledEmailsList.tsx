@@ -18,8 +18,7 @@ import {
   Button,
   TextField,
 } from '@mui/material';
-import CancelIcon from '@mui/icons-material/Cancel';
-import ScheduleIcon from '@mui/icons-material/Schedule';
+import { XCircle, Clock } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import {
   useScheduledEmails,
@@ -116,7 +115,7 @@ export function ScheduledEmailsList({ copy }: ScheduledEmailsListProps) {
                           size="small"
                           onClick={() => { setRescheduleTarget(email.id); setNewDateTime(''); }}
                         >
-                          <ScheduleIcon fontSize="small" />
+                          <Clock size={18} />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title={copy.cancel}>
@@ -125,7 +124,7 @@ export function ScheduledEmailsList({ copy }: ScheduledEmailsListProps) {
                           color="error"
                           onClick={() => setCancelTarget(email.id)}
                         >
-                          <CancelIcon fontSize="small" />
+                          <XCircle size={18} />
                         </IconButton>
                       </Tooltip>
                     </Box>

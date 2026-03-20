@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { Plus } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { PageContainer } from '@/components/common';
 import { useReminders, useCompleteReminder, useDeleteReminder } from '@/hooks/queries/use-reminders';
 import type { ReminderStatus } from '@/lib/api/reminders';
 import { ReminderCard } from './ReminderCard';
@@ -30,17 +31,14 @@ export function RemindersBoard() {
 
   const reminders = data?.reminders ?? [];
 
+  const headerActions = (
+    <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDialogOpen(true)}>
+      {tr.newReminder}
+    </Button>
+  );
+
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 900, mx: 'auto', width: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>{tr.title}</Typography>
-          <Typography variant="body2" color="text.secondary">{tr.subtitle}</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDialogOpen(true)}>
-          {tr.newReminder}
-        </Button>
-      </Box>
+    <PageContainer title={tr.title} subtitle={tr.subtitle} actions={headerActions}>
 
       {/* Status filter chips */}
       <Box sx={{ display: 'flex', gap: 0.75, mb: 2, flexWrap: 'wrap' }}>
@@ -96,12 +94,12 @@ export function RemindersBoard() {
       <Fab
         color="primary"
         onClick={() => setDialogOpen(true)}
-        sx={{ position: 'fixed', bottom: 24, right: 24, display: { xs: 'flex', md: 'none' } }}
+        sx={{ position: 'fixed', bottom: 24, right: 'calc(24px + env(safe-area-inset-right, 0px))', display: { xs: 'flex', md: 'none' } }}
       >
         <Plus size={24} />
       </Fab>
 
       <ReminderCreateDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
-    </Box>
+    </PageContainer>
   );
 }

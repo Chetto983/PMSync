@@ -9,7 +9,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import StarIcon from '@mui/icons-material/Star';
+import { Star } from 'lucide-react';
 import { useTemplates } from '@/hooks/queries/use-templates';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailTemplate } from '@/lib/api/templates';
@@ -113,7 +113,7 @@ export default function TemplatePicker({
           >
             {tpl.isDefault && (
               <ListItemIcon sx={{ minWidth: 32 }}>
-                <StarIcon fontSize="small" color="warning" />
+                <Star size={18} color="var(--mui-palette-warning-main)" />
               </ListItemIcon>
             )}
             <ListItemText

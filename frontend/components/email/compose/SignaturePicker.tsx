@@ -12,9 +12,7 @@ import {
   Typography,
   Chip,
 } from '@mui/material';
-import CheckIcon from '@mui/icons-material/Check';
-import StarIcon from '@mui/icons-material/Star';
-import BlockIcon from '@mui/icons-material/Block';
+import { Check, Star, Ban } from 'lucide-react';
 import { useSignatures } from '@/hooks/queries/use-signatures';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -63,7 +61,7 @@ export function SignaturePicker({
             onClick={() => handleSelect(null, '')}
           >
             <ListItemIcon>
-              {currentSignatureId == null ? <CheckIcon fontSize="small" /> : <BlockIcon fontSize="small" />}
+              {currentSignatureId == null ? <Check size={18} /> : <Ban size={18} />}
             </ListItemIcon>
             <ListItemText>{t.email.composer.noSignature}</ListItemText>
           </MenuItem>
@@ -86,7 +84,7 @@ export function SignaturePicker({
             >
               <ListItemIcon>
                 {currentSignatureId === sig.id ? (
-                  <CheckIcon fontSize="small" />
+                  <Check size={18} />
                 ) : (
                   <Box sx={{ width: 20 }} />
                 )}
@@ -94,7 +92,7 @@ export function SignaturePicker({
               <ListItemText>{sig.name}</ListItemText>
               {sig.isDefault && (
                 <Chip
-                  icon={<StarIcon sx={{ fontSize: 14 }} />}
+                  icon={<Star size={14} />}
                   label={t.settings.signaturesPanel?.defaultBadge ?? 'Default'}
                   size="small"
                   variant="outlined"

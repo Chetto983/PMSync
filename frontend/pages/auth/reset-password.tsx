@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import NextLink from 'next/link';
 import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
-import { CheckCircleOutline } from '@mui/icons-material';
+import { CheckCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { authClient } from '@/lib/auth-client';
 import { AuthLayout } from '@/components/auth/AuthLayout';
@@ -56,7 +56,7 @@ export default function ResetPasswordPage() {
     return (
       <AuthLayout title={rp.success!.title}>
         <Box sx={{ textAlign: 'center' }}>
-          <CheckCircleOutline color="success" sx={{ fontSize: 48, mb: 2 }} />
+          <CheckCircle size={48} color="var(--mui-palette-success-main)" style={{ marginBottom: 16 }} />
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             {rp.success!.description}
           </Typography>

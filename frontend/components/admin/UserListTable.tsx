@@ -19,11 +19,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import BlockIcon from '@mui/icons-material/Block';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import PersonSearchIcon from '@mui/icons-material/PersonSearch';
-import DevicesIcon from '@mui/icons-material/Devices';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
+import { Ban, CheckCircle2, UserSearch, Monitor, LockOpen } from 'lucide-react';
 import { useAdminUsers, useImpersonateUser, useUnbanUser } from '@/hooks/queries/use-admin';
 import { authClient, type SessionUser } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -108,7 +104,7 @@ export function UserListTable() {
                   onClick={() => unbanUser.mutate(user.id)}
                   disabled={unbanUser.isPending}
                 >
-                  <LockOpenIcon fontSize="small" />
+                  <LockOpen size={18} />
                 </IconButton>
               </Tooltip>
             ) : (
@@ -118,7 +114,7 @@ export function UserListTable() {
                   color="error"
                   onClick={() => setBanTarget({ id: user.id, name: user.name || user.email })}
                 >
-                  <BlockIcon fontSize="small" />
+                  <Ban size={18} />
                 </IconButton>
               </Tooltip>
             )}
@@ -128,7 +124,7 @@ export function UserListTable() {
                 onClick={() => handleImpersonate(user.id)}
                 disabled={impersonate.isPending}
               >
-                <PersonSearchIcon fontSize="small" />
+                <UserSearch size={18} />
               </IconButton>
             </Tooltip>
           </>
@@ -138,7 +134,7 @@ export function UserListTable() {
             size="small"
             onClick={() => setSessionsTarget({ id: user.id, name: user.name || user.email })}
           >
-            <DevicesIcon fontSize="small" />
+            <Monitor size={18} />
           </IconButton>
         </Tooltip>
       </Box>
@@ -185,7 +181,7 @@ export function UserListTable() {
               />
               {user.twoFactorEnabled && (
                 <Chip
-                  icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
+                  icon={<CheckCircle2 size={14} />}
                   label={t.admin?.users.columns.twoFactor}
                   size="small"
                   color="success"
@@ -194,7 +190,7 @@ export function UserListTable() {
               )}
               {user.emailVerified && (
                 <Chip
-                  icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
+                  icon={<CheckCircle2 size={14} />}
                   label={t.admin?.users.columns.verified}
                   size="small"
                   color="info"
@@ -281,10 +277,10 @@ export function UserListTable() {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        {user.twoFactorEnabled && <CheckCircleIcon fontSize="small" color="success" />}
+                        {user.twoFactorEnabled && <CheckCircle2 size={18} color="var(--mui-palette-success-main)" />}
                       </TableCell>
                       <TableCell align="center">
-                        {user.emailVerified && <CheckCircleIcon fontSize="small" color="info" />}
+                        {user.emailVerified && <CheckCircle2 size={18} color="var(--mui-palette-info-main)" />}
                       </TableCell>
                       <TableCell>{formatDate(user.createdAt)}</TableCell>
                       <TableCell>{renderActions(user)}</TableCell>

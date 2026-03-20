@@ -4,6 +4,7 @@ import { UserListTable } from '@/components/admin/UserListTable';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { authClient, type SessionUser } from '@/lib/auth-client';
 import { Box, Typography, Alert } from '@mui/material';
+import { PageContainer } from '@/components/common';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export default function AdminUsersPage() {
@@ -41,9 +42,9 @@ export default function AdminUsersPage() {
   return (
     <Layout>
       <PageErrorBoundary pageName="Admin Users">
-        <Box sx={{ p: 3 }}>
+        <PageContainer title={t.admin?.users?.title || 'User Management'}>
           <UserListTable />
-        </Box>
+        </PageContainer>
       </PageErrorBoundary>
     </Layout>
   );

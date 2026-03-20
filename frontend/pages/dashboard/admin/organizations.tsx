@@ -4,6 +4,7 @@ import { OrgAdminPage } from '@/components/organizations/OrgAdminPage';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { authClient, type SessionUser } from '@/lib/auth-client';
 import { Box, Typography, Alert } from '@mui/material';
+import { PageContainer } from '@/components/common';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export default function OrganizationsPage() {
@@ -41,7 +42,9 @@ export default function OrganizationsPage() {
   return (
     <Layout>
       <PageErrorBoundary pageName="Organizations">
-        <OrgAdminPage />
+        <PageContainer title={t.organizations?.title || 'Organizations'}>
+          <OrgAdminPage />
+        </PageContainer>
       </PageErrorBoundary>
     </Layout>
   );
