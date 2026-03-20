@@ -47,7 +47,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **FE-08**: Contacts list loads, create/edit/delete works, VIP toggle, import vCard
 - [ ] **FE-09**: Dashboard renders with all widgets, customization drawer works, layout persists
 - [x] **FE-10**: Settings pages function (general, security, email accounts, notifications, AI, billing)
-- [ ] **FE-11**: Admin pages function (user list, ban/unban, impersonation, organization management)
+- [x] **FE-11**: Admin pages function (user list, ban/unban, impersonation, organization management)
 - [x] **FE-12**: Labels sidebar renders, create/edit/delete/reorder works, drag-drop assigns
 - [x] **FE-13**: Folders sidebar renders, create/rename/delete works, email drag-drop moves
 - [x] **FE-14**: Reminders page works (list, create, complete, delete, Kanban view)
@@ -55,7 +55,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **FE-16**: Analytics page renders with real data
 - [ ] **FE-17**: Landing page renders all sections (hero, features, testimonials, CTA, footer)
 - [ ] **FE-18**: Legal pages render (privacy, terms)
-- [ ] **FE-19**: Organization flows work (create, invite, switch, accept invitation)
+- [x] **FE-19**: Organization flows work (create, invite, switch, accept invitation)
 - [x] **FE-20**: Provider connection flows work (Google OAuth, Microsoft OAuth, generic IMAP/SMTP)
 
 ### Cleanup
@@ -160,7 +160,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-08 | Phase 91 | Complete |
 | FE-09 | Phase 94 | Pending |
 | FE-10 | Phase 93 | Complete |
-| FE-11 | Phase 93 | Pending |
+| FE-11 | Phase 93 | Complete |
 | FE-12 | Phase 90 | Complete |
 | FE-13 | Phase 90 | Complete |
 | FE-14 | Phase 91 | Complete |
@@ -168,7 +168,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-16 | Phase 94 | Pending |
 | FE-17 | Phase 94 | Pending |
 | FE-18 | Phase 94 | Pending |
-| FE-19 | Phase 93 | Pending |
+| FE-19 | Phase 93 | Complete |
 | FE-20 | Phase 93 | Complete |
 | CLN-01 | Phase 95 | Pending |
 | CLN-02 | Phase 95 | Pending |
