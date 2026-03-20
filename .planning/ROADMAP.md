@@ -145,7 +145,11 @@ Plans:
 - Fixed: reply/forward compose now preserves user-edited subject and body instead of silently reverting to backend-generated defaults
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
 - Remaining: thread-route reply/forward UI still needs live revalidation on production Gmail flows
-**Plans**: TBD (live audit hotfix stream active)
+**Plans:** 3 plans
+Plans:
+- [ ] 90-01-PLAN.md -- Backend API verification (email CRUD, folders, signatures, templates, attachments)
+- [ ] 90-02-PLAN.md -- Frontend email list, thread view, and compose verification
+- [ ] 90-03-PLAN.md -- Frontend folders and labels sidebar verification
 
 ### Phase 91: Calendar, Contacts & Reminders Verification
 **Goal**: Users can manage their calendar events, contacts, and reminders through both API and frontend
@@ -254,7 +258,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 89. Auth & Onboarding Verification | 3/3 | Complete    | 2026-03-20 |
-| 90. Email Operations Verification | 0/? | In Progress | - |
+| 90. Email Operations Verification | 0/3 | In Progress | - |
 | 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
 | 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
