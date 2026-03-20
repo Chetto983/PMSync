@@ -102,7 +102,7 @@ function MemoryRender({
     );
   }
 
-  if (result.memories.length === 0) {
+  if ((result.results ?? []).length === 0) {
     return (
       <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
@@ -117,11 +117,11 @@ function MemoryRender({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <Brain size={16} color="var(--mui-palette-primary-main)" />
         <Typography variant="body2" fontWeight={500}>
-          {result.memories.length} memor{result.memories.length === 1 ? 'y' : 'ies'} found
+          {(result.results ?? []).length} memor{(result.results ?? []).length === 1 ? 'y' : 'ies'} found
         </Typography>
       </Box>
       <Box>
-        {result.memories.map((m, i) => (
+        {(result.results ?? []).map((m, i) => (
           <MemoryCard key={`${m.type}-${i}`} memory={m} isFirst={i === 0} />
         ))}
       </Box>

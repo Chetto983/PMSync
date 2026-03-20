@@ -49,7 +49,7 @@
       ]
     },
     "allowJs": true,
-    "incremental": false
+    "incremental": true
   },
   "include": [
     "./**/*.ts",

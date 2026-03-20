@@ -271,12 +271,19 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
  * - archive()    -> DELETE (no archive concept)
  */
 export function createPmSyncThreadListAdapter() {
+  // Serialize delete calls to avoid 429 rate-limit errors when bulk-deleting
+  let deleteQueue: Promise<void> = Promise.resolve();
   async function deleteThread(remoteId: string) {
-    try {
-      await apiClient.delete(`/ai/chat/conversations/${remoteId}`);
-    } catch {
-      // Swallow delete errors so the list stays usable if the thread is already gone.
-    }
+    deleteQueue = deleteQueue.then(async () => {
+      try {
+        await apiClient.delete(`/ai/chat/conversations/${remoteId}`);
+      } catch {
+        // Swallow delete errors so the list stays usable if the thread is already gone.
+      }
+      // Small delay between deletes to stay under rate limit (30 write/min)
+      await new Promise((r) => setTimeout(r, 250));
+    });
+    return deleteQueue;
   }
 
   async function fetchThreadMetadata(

@@ -131,14 +131,13 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
     }
   }, [onMouseLeave]);
 
-  const stop = (e: MouseEvent) => e.stopPropagation();
   const stopPointer = (event: SyntheticEvent) => event.stopPropagation();
-  const handleCheckbox = (e: MouseEvent) => { stop(e); onSelect(thread.id, !isSelected, e); };
-  const handleClick = () => onClick(thread.id);
-  const handleFlag = (e: MouseEvent) => { stop(e); onFlag(thread.id); };
-  const handleArchive = (e: MouseEvent) => { stop(e); onArchive(thread.id); };
-  const handleDelete = (e: MouseEvent) => { stop(e); onDelete(thread.id); };
-  const handleMove = (e: MouseEvent) => { stop(e); onMove?.(thread.id); };
+  const handleCheckbox = useCallback((e: MouseEvent) => { e.stopPropagation(); onSelect(thread.id, !isSelected, e); }, [onSelect, thread.id, isSelected]);
+  const handleClick = useCallback(() => onClick(thread.id), [onClick, thread.id]);
+  const handleFlag = useCallback((e: MouseEvent) => { e.stopPropagation(); onFlag(thread.id); }, [onFlag, thread.id]);
+  const handleArchive = useCallback((e: MouseEvent) => { e.stopPropagation(); onArchive(thread.id); }, [onArchive, thread.id]);
+  const handleDelete = useCallback((e: MouseEvent) => { e.stopPropagation(); onDelete(thread.id); }, [onDelete, thread.id]);
+  const handleMove = useCallback((e: MouseEvent) => { e.stopPropagation(); onMove?.(thread.id); }, [onMove, thread.id]);
 
   // Actionable indicators — only show when meaningful (rare)
   const hasP = thread.aiPriority != null && thread.aiPriority <= 2;

@@ -122,7 +122,7 @@ export function EventRenderer({
     );
   }
 
-  const events = result.data ?? [];
+  const events = result.events ?? [];
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>

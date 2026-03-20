@@ -19,23 +19,26 @@ import {
   DatabaseZap,
   Send,
 } from 'lucide-react';
-import { WritingStyleSettings } from '@/components/email/compose/WritingStyleSettings';
-import { SecuritySettings } from '@/components/settings/SecuritySettings';
+import dynamic from 'next/dynamic';
 import {
   GeneralSettings,
   AiSettings,
   AccountsSettings,
   AccountSettings,
 } from '@/components/settings';
-import { SignatureSettings } from '@/components/settings/SignatureSettings';
-import { TemplateSettings } from '@/components/settings/TemplateSettings';
-import { ScheduledEmailsList } from '@/components/settings/ScheduledEmailsList';
 import { FileText, Clock } from 'lucide-react';
-import { ConsentSettings } from '@/components/dashboard/consent/ConsentSettings';
-import { DataExportPanel } from '@/components/dashboard/data-rights/DataExportPanel';
-import { AccountDeletionPanel } from '@/components/dashboard/data-rights/AccountDeletionPanel';
-import { BillingPanel } from '@/components/billing';
-import { TelegramSettingsPanel } from '@/components/reminders/TelegramSettingsPanel';
+
+// Lazy-loaded settings sections — only loaded when their tab is selected
+const WritingStyleSettings = dynamic(() => import('@/components/email/compose/WritingStyleSettings').then(m => ({ default: m.WritingStyleSettings })), { ssr: false });
+const SecuritySettings = dynamic(() => import('@/components/settings/SecuritySettings').then(m => ({ default: m.SecuritySettings })), { ssr: false });
+const SignatureSettings = dynamic(() => import('@/components/settings/SignatureSettings').then(m => ({ default: m.SignatureSettings })), { ssr: false });
+const TemplateSettings = dynamic(() => import('@/components/settings/TemplateSettings').then(m => ({ default: m.TemplateSettings })), { ssr: false });
+const ScheduledEmailsList = dynamic(() => import('@/components/settings/ScheduledEmailsList').then(m => ({ default: m.ScheduledEmailsList })), { ssr: false });
+const ConsentSettings = dynamic(() => import('@/components/dashboard/consent/ConsentSettings').then(m => ({ default: m.ConsentSettings })), { ssr: false });
+const DataExportPanel = dynamic(() => import('@/components/dashboard/data-rights/DataExportPanel').then(m => ({ default: m.DataExportPanel })), { ssr: false });
+const AccountDeletionPanel = dynamic(() => import('@/components/dashboard/data-rights/AccountDeletionPanel').then(m => ({ default: m.AccountDeletionPanel })), { ssr: false });
+const BillingPanel = dynamic(() => import('@/components/billing').then(m => ({ default: m.BillingPanel })), { ssr: false });
+const TelegramSettingsPanel = dynamic(() => import('@/components/reminders/TelegramSettingsPanel').then(m => ({ default: m.TelegramSettingsPanel })), { ssr: false });
 import { providersApi } from '@/lib/api/providers';
 import {
   useTemplates,

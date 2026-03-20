@@ -71,8 +71,10 @@ export function signatureDefaultOptions(providerId?: string) {
 }
 
 // Hooks
-export function useSignatures(providerId?: string) {
-  return useQuery(signaturesListOptions(providerId));
+export function useSignatures(providerIdOrOpts?: string | { enabled?: boolean }) {
+  const providerId = typeof providerIdOrOpts === 'string' ? providerIdOrOpts : undefined;
+  const enabled = typeof providerIdOrOpts === 'object' ? providerIdOrOpts.enabled : undefined;
+  return useQuery({ ...signaturesListOptions(providerId), ...(enabled !== undefined && { enabled }) });
 }
 
 export function useDefaultSignature(providerId?: string) {

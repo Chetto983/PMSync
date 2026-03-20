@@ -30,6 +30,9 @@ import {
   useSetDefaultSignature,
 } from '@/hooks/queries/use-signatures';
 
+/** Noop query result for sections that aren't active */
+const EMPTY_SIGNATURES: never[] = [];
+
 export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'templates' | 'scheduled' | 'consent' | 'dataRights' | 'account' | 'billing' | 'telegram';
 
 const COMMUNICATION_STYLES = new Set<CommunicationStyle>([
@@ -151,8 +154,9 @@ export function useSettingsState() {
   };
 
 
-  // Signature hooks
-  const { data: signaturesData = [], isLoading: signaturesLoading } = useSignatures();
+  // Signature hooks — only fetch when section is active
+  const sigSectionActive = selectedSection === 'signatures';
+  const { data: signaturesData = EMPTY_SIGNATURES, isLoading: signaturesLoading } = useSignatures({ enabled: sigSectionActive });
   const createSignatureMutation = useCreateSignature();
   const updateSignatureMutation = useUpdateSignature();
   const deleteSignatureMutation = useDeleteSignature();
@@ -194,8 +198,9 @@ export function useSettingsState() {
     queueMicrotask(() => setHydrated(true));
   }, []);
 
-  // Load avatar from user profile
+  // Load avatar from user profile — only when account section is active
   useEffect(() => {
+    if (selectedSection !== 'account') return;
     const loadProfile = async () => {
       try {
         const profile = await usersApi.getProfile();
@@ -205,7 +210,7 @@ export function useSettingsState() {
       }
     };
     loadProfile();
-  }, []);
+  }, [selectedSection]);
 
   const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
 

@@ -20,7 +20,7 @@ export function useAiDraft(
       return data;
     },
     enabled: !!emailId && options?.enabled !== false,
-    staleTime: 0, // Always fresh draft
+    staleTime: 60_000, // Cache draft for 1 min; user regenerates explicitly
     gcTime: 5 * 60 * 1000, // Keep 5 min in cache
     retry: 1,
   });

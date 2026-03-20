@@ -73,7 +73,7 @@ function EmailRow({ item, isFirst }: { item: EmailSearchItem; isFirst: boolean }
           {priorityBadge(item.aiPriority)}
           {sentimentDot(item.aiSentiment)}
           <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', flexShrink: 0 }}>
-            {formatDate(item.receivedAt)}
+            {formatDate(item.date ?? item.receivedAt ?? null)}
           </Typography>
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
@@ -106,7 +106,7 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
   if (result.error) {
     return <ErrorState reason={result.error} />;
   }
-  const items = result.data ?? [];
+  const items = result.results ?? [];
   return (
     <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>

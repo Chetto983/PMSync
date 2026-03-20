@@ -6,8 +6,8 @@ import Typography from '@mui/material/Typography';
 import type { ContactSearchResult, ContactItem } from '../types';
 
 function ContactCard({ contact, isFirst }: { contact: ContactItem; isFirst: boolean }) {
-  const name = contact.displayName ?? ([contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unknown');
-  const primaryEmail = contact.emails?.[0]?.value ?? null;
+  const name = contact.name ?? contact.displayName ?? ([contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unknown');
+  const primaryEmail = contact.email ?? contact.emails?.[0]?.value ?? null;
 
   return (
     <Box
@@ -83,7 +83,7 @@ export function ContactRenderer({
       </Box>
     );
   }
-  const contacts = result.data ?? [];
+  const contacts = result.contacts ?? [];
   return (
     <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>

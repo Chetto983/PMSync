@@ -46,9 +46,12 @@ export interface EmailSearchItem {
   subject: string | null;
   from: string;
   snippet: string | null;
-  receivedAt: string | null;
+  /** Backend returns `date` from search_emails */
+  date?: string | null;
+  receivedAt?: string | null;
   isRead?: boolean;
   isStarred?: boolean;
+  labels?: string[];
   aiPriority: number | null;
   aiSentiment: string | null;
   aiLabels: string[] | null;
@@ -58,9 +61,10 @@ export interface EmailSearchItem {
 export interface EmailSearchResult {
   success?: boolean;
   error?: string;
-  data: EmailSearchItem[];
+  /** Backend returns `results` array from search_emails tool */
+  results?: EmailSearchItem[];
+  count?: number;
   summary?: string;
-  searchType?: 'rag' | 'text';
 }
 
 export interface EmailContentItem {
@@ -78,12 +82,25 @@ export interface EmailContentItem {
   attachments: string[];
 }
 
-export interface EmailContentResult {
-  success?: boolean;
+/** Backend read_email returns a single email object (not wrapped in array) */
+export type EmailContentResult = EmailContentItem & {
   error?: string;
-  count: number;
-  emails: EmailContentItem[];
-}
+  bodyText?: string;
+  snippet?: string;
+  labels?: string[];
+  analysis?: {
+    summary: string | null;
+    keyPoints: string[];
+    sentiment: string | null;
+    priority: number | null;
+    category: string | null;
+    hasDeadline: boolean;
+    deadlineDate: string | null;
+    needsFollowUp: boolean;
+    followUpDate: string | null;
+    suggestedActions: string | null;
+  } | null;
+};
 
 // --- Follow-Up Tool Output ---
 
@@ -118,11 +135,17 @@ export interface FollowUpResult {
 
 export interface ContactItem {
   id: string;
-  displayName: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  emails: Array<{ value: string; type?: string }>;
-  phoneNumbers?: unknown;
+  /** Backend tool returns `name` (display name string) */
+  name?: string;
+  /** Legacy fields from raw contact model */
+  displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  /** Backend tool returns `email` (primary email string) */
+  email?: string;
+  /** Legacy field from raw contact model */
+  emails?: Array<{ value: string; type?: string }>;
+  phoneNumbers?: string[] | unknown;
   company: string | null;
   jobTitle: string | null;
 }
@@ -130,7 +153,8 @@ export interface ContactItem {
 export interface ContactSearchResult {
   success?: boolean;
   error?: string;
-  data: ContactItem[];
+  contacts: ContactItem[];
+  count?: number;
   summary?: string;
 }
 
@@ -151,7 +175,9 @@ export interface EventItem {
 export interface EventResult {
   success?: boolean;
   error?: string;
-  data: EventItem[];
+  /** Backend returns `events` array from view_calendar tool */
+  events?: EventItem[];
+  count?: number;
   summary?: string;
 }
 
@@ -231,7 +257,9 @@ export interface MemorySearchResult {
   success?: boolean;
   error?: string;
   message?: string;
-  memories: MemoryItem[];
+  /** Backend semantic_search returns `results` array */
+  results?: MemoryItem[];
+  count?: number;
 }
 
 export interface SavedMemoryResult {

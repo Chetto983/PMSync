@@ -98,19 +98,27 @@ export function EmailContentRenderer({
       </Box>
     );
   }
-  const emails = result.emails ?? [];
-  if (emails.length === 0) {
+  // Backend read_email returns a single email object with content in `bodyText`
+  const email: EmailContentItem = {
+    id: result.id,
+    from: result.from,
+    to: Array.isArray(result.to) ? result.to : [],
+    cc: Array.isArray(result.cc) ? result.cc : [],
+    subject: result.subject,
+    content: result.bodyText ?? result.content ?? '',
+    date: result.date,
+    isRead: result.isRead ?? false,
+    isStarred: result.isStarred ?? false,
+    folder: result.folder ?? '',
+    hasAttachments: result.hasAttachments ?? false,
+    attachments: result.attachments ?? [],
+  };
+  if (!email.id) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
         No email content found.
       </Typography>
     );
   }
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {emails.map((email) => (
-        <EmailCard key={email.id} email={email} />
-      ))}
-    </Box>
-  );
+  return <EmailCard email={email} />;
 }
