@@ -71,11 +71,13 @@ export class MistralService implements OnModuleInit {
   }
 
   private getModel(tier: 'fast' | 'creative' | 'router' | 'default' = 'default'): string {
+    // Default model must be a valid OpenRouter ID (not Mistral-native like 'mistral-small-latest')
+    const defaultModel = this.configService.get<string>('AI_CHAT_MODEL') || 'qwen/qwen3.5-plus-02-15';
     switch (tier) {
-      case 'fast': return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
-      case 'creative': return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistral-small-latest';
-      case 'router': return this.configService.get<string>('AI_MODEL_ROUTER') || 'ministral-3b-latest';
-      default: return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
+      case 'fast': return this.configService.get<string>('AI_MODEL_SIMPLE') || defaultModel;
+      case 'creative': return this.configService.get<string>('AI_MODEL_CREATIVE') || defaultModel;
+      case 'router': return this.configService.get<string>('AI_MODEL_ROUTER') || defaultModel;
+      default: return this.configService.get<string>('AI_MODEL_SIMPLE') || defaultModel;
     }
   }
 
