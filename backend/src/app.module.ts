@@ -64,7 +64,7 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
         {
           name: 'short',
           ttl: 60000, // 1 minute
-          limit: 100, // 100 req/min for read operations (default)
+          limit: 300, // 300 req/min for read operations (default)
         },
         {
           name: 'write',
