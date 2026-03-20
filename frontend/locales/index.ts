@@ -2274,7 +2274,6 @@ export interface AppTranslations {
       actions: {
         title: string;
         description: string;
-        viewPendingActions: string;
         clearMemory: string;
         clearMemoryConfirm: string;
         resetLearning: string;
@@ -2641,7 +2640,6 @@ export interface AppTranslations {
     pendingActionsHint: string;
     history: string;
     noHistory: string;
-    noPendingActions: string;
     approve: string;
     reject: string;
     needsReview: string;

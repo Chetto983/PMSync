@@ -79,24 +79,6 @@ export type MemorySearchItem = {
   metadata: Record<string, unknown> | null;
 };
 
-export type AgentInfo = {
-  name: string;
-  description: string;
-  capabilities: string[];
-  supportedIntents: string[];
-};
-
-export type LearningProfileStats = {
-  agentName: string;
-  actionType: string;
-  totalAttempts: number;
-  approvalRate: number;
-  successRate: number;
-  confidenceBoost: number;
-  avgOriginalConfidence: number;
-  avgAdjustedConfidence: number;
-};
-
 export type WritingStyleProfile = {
   id: string;
   tenantId: string;
@@ -171,27 +153,6 @@ export type ConversationDetail = {
   messageCount: number;
   createdAt: string;
   messages: ConversationMessage[];
-};
-
-export type IntentResult = {
-  intent: string;
-  confidence: number;
-  reasoning: string;
-  suggestedAgents: string[];
-};
-
-export type MultiAgentResponse = ChatResult & {
-  sessionId?: string;
-  conversationId?: string;
-  messages?: string[];
-  pendingActionIds?: string[];
-  executedActionIds?: string[];
-  intent?: IntentResult;
-  agentUsed?: string;
-  executionTimeMs?: number;
-  needsMoreInfo?: boolean;
-  clarifyingQuestions?: string[];
-  knowledgeHits?: KnowledgeHit[];
 };
 
 export type StreamEvent =
@@ -652,36 +613,3 @@ export const aiChatApi = {
   },
 };
 
-/** @deprecated Use aiChatApi directly */
-export const voltAgentApi = aiChatApi;
-
-// Legacy API alias (maps to aiChatApi)
-export const multiAgentApi = {
-  processMessage: async (payload: {
-    message: string;
-    sessionId?: string;
-    conversationId?: string;
-    forceAgent?: string;
-    autoApproveThreshold?: number;
-    locale?: string;
-  }): Promise<MultiAgentResponse> => {
-    const convId = payload.conversationId || payload.sessionId;
-    const response = await aiChatApi.chat({
-      message: payload.message,
-      conversationId: convId,
-      locale: payload.locale,
-    });
-    const result = response.data;
-    const responseConvId =
-      (result as { conversationId?: string }).conversationId || convId;
-    return {
-      ...result,
-      sessionId: responseConvId,
-      conversationId: responseConvId,
-      messages: result.text ? [result.text] : [],
-      pendingActionIds: [],
-      executedActionIds: [],
-    };
-  },
-  getAgents: () => Promise.resolve({ agents: [] as AgentInfo[] }),
-};

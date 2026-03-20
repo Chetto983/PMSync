@@ -15,8 +15,7 @@ const MarkdownWithStreaming = (props: object) => <MarkdownText {...props} classN
  * Assistant message: avatar + markdown content + action bar.
  * Left-aligned with primary avatar, prose-styled content.
  *
- * HITL approval UI now lives inline in tool UIs via FallbackToolUI's
- * requires-action handling (SDK-native flow). No poll-based HitlPendingActions.
+ * HITL approval is handled inline via SDK-native flow.
  */
 export function AssistantMessage() {
   return (

@@ -2227,7 +2227,6 @@ export const it: AppTranslations = {
       actions: {
         title: 'Impostazioni azioni',
         description: 'Configura come vengono gestite le azioni AI.',
-        viewPendingActions: 'Vedi azioni in sospeso',
         clearMemory: 'Cancella memoria AI',
         clearMemoryConfirm: 'Questo eliminerà tutte le preferenze apprese e la cronologia delle interazioni. Sei sicuro?',
         resetLearning: 'Ripristina apprendimento',
@@ -2571,7 +2570,6 @@ export const it: AppTranslations = {
     pendingActionsHint: 'Rivedi i suggerimenti AI',
     history: 'Cronologia',
     noHistory: 'Nessuna cronologia',
-    noPendingActions: 'Nessuna azione in sospeso',
     approve: 'Approva',
     reject: 'Rifiuta',
     needsReview: 'Da Rivedere',

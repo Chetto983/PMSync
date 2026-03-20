@@ -2239,7 +2239,6 @@ export const en: AppTranslations = {
       actions: {
         title: 'Action Settings',
         description: 'Configure how AI actions are handled.',
-        viewPendingActions: 'View Pending Actions',
         clearMemory: 'Clear AI Memory',
         clearMemoryConfirm: 'This will delete all learned preferences and interaction history. Are you sure?',
         resetLearning: 'Reset Learning',
@@ -2583,7 +2582,6 @@ export const en: AppTranslations = {
     pendingActionsHint: 'Review AI suggestions',
     history: 'History',
     noHistory: 'No history yet',
-    noPendingActions: 'No pending actions',
     approve: 'Approve',
     reject: 'Reject',
     needsReview: 'Needs Review',
