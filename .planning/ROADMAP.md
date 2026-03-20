@@ -226,7 +226,11 @@ Plans:
   3. Webhook endpoints process incoming notifications (Gmail push, Microsoft Graph, Calendar, Contacts) without errors
   4. Dashboard renders all widgets, customization drawer works, and layout persists across sessions
   5. Tasks page renders real content (not placeholder), analytics page shows real data, landing page renders all sections, and legal pages render
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
+- [ ] 94-02-PLAN.md -- Tasks page rebuild (follow-up data, i18n, Playwright test)
+- [ ] 94-03-PLAN.md -- Frontend page verification (dashboard, analytics, landing, legal)
 
 ### Phase 95: Dead Code & Cleanup
 **Goal**: Codebase is clean -- no dead code, stale shims, unused dependencies, debug statements, or orphaned routes
@@ -238,7 +242,11 @@ Plans:
   3. Legacy API artifacts removed: PendingAction type, deprecated voltAgentApi alias, multiAgentApi shim, stale HITL methods
   4. Console.log/debug statements removed from production code, unused dependencies removed from both package.json files
   5. Stale contract test assertions updated and any dead routes/controllers discovered during testing are removed
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
+- [ ] 94-02-PLAN.md -- Tasks page rebuild (follow-up data, i18n, Playwright test)
+- [ ] 94-03-PLAN.md -- Frontend page verification (dashboard, analytics, landing, legal)
 
 ### Phase 96: UI/UX Polish
 **Goal**: Every page has proper empty states, loading skeletons, error feedback, mobile responsiveness, dark mode support, keyboard navigation, and complete Italian translation
@@ -250,7 +258,11 @@ Plans:
   3. Every error shows a user-friendly message with a retry action -- no raw error codes or silent failures visible to users
   4. All pages render correctly on mobile (375px+) with no overflow or hidden content, and dark mode works across all pages without white flash or unthemed elements
   5. Keyboard navigation works on all interactive elements, and Italian translation is complete with no missing keys or English fallbacks visible
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
+- [ ] 94-02-PLAN.md -- Tasks page rebuild (follow-up data, i18n, Playwright test)
+- [ ] 94-03-PLAN.md -- Frontend page verification (dashboard, analytics, landing, legal)
 
 ### Phase 97: MUI Chat Migration
 **Goal**: Chat UI uses MUI exclusively -- all chat CSS files migrated to sx props, ChatThemeBridge deleted, Tailwind removed from project
@@ -261,7 +273,11 @@ Plans:
   2. The 3 chat CSS files (~950 lines total) are deleted and their styles are expressed via MUI sx props
   3. ChatThemeBridge component/file no longer exists in the codebase
   4. tailwindcss package is removed from frontend package.json and no Tailwind config files remain
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
+- [ ] 94-02-PLAN.md -- Tasks page rebuild (follow-up data, i18n, Playwright test)
+- [ ] 94-03-PLAN.md -- Frontend page verification (dashboard, analytics, landing, legal)
 
 ### Phase 98: Security Verification
 **Goal**: All security controls are verified working -- auth guards reject unauthorized access, tenant isolation holds, CSRF protects mutations, rate limiting throttles abuse, RBAC enforces roles
@@ -273,7 +289,11 @@ Plans:
   3. CSRF protection rejects mutation requests that lack a valid CSRF token
   4. Rate limiting activates on sensitive endpoints (login, send email, AI chat) -- exceeding the limit returns 429
   5. Role-based access enforced: member-role user cannot access admin-only endpoints (returns 403)
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
+- [ ] 94-02-PLAN.md -- Tasks page rebuild (follow-up data, i18n, Playwright test)
+- [ ] 94-03-PLAN.md -- Frontend page verification (dashboard, analytics, landing, legal)
 
 ## Progress
 
@@ -292,7 +312,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 91. Calendar, Contacts & Reminders Verification | 5/5 | Complete    | 2026-03-20 |
 | 92. AI & Knowledge Base Verification | 3/3 | Complete    | 2026-03-20 |
 | 93. Admin, Subscriptions & Integrations | 4/4 | Complete    | 2026-03-20 |
-| 94. Infrastructure & Remaining Pages | 0/? | Not started | - |
+| 94. Infrastructure & Remaining Pages | 0/3 | Planning complete | - |
 | 95. Dead Code & Cleanup | 0/? | Not started | - |
 | 96. UI/UX Polish | 0/? | Not started | - |
 | 97. MUI Chat Migration | 0/? | Not started | - |
