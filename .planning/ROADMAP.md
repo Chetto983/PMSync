@@ -120,7 +120,7 @@
   2. User profile operations work end-to-end: get/update profile, upload/delete avatar, update preferences, clear AI memory
   3. Auth pages render correctly in the browser and form submissions produce expected results (success redirects, error messages)
   4. Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent) without getting stuck or skipping required steps
-**Plans:** 2/2 plans complete
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 89-01-PLAN.md -- Auth flow E2E tests (login, register, forgot-password, reset-password, verify-email, 2FA)
 - [ ] 89-02-PLAN.md -- Profile API tests + onboarding wizard rewrite
@@ -140,6 +140,8 @@ Plans:
 - Fixed: reply recipient resolution now handles display-name senders, reply-to headers, and self-sent messages
 - Fixed: provider-folder reorder no longer collides with email drop targets in the same DnD context
 - Fixed: thread row drag no longer owns the whole row; checkbox and quick actions are isolated from row-open behavior
+- Fixed: email/frontend lint hotfix files are clean; global frontend/backend error-level lint now passes in `--quiet` mode
+- Warning backlog: backend lint has 52 warnings, frontend lint has 119 warnings, so full frontend `npm run lint` still fails because `--max-warnings=0`
 - Remaining: thread-route reply/forward UI still needs live revalidation, label reorder persistence is still open, and move dialog UX still exposes raw Gmail categories
 **Plans**: TBD (live audit hotfix stream active)
 
@@ -249,7 +251,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 89. Auth & Onboarding Verification | 2/2 | Complete   | 2026-03-20 |
+| 89. Auth & Onboarding Verification | 3/3 | Complete   | 2026-03-20 |
 | 90. Email Operations Verification | 0/? | In Progress | - |
 | 91. Calendar, Contacts & Reminders Verification | 0/? | Not started | - |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
