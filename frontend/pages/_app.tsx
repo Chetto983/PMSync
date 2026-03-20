@@ -131,6 +131,38 @@ export default function App({ Component, pageProps }: AppProps) {
   const isPrivateRoute = router.pathname.startsWith('/dashboard');
   const shouldShowHydrationSkeleton = !mounted && isPrivateRoute;
 
+  // Safety net: recover from failed client-side navigations.
+  // When Next.js can't complete a route change (stale chunks, render errors),
+  // the URL updates but content doesn't — force a full page reload to recover.
+  useEffect(() => {
+    const handleRouteError = (err: Error & { cancelled?: boolean }, url: string) => {
+      if (err.cancelled) return;
+      console.error('[_app] routeChangeError — forcing reload:', url, err.message);
+      // If URL already matches (invariant loop case), just reload current page
+      if (window.location.pathname === url || window.location.href.endsWith(url)) {
+        window.location.reload();
+      } else {
+        window.location.href = url;
+      }
+    };
+
+    // Also catch the "hard navigate to same URL" invariant which fires as
+    // an unhandled rejection AFTER routeChangeError
+    const handleInvariant = (e: PromiseRejectionEvent) => {
+      if (e.reason?.message?.includes('attempted to hard navigate to the same URL')) {
+        e.preventDefault();
+        window.location.reload();
+      }
+    };
+
+    router.events.on('routeChangeError', handleRouteError);
+    window.addEventListener('unhandledrejection', handleInvariant);
+    return () => {
+      router.events.off('routeChangeError', handleRouteError);
+      window.removeEventListener('unhandledrejection', handleInvariant);
+    };
+  }, [router.events]);
+
   // Keep SEO-critical public pages SSR-rendered; only hold private routes during hydration.
   if (shouldShowHydrationSkeleton) {
     return (
