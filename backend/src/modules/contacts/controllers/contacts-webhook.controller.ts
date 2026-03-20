@@ -20,6 +20,7 @@ import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
 import { GoogleContactsSyncDto } from '../dto/contact.dto';
 import { getErrorDetails } from '../../../common/utils';
 import { Public } from '../../../common/auth/public.decorator';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 @ApiTags('Webhooks - Contacts')
 @Public()
@@ -55,7 +56,9 @@ export class ContactsWebhookController {
 
       this.logger.log(`Manual Google Contacts sync triggered for provider ${body.providerId}`);
 
-      await this.googleContactsWebhook.handleNotification(body.providerId);
+      await withoutTenantScopingAsync(() =>
+        this.googleContactsWebhook.handleNotification(body.providerId),
+      );
 
       return { success: true };
     } catch (error) {
@@ -117,7 +120,10 @@ export class ContactsWebhookController {
       }
 
       // Process each notification (includes clientState validation)
-      await this.microsoftContactsWebhook.handleNotifications(payload.value);
+      const notifications = payload.value;
+      await withoutTenantScopingAsync(() =>
+        this.microsoftContactsWebhook.handleNotifications(notifications),
+      );
 
       return { success: true };
     } catch (error) {
@@ -140,14 +146,16 @@ export class ContactsWebhookController {
    */
   @Get('health')
   async getWebhookHealth() {
-    const googleStats = await this.googleContactsWebhook.getStats();
-    const microsoftStats = await this.microsoftContactsWebhook.getStats();
+    return withoutTenantScopingAsync(async () => {
+      const googleStats = await this.googleContactsWebhook.getStats();
+      const microsoftStats = await this.microsoftContactsWebhook.getStats();
 
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      google: googleStats,
-      microsoft: microsoftStats,
-    };
+      return {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        google: googleStats,
+        microsoft: microsoftStats,
+      };
+    });
   }
 }
