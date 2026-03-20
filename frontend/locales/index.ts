@@ -355,6 +355,7 @@ export interface AppTranslations {
     viewAll: string;
     join: string;
     retry: string;
+    retryLoading: string;
     user: string;
     version: string;
     separatorDot: string;
@@ -1640,6 +1641,16 @@ export interface AppTranslations {
     emptyTitle: string;
     emptyDescription: string;
     comingSoon: string;
+    errorLoading: string;
+    waitingFor: string;
+    todo: string;
+    overdue: string;
+    dueToday: string;
+    noFilterResults: string;
+    commitmentPrefix: string;
+    waitingOnPrefix: string;
+    statsPending: string;
+    statsOverdue: string;
   };
   contacts: {
     title: string;
