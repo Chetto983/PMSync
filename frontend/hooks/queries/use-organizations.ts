@@ -10,6 +10,29 @@ import { orgKeys } from './organization-keys';
 import { authClient } from '@/lib/auth-client';
 import { websocketClient } from '@/lib/websocket-client';
 
+interface OrganizationSummary {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface PendingInvitation {
+  id: string;
+  organizationName?: string | null;
+  organization?: {
+    name?: string | null;
+  } | null;
+}
+
+interface OrganizationDetail {
+  members?: unknown[];
+}
+
+interface AuthClientErrorLike {
+  message?: string;
+  code?: string;
+}
+
 // ==========================================================================
 // Query Options
 // ==========================================================================
@@ -35,7 +58,7 @@ export function organizationsOptions() {
   return queryOptions({
     queryKey: orgKeys.list(),
     queryFn: async () => {
-      return getAuthJson<any[]>('/organization/list');
+      return getAuthJson<OrganizationSummary[]>('/organization/list');
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -50,7 +73,7 @@ export function organizationDetailOptions(orgId: string) {
       const res = await authClient.organization.getFullOrganization({
         query: { organizationId: orgId },
       });
-      return res.data;
+      return res.data as OrganizationDetail | null | undefined;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -63,7 +86,7 @@ export function pendingInvitationsOptions() {
   return queryOptions({
     queryKey: orgKeys.invitations(),
     queryFn: async () => {
-      return getAuthJson<any[]>('/organization/list-user-invitations');
+      return getAuthJson<PendingInvitation[]>('/organization/list-user-invitations');
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -129,8 +152,9 @@ export function useCreateOrg() {
     mutationFn: async (data: { name: string; slug: string }) => {
       const res = await authClient.organization.create(data);
       if (res.error) {
-        const errMsg = res.error.message
-          || (res.error as any).code
+        const authError = res.error as AuthClientErrorLike;
+        const errMsg = authError.message
+          || authError.code
           || JSON.stringify(res.error);
         throw new Error(errMsg);
       }

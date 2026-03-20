@@ -46,7 +46,7 @@ export function SecurityPasswordSection() {
     })();
   }, []);
 
-  const validate = (): string | null => {
+  const validate = useCallback((): string | null => {
     if (newPassword.length < 8) {
       return sec?.tooShort || 'Password must be at least 8 characters';
     }
@@ -54,7 +54,7 @@ export function SecurityPasswordSection() {
       return sec?.mismatch || 'Passwords do not match';
     }
     return null;
-  };
+  }, [confirmPassword, newPassword, sec?.mismatch, sec?.tooShort]);
 
   const handleChangePassword = useCallback(async () => {
     const validationError = validate();
@@ -84,7 +84,7 @@ export function SecurityPasswordSection() {
     } finally {
       setSaving(false);
     }
-  }, [currentPassword, newPassword, confirmPassword, sec?.success]);
+  }, [currentPassword, newPassword, sec?.success, validate]);
 
   const handleSetPassword = useCallback(async () => {
     const validationError = validate();
@@ -111,7 +111,7 @@ export function SecurityPasswordSection() {
     } finally {
       setSaving(false);
     }
-  }, [newPassword, confirmPassword, sec?.success]);
+  }, [newPassword, sec?.success, validate]);
 
   if (loading) {
     return <Box sx={{ py: 2 }}><CircularProgress size={24} /></Box>;

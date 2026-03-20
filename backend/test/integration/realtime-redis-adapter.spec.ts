@@ -66,7 +66,7 @@ beforeAll(async () => {
   });
   serverA.on('connection', (socket) => {
     socket.on('join', (room: string) => {
-      socket.join(room);
+      void socket.join(room);
       socket.emit('joined', room);
     });
   });
@@ -81,7 +81,7 @@ beforeAll(async () => {
   });
   serverB.on('connection', (socket) => {
     socket.on('join', (room: string) => {
-      socket.join(room);
+      void socket.join(room);
       socket.emit('joined', room);
     });
   });
@@ -92,8 +92,8 @@ beforeAll(async () => {
 afterAll(async () => {
   if (!redisAvailable) return;
 
-  serverA?.close();
-  serverB?.close();
+  await serverA?.close();
+  await serverB?.close();
   httpA?.close();
   httpB?.close();
   await Promise.allSettled([

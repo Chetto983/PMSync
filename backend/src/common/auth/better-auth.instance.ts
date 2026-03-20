@@ -540,9 +540,9 @@ export function createBetterAuthInstance(
           const img = ctx.body.image as string;
           // Max ~50KB base64 — anything larger would overflow cookie headers
           if (img.length > 50_000) {
-            throw new APIError('BAD_REQUEST', {
+            throw (new APIError('BAD_REQUEST', {
               message: 'Avatar image is too large. Please upload a smaller image (max 256×256px).',
-            });
+            }) as Error);
           }
         }
         // ORG-05: Org management authorization is enforced by the organization()
@@ -556,18 +556,18 @@ export function createBetterAuthInstance(
           if (password) {
             const { breached } = await checkHIBP(password);
             if (breached) {
-              throw new APIError('BAD_REQUEST', {
+              throw (new APIError('BAD_REQUEST', {
                 message:
                   'This password has appeared in data breaches and cannot be used',
-              });
+              }) as Error);
             }
           }
         }
 
         if (ctx.path === '/sign-up/email' && ctx.body?.agreeToTerms !== true) {
-          throw new APIError('BAD_REQUEST', {
+          throw (new APIError('BAD_REQUEST', {
             message: 'You must accept the Terms of Service and Privacy Policy',
-          });
+          }) as Error);
         }
 
         if (ctx.path === '/sign-in/email') {
@@ -575,9 +575,9 @@ export function createBetterAuthInstance(
           const accountExists = await emailSignInAccountExists(prisma, email);
 
           if (!accountExists) {
-            throw new APIError('NOT_FOUND', {
+            throw (new APIError('NOT_FOUND', {
               message: 'Account not found',
-            });
+            }) as Error);
           }
         }
       }),

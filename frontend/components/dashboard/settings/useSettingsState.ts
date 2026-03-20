@@ -20,7 +20,6 @@ import {
 } from '@/hooks/queries';
 
 import {
-  DEFAULT_USER_SETTINGS,
   getStoredUserSettings,
 } from '@/lib/utils/user-settings';
 import {
@@ -88,15 +87,16 @@ function getDisplayedRole(
 }
 
 export function useSettingsState() {
+  const storedSettings = getStoredUserSettings();
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const user = session?.user as import('@/lib/auth-client').SessionUser | undefined;
   const { theme, setTheme } = useThemePersistence();
   const [hydrated, setHydrated] = useState(false);
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('general');
-  const [language, setLanguage] = useState(DEFAULT_USER_SETTINGS.language);
-  const [timezone, setTimezone] = useState(DEFAULT_USER_SETTINGS.timezone);
-  const [emailNotifications, setEmailNotifications] = useState(DEFAULT_USER_SETTINGS.emailNotifications);
+  const [language, setLanguage] = useState(storedSettings.language);
+  const [timezone, setTimezone] = useState(storedSettings.timezone);
+  const [emailNotifications, setEmailNotifications] = useState(storedSettings.emailNotifications);
 
   // TanStack Query hooks
   const { data: providers = [], isLoading: providersLoading, refetch: refetchProviders } = useProviders();
@@ -162,38 +162,36 @@ export function useSettingsState() {
   // Sync AI feature toggles from user preferences
   useEffect(() => {
     if (userPrefsData) {
-      setSmartRepliesEnabled(userPrefsData.aiSmartRepliesEnabled ?? true);
-      setSummarizationEnabled(userPrefsData.aiSummarizationEnabled ?? true);
-      setSchedulingEnabled(userPrefsData.aiSchedulingEnabled ?? true);
-      setTriageEnabled(userPrefsData.aiAutoTriageEnabled ?? false);
-      setAutoApproveThreshold((userPrefsData.aiAutoApproveThreshold ?? 0.85) * 100);
-      setEmailDensity(userPrefsData.emailDensity ?? 'comfortable');
-      setJobRole(getDisplayedRole(userPrefsData.jobTitle, userPrefsData.jobRole));
-      setCommunicationStyle(
-        isCommunicationStyle(userPrefsData.communicationStyle)
-          ? userPrefsData.communicationStyle
-          : 'CASUAL',
-      );
-      setResponseLength(
-        isResponseLength(userPrefsData.responseLength)
-          ? userPrefsData.responseLength
-          : 'MODERATE',
-      );
-      setProactivityLevel(
-        isProactivityLevel(userPrefsData.proactivityLevel)
-          ? userPrefsData.proactivityLevel
-          : 'MEDIUM',
-      );
+      queueMicrotask(() => {
+        setSmartRepliesEnabled(userPrefsData.aiSmartRepliesEnabled ?? true);
+        setSummarizationEnabled(userPrefsData.aiSummarizationEnabled ?? true);
+        setSchedulingEnabled(userPrefsData.aiSchedulingEnabled ?? true);
+        setTriageEnabled(userPrefsData.aiAutoTriageEnabled ?? false);
+        setAutoApproveThreshold((userPrefsData.aiAutoApproveThreshold ?? 0.85) * 100);
+        setEmailDensity(userPrefsData.emailDensity ?? 'comfortable');
+        setJobRole(getDisplayedRole(userPrefsData.jobTitle, userPrefsData.jobRole));
+        setCommunicationStyle(
+          isCommunicationStyle(userPrefsData.communicationStyle)
+            ? userPrefsData.communicationStyle
+            : 'CASUAL',
+        );
+        setResponseLength(
+          isResponseLength(userPrefsData.responseLength)
+            ? userPrefsData.responseLength
+            : 'MODERATE',
+        );
+        setProactivityLevel(
+          isProactivityLevel(userPrefsData.proactivityLevel)
+            ? userPrefsData.proactivityLevel
+            : 'MEDIUM',
+        );
+      });
     }
   }, [userPrefsData]);
 
-  // Load settings from localStorage
+  // Mark client hydration after initial browser-backed state is ready
   useEffect(() => {
-    const saved = getStoredUserSettings();
-    setLanguage(saved.language);
-    setTimezone(saved.timezone);
-    setEmailNotifications(saved.emailNotifications);
-    setHydrated(true);
+    queueMicrotask(() => setHydrated(true));
   }, []);
 
   // Load avatar from user profile

@@ -57,6 +57,8 @@ export const ContactList: React.FC<ContactListProps> = ({
 
   // Virtual scrolling
   const parentRef = useRef<HTMLDivElement>(null);
+  // TanStack Virtual is intentionally used here for large contact lists.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: contacts.length,
     getScrollElement: () => parentRef.current,

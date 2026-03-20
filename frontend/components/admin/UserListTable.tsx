@@ -30,6 +30,17 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { BanUserDialog } from './BanUserDialog';
 import { UserSessionsDialog } from './UserSessionsDialog';
 
+interface AdminUserRow {
+  id: string;
+  name?: string | null;
+  email: string;
+  role?: string | null;
+  banned?: boolean | null;
+  twoFactorEnabled?: boolean;
+  emailVerified?: boolean;
+  createdAt: string | Date;
+}
+
 /** Debounce helper */
 function useDebounce(value: string, delay: number) {
   const [debounced, setDebounced] = React.useState(value);
@@ -68,7 +79,7 @@ export function UserListTable() {
   const impersonate = useImpersonateUser();
   const unbanUser = useUnbanUser();
 
-  const users = data?.users ?? [];
+  const users = (data?.users ?? []) as AdminUserRow[];
   const total = data?.total ?? 0;
 
   const handleImpersonate = useCallback((userId: string) => {
@@ -82,7 +93,7 @@ export function UserListTable() {
     catch { return '-'; }
   };
 
-  const renderActions = (user: any) => {
+  const renderActions = (user: AdminUserRow) => {
     const isSelf = user.id === currentUser?.id;
     const isBanned = !!user.banned;
     return (
@@ -149,7 +160,7 @@ export function UserListTable() {
         </Typography>
       );
     }
-    return users.map((user: any) => {
+    return users.map((user) => {
       const isBanned = !!user.banned;
       return (
         <Card key={user.id} variant="outlined" sx={{ mb: 1.5 }}>
@@ -253,7 +264,7 @@ export function UserListTable() {
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map((user: any) => {
+                users.map((user) => {
                   const isBanned = !!user.banned;
                   return (
                     <TableRow key={user.id} hover>

@@ -15,6 +15,7 @@ import {
 import { mistralEmbedHandler } from '../../../../test/msw-handlers/mistral-embed.handler';
 import { ConfigService } from '@nestjs/config';
 import { MistralProviderService } from '../../../mistral/mistral-provider.service';
+import { PrismaService } from '../../../../prisma/prisma.service';
 import {
   DraftGenerationService,
   draftGenerationSchema,
@@ -32,12 +33,15 @@ const configService = {
 } as unknown as ConfigService;
 
 // Mock PrismaService with email + thread data
-const createMockPrisma = (email: any | null, threadEmails: any[] = []) => ({
+const createMockPrisma = (
+  email: Record<string, unknown> | null,
+  threadEmails: Array<Record<string, unknown>> = [],
+) => ({
   email: {
     findFirst: vi.fn().mockResolvedValue(email),
     findMany: vi.fn().mockResolvedValue(threadEmails),
   },
-} as any);
+}) as unknown as PrismaService;
 
 const testEmail = {
   id: 'e-200',

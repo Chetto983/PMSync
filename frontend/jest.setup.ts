@@ -1,3 +1,4 @@
+import * as React from 'react';
 import '@testing-library/jest-dom';
 
 // Mock next/router
@@ -40,7 +41,6 @@ Object.defineProperty(window, 'matchMedia', {
 jest.mock('next/image', () => ({
   __esModule: true,
   default: function MockImage(props: Record<string, unknown>) {
-    const React = require('react');
     return React.createElement('img', { src: props.src, alt: props.alt });
   },
 }));

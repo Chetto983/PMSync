@@ -162,6 +162,7 @@ apiClient.interceptors.response.use(
     if (error.response?.data?.error) {
       const apiError = error.response.data.error;
       const meta = error.response.data.meta;
+      // eslint-disable-next-line no-console
       console.error('[API Error]', {
         code: apiError.code,
         requestId: meta?.requestId,

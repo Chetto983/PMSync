@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
@@ -72,8 +72,7 @@ export default function EmailPage() {
     if (!emailId) return;
 
     if (isDesktop) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedThreadId(emailId);
+      queueMicrotask(() => setSelectedThreadId(emailId));
       void router.replace('/dashboard/email', undefined, { shallow: true });
       return;
     }
@@ -131,17 +130,23 @@ export default function EmailPage() {
   );
 
   const filterKey = useMemo(() => JSON.stringify(baseEmailParams), [baseEmailParams]);
-  const previousFilterKeyRef = useRef<string | null>(filterKey);
+  const [appliedFilterKey, setAppliedFilterKey] = useState(filterKey);
   const effectivePage = getEffectiveEmailListPage({
     page,
     filterKey,
-    previousFilterKey: previousFilterKeyRef.current,
+    previousFilterKey: appliedFilterKey,
   });
 
   useEffect(() => {
-    previousFilterKeyRef.current = filterKey;
-    setPage(1); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [filterKey]);
+    if (appliedFilterKey === filterKey) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      setAppliedFilterKey(filterKey);
+      setPage(1);
+    });
+  }, [appliedFilterKey, filterKey]);
 
   const emailQueries = useQueries({
     queries: Array.from({ length: effectivePage }, (_, index) =>
@@ -179,7 +184,7 @@ export default function EmailPage() {
 
     const selectedStillVisible = emails.some((email) => email.id === selectedThreadId);
     if (!selectedStillVisible) {
-      setSelectedThreadId(null); // eslint-disable-line react-hooks/set-state-in-effect
+      queueMicrotask(() => setSelectedThreadId(null));
     }
   }, [emails, isDesktop, loading, selectedThreadId]);
 

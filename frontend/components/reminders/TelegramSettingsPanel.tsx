@@ -41,6 +41,8 @@ export function TelegramSettingsPanel() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isLinked = !!settings?.telegramChatId;
+  const linkExpiredMessage = tr.linkExpired;
+  const linkErrorMessage = tr.linkError;
 
   useEffect(() => {
     if (settings) {
@@ -78,7 +80,7 @@ export function TelegramSettingsPanel() {
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
           setDeepLink(null);
-          setLinkError(tr.linkExpired);
+          setLinkError(linkExpiredMessage);
           return;
         }
         try {
@@ -94,11 +96,11 @@ export function TelegramSettingsPanel() {
         }
       }, 3000);
     } catch (err) {
-      setLinkError((err as Error).message || tr.linkError);
+      setLinkError((err as Error).message || linkErrorMessage);
     } finally {
       setLinkLoading(false);
     }
-  }, [refetch]);
+  }, [linkErrorMessage, linkExpiredMessage, refetch]);
 
   const handleSave = () => {
     updateMutation.mutate({ isActive, slotMattina, slotPomeriggio, slotSera });

@@ -7,6 +7,14 @@ import {
   useDeclineInvitation,
 } from '@/hooks/queries';
 
+interface PendingInvitation {
+  id: string;
+  organization?: {
+    name?: string | null;
+  } | null;
+  organizationName?: string | null;
+}
+
 /**
  * Banner shown above main content when user has pending org invitations.
  * Visible until the user accepts or declines each invitation.
@@ -14,14 +22,15 @@ import {
 export function PendingInvitationBanner() {
   const t = useTranslations();
   const { data: invitations } = usePendingInvitations();
+  const invitationList = (invitations ?? []) as PendingInvitation[];
   const acceptInvitation = useAcceptInvitation();
   const declineInvitation = useDeclineInvitation();
 
-  if (!invitations || invitations.length === 0) return null;
+  if (invitationList.length === 0) return null;
 
   return (
     <Stack spacing={1} sx={{ px: { xs: 1, md: 2 }, pt: 1 }}>
-      {(invitations as any[]).map((inv: any) => (
+      {invitationList.map((inv) => (
         <Alert
           key={inv.id}
           severity="info"

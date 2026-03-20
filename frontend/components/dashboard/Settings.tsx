@@ -40,10 +40,36 @@ import { useSettingsCopy } from './settings/useSettingsCopy';
 import { useSettingsHandlers } from './settings/useSettingsHandlers';
 import { SettingsSidebar } from './settings/SettingsSidebar';
 
+function getProviderConnectError(error: unknown): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error
+  ) {
+    const response = (error as {
+      response?: { data?: { message?: unknown } };
+    }).response;
+    if (typeof response?.data?.message === 'string') {
+      return response.data.message;
+    }
+  }
+
+  return 'Failed to connect provider';
+}
+
 export function Settings() {
   const s = useSettingsState();
   const { t, settingsCopy, generalCopy, aiCopy, accountsCopy, accountCopy, signaturesCopy } = useSettingsCopy();
   const h = useSettingsHandlers(s, settingsCopy);
+  const {
+    router,
+    refetchProviders,
+    setSelectedSection,
+    setProviderSuccess,
+    setProviderError,
+  } = s;
+  const telegramTitle = t.ai.reminders?.telegram?.title || 'Telegram';
+  const { isReady, pathname, query } = router;
 
   const sections = useMemo(
     () => [
@@ -56,48 +82,57 @@ export function Settings() {
       { id: 'dataRights', label: settingsCopy.sections.dataRights || 'Data & Privacy', icon: <DatabaseZap size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
       { id: 'billing', label: settingsCopy.sections.billing || 'Billing', icon: <CreditCard size={18} /> },
-      { id: 'telegram', label: t.ai.reminders?.telegram?.title || 'Telegram', icon: <Send size={18} /> },
+      { id: 'telegram', label: telegramTitle, icon: <Send size={18} /> },
     ],
-    [settingsCopy.sections],
+    [settingsCopy.sections, telegramTitle],
   );
 
   // Handle URL section param
   useEffect(() => {
-    if (!s.router.isReady) return;
-    const sectionParam = s.router.query.section;
+    if (!isReady) return;
+    const sectionParam = query.section;
     if (typeof sectionParam === 'string' && sections.some((sec) => sec.id === sectionParam)) {
-      s.setSelectedSection(sectionParam as SettingsSection);
+      setSelectedSection(sectionParam as SettingsSection);
     }
-  }, [s.router.isReady, s.router.query.section, sections, s.setSelectedSection]);
+  }, [isReady, query.section, sections, setSelectedSection]);
 
   // Handle OAuth callback
   useEffect(() => {
-    if (!s.router.isReady) return;
-    const { success, error } = s.router.query;
+    if (!isReady) return;
+    const { success, error } = query;
     if (success) {
-      s.setSelectedSection('accounts');
-      s.setProviderSuccess('Account connected successfully');
-      s.refetchProviders();
-      s.router.replace({ pathname: s.router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
+      setSelectedSection('accounts');
+      setProviderSuccess('Account connected successfully');
+      void refetchProviders();
+      void router.replace({ pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
     }
     if (error && typeof error === 'string') {
-      s.setSelectedSection('accounts');
-      s.setProviderError(error);
-      s.router.replace({ pathname: s.router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
+      setSelectedSection('accounts');
+      setProviderError(error);
+      void router.replace({ pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
     }
-  }, [s.router, s.refetchProviders, s.setSelectedSection, s.setProviderSuccess, s.setProviderError]);
+  }, [
+    isReady,
+    pathname,
+    query,
+    refetchProviders,
+    router,
+    setProviderError,
+    setProviderSuccess,
+    setSelectedSection,
+  ]);
 
   // Handle provider-link OAuth callback (code + state + provider from proxy redirect)
   const codeExchangeHandled = useRef(false);
   useEffect(() => {
-    if (!s.router.isReady || codeExchangeHandled.current) return;
-    const { code, state, provider } = s.router.query;
+    if (!isReady || codeExchangeHandled.current) return;
+    const { code, state, provider } = query;
     if (typeof code !== 'string' || typeof provider !== 'string') return;
     codeExchangeHandled.current = true;
 
-    s.setSelectedSection('accounts');
-    s.router.replace(
-      { pathname: s.router.pathname, query: { section: 'accounts' } },
+    setSelectedSection('accounts');
+    void router.replace(
+      { pathname, query: { section: 'accounts' } },
       undefined,
       { shallow: true },
     );
@@ -106,14 +141,24 @@ export function Settings() {
       ? providersApi.connectGoogle({ authorizationCode: code, state: typeof state === 'string' ? state : undefined })
       : providersApi.connectMicrosoft({ authorizationCode: code, state: typeof state === 'string' ? state : undefined });
 
-    connectFn.then(() => {
-      s.setProviderSuccess('Account connected successfully');
-      s.refetchProviders();
-    }).catch((err) => {
-      const msg = (err as any)?.response?.data?.message || 'Failed to connect provider';
-      s.setProviderError(msg);
-    });
-  }, [s.router, s.refetchProviders, s.setSelectedSection, s.setProviderSuccess, s.setProviderError]);
+    void connectFn
+      .then(() => {
+        setProviderSuccess('Account connected successfully');
+        void refetchProviders();
+      })
+      .catch((error) => {
+        setProviderError(getProviderConnectError(error));
+      });
+  }, [
+    isReady,
+    pathname,
+    query,
+    refetchProviders,
+    router,
+    setProviderError,
+    setProviderSuccess,
+    setSelectedSection,
+  ]);
 
   if (!s.hydrated) {
     return (

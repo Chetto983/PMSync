@@ -3,9 +3,8 @@ process.env.BETTER_AUTH_SECRET = 'test-csrf-secret-for-jest-integration';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
- 
-const request = require('supertest');
-const cookieParser = require('cookie-parser');
+import request from 'supertest';
+import cookieParser from 'cookie-parser';
 
 /**
  * CSRF Token Endpoint E2E Tests (PARANOID)

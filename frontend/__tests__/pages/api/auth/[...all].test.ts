@@ -1,4 +1,20 @@
+import type { NextApiRequest, NextApiResponse } from 'next';
 import handler from '@/pages/api/auth/[...all]';
+
+interface MockApiResponse {
+  status: jest.MockedFunction<(statusCode: number) => MockApiResponse>;
+  setHeader: jest.MockedFunction<(name: string, value: string) => void>;
+  appendHeader: jest.MockedFunction<(name: string, value: string) => void>;
+  send: jest.MockedFunction<(body: string) => void>;
+  end: jest.MockedFunction<() => void>;
+  json: jest.MockedFunction<(body: unknown) => void>;
+}
+
+type MockApiRequest = NextApiRequest & AsyncIterable<Uint8Array>;
+
+function createAsyncIterator(): AsyncGenerator<Uint8Array> {
+  return (async function* emptyIterator() {})();
+}
 
 describe('auth proxy handler', () => {
   const originalFetch = global.fetch;
@@ -17,14 +33,16 @@ describe('auth proxy handler', () => {
   });
 
   function createResponseMock() {
-    const res: Record<string, jest.Mock> = {};
-    res.status = jest.fn().mockReturnValue(res);
-    res.setHeader = jest.fn();
-    res.appendHeader = jest.fn();
-    res.send = jest.fn();
-    res.end = jest.fn();
-    res.json = jest.fn();
-    return res as any;
+    const res: MockApiResponse = {
+      status: jest.fn(),
+      setHeader: jest.fn(),
+      appendHeader: jest.fn(),
+      send: jest.fn(),
+      end: jest.fn(),
+      json: jest.fn(),
+    };
+    res.status.mockReturnValue(res);
+    return res;
   }
 
   it('preserves multiple set-cookie headers and strips backend domain', async () => {
@@ -45,18 +63,18 @@ describe('auth proxy handler', () => {
       text: jest.fn().mockResolvedValue('{"ok":true}'),
     } as unknown as Response;
 
-    global.fetch = jest.fn().mockResolvedValue(response) as any;
+    global.fetch = jest.fn().mockResolvedValue(response) as unknown as typeof fetch;
 
     const req = {
       method: 'GET',
       query: { all: ['callback', 'google'], state: 'opaque-state' },
       headers: { cookie: 'existing=1' },
       socket: { remoteAddress: '127.0.0.1' },
-      [Symbol.asyncIterator]: async function* () {},
-    } as any;
+      [Symbol.asyncIterator]: createAsyncIterator,
+    } as unknown as MockApiRequest;
     const res = createResponseMock();
 
-    await handler(req, res);
+    await handler(req, res as unknown as NextApiResponse);
 
     expect(res.appendHeader).toHaveBeenNthCalledWith(
       1,
@@ -84,18 +102,18 @@ describe('auth proxy handler', () => {
       text: jest.fn().mockResolvedValue(''),
     } as unknown as Response;
 
-    global.fetch = jest.fn().mockResolvedValue(response) as any;
+    global.fetch = jest.fn().mockResolvedValue(response) as unknown as typeof fetch;
 
     const req = {
       method: 'GET',
       query: { all: ['sign-in', 'social'] },
       headers: {},
       socket: { remoteAddress: '127.0.0.1' },
-      [Symbol.asyncIterator]: async function* () {},
-    } as any;
+      [Symbol.asyncIterator]: createAsyncIterator,
+    } as unknown as MockApiRequest;
     const res = createResponseMock();
 
-    await handler(req, res);
+    await handler(req, res as unknown as NextApiResponse);
 
     expect(res.setHeader).toHaveBeenCalledWith(
       'location',
@@ -109,18 +127,18 @@ describe('auth proxy handler', () => {
 
     const secretUrl =
       'https://backend.example.com/api/auth/callback/google?code=SECRET_AUTH_CODE&state=SECRET_STATE';
-    global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) as any;
+    global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof fetch;
 
     const req = {
       method: 'GET',
       query: { all: ['callback', 'google'], code: 'SECRET_AUTH_CODE', state: 'SECRET_STATE' },
       headers: {},
       socket: { remoteAddress: '127.0.0.1' },
-      [Symbol.asyncIterator]: async function* () {},
-    } as any;
+      [Symbol.asyncIterator]: createAsyncIterator,
+    } as unknown as MockApiRequest;
     const res = createResponseMock();
 
-    await handler(req, res);
+    await handler(req, res as unknown as NextApiResponse);
 
     expect(res.status).toHaveBeenCalledWith(502);
     expect(res.json).toHaveBeenCalledWith({ error: 'Auth proxy error' });
@@ -136,7 +154,7 @@ describe('auth proxy handler', () => {
   it('does not log OAuth codes, tokens, or verification tokens', async () => {
     process.env.NEXT_PUBLIC_API_URL = 'https://backend.example.com';
 
-    global.fetch = jest.fn().mockRejectedValue(new Error('timeout')) as any;
+    global.fetch = jest.fn().mockRejectedValue(new Error('timeout')) as unknown as typeof fetch;
 
     const req = {
       method: 'GET',
@@ -147,11 +165,11 @@ describe('auth proxy handler', () => {
       },
       headers: {},
       socket: { remoteAddress: '127.0.0.1' },
-      [Symbol.asyncIterator]: async function* () {},
-    } as any;
+      [Symbol.asyncIterator]: createAsyncIterator,
+    } as unknown as MockApiRequest;
     const res = createResponseMock();
 
-    await handler(req, res);
+    await handler(req, res as unknown as NextApiResponse);
 
     for (const call of consoleErrorSpy.mock.calls) {
       const logged = call.join(' ');

@@ -1,3 +1,4 @@
+import type { AuthSessionData } from '@/lib/auth-client';
 import { render, screen } from '@testing-library/react';
 import { OrgSwitcher } from './OrgSwitcher';
 
@@ -35,7 +36,7 @@ jest.mock('@/lib/auth-client', () => ({
       },
     }),
   },
-  getActiveOrganizationId: (session: any) =>
+  getActiveOrganizationId: (session: AuthSessionData | null | undefined) =>
     session?.session?.activeOrganizationId ?? session?.user?.tenantId ?? null,
 }));
 

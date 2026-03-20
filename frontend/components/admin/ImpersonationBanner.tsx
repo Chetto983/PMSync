@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, Button, Box } from '@mui/material';
-import { authClient } from '@/lib/auth-client';
+import { authClient, type SessionUser } from '@/lib/auth-client';
 import { useStopImpersonating } from '@/hooks/queries/use-admin';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -15,7 +15,10 @@ export function ImpersonationBanner() {
   const stopImpersonating = useStopImpersonating();
 
   // better-auth sets impersonatedBy on the session when impersonating
-  const sessionData = session as any;
+  const sessionData = session as ({
+    session?: { impersonatedBy?: string | null } | null;
+    user?: Pick<SessionUser, 'name' | 'email'> | null;
+  } | null | undefined);
   const isImpersonating = !!sessionData?.session?.impersonatedBy;
   const userName = sessionData?.user?.name || sessionData?.user?.email || '';
 

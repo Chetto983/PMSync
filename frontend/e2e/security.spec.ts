@@ -55,7 +55,7 @@ test.describe('Security settings', () => {
   // Password change + re-login + restore needs more than the default 120s
   test('change password and verify login with new password', async ({
     page,
-    browser,
+    browser: _browser,
   }) => {
     test.setTimeout(180_000);
     await goToSecuritySettings(page);

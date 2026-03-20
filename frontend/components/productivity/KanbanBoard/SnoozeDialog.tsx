@@ -7,19 +7,15 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Box,
   Typography,
-  Skeleton,
   Chip,
   TextField,
+  alpha,
+  useTheme,
 } from '@mui/material';
-import { Calendar, Sparkles, Clock } from 'lucide-react';
-import { format, addDays, addWeeks } from 'date-fns';
-// Smart timing endpoint removed — no backend support
+import { Calendar, Clock, Sun, ArrowRight } from 'lucide-react';
+import { format, addDays, addWeeks, addMonths } from 'date-fns';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface SnoozeDialogProps {
@@ -29,123 +25,164 @@ interface SnoozeDialogProps {
   onSnooze: (date: Date) => void;
 }
 
-export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDialogProps) {
-  const t = useTranslations();
-  const [customDateStr, setCustomDateStr] = useState<string>('');
-  const smartTiming = null as { suggestedDate?: string; reason?: string } | null;
-  const isLoading = false;
+interface PresetOption {
+  label: string;
+  icon: React.ReactNode;
+  getDate: () => Date;
+  description: string;
+}
 
-  // Min date for custom picker (today)
+export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDialogProps) {
+  const theme = useTheme();
+  const t = useTranslations();
+  const [showCustom, setShowCustom] = useState(false);
+  const [customDateStr, setCustomDateStr] = useState('');
+
   const minDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
-  const formatDateDisplay = (date: Date) => format(date, 'EEEE, MMM d');
+  const presets: PresetOption[] = useMemo(
+    () => [
+      {
+        label: t.ai.followUpTracker.snooze.tomorrow,
+        icon: <Sun size={14} />,
+        getDate: () => addDays(new Date(), 1),
+        description: format(addDays(new Date(), 1), 'EEEE, MMM d'),
+      },
+      {
+        label: t.ai.followUpTracker.snooze.inThreeDays || 'In 3 days',
+        icon: <Clock size={14} />,
+        getDate: () => addDays(new Date(), 3),
+        description: format(addDays(new Date(), 3), 'EEEE, MMM d'),
+      },
+      {
+        label: t.ai.followUpTracker.snooze.nextWeek,
+        icon: <Calendar size={14} />,
+        getDate: () => addWeeks(new Date(), 1),
+        description: format(addWeeks(new Date(), 1), 'EEEE, MMM d'),
+      },
+      {
+        label: t.ai.followUpTracker.snooze.nextMonth || 'Next month',
+        icon: <ArrowRight size={14} />,
+        getDate: () => addMonths(new Date(), 1),
+        description: format(addMonths(new Date(), 1), 'MMM d'),
+      },
+    ],
+    [t],
+  );
 
-  const handlePreset = (days: number) => {
-    const newDate = days === 7 ? addWeeks(new Date(), 1) : addDays(new Date(), days);
-    onSnooze(newDate);
-    onClose();
-  };
-
-  const handleSmartTiming = () => {
-    if (smartTiming?.suggestedDate) {
-      onSnooze(new Date(smartTiming.suggestedDate));
-      onClose();
-    }
+  const handlePreset = (preset: PresetOption) => {
+    onSnooze(preset.getDate());
+    handleClose();
   };
 
   const handleCustomDate = () => {
     if (customDateStr) {
       onSnooze(new Date(customDateStr));
-      onClose();
-      setCustomDateStr('');
+      handleClose();
     }
   };
 
+  const handleClose = () => {
+    setShowCustom(false);
+    setCustomDateStr('');
+    onClose();
+  };
+
+  if (!followUpId) return null;
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{t.ai.followUpTracker.snooze.title}</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: { borderRadius: 3 },
+      }}
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Clock size={18} />
+          {t.ai.followUpTracker.snooze.title}
+        </Box>
+      </DialogTitle>
       <DialogContent>
-        {/* Smart Timing Recommendation */}
-        {followUpId && (
-          <Box sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Sparkles size={16} />
-              <Typography variant="body2" fontWeight={600}>
-                {t.ai.followUpTracker.smartTiming.recommended}
-              </Typography>
-              <Chip label="AI" size="small" color="primary" sx={{ height: 20, fontSize: 11 }} />
-            </Box>
-            {isLoading ? (
-              <Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
-            ) : smartTiming?.suggestedDate ? (
-              <>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  onClick={handleSmartTiming}
-                  startIcon={<Clock size={16} />}
-                  sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
-                >
-                  {format(new Date(smartTiming.suggestedDate), "EEEE, MMM d 'at' h:mm a")}
-                </Button>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                  {smartTiming.reason}
-                </Typography>
-              </>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                {t.ai.followUpTracker.smartTiming.basedOnPatterns}
-              </Typography>
-            )}
-          </Box>
-        )}
-
-        {/* Preset Options */}
-        <List disablePadding>
-          <ListItemButton onClick={() => handlePreset(1)}>
-            <ListItemIcon><Calendar size={20} /></ListItemIcon>
-            <ListItemText
-              primary={t.ai.followUpTracker.snooze.tomorrow}
-              secondary={formatDateDisplay(addDays(new Date(), 1))}
-            />
-          </ListItemButton>
-          <ListItemButton onClick={() => handlePreset(7)}>
-            <ListItemIcon><Calendar size={20} /></ListItemIcon>
-            <ListItemText
-              primary={t.ai.followUpTracker.snooze.nextWeek}
-              secondary={formatDateDisplay(addWeeks(new Date(), 1))}
-            />
-          </ListItemButton>
-        </List>
-
-        {/* Custom Date Picker */}
-        <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {t.ai.followUpTracker.snooze.custom}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              type="date"
-              size="small"
-              fullWidth
-              value={customDateStr}
-              onChange={(e) => setCustomDateStr(e.target.value)}
-              inputProps={{ min: minDate }}
-            />
-            <Button
-              variant="contained"
-              disabled={!customDateStr}
-              onClick={handleCustomDate}
-              sx={{ minWidth: 80 }}
+        {/* Quick preset chips */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {presets.map((preset) => (
+            <Box
+              key={preset.label}
+              onClick={() => handlePreset(preset)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                px: 2,
+                py: 1.25,
+                borderRadius: 2,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: 'divider',
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  borderColor: alpha(theme.palette.primary.main, 0.3),
+                },
+              }}
             >
-              {t.common.apply}
-            </Button>
-          </Box>
+              <Box sx={{ color: 'text.secondary', display: 'flex' }}>{preset.icon}</Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {preset.label}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {preset.description}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+
+        {/* Custom date toggle */}
+        <Box sx={{ mt: 2 }}>
+          {!showCustom ? (
+            <Chip
+              label={t.ai.followUpTracker.snooze.pickDate || 'Pick date'}
+              icon={<Calendar size={14} />}
+              variant="outlined"
+              onClick={() => setShowCustom(true)}
+              sx={{
+                cursor: 'pointer',
+                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+              }}
+            />
+          ) : (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+              <TextField
+                type="date"
+                size="small"
+                fullWidth
+                value={customDateStr}
+                onChange={(e) => setCustomDateStr(e.target.value)}
+                inputProps={{ min: minDate }}
+                label={t.ai.followUpTracker.snooze.custom}
+                InputLabelProps={{ shrink: true }}
+              />
+              <Button
+                variant="contained"
+                size="small"
+                disabled={!customDateStr}
+                onClick={handleCustomDate}
+                sx={{ minWidth: 80, height: 40 }}
+              >
+                {t.common.apply}
+              </Button>
+            </Box>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t.common.cancel}</Button>
+        <Button onClick={handleClose}>{t.common.cancel}</Button>
       </DialogActions>
     </Dialog>
   );

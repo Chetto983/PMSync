@@ -29,6 +29,12 @@ export function InviteMemberDialog({
   const [success, setSuccess] = useState(false);
   const inviteMember = useInviteMember();
 
+  const getErrorMessage = (error: unknown) => (
+    error instanceof Error && error.message
+      ? error.message
+      : t.common.genericError
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -48,8 +54,8 @@ export function InviteMemberDialog({
         setSuccess(false);
         onClose();
       }, 1500);
-    } catch (err: any) {
-      setError(err?.message || t.common.genericError);
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     }
   };
 

@@ -41,6 +41,22 @@ import {
 } from '@/hooks/queries';
 import { InviteMemberDialog } from './InviteMemberDialog';
 
+interface OrganizationListItem {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface OrganizationMemberRow {
+  id: string;
+  createdAt?: string | Date | null;
+  email?: string | null;
+  userId?: string | null;
+  user?: {
+    email?: string | null;
+  } | null;
+}
+
 // ==========================================================================
 // Create Organization Dialog
 // ==========================================================================
@@ -57,6 +73,12 @@ function CreateOrgDialog({
   const [slug, setSlug] = useState('');
   const [error, setError] = useState('');
   const createOrg = useCreateOrg();
+
+  const getErrorMessage = (error: unknown) => (
+    error instanceof Error && error.message
+      ? error.message
+      : t.common.genericError
+  );
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -80,8 +102,8 @@ function CreateOrgDialog({
       setName('');
       setSlug('');
       onClose();
-    } catch (err: any) {
-      setError(err?.message || t.common.genericError);
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     }
   };
 
@@ -159,6 +181,12 @@ function DeleteOrgDialog({
   const [error, setError] = useState('');
   const deleteOrg = useDeleteOrg();
 
+  const getErrorMessage = (error: unknown) => (
+    error instanceof Error && error.message
+      ? error.message
+      : t.common.genericError
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -168,8 +196,8 @@ function DeleteOrgDialog({
       await deleteOrg.mutateAsync(orgId);
       setConfirmation('');
       onClose();
-    } catch (err: any) {
-      setError(err?.message || t.common.genericError);
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     }
   };
 
@@ -240,7 +268,7 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
     );
   }
 
-  const members = orgDetail?.members ?? [];
+  const members = (orgDetail?.members ?? []) as OrganizationMemberRow[];
 
   const handleRemove = async (memberIdOrEmail: string) => {
     if (!confirm(t.organizations.removeConfirm)) return;
@@ -262,32 +290,38 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {members.map((member: any) => (
-            <TableRow key={member.id}>
-              <TableCell>
-                {member.user?.email || member.email || member.userId}
-              </TableCell>
-              <TableCell>
-                {member.createdAt
-                  ? new Date(member.createdAt).toLocaleDateString()
-                  : '-'}
-              </TableCell>
-              <TableCell align="right">
-                <Tooltip title={t.organizations.removeMember}>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() =>
-                      handleRemove(member.user?.email || member.userId)
-                    }
-                    disabled={removeMember.isPending}
-                  >
-                    <UserMinus size={16} />
-                  </IconButton>
-                </Tooltip>
-              </TableCell>
-            </TableRow>
-          ))}
+          {members.map((member) => {
+            const memberIdentifier = member.user?.email || member.userId || member.email;
+
+            return (
+              <TableRow key={member.id}>
+                <TableCell>{memberIdentifier || '-'}</TableCell>
+                <TableCell>
+                  {member.createdAt
+                    ? new Date(member.createdAt).toLocaleDateString()
+                    : '-'}
+                </TableCell>
+                <TableCell align="right">
+                  <Tooltip title={t.organizations.removeMember}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          if (memberIdentifier) {
+                            void handleRemove(memberIdentifier);
+                          }
+                        }}
+                        disabled={removeMember.isPending || !memberIdentifier}
+                      >
+                        <UserMinus size={16} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            );
+          })}
           {members.length === 0 && (
             <TableRow>
               <TableCell colSpan={3} align="center">
@@ -310,6 +344,7 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
 export function OrgAdminPage() {
   const t = useTranslations();
   const { data: orgs, isLoading, error } = useOrganizations();
+  const organizations = (orgs ?? []) as OrganizationListItem[];
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -356,7 +391,7 @@ export function OrgAdminPage() {
             <Skeleton key={i} variant="rectangular" height={56} sx={{ mb: 1 }} />
           ))}
         </Box>
-      ) : !orgs?.length ? (
+      ) : organizations.length === 0 ? (
         <Alert severity="info">{t.organizations.noOrganizations}</Alert>
       ) : (
         <TableContainer component={Paper} variant="outlined">
@@ -370,7 +405,7 @@ export function OrgAdminPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {(orgs as any[]).map((org: any) => (
+              {organizations.map((org) => (
                 <React.Fragment key={org.id}>
                   <TableRow
                     hover

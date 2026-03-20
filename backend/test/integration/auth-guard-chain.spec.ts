@@ -14,9 +14,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-
-const request = require('supertest');
-const cookieParser = require('cookie-parser');
+import request from 'supertest';
+import cookieParser from 'cookie-parser';
 
 import { BETTER_AUTH } from '../../src/common/auth/better-auth.module';
 import { BetterAuthGuard } from '../../src/common/auth/better-auth.guard';

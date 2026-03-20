@@ -16,6 +16,11 @@ import {
   getActiveOrganizationId,
 } from '@/lib/auth-client';
 
+interface OrgSwitcherOrganization {
+  id: string;
+  name: string;
+}
+
 /**
  * Organization switcher dropdown.
  * Only renders if the current user belongs to 2+ organizations.
@@ -24,15 +29,16 @@ import {
 export function OrgSwitcher() {
   const t = useTranslations();
   const { data: orgs } = useOrganizations();
+  const organizations = (orgs ?? []) as OrgSwitcherOrganization[];
   const setActiveOrg = useSetActiveOrg();
   const { data: session } = authClient.useSession();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   // Only render for users with 2+ orgs
-  if (!orgs || orgs.length < 2) return null;
+  if (organizations.length < 2) return null;
 
   const activeOrgId = getActiveOrganizationId(session);
-  const activeOrg = (orgs as any[]).find((o: any) => o.id === activeOrgId);
+  const activeOrg = organizations.find((org) => org.id === activeOrgId);
 
   const handleSwitch = async (orgId: string) => {
     setAnchorEl(null);
@@ -79,7 +85,7 @@ export function OrgSwitcher() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
-        {(orgs as any[]).map((org: any) => (
+        {organizations.map((org) => (
           <MenuItem
             key={org.id}
             onClick={() => handleSwitch(org.id)}

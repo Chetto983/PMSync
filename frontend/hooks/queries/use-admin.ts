@@ -20,6 +20,31 @@ export interface AdminUsersParams {
   searchOperator?: string;
 }
 
+interface AdminUserListResult {
+  users: unknown[];
+  total: number;
+}
+
+interface AdminSessionListResult {
+  sessions?: unknown[];
+}
+
+interface AdminClientResponse<T> {
+  data?: T | null;
+}
+
+interface AdminClientMethods {
+  listUsers: (args: { query: Record<string, unknown> }) => Promise<AdminClientResponse<AdminUserListResult>>;
+  listUserSessions: (args: { query: { userId: string } }) => Promise<AdminClientResponse<AdminSessionListResult | unknown[]>>;
+  banUser: (args: { userId: string; banReason?: string; banExpiresIn?: number }) => Promise<AdminClientResponse<unknown>>;
+  unbanUser: (args: { userId: string }) => Promise<AdminClientResponse<unknown>>;
+  impersonateUser: (args: { userId: string }) => Promise<AdminClientResponse<unknown>>;
+  stopImpersonating: () => Promise<AdminClientResponse<unknown>>;
+  revokeUserSessions: (args: { userId: string }) => Promise<AdminClientResponse<unknown>>;
+}
+
+const adminClient = authClient.admin as unknown as AdminClientMethods;
+
 // ==========================================================================
 // Query Options
 // ==========================================================================
@@ -37,8 +62,8 @@ export function adminUsersOptions(params: AdminUsersParams = {}) {
   return queryOptions({
     queryKey: adminKeys.users(params),
     queryFn: async () => {
-      const res = await (authClient.admin as any).listUsers({ query });
-      return res.data as { users: any[]; total: number };
+      const res = await adminClient.listUsers({ query });
+      return res.data ?? { users: [], total: 0 };
     },
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
@@ -50,8 +75,11 @@ export function adminUserSessionsOptions(userId: string) {
   return queryOptions({
     queryKey: adminKeys.userSessions(userId),
     queryFn: async () => {
-      const res = await (authClient.admin as any).listUserSessions({ query: { userId } });
-      return res.data?.sessions ?? res.data ?? [];
+      const res = await adminClient.listUserSessions({ query: { userId } });
+      if (Array.isArray(res.data)) {
+        return res.data;
+      }
+      return res.data?.sessions ?? [];
     },
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
@@ -88,7 +116,7 @@ export function useBanUser() {
       banReason?: string;
       banExpiresIn?: number;
     }) => {
-      const res = await (authClient.admin as any).banUser({
+      const res = await adminClient.banUser({
         userId: data.userId,
         banReason: data.banReason,
         banExpiresIn: data.banExpiresIn,
@@ -107,7 +135,7 @@ export function useUnbanUser() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      const res = await (authClient.admin as any).unbanUser({ userId });
+      const res = await adminClient.unbanUser({ userId });
       return res.data;
     },
     onSuccess: () => {
@@ -120,7 +148,7 @@ export function useUnbanUser() {
 export function useImpersonateUser() {
   return useMutation({
     mutationFn: async (userId: string) => {
-      const res = await (authClient.admin as any).impersonateUser({ userId });
+      const res = await adminClient.impersonateUser({ userId });
       return res.data;
     },
     onSuccess: () => {
@@ -133,7 +161,7 @@ export function useImpersonateUser() {
 export function useStopImpersonating() {
   return useMutation({
     mutationFn: async () => {
-      const res = await (authClient.admin as any).stopImpersonating();
+      const res = await adminClient.stopImpersonating();
       return res.data;
     },
     onSuccess: () => {
@@ -148,7 +176,7 @@ export function useRevokeUserSessions() {
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      const res = await (authClient.admin as any).revokeUserSessions({ userId });
+      const res = await adminClient.revokeUserSessions({ userId });
       return res.data;
     },
     onSuccess: () => {

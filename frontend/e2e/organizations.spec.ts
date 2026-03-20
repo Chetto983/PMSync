@@ -10,6 +10,25 @@ import { test, expect, type BrowserContext } from '@playwright/test';
 const ORG_NAME = `E2E Org ${Date.now()}`;
 const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL ?? 'member@pmsync.local';
 
+interface SessionResponse {
+  session?: {
+    activeOrganizationId?: string | null;
+  } | null;
+}
+
+interface OrganizationListItem {
+  id: string;
+  name: string;
+}
+
+interface OrganizationInvitation {
+  id: string;
+  organizationId?: string | null;
+  organization?: {
+    name?: string | null;
+  } | null;
+}
+
 // Serial execution -- tests share mutable state (orgId, invitationId)
 test.describe.configure({ mode: 'serial' });
 
@@ -59,8 +78,8 @@ test.describe('Organization flows', () => {
       headers: { Accept: 'application/json' },
     });
     if (sessionRes.ok()) {
-      const session = await sessionRes.json();
-      originalOrgId = (session as any)?.session?.activeOrganizationId;
+      const session = await sessionRes.json() as SessionResponse;
+      originalOrgId = session.session?.activeOrganizationId ?? undefined;
     }
 
     // Click "Create Organization" button
@@ -93,8 +112,8 @@ test.describe('Organization flows', () => {
       headers: { Accept: 'application/json' },
     });
     expect(response.ok()).toBeTruthy();
-    const orgs = await response.json();
-    const created = (orgs as any[]).find((o: any) => o.name === ORG_NAME);
+    const orgs = await response.json() as OrganizationListItem[];
+    const created = orgs.find((org) => org.name === ORG_NAME);
     expect(created).toBeTruthy();
     createdOrgId = created.id;
 
@@ -157,15 +176,15 @@ test.describe('Organization flows', () => {
         { headers: { Accept: 'application/json' } },
       );
       expect(invResponse.ok()).toBeTruthy();
-      const invitations = await invResponse.json();
+      const invitations = await invResponse.json() as OrganizationInvitation[];
       expect(Array.isArray(invitations)).toBeTruthy();
-      expect((invitations as any[]).length).toBeGreaterThan(0);
+      expect(invitations.length).toBeGreaterThan(0);
 
       // Find the invitation for our org
-      const inv = (invitations as any[]).find(
-        (i: any) =>
-          i.organizationId === createdOrgId ||
-          i.organization?.name === ORG_NAME,
+      const inv = invitations.find(
+        (invitation) =>
+          invitation.organizationId === createdOrgId ||
+          invitation.organization?.name === ORG_NAME,
       );
       expect(inv).toBeTruthy();
       invitationId = inv.id;

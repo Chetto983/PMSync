@@ -90,7 +90,7 @@ describe('DraggableThreadListItem', () => {
       setNodeRef: jest.fn(),
       setActivatorNodeRef: jest.fn(),
       transform: null,
-    } as any);
+    } as unknown as ReturnType<typeof useDraggable>);
   });
 
   it('attaches drag props to the dedicated handle instead of the whole row', () => {

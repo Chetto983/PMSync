@@ -10,6 +10,8 @@
  */
 import { Readable, PassThrough } from 'stream';
 import { pipeline } from 'stream/promises';
+import * as fs from 'fs';
+import * as path from 'path';
 
 describe('Attachment Streaming', () => {
   function toNodeReadableStream(streamBody: unknown): NodeJS.ReadableStream {
@@ -148,8 +150,6 @@ describe('Attachment Streaming', () => {
   it('does NOT call arrayBuffer on the S3 response body', () => {
     // This is a static analysis check -- verify the controller source code
     // does not contain arrayBuffer() or Buffer.from() buffering pattern
-    const fs = require('fs');
-    const path = require('path');
     const controllerPath = path.resolve(
       __dirname,
       '../attachments.controller.ts',

@@ -11,200 +11,353 @@ import { persistUserSettings } from '@/lib/utils/user-settings';
 import { logger } from '@/lib/logger';
 import { resizeImage } from './settings-utils';
 import type { useSettingsState } from './useSettingsState';
+import type { useSettingsCopy } from './useSettingsCopy';
 import type { SettingsSection } from './useSettingsState';
 
 type State = ReturnType<typeof useSettingsState>;
+type SettingsCopy = ReturnType<typeof useSettingsCopy>['settingsCopy'];
 
-export function useSettingsHandlers(s: State, settingsCopy: Record<string, any>) {
+export function useSettingsHandlers(s: State, settingsCopy: SettingsCopy) {
+  const {
+    router,
+    language,
+    timezone,
+    emailDensity,
+    emailNotifications,
+    setSelectedSection,
+    setSaveLoading,
+    setGeneralError,
+    setGeneralSuccess,
+    syncAllMutation,
+    setProviderSuccess,
+    setProviderError,
+    refetchProviders,
+    setAiError,
+    setAiSuccess,
+    setAiDataLoading,
+    smartRepliesEnabled,
+    summarizationEnabled,
+    schedulingEnabled,
+    triageEnabled,
+    autoApproveThreshold,
+    jobRole,
+    communicationStyle,
+    responseLength,
+    proactivityLevel,
+    updatePreferencesMutation,
+    deleteConfirmText,
+    setDeleteLoading,
+    setDeleteError,
+    logout,
+    setDeleteDialogOpen,
+    setDeleteConfirmText,
+    setAvatarUrl,
+    setAvatarUploading,
+    setSignatureError,
+    createSignatureMutation,
+    updateSignatureMutation,
+    deleteSignatureMutation,
+    setDefaultSignatureMutation,
+  } = s;
+
+  const generalSaveSuccess = settingsCopy.generalPanel?.saveSuccess || 'Settings saved';
+  const generalSaveError = settingsCopy.generalPanel?.saveError || 'Failed to save';
+  const syncConfirmMessage = settingsCopy.mailAccountsPanel?.syncConfirm || 'Sync all accounts?';
+  const syncStartedMessage = settingsCopy.mailAccountsPanel?.syncStarted || 'Sync started';
+  const syncFailedMessage = settingsCopy.mailAccountsPanel?.syncFailed || 'Sync failed';
+  const aiSavedMessage = settingsCopy.aiPanel?.savePreferences || 'Saved';
+  const clearAiMemoryConfirmMessage =
+    settingsCopy.aiPanel?.clearMemoryConfirm || 'This will delete your AI memory. Continue?';
+  const clearAiMemorySuccessMessage = settingsCopy.aiPanel?.clearMemory || 'Memory cleared';
+  const deleteAccountError = settingsCopy.accountPanel?.deleteDialogError || 'Failed to delete';
+
   const handleSectionSelect = useCallback(
     (sectionId: SettingsSection) => {
-      s.setSelectedSection(sectionId);
-      if (!s.router.isReady) return;
-      s.router.replace({ pathname: s.router.pathname, query: { section: sectionId } }, undefined, { shallow: true });
+      setSelectedSection(sectionId);
+      if (!router.isReady) {
+        return;
+      }
+
+      void router.replace(
+        { pathname: router.pathname, query: { section: sectionId } },
+        undefined,
+        { shallow: true },
+      );
     },
-    [s.router, s.setSelectedSection],
+    [router, setSelectedSection],
   );
 
   const handleSaveSettings = useCallback(async () => {
     try {
-      s.setSaveLoading(true);
-      s.setGeneralError('');
-      s.setGeneralSuccess('');
-      await usersApi.updatePreferences({ language: s.language, timezone: s.timezone, emailDensity: s.emailDensity });
-      persistUserSettings({ language: s.language, timezone: s.timezone, emailNotifications: s.emailNotifications });
-      s.setGeneralSuccess(settingsCopy.generalPanel?.saveSuccess || 'Settings saved');
+      setSaveLoading(true);
+      setGeneralError('');
+      setGeneralSuccess('');
+      await usersApi.updatePreferences({
+        language,
+        timezone,
+        emailDensity,
+      });
+      persistUserSettings({
+        language,
+        timezone,
+        emailNotifications,
+      });
+      setGeneralSuccess(generalSaveSuccess);
     } catch {
-      s.setGeneralError(settingsCopy.generalPanel?.saveError || 'Failed to save');
+      setGeneralError(generalSaveError);
     } finally {
-      s.setSaveLoading(false);
+      setSaveLoading(false);
     }
-  }, [s.language, s.timezone, s.emailDensity, s.emailNotifications, s.setSaveLoading, s.setGeneralError, s.setGeneralSuccess, settingsCopy]);
+  }, [
+    emailDensity,
+    emailNotifications,
+    generalSaveError,
+    generalSaveSuccess,
+    language,
+    setGeneralError,
+    setGeneralSuccess,
+    setSaveLoading,
+    timezone,
+  ]);
 
   const handleSyncAll = useCallback(async () => {
-    if (!confirm(settingsCopy.mailAccountsPanel?.syncConfirm || 'Sync all accounts?')) {
+    if (!confirm(syncConfirmMessage)) {
       return;
     }
+
     try {
-      const result = await s.syncAllMutation.mutateAsync();
+      const result = await syncAllMutation.mutateAsync();
       if (result.success) {
-        s.setProviderSuccess(result.message || settingsCopy.mailAccountsPanel?.syncStarted || 'Sync started');
+        setProviderSuccess(result.message || syncStartedMessage);
       } else {
-        s.setProviderError(result.message || 'Sync returned unsuccessful');
+        setProviderError(result.message || 'Sync returned unsuccessful');
       }
     } catch {
-      s.setProviderError(settingsCopy.mailAccountsPanel?.syncFailed || 'Sync failed');
+      setProviderError(syncFailedMessage);
     }
-  }, [s.syncAllMutation, s.setProviderSuccess, s.setProviderError, settingsCopy]);
+  }, [
+    setProviderError,
+    setProviderSuccess,
+    syncAllMutation,
+    syncConfirmMessage,
+    syncFailedMessage,
+    syncStartedMessage,
+  ]);
 
   const handleSaveAiProfile = useCallback(async () => {
     try {
-      s.setAiError('');
-      s.setAiSuccess('');
-      const jobTitle = s.jobRole.trim();
-      await s.updatePreferencesMutation.mutateAsync({
-        aiSmartRepliesEnabled: s.smartRepliesEnabled,
-        aiSummarizationEnabled: s.summarizationEnabled,
-        aiSchedulingEnabled: s.schedulingEnabled,
-        aiAutoTriageEnabled: s.triageEnabled,
-        aiAutoApproveThreshold: s.autoApproveThreshold / 100,
-        jobTitle: jobTitle || undefined,
-        communicationStyle: s.communicationStyle,
-        responseLength: s.responseLength,
-        proactivityLevel: s.proactivityLevel,
+      setAiError('');
+      setAiSuccess('');
+      const normalizedJobTitle = jobRole.trim();
+
+      await updatePreferencesMutation.mutateAsync({
+        aiSmartRepliesEnabled: smartRepliesEnabled,
+        aiSummarizationEnabled: summarizationEnabled,
+        aiSchedulingEnabled: schedulingEnabled,
+        aiAutoTriageEnabled: triageEnabled,
+        aiAutoApproveThreshold: autoApproveThreshold / 100,
+        jobTitle: normalizedJobTitle || undefined,
+        communicationStyle,
+        responseLength,
+        proactivityLevel,
       });
-      s.setAiSuccess(settingsCopy.aiPanel?.savePreferences || 'Saved');
+
+      setAiSuccess(aiSavedMessage);
     } catch {
-      s.setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
+      setAiError(generalSaveError);
     }
-  }, [s.smartRepliesEnabled, s.summarizationEnabled, s.schedulingEnabled, s.triageEnabled, s.autoApproveThreshold, s.jobRole, s.communicationStyle, s.responseLength, s.proactivityLevel, s.updatePreferencesMutation, s.setAiError, s.setAiSuccess, settingsCopy]);
+  }, [
+    aiSavedMessage,
+    autoApproveThreshold,
+    communicationStyle,
+    generalSaveError,
+    jobRole,
+    proactivityLevel,
+    responseLength,
+    schedulingEnabled,
+    setAiError,
+    setAiSuccess,
+    smartRepliesEnabled,
+    summarizationEnabled,
+    triageEnabled,
+    updatePreferencesMutation,
+  ]);
 
   const handleClearAiMemory = useCallback(async () => {
-    if (
-      !confirm(
-        settingsCopy.aiPanel?.clearMemoryConfirm ||
-          'This will delete your AI memory. Continue?',
-      )
-    ) {
+    if (!confirm(clearAiMemoryConfirmMessage)) {
       return;
     }
 
     try {
-      s.setAiDataLoading(true);
-      s.setAiError('');
-      s.setAiSuccess('');
+      setAiDataLoading(true);
+      setAiError('');
+      setAiSuccess('');
       await usersApi.clearAiMemory();
-      s.setAiSuccess(settingsCopy.aiPanel?.clearMemory || 'Memory cleared');
+      setAiSuccess(clearAiMemorySuccessMessage);
     } catch {
-      s.setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
+      setAiError(generalSaveError);
     } finally {
-      s.setAiDataLoading(false);
+      setAiDataLoading(false);
     }
-  }, [s.setAiDataLoading, s.setAiError, s.setAiSuccess, settingsCopy]);
+  }, [
+    clearAiMemoryConfirmMessage,
+    clearAiMemorySuccessMessage,
+    generalSaveError,
+    setAiDataLoading,
+    setAiError,
+    setAiSuccess,
+  ]);
 
   const handleDeleteAccount = useCallback(async () => {
-    const confirmWord = s.language === 'it' ? 'ELIMINA' : 'DELETE';
-    if (s.deleteConfirmText !== confirmWord) return;
+    const confirmWord = language === 'it' ? 'ELIMINA' : 'DELETE';
+    if (deleteConfirmText !== confirmWord) {
+      return;
+    }
+
     try {
-      s.setDeleteLoading(true);
-      s.setDeleteError('');
+      setDeleteLoading(true);
+      setDeleteError('');
       await usersApi.deleteAccount();
-      await s.logout();
-      await s.router.push('/auth/login');
+      await logout();
+      await router.push('/auth/login');
     } catch (error) {
       logger.error('Failed to delete account', { error });
-      s.setDeleteError(settingsCopy.accountPanel?.deleteDialogError || 'Failed to delete');
+      setDeleteError(deleteAccountError);
     } finally {
-      s.setDeleteLoading(false);
+      setDeleteLoading(false);
     }
-  }, [s.deleteConfirmText, s.language, s.router, s.logout, s.setDeleteLoading, s.setDeleteError, settingsCopy]);
+  }, [
+    deleteAccountError,
+    deleteConfirmText,
+    language,
+    logout,
+    router,
+    setDeleteError,
+    setDeleteLoading,
+  ]);
 
-  const handleProviderInitiated = useCallback(() => s.setProviderSuccess('Redirecting...'), [s.setProviderSuccess]);
-  const handleProviderConnected = useCallback(() => { s.setProviderSuccess('Connected'); s.refetchProviders(); }, [s.setProviderSuccess, s.refetchProviders]);
-  const handleProviderDeleted = useCallback(() => { s.setProviderSuccess('Disconnected'); s.refetchProviders(); }, [s.setProviderSuccess, s.refetchProviders]);
-  const handleCloseDeleteDialog = useCallback(() => { s.setDeleteDialogOpen(false); s.setDeleteConfirmText(''); s.setDeleteError(''); }, [s.setDeleteDialogOpen, s.setDeleteConfirmText, s.setDeleteError]);
+  const handleProviderInitiated = useCallback(() => {
+    setProviderSuccess('Redirecting...');
+  }, [setProviderSuccess]);
+
+  const handleProviderConnected = useCallback(() => {
+    setProviderSuccess('Connected');
+    void refetchProviders();
+  }, [refetchProviders, setProviderSuccess]);
+
+  const handleProviderDeleted = useCallback(() => {
+    setProviderSuccess('Disconnected');
+    void refetchProviders();
+  }, [refetchProviders, setProviderSuccess]);
+
+  const handleCloseDeleteDialog = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setDeleteConfirmText('');
+    setDeleteError('');
+  }, [setDeleteConfirmText, setDeleteDialogOpen, setDeleteError]);
 
   const handleAvatarUpload = useCallback(async (file: File) => {
     try {
-      s.setAvatarUploading(true);
+      setAvatarUploading(true);
       const resizedDataUrl = await resizeImage(file);
       const result = await usersApi.uploadAvatar(resizedDataUrl);
-      s.setAvatarUrl(result.avatarUrl);
+      setAvatarUrl(result.avatarUrl);
     } catch (error) {
       logger.error('Failed to upload avatar', { error });
     } finally {
-      s.setAvatarUploading(false);
+      setAvatarUploading(false);
     }
-  }, [s.setAvatarUrl, s.setAvatarUploading]);
+  }, [setAvatarUploading, setAvatarUrl]);
 
   const handleAvatarRemove = useCallback(async () => {
     try {
-      s.setAvatarUploading(true);
-      // Clear from better-auth session + R2 storage + DB
+      setAvatarUploading(true);
       await authClient.updateUser({ image: '' });
       await usersApi.deleteAvatar();
-      s.setAvatarUrl(null);
+      setAvatarUrl(null);
     } catch (error) {
       logger.error('Failed to remove avatar', { error });
     } finally {
-      s.setAvatarUploading(false);
+      setAvatarUploading(false);
     }
-  }, [s.setAvatarUrl, s.setAvatarUploading]);
+  }, [setAvatarUploading, setAvatarUrl]);
 
   const handleAvatarSave = useCallback(async (avatarValue: string) => {
     try {
-      s.setAvatarUploading(true);
+      setAvatarUploading(true);
 
-      const isUrl = avatarValue.startsWith('https://');
-
-      if (isUrl) {
-        // Small external URL (DiceBear etc.) — store via better-auth + sync avatarUrl
+      if (avatarValue.startsWith('https://')) {
         await authClient.updateUser({ image: avatarValue });
         await usersApi.updateProfile({ avatarUrl: avatarValue });
-        s.setAvatarUrl(avatarValue);
+        setAvatarUrl(avatarValue);
       } else {
-        // Base64 data URL (photo upload) — upload to R2 via backend
         const result = await usersApi.uploadAvatar(avatarValue);
-        s.setAvatarUrl(result.avatarUrl);
+        setAvatarUrl(result.avatarUrl);
       }
     } catch (error) {
       logger.error('Failed to save avatar', { error });
       throw error;
     } finally {
-      s.setAvatarUploading(false);
+      setAvatarUploading(false);
     }
-  }, [s.setAvatarUrl, s.setAvatarUploading]);
+  }, [setAvatarUploading, setAvatarUrl]);
 
-  const handleSaveSignature = useCallback(async (signature: { id?: string; name: string; content: string; providerId: string | null; isDefault: boolean }) => {
+  const handleSaveSignature = useCallback(async (signature: {
+    id?: string;
+    name: string;
+    content: string;
+    providerId: string | null;
+    isDefault: boolean;
+  }) => {
     try {
-      s.setSignatureError('');
+      setSignatureError('');
       const providerId = signature.providerId ?? undefined;
+
       if (signature.id) {
-        await s.updateSignatureMutation.mutateAsync({ id: signature.id, dto: { name: signature.name, content: signature.content, providerId, isDefault: signature.isDefault } });
-      } else {
-        await s.createSignatureMutation.mutateAsync({ name: signature.name, content: signature.content, providerId, isDefault: signature.isDefault });
+        await updateSignatureMutation.mutateAsync({
+          id: signature.id,
+          dto: {
+            name: signature.name,
+            content: signature.content,
+            providerId,
+            isDefault: signature.isDefault,
+          },
+        });
+        return;
       }
+
+      await createSignatureMutation.mutateAsync({
+        name: signature.name,
+        content: signature.content,
+        providerId,
+        isDefault: signature.isDefault,
+      });
     } catch {
-      s.setSignatureError('Failed to save signature');
+      setSignatureError('Failed to save signature');
     }
-  }, [s.createSignatureMutation, s.updateSignatureMutation, s.setSignatureError]);
+  }, [
+    createSignatureMutation,
+    setSignatureError,
+    updateSignatureMutation,
+  ]);
 
   const handleDeleteSignature = useCallback(async (id: string) => {
     try {
-      s.setSignatureError('');
-      await s.deleteSignatureMutation.mutateAsync(id);
+      setSignatureError('');
+      await deleteSignatureMutation.mutateAsync(id);
     } catch {
-      s.setSignatureError('Failed to delete signature');
+      setSignatureError('Failed to delete signature');
     }
-  }, [s.deleteSignatureMutation, s.setSignatureError]);
+  }, [deleteSignatureMutation, setSignatureError]);
 
   const handleSetDefaultSignature = useCallback(async (id: string) => {
     try {
-      s.setSignatureError('');
-      await s.setDefaultSignatureMutation.mutateAsync(id);
+      setSignatureError('');
+      await setDefaultSignatureMutation.mutateAsync(id);
     } catch {
-      s.setSignatureError('Failed to set default signature');
+      setSignatureError('Failed to set default signature');
     }
-  }, [s.setDefaultSignatureMutation, s.setSignatureError]);
+  }, [setDefaultSignatureMutation, setSignatureError]);
 
   return {
     handleSectionSelect,

@@ -3,6 +3,7 @@
  * Verifies all public methods exist on the class prototype.
  */
 import { ContactsService } from '../contacts.service';
+import * as contactsModule from '../contacts.service';
 
 describe('ContactsService (pre-split characterization)', () => {
   it('should be defined as a class', () => {
@@ -49,7 +50,6 @@ describe('ContactsService (pre-split characterization)', () => {
 
   it('should re-export types for backward compatibility', () => {
     // Validate the module exports compile
-    const mod = require('../contacts.service');
-    expect(mod.ContactsService).toBeDefined();
+    expect(contactsModule.ContactsService).toBeDefined();
   });
 });

@@ -22,6 +22,14 @@ interface UserSessionsDialogProps {
   userName: string;
 }
 
+interface AdminUserSessionRow {
+  id?: string;
+  token?: string;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+  updatedAt?: string | Date | null;
+}
+
 export function UserSessionsDialog({ open, onClose, userId, userName }: UserSessionsDialogProps) {
   const t = useTranslations();
   const { data: sessions, isLoading } = useAdminUserSessions(userId);
@@ -31,7 +39,7 @@ export function UserSessionsDialog({ open, onClose, userId, userName }: UserSess
     revokeAll.mutate(userId, { onSuccess: onClose });
   };
 
-  const sessionList = Array.isArray(sessions) ? sessions : [];
+  const sessionList = (Array.isArray(sessions) ? sessions : []) as AdminUserSessionRow[];
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -49,7 +57,7 @@ export function UserSessionsDialog({ open, onClose, userId, userName }: UserSess
           </Typography>
         ) : (
           <List disablePadding>
-            {sessionList.map((session: any) => (
+            {sessionList.map((session) => (
               <ListItem key={session.id || session.token} divider>
                 <ListItemText
                   primary={session.userAgent

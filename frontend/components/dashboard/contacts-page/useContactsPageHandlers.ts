@@ -11,8 +11,27 @@ import type { useContactForm } from './useContactForm';
 type PageData = ReturnType<typeof useContactsPageData>;
 type FormData = ReturnType<typeof useContactForm>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useContactsPageHandlers(data: PageData, form: FormData, contactsCopy: any) {
+interface ContactsCopy {
+  alerts?: {
+    selectProvider?: string;
+    failedToSave?: string;
+    deleteSuccess?: string;
+    deleteError?: string;
+    deletedCount?: string;
+  };
+  createDialog?: {
+    create?: string;
+  };
+  editDialog?: {
+    success?: string;
+  };
+}
+
+export function useContactsPageHandlers(
+  data: PageData,
+  form: FormData,
+  contactsCopy: ContactsCopy,
+) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -165,7 +184,7 @@ export function useContactsPageHandlers(data: PageData, form: FormData, contacts
     } finally {
       setActionLoading(false);
     }
-  }, [contactToDelete, contactsCopy, deleteContactMutation, loadContacts, setDeleteDialogOpen, setContactToDelete, selectedContact, setSelectedContact, setSnackbar, setActionLoading]);
+  }, [contactToDelete, contactsCopy, deleteContactMutation, setDeleteDialogOpen, setContactToDelete, selectedContact, setSelectedContact, setSnackbar, setActionLoading]);
 
   // Bulk delete handler
   const handleBulkDelete = useCallback(async () => {

@@ -485,7 +485,7 @@ export class DataExportService {
         { name: 'metadata.json' },
       );
 
-      archive.finalize();
+      void archive.finalize();
     });
   }
 

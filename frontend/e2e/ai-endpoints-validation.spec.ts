@@ -53,8 +53,11 @@ function h() {
   return { Cookie: authCookieHeader, 'Content-Type': 'application/json' };
 }
 
-function unwrap(body: any) {
-  return body.data ?? body;
+function unwrap<T>(body: T | { data?: T } | null | undefined): T | null | undefined {
+  if (body && typeof body === 'object' && 'data' in body) {
+    return body.data;
+  }
+  return body;
 }
 
 // ========== Conversations ==========

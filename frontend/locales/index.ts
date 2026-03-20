@@ -2955,6 +2955,9 @@ export interface AppTranslations {
         tomorrow: string;
         nextWeek: string;
         custom: string;
+        inThreeDays?: string;
+        nextMonth?: string;
+        pickDate?: string;
       };
       dueDate: string;
       reason: string;
@@ -3009,9 +3012,13 @@ export interface AppTranslations {
           dropHere: string;
           noItems: string;
           noPending: string;
+          noPendingHint?: string;
           noOverdue: string;
+          noOverdueHint?: string;
           noResolved: string;
+          noResolvedHint?: string;
           noExpired: string;
+          noExpiredHint?: string;
         };
         keyboard: {
           title: string;

@@ -215,6 +215,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     // Never log full URLs — they may contain OAuth codes, state values, or tokens
+    // eslint-disable-next-line no-console
     console.error(`[auth-proxy] proxy error: ${message}`);
     res.status(502).json({ error: 'Auth proxy error' });
   }

@@ -30,12 +30,32 @@ import {
 import { formatDateTimeLocalInput } from './calendar-date-time';
 
 type CalendarData = ReturnType<typeof useCalendarData>;
+interface CalendarCopy {
+  failedToLoadEventDetails?: string;
+  eventMoved?: string;
+  failedToMoveEvent?: string;
+  eventResized?: string;
+  failedToResizeEvent?: string;
+  noProviderAlert?: string;
+  eventCreated?: string;
+  failedToCreateEvent?: string;
+  eventUpdated?: string;
+  failedToUpdateEvent?: string;
+  eventDeleted?: string;
+  failedToDeleteEvent?: string;
+  validation: {
+    titleRequired: string;
+    startRequired: string;
+    endRequired: string;
+    calendarRequired?: string;
+    endAfterStart: string;
+  };
+}
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useCalendarHandlers(
   data: CalendarData,
   calendarPrefs: Map<string, CalendarPreference>,
-  calendarCopy: any,
+  calendarCopy: CalendarCopy,
   setSnackbar: (s: { open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }) => void,
 ) {
   const {
@@ -48,6 +68,19 @@ export function useCalendarHandlers(
   const createEventMutation = useCreateCalendarEvent();
   const updateEventMutation = useUpdateCalendarEvent();
   const deleteEventMutation = useDeleteCalendarEvent();
+  const failedToLoadEventDetailsMessage =
+    calendarCopy.failedToLoadEventDetails || 'Failed to load event details';
+  const eventCreatedMessage = calendarCopy.eventCreated || 'Event created';
+  const failedToCreateEventMessage =
+    calendarCopy.failedToCreateEvent || 'Failed to create event';
+  const eventUpdatedMessage = calendarCopy.eventUpdated || 'Event updated';
+  const failedToUpdateEventMessage =
+    calendarCopy.failedToUpdateEvent || 'Failed to update event';
+  const eventDeletedMessage = calendarCopy.eventDeleted || 'Event deleted';
+  const failedToDeleteEventMessage =
+    calendarCopy.failedToDeleteEvent || 'Failed to delete event';
+  const noProviderAlertMessage =
+    calendarCopy.noProviderAlert || 'Please select a provider';
   const defaultCalendarSelection = useMemo(
     () => getDefaultCalendarSelection(calendarPrefs),
     [calendarPrefs],
@@ -187,12 +220,12 @@ export function useCalendarHandlers(
         logger.error('Failed to load event details', { error });
         setSnackbar({
           open: true,
-          message: calendarCopy.failedToLoadEventDetails,
+          message: failedToLoadEventDetailsMessage,
           severity: 'error',
         });
       }
     },
-    [queryClient, calendarCopy.failedToLoadEventDetails, setSnackbar]
+    [failedToLoadEventDetailsMessage, queryClient, setSnackbar]
   );
 
   // Handle event drag and drop
@@ -265,7 +298,8 @@ export function useCalendarHandlers(
     if (!newEvent.end) errors.end = calendarCopy.validation.endRequired;
     const selectedCalendar = resolveSelectedCalendarPreference(calendarPrefs, newEvent.calendar);
     if (!selectedCalendar) {
-      errors.calendar = calendarCopy.validation.calendarRequired ?? calendarCopy.noProviderAlert;
+      errors.calendar =
+        calendarCopy.validation.calendarRequired ?? noProviderAlertMessage;
     }
     if (newEvent.start && newEvent.end && new Date(newEvent.start) >= new Date(newEvent.end)) {
       errors.end = calendarCopy.validation.endAfterStart;
@@ -278,7 +312,7 @@ export function useCalendarHandlers(
 
     try {
       if (!selectedCalendar) {
-        setSnackbar({ open: true, message: calendarCopy.noProviderAlert, severity: 'error' });
+        setSnackbar({ open: true, message: noProviderAlertMessage, severity: 'error' });
         return;
       }
 
@@ -298,7 +332,7 @@ export function useCalendarHandlers(
       };
 
       await createEventMutation.mutateAsync(createDto);
-      setSnackbar({ open: true, message: calendarCopy.eventCreated, severity: 'success' });
+      setSnackbar({ open: true, message: eventCreatedMessage, severity: 'success' });
       setEventDialogOpen(false);
       setFormErrors({});
       setNewEvent({
@@ -308,9 +342,20 @@ export function useCalendarHandlers(
       void loadData(false);
     } catch (error) {
       logger.error('Failed to create event', { error });
-      setSnackbar({ open: true, message: calendarCopy.failedToCreateEvent, severity: 'error' });
+      setSnackbar({ open: true, message: failedToCreateEventMessage, severity: 'error' });
     }
-  }, [calendarPrefs, calendarCopy, createEventMutation, defaultCalendarSelection, loadData, newEvent, setSnackbar]);
+  }, [
+    calendarPrefs,
+    calendarCopy,
+    createEventMutation,
+    defaultCalendarSelection,
+    eventCreatedMessage,
+    failedToCreateEventMessage,
+    loadData,
+    newEvent,
+    noProviderAlertMessage,
+    setSnackbar,
+  ]);
 
   // Update event handler
   const handleUpdateEvent = useCallback(async () => {
@@ -337,18 +382,27 @@ export function useCalendarHandlers(
       };
 
       await updateEventMutation.mutateAsync({ id: selectedEvent.id, data: updateDto });
-      setSnackbar({ open: true, message: calendarCopy.eventUpdated, severity: 'success' });
+      setSnackbar({ open: true, message: eventUpdatedMessage, severity: 'success' });
       setEventDetailsOpen(false);
       setIsEditMode(false);
       setEditFormErrors({});
       void loadData(false);
     } catch (error) {
       logger.error('Failed to update event', { error });
-      setSnackbar({ open: true, message: calendarCopy.failedToUpdateEvent, severity: 'error' });
+      setSnackbar({ open: true, message: failedToUpdateEventMessage, severity: 'error' });
     } finally {
       setIsSaving(false);
     }
-  }, [selectedEvent, editedEvent, calendarCopy, loadData, updateEventMutation, setSnackbar]);
+  }, [
+    calendarCopy,
+    editedEvent,
+    eventUpdatedMessage,
+    failedToUpdateEventMessage,
+    loadData,
+    selectedEvent,
+    setSnackbar,
+    updateEventMutation,
+  ]);
 
   // Delete event handler
   const handleDeleteEvent = useCallback(async () => {
@@ -357,17 +411,24 @@ export function useCalendarHandlers(
     setIsDeleting(true);
     try {
       await deleteEventMutation.mutateAsync(selectedEvent.id);
-      setSnackbar({ open: true, message: calendarCopy.eventDeleted, severity: 'success' });
+      setSnackbar({ open: true, message: eventDeletedMessage, severity: 'success' });
       setEventDetailsOpen(false);
       setSelectedEvent(null);
       void loadData(false);
     } catch (error) {
       logger.error('Failed to delete event', { error });
-      setSnackbar({ open: true, message: calendarCopy.failedToDeleteEvent, severity: 'error' });
+      setSnackbar({ open: true, message: failedToDeleteEventMessage, severity: 'error' });
     } finally {
       setIsDeleting(false);
     }
-  }, [selectedEvent, calendarCopy, loadData, deleteEventMutation, setSnackbar]);
+  }, [
+    deleteEventMutation,
+    eventDeletedMessage,
+    failedToDeleteEventMessage,
+    loadData,
+    selectedEvent,
+    setSnackbar,
+  ]);
 
   // Close event details dialog
   const handleCloseEventDetails = useCallback(() => {

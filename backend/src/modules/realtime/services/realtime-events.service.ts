@@ -193,7 +193,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     this.emailEventBuffer.clear();
 
     for (const item of events) {
-      this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
+      void this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
     }
 
     this.logger.debug(`Flushed ${events.length} buffered email event(s) on shutdown`);
@@ -282,7 +282,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     tenantId: string,
     payload: RealtimeEventPayloads['email:unread_count_update'],
   ) {
-    this.emitToTenant(tenantId, 'email:unread_count_update', payload);
+    void this.emitToTenant(tenantId, 'email:unread_count_update', payload);
   }
 
   /**
@@ -317,7 +317,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     }
 
     if (providerBuffer.size >= this.FOLDER_BUFFER_MAX) {
-      this.flushFolderCountsBuffer();
+      void this.flushFolderCountsBuffer();
     }
   }
 
@@ -328,14 +328,14 @@ export class RealtimeEventsService implements OnModuleDestroy {
     tenantId: string,
     payload: RealtimeEventPayloads['email:thread_update'],
   ) {
-    this.emitToTenant(tenantId, 'email:thread_update', payload);
+    void this.emitToTenant(tenantId, 'email:thread_update', payload);
   }
 
   /**
    * Emette evento di batch processing (es. full import senza eventi granulari)
    */
   emitEmailBatchProcessed(tenantId: string, payload: RealtimeEventPayloads['email:batch_processed']) {
-    this.emitToTenant(tenantId, 'email:batch_processed', payload);
+    void this.emitToTenant(tenantId, 'email:batch_processed', payload);
   }
 
   /**
@@ -368,7 +368,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Emette evento per aggiornamento lista calendari (creazione, modifica, eliminazione calendario)
    */
   emitCalendarListUpdate(tenantId: string, payload: CalendarListPayload) {
-    this.emitToTenant(tenantId, 'calendar:list_update', payload);
+    void this.emitToTenant(tenantId, 'calendar:list_update', payload);
   }
 
   /**
@@ -378,7 +378,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     // Flush any pending calendar events first
     this.flushCalendarEvents();
     // Then emit sync complete (type and count are now typed in sync:status)
-    this.emitToTenant(tenantId, 'sync:status', {
+    void this.emitToTenant(tenantId, 'sync:status', {
       providerId: payload.providerId,
       status: 'completed',
       type: 'calendar',
@@ -419,7 +419,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     // Flush any pending contact events first
     this.flushContactEvents();
     // Then emit sync complete (type and count are now typed in sync:status)
-    this.emitToTenant(tenantId, 'sync:status', {
+    void this.emitToTenant(tenantId, 'sync:status', {
       providerId: payload.providerId,
       status: 'completed',
       type: 'contacts',
@@ -440,7 +440,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
       byProvider: Array<{ providerId: string; count: number }>;
     },
   ) {
-    this.emitToTenant(tenantId, 'contact:counts', {
+    void this.emitToTenant(tenantId, 'contact:counts', {
       ...payload,
       timestamp: new Date().toISOString(),
     });
@@ -454,21 +454,21 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Emette evento per nuova label creata
    */
   emitLabelNew(tenantId: string, payload: LabelEventPayload) {
-    this.emitToTenant(tenantId, 'label:new', payload);
+    void this.emitToTenant(tenantId, 'label:new', payload);
   }
 
   /**
    * Emette evento per label aggiornata
    */
   emitLabelUpdate(tenantId: string, payload: LabelEventPayload) {
-    this.emitToTenant(tenantId, 'label:update', payload);
+    void this.emitToTenant(tenantId, 'label:update', payload);
   }
 
   /**
    * Emette evento per label eliminata
    */
   emitLabelDelete(tenantId: string, payload: LabelEventPayload) {
-    this.emitToTenant(tenantId, 'label:delete', payload);
+    void this.emitToTenant(tenantId, 'label:delete', payload);
   }
 
   /**
@@ -479,7 +479,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Emette evento per nuova cartella creata
    */
   emitFolderCreated(tenantId: string, payload: Omit<FolderEventPayload, 'reason'>) {
-    this.emitToTenant(tenantId, 'folder:created', {
+    void this.emitToTenant(tenantId, 'folder:created', {
       ...payload,
       reason: 'folder-created',
     });
@@ -489,7 +489,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Emette evento per cartella rinominata
    */
   emitFolderRenamed(tenantId: string, payload: Omit<FolderEventPayload, 'reason'>) {
-    this.emitToTenant(tenantId, 'folder:renamed', {
+    void this.emitToTenant(tenantId, 'folder:renamed', {
       ...payload,
       reason: 'folder-renamed',
     });
@@ -499,7 +499,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Emette evento per cartella eliminata
    */
   emitFolderDeleted(tenantId: string, payload: Omit<FolderEventPayload, 'reason'>) {
-    this.emitToTenant(tenantId, 'folder:deleted', {
+    void this.emitToTenant(tenantId, 'folder:deleted', {
       ...payload,
       reason: 'folder-deleted',
     });
@@ -513,7 +513,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Emette evento per stato sincronizzazione provider
    */
   emitSyncStatus(tenantId: string, payload: RealtimeEventPayloads['sync:status']) {
-    this.emitToTenant(tenantId, 'sync:status', payload);
+    void this.emitToTenant(tenantId, 'sync:status', payload);
   }
 
   /**
@@ -524,42 +524,42 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Emette evento per nuova azione AI pending
    */
   emitAiActionCreated(tenantId: string, payload: AiActionEventPayload) {
-    this.emitToTenant(tenantId, 'ai:action:created', payload);
+    void this.emitToTenant(tenantId, 'ai:action:created', payload);
   }
 
   /**
    * Emette evento per azione AI approvata
    */
   emitAiActionApproved(tenantId: string, payload: AiActionEventPayload) {
-    this.emitToTenant(tenantId, 'ai:action:approved', payload);
+    void this.emitToTenant(tenantId, 'ai:action:approved', payload);
   }
 
   /**
    * Emette evento per azione AI rifiutata
    */
   emitAiActionRejected(tenantId: string, payload: AiActionEventPayload) {
-    this.emitToTenant(tenantId, 'ai:action:rejected', payload);
+    void this.emitToTenant(tenantId, 'ai:action:rejected', payload);
   }
 
   /**
    * Emette evento per azione AI eseguita con successo
    */
   emitAiActionExecuted(tenantId: string, payload: AiActionEventPayload) {
-    this.emitToTenant(tenantId, 'ai:action:executed', payload);
+    void this.emitToTenant(tenantId, 'ai:action:executed', payload);
   }
 
   /**
    * Emette evento per azione AI fallita
    */
   emitAiActionFailed(tenantId: string, payload: AiActionEventPayload) {
-    this.emitToTenant(tenantId, 'ai:action:failed', payload);
+    void this.emitToTenant(tenantId, 'ai:action:failed', payload);
   }
 
   /**
    * Emette evento per aggiornamento sessione AI
    */
   emitAiSessionUpdate(tenantId: string, payload: AiSessionEventPayload) {
-    this.emitToTenant(tenantId, 'ai:session:update', payload);
+    void this.emitToTenant(tenantId, 'ai:session:update', payload);
   }
 
   /**
@@ -567,7 +567,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
    * Used for 2025 UX pattern: show live agent activity visualization
    */
   emitAiAgentStep(tenantId: string, payload: AiAgentStepEventPayload) {
-    this.emitToTenant(tenantId, 'ai:agent:step', payload);
+    void this.emitToTenant(tenantId, 'ai:agent:step', payload);
   }
 
   /**
@@ -575,15 +575,15 @@ export class RealtimeEventsService implements OnModuleDestroy {
    */
 
   emitFollowUpReminderUpcoming(tenantId: string, payload: FollowUpReminderPayload): void {
-    this.emitToTenant(tenantId, 'followup:reminder:upcoming', payload);
+    void this.emitToTenant(tenantId, 'followup:reminder:upcoming', payload);
   }
 
   emitFollowUpReminderImminent(tenantId: string, payload: FollowUpReminderPayload): void {
-    this.emitToTenant(tenantId, 'followup:reminder:imminent', payload);
+    void this.emitToTenant(tenantId, 'followup:reminder:imminent', payload);
   }
 
   emitFollowUpReminderOverdue(tenantId: string, payload: FollowUpReminderPayload): void {
-    this.emitToTenant(tenantId, 'followup:reminder:overdue', payload);
+    void this.emitToTenant(tenantId, 'followup:reminder:overdue', payload);
   }
 
   /**
@@ -747,7 +747,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     this.emailEventBuffer.clear();
 
     for (const item of events) {
-      this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
+      void this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
     }
 
     this.logger.debug(`Flushed ${events.length} buffered email event(s)`);
@@ -761,13 +761,13 @@ export class RealtimeEventsService implements OnModuleDestroy {
     this.contactEventBuffer.set(dedupeKey, { event, tenantId, payload });
 
     if (this.contactEventBuffer.size >= this.CONTACT_BUFFER_MAX) {
-      this.flushContactEvents();
+      void this.flushContactEvents();
       return;
     }
 
     if (!this.contactBufferTimer) {
       this.contactBufferTimer = setTimeout(() => {
-        this.flushContactEvents();
+        void this.flushContactEvents();
       }, this.CONTACT_BUFFER_MS);
     }
   }
@@ -786,7 +786,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     this.contactEventBuffer.clear();
 
     for (const item of events) {
-      this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
+      void this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
     }
 
     this.logger.debug(`Flushed ${events.length} buffered contact event(s)`);
@@ -800,13 +800,13 @@ export class RealtimeEventsService implements OnModuleDestroy {
     this.calendarEventBuffer.set(dedupeKey, { event, tenantId, payload });
 
     if (this.calendarEventBuffer.size >= this.CALENDAR_BUFFER_MAX) {
-      this.flushCalendarEvents();
+      void this.flushCalendarEvents();
       return;
     }
 
     if (!this.calendarBufferTimer) {
       this.calendarBufferTimer = setTimeout(() => {
-        this.flushCalendarEvents();
+        void this.flushCalendarEvents();
       }, this.CALENDAR_BUFFER_MS);
     }
   }
@@ -825,7 +825,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
     this.calendarEventBuffer.clear();
 
     for (const item of events) {
-      this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
+      void this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
     }
 
     this.logger.debug(`Flushed ${events.length} buffered calendar event(s)`);
@@ -842,7 +842,7 @@ export class RealtimeEventsService implements OnModuleDestroy {
 
     for (const [, folderMap] of this.folderCountsBuffer) {
       for (const entry of folderMap.values()) {
-        this.emitToTenant(entry.tenantId, 'email:folder_counts_update', entry.payload);
+        void this.emitToTenant(entry.tenantId, 'email:folder_counts_update', entry.payload);
       }
     }
 

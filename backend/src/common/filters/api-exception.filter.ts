@@ -46,8 +46,13 @@ export class ApiExceptionFilter {
     }
 
     // Set Retry-After header for rate-limited responses
-    if (resolved.status === HttpStatus.TOO_MANY_REQUESTS) {
-      response.header('Retry-After', String(resolved.details?.retryAfter ?? 60));
+    if (resolved.status === 429) {
+      const retryAfter =
+        typeof resolved.details?.retryAfter === 'number' ||
+        typeof resolved.details?.retryAfter === 'string'
+          ? String(resolved.details.retryAfter)
+          : '60';
+      response.header('Retry-After', retryAfter);
     }
 
     response.status(resolved.status).json({

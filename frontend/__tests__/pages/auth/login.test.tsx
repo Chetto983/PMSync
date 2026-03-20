@@ -1,7 +1,22 @@
+import type {
+  AnchorHTMLAttributes,
+  ChangeEventHandler,
+  PropsWithChildren,
+} from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const mockPush = jest.fn();
 const mockSignIn = jest.fn();
+
+interface MockLinkProps extends PropsWithChildren, AnchorHTMLAttributes<HTMLAnchorElement> {
+  href: string;
+}
+
+interface MockPasswordFieldProps {
+  label: string;
+  value: string;
+  onChange: ChangeEventHandler<HTMLInputElement>;
+}
 
 jest.mock('next/router', () => ({
   useRouter: () => ({
@@ -13,7 +28,7 @@ jest.mock('next/router', () => ({
 jest.mock('@/lib/auth-client', () => ({
   authClient: {
     signIn: {
-      email: (...args: any[]) => mockSignIn(...args),
+      email: mockSignIn,
     },
   },
 }));
@@ -47,17 +62,17 @@ jest.mock('@/lib/hooks/use-translations', () => ({
 }));
 
 jest.mock('next/link', () => {
-  return ({ children, href, ...props }: any) => (
+  return ({ children, href, ...props }: MockLinkProps) => (
     <a href={href} {...props}>{children}</a>
   );
 });
 
 jest.mock('@/components/auth/AuthLayout', () => ({
-  AuthLayout: ({ children }: any) => <div data-testid="auth-layout">{children}</div>,
+  AuthLayout: ({ children }: PropsWithChildren) => <div data-testid="auth-layout">{children}</div>,
 }));
 
 jest.mock('@/components/auth/PasswordField', () => ({
-  PasswordField: ({ label, value, onChange, ...rest }: any) => (
+  PasswordField: ({ label, value, onChange, ...rest }: MockPasswordFieldProps) => (
     <div>
       <label htmlFor={`pw-${label}`}>{label}</label>
       <input

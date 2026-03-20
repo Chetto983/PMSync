@@ -19,6 +19,15 @@ import {
   type TelegramSettings,
 } from '@/lib/api/reminders';
 
+interface ReminderListEnvelope {
+  data?: Reminder[];
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+  };
+}
+
 // ============================================================================
 // Query Options
 // ============================================================================
@@ -28,7 +37,7 @@ export function remindersListOptions(params?: ListRemindersParams) {
     queryKey: reminderKeys.list(params as Record<string, unknown>),
     queryFn: async (): Promise<ListRemindersResponse> => {
       const response = await remindersApi.list(params);
-      const envelope = response.data as any;
+      const envelope = response.data as ReminderListEnvelope | undefined;
       // Backend returns { data: Reminder[], meta: { total, page, limit } }
       const reminders = Array.isArray(envelope?.data) ? envelope.data : [];
       const meta = envelope?.meta ?? {};

@@ -1,3 +1,8 @@
+import type {
+  AnchorHTMLAttributes,
+  ChangeEventHandler,
+  PropsWithChildren,
+} from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Mock authClient before importing component
@@ -5,13 +10,23 @@ const mockSignUp = jest.fn();
 const mockGetSession = jest.fn();
 const mockSendVerificationEmail = jest.fn();
 
+interface MockLinkProps extends PropsWithChildren, AnchorHTMLAttributes<HTMLAnchorElement> {
+  href: string;
+}
+
+interface MockPasswordFieldProps {
+  label: string;
+  value: string;
+  onChange: ChangeEventHandler<HTMLInputElement>;
+}
+
 jest.mock('@/lib/auth-client', () => ({
   authClient: {
     signUp: {
-      email: (...args: any[]) => mockSignUp(...args),
+      email: mockSignUp,
     },
     getSession: () => mockGetSession(),
-    sendVerificationEmail: (...args: any[]) => mockSendVerificationEmail(...args),
+    sendVerificationEmail: mockSendVerificationEmail,
   },
 }));
 
@@ -53,17 +68,17 @@ jest.mock('@/lib/hooks/use-translations', () => ({
 }));
 
 jest.mock('next/link', () => {
-  return ({ children, href, ...props }: any) => (
+  return ({ children, href, ...props }: MockLinkProps) => (
     <a href={href} {...props}>{children}</a>
   );
 });
 
 jest.mock('@/components/auth/AuthLayout', () => ({
-  AuthLayout: ({ children }: any) => <div data-testid="auth-layout">{children}</div>,
+  AuthLayout: ({ children }: PropsWithChildren) => <div data-testid="auth-layout">{children}</div>,
 }));
 
 jest.mock('@/components/auth/PasswordField', () => ({
-  PasswordField: ({ label, value, onChange, ...rest }: any) => (
+  PasswordField: ({ label, value, onChange, ...rest }: MockPasswordFieldProps) => (
     <div>
       <label htmlFor={`pw-${label}`}>{label}</label>
       <input

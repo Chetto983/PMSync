@@ -56,7 +56,7 @@ test.describe('Auth 2FA', () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test('2FA setup and verify flow', async ({ page, browser }) => {
+  test('2FA setup and verify flow', async ({ page: _page, browser }) => {
     const apiURL = process.env.E2E_API_URL ?? 'http://localhost:3100';
     const probe = await fetch(`${apiURL}/health`).catch(() => null);
     test.skip(!probe?.ok, 'Backend API not reachable');

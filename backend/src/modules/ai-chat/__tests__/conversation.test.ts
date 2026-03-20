@@ -128,7 +128,11 @@ describe('ConversationService (real Prisma)', () => {
     // Should have summary as first system message + 10 recent messages
     expect(messagesWithSummary.length).toBe(11);
     expect(messagesWithSummary[0].role).toBe('system');
-    expect(String(messagesWithSummary[0].content)).toContain('Test summary');
+    const summaryContent =
+      typeof messagesWithSummary[0].content === 'string'
+        ? messagesWithSummary[0].content
+        : JSON.stringify(messagesWithSummary[0].content);
+    expect(summaryContent).toContain('Test summary');
   }, 15_000);
 
   it('deleteConversation cascades to messages', async () => {

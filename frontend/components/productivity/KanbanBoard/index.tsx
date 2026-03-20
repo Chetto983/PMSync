@@ -18,7 +18,6 @@ import {
   Tooltip,
   Chip,
   Divider,
-  ToggleButtonGroup,
   ToggleButton,
 } from '@mui/material';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -34,7 +33,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { Search, Bell, Clock, AlertTriangle, CheckCircle, Calendar, Keyboard } from 'lucide-react';
+import { Search, Bell, Keyboard } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
@@ -44,24 +43,24 @@ import {
   useSnoozeFollowUp,
   useDeleteFollowUp,
   type EmailFollowUp,
+  type FollowUpStats,
 } from '@/hooks/queries';
-import type { Theme } from '@mui/material';
-import { KanbanColumn } from './KanbanColumn';
+import { KanbanColumn, type KanbanColumnId } from './KanbanColumn';
+import { KanbanCard } from './KanbanCard';
 import { KanbanSkeleton } from './KanbanSkeleton';
-import { FollowUpCard } from '@/components/ai/FollowUpTracker/FollowUpCard';
 import { SnoozeDialog } from './SnoozeDialog';
+import { StatsBar } from './StatsBar';
 
-// Column configuration - actionable view (not strictly matching Prisma enum)
-// "overdue" is a virtual column for items past due date
-type KanbanColumnId = 'PENDING' | 'OVERDUE' | 'RESOLVED' | 'EXPIRED';
-const COLUMNS: { id: KanbanColumnId; title: string; titleKey: string; color: string }[] = [
-  { id: 'PENDING', title: 'Pending', titleKey: 'pending', color: 'warning.main' },
-  { id: 'OVERDUE', title: 'Overdue', titleKey: 'overdue', color: 'error.main' },
-  { id: 'RESOLVED', title: 'Resolved', titleKey: 'resolved', color: 'success.main' },
-  { id: 'EXPIRED', title: 'Expired', titleKey: 'expired', color: 'grey.500' },
+// Column definitions
+const COLUMNS: { id: KanbanColumnId; titleKey: string; color: string }[] = [
+  { id: 'PENDING', titleKey: 'pending', color: 'warning.main' },
+  { id: 'OVERDUE', titleKey: 'overdue', color: 'error.main' },
+  { id: 'RESOLVED', titleKey: 'resolved', color: 'success.main' },
+  { id: 'EXPIRED', titleKey: 'expired', color: 'grey.500' },
 ];
 
-// Date helper for drag-drop snooze
+const COLUMN_ORDER: KanbanColumnId[] = ['PENDING', 'OVERDUE', 'RESOLVED', 'EXPIRED'];
+
 function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
@@ -82,34 +81,30 @@ export function FollowupsKanbanBoard() {
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false);
   const [snoozeTargetId, setSnoozeTargetId] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
-
-  // Keyboard navigation state
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedColumnIdx, setSelectedColumnIdx] = useState(0);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
-  // Queries — only pending follow-ups supported by backend
+  // Queries
   const { data: pendingData, isLoading, error } = usePendingFollowUps(200);
-  const data = pendingData ? { followUps: pendingData.followUps as unknown as EmailFollowUp[], count: pendingData.count } : undefined;
-  const { data: stats } = useFollowUpStats();
+  const followUps = useMemo<EmailFollowUp[]>(
+    () => (pendingData?.followUps as EmailFollowUp[] | undefined) ?? [],
+    [pendingData?.followUps],
+  );
+  const { data: stats, isLoading: statsLoading } = useFollowUpStats();
 
   // Mutations
   const updateStatus = useUpdateFollowUpStatus();
   const snoozeFollowUp = useSnoozeFollowUp();
   const deleteFollowUp = useDeleteFollowUp();
 
-  // Sensors for pointer (mouse/touch) and keyboard
+  // DnD sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Filter and group follow-ups into actionable columns
-  // OVERDUE is a virtual column for items past due date (regardless of PENDING/REMINDED status)
+  // Group follow-ups into columns
   const columns = useMemo(() => {
     const grouped: Record<KanbanColumnId, EmailFollowUp[]> = {
       PENDING: [],
@@ -117,235 +112,156 @@ export function FollowupsKanbanBoard() {
       RESOLVED: [],
       EXPIRED: [],
     };
-
-    const followUps = data?.followUps || [];
     const query = searchQuery.toLowerCase();
     const now = new Date();
 
     followUps.forEach((f) => {
-      // Apply search filter
       if (query) {
-        const matchesSearch =
+        const match =
           f.email?.subject?.toLowerCase().includes(query) ||
           f.email?.from?.toLowerCase().includes(query) ||
           f.reason?.toLowerCase().includes(query);
-        if (!matchesSearch) return;
+        if (!match) return;
       }
+      if (typeFilter && f.followUpType !== typeFilter) return;
 
-      if (typeFilter && f.followUpType !== typeFilter) {
-        return;
-      }
-
-      // Group by actionable status
       if (f.status === 'RESOLVED') {
         grouped.RESOLVED.push(f);
       } else if (f.status === 'EXPIRED') {
         grouped.EXPIRED.push(f);
       } else {
-        // PENDING or REMINDED - check if overdue
         const dueDate = f.dueDate ? new Date(f.dueDate) : null;
-        const isOverdue = dueDate && dueDate < now;
-        if (isOverdue) {
+        if (dueDate && dueDate < now) {
           grouped.OVERDUE.push(f);
         } else {
           grouped.PENDING.push(f);
         }
       }
     });
-
     return grouped;
-  }, [data?.followUps, searchQuery, typeFilter]);
+  }, [followUps, searchQuery, typeFilter]);
 
-  // Get active item for drag overlay
-  const activeItem = useMemo(() => {
-    if (!activeId || !data?.followUps) return null;
-    return data.followUps.find((f) => f.id === activeId);
-  }, [activeId, data?.followUps]);
+  const activeItem = useMemo(
+    () => (activeId ? followUps.find((f) => f.id === activeId) : null),
+    [activeId, followUps],
+  );
 
-  // Column order for keyboard navigation
-  const columnOrder: KanbanColumnId[] = ['PENDING', 'OVERDUE', 'RESOLVED', 'EXPIRED'];
+  const selectedItem = useMemo(
+    () => (selectedId ? followUps.find((f) => f.id === selectedId) : null),
+    [selectedId, followUps],
+  );
 
-  // Get selected item
-  const selectedItem = useMemo(() => {
-    if (!selectedId || !data?.followUps) return null;
-    return data.followUps.find((f) => f.id === selectedId);
-  }, [selectedId, data?.followUps]);
-
-  // Keyboard shortcuts
+  // ── Keyboard shortcuts ──
   useHotkeys('j', () => {
-    // Move down in current column
-    const currentColumn = columnOrder[selectedColumnIdx];
-    const items = columns[currentColumn] || [];
-    if (items.length === 0) return;
-
-    const currentIdx = selectedId ? items.findIndex((i) => i.id === selectedId) : -1;
-    const nextIdx = Math.min(currentIdx + 1, items.length - 1);
-    setSelectedId(items[nextIdx]?.id || null);
+    const items = columns[COLUMN_ORDER[selectedColumnIdx]] || [];
+    if (!items.length) return;
+    const idx = selectedId ? items.findIndex((i) => i.id === selectedId) : -1;
+    setSelectedId(items[Math.min(idx + 1, items.length - 1)]?.id || null);
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [columns, selectedColumnIdx, selectedId]);
 
   useHotkeys('k', () => {
-    // Move up in current column
-    const currentColumn = columnOrder[selectedColumnIdx];
-    const items = columns[currentColumn] || [];
-    if (items.length === 0) return;
-
-    const currentIdx = selectedId ? items.findIndex((i) => i.id === selectedId) : items.length;
-    const prevIdx = Math.max(currentIdx - 1, 0);
-    setSelectedId(items[prevIdx]?.id || null);
+    const items = columns[COLUMN_ORDER[selectedColumnIdx]] || [];
+    if (!items.length) return;
+    const idx = selectedId ? items.findIndex((i) => i.id === selectedId) : items.length;
+    setSelectedId(items[Math.max(idx - 1, 0)]?.id || null);
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [columns, selectedColumnIdx, selectedId]);
 
   useHotkeys('h', () => {
-    // Move to previous column
     const newIdx = Math.max(selectedColumnIdx - 1, 0);
     setSelectedColumnIdx(newIdx);
-    const newColumn = columnOrder[newIdx];
-    const items = columns[newColumn] || [];
-    setSelectedId(items[0]?.id || null);
+    setSelectedId(columns[COLUMN_ORDER[newIdx]]?.[0]?.id || null);
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [selectedColumnIdx, columns]);
 
   useHotkeys('l', () => {
-    // Move to next column
-    const newIdx = Math.min(selectedColumnIdx + 1, columnOrder.length - 1);
+    const newIdx = Math.min(selectedColumnIdx + 1, COLUMN_ORDER.length - 1);
     setSelectedColumnIdx(newIdx);
-    const newColumn = columnOrder[newIdx];
-    const items = columns[newColumn] || [];
-    setSelectedId(items[0]?.id || null);
+    setSelectedId(columns[COLUMN_ORDER[newIdx]]?.[0]?.id || null);
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [selectedColumnIdx, columns]);
 
   useHotkeys('enter', () => {
-    // Open selected email
-    if (selectedItem?.emailId) {
-      router.push(`/dashboard/email?id=${selectedItem.emailId}`);
-    }
+    if (selectedItem?.emailId) router.push(`/dashboard/email?id=${selectedItem.emailId}`);
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedItem }, [selectedItem, router]);
 
   useHotkeys('r', () => {
-    // Resolve selected item
-    if (selectedId && selectedItem?.status !== 'RESOLVED') {
-      handleResolve(selectedId);
-    }
+    if (selectedId && selectedItem?.status !== 'RESOLVED') handleResolve(selectedId);
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedId }, [selectedId, selectedItem]);
 
   useHotkeys('s', () => {
-    // Snooze selected item
-    if (selectedId && selectedItem?.status === 'PENDING') {
-      handleOpenSnooze(selectedId);
-    }
+    if (selectedId && selectedItem?.status === 'PENDING') handleOpenSnooze(selectedId);
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedId }, [selectedId, selectedItem]);
 
-  useHotkeys('shift+/', () => {
-    // Show help (? key)
-    setHelpDialogOpen(true);
-  }, { enabled: !snoozeDialogOpen }, []);
+  useHotkeys('shift+/', () => setHelpDialogOpen(true), { enabled: !snoozeDialogOpen }, []);
 
   useHotkeys('escape', () => {
-    // Clear selection or close dialogs
-    if (helpDialogOpen) {
-      setHelpDialogOpen(false);
-    } else if (snoozeDialogOpen) {
-      setSnoozeDialogOpen(false);
-    } else {
-      setSelectedId(null);
-    }
+    if (helpDialogOpen) setHelpDialogOpen(false);
+    else if (snoozeDialogOpen) setSnoozeDialogOpen(false);
+    else setSelectedId(null);
   }, [helpDialogOpen, snoozeDialogOpen]);
 
-  // Handlers
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  }, []);
+  // ── Handlers ──
+  const handleDragStart = useCallback((e: DragStartEvent) => setActiveId(e.active.id as string), []);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
+    if (!over) return;
 
-    if (!over || !data?.followUps) return;
-
-    const followUpId = active.id as string;
-    const item = data.followUps.find((f) => f.id === followUpId);
+    const id = active.id as string;
+    const item = followUps.find((f) => f.id === id);
     if (!item) return;
 
-    // Determine target column (either column ID or card's column)
     const validColumns: KanbanColumnId[] = ['PENDING', 'OVERDUE', 'RESOLVED', 'EXPIRED'];
-    let targetColumn: KanbanColumnId;
+    let targetColumn: KanbanColumnId | null = null;
 
     if (validColumns.includes(over.id as KanbanColumnId)) {
       targetColumn = over.id as KanbanColumnId;
     } else {
-      // Dropped on a card - find which column that card is in
-      const targetCard = data.followUps.find((f) => f.id === over.id);
+      const targetCard = followUps.find((f) => f.id === over.id);
       if (!targetCard) return;
-      // Determine target card's virtual column
       const now = new Date();
-      const targetDueDate = targetCard.dueDate ? new Date(targetCard.dueDate) : null;
-      const targetIsOverdue = targetDueDate && targetDueDate < now;
-      if (targetCard.status === 'RESOLVED') {
-        targetColumn = 'RESOLVED';
-      } else if (targetCard.status === 'EXPIRED') {
-        targetColumn = 'EXPIRED';
-      } else if (targetIsOverdue) {
-        targetColumn = 'OVERDUE';
-      } else {
-        targetColumn = 'PENDING';
-      }
+      const td = targetCard.dueDate ? new Date(targetCard.dueDate) : null;
+      if (targetCard.status === 'RESOLVED') targetColumn = 'RESOLVED';
+      else if (targetCard.status === 'EXPIRED') targetColumn = 'EXPIRED';
+      else if (td && td < now) targetColumn = 'OVERDUE';
+      else targetColumn = 'PENDING';
     }
 
-    // Determine current item's virtual column
+    // Current column
     const now = new Date();
-    const itemDueDate = item.dueDate ? new Date(item.dueDate) : null;
-    const itemIsOverdue = itemDueDate && itemDueDate < now;
+    const dd = item.dueDate ? new Date(item.dueDate) : null;
     let currentColumn: KanbanColumnId;
-    if (item.status === 'RESOLVED') {
-      currentColumn = 'RESOLVED';
-    } else if (item.status === 'EXPIRED') {
-      currentColumn = 'EXPIRED';
-    } else if (itemIsOverdue) {
-      currentColumn = 'OVERDUE';
-    } else {
-      currentColumn = 'PENDING';
-    }
+    if (item.status === 'RESOLVED') currentColumn = 'RESOLVED';
+    else if (item.status === 'EXPIRED') currentColumn = 'EXPIRED';
+    else if (dd && dd < now) currentColumn = 'OVERDUE';
+    else currentColumn = 'PENDING';
 
-    // No change if same column
-    if (currentColumn === targetColumn) return;
+    if (!targetColumn || currentColumn === targetColumn) return;
 
-    setResolvingId(followUpId);
+    setResolvingId(id);
     try {
-      // Handle special cases
-      if (targetColumn === 'OVERDUE') {
-        // Can't manually move to OVERDUE - it's date-based
-        // Just ignore this drop
-        return;
-      } else if (targetColumn === 'PENDING' && currentColumn === 'OVERDUE') {
-        // Moving from OVERDUE to PENDING = snooze (extend due date)
-        const newDueDate = addDays(new Date(), 3); // Default snooze 3 days
-        await snoozeFollowUp.mutateAsync({ id: followUpId, dueDate: newDueDate.toISOString() });
+      if (targetColumn === 'OVERDUE') return;
+      if (targetColumn === 'PENDING' && currentColumn === 'OVERDUE') {
+        await snoozeFollowUp.mutateAsync({ id, dueDate: addDays(new Date(), 3).toISOString() });
       } else if (targetColumn === 'RESOLVED') {
-        await updateStatus.mutateAsync({ id: followUpId, status: 'RESOLVED' });
+        await updateStatus.mutateAsync({ id, status: 'RESOLVED' });
       } else if (targetColumn === 'EXPIRED') {
-        await updateStatus.mutateAsync({ id: followUpId, status: 'EXPIRED' });
+        await updateStatus.mutateAsync({ id, status: 'EXPIRED' });
       } else if (targetColumn === 'PENDING') {
-        // Moving to PENDING from RESOLVED/EXPIRED - reactivate
-        await updateStatus.mutateAsync({ id: followUpId, status: 'PENDING' });
+        await updateStatus.mutateAsync({ id, status: 'PENDING' });
       }
     } finally {
       setResolvingId(null);
     }
-  }, [data?.followUps, updateStatus, snoozeFollowUp]);
+  }, [followUps, updateStatus, snoozeFollowUp]);
 
   const handleResolve = useCallback(async (id: string) => {
     setResolvingId(id);
-    try {
-      await updateStatus.mutateAsync({ id, status: 'RESOLVED' });
-    } finally {
-      setResolvingId(null);
-    }
+    try { await updateStatus.mutateAsync({ id, status: 'RESOLVED' }); }
+    finally { setResolvingId(null); }
   }, [updateStatus]);
 
   const handleDelete = useCallback(async (id: string) => {
-    try {
-      await deleteFollowUp.mutateAsync(id);
-    } catch {
-      // Error handled by mutation
-    }
+    try { await deleteFollowUp.mutateAsync(id); } catch { /* handled */ }
   }, [deleteFollowUp]);
 
   const handleOpenSnooze = useCallback((id: string) => {
@@ -355,51 +271,40 @@ export function FollowupsKanbanBoard() {
 
   const handleSnooze = useCallback(async (date: Date) => {
     if (!snoozeTargetId) return;
-
-
     try {
-      await snoozeFollowUp.mutateAsync({
-        id: snoozeTargetId,
-        dueDate: date.toISOString(),
-      });
+      await snoozeFollowUp.mutateAsync({ id: snoozeTargetId, dueDate: date.toISOString() });
       setSnoozeDialogOpen(false);
       setSnoozeTargetId(null);
-    } catch {
-      // Error handled by mutation
-    }
+    } catch { /* handled */ }
   }, [snoozeTargetId, snoozeFollowUp]);
 
-  const handleViewEmail = useCallback((emailId: string) => {
-    router.push(`/dashboard/email?id=${emailId}`);
-  }, [router]);
+  const handleViewEmail = useCallback(
+    (emailId: string) => router.push(`/dashboard/email?id=${emailId}`),
+    [router],
+  );
 
-  // Get translated column title
   const getColumnTitle = (titleKey: string): string => {
     const kanban = t.ai.followUpTracker.kanban;
     if (kanban?.columns && titleKey in kanban.columns) {
       return kanban.columns[titleKey as keyof typeof kanban.columns];
     }
-    // Fallback to status translation
-    const status = t.ai.followUpTracker.status;
-    if (status && titleKey.toUpperCase() in status) {
-      return status[titleKey.toUpperCase() as keyof typeof status];
-    }
     return titleKey.charAt(0).toUpperCase() + titleKey.slice(1);
   };
 
+  // ── Loading state ──
   if (isLoading) {
     return (
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Header
-          theme={theme}
-          t={t}
-          stats={stats}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          typeFilter={typeFilter}
-          onTypeFilterChange={setTypeFilter}
-          onShowHelp={() => setHelpDialogOpen(true)}
-          isMobile={isMobile}
+      <PageHeader
+        t={t}
+        isMobile={isMobile}
+        stats={null}
+          statsLoading
+          searchQuery=""
+          onSearchChange={() => {}}
+          typeFilter={undefined}
+          onTypeFilterChange={() => {}}
+          onShowHelp={() => {}}
         />
         <KanbanSkeleton />
       </Box>
@@ -408,7 +313,7 @@ export function FollowupsKanbanBoard() {
 
   if (error) {
     return (
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Typography color="error">{t.ai.followUpTracker.error}</Typography>
       </Box>
     );
@@ -416,28 +321,22 @@ export function FollowupsKanbanBoard() {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Header
-        theme={theme}
+      <PageHeader
         t={t}
+        isMobile={isMobile}
         stats={stats}
+        statsLoading={statsLoading}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
         onShowHelp={() => setHelpDialogOpen(true)}
-        isMobile={isMobile}
       />
 
+      {/* ── Mobile: column tabs ── */}
       {isMobile ? (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, px: 2, pb: 2 }}>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: 1,
-              mb: 2,
-            }}
-          >
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, mb: 2 }}>
             {COLUMNS.map((col) => (
               <ToggleButton
                 key={col.id}
@@ -450,9 +349,6 @@ export function FollowupsKanbanBoard() {
                   px: 1.5,
                   py: 1,
                   borderRadius: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
                 }}
               >
                 <span>{getColumnTitle(col.titleKey)}</span>
@@ -460,12 +356,11 @@ export function FollowupsKanbanBoard() {
               </ToggleButton>
             ))}
           </Box>
-
           <Box sx={{ flex: 1, minHeight: 0 }}>
             <KanbanColumn
               id={mobileColumnId}
-              title={getColumnTitle(COLUMNS.find((col) => col.id === mobileColumnId)?.titleKey || 'pending')}
-              color={COLUMNS.find((col) => col.id === mobileColumnId)?.color || 'warning.main'}
+              title={getColumnTitle(COLUMNS.find((c) => c.id === mobileColumnId)?.titleKey || 'pending')}
+              color={COLUMNS.find((c) => c.id === mobileColumnId)?.color || 'warning.main'}
               items={columns[mobileColumnId]}
               fullWidth
               onResolve={handleResolve}
@@ -478,6 +373,7 @@ export function FollowupsKanbanBoard() {
           </Box>
         </Box>
       ) : (
+        /* ── Desktop: DnD Kanban ── */
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -491,11 +387,7 @@ export function FollowupsKanbanBoard() {
               gap: 2,
               overflowX: 'auto',
               p: 2,
-              minHeight: 500,
-              '& > *': {
-                minWidth: 300,
-                maxWidth: 300,
-              },
+              minHeight: 400,
             }}
           >
             {COLUMNS.map((col, idx) => (
@@ -515,132 +407,67 @@ export function FollowupsKanbanBoard() {
             ))}
           </Box>
 
-          {/* Drag overlay */}
           <DragOverlay>
             {activeItem ? (
-              <Box sx={{ opacity: 0.9, transform: 'rotate(3deg)' }}>
-                <FollowUpCard followUp={activeItem} />
+              <Box sx={{ opacity: 0.85, transform: 'rotate(2deg)', maxWidth: 340 }}>
+                <KanbanCard followUp={activeItem} />
               </Box>
             ) : null}
           </DragOverlay>
         </DndContext>
       )}
 
-      {/* Snooze Dialog */}
       <SnoozeDialog
         open={snoozeDialogOpen}
-        onClose={() => {
-          setSnoozeDialogOpen(false);
-          setSnoozeTargetId(null);
-        }}
+        onClose={() => { setSnoozeDialogOpen(false); setSnoozeTargetId(null); }}
         followUpId={snoozeTargetId}
         onSnooze={handleSnooze}
       />
 
-      {/* Keyboard Shortcuts Help Dialog */}
-      <Dialog
+      <KeyboardHelpDialog
         open={helpDialogOpen}
         onClose={() => setHelpDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Keyboard size={20} />
-          {t.ai.followUpTracker.kanban?.keyboard?.title || 'Keyboard Shortcuts'}
-        </DialogTitle>
-        <DialogContent>
-          {/* Navigation */}
-          <Typography variant="overline" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-            {t.ai.followUpTracker.kanban?.keyboard?.navigation || 'Navigation'}
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-            <ShortcutRow keys={['j']} label={t.ai.followUpTracker.kanban?.keyboard?.moveDown || 'Move down'} />
-            <ShortcutRow keys={['k']} label={t.ai.followUpTracker.kanban?.keyboard?.moveUp || 'Move up'} />
-            <ShortcutRow keys={['h']} label={t.ai.followUpTracker.kanban?.keyboard?.prevColumn || 'Previous column'} />
-            <ShortcutRow keys={['l']} label={t.ai.followUpTracker.kanban?.keyboard?.nextColumn || 'Next column'} />
-          </Box>
-
-          <Divider sx={{ my: 2 }} />
-
-          {/* Actions */}
-          <Typography variant="overline" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-            {t.ai.followUpTracker.kanban?.keyboard?.actions || 'Actions'}
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <ShortcutRow keys={['Enter']} label={t.ai.followUpTracker.kanban?.keyboard?.openEmail || 'Open email'} />
-            <ShortcutRow keys={['r']} label={t.ai.followUpTracker.kanban?.keyboard?.resolve || 'Resolve'} />
-            <ShortcutRow keys={['s']} label={t.ai.followUpTracker.kanban?.keyboard?.snooze || 'Snooze'} />
-            <ShortcutRow keys={['?']} label={t.ai.followUpTracker.kanban?.keyboard?.showHelp || 'Show help'} />
-            <ShortcutRow keys={['Esc']} label={t.ai.followUpTracker.kanban?.keyboard?.clearSelection || 'Clear selection'} />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setHelpDialogOpen(false)}>
-            {t.common.close || 'Close'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        t={t}
+      />
     </Box>
   );
 }
 
-// Helper component for keyboard shortcut rows
-function ShortcutRow({ keys, label }: { keys: string[]; label: string }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <Typography variant="body2" color="text.secondary">
-        {label}
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        {keys.map((key) => (
-          <Box
-            key={key}
-            component="kbd"
-            sx={{
-              px: 1,
-              py: 0.25,
-              borderRadius: 1,
-              bgcolor: 'action.hover',
-              border: 1,
-              borderColor: 'divider',
-              fontSize: '0.75rem',
-              fontFamily: 'monospace',
-              fontWeight: 600,
-              minWidth: 24,
-              textAlign: 'center',
-            }}
-          >
-            {key}
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
-// Header component (extracted for reuse)
-interface HeaderProps {
-  theme: Theme;
+// ── Page header ──
+interface PageHeaderProps {
   t: ReturnType<typeof useTranslations>;
-  stats?: { pending: number; overdue: number; dueToday: number; resolved: number } | null;
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
   isMobile: boolean;
+  stats: FollowUpStats | null | undefined;
+  statsLoading: boolean;
+  searchQuery: string;
+  onSearchChange: (v: string) => void;
   typeFilter?: 'WAITING_FOR' | 'TODO';
-  onTypeFilterChange?: (value: 'WAITING_FOR' | 'TODO' | undefined) => void;
-  onShowHelp?: () => void;
+  onTypeFilterChange: (v: 'WAITING_FOR' | 'TODO' | undefined) => void;
+  onShowHelp: () => void;
 }
 
-function Header({ theme, t, stats, searchQuery, onSearchChange, isMobile, typeFilter, onTypeFilterChange, onShowHelp }: HeaderProps) {
+function PageHeader({
+  t,
+  isMobile,
+  stats,
+  statsLoading,
+  searchQuery,
+  onSearchChange,
+  typeFilter,
+  onTypeFilterChange,
+  onShowHelp,
+}: PageHeaderProps) {
+  const theme = useTheme();
+
   return (
-    <Box sx={{ mb: 2, px: 2, pt: 2 }}>
-      {/* Title */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+    <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+      {/* Title row */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
         <Box
           sx={{
-            width: 48,
-            height: 48,
-            borderRadius: 3,
+            width: 40,
+            height: 40,
+            borderRadius: 2.5,
             bgcolor: alpha(theme.palette.warning.main, 0.1),
             display: 'flex',
             alignItems: 'center',
@@ -648,122 +475,134 @@ function Header({ theme, t, stats, searchQuery, onSearchChange, isMobile, typeFi
             color: 'warning.main',
           }}
         >
-          <Bell size={24} />
+          <Bell size={20} />
         </Box>
         <Box sx={{ flex: 1 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
             {t.ai.followUpTracker.title}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="caption" color="text.secondary">
             {t.ai.followUpTracker.kanban?.subtitle || t.ai.followUpTracker.subtitle}
           </Typography>
         </Box>
-        {/* Keyboard shortcuts hint */}
         {!isMobile && (
           <Tooltip title={t.ai.followUpTracker.kanban?.keyboard?.title || 'Keyboard Shortcuts'}>
-            <IconButton
-              size="small"
-              onClick={onShowHelp}
-              sx={{ color: 'text.secondary' }}
-            >
-              <Keyboard size={20} />
+            <IconButton size="small" onClick={onShowHelp} sx={{ color: 'text.secondary' }}>
+              <Keyboard size={18} />
             </IconButton>
           </Tooltip>
         )}
       </Box>
 
-      {/* Stats */}
-      {stats && (
-        <Box sx={{ display: 'flex', gap: 3, mt: 2, mb: 2, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Clock size={16} color={theme.palette.warning.main} />
-            <Typography variant="body2" color="text.secondary">
-              <strong>{stats.pending}</strong> {t.ai.followUpTracker.stats.pending.toLowerCase()}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AlertTriangle size={16} color={theme.palette.error.main} />
-            <Typography variant="body2" color="text.secondary">
-              <strong>{stats.overdue}</strong> {t.ai.followUpTracker.stats.overdue.toLowerCase()}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Calendar size={16} color={theme.palette.info.main} />
-            <Typography variant="body2" color="text.secondary">
-              <strong>{stats.dueToday}</strong> {t.ai.followUpTracker.stats.dueToday.toLowerCase()}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CheckCircle size={16} color={theme.palette.success.main} />
-            <Typography variant="body2" color="text.secondary">
-              <strong>{stats.resolved}</strong> {t.ai.followUpTracker.stats.resolved.toLowerCase()}
-            </Typography>
-          </Box>
-        </Box>
-      )}
+      {/* Stats bar */}
+      <StatsBar stats={stats} isLoading={statsLoading} />
 
-      {/* Search */}
-      <TextField
-        fullWidth
-        size="small"
-        placeholder={t.ai.followUpTracker.searchPlaceholder}
-        value={searchQuery}
-        onChange={(e) => onSearchChange(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search size={18} />
-            </InputAdornment>
-          ),
-        }}
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 2,
-          },
-        }}
-      />
-
-      {/* Type Filter */}
-      {onTypeFilterChange && (
-        <Box
-          sx={{
-            mt: 2,
-            display: 'flex',
-            gap: 1,
-            alignItems: isMobile ? 'stretch' : 'center',
-            flexDirection: isMobile ? 'column' : 'row',
+      {/* Search + filter row */}
+      <Box sx={{ display: 'flex', gap: 1, mt: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextField
+          size="small"
+          placeholder={t.ai.followUpTracker.searchPlaceholder}
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={16} />
+              </InputAdornment>
+            ),
           }}
-        >
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-            {t.ai.followUpTracker.types.all}:
-          </Typography>
-          <ToggleButtonGroup
-            value={typeFilter || ''}
-            exclusive
-            onChange={(_, newValue) => onTypeFilterChange(newValue === '' ? undefined : newValue)}
-            size="small"
-            sx={{
-              flexWrap: 'wrap',
-              '& .MuiToggleButton-root': {
-                textTransform: 'none',
-                px: 2,
-                py: 0.5,
-                fontSize: '0.875rem',
-              },
-            }}
-          >
-            <ToggleButton value="">
-              {t.ai.followUpTracker.types.all}
-            </ToggleButton>
-            <ToggleButton value="WAITING_FOR">
-              {t.ai.followUpTracker.types.waitingFor}
-            </ToggleButton>
-            <ToggleButton value="TODO">
-              {t.ai.followUpTracker.types.todo}
-            </ToggleButton>
-          </ToggleButtonGroup>
+          sx={{
+            flex: 1,
+            minWidth: 200,
+            '& .MuiOutlinedInput-root': { borderRadius: 2, height: 36 },
+          }}
+        />
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {(['WAITING_FOR', 'TODO'] as const).map((type) => (
+            <Chip
+              key={type}
+              label={type === 'WAITING_FOR' ? t.ai.followUpTracker.types.waitingFor : t.ai.followUpTracker.types.todo}
+              variant={typeFilter === type ? 'filled' : 'outlined'}
+              color={typeFilter === type ? 'primary' : 'default'}
+              size="small"
+              onClick={() => onTypeFilterChange(typeFilter === type ? undefined : type)}
+              sx={{ cursor: 'pointer', fontWeight: 500 }}
+            />
+          ))}
         </Box>
-      )}
+      </Box>
+    </Box>
+  );
+}
+
+// ── Keyboard help dialog ──
+function KeyboardHelpDialog({
+  open,
+  onClose,
+  t,
+}: {
+  open: boolean;
+  onClose: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const kb = t.ai.followUpTracker.kanban?.keyboard;
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Keyboard size={18} />
+        {kb?.title || 'Keyboard Shortcuts'}
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="overline" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+          {kb?.navigation || 'Navigation'}
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 2 }}>
+          <ShortcutRow keys="j" label={kb?.moveDown || 'Move down'} />
+          <ShortcutRow keys="k" label={kb?.moveUp || 'Move up'} />
+          <ShortcutRow keys="h" label={kb?.prevColumn || 'Previous column'} />
+          <ShortcutRow keys="l" label={kb?.nextColumn || 'Next column'} />
+        </Box>
+        <Divider sx={{ my: 1.5 }} />
+        <Typography variant="overline" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+          {kb?.actions || 'Actions'}
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          <ShortcutRow keys="Enter" label={kb?.openEmail || 'Open email'} />
+          <ShortcutRow keys="r" label={kb?.resolve || 'Resolve'} />
+          <ShortcutRow keys="s" label={kb?.snooze || 'Snooze'} />
+          <ShortcutRow keys="?" label={kb?.showHelp || 'Show help'} />
+          <ShortcutRow keys="Esc" label={kb?.clearSelection || 'Clear selection'} />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{t.common.close || 'Close'}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function ShortcutRow({ keys, label }: { keys: string; label: string }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Box
+        component="kbd"
+        sx={{
+          px: 1,
+          py: 0.25,
+          borderRadius: 1,
+          bgcolor: 'action.hover',
+          border: 1,
+          borderColor: 'divider',
+          fontSize: '0.7rem',
+          fontFamily: 'monospace',
+          fontWeight: 600,
+          minWidth: 24,
+          textAlign: 'center',
+        }}
+      >
+        {keys}
+      </Box>
     </Box>
   );
 }

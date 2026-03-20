@@ -6,6 +6,7 @@
 
 import { aiApi, aiChatApi, multiAgentApi } from './ai';
 import { apiClient, getCsrfToken } from '../api-client';
+import { TextDecoder } from 'util';
 
 // Mock the apiClient
 jest.mock('../api-client', () => ({
@@ -28,7 +29,6 @@ const mockLocalStorage = {
 };
 Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
 
-const { TextDecoder } = require('util');
 Object.defineProperty(global, 'TextDecoder', {
   value: TextDecoder,
   writable: true,

@@ -19,7 +19,15 @@ const filteredNextConfig = nextConfig.map((cfg) => {
 
 const config = [
   {
-    ignores: ['coverage/**', '.next/**', 'node_modules/**', 'playwright-report/**', 'e2e-results/**'],
+    ignores: [
+      'coverage/**',
+      '.next/**',
+      'node_modules/**',
+      'playwright-report/**',
+      'e2e-results/**',
+      'test-results/**',
+      '**/.playwright-artifacts-*/**',
+    ],
   },
   ...filteredNextConfig,
   ...tseslint.configs.recommended,
@@ -42,6 +50,12 @@ const config = [
     files: ['*.js', '*.cjs'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
+    files: ['e2e/**/*.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
 ];

@@ -55,7 +55,7 @@ test.describe('Admin panel -- user management', () => {
     await expect(page.locator('tr', { hasText: 'admin@pmsync.local' })).not.toBeVisible();
   });
 
-  test('impersonate a user', async ({ page }) => {
+  test('impersonate a user', async ({ page: _page }) => {
     // SKIP: Impersonation redirects to /onboarding when the impersonated user
     // hasn't accepted legal terms (Terms & Privacy). The onboarding middleware
     // prevents the dashboard from loading, so the ImpersonationBanner never

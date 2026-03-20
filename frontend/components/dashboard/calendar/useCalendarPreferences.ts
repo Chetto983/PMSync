@@ -24,6 +24,15 @@ export function useCalendarPreferences(calendarCopy: any) {
   const [providerGroups, setProviderGroups] = useState<ProviderGroup[]>([]);
   const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
   const [colorPickerCalendarId, setColorPickerCalendarId] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'warning' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
 
   const dispatchCalendarRefresh = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -124,8 +133,6 @@ export function useCalendarPreferences(calendarCopy: any) {
         removable: cal.removable ?? !(cal.primary ?? false),
       });
     });
-    setCalendarPrefs(newPrefs);
-
     const groupsMap = new Map<string, ProviderGroup>();
     newPrefs.forEach((pref) => {
       if (!groupsMap.has(pref.providerId)) {
@@ -139,7 +146,12 @@ export function useCalendarPreferences(calendarCopy: any) {
       }
       groupsMap.get(pref.providerId)!.calendars.push(pref);
     });
-    setProviderGroups(Array.from(groupsMap.values()));
+    const nextProviderGroups = Array.from(groupsMap.values());
+
+    queueMicrotask(() => {
+      setCalendarPrefs(newPrefs);
+      setProviderGroups(nextProviderGroups);
+    });
   }, [calendarsData, loadEnabledState]);
 
   // Refresh calendars list
@@ -273,17 +285,6 @@ export function useCalendarPreferences(calendarCopy: any) {
     },
     [calendarCopy, deleteCalendarMutation, dispatchCalendarRefresh]
   );
-
-  // Snackbar state (shared with parent via return)
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'warning' | 'info';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
 
   return {
     calendarPrefs,

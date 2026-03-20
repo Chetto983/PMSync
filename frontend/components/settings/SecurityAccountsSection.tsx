@@ -82,11 +82,11 @@ export function SecurityAccountsSection() {
   const isLinked = (providerId: string) =>
     accounts.some((a) => a.providerId === providerId);
 
-  const canUnlink = (providerId: string) => {
+  const canUnlink = useCallback((providerId: string) => {
     // Must have at least one other auth method
     const otherMethods = accounts.filter((a) => a.providerId !== providerId);
     return otherMethods.length > 0;
-  };
+  }, [accounts]);
 
   const handleLink = useCallback(async (provider: string) => {
     try {
@@ -119,7 +119,7 @@ export function SecurityAccountsSection() {
     } finally {
       setUnlinking(false);
     }
-  }, [loadAccounts, sec?.cannotUnlinkLast]);
+  }, [canUnlink, loadAccounts, sec?.cannotUnlinkLast]);
 
   return (
     <Box>

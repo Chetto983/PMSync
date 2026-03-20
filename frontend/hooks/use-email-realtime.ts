@@ -39,7 +39,7 @@ interface UseEmailRealtimeOptions {
  */
 function createDebouncedInvalidator(delayMs = 500) {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let pendingKeys = new Set<string>();
+  const pendingKeys = new Set<string>();
 
   return {
     /**
