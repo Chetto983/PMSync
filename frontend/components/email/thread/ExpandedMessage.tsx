@@ -357,19 +357,19 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             {/* Reply/Forward actions — always visible (hover-only is a UX anti-pattern) */}
             <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
               <Tooltip title={t.threadMessage?.reply || 'Reply'}>
-                <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
+                <IconButton size="small" aria-label="reply" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
                   <Reply size={16} />
                 </IconButton>
               </Tooltip>
               {onReplyAll && (
                 <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
-                  <IconButton size="small" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
+                  <IconButton size="small" aria-label="reply-all" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
                     <ReplyAll size={16} />
                   </IconButton>
                 </Tooltip>
               )}
               <Tooltip title={t.threadMessage?.forward || 'Forward'}>
-                <IconButton size="small" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
+                <IconButton size="small" aria-label="forward" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
                   <Forward size={16} />
                 </IconButton>
               </Tooltip>

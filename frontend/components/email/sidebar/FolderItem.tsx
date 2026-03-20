@@ -49,6 +49,7 @@ export function FolderItem({
   const content = (
     <ListItem disablePadding sx={{ px: collapsed ? 0.5 : 0.5 }}>
       <ListItemButton
+        data-testid="folder-item"
         selected={selected}
         onClick={onClick}
         onMouseEnter={onMouseEnter}

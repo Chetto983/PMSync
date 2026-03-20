@@ -245,6 +245,7 @@ export function FolderSidebar({
 
   return (
     <Box
+      data-testid="folder-sidebar"
       sx={{
         width: sidebarWidth,
         minWidth: collapsed ? 64 : 180,
