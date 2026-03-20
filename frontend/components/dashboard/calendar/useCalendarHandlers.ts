@@ -12,6 +12,7 @@ import {
   useCreateCalendarEvent,
   useUpdateCalendarEvent,
   useDeleteCalendarEvent,
+  useRespondToCalendarEvent,
   calendarEventDetailOptions,
   calendarEventAttachmentsOptions,
 } from '@/hooks/queries/use-calendar';
@@ -28,6 +29,7 @@ import {
   resolveSelectedCalendarPreference,
 } from './calendar-event-form';
 import { formatDateTimeLocalInput } from './calendar-date-time';
+import type { RSVPResponse } from '@/components/calendar/RSVPButtons';
 
 type CalendarData = ReturnType<typeof useCalendarData>;
 interface CalendarCopy {
@@ -68,6 +70,7 @@ export function useCalendarHandlers(
   const createEventMutation = useCreateCalendarEvent();
   const updateEventMutation = useUpdateCalendarEvent();
   const deleteEventMutation = useDeleteCalendarEvent();
+  const respondToEventMutation = useRespondToCalendarEvent();
   const failedToLoadEventDetailsMessage =
     calendarCopy.failedToLoadEventDetails || 'Failed to load event details';
   const eventCreatedMessage = calendarCopy.eventCreated || 'Event created';
@@ -446,6 +449,33 @@ export function useCalendarHandlers(
     }
   }, []);
 
+  // RSVP response handler
+  const handleRSVPRespond = useCallback(
+    async (eventId: string, response: RSVPResponse) => {
+      try {
+        await respondToEventMutation.mutateAsync({ eventId, response });
+        setSnackbar({
+          open: true,
+          message: eventUpdatedMessage,
+          severity: 'success',
+        });
+        // Refresh event details to show updated attendee status
+        if (selectedEvent?.id === eventId) {
+          const updated = await queryClient.fetchQuery(calendarEventDetailOptions(eventId));
+          setSelectedEvent(updated);
+        }
+      } catch (error) {
+        logger.error('Failed to respond to calendar event', { error });
+        setSnackbar({
+          open: true,
+          message: failedToUpdateEventMessage,
+          severity: 'error',
+        });
+      }
+    },
+    [respondToEventMutation, eventUpdatedMessage, failedToUpdateEventMessage, queryClient, selectedEvent, setSnackbar],
+  );
+
   return {
     // Quick event
     quickEventText,
@@ -487,5 +517,6 @@ export function useCalendarHandlers(
     handleDeleteEvent,
     handleCloseEventDetails,
     handleDownloadAttachment,
+    handleRSVPRespond,
   };
 }

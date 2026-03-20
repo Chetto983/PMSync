@@ -29,6 +29,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useSession } from '@/lib/auth-client';
 import {
   CalendarSidebar,
   CalendarHeader,
@@ -45,6 +46,9 @@ export function Calendar() {
   const translations = useTranslations();
   const calendarCopy = translations.calendar;
   const toast = useGlobalToast();
+
+  const { data: session } = useSession();
+  const currentUserEmail = session?.user?.email;
 
   const prefs = useCalendarPreferences(calendarCopy);
   const data = useCalendarData(prefs.calendarPrefs, prefs.loadCalendars, prefs.setSnackbar, calendarCopy);
@@ -123,6 +127,7 @@ export function Calendar() {
     handleDeleteEvent,
     handleCloseEventDetails,
     handleDownloadAttachment,
+    handleRSVPRespond,
   } = handlers;
 
   const sidebarProps = {
@@ -318,6 +323,8 @@ export function Calendar() {
         attachments={attachments}
         loadingAttachments={loadingAttachments}
         onDownloadAttachment={handleDownloadAttachment}
+        onRSVPRespond={handleRSVPRespond}
+        currentUserEmail={currentUserEmail ?? undefined}
       />
     </Box>
   );
