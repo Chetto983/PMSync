@@ -83,7 +83,7 @@ export function TrendChartsWidget() {
                   fontSize: 12,
                 }}
                 labelStyle={{ color: theme.palette.text.primary, fontWeight: 600 }}
-                formatter={(value: number, name: string) => [
+                formatter={(value, name) => [
                   value,
                   name === 'received'
                     ? t.dashboard.widgets.trendCharts.received

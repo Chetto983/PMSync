@@ -124,7 +124,7 @@ export function FollowUpWidget() {
             >
               <ListItemText
                 primary={followUp.subject}
-                secondary={`${followUp.contactName} • ${formatDistanceToNow(new Date(followUp.dueDate), { addSuffix: true })}`}
+                secondary={`${followUp.contactName} • ${formatDistanceToNow(new Date(followUp.dueDate), { addSuffix: true, ...dl })}`}
                 slotProps={{
                   primary: {
                     variant: 'body2',

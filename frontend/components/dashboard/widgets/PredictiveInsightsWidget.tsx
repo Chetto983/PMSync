@@ -55,6 +55,7 @@ export function PredictiveInsightsWidget() {
   const { data: followUps, isLoading: followUpsLoading } = useFollowUps({ limit: 10 });
   const { data: staleContacts, isLoading: staleLoading } = useStaleContacts({ limit: 10 });
 
+  const ins = t.dashboard?.widgets?.insights;
   const isLoading =
     consentLoading ||
     (hasAiConsent && briefingLoading) ||
@@ -72,10 +73,8 @@ export function PredictiveInsightsWidget() {
         id: 'urgent-emails',
         type: 'urgent',
         icon: <Mail size={18} />,
-        title: t.dashboard?.widgets?.insights?.urgentEmails || `${briefing.urgentEmails} emails need response today`,
-        description:
-          t.dashboard?.widgets?.insights?.urgentEmailsDesc ||
-          'These emails have been flagged as high priority',
+        title: `${briefing.urgentEmails} ${ins?.urgentEmails || 'emails need response today'}`,
+        description: ins?.urgentEmailsDesc || 'These emails have been flagged as high priority',
         action: {
           label: t.common?.viewAll || 'View All',
           href: '/dashboard/email?filter=urgent',
@@ -92,12 +91,8 @@ export function PredictiveInsightsWidget() {
         id: 'overdue-deadlines',
         type: 'urgent',
         icon: <AlertTriangle size={18} />,
-        title:
-          t.dashboard?.widgets?.insights?.overdueDeadlines ||
-          `${overdueDeadlines} overdue deadline${overdueDeadlines > 1 ? 's' : ''}`,
-        description:
-          t.dashboard?.widgets?.insights?.overdueDeadlinesDesc ||
-          'These items require immediate attention',
+        title: `${overdueDeadlines} ${ins?.overdueDeadlines || 'overdue deadline'}`,
+        description: ins?.overdueDeadlinesDesc || 'These items require immediate attention',
         action: {
           label: t.common?.viewAll || 'View All',
           href: '/dashboard#deadlines',
@@ -111,12 +106,8 @@ export function PredictiveInsightsWidget() {
         id: 'today-deadlines',
         type: 'warning',
         icon: <Clock size={18} />,
-        title:
-          t.dashboard?.widgets?.insights?.todayDeadlines ||
-          `${deadlines.todayCount} deadline${deadlines.todayCount > 1 ? 's' : ''} due today`,
-        description:
-          t.dashboard?.widgets?.insights?.todayDeadlinesDesc ||
-          'Plan your day to complete these on time',
+        title: `${deadlines.todayCount} ${ins?.todayDeadlines || 'due today'}`,
+        description: ins?.todayDeadlinesDesc || 'Plan your day to complete these on time',
         action: {
           label: t.dashboard?.widgets?.deadlines?.viewAll || 'View Deadlines',
           href: '/dashboard#deadlines',
@@ -130,12 +121,8 @@ export function PredictiveInsightsWidget() {
         id: 'overdue-followups',
         type: 'warning',
         icon: <Mail size={18} />,
-        title:
-          t.dashboard?.widgets?.insights?.overdueFollowUps ||
-          `${followUps.overdueCount} follow-up${followUps.overdueCount > 1 ? 's' : ''} overdue`,
-        description:
-          t.dashboard?.widgets?.insights?.overdueFollowUpsDesc ||
-          'Consider sending a reminder or closing these',
+        title: `${followUps.overdueCount} follow-up ${ins?.overdueFollowUps || 'overdue'}`,
+        description: ins?.overdueFollowUpsDesc || 'Consider sending a reminder or closing these',
         action: {
           label: t.dashboard?.widgets?.followUps?.viewAll || 'View Follow-ups',
           href: '/dashboard/ai/follow-ups',
@@ -150,12 +137,8 @@ export function PredictiveInsightsWidget() {
         id: 'stale-contacts',
         type: 'info',
         icon: <Users size={18} />,
-        title:
-          t.dashboard?.widgets?.insights?.staleContacts ||
-          `${staleCount} contact${staleCount > 1 ? 's' : ''} need reconnection`,
-        description:
-          t.dashboard?.widgets?.insights?.staleContactsDesc ||
-          'Maintain relationships by reaching out',
+        title: `${staleCount} ${ins?.staleContacts || 'need reconnection'}`,
+        description: ins?.staleContactsDesc || 'Maintain relationships by reaching out',
         action: {
           label: t.dashboard?.widgets?.crm?.viewAll || 'View Contacts',
           href: '/dashboard/contacts?filter=stale',
@@ -169,15 +152,13 @@ export function PredictiveInsightsWidget() {
         id: 'all-clear',
         type: 'success',
         icon: <CheckCircle2 size={18} />,
-        title: t.dashboard?.widgets?.insights?.allClear || "You're all caught up!",
-        description:
-          t.dashboard?.widgets?.insights?.allClearDesc ||
-          'No urgent items require your attention right now',
+        title: ins?.allClear || "You're all caught up!",
+        description: ins?.allClearDesc || 'No urgent items require your attention right now',
       });
     }
 
     return result.slice(0, 4); // Max 4 insights
-  }, [briefing, deadlines, followUps, staleContacts, t]);
+  }, [briefing, deadlines, followUps, staleContacts, ins, t]);
 
   const getInsightColor = (type: Insight['type']) => {
     switch (type) {
@@ -195,8 +176,8 @@ export function PredictiveInsightsWidget() {
   return (
     <BaseWidget
       id="predictive-insights"
-      title={t.dashboard?.widgets?.insights?.title || 'AI Insights'}
-      subtitle={t.dashboard?.widgets?.insights?.subtitle || 'What needs your attention'}
+      title={ins?.title || 'AI Insights'}
+      subtitle={ins?.subtitle || 'What needs your attention'}
       loading={isLoading}
       icon={<Sparkles size={18} />}
     >
