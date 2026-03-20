@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
@@ -37,7 +37,7 @@ import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 import { extractEmailAddress, formatEmailToThread } from '@/components/email/utils/email-formatters';
-import { getEffectiveEmailListPage } from '@/components/email/utils/email-behavior';
+// getEffectiveEmailListPage removed — page reset is now synchronous via ref
 import { useEmailPageActions, type EmailPageStateSnapshot } from '@/components/email/hooks/use-email-page-actions';
 
 export default function EmailPage() {
@@ -130,21 +130,18 @@ export default function EmailPage() {
   );
 
   const filterKey = useMemo(() => JSON.stringify(baseEmailParams), [baseEmailParams]);
-  const [appliedFilterKey, setAppliedFilterKey] = useState(filterKey);
-  const effectivePage = getEffectiveEmailListPage({
-    page,
-    filterKey,
-    previousFilterKey: appliedFilterKey,
-  });
+  const prevFilterKeyRef = useRef(filterKey);
 
-  useEffect(() => {
-    if (appliedFilterKey === filterKey) {
-      return;
+  // Reset page synchronously when filters change (no useEffect = no extra render)
+  if (prevFilterKeyRef.current !== filterKey) {
+    prevFilterKeyRef.current = filterKey;
+    if (page !== 1) {
+      setPage(1);
     }
+  }
 
-    setAppliedFilterKey(filterKey);
-    setPage(1);
-  }, [appliedFilterKey, filterKey]);
+  // When filters just changed and page hasn't reset yet, force page 1
+  const effectivePage = prevFilterKeyRef.current === filterKey ? page : 1;
 
   const emailQueries = useQueries({
     queries: Array.from({ length: effectivePage }, (_, index) =>
