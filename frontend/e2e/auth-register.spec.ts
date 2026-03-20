@@ -77,6 +77,7 @@ test.describe('Auth Register', () => {
     test.skip(!probe?.ok, 'Backend API not reachable -- skipping weak password test');
 
     await page.goto('/auth/register', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     await page.getByLabel(/first name/i).fill('Weak');
     await page.getByLabel(/last name/i).fill('Pass');
@@ -95,14 +96,17 @@ test.describe('Auth Register', () => {
     test.skip(!probe?.ok, 'Backend API not reachable -- skipping registration test');
     const timestamp = Date.now();
     const testEmail = `test+${timestamp}@pmsync.local`;
+    // Use a unique non-breached password (HIBP rejects common passwords like TestPassword123!)
+    const testPassword = `Pm5ync_E2e!${timestamp}`;
 
     await page.goto('/auth/register', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     await page.getByLabel(/first name/i).fill('Test');
     await page.getByLabel(/last name/i).fill('User');
     await page.getByLabel(/email/i).fill(testEmail);
-    await page.locator('input[type="password"]').first().fill('TestPassword123!');
-    await page.locator('input[type="password"]').nth(1).fill('TestPassword123!');
+    await page.locator('input[type="password"]').first().fill(testPassword);
+    await page.locator('input[type="password"]').nth(1).fill(testPassword);
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: /create account/i }).click();
 
@@ -116,14 +120,16 @@ test.describe('Auth Register', () => {
     test.skip(!probe?.ok, 'Backend API not reachable -- skipping registration test');
     const timestamp = Date.now();
     const testEmail = `test+resend+${timestamp}@pmsync.local`;
+    const testPassword = `Pm5ync_E2e!${timestamp}`;
 
     await page.goto('/auth/register', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     await page.getByLabel(/first name/i).fill('Resend');
     await page.getByLabel(/last name/i).fill('Test');
     await page.getByLabel(/email/i).fill(testEmail);
-    await page.locator('input[type="password"]').first().fill('TestPassword123!');
-    await page.locator('input[type="password"]').nth(1).fill('TestPassword123!');
+    await page.locator('input[type="password"]').first().fill(testPassword);
+    await page.locator('input[type="password"]').nth(1).fill(testPassword);
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: /create account/i }).click();
 

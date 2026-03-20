@@ -24,6 +24,7 @@ test.describe('Auth Forgot Password', () => {
     const probe = await fetch(`${apiURL}/health`).catch(() => null);
     test.skip(!probe?.ok, 'Backend API not reachable');
     await page.goto('/auth/forgot-password', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     await page.getByLabel(/email/i).fill('admin@pmsync.local');
     await page.getByRole('button', { name: /send reset link/i }).click();
@@ -39,6 +40,7 @@ test.describe('Auth Forgot Password', () => {
     const probe = await fetch(`${apiURL}/health`).catch(() => null);
     test.skip(!probe?.ok, 'Backend API not reachable');
     await page.goto('/auth/forgot-password', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     await page.getByLabel(/email/i).fill('admin@pmsync.local');
     await page.getByRole('button', { name: /send reset link/i }).click();

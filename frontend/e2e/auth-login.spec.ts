@@ -29,6 +29,7 @@ test.describe('Auth Login', () => {
 
   test('shows error for invalid credentials', async ({ page }) => {
     await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     await page.getByLabel(/email/i).fill('invalid@test.com');
     await page.locator('input[type="password"]').fill('WrongPass123!');
@@ -53,9 +54,12 @@ test.describe('Auth Login', () => {
     test.skip(!probe?.ok, 'Backend API not reachable -- skipping login test');
 
     await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
-    await page.getByLabel(/email/i).fill('admin@pmsync.local');
-    await page.locator('input[type="password"]').fill('TestPassword123!');
+    const testEmail = process.env.E2E_USER_EMAIL ?? 'admin@pmsync.local';
+    const testPassword = process.env.E2E_USER_PASSWORD ?? 'TestPassword123!';
+    await page.getByLabel(/email/i).fill(testEmail);
+    await page.locator('input[type="password"]').fill(testPassword);
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 30_000 });

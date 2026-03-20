@@ -47,6 +47,7 @@ test.describe('Auth 2FA', () => {
     test.skip(!probe?.ok, 'Backend API not reachable');
 
     await page.goto('/auth/two-factor', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
     await page.locator('input[inputmode="numeric"]').fill('000000');
     await page.getByRole('button', { name: /verify/i }).click();
@@ -74,7 +75,8 @@ test.describe('Auth 2FA', () => {
 
     const timestamp = Date.now();
     const testEmail = `test+2fa+${timestamp}@pmsync.local`;
-    const testPassword = 'TestPassword123!';
+    // Use a unique non-breached password (HIBP rejects common passwords like TestPassword123!)
+    const testPassword = `Pm5ync_2fa!${timestamp}`;
 
     // Register new user via API
     const signUpRes = await freshPage.request.post('/api/auth/sign-up/email', {
@@ -87,6 +89,7 @@ test.describe('Auth 2FA', () => {
 
     // Attempt login via UI
     await freshPage.goto('/auth/login', { waitUntil: 'domcontentloaded' });
+    await freshPage.waitForLoadState('networkidle');
     await freshPage.getByLabel(/email/i).fill(testEmail);
     await freshPage.locator('input[type="password"]').fill(testPassword);
     await freshPage.getByRole('button', { name: /sign in/i }).click();

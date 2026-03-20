@@ -21,6 +21,7 @@ setup('authenticate as member', async ({ page }) => {
   });
 
   await page.goto('/auth/login', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.waitForLoadState('networkidle');
   await page.waitForSelector('input[name="email"], input[type="email"]', { timeout: 30_000 });
   await page.fill('input[name="email"], input[type="email"]', MEMBER_EMAIL);
   await page.fill('input[name="password"], input[type="password"]', MEMBER_PASSWORD);
