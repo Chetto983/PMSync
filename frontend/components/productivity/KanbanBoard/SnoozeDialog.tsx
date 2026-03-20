@@ -38,11 +38,14 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
   const theme = useTheme();
   const t = useTranslations();
   const { locale } = useLocale();
-  const dl = locale === 'it' ? { locale: itLocale } : undefined;
   const [showCustom, setShowCustom] = useState(false);
   const [customDateStr, setCustomDateStr] = useState('');
 
   const minDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const dateLocaleOptions = useMemo(
+    () => (locale === 'it' ? { locale: itLocale } : undefined),
+    [locale]
+  );
 
   const presets: PresetOption[] = useMemo(
     () => [
@@ -50,28 +53,28 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
         label: t.ai.followUpTracker.snooze.tomorrow,
         icon: <Sun size={16} />,
         getDate: () => addDays(new Date(), 1),
-        description: format(addDays(new Date(), 1), 'EEEE, MMM d', dl),
+        description: format(addDays(new Date(), 1), 'EEEE, MMM d', dateLocaleOptions),
       },
       {
         label: t.ai.followUpTracker.snooze.inThreeDays || 'In 3 days',
         icon: <Clock size={16} />,
         getDate: () => addDays(new Date(), 3),
-        description: format(addDays(new Date(), 3), 'EEEE, MMM d', dl),
+        description: format(addDays(new Date(), 3), 'EEEE, MMM d', dateLocaleOptions),
       },
       {
         label: t.ai.followUpTracker.snooze.nextWeek,
         icon: <Calendar size={16} />,
         getDate: () => addWeeks(new Date(), 1),
-        description: format(addWeeks(new Date(), 1), 'EEEE, MMM d', dl),
+        description: format(addWeeks(new Date(), 1), 'EEEE, MMM d', dateLocaleOptions),
       },
       {
         label: t.ai.followUpTracker.snooze.nextMonth || 'Next month',
         icon: <ArrowRight size={16} />,
         getDate: () => addMonths(new Date(), 1),
-        description: format(addMonths(new Date(), 1), 'MMM d', dl),
+        description: format(addMonths(new Date(), 1), 'MMM d', dateLocaleOptions),
       },
     ],
-    [t, dl],
+    [dateLocaleOptions, t],
   );
 
   const handlePreset = (preset: PresetOption) => {
