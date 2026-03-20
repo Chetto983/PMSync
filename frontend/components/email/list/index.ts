@@ -10,6 +10,7 @@ export { ThreadListHeader } from './ThreadListHeader';
 export { EmailSearchBar } from './EmailSearchBar';
 export { EmptyState } from './EmptyState';
 export { DraggableThreadListItem } from './DraggableThreadListItem';
+export { EmailContextMenu } from './EmailContextMenu';
 export { ThreadListSkeleton, ThreadItemSkeleton } from './ThreadListSkeleton';
 
 export type { ThreadListItemData } from './ThreadListItem';

@@ -28,6 +28,7 @@ import { getDraggedEmailIds } from '@/components/email/utils/email-behavior';
 import { ThreadListHeader } from './ThreadListHeader';
 import { ThreadListItem, ThreadListItemData } from './ThreadListItem';
 import { DraggableThreadListItem } from './DraggableThreadListItem';
+import { EmailContextMenu } from './EmailContextMenu';
 import { EmptyState, EmptyStateVariant } from './EmptyState';
 import { ThreadListSkeleton } from './ThreadListSkeleton';
 import { FolderPickerDialog } from '../folders/FolderPickerDialog';
@@ -115,6 +116,21 @@ export function ThreadList({
   // Folder picker state (mobile move-to-folder action)
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [moveEmailId, setMoveEmailId] = useState<string | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    position: { top: number; left: number } | null;
+    emailId: string | null;
+  }>({ position: null, emailId: null });
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, thread: ThreadListItemData) => {
+    e.preventDefault();
+    setContextMenu({ position: { top: e.clientY, left: e.clientX }, emailId: thread.id });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu({ position: null, emailId: null });
+  }, []);
 
   // DnD state is managed by EmailLayout's DndContext
 
@@ -399,6 +415,7 @@ export function ThreadList({
                 }}
               >
                 {/* Only use draggable on desktop - mobile needs touch scroll */}
+                <div onContextMenu={(e) => handleContextMenu(e, thread)}>
                 {thread.providerId && isDesktop ? (
                   <DraggableThreadListItem
                     thread={thread as ThreadListItemData & { providerId: string }}
@@ -431,6 +448,7 @@ export function ThreadList({
                     onMouseLeave={handleMouseLeave}
                   />
                 )}
+                </div>
               </Box>
             );
           })}
@@ -454,6 +472,20 @@ export function ThreadList({
       </Box>
 
       {/* DragOverlay is now centralized in EmailLayout */}
+
+      {/* Right-click context menu */}
+      <EmailContextMenu
+        anchorPosition={contextMenu.position}
+        emailId={contextMenu.emailId}
+        isRead={contextMenu.emailId ? !threads.find(t => t.id === contextMenu.emailId)?.isUnread : true}
+        isFlagged={contextMenu.emailId ? threads.find(t => t.id === contextMenu.emailId)?.isFlagged : false}
+        onClose={handleCloseContextMenu}
+        onOpen={onThreadClick}
+        onFlag={handleFlag}
+        onArchive={handleArchive}
+        onMove={handleMove}
+        onDelete={handleDelete}
+      />
 
       {/* Folder picker dialog - mobile alternative to drag-and-drop */}
       <FolderPickerDialog
