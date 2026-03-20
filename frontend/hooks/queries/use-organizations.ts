@@ -252,6 +252,12 @@ export function useAcceptInvitation() {
       const res = await authClient.organization.acceptInvitation({
         invitationId,
       });
+      if (res.error) {
+        const authError = res.error as AuthClientErrorLike;
+        const errMsg =
+          authError.message || authError.code || 'Failed to accept invitation';
+        throw new Error(errMsg);
+      }
       return res.data;
     },
     onSuccess: () => {
@@ -269,6 +275,12 @@ export function useDeclineInvitation() {
       const res = await authClient.organization.rejectInvitation({
         invitationId,
       });
+      if (res.error) {
+        const authError = res.error as AuthClientErrorLike;
+        const errMsg =
+          authError.message || authError.code || 'Failed to decline invitation';
+        throw new Error(errMsg);
+      }
       return res.data;
     },
     onSuccess: () => {
