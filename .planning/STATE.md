@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: System Audit & Hardening
-status: in_progress
+status: unknown
 stopped_at: Phase 90 email hotfix stream with lint baseline closed
-last_updated: "2026-03-20T11:01:15.1893598+01:00"
+last_updated: "2026-03-20T10:30:54.892Z"
 progress:
   total_phases: 10
   completed_phases: 1
@@ -69,7 +69,7 @@ Recent decisions affecting current work:
 
 - Revalidate live Gmail Inbox after backend deploy (authenticated session)
 - Revalidate row checkbox and quick actions in the desktop thread list after frontend deploy
-- Re-audit remaining email issues: thread-route reply/forward UI on live Gmail flows
+- Re-audit remaining email issues: live Gmail thread reply/forward behavior after deploy
 
 ### Blockers/Concerns
 
