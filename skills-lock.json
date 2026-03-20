@@ -11,6 +11,11 @@
       "sourceType": "github",
       "computedHash": "e55f969f8b3d833f5ce45d241824e15f668e196ab7c3748812850406e6d2085c"
     },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "computedHash": "645b891da1edbae76ab79c7b088d4e73397464f8396edaf773c0e01971ce75d6"
+    },
     "playwright-skill": {
       "source": "testdino-hq/playwright-skill",
       "sourceType": "github",

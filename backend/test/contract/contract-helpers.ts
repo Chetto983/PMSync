@@ -54,7 +54,8 @@ export function loadSpec(): OpenApiSpec | null {
     if (fs.existsSync(candidate)) {
       try {
         const raw = fs.readFileSync(candidate, 'utf-8');
-        return JSON.parse(raw) as OpenApiSpec;
+        const spec = JSON.parse(raw) as OpenApiSpec;
+        return withApiPrefixAliases(spec);
       } catch {
         console.warn(`Failed to parse OpenAPI spec at ${candidate}`);
         return null;
@@ -67,6 +68,29 @@ export function loadSpec(): OpenApiSpec | null {
     'Generate it with: cd backend && npx ts-node scripts/generate-openapi.ts',
   );
   return null;
+}
+
+function withApiPrefixAliases(spec: OpenApiSpec): OpenApiSpec {
+  const paths = { ...spec.paths };
+
+  for (const [existingPath, pathItem] of Object.entries(spec.paths)) {
+    if (existingPath.startsWith('/api/v1/')) {
+      continue;
+    }
+
+    const prefixedPath = existingPath === '/'
+      ? '/api/v1'
+      : `/api/v1${existingPath}`;
+
+    if (!paths[prefixedPath]) {
+      paths[prefixedPath] = pathItem;
+    }
+  }
+
+  return {
+    ...spec,
+    paths,
+  };
 }
 
 /**
