@@ -2,63 +2,87 @@
 
 ## Milestones
 
-- ✅ **v3.0 AI Intelligence & Scalability** - Phases 1-12 (shipped 2026-02-09)
-- ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** - Phases 13-22 (shipped 2026-02-27)
-- ✅ **v3.2 AI Rebuild & Cleanup** - Phases 23-30 (shipped 2026-03-03, partial)
-- ✅ **v4.0 Enterprise Stabilization** - Phases 31-41 (shipped 2026-03-04)
-- ✅ **v4.1 Security Hardening & Debt Reduction** - Phases 42-49 (shipped 2026-03-06)
-- ✅ **v5.0 better-auth Migration** - Phases 50-65 (shipped 2026-03-10)
-- ✅ **v5.1 Test Coverage & Polish** - Phases 66-76 (shipped 2026-03-15)
-- 🚧 **v6.0 Enterprise Platform & AI Governance** - Phases 77-85 (in progress)
+- ✅ **v1 Stability & Code Quality Refactor** — Phases 1-8 (shipped 2026-02-02)
+- ✅ **v2.0 Professional Email Client** — Phases 1-8 (shipped 2026-02-04)
+- ✅ **v2.1 Optimization & Polish** — Phases 01-03 (shipped 2026-02-05)
+- ✅ **v3.0 AI Intelligence & Scalability** — Phases 1-12 (shipped 2026-02-09)
+- ✅ **v3.1 GDPR Compliance & Chatbot Enhancement** — Phases 13-22 (shipped 2026-02-27)
+- ✅ **v3.2 AI Rebuild & Cleanup** — Phases 23-28 (shipped 2026-03-03, partial)
+- ✅ **v4.0 Enterprise Stabilization** — Phases 31-41 (shipped 2026-03-04)
+- ✅ **v4.1 Security Hardening & Debt Reduction** — Phases 42-49 (shipped 2026-03-06)
+- ✅ **v5.0 better-auth Migration** — Phases 50-65 (shipped 2026-03-10)
+- ✅ **v5.1 Test Coverage & Polish** — Phases 66-76 (shipped 2026-03-15)
+- 🚧 **v6.0 Enterprise Platform & AI Governance** — Phases 77-88 (in progress)
 
 ## Phases
 
 <details>
-<summary>v3.0 AI Intelligence & Scalability (Phases 1-12) - SHIPPED 2026-02-09</summary>
+<summary>✅ v1 Stability & Code Quality Refactor (Phases 1-8) — SHIPPED 2026-02-02</summary>
 
-Phases 1-12: VoltAgent audit, modern chat UI, priority scoring, follow-ups refactor, nested labels, chat UI on mail, chat improvements, email tool triage, artifact renderers, UI review, AI module audit, test fixes. 12 phases, 42 plans, 19/19 requirements.
-
-</details>
-
-<details>
-<summary>v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) - SHIPPED 2026-02-27</summary>
-
-Phases 13-22: PII tokenization, database encryption at rest, GDPR core compliance, data rights & legal, rich artifacts UI, AI triage & bulk ops, AI draft generation, GDPR guard mounting, triage prompt enrichment, bug audit. 10 phases, 31/32 requirements (ENC-03 deferred).
+8 phases, 40 plans. See `milestones/v1-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>v3.2 AI Rebuild & Cleanup (Phases 23-30) - SHIPPED 2026-03-03 (partial)</summary>
+<summary>✅ v2.0 Professional Email Client (Phases 1-8) — SHIPPED 2026-02-04</summary>
 
-Phases 23-28: SDK foundation, backend core pipeline, tools & RAG, non-chat AI, chat frontend, cleanup & VoltAgent deletion. 6 phases complete (20 plans). Phases 29-30 carried forward to v4.0.
-
-</details>
-
-<details>
-<summary>v4.0 Enterprise Stabilization (Phases 31-41) - SHIPPED 2026-03-04</summary>
-
-11 phases, 22 plans, 19/19 requirements. See `.planning/milestones/v4.0-ROADMAP.md` for full details.
+8 phases, 21 plans, 24/24 requirements. See `milestones/v2.0-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>v4.1 Security Hardening & Debt Reduction (Phases 42-49) - SHIPPED 2026-03-06</summary>
+<summary>✅ v2.1 Optimization & Polish (Phases 01-03) — SHIPPED 2026-02-05</summary>
 
-8 phases, 28 plans, 65/66 requirements. See `.planning/milestones/v4.1-ROADMAP.md` for full details.
-
-</details>
-
-<details>
-<summary>v5.0 better-auth Migration (Phases 50-65) - SHIPPED 2026-03-10</summary>
-
-15 phases, 34 plans, 51/51 requirements.
+3 phases, 5 plans. See `milestones/v2.1-ROADMAP.md` for full details.
 
 </details>
 
 <details>
-<summary>v5.1 Test Coverage & Polish (Phases 66-76) - SHIPPED 2026-03-15</summary>
+<summary>✅ v3.0 AI Intelligence & Scalability (Phases 1-12) — SHIPPED 2026-02-09</summary>
 
-11 phases, 30 plans. Test infrastructure, backend unit/integration tests, frontend unit/E2E tests, MUI audit, test hardening, E2E runtime validation, org E2E fix, CI reliability gate. See `.planning/milestones/v5.1-ROADMAP.md` for full details.
+12 phases, 42 plans, 19/19 requirements. See `milestones/v3.0-ROADMAP.md` for full details.
+
+</details>
+
+<details>
+<summary>✅ v3.1 GDPR Compliance & Chatbot Enhancement (Phases 13-22) — SHIPPED 2026-02-27</summary>
+
+10 phases, 34 plans, 31/32 requirements (ENC-03 deferred). See `milestones/v3.1-ROADMAP.md` for full details.
+
+</details>
+
+<details>
+<summary>✅ v3.2 AI Rebuild & Cleanup (Phases 23-28) — SHIPPED 2026-03-03 (partial)</summary>
+
+6 phases, 20 plans, 25/33 requirements (8 carried to v4.0). See `milestones/v3.2-ROADMAP.md` for full details.
+
+</details>
+
+<details>
+<summary>✅ v4.0 Enterprise Stabilization (Phases 31-41) — SHIPPED 2026-03-04</summary>
+
+11 phases, 22 plans, 19/19 requirements. See `milestones/v4.0-ROADMAP.md` for full details.
+
+</details>
+
+<details>
+<summary>✅ v4.1 Security Hardening & Debt Reduction (Phases 42-49) — SHIPPED 2026-03-06</summary>
+
+8 phases, 28 plans, 65/66 requirements. See `milestones/v4.1-ROADMAP.md` for full details.
+
+</details>
+
+<details>
+<summary>✅ v5.0 better-auth Migration (Phases 50-65) — SHIPPED 2026-03-10</summary>
+
+15 phases, 34 plans, 51/51 requirements. See `milestones/v5.0-ROADMAP.md` for full details.
+
+</details>
+
+<details>
+<summary>✅ v5.1 Test Coverage & Polish (Phases 66-76) — SHIPPED 2026-03-15</summary>
+
+11 phases, 30 plans. See `milestones/v5.1-ROADMAP.md` for full details.
 
 </details>
 
