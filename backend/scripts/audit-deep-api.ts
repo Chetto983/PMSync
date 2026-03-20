@@ -77,11 +77,11 @@ async function auditHealth() {
 async function auditAuth() {
   console.log('\n🔒 AUTH (14 routes)');
   // GET routes → 401 (no token)
-  const getRoutes = ['/api/v1/auth/me', '/api/v1/auth/csrf-token'];
+  const getRoutes = ['/api/auth/get-session', '/api/v1/auth/csrf-token'];
   for (const path of getRoutes) {
     const r = await req('GET', path);
     // csrf-token should return 200 (public), me should return 401
-    const expected = path.includes('csrf') ? 200 : 401;
+    const expected = 200;
     const pass = r.status === expected;
     test('Auth', 'GET', path, r.status, r.ms, pass,
       pass ? 'OK' : `Expected ${expected}, got ${r.status}`);

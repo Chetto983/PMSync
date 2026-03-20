@@ -14,8 +14,11 @@ import { createClient } from 'redis';
 import path from 'path';
 
 const BASE = process.env.AUDIT_BASE_URL || 'http://localhost:3000';
-const NEON_URL = process.env.DATABASE_URL!;
-const REDIS_URL = `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}/${process.env.REDIS_DB || 0}`;
+const NEON_URL = process.env.DATABASE_URL;
+const REDIS_URL =
+  process.env.REDIS_HOST && process.env.REDIS_PORT && process.env.REDIS_PASSWORD
+    ? `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}/${process.env.REDIS_DB || 0}`
+    : null;
 
 interface AuditResult {
   category: string;
@@ -97,7 +100,7 @@ async function auditAuth() {
 
   // JWT required on protected routes
   const protectedRoutes = ['/api/v1/emails', '/api/v1/contacts', '/api/v1/calendar/events',
-    '/api/v1/providers', '/api/v1/folders', '/api/v1/auth/me'];
+    '/api/v1/providers', '/api/v1/folders', '/api/v1/users/me'];
   for (const path of protectedRoutes) {
     const r = await httpGet(path);
     record('Auth', `Auth guard ${path}`, r.status === 401 ? 'PASS' : 'FAIL',
@@ -148,6 +151,11 @@ async function auditRateLimits() {
 // ─── 4. Database (Neon) ───────────────────────────────────────────
 async function auditDatabase() {
   console.log('\n🗄️  DATABASE (Neon)');
+
+  if (!NEON_URL) {
+    record('DB', 'Neon connection', 'WARN', 'DATABASE_URL not set in local env; skipping direct DB audit');
+    return;
+  }
 
   const client = new Client({ connectionString: NEON_URL });
   try {
@@ -202,6 +210,11 @@ async function auditDatabase() {
 async function auditRedis() {
   console.log('\n🔴 REDIS');
 
+  if (!REDIS_URL) {
+    record('Redis', 'Connection', 'WARN', 'REDIS_* vars not set in local env; skipping direct Redis audit');
+    return;
+  }
+
   const client = createClient({ url: REDIS_URL });
   try {
     await client.connect();
@@ -224,7 +237,9 @@ async function auditRedis() {
   } catch (e) {
     record('Redis', 'Connection', 'FAIL', (e as Error).message);
   } finally {
-    await client.disconnect();
+    if (client.isOpen) {
+      await client.disconnect();
+    }
   }
 }
 
@@ -318,8 +333,14 @@ async function auditRailwayConfig() {
     'S3_ACCESS_KEY', 'S3_BUCKET', 'SMTP_HOST',
   ];
   for (const env of requiredEnvs) {
-    record('Railway', `ENV ${env}`, process.env[env] ? 'PASS' : 'FAIL',
-      process.env[env] ? 'set' : 'MISSING — must set on Railway');
+    record(
+      'Railway',
+      `ENV ${env}`,
+      process.env[env] ? 'PASS' : 'WARN',
+      process.env[env]
+        ? 'set in local audit environment'
+        : 'not set locally - cannot verify remote Railway value from this machine',
+    );
   }
 }
 

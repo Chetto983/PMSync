@@ -7,6 +7,7 @@ import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service'
 import { ContactsSyncQueueService } from './contacts-sync-queue.service';
 import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
 import { nanoid } from 'nanoid';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 export const MICROSOFT_CONTACTS_RESOURCE = '/me/contacts';
 
@@ -395,34 +396,36 @@ export class MicrosoftContactsWebhookService {
    * Get webhook statistics
    */
   async getStats(): Promise<any> {
-    const total = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'microsoft',
-        resourcePath: MICROSOFT_CONTACTS_RESOURCE,
-        isActive: true,
-      },
-    });
-
-    const recentNotifications = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'microsoft',
-        resourcePath: MICROSOFT_CONTACTS_RESOURCE,
-        isActive: true,
-        lastNotificationAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
+    return withoutTenantScopingAsync(async () => {
+      const total = await this.prisma.webhookSubscription.count({
+        where: {
+          providerType: 'microsoft',
+          resourcePath: MICROSOFT_CONTACTS_RESOURCE,
+          isActive: true,
         },
-      },
-      select: {
-        providerId: true,
-        notificationCount: true,
-        lastNotificationAt: true,
-      },
-    });
+      });
 
-    return {
-      activeSubscriptions: total,
-      recentNotifications: recentNotifications.length,
-      lastNotifications: recentNotifications,
-    };
+      const recentNotifications = await this.prisma.webhookSubscription.findMany({
+        where: {
+          providerType: 'microsoft',
+          resourcePath: MICROSOFT_CONTACTS_RESOURCE,
+          isActive: true,
+          lastNotificationAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
+          },
+        },
+        select: {
+          providerId: true,
+          notificationCount: true,
+          lastNotificationAt: true,
+        },
+      });
+
+      return {
+        activeSubscriptions: total,
+        recentNotifications: recentNotifications.length,
+        lastNotifications: recentNotifications,
+      };
+    });
   }
 }

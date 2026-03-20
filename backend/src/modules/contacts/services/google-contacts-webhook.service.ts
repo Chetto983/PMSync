@@ -5,6 +5,7 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { ContactsSyncQueueService } from './contacts-sync-queue.service';
 import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping/tenant-context';
 
 export const GOOGLE_CONTACTS_RESOURCE = '/contacts';
 
@@ -283,34 +284,36 @@ export class GoogleContactsWebhookService {
    * Get webhook statistics
    */
   async getStats(): Promise<any> {
-    const total = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'google',
-        resourcePath: GOOGLE_CONTACTS_RESOURCE,
-        isActive: true,
-      },
-    });
-
-    const recentNotifications = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'google',
-        resourcePath: GOOGLE_CONTACTS_RESOURCE,
-        isActive: true,
-        lastNotificationAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
+    return withoutTenantScopingAsync(async () => {
+      const total = await this.prisma.webhookSubscription.count({
+        where: {
+          providerType: 'google',
+          resourcePath: GOOGLE_CONTACTS_RESOURCE,
+          isActive: true,
         },
-      },
-      select: {
-        providerId: true,
-        notificationCount: true,
-        lastNotificationAt: true,
-      },
-    });
+      });
 
-    return {
-      activeSubscriptions: total,
-      recentNotifications: recentNotifications.length,
-      lastNotifications: recentNotifications,
-    };
+      const recentNotifications = await this.prisma.webhookSubscription.findMany({
+        where: {
+          providerType: 'google',
+          resourcePath: GOOGLE_CONTACTS_RESOURCE,
+          isActive: true,
+          lastNotificationAt: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
+          },
+        },
+        select: {
+          providerId: true,
+          notificationCount: true,
+          lastNotificationAt: true,
+        },
+      });
+
+      return {
+        activeSubscriptions: total,
+        recentNotifications: recentNotifications.length,
+        lastNotifications: recentNotifications,
+      };
+    });
   }
 }
