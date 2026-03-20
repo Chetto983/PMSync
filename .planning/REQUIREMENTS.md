@@ -32,13 +32,13 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **BAPI-21**: Health endpoints respond correctly (health, ready, live, queues)
 - [ ] **BAPI-22**: Webhook endpoints process notifications (Gmail push, Microsoft Graph, Calendar, Contacts)
 - [ ] **BAPI-23**: Calendar invite operations work (get invite, respond, send, cancel)
-- [ ] **BAPI-24**: User profile operations work (get/update me, avatar upload/delete, preferences, dashboard preferences, clear AI memory)
+- [x] **BAPI-24**: User profile operations work (get/update me, avatar upload/delete, preferences, dashboard preferences, clear AI memory)
 - [ ] **BAPI-25**: Email attachment download works (both controller paths)
 
 ### Frontend Verification
 
 - [ ] **FE-01**: Auth pages render and function (login, register, forgot-password, reset-password, verify-email, 2FA)
-- [ ] **FE-02**: Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent)
+- [x] **FE-02**: Onboarding wizard completes all steps (avatar, name, provider, workspace, MFA, legal consent)
 - [ ] **FE-03**: Email list loads, filters, searches, and paginates correctly
 - [ ] **FE-04**: Email thread view renders messages, attachments, and actions
 - [ ] **FE-05**: Email compose works (new, reply, forward, draft save, schedule send, undo send)
@@ -148,10 +148,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-21 | Phase 94 | Pending |
 | BAPI-22 | Phase 94 | Pending |
 | BAPI-23 | Phase 91 | Pending |
-| BAPI-24 | Phase 89 | Pending |
+| BAPI-24 | Phase 89 | Complete |
 | BAPI-25 | Phase 90 | Pending |
 | FE-01 | Phase 89 | Pending |
-| FE-02 | Phase 89 | Pending |
+| FE-02 | Phase 89 | Complete |
 | FE-03 | Phase 90 | Pending |
 | FE-04 | Phase 90 | Pending |
 | FE-05 | Phase 90 | Pending |
