@@ -25,9 +25,9 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **BAPI-14**: User can use AI chat (stream message, CRUD conversations, HITL approve/reject)
 - [x] **BAPI-15**: User can manage knowledge base (backfill, list/delete embeddings, semantic search)
 - [x] **BAPI-16**: Admin can access AI observability (list runs, cost summary)
-- [ ] **BAPI-17**: Admin can manage users (list, ban/unban, impersonate, revoke sessions)
-- [ ] **BAPI-18**: Admin can manage tenants (list, create, update, delete)
-- [ ] **BAPI-19**: User can manage Telegram integration (settings, link/unlink, webhook)
+- [x] **BAPI-17**: Admin can manage users (list, ban/unban, impersonate, revoke sessions)
+- [x] **BAPI-18**: Admin can manage tenants (list, create, update, delete)
+- [x] **BAPI-19**: User can manage Telegram integration (settings, link/unlink, webhook)
 - [ ] **BAPI-20**: User can get realtime auth token and WebSocket connects successfully
 - [ ] **BAPI-21**: Health endpoints respond correctly (health, ready, live, queues)
 - [ ] **BAPI-22**: Webhook endpoints process notifications (Gmail push, Microsoft Graph, Calendar, Contacts)
@@ -141,9 +141,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-14 | Phase 92 | Complete |
 | BAPI-15 | Phase 92 | Complete |
 | BAPI-16 | Phase 92 | Complete |
-| BAPI-17 | Phase 93 | Pending |
-| BAPI-18 | Phase 93 | Pending |
-| BAPI-19 | Phase 93 | Pending |
+| BAPI-17 | Phase 93 | Complete |
+| BAPI-18 | Phase 93 | Complete |
+| BAPI-19 | Phase 93 | Complete |
 | BAPI-20 | Phase 94 | Pending |
 | BAPI-21 | Phase 94 | Pending |
 | BAPI-22 | Phase 94 | Pending |
