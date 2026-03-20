@@ -158,12 +158,18 @@ export function KanbanColumn({
             flexDirection: 'column',
             gap: 1,
             pr: 0.5,
-            '&::-webkit-scrollbar': { width: 5 },
+            '&::-webkit-scrollbar': { width: 4 },
             '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
             '&::-webkit-scrollbar-thumb': {
-              bgcolor: alpha(theme.palette.text.primary, 0.08),
-              borderRadius: 3,
-              '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.15) },
+              bgcolor: 'transparent',
+              borderRadius: 2,
+              transition: 'background-color 0.2s ease',
+            },
+            '&:hover::-webkit-scrollbar-thumb': {
+              bgcolor: alpha(theme.palette.text.primary, 0.12),
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              bgcolor: alpha(theme.palette.text.primary, 0.2),
             },
           }}
         >
