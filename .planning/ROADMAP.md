@@ -100,7 +100,7 @@
 
 - [x] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard (completed 2026-03-20)
 - [ ] **Phase 90: Email Operations Verification** - Reopened 2026-03-20 for Gmail parity blockers (label counts, sync parity, provider draft editing)
-- [ ] **Phase 91: Calendar, Contacts & Reminders Verification** - Verify calendar events, contacts management, reminders, invites
+- [x] **Phase 91: Calendar, Contacts & Reminders Verification** - Verify calendar events, contacts management, reminders, invites (completed 2026-03-20)
 - [ ] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability
 - [ ] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram
 - [ ] **Phase 94: Infrastructure & Remaining Pages** - Verify WebSocket, health, webhooks, dashboard, tasks, analytics, landing, legal
@@ -169,7 +169,7 @@ Plans:
   2. Calendar invite operations work: get invite details, RSVP (accept/decline/tentative), send invites, cancel events
   3. Contacts can be listed, created, edited, deleted, bulk-deleted, VIP toggled, imported via vCard, synced, and extracted from emails
   4. Reminders page works end-to-end: list, create, complete, delete, and Kanban view renders correctly
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 91-01-PLAN.md -- Calendar full-stack verification (backend controllers + frontend UI + browser checkpoint)
 - [ ] 91-02-PLAN.md -- Contacts full-stack verification (backend controller + frontend UI + browser checkpoint)
@@ -272,7 +272,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 |-------|----------------|--------|-----------|
 | 89. Auth & Onboarding Verification | 3/3 | Complete    | 2026-03-20 |
 | 90. Email Operations Verification | 4/4 | Complete    | 2026-03-20 |
-| 91. Calendar, Contacts & Reminders Verification | 1/3 | In Progress|  |
+| 91. Calendar, Contacts & Reminders Verification | 3/3 | Complete   | 2026-03-20 |
 | 92. AI & Knowledge Base Verification | 0/? | Not started | - |
 | 93. Admin, Subscriptions & Integrations | 0/? | Not started | - |
 | 94. Infrastructure & Remaining Pages | 0/? | Not started | - |

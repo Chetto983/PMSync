@@ -14,8 +14,8 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **BAPI-03**: User can manage folders (list, create, rename, move, delete, sync)
 - [x] **BAPI-04**: User can manage signatures (list, create, update, delete, set-default)
 - [x] **BAPI-05**: User can manage email templates (list, create, update, delete, duplicate, set-default)
-- [ ] **BAPI-06**: User can perform all calendar operations (list calendars, CRUD events, sync, conflicts, focus-time, meeting-prep)
-- [ ] **BAPI-07**: User can perform all contact operations (list, create, update, delete, bulk-delete, VIP toggle, import vCard, sync, extract-from-emails)
+- [x] **BAPI-06**: User can perform all calendar operations (list calendars, CRUD events, sync, conflicts, focus-time, meeting-prep)
+- [x] **BAPI-07**: User can perform all contact operations (list, create, update, delete, bulk-delete, VIP toggle, import vCard, sync, extract-from-emails)
 - [ ] **BAPI-08**: User can manage labels (list, create, update, delete, add/remove emails, reorder)
 - [ ] **BAPI-09**: User can manage providers (list, connect Google/Microsoft/IMAP, test connections, delete, sync)
 - [ ] **BAPI-10**: User can manage subscription (get status, usage, limits, features, cost-breakdown, cancel)
@@ -31,7 +31,7 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [ ] **BAPI-20**: User can get realtime auth token and WebSocket connects successfully
 - [ ] **BAPI-21**: Health endpoints respond correctly (health, ready, live, queues)
 - [ ] **BAPI-22**: Webhook endpoints process notifications (Gmail push, Microsoft Graph, Calendar, Contacts)
-- [ ] **BAPI-23**: Calendar invite operations work (get invite, respond, send, cancel)
+- [x] **BAPI-23**: Calendar invite operations work (get invite, respond, send, cancel)
 - [x] **BAPI-24**: User profile operations work (get/update me, avatar upload/delete, preferences, dashboard preferences, clear AI memory)
 - [x] **BAPI-25**: Email attachment download works (both controller paths)
 
@@ -43,8 +43,8 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **FE-04**: Email thread view renders messages, attachments, and actions
 - [x] **FE-05**: Email compose works (new, reply, forward, draft save, schedule send, undo send)
 - [ ] **FE-06**: AI chat interface works (send message, receive stream, HITL approval, conversation history)
-- [ ] **FE-07**: Calendar view renders events, create/edit/delete works, RSVP functions
-- [ ] **FE-08**: Contacts list loads, create/edit/delete works, VIP toggle, import vCard
+- [x] **FE-07**: Calendar view renders events, create/edit/delete works, RSVP functions
+- [x] **FE-08**: Contacts list loads, create/edit/delete works, VIP toggle, import vCard
 - [ ] **FE-09**: Dashboard renders with all widgets, customization drawer works, layout persists
 - [ ] **FE-10**: Settings pages function (general, security, email accounts, notifications, AI, billing)
 - [ ] **FE-11**: Admin pages function (user list, ban/unban, impersonation, organization management)
@@ -130,8 +130,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-03 | Phase 90 | Complete |
 | BAPI-04 | Phase 90 | Complete |
 | BAPI-05 | Phase 90 | Complete |
-| BAPI-06 | Phase 91 | Pending |
-| BAPI-07 | Phase 91 | Pending |
+| BAPI-06 | Phase 91 | Complete |
+| BAPI-07 | Phase 91 | Complete |
 | BAPI-08 | Phase 93 | Pending |
 | BAPI-09 | Phase 93 | Pending |
 | BAPI-10 | Phase 93 | Pending |
@@ -147,7 +147,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BAPI-20 | Phase 94 | Pending |
 | BAPI-21 | Phase 94 | Pending |
 | BAPI-22 | Phase 94 | Pending |
-| BAPI-23 | Phase 91 | Pending |
+| BAPI-23 | Phase 91 | Complete |
 | BAPI-24 | Phase 89 | Complete |
 | BAPI-25 | Phase 90 | Complete |
 | FE-01 | Phase 89 | Complete |
@@ -156,8 +156,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FE-04 | Phase 90 | Complete |
 | FE-05 | Phase 90 | Complete |
 | FE-06 | Phase 92 | Pending |
-| FE-07 | Phase 91 | Pending |
-| FE-08 | Phase 91 | Pending |
+| FE-07 | Phase 91 | Complete |
+| FE-08 | Phase 91 | Complete |
 | FE-09 | Phase 94 | Pending |
 | FE-10 | Phase 93 | Pending |
 | FE-11 | Phase 93 | Pending |
