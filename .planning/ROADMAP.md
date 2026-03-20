@@ -99,7 +99,7 @@
 **Milestone Goal:** Test every endpoint and feature, clean dead code and inconsistencies, polish UI/UX -- verify everything works before adding new functionality.
 
 - [x] **Phase 89: Auth & Onboarding Verification** - Verify all auth flows, user profile, onboarding wizard (completed 2026-03-20)
-- [ ] **Phase 90: Email Operations Verification** - Reopened 2026-03-20 for Gmail parity blockers (label counts, sync parity, provider draft editing)
+- [x] **Phase 90: Email Operations Verification** - Reclosed 2026-03-20 after live Gmail parity, draft, reply/forward, and folder DnD validation
 - [x] **Phase 91: Calendar, Contacts & Reminders Verification** - Reopened for gap closure: RSVP wiring, VIP toggle in detail, i18n fix (completed 2026-03-20)
 - [ ] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability
 - [ ] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram
@@ -137,9 +137,9 @@ Plans:
   5. Labels sidebar renders with create/edit/delete/reorder, drag-drop assigns labels to emails, and signatures/templates CRUD all work via API
 **Current audit status (2026-03-20):**
 - Fixed: Gmail Inbox aggregation now includes label-backed inbox mail (category-backed messages no longer disappear from Inbox queries)
-- Fixed locally: Gmail folder and label counts now derive from provider label membership (`externalId`) instead of only `email.folder`, so Inbox/custom-label totals stay aligned with Gmail semantics
-- Fixed locally: Gmail/custom label list queries now match by label membership as well as canonical folder path, so label views no longer disappear when the primary folder differs from the label
-- Fixed locally: draft save/update now syncs through the provider driver and persists the provider draft id, so editing a draft updates Gmail instead of diverging in the local DB
+- Fixed: Gmail folder and label counts now derive from provider label membership (`externalId`) plus canonical folder path, so Inbox/custom-label totals stay aligned with Gmail semantics even during sync gaps
+- Fixed: Gmail/custom label list queries now match by label membership as well as canonical folder path, so label views no longer disappear when the primary folder differs from the label
+- Fixed: draft save/update now syncs through the provider driver and persists the provider draft id, so editing a draft updates Gmail instead of diverging in the local DB
 - Validated live: `specialUse=INBOX` on production Gmail now returns the same total as the provider Inbox folder, including label-backed messages stored under category folders
 - Validated live: provider-scoped Gmail folder queries used by the sidebar now return matching totals for system labels such as `UPDATES` and `IMPORTANT`
 - Validated live: draft create/update/delete works end-to-end on production Gmail, with a stable provider draft id across updates
@@ -149,19 +149,22 @@ Plans:
 - Fixed: label drag-drop now persists stable sibling order and cross-parent level shifts after refresh
 - Fixed: move dialog now behaves like a real mail client -- only Inbox, Archive, and user folders are offered, not raw Gmail category/state pseudo-labels
 - Fixed: reply/forward compose now preserves user-edited subject and body instead of silently reverting to backend-generated defaults
-- Fixed locally: archive/delete row actions now expose undo toasts through the shared toast context
-- Fixed locally: email list pagination no longer relies on ref mutation or setState-in-effect to avoid double fetches on filter changes
-- Fixed locally: desktop email shell now shares a single folders query with the sidebar/folder management path, and provider-folder prefetch uses canonical folder values instead of raw ids
-- Fixed locally: folder DnD now wires folder-to-folder reparenting through `useMoveFolder` (pending live Gmail validation)
+- Fixed: archive/delete row actions now expose undo toasts through the shared toast context
+- Fixed: email list pagination no longer relies on ref mutation or setState-in-effect to avoid double fetches on filter changes
+- Fixed: desktop email shell now shares a single folders query with the sidebar/folder management path, and provider-folder prefetch uses canonical folder values instead of raw ids
+- Fixed: folder DnD now wires folder-to-folder reparenting through `useMoveFolder`
 - Fixed: repo-wide lint baseline is clean again -- `backend npm run lint:win`, `backend npm run type-check`, `frontend npm run lint`, and `frontend npm run type-check` all pass
-- Residual risk: no custom Gmail labels existed in the audited mailbox, so that branch remains covered by automated tests but not by live production Gmail verification
-- Remaining: thread-route reply/forward UI and folder reparenting still need their own live Gmail revalidation pass
+- Fixed: folder creation now tolerates queue polling races on production Gmail instead of surfacing `job not found` after successful creation
+- Validated live: row checkbox selection and inline quick actions no longer open the thread or send the wrong mutation
+- Validated live: thread-route reply/forward UI works on production Gmail, including delayed send through undo-send
+- Validated live: folder-to-folder reparenting works through the sidebar drag-drop path
+- Validated live: custom Gmail folder counts update correctly after a real move into a temporary Gmail folder
 **Plans:** 4/4 plans complete
 Plans:
 - [x] 90-01-PLAN.md -- Backend API verification (email CRUD, folders, signatures, templates, attachments)
 - [x] 90-02-PLAN.md -- Frontend email list, thread view, and compose verification
 - [x] 90-03-PLAN.md -- Frontend folders and labels sidebar verification
-- [ ] 90-04-PLAN.md -- Gap closure: attachment download anti-pattern fix, folder nesting scope clarification
+- [x] 90-04-PLAN.md -- Gap closure: attachment download anti-pattern fix, folder nesting scope clarification
 
 ### Phase 91: Calendar, Contacts & Reminders Verification
 **Goal**: Users can manage their calendar events, contacts, and reminders through both API and frontend

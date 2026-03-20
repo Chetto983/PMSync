@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: System Audit & Hardening
 status: unknown
-stopped_at: Completed 91-04-PLAN.md
-last_updated: "2026-03-20T14:29:01.900Z"
+stopped_at: Phase 92 UI-SPEC approved
+last_updated: "2026-03-20T14:49:03.091Z"
 progress:
   total_phases: 10
   completed_phases: 3
@@ -18,15 +18,15 @@ progress:
 
 See: `.planning/PROJECT.md` (updated 2026-03-20)
 
-Follow-up note: Gmail parity hotfixes are live-validated for the audited production mailbox. Residual risk is limited to custom Gmail labels, which are covered by tests but were not present in the mailbox for live verification.
+Follow-up note: Gmail/frontend Phase 90 blockers are fully live-validated for the audited production mailbox, including custom folder counts, draft editing, reply/forward, row actions, and folder drag-drop.
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 91 — calendar-contacts-reminders-verification
+**Current focus:** Phase 92 — AI & Knowledge Base Verification
 
 ## Current Position
 
-Phase: 91 (calendar-contacts-reminders-verification) — EXECUTING
-Plan: 5 of 5 (COMPLETE)
+Phase: 92 (ai-knowledge-base-verification) — READY TO EXECUTE
+Plan: UI-SPEC approved, execution not started
 
 ## Performance Metrics
 
@@ -73,7 +73,7 @@ Recent decisions affecting current work:
 - [Phase 90]: Gmail folder/list parity must follow label membership, not only `email.folder`, for Google providers
 - [Phase 90]: Draft edit is not shippable unless the provider draft id is updated live during autosave
 - [Phase 90]: Prior "completed" status was premature; Gmail parity bugs reopened the phase on 2026-03-20
-- [Phase 90]: Live Railway/Vercel validation on 2026-03-20 closed the audited mailbox blockers for Inbox parity and draft editing
+- [Phase 90]: Live Railway/Vercel validation on 2026-03-20 closed the audited mailbox blockers for Inbox parity, draft editing, reply/forward, row actions, folder reparenting, and custom Gmail folder counts
 - [Phase 91]: No code changes needed for reminders -- module passed full audit without bugs
 - [Phase 91]: No code changes needed for contacts -- module passed full backend+frontend audit without bugs
 - [Phase 91]: No code changes needed for backend calendar controllers -- all 15 endpoints already pass tenantId correctly
@@ -82,17 +82,16 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Revalidate row checkbox, quick actions, folder reparenting, and thread reply/forward after frontend deploy
-- Live-verify a mailbox that actually has custom Gmail labels, to close the last generic Gmail parity gap
+- Start Phase 92 execution from `.planning/phases/92-ai-knowledge-base-verification/92-UI-SPEC.md`
 
 ### Blockers/Concerns
 
-- Production blocker for the audited Gmail mailbox is closed; remaining risk is a generic custom-label branch that still lacks live verification
+- Production blocker for the audited Gmail mailbox is closed
 - Some backend Jest suites still assume a migrated local test DB; pure unit tests must bypass `globalSetup` when the Neon test database is unavailable
-- Repo-wide lint/type-check is green; remaining Phase 90 risk is Gmail live behavior, not static quality gates
+- Repo-wide lint/type-check is green; current risk is no longer in Phase 90 Gmail/frontend behavior
 
 ## Session Continuity
 
-Last session: 2026-03-20T14:24:46.988Z
-Stopped at: Completed 91-04-PLAN.md
-Resume file: None
+Last session: 2026-03-20T14:41:12.388Z
+Stopped at: Phase 92 UI-SPEC approved
+Resume file: .planning/phases/92-ai-knowledge-base-verification/92-UI-SPEC.md
