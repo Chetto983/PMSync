@@ -14,9 +14,9 @@ import { create } from 'zustand';
 // Store Types
 // ============================================================================
 
-export type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'priority' | 'trends' | 'contacts';
+export type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'priority' | 'trends' | 'contacts' | 'triage';
 
-export const ALL_WIDGETS: WidgetId[] = ['briefing', 'insights', 'events', 'emails', 'deadlines', 'followups', 'priority', 'trends', 'contacts'];
+export const ALL_WIDGETS: WidgetId[] = ['briefing', 'insights', 'events', 'emails', 'deadlines', 'followups', 'priority', 'trends', 'contacts', 'triage'];
 
 interface DashboardUIState {
     // Edit mode (client-only, transient)

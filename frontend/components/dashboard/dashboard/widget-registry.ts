@@ -12,6 +12,7 @@ import {
   Star,
   TrendingUp,
   Users,
+  Shield,
 } from 'lucide-react';
 import type { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -43,8 +44,11 @@ const TrendChartsWidget = lazy(() =>
 const StaleContactsWidget = lazy(() =>
   import('../widgets/StaleContactsWidget').then((m) => ({ default: m.StaleContactsWidget }))
 );
+const AiTriageWidget = lazy(() =>
+  import('../widgets/AiTriageWidget').then((m) => ({ default: m.AiTriageWidget }))
+);
 
-export type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'priority' | 'trends' | 'contacts';
+export type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'priority' | 'trends' | 'contacts' | 'triage';
 
 export interface WidgetConfig {
   id: WidgetId;
@@ -100,6 +104,11 @@ export const WIDGETS: WidgetConfig[] = [
     icon: React.createElement(Users, { size: 20 }),
     component: StaleContactsWidget,
   },
+  {
+    id: 'triage',
+    icon: React.createElement(Shield, { size: 20 }),
+    component: AiTriageWidget,
+  },
 ];
 
 export function getWidgetName(id: WidgetId, t: ReturnType<typeof useTranslations>): string {
@@ -113,6 +122,7 @@ export function getWidgetName(id: WidgetId, t: ReturnType<typeof useTranslations
     priority: t.dashboard?.widgets?.priorityInbox?.title || 'Priority Inbox',
     trends: t.dashboard?.widgets?.trendCharts?.title || 'Email Activity',
     contacts: t.dashboard?.widgets?.crm?.title || 'Stale Contacts',
+    triage: t.dashboard?.widgets?.aiTriage?.title || 'AI Triage',
   };
   return names[id];
 }
@@ -128,6 +138,7 @@ export function getWidgetDescription(id: WidgetId): string {
     priority: 'Starred and important emails',
     trends: 'Email activity trends',
     contacts: 'Contacts needing reconnection',
+    triage: 'AI-prioritized email inbox',
   };
   return descriptions[id];
 }
