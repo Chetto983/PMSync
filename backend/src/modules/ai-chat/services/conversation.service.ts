@@ -382,7 +382,11 @@ export class ConversationService {
           return this.formatStoredToolMessage(content, m.toolCallId);
         }
 
-        // assistant
+        // assistant — may be text-only OR array with text + tool-call parts
+        if (Array.isArray(content)) {
+          // Multi-part assistant message (text + tool calls from onStepFinish)
+          return { role: 'assistant', content } as any;
+        }
         const text =
           typeof content === 'string'
             ? content
@@ -393,7 +397,12 @@ export class ConversationService {
     // Merge consecutive same-role user messages to avoid InvalidPromptError.
     // This happens when prior AI responses failed (no assistant message saved)
     // leaving orphaned user messages in sequence.
-    return this.mergeConsecutiveUserMessages(raw);
+    const merged = this.mergeConsecutiveUserMessages(raw);
+
+    // Drop orphaned tool messages whose toolCallIds don't exist in any
+    // preceding assistant message. This handles old conversations where
+    // tool calls were not saved as part of assistant messages.
+    return this.dropOrphanedToolMessages(merged);
   }
 
   /**
@@ -453,5 +462,49 @@ export class ConversationService {
       role: 'tool',
       content: [toolResult],
     } as any; // ModelMessage union type needs cast for tool
+  }
+
+  /**
+   * Drop tool messages whose toolCallIds are not present in any
+   * preceding assistant message's tool-call parts.
+   *
+   * This handles legacy conversations where assistant messages were saved
+   * as text-only (without tool-call parts), leaving tool result messages
+   * that reference non-existent toolCallIds — causing AI SDK to reject
+   * the prompt with "messages do not match ModelMessage[] schema".
+   */
+  private dropOrphanedToolMessages(messages: ModelMessage[]): ModelMessage[] {
+    // Collect all toolCallIds from assistant messages
+    const knownToolCallIds = new Set<string>();
+    for (const msg of messages) {
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (
+            typeof part === 'object' &&
+            part !== null &&
+            'type' in part &&
+            (part as any).type === 'tool-call' &&
+            'toolCallId' in part
+          ) {
+            knownToolCallIds.add((part as any).toolCallId);
+          }
+        }
+      }
+    }
+
+    // If no tool calls found in any assistant message, drop ALL tool messages
+    // (they're all orphaned from old-format saves)
+    if (knownToolCallIds.size === 0) {
+      return messages.filter((m) => m.role !== 'tool');
+    }
+
+    // Otherwise, keep only tool messages whose toolCallIds are known
+    return messages.filter((msg) => {
+      if (msg.role !== 'tool') return true;
+      const content = msg.content;
+      if (!Array.isArray(content) || content.length === 0) return false;
+      const toolCallId = (content[0] as any)?.toolCallId;
+      return typeof toolCallId === 'string' && knownToolCallIds.has(toolCallId);
+    });
   }
 }

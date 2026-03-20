@@ -227,11 +227,37 @@ export class AiChatService {
       onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
         const stepIndex = completedStepCount++;
 
+        // Build assistant message content parts.
+        // CRITICAL: When tool calls exist, we MUST save them as part of the
+        // assistant message so that conversation history reconstruction produces
+        // valid ModelMessage[] — tool results reference toolCallIds that must
+        // exist in a preceding assistant message.
+        const contentParts: Prisma.InputJsonValue[] = [];
         if (text) {
+          contentParts.push({ type: 'text', text });
+        }
+        if (toolCalls?.length) {
+          for (const tc of toolCalls) {
+            contentParts.push({
+              type: 'tool-call',
+              toolCallId: tc.toolCallId,
+              toolName: tc.toolName,
+              input: tc.input as Prisma.InputJsonValue,
+            });
+          }
+        }
+
+        if (contentParts.length > 0) {
+          // Save as array if we have tool calls (multi-part), string-wrapped if text-only
+          const content: Prisma.InputJsonValue =
+            contentParts.length === 1 && !toolCalls?.length
+              ? contentParts[0]
+              : contentParts;
+
           await this.conversationService
             .saveAssistantMessage(
               conversation.id,
-              { type: 'text', text },
+              content,
               usage?.totalTokens,
               stepIndex,
             )
