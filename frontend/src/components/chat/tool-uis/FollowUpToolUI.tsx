@@ -3,6 +3,7 @@ import { Clock, AlertCircle } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { FollowUpResult, FollowUpItem } from '../types';
 
 function statusSx(s: string): { bgcolor: string; color: string } {
@@ -23,7 +24,7 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-function FollowUpRow({ item, isFirst }: { item: FollowUpItem; isFirst: boolean }) {
+function FollowUpRow({ item, isFirst, tu }: { item: FollowUpItem; isFirst: boolean; tu?: Record<string, string | undefined> }) {
   return (
     <Box
       sx={{
@@ -63,7 +64,7 @@ function FollowUpRow({ item, isFirst }: { item: FollowUpItem; isFirst: boolean }
           variant="body2"
           sx={{ mt: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
-          {item.email.subject ?? '(no subject)'}
+          {item.email.subject ?? tu?.noSubject ?? '(no subject)'}
         </Typography>
         <Typography
           variant="caption"
@@ -89,6 +90,8 @@ export function FollowUpRenderer({
   { status?: string; limit?: number },
   FollowUpResult
 >) {
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
   if (status.type === 'running') {
     return (
       <Box
@@ -176,7 +179,7 @@ export function FollowUpRenderer({
       ) : (
         <Box>
           {items.map((item, idx) => (
-            <FollowUpRow key={item.followUpId} item={item} isFirst={idx === 0} />
+            <FollowUpRow key={item.followUpId} item={item} isFirst={idx === 0} tu={tu} />
           ))}
         </Box>
       )}

@@ -45,7 +45,7 @@ function priorityBadge(priority: number | null) {
   );
 }
 
-function EmailRow({ item, isFirst }: { item: EmailSearchItem; isFirst: boolean }) {
+function EmailRow({ item, isFirst, tu }: { item: EmailSearchItem; isFirst: boolean; tu?: Record<string, string | undefined> }) {
   return (
     <Box
       sx={{
@@ -78,7 +78,7 @@ function EmailRow({ item, isFirst }: { item: EmailSearchItem; isFirst: boolean }
           </Typography>
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-          {item.subject ?? '(no subject)'}
+          {item.subject ?? tu?.noSubject ?? '(no subject)'}
         </Typography>
       </Box>
     </Box>
@@ -127,7 +127,7 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
       ) : (
         <Box>
           {items.map((item, idx) => (
-            <EmailRow key={item.id} item={item} isFirst={idx === 0} />
+            <EmailRow key={item.id} item={item} isFirst={idx === 0} tu={tu} />
           ))}
         </Box>
       )}

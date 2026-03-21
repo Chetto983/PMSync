@@ -21,7 +21,7 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max) + '...';
 }
 
-function EmailCard({ email }: { email: EmailContentItem }) {
+function EmailCard({ email, tu }: { email: EmailContentItem; tu: Record<string, string | undefined> }) {
   return (
     <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
@@ -36,12 +36,12 @@ function EmailCard({ email }: { email: EmailContentItem }) {
         </Typography>
       </Box>
       <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {email.subject ?? '(no subject)'}
+        {email.subject ?? tu.noSubject ?? '(no subject)'}
       </Typography>
       <Box sx={{ mb: 1 }}>
         <Typography variant="caption" color="text.secondary">
-          To: {email.to.join(', ')}
-          {email.cc.length > 0 && <Box component="span" sx={{ ml: 1 }}>Cc: {email.cc.join(', ')}</Box>}
+          {(tu.to ?? 'To: {value}').replace('{value}', email.to.join(', '))}
+          {email.cc.length > 0 && <Box component="span" sx={{ ml: 1 }}>{(tu.cc ?? 'Cc: {value}').replace('{value}', email.cc.join(', '))}</Box>}
         </Typography>
       </Box>
       <Typography variant="body2" sx={{ opacity: 0.8, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
@@ -87,7 +87,7 @@ export function EmailContentRenderer({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
         <AlertCircle size={16} />
         <Typography variant="body2" color="error.main">
-          Failed to load email: {'reason' in status ? status.reason : 'unknown'}
+          {(tu?.failedToLoad ?? 'Failed to load email: {error}').replace('{error}', 'reason' in status ? status.reason : 'unknown')}
         </Typography>
       </Box>
     );
@@ -119,9 +119,9 @@ export function EmailContentRenderer({
   if (!email.id) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
-        No email content found.
+        {tu?.noEmailContent ?? 'No email content found.'}
       </Typography>
     );
   }
-  return <EmailCard email={email} />;
+  return <EmailCard email={email} tu={tu ?? {}} />;
 }
