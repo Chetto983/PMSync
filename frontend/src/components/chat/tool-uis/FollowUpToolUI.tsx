@@ -71,7 +71,7 @@ function FollowUpRow({ item, isFirst, tu }: { item: FollowUpItem; isFirst: boole
           color="text.secondary"
           sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
         >
-          From: {item.email.from}
+          {(tu?.fromLabel ?? 'From: {value}').replace('{value}', item.email.from)}
         </Typography>
         {item.reason && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, fontStyle: 'italic', display: 'block' }}>
@@ -109,7 +109,7 @@ export function FollowUpRenderer({
       >
         <Clock size={16} />
         <Typography variant="body2" color="text.secondary">
-          Loading follow-ups...
+          {tu?.loadingFollowUps ?? 'Loading follow-ups...'}
         </Typography>
       </Box>
     );
@@ -130,7 +130,7 @@ export function FollowUpRenderer({
       >
         <AlertCircle size={16} />
         <Typography variant="body2" color="error.main">
-          Failed to load follow-ups: {'reason' in status ? (status as { reason?: string }).reason : 'unknown'}
+          {(tu?.failedToLoadFollowUps ?? 'Failed to load follow-ups: {error}').replace('{error}', 'reason' in status ? (status as { reason?: string }).reason ?? 'unknown' : 'unknown')}
         </Typography>
       </Box>
     );
@@ -166,7 +166,7 @@ export function FollowUpRenderer({
           color="text.secondary"
           sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}
         >
-          Follow-ups
+          {tu?.followUpsTitle ?? 'Follow-ups'}
         </Typography>
         <Typography variant="caption" color="text.secondary">
           {result.count} item{result.count !== 1 ? 's' : ''}
@@ -174,7 +174,7 @@ export function FollowUpRenderer({
       </Box>
       {items.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-          {result.message ?? 'No follow-ups found.'}
+          {result.message ?? tu?.noFollowUpsFound ?? 'No follow-ups found.'}
         </Typography>
       ) : (
         <Box>
