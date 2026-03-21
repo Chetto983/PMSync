@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsOptional,
+  IsObject,
   MaxLength,
   IsArray,
 } from 'class-validator';
@@ -52,6 +53,19 @@ export class ChatRequestDto {
   @IsOptional()
   @IsString()
   messageId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tool schemas forwarded by AssistantChatTransport (ignored by backend)',
+  })
+  @IsOptional()
+  @IsObject()
+  tools?: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    description: 'Request metadata forwarded by AssistantChatTransport (ignored by backend)',
+  })
+  @IsOptional()
+  metadata?: unknown;
 
   // ========== Legacy fields ==========
 
