@@ -3,7 +3,7 @@ phase: 98
 slug: security-verification
 status: draft
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-03-22
 ---
 
@@ -17,20 +17,20 @@ created: 2026-03-22
 
 | Property | Value |
 |----------|-------|
-| **Framework** | jest 29.x (NestJS e2e) |
-| **Config file** | `backend/test/jest-e2e.json` |
-| **Quick run command** | `cd backend && npx jest --config test/jest-e2e.json --testPathPattern security` |
-| **Full suite command** | `cd backend && npx jest --config test/jest-e2e.json` |
-| **Estimated runtime** | ~30 seconds |
+| **Framework** | Standalone verification scripts (ts-node) |
+| **Config file** | N/A — scripts run against live server |
+| **Quick run command** | `cd backend && npx ts-node --transpile-only scripts/verify-auth-guards.ts` |
+| **Full suite command** | `cd backend && npx ts-node --transpile-only scripts/verify-auth-guards.ts && npx ts-node --transpile-only scripts/verify-tenant-isolation.ts && npx ts-node --transpile-only scripts/verify-csrf.ts && npx ts-node --transpile-only scripts/verify-rate-limiting.ts && npx ts-node --transpile-only scripts/verify-rbac.ts` |
+| **Estimated runtime** | ~60 seconds (requires live backend on localhost:3000) |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && npx jest --config test/jest-e2e.json --testPathPattern security`
-- **After every plan wave:** Run `cd backend && npx jest --config test/jest-e2e.json`
-- **Before `/gsd:verify-work`:** Full suite must be green
-- **Max feedback latency:** 30 seconds
+- **After every task commit:** Run the script created by that task against localhost:3000
+- **After every plan wave:** Run full suite command
+- **Before `/gsd:verify-work`:** Full suite must exit 0
+- **Max feedback latency:** 60 seconds
 
 ---
 
@@ -38,11 +38,10 @@ created: 2026-03-22
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 98-01-01 | 01 | 1 | SEC-01 | e2e | `npx jest --testPathPattern auth-guard` | ❌ W0 | ⬜ pending |
-| 98-01-02 | 01 | 1 | SEC-02 | e2e | `npx jest --testPathPattern tenant-isolation` | ❌ W0 | ⬜ pending |
-| 98-02-01 | 02 | 1 | SEC-03 | e2e | `npx jest --testPathPattern csrf` | ❌ W0 | ⬜ pending |
-| 98-02-02 | 02 | 1 | SEC-04 | e2e | `npx jest --testPathPattern rate-limit` | ❌ W0 | ⬜ pending |
-| 98-03-01 | 03 | 1 | SEC-05 | e2e | `npx jest --testPathPattern rbac` | ❌ W0 | ⬜ pending |
+| 98-01-01 | 01 | 1 | SEC-01 | script | `cd backend && npx ts-node --transpile-only scripts/verify-auth-guards.ts` | ❌ | ⬜ pending |
+| 98-01-02 | 01 | 1 | SEC-02, SEC-05 | script | `cd backend && npx ts-node --transpile-only scripts/verify-tenant-isolation.ts && npx ts-node --transpile-only scripts/verify-rbac.ts` | ❌ | ⬜ pending |
+| 98-02-01 | 02 | 1 | SEC-03 | script | `cd backend && npx ts-node --transpile-only scripts/verify-csrf.ts` | ❌ | ⬜ pending |
+| 98-02-02 | 02 | 1 | SEC-04 | script | `cd backend && npx ts-node --transpile-only scripts/verify-rate-limiting.ts` | ❌ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,12 +49,7 @@ created: 2026-03-22
 
 ## Wave 0 Requirements
 
-- [ ] `backend/test/security/` — test directory for security e2e tests
-- [ ] `backend/test/security/auth-guard.e2e-spec.ts` — stubs for SEC-01
-- [ ] `backend/test/security/tenant-isolation.e2e-spec.ts` — stubs for SEC-02
-- [ ] `backend/test/security/csrf.e2e-spec.ts` — stubs for SEC-03
-- [ ] `backend/test/security/rate-limit.e2e-spec.ts` — stubs for SEC-04
-- [ ] `backend/test/security/rbac.e2e-spec.ts` — stubs for SEC-05
+Existing infrastructure covers all phase requirements. Scripts are created as part of Wave 1 tasks — each task's verification is the script it creates, run against a live server.
 
 ---
 
@@ -73,7 +67,7 @@ created: 2026-03-22
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
+- [ ] Feedback latency < 60s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
