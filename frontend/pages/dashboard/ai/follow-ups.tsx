@@ -1,7 +1,7 @@
 import React from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
-import { Box } from '@mui/material';
+import { Box, Skeleton, Stack } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common';
 import { FollowupsKanbanBoard } from '@/components/productivity/KanbanBoard';
@@ -13,7 +13,19 @@ export default function FollowUpsPage() {
   const isAuthenticated = !!session;
   const t = useTranslations();
 
-  if (isLoading || !isAuthenticated) return null;
+  if (isLoading || !isAuthenticated) {
+    return (
+      <Layout>
+        <Box sx={{ p: 3 }}>
+          <Stack spacing={1.5}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} variant="rounded" height={120} animation="wave" />
+            ))}
+          </Stack>
+        </Box>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

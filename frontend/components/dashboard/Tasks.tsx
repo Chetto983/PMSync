@@ -93,6 +93,7 @@ export function Tasks() {
     data,
     isLoading,
     isError,
+    error,
     refetch,
   } = usePendingFollowUps(50, false);
   const { data: stats } = useFollowUpStats();
@@ -182,7 +183,7 @@ export function Tasks() {
 
         {/* Error */}
         {isError && !isLoading && (
-          <QueryErrorAlert error={null} onRetry={() => { void refetch(); }} title={t.tasks.errorLoading} />
+          <QueryErrorAlert error={error} onRetry={() => { void refetch(); }} title={t.tasks.errorLoading} />
         )}
 
         {/* Empty state */}

@@ -32,7 +32,11 @@ import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard
 import { SkipEnvelope } from '../../../common/decorators/skip-envelope.decorator';
 import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
-import { ChatRequestDto } from '../dto/chat-request.dto';
+import {
+  ChatRequestDto,
+  extractUserMessageFromDto,
+  resolveConversationIdFromDto,
+} from '../dto/chat-request.dto';
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
 
 /**
@@ -106,7 +110,7 @@ export class AiChatController {
     const abortController = new AbortController();
     req.on('close', () => abortController.abort());
 
-    const message = dto.extractUserMessage();
+    const message = extractUserMessageFromDto(dto);
     if (!message) {
       res.status(400).json({ error: { message: 'No user message found in request' } });
       return;
@@ -116,7 +120,7 @@ export class AiChatController {
       tenantId: req.user.tenantId,
       userId: req.user.userId,
       message,
-      conversationId: dto.resolveConversationId(),
+      conversationId: resolveConversationIdFromDto(dto),
       model: dto.model,
       locale: dto.locale,
       abortSignal: abortController.signal,

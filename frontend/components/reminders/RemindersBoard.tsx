@@ -25,7 +25,7 @@ export function RemindersBoard() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const params = statusFilter === 'all' ? undefined : { status: statusFilter };
-  const { data, isLoading, isError, refetch } = useReminders(params);
+  const { data, isLoading, isError, error, refetch } = useReminders(params);
   const completeMutation = useCompleteReminder();
   const deleteMutation = useDeleteReminder();
 
@@ -63,7 +63,7 @@ export function RemindersBoard() {
 
       {/* Error */}
       {isError && (
-        <QueryErrorAlert error={null} onRetry={() => { void refetch(); }} />
+        <QueryErrorAlert error={error} onRetry={() => { void refetch(); }} />
       )}
 
       {/* Empty */}
