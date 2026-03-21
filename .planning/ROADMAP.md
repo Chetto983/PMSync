@@ -106,7 +106,7 @@
 - [x] **Phase 94: Infrastructure & Remaining Pages** - Verify WebSocket, health, webhooks, dashboard, tasks, analytics, landing, legal (completed 2026-03-20)
 - [x] **Phase 95: Dead Code & Cleanup** - Reopened for gap closure: remaining i18n strings in FollowUpToolUI (plans 01-04 complete, plan 05 pending) (completed 2026-03-21)
 - [x] **Phase 96: UI/UX Polish** - Empty states, loading skeletons, error states, mobile, dark mode, keyboard nav, i18n (completed 2026-03-21)
-- [ ] **Phase 97: MUI Chat Migration** - Migrate chat CSS to MUI sx, remove ChatThemeBridge, remove Tailwind
+- [x] **Phase 97: MUI Chat Migration** - ~~Migrate chat CSS to MUI sx, remove ChatThemeBridge, remove Tailwind~~ OBSOLETE: Chat UI uses AI SDK components, not custom CSS
 - [ ] **Phase 98: Security Verification** - Auth guards, tenant isolation, CSRF, rate limiting, RBAC on all routes
 
 ## Phase Details
@@ -267,15 +267,10 @@ Plans:
 - [ ] 96-03-PLAN.md -- Secondary pages polish (analytics, AI follow-ups, settings, profile, admin)
 - [ ] 96-04-PLAN.md -- Cross-cutting audit (mobile 375px, dark mode, keyboard nav, i18n completeness)
 
-### Phase 97: MUI Chat Migration
-**Goal**: Chat UI uses MUI exclusively -- all chat CSS files migrated to sx props, ChatThemeBridge deleted, Tailwind removed from project
-**Depends on**: Phase 96 (UI polish establishes patterns that chat migration follows)
-**Requirements**: UIPOL-08, UIPOL-09, UIPOL-10, UIPOL-11
-**Success Criteria** (what must be TRUE):
-  1. All components use MUI theme exclusively -- no raw CSS classes, no Tailwind utilities, no hardcoded colors in any .tsx file
-  2. The 3 chat CSS files (~950 lines total) are deleted and their styles are expressed via MUI sx props
-  3. ChatThemeBridge component/file no longer exists in the codebase
-  4. tailwindcss package is removed from frontend package.json and no Tailwind config files remain
+### Phase 97: MUI Chat Migration — OBSOLETE
+**Status**: Obsolete — Chat UI rebuilt with AI SDK components; custom chat CSS no longer exists
+**Original Goal**: ~~Chat UI uses MUI exclusively -- all chat CSS files migrated to sx props, ChatThemeBridge deleted, Tailwind removed from project~~
+**Requirements**: UIPOL-08, UIPOL-09, UIPOL-10, UIPOL-11 (resolved by AI SDK migration)
 **Plans**: 3 plans
 Plans:
 - [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
@@ -292,11 +287,10 @@ Plans:
   3. CSRF protection rejects mutation requests that lack a valid CSRF token
   4. Rate limiting activates on sensitive endpoints (login, send email, AI chat) -- exceeding the limit returns 429
   5. Role-based access enforced: member-role user cannot access admin-only endpoints (returns 403)
-**Plans**: 3 plans
+**Plans**: 2 plans
 Plans:
-- [ ] 94-01-PLAN.md -- Backend infrastructure contract tests (health, webhooks, WebSocket)
-- [ ] 94-02-PLAN.md -- Tasks page rebuild (follow-up data, i18n, Playwright test)
-- [ ] 94-03-PLAN.md -- Frontend page verification (dashboard, analytics, landing, legal)
+- [ ] 98-01-PLAN.md -- Auth guards, tenant isolation, RBAC verification (SEC-01, SEC-02, SEC-05)
+- [ ] 98-02-PLAN.md -- CSRF, rate limiting, Redis pool audit (SEC-03, SEC-04)
 
 ## Progress
 
@@ -305,7 +299,7 @@ Phases 89 must complete first (auth is prerequisite).
 Phases 90-94 can be worked in sequence (domain by domain) or partially parallel.
 Phase 95 depends on 89-94 (testing reveals dead code).
 Phase 96 depends on 95 (polish after cleanup).
-Phase 97 depends on 96 (MUI migration follows polish patterns).
+Phase 97 is OBSOLETE (chat UI uses AI SDK, not custom CSS).
 Phase 98 can run after 95 (security testing on clean codebase).
 
 | Phase | Plans Complete | Status | Completed |
@@ -317,8 +311,8 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 93. Admin, Subscriptions & Integrations | 4/4 | Complete    | 2026-03-20 |
 | 95. Dead Code & Cleanup | 5/5 | Complete    | 2026-03-21 |
 | 96. UI/UX Polish | 4/4 | Complete    | 2026-03-21 |
-| 97. MUI Chat Migration | 0/? | Not started | - |
-| 98. Security Verification | 0/? | Not started | - |
+| 97. MUI Chat Migration | - | Obsolete | 2026-03-22 |
+| 98. Security Verification | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
