@@ -1,34 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
 import { getConfiguration } from '../../../config/configuration';
 
 @Injectable()
 export class EmailService {
   private logger = new Logger(EmailService.name);
-  private transporter!: nodemailer.Transporter;
   private config = getConfiguration();
+  private apiKey: string;
+  private fromAddress: string;
 
   constructor() {
-    this.initializeTransporter();
-  }
-
-  /**
-   * Initialize nodemailer transporter - uses centralized config
-   */
-  private initializeTransporter() {
     const emailConfig = this.config.email;
-    this.transporter = nodemailer.createTransport({
-      host: emailConfig.smtpHost,
-      port: emailConfig.smtpPort,
-      secure: emailConfig.smtpPort === 465,
-      auth: {
-        user: emailConfig.smtpUser,
-        pass: emailConfig.smtpPassword,
-      },
-      connectionTimeout: 5_000,
-      greetingTimeout: 5_000,
-      socketTimeout: 5_000,
-    });
+    this.apiKey = emailConfig.smtpPassword; // SendGrid API key
+    this.fromAddress = `${emailConfig.fromEmail}@${emailConfig.fromDomain}`;
   }
 
   /**
@@ -105,29 +88,36 @@ export class EmailService {
   }
 
   /**
-   * Send generic email - uses centralized config for sender
-   * Non-blocking: logs errors but doesn't throw (development may not have SMTP configured)
+   * Send email via SendGrid HTTP API (v3).
+   * Railway blocks outbound SMTP ports, so we use the REST API instead.
    */
   async sendEmail(to: string, subject: string, html: string) {
     try {
-      const emailConfig = this.config.email;
-      const from = `${emailConfig.fromEmail}@${emailConfig.fromDomain}`;
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: { email: this.fromAddress },
+          subject,
+          content: [{ type: 'text/html', value: html }],
+        }),
+        signal: AbortSignal.timeout(8_000),
+      });
 
-      const sendPromise = this.transporter.sendMail({ from, to, subject, html });
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('SMTP send timed out after 8s')), 8_000),
-      );
-      const result = await Promise.race([sendPromise, timeoutPromise]);
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        throw new Error(`SendGrid API ${response.status}: ${body}`);
+      }
 
       this.logger.log(`Email sent to ${to}: ${subject}`);
-      return result;
+      return { accepted: [to] };
     } catch (error) {
-      // CRIT-1 FIX (2025-01-05): Never return fake success for email delivery
-      // This was masking OTP/password reset failures - security critical!
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`[CRITICAL] Email delivery failed for ${to}: ${errorMessage}`);
-
-      // Throw instead of returning mock success - callers must handle failures
       throw new Error(`Email delivery failed: ${errorMessage}`);
     }
   }
