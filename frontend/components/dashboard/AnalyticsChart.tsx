@@ -9,11 +9,13 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Box, Button, CircularProgress, Paper, Typography, useTheme } from '@mui/material';
+import { Box, Button, Paper, Skeleton, Typography, useTheme } from '@mui/material';
 import { BarChart3 } from 'lucide-react';
 import { useEmailTrends } from '@/hooks/queries/use-dashboard';
 import { useConsent } from '@/hooks/queries/use-consent';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
+import { EmptyState } from '@/components/common/EmptyState';
 
 export function AnalyticsChart() {
   const t = useTranslations();
@@ -32,16 +34,13 @@ export function AnalyticsChart() {
 
   if (loading) {
     return (
-      <Paper
-        sx={{
-          p: { xs: 3, sm: 4 },
-          minHeight: 320,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <CircularProgress />
+      <Paper sx={{ p: { xs: 3, sm: 4 }, minHeight: 320 }}>
+        <Skeleton variant="text" width={180} height={32} sx={{ mb: 2 }} />
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} variant="rounded" height={240} />
+          ))}
+        </Box>
       </Paper>
     );
   }
@@ -94,49 +93,21 @@ export function AnalyticsChart() {
 
   if (error) {
     return (
-      <Paper
-        sx={{
-          p: { xs: 3, sm: 4 },
-          minHeight: 320,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Box sx={{ maxWidth: 420, textAlign: 'center' }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            {t.dashboard.widgets.trendCharts.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-            {String(error.message || t.dashboard.widgets.common.retry)}
-          </Typography>
-          <Button variant="outlined" onClick={() => refetch()} sx={{ textTransform: 'none' }}>
-            {t.dashboard.widgets.common.retry}
-          </Button>
-        </Box>
+      <Paper sx={{ p: { xs: 3, sm: 4 }, minHeight: 320 }}>
+        <QueryErrorAlert error={error} onRetry={() => refetch()} />
       </Paper>
     );
   }
 
   if (chartData.length === 0) {
     return (
-      <Paper
-        sx={{
-          p: { xs: 3, sm: 4 },
-          minHeight: 320,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Box sx={{ maxWidth: 420, textAlign: 'center' }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            {t.dashboard.widgets.trendCharts.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t.dashboard.widgets.trendCharts.noData}
-          </Typography>
-        </Box>
+      <Paper sx={{ p: { xs: 3, sm: 4 }, minHeight: 320 }}>
+        <EmptyState
+          icon={BarChart3}
+          color="#f59e0b"
+          title={t.analytics?.emptyTitle ?? 'No analytics data'}
+          description={t.analytics?.emptyDescription ?? 'Analytics will appear once you start using PMSync'}
+        />
       </Paper>
     );
   }

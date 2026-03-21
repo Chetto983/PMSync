@@ -15,7 +15,6 @@ import {
   DialogActions,
   Collapse,
   Skeleton,
-  Alert,
 } from '@mui/material';
 import { useHotkeys } from 'react-hotkeys-hook';
 import {
@@ -36,6 +35,8 @@ import {
   useDeleteFollowUp,
   type EmailFollowUp,
 } from '@/hooks/queries';
+import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
+import { EmptyState } from '@/components/common/EmptyState';
 import { FollowUpCard } from './FollowUpCard';
 import { SnoozeDialog } from './SnoozeDialog';
 import { PageHeader, KeyboardHelpDialog } from './BoardHeader';
@@ -245,12 +246,7 @@ export function FollowupsKanbanBoard() {
   if (error) {
     return (
       <Box sx={{ maxWidth: 900, mx: 'auto', width: '100%', p: { xs: 2, md: 3 } }}>
-        <Alert
-          severity="error"
-          action={<Button onClick={() => refetch()} size="small">{t.common.retry || 'Retry'}</Button>}
-        >
-          {t.ai.followUpTracker.error}
-        </Alert>
+        <QueryErrorAlert error={error} onRetry={() => refetch()} />
       </Box>
     );
   }
@@ -274,24 +270,12 @@ export function FollowupsKanbanBoard() {
       {/* ── Grouped sections ── */}
       <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         {totalVisible === 0 && (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Box
-              sx={{
-                width: 56, height: 56, borderRadius: 3, mx: 'auto', mb: 2,
-                bgcolor: alpha(theme.palette.success.main, 0.08),
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: theme.palette.success.main,
-              }}
-            >
-              <CheckCircle size={28} />
-            </Box>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {t.ai.followUpTracker.noFollowUps}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {t.ai.followUpTracker.noFollowUpsDescription}
-            </Typography>
-          </Box>
+          <EmptyState
+            icon={Clock}
+            color="#55cae5"
+            title={t.ai.followUpTracker.noFollowUps}
+            description={t.ai.followUpTracker.noFollowUpsDescription}
+          />
         )}
 
         {SECTIONS.map((sec) => {

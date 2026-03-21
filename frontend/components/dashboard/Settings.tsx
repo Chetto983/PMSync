@@ -5,7 +5,7 @@ import {
   FormControl,
   Select,
   MenuItem,
-  CircularProgress,
+  Skeleton,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -188,8 +188,18 @@ export function Settings() {
 
   if (!s.hydrated) {
     return (
-      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', p: 3 }}>
-        <CircularProgress size={28} />
+      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, bgcolor: 'background.default', p: 3, gap: 3 }}>
+        {/* Sidebar skeleton */}
+        <Box sx={{ width: 200, display: { xs: 'none', md: 'flex' }, flexDirection: 'column', gap: 1.5, pt: 2 }}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} variant="text" width="80%" height={28} />
+          ))}
+        </Box>
+        {/* Content skeleton */}
+        <Box sx={{ flex: 1 }}>
+          <Skeleton variant="text" width={200} height={36} sx={{ mb: 2 }} />
+          <Skeleton variant="rounded" height={400} />
+        </Box>
       </Box>
     );
   }
