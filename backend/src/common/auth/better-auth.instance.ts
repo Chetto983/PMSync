@@ -396,7 +396,7 @@ export function createBetterAuthInstance(
 
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: false, // TODO: re-enable when email provider is configured
+      requireEmailVerification: true,
       autoSignIn: true,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
@@ -409,8 +409,8 @@ export function createBetterAuthInstance(
     },
 
     emailVerification: {
-      sendOnSignUp: false, // TODO: re-enable when email provider is configured
-      sendOnSignIn: false,
+      sendOnSignUp: true,
+      sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         try {
