@@ -74,9 +74,9 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **UIPOL-01**: Every page has proper empty state (not blank or placeholder)
 - [x] **UIPOL-02**: Every async operation shows loading skeleton (not spinner or blank)
 - [x] **UIPOL-03**: Every error shows user-friendly message with retry action
-- [ ] **UIPOL-04**: Mobile responsiveness verified on all pages (no overflow, no hidden content)
-- [ ] **UIPOL-05**: Dark mode renders correctly on all pages (no white flash, no unthemed elements)
-- [ ] **UIPOL-06**: Keyboard navigation works on all interactive elements
+- [x] **UIPOL-04**: Mobile responsiveness verified on all pages (no overflow, no hidden content)
+- [x] **UIPOL-05**: Dark mode renders correctly on all pages (no white flash, no unthemed elements)
+- [x] **UIPOL-06**: Keyboard navigation works on all interactive elements
 - [x] **UIPOL-07**: Italian translation complete (no missing keys, no English fallbacks visible)
 - [ ] **UIPOL-08**: All components use MUI theme exclusively (no raw CSS, no Tailwind utilities, no hardcoded colors in .tsx files)
 - [ ] **UIPOL-09**: Chat CSS files (~950 lines) migrated to MUI sx props
@@ -181,9 +181,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UIPOL-01 | Phase 96 | Complete |
 | UIPOL-02 | Phase 96 | Complete |
 | UIPOL-03 | Phase 96 | Complete |
-| UIPOL-04 | Phase 96 | Pending |
-| UIPOL-05 | Phase 96 | Pending |
-| UIPOL-06 | Phase 96 | Pending |
+| UIPOL-04 | Phase 96 | Complete |
+| UIPOL-05 | Phase 96 | Complete |
+| UIPOL-06 | Phase 96 | Complete |
 | UIPOL-07 | Phase 96 | Complete |
 | UIPOL-08 | Phase 97 | Pending |
 | UIPOL-09 | Phase 97 | Pending |
