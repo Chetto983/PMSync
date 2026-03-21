@@ -32,7 +32,7 @@ export class MistralProviderService {
 
     this.defaultChatModel = this.config.get<string>(
       'AI_CHAT_MODEL',
-      'qwen/qwen3.5-plus-02-15',
+      'qwen/qwen3.5-flash-02-23',
     );
     this.defaultEmbeddingModel = this.config.get<string>(
       'AI_EMBEDDING_MODEL',

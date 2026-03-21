@@ -366,7 +366,7 @@ export class AiChatService {
       });
 
       return result.toUIMessageStream({
-        sendReasoning: false,
+        sendReasoning: true,
         onError: (error) => {
           if (
             error instanceof Error &&
@@ -392,7 +392,7 @@ export class AiChatService {
           messages: cleanMessages,
           abortSignal: params.abortSignal,
         });
-        return result.toUIMessageStream({ sendReasoning: false });
+        return result.toUIMessageStream({ sendReasoning: true });
       }
 
       if (
