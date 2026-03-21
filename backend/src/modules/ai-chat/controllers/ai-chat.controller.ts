@@ -111,13 +111,6 @@ export class AiChatController {
     req.on('close', () => abortController.abort());
 
     const message = extractUserMessageFromDto(dto);
-    const conversationId = resolveConversationIdFromDto(dto);
-
-    // eslint-disable-next-line no-console
-    console.log(
-      `[AiChatController] Chat request: message=${message?.slice(0, 50)}, conversationId=${conversationId}, dto.id=${dto.id}, dto.conversationId=${dto.conversationId}, messages=${dto.messages?.length ?? 0}`,
-    );
-
     if (!message) {
       res.status(400).json({ error: { message: 'No user message found in request' } });
       return;
@@ -127,7 +120,7 @@ export class AiChatController {
       tenantId: req.user.tenantId,
       userId: req.user.userId,
       message,
-      conversationId,
+      conversationId: resolveConversationIdFromDto(dto),
       model: dto.model,
       locale: dto.locale,
       abortSignal: abortController.signal,
