@@ -1,21 +1,37 @@
 'use client';
 
+import React from 'react';
 import { MessagePrimitive } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
 import { Bot } from 'lucide-react';
 import { ChatActionBar } from './ChatActionBar';
 import { ChatBranchPicker } from './ChatBranchPicker';
-import { ChatChainOfThought } from './ChatChainOfThought';
+import { ChatReasoningGroup } from './ChatReasoningGroup';
+import { TOOL_RENDERERS, FallbackToolRenderer } from './tool-uis';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MarkdownText = MarkdownTextPrimitive as any;
 const MarkdownWithStreaming = (props: object) => <MarkdownText {...props} className="aui-md" />;
 
 /**
+ * Dispatching tool renderer: routes tool calls to specific renderers by name,
+ * falling back to FallbackToolRenderer for unregistered tools.
+ */
+function ToolDispatcher(props: ToolCallMessagePartProps) {
+  const Renderer = (TOOL_RENDERERS as Record<string, React.ComponentType<ToolCallMessagePartProps> | undefined>)[props.toolName];
+  if (Renderer) return <Renderer {...props} />;
+  return <FallbackToolRenderer {...props} />;
+}
+
+/**
  * Assistant message: avatar + markdown content + action bar.
  * Left-aligned with primary avatar, prose-styled content.
  *
- * HITL approval is handled inline via SDK-native flow.
+ * Uses StandardComponents mode:
+ * - Reasoning tokens render in a collapsible ReasoningGroup
+ * - Tool calls render directly in the message body (visible, not hidden)
+ * - HITL approval is handled inline via SDK-native flow
  */
 export function AssistantMessage() {
   return (
@@ -28,7 +44,10 @@ export function AssistantMessage() {
           <MessagePrimitive.Content
             components={{
               Text: MarkdownWithStreaming,
-              ChainOfThought: ChatChainOfThought,
+              ReasoningGroup: ChatReasoningGroup,
+              tools: {
+                Fallback: ToolDispatcher,
+              },
             }}
           />
         </div>

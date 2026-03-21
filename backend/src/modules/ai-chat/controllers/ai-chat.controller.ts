@@ -106,11 +106,17 @@ export class AiChatController {
     const abortController = new AbortController();
     req.on('close', () => abortController.abort());
 
+    const message = dto.extractUserMessage();
+    if (!message) {
+      res.status(400).json({ error: { message: 'No user message found in request' } });
+      return;
+    }
+
     const stream = await this.aiChatService.streamChat({
       tenantId: req.user.tenantId,
       userId: req.user.userId,
-      message: dto.message,
-      conversationId: dto.conversationId,
+      message,
+      conversationId: dto.resolveConversationId(),
       model: dto.model,
       locale: dto.locale,
       abortSignal: abortController.signal,

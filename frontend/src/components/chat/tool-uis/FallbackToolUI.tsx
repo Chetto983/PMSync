@@ -10,8 +10,7 @@ import { HitlApprovalWrapper } from '../HitlApprovalCard';
 /**
  * Generic fallback tool renderer for ALL unregistered tools.
  *
- * Used as the Fallback in components.tools config on MessagePrimitive.Content
- * and ChainOfThoughtPrimitive.Parts. Handles:
+ * Used as the Fallback in components.tools config on MessagePrimitive.Content. Handles:
  * - HITL approval (requires-action status -> HitlApprovalWrapper)
  * - Running state (spinner + tool name)
  * - Complete state (icon + collapsible details)

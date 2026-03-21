@@ -44,8 +44,8 @@ interface DbConversationMessage {
   toolCallId?: string | null;
 }
 
-const TITLE_FETCH_RETRIES = 3;
-const TITLE_FETCH_RETRY_MS = 150;
+const TITLE_FETCH_RETRIES = 8;
+const TITLE_FETCH_RETRY_MS = 2000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

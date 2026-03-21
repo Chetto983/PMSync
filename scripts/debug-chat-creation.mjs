@@ -151,22 +151,38 @@ async function main() {
   });
 
   // Type a test message if composer is visible
-  const composer = page.locator(
-    'textarea, [contenteditable="true"], input[type="text"][placeholder*="message" i], input[type="text"][placeholder*="messaggio" i]'
-  );
+  // assistant-ui uses controlled React textarea — fill() doesn't work, must use type()
+  const composer = page.locator('textarea').first();
   if (await composer.count() > 0) {
-    console.log('◆ Typing test message...');
-    await composer.first().fill('Test message from debug script');
+    console.log('◆ Clicking composer...');
+    await composer.click();
+    await page.waitForTimeout(300);
+    console.log('◆ Typing test message (character-by-character)...');
+    await composer.type('Ciao, quante email non lette ho?', { delay: 30 });
     await page.waitForTimeout(500);
 
-    // Try to send
-    const sendBtn = page.locator(
-      'button[type="submit"], button:has-text("Send"), button:has-text("Invia"), button[aria-label*="send" i]'
-    );
-    if (await sendBtn.count() > 0) {
-      console.log('◆ Sending message...');
-      await sendBtn.first().click();
-      await page.waitForTimeout(5000);
+    // Submit with Enter key (assistant-ui default)
+    console.log('◆ Pressing Enter to send...');
+    await page.keyboard.press('Enter');
+    console.log('◆ Waiting 30s for AI response...');
+
+    // Capture console errors
+    page.on('console', (msg) => {
+      if (msg.type() === 'error' || msg.type() === 'warning') {
+        console.log(`  [${msg.type()}] ${msg.text()}`);
+      }
+    });
+    page.on('pageerror', (err) => {
+      console.log(`  [PAGE ERROR] ${err.message}`);
+    });
+
+    await page.waitForTimeout(30000);
+  } else {
+    console.log('⚠ No textarea found on page');
+    const allInputs = await page.locator('textarea, input, [contenteditable]').all();
+    console.log('  Input elements found:', allInputs.length);
+    for (const el of allInputs.slice(0, 5)) {
+      console.log('    -', await el.evaluate(e => `${e.tagName} placeholder="${e.placeholder || ''}" class="${e.className?.slice(0,50)}"`));
     }
   }
 
