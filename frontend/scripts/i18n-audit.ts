@@ -21,8 +21,8 @@ function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
   return keys;
 }
 
-const enKeys = new Set(collectKeys(en));
-const itKeys = new Set(collectKeys(it));
+const enKeys = new Set(collectKeys(en as unknown as Record<string, unknown>));
+const itKeys = new Set(collectKeys(it as unknown as Record<string, unknown>));
 
 const missingInIt = [...enKeys].filter(k => !itKeys.has(k)).sort();
 const missingInEn = [...itKeys].filter(k => !enKeys.has(k)).sort();
