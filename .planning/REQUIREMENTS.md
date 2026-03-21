@@ -85,11 +85,11 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 
 ### Security Verification
 
-- [ ] **SEC-01**: All protected routes reject unauthenticated requests (401)
-- [ ] **SEC-02**: Tenant isolation verified (user A cannot access user B's data)
+- [x] **SEC-01**: All protected routes reject unauthenticated requests (401)
+- [x] **SEC-02**: Tenant isolation verified (user A cannot access user B's data)
 - [x] **SEC-03**: CSRF protection verified on all mutation endpoints
 - [x] **SEC-04**: Rate limiting verified on sensitive endpoints (login, send email, AI chat)
-- [ ] **SEC-05**: Role-based access verified (member cannot access admin endpoints)
+- [x] **SEC-05**: Role-based access verified (member cannot access admin endpoints)
 
 ## Future Requirements
 
@@ -189,11 +189,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UIPOL-09 | Phase 97 | Pending |
 | UIPOL-10 | Phase 97 | Pending |
 | UIPOL-11 | Phase 97 | Pending |
-| SEC-01 | Phase 98 | Pending |
-| SEC-02 | Phase 98 | Pending |
+| SEC-01 | Phase 98 | Complete |
+| SEC-02 | Phase 98 | Complete |
 | SEC-03 | Phase 98 | Complete |
 | SEC-04 | Phase 98 | Complete |
-| SEC-05 | Phase 98 | Pending |
+| SEC-05 | Phase 98 | Complete |
 
 **Coverage:**
 - v7.0 requirements: 69 total
