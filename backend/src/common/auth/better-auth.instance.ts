@@ -359,22 +359,26 @@ export function createBetterAuthInstance(
         membershipLimit: 100,
         invitationExpiresIn: 48 * 60 * 60, // 48 hours
         sendInvitationEmail: async (data) => {
-          const acceptUrl = `${frontendUrl}/dashboard/invitations/accept?id=${data.id}`;
-          await emailService.sendEmail(
-            data.email,
-            `You've been invited to ${data.organization.name} on PMSync`,
-            `<html>
-              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <h2>Organization Invitation</h2>
-                <p>You've been invited to join <strong>${data.organization.name}</strong> on PMSync.</p>
-                <a href="${acceptUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                  Accept Invitation
-                </a>
-                <p>Or copy and paste this link in your browser: ${acceptUrl}</p>
-                <p>This invitation expires in 48 hours.</p>
-              </body>
-            </html>`,
-          );
+          try {
+            const acceptUrl = `${frontendUrl}/dashboard/invitations/accept?id=${data.id}`;
+            await emailService.sendEmail(
+              data.email,
+              `You've been invited to ${data.organization.name} on PMSync`,
+              `<html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                  <h2>Organization Invitation</h2>
+                  <p>You've been invited to join <strong>${data.organization.name}</strong> on PMSync.</p>
+                  <a href="${acceptUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Accept Invitation
+                  </a>
+                  <p>Or copy and paste this link in your browser: ${acceptUrl}</p>
+                  <p>This invitation expires in 48 hours.</p>
+                </body>
+              </html>`,
+            );
+          } catch (error) {
+            console.error(`[better-auth] Failed to send invitation email to ${data.email}:`, error);
+          }
         },
         schema: {
           organization: {
@@ -396,7 +400,11 @@ export function createBetterAuthInstance(
       autoSignIn: true,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
-        await emailService.sendPasswordResetLink(user.email, url);
+        try {
+          await emailService.sendPasswordResetLink(user.email, url);
+        } catch (error) {
+          console.error(`[better-auth] Failed to send password reset email to ${user.email}:`, error);
+        }
       },
     },
 
