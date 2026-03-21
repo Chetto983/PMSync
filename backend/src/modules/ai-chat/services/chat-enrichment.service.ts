@@ -63,6 +63,7 @@ export class ChatEnrichmentService {
       this.prisma.userPreferences.findUnique({
         where: { userId },
         select: {
+          tenantId: true,
           timezone: true,
           language: true,
           jobTitle: true,
@@ -82,12 +83,23 @@ export class ChatEnrichmentService {
       this.prisma.user.findUnique({
         where: { id: userId },
         select: {
+          tenantId: true,
           firstName: true,
           lastName: true,
           name: true,
         },
       }),
     ]);
+
+    // Multi-tenant guard: verify fetched records belong to the requesting tenant
+    if (preferences && preferences.tenantId !== tenantId) {
+      this.logger.warn(`Tenant mismatch on UserPreferences: expected ${tenantId}, got ${preferences.tenantId}`);
+      return { locale: requestedLocale };
+    }
+    if (user && user.tenantId !== tenantId) {
+      this.logger.warn(`Tenant mismatch on User: expected ${tenantId}, got ${user.tenantId}`);
+      return { locale: requestedLocale };
+    }
 
     const displayName =
       [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||

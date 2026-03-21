@@ -113,12 +113,12 @@ describe('Qwen 3.5 Migration E2E (real API)', () => {
       system: 'You are an email assistant. Be concise.',
       prompt: 'Summarize this email in one sentence: "Hi team, the quarterly review is moved to Friday 3pm. Please prepare your slides by Thursday EOD. The CEO will attend."',
       maxOutputTokens: 100,
-      abortSignal: AbortSignal.timeout(15_000),
+      abortSignal: AbortSignal.timeout(30_000),
     });
     expect(text.length).toBeGreaterThan(10);
     expect(text.toLowerCase()).toMatch(/friday|review|slides/);
     expect(usage.totalTokens).toBeGreaterThan(0);
-  }, 30_000);
+  }, 45_000);
 
   // 3. Single embedding (Mistral)
   it('embed: Mistral mistral-embed (1024-dim)', async () => {
@@ -157,7 +157,7 @@ describe('Qwen 3.5 Migration E2E (real API)', () => {
   it('parseJsonOutput: briefing schema (Qwen 3.5 Flash)', async () => {
     const { text } = await generateText({
       model: chatModel(FLASH),
-      system: 'Generate a daily email briefing based on the provided data. Return structured JSON matching the exact schema.',
+      system: 'Generate a daily email briefing. Return a JSON object with EXACTLY these fields: {"priorityEmails": [{"emailId": string, "subject": string, "sender": string, "urgency": "critical"|"high"|"medium"|"low", "reason": string}], "executiveSummary": string, "emailVolumeTrends": {"todayReceived": number, "todaySent": number, "weeklyAvgReceived": number, "weeklyAvgSent": number, "trend": "increasing"|"stable"|"decreasing"}}',
       prompt: `Emails received today: 3 (from john@acme.com about "Contract renewal", from hr@company.com about "Benefits enrollment", from support@vendor.com about "Ticket #789 resolved"). Sent: 1. Weekly avg: received 20, sent 8. Return valid JSON.`,
       maxOutputTokens: 1000,
       abortSignal: AbortSignal.timeout(90_000),
@@ -173,7 +173,7 @@ describe('Qwen 3.5 Migration E2E (real API)', () => {
   it('parseJsonOutput: follow-up detection schema (Qwen 3.5 Flash)', async () => {
     const { text } = await generateText({
       model: chatModel(FLASH),
-      system: `Analyze emails and detect which need follow-up. Be conservative. Return valid JSON matching the exact schema.`,
+      system: `Analyze emails and detect which need follow-up. Be conservative. Return a JSON object with EXACTLY these fields: {"detectedFollowUps": [{"emailId": string, "reason": string, "suggestedDueDate": string|null, "urgency": "high"|"medium"|"low", "confidence": number}], "batchSummary": {"totalAnalyzed": number, "totalDetected": number, "highUrgencyCount": number}}`,
       prompt: `Emails to analyze:\n1. ID: "email-001", From: john@acme.com, Subject: "Can you send the proposal by Friday?", Date: 2026-03-20\n2. ID: "email-002", From: newsletter@news.com, Subject: "Weekly digest", Date: 2026-03-20\n3. ID: "email-003", From: boss@company.com, Subject: "Please confirm attendance for Monday meeting", Date: 2026-03-19\n\nReturn JSON.`,
       maxOutputTokens: 500,
       abortSignal: AbortSignal.timeout(90_000),
@@ -189,7 +189,7 @@ describe('Qwen 3.5 Migration E2E (real API)', () => {
   it('parseJsonOutput: draft generation schema (Qwen 3.5 Flash)', async () => {
     const { text } = await generateText({
       model: chatModel(FLASH),
-      system: 'Generate a reply draft. Match the requested tone. Return valid JSON matching the exact schema.',
+      system: 'Generate a reply draft. Match the requested tone. Return a JSON object with EXACTLY these fields: {"subject": string, "body": string, "suggestedRecipients": [{"email": string, "name": string|null}], "confidence": number, "tone": "formal"|"casual"|"technical"|"friendly"}',
       prompt: `Original email from john@acme.com: Subject "Contract renewal" Body "Hi, the contract expires next month. Can we schedule a call to discuss renewal terms?"\nUser instruction: "Accept and propose next Tuesday"\nTone: formal\n\nReturn JSON.`,
       maxOutputTokens: 500,
       abortSignal: AbortSignal.timeout(90_000),

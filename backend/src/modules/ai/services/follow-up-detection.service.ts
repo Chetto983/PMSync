@@ -1,11 +1,12 @@
 /**
- * FollowUpDetectionService - Batch follow-up detection via generateText + Output.object()
+ * FollowUpDetectionService - Batch follow-up detection via generateText + parseJsonOutput
  *
  * Analyzes a batch of recent emails (configurable window, default 24h)
  * and detects which ones require follow-up action. Returns structured
  * results with emailId, reason, urgency, and confidence.
  *
  * One LLM call per batch -- not per email.
+ * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateText } from 'ai';
@@ -39,6 +40,13 @@ export const followUpDetectionSchema = z.object({
 export type FollowUpDetectionOutput = z.infer<typeof followUpDetectionSchema>;
 
 const SYSTEM_PROMPT = `Analyze the provided batch of recent emails and detect which ones require follow-up action from the user.
+
+Return a JSON object with EXACTLY these fields:
+
+{
+  "detectedFollowUps": [{"emailId": string, "reason": string, "suggestedDueDate": string|null, "urgency": "high"|"medium"|"low", "confidence": number}],
+  "batchSummary": {"totalAnalyzed": number, "totalDetected": number, "highUrgencyCount": number}
+}
 
 For each detected follow-up:
 - Explain WHY follow-up is needed (unanswered question, commitment made, deadline mentioned, etc.)

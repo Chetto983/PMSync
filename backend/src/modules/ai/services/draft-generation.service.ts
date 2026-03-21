@@ -1,11 +1,12 @@
 /**
- * DraftGenerationService - Reply draft generation via generateText + Output.object()
+ * DraftGenerationService - Reply draft generation via generateText + parseJsonOutput
  *
  * Generates a reply draft for a given email, using the original email thread
  * context, user instruction, and optional tone preference. User-triggered
  * (not auto-generated).
  *
  * Single LLM call with pre-fetched email context.
+ * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateText } from 'ai';
@@ -43,6 +44,16 @@ const SAFE_FALLBACK: DraftGenerationOutput = {
 };
 
 const SYSTEM_PROMPT = `You are a professional email assistant. Generate a reply draft based on the original email thread and the user's instruction.
+
+Return a JSON object with EXACTLY these fields:
+
+{
+  "subject": string,
+  "body": string,
+  "suggestedRecipients": [{"email": string, "name": string|null}],
+  "confidence": number,
+  "tone": "formal"|"casual"|"technical"|"friendly"
+}
 
 Rules:
 - Match the requested tone (formal, casual, technical, friendly).

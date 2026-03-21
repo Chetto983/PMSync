@@ -1,11 +1,12 @@
 /**
- * BriefingService - Daily briefing generation via generateText + Output.object()
+ * BriefingService - Daily briefing generation via generateText + parseJsonOutput
  *
  * Produces a comprehensive executive briefing including priority emails,
  * calendar snapshot, pending follow-ups, stale contacts, draft suggestions,
  * email volume trends, and focus time recommendations.
  *
  * Uses a single LLM call with pre-fetched data context.
+ * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateText } from 'ai';
@@ -97,7 +98,18 @@ const SAFE_FALLBACK: BriefingOutput = {
 
 const SYSTEM_PROMPT = `You are a professional executive assistant analyzing a user's email, calendar, and contacts data to produce a comprehensive daily briefing.
 
-Analyze the provided data context and return structured JSON matching the exact schema.
+Analyze the provided data context and return a JSON object with EXACTLY these fields:
+
+{
+  "priorityEmails": [{"emailId": string, "subject": string, "sender": string, "urgency": "critical"|"high"|"medium"|"low", "reason": string}],
+  "calendarSnapshot": [{"eventId": string, "title": string, "startTime": string, "endTime": string, "hasConflict": boolean}],
+  "pendingFollowUps": [{"emailId": string, "contactName": string, "reason": string, "suggestedDueDate": string|null, "urgency": "high"|"medium"|"low"}],
+  "executiveSummary": string,
+  "staleContactsAlert": [{"contactId": string, "name": string, "daysSinceContact": number, "suggestedAction": string}],
+  "draftSuggestions": [{"emailId": string, "subject": string, "reason": string}],
+  "emailVolumeTrends": {"todayReceived": number, "todaySent": number, "weeklyAvgReceived": number, "weeklyAvgSent": number, "trend": "increasing"|"stable"|"decreasing"},
+  "focusTimeRecommendations": [{"startTime": string, "endTime": string, "reason": string}]
+}
 
 Rules:
 - priorityEmails: Pick the most urgent/important emails from unread list. Maximum 5.

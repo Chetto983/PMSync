@@ -1,7 +1,7 @@
 /**
  * ReminderAiParserService — Natural language parsing for reminders.
  *
- * Uses Mistral via Vercel AI SDK `generateText` + `Output.object()` with Zod schema
+ * Uses Qwen 3.5 via OpenRouter + `generateText` + `parseJsonOutput` with Zod schema
  * to extract structured reminder fields from Italian/English free text.
  *
  * Pattern: follows FollowUpDetectionService

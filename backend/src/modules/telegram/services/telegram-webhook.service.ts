@@ -180,11 +180,13 @@ export class TelegramWebhookService {
           );
 
           // Use AI SDK native generateChat (non-streaming) — no manual stream parsing.
+          // Qwen 3.5 reasoning tokens can be slow; 60s timeout prevents webhook hangs.
           const result = await this.aiChatService.generateChat({
             tenantId: settings.tenantId,
             userId: settings.userId,
             message: text,
             conversationId,
+            abortSignal: AbortSignal.timeout(60_000),
           });
           return result.text;
         },
