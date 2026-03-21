@@ -30,6 +30,7 @@ import {
   ChevronDown,
   ChevronRight,
   UserMinus,
+  Building2,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
@@ -39,6 +40,8 @@ import {
   useDeleteOrg,
   useRemoveMember,
 } from '@/hooks/queries';
+import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
+import { EmptyState } from '@/components/common/EmptyState';
 import { InviteMemberDialog } from './InviteMemberDialog';
 
 interface OrganizationListItem {
@@ -343,7 +346,7 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
 
 export function OrgAdminPage() {
   const t = useTranslations();
-  const { data: orgs, isLoading, error } = useOrganizations();
+  const { data: orgs, isLoading, error, refetch } = useOrganizations();
   const organizations = (orgs ?? []) as OrganizationListItem[];
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -356,7 +359,7 @@ export function OrgAdminPage() {
   if (error) {
     return (
       <Box sx={{ p: 4 }}>
-        <Alert severity="error">{t.common.genericError}</Alert>
+        <QueryErrorAlert error={error} onRetry={() => refetch()} />
       </Box>
     );
   }
@@ -392,7 +395,14 @@ export function OrgAdminPage() {
           ))}
         </Box>
       ) : organizations.length === 0 ? (
-        <Alert severity="info">{t.organizations.noOrganizations}</Alert>
+        <EmptyState
+          icon={Building2}
+          color="#7650ce"
+          title={t.organizations.emptyTitle ?? 'No organizations'}
+          description={t.organizations.emptyDescription ?? 'Organizations will appear when users create them'}
+          actionLabel={t.organizations.create}
+          onAction={() => setCreateOpen(true)}
+        />
       ) : (
         <TableContainer component={Paper} variant="outlined">
           <Table>

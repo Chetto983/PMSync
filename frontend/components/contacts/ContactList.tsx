@@ -8,9 +8,11 @@
  */
 
 import React, { useRef, useCallback, useEffect, useState } from 'react';
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Box, Skeleton } from '@mui/material';
 import { Users as UsersIcon } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { EmptyState } from '@/components/common/EmptyState';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import { ContactListItem } from './ContactListItem';
 import type { Contact } from '@/lib/api/contacts';
 
@@ -103,25 +105,34 @@ export const ContactList: React.FC<ContactListProps> = ({
 
   const isEmpty = contacts.length === 0;
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const t = useTranslations();
+
   if (isLoading && isEmpty) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 200 }}>
-        <CircularProgress />
+      <Box sx={{ p: 2 }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
+            <Skeleton variant="circular" width={40} height={40} animation="wave" />
+            <Box sx={{ flex: 1 }}>
+              <Skeleton width="40%" height={20} animation="wave" />
+              <Skeleton width="60%" height={16} animation="wave" sx={{ mt: 0.5 }} />
+            </Box>
+          </Box>
+        ))}
       </Box>
     );
   }
 
   if (isEmpty) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 200, px: 3, textAlign: 'center' }}>
-        <UsersIcon size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
-        <Typography variant="h6" color="text.secondary" gutterBottom>
-          {emptyTitle}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {emptySubtitle}
-        </Typography>
-      </Box>
+      <EmptyState
+        icon={UsersIcon}
+        color="#7650ce"
+        title={emptyTitle}
+        description={emptySubtitle}
+        actionLabel={t.contacts?.emptyCta}
+      />
     );
   }
 
@@ -180,7 +191,7 @@ export const ContactList: React.FC<ContactListProps> = ({
 
       {(isLoadingMore || (hasMore && isLoading && contacts.length > 0)) && (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 2 }}>
-          <CircularProgress size={24} />
+          <Skeleton variant="circular" width={24} height={24} animation="wave" />
         </Box>
       )}
     </Box>

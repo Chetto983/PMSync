@@ -3,7 +3,7 @@ import { Layout } from '@/components/layout/Layout';
 import { OrgAdminPage } from '@/components/organizations/OrgAdminPage';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { authClient, type SessionUser } from '@/lib/auth-client';
-import { Box, Typography, Alert } from '@mui/material';
+import { Box, Typography, Alert, Skeleton } from '@mui/material';
 import { PageContainer } from '@/components/common';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -16,7 +16,10 @@ export default function OrganizationsPage() {
     return (
       <Layout>
         <Box sx={{ p: 4 }}>
-          <Typography>{t.common.loading}</Typography>
+          <Skeleton variant="text" width={200} height={36} sx={{ mb: 2 }} />
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} variant="rounded" height={56} sx={{ mb: 1 }} />
+          ))}
         </Box>
       </Layout>
     );

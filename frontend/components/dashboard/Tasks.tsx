@@ -9,12 +9,12 @@ import {
   ListItemSecondaryAction,
   Chip,
   Skeleton,
-  Alert,
-  Button,
   ListItemIcon,
 } from '@mui/material';
-import { Clock, CheckSquare, AlertCircle, CheckCircle } from 'lucide-react';
+import { Clock, CheckSquare, AlertCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { EmptyState } from '@/components/common/EmptyState';
+import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import {
   usePendingFollowUps,
   useFollowUpStats,
@@ -170,9 +170,10 @@ export function Tasks() {
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton
                 key={i}
-                variant="rectangular"
+                variant="rounded"
                 height={72}
                 width="100%"
+                animation="wave"
                 sx={{ borderRadius: 1, mb: 1 }}
               />
             ))}
@@ -181,54 +182,18 @@ export function Tasks() {
 
         {/* Error */}
         {isError && !isLoading && (
-          <Alert
-            severity="error"
-            action={
-              <Button color="inherit" size="small" onClick={() => refetch()}>
-                {t.common.retryLoading}
-              </Button>
-            }
-          >
-            {t.tasks.errorLoading}
-          </Alert>
+          <QueryErrorAlert error={null} onRetry={() => { void refetch(); }} title={t.tasks.errorLoading} />
         )}
 
         {/* Empty state */}
         {!isLoading && !isError && followUps.length === 0 && (
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 64,
-                height: 64,
-                borderRadius: '50%',
-                bgcolor: 'action.hover',
-                mb: 2,
-              }}
-            >
-              <CheckCircle size={32} strokeWidth={1.5} />
-            </Box>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-              {t.tasks.emptyTitle}
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ textAlign: 'center', maxWidth: 360 }}
-            >
-              {t.tasks.emptyDescription}
-            </Typography>
-          </Box>
+          <EmptyState
+            icon={CheckSquare}
+            color="#22c55e"
+            title={t.tasks.emptyTitle}
+            description={t.tasks.emptyDescription}
+            actionLabel={t.tasks.emptyCta}
+          />
         )}
 
         {/* Data */}

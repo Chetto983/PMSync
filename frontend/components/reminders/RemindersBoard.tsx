@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import {
   Box,
-  Typography,
+  Button,
   Chip,
   Skeleton,
-  Alert,
-  Button,
   Fab,
 } from '@mui/material';
-import { Plus } from 'lucide-react';
+import { Plus, Bell } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { PageContainer } from '@/components/common';
+import { EmptyState } from '@/components/common/EmptyState';
+import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import { useReminders, useCompleteReminder, useDeleteReminder } from '@/hooks/queries/use-reminders';
 import type { ReminderStatus } from '@/lib/api/reminders';
 import { ReminderCard } from './ReminderCard';
@@ -57,23 +57,25 @@ export function RemindersBoard() {
       {/* Loading */}
       {isLoading && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {[1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={120} />)}
+          {[1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={120} animation="wave" />)}
         </Box>
       )}
 
       {/* Error */}
       {isError && (
-        <Alert severity="error" action={<Button onClick={() => refetch()}>{tr.retry}</Button>}>
-          {tr.error}
-        </Alert>
+        <QueryErrorAlert error={null} onRetry={() => { void refetch(); }} />
       )}
 
       {/* Empty */}
       {!isLoading && !isError && reminders.length === 0 && (
-        <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6" color="text.secondary">{tr.noReminders}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{tr.noRemindersDescription}</Typography>
-        </Box>
+        <EmptyState
+          icon={Bell}
+          color="#22c55e"
+          title={tr.noReminders}
+          description={tr.noRemindersDescription}
+          actionLabel={tr.newReminder}
+          onAction={() => setDialogOpen(true)}
+        />
       )}
 
       {/* Reminders list */}

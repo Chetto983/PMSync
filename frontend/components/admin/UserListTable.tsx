@@ -16,13 +16,16 @@ import {
   Paper,
   Card,
   CardContent,
+  Skeleton,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Ban, CheckCircle2, UserSearch, Monitor, LockOpen } from 'lucide-react';
+import { Ban, CheckCircle2, UserSearch, Monitor, LockOpen, Shield } from 'lucide-react';
 import { useAdminUsers, useImpersonateUser, useUnbanUser } from '@/hooks/queries/use-admin';
 import { authClient, type SessionUser } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
+import { EmptyState } from '@/components/common/EmptyState';
 import { BanUserDialog } from './BanUserDialog';
 import { UserSessionsDialog } from './UserSessionsDialog';
 
@@ -71,7 +74,7 @@ export function UserListTable() {
     searchOperator: debouncedSearch ? 'contains' : undefined,
   }), [rowsPerPage, page, debouncedSearch]);
 
-  const { data, isLoading } = useAdminUsers(params);
+  const { data, isLoading, error, refetch } = useAdminUsers(params);
   const impersonate = useImpersonateUser();
   const unbanUser = useUnbanUser();
 
@@ -144,16 +147,24 @@ export function UserListTable() {
   const renderMobileCards = () => {
     if (isLoading) {
       return (
-        <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-          {t.common?.loading}
-        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} variant="rounded" height={80} />
+          ))}
+        </Box>
       );
+    }
+    if (error) {
+      return <QueryErrorAlert error={error} onRetry={() => refetch()} />;
     }
     if (users.length === 0) {
       return (
-        <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-          {t.admin?.users.noUsers}
-        </Typography>
+        <EmptyState
+          icon={Shield}
+          color="#7650ce"
+          title={t.admin?.users.emptyTitle ?? 'No users found'}
+          description={t.admin?.users.emptyDescription ?? 'No users match the current filters'}
+        />
       );
     }
     return users.map((user) => {
@@ -248,15 +259,30 @@ export function UserListTable() {
             </TableHead>
             <TableBody>
               {isLoading ? (
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <TableRow key={i}>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((j) => (
+                        <TableCell key={j}><Skeleton variant="text" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </>
+              ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">{t.common?.loading}</Typography>
+                  <TableCell colSpan={8} sx={{ p: 0 }}>
+                    <QueryErrorAlert error={error} onRetry={() => refetch()} />
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">{t.admin?.users.noUsers}</Typography>
+                  <TableCell colSpan={8} sx={{ p: 0 }}>
+                    <EmptyState
+                      icon={Shield}
+                      color="#7650ce"
+                      title={t.admin?.users.emptyTitle ?? 'No users found'}
+                      description={t.admin?.users.emptyDescription ?? 'No users match the current filters'}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
