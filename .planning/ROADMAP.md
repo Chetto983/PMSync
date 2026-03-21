@@ -260,7 +260,7 @@ Plans:
   3. Every error shows a user-friendly message with a retry action -- no raw error codes or silent failures visible to users
   4. All pages render correctly on mobile (375px+) with no overflow or hidden content, and dark mode works across all pages without white flash or unthemed elements
   5. Keyboard navigation works on all interactive elements, and Italian translation is complete with no missing keys or English fallbacks visible
-**Plans:** 1/4 plans executed
+**Plans:** 3/4 plans executed
 Plans:
 - [ ] 96-01-PLAN.md -- Shared primitives (EmptyState enhancement, QueryErrorAlert, i18n keys, audit script)
 - [ ] 96-02-PLAN.md -- Primary pages polish (dashboard, email, calendar, contacts, tasks, reminders)
@@ -316,7 +316,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 92. AI & Knowledge Base Verification | 3/3 | Complete    | 2026-03-20 |
 | 93. Admin, Subscriptions & Integrations | 4/4 | Complete    | 2026-03-20 |
 | 95. Dead Code & Cleanup | 5/5 | Complete    | 2026-03-21 |
-| 96. UI/UX Polish | 1/4 | In Progress|  |
+| 96. UI/UX Polish | 3/4 | In Progress|  |
 | 97. MUI Chat Migration | 0/? | Not started | - |
 | 98. Security Verification | 0/? | Not started | - |
 
