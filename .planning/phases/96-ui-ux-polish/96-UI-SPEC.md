@@ -41,7 +41,7 @@ MUI spacing unit is 8px. All spacing uses MUI `sx` numeric shorthand (e.g., `py:
 
 Exceptions:
 - Empty state vertical padding: `py: 8` (64px) for centered empty state layout
-- Touch targets: minimum 44px (MUI Tab minHeight already 44px)
+- Touch targets: minimum 44px (accessibility-driven; WCAG 2.5.8 Target Size minimum). MUI Tab minHeight already 44px. All custom clickable elements (icon buttons, list items with onClick) must meet this minimum. 44px is not on the 8-point scale but is required for accessible touch interaction.
 - Content max width: 1400px (layout.content.maxWidth)
 
 ---
@@ -50,16 +50,18 @@ Exceptions:
 
 All values from `frontend/theme/typography.ts` and `frontend/theme/tokens.ts`. Do not invent new sizes.
 
+4-size scale with 2 weights:
+
 | Role | Size | Weight | Line Height | MUI Variant |
 |------|------|--------|-------------|-------------|
-| Body | 14px (0.875rem) | 400 (normal) | 1.625 (relaxed) | body1 |
-| Body small | 13px (0.8125rem) | 400 (normal) | 1.625 (relaxed) | body2 |
-| Label/Caption | 12px (0.75rem) | 400 (normal) | 1.5 (normal) | caption |
-| Heading (page) | 16px (1rem) | 600 (semibold) | 1.5 (normal) | h6 |
-| Heading (section) | 20px (1.25rem) | 600 (semibold) | 1.375 (snug) | h4 |
-| Button | 14px (0.875rem) | 600 (semibold) | 1.5 (normal) | button |
+| Caption / Label | 12px (0.75rem) | 400 (normal) | 1.5 | caption |
+| Body + Button | 14px (0.875rem) | 400 (normal) body, 600 (semibold) button | 1.625 (body), 1.5 (button) | body1, body2, button |
+| Heading (page) | 16px (1rem) | 600 (semibold) | 1.5 | h6 |
+| Heading (section) | 20px (1.25rem) | 600 (semibold) | 1.375 | h4 |
 
 Weights used in this phase: 400 (normal) and 600 (semibold). Weight 500 (medium) appears in subtitle1/subtitle2 -- use only where MUI defaults apply.
+
+Note: MUI `body2` variant maps to the same 14px size as `body1` for this phase. Where the codebase previously used `body2` at 13px, use `body1` at 14px instead. For smaller text (metadata labels, timestamps, secondary annotations), use `caption` at 12px.
 
 ---
 
@@ -105,6 +107,10 @@ Use `alpha(semanticColor, 0.12)` for icon background circle. Use raw semantic co
 | Info/guidance | `info` | Non-critical messages, empty state guidance |
 | Success confirmation | `success` | Mutation success toasts (existing pattern) |
 
+### Focal Point: Dashboard
+
+The dashboard primary screen focal point is the **widget grid area** (center of viewport). On first visit (empty state), the focal point shifts to the **Welcome to PMSync** empty state component, vertically centered. The empty state CTA ("Connect account") draws the eye with the primary accent gradient button. On populated dashboards, the top-left widget card (email summary) is the natural entry point for the F-pattern reading flow.
+
 ---
 
 ## Copywriting Contract
@@ -148,7 +154,7 @@ No new destructive actions are introduced in this phase. Existing delete flows (
 |----------|-------|
 | Location | `frontend/components/common/EmptyState.tsx` |
 | Props | `icon: ReactNode`, `color: string`, `title: string`, `description: string`, `actionLabel?: string`, `onAction?: () => void` |
-| Layout | Vertically centered flex column. Icon in 48x48 circle with `alpha(color, 0.12)` background. Icon size 24px. Title as `Typography variant="h6"`. Description as `Typography variant="body2" color="text.secondary"` with `maxWidth: 360`. Optional contained Button. |
+| Layout | Vertically centered flex column. Icon in 48x48 circle with `alpha(color, 0.12)` background. Icon size 24px. Title as `Typography variant="h6"`. Description as `Typography variant="body1" color="text.secondary"` with `maxWidth: 360`. Optional contained Button. |
 | Spacing | `py: 8` (64px top/bottom), `px: 3` (24px sides), `mb: 2` (16px) below icon, `mb: 1` (8px) below title, `mb: 3` (24px) below description |
 
 ### QueryErrorAlert
