@@ -2667,6 +2667,11 @@ export interface AppTranslations {
       to?: string;
       failedToLoad?: string;
       noEmailContent?: string;
+      fromLabel?: string;
+      loadingFollowUps?: string;
+      failedToLoadFollowUps?: string;
+      followUpsTitle?: string;
+      noFollowUpsFound?: string;
     };
     commandPalette?: {
       title?: string;

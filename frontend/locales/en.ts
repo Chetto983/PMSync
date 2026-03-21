@@ -2609,6 +2609,11 @@ export const en: AppTranslations = {
       to: 'To: {value}',
       failedToLoad: 'Failed to load email: {error}',
       noEmailContent: 'No email content found.',
+      fromLabel: 'From: {value}',
+      loadingFollowUps: 'Loading follow-ups...',
+      failedToLoadFollowUps: 'Failed to load follow-ups: {error}',
+      followUpsTitle: 'Follow-ups',
+      noFollowUpsFound: 'No follow-ups found.',
     },
     commandPalette: {
       title: 'Quick Commands',

@@ -2597,6 +2597,11 @@ export const it: AppTranslations = {
       to: 'A: {value}',
       failedToLoad: 'Impossibile caricare l\'email: {error}',
       noEmailContent: 'Nessun contenuto email trovato.',
+      fromLabel: 'Da: {value}',
+      loadingFollowUps: 'Caricamento follow-up...',
+      failedToLoadFollowUps: 'Impossibile caricare i follow-up: {error}',
+      followUpsTitle: 'Follow-up',
+      noFollowUpsFound: 'Nessun follow-up trovato.',
     },
     commandPalette: {
       title: 'Comandi Rapidi',
