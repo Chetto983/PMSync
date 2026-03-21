@@ -2663,6 +2663,10 @@ export interface AppTranslations {
       loadingReminders?: string;
       noRemindersFound?: string;
       processingBulkAction?: string;
+      noSubject?: string;
+      to?: string;
+      failedToLoad?: string;
+      noEmailContent?: string;
     };
     commandPalette?: {
       title?: string;

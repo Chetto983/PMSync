@@ -2593,6 +2593,10 @@ export const it: AppTranslations = {
       loadingReminders: 'Caricamento promemoria...',
       noRemindersFound: 'Nessun promemoria trovato.',
       processingBulkAction: 'Elaborazione azione di massa...',
+      noSubject: '(nessun oggetto)',
+      to: 'A: {value}',
+      failedToLoad: 'Impossibile caricare l\'email: {error}',
+      noEmailContent: 'Nessun contenuto email trovato.',
     },
     commandPalette: {
       title: 'Comandi Rapidi',

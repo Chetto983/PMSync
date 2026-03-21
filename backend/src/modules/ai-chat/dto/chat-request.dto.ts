@@ -33,8 +33,8 @@ export class ChatRequestDto {
   conversationId?: string;
 
   @ApiPropertyOptional({
-    description: 'Override the default Mistral model (e.g. mistral-medium-latest)',
-    example: 'mistral-small-latest',
+    description: 'Override the default AI model (e.g. qwen/qwen3.5-flash-02-23)',
+    example: 'qwen/qwen3.5-plus-02-15',
   })
   @IsOptional()
   @IsString()

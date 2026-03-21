@@ -24,9 +24,9 @@ export default registerAs('ai', () => ({
   // ===========================================
   models: {
     /** Simple tasks: classification, titles, RAG, fast completions */
-    simple: process.env.AI_MODEL_SIMPLE || 'mistral-small-latest',
+    simple: process.env.AI_MODEL_SIMPLE || 'qwen/qwen3.5-flash-02-23',
     /** Creative tasks: email composition, smart replies (no tool calls) */
-    creative: process.env.AI_MODEL_CREATIVE || 'mistral-small-latest',
+    creative: process.env.AI_MODEL_CREATIVE || 'qwen/qwen3.5-flash-02-23',
   },
 
   // ===========================================

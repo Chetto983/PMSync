@@ -225,12 +225,12 @@ export class SandboxToolsService implements OnModuleInit {
     }
 
     const { text } = await generateText({
-      model: this.mistralProvider.getCodeModel(),
+      model: this.mistralProvider.getChatModel(),
       messages: [{ role: 'user', content: prompt }],
       maxOutputTokens: 2000,
     });
 
-    // Strip markdown fences if Devstral wrapped them
+    // Strip markdown fences if model wrapped them
     const cleaned = text
       .replace(/^```(?:python|javascript|js|py)?\n?/m, '')
       .replace(/\n?```\s*$/m, '')

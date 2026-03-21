@@ -2605,6 +2605,10 @@ export const en: AppTranslations = {
       loadingReminders: 'Loading reminders...',
       noRemindersFound: 'No reminders found.',
       processingBulkAction: 'Processing bulk action...',
+      noSubject: '(no subject)',
+      to: 'To: {value}',
+      failedToLoad: 'Failed to load email: {error}',
+      noEmailContent: 'No email content found.',
     },
     commandPalette: {
       title: 'Quick Commands',

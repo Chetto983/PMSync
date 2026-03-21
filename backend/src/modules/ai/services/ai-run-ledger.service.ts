@@ -16,29 +16,26 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 
 /**
- * Per-million-token pricing for Mistral models (USD).
- * Source: https://docs.mistral.ai/deployment/ai-studio/pricing (2026-03)
+ * Per-million-token pricing (USD).
+ * Chat: Qwen 3.5 via OpenRouter. Embeddings/OCR: Mistral.
+ * Source: OpenRouter pricing page, Mistral pricing (2026-03)
  */
 export const COST_MAP: Record<string, { input: number; output: number }> = {
-  // Small tier
-  'mistral-small-latest': { input: 0.15, output: 0.60 },
-  'mistral-small-4-latest': { input: 0.15, output: 0.60 },
-  // Medium tier
-  'mistral-medium-latest': { input: 2.75, output: 8.10 },
-  // Large tier
-  'mistral-large-latest': { input: 0.50, output: 1.50 },
-  // Code
-  'devstral-latest': { input: 0.40, output: 2.00 },
-  'devstral-small-latest': { input: 0.10, output: 0.30 },
-  // Creative
-  'labs-mistral-small-creative': { input: 0.10, output: 0.30 },
-  // Embedding
+  // Qwen 3.5 (OpenRouter)
+  'qwen/qwen3.5-flash-02-23': { input: 0.20, output: 0.20 },
+  'qwen/qwen3.5-plus-02-15': { input: 0.30, output: 0.30 },
+  // Mistral (embeddings + OCR only)
   'mistral-embed': { input: 0.01, output: 0.01 },
-  // Legacy
-  'ministral-3b-latest': { input: 0.10, output: 0.10 },
+  'mistral-ocr-latest': { input: 0.50, output: 0.50 },
+  // Legacy (kept for historical ledger lookups)
+  'mistral-small-latest': { input: 0.15, output: 0.60 },
+  'mistral-medium-latest': { input: 2.75, output: 8.10 },
+  'mistral-large-latest': { input: 0.50, output: 1.50 },
+  'devstral-small-latest': { input: 0.10, output: 0.30 },
+  'labs-mistral-small-creative': { input: 0.10, output: 0.30 },
 };
 
-const DEFAULT_COST = COST_MAP['mistral-small-latest'];
+const DEFAULT_COST = COST_MAP['qwen/qwen3.5-flash-02-23'];
 
 export interface RecordRunParams {
   tenantId: string;

@@ -1,9 +1,10 @@
 /**
  * MistralProviderService - AI model provider with dual backend:
- *   - Chat models: OpenRouter (access to Qwen, DeepSeek, GPT, Claude, etc.)
+ *   - Chat/code models: OpenRouter (Qwen 3.5 flash + plus)
  *   - Embedding models: Mistral (mistral-embed, EU-hosted)
+ *   - OCR: Mistral (mistral-ocr-latest)
  *
- * Falls back to Mistral for chat if OPENROUTER_API_KEY is not set.
+ * OpenRouter is REQUIRED for chat. Mistral is kept only for embeddings + OCR.
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,39 +16,23 @@ import type { LanguageModel, EmbeddingModel } from 'ai';
 export class MistralProviderService {
   private readonly logger = new Logger(MistralProviderService.name);
   private readonly mistralProvider: ReturnType<typeof createMistral>;
-  private readonly openRouterProvider: ReturnType<typeof createOpenRouter> | null;
+  private readonly openRouterProvider: ReturnType<typeof createOpenRouter>;
   private readonly defaultChatModel: string;
-  private readonly defaultCodeModel: string;
   private readonly defaultEmbeddingModel: string;
-  private readonly useOpenRouter: boolean;
 
   constructor(private readonly config: ConfigService) {
-    // Mistral — always needed for embeddings
+    // Mistral — kept for embeddings + OCR only
     const mistralKey = this.config.getOrThrow<string>('MISTRAL_API_KEY');
     this.mistralProvider = createMistral({ apiKey: mistralKey });
 
-    // OpenRouter — optional, used for chat if configured
-    const openRouterKey = this.config.get<string>('OPENROUTER_API_KEY');
-    if (openRouterKey) {
-      this.openRouterProvider = createOpenRouter({ apiKey: openRouterKey });
-      this.useOpenRouter = true;
-      this.logger.log('OpenRouter enabled for chat models');
-    } else {
-      this.openRouterProvider = null;
-      this.useOpenRouter = false;
-      this.logger.log('OpenRouter not configured, using Mistral for chat');
-    }
+    // OpenRouter — required for all chat/completion models
+    const openRouterKey = this.config.getOrThrow<string>('OPENROUTER_API_KEY');
+    this.openRouterProvider = createOpenRouter({ apiKey: openRouterKey });
+    this.logger.log('OpenRouter enabled for chat models (Qwen 3.5)');
 
     this.defaultChatModel = this.config.get<string>(
       'AI_CHAT_MODEL',
-      this.config.get<string>(
-        'MISTRAL_CHAT_MODEL',
-        'qwen/qwen3.5-plus-02-15',
-      ),
-    );
-    this.defaultCodeModel = this.config.get<string>(
-      'MISTRAL_CODE_MODEL',
-      'devstral-small-latest',
+      'qwen/qwen3.5-plus-02-15',
     );
     this.defaultEmbeddingModel = this.config.get<string>(
       'AI_EMBEDDING_MODEL',
@@ -55,29 +40,20 @@ export class MistralProviderService {
     );
   }
 
-  /** Get a chat model. Uses OpenRouter if configured, Mistral otherwise. */
+  /** Get a chat model via OpenRouter. */
   getChatModel(modelId?: string): LanguageModel {
     const id = modelId ?? this.defaultChatModel;
-    if (this.useOpenRouter && this.openRouterProvider) {
-      return this.openRouterProvider.chat(id, {
-        // GDPR: deny data collection, sort by latency
-        provider: {
-          data_collection: 'deny',
-          sort: 'latency',
-        },
-      });
-    }
-    return this.mistralProvider(id);
+    return this.openRouterProvider.chat(id, {
+      provider: {
+        data_collection: 'deny',
+        sort: 'latency',
+      },
+    });
   }
 
   /** Get the chat model name (for ledger/logging). */
   getChatModelName(modelId?: string): string {
     return modelId ?? this.defaultChatModel;
-  }
-
-  /** Get Devstral coding model. Always uses Mistral directly. */
-  getCodeModel(): LanguageModel {
-    return this.mistralProvider(this.defaultCodeModel);
   }
 
   /** Get an embedding model. Always uses Mistral (EU-hosted). */
