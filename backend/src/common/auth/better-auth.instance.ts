@@ -392,7 +392,7 @@ export function createBetterAuthInstance(
 
     emailAndPassword: {
       enabled: true,
-      requireEmailVerification: true,
+      requireEmailVerification: false, // TODO: re-enable when email provider is configured
       autoSignIn: true,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
@@ -401,11 +401,16 @@ export function createBetterAuthInstance(
     },
 
     emailVerification: {
-      sendOnSignUp: true,
-      sendOnSignIn: true,
+      sendOnSignUp: false, // TODO: re-enable when email provider is configured
+      sendOnSignIn: false,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        await emailService.sendVerificationEmail(user.email, url);
+        try {
+          await emailService.sendVerificationEmail(user.email, url);
+        } catch (error) {
+          // Don't block sign-up if verification email fails — user can request re-send
+          console.error(`[better-auth] Failed to send verification email to ${user.email}:`, error);
+        }
       },
     },
 
