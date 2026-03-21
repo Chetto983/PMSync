@@ -39,12 +39,14 @@ const configService = {
   get: (key: string, defaultValue?: string) => {
     const map: Record<string, string> = {
       MISTRAL_API_KEY: 'msw-fake-key',
+      OPENROUTER_API_KEY: 'msw-fake-openrouter-key',
       INTENT_MODEL_PATH: '',
     };
     return map[key] ?? defaultValue;
   },
   getOrThrow: (key: string) => {
     if (key === 'MISTRAL_API_KEY') return 'msw-fake-key';
+    if (key === 'OPENROUTER_API_KEY') return 'msw-fake-openrouter-key';
     if (key === 'INTENT_MODEL_PATH') return '';
     throw new Error(`Config key ${key} not found`);
   },

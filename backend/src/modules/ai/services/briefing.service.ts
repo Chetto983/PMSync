@@ -8,13 +8,14 @@
  * Uses a single LLM call with pre-fetched data context.
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
+import { parseJsonOutput } from '../utils/parse-json-output';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -261,12 +262,10 @@ export class BriefingService {
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(),
-        output: Output.object({ schema: briefingSchema }),
         system: SYSTEM_PROMPT,
-        prompt: dataContext,
+        prompt: dataContext + '\n\nReturn valid JSON.',
       });
 
-      // Phase 35: fire-and-forget ledger write
       this.ledgerService?.recordRun({
         tenantId,
         userId: 'system',
@@ -278,63 +277,16 @@ export class BriefingService {
         latencyMs: Date.now() - startTime,
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
+      const parsed = parseJsonOutput(result.text, briefingSchema);
       await this.trackUsage();
-      return { data: result.output };
+      return { data: parsed };
     } catch (firstError) {
-      if (NoObjectGeneratedError.isInstance(firstError)) {
-        // Log first attempt failure to ledger
-        this.ledgerService?.recordRun({
-          tenantId,
-          userId: 'system',
-          runType: 'briefing',
-          model: this.mistralProvider.getChatModelName(),
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
-          latencyMs: Date.now() - startTime,
-          status: AiRunStatus.FAILED,
-          errorMessage: 'Schema validation failed',
-        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-        this.logger.warn(`Briefing schema validation failed, retrying with tighter prompt`);
-        const retryStart = Date.now();
-        try {
-          const retryResult = await generateText({
-            model: this.mistralProvider.getChatModel(),
-            output: Output.object({ schema: briefingSchema }),
-            system: SYSTEM_PROMPT + '\nIMPORTANT: Return ONLY valid JSON matching the exact schema. Every field must be present.',
-            prompt: dataContext,
-          });
-
-          // Retry success ledger
-          this.ledgerService?.recordRun({
-            tenantId,
-            userId: 'system',
-            runType: 'briefing',
-            model: this.mistralProvider.getChatModelName(),
-            promptTokens: retryResult.usage?.inputTokens ?? 0,
-            completionTokens: retryResult.usage?.outputTokens ?? 0,
-            totalTokens: retryResult.usage?.totalTokens ?? 0,
-            latencyMs: Date.now() - retryStart,
-          }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-          await this.trackUsage();
-          return { data: retryResult.output };
-        } catch (retryError) {
-          this.logger.error(`Briefing schema validation retry failed: ${retryError}`);
-          return { data: SAFE_FALLBACK, error: 'Schema validation failed after retry' };
-        }
-      }
-
-      // Non-schema failure ledger
       this.ledgerService?.recordRun({
         tenantId,
         userId: 'system',
         runType: 'briefing',
         model: this.mistralProvider.getChatModelName(),
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
+        promptTokens: 0, completionTokens: 0, totalTokens: 0,
         latencyMs: Date.now() - startTime,
         status: AiRunStatus.FAILED,
         errorMessage: firstError instanceof Error ? firstError.message : String(firstError),

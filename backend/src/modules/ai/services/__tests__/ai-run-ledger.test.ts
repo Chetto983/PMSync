@@ -81,7 +81,7 @@ describe('AiRunLedgerService', () => {
     expect(createArg.data.estimatedCostUsd).toBeCloseTo(0.000045, 10);
   });
 
-  it('unknown model falls back to mistral-small-latest pricing', async () => {
+  it('unknown model falls back to qwen/qwen3.5-flash-02-23 pricing', async () => {
     const params: RecordRunParams = {
       tenantId: 'tenant-1',
       userId: 'user-1',
@@ -96,8 +96,8 @@ describe('AiRunLedgerService', () => {
     await service.recordRun(params);
 
     const createArg = mockPrisma.aiRunLedger.create.mock.calls[0][0];
-    // Same as mistral-small-latest: (100*0.15 + 50*0.60)/1_000_000 = 0.000045
-    expect(createArg.data.estimatedCostUsd).toBeCloseTo(0.000045, 10);
+    // Same as qwen/qwen3.5-flash-02-23: (100*0.20 + 50*0.20)/1_000_000 = 0.00003
+    expect(createArg.data.estimatedCostUsd).toBeCloseTo(0.00003, 10);
   });
 
   it('NaN/undefined token counts are coerced to 0 via safeInt', async () => {

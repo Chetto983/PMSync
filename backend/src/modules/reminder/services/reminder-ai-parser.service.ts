@@ -7,11 +7,12 @@
  * Pattern: follows FollowUpDetectionService
  */
 import { Injectable, Logger } from '@nestjs/common';
-import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
+import { parseJsonOutput } from '../../ai/utils/parse-json-output';
 
 // ============ Zod Schema ============
 
@@ -116,15 +117,13 @@ export class ReminderAiParserService {
 
       const result = await generateText({
         model,
-        output: Output.object({ schema: reminderParseSchema }),
         system: SYSTEM_PROMPT,
-        prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}`,
+        prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi in JSON.`,
       });
 
       const latencyMs = Date.now() - startTime;
-      const parsed = result.output;
+      const parsed = parseJsonOutput(result.text, reminderParseSchema);
 
-      // Track AI usage (fire-and-forget)
       this.aiRunLedger.recordRun({
         tenantId,
         userId,
@@ -137,22 +136,11 @@ export class ReminderAiParserService {
         status: AiRunStatus.SUCCESS,
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
-      if (!parsed) {
-        this.logger.warn('AI parser returned null output, using fallback');
-        return { ...SAFE_FALLBACK, risposta_chat: 'Non sono riuscito a interpretare.' };
-      }
-
       return parsed;
     } catch (error) {
       const latencyMs = Date.now() - startTime;
       const message = error instanceof Error ? error.message : String(error);
-
-      // Log structured output errors specifically
-      if (error instanceof NoObjectGeneratedError) {
-        this.logger.warn(`AI parser failed to generate structured output: ${message}`);
-      } else {
-        this.logger.error(`AI parser error: ${message}`);
-      }
+      this.logger.error(`AI parser error: ${message}`);
 
       this.aiRunLedger.recordRun({
         tenantId,

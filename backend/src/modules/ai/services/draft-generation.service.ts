@@ -8,13 +8,14 @@
  * Single LLM call with pre-fetched email context.
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { generateText, Output, NoObjectGeneratedError } from 'ai';
+import { generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
+import { parseJsonOutput } from '../utils/parse-json-output';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -149,9 +150,8 @@ export class DraftGenerationService {
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(),
-        output: Output.object({ schema: draftGenerationSchema }),
         system: SYSTEM_PROMPT,
-        prompt: replyContext,
+        prompt: replyContext + '\n\nReturn valid JSON.',
       });
 
       this.ledgerService?.recordRun({
@@ -165,50 +165,10 @@ export class DraftGenerationService {
         latencyMs: Date.now() - startTime,
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
+      const parsed = parseJsonOutput(result.text, draftGenerationSchema);
       await this.trackUsage();
-      return { data: result.output };
-    } catch (firstError) {
-      if (NoObjectGeneratedError.isInstance(firstError)) {
-        this.ledgerService?.recordRun({
-          tenantId,
-          userId: 'system',
-          runType: 'draft-generation',
-          model: this.mistralProvider.getChatModelName(),
-          promptTokens: 0, completionTokens: 0, totalTokens: 0,
-          latencyMs: Date.now() - startTime,
-          status: AiRunStatus.FAILED,
-          errorMessage: 'Schema validation failed',
-        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-        this.logger.warn(`Draft generation schema validation failed, retrying`);
-        const retryStart = Date.now();
-        try {
-          const retryResult = await generateText({
-            model: this.mistralProvider.getChatModel(),
-            output: Output.object({ schema: draftGenerationSchema }),
-            system: SYSTEM_PROMPT + '\nIMPORTANT: Return ONLY valid JSON matching the exact schema. Every field must be present.',
-            prompt: replyContext,
-          });
-
-          this.ledgerService?.recordRun({
-            tenantId,
-            userId: 'system',
-            runType: 'draft-generation',
-            model: this.mistralProvider.getChatModelName(),
-            promptTokens: retryResult.usage?.inputTokens ?? 0,
-            completionTokens: retryResult.usage?.outputTokens ?? 0,
-            totalTokens: retryResult.usage?.totalTokens ?? 0,
-            latencyMs: Date.now() - retryStart,
-          }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-          await this.trackUsage();
-          return { data: retryResult.output };
-        } catch (retryError) {
-          this.logger.error(`Draft generation retry failed: ${retryError}`);
-          return { data: SAFE_FALLBACK, error: 'Schema validation failed after retry' };
-        }
-      }
-
+      return { data: parsed };
+    } catch (error) {
       this.ledgerService?.recordRun({
         tenantId,
         userId: 'system',
@@ -217,10 +177,10 @@ export class DraftGenerationService {
         promptTokens: 0, completionTokens: 0, totalTokens: 0,
         latencyMs: Date.now() - startTime,
         status: AiRunStatus.FAILED,
-        errorMessage: firstError instanceof Error ? firstError.message : String(firstError),
+        errorMessage: error instanceof Error ? error.message : String(error),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
-      this.logger.error(`Draft generation failed: ${firstError}`);
+      this.logger.error(`Draft generation failed: ${error}`);
       return { data: SAFE_FALLBACK, error: 'Draft generation failed' };
     }
   }
