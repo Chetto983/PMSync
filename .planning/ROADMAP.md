@@ -104,7 +104,7 @@
 - [x] **Phase 92: AI & Knowledge Base Verification** - Verify AI features, chat streaming, HITL, knowledge base, observability (completed 2026-03-20)
 - [x] **Phase 93: Admin, Subscriptions & Integrations** - Verify admin panel, settings, billing, compliance, providers, org flows, Telegram (completed 2026-03-20)
 - [x] **Phase 94: Infrastructure & Remaining Pages** - Verify WebSocket, health, webhooks, dashboard, tasks, analytics, landing, legal (completed 2026-03-20)
-- [ ] **Phase 95: Dead Code & Cleanup** - Reopened for gap closure: i18n strings in chat tool UIs (plans 01-03 complete, plan 04 pending)
+- [x] **Phase 95: Dead Code & Cleanup** - Reopened for gap closure: i18n strings in chat tool UIs (plans 01-03 complete, plan 04 pending) (completed 2026-03-21)
 - [ ] **Phase 96: UI/UX Polish** - Empty states, loading skeletons, error states, mobile, dark mode, keyboard nav, i18n
 - [ ] **Phase 97: MUI Chat Migration** - Migrate chat CSS to MUI sx, remove ChatThemeBridge, remove Tailwind
 - [ ] **Phase 98: Security Verification** - Auth guards, tenant isolation, CSRF, rate limiting, RBAC on all routes
@@ -242,7 +242,7 @@ Plans:
   3. Legacy API artifacts removed: PendingAction type, deprecated voltAgentApi alias, multiAgentApi shim, stale HITL methods
   4. Console.log/debug statements removed from production code, unused dependencies removed from both package.json files
   5. Stale contract test assertions updated and any dead routes/controllers discovered during testing are removed
-**Plans:** 4 plans (3 complete, 1 gap closure pending)
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 95-01-PLAN.md -- Legacy API shims, PendingAction types, orphaned renderers, stale test assertions
 - [x] 95-02-PLAN.md -- Dead file deletion (frontend + backend unused files, VoltAgent cosmetic cleanup)
@@ -314,7 +314,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 92. AI & Knowledge Base Verification | 3/3 | Complete    | 2026-03-20 |
 | 93. Admin, Subscriptions & Integrations | 4/4 | Complete    | 2026-03-20 |
 | 94. Infrastructure & Remaining Pages | 3/3 | Complete    | 2026-03-20 |
-| 95. Dead Code & Cleanup | 3/4 | Gap closure   | - |
+| 95. Dead Code & Cleanup | 4/4 | Complete   | 2026-03-21 |
 | 96. UI/UX Polish | 0/? | Not started | - |
 | 97. MUI Chat Migration | 0/? | Not started | - |
 | 98. Security Verification | 0/? | Not started | - |

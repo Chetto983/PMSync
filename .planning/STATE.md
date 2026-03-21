@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: System Audit & Hardening
 status: unknown
-stopped_at: Completed 95-03-PLAN.md (Phase 95 fully complete)
-last_updated: "2026-03-21T13:32:51.965Z"
+stopped_at: Completed 95-04-PLAN.md (Phase 95 gap closure complete)
+last_updated: "2026-03-21T13:40:21.332Z"
 progress:
   total_phases: 10
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 26
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Project State
@@ -70,6 +70,7 @@ Plan: 1 of 4
 | Phase 95 P01 | 8min | 2 tasks | 11 files |
 | Phase 95 P02 | 10min | 2 tasks | 18 files |
 | Phase 95 P03 | 32min | 2 tasks | 22 files |
+| Phase 95 P04 | 4min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,7 @@ Recent decisions affecting current work:
 - [Phase 95]: Task 1 frontend deletions handled by plan 01 (parallel-safe overlap); VoltAgent cosmetic references cleaned except historical Phase 23 reference
 - [Phase 95]: Kept dotenv-cli, @types/multer, @typescript-eslint/eslint-plugin (all actively used despite plan marking them for removal)
 - [Phase 95]: Legal pages (privacy, terms) excluded from i18n; language names kept hardcoded as standard UX pattern
+- [Phase 95]: Pass tu locale prop to subcomponents rather than adding useTranslations() in each
 
 ### Pending Todos
 
@@ -121,6 +123,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-21T00:16:00.000Z
-Stopped at: Completed 95-03-PLAN.md (Phase 95 fully complete)
+Last session: 2026-03-21T13:40:21.327Z
+Stopped at: Completed 95-04-PLAN.md (Phase 95 gap closure complete)
 Resume file: None
