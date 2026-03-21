@@ -25,9 +25,9 @@ export class EmailService {
         user: emailConfig.smtpUser,
         pass: emailConfig.smtpPassword,
       },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
+      connectionTimeout: 5_000,
+      greetingTimeout: 5_000,
+      socketTimeout: 5_000,
     });
   }
 
