@@ -6,6 +6,7 @@
 export { ErrorBoundary, PageErrorBoundary, SectionErrorBoundary } from './ErrorBoundary';
 export { PageContainer } from './PageContainer';
 export { EmptyState } from './EmptyState';
+export { QueryErrorAlert } from './QueryErrorAlert';
 export {
   ColorPicker,
   ColorPickerPopover,

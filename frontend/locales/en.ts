@@ -521,6 +521,9 @@ export const en: AppTranslations = {
   dashboard: {
     title: 'Dashboard',
     subtitle: 'Your personal command center',
+    emptyTitle: 'Welcome to PMSync',
+    emptyDescription: 'Connect an email account to get started',
+    emptyCta: 'Connect account',
     customize: {
       description: 'Choose which widgets to display on your dashboard.',
     },
@@ -739,6 +742,9 @@ export const en: AppTranslations = {
   },
   email: {
     title: 'Inbox control center',
+    emptyTitle: 'No emails yet',
+    emptyDescription: 'Connect an email account to start managing your inbox',
+    emptyCta: 'Connect account',
     descriptionTemplate: '{count} unread conversations — stay focused on the work that matters.',
     searchPlaceholder: 'Search threads, senders, or labels',
     search: {
@@ -1538,6 +1544,9 @@ export const en: AppTranslations = {
   calendar: {
     title: 'Calendar',
     description: 'Manage your calendar events',
+    emptyTitle: 'No events',
+    emptyDescription: 'Connect a calendar to see your schedule',
+    emptyCta: 'Connect calendar',
     refreshTooltip: 'Refresh calendars',
     previousPeriod: 'Previous period',
     nextPeriod: 'Next period',
@@ -1759,6 +1768,7 @@ export const en: AppTranslations = {
     },
     emptyTitle: 'No follow-ups to track',
     emptyDescription: 'When emails need follow-up, they will appear here automatically. Use the AI assistant to analyze your inbox.',
+    emptyCta: 'View follow-ups',
     comingSoon: 'Coming soon',
     errorLoading: 'Failed to load follow-ups. Check your connection and try again.',
     waitingFor: 'Waiting for reply',
@@ -3150,6 +3160,9 @@ export const en: AppTranslations = {
       searchPlaceholder: 'Search reminders...',
       noReminders: 'No reminders',
       noRemindersDescription: 'Create a reminder via AI chat or the button below',
+      emptyTitle: 'No reminders',
+      emptyDescription: 'Create reminders to stay on top of your work',
+      emptyCta: 'Create reminder',
       newReminder: 'New Reminder',
       createDialog: {
         title: 'Create Reminder',
@@ -3317,6 +3330,10 @@ export const en: AppTranslations = {
       logout: 'Logout',
     },
   },
+  analytics: {
+    emptyTitle: 'No analytics data',
+    emptyDescription: 'Analytics will appear once you start using PMSync',
+  },
   errors: {
     notFound: {
       title: '404',
@@ -3374,6 +3391,12 @@ export const en: AppTranslations = {
     saveDraftFailed: 'Failed to save draft.',
     deleteDraftFailed: 'Failed to delete draft.',
     calendarInviteFailed: 'Failed to respond to calendar invite.',
+    fetchErrorTitle: 'Something went wrong',
+    fetchErrorDescription: "We couldn't load this data. Please try again.",
+    connectionErrorTitle: 'Connection error',
+    connectionErrorDescription: 'Check your internet connection and try again.',
+    accessDeniedTitle: 'Access denied',
+    accessDeniedDescription: "You don't have permission to view this page.",
   },
   buttons: {
     tryAgain: 'Try Again',
@@ -3386,6 +3409,7 @@ export const en: AppTranslations = {
   contacts: {
     title: 'Contacts',
     description: 'Unified address book for every connected provider.',
+    emptyCta: 'Add contact',
     searchPlaceholder: 'Search contacts...',
     companyPlaceholder: 'Company',
     providerFilterLabel: 'Provider',
@@ -4003,6 +4027,8 @@ export const en: AppTranslations = {
       impersonate: 'Impersonate',
       sessions: 'Sessions',
       noUsers: 'No users found',
+      emptyTitle: 'No users found',
+      emptyDescription: 'No users match the current filters',
       impersonateConfirm: 'Start impersonating this user?',
       accessRestricted: 'Access Restricted',
       accessRestrictedUsers: 'This area is reserved for super-admins. Your account can continue using the rest of the dashboard, but does not have access to user management.',
@@ -4032,6 +4058,8 @@ export const en: AppTranslations = {
   },
   organizations: {
     title: 'Organizations',
+    emptyTitle: 'No organizations',
+    emptyDescription: 'Organizations will appear when users create them',
     create: 'Create Organization',
     delete: 'Delete Organization',
     deleteConfirm: 'Type the organization name to confirm deletion',

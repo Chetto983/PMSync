@@ -514,6 +514,9 @@ export const it: AppTranslations = {
   dashboard: {
     title: 'Dashboard',
     subtitle: 'Il tuo centro di comando personale',
+    emptyTitle: 'Benvenuto su PMSync',
+    emptyDescription: 'Collega un account email per iniziare',
+    emptyCta: 'Collega account',
     customize: {
       description: 'Scegli quali widget visualizzare nella tua dashboard.',
     },
@@ -732,6 +735,9 @@ export const it: AppTranslations = {
   },
   email: {
     title: 'Centro di controllo posta',
+    emptyTitle: 'Nessuna email',
+    emptyDescription: 'Collega un account email per gestire la tua posta',
+    emptyCta: 'Collega account',
     descriptionTemplate: '{count} conversazioni non lette — resta concentrato sul lavoro che conta.',
     searchPlaceholder: 'Cerca thread, mittenti o etichette',
     search: {
@@ -1528,6 +1534,9 @@ export const it: AppTranslations = {
   calendar: {
     title: 'Calendario',
     description: 'Gestisci i tuoi eventi',
+    emptyTitle: 'Nessun evento',
+    emptyDescription: 'Collega un calendario per vedere i tuoi impegni',
+    emptyCta: 'Collega calendario',
     refreshTooltip: 'Aggiorna calendari',
     previousPeriod: 'Periodo precedente',
     nextPeriod: 'Periodo successivo',
@@ -1748,6 +1757,7 @@ export const it: AppTranslations = {
     },
     emptyTitle: 'Nessun follow-up da monitorare',
     emptyDescription: 'Quando le email necessitano di follow-up, appariranno qui automaticamente. Usa l\'assistente AI per analizzare la tua casella.',
+    emptyCta: 'Vedi follow-up',
     comingSoon: 'In arrivo',
     errorLoading: 'Impossibile caricare i follow-up. Controlla la connessione e riprova.',
     waitingFor: 'In attesa di risposta',
@@ -3131,6 +3141,9 @@ export const it: AppTranslations = {
       searchPlaceholder: 'Cerca promemoria...',
       noReminders: 'Nessun promemoria',
       noRemindersDescription: 'Crea un promemoria tramite la chat AI o il pulsante qui sotto',
+      emptyTitle: 'Nessun promemoria',
+      emptyDescription: 'Crea promemoria per restare organizzato',
+      emptyCta: 'Crea promemoria',
       newReminder: 'Nuovo Promemoria',
       createDialog: {
         title: 'Crea Promemoria',
@@ -3298,6 +3311,10 @@ export const it: AppTranslations = {
       logout: 'Esci',
     },
   },
+  analytics: {
+    emptyTitle: 'Nessun dato analitico',
+    emptyDescription: 'I dati analitici appariranno quando inizierai a usare PMSync',
+  },
   errors: {
     notFound: {
       title: '404',
@@ -3354,6 +3371,12 @@ export const it: AppTranslations = {
     saveDraftFailed: 'Impossibile salvare la bozza.',
     deleteDraftFailed: 'Impossibile eliminare la bozza.',
     calendarInviteFailed: 'Impossibile rispondere all\'invito del calendario.',
+    fetchErrorTitle: 'Qualcosa è andato storto',
+    fetchErrorDescription: 'Impossibile caricare i dati. Riprova.',
+    connectionErrorTitle: 'Errore di connessione',
+    connectionErrorDescription: 'Controlla la connessione internet e riprova.',
+    accessDeniedTitle: 'Accesso negato',
+    accessDeniedDescription: 'Non hai i permessi per visualizzare questa pagina.',
   },
   buttons: {
     tryAgain: 'Riprova',
@@ -3366,6 +3389,7 @@ export const it: AppTranslations = {
   contacts: {
     title: 'Contatti',
     description: 'Rubrica unificata per ogni provider collegato.',
+    emptyCta: 'Aggiungi contatto',
     searchPlaceholder: 'Cerca contatti...',
     companyPlaceholder: 'Azienda',
     providerFilterLabel: 'Provider',
@@ -3980,6 +4004,8 @@ export const it: AppTranslations = {
       impersonate: 'Impersona',
       sessions: 'Sessioni',
       noUsers: 'Nessun utente trovato',
+      emptyTitle: 'Nessun utente trovato',
+      emptyDescription: 'Nessun utente corrisponde ai filtri selezionati',
       impersonateConfirm: 'Vuoi impersonare questo utente?',
       accessRestricted: 'Accesso limitato',
       accessRestrictedUsers: 'Questa area e riservata ai super-admin. Il tuo account puo continuare a usare il resto della dashboard, ma non ha accesso alla gestione utenti.',
@@ -4009,6 +4035,8 @@ export const it: AppTranslations = {
   },
   organizations: {
     title: 'Organizzazioni',
+    emptyTitle: 'Nessuna organizzazione',
+    emptyDescription: 'Le organizzazioni appariranno quando gli utenti le creeranno',
     create: 'Crea Organizzazione',
     delete: 'Elimina Organizzazione',
     deleteConfirm: "Digita il nome dell'organizzazione per confermare l'eliminazione",

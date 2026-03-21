@@ -448,6 +448,9 @@ export interface AppTranslations {
   dashboard: {
     title: string;
     subtitle?: string;
+    emptyTitle?: string;
+    emptyDescription?: string;
+    emptyCta?: string;
     customize?: {
       description: string;
     };
@@ -664,6 +667,9 @@ export interface AppTranslations {
   };
   email: {
     title: string;
+    emptyTitle?: string;
+    emptyDescription?: string;
+    emptyCta?: string;
     descriptionTemplate: string;
     searchPlaceholder: string;
     search: {
@@ -1429,6 +1435,9 @@ export interface AppTranslations {
   calendar: {
     title: string;
     description: string;
+    emptyTitle?: string;
+    emptyDescription?: string;
+    emptyCta?: string;
     refreshTooltip: string;
     previousPeriod: string;
     nextPeriod: string;
@@ -1642,6 +1651,7 @@ export interface AppTranslations {
     };
     emptyTitle: string;
     emptyDescription: string;
+    emptyCta?: string;
     comingSoon: string;
     errorLoading: string;
     waitingFor: string;
@@ -1657,6 +1667,7 @@ export interface AppTranslations {
   contacts: {
     title: string;
     description: string;
+    emptyCta?: string;
     searchPlaceholder: string;
     companyPlaceholder: string;
     providerFilterLabel: string;
@@ -3163,6 +3174,9 @@ export interface AppTranslations {
       searchPlaceholder: string;
       noReminders: string;
       noRemindersDescription: string;
+      emptyTitle?: string;
+      emptyDescription?: string;
+      emptyCta?: string;
       newReminder: string;
       createDialog: {
         title: string;
@@ -3329,6 +3343,10 @@ export interface AppTranslations {
       logout: string;
     };
   };
+  analytics?: {
+    emptyTitle?: string;
+    emptyDescription?: string;
+  };
   errors: {
     notFound: {
       title: string;
@@ -3385,6 +3403,12 @@ export interface AppTranslations {
     saveDraftFailed: string;
     deleteDraftFailed: string;
     calendarInviteFailed: string;
+    fetchErrorTitle?: string;
+    fetchErrorDescription?: string;
+    connectionErrorTitle?: string;
+    connectionErrorDescription?: string;
+    accessDeniedTitle?: string;
+    accessDeniedDescription?: string;
   };
   buttons: {
     tryAgain: string;
@@ -3834,6 +3858,8 @@ export interface AppTranslations {
       impersonate: string;
       sessions: string;
       noUsers: string;
+      emptyTitle?: string;
+      emptyDescription?: string;
       impersonateConfirm: string;
       accessRestricted: string;
       accessRestrictedUsers: string;
@@ -3863,6 +3889,8 @@ export interface AppTranslations {
   };
   organizations: {
     title: string;
+    emptyTitle?: string;
+    emptyDescription?: string;
     create: string;
     delete: string;
     deleteConfirm: string;
