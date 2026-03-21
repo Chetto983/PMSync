@@ -104,6 +104,30 @@ export class ChatRequestDto {
 // ========== Extraction helpers (used by controller) ==========
 
 /**
+ * Detect if the incoming request is an HITL approval re-submit.
+ * When the user approves/denies a tool call, the AI SDK re-sends the full
+ * messages[] with approval state. We detect this by checking for tool parts
+ * with an `approval` field that has been responded to (approved != null).
+ */
+export function hasApprovalResponses(dto: ChatRequestDto): boolean {
+  if (!dto.messages?.length) return false;
+  return dto.messages.some((msg) => {
+    if (msg.role !== 'assistant') return false;
+    const parts = msg.parts;
+    if (!Array.isArray(parts)) return false;
+    return (parts as Array<Record<string, unknown>>).some(
+      (p) =>
+        p &&
+        typeof p === 'object' &&
+        'approval' in p &&
+        p.approval &&
+        typeof p.approval === 'object' &&
+        (p.approval as Record<string, unknown>).approved != null,
+    );
+  });
+}
+
+/**
  * Extract the user message text from either format.
  * Priority: legacy message > last user message from messages[]
  */

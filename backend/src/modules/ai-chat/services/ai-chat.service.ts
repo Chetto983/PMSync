@@ -10,6 +10,8 @@ import {
   ToolLoopAgent,
   stepCountIs,
   InvalidPromptError,
+  convertToModelMessages,
+  type UIMessage,
   type ModelMessage,
   type StepResult,
   type ToolSet,
@@ -61,6 +63,8 @@ export interface StreamChatParams {
   model?: string;
   locale?: string;
   abortSignal?: AbortSignal;
+  /** Full client UIMessages for HITL approval re-submits */
+  clientMessages?: Array<Record<string, unknown>>;
 }
 
 /** Rate limit: 30 requests per 60 seconds per user */
@@ -150,46 +154,75 @@ export class AiChatService {
         userId,
       );
 
-    // 4. PII tokenize user message BEFORE LLM sees it
-    const piiResult = this.piiDetectionService.detect(message);
-    const llmMessage = piiResult.hasPii
-      ? piiResult.redactedText
-      : message;
+    const isApprovalResubmit = !!params.clientMessages?.length;
 
-    if (piiResult.hasPii) {
-      await this.piiResolutionService.storeMapping(
-        tenantId,
-        conversation.id,
-        piiResult.details,
+    let messages: { role: string; content: unknown }[];
+    let systemPromptWithMemory = buildSystemPrompt();
+    const tools = this.createToolSet(tenantId, userId, conversation.id);
+
+    if (isApprovalResubmit) {
+      // HITL approval re-submit: convert client UIMessages to ModelMessages.
+      // The client sends the full messages[] with approval responses embedded
+      // in tool parts. convertToModelMessages() handles the conversion including
+      // tool-approval-request and tool-approval-response parts.
+      this.logger.log(
+        `HITL approval re-submit for conversation ${conversation.id}`,
       );
-    }
+      messages = await convertToModelMessages(
+        params.clientMessages as unknown as UIMessage[],
+        { tools },
+      ) as { role: string; content: unknown }[];
+    } else {
+      // Normal message flow: load server-side history + PII + save message
 
-    // 5. Load/redact prior context
-    const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
-      this.conversationService.getMessagesForContext(conversation.id, 10, tenantId),
-      this.chatEnrichmentService.getRuntimeContextMetadata(tenantId, userId, locale),
-      this.memoryService.getRelevantMemories(tenantId, userId, llmMessage, 3),
-    ]);
-    const messages = redactModelMessagesForModel(
-      this.piiDetectionService,
-      contextMessages,
-    );
+      // 4. PII tokenize user message BEFORE LLM sees it
+      const piiResult = this.piiDetectionService.detect(message);
+      const llmMessage = piiResult.hasPii
+        ? piiResult.redactedText
+        : message;
 
-    // 6. Save original message to conversation
-    await this.conversationService.saveUserMessage(conversation.id, message);
+      if (piiResult.hasPii) {
+        await this.piiResolutionService.storeMapping(
+          tenantId,
+          conversation.id,
+          piiResult.details,
+        );
+      }
 
-    // Append current user message with runtime context (redacted)
-    const runtimeContext = buildExtendedRuntimeContext(runtimeContextMeta);
-    messages.push({
-      role: 'user',
-      content: redactTextForModel(
+      // 5. Load/redact prior context + memories
+      const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
+        this.conversationService.getMessagesForContext(conversation.id, 10, tenantId),
+        this.chatEnrichmentService.getRuntimeContextMetadata(tenantId, userId, locale),
+        this.memoryService.getRelevantMemories(tenantId, userId, llmMessage, 3),
+      ]);
+      messages = redactModelMessagesForModel(
         this.piiDetectionService,
-        `${runtimeContext}\n\n${llmMessage}`,
-      ),
-    });
+        contextMessages,
+      );
 
-    // Sanitize message sequence for model compatibility
-    this.sanitizeMessages(messages);
+      // 6. Save original message to conversation
+      await this.conversationService.saveUserMessage(conversation.id, message);
+
+      // Append current user message with runtime context (redacted)
+      const runtimeContext = buildExtendedRuntimeContext(runtimeContextMeta);
+      messages.push({
+        role: 'user',
+        content: redactTextForModel(
+          this.piiDetectionService,
+          `${runtimeContext}\n\n${llmMessage}`,
+        ),
+      });
+
+      // Sanitize message sequence for model compatibility
+      this.sanitizeMessages(messages);
+
+      // Append memory context to system prompt
+      const memoryBlock = redactTextForModel(
+        this.piiDetectionService,
+        this.memoryService.formatMemoriesForPrompt(memories),
+      );
+      if (memoryBlock) systemPromptWithMemory += '\n\n' + memoryBlock;
+    }
 
     // DEBUG: Log message structure to diagnose ModelMessage[] schema errors
     this.logger.warn(
@@ -200,24 +233,14 @@ export class AiChatService {
     this.auditService
       .logAudit(tenantId, userId, 'ai_chat', 'AiConversation', conversation.id, {
         messageLength: message.length,
-        hasPii: piiResult.hasPii,
+        isApprovalResubmit,
       })
       .catch((err) => this.logger.warn(`Audit log failed: ${err.message}`));
-
-    // 8. Build system prompt with memory
-    const basePrompt = buildSystemPrompt();
-    const memoryBlock = redactTextForModel(
-      this.piiDetectionService,
-      this.memoryService.formatMemoriesForPrompt(memories),
-    );
-    let systemPromptWithMemory = basePrompt;
-    if (memoryBlock) systemPromptWithMemory += '\n\n' + memoryBlock;
 
     // 9. Create the agent
     const chatStartTime = Date.now();
     let completedStepCount = 0;
-    let savedMessageCount = 1;
-    const tools = this.createToolSet(tenantId, userId, conversation.id);
+    let savedMessageCount = isApprovalResubmit ? 0 : 1;
 
     const agent = new ToolLoopAgent({
       id: 'ai-chat',
