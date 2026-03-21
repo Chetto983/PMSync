@@ -5,6 +5,8 @@ import { MessagePrimitive } from '@assistant-ui/react';
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
 import { Bot } from 'lucide-react';
+import Alert from '@mui/material/Alert';
+import { useMessageError } from '@assistant-ui/core/react';
 import { ChatActionBar } from './ChatActionBar';
 import { ChatBranchPicker } from './ChatBranchPicker';
 import { ChatReasoningGroup } from './ChatReasoningGroup';
@@ -22,6 +24,21 @@ function ToolDispatcher(props: ToolCallMessagePartProps) {
   const Renderer = (TOOL_RENDERERS as Record<string, React.ComponentType<ToolCallMessagePartProps> | undefined>)[props.toolName];
   if (Renderer) return <Renderer {...props} />;
   return <FallbackToolRenderer {...props} />;
+}
+
+/**
+ * Inline error alert: renders when the message has error status.
+ */
+function MessageErrorAlert() {
+  const error = useMessageError();
+  if (!error) return null;
+
+  const text = typeof error === 'string' ? error : 'An error occurred';
+  return (
+    <Alert severity="error" variant="outlined" sx={{ mt: 1, fontSize: '0.85rem' }}>
+      {text}
+    </Alert>
+  );
 }
 
 /**
@@ -50,6 +67,7 @@ export function AssistantMessage() {
               },
             }}
           />
+          <MessageErrorAlert />
         </div>
         <div className="chat-message-actions">
           <ChatActionBar />
