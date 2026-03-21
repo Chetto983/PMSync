@@ -160,7 +160,7 @@ export function Tasks() {
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          p: 4,
+          p: { xs: 2, sm: 3, md: 4 },
           overflow: 'auto',
         }}
       >

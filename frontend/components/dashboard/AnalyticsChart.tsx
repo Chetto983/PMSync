@@ -36,7 +36,7 @@ export function AnalyticsChart() {
     return (
       <Paper sx={{ p: { xs: 3, sm: 4 }, minHeight: 320 }}>
         <Skeleton variant="text" width={180} height={32} sx={{ mb: 2 }} />
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} variant="rounded" height={240} />
           ))}

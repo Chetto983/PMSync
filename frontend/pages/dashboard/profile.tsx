@@ -17,9 +17,9 @@ export default function ProfilePage() {
       <PageErrorBoundary pageName="Profile">
         <PageContainer title={t.settings?.profileTitle ?? t.nav.profile}>
           {isPending ? (
-            <Paper sx={{ p: 4 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
               <Skeleton variant="text" width={120} height={32} sx={{ mb: 3 }} />
-              <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
                 <Box sx={{ flex: 1 }}>
                   <Skeleton variant="text" width={60} height={20} sx={{ mb: 0.5 }} />
                   <Skeleton variant="rounded" height={40} />

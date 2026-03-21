@@ -15,7 +15,7 @@ export default function OrganizationsPage() {
   if (isPending) {
     return (
       <Layout>
-        <Box sx={{ p: 4 }}>
+        <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           <Skeleton variant="text" width={200} height={36} sx={{ mb: 2 }} />
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} variant="rounded" height={56} sx={{ mb: 1 }} />
@@ -28,7 +28,7 @@ export default function OrganizationsPage() {
   if (!user || user.role !== 'super-admin') {
     return (
       <Layout>
-        <Box sx={{ p: 4 }}>
+        <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           <Alert severity="warning">
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
               {t.admin?.users.accessRestricted}

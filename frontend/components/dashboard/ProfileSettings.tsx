@@ -41,7 +41,7 @@ export function ProfileSettings() {
   };
 
   return (
-    <Paper sx={{ p: 4 }}>
+    <Paper sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       <Typography variant="h6" gutterBottom>
         {settingsCopy.profileTitle}
       </Typography>
