@@ -11,6 +11,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest
 import { setupServer } from 'msw/node';
 import {
   mistralChatHandler,
+  openRouterChatHandler,
   createGenerateHandler,
 } from '../../../../test/msw-handlers/mistral-chat.handler';
 import { mistralEmbedHandler } from '../../../../test/msw-handlers/mistral-embed.handler';
@@ -20,13 +21,18 @@ import { BriefingService, briefingSchema } from '../briefing.service';
 import briefingFixture from '../../../../test/fixtures/ai/briefing-fixture.json';
 
 // MSW server with default handlers
-const server = setupServer(mistralChatHandler, mistralEmbedHandler);
+const server = setupServer(mistralChatHandler, openRouterChatHandler, mistralEmbedHandler);
 
 // Fake ConfigService for MistralProviderService (MSW intercepts actual HTTP)
+const CONFIG_MAP: Record<string, string> = {
+  MISTRAL_API_KEY: 'msw-fake-key',
+  OPENROUTER_API_KEY: 'msw-fake-openrouter-key',
+};
+
 const configService = {
-  get: (key: string) => (key === 'MISTRAL_API_KEY' ? 'msw-fake-key' : undefined),
+  get: (key: string, defaultValue?: string) => CONFIG_MAP[key] ?? defaultValue,
   getOrThrow: (key: string) => {
-    if (key === 'MISTRAL_API_KEY') return 'msw-fake-key';
+    if (CONFIG_MAP[key]) return CONFIG_MAP[key];
     throw new Error(`Config key ${key} not found`);
   },
 } as unknown as ConfigService;

@@ -1,5 +1,8 @@
 import { http, HttpResponse } from 'msw';
 
+const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const MISTRAL_CHAT_URL = 'https://api.mistral.ai/v1/chat/completions';
+
 const CHAT_CHUNKS = [
   { content: 'Hello' },
   { content: ' from' },
@@ -8,7 +11,7 @@ const CHAT_CHUNKS = [
 ];
 
 export const mistralChatHandler = http.post(
-  'https://api.mistral.ai/v1/chat/completions',
+  MISTRAL_CHAT_URL,
   async ({ request }) => {
     const body = (await request.json()) as {
       stream?: boolean;
@@ -84,30 +87,118 @@ export const mistralChatHandler = http.post(
 );
 
 /**
+ * Default non-streaming handler for OpenRouter chat completions.
+ * Returns a simple text response. Used as a fallback for generateText() calls.
+ */
+export const openRouterChatHandler = http.post(
+  OPENROUTER_CHAT_URL,
+  async ({ request }) => {
+    const body = (await request.json()) as {
+      stream?: boolean;
+      model?: string;
+    };
+
+    if (!body.stream) {
+      return HttpResponse.json({
+        id: 'chatcmpl-msw-openrouter',
+        object: 'chat.completion',
+        model: body.model ?? 'qwen/qwen3.5-plus-02-15',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: '{}' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 4,
+          total_tokens: 14,
+        },
+      });
+    }
+
+    // Streaming response
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        for (const chunk of CHAT_CHUNKS) {
+          const sseData = JSON.stringify({
+            id: 'chatcmpl-msw-openrouter',
+            object: 'chat.completion.chunk',
+            model: body.model ?? 'qwen/qwen3.5-plus-02-15',
+            choices: [
+              {
+                index: 0,
+                delta: { content: chunk.content },
+                finish_reason: null,
+              },
+            ],
+          });
+          controller.enqueue(encoder.encode(`data: ${sseData}\n\n`));
+        }
+        const finalData = JSON.stringify({
+          id: 'chatcmpl-msw-openrouter',
+          object: 'chat.completion.chunk',
+          model: body.model ?? 'qwen/qwen3.5-plus-02-15',
+          choices: [
+            { index: 0, delta: {}, finish_reason: 'stop' },
+          ],
+          usage: {
+            prompt_tokens: 10,
+            completion_tokens: 4,
+            total_tokens: 14,
+          },
+        });
+        controller.enqueue(encoder.encode(`data: ${finalData}\n\n`));
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+
+    return new HttpResponse(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
+  },
+);
+
+/**
  * Factory for fixture-driven non-streaming handler overrides.
  *
  * Usage in tests:
  *   server.use(createGenerateHandler({ 'executive assistant': briefingFixture }))
  *
  * Matches system prompt keywords to fixture data. Returns as non-streaming
- * chat completion response. Streaming requests pass through (return undefined).
+ * chat completion response with JSON in message content (for parseJsonOutput).
+ * Streaming requests pass through (return undefined).
  */
 export function createGenerateHandler(
   fixtureMap: Record<string, unknown>,
 ) {
   return http.post(
-    'https://api.mistral.ai/v1/chat/completions',
+    OPENROUTER_CHAT_URL,
     async ({ request }) => {
       const body = (await request.json()) as {
         stream?: boolean;
-        messages?: Array<{ role: string; content: string }>;
+        messages?: Array<{ role: string; content: string | Array<{ type: string; text?: string }> }>;
       };
 
       // Only handle non-streaming; streaming passthrough
       if (body.stream) return;
 
-      const systemMsg =
-        body.messages?.find((m) => m.role === 'system')?.content || '';
+      // Extract system message text (handles both string and content-parts formats)
+      const rawContent = body.messages?.find((m) => m.role === 'system')?.content;
+      const systemMsg = typeof rawContent === 'string'
+        ? rawContent
+        : Array.isArray(rawContent)
+          ? rawContent.map((p) => p.text || '').join(' ')
+          : '';
+
       let responseContent = JSON.stringify({ error: 'no matching fixture' });
 
       for (const [key, fixture] of Object.entries(fixtureMap)) {
@@ -150,7 +241,7 @@ export function createStreamingHandler(
   chunks: Array<{ content: string }>,
 ) {
   return http.post(
-    'https://api.mistral.ai/v1/chat/completions',
+    OPENROUTER_CHAT_URL,
     async ({ request }) => {
       const body = (await request.json()) as {
         stream?: boolean;

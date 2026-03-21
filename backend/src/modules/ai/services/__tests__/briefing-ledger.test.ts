@@ -2,7 +2,7 @@
  * BriefingService Ledger Integration Test
  *
  * Phase 35 Plan 01 -- Task 2 (TDD)
- * Tests: ledger wiring in generateWithFallback for success, failure, retry, and fire-and-forget.
+ * Tests: ledger wiring in generateWithFallback for success, failure, and fire-and-forget.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -10,15 +10,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const mockGenerateText = vi.fn();
 vi.mock('ai', () => ({
   generateText: (...args: any[]) => mockGenerateText(...args),
-  Output: { object: vi.fn((opts: any) => opts) },
-  NoObjectGeneratedError: {
-    isInstance: (err: any) => err?._tag === 'NoObjectGeneratedError',
-  },
 }));
 
 import { BriefingService } from '../briefing.service';
 import { AiRunLedgerService } from '../ai-run-ledger.service';
 import { AiRunStatus } from '@prisma/client';
+
+const validBriefingOutput = {
+  priorityEmails: [],
+  calendarSnapshot: [],
+  pendingFollowUps: [],
+  executiveSummary: 'All clear.',
+  staleContactsAlert: [],
+  draftSuggestions: [],
+  emailVolumeTrends: { todayReceived: 0, todaySent: 0, weeklyAvgReceived: 0, weeklyAvgSent: 0, trend: 'stable' },
+  focusTimeRecommendations: [],
+};
 
 describe('BriefingService ledger wiring', () => {
   let briefingService: BriefingService;
@@ -51,16 +58,7 @@ describe('BriefingService ledger wiring', () => {
 
   it('calls ledgerService.recordRun with runType=briefing on success', async () => {
     mockGenerateText.mockResolvedValue({
-      output: {
-        priorityEmails: [],
-        calendarSnapshot: [],
-        pendingFollowUps: [],
-        executiveSummary: 'All clear.',
-        staleContactsAlert: [],
-        draftSuggestions: [],
-        emailVolumeTrends: { todayReceived: 0, todaySent: 0, weeklyAvgReceived: 0, weeklyAvgSent: 0, trend: 'stable' },
-        focusTimeRecommendations: [],
-      },
+      text: JSON.stringify(validBriefingOutput),
       usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
     });
 
@@ -89,51 +87,9 @@ describe('BriefingService ledger wiring', () => {
     expect(call.errorMessage).toContain('API down');
   });
 
-  it('creates separate ledger entries for both attempts on retry path', async () => {
-    // First call: schema validation error triggering retry
-    const schemaErr: any = new Error('Schema failed');
-    schemaErr._tag = 'NoObjectGeneratedError';
-
-    mockGenerateText
-      .mockRejectedValueOnce(schemaErr)
-      .mockResolvedValueOnce({
-        output: {
-          priorityEmails: [],
-          calendarSnapshot: [],
-          pendingFollowUps: [],
-          executiveSummary: 'Retried successfully.',
-          staleContactsAlert: [],
-          draftSuggestions: [],
-          emailVolumeTrends: { todayReceived: 0, todaySent: 0, weeklyAvgReceived: 0, weeklyAvgSent: 0, trend: 'stable' },
-          focusTimeRecommendations: [],
-        },
-        usage: { inputTokens: 120, outputTokens: 60, totalTokens: 180 },
-      });
-
-    briefingService = createService();
-    await briefingService.generateBriefing('tenant-1');
-
-    // Two ledger entries: first attempt (FAILED) + retry (SUCCESS)
-    expect(mockLedger.recordRun).toHaveBeenCalledTimes(2);
-    const firstCall = mockLedger.recordRun.mock.calls[0][0];
-    expect(firstCall.status).toBe(AiRunStatus.FAILED);
-    const retryCall = mockLedger.recordRun.mock.calls[1][0];
-    expect(retryCall.runType).toBe('briefing');
-    expect(retryCall.promptTokens).toBe(120);
-  });
-
   it('maps usage.inputTokens -> promptTokens and usage.outputTokens -> completionTokens', async () => {
     mockGenerateText.mockResolvedValue({
-      output: {
-        priorityEmails: [],
-        calendarSnapshot: [],
-        pendingFollowUps: [],
-        executiveSummary: 'Test.',
-        staleContactsAlert: [],
-        draftSuggestions: [],
-        emailVolumeTrends: { todayReceived: 0, todaySent: 0, weeklyAvgReceived: 0, weeklyAvgSent: 0, trend: 'stable' },
-        focusTimeRecommendations: [],
-      },
+      text: JSON.stringify({ ...validBriefingOutput, executiveSummary: 'Test.' }),
       usage: { inputTokens: 200, outputTokens: 80, totalTokens: 280 },
     });
 
@@ -149,16 +105,7 @@ describe('BriefingService ledger wiring', () => {
   it('ledger write failure does NOT cause generateWithFallback to throw (fire-and-forget)', async () => {
     mockLedger.recordRun.mockRejectedValue(new Error('DB down'));
     mockGenerateText.mockResolvedValue({
-      output: {
-        priorityEmails: [],
-        calendarSnapshot: [],
-        pendingFollowUps: [],
-        executiveSummary: 'Fine.',
-        staleContactsAlert: [],
-        draftSuggestions: [],
-        emailVolumeTrends: { todayReceived: 0, todaySent: 0, weeklyAvgReceived: 0, weeklyAvgSent: 0, trend: 'stable' },
-        focusTimeRecommendations: [],
-      },
+      text: JSON.stringify({ ...validBriefingOutput, executiveSummary: 'Fine.' }),
       usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
     });
 

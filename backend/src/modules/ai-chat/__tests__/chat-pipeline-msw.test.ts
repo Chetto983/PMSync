@@ -23,6 +23,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import {
   mistralChatHandler,
+  openRouterChatHandler,
   createStreamingHandler,
 } from '../../../test/msw-handlers/mistral-chat.handler';
 import { mistralEmbedHandler } from '../../../test/msw-handlers/mistral-embed.handler';
@@ -30,9 +31,10 @@ import { ConfigService } from '@nestjs/config';
 import { MistralProviderService } from '../../mistral/mistral-provider.service';
 import { AiChatService } from '../services/ai-chat.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
+import { circuitBreakerRegistry } from '../../../common/utils/circuit-breaker.utils';
 
-// MSW server with default handlers
-const server = setupServer(mistralChatHandler, mistralEmbedHandler);
+// MSW server with default handlers (OpenRouter for chat, Mistral for embeddings)
+const server = setupServer(openRouterChatHandler, mistralChatHandler, mistralEmbedHandler);
 
 // Fake ConfigService
 const configService = {
@@ -174,6 +176,7 @@ describe('Chat Pipeline (MSW)', () => {
   afterEach(() => {
     server.resetHandlers();
     vi.clearAllMocks();
+    circuitBreakerRegistry.resetAll();
   });
 
   afterAll(() => server.close());
@@ -213,7 +216,7 @@ describe('Chat Pipeline (MSW)', () => {
     let capturedMessages: Array<{ role: string; content: unknown }> = [];
 
     server.use(
-      http.post('https://api.mistral.ai/v1/chat/completions', async ({ request }) => {
+      http.post('https://openrouter.ai/api/v1/chat/completions', async ({ request }) => {
         const body = (await request.json()) as {
           stream?: boolean;
           model?: string;

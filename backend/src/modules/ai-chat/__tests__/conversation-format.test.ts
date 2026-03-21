@@ -24,12 +24,22 @@ describe('ConversationService tool message formatting', () => {
             toolCallId: 'tool-1',
             createdAt: new Date('2026-03-19T00:00:00.000Z'),
           },
+          {
+            id: 'msg-asst-1',
+            conversationId: 'conv-1',
+            role: 'assistant',
+            content: [
+              { type: 'tool-call', toolCallId: 'tool-1', toolName: 'list_email_index', args: { folder: 'inbox' } },
+            ],
+            toolCallId: null,
+            createdAt: new Date('2026-03-18T23:59:59.000Z'),
+          },
         ]),
       },
     } as any);
 
     const messages = await service.getMessagesForContext('conv-1');
-    const toolMessage = messages[0] as any;
+    const toolMessage = messages[1] as any;
 
     expect(toolMessage.role).toBe('tool');
     expect(toolMessage.content[0]).toMatchObject({
@@ -60,12 +70,22 @@ describe('ConversationService tool message formatting', () => {
             toolCallId: 'tool-legacy',
             createdAt: new Date('2026-03-19T00:00:00.000Z'),
           },
+          {
+            id: 'msg-asst-legacy',
+            conversationId: 'conv-1',
+            role: 'assistant',
+            content: [
+              { type: 'tool-call', toolCallId: 'tool-legacy', toolName: 'send_email', args: {} },
+            ],
+            toolCallId: null,
+            createdAt: new Date('2026-03-18T23:59:59.000Z'),
+          },
         ]),
       },
     } as any);
 
     const messages = await service.getMessagesForContext('conv-1');
-    const toolMessage = messages[0] as any;
+    const toolMessage = messages[1] as any;
 
     expect(toolMessage.content[0]).toMatchObject({
       type: 'tool-result',
