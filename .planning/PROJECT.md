@@ -25,10 +25,10 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 ## Current State
 
 **Version:** v7.0 in progress
-**Status:** Phase 92 complete — AI knowledge base & chat verified (BAPI-13/14/15/16 + FE-06, hybrid search SQL functions deployed, test mocks fixed)
+**Status:** Phase 95 complete — Dead code cleanup done (legacy shims, unused files, console.logs, stale deps, i18n hardcoded strings all resolved)
 **Base:** v6.0 Enterprise Platform & AI Governance (partial, 4/66 requirements completed 2026-03-19)
 
-Last updated: 2026-03-20
+Last updated: 2026-03-21
 
 **Previous:** v6.0 Enterprise Platform & AI Governance (partial — 4/66 reqs, phases 77/86/87/88, archived 2026-03-20).
 
