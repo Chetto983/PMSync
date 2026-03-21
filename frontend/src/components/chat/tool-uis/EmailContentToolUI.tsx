@@ -1,10 +1,17 @@
+import { useState } from 'react';
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
-import { Mail, Paperclip, AlertCircle } from 'lucide-react';
+import { Paperclip, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import Skeleton from '@mui/material/Skeleton';
+import Button from '@mui/material/Button';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailContentResult, EmailContentItem } from '../types';
+import { SenderAvatar } from './shared/SenderAvatar';
+
+/** Max chars before collapsing plain-text body */
+const COLLAPSE_THRESHOLD = 400;
 
 function formatDate(iso: string | null): string {
   if (!iso) return '';
@@ -16,44 +23,62 @@ function formatDate(iso: string | null): string {
   });
 }
 
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max) + '...';
-}
-
 function EmailCard({ email, tu }: { email: EmailContentItem; tu: Record<string, string | undefined> }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = email.content.length > COLLAPSE_THRESHOLD;
+  const displayContent = isLong && !expanded ? email.content.slice(0, COLLAPSE_THRESHOLD) + '...' : email.content;
+
   return (
-    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-          <Mail size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
-          <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {email.from}
+    <Paper variant="outlined" sx={{ borderRadius: '10px', overflow: 'hidden', boxShadow: 1 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, pt: 1.5, pb: 1 }}>
+        <SenderAvatar name={email.from} size={32} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {email.from}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {formatDate(email.date)}
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {(tu.to ?? 'To: {value}').replace('{value}', email.to.join(', '))}
+            {email.cc.length > 0 && ` · ${(tu.cc ?? 'Cc: {value}').replace('{value}', email.cc.join(', '))}`}
           </Typography>
         </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {formatDate(email.date)}
-        </Typography>
       </Box>
-      <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+
+      {/* Subject */}
+      <Typography variant="body2" sx={{ fontWeight: 600, px: 1.5, pb: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {email.subject ?? tu.noSubject ?? '(no subject)'}
       </Typography>
-      <Box sx={{ mb: 1 }}>
-        <Typography variant="caption" color="text.secondary">
-          {(tu.to ?? 'To: {value}').replace('{value}', email.to.join(', '))}
-          {email.cc.length > 0 && <Box component="span" sx={{ ml: 1 }}>{(tu.cc ?? 'Cc: {value}').replace('{value}', email.cc.join(', '))}</Box>}
+
+      {/* Body */}
+      <Box sx={{ px: 1.5, pb: 1.5 }}>
+        <Typography variant="body2" sx={{ opacity: 0.85, whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: '0.84rem' }}>
+          {displayContent}
         </Typography>
+        {isLong && (
+          <Button
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            startIcon={expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            sx={{ mt: 0.5, textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary' }}
+          >
+            {expanded ? (tu.showLess ?? 'Show less') : (tu.showMore ?? 'Show more')}
+          </Button>
+        )}
       </Box>
-      <Typography variant="body2" sx={{ opacity: 0.8, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-        {truncate(email.content, 500)}
-      </Typography>
+
+      {/* Attachments */}
       {email.hasAttachments && email.attachments.length > 0 && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 1.5, pb: 1.5, pt: 0.5, borderTop: 1, borderColor: 'divider' }}>
           {email.attachments.map((name, i) => (
             <Box
               key={i}
               component="span"
-              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.25, fontSize: '0.75rem', borderRadius: '9999px', bgcolor: 'action.hover', color: 'text.secondary' }}
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, fontSize: '0.75rem', borderRadius: '8px', bgcolor: 'action.hover', color: 'text.secondary', border: 1, borderColor: 'divider' }}
             >
               <Paperclip size={12} />
               {name}
@@ -61,6 +86,38 @@ function EmailCard({ email, tu }: { email: EmailContentItem; tu: Record<string, 
           ))}
         </Box>
       )}
+    </Paper>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1 }}>
+        <Skeleton variant="circular" width={32} height={32} />
+        <Box sx={{ flex: 1 }}>
+          <Skeleton width="60%" height={18} />
+          <Skeleton width="40%" height={14} sx={{ mt: 0.5 }} />
+        </Box>
+      </Box>
+      <Skeleton width="80%" height={18} sx={{ mb: 1 }} />
+      <Skeleton width="100%" height={14} />
+      <Skeleton width="100%" height={14} />
+      <Skeleton width="70%" height={14} />
+    </Paper>
+  );
+}
+
+function ErrorBox({ message, tu }: { message: string; tu: Record<string, string | undefined> }) {
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, borderColor: 'error.light' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+        <Typography variant="body2" color="error.main" sx={{ flex: 1 }}>{message}</Typography>
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+        {tu.retry ?? 'Retry'}
+      </Typography>
     </Paper>
   );
 }
@@ -74,34 +131,17 @@ export function EmailContentRenderer({
 >) {
   const t = useTranslations();
   const tu = t.ai.toolUi;
-  if (status.type === 'running') {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
-        <Mail size={16} style={{ opacity: 0.6 }} />
-        <Typography variant="body2" color="text.secondary">{tu?.loadingEmailContent || 'Loading email content...'}</Typography>
-      </Box>
-    );
-  }
+
+  if (status.type === 'running') return <LoadingSkeleton />;
+
   if (status.type === 'incomplete') {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
-        <AlertCircle size={16} />
-        <Typography variant="body2" color="error.main">
-          {(tu?.failedToLoad ?? 'Failed to load email: {error}').replace('{error}', 'reason' in status ? status.reason : 'unknown')}
-        </Typography>
-      </Box>
-    );
+    return <ErrorBox message={(tu?.failedToLoad ?? 'Failed to load email: {error}').replace('{error}', 'reason' in status ? status.reason : 'unknown')} tu={tu ?? {}} />;
   }
   if (!result) return null;
   if (result.error) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
-        <AlertCircle size={16} />
-        <Typography variant="body2" color="error.main">{result.error}</Typography>
-      </Box>
-    );
+    return <ErrorBox message={result.error} tu={tu ?? {}} />;
   }
-  // Backend read_email returns a single email object with content in `bodyText`
+
   const email: EmailContentItem = {
     id: result.id,
     from: result.from,
@@ -116,6 +156,7 @@ export function EmailContentRenderer({
     hasAttachments: result.hasAttachments ?? false,
     attachments: result.attachments ?? [],
   };
+
   if (!email.id) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
@@ -123,5 +164,6 @@ export function EmailContentRenderer({
       </Typography>
     );
   }
+
   return <EmailCard email={email} tu={tu ?? {}} />;
 }

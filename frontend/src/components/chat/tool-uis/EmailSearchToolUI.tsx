@@ -1,10 +1,13 @@
+import { memo } from 'react';
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
-import { Search, Mail, Star, AlertCircle } from 'lucide-react';
+import { Star, AlertCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import Skeleton from '@mui/material/Skeleton';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { EmailSearchResult, EmailSearchItem } from '../types';
+import { SenderAvatar } from './shared/SenderAvatar';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '';
@@ -16,106 +19,132 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-function sentimentDot(sentiment: string | null) {
+function SentimentIndicator({ sentiment, tu }: { sentiment: string | null; tu?: Record<string, string | undefined> }) {
   if (!sentiment) return null;
-  const color =
-    sentiment === 'positive'
-      ? 'success.main'
-      : sentiment === 'negative'
-        ? 'error.main'
-        : 'warning.main';
+  const config = sentiment === 'positive'
+    ? { color: 'success.main', Icon: TrendingUp, label: tu?.positive ?? 'Positive' }
+    : sentiment === 'negative'
+      ? { color: 'error.main', Icon: TrendingDown, label: tu?.negative ?? 'Negative' }
+      : { color: 'warning.main', Icon: Minus, label: tu?.neutral ?? 'Neutral' };
   return (
     <Box
       component="span"
-      title={sentiment}
-      sx={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }}
-    />
+      title={config.label}
+      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, color: config.color, flexShrink: 0 }}
+    >
+      <config.Icon size={10} />
+      <Typography component="span" sx={{ fontSize: '0.6rem', fontWeight: 600 }}>{config.label}</Typography>
+    </Box>
   );
 }
 
-function priorityBadge(priority: number | null) {
+function PriorityBadge({ priority }: { priority: number | null }) {
   if (priority == null || priority < 7) return null;
   return (
     <Box
       component="span"
-      sx={{ px: 0.75, py: 0.25, fontSize: '0.625rem', fontWeight: 600, borderRadius: 0.5, bgcolor: 'error.light', color: 'error.main' }}
+      sx={{ px: 0.75, py: 0.25, fontSize: '0.625rem', fontWeight: 600, borderRadius: '6px', bgcolor: 'error.light', color: 'error.main' }}
     >
       P{priority}
     </Box>
   );
 }
 
-function EmailRow({ item, isFirst, tu }: { item: EmailSearchItem; isFirst: boolean; tu?: Record<string, string | undefined> }) {
+const EmailRow = memo(function EmailRow({ item, isFirst, tu }: { item: EmailSearchItem; isFirst: boolean; tu?: Record<string, string | undefined> }) {
+  const isUnread = item.isRead === false;
   return (
     <Box
       sx={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: 1,
-        py: 0.75,
+        py: 1,
         px: 1,
-        borderRadius: 1,
         borderTop: isFirst ? 0 : 1,
         borderColor: 'divider',
         '&:hover': { bgcolor: 'action.hover' },
         transition: 'background-color 0.15s ease',
       }}
     >
-      <Mail size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
+      <SenderAvatar name={item.from} size={28} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
+        {/* Row 1: sender + badges + date */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <Typography
             variant="body2"
-            sx={{ fontWeight: item.isRead === false ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            sx={{ fontWeight: isUnread ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.84rem' }}
           >
             {item.from}
           </Typography>
-          {item.isStarred && <Star size={12} style={{ flexShrink: 0, fill: 'currentColor', color: '#ed6c02' }} />}
-          {priorityBadge(item.aiPriority)}
-          {sentimentDot(item.aiSentiment)}
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', flexShrink: 0 }}>
+          {item.isStarred && <Star size={12} style={{ flexShrink: 0, fill: '#ed6c02', color: '#ed6c02' }} />}
+          <PriorityBadge priority={item.aiPriority} />
+          <SentimentIndicator sentiment={item.aiSentiment} tu={tu} />
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', flexShrink: 0, fontSize: '0.72rem' }}>
             {formatDate(item.date ?? item.receivedAt ?? null)}
           </Typography>
         </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+        {/* Row 2: subject */}
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: isUnread ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.82rem' }}
+        >
           {item.subject ?? tu?.noSubject ?? '(no subject)'}
         </Typography>
+        {/* Row 3: snippet */}
+        {item.snippet && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', mt: 0.25, fontSize: '0.74rem' }}
+          >
+            {item.snippet}
+          </Typography>
+        )}
       </Box>
     </Box>
   );
-}
+});
 
-function RunningState({ label }: { label: string }) {
+function LoadingSkeleton() {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 'fit-content', borderRadius: '10px', border: 1, borderColor: 'divider', bgcolor: 'action.hover', p: 1.5 }}>
-      <Search size={16} style={{ opacity: 0.6 }} />
-      <Typography variant="body2" color="text.secondary">{label}</Typography>
-    </Box>
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
+      <Skeleton width="30%" height={14} sx={{ mb: 1.5 }} />
+      {[0, 1, 2].map((i) => (
+        <Box key={i} sx={{ display: 'flex', gap: 1, py: 0.75, borderTop: i > 0 ? 1 : 0, borderColor: 'divider' }}>
+          <Skeleton variant="circular" width={28} height={28} />
+          <Box sx={{ flex: 1 }}>
+            <Skeleton width="70%" height={16} />
+            <Skeleton width="90%" height={14} sx={{ mt: 0.5 }} />
+            <Skeleton width="50%" height={12} sx={{ mt: 0.25 }} />
+          </Box>
+        </Box>
+      ))}
+    </Paper>
   );
 }
 
-function ErrorState({ reason }: { reason: string }) {
-  const t = useTranslations();
-  const tu = t.ai.toolUi;
+function ErrorState({ reason, tu }: { reason: string; tu?: Record<string, string | undefined> }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: 'error.light', bgcolor: 'error.light', opacity: 0.9 }}>
-      <AlertCircle size={16} />
-      <Typography variant="body2" color="error.main">{(tu?.searchFailed || 'Search failed: {reason}').replace('{reason}', reason)}</Typography>
-    </Box>
+    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, borderColor: 'error.light' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AlertCircle size={16} color="var(--mui-palette-error-main)" />
+        <Typography variant="body2" color="error.main" sx={{ flex: 1 }}>
+          {(tu?.searchFailed || 'Search failed: {reason}').replace('{reason}', reason)}
+        </Typography>
+      </Box>
+    </Paper>
   );
 }
 
-function ResultCard({ result, label }: { result: EmailSearchResult; label: string }) {
-  const t = useTranslations();
-  const tu = t.ai.toolUi;
+function ResultCard({ result, label, tu }: { result: EmailSearchResult; label: string; tu?: Record<string, string | undefined> }) {
   if (result.error) {
-    return <ErrorState reason={result.error} />;
+    return <ErrorState reason={result.error} tu={tu} />;
   }
   const items = result.results ?? [];
   return (
-    <Paper variant="outlined" sx={{ borderRadius: '10px', p: 1.5, boxShadow: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+    <Paper variant="outlined" sx={{ borderRadius: '10px', overflow: 'hidden', boxShadow: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, pt: 1.25, pb: 0.75 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {label}
         </Typography>
         <Typography variant="caption" color="text.secondary">
@@ -123,16 +152,18 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
         </Typography>
       </Box>
       {items.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>{tu?.noEmailsFound || 'No emails found.'}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 1.5, textAlign: 'center' }}>
+          {tu?.noEmailsFound || 'No emails found.'}
+        </Typography>
       ) : (
-        <Box>
+        <Box sx={{ px: 0.5 }}>
           {items.map((item, idx) => (
             <EmailRow key={item.id} item={item} isFirst={idx === 0} tu={tu} />
           ))}
         </Box>
       )}
       {result.summary && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, pt: 1, borderTop: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 1.5, py: 1, borderTop: 1, borderColor: 'divider' }}>
           {result.summary}
         </Typography>
       )}
@@ -141,7 +172,6 @@ function ResultCard({ result, label }: { result: EmailSearchResult; label: strin
 }
 
 export function EmailSearchRenderer({
-  args,
   result,
   status,
 }: ToolCallMessagePartProps<
@@ -149,10 +179,11 @@ export function EmailSearchRenderer({
   EmailSearchResult
 >) {
   const t = useTranslations();
-  if (status.type === 'running') return <RunningState label={`Searching "${args.query}"...`} />;
-  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
+  const tu = t.ai.toolUi;
+  if (status.type === 'running') return <LoadingSkeleton />;
+  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} tu={tu} />;
   if (!result) return null;
-  return <ResultCard result={result} label={t.ai.toolUi?.emailSearch || 'Email Search'} />;
+  return <ResultCard result={result} label={tu?.emailSearch || 'Email Search'} tu={tu} />;
 }
 
 export function ListEmailsRenderer({
@@ -163,14 +194,15 @@ export function ListEmailsRenderer({
   { folder?: string; limit?: number; unreadOnly?: boolean },
   EmailSearchResult
 >) {
-  if (status.type === 'running') return <RunningState label={`Loading emails${args.folder ? ` from ${args.folder}` : ''}...`} />;
-  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
+  const t = useTranslations();
+  const tu = t.ai.toolUi;
+  if (status.type === 'running') return <LoadingSkeleton />;
+  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} tu={tu} />;
   if (!result) return null;
-  return <ResultCard result={result} label={args.folder ?? 'Inbox'} />;
+  return <ResultCard result={result} label={args.folder ?? 'Inbox'} tu={tu} />;
 }
 
 export function SemanticSearchRenderer({
-  args,
   result,
   status,
 }: ToolCallMessagePartProps<
@@ -178,8 +210,9 @@ export function SemanticSearchRenderer({
   EmailSearchResult
 >) {
   const t = useTranslations();
-  if (status.type === 'running') return <RunningState label={`Semantic search "${args.query}"...`} />;
-  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} />;
+  const tu = t.ai.toolUi;
+  if (status.type === 'running') return <LoadingSkeleton />;
+  if (status.type === 'incomplete') return <ErrorState reason={'reason' in status ? status.reason : 'unknown'} tu={tu} />;
   if (!result) return null;
-  return <ResultCard result={result} label={t.ai.toolUi?.semanticSearch || 'Semantic Search'} />;
+  return <ResultCard result={result} label={tu?.semanticSearch || 'Semantic Search'} tu={tu} />;
 }
