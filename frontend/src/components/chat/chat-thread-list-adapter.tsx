@@ -207,7 +207,8 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
           const { data } = await apiClient.get(
             `/ai/chat/conversations/${remoteId}`,
           );
-          const dbMessages = data?.conversation?.messages ?? [];
+          const conv = data?.conversation ?? data?.data?.conversation;
+          const dbMessages = conv?.messages ?? [];
           const threadMessages =
             convertDbMessagesToThreadMessageLike(dbMessages);
           return ExportedMessageRepository.fromArray(threadMessages);
@@ -226,7 +227,8 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
               const { data } = await apiClient.get(
                 `/ai/chat/conversations/${remoteId}`,
               );
-              const dbMessages = data?.conversation?.messages ?? [];
+              const conv = data?.conversation ?? data?.data?.conversation;
+              const dbMessages = conv?.messages ?? [];
               return convertDbMessagesToMessageFormatRepository(
                 dbMessages,
               ) as MessageFormatRepository<TMessage>;
