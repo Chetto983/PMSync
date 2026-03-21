@@ -288,7 +288,10 @@ export function FollowupsKanbanBoard() {
             <Box key={sec.id}>
               {/* Section header */}
               <Box
+                role="button"
+                tabIndex={0}
                 onClick={() => toggleSection(sec.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(sec.id); } }}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
