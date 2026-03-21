@@ -102,6 +102,7 @@ export class AiChatController {
   @ApiResponse({ status: 404, description: 'Conversation not found' })
   @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   @ApiResponse({ status: 503, description: 'AI service temporarily unavailable' })
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }))
   async chat(
     @Req() req: Request & { user: AuthenticatedRequest['user'] },
     @Res() res: Response,
