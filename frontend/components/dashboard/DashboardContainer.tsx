@@ -8,11 +8,13 @@ import React, { Suspense, useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Button,
+  Skeleton,
   Stack,
 } from '@mui/material';
 import { Settings } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { PageContainer } from '@/components/common';
+import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import { ALL_WIDGETS } from '@/stores/dashboard-store';
 import { useDashboardPreferences, useSaveDashboardLayout } from '@/hooks/queries/use-dashboard';
 import { WIDGETS, type WidgetId } from './dashboard/widget-registry';
@@ -27,7 +29,7 @@ export default function DashboardContainer() {
 
   // Customization state - persisted via backend preferences API
   const [customizeOpen, setCustomizeOpen] = useState(false);
-  const { data: preferences } = useDashboardPreferences();
+  const { data: preferences, isLoading, error, refetch } = useDashboardPreferences();
   const saveMutation = useSaveDashboardLayout();
 
   const visibleWidgets = useMemo(() => {
@@ -75,6 +77,37 @@ export default function DashboardContainer() {
       {t.dashboard?.actions?.customize || 'Customize'}
     </Button>
   );
+
+  // Loading skeleton matching widget grid layout
+  if (isLoading) {
+    return (
+      <PageContainer
+        title={t.dashboard?.title || 'Dashboard'}
+        subtitle={t.dashboard?.subtitle || 'Your personal command center'}
+      >
+        <Stack spacing={3}>
+          <Skeleton variant="rounded" height={180} sx={{ borderRadius: 3 }} animation="wave" />
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 3 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} variant="rounded" height={180} sx={{ borderRadius: 3 }} animation="wave" />
+            ))}
+          </Box>
+        </Stack>
+      </PageContainer>
+    );
+  }
+
+  // Error state with retry
+  if (error) {
+    return (
+      <PageContainer
+        title={t.dashboard?.title || 'Dashboard'}
+        subtitle={t.dashboard?.subtitle || 'Your personal command center'}
+      >
+        <QueryErrorAlert error={error} onRetry={() => { void refetch(); }} />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer

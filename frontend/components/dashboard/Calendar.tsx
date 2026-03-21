@@ -21,15 +21,17 @@ import {
   alpha,
   useTheme,
   Skeleton,
-  CircularProgress,
 } from '@mui/material';
+import { Calendar as CalendarIcon } from 'lucide-react';
 const FullCalendar = lazy(() => import('@fullcalendar/react'));
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
+import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useSession } from '@/lib/auth-client';
+import { EmptyState } from '@/components/common/EmptyState';
 import {
   CalendarSidebar,
   CalendarHeader,
@@ -43,6 +45,7 @@ import { useGlobalToast } from '@/lib/context/toast-context';
 
 export function Calendar() {
   const theme = useTheme();
+  const router = useRouter();
   const translations = useTranslations();
   const calendarCopy = translations.calendar;
   const toast = useGlobalToast();
@@ -226,16 +229,29 @@ export function Calendar() {
               sx={{
                 position: 'absolute',
                 top: 0, left: 0, right: 0, bottom: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: alpha(theme.palette.background.paper, 0.5),
+                bgcolor: alpha(theme.palette.background.paper, 0.7),
                 backdropFilter: 'blur(4px)',
                 zIndex: 10,
+                p: 1,
               }}
             >
-              <CircularProgress />
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, mb: 0.5 }} animation="wave" />
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5, height: 'calc(100% - 48px)' }}>
+                {Array.from({ length: 35 }).map((_, i) => (
+                  <Skeleton key={i} variant="rectangular" sx={{ borderRadius: 0.5 }} animation="wave" />
+                ))}
+              </Box>
             </Box>
+          )}
+          {!loading && providerGroups.length === 0 && (
+            <EmptyState
+              icon={CalendarIcon}
+              color="#FF9800"
+              title={translations.calendar?.emptyTitle || 'No calendars connected'}
+              description={translations.calendar?.emptyDescription || 'Connect a calendar provider to see your events here'}
+              actionLabel={translations.calendar?.emptyCta || 'Connect calendar'}
+              onAction={() => router.push('/dashboard/settings')}
+            />
           )}
           <Suspense
             fallback={

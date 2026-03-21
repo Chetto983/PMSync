@@ -33,7 +33,7 @@ import {
 import type { ListEmailsParams, ListEmailsResponse } from '@/lib/api/emails';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters, useEmailUIStore } from '@/stores/email-ui-store';
-import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
+import { CircularProgress, Box, Skeleton, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
 import { safeArea } from '@/theme/appTheme';
 import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
@@ -505,9 +505,17 @@ export default function EmailPage() {
             await foldersQuery.refetch();
           }}
         >
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 2 }}>
-            <CircularProgress size={40} />
-            <Typography variant="body2" color="text.secondary">{t.emailList?.loading || 'Loading emails...'}</Typography>
+          <Box sx={{ p: 2 }}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Skeleton variant="circular" width={40} height={40} animation="wave" />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton width="40%" height={20} animation="wave" />
+                  <Skeleton width="70%" height={16} animation="wave" sx={{ mt: 0.5 }} />
+                </Box>
+                <Skeleton width={60} height={16} animation="wave" />
+              </Box>
+            ))}
           </Box>
         </EmailLayout>
       </Layout>
