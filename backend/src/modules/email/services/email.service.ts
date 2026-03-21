@@ -113,12 +113,11 @@ export class EmailService {
       const emailConfig = this.config.email;
       const from = `${emailConfig.fromEmail}@${emailConfig.fromDomain}`;
 
-      const result = await this.transporter.sendMail({
-        from,
-        to,
-        subject,
-        html,
-      });
+      const sendPromise = this.transporter.sendMail({ from, to, subject, html });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP send timed out after 8s')), 8_000),
+      );
+      const result = await Promise.race([sendPromise, timeoutPromise]);
 
       this.logger.log(`Email sent to ${to}: ${subject}`);
       return result;
