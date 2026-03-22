@@ -40,25 +40,32 @@ async function authenticate(email: string, password: string): Promise<string> {
     maxRedirects: 0,
   });
 
+  if (r.status !== 200) {
+    console.error(`  Auth response: ${r.status} - ${JSON.stringify(r.data).substring(0, 200)}`);
+  }
   const cookies = r.headers['set-cookie'];
   if (!cookies || cookies.length === 0) {
     throw new Error(`Authentication failed: no set-cookie header (status ${r.status})`);
   }
 
-  return cookies.map((c: string) => c.split(';')[0]).join('; ');
+  const tenantId = r.data?.user?.tenantId;
+  const cookieStr = cookies.map((c: string) => c.split(';')[0]).join('; ');
+  return { cookie: cookieStr, tenantId };
 }
 
-async function req(method: string, path: string, cookie: string, body?: any) {
+async function req(method: string, path: string, cookie: string, tenantId: string, body?: any) {
   try {
+    const headers: Record<string, string> = { Cookie: cookie };
+    if (tenantId) headers['x-tenant-id'] = tenantId;
     const r = await axios({
       method: method.toLowerCase(),
       url: `${BASE}${path}`,
       data: body,
-      headers: { Cookie: cookie },
+      headers,
       validateStatus: () => true,
       timeout: TIMEOUT,
     });
-    return { status: r.status };
+    return { status: r.status, data: r.data };
   } catch (e: any) {
     return { status: 0, error: e.code || e.message };
   }
@@ -79,9 +86,12 @@ async function main() {
   // 1. Authenticate member-role user
   console.log(`\nAuthenticating member user: ${MEMBER_USER_EMAIL}...`);
   let cookie: string;
+  let tenantId: string;
   try {
-    cookie = await authenticate(MEMBER_USER_EMAIL, MEMBER_USER_PASSWORD);
-    console.log('Authentication successful.\n');
+    const auth = await authenticate(MEMBER_USER_EMAIL, MEMBER_USER_PASSWORD);
+    cookie = auth.cookie;
+    tenantId = auth.tenantId;
+    console.log(`Authentication successful. Tenant: ${tenantId}\n`);
   } catch (e: any) {
     console.error(`Authentication failed: ${e.message}`);
     process.exit(2);
@@ -100,7 +110,7 @@ async function main() {
   ];
 
   for (const [method, path, body] of adminEndpoints) {
-    const r = await req(method, path, cookie, body);
+    const r = await req(method, path, cookie, tenantId, body);
     const pass = r.status === 403;
     const reason = pass
       ? 'DENIED (403)'
@@ -120,11 +130,11 @@ async function main() {
   ];
 
   for (const [method, path] of memberEndpoints) {
-    const r = await req(method, path, cookie);
+    const r = await req(method, path, cookie, tenantId);
     const pass = r.status !== 403;
     const reason = pass
       ? `ALLOWED (${r.status})`
-      : 'FAIL: member was denied access (403)';
+      : `FAIL: member was denied access (403) - ${JSON.stringify(r.data).substring(0, 100)}`;
 
     results.push({ method, path, status: r.status, pass, reason, category: 'member-allow' });
     const icon = pass ? 'PASS' : 'FAIL';

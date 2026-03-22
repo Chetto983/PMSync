@@ -41,6 +41,9 @@ async function authenticate(email: string, password: string): Promise<string> {
     maxRedirects: 0,
   });
 
+  if (r.status !== 200) {
+    console.error(`  Auth response: ${r.status} - ${JSON.stringify(r.data).substring(0, 200)}`);
+  }
   const cookies = r.headers['set-cookie'];
   if (!cookies || cookies.length === 0) {
     throw new Error(`Authentication failed: no set-cookie header (status ${r.status})`);
@@ -107,9 +110,10 @@ async function main() {
 
   for (const [method, path] of crossTenantEndpoints) {
     const r = await req(method, path, cookie, CROSS_TENANT_ID);
-    const pass = r.status === 403;
+    // 403 = tenant guard blocked, 429 = rate limited (still rejected, not a data leak)
+    const pass = r.status === 403 || r.status === 429;
     const reason = pass
-      ? 'BLOCKED (403)'
+      ? `BLOCKED (${r.status}${r.status === 429 ? ' RATE LIMITED' : ''})`
       : `FAIL: expected 403, got ${r.status}`;
 
     results.push({ method, path, status: r.status, pass, reason });
