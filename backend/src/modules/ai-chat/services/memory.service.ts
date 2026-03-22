@@ -70,9 +70,9 @@ export class MemoryService {
       // SEC: Use $queryRaw tagged template (parameterized) instead of $queryRawUnsafe
       const vectorParam = Prisma.raw(`'${vectorStr}'::vector`);
       const results = await this.prisma.$queryRaw<
-        Array<{ content: string; category: string | null; createdAt: Date }>
+        Array<{ id: string; content: string; category: string | null; createdAt: Date }>
       >(
-        Prisma.sql`SELECT content, category, "createdAt"
+        Prisma.sql`SELECT id, content, category, "createdAt"
          FROM ai_memories
          WHERE "tenantId" = ${tenantId}
            AND "userId" = ${userId}
@@ -81,6 +81,22 @@ export class MemoryService {
          ORDER BY (vector <-> ${vectorParam}) ASC
          LIMIT ${limit}`,
       );
+
+      // Update usage tracking (fire-and-forget, never block chat)
+      if (results.length > 0) {
+        const ids = results.map((r) => r.id).filter(Boolean);
+        if (ids.length > 0) {
+          this.prisma.aIMemory
+            .updateMany({
+              where: { id: { in: ids } },
+              data: {
+                usageCount: { increment: 1 },
+                lastUsedAt: new Date(),
+              },
+            })
+            .catch(() => {});
+        }
+      }
 
       return results;
     } catch (error) {

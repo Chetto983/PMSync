@@ -62,8 +62,8 @@ const EXPECTED_TOOLS = [
   'view_calendar', 'create_event', 'update_event', 'delete_event',
   // Contacts domain (4 tools)
   'search_contacts', 'create_contact', 'update_contact', 'delete_contact',
-  // Knowledge domain (2 tools)
-  'semantic_search', 'save_memory',
+  // Knowledge domain (4 tools)
+  'semantic_search', 'save_memory', 'list_memories', 'delete_memory',
   // System domain (3 tools)
   'ask_user', 'run_code', 'code_assistant',
   // Productivity domain (8 tools)
