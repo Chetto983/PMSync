@@ -27,12 +27,33 @@ window.matchMedia = jest.fn().mockImplementation((query: string) => {
   return originalMatchMedia(query);
 });
 
+import { useInstallPrompt, _resetForTesting } from '@/hooks/use-install-prompt';
+
 describe('useInstallPrompt', () => {
+  // Provide a functional localStorage mock
+  let store: Record<string, string> = {};
+  const localStorageMock = localStorage as unknown as {
+    getItem: jest.Mock;
+    setItem: jest.Mock;
+    removeItem: jest.Mock;
+    clear: jest.Mock;
+  };
+
   beforeEach(() => {
-    localStorage.clear();
+    _resetForTesting();
+    store = {};
+    localStorageMock.getItem.mockImplementation((key: string) => store[key] ?? null);
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
+      store[key] = value;
+    });
+    localStorageMock.removeItem.mockImplementation((key: string) => {
+      delete store[key];
+    });
+    localStorageMock.clear.mockImplementation(() => {
+      store = {};
+    });
     mockGetOS.mockReturnValue({ name: 'Windows' });
     mockStandaloneMatches = false;
-    // Reset navigator.standalone
     Object.defineProperty(navigator, 'standalone', {
       value: undefined,
       writable: true,
@@ -50,14 +71,6 @@ describe('useInstallPrompt', () => {
     });
   });
 
-  function loadHook() {
-    let mod: typeof import('@/hooks/use-install-prompt');
-    jest.isolateModules(() => {
-      mod = require('@/hooks/use-install-prompt');
-    });
-    return mod!;
-  }
-
   function fireBeforeInstallPrompt() {
     const event = new Event('beforeinstallprompt') as Event & {
       prompt: jest.Mock;
@@ -73,14 +86,12 @@ describe('useInstallPrompt', () => {
   }
 
   it('returns shouldShow=false when no beforeinstallprompt and not iOS', () => {
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
     expect(result.current.shouldShow).toBe(false);
     expect(result.current.isIOS).toBe(false);
   });
 
   it('returns shouldShow=true when beforeinstallprompt fires', () => {
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
     expect(result.current.shouldShow).toBe(false);
 
@@ -94,7 +105,6 @@ describe('useInstallPrompt', () => {
 
   it('returns isIOS=true on iOS userAgent', () => {
     mockGetOS.mockReturnValue({ name: 'iOS' });
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
     expect(result.current.isIOS).toBe(true);
     expect(result.current.shouldShow).toBe(true);
@@ -112,7 +122,6 @@ describe('useInstallPrompt', () => {
       writable: true,
       configurable: true,
     });
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
     expect(result.current.isIOS).toBe(true);
     expect(result.current.shouldShow).toBe(true);
@@ -120,7 +129,6 @@ describe('useInstallPrompt', () => {
 
   it('returns shouldShow=false in standalone mode (matchMedia)', () => {
     mockStandaloneMatches = true;
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
 
     act(() => {
@@ -136,7 +144,6 @@ describe('useInstallPrompt', () => {
       writable: true,
       configurable: true,
     });
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
 
     act(() => {
@@ -147,7 +154,6 @@ describe('useInstallPrompt', () => {
   });
 
   it('dismiss persists to localStorage', () => {
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
 
     act(() => {
@@ -169,7 +175,6 @@ describe('useInstallPrompt', () => {
       'pmsync:install-prompt-dismissed',
       thirtyOneDaysAgo.toString(),
     );
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
 
     act(() => {
@@ -180,7 +185,6 @@ describe('useInstallPrompt', () => {
   });
 
   it('appinstalled hides prompt', () => {
-    const { useInstallPrompt } = loadHook();
     const { result } = renderHook(() => useInstallPrompt());
 
     act(() => {
