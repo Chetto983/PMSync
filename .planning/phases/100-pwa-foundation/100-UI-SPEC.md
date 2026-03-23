@@ -57,14 +57,17 @@ Exceptions: none -- Phase 100 adds no UI components.
 
 Existing project typography from `frontend/theme/tokens.ts`. No changes needed for this phase.
 
-| Role | Size | Weight | Line Height |
-|------|------|--------|-------------|
-| Body | 14px (0.875rem) | 400 (normal) | 1.5 |
-| Label | 13px (0.8125rem) | 500 (medium) | 1.375 |
-| Heading | 20px (1.25rem) | 600 (semibold) | 1.25 |
-| Display | 30px (1.875rem) | 700 (bold) | 1.25 |
+| Role | Size | Weight | Line Height | Notes |
+|------|------|--------|-------------|-------|
+| Body | 14px (0.875rem) | 400 (normal) | 1.5 | Default prose text |
+| Label | 14px (0.875rem) | 400 (normal) | 1.375 | Differentiated from Body via uppercase tracking (`letter-spacing: 0.05em; text-transform: uppercase`) or contextual usage, not size |
+| Heading | 20px (1.25rem) | 600 (semibold) | 1.25 | Section headings |
+| Display | 30px (1.875rem) | 600 (semibold) | 1.25 | Page titles, hero text |
 
-Source: `frontend/theme/tokens.ts` -- fontSize, fontWeight, lineHeight exports.
+**Weights used:** 2 -- 400 (normal) for body/label, 600 (semibold) for heading/display.
+**Sizes used:** 3 -- 14px, 20px, 30px.
+
+Source: `frontend/theme/tokens.ts` -- fontSize, fontWeight, lineHeight exports. Label and Display weights consolidated to stay within the 2-weight maximum.
 
 ---
 
