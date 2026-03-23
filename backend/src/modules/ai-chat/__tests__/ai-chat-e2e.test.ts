@@ -29,7 +29,7 @@ import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 
 // -------------------------------------------------------------------
 // Test infrastructure: Minimal shims to avoid full NestJS bootstrap
@@ -117,7 +117,7 @@ describe('AiChatService E2E (real Mistral API)', () => {
     auditService = new AuditService(prisma as any);
     piiDetectionService = new PiiDetectionService();
 
-    // 4. Create MistralProviderService with real API key
+    // 4. Create OpenRouterProviderService with real API key
     const configMap = new Map<string, string>([
       ['MISTRAL_API_KEY', process.env.MISTRAL_API_KEY!],
     ]);
@@ -129,7 +129,7 @@ describe('AiChatService E2E (real Mistral API)', () => {
         return val;
       },
     } as unknown as ConfigService;
-    const mistralProvider = new MistralProviderService(configService);
+    const mistralProvider = new OpenRouterProviderService(configService);
 
     // 5. Compose AiChatService with real + stub dependencies.
     // Tools are model-driven now; these basic chat tests keep tool services stubbed.

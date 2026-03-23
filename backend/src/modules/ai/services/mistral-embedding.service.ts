@@ -1,13 +1,13 @@
 /**
  * MistralEmbeddingService - Embedding generation via AI SDK (Phase 23 rewire).
  *
- * Uses AI SDK embed()/embedMany() with MistralProviderService.getEmbeddingModel().
+ * Uses AI SDK embed()/embedMany() with OpenRouterProviderService.getEmbeddingModel().
  * Preserves: cache, cost protection, telemetry context.
  * Removed: manual circuit breaker, rate limiter, lazy client factory.
  */
 import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { embed, embedMany } from 'ai';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
 import { CostProtectionService } from '../../subscription/services/cost-protection.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
@@ -18,7 +18,7 @@ export class MistralEmbeddingService {
   private readonly logger = new Logger(MistralEmbeddingService.name);
 
   constructor(
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralProvider: OpenRouterProviderService,
     @Optional() @Inject(QueryEmbeddingCacheService) private queryEmbeddingCache?: QueryEmbeddingCacheService,
     @Optional() @Inject(CostProtectionService) private costProtectionService?: CostProtectionService,
   ) {

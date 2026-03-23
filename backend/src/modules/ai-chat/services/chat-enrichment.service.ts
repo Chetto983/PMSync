@@ -14,7 +14,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { generateText } from 'ai';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { ConversationService } from './conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
@@ -26,7 +26,7 @@ export class ChatEnrichmentService {
   private readonly logger = new Logger(ChatEnrichmentService.name);
 
   constructor(
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralProvider: OpenRouterProviderService,
     private readonly conversationService: ConversationService,
     private readonly piiDetectionService: PiiDetectionService,
     @Optional() private readonly ledgerService?: AiRunLedgerService,

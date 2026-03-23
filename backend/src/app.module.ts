@@ -35,7 +35,7 @@ import { ContactsModule } from './modules/contacts/contacts.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
-import { MistralModule } from './modules/mistral/mistral.module';
+import { OpenRouterModule } from './modules/openrouter/openrouter.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { ReminderModule } from './modules/reminder/reminder.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
@@ -75,7 +75,7 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
         },
       ],
     }),
-    MistralModule, // @Global() - provides MistralProviderService to all modules
+    OpenRouterModule, // @Global() - provides OpenRouterProviderService to all modules
     CacheModule, // Redis-based caching for horizontal scaling
     ScheduledJobsModule, // BullMQ-based scheduled jobs for horizontal scaling
     PrismaModule,

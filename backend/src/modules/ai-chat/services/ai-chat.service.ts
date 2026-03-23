@@ -17,7 +17,7 @@ import {
   type ToolSet,
 } from 'ai';
 import { Prisma } from '@prisma/client';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { ConversationService } from './conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { PiiResolutionService } from '../../ai/guards/pii-resolution.service';
@@ -82,7 +82,7 @@ export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
 
   constructor(
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralProvider: OpenRouterProviderService,
     private readonly conversationService: ConversationService,
     // Plan 02: Cross-cutting concerns
     private readonly piiDetectionService: PiiDetectionService,

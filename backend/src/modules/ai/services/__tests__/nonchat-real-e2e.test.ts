@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import 'dotenv/config';
 import { ConfigService } from '@nestjs/config';
-import { MistralProviderService } from '../../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../../openrouter/openrouter-provider.service';
 import { BriefingService, briefingSchema } from '../briefing.service';
 import {
   FollowUpDetectionService,
@@ -73,10 +73,10 @@ const mockPrisma = {
 } as any;
 
 describe.skipIf(SKIP)('Non-Chat AI E2E (Real Mistral)', () => {
-  let mistralProvider: MistralProviderService;
+  let mistralProvider: OpenRouterProviderService;
 
   beforeAll(() => {
-    mistralProvider = new MistralProviderService(configService);
+    mistralProvider = new OpenRouterProviderService(configService);
   });
 
   it('generates real daily briefing with valid schema', async () => {

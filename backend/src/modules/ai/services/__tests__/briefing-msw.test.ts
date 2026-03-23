@@ -16,14 +16,14 @@ import {
 } from '../../../../test/msw-handlers/mistral-chat.handler';
 import { mistralEmbedHandler } from '../../../../test/msw-handlers/mistral-embed.handler';
 import { ConfigService } from '@nestjs/config';
-import { MistralProviderService } from '../../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../../openrouter/openrouter-provider.service';
 import { BriefingService, briefingSchema } from '../briefing.service';
 import briefingFixture from '../../../../test/fixtures/ai/briefing-fixture.json';
 
 // MSW server with default handlers
 const server = setupServer(mistralChatHandler, openRouterChatHandler, mistralEmbedHandler);
 
-// Fake ConfigService for MistralProviderService (MSW intercepts actual HTTP)
+// Fake ConfigService for OpenRouterProviderService (MSW intercepts actual HTTP)
 const CONFIG_MAP: Record<string, string> = {
   MISTRAL_API_KEY: 'msw-fake-key',
   OPENROUTER_API_KEY: 'msw-fake-openrouter-key',
@@ -73,7 +73,7 @@ describe('BriefingService (MSW)', () => {
     // Override with briefing fixture -- 'executive assistant' keyword matches system prompt
     server.use(createGenerateHandler({ 'executive assistant': briefingFixture }));
 
-    const mistralProvider = new MistralProviderService(configService);
+    const mistralProvider = new OpenRouterProviderService(configService);
     briefingService = new BriefingService(mistralProvider, mockPrisma, undefined);
   });
 

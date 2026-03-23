@@ -15,7 +15,7 @@ import {
 } from '../../../../test/msw-handlers/mistral-chat.handler';
 import { mistralEmbedHandler } from '../../../../test/msw-handlers/mistral-embed.handler';
 import { ConfigService } from '@nestjs/config';
-import { MistralProviderService } from '../../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../../openrouter/openrouter-provider.service';
 import {
   FollowUpDetectionService,
   followUpDetectionSchema,
@@ -62,7 +62,7 @@ describe('FollowUpDetectionService (MSW)', () => {
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'bypass' });
 
-    const mistralProvider = new MistralProviderService(configService);
+    const mistralProvider = new OpenRouterProviderService(configService);
     const mockPrisma = createMockPrisma(testEmails);
     service = new FollowUpDetectionService(mistralProvider, mockPrisma, undefined);
   });
@@ -83,7 +83,7 @@ describe('FollowUpDetectionService (MSW)', () => {
 
   it('handles empty email batch gracefully', async () => {
     // Create service with empty email list
-    const mistralProvider = new MistralProviderService(configService);
+    const mistralProvider = new OpenRouterProviderService(configService);
     const emptyPrisma = createMockPrisma([]);
     const emptyService = new FollowUpDetectionService(mistralProvider, emptyPrisma, undefined);
 

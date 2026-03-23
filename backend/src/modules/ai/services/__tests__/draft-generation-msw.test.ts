@@ -15,7 +15,7 @@ import {
 } from '../../../../test/msw-handlers/mistral-chat.handler';
 import { mistralEmbedHandler } from '../../../../test/msw-handlers/mistral-embed.handler';
 import { ConfigService } from '@nestjs/config';
-import { MistralProviderService } from '../../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../../openrouter/openrouter-provider.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import {
   DraftGenerationService,
@@ -71,7 +71,7 @@ describe('DraftGenerationService (MSW)', () => {
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'bypass' });
 
-    const mistralProvider = new MistralProviderService(configService);
+    const mistralProvider = new OpenRouterProviderService(configService);
     const mockPrisma = createMockPrisma(testEmail, threadEmails);
     service = new DraftGenerationService(mistralProvider, mockPrisma, undefined);
   });
@@ -96,7 +96,7 @@ describe('DraftGenerationService (MSW)', () => {
   });
 
   it('handles missing email gracefully', async () => {
-    const mistralProvider = new MistralProviderService(configService);
+    const mistralProvider = new OpenRouterProviderService(configService);
     const nullPrisma = createMockPrisma(null);
     const nullService = new DraftGenerationService(mistralProvider, nullPrisma, undefined);
 

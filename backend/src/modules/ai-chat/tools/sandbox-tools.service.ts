@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { tool, generateText } from 'ai';
 import { z } from 'zod';
 import { SandboxService } from '../services/sandbox.service';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
 import {
   TOOL_REGISTRY_SERVICE,
@@ -38,7 +38,7 @@ export class SandboxToolsService implements OnModuleInit {
 
   constructor(
     private readonly sandboxService: SandboxService,
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralProvider: OpenRouterProviderService,
     @Inject(TOOL_REGISTRY_SERVICE)
     private readonly toolRegistry: IToolRegistryService,
   ) {}

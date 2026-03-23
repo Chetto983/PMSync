@@ -35,7 +35,7 @@ import { HybridSearchService } from './services/hybrid-search.service';
  * AiChatModule -- Streaming AI chat with conversation persistence.
  *
  * AI chat module (VoltAgent pipeline removed in Phase 23).
- * MistralModule is @Global() so no import needed for MistralProviderService.
+ * OpenRouterModule is @Global() so no import needed for OpenRouterProviderService.
  * CacheModule is @Global() so no import needed for CacheService (used by PiiResolutionService).
  * ToolRegistryModule is @Global() so no import needed for TOOL_REGISTRY_SERVICE.
  *

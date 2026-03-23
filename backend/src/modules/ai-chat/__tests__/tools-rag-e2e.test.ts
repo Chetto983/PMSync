@@ -31,7 +31,7 @@ import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { MemoryService } from '../services/memory.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
@@ -106,7 +106,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
   let conversationService: ConversationService;
   let auditService: AuditService;
   let piiDetectionService: PiiDetectionService;
-  let mistralProvider: MistralProviderService;
+  let mistralProvider: OpenRouterProviderService;
   let mistralEmbeddingService: MistralEmbeddingService;
   let memoryService: MemoryService;
   let hybridSearchService: HybridSearchService;
@@ -134,7 +134,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
     if (!user) throw new Error('No user found. Seed required.');
     testUserId = user.id;
 
-    // 3. Create MistralProviderService with real API key
+    // 3. Create OpenRouterProviderService with real API key
     const configMap = new Map<string, string>([
       ['MISTRAL_API_KEY', process.env.MISTRAL_API_KEY!],
       ['INTENT_MODEL_PATH', ''], // No FastText model in test -- regex fallback
@@ -150,7 +150,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       },
     } as unknown as ConfigService;
 
-    mistralProvider = new MistralProviderService(configService);
+    mistralProvider = new OpenRouterProviderService(configService);
     mistralEmbeddingService = new MistralEmbeddingService(mistralProvider);
 
     // 4. Create real service instances

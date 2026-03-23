@@ -30,7 +30,7 @@ import { AiChatService } from '../services/ai-chat.service';
 import { ConversationService } from '../services/conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { AuditService } from '../../../common/services/audit.service';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { MemoryService } from '../services/memory.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
@@ -105,7 +105,7 @@ async function drainStream(s: ReadableStream): Promise<string> {
 
 describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
   let prisma: PrismaClient;
-  let mistralProvider: MistralProviderService;
+  let mistralProvider: OpenRouterProviderService;
   let mistralEmbeddingService: MistralEmbeddingService;
 
   // SPIED domain stubs — vi.fn() wrapping real Prisma queries
@@ -200,7 +200,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
         return v;
       },
     } as unknown as ConfigService;
-    mistralProvider = new MistralProviderService(configService);
+    mistralProvider = new OpenRouterProviderService(configService);
     mistralEmbeddingService = new MistralEmbeddingService(mistralProvider);
 
     // ── SPIED domain stubs backed by real Prisma ──

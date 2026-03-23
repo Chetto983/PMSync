@@ -12,7 +12,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
@@ -134,7 +134,7 @@ export class BriefingService {
   private readonly logger = new Logger(BriefingService.name);
 
   constructor(
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralProvider: OpenRouterProviderService,
     private readonly prisma: PrismaService,
     @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
     @Optional() private readonly ledgerService?: AiRunLedgerService,

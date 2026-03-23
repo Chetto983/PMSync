@@ -1,7 +1,7 @@
 /**
  * MistralService - Facade for Mistral AI operations (Phase 23 rewire).
  *
- * Uses AI SDK generateText() via MistralProviderService. Delegates embedding
+ * Uses AI SDK generateText() via OpenRouterProviderService. Delegates embedding
  * to MistralEmbeddingService, RAG to MistralRagService.
  *
  * Removed: direct @mistralai/mistralai imports, Batch API methods,
@@ -10,7 +10,7 @@
 import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generateText } from 'ai';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import { getLocale, getTranslations, type SupportedLocale } from '../locales';
 import { PromptGuardService, type ValidationContext } from '../guards';
@@ -52,7 +52,7 @@ export class MistralService implements OnModuleInit {
 
   constructor(
     private configService: ConfigService,
-    private mistralProvider: MistralProviderService,
+    private mistralProvider: OpenRouterProviderService,
     private promptGuard: PromptGuardService,
     private embeddingService: MistralEmbeddingService,
     private ragService: MistralRagService,

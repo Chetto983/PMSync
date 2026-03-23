@@ -1,12 +1,12 @@
 /**
  * MistralRagService - RAG completion with context retrieval (Phase 23 rewire).
  *
- * Uses AI SDK generateText() via MistralProviderService. No direct
+ * Uses AI SDK generateText() via OpenRouterProviderService. No direct
  * @mistralai/mistralai imports.
  */
 import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { generateText } from 'ai';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from './embeddings.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
@@ -26,7 +26,7 @@ export class MistralRagService {
   private getEmbeddingModelFn!: () => string;
 
   constructor(
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralProvider: OpenRouterProviderService,
     private readonly prisma: PrismaService,
     private readonly embeddingsService: EmbeddingsService,
     @Optional() @Inject(UsageTrackingService) private usageTrackingService?: UsageTrackingService,

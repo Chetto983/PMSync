@@ -28,7 +28,7 @@ import {
 } from '../../../test/msw-handlers/mistral-chat.handler';
 import { mistralEmbedHandler } from '../../../test/msw-handlers/mistral-embed.handler';
 import { ConfigService } from '@nestjs/config';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { AiChatService } from '../services/ai-chat.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
 import { circuitBreakerRegistry } from '../../../common/utils/circuit-breaker.utils';
@@ -141,13 +141,13 @@ async function drainStream(stream: ReadableStream): Promise<string> {
 }
 
 describe('Chat Pipeline (MSW)', () => {
-  let mistralProvider: MistralProviderService;
+  let mistralProvider: OpenRouterProviderService;
   let aiChatService: AiChatService;
 
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'bypass' });
 
-    mistralProvider = new MistralProviderService(configService);
+    mistralProvider = new OpenRouterProviderService(configService);
 
     // AiChatService with all mocked dependencies
     aiChatService = new AiChatService(

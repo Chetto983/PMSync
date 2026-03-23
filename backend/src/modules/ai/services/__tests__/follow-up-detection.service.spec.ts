@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FollowUpDetectionService } from '../follow-up-detection.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { MistralProviderService } from '../../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../../openrouter/openrouter-provider.service';
 import { UsageTrackingService } from '../../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from '../ai-run-ledger.service';
 
@@ -46,7 +46,7 @@ describe('FollowUpDetectionService', () => {
       providers: [
         FollowUpDetectionService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: MistralProviderService, useValue: mockMistralProvider },
+        { provide: OpenRouterProviderService, useValue: mockMistralProvider },
         { provide: UsageTrackingService, useValue: mockUsageTracking },
         { provide: AiRunLedgerService, useValue: mockLedger },
       ],

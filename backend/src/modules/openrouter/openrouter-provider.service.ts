@@ -1,5 +1,5 @@
 /**
- * MistralProviderService - AI model provider with dual backend:
+ * OpenRouterProviderService - AI model provider with dual backend:
  *   - Chat/code models: OpenRouter (Qwen 3.5 flash + plus)
  *   - Embedding models: Mistral (mistral-embed, EU-hosted)
  *   - OCR: Mistral (mistral-ocr-latest)
@@ -13,8 +13,8 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { LanguageModel, EmbeddingModel } from 'ai';
 
 @Injectable()
-export class MistralProviderService {
-  private readonly logger = new Logger(MistralProviderService.name);
+export class OpenRouterProviderService {
+  private readonly logger = new Logger(OpenRouterProviderService.name);
   private readonly mistralProvider: ReturnType<typeof createMistral>;
   private readonly openRouterProvider: ReturnType<typeof createOpenRouter>;
   private readonly defaultChatModel: string;

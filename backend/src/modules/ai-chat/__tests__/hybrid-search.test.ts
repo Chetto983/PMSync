@@ -3,7 +3,7 @@
  *
  * Tests hybrid search dispatch, RRF result mapping, fallback behavior,
  * and source filtering. Uses manual mocks for PrismaService and
- * MistralProviderService (no DB/API needed).
+ * OpenRouterProviderService (no DB/API needed).
  *
  * Phase 25 Plan 03: Hybrid Search & RAG
  */

@@ -13,7 +13,7 @@ const openRouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
 });
 
-describe('MistralProviderService (real API)', () => {
+describe('OpenRouterProviderService (real API)', () => {
   it('generates embedding with 1024 dimensions', async () => {
     const { embedding, usage } = await embed({
       model: mistral.embedding('mistral-embed'),

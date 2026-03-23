@@ -10,7 +10,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
-import { MistralProviderService } from '../../mistral/mistral-provider.service';
+import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 import { parseJsonOutput } from '../../ai/utils/parse-json-output';
 
@@ -100,7 +100,7 @@ export class ReminderAiParserService {
   private readonly logger = new Logger(ReminderAiParserService.name);
 
   constructor(
-    private readonly mistralProvider: MistralProviderService,
+    private readonly mistralProvider: OpenRouterProviderService,
     private readonly aiRunLedger: AiRunLedgerService,
   ) {}
 
