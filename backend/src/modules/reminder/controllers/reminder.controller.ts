@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -30,14 +31,15 @@ export class ReminderController {
   constructor(private readonly reminderService: ReminderService) {}
 
   @Post()
+  @HttpCode(201)
   @ApiOperation({ summary: 'Create a reminder (AI-parsed or structured)' })
   async create(@Req() req: AuthenticatedRequest, @Body() dto: CreateReminderDto) {
-    const { reminder, rispostaChat } = await this.reminderService.createReminder(
+    const { reminder, rispostaChat, failed } = await this.reminderService.createReminder(
       req.user.tenantId,
       req.user.id,
       dto,
     );
-    return { data: reminder, rispostaChat };
+    return { data: { reminder, rispostaChat, failed } };
   }
 
   @Get()

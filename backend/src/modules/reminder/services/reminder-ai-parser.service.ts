@@ -135,7 +135,11 @@ export class ReminderAiParserService {
       });
 
       const latencyMs = Date.now() - startTime;
+      this.logger.debug(
+        `AI parser raw response (${result.text.length} chars, ${latencyMs}ms, model=${this.parserModelId}): ${result.text.slice(0, 500)}`,
+      );
       const parsed = parseJsonOutput(result.text, reminderParseSchema);
+      this.logger.debug(`AI parser result: is_reminder=${parsed.is_reminder}, titolo="${parsed.titolo}"`);
 
       this.aiRunLedger.recordRun({
         tenantId,
@@ -153,7 +157,7 @@ export class ReminderAiParserService {
     } catch (error) {
       const latencyMs = Date.now() - startTime;
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`AI parser error: ${message}`);
+      this.logger.error(`AI parser error (${latencyMs}ms, model=${this.parserModelId}): ${message}`);
 
       this.aiRunLedger.recordRun({
         tenantId,
