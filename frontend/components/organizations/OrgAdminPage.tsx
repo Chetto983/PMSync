@@ -12,15 +12,8 @@ import {
   Paper,
   IconButton,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Alert,
   Skeleton,
   Chip,
-  CircularProgress,
   Collapse,
 } from '@mui/material';
 import {
@@ -36,13 +29,13 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useOrganizations,
   useOrganizationDetail,
-  useCreateOrg,
-  useDeleteOrg,
   useRemoveMember,
 } from '@/hooks/queries';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import { EmptyState } from '@/components/common/EmptyState';
 import { InviteMemberDialog } from './InviteMemberDialog';
+import { CreateOrgDialog } from './CreateOrgDialog';
+import { DeleteOrgDialog } from './DeleteOrgDialog';
 
 interface OrganizationListItem {
   id: string;
@@ -58,200 +51,6 @@ interface OrganizationMemberRow {
   user?: {
     email?: string | null;
   } | null;
-}
-
-// ==========================================================================
-// Create Organization Dialog
-// ==========================================================================
-
-function CreateOrgDialog({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const t = useTranslations();
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [error, setError] = useState('');
-  const createOrg = useCreateOrg();
-
-  const getErrorMessage = (error: unknown) => (
-    error instanceof Error && error.message
-      ? error.message
-      : t.common.genericError
-  );
-
-  const handleNameChange = (value: string) => {
-    setName(value);
-    // Auto-generate slug from name
-    setSlug(
-      value
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 48),
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (!name.trim() || !slug.trim()) return;
-
-    try {
-      await createOrg.mutateAsync({ name: name.trim(), slug: slug.trim() });
-      setName('');
-      setSlug('');
-      onClose();
-    } catch (error: unknown) {
-      setError(getErrorMessage(error));
-    }
-  };
-
-  const handleClose = () => {
-    setName('');
-    setSlug('');
-    setError('');
-    onClose();
-  };
-
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle>{t.organizations.create}</DialogTitle>
-        <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <TextField
-            autoFocus
-            fullWidth
-            label={t.organizations.name}
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            disabled={createOrg.isPending}
-            sx={{ mt: 1, mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label={t.organizations.slug}
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            disabled={createOrg.isPending}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} disabled={createOrg.isPending}>
-            {t.common.cancel}
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={!name.trim() || !slug.trim() || createOrg.isPending}
-            startIcon={
-              createOrg.isPending ? <CircularProgress size={16} /> : null
-            }
-          >
-            {t.organizations.create}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
-  );
-}
-
-// ==========================================================================
-// Delete Confirmation Dialog
-// ==========================================================================
-
-function DeleteOrgDialog({
-  open,
-  onClose,
-  orgName,
-  orgId,
-}: {
-  open: boolean;
-  onClose: () => void;
-  orgName: string;
-  orgId: string;
-}) {
-  const t = useTranslations();
-  const [confirmation, setConfirmation] = useState('');
-  const [error, setError] = useState('');
-  const deleteOrg = useDeleteOrg();
-
-  const getErrorMessage = (error: unknown) => (
-    error instanceof Error && error.message
-      ? error.message
-      : t.common.genericError
-  );
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (confirmation !== orgName) return;
-
-    try {
-      await deleteOrg.mutateAsync(orgId);
-      setConfirmation('');
-      onClose();
-    } catch (error: unknown) {
-      setError(getErrorMessage(error));
-    }
-  };
-
-  const handleClose = () => {
-    setConfirmation('');
-    setError('');
-    onClose();
-  };
-
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle>{t.organizations.delete}</DialogTitle>
-        <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <Typography sx={{ mb: 2 }}>{t.organizations.deleteConfirm}</Typography>
-          <Typography variant="body2" sx={{ mb: 2, fontWeight: 600 }}>
-            {orgName}
-          </Typography>
-          <TextField
-            autoFocus
-            fullWidth
-            value={confirmation}
-            onChange={(e) => setConfirmation(e.target.value)}
-            disabled={deleteOrg.isPending}
-            placeholder={orgName}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} disabled={deleteOrg.isPending}>
-            {t.common.cancel}
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="error"
-            disabled={confirmation !== orgName || deleteOrg.isPending}
-            startIcon={
-              deleteOrg.isPending ? <CircularProgress size={16} /> : null
-            }
-          >
-            {t.organizations.delete}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
-  );
 }
 
 // ==========================================================================
