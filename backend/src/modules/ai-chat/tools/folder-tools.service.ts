@@ -121,6 +121,7 @@ export class FolderToolsService implements OnModuleInit {
         // Get default email provider for the tenant
         const provider = await this.prisma.providerConfig.findFirst({
           where: { tenantId, isActive: true, supportsEmail: true },
+          orderBy: { createdAt: 'asc' },
         });
 
         if (!provider) {

@@ -279,6 +279,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
       results.map(async (r) => {
         const provider = await this.prisma.providerConfig.findFirst({
           where: { tenantId: r.tenantId },
+          orderBy: { createdAt: 'asc' },
           select: { userId: true },
         });
         return {
@@ -415,6 +416,7 @@ export class TriageBackfillSchedulerService implements OnModuleInit, OnModuleDes
     for (const t of tenants) {
       const provider = await this.prisma.providerConfig.findFirst({
         where: { tenantId: t.id },
+        orderBy: { createdAt: 'asc' },
         select: { userId: true },
       });
       if (provider?.userId) {

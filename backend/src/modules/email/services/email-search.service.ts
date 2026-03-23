@@ -13,6 +13,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { emailSearchSelect } from '../../../common/utils';
 import { StorageService } from './storage.service';
 import { EmailFolderService } from './email-folder.service';
 
@@ -47,19 +48,7 @@ export class EmailSearchService {
       where: baseWhere,
       orderBy: { receivedAt: 'desc' },
       take: limit,
-      select: {
-        id: true,
-        providerId: true,
-        from: true,
-        subject: true,
-        snippet: true,
-        receivedAt: true,
-        isRead: true,
-        // Triage fields -- exposed to AI tools for intelligent context
-        aiPriority: true,
-        aiSentiment: true,
-        aiLabels: true,
-      },
+      select: emailSearchSelect,
     });
 
     return emails;

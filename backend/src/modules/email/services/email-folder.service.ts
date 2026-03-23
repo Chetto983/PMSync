@@ -11,6 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { withQueryTimeout } from '../../../common/utils';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -560,32 +561,41 @@ export class EmailFolderService {
 
       // 2 groupBy queries total (down from 2*N individual counts)
       const queryFolderArray = Array.from(queryFolders);
-      const [totalGroups, unreadGroups] = await Promise.all([
-        this.prisma.email.groupBy({
-          by: ['folder'],
-          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' } },
-          _count: { id: true },
-        }),
-        this.prisma.email.groupBy({
-          by: ['folder'],
-          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isRead: false },
-          _count: { id: true },
-        }),
-      ]);
+      const groupByTimeout = 10_000;
+      const [totalGroups, unreadGroups] = await withQueryTimeout(
+        'folderCounts',
+        Promise.all([
+          this.prisma.email.groupBy({
+            by: ['folder'],
+            where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' } },
+            _count: { id: true },
+          }),
+          this.prisma.email.groupBy({
+            by: ['folder'],
+            where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isRead: false },
+            _count: { id: true },
+          }),
+        ]),
+        groupByTimeout,
+      );
 
       // Also get counts excluding deleted emails (for non-Trash folders)
-      const [totalNonDeleted, unreadNonDeleted] = await Promise.all([
-        this.prisma.email.groupBy({
-          by: ['folder'],
-          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isDeleted: false },
-          _count: { id: true },
-        }),
-        this.prisma.email.groupBy({
-          by: ['folder'],
-          where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isDeleted: false, isRead: false },
-          _count: { id: true },
-        }),
-      ]);
+      const [totalNonDeleted, unreadNonDeleted] = await withQueryTimeout(
+        'folderCountsNonDeleted',
+        Promise.all([
+          this.prisma.email.groupBy({
+            by: ['folder'],
+            where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isDeleted: false },
+            _count: { id: true },
+          }),
+          this.prisma.email.groupBy({
+            by: ['folder'],
+            where: { tenantId, providerId, folder: { in: queryFolderArray, mode: 'insensitive' }, isDeleted: false, isRead: false },
+            _count: { id: true },
+          }),
+        ]),
+        groupByTimeout,
+      );
 
       // Build case-insensitive lookup maps, summing across case variants
       const accumulate = (groups: { folder: string; _count: { id: number } }[]) => {

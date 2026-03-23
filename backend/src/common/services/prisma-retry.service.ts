@@ -104,6 +104,7 @@ export class PrismaRetryService {
     const loggerName = options.loggerName ?? 'PrismaRetry';
 
     let lastError: unknown;
+    const startTime = Date.now();
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -121,9 +122,14 @@ export class PrismaRetryService {
 
         if (attempt >= maxAttempts) {
           // Max retries exhausted
+          const elapsedMs = Date.now() - startTime;
+          const meta =
+            error instanceof Prisma.PrismaClientKnownRequestError
+              ? JSON.stringify(error.meta)
+              : 'N/A';
           this.logger.error(
-            `[${loggerName}] ${retryInfo.code} error: Max ${maxAttempts} retries exhausted. ` +
-              `Error: ${this.getErrorMessage(error)}`,
+            `[${loggerName}] ${retryInfo.code} exhausted after ${maxAttempts} attempts (${elapsedMs}ms). ` +
+              `Meta: ${meta}. Error: ${this.getErrorMessage(error)}`,
           );
           throw error;
         }

@@ -199,6 +199,7 @@ export class EmbeddingsService {
     // Safe to use: validated array contains only finite numbers
     const vectorLiteral = Prisma.raw(`'[${validatedEmbedding.join(',')}]'::vector`);
 
+    const t0 = Date.now();
     try {
       // OPTIMIZATION: Set ef_search for better recall in production RAG
       // Higher values = more accurate but slower (default: 40, recommended: 100 for RAG)
@@ -240,9 +241,14 @@ export class EmbeddingsService {
             `,
           );
 
+      const elapsed = Date.now() - t0;
+      if (elapsed > 500) {
+        this.logger.warn(`Slow pgvector search: ${elapsed}ms (limit=${limit}, tenant=${tenantId}, results=${results.length})`);
+      }
+
       return results;
     } catch (error) {
-      this.logger.error('Failed to execute similarity search', error instanceof Error ? error.stack : error);
+      this.logger.error(`Failed similarity search after ${Date.now() - t0}ms`, error instanceof Error ? error.stack : error);
       throw error;
     }
   }

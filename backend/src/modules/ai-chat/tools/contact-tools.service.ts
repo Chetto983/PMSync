@@ -255,6 +255,7 @@ export class ContactToolsService implements OnModuleInit {
         isActive: true,
         supportsContacts: true,
       },
+      orderBy: { createdAt: 'asc' },
     });
 
     if (!provider) {

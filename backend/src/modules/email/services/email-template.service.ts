@@ -76,6 +76,7 @@ export class EmailTemplateService {
   async findDefault(tenantId: string, userId: string) {
     return this.prisma.emailTemplate.findFirst({
       where: { tenantId, userId, isDefault: true },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

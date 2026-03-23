@@ -497,6 +497,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
       this.logger.warn(`IMAP sync-back using email-only lookup (legacy) for ${providerEmail}`);
       provider = await this.prisma.providerConfig.findFirst({
         where: { email: providerEmail, providerType: 'imap' },
+        orderBy: { createdAt: 'asc' },
       });
     }
 

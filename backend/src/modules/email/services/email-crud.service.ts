@@ -14,6 +14,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma, ProviderConfig } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { validatePagination, buildPaginationMeta, emailListSelect } from '../../../common/utils';
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -54,25 +55,12 @@ export class EmailCrudService {
    * CRITICAL FIX: Added input validation for pagination params
    */
   async listEmails(params: EmailListParams) {
-    const {
-      tenantId,
-      providerId,
-      page = 1,
-      limit = 50,
-      filters = {},
-      maxLimit,
-    } = params;
-
-    // CRITICAL FIX: Input validation
-    if (page < 1) {
-      throw new BadRequestException('Page must be >= 1');
-    }
-    const effectiveMaxLimit = typeof maxLimit === 'number' && maxLimit > 0 ? maxLimit : 100;
-    if (limit < 1 || limit > effectiveMaxLimit) {
-      throw new BadRequestException(`Limit must be between 1 and ${effectiveMaxLimit}`);
-    }
-
-    const skip = (page - 1) * limit;
+    const { tenantId, providerId, filters = {} } = params;
+    const { page, limit, skip } = validatePagination({
+      page: params.page,
+      limit: params.limit,
+      maxLimit: params.maxLimit,
+    });
 
     const { where, fromVip } = await this.folderService.buildEmailWhere({
       tenantId,
@@ -130,72 +118,13 @@ export class EmailCrudService {
         orderBy: { receivedAt: 'desc' },
         skip,
         take: limit,
-        select: {
-          id: true,
-          externalId: true,
-          threadId: true,
-          providerId: true,
-          from: true,
-          to: true,
-          cc: true,
-          bcc: true,
-          subject: true,
-          snippet: true,
-          folder: true,
-          labels: true,
-          isRead: true,
-          isStarred: true,
-          isFlagged: true,
-          isDraft: true,
-          sentAt: true,
-          receivedAt: true,
-          size: true,
-          aiPriority: true,
-          aiPriorityReason: true,
-          aiSentiment: true,
-          aiLabels: true,
-          isAutoTriaged: true,
-          autoTriagedAt: true,
-          attachments: {
-            select: {
-              id: true,
-              filename: true,
-              size: true,
-              mimeType: true,
-              isInline: true,
-              contentId: true,
-            },
-          },
-          emailLabels: {
-            select: {
-              label: {
-                select: {
-                  id: true,
-                  name: true,
-                  color: true,
-                },
-              },
-            },
-          },
-          provider: {
-            select: {
-              id: true,
-              email: true,
-              providerType: true,
-            },
-          },
-        },
+        select: emailListSelect,
       }),
     ]);
 
     return {
       emails,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      pagination: buildPaginationMeta(page, limit, total),
     };
   }
 

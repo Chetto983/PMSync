@@ -74,6 +74,7 @@ export class EmailSignatureService {
     if (providerId) {
       const providerDefault = await this.prisma.emailSignature.findFirst({
         where: { tenantId, userId, providerId, isDefault: true },
+        orderBy: { createdAt: 'asc' },
       });
       if (providerDefault) return providerDefault;
     }
@@ -81,12 +82,14 @@ export class EmailSignatureService {
     // Try global default (providerId = null)
     const globalDefault = await this.prisma.emailSignature.findFirst({
       where: { tenantId, userId, providerId: null, isDefault: true },
+      orderBy: { createdAt: 'asc' },
     });
     if (globalDefault) return globalDefault;
 
     // Fall back to ANY default signature (in case user has one with isDefault=true but different providerId)
     const anyDefault = await this.prisma.emailSignature.findFirst({
       where: { tenantId, userId, isDefault: true },
+      orderBy: { createdAt: 'asc' },
     });
     if (anyDefault) return anyDefault;
 

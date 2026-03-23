@@ -127,7 +127,8 @@ export class MemoryService {
     const vectorStr = `[${validatedVector.join(',')}]`;
     const vectorParam = Prisma.raw(`'${vectorStr}'::vector`);
 
-    return this.prisma.$queryRaw<
+    const t0 = Date.now();
+    const results = await this.prisma.$queryRaw<
       Array<{ id: string; content: string; category: string | null; createdAt: Date }>
     >(
       Prisma.sql`SELECT id, content, category, "createdAt"
@@ -139,6 +140,13 @@ export class MemoryService {
        ORDER BY (vector <-> ${vectorParam}) ASC
        LIMIT ${limit}`,
     );
+
+    const elapsed = Date.now() - t0;
+    if (elapsed > 500) {
+      this.logger.warn(`Slow memory vector search: ${elapsed}ms (limit=${limit}, results=${results.length})`);
+    }
+
+    return results;
   }
 
   /**

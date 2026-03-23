@@ -147,11 +147,17 @@ export class HybridSearchService {
         `'[${validatedVector.join(',')}]'::vector`,
       );
 
+      const t0 = Date.now();
       const rows = await this.prisma.$queryRaw<RawEmailRow[]>(
         Prisma.sql`SELECT * FROM hybrid_email_search(
           ${tenantId}, ${query}, ${vectorLiteral}, ${limit}
         )`,
       );
+
+      const elapsed = Date.now() - t0;
+      if (elapsed > 500) {
+        this.logger.warn(`Slow hybrid email search: ${elapsed}ms (limit=${limit}, results=${rows.length})`);
+      }
 
       return rows.map((row) => ({
         source: 'email' as const,
@@ -189,11 +195,17 @@ export class HybridSearchService {
         `'[${validatedVector.join(',')}]'::vector`,
       );
 
+      const t0 = Date.now();
       const rows = await this.prisma.$queryRaw<RawContactRow[]>(
         Prisma.sql`SELECT * FROM hybrid_contact_search(
           ${tenantId}, ${query}, ${vectorLiteral}, ${limit}
         )`,
       );
+
+      const elapsed = Date.now() - t0;
+      if (elapsed > 500) {
+        this.logger.warn(`Slow hybrid contact search: ${elapsed}ms (limit=${limit}, results=${rows.length})`);
+      }
 
       return rows.map((row) => ({
         source: 'contact' as const,

@@ -78,6 +78,7 @@ export class ChatEnrichmentService {
           isActive: true,
           supportsEmail: true,
         },
+        orderBy: { createdAt: 'asc' },
         select: { providerType: true },
       }),
       this.prisma.user.findUnique({

@@ -258,6 +258,7 @@ export class CalendarToolsService implements OnModuleInit {
         isActive: true,
         supportsCalendar: true,
       },
+      orderBy: { createdAt: 'asc' },
     });
 
     if (!provider) {

@@ -467,6 +467,7 @@ export class EmailToolsService implements OnModuleInit {
         isActive: true,
         supportsEmail: true,
       },
+      orderBy: { createdAt: 'asc' },
     });
 
     if (!provider) {
