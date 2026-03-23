@@ -34,14 +34,14 @@ Declared values from existing `tokens.ts` spacing scale (8px base):
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | xs | 4px | Not used |
-| sm | 8px | Not used |
+| sm | 8px | "Try Again" button vertical padding |
 | md | 16px | Offline page container padding, banner internal padding |
-| lg | 24px | Offline page element vertical spacing |
+| lg | 24px | Offline page element vertical spacing, "Try Again" button horizontal padding |
 | xl | 32px | Not used |
 | 2xl | 48px | Not used |
 | 3xl | 64px | Not used |
 
-Exceptions: none. This phase has minimal layout -- one static HTML page and one banner component.
+Exceptions: none. All values use declared scale tokens.
 
 ---
 
@@ -49,14 +49,16 @@ Exceptions: none. This phase has minimal layout -- one static HTML page and one 
 
 This phase uses the existing MUI theme typography. The offline fallback page (static HTML) must replicate these values in inline CSS since it cannot access the MUI theme.
 
+Only 2 font weights are used: 400 (normal) and 600 (semibold). The "PMSync" brand display text uses 600 (semibold) rather than 700 (bold) because the accent gradient already provides strong visual distinction without needing extra weight.
+
 | Role | Size | Weight | Line Height | Used In |
 |------|------|--------|-------------|---------|
-| Display | 36px (2.25rem) | 700 (bold) | 1.25 | Offline page "PMSync" brand name |
+| Display | 36px (2.25rem) | 600 (semibold) | 1.25 | Offline page "PMSync" brand name |
 | Heading | 24px (1.5rem) | 600 (semibold) | 1.375 | Offline page "You're Offline" heading |
 | Body | 14px (0.875rem) | 400 (normal) | 1.625 | Offline page description text, banner text |
 | Button | 14px (0.875rem) | 600 (semibold) | 1.5 | Offline page "Try Again" button |
 
-Source: existing `frontend/theme/typography.ts` -- h1=36px/bold, h3=24px/semibold, body1=14px/normal, button=14px/semibold
+Source: existing `frontend/theme/typography.ts` -- adapted to 2-weight constraint (400, 600)
 
 ---
 
@@ -64,16 +66,18 @@ Source: existing `frontend/theme/typography.ts` -- h1=36px/bold, h3=24px/semibol
 
 This phase has two UI surfaces: the static offline page and the in-app offline banner.
 
+**Distribution note:** The offline page follows an approximate 80/15/5 split. Background color (#0c1017 dark / #f8fafc light) covers ~80% of the viewport as dominant surface. Text (primary + secondary) occupies ~15%. The accent gradient (PMSync brand text) and accent button together occupy ~5%, reserved exclusively for the brand name and the primary CTA.
+
 ### Static Offline Page (public/offline.html)
 
 The page must support both dark and light mode via `prefers-color-scheme` media query (no JS available).
 
 | Role | Dark Value | Light Value | Usage |
 |------|-----------|-------------|-------|
-| Background | #0c1017 | #f8fafc | Page background |
-| Text primary | #f8fafc | #0f172a | Heading text |
-| Text secondary | #94a3b8 | #475569 | Description paragraph |
-| Accent gradient | linear-gradient(135deg, #55cae5, #7650ce) | same | "PMSync" brand text (CSS background-clip) |
+| Background (dominant ~80%) | #0c1017 | #f8fafc | Page background |
+| Text primary (~10%) | #f8fafc | #0f172a | Heading text |
+| Text secondary (~5%) | #94a3b8 | #475569 | Description paragraph |
+| Accent gradient (~5%) | linear-gradient(135deg, #55cae5, #7650ce) | same | "PMSync" brand text (CSS background-clip) |
 | Button background | #55cae5 | #00aced | "Try Again" CTA |
 | Button text | #0c1017 | #ffffff | CTA label |
 
@@ -86,7 +90,7 @@ Source: existing `frontend/theme/tokens.ts` -- darkColors.background.default, li
 | Banner | MUI `warning` severity Alert | Uses theme-aware `warning.main` (#f59e0b dark / #d97706 light) automatically |
 | Icon | lucide-react `WifiOff` at 20px | Leading icon in Alert |
 
-Accent reserved for: "Try Again" button on the offline page only. The banner uses MUI semantic `warning` color, not accent.
+Accent reserved for: "PMSync" brand gradient text and "Try Again" button on the offline page only. The banner uses MUI semantic `warning` color, not accent.
 
 ---
 
@@ -134,7 +138,7 @@ This phase introduces 2 new UI elements and modifies 1 existing component.
 - Calls `window.location.reload()` on click
 - Hover state: `opacity: 0.9`
 - Border-radius: 8px (matches existing `borderRadius.md` token)
-- Padding: 12px vertical, 24px horizontal
+- Padding: 8px vertical (sm), 24px horizontal (lg)
 - Cursor: pointer
 
 ### Layout Placement
