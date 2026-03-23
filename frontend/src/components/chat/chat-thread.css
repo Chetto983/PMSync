@@ -468,6 +468,12 @@
   color: hsl(var(--muted-foreground));
 }
 
+.chat-cot-text {
+  margin: 0.3em 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Tool cards */
 .chat-tool-card {
   border-radius: 10px;

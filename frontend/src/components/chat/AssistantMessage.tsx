@@ -20,6 +20,12 @@ const MarkdownWithStreaming = (props: object) => (
   <MarkdownText {...props} className="aui-md" remarkPlugins={remarkPlugins} />
 );
 
+/** Renders a single reasoning part's text inside the ReasoningGroup. */
+function ReasoningText({ text }: { type: 'reasoning'; text: string }) {
+  if (!text) return null;
+  return <p className="chat-cot-text">{text}</p>;
+}
+
 /**
  * Dispatching tool renderer: routes tool calls to specific renderers by name,
  * falling back to FallbackToolRenderer for unregistered tools.
@@ -65,6 +71,7 @@ export function AssistantMessage() {
           <MessagePrimitive.Content
             components={{
               Text: MarkdownWithStreaming,
+              Reasoning: ReasoningText,
               ReasoningGroup: ChatReasoningGroup,
               tools: {
                 Fallback: ToolDispatcher,
