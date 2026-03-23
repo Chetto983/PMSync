@@ -48,9 +48,11 @@ export class OpenRouterProviderService {
         data_collection: 'deny',
         sort: 'latency',
       },
-      // Qwen 3.5 Flash outputs reasoning natively. This ensures
-      // reasoning tokens are surfaced (not excluded) in the response.
-      reasoning: { enabled: true, effort: 'low' },
+      // Qwen 3.5 Flash outputs reasoning tokens natively — no explicit
+      // reasoning config needed. Adding effort: 'low'+ forces EXTRA
+      // reasoning overhead on every step, doubling latency.
+      // The AI SDK's sendReasoning: true captures native tokens.
+      //
       // Enable usage accounting for accurate token tracking in ledger.
       usage: { include: true },
     });
