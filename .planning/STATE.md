@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
 status: unknown
-stopped_at: Completed 101-01-PLAN.md
-last_updated: "2026-03-23T11:34:35.536Z"
+stopped_at: Completed 102-01-PLAN.md
+last_updated: "2026-03-23T13:38:06.943Z"
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
 ---
 
 # Project State
@@ -19,20 +19,20 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 101 — offline-shell
+**Current focus:** Phase 102 — install-experience
 
 ## Current Position
 
-Phase: 101 (offline-shell) — COMPLETE
-Plan: 1 of 1 (done)
+Phase: 102 (install-experience) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: ~5min
-- Total execution time: ~15 min
+- Total execution time: ~21 min
 
 ## Accumulated Context
 
@@ -49,6 +49,8 @@ Plan: 1 of 1 (done)
 - [Phase 100]: Serwist 9.x uses matcher/handler pattern (not urlPattern/string), navigateFallbackDenylist in precacheOptions
 - [Phase 101]: useSyncExternalStore for browser API subscriptions (online status)
 - [Phase 101]: OFFL-04 confirmed via Phase 100 precaching + cacheOnNavigation, not newly implemented
+- [Phase 102]: _resetForTesting pattern for module-state hooks (avoids jest.isolateModules React duplication)
+- [Phase 102]: Functional localStorage mock needed in tests (jest.setup.ts provides bare stubs)
 
 ### Pending Todos
 
@@ -62,6 +64,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T11:01:22.199Z
-Stopped at: Completed 101-01-PLAN.md
-Resume file: None
+Last session: 2026-03-23T13:38:06.493Z
+Stopped at: Completed 102-01-PLAN.md
+Resume file: .planning/phases/102-install-experience/102-02-PLAN.md

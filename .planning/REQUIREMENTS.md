@@ -23,9 +23,9 @@ Requirements for Progressive Web App milestone. Each maps to roadmap phases.
 
 ### Install
 
-- [ ] **INST-01**: User on Android/desktop Chrome sees install prompt via beforeinstallprompt with dismiss/accept
-- [ ] **INST-02**: User on iOS sees "Add to Home Screen" instructions with share icon guidance
-- [ ] **INST-03**: Install prompt hidden when app already running in standalone mode
+- [x] **INST-01**: User on Android/desktop Chrome sees install prompt via beforeinstallprompt with dismiss/accept
+- [x] **INST-02**: User on iOS sees "Add to Home Screen" instructions with share icon guidance
+- [x] **INST-03**: Install prompt hidden when app already running in standalone mode
 
 ### Push
 
@@ -85,9 +85,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OFFL-02 | Phase 101 | Complete |
 | OFFL-03 | Phase 103 | Pending |
 | OFFL-04 | Phase 101 | Complete |
-| INST-01 | Phase 102 | Pending |
-| INST-02 | Phase 102 | Pending |
-| INST-03 | Phase 102 | Pending |
+| INST-01 | Phase 102 | Complete |
+| INST-02 | Phase 102 | Complete |
+| INST-03 | Phase 102 | Complete |
 | PUSH-01 | Phase 105 | Pending |
 | PUSH-02 | Phase 105 | Pending |
 | PUSH-03 | Phase 105 | Pending |
