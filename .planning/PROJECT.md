@@ -149,6 +149,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 <!-- v8.0 PWA requirements — see REQUIREMENTS.md -->
 - Validated in Phase 100: FOUND-01 (Serwist packages), FOUND-02 (service worker with API bypass), FOUND-03 (Vercel cache headers), FOUND-04 (manifest + icons + meta tags)
+- Validated in Phase 101: OFFL-01 (branded offline fallback page), OFFL-02 (online/offline connectivity banner), OFFL-04 (app shell cache verification)
 
 ### Out of Scope
 
@@ -272,4 +273,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v7.0: Write-tier rate limit 30/min | Identified as cause of user-reported 429s; documented for future tuning | ⚠️ Revisit |
 
 ---
-*Last updated: 2026-03-23 after Phase 100 (PWA Foundation) complete*
+*Last updated: 2026-03-23 after Phase 101 (Offline Shell) complete*
