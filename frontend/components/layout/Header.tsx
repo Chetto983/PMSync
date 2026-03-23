@@ -17,6 +17,7 @@ import {
   Menu as MenuIcon,
   Sparkles,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 import { authClient } from '@/lib/auth-client';
@@ -124,7 +125,8 @@ export function Header({
           {/* AI Assistant entry point. HITL approvals are handled inline in chat. */}
           <Tooltip title={t.ai?.title || 'AI Assistant'}>
             <IconButton
-              onClick={() => router.push('/dashboard/ai')}
+              component={Link}
+              href="/dashboard/ai"
               sx={{
                 position: 'relative',
                 color: 'inherit',
@@ -208,8 +210,8 @@ export function Header({
           avatarUrl={user?.image}
           isMobile={isMobile}
           locale={locale}
-          onProfile={() => router.push('/dashboard/profile')}
-          onSettings={() => router.push('/dashboard/settings')}
+          onProfile={() => void router.push('/dashboard/profile')}
+          onSettings={() => void router.push('/dashboard/settings')}
           onLogout={handleLogout}
           onLanguageOpen={(e) => setLanguageAnchor(e.currentTarget)}
         />

@@ -1,5 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Box,
   Drawer,
@@ -147,14 +148,17 @@ export function Sidebar({
             arrow
           >
             <ListItemButton
+              component={Link}
+              href={item.href}
               selected={isActive(item.href)}
               sx={{
                 mb: 0.5,
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 px: collapsed ? 1.5 : 2,
+                textDecoration: 'none',
+                color: 'inherit',
               }}
               onClick={() => {
-                router.push(item.href);
                 if (isMobile && onClose) {
                   onClose();
                 }

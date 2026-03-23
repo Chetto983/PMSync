@@ -38,6 +38,13 @@ const serwist = new Serwist({
       matcher: /^\/api\/.*/,
       handler: new NetworkOnly(),
     },
+    // CRITICAL: /_next/data/* must bypass SW cache.
+    // Next.js Pages Router uses these for client-side navigation (getServerSideProps).
+    // Caching them causes stale page data and broken navigation transitions.
+    {
+      matcher: /^\/_next\/data\/.*/,
+      handler: new NetworkOnly(),
+    },
     ...filteredCache,
   ],
   fallbacks: {
