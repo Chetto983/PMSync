@@ -163,10 +163,14 @@ export class MistralService implements OnModuleInit {
 
           if (!text) throw new AiError('Empty response from AI service', AiErrorCode.EMPTY_RESPONSE);
 
-          const outputValidation = this.promptGuard.validateOutput(text);
-          if (!outputValidation.isValid) {
-            this.logger.warn(`Blocked potential data leakage in output: ${outputValidation.blockReason}`);
-            throw new AiError('Output blocked by security guard: Potential data leakage', AiErrorCode.OUTPUT_BLOCKED);
+          // Skip output validation for SYSTEM_INTERNAL (email triage, etc.)
+          // — LLM output contains email content (names, addresses) that triggers false positives.
+          if (validationContext !== 'SYSTEM_INTERNAL') {
+            const outputValidation = this.promptGuard.validateOutput(text);
+            if (!outputValidation.isValid) {
+              this.logger.warn(`Blocked potential data leakage in output: ${outputValidation.blockReason}`);
+              throw new AiError('Output blocked by security guard: Potential data leakage', AiErrorCode.OUTPUT_BLOCKED);
+            }
           }
           return text;
         };
