@@ -44,9 +44,6 @@ export class MistralProviderService {
   getChatModel(modelId?: string): LanguageModel {
     const id = modelId ?? this.defaultChatModel;
     return this.openRouterProvider.chat(id, {
-      extraBody: {
-        reasoning: { effort: 'medium' },
-      },
       provider: {
         data_collection: 'deny',
         sort: 'latency',
