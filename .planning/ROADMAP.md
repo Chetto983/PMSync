@@ -328,7 +328,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 96. UI/UX Polish | 4/4 | Complete    | 2026-03-21 |
 | 97. MUI Chat Migration | - | Obsolete | 2026-03-22 |
 | 98. Security Verification | 2/2 | Complete    | 2026-03-22 |
-| 99. Tech Debt Closure | 2/2 | Complete | 2026-03-23 |
+| 99. Tech Debt Closure | 2/2 | Complete    | 2026-03-23 |
 
 ---
 *Roadmap created: 2026-02-09*
