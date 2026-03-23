@@ -302,7 +302,7 @@ Plans:
   1. `hybrid_email_search` SQL function exists in the database and `HybridSearchService` uses full hybrid (vector + full-text) search instead of vector-only fallback
   2. `verify-rbac.ts` exercises the super-admin RBAC bypass path and confirms it works correctly
   3. `OrgAdminPage.tsx` is split to stay under the 500-line CLAUDE.md limit
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 99-01-PLAN.md -- Super-admin RBAC verification + OrgAdminPage split (SEC-05, code cleanup)
 - [ ] 99-02-PLAN.md -- Deploy hybrid search SQL migrations to Railway (BAPI-15)
@@ -328,7 +328,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 96. UI/UX Polish | 4/4 | Complete    | 2026-03-21 |
 | 97. MUI Chat Migration | - | Obsolete | 2026-03-22 |
 | 98. Security Verification | 2/2 | Complete    | 2026-03-22 |
-| 99. Tech Debt Closure | 0/2 | Not Started | — |
+| 99. Tech Debt Closure | 1/2 | In Progress|  |
 
 ---
 *Roadmap created: 2026-02-09*
