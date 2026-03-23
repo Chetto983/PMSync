@@ -146,4 +146,8 @@ export const config = {
     externalResolver: true,
     responseLimit: false,
   },
+  // SSE streams (ai/chat) can run 60s+ during tool loops.
+  // Default Vercel timeout (10s hobby / 60s pro) kills the stream mid-flight,
+  // leaving assistant-ui stuck with data-status="running" forever.
+  maxDuration: 300,
 };
