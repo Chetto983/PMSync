@@ -24,7 +24,7 @@
       ]
     },
     {
-      "source": "/swe-worker-*.js",
+      "source": "/swe-worker-(.*).js",
       "headers": [
         {
           "key": "Cache-Control",
