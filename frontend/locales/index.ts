@@ -3956,6 +3956,20 @@ export interface AppTranslations {
       acceptButton?: string;
     };
   };
+  pwa?: {
+    install?: {
+      chromiumMessage?: string;
+      accept?: string;
+      dismiss?: string;
+      dismissAriaLabel?: string;
+      iosMessage?: string;
+      iosLearnHow?: string;
+      iosTitle?: string;
+      iosStep1?: string;
+      iosStep2?: string;
+      iosStep3?: string;
+    };
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;

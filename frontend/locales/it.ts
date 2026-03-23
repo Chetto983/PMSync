@@ -4102,4 +4102,18 @@ export const it: AppTranslations = {
       acceptButton: 'Accetta Invito',
     },
   },
+  pwa: {
+    install: {
+      chromiumMessage: "Installa PMSync per un'esperienza nativa e veloce",
+      accept: 'Installa App',
+      dismiss: 'Non ora',
+      dismissAriaLabel: 'Chiudi suggerimento installazione',
+      iosMessage: 'Aggiungi PMSync alla schermata iniziale',
+      iosLearnHow: 'Scopri come',
+      iosTitle: 'Aggiungi alla schermata iniziale',
+      iosStep1: 'Tocca il pulsante Condividi nella barra degli strumenti',
+      iosStep2: 'Scorri e tocca "Aggiungi alla schermata Home"',
+      iosStep3: 'Tocca "Aggiungi" per confermare',
+    },
+  },
 };

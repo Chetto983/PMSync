@@ -4125,4 +4125,18 @@ export const en: AppTranslations = {
       acceptButton: 'Accept Invitation',
     },
   },
+  pwa: {
+    install: {
+      chromiumMessage: 'Install PMSync for a faster, native-like experience',
+      accept: 'Install App',
+      dismiss: 'Not now',
+      dismissAriaLabel: 'Dismiss install prompt',
+      iosMessage: 'Add PMSync to your home screen',
+      iosLearnHow: 'Learn how',
+      iosTitle: 'Add to Home Screen',
+      iosStep1: 'Tap the Share button in the toolbar',
+      iosStep2: 'Scroll down and tap "Add to Home Screen"',
+      iosStep3: 'Tap "Add" to confirm',
+    },
+  },
 };
