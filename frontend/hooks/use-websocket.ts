@@ -12,6 +12,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { websocketClient } from '@/lib/websocket-client';
 import { authClient } from '@/lib/auth-client';
+import { clearOfflineData } from '@/lib/logout-cleanup';
 import { logger } from '@/lib/logger';
 
 interface UseWebSocketOptions {
@@ -54,6 +55,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const { data: session } = authClient.useSession();
   const isAuthenticated = !!session;
   const handleLogout = useCallback(async () => {
+    // Clear offline data BEFORE destroying session (SYNC-04: prevent data leaks)
+    await clearOfflineData();
     const result = await authClient.signOut();
     if (result.error) {
       logger.warn('[useWebSocket] Sign out returned an error', {

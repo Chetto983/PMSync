@@ -3,14 +3,14 @@ import { clearOfflineData } from './logout-cleanup';
 // Mock query-persist
 const mockClearPersistedQueries = jest.fn().mockResolvedValue(undefined);
 jest.mock('./query-persist', () => ({
-  clearPersistedQueries: (...args: unknown[]) => mockClearPersistedQueries(...args),
+  clearPersistedQueries: () => mockClearPersistedQueries(),
 }));
 
 // Mock query-client
 const mockClear = jest.fn();
 const mockGetQueryClient = jest.fn(() => ({ clear: mockClear }));
 jest.mock('./query-client', () => ({
-  getQueryClient: (...args: unknown[]) => mockGetQueryClient(...args),
+  getQueryClient: () => mockGetQueryClient(),
 }));
 
 describe('clearOfflineData', () => {
@@ -31,7 +31,7 @@ describe('clearOfflineData', () => {
 
   afterEach(() => {
     // Clean up caches mock
-    delete (window as Record<string, unknown>).caches;
+    delete (window as unknown as Record<string, unknown>).caches;
   });
 
   it('calls clearPersistedQueries to clear IndexedDB', async () => {
@@ -54,7 +54,7 @@ describe('clearOfflineData', () => {
   });
 
   it('completes without error when caches API is unavailable', async () => {
-    delete (window as Record<string, unknown>).caches;
+    delete (window as unknown as Record<string, unknown>).caches;
     await expect(clearOfflineData()).resolves.toBeUndefined();
     expect(mockClearPersistedQueries).toHaveBeenCalledTimes(1);
     expect(mockClear).toHaveBeenCalledTimes(1);

@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 import { authClient } from '@/lib/auth-client';
+import { clearOfflineData } from '@/lib/logout-cleanup';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThemeToggle } from './ThemeToggle';
@@ -65,6 +66,8 @@ export function Header({
 
   const handleLogout = async () => {
     setAnchorEl(null);
+    // Clear offline data BEFORE destroying session (SYNC-04: prevent data leaks)
+    await clearOfflineData();
     await authClient.signOut();
     await router.replace('/auth/login');
   };

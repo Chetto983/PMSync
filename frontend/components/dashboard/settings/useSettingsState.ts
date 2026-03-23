@@ -10,6 +10,7 @@ import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/ai';
 import { usersApi } from '@/lib/api/users';
 import { authClient } from '@/lib/auth-client';
+import { clearOfflineData } from '@/lib/logout-cleanup';
 import {
   useProviders,
   useUserPreferences,
@@ -150,6 +151,8 @@ export function useSettingsState() {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const handleLogout = async () => {
+    // Clear offline data BEFORE destroying session (SYNC-04: prevent data leaks)
+    await clearOfflineData();
     await authClient.signOut();
   };
 

@@ -38,6 +38,7 @@ import {
   User,
 } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
+import { clearOfflineData } from '@/lib/logout-cleanup';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { createLogger } from '@/lib/logger';
 import { emailsApi } from '@/lib/api/emails';
@@ -76,6 +77,8 @@ export function CommandPalette() {
   const t = useTranslations();
 
   const handleLogout = useCallback(async () => {
+    // Clear offline data BEFORE destroying session (SYNC-04: prevent data leaks)
+    await clearOfflineData();
     const result = await authClient.signOut();
     if (result.error) {
       logger.warn('Sign out returned an error', { message: result.error.message });

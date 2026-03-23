@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { authClient } from '@/lib/auth-client';
+import { clearOfflineData } from '@/lib/logout-cleanup';
 
 // =============================================================================
 // CSRF Token Management (SEC-04)
@@ -184,7 +185,7 @@ apiClient.interceptors.response.use(
     // 401 handling: sign out and redirect to login
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        authClient.signOut().then(() => {
+        clearOfflineData().then(() => authClient.signOut()).then(() => {
           const returnTo = window.location.pathname;
           window.location.href = `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
         });
