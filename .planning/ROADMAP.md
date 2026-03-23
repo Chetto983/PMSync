@@ -180,8 +180,8 @@ Plans:
   3. Queued actions older than 30 minutes are discarded and the user sees a notification explaining the expiry
 **Plans:** 2 plans
 Plans:
-- [ ] 102-01-PLAN.md -- Translations + useInstallPrompt hook + unit tests
-- [ ] 102-02-PLAN.md -- InstallPromptBanner component + Layout wiring
+- [ ] 104-01-PLAN.md -- OfflineActionQueue module, Zustand store, translations, useUpdateEmail offline interception
+- [ ] 104-02-PLAN.md -- Replay engine hook, SW sync handler, OfflineBanner badge, logout cleanup wiring
 
 ### Phase 105: Push Plumbing & Polish
 **Goal**: Push notification frontend infrastructure is wired and PMSync passes Lighthouse PWA audit
@@ -209,7 +209,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 | 101. Offline Shell | 1/1 | Complete    | 2026-03-23 | - |
 | 102. Install Experience | 2/2 | Complete    | 2026-03-23 | - |
 | 103. Offline Email Reading | 2/2 | Complete    | 2026-03-23 | - |
-| 104. Background Sync | v8.0 | 0/TBD | Not started | - |
+| 104. Background Sync | v8.0 | 0/2 | Not started | - |
 | 105. Push Plumbing & Polish | v8.0 | 0/TBD | Not started | - |
 
 ---
