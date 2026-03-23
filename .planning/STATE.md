@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
-status: defining_requirements
-stopped_at: Defining requirements
-last_updated: "2026-03-23T12:00:00.000Z"
+status: ready_to_plan
+stopped_at: Roadmap created, ready to plan Phase 100
+last_updated: "2026-03-23T14:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,34 +19,48 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** v8.0 Progressive Web App — defining requirements
+**Current focus:** v8.0 Progressive Web App -- Phase 100 (PWA Foundation)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-23 — Milestone v8.0 started
+Phase: 100 of 105 (PWA Foundation)
+Plan: -- (not yet planned)
+Status: Ready to plan
+Last activity: 2026-03-23 -- Roadmap created with 6 phases, 21 requirements mapped
+
+Progress: [..........] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0
+- Average duration: --
+- Total execution time: 0 hours
 
 ## Accumulated Context
 
 ### Decisions
 
-- PWA is frontend-only scope (no backend push trigger)
-- Offline support: cached inbox reading, not full offline-first with conflict resolution
-- Push notification: frontend plumbing only (service worker handler, subscription UI)
+- PWA is frontend-only scope (no backend push trigger in v8.0)
+- SW must NOT intercept /api/* (httpOnly cookie auth, TQ caching, SSE)
+- Serwist (@serwist/next) for SW compilation, not next-pwa
+- Offline email reading via TanStack Query persist to IndexedDB (not SW API caching)
+- Background sync: online event as primary, BackgroundSync API as Chromium-only enhancement
+- iOS has no beforeinstallprompt, no BackgroundSync -- needs separate code paths
+- Manifest via static public/manifest.json (Pages Router, not App Router app/manifest.ts)
 
 ### Pending Todos
 
-None — milestone just started.
+None yet.
 
 ### Blockers/Concerns
 
-- Some backend Jest suites still assume a migrated local test DB; pure unit tests must bypass `globalSetup` when the Neon test database is unavailable
-- Repo-wide lint/type-check is green
+- Phase 103: Verify TQ v5 experimental_createPersister compatibility with existing config before implementation
+- Phase 104: Safari has zero BackgroundSync support -- online event is the primary replay path
+- Phase 105: Check Prisma schema for PushSubscription storage -- may need new model + migration
 
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Defining v8.0 requirements
+Stopped at: Roadmap created, ready to plan Phase 100
 Resume file: None

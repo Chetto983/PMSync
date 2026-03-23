@@ -14,6 +14,7 @@
 - ✅ **v5.1 Test Coverage & Polish** — Phases 66-76 (shipped 2026-03-15)
 - ✅ **v6.0 Enterprise Platform & AI Governance** — Phases 77-88 (partial, archived 2026-03-20)
 - ✅ **v7.0 System Audit & Hardening** — Phases 89-99 (shipped 2026-03-23)
+- **v8.0 Progressive Web App** — Phases 100-105 (in progress)
 
 ## Phases
 
@@ -101,22 +102,100 @@
 
 </details>
 
+### v8.0 Progressive Web App (In Progress)
+
+**Milestone Goal:** Transform PMSync into a full PWA -- installable on home screen, offline email reading, push notification frontend plumbing, and native-like install experience. Frontend-only scope; no backend push triggers.
+
+**Phase Numbering:**
+- Integer phases (100-105): Planned v8.0 milestone work
+- Decimal phases (e.g., 100.1): Urgent insertions if needed (marked with INSERTED)
+
+- [ ] **Phase 100: PWA Foundation** - Web app manifest, service worker registration, icon set, Vercel cache headers
+- [ ] **Phase 101: Offline Shell** - Offline fallback page, online/offline indicator, app shell caching
+- [ ] **Phase 102: Install Experience** - beforeinstallprompt for Android/desktop, iOS instructions, standalone detection
+- [ ] **Phase 103: Offline Email Reading** - TanStack Query persist to IndexedDB, cache-on-logout security
+- [ ] **Phase 104: Background Sync** - Offline mutation queue, replay on reconnect, queue TTL with notification
+- [ ] **Phase 105: Push Plumbing & Polish** - VAPID subscription UI, SW push handler, SW update notification, Lighthouse PWA audit
+
+## Phase Details
+
+### Phase 100: PWA Foundation
+**Goal**: PMSync is recognized as an installable PWA with a registered service worker serving precached static assets
+**Depends on**: Nothing (first phase)
+**Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04
+**Success Criteria** (what must be TRUE):
+  1. User sees correct app name, theme color, and icons when adding PMSync to home screen on Android, iOS, and desktop
+  2. Service worker activates on first visit and subsequent page loads serve static assets (JS, CSS, fonts) from SW cache
+  3. Deploying a new version on Vercel causes the browser to detect the updated sw.js within 24 hours (no stale SW caching)
+  4. All /api/* requests bypass the service worker entirely -- no 401s, no SSE corruption, no TanStack Query interference
+**Plans**: TBD
+
+### Phase 101: Offline Shell
+**Goal**: PMSync opens from home screen and renders its shell even without network, with clear offline status indication
+**Depends on**: Phase 100
+**Requirements**: OFFL-01, OFFL-02, OFFL-04
+**Success Criteria** (what must be TRUE):
+  1. User navigating to an uncached route without network sees a branded PMSync offline page instead of the browser error
+  2. User sees a visible banner when connection drops and the banner disappears when connection restores
+  3. App shell (sidebar, top bar, layout chrome) loads instantly from cache when opening the app offline
+**Plans**: TBD
+
+### Phase 102: Install Experience
+**Goal**: Users on all platforms get a clear path to install PMSync as a standalone app
+**Depends on**: Phase 100
+**Requirements**: INST-01, INST-02, INST-03
+**Success Criteria** (what must be TRUE):
+  1. User on Android or desktop Chrome sees a dismissible install prompt with accept/dismiss actions
+  2. User on iOS Safari sees instructions to tap the share icon and select "Add to Home Screen"
+  3. Install prompt is hidden when the app is already running in standalone mode (no redundant prompt)
+**Plans**: TBD
+
+### Phase 103: Offline Email Reading
+**Goal**: Users can read their recently-synced emails after closing and reopening the app without network
+**Depends on**: Phase 101
+**Requirements**: OFFL-03, SYNC-04
+**Success Criteria** (what must be TRUE):
+  1. User can open PMSync offline, see their inbox list, and read email bodies that were previously loaded while online
+  2. All IndexedDB persisted data and SW caches are cleared when the user signs out (no data leaks between sessions)
+**Plans**: TBD
+
+### Phase 104: Background Sync
+**Goal**: Users can perform email actions while offline and have them sync automatically when connectivity returns
+**Depends on**: Phase 103
+**Requirements**: SYNC-01, SYNC-02, SYNC-03
+**Success Criteria** (what must be TRUE):
+  1. User can mark-read, archive, and star emails while offline -- actions are visually applied immediately and queued in IndexedDB
+  2. Queued actions replay automatically when the device reconnects (via online event; BackgroundSync as Chromium-only enhancement)
+  3. Queued actions older than 30 minutes are discarded and the user sees a notification explaining the expiry
+**Plans**: TBD
+
+### Phase 105: Push Plumbing & Polish
+**Goal**: Push notification frontend infrastructure is wired and PMSync passes Lighthouse PWA audit
+**Depends on**: Phase 100
+**Requirements**: PUSH-01, PUSH-02, PUSH-03, PUSH-04, PLSH-01, PLSH-02
+**Success Criteria** (what must be TRUE):
+  1. User can opt into push notifications from the settings page and the VAPID subscription is sent to the backend
+  2. Service worker handles incoming push events and displays a notification with the PMSync icon
+  3. User tapping a push notification opens PMSync to the relevant view
+  4. Push subscription UI is hidden on browsers that do not support PushManager or on iOS Safari outside standalone mode
+  5. User sees a "New version available" snackbar after a deploy and can trigger a reload to activate the new service worker
+**Plans**: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 89. Auth & Onboarding | v7.0 | 3/3 | Complete | 2026-03-20 |
-| 90. Email Operations | v7.0 | 4/4 | Complete | 2026-03-20 |
-| 91. Calendar/Contacts/Reminders | v7.0 | 5/5 | Complete | 2026-03-20 |
-| 92. AI & Knowledge Base | v7.0 | 3/3 | Complete | 2026-03-20 |
-| 93. Admin/Subscriptions/Integrations | v7.0 | 4/4 | Complete | 2026-03-20 |
-| 94. Infrastructure & Pages | v7.0 | 3/3 | Complete | 2026-03-20 |
-| 95. Dead Code & Cleanup | v7.0 | 5/5 | Complete | 2026-03-21 |
-| 96. UI/UX Polish | v7.0 | 4/4 | Complete | 2026-03-21 |
-| 97. MUI Chat Migration | v7.0 | - | Obsolete | 2026-03-22 |
-| 98. Security Verification | v7.0 | 2/2 | Complete | 2026-03-22 |
-| 99. Tech Debt Closure | v7.0 | 2/2 | Complete | 2026-03-23 |
+| 100. PWA Foundation | v8.0 | 0/TBD | Not started | - |
+| 101. Offline Shell | v8.0 | 0/TBD | Not started | - |
+| 102. Install Experience | v8.0 | 0/TBD | Not started | - |
+| 103. Offline Email Reading | v8.0 | 0/TBD | Not started | - |
+| 104. Background Sync | v8.0 | 0/TBD | Not started | - |
+| 105. Push Plumbing & Polish | v8.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
 *v7.0 completed: 2026-03-23 -- 10 phases, 35 plans, 65/65 requirements*
+*v8.0 roadmap created: 2026-03-23 -- 6 phases, 21 requirements*

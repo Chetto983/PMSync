@@ -1,7 +1,7 @@
 # Requirements: PMSync v8.0
 
 **Defined:** 2026-03-23
-**Core Value:** The best professional AI mail client — fast, intelligent, and secure
+**Core Value:** The best professional AI mail client -- fast, intelligent, and secure
 
 ## v8.0 Requirements
 
@@ -65,7 +65,7 @@ Deferred to v8.x+ or v9.0.
 
 | Feature | Reason |
 |---------|--------|
-| Backend push triggers (BullMQ → web-push) | Scoped as frontend-only milestone; backend integration deferred to v9+ |
+| Backend push triggers (BullMQ -> web-push) | Scoped as frontend-only milestone; backend integration deferred to v9+ |
 | Full offline-first architecture with conflict resolution | Exceeds PWA scope; would require CRDT or similar sync strategy |
 | Native app (Capacitor/Tauri) | Web-first strategy; PWA provides native-like experience |
 | Notification action buttons | Requires backend push triggers which are out of scope |
@@ -77,33 +77,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | — | Pending |
-| FOUND-02 | — | Pending |
-| FOUND-03 | — | Pending |
-| FOUND-04 | — | Pending |
-| OFFL-01 | — | Pending |
-| OFFL-02 | — | Pending |
-| OFFL-03 | — | Pending |
-| OFFL-04 | — | Pending |
-| INST-01 | — | Pending |
-| INST-02 | — | Pending |
-| INST-03 | — | Pending |
-| PUSH-01 | — | Pending |
-| PUSH-02 | — | Pending |
-| PUSH-03 | — | Pending |
-| PUSH-04 | — | Pending |
-| SYNC-01 | — | Pending |
-| SYNC-02 | — | Pending |
-| SYNC-03 | — | Pending |
-| SYNC-04 | — | Pending |
-| PLSH-01 | — | Pending |
-| PLSH-02 | — | Pending |
+| FOUND-01 | Phase 100 | Pending |
+| FOUND-02 | Phase 100 | Pending |
+| FOUND-03 | Phase 100 | Pending |
+| FOUND-04 | Phase 100 | Pending |
+| OFFL-01 | Phase 101 | Pending |
+| OFFL-02 | Phase 101 | Pending |
+| OFFL-03 | Phase 103 | Pending |
+| OFFL-04 | Phase 101 | Pending |
+| INST-01 | Phase 102 | Pending |
+| INST-02 | Phase 102 | Pending |
+| INST-03 | Phase 102 | Pending |
+| PUSH-01 | Phase 105 | Pending |
+| PUSH-02 | Phase 105 | Pending |
+| PUSH-03 | Phase 105 | Pending |
+| PUSH-04 | Phase 105 | Pending |
+| SYNC-01 | Phase 104 | Pending |
+| SYNC-02 | Phase 104 | Pending |
+| SYNC-03 | Phase 104 | Pending |
+| SYNC-04 | Phase 103 | Pending |
+| PLSH-01 | Phase 105 | Pending |
+| PLSH-02 | Phase 105 | Pending |
 
 **Coverage:**
 - v8.0 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21
+- Mapped to phases: 21
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after initial definition*
+*Last updated: 2026-03-23 after roadmap creation*
