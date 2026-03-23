@@ -390,6 +390,7 @@ export interface AppTranslations {
     all?: string;
     providerConnectError?: string;
     providerConnectSuccess?: string;
+    offlineBanner?: string;
   };
   timeAgo: {
     justNow: string;

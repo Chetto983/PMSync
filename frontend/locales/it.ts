@@ -122,6 +122,7 @@ export const it: AppTranslations = {
     all: 'Tutti',
     providerConnectError: 'Impossibile collegare il provider',
     providerConnectSuccess: 'Account collegato con successo',
+    offlineBanner: 'Sei offline. Alcune funzionalita potrebbero non essere disponibili.',
   },
   timeAgo: {
     justNow: 'Adesso',
