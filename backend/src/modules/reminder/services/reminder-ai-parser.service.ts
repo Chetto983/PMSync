@@ -131,7 +131,7 @@ export class ReminderAiParserService {
         prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi SOLO con il JSON, senza testo aggiuntivo.`,
         temperature: 0.1,
         maxOutputTokens: 600,
-        abortSignal: AbortSignal.timeout(20_000),
+        abortSignal: AbortSignal.timeout(45_000),
       });
 
       const latencyMs = Date.now() - startTime;
