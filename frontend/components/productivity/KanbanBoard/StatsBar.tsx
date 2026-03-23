@@ -79,6 +79,8 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
             textTransform: 'uppercase',
             letterSpacing: 0.5,
             whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           {label}
