@@ -8,6 +8,20 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
+## Current Milestone: v8.0 Progressive Web App
+
+**Goal:** Transform PMSync into a full PWA — installable on home screen, offline email reading via service worker caching, push notification frontend plumbing, and native-like install experience.
+
+**Target features:**
+- Web app manifest with icons for all platforms
+- Service worker with offline caching (inbox, read emails offline)
+- Install prompt UX (iOS instructions, beforeinstallprompt for Android/desktop)
+- Push notification frontend infrastructure (subscription UI, service worker handler)
+- Offline fallback page for uncached routes
+- Background sync for queued actions (mark read, archive) when reconnecting
+
+**Scope boundary:** Frontend only. No backend push trigger (BullMQ → web-push) in this milestone.
+
 ## Current State
 
 **Version:** v7.0 shipped (2026-03-23)
@@ -133,12 +147,12 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- Next milestone requirements go here -->
+<!-- v8.0 PWA requirements — see REQUIREMENTS.md -->
 
 ### Out of Scope
 
 - Mobile app (web-first, responsive)
-- Offline support (requires service worker complexity)
+- Offline support beyond cached inbox (full offline-first architecture with conflict resolution)
 - End-to-end encryption (separate security audit)
 - Custom email provider (focus on Gmail, Outlook, IMAP)
 - Mastra framework (NestJS incompatible -- explicitly no NestJS support)
@@ -257,4 +271,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v7.0: Write-tier rate limit 30/min | Identified as cause of user-reported 429s; documented for future tuning | ⚠️ Revisit |
 
 ---
-*Last updated: 2026-03-23 after v7.0 milestone*
+*Last updated: 2026-03-23 after v8.0 milestone start*

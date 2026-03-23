@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v7.0
-milestone_name: System Audit & Hardening
-status: completed
-stopped_at: Milestone v7.0 archived
-last_updated: "2026-03-23T10:30:00.000Z"
+milestone: v8.0
+milestone_name: Progressive Web App
+status: defining_requirements
+stopped_at: Defining requirements
+last_updated: "2026-03-23T12:00:00.000Z"
 progress:
-  total_phases: 11
-  completed_phases: 10
-  total_plans: 35
-  completed_plans: 35
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -19,21 +19,26 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Planning next milestone
+**Current focus:** v8.0 Progressive Web App — defining requirements
 
 ## Current Position
 
-Milestone v7.0 complete. Awaiting `/gsd:new-milestone` for next cycle.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-23 — Milestone v8.0 started
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in `PROJECT.md` key decisions table.
+- PWA is frontend-only scope (no backend push trigger)
+- Offline support: cached inbox reading, not full offline-first with conflict resolution
+- Push notification: frontend plumbing only (service worker handler, subscription UI)
 
 ### Pending Todos
 
-None — milestone complete.
+None — milestone just started.
 
 ### Blockers/Concerns
 
@@ -43,5 +48,5 @@ None — milestone complete.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: v7.0 milestone archived
+Stopped at: Defining v8.0 requirements
 Resume file: None
