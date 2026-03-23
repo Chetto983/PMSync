@@ -48,9 +48,11 @@ All typography inherits from `frontend/theme/typography.ts`. Phase-specific usag
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body (body1) | 14px (0.875rem) | 400 (normal) | 1.625 (relaxed) | Snackbar install message, Dialog instruction steps |
-| Label (subtitle2) | 14px (0.875rem) | 500 (medium) | 1.5 (normal) | "Install PMSync" button text |
+| Label (subtitle2) | 14px (0.875rem) | 400 (normal) | 1.5 (normal) | "Install App" button text |
 | Heading (h6) | 16px (1rem) | 600 (semibold) | 1.5 (normal) | iOS Dialog title |
 | Caption | 12px (0.75rem) | 400 (normal) | 1.5 (normal) | Step numbers in iOS instructions |
+
+Weights used: 400 (normal) for body, label, and caption; 600 (semibold) for heading only. Two weights total.
 
 ---
 
@@ -62,12 +64,18 @@ All colors from existing MUI theme. No new colors introduced.
 |------|----------------------|-------|
 | Dominant (60%) | `background.default` (#0c1017 / #f8fafc) | Page background behind banners |
 | Secondary (30%) | `background.paper` (#131a24 / #ffffff) | Snackbar surface, Dialog surface |
-| Accent (10%) | `info.main` (#55cae5 / #00aced) | Install banner icon, "Install" button |
+| Accent (10%) | `info.main` (#55cae5 / #00aced) | Install banner icon, "Install App" button |
 | Destructive | not used | No destructive actions in this phase |
 
-Accent reserved for: Download icon in Snackbar, "Install" primary action button. NOT for dismiss/close button (dismiss uses default text color).
+Accent reserved for: Download icon in Snackbar, "Install App" primary action button. NOT for dismiss/close button (dismiss uses default text color).
 
 Info severity used for install Snackbar because install is informational guidance, matching the existing `OfflineBanner` pattern which uses `severity="warning"` for a different purpose. Install = info. Offline = warning.
+
+---
+
+## Visual Focal Point
+
+The primary visual anchor is the "Install App" accent-colored button inside the Snackbar Alert action area. It is the single element using accent color (`info.main`) at full prominence, drawing the eye to the install action. The Download icon to its left provides supporting visual weight but the button is the focal point.
 
 ---
 
@@ -78,8 +86,9 @@ All strings go through the translation system (`frontend/locales/en.ts` + `it.ts
 | Element | Key | EN Copy | IT Copy |
 |---------|-----|---------|---------|
 | Chromium banner message | `pwa.install.chromiumMessage` | "Install PMSync for a faster, native-like experience" | "Installa PMSync per un'esperienza nativa e veloce" |
-| Primary CTA (Chromium) | `pwa.install.accept` | "Install" | "Installa" |
+| Primary CTA (Chromium) | `pwa.install.accept` | "Install App" | "Installa App" |
 | Dismiss label | `pwa.install.dismiss` | "Not now" | "Non ora" |
+| Dismiss icon aria-label | `pwa.install.dismissAriaLabel` | "Dismiss install prompt" | "Chiudi suggerimento installazione" |
 | iOS banner message | `pwa.install.iosMessage` | "Add PMSync to your home screen" | "Aggiungi PMSync alla schermata iniziale" |
 | iOS banner CTA | `pwa.install.iosLearnHow` | "Learn how" | "Scopri come" |
 | iOS dialog title | `pwa.install.iosTitle` | "Add to Home Screen" | "Aggiungi alla schermata iniziale" |
@@ -98,7 +107,7 @@ Destructive actions: none in this phase.
 
 | Component | MUI Base | Behavior | INST Req |
 |-----------|----------|----------|----------|
-| `InstallPromptBanner` | `Snackbar` + `Alert` | Bottom-center Snackbar with info severity. Two actions: "Install" Button + "Not now" text button. Auto-hidden when standalone. | INST-01, INST-03 |
+| `InstallPromptBanner` | `Snackbar` + `Alert` | Bottom-center Snackbar with info severity. Two actions: "Install App" Button + dismiss IconButton with `aria-label={t.pwa.install.dismissAriaLabel}`. Auto-hidden when standalone. | INST-01, INST-03 |
 | `InstallPromptBanner` (iOS path) | `Snackbar` + `Alert` | Bottom-center Snackbar with info severity. Single action: "Learn how" text button that opens iOS dialog. | INST-02, INST-03 |
 | iOS instructions Dialog | `Dialog` + `DialogTitle` + `DialogContent` + `DialogActions` | Modal with 3 numbered steps. Share icon (`Share` from lucide-react, or inline SVG of iOS share icon) next to step 1. Single close button. | INST-02 |
 
@@ -144,6 +153,7 @@ The Snackbar's bottom position avoids conflict with the top-positioned OfflineBa
 | Snackbar focus | MUI Snackbar manages focus. Alert has `role="alert"` by default. |
 | Dialog focus trap | MUI Dialog provides focus trap automatically. |
 | Dismiss keyboard | Snackbar dismiss via Escape key (MUI default). |
+| Dismiss icon-only button | IconButton uses `aria-label={t.pwa.install.dismissAriaLabel}` ("Dismiss install prompt"). |
 | iOS share icon | Use `aria-hidden="true"` on decorative share icon; step text is self-describing. |
 | Color contrast | Info severity Alert uses theme-provided contrast colors (WCAG AA compliant in both dark/light themes). |
 
