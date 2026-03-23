@@ -194,8 +194,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-03 | Phase 98 | Complete |
 | SEC-04 | Phase 98 | Complete |
 | SEC-05 | Phase 98 | Complete |
-| BAPI-15 (partial) | Phase 99 | Pending |
-| SEC-05 (partial) | Phase 99 | Pending |
+| BAPI-15 (partial) | Phase 99 | Complete |
+| SEC-05 (partial) | Phase 99 | Complete |
 
 **Coverage:**
 - v7.0 requirements: 69 total

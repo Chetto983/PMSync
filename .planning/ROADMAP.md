@@ -108,7 +108,7 @@
 - [x] **Phase 96: UI/UX Polish** - Empty states, loading skeletons, error states, mobile, dark mode, keyboard nav, i18n (completed 2026-03-21)
 - [x] **Phase 97: MUI Chat Migration** - ~~Migrate chat CSS to MUI sx, remove ChatThemeBridge, remove Tailwind~~ OBSOLETE: Chat UI uses AI SDK components, not custom CSS
 - [x] **Phase 98: Security Verification** - Auth guards, tenant isolation, CSRF, rate limiting, RBAC on all routes (completed 2026-03-21)
-- [ ] **Phase 99: Tech Debt Closure** - hybrid_email_search SQL function, super-admin RBAC test, OrgAdminPage split (gap closure)
+- [x] **Phase 99: Tech Debt Closure** - hybrid_email_search SQL function, super-admin RBAC test, OrgAdminPage split (gap closure) (completed 2026-03-23)
 
 ## Phase Details
 
@@ -302,10 +302,10 @@ Plans:
   1. `hybrid_email_search` SQL function exists in the database and `HybridSearchService` uses full hybrid (vector + full-text) search instead of vector-only fallback
   2. `verify-rbac.ts` exercises the super-admin RBAC bypass path and confirms it works correctly
   3. `OrgAdminPage.tsx` is split to stay under the 500-line CLAUDE.md limit
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 99-01-PLAN.md -- Super-admin RBAC verification + OrgAdminPage split (SEC-05, code cleanup)
-- [ ] 99-02-PLAN.md -- Deploy hybrid search SQL migrations to Railway (BAPI-15)
+- [x] 99-01-PLAN.md -- Super-admin RBAC verification + OrgAdminPage split (SEC-05, code cleanup)
+- [x] 99-02-PLAN.md -- Deploy hybrid search SQL migrations to Railway (BAPI-15)
 
 ## Progress
 
@@ -328,7 +328,7 @@ Phase 98 can run after 95 (security testing on clean codebase).
 | 96. UI/UX Polish | 4/4 | Complete    | 2026-03-21 |
 | 97. MUI Chat Migration | - | Obsolete | 2026-03-22 |
 | 98. Security Verification | 2/2 | Complete    | 2026-03-22 |
-| 99. Tech Debt Closure | 1/2 | In Progress|  |
+| 99. Tech Debt Closure | 2/2 | Complete | 2026-03-23 |
 
 ---
 *Roadmap created: 2026-02-09*
