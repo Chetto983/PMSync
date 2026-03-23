@@ -17,18 +17,18 @@ created: 2026-03-23
 
 | Property | Value |
 |----------|-------|
-| **Framework** | vitest (frontend) |
-| **Config file** | `frontend/vitest.config.ts` |
-| **Quick run command** | `cd frontend && npx vitest run --reporter=verbose` |
-| **Full suite command** | `cd frontend && npx vitest run --reporter=verbose` |
+| **Framework** | Jest 30.2.0 + ts-jest (jsdom environment) |
+| **Config file** | `frontend/jest.config.js` |
+| **Quick run command** | `cd frontend && npx jest --no-coverage -x` |
+| **Full suite command** | `cd frontend && npx tsc --noEmit && npx jest --passWithNoTests --no-coverage` |
 | **Estimated runtime** | ~15 seconds |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd frontend && npx vitest run --reporter=verbose`
-- **After every plan wave:** Run `cd frontend && npx vitest run --reporter=verbose`
+- **After every task commit:** Run `cd frontend && npx tsc --noEmit`
+- **After every plan wave:** Run `cd frontend && npx tsc --noEmit && npx jest --passWithNoTests --no-coverage`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 15 seconds
 
@@ -38,18 +38,18 @@ created: 2026-03-23
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 101-01-01 | 01 | 1 | OFFL-04 | manual | Browser offline test | N/A | ⬜ pending |
-| 101-01-02 | 01 | 1 | OFFL-01 | manual | Navigate uncached route offline | N/A | ⬜ pending |
-| 101-02-01 | 02 | 1 | OFFL-02 | unit | `cd frontend && npx vitest run` | ❌ W0 | ⬜ pending |
+| 101-01-01 | 01 | 1 | OFFL-01, OFFL-04 | manual + type-check | `cd frontend && npx tsc --noEmit` | N/A | pending |
+| 101-01-02 | 01 | 1 | OFFL-02 | unit | `cd frontend && npx jest hooks/__tests__/use-online-status.test.ts --no-coverage -x` | No (W0) | pending |
+| 101-01-03 | 01 | 1 | OFFL-02 | type-check | `cd frontend && npx tsc --noEmit` | N/A | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `frontend/src/hooks/__tests__/use-online-status.test.ts` — unit test for online/offline hook
-- [ ] Existing vitest infrastructure covers framework needs
+- [ ] `frontend/hooks/__tests__/use-online-status.test.ts` — unit test for online/offline hook (created as TDD RED in Task 2)
+- [ ] Existing Jest infrastructure (jest.config.js, ts-jest, jsdom, @testing-library/react) covers framework needs
 
 *If none: "Existing infrastructure covers all phase requirements."*
 
@@ -60,7 +60,7 @@ created: 2026-03-23
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
 | Offline fallback page renders | OFFL-01 | Requires actual SW interception | 1. Build app 2. Open in browser 3. Go offline in DevTools 4. Navigate to uncached route 5. Verify branded page shows |
-| App shell loads from cache offline | OFFL-04 | Requires cached SW + offline mode | 1. Visit app online (populates cache) 2. Go offline 3. Refresh — shell must render |
+| App shell loads from cache offline | OFFL-04 | Requires cached SW + offline mode; verifies Phase 100 mechanism | 1. Visit app online (populates cache) 2. Go offline in DevTools > Application > Service Workers 3. Refresh — shell must render |
 | Online/offline banner appears/disappears | OFFL-02 | Requires network state toggling | 1. Open app 2. Toggle offline in DevTools 3. Banner appears 4. Toggle online 5. Banner disappears |
 
 ---
