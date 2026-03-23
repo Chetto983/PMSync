@@ -21,7 +21,14 @@ import { CorrelationContext } from '../../../common/services/correlation-context
  * Source: OpenRouter pricing page, Mistral pricing (2026-03)
  */
 export const COST_MAP: Record<string, { input: number; output: number }> = {
-  // Qwen 3.5 (OpenRouter)
+  // NVIDIA Nemotron (OpenRouter) — primary simple/fast model
+  'nvidia/nemotron-3-nano-30b-a3b': { input: 0.05, output: 0.20 },
+  // Google Gemini (OpenRouter)
+  'google/gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50 },
+  'google/gemini-2.5-flash-lite': { input: 0.25, output: 1.00 },
+  // MiniMax M2.7 (OpenRouter) — main chat model
+  'minimax/minimax-m2.7': { input: 1.00, output: 5.00 },
+  // Qwen 3.5 (OpenRouter) — legacy, kept for historical lookups
   'qwen/qwen3.5-flash-02-23': { input: 0.20, output: 0.20 },
   'qwen/qwen3.5-plus-02-15': { input: 0.30, output: 0.30 },
   // Mistral (embeddings + OCR only)
@@ -35,7 +42,7 @@ export const COST_MAP: Record<string, { input: number; output: number }> = {
   'labs-mistral-small-creative': { input: 0.10, output: 0.30 },
 };
 
-const DEFAULT_COST = COST_MAP['qwen/qwen3.5-flash-02-23'];
+const DEFAULT_COST = COST_MAP['nvidia/nemotron-3-nano-30b-a3b'];
 
 export interface RecordRunParams {
   tenantId: string;

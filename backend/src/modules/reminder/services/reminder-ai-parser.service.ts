@@ -110,7 +110,7 @@ export class ReminderAiParserService {
     // model (M2.7 has Interleaved Thinking that breaks JSON parsing).
     this.parserModelId = this.configService.get<string>(
       'AI_MODEL_SIMPLE',
-      'qwen/qwen3.5-flash-02-23',
+      'nvidia/nemotron-3-nano-30b-a3b',
     );
   }
 

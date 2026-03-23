@@ -24,9 +24,9 @@ export default registerAs('ai', () => ({
   // ===========================================
   models: {
     /** Simple tasks: classification, titles, RAG, fast completions */
-    simple: process.env.AI_MODEL_SIMPLE || 'qwen/qwen3.5-flash-02-23',
+    simple: process.env.AI_MODEL_SIMPLE || 'nvidia/nemotron-3-nano-30b-a3b',
     /** Creative tasks: email composition, smart replies (no tool calls) */
-    creative: process.env.AI_MODEL_CREATIVE || 'qwen/qwen3.5-flash-02-23',
+    creative: process.env.AI_MODEL_CREATIVE || 'nvidia/nemotron-3-nano-30b-a3b',
   },
 
   // ===========================================
