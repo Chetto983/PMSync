@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import { NetworkOnly, Serwist } from 'serwist';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -8,13 +8,13 @@ declare global {
   }
 }
 
-declare const self: ServiceWorkerGlobalScope;
+declare const self: WorkerGlobalScope & typeof globalThis;
 
 // Filter out any defaultCache entries that match /api/ routes.
-// Serwist's defaultCache includes a NetworkFirst rule for /api/ which
+// Serwist's defaultCache may include rules for /api/ which
 // would cache API responses and break httpOnly cookie auth + SSE streams.
 const filteredCache = defaultCache.filter((entry) => {
-  const pattern = entry.urlPattern;
+  const pattern = entry.matcher;
   if (pattern instanceof RegExp) return !pattern.source.includes('api');
   if (typeof pattern === 'string') return !pattern.includes('/api');
   return true;
@@ -25,7 +25,9 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  navigateFallbackDenylist: [/^\/api\//],
+  precacheOptions: {
+    navigateFallbackDenylist: [/^\/api\//],
+  },
   runtimeCaching: [
     // CRITICAL: /api/* uses NetworkOnly to prevent ANY SW interception.
     // This MUST come before ...filteredCache to take priority.
@@ -33,8 +35,8 @@ const serwist = new Serwist({
     // Anchored regex (^) ensures only paths starting with /api/ are matched,
     // not arbitrary URLs that happen to contain /api/ elsewhere.
     {
-      urlPattern: /^\/api\/.*/,
-      handler: 'NetworkOnly',
+      matcher: /^\/api\/.*/,
+      handler: new NetworkOnly(),
     },
     ...filteredCache,
   ],

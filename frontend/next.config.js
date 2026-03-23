@@ -1,7 +1,17 @@
 const bundleAnalyzer = require('@next/bundle-analyzer');
+const withSerwistInit = require('@serwist/next').default;
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
+});
+
+const withSerwist = withSerwistInit({
+  swSrc: 'sw.ts',
+  swDest: 'public/sw.js',
+  disable: process.env.NODE_ENV === 'development',
+  register: true,
+  reloadOnOnline: false,
+  cacheOnNavigation: true,
 });
 
 /** @type {import('next').NextConfig} */
@@ -40,4 +50,4 @@ const nextConfig = {
 //   Unix/Mac: ANALYZE=true npm run build
 //   Windows PowerShell: $env:ANALYZE="true"; npm run build
 //   Windows CMD: set ANALYZE=true && npm run build
-module.exports = withBundleAnalyzer(nextConfig);
+module.exports = withSerwist(withBundleAnalyzer(nextConfig));
