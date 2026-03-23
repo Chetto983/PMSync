@@ -300,6 +300,7 @@ model Session {
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("sessions")
 }
 
@@ -333,6 +334,7 @@ model Invitation {
 
   @@index([organizationId])
   @@index([email])
+  @@index([expiresAt])
   @@map("invitation")
 }
 
@@ -530,6 +532,7 @@ model Email {
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([providerId, folder, isRead, isDeleted])
+  @@index([tenantId, isDeleted, updatedAt])
   @@map("emails")
 }
 
@@ -735,6 +738,8 @@ model CalendarEvent {
   @@index([iCalUID])
   @@index([tenantId, title])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([isDeleted, updatedAt])
+  @@index([isCancelled, updatedAt])
   @@map("calendar_events")
 }
 
@@ -1099,6 +1104,7 @@ model AiDraftFeedback {
 
   @@index([tenantId, userId])
   @@index([tenantId, emailId])
+  @@index([createdAt])
   @@map("ai_draft_feedback")
 }
 
@@ -1146,6 +1152,7 @@ model AIMemory {
   @@index([tenantId, userId])
   @@index([tenantId, userId, memoryType])
   @@index([tenantId, userId, category])
+  @@index([expiresAt])
   @@index([content(ops: raw("gin_trgm_ops"))], map: "ai_memories_content_gin_idx", type: Gin)
   @@index([vector], map: "ai_memories_vector_hnsw_idx")
   @@map("ai_memories")
@@ -1568,6 +1575,7 @@ model Reminder {
   @@index([tenantId, userId, status])
   @@index([tenantId, monitoraEmail, status])
   @@index([scadenzaDatetime])
+  @@index([status, updatedAt])
   @@map("reminders")
 }
 
