@@ -28,6 +28,8 @@ import { emailKeys } from './email-keys';
 import { folderKeys } from './use-folders';
 import { labelKeys } from './use-labels';
 import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
+import { enqueueAction } from '@/lib/offline-action-queue';
+import { useOfflineQueueStore } from '@/stores/offline-queue-store';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 type EmailListSnapshot = [QueryKey, { emails: Email[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined];
@@ -358,7 +360,25 @@ export function useUpdateEmail() {
 
   return useMutation({
     mutationFn: async ({ emailId, dto }: { emailId: string; dto: UpdateEmailDto }) => {
-      return await emailsApi.updateEmail(emailId, dto);
+      if (!navigator.onLine) {
+        // Queue for replay when online (SYNC-01)
+        await enqueueAction({ type: 'update-email', emailId, dto });
+        useOfflineQueueStore.getState().incrementPending();
+        // Return fake response -- optimistic data already applied in onMutate
+        return { id: emailId, ...dto } as Email;
+      }
+      try {
+        return await emailsApi.updateEmail(emailId, dto);
+      } catch (err) {
+        // Network error while supposedly online (captive portal, flaky connection)
+        // Queue the action instead of failing (Pitfall 1 from RESEARCH.md)
+        if (err instanceof Error && (err.message.includes('Network') || err.message.includes('fetch'))) {
+          await enqueueAction({ type: 'update-email', emailId, dto });
+          useOfflineQueueStore.getState().incrementPending();
+          return { id: emailId, ...dto } as Email;
+        }
+        throw err; // Re-throw non-network errors (4xx, 5xx)
+      }
     },
     onMutate: async ({ emailId, dto }) => {
       await Promise.all([
@@ -399,6 +419,7 @@ export function useUpdateEmail() {
       getGlobalToast().error(getGlobalTranslations().errors.updateEmailFailed);
     },
     onSettled: (_, __, { emailId }) => {
+      if (!navigator.onLine) return; // Skip server refresh when offline
       queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
       queryClient.invalidateQueries({ queryKey: emailKeys.list() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });

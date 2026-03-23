@@ -11,7 +11,7 @@ export interface QueuedAction {
   id: string;
   type: 'update-email';
   emailId: string;
-  dto: Record<string, unknown>;
+  dto: Record<string, unknown> | object;
   queuedAt: number;
 }
 
