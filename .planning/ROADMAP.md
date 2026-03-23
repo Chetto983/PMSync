@@ -153,7 +153,10 @@ Plans:
   1. User on Android or desktop Chrome sees a dismissible install prompt with accept/dismiss actions
   2. User on iOS Safari sees instructions to tap the share icon and select "Add to Home Screen"
   3. Install prompt is hidden when the app is already running in standalone mode (no redundant prompt)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 102-01-PLAN.md -- Translations + useInstallPrompt hook + unit tests
+- [ ] 102-02-PLAN.md -- InstallPromptBanner component + Layout wiring
 
 ### Phase 103: Offline Email Reading
 **Goal**: Users can read their recently-synced emails after closing and reopening the app without network
@@ -162,7 +165,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can open PMSync offline, see their inbox list, and read email bodies that were previously loaded while online
   2. All IndexedDB persisted data and SW caches are cleared when the user signs out (no data leaks between sessions)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 102-01-PLAN.md -- Translations + useInstallPrompt hook + unit tests
+- [ ] 102-02-PLAN.md -- InstallPromptBanner component + Layout wiring
 
 ### Phase 104: Background Sync
 **Goal**: Users can perform email actions while offline and have them sync automatically when connectivity returns
@@ -172,7 +178,10 @@ Plans:
   1. User can mark-read, archive, and star emails while offline -- actions are visually applied immediately and queued in IndexedDB
   2. Queued actions replay automatically when the device reconnects (via online event; BackgroundSync as Chromium-only enhancement)
   3. Queued actions older than 30 minutes are discarded and the user sees a notification explaining the expiry
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 102-01-PLAN.md -- Translations + useInstallPrompt hook + unit tests
+- [ ] 102-02-PLAN.md -- InstallPromptBanner component + Layout wiring
 
 ### Phase 105: Push Plumbing & Polish
 **Goal**: Push notification frontend infrastructure is wired and PMSync passes Lighthouse PWA audit
@@ -184,7 +193,10 @@ Plans:
   3. User tapping a push notification opens PMSync to the relevant view
   4. Push subscription UI is hidden on browsers that do not support PushManager or on iOS Safari outside standalone mode
   5. User sees a "New version available" snackbar after a deploy and can trigger a reload to activate the new service worker
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 102-01-PLAN.md -- Translations + useInstallPrompt hook + unit tests
+- [ ] 102-02-PLAN.md -- InstallPromptBanner component + Layout wiring
 
 ## Progress
 
