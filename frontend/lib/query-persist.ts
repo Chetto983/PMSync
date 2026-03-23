@@ -1,4 +1,4 @@
-import { experimental_createPersister } from '@tanstack/query-persist-client-core';
+import { experimental_createQueryPersister } from '@tanstack/query-persist-client-core';
 import type { AsyncStorage } from '@tanstack/query-persist-client-core';
 import { get, set, del, clear, createStore } from 'idb-keyval';
 
@@ -19,11 +19,14 @@ function createIdbStorage(): AsyncStorage {
 export function createQueryPersister() {
   if (typeof window === 'undefined') return undefined;
 
-  return experimental_createPersister({
+  const persister = experimental_createQueryPersister({
     storage: createIdbStorage(),
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
     prefix: 'tq-',
   });
+
+  // QueryClient.defaultOptions.queries.persister expects the function, not the object
+  return persister.persisterFn;
 }
 
 export async function clearPersistedQueries(): Promise<void> {

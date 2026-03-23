@@ -21,15 +21,16 @@ jest.mock('idb-keyval', () => ({
   createStore: jest.fn(() => mockCustomStore),
 }));
 
-const mockPersister = { __mock: true };
+const mockPersisterFn = jest.fn();
+const mockPersister = { persisterFn: mockPersisterFn, __mock: true };
 jest.mock('@tanstack/query-persist-client-core', () => ({
-  experimental_createPersister: jest.fn(() => mockPersister),
+  experimental_createQueryPersister: jest.fn(() => mockPersister),
 }));
 
 // Must import AFTER mocks
 import { createQueryPersister, clearPersistedQueries, queryStore } from './query-persist';
 import { get, set, del, clear } from 'idb-keyval';
-import { experimental_createPersister } from '@tanstack/query-persist-client-core';
+import { experimental_createQueryPersister } from '@tanstack/query-persist-client-core';
 
 describe('query-persist', () => {
   beforeEach(() => {
@@ -46,15 +47,15 @@ describe('query-persist', () => {
   });
 
   describe('createQueryPersister', () => {
-    it('calls experimental_createPersister with correct options in browser', () => {
+    it('calls experimental_createQueryPersister with correct options in browser', () => {
       const result = createQueryPersister();
 
-      expect(experimental_createPersister).toHaveBeenCalledTimes(1);
-      const callArgs = (experimental_createPersister as jest.Mock).mock.calls[0][0];
+      expect(experimental_createQueryPersister).toHaveBeenCalledTimes(1);
+      const callArgs = (experimental_createQueryPersister as jest.Mock).mock.calls[0][0];
       expect(callArgs.maxAge).toBe(1000 * 60 * 60 * 24); // 86400000
       expect(callArgs.prefix).toBe('tq-');
       expect(callArgs.storage).toBeDefined();
-      expect(result).toBe(mockPersister);
+      expect(result).toBe(mockPersisterFn);
     });
 
     it('contains SSR guard that returns undefined when window is undefined', () => {
@@ -79,9 +80,9 @@ describe('query-persist', () => {
     let storage: AsyncStorage;
 
     beforeEach(() => {
-      (experimental_createPersister as jest.Mock).mockClear();
+      (experimental_createQueryPersister as jest.Mock).mockClear();
       createQueryPersister();
-      storage = (experimental_createPersister as jest.Mock).mock.calls[0][0].storage;
+      storage = (experimental_createQueryPersister as jest.Mock).mock.calls[0][0].storage;
     });
 
     it('getItem delegates to idb-keyval get with custom store', async () => {
@@ -92,8 +93,8 @@ describe('query-persist', () => {
     });
 
     it('setItem delegates to idb-keyval set with custom store', async () => {
-      await storage.setItem('test-key', { data: 'new' });
-      expect(set).toHaveBeenCalledWith('test-key', { data: 'new' }, mockCustomStore);
+      await storage.setItem('test-key', 'serialized-data');
+      expect(set).toHaveBeenCalledWith('test-key', 'serialized-data', mockCustomStore);
     });
 
     it('removeItem delegates to idb-keyval del with custom store', async () => {

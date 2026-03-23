@@ -88,7 +88,8 @@ export function emailsListOptions(params?: ListEmailsParams) {
       return await emailsApi.listEmails(params, { signal });
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    // 24h -- survives cold restart for offline reading (Phase 103)
+    gcTime: 1000 * 60 * 60 * 24,
     placeholderData: keepPreviousData, // Show old list while new data loads (no skeleton flash)
   });
 }
@@ -103,7 +104,8 @@ export function emailDetailOptions(id: string) {
       return await emailsApi.getEmail(id);
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    // 24h -- survives cold restart for offline reading (Phase 103)
+    gcTime: 1000 * 60 * 60 * 24,
     enabled: !!id,
   });
 }
