@@ -127,8 +127,6 @@ export function MobileEmailNav() {
         onSelect={handleFolderSelect}
       />
 
-      {/* Bottom padding spacer to prevent content from being hidden behind fixed nav */}
-      <Box sx={{ height: 56 }} />
     </>
   );
 }

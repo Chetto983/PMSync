@@ -326,7 +326,7 @@ export function EmailLayout({
             flexDirection: 'column',
             minHeight: 0, // CRITICAL: Allow flex shrinking for scroll
             overflow: 'auto', // Allow scrolling
-            pb: '72px', // Space for bottom nav
+            pb: '56px', // Space for bottom nav (matches MobileEmailNav height)
           }}
         >
           {children}
@@ -361,7 +361,7 @@ export function EmailLayout({
             flexDirection: 'column',
             minHeight: 0, // CRITICAL: Allow flex shrinking for scroll
             overflow: 'auto', // Allow scrolling
-            pb: '72px', // Space for bottom nav
+            pb: '56px', // Space for bottom nav (matches MobileEmailNav height)
           }}
         >
           {children}

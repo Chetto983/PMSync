@@ -417,6 +417,7 @@ export function ThreadList({
         onMoveToFolder={handleBulkMove}
         onAddLabel={handleBulkLabel}
         isBulkActionPending={isBulkActionPending}
+        onCompose={onCompose}
       />
 
       {/* Virtual scrolling container */}
