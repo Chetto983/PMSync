@@ -40,7 +40,7 @@ export class OpenRouterProviderService {
     );
   }
 
-  /** Get a chat model via OpenRouter. */
+  /** Get a chat model via OpenRouter with reasoning + usage accounting. */
   getChatModel(modelId?: string): LanguageModel {
     const id = modelId ?? this.defaultChatModel;
     return this.openRouterProvider.chat(id, {
@@ -48,6 +48,11 @@ export class OpenRouterProviderService {
         data_collection: 'deny',
         sort: 'latency',
       },
+      // Qwen 3.5 Flash outputs reasoning natively. This ensures
+      // reasoning tokens are surfaced (not excluded) in the response.
+      reasoning: { enabled: true, effort: 'low' },
+      // Enable usage accounting for accurate token tracking in ledger.
+      usage: { include: true },
     });
   }
 

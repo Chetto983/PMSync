@@ -224,10 +224,24 @@ export class ChatEnrichmentService {
     const summaryStart = Date.now();
     const { text: summary, usage } = await this.generateModelText({
       model: this.mistralProvider.getChatModel(),
-      system:
-        'Summarize the following conversation history in 2-3 concise paragraphs. ' +
-        'Preserve key facts, decisions, and action items. ' +
+      system: [
+        'Summarize the following conversation history using this structured format.',
         'Write in the same language as the conversation.',
+        '',
+        '## Key Facts',
+        'Bullet list of factual information established (names, dates, preferences).',
+        '',
+        '## Decisions Made',
+        'Bullet list of decisions or actions the user confirmed.',
+        '',
+        '## Pending Actions',
+        'Bullet list of unfinished tasks, follow-ups, or open questions.',
+        '',
+        '## Context',
+        'One paragraph summarizing the overall conversation flow and tone.',
+        '',
+        'Omit any section that has no items. Be concise — max 200 words total.',
+      ].join('\n'),
       messages: [{ role: 'user', content: messageText }],
     });
 

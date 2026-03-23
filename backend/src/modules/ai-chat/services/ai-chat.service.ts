@@ -11,6 +11,8 @@ import {
   stepCountIs,
   InvalidPromptError,
   convertToModelMessages,
+  NoSuchToolError,
+  InvalidToolInputError,
   type UIMessage,
   type ModelMessage,
   type StepResult,
@@ -32,6 +34,7 @@ import {
   buildSystemPrompt,
   buildExtendedRuntimeContext,
 } from '../constants/system-prompt';
+import { getToolDomain } from '../constants/tool-domains';
 import {
   EmailToolsService,
   CalendarToolsService,
@@ -70,6 +73,7 @@ export interface StreamChatParams {
 /** Rate limit: 30 requests per 60 seconds per user */
 const CHAT_RATE_LIMIT_MAX = 30;
 const CHAT_RATE_LIMIT_WINDOW = 60;
+
 
 /**
  * AiChatService -- Core chat orchestration with AI SDK v6.
@@ -242,17 +246,74 @@ export class AiChatService {
     let completedStepCount = 0;
     let savedMessageCount = isApprovalResubmit ? 0 : 1;
 
+    const toolNames = Object.keys(tools);
+
     const agent = new ToolLoopAgent({
       id: 'ai-chat',
       model: this.mistralProvider.getChatModel(model),
       instructions: systemPromptWithMemory,
       tools,
       toolChoice: 'auto',
-      stopWhen: stepCountIs(5),
-      prepareStep: async () => {
-        // toolChoice stays 'auto' — Qwen 3.5 Flash calls tools reliably without forcing.
-        // 'required' is not supported by all OpenRouter providers.
-        return {};
+      stopWhen: stepCountIs(8),
+
+      // Dynamic tool routing: step 0 gets all tools, subsequent steps get
+      // the active domain + utility tools to reduce confusion.
+      prepareStep: async ({ steps, stepNumber }) => {
+        if (stepNumber === 0) return {};
+
+        const usedTools = new Set<string>();
+        for (const step of steps) {
+          for (const tc of step.toolCalls ?? []) {
+            usedTools.add(tc.toolName);
+          }
+        }
+        if (usedTools.size === 0) return {};
+
+        const activeDomains = new Set<string>();
+        for (const name of usedTools) {
+          const domain = getToolDomain(name);
+          if (domain) activeDomains.add(domain);
+        }
+
+        // Always include utility + knowledge domains
+        activeDomains.add('utility');
+        activeDomains.add('knowledge');
+
+        const activeTools = toolNames.filter((name) => {
+          const domain = getToolDomain(name);
+          return !domain || activeDomains.has(domain);
+        }) as Array<keyof typeof tools>;
+
+        return { activeTools };
+      },
+
+      // Auto-repair malformed tool calls: re-prompt the model with the error
+      // so it can fix its own JSON instead of failing the step.
+      experimental_repairToolCall: async ({
+        toolCall,
+        tools: availableTools,
+        inputSchema,
+        error,
+      }) => {
+        if (error instanceof NoSuchToolError) {
+          return null; // can't repair a non-existent tool
+        }
+
+        const schema = await inputSchema({ toolName: toolCall.toolName });
+        const repairModel = this.mistralProvider.getChatModel(model);
+        const { text } = await import('ai').then((ai) =>
+          ai.generateText({
+            model: repairModel,
+            system: `Fix this tool call JSON. The tool "${toolCall.toolName}" expects this schema: ${JSON.stringify(schema)}. Return ONLY the corrected JSON arguments, nothing else.`,
+            prompt: `Tool call arguments:\n${toolCall.input}\n\nError: ${error.message}`,
+          }),
+        );
+
+        try {
+          return { ...toolCall, input: text };
+        } catch {
+          return null; // give up if repair fails
+        }
       },
       onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
         const stepIndex = completedStepCount++;
