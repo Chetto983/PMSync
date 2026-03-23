@@ -48,12 +48,8 @@ export class OpenRouterProviderService {
         data_collection: 'deny',
         sort: 'latency',
       },
-      // MiniMax M2.7 has native Interleaved Thinking (CoT before every
-      // tool call). The AI SDK's sendReasoning: true captures these blocks.
-      // Temperature lowered from M2.7's default 1.0 -> 0.3 for deterministic
-      // tool selection and parameter accuracy.
-      temperature: 0.3,
-      reasoning: { enabled: true, effort: 'medium' },
+      // MiniMax M2.7: temperature + reasoning set at ToolLoopAgent level
+      // (AI SDK call options, not provider settings).
       usage: { include: true },
     });
   }

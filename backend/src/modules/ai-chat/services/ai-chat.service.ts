@@ -195,7 +195,7 @@ export class AiChatService {
 
       // 5. Load/redact prior context + memories
       const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
-        this.conversationService.getMessagesForContext(conversation.id, 10, tenantId),
+        this.conversationService.getMessagesForContext(conversation.id, 20, tenantId),
         this.chatEnrichmentService.getRuntimeContextMetadata(tenantId, userId, locale),
         this.memoryService.getRelevantMemories(tenantId, userId, llmMessage, 5),
       ]);
@@ -254,6 +254,9 @@ export class AiChatService {
       instructions: systemPromptWithMemory,
       tools,
       toolChoice: 'auto',
+      // MiniMax M2.7: low temperature for deterministic tool selection.
+      // Default 1.0 is too high — causes inconsistent parameter generation.
+      temperature: 0.3,
       stopWhen: stepCountIs(8),
 
       // Dynamic tool routing: step 0 gets all tools, subsequent steps get
@@ -315,7 +318,7 @@ export class AiChatService {
           return null; // give up if repair fails
         }
       },
-      onStepFinish: async ({ text, usage, toolCalls, toolResults }) => {
+      onStepFinish: async ({ text, reasoning, usage, toolCalls, toolResults }) => {
         const stepIndex = completedStepCount++;
 
         // Build assistant message content parts.
@@ -323,7 +326,16 @@ export class AiChatService {
         // assistant message so that conversation history reconstruction produces
         // valid ModelMessage[] — tool results reference toolCallIds that must
         // exist in a preceding assistant message.
+        //
+        // MiniMax M2.7 Interleaved Thinking: reasoning blocks are preserved
+        // in history to maintain multi-turn reasoning chain coherence.
         const contentParts: Prisma.InputJsonValue[] = [];
+        if (reasoning?.length) {
+          const reasoningText = reasoning.map((r) => r.text).join('\n');
+          if (reasoningText) {
+            contentParts.push({ type: 'reasoning', text: reasoningText });
+          }
+        }
         if (text) {
           contentParts.push({ type: 'text', text });
         }
