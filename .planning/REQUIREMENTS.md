@@ -10,9 +10,9 @@ Requirements for Progressive Web App milestone. Each maps to roadmap phases.
 ### Foundation
 
 - [x] **FOUND-01**: User sees PMSync as installable app with correct name, icons, and theme colors on all platforms
-- [ ] **FOUND-02**: Service worker registers on first visit and precaches static assets (JS, CSS, fonts)
-- [ ] **FOUND-03**: Service worker updates correctly on new deploys (no stale SW via Vercel edge caching)
-- [ ] **FOUND-04**: SW never intercepts `/api/*` requests (preserves httpOnly cookie auth, TanStack Query caching, SSE streaming)
+- [x] **FOUND-02**: Service worker registers on first visit and precaches static assets (JS, CSS, fonts)
+- [x] **FOUND-03**: Service worker updates correctly on new deploys (no stale SW via Vercel edge caching)
+- [x] **FOUND-04**: SW never intercepts `/api/*` requests (preserves httpOnly cookie auth, TanStack Query caching, SSE streaming)
 
 ### Offline
 
@@ -78,9 +78,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FOUND-01 | Phase 100 | Complete |
-| FOUND-02 | Phase 100 | Pending |
-| FOUND-03 | Phase 100 | Pending |
-| FOUND-04 | Phase 100 | Pending |
+| FOUND-02 | Phase 100 | Complete |
+| FOUND-03 | Phase 100 | Complete |
+| FOUND-04 | Phase 100 | Complete |
 | OFFL-01 | Phase 101 | Pending |
 | OFFL-02 | Phase 101 | Pending |
 | OFFL-03 | Phase 103 | Pending |

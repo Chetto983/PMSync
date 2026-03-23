@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
 status: unknown
-stopped_at: Completed 100-01-PLAN.md
-last_updated: "2026-03-23T09:48:51.412Z"
+stopped_at: Completed 100-02-PLAN.md
+last_updated: "2026-03-23T09:56:26.388Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -23,16 +23,16 @@ See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 100 (pwa-foundation) — EXECUTING
-Plan: 2 of 2
+Phase: 100 (pwa-foundation) — COMPLETE
+Plan: 2 of 2 (all plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: --
-- Total execution time: 0 hours
+- Total plans completed: 2
+- Average duration: ~5min
+- Total execution time: ~10 min
 
 ## Accumulated Context
 
@@ -46,6 +46,7 @@ Plan: 2 of 2
 - iOS has no beforeinstallprompt, no BackgroundSync -- needs separate code paths
 - Manifest via static public/manifest.json (Pages Router, not App Router app/manifest.ts)
 - [Phase 100]: PWA icons generated from SVG source using sharp, maskable icons use #0c1017 background with 80% safe zone
+- [Phase 100]: Serwist 9.x uses matcher/handler pattern (not urlPattern/string), navigateFallbackDenylist in precacheOptions
 
 ### Pending Todos
 
@@ -59,6 +60,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T09:48:51.408Z
-Stopped at: Completed 100-01-PLAN.md
+Last session: 2026-03-23T09:56:26.384Z
+Stopped at: Completed 100-02-PLAN.md
 Resume file: None
