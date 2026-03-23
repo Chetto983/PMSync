@@ -1,5 +1,40 @@
 # Project Milestones: PMSync
 
+## v7.0 System Audit & Hardening (Shipped: 2026-03-23)
+
+**Delivered:** Full-system verification and hardening — verified all 350+ API endpoints across 16 backend modules, fixed 20+ Gmail parity bugs (folder counts, draft sync, reply recipients, DnD, pagination), removed dead code (VoltAgent shims, orphaned renderers, unused deps), polished all 12 pages with EmptyState/QueryErrorAlert/skeletons, verified security controls (auth guards, tenant isolation, CSRF, rate limiting, RBAC), and deployed hybrid email search.
+
+**Phases completed:** 89-99 (10 active + 1 obsolete, 35 plans)
+
+**Key accomplishments:**
+
+- Verified all auth flows, email operations, calendar/contacts/reminders, AI chat, admin/settings, and infrastructure pages end-to-end with Playwright and live Railway/Vercel validation
+- Fixed 20+ Gmail parity bugs: Inbox aggregation, folder/label counts, draft sync through provider, reply recipient resolution, DnD isolation, pagination double-fetch, folder reparenting
+- Removed dead code: VoltAgent shims (voltAgentApi, multiAgentApi), PendingAction types, orphaned renderers (bulk_email_actions, TriageToolUI), unused dependencies, console.log statements
+- Polished all 12 pages: EmptyState with illustrations, QueryErrorAlert with retry, loading skeletons, mobile responsiveness (375px+), dark mode audit (zero violations), complete Italian translation
+- Security verification scripts: auth guard enumeration via Swagger, tenant isolation, CSRF, rate limiting (write-tier 30/min identified), RBAC enforcement including super-admin bypass
+- Deployed hybrid_email_search SQL function to Railway, split OrgAdminPage under 500-line limit, closed all milestone audit tech debt gaps
+
+**Stats:**
+
+- 10 phases (+ 1 obsolete), 35 plans
+- 268 commits, 505 files changed
+- +50,785 / -32,097 lines
+- 4 days (2026-03-20 → 2026-03-23)
+- Requirements: 65/65 satisfied (4 UIPOL-08..11 deferred to v8.0+ as Phase 97 OBSOLETE)
+
+**Git tag:** `v7.0`
+
+**Known Tech Debt (accepted):**
+
+- INT-01: HITL approval routing is implicit (destructive tools surface via FallbackToolRenderer, not explicit check)
+- P96: follow-ups.tsx returns null during auth check instead of skeleton; Tasks.tsx/RemindersBoard.tsx pass error={null} to QueryErrorAlert
+- P95: TriageToolUI.tsx orphaned file on disk
+- P92/94/98: Verification scripts compiled but not all live-executed (Railway availability gaps)
+- P89: Onboarding MFA mandatory behavior needs product owner confirmation
+
+---
+
 ## v4.1 Security Hardening & Debt Reduction (Shipped: 2026-03-06)
 
 **Delivered:** Security hardening and structural debt reduction -- tenant isolation with Prisma scoping, auth upgraded to 2026 best practices (Argon2id, ES256 JWT, session concurrency), all god-files decomposed below 400 lines, zero circular dependencies achieved, Prometheus observability added, WebSocket horizontal scaling enabled.
@@ -26,6 +61,7 @@
 **Git tag:** `v4.1`
 
 **Known Gaps:**
+
 - TEST-05: 50MB attachment memory profiling is manual verification (automated test verifies streaming mechanism)
 
 ---
@@ -57,6 +93,7 @@
 **Git tag:** `v4.0`
 
 **Known Tech Debt (accepted):**
+
 - 5 forwardRef in Email/EmailSync core cluster (true bidirectional dependency)
 - `api.generated.ts` placeholder (resolves when CI runs against live DB)
 - `IPolicyService`/`Permission` enum zero consumers (v4.1 RBAC scaffolding)

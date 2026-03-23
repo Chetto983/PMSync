@@ -97,6 +97,53 @@
 
 ---
 
+## Milestone: v7.0 -- System Audit & Hardening
+
+**Shipped:** 2026-03-23
+**Phases:** 10 (+ 1 obsolete) | **Plans:** 35
+
+### What Was Built
+- Full-system verification: all 350+ API endpoints across 16 backend modules tested with auth, tenant isolation, error handling
+- Gmail parity fixes: 20+ bugs fixed (Inbox aggregation, folder/label counts, draft sync, reply recipients, DnD isolation, pagination)
+- Dead code removal: VoltAgent shims, PendingAction types, orphaned renderers, unused deps, console.log statements, stale test assertions
+- UI/UX polish: EmptyState with illustrations, QueryErrorAlert with retry, loading skeletons on all 12 pages, mobile 375px+, dark mode audit
+- Security verification: auth guard enumeration via Swagger, tenant isolation, CSRF, rate limiting, RBAC including super-admin bypass
+- Tech debt closure: hybrid_email_search SQL deployed, OrgAdminPage split, milestone audit gaps closed
+
+### What Worked
+- Phase ordering (verify → clean → polish → secure → close) was the right sequence — testing phases revealed what to clean
+- Live Railway/Vercel validation caught real production bugs that code review alone would have missed (Phase 90 Gmail parity)
+- Milestone audit at ~80% completion surfaced tech debt items without blocking shipment
+- Phase 97 marked OBSOLETE early, saving wasted effort on CSS migration that AI SDK already solved
+- Gap closure phase (99) was surgical — 2 plans, 6 minutes total, closed real audit gaps
+
+### What Was Inefficient
+- Railway unavailability during P92/P93 forced code-review-only verification — some endpoints never tested live
+- Phase 90 was marked "complete" prematurely, then reopened after live Gmail audit exposed 20+ bugs — live validation should happen earlier
+- SUMMARY.md files lack one_liner fields, making automated accomplishment extraction fail (same issue as v4.1)
+- Security verification scripts (P98) compiled but some never live-executed — value without live execution is partial
+
+### Patterns Established
+- Swagger-based route enumeration for auth guard verification (dynamic, not hardcoded)
+- EmptyState + QueryErrorAlert + Skeleton as the standard trio for every page
+- Security verification as reusable scripts (not one-off curl commands) — can re-run in CI
+- Milestone audit → gap closure phase → completion as the standard quality gate
+
+### Key Lessons
+1. Live validation is non-negotiable — code review catches structure bugs, live testing catches behavioral bugs (Phase 90 proved this hard)
+2. Mark phases as "verified" only after live validation, not after code review alone
+3. SUMMARY.md should always include a one_liner field — automate this in plan templates
+4. Obsoleting phases early (Phase 97) is better than executing unnecessary work
+5. Rate limit tuning needs real traffic analysis — write-tier 30/min is too aggressive for normal use
+
+### Cost Observations
+- Model mix: quality profile (opus) for all phases
+- 35 plans completed in 4 days
+- Average plan execution: ~7min (comparable to v4.0/v4.1)
+- Gap closure (P99): 3min average — consistently the cheapest phase type
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -111,11 +158,16 @@
 | v3.2 | 6 | 20 | Partial ship, carry-forward pattern |
 | v4.0 | 11 | 22 | Audit-driven gap closure, enterprise prep |
 | v4.1 | 8 | 28 | Security + debt, facade splits, zero circular deps |
+| v5.0 | 15 | 34 | better-auth migration, org model |
+| v5.1 | 11 | 30 | Test coverage, polish |
+| v6.0 | 12 | - | Partial ship, enterprise features deferred |
+| v7.0 | 10 | 35 | Full-system verification, audit-driven, live validation |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. Milestone audits catch real gaps -- v3.0, v3.1, and v4.0 all benefited from audit-before-ship (run at 80%+ completion)
+1. Milestone audits catch real gaps -- v3.0, v3.1, v4.0, and v7.0 all benefited from audit-before-ship (run at 80%+ completion)
 2. Carry-forward items are fine when scoped explicitly (v3.2->v4.0 worked cleanly)
-3. Gap closure phases are the cheapest quality investment (avg 3min vs 11min for planned phases)
+3. Gap closure phases are the cheapest quality investment (avg 3min vs 11min for planned phases) — confirmed again in v7.0 P99
 4. Facade pattern for god-file splits is the safest refactoring approach -- zero consumer changes across v4.0 and v4.1
-5. Plan execution velocity improves with each milestone (v1: 8min, v3.2: 11min, v4.0: 8min, v4.1: 6.5min)
+5. Plan execution velocity improves with each milestone (v1: 8min, v3.2: 11min, v4.0: 8min, v4.1: 6.5min, v7.0: 7min)
+6. Live validation is non-negotiable — v7.0 Phase 90 proved that code review alone misses behavioral bugs (20+ Gmail parity bugs)

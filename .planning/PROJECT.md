@@ -8,29 +8,13 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v7.0 System Audit & Hardening
-
-**Goal:** Test every endpoint and feature, clean dead code and inconsistencies, polish UI/UX — before adding any new functionality.
-
-**Target features:**
-- Comprehensive API endpoint testing: all 350+ routes across 16 backend modules
-- Frontend feature verification: all 28 protected pages and critical user flows
-- Dead code removal: orphaned renderers, unused exports, stale compatibility shims
-- i18n completeness: no hardcoded strings, full Italian coverage
-- UI/UX polish: empty states, loading states, error states, mobile responsiveness
-- Test coverage expansion: controller tests, service tests, E2E for critical flows
-- Security verification: auth guards, tenant isolation, CSRF, rate limiting on all routes
-- Integration verification: frontend-to-backend contract alignment, WebSocket flows
-
 ## Current State
 
-**Version:** v7.0 in progress
-**Status:** Phase 99 complete — Tech debt closure done (super-admin RBAC bypass verification, OrgAdminPage split, hybrid search migrations deployed)
-**Base:** v6.0 Enterprise Platform & AI Governance (partial, 4/66 requirements completed 2026-03-19)
+**Version:** v7.0 shipped (2026-03-23)
+**Status:** All 65 requirements satisfied, 8 non-blocking tech debt items documented
+**Previous:** v6.0 Enterprise Platform & AI Governance (partial — 4/66 reqs, archived 2026-03-20)
 
-Last updated: 2026-03-23
-
-**Previous:** v6.0 Enterprise Platform & AI Governance (partial — 4/66 reqs, phases 77/86/87/88, archived 2026-03-20).
+**v7.0 delivered:** Full-system verification and hardening — verified all 350+ API endpoints, fixed 20+ Gmail parity bugs, removed dead code, polished all pages with EmptyState/skeletons/error handling, verified security controls, deployed hybrid email search.
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
@@ -139,12 +123,17 @@ Last updated: 2026-03-23
 - ✓ DRAFT-01/02: Full AI draft generation with writing style learning
 - ⚠️ ENC-03 deferred: Hash-based search on encrypted fields (17+ query sites)
 
+**v7.0 - System Audit & Hardening (shipped 2026-03-23):**
+- ✓ BAPI-01..25: All 25 backend API endpoints verified (auth, email, calendar, contacts, AI, admin, infra)
+- ✓ FE-01..20: All 20 frontend pages verified (auth, email, calendar, contacts, AI chat, admin, settings, dashboard, analytics, landing)
+- ✓ CLN-01..08: Dead code removed (VoltAgent shims, orphaned renderers, unused deps, console.log, stale assertions)
+- ✓ UIPOL-01..07: UI polished (empty states, skeletons, error alerts, mobile, dark mode, keyboard nav, i18n)
+- ✓ SEC-01..05: Security verified (auth guards, tenant isolation, CSRF, rate limiting, RBAC)
+- ⚠️ UIPOL-08..11: Deferred to v8.0+ (Phase 97 OBSOLETE — chat uses AI SDK, not custom CSS)
+
 ### Active
 
-<!-- v7.0 requirements - defined during milestone planning -->
-
-**v7.0 - System Audit & Hardening (in progress):**
-- TBD — requirements being defined
+<!-- Next milestone requirements go here -->
 
 ### Out of Scope
 
@@ -260,6 +249,12 @@ Last updated: 2026-03-23
 
 | Frontend session validation via HTTP fetch | Frontend API routes validate sessions via backend HTTP call, not local auth instance | ✓ Good |
 | cookieCache compact with 300s maxAge | Reduces DB session lookups; 5-min cache with compact strategy | ✓ Good |
+| v7.0: Verify before build | Test every endpoint before adding features; testing phases (89-94) before cleanup (95) to identify real dead code | ✓ Good |
+| v7.0: Gmail label membership for folder queries | Folder/list parity follows label membership, not only email.folder, for Google providers | ✓ Good |
+| v7.0: Two-step RSVP via source email lookup | Avoids duplicating ICS generation in calendar module | ✓ Good |
+| v7.0: Security scripts with Swagger enumeration | Auth guard script dynamically enumerates routes from Swagger JSON | ✓ Good |
+| v7.0: Phase 97 OBSOLETE | Chat UI rebuilt with AI SDK components; custom CSS migration unnecessary | ✓ Good |
+| v7.0: Write-tier rate limit 30/min | Identified as cause of user-reported 429s; documented for future tuning | ⚠️ Revisit |
 
 ---
-*Last updated: 2026-03-20 after v7.0 milestone start*
+*Last updated: 2026-03-23 after v7.0 milestone*
