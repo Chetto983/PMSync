@@ -12,7 +12,14 @@ export default function Document() {
   // In the future, this could be dynamically set based on user preferences
   return (
     <Html lang="en">
-      <Head />
+      <Head>
+          <link rel="manifest" href="/manifest.json" />
+          <meta name="theme-color" content="#55cae5" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <meta name="apple-mobile-web-app-title" content="PMSync" />
+          <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        </Head>
       <body>
         <Main />
         <NextScript />

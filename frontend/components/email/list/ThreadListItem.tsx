@@ -389,9 +389,9 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             bottom: 0,
             display: 'flex',
             alignItems: 'center',
-            gap: 0.25,
+            gap: { xs: 0.5, md: 0.25 },
             pr: 1.5,
-            pl: 4,
+            pl: { xs: 1, md: 4 },
             // Gradient fade from transparent → paper
             background: (th) =>
               `linear-gradient(to right, transparent, ${th.palette.background.paper} 24px)`,
