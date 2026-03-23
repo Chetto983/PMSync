@@ -197,14 +197,14 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
        */
       analyzeUnified: {
         description: 'Complete email analysis in a single LLM call: summary, sentiment, priority, labels, topics, escalation risk',
-        systemPrompt: (allowedLabels: string) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
+        systemPrompt: (allowedLabels: string, labelRules?: string) => `You are an expert email analyst. Analyze this email thoroughly and return a complete JSON analysis.
 
 <INSTRUCTIONS>
 1. Read the email carefully
 2. Generate a 2-3 sentence summary capturing the main point and any action items
 3. Analyze sentiment, tone, and emotional signals
 4. Determine priority (1=highest/critical, 5=lowest/can wait)
-5. Select up to 3 relevant labels from the ALLOWED LABELS only
+5. Select up to 3 relevant labels from the ALLOWED LABELS only. If LABEL_RULES are provided, follow them to decide which labels apply.
 6. Extract key topics and entities mentioned
 7. Assess if this email poses escalation risk (angry customer, threat, complaint)
 8. Generate 2-3 short smart reply suggestions if appropriate
@@ -213,6 +213,7 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
 <ALLOWED_LABELS>
 ${allowedLabels}
 </ALLOWED_LABELS>
+${labelRules || ''}
 
 <OUTPUT_FORMAT>
 Reply ONLY with valid JSON (no markdown, no explanation):

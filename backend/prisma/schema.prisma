@@ -613,6 +613,7 @@ model UserLabel {
   type        LabelType    @default(USER)
   color       Json?
   icon        String?
+  aiPrompt    String?      /// Natural language instruction for AI triage (e.g. "Urgent client requests needing response within 24h")
   parentId    String?
   level       Int          @default(0)
   orderIndex  Int          @default(0)

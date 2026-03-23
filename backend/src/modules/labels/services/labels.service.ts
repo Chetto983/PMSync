@@ -89,6 +89,7 @@ export class LabelsService {
           ? (dto.color as Prisma.InputJsonValue)
           : undefined,
         icon: dto.icon,
+        aiPrompt: dto.aiPrompt ?? null,
         parentId: dto.parentId ?? null,
         level,
         orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
@@ -169,6 +170,9 @@ export class LabelsService {
     }
     if (dto.icon !== undefined) {
       data.icon = dto.icon;
+    }
+    if (dto.aiPrompt !== undefined) {
+      data.aiPrompt = dto.aiPrompt;
     }
 
     if (dto.parentId !== undefined) {

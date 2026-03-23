@@ -22,7 +22,16 @@ interface EmailRecord {
 @Injectable()
 export class EmailAnalysisService {
   private readonly logger = new Logger(EmailAnalysisService.name);
-  private readonly defaultLabels = ['Important', 'Follow-up', 'Action Items', 'Info', 'Personal', 'Finance', 'Promotions', 'Updates'];
+  private readonly defaultLabels: Array<{ name: string; aiPrompt: string | null }> = [
+    { name: 'Important', aiPrompt: null },
+    { name: 'Follow-up', aiPrompt: null },
+    { name: 'Action Items', aiPrompt: null },
+    { name: 'Info', aiPrompt: null },
+    { name: 'Personal', aiPrompt: null },
+    { name: 'Finance', aiPrompt: null },
+    { name: 'Promotions', aiPrompt: null },
+    { name: 'Updates', aiPrompt: null },
+  ];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -52,8 +61,10 @@ export class EmailAnalysisService {
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
-    const allowedLabels = await this.getUserLabels(tenantId);
-    const systemPrompt = t.insights.analyzeUnified.systemPrompt(allowedLabels.join(', '));
+    const labelDefs = await this.getUserLabels(tenantId);
+    const allowedLabels = labelDefs.map((l) => l.name);
+    const labelPromptBlock = this.buildLabelPromptBlock(labelDefs);
+    const systemPrompt = t.insights.analyzeUnified.systemPrompt(allowedLabels.join(', '), labelPromptBlock);
     const userPrompt = this.buildEmailPrompt(email, lang);
 
     try {
@@ -123,11 +134,26 @@ export class EmailAnalysisService {
 
   // --- Private helpers ---
 
-  private async getUserLabels(tenantId: string): Promise<string[]> {
+  private async getUserLabels(tenantId: string): Promise<Array<{ name: string; aiPrompt: string | null }>> {
     try {
-      const labels = await this.prisma.userLabel.findMany({ where: { tenantId, isArchived: false }, select: { name: true }, orderBy: { orderIndex: 'asc' } });
-      return labels.length === 0 ? this.defaultLabels : labels.map((l) => l.name);
+      const labels = await this.prisma.userLabel.findMany({
+        where: { tenantId, isArchived: false },
+        select: { name: true, aiPrompt: true },
+        orderBy: { orderIndex: 'asc' },
+      });
+      return labels.length === 0 ? this.defaultLabels : labels;
     } catch { return this.defaultLabels; }
+  }
+
+  /**
+   * Build a prompt block with per-label AI instructions.
+   * Only includes labels that have an aiPrompt set by the user.
+   */
+  private buildLabelPromptBlock(labels: Array<{ name: string; aiPrompt: string | null }>): string {
+    const withPrompts = labels.filter((l) => l.aiPrompt);
+    if (withPrompts.length === 0) return '';
+    const lines = withPrompts.map((l) => `- "${l.name}": ${l.aiPrompt}`).join('\n');
+    return `\n<LABEL_RULES>\nApply these labels when the described conditions match:\n${lines}\n</LABEL_RULES>`;
   }
 
   private async getEmailOrThrow(tenantId: string, emailId: string): Promise<EmailRecord> {

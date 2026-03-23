@@ -19,6 +19,11 @@ export class CreateLabelDto {
 
   @IsOptional()
   @IsString()
+  @Length(0, 500)
+  aiPrompt?: string;
+
+  @IsOptional()
+  @IsString()
   parentId?: string;
 }
 
@@ -38,6 +43,11 @@ export class UpdateLabelDto {
   @IsOptional()
   @IsString()
   icon?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  aiPrompt?: string | null;
 
   @IsOptional()
   @IsString()
