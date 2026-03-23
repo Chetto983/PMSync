@@ -3639,6 +3639,7 @@ export interface AppTranslations {
       neutral: string;
       mixed: string;
       error: string;
+      consentRequired: string;
     };
   };
   // Billing & Subscription (P10)

@@ -3785,6 +3785,7 @@ export const it: AppTranslations = {
       neutral: 'Neutrale',
       mixed: 'Misto',
       error: 'Analisi fallita',
+      consentRequired: 'Attiva "Elaborazione email con IA" in Impostazioni → Privacy per usare questa funzione',
     },
   },
   // Billing & Subscription (P10)

@@ -3808,6 +3808,7 @@ export const en: AppTranslations = {
       neutral: 'Neutral',
       mixed: 'Mixed',
       error: 'Failed to analyze',
+      consentRequired: 'Enable "AI Email Processing" in Settings → Privacy to use this feature',
     },
   },
   // Billing & Subscription (P10)

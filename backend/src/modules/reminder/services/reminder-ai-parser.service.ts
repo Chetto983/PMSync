@@ -7,6 +7,7 @@
  * Pattern: follows FollowUpDetectionService
  */
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
@@ -98,11 +99,20 @@ const SAFE_FALLBACK: ReminderParseOutput = {
 @Injectable()
 export class ReminderAiParserService {
   private readonly logger = new Logger(ReminderAiParserService.name);
+  private readonly parserModelId: string;
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
     private readonly aiRunLedger: AiRunLedgerService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    // Use fast/simple model for structured JSON extraction — NOT the main chat
+    // model (M2.7 has Interleaved Thinking that breaks JSON parsing).
+    this.parserModelId = this.configService.get<string>(
+      'AI_MODEL_SIMPLE',
+      'qwen/qwen3.5-flash-02-23',
+    );
+  }
 
   async parse(
     inputUtente: string,
@@ -113,12 +123,15 @@ export class ReminderAiParserService {
     const startTime = Date.now();
 
     try {
-      const model = this.mistralProvider.getChatModel();
+      const model = this.mistralProvider.getChatModel(this.parserModelId);
 
       const result = await generateText({
         model,
         system: SYSTEM_PROMPT,
-        prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi in JSON.`,
+        prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi SOLO con il JSON, senza testo aggiuntivo.`,
+        temperature: 0.1,
+        maxOutputTokens: 600,
+        abortSignal: AbortSignal.timeout(20_000),
       });
 
       const latencyMs = Date.now() - startTime;
@@ -128,7 +141,7 @@ export class ReminderAiParserService {
         tenantId,
         userId,
         runType: 'reminder-parse',
-        model: this.mistralProvider.getChatModelName(),
+        model: this.parserModelId,
         promptTokens: result.usage?.inputTokens ?? 0,
         completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: result.usage?.totalTokens ?? 0,
@@ -146,7 +159,7 @@ export class ReminderAiParserService {
         tenantId,
         userId,
         runType: 'reminder-parse',
-        model: this.mistralProvider.getChatModelName(),
+        model: this.parserModelId,
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,

@@ -46,6 +46,16 @@ export class ReminderService {
       aiRawResponse = parsed as unknown as Prisma.InputJsonValue;
       rispostaChat = parsed.risposta_chat;
 
+      // If AI couldn't interpret the input as a reminder, abort creation
+      if (!parsed.is_reminder) {
+        this.logger.warn(`AI parser did not recognize input as reminder: "${dto.inputUtente}"`);
+        return {
+          reminder: { id: '', titolo: 'Promemoria', scadenzaDatetime: null, condizioneTipo: 'sempre', monitoraEmail: false, messaggioTelegram: null } as any,
+          rispostaChat: parsed.risposta_chat || 'Non sono riuscito a interpretare la richiesta.',
+          failed: true,
+        };
+      }
+
       // Merge AI-parsed fields with explicit DTO fields (DTO takes precedence)
       if (!dto.titolo && parsed.titolo) dto.titolo = parsed.titolo;
       if (!dto.descrizione && parsed.descrizione) dto.descrizione = parsed.descrizione;
@@ -110,7 +120,7 @@ export class ReminderService {
 
     this.logger.log(`Created reminder ${reminder.id} for user ${userId} in tenant ${tenantId}`);
 
-    return { reminder, rispostaChat };
+    return { reminder, rispostaChat, failed: false as const };
   }
 
   async listReminders(tenantId: string, userId: string, filters: ReminderListFilters = {}) {

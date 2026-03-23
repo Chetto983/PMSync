@@ -75,6 +75,15 @@ export class ReminderToolsService implements OnModuleInit {
             { inputUtente: args.inputUtente },
           );
 
+          // AI parser couldn't interpret input — return error so chat model doesn't retry
+          if (result.failed) {
+            return {
+              success: false,
+              error: 'Could not parse reminder from input',
+              rispostaChat: result.rispostaChat,
+            };
+          }
+
           return truncateToolResult({
             success: true,
             reminderId: result.reminder.id,
@@ -89,7 +98,7 @@ export class ReminderToolsService implements OnModuleInit {
           this.logger.warn(
             `create_reminder failed: ${err instanceof Error ? err.message : err}`,
           );
-          return { error: 'Failed to create reminder' };
+          return { success: false, error: 'Failed to create reminder' };
         }
       },
     });

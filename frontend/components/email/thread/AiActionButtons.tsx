@@ -15,8 +15,10 @@ import { Box, Button, Tooltip, CircularProgress, Divider } from '@mui/material';
 import { FileText as SummarizeIcon, AlertTriangle as PriorityHighIcon, Smile as SentimentSatisfiedAltIcon } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
+import { useGlobalToast } from '@/lib/context/toast-context';
 import { useEmailSummarizeMutation, PriorityResult, SentimentResult } from '@/hooks/ai';
 import { aiApi } from '@/lib/api/ai';
+import type { AxiosError } from 'axios';
 
 interface AiActionButtonsProps {
   emailId: string;
@@ -68,6 +70,13 @@ export const AiActionButtons = memo(function AiActionButtons({
 }: AiActionButtonsProps) {
   const t = useTranslations();
   const { locale } = useLocale();
+  const toast = useGlobalToast();
+
+  const getErrorMessage = (err: unknown): string => {
+    const status = (err as AxiosError)?.response?.status;
+    if (status === 403) return t.threadMessage?.ai?.consentRequired || 'Enable AI Email Processing in Settings → Privacy';
+    return t.threadMessage?.ai?.error || 'Failed to analyze';
+  };
 
   // Map numeric priority (1-5) to urgency string
   const mapPriorityToUrgency = (p: number): 'high' | 'medium' | 'low' => {
@@ -116,8 +125,8 @@ export const AiActionButtons = memo(function AiActionButtons({
     try {
       const result = await summarizeMutation.mutateAsync({ emailId, locale });
       onSummaryGenerated(result);
-    } catch {
-      // Error handled by mutation state
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -129,8 +138,8 @@ export const AiActionButtons = memo(function AiActionButtons({
       if (response.data.success) {
         setPriority(response.data as PriorityResult);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setIsAnalyzingPriority(false);
     }
@@ -144,8 +153,8 @@ export const AiActionButtons = memo(function AiActionButtons({
       if (response.data.success) {
         setSentiment(response.data as SentimentResult);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setIsAnalyzingSentiment(false);
     }
