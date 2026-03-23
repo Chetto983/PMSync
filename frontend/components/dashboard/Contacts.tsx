@@ -101,11 +101,12 @@ export function Contacts() {
   }, [handleBulkDelete]);
 
   // Update provider on form when providers load
+  const { updateProviderIdIfEmpty } = form;
   React.useEffect(() => {
     if (providers[0]?.id) {
-      form.updateProviderIdIfEmpty(providers[0].id);
+      updateProviderIdIfEmpty(providers[0].id);
     }
-  }, [providers, form]);
+  }, [providers, updateProviderIdIfEmpty]);
 
   React.useEffect(() => {
     if (!snackbar.open || !snackbar.message) return;

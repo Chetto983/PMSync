@@ -112,7 +112,6 @@ export const ContactLayout: React.FC<ContactLayoutProps> = ({
           variant="temporary"
           open={sidebarOpen}
           onClose={onSidebarClose}
-          ModalProps={{ keepMounted: true }}
           sx={{
             '& .MuiDrawer-paper': {
               width: isVerySmallMobile ? 'calc(100vw - 56px)' : 280,
@@ -155,7 +154,7 @@ export const ContactLayout: React.FC<ContactLayoutProps> = ({
           disableSwipeToOpen
           swipeAreaWidth={0}
           ModalProps={{
-            keepMounted: true,
+            keepMounted: false,
           }}
           PaperProps={{
             sx: {
