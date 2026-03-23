@@ -111,7 +111,7 @@
 - Decimal phases (e.g., 100.1): Urgent insertions if needed (marked with INSERTED)
 
 - [x] **Phase 100: PWA Foundation** - Web app manifest, service worker registration, icon set, Vercel cache headers (completed 2026-03-23)
-- [ ] **Phase 101: Offline Shell** - Offline fallback page, online/offline indicator, app shell caching
+- [x] **Phase 101: Offline Shell** - Offline fallback page, online/offline indicator, app shell caching (completed 2026-03-23)
 - [ ] **Phase 102: Install Experience** - beforeinstallprompt for Android/desktop, iOS instructions, standalone detection
 - [ ] **Phase 103: Offline Email Reading** - TanStack Query persist to IndexedDB, cache-on-logout security
 - [ ] **Phase 104: Background Sync** - Offline mutation queue, replay on reconnect, queue TTL with notification
@@ -141,7 +141,7 @@ Plans:
   1. User navigating to an uncached route without network sees a branded PMSync offline page instead of the browser error
   2. User sees a visible banner when connection drops and the banner disappears when connection restores
   3. App shell (sidebar, top bar, layout chrome) loads instantly from cache when opening the app offline
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 101-01-PLAN.md -- Offline fallback page, SW fallbacks config, online/offline banner, useOnlineStatus hook
 
@@ -194,7 +194,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 100. PWA Foundation | 2/2 | Complete    | 2026-03-23 | - |
-| 101. Offline Shell | v8.0 | 0/1 | Not started | - |
+| 101. Offline Shell | 1/1 | Complete   | 2026-03-23 | - |
 | 102. Install Experience | v8.0 | 0/TBD | Not started | - |
 | 103. Offline Email Reading | v8.0 | 0/TBD | Not started | - |
 | 104. Background Sync | v8.0 | 0/TBD | Not started | - |
