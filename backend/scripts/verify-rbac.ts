@@ -21,13 +21,16 @@ const TIMEOUT = 10000;
 const MEMBER_USER_EMAIL = process.env.MEMBER_USER_EMAIL;
 const MEMBER_USER_PASSWORD = process.env.MEMBER_USER_PASSWORD;
 
+const SUPER_ADMIN_EMAIL = process.env.TEST_USER_EMAIL;
+const SUPER_ADMIN_PASSWORD = process.env.TEST_USER_PASSWORD;
+
 interface TestResult {
   method: string;
   path: string;
   status: number;
   pass: boolean;
   reason: string;
-  category: 'admin-deny' | 'member-allow';
+  category: 'admin-deny' | 'member-allow' | 'super-admin-allow';
 }
 
 async function authenticate(email: string, password: string): Promise<string> {
@@ -141,6 +144,41 @@ async function main() {
     console.log(`  [${icon}] ${method} ${path} -> ${r.status} (${reason})`);
   }
 
+  // 3b. Super-admin endpoints — super-admin should NOT get 403
+  if (SUPER_ADMIN_EMAIL && SUPER_ADMIN_PASSWORD) {
+    console.log('\nTesting super-admin bypass (expect non-403):\n');
+    let saCookie: string;
+    let saTenantId: string;
+    try {
+      console.log(`Authenticating super-admin: ${SUPER_ADMIN_EMAIL}...`);
+      const saAuth = await authenticate(SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD);
+      saCookie = saAuth.cookie;
+      saTenantId = saAuth.tenantId;
+      console.log(`Super-admin auth successful. Tenant: ${saTenantId}\n`);
+    } catch (e: any) {
+      console.error(`Super-admin auth failed: ${e.message}`);
+      console.log('Skipping super-admin tests.\n');
+      saCookie = '';
+      saTenantId = '';
+    }
+
+    if (saCookie) {
+      for (const [method, path, body] of adminEndpoints) {
+        const r = await req(method, path, saCookie, saTenantId, body);
+        const pass = r.status !== 403;
+        const reason = pass
+          ? `ALLOWED (${r.status})`
+          : `FAIL: super-admin was denied (403)`;
+
+        results.push({ method, path, status: r.status, pass, reason, category: 'super-admin-allow' });
+        const icon = pass ? 'PASS' : 'FAIL';
+        console.log(`  [${icon}] ${method} ${path} -> ${r.status} (${reason})`);
+      }
+    }
+  } else {
+    console.log('\nSkipping super-admin tests: TEST_USER_EMAIL/TEST_USER_PASSWORD not set.\n');
+  }
+
   // 4. Summary
   console.log('\n' + '='.repeat(60));
   const passed = results.filter((r) => r.pass).length;
@@ -151,6 +189,10 @@ async function main() {
 
   console.log(`\nAdmin denial: ${adminDeny.filter((r) => r.pass).length}/${adminDeny.length} correct`);
   console.log(`Member access: ${memberAllow.filter((r) => r.pass).length}/${memberAllow.length} correct`);
+  const superAdminAllow = results.filter((r) => r.category === 'super-admin-allow');
+  if (superAdminAllow.length > 0) {
+    console.log(`Super-admin bypass: ${superAdminAllow.filter((r) => r.pass).length}/${superAdminAllow.length} correct`);
+  }
   console.log(`Total: PASS ${passed} | FAIL ${failed}`);
 
   if (failed > 0) {
