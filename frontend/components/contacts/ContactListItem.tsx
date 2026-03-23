@@ -6,8 +6,8 @@
  *
  * Design decisions:
  * - VIP: 3px left accent border (matches email unread pattern)
- * - Checkbox: appears on hover or when selected
- * - Action bar: hover-only on ALL viewports
+ * - Checkbox: appears on hover, when selected, or on touch/mobile
+ * - Action bar: hover on desktop, always visible on touch/mobile (smaller icons)
  * - ~52px compact row height
  */
 
@@ -20,6 +20,8 @@ import {
   IconButton,
   Tooltip,
   Fade,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Mail as MailIcon,
@@ -91,6 +93,10 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     onMouseLeave,
   }) => {
     const t = useTranslations();
+    const theme = useTheme();
+    const isNarrowViewport = useMediaQuery(theme.breakpoints.down('md'));
+    const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
+    const isTouchLayout = isNarrowViewport || hasTouchPointer;
     const displayName = useMemo(() => getDisplayName(contact), [contact]);
     const initials = useMemo(() => getInitials(contact), [contact]);
     const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
@@ -136,7 +142,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
         }}
       >
         {/* Checkbox — visible on hover or selected */}
-        <Fade in={isHovered || multiSelected}>
+        <Fade in={isHovered || multiSelected || isTouchLayout}>
           <Box sx={{ width: 36, flexShrink: 0 }}>
             <Checkbox
               checked={multiSelected}
@@ -211,9 +217,9 @@ export const ContactListItem = React.memo<ContactListItemProps>(
           )}
         </Box>
 
-        {/* Action bar — hover-only on ALL viewports */}
+        {/* Action bar — visible on hover (desktop) or always (touch/mobile) */}
         {hasActionBar && (
-          <Fade in={isHovered}>
+          <Fade in={isHovered || isTouchLayout}>
             <Box
               className="contact-action-bar"
               sx={{
@@ -225,42 +231,42 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 gap: 0.25,
                 bgcolor: 'background.paper',
                 borderRadius: 1,
-                boxShadow: 2,
+                boxShadow: isTouchLayout ? 0 : 2,
                 p: 0.25,
               }}
             >
               {onToggleVip && (
                 <Tooltip title={contact.isVip ? (t.contacts?.actions?.removeVip || 'Remove VIP') : (t.contacts?.actions?.markVip || 'Mark as VIP')}>
                   <IconButton size="small" onClick={handleToggleVip} sx={{ p: 0.5, color: contact.isVip ? 'warning.main' : 'action.active' }}>
-                    {contact.isVip ? <StarIcon size={16} fill="currentColor" /> : <StarIcon size={16} />}
+                    {contact.isVip ? <StarIcon size={isTouchLayout ? 14 : 16} fill="currentColor" /> : <StarIcon size={isTouchLayout ? 14 : 16} />}
                   </IconButton>
                 </Tooltip>
               )}
               {primaryEmail && onEmail && (
                 <Tooltip title={t.contacts?.actions?.sendEmail || 'Send email'}>
                   <IconButton size="small" onClick={handleEmail} sx={{ p: 0.5 }}>
-                    <MailIcon size={16} />
+                    <MailIcon size={isTouchLayout ? 14 : 16} />
                   </IconButton>
                 </Tooltip>
               )}
               {primaryPhone && onCall && (
                 <Tooltip title={t.contacts?.actions?.call || 'Call'}>
                   <IconButton size="small" onClick={handleCall} sx={{ p: 0.5 }}>
-                    <PhoneIcon size={16} />
+                    <PhoneIcon size={isTouchLayout ? 14 : 16} />
                   </IconButton>
                 </Tooltip>
               )}
               {onEdit && (
                 <Tooltip title={t.common?.edit || 'Edit'}>
                   <IconButton size="small" onClick={handleEdit} sx={{ p: 0.5 }}>
-                    <EditIcon size={16} />
+                    <EditIcon size={isTouchLayout ? 14 : 16} />
                   </IconButton>
                 </Tooltip>
               )}
               {onDelete && (
                 <Tooltip title={t.common?.delete || 'Delete'}>
                   <IconButton size="small" onClick={handleDelete} color="error" sx={{ p: 0.5 }}>
-                    <DeleteIcon size={16} />
+                    <DeleteIcon size={isTouchLayout ? 14 : 16} />
                   </IconButton>
                 </Tooltip>
               )}

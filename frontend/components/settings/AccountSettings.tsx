@@ -177,6 +177,9 @@ export function AccountSettings({
                 '&:hover .avatar-overlay': {
                   opacity: 1,
                 },
+                '@media (hover: none)': {
+                  '& .avatar-overlay': { opacity: 0.6 },
+                },
               }}
               onClick={handleAvatarClick}
             >

@@ -86,6 +86,9 @@ export function StaleContactsWidget() {
                     borderColor: 'primary.main',
                     '& .reconnect-arrow': { opacity: 1 },
                   },
+                  '@media (hover: none)': {
+                    '& .reconnect-arrow': { opacity: 0.5 },
+                  },
                 }}
               >
                 <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>

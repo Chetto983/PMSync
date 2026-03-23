@@ -258,7 +258,8 @@ export function LabelPickerDialog({
                       onClick={(e) => handleLabelMenu(e, label)}
                       sx={{
                         opacity: 0,
-                        '.MuiListItem-root:hover &': { opacity: 1 },
+                        '.MuiListItem-root:hover &, .MuiListItem-root:focus-within &': { opacity: 1 },
+                        '@media (hover: none)': { opacity: 1 },
                         p: 0.5,
                       }}
                     >

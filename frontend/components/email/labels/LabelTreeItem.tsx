@@ -16,6 +16,7 @@ import {
   IconButton,
   Box,
   alpha,
+  useMediaQuery,
 } from '@mui/material';
 import { ChevronRight, ChevronDown, MoreHorizontal } from 'lucide-react';
 import type { TreeItem } from '@/lib/label-tree-utils';
@@ -79,6 +80,7 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
     ref,
   ) {
     const [hovered, setHovered] = useState(false);
+    const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
     const indent = getIndent(depth);
 
     // Dimmed empty parents: no own emails AND has children
@@ -192,7 +194,7 @@ export const LabelTreeItem = forwardRef<HTMLDivElement, LabelTreeItemProps>(
             sx={{
               p: 0.25,
               ml: 0.5,
-              opacity: hovered ? 1 : 0,
+              opacity: hovered || hasTouchPointer ? 1 : 0,
               transition: 'opacity 0.15s ease',
               flexShrink: 0,
             }}

@@ -501,8 +501,11 @@ export function FolderSidebar({
                                     sx={{
                                       display: 'flex',
                                       alignItems: 'center',
-                                      '&:hover .folder-menu-btn': {
+                                      '&:hover .folder-menu-btn, &:focus-within .folder-menu-btn': {
                                         opacity: 1,
+                                      },
+                                      '@media (hover: none)': {
+                                        '& .folder-menu-btn': { opacity: 1 },
                                       },
                                     }}
                                   >

@@ -21,6 +21,8 @@ import {
   IconButton,
   Chip,
   Tooltip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { ChevronDown, Flag, Reply, ReplyAll, Forward, MoreVertical, Paperclip, Download } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -74,6 +76,10 @@ export const ThreadMessage = memo(function ThreadMessage({
   onDownloadAttachment,
 }: ThreadMessageProps) {
   const t = useTranslations();
+  const theme = useTheme();
+  const isNarrowViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
+  const isTouchLayout = isNarrowViewport || hasTouchPointer;
   const [showActions, setShowActions] = useState(false);
 
   const handleAccordionChange = (_event: React.SyntheticEvent, isExpanded: boolean) => {
@@ -212,7 +218,7 @@ export const ThreadMessage = memo(function ThreadMessage({
         </Box>
 
         {/* Action buttons (visible on hover when collapsed) */}
-        {!expanded && showActions && (
+        {!expanded && (showActions || isTouchLayout) && (
           <Box
             sx={{
               display: 'flex',

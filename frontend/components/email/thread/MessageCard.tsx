@@ -23,6 +23,8 @@ import {
   Chip,
   Collapse,
   Tooltip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   ChevronDown,
@@ -101,6 +103,10 @@ export const MessageCard = memo(function MessageCard({
   onForward,
 }: MessageCardProps) {
   const t = useTranslations();
+  const theme = useTheme();
+  const isNarrowViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
+  const isTouchLayout = isNarrowViewport || hasTouchPointer;
   const [showActions, setShowActions] = useState(false);
 
   const handleClick = () => {
@@ -236,7 +242,7 @@ export const MessageCard = memo(function MessageCard({
         </Typography>
 
         {/* Quick actions on hover (collapsed only) */}
-        {!expanded && showActions && (
+        {!expanded && (showActions || isTouchLayout) && (
           <Box
             sx={{ display: 'flex', gap: 0.5, ml: 1 }}
             onClick={(e) => e.stopPropagation()}
