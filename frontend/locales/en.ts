@@ -4143,4 +4143,12 @@ export const en: AppTranslations = {
       iosStep3: 'Tap "Add" to confirm',
     },
   },
+  offlineQueue: {
+    pendingActions: '{count} pending action(s)',
+    replayStarted: 'Syncing {count} queued action(s)...',
+    replaySuccess: '{count} offline action(s) synced successfully.',
+    expiredActions: '{count} offline action(s) expired and were discarded.',
+    replayPartialFailure: 'Some actions could not be synced. They will retry on next connection.',
+    queueFull: 'Offline action limit reached. Oldest actions were discarded.',
+  },
 };

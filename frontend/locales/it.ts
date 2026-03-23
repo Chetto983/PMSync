@@ -4120,4 +4120,12 @@ export const it: AppTranslations = {
       iosStep3: 'Tocca "Aggiungi" per confermare',
     },
   },
+  offlineQueue: {
+    pendingActions: '{count} azione/i in attesa',
+    replayStarted: 'Sincronizzazione di {count} azione/i in coda...',
+    replaySuccess: '{count} azione/i offline sincronizzata/e con successo.',
+    expiredActions: '{count} azione/i offline scaduta/e ed eliminata/e.',
+    replayPartialFailure: 'Alcune azioni non sono state sincronizzate. Verranno riprovate alla prossima connessione.',
+    queueFull: 'Limite azioni offline raggiunto. Le azioni piu vecchie sono state eliminate.',
+  },
 };

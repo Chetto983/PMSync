@@ -3973,6 +3973,14 @@ export interface AppTranslations {
       iosStep3?: string;
     };
   };
+  offlineQueue?: {
+    pendingActions?: string;
+    replayStarted?: string;
+    replaySuccess?: string;
+    expiredActions?: string;
+    replayPartialFailure?: string;
+    queueFull?: string;
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
