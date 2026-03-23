@@ -12,6 +12,9 @@ const withSerwist = withSerwistInit({
   register: true,
   reloadOnOnline: false,
   cacheOnNavigation: true,
+  additionalPrecacheEntries: [
+    { url: '/offline.html', revision: Date.now().toString() },
+  ],
 });
 
 /** @type {import('next').NextConfig} */
