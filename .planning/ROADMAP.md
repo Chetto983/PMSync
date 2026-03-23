@@ -207,7 +207,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 |-------|-----------|----------------|--------|-----------|
 | 100. PWA Foundation | 2/2 | Complete    | 2026-03-23 | - |
 | 101. Offline Shell | 1/1 | Complete    | 2026-03-23 | - |
-| 102. Install Experience | 2/2 | Complete   | 2026-03-23 | - |
+| 102. Install Experience | 2/2 | Complete    | 2026-03-23 | - |
 | 103. Offline Email Reading | v8.0 | 0/TBD | Not started | - |
 | 104. Background Sync | v8.0 | 0/TBD | Not started | - |
 | 105. Push Plumbing & Polish | v8.0 | 0/TBD | Not started | - |
