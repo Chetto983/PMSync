@@ -21,7 +21,7 @@ const config = {
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   transformIgnorePatterns: [
-    'node_modules/(?!(@tanstack|clsx|tailwind-merge)/)',
+    'node_modules/(?!(@tanstack|clsx|tailwind-merge|idb-keyval)/)',
   ],
   collectCoverageFrom: [
     'lib/**/*.{ts,tsx}',
