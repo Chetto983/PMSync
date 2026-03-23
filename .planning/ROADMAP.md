@@ -128,7 +128,7 @@
   2. Service worker activates on first visit and subsequent page loads serve static assets (JS, CSS, fonts) from SW cache
   3. Deploying a new version on Vercel causes the browser to detect the updated sw.js within 24 hours (no stale SW caching)
   4. All /api/* requests bypass the service worker entirely -- no 401s, no SSE corruption, no TanStack Query interference
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 100-01-PLAN.md -- Install Serwist, create manifest + icons + Apple meta tags
 - [ ] 100-02-PLAN.md -- Create SW source, wrap next.config, Vercel headers, .gitignore
@@ -191,7 +191,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 100. PWA Foundation | v8.0 | 0/2 | Planning | - |
+| 100. PWA Foundation | 1/2 | In Progress|  | - |
 | 101. Offline Shell | v8.0 | 0/TBD | Not started | - |
 | 102. Install Experience | v8.0 | 0/TBD | Not started | - |
 | 103. Offline Email Reading | v8.0 | 0/TBD | Not started | - |
