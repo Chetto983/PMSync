@@ -78,10 +78,10 @@ Requirements for v7.0 System Audit & Hardening. Each maps to roadmap phases.
 - [x] **UIPOL-05**: Dark mode renders correctly on all pages (no white flash, no unthemed elements)
 - [x] **UIPOL-06**: Keyboard navigation works on all interactive elements
 - [x] **UIPOL-07**: Italian translation complete (no missing keys, no English fallbacks visible)
-- [ ] **UIPOL-08**: All components use MUI theme exclusively (no raw CSS, no Tailwind utilities, no hardcoded colors in .tsx files)
-- [ ] **UIPOL-09**: Chat CSS files (~950 lines) migrated to MUI sx props
-- [ ] **UIPOL-10**: ChatThemeBridge removed after CSS migration
-- [ ] **UIPOL-11**: tailwindcss package removed from frontend dependencies
+- [ ] **UIPOL-08**: All components use MUI theme exclusively (no raw CSS, no Tailwind utilities, no hardcoded colors in .tsx files) — *deferred to v8.0+ (Phase 97 OBSOLETE)*
+- [ ] **UIPOL-09**: Chat CSS files (~950 lines) migrated to MUI sx props — *deferred to v8.0+ (Phase 97 OBSOLETE)*
+- [ ] **UIPOL-10**: ChatThemeBridge removed after CSS migration — *deferred to v8.0+ (Phase 97 OBSOLETE)*
+- [ ] **UIPOL-11**: tailwindcss package removed from frontend dependencies — *deferred to v8.0+ (Phase 97 OBSOLETE)*
 
 ### Security Verification
 
@@ -185,15 +185,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UIPOL-05 | Phase 96 | Complete |
 | UIPOL-06 | Phase 96 | Complete |
 | UIPOL-07 | Phase 96 | Complete |
-| UIPOL-08 | Phase 97 | Pending |
-| UIPOL-09 | Phase 97 | Pending |
-| UIPOL-10 | Phase 97 | Pending |
-| UIPOL-11 | Phase 97 | Pending |
+| UIPOL-08 | Phase 97 (OBSOLETE) | Deferred to v8.0+ |
+| UIPOL-09 | Phase 97 (OBSOLETE) | Deferred to v8.0+ |
+| UIPOL-10 | Phase 97 (OBSOLETE) | Deferred to v8.0+ |
+| UIPOL-11 | Phase 97 (OBSOLETE) | Deferred to v8.0+ |
 | SEC-01 | Phase 98 | Complete |
 | SEC-02 | Phase 98 | Complete |
 | SEC-03 | Phase 98 | Complete |
 | SEC-04 | Phase 98 | Complete |
 | SEC-05 | Phase 98 | Complete |
+| BAPI-15 (partial) | Phase 99 | Pending |
+| SEC-05 (partial) | Phase 99 | Pending |
 
 **Coverage:**
 - v7.0 requirements: 69 total
@@ -202,4 +204,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-20 after roadmap creation*
+*Last updated: 2026-03-23 after gap closure phase creation*
