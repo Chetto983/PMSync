@@ -55,7 +55,27 @@ describe('query-persist', () => {
       expect(callArgs.maxAge).toBe(1000 * 60 * 60 * 24); // 86400000
       expect(callArgs.prefix).toBe('tq-');
       expect(callArgs.storage).toBeDefined();
+      expect(callArgs.filters).toBeDefined();
+      expect(callArgs.filters.predicate).toBeInstanceOf(Function);
       expect(result).toBe(mockPersisterFn);
+    });
+
+    it('filters predicate allows only emails and folders queries', () => {
+      createQueryPersister();
+      const callArgs = (experimental_createQueryPersister as jest.Mock).mock.calls[0][0];
+      const predicate = callArgs.filters.predicate;
+
+      // Allowed prefixes
+      expect(predicate({ queryKey: ['emails', 'list'] })).toBe(true);
+      expect(predicate({ queryKey: ['emails', 'detail', '123'] })).toBe(true);
+      expect(predicate({ queryKey: ['folders', 'list'] })).toBe(true);
+      expect(predicate({ queryKey: ['folders', 'metadata'] })).toBe(true);
+
+      // Blocked prefixes
+      expect(predicate({ queryKey: ['dashboard', 'briefing'] })).toBe(false);
+      expect(predicate({ queryKey: ['contacts', 'list'] })).toBe(false);
+      expect(predicate({ queryKey: ['billing', 'subscription'] })).toBe(false);
+      expect(predicate({ queryKey: ['settings', 'preferences'] })).toBe(false);
     });
 
     it('contains SSR guard that returns undefined when window is undefined', () => {

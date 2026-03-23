@@ -24,9 +24,9 @@ export default registerAs('ai', () => ({
   // ===========================================
   models: {
     /** Simple tasks: classification, titles, RAG, fast completions */
-    simple: process.env.AI_MODEL_SIMPLE || 'nvidia/nemotron-3-nano-30b-a3b',
+    simple: process.env.AI_MODEL_SIMPLE || 'mistralai/mistral-small-3.1-24b-instruct',
     /** Creative tasks: email composition, smart replies (no tool calls) */
-    creative: process.env.AI_MODEL_CREATIVE || 'nvidia/nemotron-3-nano-30b-a3b',
+    creative: process.env.AI_MODEL_CREATIVE || 'mistralai/mistral-small-3.1-24b-instruct',
   },
 
   // ===========================================

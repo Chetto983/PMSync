@@ -16,6 +16,9 @@ function createIdbStorage(): AsyncStorage {
   };
 }
 
+/** Only persist queries whose first key segment is in this set */
+const PERSIST_PREFIXES = new Set(['emails', 'folders']);
+
 export function createQueryPersister() {
   if (typeof window === 'undefined') return undefined;
 
@@ -23,6 +26,12 @@ export function createQueryPersister() {
     storage: createIdbStorage(),
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
     prefix: 'tq-',
+    filters: {
+      predicate: (query) => {
+        const first = query.queryKey[0];
+        return typeof first === 'string' && PERSIST_PREFIXES.has(first);
+      },
+    },
   });
 
   // QueryClient.defaultOptions.queries.persister expects the function, not the object
