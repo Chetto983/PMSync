@@ -197,7 +197,7 @@ export class AiChatService {
       const [contextMessages, runtimeContextMeta, memories] = await Promise.all([
         this.conversationService.getMessagesForContext(conversation.id, 10, tenantId),
         this.chatEnrichmentService.getRuntimeContextMetadata(tenantId, userId, locale),
-        this.memoryService.getRelevantMemories(tenantId, userId, llmMessage, 3),
+        this.memoryService.getRelevantMemories(tenantId, userId, llmMessage, 5),
       ]);
       messages = redactModelMessagesForModel(
         this.piiDetectionService,

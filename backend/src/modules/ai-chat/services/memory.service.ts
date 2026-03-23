@@ -18,8 +18,9 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 
-/** Memory result from vector search */
+/** Memory result from vector search or direct load */
 export interface MemoryResult {
+  id?: string;
   content: string;
   category: string | null;
   createdAt: Date;
@@ -35,56 +36,37 @@ export class MemoryService {
   ) {}
 
   /**
-   * Retrieve the top-N most relevant memories for a user, given a query.
+   * Retrieve the most relevant memories for a user.
    *
-   * Uses pgvector cosine distance (<->) on AIMemory.vector column.
-   * Only returns memories with distance < 0.5 (reasonably similar).
+   * Hybrid strategy (saves ~300ms for typical users):
+   * - If user has <= DIRECT_LOAD_THRESHOLD memories: load all directly (no embedding API call)
+   * - If user has more: use pgvector cosine distance for semantic search
    *
-   * @param tenantId - Tenant scope
-   * @param userId - User scope
-   * @param query - Current user message (used to generate query embedding)
-   * @param limit - Max number of memories to return (default 3)
-   * @returns Relevant memories sorted by similarity, or empty on error
+   * Mem0-style embedding search is superior when users have hundreds of memories,
+   * but our users typically have 3-20. Direct load avoids the Mistral embedding
+   * API round-trip (~300ms) that dominates latency for small memory sets.
    */
+  private static readonly DIRECT_LOAD_THRESHOLD = 15;
+
   async getRelevantMemories(
     tenantId: string,
     userId: string,
     query: string,
-    limit: number = 3,
+    limit: number = 5,
   ): Promise<MemoryResult[]> {
     try {
-      // Generate embedding for the query -- routes through MistralEmbeddingService for cost protection
-      const queryVector = await this.mistralEmbeddingService.generateEmbedding(
-        query,
-        undefined,
-        { tenantId },
-      );
+      // Check memory count (fast indexed query)
+      const count = await this.prisma.aIMemory.count({
+        where: { tenantId, userId },
+      });
 
-      // SECURITY: Validate embedding vector before using in raw SQL
-      const validatedVector = validateEmbeddingVector(queryVector);
-
-      // Convert to pgvector format: [0.1, 0.2, ...]
-      const vectorStr = `[${validatedVector.join(',')}]`;
-
-      // Vector similarity search on AIMemory
-      // SEC: Use $queryRaw tagged template (parameterized) instead of $queryRawUnsafe
-      const vectorParam = Prisma.raw(`'${vectorStr}'::vector`);
-      const results = await this.prisma.$queryRaw<
-        Array<{ id: string; content: string; category: string | null; createdAt: Date }>
-      >(
-        Prisma.sql`SELECT id, content, category, "createdAt"
-         FROM ai_memories
-         WHERE "tenantId" = ${tenantId}
-           AND "userId" = ${userId}
-           AND vector IS NOT NULL
-           AND (vector <-> ${vectorParam}) < 0.5
-         ORDER BY (vector <-> ${vectorParam}) ASC
-         LIMIT ${limit}`,
-      );
+      const results = count <= MemoryService.DIRECT_LOAD_THRESHOLD
+        ? await this.loadAllMemories(tenantId, userId, limit)
+        : await this.searchByEmbedding(tenantId, userId, query, limit);
 
       // Update usage tracking (fire-and-forget, never block chat)
       if (results.length > 0) {
-        const ids = results.map((r) => r.id).filter(Boolean);
+        const ids = results.map((r) => r.id).filter((id): id is string => !!id);
         if (ids.length > 0) {
           this.prisma.aIMemory
             .updateMany({
@@ -106,6 +88,57 @@ export class MemoryService {
       );
       return [];
     }
+  }
+
+  /** Fast path: load all memories directly, ordered by most recently used. */
+  private async loadAllMemories(
+    tenantId: string,
+    userId: string,
+    limit: number,
+  ): Promise<MemoryResult[]> {
+    const rows = await this.prisma.aIMemory.findMany({
+      where: { tenantId, userId },
+      select: { id: true, content: true, category: true, createdAt: true },
+      orderBy: [{ lastUsedAt: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      content: r.content,
+      category: r.category,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  /** Slow path: embedding-based semantic search via pgvector. */
+  private async searchByEmbedding(
+    tenantId: string,
+    userId: string,
+    query: string,
+    limit: number,
+  ): Promise<MemoryResult[]> {
+    const queryVector = await this.mistralEmbeddingService.generateEmbedding(
+      query,
+      undefined,
+      { tenantId },
+    );
+
+    const validatedVector = validateEmbeddingVector(queryVector);
+    const vectorStr = `[${validatedVector.join(',')}]`;
+    const vectorParam = Prisma.raw(`'${vectorStr}'::vector`);
+
+    return this.prisma.$queryRaw<
+      Array<{ id: string; content: string; category: string | null; createdAt: Date }>
+    >(
+      Prisma.sql`SELECT id, content, category, "createdAt"
+       FROM ai_memories
+       WHERE "tenantId" = ${tenantId}
+         AND "userId" = ${userId}
+         AND vector IS NOT NULL
+         AND (vector <-> ${vectorParam}) < 0.5
+       ORDER BY (vector <-> ${vectorParam}) ASC
+       LIMIT ${limit}`,
+    );
   }
 
   /**
