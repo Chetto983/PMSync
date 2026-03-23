@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
 status: unknown
-stopped_at: Completed 102-02-PLAN.md
-last_updated: "2026-03-23T13:58:00.590Z"
+stopped_at: "Completed 103-01-PLAN.md"
+last_updated: "2026-03-23T14:45:36.368Z"
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -19,20 +20,20 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 102 — install-experience
+**Current focus:** Phase 103 — offline-email-reading
 
 ## Current Position
 
-Phase: 102 (install-experience) — EXECUTING
+Phase: 103 (offline-email-reading) — EXECUTING
 Plan: 2 of 2
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 4
+- Total plans completed: 6
 - Average duration: ~5min
-- Total execution time: ~21 min
+- Total execution time: ~29 min
 
 ## Accumulated Context
 
@@ -52,6 +53,9 @@ Plan: 2 of 2
 - [Phase 102]: _resetForTesting pattern for module-state hooks (avoids jest.isolateModules React duplication)
 - [Phase 102]: Functional localStorage mock needed in tests (jest.setup.ts provides bare stubs)
 - [Phase 102]: Positioned InstallPromptBanner after sync status Snackbar and before CookieConsent in Layout.tsx
+- [Phase 103]: Return persisterFn (not whole persister object) to match QueryPersister type expected by QueryClient
+- [Phase 103]: Updated @tanstack/react-query to 5.95.1 to deduplicate query-core
+- [Phase 103]: Selective gcTime -- only email list/detail get 24h; other queries keep short gcTime
 
 ### Pending Todos
 
@@ -59,12 +63,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 103: Verify TQ v5 experimental_createPersister compatibility with existing config before implementation
+- Phase 103: TQ v5 experimental_createQueryPersister verified compatible (RESOLVED)
 - Phase 104: Safari has zero BackgroundSync support -- online event is the primary replay path
 - Phase 105: Check Prisma schema for PushSubscription storage -- may need new model + migration
 
 ## Session Continuity
 
-Last session: 2026-03-23T13:46:55.852Z
-Stopped at: Completed 102-02-PLAN.md
-Resume file: None
+Last session: 2026-03-23T14:45:36.368Z
+Stopped at: Completed 103-01-PLAN.md
+Resume file: .planning/phases/103-offline-email-reading/103-01-SUMMARY.md

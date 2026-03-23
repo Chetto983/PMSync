@@ -18,7 +18,7 @@ Requirements for Progressive Web App milestone. Each maps to roadmap phases.
 
 - [x] **OFFL-01**: User sees branded offline fallback page instead of browser error when navigating to uncached route without network
 - [x] **OFFL-02**: User sees online/offline indicator banner when connection drops or restores
-- [ ] **OFFL-03**: User can read recently-synced inbox emails after closing and reopening app without network (TanStack Query persist to IndexedDB)
+- [x] **OFFL-03**: User can read recently-synced inbox emails after closing and reopening app without network (TanStack Query persist to IndexedDB)
 - [x] **OFFL-04**: App shell (navigation, layout) loads from cache for instant startup even without network
 
 ### Install
@@ -83,7 +83,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-04 | Phase 100 | Complete |
 | OFFL-01 | Phase 101 | Complete |
 | OFFL-02 | Phase 101 | Complete |
-| OFFL-03 | Phase 103 | Pending |
+| OFFL-03 | Phase 103 | Complete |
 | OFFL-04 | Phase 101 | Complete |
 | INST-01 | Phase 102 | Complete |
 | INST-02 | Phase 102 | Complete |
