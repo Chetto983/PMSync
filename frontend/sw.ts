@@ -8,7 +8,11 @@ declare global {
   }
 }
 
-declare const self: WorkerGlobalScope & typeof globalThis;
+declare const self: WorkerGlobalScope & typeof globalThis & {
+  clients: {
+    matchAll(options?: { type?: string; includeUncontrolled?: boolean }): Promise<{ postMessage(message: unknown): void }[]>;
+  };
+};
 
 // Filter out any defaultCache entries that match /api/ routes.
 // Serwist's defaultCache may include rules for /api/ which
@@ -57,6 +61,21 @@ const serwist = new Serwist({
       },
     ],
   },
+});
+
+// BackgroundSync progressive enhancement (Chromium-only)
+// SW cannot make authenticated API calls (httpOnly cookies),
+// so relay to active client page to replay from main thread.
+self.addEventListener('sync', (event: Event & { tag?: string; waitUntil?: (p: Promise<unknown>) => void }) => {
+  if (event.tag === 'replay-email-actions' && event.waitUntil) {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: false }).then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: 'replay-email-actions' });
+        }
+      })
+    );
+  }
 });
 
 serwist.addEventListeners();

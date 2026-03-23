@@ -16,6 +16,7 @@ import { PendingInvitationBanner } from '@/components/organizations/PendingInvit
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { InstallPromptBanner } from '@/components/layout/InstallPromptBanner';
+import { useOfflineActions } from '@/hooks/use-offline-actions';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -28,6 +29,9 @@ export function Layout({ children }: LayoutProps) {
 
   // Prefetch consent early so Dashboard widgets don't waterfall on useConsent()
   usePrefetchQuery(consentOptions());
+
+  // Wire up offline action replay (online event + SW message listeners)
+  useOfflineActions();
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 

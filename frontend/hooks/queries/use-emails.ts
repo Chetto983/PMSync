@@ -28,7 +28,7 @@ import { emailKeys } from './email-keys';
 import { folderKeys } from './use-folders';
 import { labelKeys } from './use-labels';
 import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
-import { enqueueAction } from '@/lib/offline-action-queue';
+import { enqueueAction, requestBackgroundSync } from '@/lib/offline-action-queue';
 import { useOfflineQueueStore } from '@/stores/offline-queue-store';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
@@ -364,6 +364,7 @@ export function useUpdateEmail() {
         // Queue for replay when online (SYNC-01)
         await enqueueAction({ type: 'update-email', emailId, dto });
         useOfflineQueueStore.getState().incrementPending();
+        void requestBackgroundSync();
         // Return fake response -- optimistic data already applied in onMutate
         return { id: emailId, ...dto } as Email;
       }
@@ -375,6 +376,7 @@ export function useUpdateEmail() {
         if (err instanceof Error && (err.message.includes('Network') || err.message.includes('fetch'))) {
           await enqueueAction({ type: 'update-email', emailId, dto });
           useOfflineQueueStore.getState().incrementPending();
+          void requestBackgroundSync();
           return { id: emailId, ...dto } as Email;
         }
         throw err; // Re-throw non-network errors (4xx, 5xx)

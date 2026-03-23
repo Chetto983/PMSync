@@ -77,5 +77,22 @@ async function findByEmailId(emailId: string): Promise<QueuedAction | null> {
   return null;
 }
 
+/**
+ * Register BackgroundSync as a Chromium-only progressive enhancement.
+ * When the browser comes back online, the SW will fire a sync event
+ * which posts a message to the client to trigger replay.
+ * Silently ignored on browsers without SyncManager support (Safari, Firefox).
+ */
+export async function requestBackgroundSync(): Promise<void> {
+  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      await (reg as ServiceWorkerRegistration & { sync: { register(tag: string): Promise<void> } }).sync.register('replay-email-actions');
+    } catch {
+      // SyncManager not available or permission denied -- silently ignore
+    }
+  }
+}
+
 // Export for testing
 export { actionStore, TTL_MS, MAX_QUEUE_SIZE };

@@ -6,6 +6,12 @@ jest.mock('./query-persist', () => ({
   clearPersistedQueries: () => mockClearPersistedQueries(),
 }));
 
+// Mock offline-action-queue
+const mockClearActionQueue = jest.fn().mockResolvedValue(undefined);
+jest.mock('./offline-action-queue', () => ({
+  clearActionQueue: () => mockClearActionQueue(),
+}));
+
 // Mock query-client
 const mockClear = jest.fn();
 const mockGetQueryClient = jest.fn(() => ({ clear: mockClear }));
@@ -39,6 +45,11 @@ describe('clearOfflineData', () => {
     expect(mockClearPersistedQueries).toHaveBeenCalledTimes(1);
   });
 
+  it('calls clearActionQueue to clear offline action queue', async () => {
+    await clearOfflineData();
+    expect(mockClearActionQueue).toHaveBeenCalledTimes(1);
+  });
+
   it('clears all Service Worker caches', async () => {
     await clearOfflineData();
     expect(mockCachesKeys).toHaveBeenCalledTimes(1);
@@ -67,6 +78,10 @@ describe('clearOfflineData', () => {
       await new Promise((r) => setTimeout(r, 10));
       callOrder.push('indexeddb');
     });
+    mockClearActionQueue.mockImplementation(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+      callOrder.push('action-queue');
+    });
     mockCachesKeys.mockResolvedValue(['c1']);
     mockCachesDelete.mockImplementation(async () => {
       await new Promise((r) => setTimeout(r, 10));
@@ -79,6 +94,6 @@ describe('clearOfflineData', () => {
 
     await clearOfflineData();
 
-    expect(callOrder).toEqual(['indexeddb', 'sw-cache', 'query-cache']);
+    expect(callOrder).toEqual(['indexeddb', 'action-queue', 'sw-cache', 'query-cache']);
   });
 });
