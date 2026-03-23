@@ -3,14 +3,13 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
 status: unknown
-stopped_at: "Completed 103-01-PLAN.md"
-last_updated: "2026-03-23T14:45:36.368Z"
+stopped_at: Completed 103-02-PLAN.md
+last_updated: "2026-03-23T14:52:45.368Z"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
 ---
 
 # Project State
@@ -24,16 +23,16 @@ See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 103 (offline-email-reading) — EXECUTING
-Plan: 2 of 2
+Phase: 103 (offline-email-reading) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: ~5min
-- Total execution time: ~29 min
+- Total execution time: ~33 min
 
 ## Accumulated Context
 
@@ -56,6 +55,7 @@ Plan: 2 of 2
 - [Phase 103]: Return persisterFn (not whole persister object) to match QueryPersister type expected by QueryClient
 - [Phase 103]: Updated @tanstack/react-query to 5.95.1 to deduplicate query-core
 - [Phase 103]: Selective gcTime -- only email list/detail get 24h; other queries keep short gcTime
+- [Phase 103]: Wire clearOfflineData into all 5 signOut call sites, not just Header.tsx
 
 ### Pending Todos
 
@@ -69,6 +69,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T14:45:36.368Z
-Stopped at: Completed 103-01-PLAN.md
-Resume file: .planning/phases/103-offline-email-reading/103-01-SUMMARY.md
+Last session: 2026-03-23T14:52:45.363Z
+Stopped at: Completed 103-02-PLAN.md
+Resume file: None
