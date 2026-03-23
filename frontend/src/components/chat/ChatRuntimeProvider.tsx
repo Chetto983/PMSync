@@ -18,8 +18,7 @@ function getHeaders(): Record<string, string> {
 }
 
 // Singleton transport — reused across thread switches.
-// Uses standard AI SDK protocol: sends { id, messages[], trigger } body.
-// No custom prepareSendMessagesRequest — let AssistantChatTransport handle it.
+// Stable reference prevents useChat from re-initializing on re-renders.
 const transport = new AssistantChatTransport({
   api: `${API_BASE_URL}/api/v1/ai/chat`,
   credentials: 'include',
@@ -29,6 +28,9 @@ const transport = new AssistantChatTransport({
 /**
  * Inner hook: creates the per-thread AI SDK runtime.
  * Called by useRemoteThreadListRuntime each time the active thread changes.
+ *
+ * Mirrors the official useChatRuntime internal pattern:
+ *   useChat({ id, transport }) → useAISDKRuntime(chat) → transport.setRuntime(runtime)
  */
 function useThreadRuntime() {
   const id = useAuiState((s) => s.threadListItem.id);
@@ -37,7 +39,6 @@ function useThreadRuntime() {
     id,
     transport,
     // Auto-resubmit after user approves/denies a tool requiring action.
-    // SDK helper handles edge cases: multiple tool calls, partial approvals.
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 

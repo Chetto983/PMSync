@@ -250,7 +250,7 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
 
   return (
     <RuntimeAdapterProvider
-      key={`${threadId}:${remoteId ?? 'pending'}`}
+      key={threadId}
       adapters={{ history }}
     >
       {children}
