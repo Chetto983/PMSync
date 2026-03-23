@@ -44,6 +44,11 @@ export class MistralProviderService {
   getChatModel(modelId?: string): LanguageModel {
     const id = modelId ?? this.defaultChatModel;
     return this.openRouterProvider.chat(id, {
+      extraBody: {
+        // Qwen uses max_tokens for reasoning budget (not effort)
+        // See: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+        reasoning: { max_tokens: 4096 },
+      },
       provider: {
         data_collection: 'deny',
         sort: 'latency',
