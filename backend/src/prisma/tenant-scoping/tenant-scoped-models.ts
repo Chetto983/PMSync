@@ -8,11 +8,10 @@
  * - Tenant (root entity)
  * - Session (tenantId deprecated — nullable, used cross-tenant by better-auth)
  * - AiMessage (scoped via AiConversation)
- * - voltagent_memory_* (internal agent memory tables)
+ * - voltagent_memory_* (dropped — VoltAgent removed)
  */
 export const TENANT_SCOPED_MODELS = new Set<string>([
   'AIMemory',
-  'ActionQueue',
   'AgentActionFeedback',
   'AgentLearningProfile',
   'AiConversation',
@@ -42,8 +41,11 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   'PasswordResetToken',
   'ProviderConfig',
   'ProviderContact',
+  'Reminder',
   'ScheduledEmail',
   'Subscription',
+  'TelegramLog',
+  'TelegramSettings',
   'TrustedDevice',
   'User',
   'UserConsent',

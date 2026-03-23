@@ -10,14 +10,24 @@ import { DataCleanupService } from '../data-cleanup.service';
  */
 
 function createMockPrisma() {
+  const stub = () => ({ deleteMany: jest.fn(), count: jest.fn() });
   return {
-    auditLog: {
-      deleteMany: jest.fn(),
-    },
+    auditLog: { deleteMany: jest.fn() },
     // Stubs required by DataCleanupService constructor (unused in these tests)
-    agentActionFeedback: { deleteMany: jest.fn(), count: jest.fn() },
-    agentLearningProfile: { deleteMany: jest.fn(), count: jest.fn() },
-    aIMemory: { deleteMany: jest.fn(), count: jest.fn() },
+    agentActionFeedback: stub(),
+    agentLearningProfile: stub(),
+    aIMemory: stub(),
+    aiConversation: stub(),
+    session: stub(),
+    verification: stub(),
+    passwordResetToken: stub(),
+    trustedDevice: stub(),
+    invitation: stub(),
+    aiRunLedger: stub(),
+    aiDraftFeedback: stub(),
+    telegramLog: stub(),
+    reminder: stub(),
+    calendarEvent: stub(),
     $executeRaw: jest.fn(),
     $queryRaw: jest.fn(),
   } as any;

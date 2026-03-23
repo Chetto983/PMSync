@@ -8,14 +8,25 @@ import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping';
 /**
  * Data Cleanup Service
  *
- * Removes expired data from tables with expiresAt field to prevent DB bloat.
+ * Removes expired and stale data to prevent DB bloat.
  *
- * Tables cleaned:
+ * Tables cleaned (expiresAt-based):
  * - AgentActionFeedback (30 day retention)
  * - AgentLearningProfile (90 day retention, auto-renews on update)
  * - AIMemory (variable retention via expiresAt)
- * - ActionQueue (expired pending actions)
+ * - Session (expired auth sessions)
+ * - Verification (expired email verifications)
+ * - PasswordResetToken (expired reset tokens)
+ * - TrustedDevice (expired device trusts)
+ * - Invitation (expired org invitations)
  * - AI chat conversations (30 day retention)
+ *
+ * Tables cleaned (retention-based):
+ * - AiRunLedger (90 day retention)
+ * - AiDraftFeedback (90 day retention)
+ * - TelegramLog (30 day retention)
+ * - Reminder completed/cancelled (60 day retention)
+ * - CalendarEvent deleted/cancelled (30 day retention)
  *
  * Cron schedule:
  * - 2 AM: Purge expired account deletion requests (GDPR Art. 17)
@@ -27,6 +38,9 @@ import { withoutTenantScopingAsync } from '../../prisma/tenant-scoping';
 export class DataCleanupService implements OnModuleInit {
   private readonly logger = new Logger(DataCleanupService.name);
   private static readonly AI_CHAT_RETENTION_DAYS = 30;
+  private static readonly RETENTION_30_DAYS = 30;
+  private static readonly RETENTION_60_DAYS = 60;
+  private static readonly RETENTION_90_DAYS = 90;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -55,6 +69,16 @@ export class DataCleanupService implements OnModuleInit {
       aiMemories: 0,
       expiredActions: 0,
       conversations: 0,
+      sessions: 0,
+      verifications: 0,
+      resetTokens: 0,
+      trustedDevices: 0,
+      invitations: 0,
+      aiRunLedger: 0,
+      aiDraftFeedback: 0,
+      telegramLogs: 0,
+      reminders: 0,
+      calendarEvents: 0,
       duration: 0,
     };
 
@@ -98,19 +122,46 @@ export class DataCleanupService implements OnModuleInit {
       // 5. Clean old AI chat conversations (30 days)
       results.conversations = await this.cleanupOldConversations(now);
 
+      // 6. Clean expired auth records
+      const [sessions, verifications, resetTokens, trustedDevices, invitations] = await Promise.all([
+        this.prisma.session.deleteMany({ where: { expiresAt: { lt: now } } }),
+        this.prisma.verification.deleteMany({ where: { expiresAt: { lt: now } } }),
+        this.prisma.passwordResetToken.deleteMany({ where: { expiresAt: { lt: now } } }),
+        this.prisma.trustedDevice.deleteMany({ where: { expiresAt: { lt: now } } }),
+        this.prisma.invitation.deleteMany({ where: { expiresAt: { lt: now } } }),
+      ]);
+      results.sessions = sessions.count;
+      results.verifications = verifications.count;
+      results.resetTokens = resetTokens.count;
+      results.trustedDevices = trustedDevices.count;
+      results.invitations = invitations.count;
+      this.logger.debug(
+        `Deleted expired auth records: sessions=${sessions.count}, verifications=${verifications.count}, ` +
+          `resetTokens=${resetTokens.count}, trustedDevices=${trustedDevices.count}, invitations=${invitations.count}`,
+      );
+
+      // 7. Retention-based cleanup (tables without expiresAt)
+      const retentionResults = await this.cleanupByRetention(now);
+      results.aiRunLedger = retentionResults.aiRunLedger;
+      results.aiDraftFeedback = retentionResults.aiDraftFeedback;
+      results.telegramLogs = retentionResults.telegramLogs;
+      results.reminders = retentionResults.reminders;
+      results.calendarEvents = retentionResults.calendarEvents;
+
       results.duration = Date.now() - startTime;
-      const total =
-        results.agentFeedback +
-        results.learningProfiles +
-        results.aiMemories +
-        results.expiredActions +
-        results.conversations;
+      const total = Object.entries(results)
+        .filter(([key]) => key !== 'duration')
+        .reduce((sum, [, val]) => sum + (val as number), 0);
 
       this.logger.log(
         `Data cleanup complete: ${total} records deleted in ${results.duration}ms ` +
           `(feedback: ${results.agentFeedback}, profiles: ${results.learningProfiles}, ` +
-          `memories: ${results.aiMemories}, actions: ${results.expiredActions}, ` +
-          `conversations: ${results.conversations})`,
+          `memories: ${results.aiMemories}, conversations: ${results.conversations}, ` +
+          `sessions: ${results.sessions}, verifications: ${results.verifications}, ` +
+          `resetTokens: ${results.resetTokens}, trustedDevices: ${results.trustedDevices}, ` +
+          `invitations: ${results.invitations}, aiRunLedger: ${results.aiRunLedger}, ` +
+          `aiDraftFeedback: ${results.aiDraftFeedback}, telegramLogs: ${results.telegramLogs}, ` +
+          `reminders: ${results.reminders}, calendarEvents: ${results.calendarEvents})`,
       );
 
       return results;
@@ -217,27 +268,96 @@ export class DataCleanupService implements OnModuleInit {
     conversationCutoff.setDate(
       conversationCutoff.getDate() - DataCleanupService.AI_CHAT_RETENTION_DAYS,
     );
+    const ninetyDaysAgo = new Date(now);
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - DataCleanupService.RETENTION_90_DAYS);
+    const sixtyDaysAgo = new Date(now);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - DataCleanupService.RETENTION_60_DAYS);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - DataCleanupService.RETENTION_30_DAYS);
 
-    const [feedback, profiles, memories, conversations] = await Promise.all([
-      this.prisma.agentActionFeedback.count({
-        where: { expiresAt: { lt: now } },
-      }),
-      this.prisma.agentLearningProfile.count({
-        where: { expiresAt: { lt: now } },
-      }),
-      this.prisma.aIMemory.count({
-        where: { expiresAt: { lt: now } },
-      }),
+    const [
+      feedback, profiles, memories, conversations,
+      sessions, verifications, resetTokens, trustedDevices, invitations,
+      aiRunLedger, aiDraftFeedback, telegramLogs, reminders, calendarEvents,
+    ] = await Promise.all([
+      this.prisma.agentActionFeedback.count({ where: { expiresAt: { lt: now } } }),
+      this.prisma.agentLearningProfile.count({ where: { expiresAt: { lt: now } } }),
+      this.prisma.aIMemory.count({ where: { expiresAt: { lt: now } } }),
       this.getOldConversationCount(conversationCutoff),
+      this.prisma.session.count({ where: { expiresAt: { lt: now } } }),
+      this.prisma.verification.count({ where: { expiresAt: { lt: now } } }),
+      this.prisma.passwordResetToken.count({ where: { expiresAt: { lt: now } } }),
+      this.prisma.trustedDevice.count({ where: { expiresAt: { lt: now } } }),
+      this.prisma.invitation.count({ where: { expiresAt: { lt: now } } }),
+      this.prisma.aiRunLedger.count({ where: { createdAt: { lt: ninetyDaysAgo } } }),
+      this.prisma.aiDraftFeedback.count({ where: { createdAt: { lt: ninetyDaysAgo } } }),
+      this.prisma.telegramLog.count({ where: { inviatoAt: { lt: thirtyDaysAgo } } }),
+      this.prisma.reminder.count({
+        where: { status: { in: ['completato', 'annullato'] }, updatedAt: { lt: sixtyDaysAgo } },
+      }),
+      this.prisma.calendarEvent.count({
+        where: { OR: [{ isDeleted: true }, { isCancelled: true }], updatedAt: { lt: thirtyDaysAgo } },
+      }),
     ]);
+
+    const total = feedback + profiles + memories + conversations +
+      sessions + verifications + resetTokens + trustedDevices + invitations +
+      aiRunLedger + aiDraftFeedback + telegramLogs + reminders + calendarEvents;
 
     return {
       agentFeedback: feedback,
       learningProfiles: profiles,
       aiMemories: memories,
-      expiredActions: 0, // ActionQueue removed (Phase 77)
+      expiredActions: 0,
       conversations,
-      total: feedback + profiles + memories + conversations,
+      sessions,
+      verifications,
+      resetTokens,
+      trustedDevices,
+      invitations,
+      aiRunLedger,
+      aiDraftFeedback,
+      telegramLogs,
+      reminders,
+      calendarEvents,
+      total,
+    };
+  }
+
+  /**
+   * Retention-based cleanup for tables without expiresAt.
+   */
+  private async cleanupByRetention(now: Date): Promise<RetentionResult> {
+    const ninetyDaysAgo = new Date(now);
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - DataCleanupService.RETENTION_90_DAYS);
+    const sixtyDaysAgo = new Date(now);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - DataCleanupService.RETENTION_60_DAYS);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - DataCleanupService.RETENTION_30_DAYS);
+
+    const [aiRunLedger, aiDraftFeedback, telegramLogs, reminders, calendarEvents] = await Promise.all([
+      this.prisma.aiRunLedger.deleteMany({ where: { createdAt: { lt: ninetyDaysAgo } } }),
+      this.prisma.aiDraftFeedback.deleteMany({ where: { createdAt: { lt: ninetyDaysAgo } } }),
+      this.prisma.telegramLog.deleteMany({ where: { inviatoAt: { lt: thirtyDaysAgo } } }),
+      this.prisma.reminder.deleteMany({
+        where: { status: { in: ['completato', 'annullato'] }, updatedAt: { lt: sixtyDaysAgo } },
+      }),
+      this.prisma.calendarEvent.deleteMany({
+        where: { OR: [{ isDeleted: true }, { isCancelled: true }], updatedAt: { lt: thirtyDaysAgo } },
+      }),
+    ]);
+
+    this.logger.debug(
+      `Retention cleanup: aiRunLedger=${aiRunLedger.count}, aiDraftFeedback=${aiDraftFeedback.count}, ` +
+        `telegramLogs=${telegramLogs.count}, reminders=${reminders.count}, calendarEvents=${calendarEvents.count}`,
+    );
+
+    return {
+      aiRunLedger: aiRunLedger.count,
+      aiDraftFeedback: aiDraftFeedback.count,
+      telegramLogs: telegramLogs.count,
+      reminders: reminders.count,
+      calendarEvents: calendarEvents.count,
     };
   }
 
@@ -287,7 +407,25 @@ interface CleanupResult {
   aiMemories: number;
   expiredActions: number;
   conversations: number;
+  sessions: number;
+  verifications: number;
+  resetTokens: number;
+  trustedDevices: number;
+  invitations: number;
+  aiRunLedger: number;
+  aiDraftFeedback: number;
+  telegramLogs: number;
+  reminders: number;
+  calendarEvents: number;
   duration: number;
+}
+
+interface RetentionResult {
+  aiRunLedger: number;
+  aiDraftFeedback: number;
+  telegramLogs: number;
+  reminders: number;
+  calendarEvents: number;
 }
 
 interface ExpiredCounts {
@@ -296,5 +434,15 @@ interface ExpiredCounts {
   aiMemories: number;
   expiredActions: number;
   conversations: number;
+  sessions: number;
+  verifications: number;
+  resetTokens: number;
+  trustedDevices: number;
+  invitations: number;
+  aiRunLedger: number;
+  aiDraftFeedback: number;
+  telegramLogs: number;
+  reminders: number;
+  calendarEvents: number;
   total: number;
 }

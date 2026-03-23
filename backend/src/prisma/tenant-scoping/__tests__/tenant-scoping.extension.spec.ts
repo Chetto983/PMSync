@@ -30,7 +30,7 @@ describe('Tenant-Scoped Models', () => {
   it('excludes models without tenantId', () => {
     expect(TENANT_SCOPED_MODELS.has('Tenant')).toBe(false);
     expect(TENANT_SCOPED_MODELS.has('AiMessage')).toBe(false);
-    expect(TENANT_SCOPED_MODELS.has('voltagent_memory_conversations')).toBe(false);
+    // voltagent_memory_* tables dropped (VoltAgent removed)
   });
 
   it('identifies composite PK models', () => {
@@ -45,8 +45,8 @@ describe('Tenant-Scoped Models', () => {
   });
 
   it('has correct count of tenant-scoped models', () => {
-    // 42 models (RefreshToken removed in Phase 55 — replaced by better-auth sessions)
-    expect(TENANT_SCOPED_MODELS.size).toBe(42);
+    // 43 models (ActionQueue removed, Reminder/TelegramLog/TelegramSettings added)
+    expect(TENANT_SCOPED_MODELS.size).toBe(43);
   });
 });
 
