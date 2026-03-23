@@ -48,9 +48,11 @@ describe('BriefingService ledger wiring', () => {
   afterEach(() => vi.restoreAllMocks());
 
   function createService() {
+    const mockConfig = { get: (key: string, def?: string) => def } as any;
     return new BriefingService(
       mockMistralProvider,
       mockPrisma,
+      mockConfig,
       undefined, // usageTrackingService
       mockLedger as unknown as AiRunLedgerService,
     );

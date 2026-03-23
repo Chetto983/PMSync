@@ -9,6 +9,7 @@
  * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
@@ -132,13 +133,18 @@ Confidence calibration for urgency ratings:
 @Injectable()
 export class BriefingService {
   private readonly logger = new Logger(BriefingService.name);
+  private readonly briefingModelId: string;
 
   constructor(
     private readonly mistralProvider: OpenRouterProviderService,
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
     @Optional() @Inject(UsageTrackingService) private readonly usageTrackingService?: UsageTrackingService,
     @Optional() private readonly ledgerService?: AiRunLedgerService,
-  ) {}
+  ) {
+    // Use fast/simple model for structured JSON — M2.7's Interleaved Thinking breaks JSON.
+    this.briefingModelId = this.configService.get<string>('AI_MODEL_SIMPLE', 'mistralai/mistral-small-3.1-24b-instruct');
+  }
 
   /**
    * Generate a comprehensive daily briefing for a tenant.
@@ -273,7 +279,7 @@ export class BriefingService {
     const startTime = Date.now();
     try {
       const result = await generateText({
-        model: this.mistralProvider.getChatModel(),
+        model: this.mistralProvider.getChatModel(this.briefingModelId),
         system: SYSTEM_PROMPT,
         prompt: dataContext + '\n\nReturn valid JSON.',
         maxOutputTokens: 1200,
@@ -284,7 +290,7 @@ export class BriefingService {
         tenantId,
         userId: 'system',
         runType: 'briefing',
-        model: this.mistralProvider.getChatModelName(),
+        model: this.briefingModelId,
         promptTokens: result.usage?.inputTokens ?? 0,
         completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: result.usage?.totalTokens ?? 0,
@@ -299,7 +305,7 @@ export class BriefingService {
         tenantId,
         userId: 'system',
         runType: 'briefing',
-        model: this.mistralProvider.getChatModelName(),
+        model: this.briefingModelId,
         promptTokens: 0, completionTokens: 0, totalTokens: 0,
         latencyMs: Date.now() - startTime,
         status: AiRunStatus.FAILED,

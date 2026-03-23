@@ -74,7 +74,8 @@ describe('BriefingService (MSW)', () => {
     server.use(createGenerateHandler({ 'executive assistant': briefingFixture }));
 
     const mistralProvider = new OpenRouterProviderService(configService);
-    briefingService = new BriefingService(mistralProvider, mockPrisma, undefined);
+    const mockConfigSvc = { get: (key: string, def?: string) => def } as any;
+    briefingService = new BriefingService(mistralProvider, mockPrisma, mockConfigSvc, undefined);
   });
 
   afterEach(() => server.resetHandlers());

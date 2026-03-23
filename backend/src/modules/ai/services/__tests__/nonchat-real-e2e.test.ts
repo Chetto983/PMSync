@@ -80,7 +80,8 @@ describe.skipIf(SKIP)('Non-Chat AI E2E (Real Mistral)', () => {
   });
 
   it('generates real daily briefing with valid schema', async () => {
-    const service = new BriefingService(mistralProvider, mockPrisma, undefined);
+    const mockCfg = { get: (key: string, def?: string) => def } as any;
+    const service = new BriefingService(mistralProvider, mockPrisma, mockCfg, undefined);
     const result = await service.generateBriefing('test-tenant');
 
     const parsed = briefingSchema.safeParse(result.data);

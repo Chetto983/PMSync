@@ -26,6 +26,8 @@ export const COST_MAP: Record<string, { input: number; output: number }> = {
   // Google Gemini (OpenRouter)
   'google/gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50 },
   'google/gemini-2.5-flash-lite': { input: 0.25, output: 1.00 },
+  // Mistral Small 3.1 (OpenRouter) — simple/fast model
+  'mistralai/mistral-small-3.1-24b-instruct': { input: 0.10, output: 0.30 },
   // MiniMax M2.7 (OpenRouter) — main chat model
   'minimax/minimax-m2.7': { input: 1.00, output: 5.00 },
   // Qwen 3.5 (OpenRouter) — legacy, kept for historical lookups
