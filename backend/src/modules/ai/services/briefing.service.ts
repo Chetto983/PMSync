@@ -276,6 +276,8 @@ export class BriefingService {
         model: this.mistralProvider.getChatModel(),
         system: SYSTEM_PROMPT,
         prompt: dataContext + '\n\nReturn valid JSON.',
+        maxOutputTokens: 1200,
+        abortSignal: AbortSignal.timeout(30_000),
       });
 
       this.ledgerService?.recordRun({

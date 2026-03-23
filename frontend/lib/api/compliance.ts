@@ -140,7 +140,9 @@ export const complianceApi = {
    */
   async getConsent(): Promise<ConsentState[]> {
     const response = await apiClient.get('/compliance/consent');
-    return response.data;
+    // ResponseEnvelopeInterceptor wraps in { data, meta } — unwrap
+    const body = response.data;
+    return Array.isArray(body) ? body : (body?.data ?? []);
   },
 
   /**

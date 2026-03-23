@@ -50,15 +50,15 @@ export function PredictiveInsightsWidget() {
     consentList?.some((consent) => consent.feature === 'ai_email_processing' && consent.granted) ?? false;
 
   // Fetch all data sources
-  const { data: briefing, isLoading: briefingLoading } = useBriefing(hasAiConsent);
+  const { data: briefing } = useBriefing(hasAiConsent);
   const { data: deadlines, isLoading: deadlinesLoading } = useDeadlines({ limit: 10 });
   const { data: followUps, isLoading: followUpsLoading } = useFollowUps({ limit: 10 });
   const { data: staleContacts, isLoading: staleLoading } = useStaleContacts({ limit: 10 });
 
   const ins = t.dashboard?.widgets?.insights;
+  // Don't block on briefing (slow LLM call) — show other insights immediately
   const isLoading =
     consentLoading ||
-    (hasAiConsent && briefingLoading) ||
     deadlinesLoading ||
     followUpsLoading ||
     staleLoading;
