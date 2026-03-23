@@ -34,7 +34,7 @@ function StatItem({ icon, label, value, color, highlight }: StatItemProps) {
           ? `1px solid ${alpha(color, 0.2)}`
           : `1px solid ${alpha(color, 0.06)}`,
         transition: 'all 0.2s ease',
-        minWidth: 0,
+        minWidth: { xs: 'calc(50% - 6px)', sm: 0 },
         flex: '1 1 0',
         '&:hover': {
           bgcolor: alpha(color, 0.08),
