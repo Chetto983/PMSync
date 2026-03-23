@@ -128,7 +128,7 @@ export class ReminderAiParserService {
       const result = await generateText({
         model,
         system: SYSTEM_PROMPT,
-        prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi SOLO con il JSON, senza testo aggiuntivo.`,
+        prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi SOLO con un singolo oggetto JSON (NON un array). Inizia con { e termina con }. Nessun testo prima o dopo il JSON.`,
         temperature: 0.1,
         maxOutputTokens: 600,
         abortSignal: AbortSignal.timeout(45_000),

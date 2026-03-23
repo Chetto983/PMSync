@@ -73,6 +73,11 @@ export function parseJsonOutput<T extends z.ZodSchema>(
     throw new Error(`Invalid JSON in LLM response: ${(e as Error).message}`);
   }
 
+  // Some models (e.g. Nemotron) wrap the object in an array — unwrap if needed
+  if (Array.isArray(raw) && raw.length === 1 && typeof raw[0] === 'object' && raw[0] !== null) {
+    raw = raw[0];
+  }
+
   const result = schema.safeParse(raw);
   if (!result.success) {
     const issues = (result as { success: false; error: z.ZodError }).error.issues
