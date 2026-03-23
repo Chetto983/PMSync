@@ -166,7 +166,7 @@ export default function LoginPage() {
           variant="contained"
           fullWidth
           size="large"
-          disabled={loading || !email || !password}
+          disabled={loading}
           sx={{ py: 1.3, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
         >
           {loading ? <CircularProgress size={22} color="inherit" /> : auth.form.submit}

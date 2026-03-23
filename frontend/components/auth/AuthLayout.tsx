@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import NextLink from 'next/link';
 import { Box, Card, CardContent, Container, Link, Typography } from '@mui/material';
+import { minViewportHeightSx } from '@/lib/ui/viewport';
 
 interface AuthLayoutProps {
   title: string;
@@ -17,7 +18,7 @@ export function AuthLayout({ title, subtitle, children, footerLink }: AuthLayout
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        ...minViewportHeightSx,
         bgcolor: 'background.default',
         display: 'flex',
         alignItems: 'center',

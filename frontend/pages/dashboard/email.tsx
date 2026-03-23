@@ -575,23 +575,21 @@ export default function EmailPage() {
         />
         <KeyboardShortcutsDialog open={keyboardShortcutsOpen} onClose={() => setKeyboardShortcutsOpen(false)} />
 
-        {isDesktop ? (
-          <Tooltip title={`${t.email?.composer?.title || 'Compose'} (C)`} placement="left">
-            <Fab
-              color="primary"
-              aria-label="compose"
-              onClick={handleCompose}
-              sx={{
-                position: 'fixed',
-                bottom: 24,
-                right: `calc(24px + ${safeArea.right})`,
-                zIndex: 1250,
-              }}
-            >
-              <Pencil size={24} />
-            </Fab>
-          </Tooltip>
-        ) : null}
+        <Tooltip title={`${t.email?.composer?.title || 'Compose'} (C)`} placement="left">
+          <Fab
+            color="primary"
+            aria-label="compose"
+            onClick={handleCompose}
+            sx={{
+              position: 'fixed',
+              bottom: 24,
+              right: `calc(24px + ${safeArea.right})`,
+              zIndex: 1250,
+            }}
+          >
+            <Pencil size={24} />
+          </Fab>
+        </Tooltip>
       </Layout>
     </PageErrorBoundary>
   );

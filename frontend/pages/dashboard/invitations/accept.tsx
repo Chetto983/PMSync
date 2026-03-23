@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
@@ -29,14 +29,12 @@ export default function AcceptInvitationPage() {
   const { id } = router.query;
   const t = useTranslations().organizations.invitationAccept;
   const acceptInvitation = useAcceptInvitation();
-  const attempted = useRef(false);
 
-  useEffect(() => {
-    if (typeof id === 'string' && !attempted.current) {
-      attempted.current = true;
+  const handleAccept = useCallback(() => {
+    if (typeof id === 'string') {
       acceptInvitation.mutate(id);
     }
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, acceptInvitation]);
 
   if (!id) {
     return (
@@ -68,6 +66,20 @@ export default function AcceptInvitationPage() {
         <Typography variant="h5" sx={{ mb: 3 }}>
           {t.title}
         </Typography>
+
+        {acceptInvitation.isIdle && (
+          <>
+            <Typography color="text.secondary" sx={{ mb: 3 }}>
+              {t.confirmMessage ?? 'You have been invited to join an organization. Click the button below to accept.'}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleAccept}
+            >
+              {t.acceptButton ?? 'Accept Invitation'}
+            </Button>
+          </>
+        )}
 
         {acceptInvitation.isPending && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

@@ -192,6 +192,7 @@ export function ThreadViewOutlook({
             size="small"
             onClick={onBack}
             aria-label={t.common.close}
+            sx={{ minWidth: 44, minHeight: 44 }}
           >
             <ArrowLeft size={20} />
           </IconButton>
@@ -217,6 +218,7 @@ export function ThreadViewOutlook({
                 size="small"
                 onClick={() => expandedId && onReply(expandedId)}
                 disabled={!expandedId}
+                sx={{ minWidth: 44, minHeight: 44 }}
               >
                 <Reply size={18} />
               </IconButton>
@@ -227,6 +229,7 @@ export function ThreadViewOutlook({
                   size="small"
                   onClick={() => expandedId && onReplyAll(expandedId)}
                   disabled={!expandedId}
+                  sx={{ minWidth: 44, minHeight: 44 }}
                 >
                   <ReplyAll size={18} />
                 </IconButton>
@@ -237,6 +240,7 @@ export function ThreadViewOutlook({
                 size="small"
                 onClick={() => expandedId && onForward(expandedId)}
                 disabled={!expandedId}
+                sx={{ minWidth: 44, minHeight: 44 }}
               >
                 <Forward size={18} />
               </IconButton>
@@ -246,28 +250,28 @@ export function ThreadViewOutlook({
 
             {onArchiveThread && (
               <Tooltip title={t.threadActions?.archiveThread || 'Archive'}>
-                <IconButton size="small" onClick={onArchiveThread}>
+                <IconButton size="small" onClick={onArchiveThread} sx={{ minWidth: 44, minHeight: 44 }}>
                   <Archive size={18} />
                 </IconButton>
               </Tooltip>
             )}
             {onMoveThread && (
               <Tooltip title={t.threadActions?.moveThread || 'Move to folder'}>
-                <IconButton size="small" onClick={onMoveThread}>
+                <IconButton size="small" onClick={onMoveThread} sx={{ minWidth: 44, minHeight: 44 }}>
                   <FolderInput size={18} />
                 </IconButton>
               </Tooltip>
             )}
             {onDeleteThread && (
               <Tooltip title={t.threadActions?.deleteThread || 'Delete'}>
-                <IconButton size="small" onClick={onDeleteThread} sx={{ color: 'error.main' }}>
+                <IconButton size="small" onClick={onDeleteThread} sx={{ color: 'error.main', minWidth: 44, minHeight: 44 }}>
                   <Trash2 size={18} />
                 </IconButton>
               </Tooltip>
             )}
             {onAddLabelsToThread && (
               <Tooltip title={t.email?.labels?.addLabels || 'Add labels'}>
-                <IconButton size="small" onClick={onAddLabelsToThread}>
+                <IconButton size="small" onClick={onAddLabelsToThread} sx={{ minWidth: 44, minHeight: 44 }}>
                   <Tag size={18} />
                 </IconButton>
               </Tooltip>
@@ -277,6 +281,7 @@ export function ThreadViewOutlook({
               size="small"
               onClick={handleMenuOpen}
               aria-label={t.threadView?.actionsLabel || 'More actions'}
+              sx={{ minWidth: 44, minHeight: 44 }}
             >
               <MoreHorizontal size={18} />
             </IconButton>

@@ -132,6 +132,8 @@ export function CalendarHeader({
             onClick={onPrev}
             aria-label={calendarCopy.previousPeriod}
             sx={{
+              minWidth: 44,
+              minHeight: 44,
               color: 'text.secondary',
               '&:hover': {
                 bgcolor: alpha(theme.palette.primary.main, 0.1),
@@ -148,6 +150,8 @@ export function CalendarHeader({
             onClick={onNext}
             aria-label={calendarCopy.nextPeriod}
             sx={{
+              minWidth: 44,
+              minHeight: 44,
               color: 'text.secondary',
               '&:hover': {
                 bgcolor: alpha(theme.palette.primary.main, 0.1),

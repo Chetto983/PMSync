@@ -159,6 +159,8 @@ interface AuthScreenCopy {
     actionLabel: string;
   };
   capsLockWarning?: string;
+  missingToken?: string;
+  requestNewLink?: string;
 }
 
 interface MfaTranslations {
@@ -385,6 +387,9 @@ export interface AppTranslations {
     remaining?: string;
     started?: string;
     done?: string;
+    all?: string;
+    providerConnectError?: string;
+    providerConnectSuccess?: string;
   };
   timeAgo: {
     justNow: string;
@@ -1663,6 +1668,7 @@ export interface AppTranslations {
     waitingOnPrefix: string;
     statsPending: string;
     statsOverdue: string;
+    untitled?: string;
   };
   contacts: {
     title: string;
@@ -1799,6 +1805,7 @@ export interface AppTranslations {
       syncCompleted: string;
       syncQueueFailed: string;
       deletedCount: string;
+      bulkDeleteConfirm?: string;
     };
     createDialog: {
       title: string;
@@ -1990,6 +1997,7 @@ export interface AppTranslations {
     firstName: string;
     lastName: string;
     emailReadonly: string;
+    emailReadonlyHint?: string;
     saving: string;
     saveChanges: string;
     successMessage: string;
@@ -3221,6 +3229,7 @@ export interface AppTranslations {
         delete: string;
         edit: string;
       };
+      deleteConfirm?: string;
       fields: {
         contact: string;
         deadline: string;
@@ -3373,6 +3382,8 @@ export interface AppTranslations {
     badRequest: string;
     processingError: string;
     unknownError: string;
+    emailAlreadyRegistered: string;
+    registrationFailed: string;
     invalidCredentials: string;
     setupFailed: string;
     verifyFailed: string;
@@ -3504,6 +3515,7 @@ export interface AppTranslations {
     markAsUnread: string;
     archive: string;
     delete: string;
+    deleteSingleConfirm: string;
     moveToFolder: string;
     addLabel: string;
     applyAiSuggestions: string;
@@ -3562,6 +3574,8 @@ export interface AppTranslations {
     moveThread: string;
     moveThreadTo: string;
     archiveThread: string;
+    archiveThreadConfirm: string;
+    archiveThreadDesc: string;
     markThreadRead: string;
     markThreadUnread: string;
     flagThread: string;
@@ -3582,6 +3596,8 @@ export interface AppTranslations {
   threadView?: {
     loading: string;
     emptyThread: string;
+    threadNotFound?: string;
+    connectionError?: string;
     messageCount: string;
     messageCountPlural: string;
     expandAll: string;
@@ -3748,6 +3764,7 @@ export interface AppTranslations {
       title: string;
       newChat: string;
       deleteConfirm: string;
+      deleteConfirmDescription?: string;
       noConversations?: string;
     };
     hitl: {
@@ -3804,6 +3821,7 @@ export interface AppTranslations {
         upload: string;
         useOAuth: string;
         skip: string;
+        fileTooLarge?: string;
       };
       legal: {
         title: string;
@@ -3861,6 +3879,8 @@ export interface AppTranslations {
       emptyTitle?: string;
       emptyDescription?: string;
       impersonateConfirm: string;
+      impersonateWarning: string;
+      unbanConfirm: string;
       accessRestricted: string;
       accessRestrictedUsers: string;
       accessRestrictedOrgs: string;
@@ -3930,6 +3950,8 @@ export interface AppTranslations {
       alreadyMember: string;
       missingId: string;
       goToDashboard: string;
+      confirmMessage?: string;
+      acceptButton?: string;
     };
   };
 }

@@ -218,7 +218,7 @@ export function Calendar() {
           sx={{
             flex: 1,
             overflow: 'auto',
-            p: 3,
+            p: { xs: 1, md: 3 },
             position: 'relative',
             bgcolor: alpha(theme.palette.background.paper, 0.5),
             backdropFilter: 'blur(10px)',

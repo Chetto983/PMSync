@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
         }
         setSent(true);
       } catch {
-        setError('An unexpected error occurred.');
+        setError(t.common.genericError);
       } finally {
         setLoading(false);
       }
@@ -95,7 +95,7 @@ export default function ForgotPasswordPage() {
 
         <Box sx={{ textAlign: 'center' }}>
           <Link component={NextLink} href="/auth/login" variant="body2" underline="hover">
-            {t.auth.login.form.submit}
+            {t.common.backToLogin}
           </Link>
         </Box>
       </Box>

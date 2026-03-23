@@ -15,6 +15,15 @@ import {
   Skeleton,
   Chip,
   Collapse,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Card,
+  CardContent,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Plus,
@@ -61,6 +70,7 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
   const t = useTranslations();
   const { data: orgDetail, isLoading } = useOrganizationDetail(orgId);
   const removeMember = useRemoveMember();
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -72,70 +82,92 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
 
   const members = (orgDetail?.members ?? []) as OrganizationMemberRow[];
 
-  const handleRemove = async (memberIdOrEmail: string) => {
-    if (!confirm(t.organizations.removeConfirm)) return;
+  const confirmRemove = async () => {
+    if (!removeTarget) return;
     try {
-      await removeMember.mutateAsync({ memberIdOrEmail, organizationId: orgId });
+      await removeMember.mutateAsync({ memberIdOrEmail: removeTarget, organizationId: orgId });
     } catch {
       // Error handled by mutation state
     }
+    setRemoveTarget(null);
   };
 
   return (
-    <TableContainer>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>{t.organizations.emailHeader}</TableCell>
-            <TableCell>{t.organizations.joinedAt}</TableCell>
-            <TableCell align="right" />
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {members.map((member) => {
-            const memberIdentifier = member.user?.email || member.userId || member.email;
+    <>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>{t.organizations.emailHeader}</TableCell>
+              <TableCell>{t.organizations.joinedAt}</TableCell>
+              <TableCell align="right" />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {members.map((member) => {
+              const memberIdentifier = member.user?.email || member.userId || member.email;
 
-            return (
-              <TableRow key={member.id}>
-                <TableCell>{memberIdentifier || '-'}</TableCell>
-                <TableCell>
-                  {member.createdAt
-                    ? new Date(member.createdAt).toLocaleDateString()
-                    : '-'}
-                </TableCell>
-                <TableCell align="right">
-                  <Tooltip title={t.organizations.removeMember}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => {
-                          if (memberIdentifier) {
-                            void handleRemove(memberIdentifier);
-                          }
-                        }}
-                        disabled={removeMember.isPending || !memberIdentifier}
-                      >
-                        <UserMinus size={16} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
+              return (
+                <TableRow key={member.id}>
+                  <TableCell>{memberIdentifier || '-'}</TableCell>
+                  <TableCell>
+                    {member.createdAt
+                      ? new Date(member.createdAt).toLocaleDateString()
+                      : '-'}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title={t.organizations.removeMember}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => {
+                            if (memberIdentifier) {
+                              setRemoveTarget(memberIdentifier);
+                            }
+                          }}
+                          disabled={removeMember.isPending || !memberIdentifier}
+                          sx={{ minWidth: 44, minHeight: 44 }}
+                        >
+                          <UserMinus size={16} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {members.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} align="center">
+                  <Typography variant="body2" color="text.secondary">
+                    {t.organizations.noOrganizations}
+                  </Typography>
                 </TableCell>
               </TableRow>
-            );
-          })}
-          {members.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={3} align="center">
-                <Typography variant="body2" color="text.secondary">
-                  {t.organizations.noOrganizations}
-                </Typography>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Remove Member Confirmation Dialog */}
+      <Dialog open={!!removeTarget} onClose={() => setRemoveTarget(null)}>
+        <DialogTitle>{t.organizations.removeMember}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t.organizations.removeConfirm}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRemoveTarget(null)}>
+            {t.common.cancel}
+          </Button>
+          <Button onClick={() => void confirmRemove()} variant="contained" color="error">
+            {t.common.confirm}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 
@@ -145,6 +177,8 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
 
 export function OrgAdminPage() {
   const t = useTranslations();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { data: orgs, isLoading, error, refetch } = useOrganizations();
   const organizations = (orgs ?? []) as OrganizationListItem[];
   const [createOpen, setCreateOpen] = useState(false);
@@ -204,7 +238,58 @@ export function OrgAdminPage() {
           actionLabel={t.organizations.create}
           onAction={() => setCreateOpen(true)}
         />
+      ) : isMobile ? (
+        /* Mobile card view */
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {organizations.map((org) => (
+            <Card key={org.id} variant="outlined">
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box
+                    sx={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
+                    onClick={() => setExpandedOrg(expandedOrg === org.id ? null : org.id)}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {expandedOrg === org.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }} noWrap>
+                        {org.name}
+                      </Typography>
+                    </Box>
+                    <Chip label={org.slug} size="small" variant="outlined" sx={{ mt: 0.5 }} />
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => setInviteTarget(org.id)}
+                      sx={{ minWidth: 44, minHeight: 44 }}
+                    >
+                      <UserPlus size={16} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => setDeleteTarget({ id: org.id, name: org.name })}
+                      sx={{ minWidth: 44, minHeight: 44 }}
+                    >
+                      <Trash2 size={16} />
+                    </IconButton>
+                  </Box>
+                </Box>
+                <Collapse in={expandedOrg === org.id} unmountOnExit>
+                  <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                      {t.organizations.members}
+                    </Typography>
+                    <OrgMembersSection orgId={org.id} />
+                  </Box>
+                </Collapse>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
       ) : (
+        /* Desktop table view */
         <TableContainer component={Paper} variant="outlined">
           <Table>
             <TableHead>
@@ -248,6 +333,7 @@ export function OrgAdminPage() {
                             size="small"
                             color="primary"
                             onClick={() => setInviteTarget(org.id)}
+                            sx={{ minWidth: 44, minHeight: 44 }}
                           >
                             <UserPlus size={16} />
                           </IconButton>
@@ -259,6 +345,7 @@ export function OrgAdminPage() {
                             onClick={() =>
                               setDeleteTarget({ id: org.id, name: org.name })
                             }
+                            sx={{ minWidth: 44, minHeight: 44 }}
                           >
                             <Trash2 size={16} />
                           </IconButton>

@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   TextField,
   InputAdornment,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import { Search, Menu } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -83,6 +89,17 @@ export function Contacts() {
     handleSelectAll,
   } = handlers;
 
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+
+  const handleBulkDeleteRequest = useCallback(async () => {
+    setBulkDeleteDialogOpen(true);
+  }, []);
+
+  const handleBulkDeleteConfirm = useCallback(() => {
+    setBulkDeleteDialogOpen(false);
+    void handleBulkDelete();
+  }, [handleBulkDelete]);
+
   // Update provider on form when providers load
   React.useEffect(() => {
     if (providers[0]?.id) {
@@ -152,7 +169,7 @@ export function Contacts() {
           totalCount={filteredContacts.length}
           onSelectAll={handleSelectAll}
           onClearSelection={clearSelection}
-          onDelete={() => handleBulkDelete()}
+          onDelete={handleBulkDeleteRequest}
         />
       )}
 
@@ -233,7 +250,21 @@ export function Contacts() {
         actionLoading={actionLoading}
         contactsCopy={contactsCopy}
       />
-      {/* ComposeDialog removed during email rebuild */}
+      {/* Bulk delete confirmation dialog */}
+      <Dialog open={bulkDeleteDialogOpen} onClose={() => setBulkDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{contactsCopy.alerts?.deleteConfirmTitle || 'Delete'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {(contactsCopy.alerts?.bulkDeleteConfirm || 'Are you sure you want to delete {count} contact(s)? This action cannot be undone.').replace('{count}', String(selectedIds.size))}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)}>{translations.common.cancel}</Button>
+          <Button onClick={handleBulkDeleteConfirm} color="error" variant="contained" disabled={actionLoading}>
+            {translations.common.delete}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

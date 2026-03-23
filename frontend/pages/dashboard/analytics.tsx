@@ -1,5 +1,6 @@
 
 import React from 'react';
+import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { Layout } from '@/components/layout/Layout';
 import { Skeleton } from '@mui/material';
@@ -17,6 +18,7 @@ export default function AnalyticsPage() {
 
   return (
     <Layout>
+      <Head><title>{t.nav.analytics} | PMSync</title></Head>
       <PageErrorBoundary pageName="Analytics">
         <PageContainer title={t.nav.analytics}>
           <AnalyticsChart />

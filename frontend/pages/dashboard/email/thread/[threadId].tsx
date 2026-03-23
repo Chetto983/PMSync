@@ -17,6 +17,7 @@ import {
 } from '@/hooks/queries';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { CircularProgress, Box, Typography, Button } from '@mui/material';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ArrowLeft } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 import { useGlobalToast } from '@/lib/context/toast-context';
@@ -64,6 +65,8 @@ export default function ThreadDetailPage() {
   // Dialog state
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   // Fetch thread emails
   const { data: emails, isLoading, error, refetch } = useEmailThread(threadId);
 
@@ -181,12 +184,19 @@ export default function ThreadDetailPage() {
     [emails, toast, t]
   );
 
-  // Delete entire thread
-  const handleDeleteThread = useCallback(async () => {
+  // Delete entire thread — opens confirmation dialog
+  const handleDeleteThread = useCallback(() => {
+    if (!emailIds.length) return;
+    setDeleteDialogOpen(true);
+  }, [emailIds]);
+
+  // Confirmed delete — actually performs the deletion
+  const handleConfirmDelete = useCallback(async () => {
     if (!emailIds.length) return;
 
     try {
       await bulkDelete.mutateAsync(emailIds);
+      setDeleteDialogOpen(false);
       toast.success(t.threadActions?.threadDeleted || 'Thread deleted');
       router.push('/dashboard/email');
     } catch {
@@ -199,12 +209,19 @@ export default function ThreadDetailPage() {
     setFolderPickerOpen(true);
   }, []);
 
-  // Archive entire thread
-  const handleArchiveThread = useCallback(async () => {
+  // Archive entire thread — opens confirmation dialog
+  const handleArchiveThread = useCallback(() => {
+    if (!emailIds.length) return;
+    setArchiveDialogOpen(true);
+  }, [emailIds]);
+
+  // Confirmed archive — actually performs the archive
+  const handleConfirmArchive = useCallback(async () => {
     if (!emailIds.length) return;
 
     try {
       await moveEmails.mutateAsync({ emailIds, targetFolder: 'ARCHIVE' });
+      setArchiveDialogOpen(false);
       toast.success(t.threadActions?.threadArchived || 'Thread archived');
       router.push('/dashboard/email');
     } catch {
@@ -304,7 +321,13 @@ export default function ThreadDetailPage() {
             gap: 2,
           }}
         >
-          <Typography color="error">{t.common.genericError}</Typography>
+          <Typography color="error">
+            {(error as { status?: number })?.status === 404
+              ? (t.threadView?.threadNotFound || 'Thread not found')
+              : (error instanceof Error && error.message?.toLowerCase().includes('network'))
+                ? (t.threadView?.connectionError || 'Could not load thread. Check your connection.')
+                : t.common.genericError}
+          </Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" startIcon={<ArrowLeft />} onClick={handleBack}>
               {t.email?.view?.back || 'Back'}
@@ -380,6 +403,36 @@ export default function ThreadDetailPage() {
             open={labelPickerOpen}
             onClose={() => setLabelPickerOpen(false)}
             emailIds={emailIds}
+          />
+
+          <ConfirmDialog
+            open={deleteDialogOpen}
+            onClose={() => setDeleteDialogOpen(false)}
+            onConfirm={handleConfirmDelete}
+            variant="danger"
+            title={t.threadActions?.deleteThreadConfirm || 'Delete entire conversation?'}
+            message={
+              (t.threadActions?.deleteThreadDesc || 'All {count} messages in this thread will be permanently deleted.')
+                .replace('{count}', String(emailIds.length))
+            }
+            confirmText={t.common.delete || 'Delete'}
+            cancelText={t.common.cancel}
+            isLoading={bulkDelete.isPending}
+          />
+
+          <ConfirmDialog
+            open={archiveDialogOpen}
+            onClose={() => setArchiveDialogOpen(false)}
+            onConfirm={handleConfirmArchive}
+            variant="warning"
+            title={t.threadActions?.archiveThreadConfirm || 'Archive entire conversation?'}
+            message={
+              (t.threadActions?.archiveThreadDesc || 'All {count} messages in this thread will be archived.')
+                .replace('{count}', String(emailIds.length))
+            }
+            confirmText={t.threadActions?.archiveThread || 'Archive'}
+            cancelText={t.common.cancel}
+            isLoading={moveEmails.isPending}
           />
 
         </Box>

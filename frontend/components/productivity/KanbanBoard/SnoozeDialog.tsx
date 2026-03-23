@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  ButtonBase,
   Box,
   Typography,
   Chip,
@@ -129,7 +130,7 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 0.5 }}>
           {presets.map((preset) => (
-            <Box
+            <ButtonBase
               key={preset.label}
               onClick={() => handlePreset(preset)}
               sx={{
@@ -144,11 +145,19 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
                 borderColor: alpha(theme.palette.divider, 0.6),
                 bgcolor: 'background.paper',
                 transition: 'all 0.15s ease',
+                textAlign: 'left',
+                width: '100%',
                 '&:hover': {
                   bgcolor: alpha(theme.palette.primary.main, 0.04),
                   borderColor: alpha(theme.palette.primary.main, 0.3),
                   boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.06)}`,
                   transform: 'translateY(-1px)',
+                },
+                '&:focus-visible': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  borderColor: alpha(theme.palette.primary.main, 0.3),
+                  outline: `2px solid ${theme.palette.primary.main}`,
+                  outlineOffset: 1,
                 },
                 '&:active': { transform: 'none' },
               }}
@@ -179,7 +188,7 @@ export function SnoozeDialog({ open, onClose, followUpId, onSnooze }: SnoozeDial
                   {preset.description}
                 </Typography>
               </Box>
-            </Box>
+            </ButtonBase>
           ))}
         </Box>
 

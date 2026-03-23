@@ -23,8 +23,8 @@
 }
 
 .chat-sidebar-new-btn {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   display: inline-flex;
   align-items: center;
@@ -137,8 +137,8 @@
 }
 
 .chat-thread-item-delete {
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   margin-right: 4px;
   border-radius: 7px;
   border: 0;
@@ -152,8 +152,15 @@
   transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
-.chat-thread-item:hover .chat-thread-item-delete {
+.chat-thread-item:hover .chat-thread-item-delete,
+.chat-thread-item:focus-within .chat-thread-item-delete {
   opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .chat-thread-item-delete {
+    opacity: 1;
+  }
 }
 
 .chat-thread-item-delete:hover {

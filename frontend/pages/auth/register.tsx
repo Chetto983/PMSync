@@ -66,7 +66,12 @@ export default function RegisterPage() {
           },
         });
         if (res.error) {
-          setError(res.error.message || 'Registration failed');
+          const msg = (res.error.message || '').toLowerCase();
+          if (msg.includes('already exists') || msg.includes('unique')) {
+            setError(t.errors.emailAlreadyRegistered);
+          } else {
+            setError(t.errors.registrationFailed);
+          }
           return;
         }
 
@@ -74,7 +79,7 @@ export default function RegisterPage() {
         // Better Auth sends a verification email on signup; show verification-pending UI.
         setVerificationEmail((res.data?.user?.email as string | undefined) || email.trim());
       } catch {
-        setError('An unexpected error occurred.');
+        setError(t.common.genericError);
       } finally {
         setLoading(false);
       }
@@ -149,7 +154,7 @@ export default function RegisterPage() {
           </Alert>
         )}
 
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, mb: 2 }}>
           <TextField
             label={reg.form.firstNameLabel}
             placeholder={reg.form.firstNamePlaceholder}

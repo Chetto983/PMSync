@@ -64,8 +64,8 @@ export function FollowUpCard({
           borderColor: isSelected
             ? theme.palette.primary.main
             : alpha(theme.palette.primary.main, 0.3),
-          '& .card-actions': { opacity: 1 },
         },
+        '&:hover .card-actions, &:focus-within .card-actions': { opacity: 1 },
       }}
     >
       <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>

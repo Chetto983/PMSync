@@ -73,9 +73,23 @@ export function FollowupsKanbanBoard() {
   const router = useRouter();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'WAITING_FOR' | 'TODO' | undefined>(undefined);
+  // State — synced to URL query params
+  const searchQuery = typeof router.query.q === 'string' ? router.query.q : '';
+  const typeFilter = (['WAITING_FOR', 'TODO'] as const).includes(router.query.type as 'WAITING_FOR' | 'TODO')
+    ? (router.query.type as 'WAITING_FOR' | 'TODO')
+    : undefined;
+
+  const setSearchQuery = useCallback((value: string) => {
+    const query = { ...router.query };
+    if (value) { query.q = value; } else { delete query.q; }
+    router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
+  }, [router]);
+
+  const setTypeFilter = useCallback((value: 'WAITING_FOR' | 'TODO' | undefined) => {
+    const query = { ...router.query };
+    if (value) { query.type = value; } else { delete query.type; }
+    router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
+  }, [router]);
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false);
   const [snoozeTargetId, setSnoozeTargetId] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -144,17 +158,22 @@ export function FollowupsKanbanBoard() {
   }, [sections, collapsedSections]);
 
   // ── Keyboard shortcuts ──
+  const isTextInputFocused = useCallback(() => {
+    const tag = document.activeElement?.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA';
+  }, []);
+
   useHotkeys('j', () => {
-    if (!flatList.length) return;
+    if (isTextInputFocused() || !flatList.length) return;
     const idx = selectedId ? flatList.findIndex((i) => i.id === selectedId) : -1;
     setSelectedId(flatList[Math.min(idx + 1, flatList.length - 1)]?.id || null);
-  }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [flatList, selectedId]);
+  }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [flatList, selectedId, isTextInputFocused]);
 
   useHotkeys('k', () => {
-    if (!flatList.length) return;
+    if (isTextInputFocused() || !flatList.length) return;
     const idx = selectedId ? flatList.findIndex((i) => i.id === selectedId) : flatList.length;
     setSelectedId(flatList[Math.max(idx - 1, 0)]?.id || null);
-  }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [flatList, selectedId]);
+  }, { enabled: !snoozeDialogOpen && !helpDialogOpen }, [flatList, selectedId, isTextInputFocused]);
 
   const selectedItem = useMemo(
     () => (selectedId ? followUps.find((f) => f.id === selectedId) : null),
@@ -166,12 +185,14 @@ export function FollowupsKanbanBoard() {
   }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedItem }, [selectedItem, router]);
 
   useHotkeys('r', () => {
+    if (isTextInputFocused()) return;
     if (selectedId && selectedItem?.status !== 'RESOLVED') handleResolve(selectedId);
-  }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedId }, [selectedId, selectedItem]);
+  }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedId }, [selectedId, selectedItem, isTextInputFocused]);
 
   useHotkeys('s', () => {
+    if (isTextInputFocused()) return;
     if (selectedId && selectedItem?.status === 'PENDING') handleOpenSnooze(selectedId);
-  }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedId }, [selectedId, selectedItem]);
+  }, { enabled: !snoozeDialogOpen && !helpDialogOpen && !!selectedId }, [selectedId, selectedItem, isTextInputFocused]);
 
   useHotkeys('shift+/', () => setHelpDialogOpen(true), { enabled: !snoozeDialogOpen }, []);
 

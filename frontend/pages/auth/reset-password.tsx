@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import NextLink from 'next/link';
 import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
@@ -12,7 +12,6 @@ export default function ResetPasswordPage() {
   const t = useTranslations();
   const rp = t.auth.resetPassword;
   const router = useRouter();
-  const token = router.query.token as string | undefined;
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -20,37 +19,47 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError('');
+  // Wait for router to be ready before accessing query params
+  if (!router.isReady) {
+    return (
+      <AuthLayout title={rp.title}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      </AuthLayout>
+    );
+  }
 
-      if (password !== confirmPassword) {
-        setError(t.common.passwordMismatch);
+  const token = router.query.token as string | undefined;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError(t.common.passwordMismatch);
+      return;
+    }
+
+    if (!token) {
+      setError(rp.missingToken || 'This reset link is invalid or has expired.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await authClient.resetPassword({ newPassword: password, token });
+      if (res.error) {
+        setError(res.error.message || t.common.genericError);
         return;
       }
-
-      if (!token) {
-        setError('Missing reset token. Please use the link from your email.');
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const res = await authClient.resetPassword({ newPassword: password, token });
-        if (res.error) {
-          setError(res.error.message || 'Reset failed');
-          return;
-        }
-        setSuccess(true);
-      } catch {
-        setError('An unexpected error occurred.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [password, confirmPassword, token, t],
-  );
+      setSuccess(true);
+    } catch {
+      setError(t.common.genericError);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (success) {
     return (
@@ -69,6 +78,27 @@ export default function ResetPasswordPage() {
             {rp.success!.actionLabel}
           </Button>
         </Box>
+      </AuthLayout>
+    );
+  }
+
+  // Show a clear message when token is missing, with a link to request a new one
+  if (!token) {
+    return (
+      <AuthLayout title={rp.title}>
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {rp.missingToken || 'This reset link is invalid or has expired.'}
+        </Alert>
+        <Button
+          component={NextLink}
+          href="/auth/forgot-password"
+          variant="contained"
+          fullWidth
+          size="large"
+          sx={{ py: 1.3, borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+        >
+          {rp.requestNewLink || 'Request a new reset link'}
+        </Button>
       </AuthLayout>
     );
   }

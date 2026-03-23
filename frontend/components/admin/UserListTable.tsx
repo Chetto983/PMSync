@@ -19,6 +19,12 @@ import {
   Skeleton,
   useMediaQuery,
   useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
 } from '@mui/material';
 import { Ban, CheckCircle2, UserSearch, Monitor, LockOpen, Shield } from 'lucide-react';
 import { useAdminUsers, useImpersonateUser, useUnbanUser } from '@/hooks/queries/use-admin';
@@ -65,6 +71,8 @@ export function UserListTable() {
   // Dialog state
   const [banTarget, setBanTarget] = useState<{ id: string; name: string } | null>(null);
   const [sessionsTarget, setSessionsTarget] = useState<{ id: string; name: string } | null>(null);
+  const [impersonateTarget, setImpersonateTarget] = useState<string | null>(null);
+  const [unbanTarget, setUnbanTarget] = useState<string | null>(null);
 
   const params = useMemo(() => ({
     limit: rowsPerPage,
@@ -82,10 +90,26 @@ export function UserListTable() {
   const total = data?.total ?? 0;
 
   const handleImpersonate = useCallback((userId: string) => {
-    if (window.confirm(t.admin?.users.impersonateConfirm ?? '')) {
-      impersonate.mutate(userId);
+    setImpersonateTarget(userId);
+  }, []);
+
+  const confirmImpersonate = useCallback(() => {
+    if (impersonateTarget) {
+      impersonate.mutate(impersonateTarget);
     }
-  }, [impersonate, t]);
+    setImpersonateTarget(null);
+  }, [impersonate, impersonateTarget]);
+
+  const handleUnban = useCallback((userId: string) => {
+    setUnbanTarget(userId);
+  }, []);
+
+  const confirmUnban = useCallback(() => {
+    if (unbanTarget) {
+      unbanUser.mutate(unbanTarget);
+    }
+    setUnbanTarget(null);
+  }, [unbanUser, unbanTarget]);
 
   const formatDate = (date: string | Date) => {
     try { return new Date(date).toLocaleDateString(); }
@@ -104,7 +128,7 @@ export function UserListTable() {
                 <IconButton
                   size="small"
                   color="success"
-                  onClick={() => unbanUser.mutate(user.id)}
+                  onClick={() => handleUnban(user.id)}
                   disabled={unbanUser.isPending}
                 >
                   <LockOpen size={18} />
@@ -345,6 +369,45 @@ export function UserListTable() {
           userName={sessionsTarget.name}
         />
       )}
+
+      {/* Impersonate Confirmation Dialog */}
+      <Dialog open={!!impersonateTarget} onClose={() => setImpersonateTarget(null)}>
+        <DialogTitle>{t.admin?.users.impersonate}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t.admin?.users.impersonateConfirm}
+          </DialogContentText>
+          <DialogContentText sx={{ mt: 1 }}>
+            {t.admin?.users.impersonateWarning}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImpersonateTarget(null)}>
+            {t.common.cancel}
+          </Button>
+          <Button onClick={confirmImpersonate} variant="contained" color="warning">
+            {t.admin?.users.impersonate}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unban Confirmation Dialog */}
+      <Dialog open={!!unbanTarget} onClose={() => setUnbanTarget(null)}>
+        <DialogTitle>{t.admin?.users.unban}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t.admin?.users.unbanConfirm}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUnbanTarget(null)}>
+            {t.common.cancel}
+          </Button>
+          <Button onClick={confirmUnban} variant="contained" color="success">
+            {t.admin?.users.unban}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

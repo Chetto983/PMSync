@@ -17,6 +17,7 @@ import FormControl from '@mui/material/FormControl';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import DialogContentText from '@mui/material/DialogContentText';
 import Typography from '@mui/material/Typography';
 import Collapse from '@mui/material/Collapse';
 import Skeleton from '@mui/material/Skeleton';
@@ -231,6 +232,7 @@ export default function ComposeDialog({
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [templateAnchor, setTemplateAnchor] = useState<HTMLElement | null>(null);
   const [signatureAnchor, setSignatureAnchor] = useState<HTMLElement | null>(null);
+  const [pendingTemplate, setPendingTemplate] = useState<{ subject: string; bodyHtml: string } | null>(null);
 
   // AI Draft state
   const [draftTone, setDraftTone] = useState<DraftTone | undefined>();
@@ -1022,7 +1024,11 @@ export default function ComposeDialog({
         open={Boolean(templateAnchor)}
         onClose={() => setTemplateAnchor(null)}
         onSelect={(tmpl: { subject: string; bodyHtml: string }) => {
-          if (body && body !== '<p></p>' && !window.confirm(t.email.composer.replaceContent)) return;
+          if (body && body !== '<p></p>') {
+            setPendingTemplate(tmpl);
+            setTemplateAnchor(null);
+            return;
+          }
           setSubject(tmpl.subject);
           setBody(tmpl.bodyHtml);
           setTemplateAnchor(null);
@@ -1062,6 +1068,33 @@ export default function ComposeDialog({
         onClose={() => setSuccessMessage(null)}
         message={successMessage}
       />
+
+      {/* Template Replace Confirmation Dialog */}
+      <Dialog open={!!pendingTemplate} onClose={() => setPendingTemplate(null)}>
+        <DialogTitle>{t.common.confirm}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t.email.composer.replaceContent}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingTemplate(null)}>
+            {t.common.cancel}
+          </Button>
+          <Button
+            onClick={() => {
+              if (pendingTemplate) {
+                setSubject(pendingTemplate.subject);
+                setBody(pendingTemplate.bodyHtml);
+              }
+              setPendingTemplate(null);
+            }}
+            variant="contained"
+          >
+            {t.common.confirm}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

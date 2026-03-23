@@ -21,7 +21,6 @@ export function PasswordField(props: TextFieldProps) {
               <IconButton
                 onClick={() => setShow((s) => !s)}
                 edge="end"
-                size="small"
                 aria-label={show ? t.common.hidePassword : t.common.showPassword}
               >
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}

@@ -15,6 +15,7 @@
 
 import {
   memo,
+  useState,
   MouseEvent,
   useRef,
   useCallback,
@@ -37,6 +38,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Flag, Paperclip, Archive, Trash2, FolderInput, Zap } from 'lucide-react';
 import { emailThreadOptions } from '@/hooks/queries/use-emails';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { stringToColor } from '@/lib/utils/gravatar';
 
 /** Hide snippet when identical/subset of subject */
@@ -109,6 +111,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   const theme = useTheme();
   const queryClient = useQueryClient();
   const prefetchRef = useRef<NodeJS.Timeout | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const isNarrowViewport = useMediaQuery(theme.breakpoints.down('md'));
   const hasTouchPointer = useMediaQuery('(hover: none), (pointer: coarse)');
   const isTouchLayout = isNarrowViewport || hasTouchPointer;
@@ -137,7 +140,8 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
   const handleClick = useCallback(() => onClick(thread.id), [onClick, thread.id]);
   const handleFlag = useCallback((e: MouseEvent) => { e.stopPropagation(); onFlag(thread.id); }, [onFlag, thread.id]);
   const handleArchive = useCallback((e: MouseEvent) => { e.stopPropagation(); onArchive(thread.id); }, [onArchive, thread.id]);
-  const handleDelete = useCallback((e: MouseEvent) => { e.stopPropagation(); onDelete(thread.id); }, [onDelete, thread.id]);
+  const handleDelete = useCallback((e: MouseEvent) => { e.stopPropagation(); setDeleteDialogOpen(true); }, []);
+  const handleConfirmDelete = useCallback(() => { setDeleteDialogOpen(false); onDelete(thread.id); }, [onDelete, thread.id]);
   const handleMove = useCallback((e: MouseEvent) => { e.stopPropagation(); onMove?.(thread.id); }, [onMove, thread.id]);
 
   // Actionable indicators — only show when meaningful (rare)
@@ -203,7 +207,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             onTouchStart={stopPointer}
             size="small"
             inputProps={{ 'aria-label': `${t.emailList?.selectAll || 'Select'}: ${formatSender(thread.from)}` }}
-            sx={{ p: 0.5 }}
+            sx={{ p: { xs: 1, md: 0.5 } }}
           />
         </Box>
 
@@ -404,7 +408,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
               onMouseDown={stopPointer}
               onPointerDown={stopPointer}
               onTouchStart={stopPointer}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 1, md: 0.5 } }}
               aria-label={thread.isFlagged ? t.emailList.unflagged : t.emailList.flagged}
             >
               <Flag
@@ -425,7 +429,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
               onMouseDown={stopPointer}
               onPointerDown={stopPointer}
               onTouchStart={stopPointer}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 1, md: 0.5 } }}
               aria-label={t.emailList.archive}
             >
               <Archive size={16} strokeWidth={2} />
@@ -439,7 +443,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
                 onMouseDown={stopPointer}
                 onPointerDown={stopPointer}
                 onTouchStart={stopPointer}
-                sx={{ p: 0.5 }}
+                sx={{ p: { xs: 1, md: 0.5 } }}
                 aria-label={t.emailList?.moveToFolder || 'Move to folder'}
               >
                 <FolderInput size={16} strokeWidth={2} />
@@ -453,7 +457,7 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
               onMouseDown={stopPointer}
               onPointerDown={stopPointer}
               onTouchStart={stopPointer}
-              sx={{ p: 0.5, color: 'error.main' }}
+              sx={{ p: { xs: 1, md: 0.5 }, color: 'error.main' }}
               aria-label={t.emailList.delete}
             >
               <Trash2 size={16} strokeWidth={2} />
@@ -461,6 +465,17 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
           </Tooltip>
         </Box>
       </Fade>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
+        variant="danger"
+        title={t.emailList.delete}
+        message={t.emailList.deleteSingleConfirm}
+        confirmText={t.common.delete || 'Delete'}
+        cancelText={t.common.cancel}
+      />
     </Box>
   );
 }, (prev, next) => (

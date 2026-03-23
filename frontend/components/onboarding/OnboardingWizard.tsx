@@ -10,6 +10,7 @@ import {
   Typography,
   CircularProgress,
 } from '@mui/material';
+import { minViewportHeightSx } from '@/lib/ui/viewport';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { SessionUser } from '@/lib/auth-client';
 import { apiClient } from '@/lib/api-client';
@@ -93,7 +94,7 @@ export function OnboardingWizard({ user, legalOnly = false }: OnboardingWizardPr
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '100vh',
+        ...minViewportHeightSx,
         px: 2,
         py: 4,
         bgcolor: 'background.default',

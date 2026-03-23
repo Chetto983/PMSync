@@ -10,6 +10,7 @@ import {
   Chip,
   Skeleton,
   ListItemIcon,
+  useTheme,
 } from '@mui/material';
 import { Clock, CheckSquare, AlertCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -88,6 +89,7 @@ function getTypeChipColor(
 
 export function Tasks() {
   const t = useTranslations();
+  const theme = useTheme();
   const [filter, setFilter] = useState<FilterType>('all');
   const {
     data,
@@ -165,6 +167,26 @@ export function Tasks() {
           overflow: 'auto',
         }}
       >
+        {/* Mobile filter chips (visible only on xs/sm) */}
+        <Box
+          sx={{
+            display: { xs: 'flex', md: 'none' },
+            gap: 1,
+            mb: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          {filters.map((f) => (
+            <Chip
+              key={f.key}
+              label={`${f.label} (${f.count})`}
+              color={filter === f.key ? 'primary' : 'default'}
+              variant={filter === f.key ? 'filled' : 'outlined'}
+              onClick={() => setFilter(f.key)}
+              size="small"
+            />
+          ))}
+        </Box>
         {/* Loading */}
         {isLoading && (
           <Box>
@@ -190,7 +212,7 @@ export function Tasks() {
         {!isLoading && !isError && followUps.length === 0 && (
           <EmptyState
             icon={CheckSquare}
-            color="#22c55e"
+            color={theme.palette.success.main}
             title={t.tasks.emptyTitle}
             description={t.tasks.emptyDescription}
             actionLabel={t.tasks.emptyCta}
@@ -266,7 +288,7 @@ export function Tasks() {
                     sx={{ fontWeight: 500 }}
                     noWrap
                   >
-                    {followUp.email?.subject ?? 'Untitled'}
+                    {followUp.email?.subject ?? t.tasks.untitled ?? 'Untitled'}
                   </Typography>
                   {getDescription(
                     followUp,

@@ -54,7 +54,7 @@ import { useSettingsCopy } from './settings/useSettingsCopy';
 import { useSettingsHandlers } from './settings/useSettingsHandlers';
 import { SettingsSidebar } from './settings/SettingsSidebar';
 
-function getProviderConnectError(error: unknown): string {
+function getProviderConnectError(error: unknown, fallback: string): string {
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -68,7 +68,7 @@ function getProviderConnectError(error: unknown): string {
     }
   }
 
-  return 'Failed to connect provider';
+  return fallback;
 }
 
 export function Settings() {
@@ -128,7 +128,7 @@ export function Settings() {
     const { success, error } = query;
     if (success) {
       setSelectedSection('accounts');
-      setProviderSuccess('Account connected successfully');
+      setProviderSuccess(t.common.providerConnectSuccess ?? 'Account connected successfully');
       void refetchProviders();
       void router.replace({ pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
     }
@@ -169,11 +169,11 @@ export function Settings() {
 
     void connectFn
       .then(() => {
-        setProviderSuccess('Account connected successfully');
+        setProviderSuccess(t.common.providerConnectSuccess ?? 'Account connected successfully');
         void refetchProviders();
       })
       .catch((error) => {
-        setProviderError(getProviderConnectError(error));
+        setProviderError(getProviderConnectError(error, t.common.providerConnectError ?? 'Failed to connect provider'));
       });
   }, [
     isReady,

@@ -56,12 +56,12 @@ export function ReminderCard({ reminder, onComplete, onDelete }: ReminderCardPro
           {!isCompleted && (
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
               <Tooltip title={tr.actions.complete}>
-                <IconButton size="small" color="success" onClick={() => onComplete(reminder.id)}>
+                <IconButton size="small" color="success" onClick={() => onComplete(reminder.id)} sx={{ minWidth: 44, minHeight: 44 }}>
                   <CheckCircle2 size={18} />
                 </IconButton>
               </Tooltip>
               <Tooltip title={tr.actions.delete}>
-                <IconButton size="small" color="error" onClick={() => onDelete(reminder.id)}>
+                <IconButton size="small" color="error" onClick={() => onDelete(reminder.id)} sx={{ minWidth: 44, minHeight: 44 }}>
                   <Trash2 size={18} />
                 </IconButton>
               </Tooltip>

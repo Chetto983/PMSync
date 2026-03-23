@@ -110,7 +110,7 @@ export function ThreadListHeader({
         size="small"
         disabled={totalCount === 0}
         inputProps={{ 'aria-label': allSelected ? (t.emailList?.deselectAll || 'Deselect all') : (t.emailList?.selectAll || 'Select all') }}
-        sx={{ p: 0.5 }}
+        sx={{ p: { xs: 1, md: 0.5 } }}
       />
 
       {/* Selected count or total count */}
@@ -134,7 +134,7 @@ export function ThreadListHeader({
               onClick={onRefresh}
               disabled={isRefreshing}
               aria-label={t.emailList.refresh}
-              sx={{ p: 0.5, alignSelf: 'center', flexShrink: 0 }}
+              sx={{ p: { xs: 1, md: 0.5 }, alignSelf: 'center', flexShrink: 0 }}
             >
               <RefreshCw
                 size={18}
@@ -160,7 +160,7 @@ export function ThreadListHeader({
               onClick={onMarkAsRead}
               disabled={isBulkActionPending}
               aria-label={t.emailList.markAsRead}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 1, md: 0.5 } }}
             >
               <MailOpen size={18} strokeWidth={2} />
             </IconButton>
@@ -173,7 +173,7 @@ export function ThreadListHeader({
               onClick={onMarkAsUnread}
               disabled={isBulkActionPending}
               aria-label={t.emailList.markAsUnread}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 1, md: 0.5 } }}
             >
               <Mail size={18} strokeWidth={2} />
             </IconButton>
@@ -188,7 +188,7 @@ export function ThreadListHeader({
               onClick={onArchive}
               disabled={isBulkActionPending}
               aria-label={t.emailList.archive}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 1, md: 0.5 } }}
             >
               <Archive size={18} strokeWidth={2} />
             </IconButton>
@@ -201,7 +201,7 @@ export function ThreadListHeader({
               onClick={onDelete}
               disabled={isBulkActionPending}
               aria-label={t.emailList.delete}
-              sx={{ p: 0.5, color: 'error.main' }}
+              sx={{ p: { xs: 1, md: 0.5 }, color: 'error.main' }}
             >
               <Trash2 size={18} strokeWidth={2} />
             </IconButton>
@@ -216,7 +216,7 @@ export function ThreadListHeader({
               onClick={onMoveToFolder}
               disabled={isBulkActionPending}
               aria-label={t.emailList.moveToFolder}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 1, md: 0.5 } }}
             >
               <FolderInput size={18} strokeWidth={2} />
             </IconButton>
@@ -229,7 +229,7 @@ export function ThreadListHeader({
               onClick={onAddLabel}
               disabled={isBulkActionPending}
               aria-label={t.emailList.addLabel}
-              sx={{ p: 0.5 }}
+              sx={{ p: { xs: 1, md: 0.5 } }}
             >
               <Tag size={18} strokeWidth={2} />
             </IconButton>
@@ -258,7 +258,7 @@ export function ThreadListHeader({
           onClick={onRefresh}
           disabled={isRefreshing}
           aria-label={t.emailList.refresh}
-          sx={{ p: 0.5 }}
+          sx={{ p: { xs: 1, md: 0.5 } }}
         >
           <RefreshCw
             size={18}

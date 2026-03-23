@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Button,
   Chip,
   Skeleton,
   Fab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import { Plus, Bell } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -23,6 +28,7 @@ export function RemindersBoard() {
   const tr = t.ai.reminders;
   const [statusFilter, setStatusFilter] = useState<ReminderStatus | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const params = statusFilter === 'all' ? undefined : { status: statusFilter };
   const { data, isLoading, isError, error, refetch } = useReminders(params);
@@ -30,6 +36,21 @@ export function RemindersBoard() {
   const deleteMutation = useDeleteReminder();
 
   const reminders = data?.reminders ?? [];
+
+  const handleDeleteRequest = useCallback((id: string) => {
+    setDeleteConfirmId(id);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (deleteConfirmId) {
+      deleteMutation.mutate(deleteConfirmId);
+      setDeleteConfirmId(null);
+    }
+  }, [deleteConfirmId, deleteMutation]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteConfirmId(null);
+  }, []);
 
   const headerActions = (
     <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDialogOpen(true)}>
@@ -45,7 +66,7 @@ export function RemindersBoard() {
         {STATUS_FILTERS.map((s) => (
           <Chip
             key={s}
-            label={s === 'all' ? 'All' : (tr.status[s] || s)}
+            label={s === 'all' ? (t.common.all ?? 'All') : (tr.status[s] || s)}
             onClick={() => setStatusFilter(s)}
             color={statusFilter === s ? 'primary' : 'default'}
             variant={statusFilter === s ? 'filled' : 'outlined'}
@@ -86,7 +107,7 @@ export function RemindersBoard() {
               key={r.id}
               reminder={r}
               onComplete={(id) => completeMutation.mutate(id)}
-              onDelete={(id) => deleteMutation.mutate(id)}
+              onDelete={handleDeleteRequest}
             />
           ))}
         </Box>
@@ -102,6 +123,22 @@ export function RemindersBoard() {
       </Fab>
 
       <ReminderCreateDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteConfirmId !== null} onClose={handleDeleteCancel} maxWidth="xs" fullWidth>
+        <DialogTitle>{tr.actions.delete}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {tr.deleteConfirm ?? 'Are you sure you want to delete this reminder? This action cannot be undone.'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel}>{t.common.cancel}</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+            {t.common.delete}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PageContainer>
   );
 }

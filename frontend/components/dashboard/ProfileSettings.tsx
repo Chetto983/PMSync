@@ -64,7 +64,9 @@ export function ProfileSettings() {
           fullWidth
           label={settingsCopy.emailReadonly}
           defaultValue={user.email}
-          disabled
+          helperText={settingsCopy.emailReadonlyHint || 'Your email address cannot be changed.'}
+          InputProps={{ readOnly: true }}
+          sx={{ '& .MuiInputBase-input': { color: 'text.secondary' } }}
         />
         <Box>
           <Button variant="contained" onClick={handleSave} disabled={isSaving}>

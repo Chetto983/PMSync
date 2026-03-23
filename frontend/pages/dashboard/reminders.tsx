@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { GetServerSideProps } from 'next';
 import { Box, Skeleton, Stack } from '@mui/material';
@@ -12,6 +13,13 @@ export default function RemindersPage() {
   const { data: session, isPending: isLoading } = authClient.useSession();
   const isAuthenticated = !!session;
   const t = useTranslations();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace('/auth/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   if (isLoading || !isAuthenticated) {
     return (

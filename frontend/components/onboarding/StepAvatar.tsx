@@ -29,7 +29,7 @@ export function StepAvatar({ user, onComplete, isLast }: StepProps) {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      setError('File must be under 5 MB');
+      setError(sc?.fileTooLarge ?? 'File must be under 5 MB');
       return;
     }
 
