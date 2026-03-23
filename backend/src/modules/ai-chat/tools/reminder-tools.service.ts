@@ -75,11 +75,14 @@ export class ReminderToolsService implements OnModuleInit {
             { inputUtente: args.inputUtente },
           );
 
-          // AI parser couldn't interpret input — return error so chat model doesn't retry
+          // AI parser couldn't interpret input — return error with explicit stop signal
           if (result.failed) {
+            const isParserError = (result as any).failReason === 'parser_error';
             return {
               success: false,
-              error: 'Could not parse reminder from input',
+              error: isParserError
+                ? 'Technical error parsing the reminder. DO NOT retry this tool call — inform the user there was a temporary issue and ask them to try again later.'
+                : 'The input was not recognized as a reminder. DO NOT retry — ask the user to clarify what they want to be reminded about, when, and for whom.',
               rispostaChat: result.rispostaChat,
             };
           }

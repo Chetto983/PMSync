@@ -119,60 +119,75 @@ export class ReminderAiParserService {
     tenantId: string,
     userId: string,
   ): Promise<ReminderParseOutput> {
-    const now = new Date().toISOString();
-    const startTime = Date.now();
+    const maxAttempts = 2;
 
-    try {
-      const model = this.mistralProvider.getChatModel(this.parserModelId);
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const now = new Date().toISOString();
+      const startTime = Date.now();
 
-      const result = await generateText({
-        model,
-        system: SYSTEM_PROMPT,
-        prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi SOLO con un singolo oggetto JSON (NON un array). Inizia con { e termina con }. Nessun testo prima o dopo il JSON.`,
-        temperature: 0.1,
-        maxOutputTokens: 600,
-        abortSignal: AbortSignal.timeout(45_000),
-      });
+      try {
+        const model = this.mistralProvider.getChatModel(this.parserModelId);
 
-      const latencyMs = Date.now() - startTime;
-      this.logger.debug(
-        `AI parser raw response (${result.text.length} chars, ${latencyMs}ms, model=${this.parserModelId}): ${result.text.slice(0, 500)}`,
-      );
-      const parsed = parseJsonOutput(result.text, reminderParseSchema);
-      this.logger.debug(`AI parser result: is_reminder=${parsed.is_reminder}, titolo="${parsed.titolo}"`);
+        const result = await generateText({
+          model,
+          system: SYSTEM_PROMPT,
+          prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi SOLO con un singolo oggetto JSON (NON un array). Inizia con { e termina con }. Nessun testo prima o dopo il JSON.`,
+          temperature: attempt === 1 ? 0.1 : 0.3,
+          // Qwen 3.5 Flash emits <think> tokens before JSON — budget extra tokens
+          maxOutputTokens: 1200,
+          abortSignal: AbortSignal.timeout(45_000),
+        });
 
-      this.aiRunLedger.recordRun({
-        tenantId,
-        userId,
-        runType: 'reminder-parse',
-        model: this.parserModelId,
-        promptTokens: result.usage?.inputTokens ?? 0,
-        completionTokens: result.usage?.outputTokens ?? 0,
-        totalTokens: result.usage?.totalTokens ?? 0,
-        latencyMs,
-        status: AiRunStatus.SUCCESS,
-      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+        const latencyMs = Date.now() - startTime;
+        this.logger.debug(
+          `AI parser raw response attempt=${attempt} (${result.text.length} chars, ${latencyMs}ms, model=${this.parserModelId}): ${result.text.slice(0, 500)}`,
+        );
+        const parsed = parseJsonOutput(result.text, reminderParseSchema);
+        this.logger.debug(`AI parser result: is_reminder=${parsed.is_reminder}, titolo="${parsed.titolo}"`);
 
-      return parsed;
-    } catch (error) {
-      const latencyMs = Date.now() - startTime;
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`AI parser error (${latencyMs}ms, model=${this.parserModelId}): ${message}`);
+        this.aiRunLedger.recordRun({
+          tenantId,
+          userId,
+          runType: 'reminder-parse',
+          model: this.parserModelId,
+          promptTokens: result.usage?.inputTokens ?? 0,
+          completionTokens: result.usage?.outputTokens ?? 0,
+          totalTokens: result.usage?.totalTokens ?? 0,
+          latencyMs,
+          status: AiRunStatus.SUCCESS,
+        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
-      this.aiRunLedger.recordRun({
-        tenantId,
-        userId,
-        runType: 'reminder-parse',
-        model: this.parserModelId,
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-        latencyMs,
-        status: AiRunStatus.FAILED,
-        errorMessage: message,
-      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+        return parsed;
+      } catch (error) {
+        const latencyMs = Date.now() - startTime;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `AI parser error attempt=${attempt}/${maxAttempts} (${latencyMs}ms, model=${this.parserModelId}): ${message}`,
+        );
 
-      return SAFE_FALLBACK;
+        this.aiRunLedger.recordRun({
+          tenantId,
+          userId,
+          runType: 'reminder-parse',
+          model: this.parserModelId,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs,
+          status: AiRunStatus.FAILED,
+          errorMessage: message,
+        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
+        // On last attempt, return fallback marked as parser failure
+        if (attempt === maxAttempts) {
+          return { ...SAFE_FALLBACK, _parserError: true, _errorMessage: message } as ReminderParseOutput & { _parserError: true; _errorMessage: string };
+        }
+
+        this.logger.warn(`Retrying AI parser (attempt ${attempt + 1}/${maxAttempts})...`);
+      }
     }
+
+    // Unreachable, but TypeScript needs it
+    return SAFE_FALLBACK;
   }
 }

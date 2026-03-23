@@ -16,13 +16,18 @@ import { z } from 'zod';
  * Handles: markdown fences, reasoning prefix, trailing text.
  */
 function extractJsonString(text: string): string | null {
+  // 0. Strip thinking tokens (Qwen 3.5 Flash, DeepSeek, etc.)
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  // Also handle unclosed <think> tags (model cut off mid-thought)
+  cleaned = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
+
   // 1. Try markdown code block first
-  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   if (fenceMatch) return fenceMatch[1].trim();
 
   // 2. Find first { ... } or [ ... ] block
-  const firstBrace = text.indexOf('{');
-  const firstBracket = text.indexOf('[');
+  const firstBrace = cleaned.indexOf('{');
+  const firstBracket = cleaned.indexOf('[');
 
   if (firstBrace === -1 && firstBracket === -1) return null;
 
@@ -37,19 +42,19 @@ function extractJsonString(text: string): string | null {
   let inString = false;
   let escape = false;
 
-  for (let i = startIdx; i < text.length; i++) {
-    const ch = text[i];
+  for (let i = startIdx; i < cleaned.length; i++) {
+    const ch = cleaned[i];
     if (escape) { escape = false; continue; }
     if (ch === '\\' && inString) { escape = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
     if (ch === startChar) depth++;
     if (ch === endChar) depth--;
-    if (depth === 0) return text.slice(startIdx, i + 1);
+    if (depth === 0) return cleaned.slice(startIdx, i + 1);
   }
 
   // Fallback: return from first brace to end
-  return text.slice(startIdx);
+  return cleaned.slice(startIdx);
 }
 
 /**

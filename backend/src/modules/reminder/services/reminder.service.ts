@@ -46,13 +46,27 @@ export class ReminderService {
       aiRawResponse = parsed as unknown as Prisma.InputJsonValue;
       rispostaChat = parsed.risposta_chat;
 
-      // If AI couldn't interpret the input as a reminder, abort creation
+      // If AI parser crashed (model timeout, bad JSON, etc.) — distinct from classification
+      const parserError = (parsed as any)._parserError;
+      if (parserError) {
+        const errorMsg = (parsed as any)._errorMessage || 'unknown';
+        this.logger.error(`AI parser failed for reminder input: "${dto.inputUtente}" — ${errorMsg}`);
+        return {
+          reminder: { id: '', titolo: 'Promemoria', scadenzaDatetime: null, condizioneTipo: 'sempre', monitoraEmail: false, messaggioTelegram: null } as any,
+          rispostaChat: 'Si è verificato un errore tecnico nella creazione del promemoria. Riprova tra qualche istante.',
+          failed: true,
+          failReason: 'parser_error' as const,
+        };
+      }
+
+      // If AI classified the input as not a reminder
       if (!parsed.is_reminder) {
         this.logger.warn(`AI parser did not recognize input as reminder: "${dto.inputUtente}"`);
         return {
           reminder: { id: '', titolo: 'Promemoria', scadenzaDatetime: null, condizioneTipo: 'sempre', monitoraEmail: false, messaggioTelegram: null } as any,
           rispostaChat: parsed.risposta_chat || 'Non sono riuscito a interpretare la richiesta.',
           failed: true,
+          failReason: 'not_a_reminder' as const,
         };
       }
 
