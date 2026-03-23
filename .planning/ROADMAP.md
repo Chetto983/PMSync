@@ -112,7 +112,7 @@
 
 - [x] **Phase 100: PWA Foundation** - Web app manifest, service worker registration, icon set, Vercel cache headers (completed 2026-03-23)
 - [x] **Phase 101: Offline Shell** - Offline fallback page, online/offline indicator, app shell caching (completed 2026-03-23)
-- [ ] **Phase 102: Install Experience** - beforeinstallprompt for Android/desktop, iOS instructions, standalone detection
+- [x] **Phase 102: Install Experience** - beforeinstallprompt for Android/desktop, iOS instructions, standalone detection (completed 2026-03-23)
 - [ ] **Phase 103: Offline Email Reading** - TanStack Query persist to IndexedDB, cache-on-logout security
 - [ ] **Phase 104: Background Sync** - Offline mutation queue, replay on reconnect, queue TTL with notification
 - [ ] **Phase 105: Push Plumbing & Polish** - VAPID subscription UI, SW push handler, SW update notification, Lighthouse PWA audit
@@ -153,7 +153,7 @@ Plans:
   1. User on Android or desktop Chrome sees a dismissible install prompt with accept/dismiss actions
   2. User on iOS Safari sees instructions to tap the share icon and select "Add to Home Screen"
   3. Install prompt is hidden when the app is already running in standalone mode (no redundant prompt)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 102-01-PLAN.md -- Translations + useInstallPrompt hook + unit tests
 - [ ] 102-02-PLAN.md -- InstallPromptBanner component + Layout wiring
@@ -207,7 +207,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 |-------|-----------|----------------|--------|-----------|
 | 100. PWA Foundation | 2/2 | Complete    | 2026-03-23 | - |
 | 101. Offline Shell | 1/1 | Complete    | 2026-03-23 | - |
-| 102. Install Experience | 1/2 | In Progress|  | - |
+| 102. Install Experience | 2/2 | Complete   | 2026-03-23 | - |
 | 103. Offline Email Reading | v8.0 | 0/TBD | Not started | - |
 | 104. Background Sync | v8.0 | 0/TBD | Not started | - |
 | 105. Push Plumbing & Polish | v8.0 | 0/TBD | Not started | - |
