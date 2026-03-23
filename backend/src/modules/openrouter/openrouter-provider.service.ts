@@ -1,6 +1,6 @@
 /**
  * OpenRouterProviderService - AI model provider with dual backend:
- *   - Chat/code models: OpenRouter (Qwen 3.5 flash + plus)
+ *   - Chat/code models: OpenRouter (MiniMax M2.7 — frontier agentic model)
  *   - Embedding models: Mistral (mistral-embed, EU-hosted)
  *   - OCR: Mistral (mistral-ocr-latest)
  *
@@ -28,11 +28,11 @@ export class OpenRouterProviderService {
     // OpenRouter — required for all chat/completion models
     const openRouterKey = this.config.getOrThrow<string>('OPENROUTER_API_KEY');
     this.openRouterProvider = createOpenRouter({ apiKey: openRouterKey });
-    this.logger.log('OpenRouter enabled for chat models (Qwen 3.5)');
+    this.logger.log('OpenRouter enabled for chat models (MiniMax M2.7)');
 
     this.defaultChatModel = this.config.get<string>(
       'AI_CHAT_MODEL',
-      'qwen/qwen3.5-flash-02-23',
+      'minimax/minimax-m2.7',
     );
     this.defaultEmbeddingModel = this.config.get<string>(
       'AI_EMBEDDING_MODEL',
@@ -40,7 +40,7 @@ export class OpenRouterProviderService {
     );
   }
 
-  /** Get a chat model via OpenRouter with reasoning + usage accounting. */
+  /** Get a chat model via OpenRouter. */
   getChatModel(modelId?: string): LanguageModel {
     const id = modelId ?? this.defaultChatModel;
     return this.openRouterProvider.chat(id, {
@@ -48,12 +48,12 @@ export class OpenRouterProviderService {
         data_collection: 'deny',
         sort: 'latency',
       },
-      // Qwen 3.5 Flash outputs reasoning tokens natively — no explicit
-      // reasoning config needed. Adding effort: 'low'+ forces EXTRA
-      // reasoning overhead on every step, doubling latency.
-      // The AI SDK's sendReasoning: true captures native tokens.
-      //
-      // Enable usage accounting for accurate token tracking in ledger.
+      // MiniMax M2.7 has native Interleaved Thinking (CoT before every
+      // tool call). The AI SDK's sendReasoning: true captures these blocks.
+      // Temperature lowered from M2.7's default 1.0 -> 0.3 for deterministic
+      // tool selection and parameter accuracy.
+      temperature: 0.3,
+      reasoning: { enabled: true, effort: 'medium' },
       usage: { include: true },
     });
   }

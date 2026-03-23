@@ -585,6 +585,7 @@ export default function EmailPage() {
               bottom: 24,
               right: `calc(24px + ${safeArea.right})`,
               zIndex: 1250,
+              display: { xs: 'none', md: 'flex' },
             }}
           >
             <Pencil size={24} />
