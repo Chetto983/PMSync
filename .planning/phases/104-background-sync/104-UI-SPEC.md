@@ -55,7 +55,8 @@ This phase introduces no new typographic roles. All new text uses existing roles
 |------|------|--------|-------------|-----------------|
 | Body | 14px (0.875rem) | 400 | 1.5 | Toast notification messages |
 | Label | 13px (0.8125rem) | 500 | 1.375 | Queue count badge text |
-| Heading | 20px (1.25rem) | 600 | 1.25 | Not used in this phase |
+
+Note: The Heading role (20px, weight 600, line-height 1.25) exists in the global theme but is not active in this phase and is omitted from this contract.
 
 Source: `frontend/theme/tokens.ts` lines 77-105
 
@@ -117,6 +118,8 @@ Source: REQUIREMENTS.md SYNC-01/02/03, RESEARCH.md Pattern 2 (replay engine)
 No visible queue UI. Email actions (mark-read, archive, star) work normally via API.
 
 ### State 2: Offline with queued actions
+
+Primary visual anchor: the existing `OfflineBanner` Alert component. When actions are pending, the OfflineBanner is the dominant indicator of offline state. The pending count badge (MUI `Badge` on the `WifiOff` icon, `color="warning"`, `badgeContent={count}`) is a secondary indicator subordinate to the banner, providing at-a-glance queue depth without competing for attention.
 
 - Email actions are optimistic -- UI updates immediately on user tap (existing `onMutate` in `useUpdateEmail`)
 - No additional UI feedback beyond existing `OfflineBanner` (already shows "You are offline. Some features may be unavailable.")
