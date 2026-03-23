@@ -4,6 +4,7 @@ import React from 'react';
 import { MessagePrimitive } from '@assistant-ui/react';
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Bot } from 'lucide-react';
 import Alert from '@mui/material/Alert';
 import { useMessageError } from '@assistant-ui/core/react';
@@ -14,7 +15,10 @@ import { TOOL_RENDERERS, FallbackToolRenderer } from './tool-uis';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MarkdownText = MarkdownTextPrimitive as any;
-const MarkdownWithStreaming = (props: object) => <MarkdownText {...props} className="aui-md" />;
+const remarkPlugins = [remarkGfm];
+const MarkdownWithStreaming = (props: object) => (
+  <MarkdownText {...props} className="aui-md" remarkPlugins={remarkPlugins} />
+);
 
 /**
  * Dispatching tool renderer: routes tool calls to specific renderers by name,
