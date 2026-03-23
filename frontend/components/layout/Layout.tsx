@@ -14,6 +14,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { QuotaAlertBanner } from '@/components/billing';
 import { PendingInvitationBanner } from '@/components/organizations/PendingInvitationBanner';
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner';
+import { OfflineBanner } from '@/components/layout/OfflineBanner';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -128,6 +129,9 @@ export function Layout({ children }: LayoutProps) {
             },
           }}
         >
+          {/* Offline Banner - visible when connection drops */}
+          <OfflineBanner />
+
           {/* Impersonation Banner - visible on ALL pages during impersonation */}
           <ImpersonationBanner />
 
