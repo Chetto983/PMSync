@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -11,6 +12,8 @@ import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AiRunsQueryDto } from '../dto/ai-runs-query.dto';
+import { AiAnalyticsQueryDto } from '../dto/ai-analytics-query.dto';
+import { AiAnalyticsService } from '../services/ai-analytics.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 /**
@@ -25,7 +28,10 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 @UseGuards(TenantGuard, RolesGuard)
 @Roles('admin')
 export class AiObservabilityController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly analyticsService: AiAnalyticsService,
+  ) {}
 
   @Get('runs')
   @ApiOperation({ summary: 'List AI run records' })
@@ -78,6 +84,24 @@ export class AiObservabilityController {
       totalTokens: result._sum.totalTokens ?? 0,
       runCount: result._count,
     };
+  }
+
+  @Get('runs/analytics')
+  @ApiOperation({ summary: 'AI analytics: time-series, model breakdown, burn rate' })
+  async getAnalytics(
+    @Query() query: AiAnalyticsQueryDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.analyticsService.getAnalytics(
+      req.user.tenantId,
+      query.days ?? 30,
+    );
+  }
+
+  @Post('runs/score-recent')
+  @ApiOperation({ summary: 'Score recent un-scored AI runs for quality tracking' })
+  async scoreRecentRuns(@Req() req: AuthenticatedRequest) {
+    return this.analyticsService.scoreRecentRuns(req.user.tenantId);
   }
 
   private buildWhere(

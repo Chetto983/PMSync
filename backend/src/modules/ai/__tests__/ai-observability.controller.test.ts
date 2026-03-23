@@ -48,7 +48,11 @@ describe('AiObservabilityController', () => {
         }),
       },
     };
-    controller = new AiObservabilityController(mockPrisma as any);
+    const mockAnalytics = {
+      getAnalytics: vi.fn().mockResolvedValue({ dailySeries: [], modelBreakdown: [], runTypeBreakdown: [], burnRate: { dailyAvgCost: 0, projectedMonthlyCost: 0, daysUntilCap: null } }),
+      scoreRecentRuns: vi.fn().mockResolvedValue({ scored: 0 }),
+    };
+    controller = new AiObservabilityController(mockPrisma as any, mockAnalytics as any);
   });
 
   describe('GET /ai/runs', () => {

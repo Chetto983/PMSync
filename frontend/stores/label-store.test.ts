@@ -33,6 +33,7 @@ const makeLabel = (overrides: Partial<Label> = {}): Label => ({
   level: 0,
   orderIndex: 0,
   isArchived: false,
+  aiPrompt: null,
   createdAt: '2026-03-11T00:00:00Z',
   updatedAt: '2026-03-11T00:00:00Z',
   ...overrides,

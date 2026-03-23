@@ -68,6 +68,7 @@ export interface Label {
   level: number;
   orderIndex: number;
   isArchived: boolean;
+  aiPrompt: string | null;
   createdAt: string;
   updatedAt: string;
   children?: Label[];
@@ -81,6 +82,7 @@ export interface CreateLabelDto {
   color?: LabelColor;
   icon?: string;
   parentId?: string;
+  aiPrompt?: string;
 }
 
 export interface UpdateLabelDto {
@@ -89,6 +91,7 @@ export interface UpdateLabelDto {
   icon?: string | null;
   parentId?: string | null;
   orderIndex?: number;
+  aiPrompt?: string | null;
 }
 
 export interface AddEmailsToLabelDto {

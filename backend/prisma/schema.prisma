@@ -1472,6 +1472,8 @@ model AiRunLedger {
   errorCode        String?
   errorMessage     String?
   promptVersion    String?     // Correlate cost changes to prompt changes
+  qualityScore     Float?      // 0.0-1.0 retroactive quality rating (NeMo evaluator)
+  qualityMethod    String?     // 'schema-completeness', 'user-action'
   createdAt        DateTime    @default(now())
 
   @@index([tenantId, createdAt(sort: Desc)])

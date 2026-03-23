@@ -15,6 +15,8 @@ import { getAiCircuitBreaker, withRetry } from '../utils';
 import { AiError, AiErrorCode } from '../errors';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { CostProtectionService } from '../../subscription/services/cost-protection.service';
+import { AiRunLedgerService } from './ai-run-ledger.service';
+import { promptHash } from '../utils/prompt-hash';
 
 @Injectable()
 export class MistralRagService {
@@ -31,6 +33,7 @@ export class MistralRagService {
     private readonly embeddingsService: EmbeddingsService,
     @Optional() @Inject(UsageTrackingService) private usageTrackingService?: UsageTrackingService,
     @Optional() @Inject(CostProtectionService) private costProtectionService?: CostProtectionService,
+    @Optional() private readonly ledgerService?: AiRunLedgerService,
   ) {}
 
   /** Set dependencies (injected by MistralService to avoid circular dependency). */
@@ -161,7 +164,8 @@ export class MistralRagService {
             { role: 'user' as const, content: userPrompt + ragContext },
           ];
 
-          const { text } = await generateText({
+          const callStart = Date.now();
+          const { text, usage } = await generateText({
             model: this.mistralProvider.getChatModel(modelId),
             messages,
             temperature: 0.7,
@@ -169,6 +173,18 @@ export class MistralRagService {
             abortSignal: AbortSignal.timeout(timeoutMs),
             // providerOptions.mistral removed — not supported by OpenRouter
           });
+
+          this.ledgerService?.recordRun({
+            tenantId,
+            userId,
+            runType: 'rag-completion',
+            model: modelId,
+            promptTokens: usage?.inputTokens ?? 0,
+            completionTokens: usage?.outputTokens ?? 0,
+            totalTokens: usage?.totalTokens ?? 0,
+            latencyMs: Date.now() - callStart,
+            promptVersion: promptHash(t.mistral.rag.contextIntro || 'rag'),
+          }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
           return text || t.mistral.errors.tryAgain;
         };

@@ -18,6 +18,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
 import { parseJsonOutput } from '../utils/parse-json-output';
+import { promptHash } from '../utils/prompt-hash';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -295,6 +296,7 @@ export class BriefingService {
         completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: result.usage?.totalTokens ?? 0,
         latencyMs: Date.now() - startTime,
+        promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
       const parsed = parseJsonOutput(result.text, briefingSchema);
@@ -310,6 +312,7 @@ export class BriefingService {
         latencyMs: Date.now() - startTime,
         status: AiRunStatus.FAILED,
         errorMessage: firstError instanceof Error ? firstError.message : String(firstError),
+        promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
       this.logger.error(`Briefing generation failed: ${firstError}`);

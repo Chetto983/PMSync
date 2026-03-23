@@ -1139,6 +1139,9 @@ export interface AppTranslations {
       depthLimitReached: string;
       collapseAll: string;
       expandAll: string;
+      aiPromptLabel: string;
+      aiPromptPlaceholder: string;
+      aiPromptHelperText: string;
       errors: {
         nameRequired: string;
         nameTooShort: string;

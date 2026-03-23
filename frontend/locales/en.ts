@@ -1224,6 +1224,10 @@ export const en: AppTranslations = {
       depthLimitReached: 'Maximum nesting depth reached',
       collapseAll: 'Collapse all',
       expandAll: 'Expand all',
+      // AI prompt for label triage
+      aiPromptLabel: 'AI Triage Rule',
+      aiPromptPlaceholder: 'Describe when AI should apply this label, e.g. "Emails requesting quotes or price lists"',
+      aiPromptHelperText: 'The AI will automatically apply this label to emails matching this description.',
       errors: {
         nameRequired: 'Name is required',
         nameTooShort: 'Name must be at least 2 characters',

@@ -1214,6 +1214,10 @@ export const it: AppTranslations = {
       depthLimitReached: 'Profondità massima di nidificazione raggiunta',
       collapseAll: 'Chiudi tutto',
       expandAll: 'Espandi tutto',
+      // AI prompt for label triage
+      aiPromptLabel: 'Regola di triage AI',
+      aiPromptPlaceholder: 'Descrivi quando l\'AI deve applicare questa etichetta, es. "Email che richiedono preventivi o listini prezzi"',
+      aiPromptHelperText: 'L\'AI applicherà automaticamente questa etichetta alle email che corrispondono a questa descrizione.',
       errors: {
         nameRequired: 'Il nome è obbligatorio',
         nameTooShort: 'Il nome deve essere almeno 2 caratteri',

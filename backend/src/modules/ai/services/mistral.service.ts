@@ -21,6 +21,7 @@ import { CostProtectionService } from '../../subscription/services/cost-protecti
 import { MistralEmbeddingService } from './mistral-embedding.service';
 import { MistralRagService } from './mistral-rag.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
+import { promptHash } from '../utils/prompt-hash';
 
 /** Simple circuit breaker for LLM API calls (RACE-04). */
 class LlmCircuitBreaker {
@@ -159,6 +160,7 @@ export class MistralService implements OnModuleInit {
             completionTokens: usage?.outputTokens ?? 0,
             totalTokens: usage?.totalTokens ?? 0,
             latencyMs: Date.now() - callStart,
+            promptVersion: fullSystemPrompt ? promptHash(fullSystemPrompt) : undefined,
           }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
           if (!text) throw new AiError('Empty response from AI service', AiErrorCode.EMPTY_RESPONSE);
@@ -225,6 +227,7 @@ export class MistralService implements OnModuleInit {
         completionTokens: usage?.outputTokens ?? 0,
         totalTokens: usage?.totalTokens ?? 0,
         latencyMs: Date.now() - titleStart,
+        promptVersion: promptHash(t.mistral.title.system),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
       const rawTitle = text || this.buildFallbackTitle(messages, supportedLocale);

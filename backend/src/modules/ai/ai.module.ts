@@ -64,6 +64,7 @@ import { EmailEmbeddingCleanupService } from './services/email-embedding-cleanup
 import { AiRunLedgerService } from './services/ai-run-ledger.service';
 // Phase 35 Plan 02: AI Observability endpoints (runs query + cost summary)
 import { AiObservabilityController } from './controllers/ai-observability.controller';
+import { AiAnalyticsService } from './services/ai-analytics.service';
 import { RealtimeModule } from '../realtime/realtime.module';
 
 /**
@@ -124,6 +125,8 @@ import { RealtimeModule } from '../realtime/realtime.module';
     AiProviderEventHandlerService,
     // Phase 35: AI Run Ledger telemetry
     AiRunLedgerService,
+    // NeMo-inspired: Analytics aggregation over AiRunLedger
+    AiAnalyticsService,
     // CRM: Relationship scoring for stale-contacts endpoint
     RelationshipScoreService,
     // Phase 45-03: Event handler for email.indexed (EmailSync -> AI decoupling)

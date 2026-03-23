@@ -17,6 +17,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { AiRunLedgerService } from './ai-run-ledger.service';
 import { parseJsonOutput } from '../utils/parse-json-output';
+import { promptHash } from '../utils/prompt-hash';
 
 // ============ Zod Schema (co-located, exported for frontend type derivation) ============
 
@@ -174,6 +175,7 @@ export class DraftGenerationService {
         completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: result.usage?.totalTokens ?? 0,
         latencyMs: Date.now() - startTime,
+        promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
       const parsed = parseJsonOutput(result.text, draftGenerationSchema);
@@ -189,6 +191,7 @@ export class DraftGenerationService {
         latencyMs: Date.now() - startTime,
         status: AiRunStatus.FAILED,
         errorMessage: error instanceof Error ? error.message : String(error),
+        promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
       this.logger.error(`Draft generation failed: ${error}`);

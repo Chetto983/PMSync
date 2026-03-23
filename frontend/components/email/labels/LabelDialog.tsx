@@ -57,6 +57,7 @@ export function LabelDialog({
   const [name, setName] = useState('');
   const [color, setColor] = useState<LabelColor>(DEFAULT_LABEL_COLOR);
   const [parentId, setParentId] = useState<string | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Mutations
@@ -83,6 +84,7 @@ export function LabelDialog({
     setName(label?.name ?? '');
     setColor(label?.color ?? DEFAULT_LABEL_COLOR);
     setParentId(label?.parentId ?? defaultParentId ?? null);
+    setAiPrompt(label?.aiPrompt ?? '');
     setError(null);
   }, [label, defaultParentId]);
 
@@ -110,6 +112,7 @@ export function LabelDialog({
             name: trimmedName,
             color,
             parentId: parentId ?? null,
+            aiPrompt: aiPrompt.trim() || null,
           },
         });
         onSuccess?.(response.label);
@@ -118,6 +121,7 @@ export function LabelDialog({
           name: trimmedName,
           color,
           parentId: parentId ?? undefined,
+          aiPrompt: aiPrompt.trim() || undefined,
         });
         onSuccess?.(response.label);
       }
@@ -141,6 +145,7 @@ export function LabelDialog({
     name,
     color,
     parentId,
+    aiPrompt,
     isEditMode,
     label,
     createLabel,
@@ -248,6 +253,29 @@ export function LabelDialog({
           selectedColor={color}
           onColorSelect={setColor}
           showCustom={false}
+        />
+
+        {/* AI triage rule */}
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          maxRows={4}
+          size="medium"
+          label={t.email?.labels?.aiPromptLabel || 'AI Triage Rule'}
+          placeholder={
+            t.email?.labels?.aiPromptPlaceholder ||
+            'Describe when AI should apply this label...'
+          }
+          helperText={
+            t.email?.labels?.aiPromptHelperText ||
+            'The AI will automatically apply this label to emails matching this description.'
+          }
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          disabled={isLoading}
+          inputProps={{ maxLength: 500 }}
+          sx={{ mt: 2 }}
         />
 
         {/* Preview */}
