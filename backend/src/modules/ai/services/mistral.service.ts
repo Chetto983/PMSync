@@ -73,10 +73,10 @@ export class MistralService implements OnModuleInit {
   private getModel(tier: 'fast' | 'creative' | 'router' | 'default' = 'default'): string {
     const defaultModel = this.configService.get<string>('AI_CHAT_MODEL') || 'qwen/qwen3.5-plus-02-15';
     switch (tier) {
-      case 'fast': return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistralai/mistral-small-3.1-24b-instruct';
-      case 'creative': return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistralai/mistral-small-3.1-24b-instruct';
+      case 'fast': return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistralai/mistral-small-2603';
+      case 'creative': return this.configService.get<string>('AI_MODEL_CREATIVE') || 'mistralai/mistral-small-2603';
       case 'router': return this.configService.get<string>('AI_MODEL_ROUTER') || defaultModel;
-      default: return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistralai/mistral-small-3.1-24b-instruct';
+      default: return this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistralai/mistral-small-2603';
     }
   }
 

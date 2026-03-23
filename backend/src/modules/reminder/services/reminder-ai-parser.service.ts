@@ -110,7 +110,7 @@ export class ReminderAiParserService {
     // model (M2.7 has Interleaved Thinking that breaks JSON parsing).
     this.parserModelId = this.configService.get<string>(
       'AI_MODEL_SIMPLE',
-      'mistralai/mistral-small-3.1-24b-instruct',
+      'mistralai/mistral-small-2603',
     );
   }
 

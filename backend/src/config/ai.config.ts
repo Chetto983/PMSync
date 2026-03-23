@@ -24,9 +24,9 @@ export default registerAs('ai', () => ({
   // ===========================================
   models: {
     /** Simple tasks: classification, titles, RAG, fast completions */
-    simple: process.env.AI_MODEL_SIMPLE || 'mistralai/mistral-small-3.1-24b-instruct',
+    simple: process.env.AI_MODEL_SIMPLE || 'mistralai/mistral-small-2603',
     /** Creative tasks: email composition, smart replies (no tool calls) */
-    creative: process.env.AI_MODEL_CREATIVE || 'mistralai/mistral-small-3.1-24b-instruct',
+    creative: process.env.AI_MODEL_CREATIVE || 'mistralai/mistral-small-2603',
   },
 
   // ===========================================
