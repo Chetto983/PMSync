@@ -15,6 +15,7 @@ import { QuotaAlertBanner } from '@/components/billing';
 import { PendingInvitationBanner } from '@/components/organizations/PendingInvitationBanner';
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
+import { InstallPromptBanner } from '@/components/layout/InstallPromptBanner';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -181,6 +182,7 @@ export function Layout({ children }: LayoutProps) {
             </Alert>
           </Snackbar>
         )}
+        <InstallPromptBanner />
         <CookieConsent />
         <CommandPalette />
       </Box>
