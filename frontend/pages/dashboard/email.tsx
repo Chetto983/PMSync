@@ -555,6 +555,7 @@ export default function EmailPage() {
             onLabel={handleLabelsMessage}
             isBulkActionPending={isBulkActionPending}
             onEmptyAction={handleEmptyAction}
+            onCompose={handleCompose}
           />
         </EmailLayout>
 

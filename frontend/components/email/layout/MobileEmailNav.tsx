@@ -11,11 +11,9 @@
  */
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/router';
 import {
   Box,
   Paper,
-  Fab,
   Typography,
   alpha,
   useTheme,
@@ -23,7 +21,6 @@ import {
 import { safeArea } from '@/theme/appTheme';
 import {
   Inbox,
-  PenSquare,
   FolderOpen,
   Flag,
 } from 'lucide-react';
@@ -33,7 +30,6 @@ import { MobileFolderSheet } from './MobileFolderSheet';
 
 export function MobileEmailNav() {
   const theme = useTheme();
-  const router = useRouter();
   const t = useTranslations();
   const [folderSheetOpen, setFolderSheetOpen] = useState(false);
 
@@ -42,11 +38,6 @@ export function MobileEmailNav() {
 
   const handleInboxClick = () => {
     setFilters({ providerId: undefined, folderId: undefined, folderPath: undefined, specialUse: 'INBOX' });
-  };
-
-  // Navigate to compose page
-  const handleComposeClick = () => {
-    router.push('/dashboard/email/compose');
   };
 
   const handleFoldersClick = () => {
@@ -119,9 +110,6 @@ export function MobileEmailNav() {
             }}
           />
 
-          {/* FAB Spacer */}
-          <Box sx={{ width: 64 }} />
-
           {/* Folders Button */}
           <NavButton
             icon={<FolderOpen size={22} />}
@@ -130,21 +118,6 @@ export function MobileEmailNav() {
           />
         </Box>
 
-        {/* Floating Action Button for Compose */}
-        <Fab
-          color="primary"
-          aria-label={t.common?.compose || 'Scrivi'}
-          onClick={handleComposeClick}
-          sx={{
-            position: 'absolute',
-            top: -28,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            boxShadow: 4,
-          }}
-        >
-          <PenSquare size={24} />
-        </Fab>
       </Paper>
 
       {/* Folder Selection Sheet */}

@@ -192,9 +192,14 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
         },
       }}
       >
-        {/* Checkbox — visible on hover or when selected (no Fade to avoid CLS) */}
+        {/* Checkbox — hidden on mobile touch, visible on hover/selected on desktop */}
         <Box
-          sx={{ width: 36, flexShrink: 0, visibility: showSelectionAffordance ? 'visible' : 'hidden' }}
+          sx={{
+            width: 36,
+            flexShrink: 0,
+            visibility: showSelectionAffordance ? 'visible' : 'hidden',
+            display: { xs: 'none', md: 'block' },
+          }}
           onMouseDown={stopPointer}
           onPointerDown={stopPointer}
           onTouchStart={stopPointer}

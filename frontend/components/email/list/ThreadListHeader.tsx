@@ -19,6 +19,7 @@ import {
   Trash2,
   FolderInput,
   Tag,
+  PenSquare,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EmailSearchBar } from './EmailSearchBar';
@@ -46,6 +47,8 @@ interface ThreadListHeaderProps {
   onAddLabel: () => void;
   /** Bulk action in-flight */
   isBulkActionPending?: boolean;
+  /** Compose callback (mobile) */
+  onCompose?: () => void;
 }
 
 /**
@@ -71,6 +74,7 @@ export function ThreadListHeader({
   onMoveToFolder,
   onAddLabel,
   isBulkActionPending = false,
+  onCompose,
 }: ThreadListHeaderProps) {
   const t = useTranslations();
   const theme = useTheme();
@@ -102,7 +106,7 @@ export function ThreadListHeader({
         minHeight: { xs: 44, sm: 48 },
       }}
     >
-      {/* Select all checkbox */}
+      {/* Select all checkbox — hidden on mobile */}
       <Checkbox
         checked={allSelected}
         indeterminate={someSelected && !allSelected}
@@ -110,7 +114,7 @@ export function ThreadListHeader({
         size="small"
         disabled={totalCount === 0}
         inputProps={{ 'aria-label': allSelected ? (t.emailList?.deselectAll || 'Deselect all') : (t.emailList?.selectAll || 'Select all') }}
-        sx={{ p: { xs: 1, md: 0.5 } }}
+        sx={{ p: { xs: 1, md: 0.5 }, display: { xs: 'none', md: 'inline-flex' } }}
       />
 
       {/* Selected count or total count */}
@@ -145,6 +149,24 @@ export function ThreadListHeader({
               />
             </IconButton>
           </Tooltip>
+          {onCompose && (
+            <IconButton
+              size="small"
+              onClick={onCompose}
+              color="primary"
+              aria-label={t.common?.compose || 'Compose'}
+              sx={{
+                p: 1,
+                alignSelf: 'center',
+                flexShrink: 0,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                '&:hover': { bgcolor: 'primary.dark' },
+              }}
+            >
+              <PenSquare size={18} />
+            </IconButton>
+          )}
         </Box>
       )}
 

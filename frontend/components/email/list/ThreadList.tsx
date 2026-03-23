@@ -75,6 +75,8 @@ interface ThreadListProps {
   isBulkActionPending?: boolean;
   /** CTA callback for empty state (e.g. clear search, compose) */
   onEmptyAction?: () => void;
+  /** Compose callback (shown in mobile header) */
+  onCompose?: () => void;
 }
 
 /**
@@ -112,6 +114,7 @@ export function ThreadList({
   onLabel,
   isBulkActionPending = false,
   onEmptyAction,
+  onCompose,
 }: ThreadListProps) {
   const t = useTranslations();
   const theme = useTheme();
@@ -353,6 +356,7 @@ export function ThreadList({
           onMoveToFolder={handleBulkMove}
           onAddLabel={handleBulkLabel}
           isBulkActionPending={isBulkActionPending}
+          onCompose={onCompose}
         />
         <ThreadListSkeleton count={8} animation="wave" />
       </Box>
@@ -379,6 +383,7 @@ export function ThreadList({
           onMoveToFolder={handleBulkMove}
           onAddLabel={handleBulkLabel}
           isBulkActionPending={isBulkActionPending}
+          onCompose={onCompose}
         />
         <EmptyState variant={emptyVariant} onAction={onEmptyAction} />
       </Box>
