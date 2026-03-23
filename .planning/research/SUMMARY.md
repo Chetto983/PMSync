@@ -1,225 +1,208 @@
 # Project Research Summary
 
-**Project:** PMSync v6.0 — Enterprise Platform & AI Governance
-**Domain:** AI-powered email CRM with workflow automation, enterprise authorization, distributed tracing, and AI control plane hardening
-**Researched:** 2026-03-18
+**Project:** PMSync v8.0 Progressive Web App
+**Domain:** PWA layer added to existing Next.js 16 AI email client
+**Researched:** 2026-03-23
 **Confidence:** HIGH
 
 ## Executive Summary
 
-PMSync v6.0 is a multi-tenant SaaS platform already shipping email client, AI chat, calendar sync, contacts, and RBAC auth. The v6.0 milestone transforms it from a smart email tool into an enterprise-grade CRM with workflow automation, resource-scoped authorization, and production-quality observability. The research consensus is clear: the existing modular monolith architecture is correct and no topology change is needed. All six expansion areas (CRM, workflow engine, authorization, OpenTelemetry, AI control plane hardening, and MUI chat migration) integrate as new NestJS modules or extensions to existing ones, following patterns already established in the codebase.
+PMSync v8.0 adds a PWA layer to a fully-shipped AI email client. The milestone is frontend-only — no backend push triggers ship this cycle. The recommended approach centers on `@serwist/next` for service worker integration (the officially-referenced Next.js solution, successor to the abandoned next-pwa), `idb-keyval` for lightweight IndexedDB key-value storage, and browser-native APIs for install prompts and push subscription plumbing. All six core PWA features (manifest, service worker, offline fallback, app shell caching, install prompt, push frontend) are well-documented with high-confidence sources. Stack additions are minimal: two runtime packages and two dev dependencies on top of what already exists.
 
-The most important finding across all four research dimensions is a hard dependency chain that dictates build order. Authorization must come before CRM and workflows because both need permission enforcement from day one — retrofitting permissions onto shipped features creates exploitable security gaps. The workflow engine in particular becomes a privilege escalation vector if it can invoke AI tools outside the HITL approval path. AI control plane remediation (HITL contract unification, tool governance, memory repair) must precede any new AI tooling, including CRM tools, because the registry and approval lifecycle are currently structurally broken per the 2026-03-15 remediation roadmap. OpenTelemetry is the one fully independent infrastructure item and can run in parallel with any phase.
+The single most important architectural constraint is this: **the service worker must not intercept API requests.** This is where the two research documents diverge in a meaningful way. ARCHITECTURE.md proposed NetworkFirst caching for `/api/v1/emails*`; PITFALLS.md argues the opposite with three critical-severity justifications — httpOnly cookie credential stripping (P1), double-caching conflict with TanStack Query (P2), and SSE stream corruption for AI chat (P3). The PITFALLS position is adopted here as the authoritative stance. PMSync's auth model (httpOnly cookies with no Authorization header fallback) makes any SW-intercepted API fetch a silent 401 generator. TanStack Query already caches API responses with intelligent mutation-driven invalidation. The service worker's role should be limited to: static asset caching, offline fallback page, push event handling, and SW update notification. Offline email reading — the highest-value differentiator — is achievable through TanStack Query's `persistQueryClient` with IndexedDB, keeping a single authoritative cache layer.
 
-The key risk is feature interaction complexity: the three-way combination of CRM, workflow automation, and AI governance creates dangerous silent failure modes if any link in the chain is missing. The research recommendation is to ship and stabilize each system independently before testing their interaction, and to treat "AI-powered CRM workflow automation" as the final integration deliverable, not a phase-1 demo target. Minimum viable package additions are 7 backend OTel packages and 1 frontend package (`@xyflow/react`), where the latter is explicitly deferred to the visual workflow editor phase and not needed for v6.0 initial workflow delivery.
+The key execution risk is scope creep inside the service worker. Background sync for offline mutations is achievable but requires careful session expiry handling (the better-auth session may have expired while the device was offline for hours), must exclude irreversible actions (delete, send), and must treat the `online` event as the primary fallback path rather than the BackgroundSync API, which has no Safari support. A secondary risk is the Pages Router / App Router distinction: STACK.md references `app/manifest.ts` (an App Router convention) but PMSync uses Pages Router. The manifest must be a static `public/manifest.json` or an API route — this must be resolved before Phase 1 implementation begins.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack requires almost no new dependencies. Better-auth's built-in `createAccessControl` from `better-auth/plugins/access` handles resource-scoped RBAC without adding an authorization library. CRM entities are pure Prisma models with no CRM framework. The workflow engine runs on existing BullMQ infrastructure. The only net-new packages are 7 OpenTelemetry packages for distributed tracing (backend only) and `@xyflow/react` for the visual workflow editor — which FEATURES.md explicitly defers to Phase 4, meaning it is not needed for v6.0 workflow rules.
+The stack is minimal and well-justified. `@serwist/next` v9.5.4 handles the service worker compilation pipeline for Next.js Pages Router, including precache manifest generation and Turbopack dev-mode compatibility via `@serwist/turbopack`. It is the library the Next.js official docs reference for offline support (updated 2026-02-11). `idb-keyval` (~600 bytes brotli'd) provides IndexedDB key-value storage for the offline action queue and inbox snapshot caching — the correct abstraction for PMSync's needs (simple get/set, not relational queries). Web app manifest is handled via a static `public/manifest.json` (Pages Router). VAPID key generation is a one-time CLI operation via `web-push generate-vapid-keys`.
 
 **Core technologies:**
-- `@opentelemetry/sdk-node` + 6 companion packages: distributed tracing via bootstrap pattern (--require flag, not NestJS module) — required because OTel must instrument before NestJS loads or it misses early HTTP calls
-- `better-auth/plugins/access` (built-in, no install): resource-scoped RBAC extending existing org roles — avoids introducing a second auth library alongside better-auth
-- Prisma 7 (existing): 9 new models for CRM (6) and Workflow (3) entities, all using `@@id([id, tenantId])` composite keys
-- BullMQ (existing): workflow step execution as one-job-per-step with durable retries — no new workflow infrastructure needed
-- `@xyflow/react` (deferred to visual editor phase): form-based rules ship first; visual editor is Phase 4 material
+- `@serwist/next` ^9.5.4: Service worker compilation and precaching — official Next.js recommendation, actively maintained (npm publish 2026-03-22)
+- `serwist` ^9.5.7: Core Workbox-based caching strategies (dev dep peer)
+- `@serwist/turbopack` ^9.5.6: Turbopack dev mode support (dev dep) — Next.js 16 defaults to Turbopack in dev
+- `idb-keyval` ^6.2.1: IndexedDB key-value store for offline queue — 600 bytes brotli, by Chrome team member, zero config
+- `public/manifest.json` (static): Web app manifest for Pages Router — no library needed
 
-**What NOT to add:** `nestjs-otel` (delays OTel init past NestJS bootstrap, defeating the purpose), `casl`/`casbin` (better-auth createAccessControl already covers this), `temporal-sdk` (requires separate server; overkill for 20 action types), `@mui/x-data-grid` (MUI X license cost; standard MUI Table is sufficient for CRM lists).
+**What NOT to add:** `next-pwa` (abandoned 2022), `@ducanh2912/next-pwa`, `localforage`, `dexie`, raw Workbox without Serwist, `TanStack Query persistQueryClient` in v8.0 (defer to v8.x when cold-start latency is a measurable problem).
 
 ### Expected Features
 
-Full feature inventory is in `.planning/research/FEATURES.md`.
+All features in scope are P1. The milestone has a tight boundary with no P2 work in v8.0.
 
 **Must have (table stakes):**
-- HITL contract unification + tool execution governance — structural safety fix; blocks everything downstream that touches AI tools
-- `@RequirePermission` decorator + `PermissionGuard` + Redis-cached `PermissionService` (backend); `PermissionGate` + `usePermission()` (frontend)
-- CRM: Account, Deal, Pipeline, Stage, Activity entities with CRUD API and Kanban deal board (reusing @dnd-kit)
-- Activity auto-capture from existing email/calendar domain events — mandatory for email-native CRM; manual logging kills adoption
-- Workflow engine: trigger-condition-action rules with BullMQ-backed execution and policy-aware step execution
-- OpenTelemetry: bootstrap + HTTP spans + BullMQ trace propagation + AI call spans
-- AI memory repair + prompt/runtime alignment + legacy chat surface removal (remediation phases 3-5)
+- Web App Manifest with full icon set — required for installability on all platforms
+- Service worker registration — prerequisite for all PWA capabilities
+- Offline fallback page (`pages/~offline.tsx`) — branded page instead of Chrome dinosaur
+- App shell caching — JS/CSS/fonts load from cache for instant app open
+- Install prompt UX — Android/desktop via `beforeinstallprompt`, iOS via manual "Add to Home Screen" instructions (no API available on iOS)
+- Standalone display theming — manifest `theme_color`/`background_color` matching PMSync teal brand
 
 **Should have (differentiators):**
-- AI deal summary tool (chat tool against Activity timeline)
-- CRM insights in existing AI daily briefing ("3 deals closing this week")
-- HITL approval audit trail linked to AI Run Ledger
-- AI tool permission enforcement (AI cannot exceed user's own permissions)
-- Workflow execution history UI
-- HITL approval timeout with auto-reject
+- Offline email reading — cached inbox readable without network (highest-value, most complex)
+- Push notification frontend plumbing — VAPID subscription, SW push handler, settings toggle (backend triggers deferred)
+- Background sync for queued offline mutations — mark read, archive, star queue via idb-keyval, replay on reconnect
+- SW update notification — "New version available" MUI Snackbar with user-triggered skipWaiting
+- Online/offline indicator — MUI Alert bar when disconnected, Zustand `isOnline` state
 
-**Defer:**
-- AI deal scoring (needs CRM data maturity baseline before modeling works)
-- Visual workflow node editor with `@xyflow/react` (form-based rules first; visual editor is Phase 4)
-- AI-suggested automations and natural language rule creation via chat
-- Token budget enforcement and per-user cost caps (needs usage baseline data)
-- AI action rollback registry (HITL prevention is the strategy, not reversal)
-- Custom CRM fields, forecasting, products/line items, territory management
+**Defer (v8.x+):**
+- TanStack Query `persistQueryClient` bridge to IndexedDB — add when cold-start latency becomes measurable
+- Notification action buttons (Reply, Archive) — requires backend push triggers (v9+)
+- Badge API unread count — Chrome/Android only, low priority
+- Full offline compose-and-send — SMTP queue and attachment handling, explicitly out of scope per PROJECT.md
 
 ### Architecture Approach
 
-The system stays a modular monolith. Four new NestJS modules are added: `AuthorizationModule` (@Global, permission evaluation + Redis cache), `CrmModule` (split into 4 sub-modules: Accounts, Deals, Pipelines, Activities), `WorkflowModule` (engine, BullMQ workers, action registry), and `TracingModule` (@Global, OTel bootstrap wrapper). Existing modules modified: `AiChatModule` (HITL contract unification, extraction of `ToolExecutorService` and new `ToolGovernanceService`), `ToolRegistryModule` (IAiTool interface extended with riskLevel/requiresApproval/domain/inputSchema/outputSchema), `ContactsModule` (Account-Contact linking), and all controllers (add `@RequirePermission` decorators to write/delete endpoints).
+PMSync is a **Pages Router** app (`pages/`, `pages/_app.tsx`, `pages/_document.tsx`). The PWA adds three layers alongside existing code: (1) a service worker (`service-worker/sw.ts` compiled to `public/sw.js`) handling static asset caching, push, and update messaging; (2) a PWA shell layer wired into `_document.tsx` (manifest link, meta tags) and `_app.tsx` (SW registration, online status provider); and (3) an offline/sync bridge via React hooks and idb-keyval connecting SW capabilities to the existing TanStack Query and Zustand stack. The `next.config.js` wraps existing config as `withBundleAnalyzer(withSerwist(nextConfig))`. TanStack Query gets `networkMode: 'offlineFirst'` globally so it always fires requests and lets the SW serve cached static responses, rather than pausing queries on `navigator.onLine === false`.
 
 **Major components:**
-1. `AuthorizationModule` — global permission evaluation over better-auth org roles; Redis 5-min TTL cache per userId:orgId; config-based permission map (no custom Permission DB table needed at current scale)
-2. `CrmModule` — 6 new Prisma models with composite PKs; self-registers CrmTool via ToolRegistry on init; uses EventEmitter2 `@OnEvent` for activity auto-generation; never imported by Email or Calendar modules
-3. `WorkflowModule` — 3 new Prisma models; BullMQ one-job-per-step execution; ActionRegistryService maps action type strings to executors; every step calls PermissionService before execution
-4. `TracingModule` — OTel SDK bootstrapped via `--require` flag before NestJS; custom spans for AI calls; `traceparent` serialized into every BullMQ job payload via TracedJobData wrapper
-5. `ToolGovernanceService` (new, inside AiChatModule) — single execution path for both chat and workflow tool calls; evaluates tool.requiresApproval + user permissions + riskLevel; returns EXECUTE | REQUIRE_APPROVAL | DENY
-6. `PermissionGuard` — applied per-controller following existing RolesGuard pattern, NOT as APP_GUARD; returns true when no @RequirePermission metadata present for backward compatibility
+1. `service-worker/sw.ts` — Serwist core with static asset precaching; **explicitly excludes all `/api/*` interception** to preserve httpOnly cookie auth
+2. PWA hooks (`useOfflineStatus`, `usePWAInstall`, `usePushSubscription`, `useBackgroundSync`) — connects browser APIs to React components
+3. `lib/context/offline-context.tsx` — lightweight React context (not Zustand) for `isOffline` boolean derived from browser events; no persistence needed
+4. `pages/~offline.tsx` — minimal branded offline fallback with no API calls, MUI components only
+5. Offline mutation wrappers — extend existing optimistic update patterns; on `isOffline` error, skip rollback and show "will sync when reconnected" toast
+
+**Caching strategy matrix:**
+
+| Resource | Strategy | Rationale |
+|---|---|---|
+| `/_next/static/**` | CacheFirst (runtime, maxEntries limit) | Immutable hashed assets; limit entries to prevent storage bloat across deploys |
+| `/icons/**`, `/favicon.*` | CacheFirst 30 days | Rarely change |
+| `/api/v1/**` (all methods) | **NetworkOnly, never cached** | httpOnly cookie auth constraint + TanStack Query owns API caching |
+| `/api/v1/ai/**` | NetworkOnly | SSE streams incompatible with SW caching |
+| Navigation HTML | NetworkFirst + `/~offline` fallback | App shell served fresh, offline page as safety net |
 
 ### Critical Pitfalls
 
-Full pitfall inventory is in `.planning/research/PITFALLS.md`. Top 5:
+1. **SW strips httpOnly cookies from re-issued API requests** — Never call `event.respondWith()` for `/api/*` requests. Return without calling it to let the browser handle natively with full credential context. This is a W3C spec behavior, not a bug — SW-initiated fetches do not automatically include cookies. Manifests as intermittent 401s after SW activation.
 
-1. **CRM models without composite PKs** — Every new CRM model MUST use `@@id([id, tenantId])`. Omitting this silently breaks the Prisma tenant-scoping extension and creates cross-tenant data leakage. Simple `@id` on new models is a security breach, not a minor oversight.
+2. **Double caching conflict between SW and TanStack Query** — TanStack Query owns API response caching with mutation-driven invalidation. If the SW also caches API responses, `queryClient.invalidateQueries()` after a mutation triggers a refetch that the SW intercepts and serves stale data from. Result: mark-read appears to undo itself. Fix: SW caches only static assets, never API responses.
 
-2. **Workflow BullMQ jobs losing tenant context** — Chained workflow steps must serialize `tenantId` + `userId` into every `WorkflowJobData` payload and restore context in every worker. Using `withoutTenantScopingAsync` as a workaround is unacceptable in new modules; treat it as a lint error for CRM and workflow code specifically.
+3. **SSE AI chat stream corruption** — SW fetch handlers that don't explicitly skip streaming responses will buffer or corrupt the AI chat stream. Passthrough rule: if `request.headers.get('accept')?.includes('text/event-stream')` or URL starts with `/api/`, return without calling `event.respondWith()`.
 
-3. **PermissionGuard inserted as APP_GUARD in wrong chain position** — Follow the existing `RolesGuard` pattern (per-controller). If global, must be inserted AFTER ConsentGuard. A misplaced guard either sees no `request.user` (runs before BetterAuthGuard) or bypasses consent checks (runs before ConsentGuard).
+4. **Vercel caches sw.js at edge with immutable headers** — `public/sw.js` has a fixed filename and gets CDN-cached. Users get stuck on stale service workers indefinitely. Mitigation: explicit `Cache-Control: no-cache, no-store, must-revalidate` header for `/sw.js` in `next.config.js` headers config AND `updateViaCache: 'none'` in SW registration call. Set this before first deployment.
 
-4. **OTel auto-instrumentation corrupting AI SSE streaming** — `@opentelemetry/auto-instrumentations-node` tries to buffer response bodies, which corrupts chunked SSE transfer encoding. Use selective instrumentation; exclude AI streaming endpoints from HTTP response body capture; create custom spans for AI calls.
-
-5. **AI control plane work colliding with in-progress HITL refactor** — Adding tool governance metadata to a DTO shape that is about to be replaced creates semantically dangerous merge conflicts that both compile but behave incorrectly. Complete HITL contract unification (remediation Phase 1) before adding governance fields to IAiTool.
+5. **Background sync queue loses auth context on session expiry** — better-auth sessions expire. Queued offline actions replayed hours later may 401 silently. Mitigation: 30-minute queue TTL (discard older actions with user notification), exclude irreversible actions (delete, send) entirely, implement `online` event fallback as the primary replay mechanism rather than the BackgroundSync API.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+The feature dependency tree (from FEATURES.md) and the build order (from ARCHITECTURE.md) map cleanly to a 6-phase structure. Each phase is independently deployable and testable.
 
-### Phase 1: Foundation — Authorization + AI Control Plane Remediation (Phases 1-2)
+### Phase 1: PWA Foundation
+**Rationale:** Manifest, service worker registration, and icons are prerequisites for every other phase. Zero-risk, fully-documented steps. Must ship first.
+**Delivers:** Installable app shell — passes Lighthouse PWA installability audit; SW registered and serving precached static assets
+**Addresses:** `public/manifest.json`, icon set (192, 512, maskable, iOS 180), Serwist build plugin config, `_document.tsx` meta tags, `_app.tsx` SW registration, `vercel.json` / `next.config.js` `sw.js` cache headers, `.gitignore` for generated SW files, TypeScript `WebWorker` lib config
+**Avoids:** P4 (Vercel sw.js caching) — explicit no-cache headers configured from day one; P14 (multiple SW registrations) — single registration point in `_app.tsx`
+**Research flag:** No additional research needed. Fully covered by official Next.js PWA guide and Serwist docs. One implementation decision to resolve: Pages Router uses `public/manifest.json` (not `app/manifest.ts`).
 
-**Rationale:** These are the two highest-priority items with the most downstream dependencies. Authorization is a prerequisite for CRM and workflows. AI HITL unification is a prerequisite for tool governance and any new AI tooling. Both are parallelizable within this phase; neither blocks the other.
+### Phase 2: Offline Shell
+**Rationale:** Depends on Phase 1 SW. Establishes the offline detection layer and caching patterns that all subsequent phases build on. Validates the no-API-caching architectural decision.
+**Delivers:** App opens offline from home screen; cached static assets load instantly; uncached routes show branded fallback; offline banner visible
+**Uses:** Serwist CacheFirst for static assets with maxEntries eviction, NetworkFirst for navigation, explicit NetworkOnly passthrough for all `/api/*`
+**Implements:** `pages/~offline.tsx`, `lib/context/offline-context.tsx`, `useOfflineStatus` hook, `OfflineBanner` MUI component, TanStack Query `networkMode: 'offlineFirst'`
+**Avoids:** P2 (double caching) — SW routes configured to never touch `/api/*`; P3 (SSE interception) — explicit passthrough rule in SW fetch handler
+**Research flag:** No additional research needed.
 
-**Delivers:** `@RequirePermission` decorator + `PermissionGuard` + `PermissionService` with Redis caching (backend); `PermissionGate` + `usePermission()` hook (frontend); unified HITL contract with real execution outcomes; `IAiTool` extended with governance metadata; `ToolGovernanceService` as single execution path for chat and workflow tool calls.
+### Phase 3: Install Experience
+**Rationale:** Depends on Phase 1 manifest only. No dependency on offline caching layer — can be developed in parallel with Phase 2 but logically follows it in delivery.
+**Delivers:** Install prompt for Android/desktop Chrome; iOS manual "Add to Home Screen" instructions; "already installed" detection hides prompt in standalone mode
+**Uses:** `beforeinstallprompt` browser API, `window.matchMedia('(display-mode: standalone)')`, iOS UA detection
+**Implements:** `usePWAInstall` hook, `InstallPromptBanner` MUI Snackbar/Dialog component
+**Avoids:** P8 (iOS limitations) — three explicit code paths: Android/desktop (`beforeinstallprompt`), iOS home screen (partial push support), iOS browser (no install API at all)
+**Research flag:** No additional research needed.
 
-**Addresses:** Authorization table stakes (all 6 items), AI control plane table stakes items 1-2 (HITL contract, tool governance, action taxonomy fix).
+### Phase 4: Offline Email Reading
+**Rationale:** Depends on Phase 2 offline shell (online detection context needed for UI coherence). This is the highest-value differentiator. Implementation path: TanStack Query `persistQueryClient` with IndexedDB — NOT SW API response caching — to avoid the double-caching pitfall while still surviving app restart offline.
+**Delivers:** User can read recently-synced emails after closing and reopening the app without network; inbox metadata and email bodies survive app close
+**Uses:** `idb-keyval` for inbox snapshot storage; TanStack Query `experimental_createPersister` (v5) or `@tanstack/query-persist-client-core` for IndexedDB hydration
+**Implements:** IndexedDB persistence layer for TQ cache; stale-while-rehydrate pattern on cold start
+**Avoids:** P1 (cookie stripping) — zero SW API interception; P2 (double caching) — single cache authority via TanStack Query + IndexedDB
+**Research flag:** NEEDS RESEARCH BEFORE IMPLEMENTATION. Verify `experimental_createPersister` API in TanStack Query v5 works with existing config (`staleTime: 5min`, `gcTime: 30min`, `retry: 1`). Critical question: does persisted cache get invalidated correctly after mutations, or does stale IndexedDB data rehydrate on top of fresh in-memory state? Check TanStack Query v5 changelog and any open issues before writing code.
 
-**Avoids:** Pitfall 3 (guard chain breakage), Pitfall 5 (HITL collision), Pitfall 8 (workflow HITL bypass later), Integration landmine: CRM + Authorization.
+### Phase 5: Background Sync
+**Rationale:** Depends on Phase 2 (offline detection) and Phase 4 (established offline UI patterns). Most complex phase. Requires careful scoping of which actions are safe to queue.
+**Delivers:** Mark read, archive, star while offline; actions queue in idb-keyval and replay on reconnect; user informed of queued/synced state
+**Uses:** `idb-keyval` FIFO action queue; `online` event as primary replay trigger (BackgroundSync API as progressive enhancement for Chromium only, ~70% support); `postMessage` bridge from SW to TQ `invalidateQueries` after replay
+**Implements:** `useBackgroundSync` hook, SW sync event handler and `online` event fallback, offline-aware mutation hook wrappers (no rollback on offline error), 30-minute queue TTL
+**Avoids:** P6 (auth expiry) — TTL limit on queue; P8 (no Safari BackgroundSync) — `online` event fallback is the primary path, not the fallback
+**Research flag:** NEEDS RESEARCH. Treat BackgroundSync API as a Chromium-only progressive enhancement. Confirm current Safari status — assume zero support and build accordingly. Also verify the `postMessage` -> TQ invalidation pattern works correctly when SW replays actions before the React app has fully hydrated.
 
-**Research flag:** Standard NestJS patterns — no additional research needed. better-auth org plugin docs are HIGH confidence.
-
-### Phase 2: Observability — OpenTelemetry Distributed Tracing
-
-**Rationale:** Independent infrastructure with no business logic dependencies. Can start in parallel with Phase 1 but listed separately because it touches every module via auto-instrumentation and must be validated before CRM and workflow add more code paths.
-
-**Delivers:** OTel SDK bootstrapped via `--require`; HTTP + Prisma auto-instrumentation; custom BullMQ trace propagation via TracedJobData; custom AI streaming spans; traceId in response headers; OTLP export configured.
-
-**Addresses:** OpenTelemetry table stakes (all 6 items), AI run ledger linked to traces (differentiator).
-
-**Avoids:** Pitfall 4 (SSE streaming corruption), Pitfall 10 (trace context lost at BullMQ boundary).
-
-**Research flag:** The `@appsignal/opentelemetry-instrumentation-bullmq` package is MEDIUM confidence — verify it works with the current BullMQ version before committing. Manual BullMQ span injection via TracedJobData is the confirmed fallback.
-
-### Phase 3: CRM Domain — Accounts, Deals, Pipelines, Activities
-
-**Rationale:** Depends on Phase 1 authorization. CRM controllers need `@RequirePermission` from day one. CRM AI tools need the unified `IAiTool` interface and `ToolGovernanceService` from Phase 1. Do not ship CRM before both are in place.
-
-**Delivers:** 6 new Prisma models with composite PKs; `CrmModule` split into 4 sub-modules from day one (CrmAccounts, CrmDeals, CrmPipelines, CrmActivities); deal Kanban board reusing @dnd-kit; activity auto-capture via domain events; CrmTool self-registered in ToolRegistry; CRM navigation + i18n in en/it.
-
-**Addresses:** CRM table stakes (all 10 items), AI deal summary and briefing insights (differentiators).
-
-**Avoids:** Pitfall 1 (composite PK omission), Pitfall 7 (N+1 on activity timeline — batch FK resolution from start), Pitfall 11 (CRM kanban must use its own Zustand slice and `['crm', 'pipeline', ...]` query keys), Pitfall 12 (no withoutTenantScopingAsync in new modules), Pitfall 13 (god module — split into 4 sub-modules).
-
-**Research flag:** Standard NestJS/Prisma patterns — no additional research needed.
-
-### Phase 4: AI Remediation Completion — Memory Repair + Prompt Alignment + Legacy Removal
-
-**Rationale:** AI remediation phases 3-5 depend on the unified HITL contract (Phase 1) being stable. Memory repair cannot be done while the HITL DTO is still in flux. Prompt alignment is meaningless until tools work correctly. Legacy removal is always last.
-
-**Delivers:** Unified vector store for save_memory and retrieval; real timezone/locale/provider in system prompt; frontend renderers for `ask_user` and `save_memory` tools; deletion of dead chat endpoints and compatibility shims.
-
-**Addresses:** AI control plane table stakes items 3-6 (memory repair, prompt alignment, legacy removal, runtime context injection).
-
-**Avoids:** Pitfall 5 (HITL collision — resolved in Phase 1 before this phase begins).
-
-**Research flag:** Memory unification approach (AIMemory.vector vs embeddings table) needs a brief codebase audit at the start of this phase. The research identifies the problem but not which store to canonicalize on — this requires reading the two service implementations.
-
-### Phase 5: Workflow Automation Engine
-
-**Rationale:** Depends on Phase 1 (authorization for step permission checks) and Phase 3 (CRM actions in ActionRegistry). Cannot ship before both are stable because workflow-as-privilege-escalation is the highest-risk integration pitfall in the entire v6.0 scope.
-
-**Delivers:** `WorkflowModule` with 3 Prisma models; BullMQ one-job-per-step execution engine; ActionRegistryService with 8+ initial action types (send_email, update_deal_stage, add_label, ai_generate_draft, etc.); Workflow CRUD API + execution history; policy-aware step execution; form-based rule builder UI (NOT the visual node editor).
-
-**Addresses:** Workflow table stakes (all 6 items), workflow templates differentiator (5-10 pre-built templates).
-
-**Avoids:** Pitfall 2 (BullMQ tenant context loss — WorkflowJobData mandates tenantId), Pitfall 8 (HITL bypass — workflow steps use same ToolGovernanceService as chat), Integration landmine: Workflow + AI Control Plane.
-
-**Research flag:** Async HITL approval design for BullMQ-executed workflow steps is unresolved and needs an explicit design decision before implementation. Synchronous approval (chat) has a waiting user; async approval (workflow steps) does not. Two modes required: (1) pre-approve at rule creation time, or (2) queue for async approval at execution time with notification. This must be decided before Phase 5 planning begins.
-
-### Phase 6: MUI Chat CSS Migration + UI/UX Fixes
-
-**Rationale:** Independent of all other phases. Lower business priority than structural features. Kept last to avoid concurrent changes to the chat surface during AI remediation work in Phase 4.
-
-**Delivers:** Command Palette rebuilt in MUI Dialog + List (Wave 3); chat CSS migrated from 3 CSS files (~950 lines) to MUI `sx` props, explicitly excluding the streaming message container (Wave 4); `tailwind-merge` and `ChatThemeBridge` removed; 5 unfixed UI/UX audit items resolved (admin users mobile table, demo task content removal, analytics consent/localization, password autocomplete semantics, chart dimension warning).
-
-**Addresses:** MUI Chat Migration table stakes (all 4 items), UI/UX audit unfixed findings (all 5 items).
-
-**Avoids:** Pitfall 6 (streaming UI performance regression — streaming container stays as static CSS), Pitfall 14 (theme inconsistency — use theme semantic tokens, never raw hex/hsl in sx props).
-
-**Research flag:** No additional research needed. Performance validation using Chrome DevTools Performance panel during AI streaming is mandatory before declaring Wave 4 complete.
+### Phase 6: Push Notification Plumbing + Polish
+**Rationale:** SW registration (Phase 1) is the only prerequisite. Push is self-contained and frontend-only in v8.0. Polish items (SW update notification, Lighthouse PWA audit) are low-risk and can be developed alongside push.
+**Delivers:** Users can opt into push notifications; PushSubscription stored in backend for future use; Lighthouse PWA audit green; "New version available" snackbar on deploy
+**Uses:** `PushManager.subscribe()` with VAPID public key, `push` and `notificationclick` SW event handlers
+**Implements:** `usePushSubscription` hook, `PushSettingsPanel` in settings (MUI Switch), `POST /api/v1/push/subscribe` NestJS endpoint stub, SW update notification via `registration.waiting` detection and user-triggered `skipWaiting`, Lighthouse PWA category in `lighthouserc.js`
+**Avoids:** P8 (iOS push limitations) — gate subscription UI behind `'PushManager' in window` AND `window.matchMedia('(display-mode: standalone)').matches` check; P9 (users stuck on old SW) — skipWaiting only on user confirmation via postMessage, never unconditionally in install handler
+**Research flag:** NEEDS SCHEMA CHECK. Confirm Prisma schema can store PushSubscription JSON before writing the NestJS endpoint. Check existing `User` or `Tenant` model — if no `pushSubscriptions` relation exists, a migration is needed and this may scope into a backend task.
 
 ### Phase Ordering Rationale
 
-- Authorization precedes CRM and workflow because retrofitting permissions is harder to get right and creates audit-period security gaps.
-- AI control plane remediation (HITL + governance) precedes CRM AI tools because adding tools to a broken registry and broken HITL lifecycle compounds the structural problems.
-- OTel has no business logic dependencies and can run in parallel with Phase 1, but benefits from being complete before CRM and workflow add request volume.
-- CRM precedes workflow because CRM actions (update_deal_stage, create_activity) must exist in the ActionRegistry before workflow rules can reference them.
-- AI remediation completion (memory, prompt, legacy) runs after HITL is stable (Phase 1) and can overlap with CRM (Phase 3) since they touch different files.
-- MUI migration is last because it touches the chat surface that AI remediation also touches — sequencing avoids concurrent changes to the same components.
+- Phase 1 is a hard prerequisite: no SW = no installability, no push, no offline, nothing
+- Phase 2 before Phase 4: offline reading UI needs the `isOffline` context and the established caching architecture to be correct
+- Phase 3 is independent after Phase 1: install prompt has no dependency on caching layer, can be shipped separately
+- Phase 4 before Phase 5: background sync's "don't rollback on offline mutation" pattern assumes the offline reading layer exists so UI state remains coherent
+- Phase 6 last: push and polish are self-contained with no downstream dependencies
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 2 (OTel):** Validate `@appsignal/opentelemetry-instrumentation-bullmq` compatibility with current BullMQ version before committing. MEDIUM confidence only. Test SSE streaming empirically after adding OTel.
-- **Phase 4 (AI Memory):** Brief codebase audit needed at phase start to determine which vector store to canonicalize on (AIMemory.vector vs embeddings table).
-- **Phase 5 (Workflow + AI):** Async HITL approval design for BullMQ-executed workflow steps is unresolved. Needs explicit design decision before implementation — this is not a standard pattern.
+**Needs deeper research before implementation:**
+- **Phase 4 (Offline Email Reading):** TanStack Query v5 `experimental_createPersister` / `persistQueryClient` — compatibility with existing config, mutation invalidation behavior, IndexedDB hydration ordering
+- **Phase 5 (Background Sync):** Current Safari/iOS BackgroundSync API support status — assume none, build `online` event as primary path; verify Chrome's minimum-engagement heuristic for sync event registration
+- **Phase 6 (Push backend stub):** Check Prisma schema before writing NestJS endpoint — `PushSubscription` storage may require a new model and migration
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (Authorization):** better-auth org plugin + NestJS guard patterns are well-documented and HIGH confidence.
-- **Phase 3 (CRM):** Pure Prisma + NestJS module following existing patterns. No novel integration points.
-- **Phase 6 (MUI Migration):** Known scope, established patterns, no external dependencies.
+**Standard patterns, skip research-phase:**
+- **Phase 1 (Foundation):** Fully covered by official Next.js PWA guide and Serwist docs
+- **Phase 2 (Offline Shell):** Workbox caching strategies are extensively documented; NetworkOnly for API is a clear decision
+- **Phase 3 (Install Experience):** `beforeinstallprompt` and iOS detection are stable browser APIs with no ambiguity
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Minimal new dependencies; all recommendations backed by official docs. BullMQ OTel instrumentation is the one MEDIUM item. |
-| Features | HIGH | Derived from internal audit docs, existing codebase analysis, and established CRM/workflow SaaS patterns. Anti-features are explicitly justified. |
-| Architecture | HIGH | Based on direct codebase analysis (43 existing models, guard chain ordering, module patterns). No guesswork about existing wiring. |
-| Pitfalls | HIGH | Almost all pitfalls derived from existing audit docs (AUDIT.md, CTO report, AI remediation roadmap) plus direct codebase analysis of the tenant-scoping extension. Not speculative. |
+| Stack | HIGH | All recommendations sourced from official Next.js docs and library maintainer docs. Serwist npm versions confirmed current (published 2026-03-22). idb-keyval by Chrome team member, battle-tested. |
+| Features | HIGH | Feature scope is tightly bounded (frontend-only v8.0). Dependency tree is unambiguous. All features are established PWA standards with multi-source documentation. |
+| Architecture | HIGH | Official docs and Workbox patterns. One internal conflict (ARCHITECTURE.md vs PITFALLS.md on API caching) resolved: no SW API interception. Pages Router distinction identified and flagged. |
+| Pitfalls | HIGH | 4 of 5 critical pitfalls sourced from W3C specs, official Next.js docs, or TanStack Query maintainer issues. Moderate pitfall on session expiry is MEDIUM confidence — PMSync-specific auth config not externally benchmarked. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Async HITL for workflow execution:** The research identifies that synchronous approval (chat) and async approval (workflow) need different modes, but does not define the exact DTO shape or BullMQ queue design for async approval. Resolve before Phase 5 planning.
-- **Memory store canonicalization:** Two vector stores exist (AIMemory.vector and embeddings table). Research identifies the problem but not which to keep. Requires a 30-minute codebase read at the start of Phase 4 before any implementation.
-- **OTel sampling strategy:** Research recommends less than 100% sampling in production but does not specify rates or head-vs-tail sampling approach. Low urgency — document as a post-Phase 2 tuning item, not a blocker.
-- **withoutTenantScopingAsync expansion audit:** 50 existing usages are grandfathered. Before Phase 3 and 5 ship, confirm no new usages have crept into CRM or workflow code. Consider an ESLint rule for new modules.
-- **CRM Activity write volume at scale:** Auto-generation from every email/calendar event could create high write volume for active accounts. May need BullMQ batching if activity writes become a bottleneck. Low urgency at current user scale.
+- **Pages Router vs App Router manifest convention:** STACK.md referenced `app/manifest.ts` (App Router). PMSync uses Pages Router. Use `public/manifest.json` (static file) instead. Resolve before writing any Phase 1 code.
+
+- **Serwist Pages Router compatibility:** PITFALLS.md (P15) notes Serwist has open issues with Next.js 15+ App Router. Pages Router compatibility is not explicitly confirmed. Verify Serwist v9.5.x works correctly with `pages/` directory before committing. Manual `public/sw.js` (from official Next.js guide) is the fallback.
+
+- **CORS and cross-origin credential flow:** PMSync frontend on Vercel calls backend API on Railway (different origin). SW fetch passthroughs for `/api/*` must ensure the browser's `credentials: 'include'` behavior is preserved. Verify CORS headers on the Railway backend allow credentials for the Vercel domain — this is a deployment concern, not a code concern, but it must be confirmed before offline testing.
+
+- **Cache-on-logout:** When the user signs out, idb-keyval inbox data and any SW cache entries for static assets that include user-specific content must be cleared. The existing sign-out flow (better-auth) needs to trigger `idb-keyval.clear()` and potentially `caches.delete()`. Implement this in Phase 2 or Phase 4 — do not defer to v8.x.
+
+- **Icon asset generation:** Full icon set (72, 96, 128, 144, 152, 192, 384, 512, maskable-512, iOS-180) must be generated from `Logo PMSync.svg`. Requires a favicon generator tool. Not a code problem but a gating dependency for Phase 1.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `docs/AUDIT.md` — Architecture and security audit, guard chain ordering, anti-patterns
-- `docs/AI_AGENT_REMEDIATION_ROADMAP_2026-03-15.md` — AI control plane phases 0-6, structural problem definitions
-- `docs/CTO_PLATFORM_ENGINEERING_REPORT_2026-03-09.md` — Engineering debt, oversized modules, N+1 findings
-- `docs/TRANSFORMATION_ROADMAP.md` — Observability gap (6/10 score), phase structure
-- [OpenTelemetry Node.js Getting Started](https://opentelemetry.io/docs/languages/js/getting-started/nodejs/) — OTel bootstrap pattern
-- [OpenTelemetry JS SDK 2.0](https://opentelemetry.io/blog/2025/otel-js-sdk-2-0/) — Version compatibility
-- [BullMQ Telemetry Docs](https://docs.bullmq.io/guide/telemetry/getting-started) — BullMQ OTel integration approach
-- [better-auth Organization Plugin](https://better-auth.com/docs/plugins/organization) — createAccessControl API
+- [Next.js Official PWA Guide](https://nextjs.org/docs/app/guides/progressive-web-apps) — installability, SW registration, manifest, offline patterns (updated 2026-02-11)
+- [Serwist Getting Started](https://serwist.pages.dev/docs/next/getting-started) — build plugin config, SW compilation, Turbopack support
+- [TanStack Query Network Mode](https://tanstack.com/query/v4/docs/react/guides/network-mode) — `offlineFirst` mode behavior and rationale
+- [TkDodo: Offline React Query](https://tkdodo.eu/blog/offline-react-query) — TQ maintainer on offline patterns and SW integration
+- [Workbox Caching Strategies](https://developer.chrome.com/docs/workbox/caching-strategies-overview/) — CacheFirst, NetworkFirst, StaleWhileRevalidate
+- [MDN: Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) — platform requirements
+- [MDN: Offline and background operation](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation) — BackgroundSync, push
+- [W3C ServiceWorker Issue #837](https://github.com/w3c/ServiceWorker/issues/837) — httpOnly cookie credential stripping in SW
+- [W3C ServiceWorker Issue #885](https://github.com/w3c/ServiceWorker/issues/885) — EventSource/SSE bypass requirement
 
 ### Secondary (MEDIUM confidence)
-- [AppSignal BullMQ OTel Instrumentation](https://github.com/appsignal/opentelemetry-instrumentation-bullmq) — BullMQ auto-instrumentation
-- [better-auth Access Control Tutorial](https://www.premieroctet.com/blog/en/better-auth-structure-and-permissions-with-the-organization-plugin) — Permission mapping patterns
-- [SigNoz OTel NestJS Guide](https://signoz.io/blog/opentelemetry-nestjs/) — NestJS-specific OTel wiring
-- [NestJS Auth 2026: Stop Shipping Roles](https://medium.com/@bhagyarana80/nestjs-auth-in-2026-stop-shipping-roles-9f94d3a2c8b6) — RBAC+ patterns
+- [TanStack Query Issue #7897](https://github.com/TanStack/query/issues/7897) — SW + TQ double-caching conflict
+- [TanStack Query Discussion #8034](https://github.com/TanStack/query/discussions/8034) — maintainer confirmation of no built-in SW integration
+- [next-pwa Issue #323](https://github.com/shadowwalker/next-pwa/issues/323) — middleware blocking SW files pattern
+- [PWA iOS Limitations 2026 (MagicBell)](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide) — iOS Safari PWA API support status
+- [Socket.IO Offline Behavior](https://socket.io/docs/v3/client-offline-behavior/) — WebSocket not intercepted by SW
 
-### Tertiary (LOW confidence)
-- CRM industry benchmarks (HubSpot/Pipedrive/Salesforce data models) — Used to validate table stakes feature list; no implementation risk from these sources
+### Tertiary (LOW confidence — validate before implementation)
+- [Background Sync Browser Support (Progressier)](https://progressier.com/pwa-capabilities/background-sync) — ~70% support figure; verify against current browser release data before Phase 5
 
 ---
-*Research completed: 2026-03-18*
+*Research completed: 2026-03-23*
 *Ready for roadmap: yes*

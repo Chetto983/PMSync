@@ -1,315 +1,386 @@
 # Domain Pitfalls
 
-**Domain:** Adding CRM, workflow automation, enterprise authorization, OpenTelemetry, AI control plane hardening, and MUI chat CSS migration to an existing NestJS multi-tenant email platform
-**Researched:** 2026-03-18
-**System context:** PMSync v6.0 -- 43 tenant-scoped Prisma models, global guard chain (Throttler > BetterAuth > Legal > Consent), BullMQ workers with tenant context, AI SDK v6 streaming chat, assistant-ui frontend with CSS-based styling
+**Domain:** Adding PWA (service worker, offline cache, push notifications, install prompt) to an existing Next.js 16 App Router email client on Vercel
+**Researched:** 2026-03-23
+**System context:** PMSync v8.0 -- Next.js 16 on Vercel, httpOnly cookie auth (better-auth), TanStack Query (staleTime 5min/gcTime 30min), SSE streaming for AI chat, MUI with dark mode, no Next.js middleware file (auth via layout guards)
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data leaks, or major architectural regression.
+Mistakes that cause broken auth, stale data loops, or deployment failures.
 
-### Pitfall 1: CRM Models Without Composite Primary Keys
+### Pitfall 1: Service Worker Fetch Interception Strips Cookie Credentials
 
-**What goes wrong:** New CRM tables (Account, Deal, Pipeline, Activity) are created with simple `id` primary keys instead of the `@@id([id, tenantId])` composite pattern used by the existing 43 models. This silently breaks tenant-scoped Prisma extension auto-filtering and creates cross-tenant data leakage risk.
+**What goes wrong:** Service worker `fetch` events intercept all same-origin requests by default. When the service worker responds from cache or re-fetches, it may not include `credentials: 'include'` on the re-issued request. httpOnly cookies are silently dropped, and the backend returns 401. The app appears "logged out" despite having a valid session.
 
-**Why it happens:** Developers copy generic Prisma model templates or follow standard NestJS/Prisma tutorials that use `@id` only. The tenant-scoping extension in `backend/src/prisma/tenant-scoping/` relies on composite keys for its `where` injection to work correctly. Simple `id` fields bypass this.
+**Why it happens:** The Fetch API inside service workers does NOT automatically attach cookies. Unlike browser-initiated fetches where `credentials: 'same-origin'` is default, service worker fetches require explicit `credentials: 'include'` in the `RequestInit`. PMSync uses httpOnly cookies exclusively (no Authorization header), so this is the single point of failure.
 
-**Consequences:**
-- Cross-tenant data visible in queries (security breach)
-- FK references from CRM models to existing email/contact models fail on composite key mismatch
-- The existing pattern of `email_labels` and `email_attachments` referencing only `emailId` without `tenantId` (flagged in CTO audit as incomplete FK) gets repeated in CRM
+**Consequences:** Every API call routed through the service worker cache-then-network strategy returns 401. Users see empty inboxes, broken AI chat, failed mutations. Worse: this only manifests after the service worker activates (not on first load), making it intermittent and hard to reproduce.
 
 **Prevention:**
-- Every new CRM model MUST use `@@id([id, tenantId])` and include `tenantId String`
-- FK references to existing models must include tenantId in the composite FK
-- Add a Prisma schema linting step or code review checklist that rejects models without `tenantId`
-- Reference existing models like `Email`, `Contact`, `CalendarEvent` as the pattern source
+1. **Never cache API routes.** Exclude `/api/*` from all service worker routing. Let them pass through to the network with original credentials.
+2. If you must intercept API fetches (e.g., for offline queue), clone the original request and preserve credentials:
+   ```js
+   // In sw.js fetch handler
+   if (event.request.url.includes('/api/')) {
+     // Pass through -- do NOT cache API responses
+     return; // Let browser handle it with cookies
+   }
+   ```
+3. Alternatively, use `navigationPreload` so the service worker doesn't block navigation requests.
+4. Test explicitly: after SW activation, verify that `document.cookie` is empty (httpOnly) but API calls still return 200.
 
-**Detection:** Query a CRM entity without tenant context and check if results leak across tenants. If they do, the composite key is missing.
+**Detection:** After deploying service worker, test: login -> close tab -> reopen -> check if API calls succeed. If they 401, the SW is stripping credentials.
 
-**Phase:** CRM domain expansion (must be correct from the first migration)
+**Confidence:** HIGH -- this is a well-documented spec behavior. The W3C ServiceWorker spec explicitly states cookies are not sent by default in SW-initiated fetches. The httpOnly attribute means you cannot even read cookies in SW to manually attach them.
 
-### Pitfall 2: Workflow Engine BullMQ Jobs Losing Tenant Context
+**Sources:**
+- [W3C ServiceWorker Issue #837 -- Cookie modification on intercepted fetch](https://github.com/w3c/ServiceWorker/issues/837)
+- [whatwg/cookiestore Issue #37 -- httpOnly cookies in SW](https://github.com/whatwg/cookiestore/issues/37)
 
-**What goes wrong:** Workflow automation rules trigger BullMQ jobs that execute without tenant context. The `withoutTenantScopingAsync` escape hatch gets used as a workaround, creating a tenant isolation bypass in automated rule execution.
+---
 
-**Why it happens:** BullMQ workers run outside the HTTP request lifecycle. The current system propagates tenant context into workers via job data (seen in 50+ files using `withoutTenantScopingAsync`). A new workflow engine that dispatches jobs must manually serialize `tenantId` and `userId` into every job payload and restore them in every worker handler. This is easy to forget, especially for chained workflows (rule A triggers rule B triggers rule C).
+### Pitfall 2: Double Caching -- Service Worker Cache vs TanStack Query Cache
 
-**Consequences:**
-- Workflow actions execute against wrong tenant's data
-- Audit trail loses tenant attribution
-- Cascading workflow chains silently drop tenant context at each hop
+**What goes wrong:** TanStack Query already has an in-memory cache with `staleTime: 5min` and `gcTime: 30min`. If the service worker also caches API responses (e.g., with a `StaleWhileRevalidate` strategy), you get two independent, unsynchronized caching layers. After a mutation (mark email read, archive), TanStack Query invalidates its cache and refetches -- but the service worker serves the stale cached response. The UI shows the old state.
 
-**Prevention:**
-- Create a `WorkflowJobData` base interface that mandates `tenantId` and `userId`
-- Wrap all workflow worker handlers in a `withTenantContext(jobData)` utility that sets the Prisma extension context
-- Never allow `withoutTenantScopingAsync` in workflow execution code -- treat it as a lint error for that module
-- Add integration tests that verify tenant isolation across chained workflow executions
+**Why it happens:** TanStack Query and the service worker cache have zero communication. TanStack Query's `queryClient.invalidateQueries()` triggers a network fetch, but the service worker's cache intercepts it before it hits the network, returning the pre-mutation data.
 
-**Detection:** Log `tenantId` at the start and end of every workflow step. Alert on mismatches or nulls.
-
-**Phase:** Workflow automation engine
-
-### Pitfall 3: Authorization Layer Breaking the Existing Guard Chain
-
-**What goes wrong:** Adding a `@RequirePermission()` decorator and `PermissionGuard` that conflicts with the existing global guard ordering (ThrottlerGuard > BetterAuthGuard > LegalAcceptanceGuard > ConsentGuard). The new guard either runs before auth (sees no user) or after consent (too late to short-circuit), causing 500 errors or bypassing consent checks.
-
-**Why it happens:** NestJS `APP_GUARD` ordering is registration-order dependent. The existing chain is carefully ordered in `app.module.ts` providers array. Inserting a new global guard in the wrong position, or making it controller-level when it should be global (or vice versa), breaks the pipeline. The current `RolesGuard` is NOT an `APP_GUARD` -- it's applied per-controller via `@UseGuards(RolesGuard)`, which is a deliberate design choice.
-
-**Consequences:**
-- Permission checks fail with cryptic errors because `request.user` is not populated yet
-- Legal/consent guards get bypassed if permission guard short-circuits before them
-- Existing controllers that work fine today start returning 403 or 500 after the guard is added
+**Consequences:** Optimistic updates revert. "Mark as read" appears to undo itself. Archive action seems to fail. Users lose trust in the UI. Debugging is hell because the bug is intermittent (depends on SW cache timing).
 
 **Prevention:**
-- Do NOT add `PermissionGuard` as a global `APP_GUARD`. Follow the existing `RolesGuard` pattern: apply per-controller with `@UseGuards(PermissionGuard)` or combine with `@RequirePermission()`
-- If it must be global, insert it AFTER ConsentGuard in the providers array
-- The guard must gracefully pass through when no `@RequirePermission()` decorator is present (same pattern as `RolesGuard` which returns true when no `@Roles()` is set -- though that itself was flagged as a LOW finding in the CTO audit)
-- Write integration tests that verify the full guard chain with and without the permission decorator
+1. **Do NOT cache API responses in the service worker.** Period. TanStack Query is your API cache. The service worker should only cache static assets (JS bundles, CSS, images, fonts, offline fallback HTML).
+2. If offline read access is needed, use TanStack Query's `persistQueryClient` with IndexedDB (not SW cache) so there's a single source of truth.
+3. Configure the service worker routing to explicitly skip API paths:
+   ```js
+   // Only cache static assets -- never API responses
+   // /_next/static/* -- JS/CSS bundles (cache-first, immutable)
+   // /icons/* -- app icons (cache-first)
+   // / (HTML shell) -- network-first for navigation
+   // /api/* -- NEVER cache
+   ```
 
-**Detection:** Any controller that previously worked starts returning unexpected 403s after the guard is deployed.
+**Detection:** After mutation, check DevTools > Application > Cache Storage. If the old API response is in there, the SW is caching API calls.
 
-**Phase:** Authorization/permissions
+**Confidence:** HIGH -- this is documented in [TanStack Query Issue #7897](https://github.com/TanStack/query/issues/7897) and [Discussion #8034](https://github.com/TanStack/query/discussions/8034). The maintainers confirm there is no built-in integration between TanStack Query and service worker caches.
 
-### Pitfall 4: OpenTelemetry Instrumentation Breaking BullMQ and AI Streaming
+---
 
-**What goes wrong:** Adding `@opentelemetry/auto-instrumentations-node` auto-patches HTTP, pg, ioredis, and Express. This can break BullMQ's Redis connection handling (double-patching ioredis connections shared between pub/sub and job processing) and interfere with AI SDK SSE streaming (the HTTP instrumentation tries to buffer/measure response bodies, corrupting chunked transfer encoding).
+### Pitfall 3: Service Worker Intercepts SSE AI Chat Stream
 
-**Why it happens:** OpenTelemetry auto-instrumentation is designed for request-response HTTP. It struggles with:
-- Long-lived Redis connections used by BullMQ (pub/sub subscribers are not "requests")
-- Server-Sent Events streaming used by AI SDK `streamText()` (response never "completes" in the normal sense)
-- The system already uses TWO Redis client libraries (ioredis + node-redis, flagged in CTO audit), and OTel may only patch one
+**What goes wrong:** The AI chat uses SSE (Server-Sent Events) via `fetch()` with `credentials: 'include'`. A service worker `fetch` handler that doesn't explicitly exclude streaming responses will attempt to cache or buffer the SSE response. This either: (a) buffers the entire stream before returning it (breaking real-time), (b) returns a cached stale response, or (c) causes the stream to hang because the SW tries to clone a ReadableStream that's being consumed.
 
-**Consequences:**
-- AI chat streaming breaks silently -- responses hang or get truncated
-- BullMQ workers appear to process jobs but OTel spans are malformed or missing
-- Redis connection pool exhaustion from duplicated instrumented connections
-- 20-30% latency increase on hot paths from excessive span creation
+**Why it happens:** EventSource and streaming fetch responses are fundamentally incompatible with cache-first strategies. The W3C ServiceWorker spec notes this is a known problem area -- EventSource was designed for persistent open connections, which conflicts with the request/response model of service worker fetch events.
 
-**Prevention:**
-- Use selective instrumentation, NOT auto-instrumentation. Explicitly instrument: HTTP incoming, Prisma/pg outgoing, and manual spans for BullMQ job lifecycle and AI tool calls
-- Exclude SSE endpoints from HTTP response body capture
-- Test AI streaming end-to-end after OTel is added -- verify chunked responses still work
-- Use `@opentelemetry/instrumentation-bullmq` (if it exists) rather than generic Redis instrumentation for queue tracing
-- Set span sampling rate to < 100% in production to control overhead
-
-**Detection:** AI chat responses start timing out or truncating after OTel deployment. BullMQ job completion rates drop.
-
-**Phase:** OpenTelemetry distributed tracing
-
-### Pitfall 5: AI Control Plane Hardening Colliding with In-Progress HITL Refactor
-
-**What goes wrong:** The AI remediation roadmap (6 phases) requires changes to HITL controller, tool registry, memory service, and system prompt. The codebase already has uncommitted HITL controller refactor in progress. Concurrent changes to the same files create merge conflicts and semantic contradictions (e.g., one branch unifies the HITL DTO while another adds governance metadata to the old DTO shape).
-
-**Why it happens:** The AI Agent Remediation Roadmap (2026-03-15) defines Phases 0-6 covering HITL contract unification, tool execution governance, memory repair, prompt alignment, and legacy removal. These touch the same files as any new AI governance work. The system prompt in `system-prompt.ts`, the tool registry in `tool-registry.service.ts`, and the HITL service in `hitl.service.ts` are all active change targets.
-
-**Consequences:**
-- Merge conflicts that are semantically dangerous (both sides compile but the combined behavior is wrong)
-- Tool governance metadata gets added to a DTO shape that's about to be replaced
-- Tests written against the old HITL contract become invalid
-- Memory repair work gets blocked by concurrent prompt changes
+**Consequences:** AI chat appears frozen. Tokens don't stream in real-time. Or worse: you see a previous conversation's response replayed from cache.
 
 **Prevention:**
-- Sequence AI work strictly: complete HITL contract unification FIRST, then add governance metadata to the unified contract
-- Do not add new tools or governance fields until Phase 2 (Tool Execution Governance) of the remediation roadmap is complete
-- Resolve the in-progress HITL refactor before starting any v6.0 AI governance work
-- Use the remediation roadmap's phase ordering as the canonical sequence
+1. In the service worker fetch handler, detect SSE requests and pass through immediately:
+   ```js
+   self.addEventListener('fetch', (event) => {
+     const url = new URL(event.request.url);
+     // Skip SSE/streaming endpoints
+     if (url.pathname.startsWith('/api/') ||
+         event.request.headers.get('accept')?.includes('text/event-stream')) {
+       return; // Don't call respondWith -- let browser handle natively
+     }
+     // ... handle other requests
+   });
+   ```
+2. Never call `event.respondWith()` for streaming requests. Returning without calling `respondWith` tells the browser to handle the request normally.
 
-**Detection:** The tool registry has tools with governance metadata but the HITL execution path doesn't know how to read it.
+**Detection:** Open AI chat after SW activation. If tokens don't stream character-by-character, the SW is buffering.
 
-**Phase:** AI control plane (must be sequenced after HITL unification)
+**Confidence:** HIGH -- [W3C ServiceWorker Issue #885](https://github.com/w3c/ServiceWorker/issues/885) explicitly discusses EventSource bypass.
 
-### Pitfall 6: MUI Chat CSS Migration Breaking Streaming UI
+---
 
-**What goes wrong:** Replacing CSS-based chat styling with MUI `sx` props breaks the assistant-ui streaming render. The chat uses CSS that updates during token streaming -- MUI's `sx` prop generates classNames at render time, which means every streamed token triggers a style recalculation and className regeneration, causing visible jank and dropped frames during AI responses.
+### Pitfall 4: Vercel Deployment Caches sw.js with Immutable Headers
 
-**Why it happens:** The current chat CSS (3 files, ~950 lines) was intentionally kept as pure CSS with custom properties (documented in CLAUDE.md memory). assistant-ui's streaming architecture updates the DOM incrementally during SSE token delivery. MUI's `sx` prop uses Emotion under the hood, which computes styles at render time. During streaming, this means hundreds of re-renders per second each triggering Emotion's style injection.
+**What goes wrong:** Vercel's CDN aggressively caches static assets. If `sw.js` is placed in `public/` and served without explicit `Cache-Control: no-cache` headers, Vercel may cache it at the edge with a long TTL. Users get stuck on an old service worker that can't be updated, potentially serving stale content indefinitely.
 
-**Consequences:**
-- Chat becomes visually janky during streaming (the one place users notice performance most)
-- Token-by-token rendering slows down noticeably
-- Mobile devices stutter or drop frames during AI responses
-- Users perceive the AI as "slow" even though backend latency hasn't changed
+**Why it happens:** Vercel treats files in `public/` as static assets and applies its default caching strategy. Unlike `_next/static/*` files (which have content hashes in filenames), `sw.js` has a fixed filename and MUST always be re-validated.
+
+**Consequences:** Users are stuck on old app versions. The "update available" toast never fires because the browser thinks sw.js hasn't changed. In extreme cases, users must manually clear site data.
 
 **Prevention:**
-- Keep streaming-critical CSS as static CSS or CSS modules, NOT MUI `sx` props
-- Only migrate non-streaming chat elements to MUI (headers, input bar, sidebar, tool cards)
-- Test streaming performance before and after migration using Chrome DevTools Performance panel
-- The Wave 3-4 migration scope should explicitly exclude the message streaming container
-- Use `className` with static styles for the message bubble content area
+1. Add explicit headers in `next.config.js`:
+   ```js
+   async headers() {
+     return [
+       {
+         source: '/sw.js',
+         headers: [
+           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+           { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+         ],
+       },
+       {
+         source: '/manifest.json',
+         headers: [
+           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+         ],
+       },
+     ];
+   },
+   ```
+2. Also set `updateViaCache: 'none'` in the registration call (Next.js official guide recommends this).
+3. Verify with `curl -I https://your-domain.com/sw.js` after deploy -- check `Cache-Control` header.
 
-**Detection:** Open Chrome DevTools Performance panel during an AI streaming response. If you see continuous "Recalculate Style" entries during token delivery, the migration broke streaming performance.
+**Detection:** Deploy a sw.js change, wait 5 minutes, hard-refresh. If the old SW is still active, Vercel is caching it.
 
-**Phase:** MUI Chat CSS migration (Waves 3-4)
+**Confidence:** HIGH -- [Next.js official PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps) explicitly recommends `no-cache, no-store, must-revalidate` for sw.js. PMSync's current `vercel.json` has no custom headers.
+
+---
+
+### Pitfall 5: Next.js Middleware Blocks PWA Files
+
+**What goes wrong:** If a Next.js middleware is later added (for auth redirects, tenant switching, etc.), it may intercept requests to `/sw.js`, `/manifest.json`, and `/workbox-*.js`. The middleware could redirect unauthenticated requests to `/login`, causing the service worker registration to fail because the browser receives an HTML redirect response instead of JavaScript.
+
+**Why it happens:** Next.js middleware runs on ALL requests by default (unless a `matcher` config excludes paths). PWA core files must be served without auth checks or redirects. The browser's service worker spec explicitly rejects service workers served via redirect.
+
+**Consequences:** Service worker fails to register. PWA install fails. Push notifications stop working. No clear error message -- just a silent failure in the SW registration promise.
+
+**Prevention:**
+1. PMSync currently has no Next.js middleware file, which avoids this. But if middleware is ever added, the FIRST thing it must do is exclude PWA files:
+   ```ts
+   export function middleware(request: NextRequest) {
+     const { pathname } = request.nextUrl;
+     // Allow PWA core files through without auth checks
+     if (pathname === '/sw.js' ||
+         pathname === '/manifest.json' ||
+         pathname.startsWith('/workbox-') ||
+         pathname.startsWith('/icons/')) {
+       return NextResponse.next();
+     }
+     // ... auth logic
+   }
+   ```
+2. Alternatively, use `matcher` in the middleware config to exclude these paths.
+
+**Detection:** Check DevTools > Application > Service Workers. If registration state shows "redundant" or fails, check Network tab for sw.js -- if it returned a 302 redirect, middleware is the culprit.
+
+**Confidence:** HIGH -- [next-pwa Issue #323](https://github.com/shadowwalker/next-pwa/issues/323) documents this exact problem.
 
 ## Moderate Pitfalls
 
-### Pitfall 7: CRM Activity Model Creating N+1 Queries Against Email/Contact
+### Pitfall 6: Background Sync Queue Loses Auth Context
 
-**What goes wrong:** CRM Activities reference Emails, Contacts, and Calendar Events via FKs. Loading a deal's activity timeline triggers N+1 queries: one query for activities, then one query per activity to load the linked email/contact/event.
+**What goes wrong:** Background sync (for offline actions like "mark read" or "archive") queues requests in IndexedDB. When the device comes back online, the service worker replays them. But if the session has expired in the meantime (better-auth sessions have idle timeout), the replayed requests fail with 401. The queued actions are silently lost.
 
-**Why it happens:** Prisma's `include` is convenient but generates separate SQL queries per relation. With CRM, a single Deal page might load 50+ activities, each linking to different entity types. The existing system already fixed N+1 in email listing (PERF-02 in v2.0), but new CRM code won't inherit those fixes -- they were endpoint-specific.
-
-**Prevention:**
-- Use Prisma `include` with `select` to load only needed fields
-- Implement a CRM-specific data loader pattern (batch FK resolution)
-- Set `staleTime: 5min` on CRM TanStack Query hooks to avoid refetching on every tab switch
-- Add query logging in dev mode to catch N+1 patterns early
-
-**Phase:** CRM domain expansion
-
-### Pitfall 8: Workflow Rules Executing AI Tools Without HITL Approval
-
-**What goes wrong:** A user creates a workflow rule: "When email from VIP arrives, draft a reply." The workflow engine calls the AI draft tool directly, bypassing the HITL approval flow that would normally gate a mutating action. The workflow acts as a privilege escalation path.
-
-**Why it happens:** The HITL approval flow is tied to the chat streaming path (`AiChatService.streamChat()`). Workflow rules that invoke AI tools outside the chat context don't go through the same approval pipeline. The current system only checks `requiresApproval` during chat tool execution.
+**Why it happens:** httpOnly cookies have expiry. better-auth sessions have `cookieCache` with 300s maxAge. If the device was offline for hours, the session cookie may have expired or been invalidated server-side.
 
 **Prevention:**
-- Workflow engine must use the same tool execution registry and approval policies as the chat path
-- Add a `WorkflowExecutionContext` that enforces the same HITL rules
-- Workflow rules involving mutating actions must either pre-approve at rule creation time or queue for approval at execution time
-- This is the intersection of the authorization system and the AI control plane -- both must be in place before workflow automation ships
+1. Implement retry-with-backoff in the sync handler. On 401, emit a client event requesting re-authentication before retrying.
+2. Store the `tenantId` and action metadata in the sync queue, not the raw request. When replaying, construct a fresh authenticated request.
+3. Limit the background sync window. Actions queued more than 30 minutes ago should be discarded with a user notification rather than silently failing.
+4. Use the Background Sync API's `lastChance` property to detect the final retry attempt and notify the user.
 
-**Phase:** Workflow automation (depends on AI control plane Phase 2 being complete)
+**Detection:** Airplane mode for 30 min -> queue some actions -> reconnect -> check if actions were applied.
 
-### Pitfall 9: Frontend PermissionGate Causing Layout Shifts
+**Confidence:** MEDIUM -- the auth expiry interaction is specific to PMSync's session config, but the pattern is well-known.
 
-**What goes wrong:** Adding `<PermissionGate>` components that conditionally hide UI elements causes Cumulative Layout Shift (CLS). Buttons, menu items, and sections pop in/out as permissions load asynchronously, making the page jump.
+---
 
-**Why it happens:** Permissions are loaded from the backend after initial render. The frontend currently has no permission model (flagged in both audits). When added, permission-gated components will initially render nothing, then render their content once permissions arrive, causing layout shifts.
+### Pitfall 7: Precaching Next.js Hashed Bundles Bloats Cache Storage
 
-**Prevention:**
-- Prefetch permissions with the session (load in the auth provider, not per-component)
-- Use skeleton placeholders for permission-gated sections during loading
-- Cache permissions in Zustand (not just TanStack Query) so they're available synchronously on subsequent renders
-- Follow the existing pattern of `staleTime: 5min` for permission queries
+**What goes wrong:** Next.js generates hashed JS chunks in `/_next/static/`. If you precache all of them, every deployment creates a completely new set of chunks (new hashes). Users accumulate multiple versions in Cache Storage, consuming significant device storage. On mobile, browsers may evict PWA data when storage pressure is high, breaking the offline experience.
 
-**Phase:** Authorization/permissions (frontend)
+**Why it happens:** Next.js chunk filenames change on every build. Precaching the full bundle means the old cached version is never cleaned up unless you explicitly call `caches.delete()` for old cache versions.
 
-### Pitfall 10: OpenTelemetry Trace Context Not Propagating Through BullMQ
-
-**What goes wrong:** A user action triggers an HTTP request that enqueues a BullMQ job. The OTel trace ID from the HTTP request is not carried into the job payload. The distributed trace shows the HTTP request and the BullMQ job as separate, unconnected traces.
-
-**Why it happens:** BullMQ jobs are serialized to Redis as JSON. OTel trace context lives in the in-memory context object. Unless the trace context is explicitly serialized into the job data and deserialized in the worker, the trace chain breaks. This is the entire point of adding OTel, and it's the part most likely to be done wrong.
+**Consequences:** Cache Storage grows by 2-5 MB per deployment. After 10 deploys without cleanup, users have 50 MB of stale JS. Mobile browsers may revoke storage permission entirely.
 
 **Prevention:**
-- Create a `TracedJobData` wrapper that serializes `traceparent` and `tracestate` into every job payload
-- In every worker, extract the trace context from job data before processing
-- Test the full chain: HTTP request > BullMQ enqueue > worker processing > Prisma query -- all should appear in one trace
-- This applies to all 20 existing BullMQ queues, not just new workflow queues
+1. Use **runtime caching** (cache-first with expiration) for `/_next/static/*` instead of precaching. This caches chunks on first use and auto-expires old ones.
+2. Set `maxEntries` and `maxAgeSeconds` on the cache:
+   ```js
+   // Runtime cache for Next.js bundles
+   { urlPattern: /\/_next\/static\/.*/, handler: 'CacheFirst',
+     options: { cacheName: 'next-static', expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 3600 } } }
+   ```
+3. On service worker activation, delete old cache versions:
+   ```js
+   self.addEventListener('activate', (event) => {
+     event.waitUntil(
+       caches.keys().then(keys =>
+         Promise.all(keys.filter(k => k !== CURRENT_CACHE).map(k => caches.delete(k)))
+       )
+     );
+   });
+   ```
 
-**Phase:** OpenTelemetry distributed tracing
+**Detection:** DevTools > Application > Cache Storage. Check total size after several deploys.
 
-### Pitfall 11: CRM Deal Pipeline Model Conflicting with Existing Kanban State
+**Confidence:** HIGH -- [next-pwa Discussion #64336](https://github.com/vercel/next.js/discussions/64336) documents this problem with Next.js hashed assets.
 
-**What goes wrong:** The new CRM Pipeline/Stage model creates its own notion of "stages" and "columns" that conflicts with the existing email kanban board's stage management. Shared state stores or API endpoints accidentally mix email kanban stages with CRM pipeline stages.
+---
 
-**Why it happens:** The frontend already has a `KanbanBoard` component (701 lines, flagged in CTO audit as oversized). If CRM pipelines reuse this component without proper domain isolation, email and CRM states bleed into each other through shared Zustand slices or TanStack Query cache keys.
+### Pitfall 8: iOS Safari PWA Limitations
+
+**What goes wrong:** iOS does not support `beforeinstallprompt`. Chrome/Edge on iOS cannot install PWAs at all (WebKit restriction). Push notifications only work on iOS 16.4+ AND only when the PWA is added to the home screen (not in Safari browser). Background sync is not supported on Safari/iOS.
+
+**Why it happens:** Apple's WebKit-only policy on iOS means all browsers use the same engine with the same limitations. Apple has been slow to adopt PWA APIs.
+
+**Consequences:** Your install prompt, push notification subscription, and background sync features need three separate code paths: (1) Chrome/Android (full support), (2) iOS home screen (partial), (3) iOS browser (minimal). If you don't detect and adapt, users get broken UI or misleading prompts.
 
 **Prevention:**
-- CRM pipeline UI gets its own Zustand slice and TanStack Query key prefix (`['crm', 'pipeline', ...]` not `['pipeline', ...]`)
-- Do NOT reuse the email KanbanBoard component directly -- extract a generic `DragDropBoard` component, then compose domain-specific boards from it
-- API routes must be domain-prefixed: `/api/v1/crm/pipelines` not `/api/v1/pipelines`
+1. Detect platform and show appropriate UX:
+   - Android/Desktop Chrome: Use `beforeinstallprompt` for native install button.
+   - iOS: Show manual instructions ("Tap Share > Add to Home Screen").
+   - Check `window.matchMedia('(display-mode: standalone)')` to hide install prompts when already installed.
+2. For push notifications, gate the subscription UI behind both `'PushManager' in window` and `'Notification' in window` checks. On iOS in-browser (not home screen), these exist but don't work.
+3. For background sync, always implement a fallback: retry queued actions on next app open using TanStack Query's `onlineManager`.
 
-**Phase:** CRM domain expansion
+**Detection:** Test on actual iOS devices (not just simulators). Safari DevTools has limited SW debugging.
 
-### Pitfall 12: `withoutTenantScopingAsync` Usage Expanding Into CRM/Workflow
+**Confidence:** HIGH -- [PWA iOS Limitations 2026](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide) is comprehensive and current.
 
-**What goes wrong:** CRM or workflow code uses `withoutTenantScopingAsync` to "fix" queries that don't work because the developer didn't understand the tenant-scoping extension. Already used in 50 files across the codebase, it becomes normalized for new code.
+---
 
-**Why it happens:** When a developer writes a CRM query and gets empty results (because tenant context isn't set in their test), the fastest "fix" is wrapping in `withoutTenantScopingAsync`. The real fix is ensuring tenant context is properly propagated.
+### Pitfall 9: Service Worker Update Leaves Users on Old Version
+
+**What goes wrong:** When you deploy a new sw.js, the browser downloads it but enters a "waiting" state. The new service worker doesn't activate until ALL tabs of the app are closed. For an email client that users keep open all day, this means updates never apply.
+
+**Why it happens:** The browser's default SW lifecycle is conservative: `install` -> `waiting` -> `activate`. The "waiting" state persists as long as any tab has the old SW controlling it.
+
+**Consequences:** Users run stale code indefinitely. Bug fixes don't reach them. If you change API response shapes in a deploy, the old frontend code breaks against the new backend.
 
 **Prevention:**
-- Code review rule: `withoutTenantScopingAsync` is NEVER acceptable in CRM or workflow modules
-- Add an ESLint custom rule or dependency-cruiser constraint that flags `withoutTenantScopingAsync` imports in new modules
-- Only the 50 existing usages (mostly in workers, webhooks, system tasks) are grandfathered
+1. Implement an "Update Available" toast/snackbar. When `registration.waiting` is detected, show a prompt.
+2. On user confirmation, send `skipWaiting()` to the waiting SW and reload:
+   ```js
+   // In the app
+   registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+   // In sw.js
+   self.addEventListener('message', (event) => {
+     if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+   });
+   ```
+3. Listen for `controllerchange` to reload the page:
+   ```js
+   navigator.serviceWorker.addEventListener('controllerchange', () => {
+     window.location.reload();
+   });
+   ```
+4. Do NOT call `self.skipWaiting()` unconditionally in the install handler. This causes mid-session cache invalidation and can break the running app.
 
-**Phase:** CRM and Workflow (both)
+**Detection:** Deploy a change, observe in DevTools > Application > Service Workers that a new SW is "waiting to activate."
+
+**Confidence:** HIGH -- this is standard SW lifecycle behavior, documented in every PWA guide.
+
+---
+
+### Pitfall 10: MUI Theme / Dark Mode Flash in Standalone PWA
+
+**What goes wrong:** When the PWA launches in standalone mode (from home screen), there's no browser chrome to mask the initial render. If the theme (light/dark) is determined client-side (from localStorage or `prefers-color-scheme`), users see a white flash before the correct theme applies. This is more jarring in standalone mode than in a browser tab.
+
+**Why it happens:** Next.js SSR renders with a default theme. The client hydrates and switches to the user's preferred theme. In browser mode, the address bar masks some of this. In standalone PWA mode, the full viewport is your app -- every frame of FOUC is visible.
+
+**Consequences:** Unprofessional appearance. Users notice the flash every time they open the app. For a "native-like" experience, this kills the illusion.
+
+**Prevention:**
+1. Set `theme_color` in the manifest to match the dark mode background if dark mode is the primary theme.
+2. Use a blocking `<script>` in `<head>` (before React hydration) that reads the theme preference and sets a CSS class on `<html>`:
+   ```html
+   <script>
+     (function() {
+       var theme = localStorage.getItem('pmsync:theme') ||
+         (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+       document.documentElement.setAttribute('data-theme', theme);
+     })();
+   </script>
+   ```
+3. Set `background_color` in the manifest to your dark mode background color.
+
+**Detection:** Install PWA, set dark mode, kill app, reopen. Watch for white flash.
+
+**Confidence:** MEDIUM -- specific to MUI's client-side theme detection pattern.
 
 ## Minor Pitfalls
 
-### Pitfall 13: God Module Pattern Spreading to CRM Module
+### Pitfall 11: manifest.json start_url Mismatch
 
-**What goes wrong:** The CRM module follows the pattern of EmailModule (22 services, 8 controllers) and AiModule (28 providers) by putting all CRM functionality into a single `CrmModule`.
+**What goes wrong:** If `start_url` in the manifest doesn't match the actual authenticated landing page (e.g., it's `/` but auth redirects to `/inbox`), the PWA opens, hits a redirect, and the standalone window briefly shows the wrong page or a loading spinner.
 
-**Prevention:** Split from the start: `CrmAccountsModule`, `CrmDealsModule`, `CrmPipelinesModule`, `CrmActivitiesModule`. Each with focused exports.
+**Prevention:** Set `start_url` to the authenticated landing page (`/inbox` or wherever users actually land). If auth is needed, the redirect chain should be minimal.
 
-**Phase:** CRM domain expansion
+---
 
-### Pitfall 14: MUI Theme Inconsistency in Chat Migration
+### Pitfall 12: CSP Blocks Service Worker Registration
 
-**What goes wrong:** Chat components migrated to MUI use hardcoded colors or the wrong semantic tokens instead of the established theme palette (primary: teal, secondary: purple, ai: teal semantic color).
+**What goes wrong:** If a Content Security Policy is later added to PMSync (which it currently lacks), the `worker-src` directive must include `'self'`. Without it, the browser blocks sw.js registration silently.
 
-**Prevention:** Reference the existing theme tokens documented in CLAUDE.md memory. Never use raw hex/hsl values in `sx` props. Use `theme.palette.primary.main`, `theme.palette.semantic.ai`, etc.
+**Prevention:** When adding CSP headers, include: `worker-src 'self'; connect-src 'self' https://your-api-domain.com;`
 
-**Phase:** MUI Chat CSS migration
+---
 
-### Pitfall 15: Authorization Adding Latency to Every Request
+### Pitfall 13: Offline Fallback Page Missing Auth State
 
-**What goes wrong:** The permission check queries the database on every request to check resource-level permissions, adding 5-20ms per request. With the existing 4-guard chain already adding overhead, this becomes noticeable.
+**What goes wrong:** The offline fallback page (shown when a navigation request fails and isn't cached) renders without any user context. If it has navigation elements that assume a logged-in user (sidebar, user avatar), those break or show empty states.
 
-**Prevention:**
-- Cache permissions per-session with 5-minute TTL (matches existing `cookieCache` 300s maxAge pattern)
-- Permission checks should be in-memory lookups against cached permission sets, not DB queries
-- Only invalidate on role/permission change events
+**Prevention:** The offline fallback page should be a minimal, self-contained HTML page with no API calls. Just a "You're offline" message with a retry button. Don't try to render the full app shell.
 
-**Phase:** Authorization/permissions
+---
+
+### Pitfall 14: Multiple Service Worker Registrations
+
+**What goes wrong:** If the SW registration code runs in multiple components (e.g., both a `PushNotificationManager` and a `ServiceWorkerProvider`), or if a third-party library (Serwist, next-pwa) auto-registers while you also manually register, you get competing registrations. The browser handles this by using the last-registered scope, but the intermediate states cause race conditions.
+
+**Prevention:** Register the service worker in exactly one place: a `ServiceWorkerProvider` component rendered once in the root layout. All other components should access the registration via context/state, never call `navigator.serviceWorker.register()` themselves.
+
+---
+
+### Pitfall 15: Library Choice -- Serwist vs Manual SW
+
+**What goes wrong:** Developers reach for `@serwist/next` or `@ducanh2912/next-pwa` for convenience, then discover these libraries have compatibility issues with the latest Next.js App Router, generate opinionated precache manifests that conflict with Vercel CDN caching, and add Workbox runtime overhead.
+
+**Why it happens:** The Next.js PWA library ecosystem is fragmented. `shadowwalker/next-pwa` is abandoned. `@ducanh2912/next-pwa` evolved into Serwist. Serwist has open issues with Next.js 15+ App Router.
+
+**Prevention:** Follow the [official Next.js PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps) which recommends a manual `public/sw.js` approach. For PMSync's scope (offline inbox cache, push notification plumbing, install prompt), a manual service worker is simpler and more debuggable than adding a library dependency. Only consider Serwist if you need complex precaching or routing strategies that would be painful to implement manually.
+
+**Confidence:** MEDIUM -- Serwist may have improved since research date. Check current release notes before deciding.
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| CRM domain | Composite PK omission on new models | Schema review checklist, test tenant isolation on every model |
-| CRM domain | N+1 queries on Activity timeline | Data loader pattern, query logging in dev |
-| CRM domain | God module pattern | Split into sub-modules from day 1 |
-| Workflow engine | Tenant context loss in chained jobs | `WorkflowJobData` base interface, integration tests |
-| Workflow engine | HITL bypass through workflow execution | Shared tool execution policy, not a separate path |
-| Authorization | Guard chain breakage | Controller-level guards, not APP_GUARD; integration tests |
-| Authorization | Frontend layout shifts from PermissionGate | Prefetch with session, skeleton placeholders |
-| Authorization | Per-request DB queries for permissions | In-memory cache with session-scoped TTL |
-| OpenTelemetry | SSE streaming corruption | Selective instrumentation, exclude SSE from response capture |
-| OpenTelemetry | Trace context lost at BullMQ boundary | Explicit serialization of traceparent into job data |
-| OpenTelemetry | Dual Redis library patching issues | Instrument explicitly, don't auto-patch |
-| AI control plane | Collision with in-progress HITL refactor | Complete HITL unification before adding governance metadata |
-| AI control plane | New tools added before registry is unified | Follow remediation roadmap Phase 2 before expanding tools |
-| MUI chat migration | Streaming performance regression | Keep streaming container as static CSS, only migrate non-streaming elements |
-| MUI chat migration | Hardcoded colors | Use theme semantic tokens consistently |
-| UI/UX fixes | Generic error states hiding permission failures | Distinguish 403 from 500 in error boundaries (already flagged in UI audit) |
+| Manifest + Icons | start_url mismatch with auth redirect (P11) | Set start_url to /inbox, test standalone launch |
+| Service Worker Registration | Multiple registration points (P14), middleware blocking (P5) | Single registration point, exclude PWA files from any future middleware |
+| Offline Caching Strategy | Double caching with TanStack Query (P2), bloated precache (P7) | Cache ONLY static assets in SW; TanStack Query owns API cache |
+| SSE/Streaming | SW intercepts AI chat stream (P3) | Explicit passthrough for /api/* and text/event-stream |
+| Cookie Auth | SW strips httpOnly cookies (P1) | Never intercept API requests in SW |
+| Push Notifications | iOS limitations (P8), CSP blocks (P12) | Platform detection, worker-src in CSP |
+| Install Prompt | iOS has no beforeinstallprompt (P8) | Manual instructions for iOS, beforeinstallprompt for Android/desktop |
+| Background Sync | Auth expiry on queued actions (P6), no Safari support (P8) | TanStack Query onlineManager as fallback, time-limit queued actions |
+| SW Updates | Users stuck on old version (P9) | "Update Available" toast with skipWaiting on confirmation |
+| Standalone UX | Dark mode flash (P10) | Blocking theme script, manifest theme_color |
+| Vercel Deploy | sw.js cached at edge (P4) | no-cache headers in next.config.js |
 
-## Integration Landmines
+## Key Architectural Decision
 
-These are pitfalls that only appear when two new features interact.
+**The service worker should NOT intercept API requests. Ever.** For PMSync specifically:
 
-### CRM + Authorization
+- httpOnly cookie auth means the SW cannot inspect or manage auth state
+- TanStack Query already caches API responses in-memory with intelligent invalidation
+- SSE streaming for AI chat is incompatible with SW caching
+- Background sync should use IndexedDB for action queuing, not SW request replay
 
-The CRM needs object-level permissions (e.g., "can this user see this Deal?") but the authorization system is being built simultaneously. If CRM ships before authorization, it ships with no access control beyond tenant scoping. If authorization ships first without CRM's object model, the permission schema won't cover CRM entities.
+The SW's role should be limited to:
+1. Caching static assets (JS bundles, CSS, images, fonts) for faster loads
+2. Serving an offline fallback page for uncached navigation requests
+3. Handling push notification `push` and `notificationclick` events
+4. Communicating with the main thread for update prompts
 
-**Mitigation:** Design the permission model with CRM entity types included from the start, even if CRM models don't exist yet. Use a resource-type enum that includes `account`, `deal`, `pipeline`, `activity`.
-
-### Workflow + AI Control Plane
-
-Workflows calling AI tools must go through the same governance as chat. But workflow execution is BullMQ-based (async) while AI chat governance is HTTP-based (sync). The approval flow doesn't work when there's no user waiting at a browser.
-
-**Mitigation:** Define two approval modes: (1) synchronous/interactive for chat, (2) async/pre-approved for workflows. Workflow rules that involve mutating tools must declare their approval policy at creation time.
-
-### OpenTelemetry + AI Streaming
-
-OTel HTTP instrumentation wants to measure response time and size. AI streaming responses never "complete" in the normal HTTP sense -- they stream until the model stops generating. OTel will either report incorrect latency (time to first byte instead of total) or hang waiting for the response to end.
-
-**Mitigation:** Create custom spans for AI streaming that start when `streamText()` is called and end when the stream closes. Do not rely on HTTP auto-instrumentation for these endpoints.
-
-### CRM + Workflow + AI
-
-The three-way interaction is the most dangerous. A workflow rule triggers on a CRM event (deal stage change), calls an AI tool (draft email to contact), and needs tenant context, permission checks, HITL governance, and OTel tracing all working together. Any missing link in this chain creates a silent failure.
-
-**Mitigation:** This combination should be the LAST thing shipped, after each individual system is battle-tested. Do not attempt to demo "AI-powered CRM workflow automation" until CRM, workflow, authorization, and AI governance are each independently stable.
+Everything else (API caching, offline data, mutation queuing) belongs in the application layer via TanStack Query + IndexedDB.
 
 ## Sources
 
-- `docs/AUDIT.md` -- Architecture and security audit (2026-03-09)
-- `docs/CTO_PLATFORM_AUDIT_2026-03-09.md` -- CTO engineering audit with anti-patterns
-- `docs/AI_AGENT_REMEDIATION_ROADMAP_2026-03-15.md` -- AI control plane remediation phases
-- `docs/UI_UX_AUDIT_2026-03-12.md` -- UI/UX findings for mobile, accessibility, error states
-- `backend/src/app.module.ts` -- Guard chain ordering (lines 104-139)
-- `backend/src/prisma/tenant-scoping/` -- Tenant-scoping extension (50 files use withoutTenantScopingAsync)
-- `.planning/PROJECT.md` -- Project context, constraints, key decisions
+- [Next.js Official PWA Guide](https://nextjs.org/docs/app/guides/progressive-web-apps) -- HIGH confidence
+- [W3C ServiceWorker Issue #837 -- Cookie modification](https://github.com/w3c/ServiceWorker/issues/837) -- HIGH confidence
+- [W3C ServiceWorker Issue #885 -- EventSource bypass](https://github.com/w3c/ServiceWorker/issues/885) -- HIGH confidence
+- [TanStack Query Issue #7897 -- SW integration](https://github.com/TanStack/query/issues/7897) -- HIGH confidence
+- [TanStack Query Discussion #8034 -- Double caching](https://github.com/TanStack/query/discussions/8034) -- HIGH confidence
+- [next-pwa Issue #323 -- Middleware conflict](https://github.com/shadowwalker/next-pwa/issues/323) -- HIGH confidence
+- [PWA iOS Limitations 2026](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide) -- MEDIUM confidence
+- [Serwist Getting Started](https://serwist.pages.dev/docs/next/getting-started) -- MEDIUM confidence
+- [MDN: Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) -- HIGH confidence
+- [MDN: Offline and background operation](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation) -- HIGH confidence
