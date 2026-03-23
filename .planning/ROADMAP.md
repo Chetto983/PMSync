@@ -114,7 +114,7 @@
 - [x] **Phase 101: Offline Shell** - Offline fallback page, online/offline indicator, app shell caching (completed 2026-03-23)
 - [x] **Phase 102: Install Experience** - beforeinstallprompt for Android/desktop, iOS instructions, standalone detection (completed 2026-03-23)
 - [x] **Phase 103: Offline Email Reading** - TanStack Query persist to IndexedDB, cache-on-logout security (completed 2026-03-23)
-- [ ] **Phase 104: Background Sync** - Offline mutation queue, replay on reconnect, queue TTL with notification
+- [x] **Phase 104: Background Sync** - Offline mutation queue, replay on reconnect, queue TTL with notification (completed 2026-03-23)
 - [ ] **Phase 105: Push Plumbing & Polish** - VAPID subscription UI, SW push handler, SW update notification, Lighthouse PWA audit
 
 ## Phase Details
@@ -178,7 +178,7 @@ Plans:
   1. User can mark-read, archive, and star emails while offline -- actions are visually applied immediately and queued in IndexedDB
   2. Queued actions replay automatically when the device reconnects (via online event; BackgroundSync as Chromium-only enhancement)
   3. Queued actions older than 30 minutes are discarded and the user sees a notification explaining the expiry
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 104-01-PLAN.md -- OfflineActionQueue module, Zustand store, translations, useUpdateEmail offline interception
 - [ ] 104-02-PLAN.md -- Replay engine hook, SW sync handler, OfflineBanner badge, logout cleanup wiring
@@ -209,7 +209,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 | 101. Offline Shell | 1/1 | Complete    | 2026-03-23 | - |
 | 102. Install Experience | 2/2 | Complete    | 2026-03-23 | - |
 | 103. Offline Email Reading | 2/2 | Complete    | 2026-03-23 | - |
-| 104. Background Sync | 1/2 | In Progress|  | - |
+| 104. Background Sync | 2/2 | Complete   | 2026-03-23 | - |
 | 105. Push Plumbing & Polish | v8.0 | 0/TBD | Not started | - |
 
 ---

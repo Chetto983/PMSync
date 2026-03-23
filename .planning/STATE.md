@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
 status: unknown
-stopped_at: Completed 104-01-PLAN.md
-last_updated: "2026-03-23T16:17:54.692Z"
+stopped_at: Completed 104-02-PLAN.md
+last_updated: "2026-03-23T16:28:08Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -23,14 +23,14 @@ See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 104 (background-sync) — EXECUTING
-Plan: 2 of 2
+Phase: 104 (background-sync) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 7
+- Total plans completed: 9
 - Average duration: ~5min
 - Total execution time: ~33 min
 
@@ -58,6 +58,8 @@ Plan: 2 of 2
 - [Phase 103]: Wire clearOfflineData into all 5 signOut call sites, not just Header.tsx
 - [Phase 104]: QueuedAction.dto typed as Record<string, unknown> | object to accept UpdateEmailDto without index signature
 - [Phase 104]: Separate idb-keyval store (pmsync-action-queue) from query cache (pmsync-query-cache) in same DB
+- [Phase 104]: SW sync handler relays via postMessage (cannot make authenticated API calls with httpOnly cookies)
+- [Phase 104]: Module-level replay lock prevents double-replay from simultaneous online+sync events
 
 ### Pending Todos
 
@@ -71,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T16:17:54.686Z
-Stopped at: Completed 104-01-PLAN.md
+Last session: 2026-03-23T16:28:08Z
+Stopped at: Completed 104-02-PLAN.md
 Resume file: None

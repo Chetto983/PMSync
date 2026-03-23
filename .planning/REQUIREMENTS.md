@@ -37,8 +37,8 @@ Requirements for Progressive Web App milestone. Each maps to roadmap phases.
 ### Sync
 
 - [x] **SYNC-01**: User can mark-read, archive, and star emails while offline — actions queue in IndexedDB
-- [ ] **SYNC-02**: Queued actions replay automatically when connection restores (online event + BackgroundSync progressive enhancement)
-- [ ] **SYNC-03**: Queued actions older than 30 minutes are discarded with user notification
+- [x] **SYNC-02**: Queued actions replay automatically when connection restores (online event + BackgroundSync progressive enhancement)
+- [x] **SYNC-03**: Queued actions older than 30 minutes are discarded with user notification
 - [x] **SYNC-04**: All IndexedDB data and SW caches cleared on user sign-out (security)
 
 ### Polish
@@ -93,8 +93,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PUSH-03 | Phase 105 | Pending |
 | PUSH-04 | Phase 105 | Pending |
 | SYNC-01 | Phase 104 | Complete |
-| SYNC-02 | Phase 104 | Pending |
-| SYNC-03 | Phase 104 | Pending |
+| SYNC-02 | Phase 104 | Complete |
+| SYNC-03 | Phase 104 | Complete |
 | SYNC-04 | Phase 103 | Complete |
 | PLSH-01 | Phase 105 | Pending |
 | PLSH-02 | Phase 105 | Pending |
