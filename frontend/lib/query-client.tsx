@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider, HydrationBoundary, DehydratedState } from '@tanstack/react-query';
 import { shouldRetryQuery } from '@/hooks/queries/query-retry';
-import { createQueryPersister } from './query-persist';
 
 /**
  * TanStack Query Configuration
@@ -29,7 +28,6 @@ function makeQueryClient() {
         retry: (failureCount, error) => shouldRetryQuery(failureCount, error, 3),
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
         refetchOnWindowFocus: false,
-        persister: createQueryPersister(),
       },
       mutations: {
         retry: 1,

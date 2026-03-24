@@ -18,6 +18,7 @@ import {
   useQueryClient,
   queryOptions,
 } from '@tanstack/react-query';
+import { createQueryPersister } from '@/lib/query-persist';
 import {
   getFolders,
   getFoldersByProvider,
@@ -55,6 +56,8 @@ export const folderKeys = {
  * Query options for fetching all folders across providers
  * Long staleTime since folders rarely change
  */
+const offlinePersister = typeof window !== 'undefined' ? createQueryPersister() : undefined;
+
 export function foldersListOptions() {
   return queryOptions({
     queryKey: folderKeys.list(),
@@ -63,6 +66,7 @@ export function foldersListOptions() {
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - folders rarely change
     gcTime: 30 * 60 * 1000, // 30 minutes
+    persister: offlinePersister,
   });
 }
 

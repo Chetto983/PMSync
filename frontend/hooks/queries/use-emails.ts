@@ -30,6 +30,7 @@ import { labelKeys } from './use-labels';
 import { getGlobalToast, getGlobalTranslations } from '@/lib/context/toast-context';
 import { enqueueAction, requestBackgroundSync } from '@/lib/offline-action-queue';
 import { useOfflineQueueStore } from '@/stores/offline-queue-store';
+import { createQueryPersister } from '@/lib/query-persist';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 type EmailListSnapshot = [QueryKey, { emails: Email[]; pagination: { page: number; limit: number; total: number; totalPages: number } } | undefined];
@@ -83,6 +84,8 @@ function removeFromEmailLists(queryClient: QueryClient, ids: Set<string>) {
 /**
  * Query options for fetching email list
  */
+const offlinePersister = typeof window !== 'undefined' ? createQueryPersister() : undefined;
+
 export function emailsListOptions(params?: ListEmailsParams) {
   return queryOptions({
     queryKey: emailKeys.listFiltered(params),
@@ -93,6 +96,7 @@ export function emailsListOptions(params?: ListEmailsParams) {
     // 24h -- survives cold restart for offline reading (Phase 103)
     gcTime: 1000 * 60 * 60 * 24,
     placeholderData: keepPreviousData, // Show old list while new data loads (no skeleton flash)
+    persister: offlinePersister,
   });
 }
 
@@ -109,6 +113,7 @@ export function emailDetailOptions(id: string) {
     // 24h -- survives cold restart for offline reading (Phase 103)
     gcTime: 1000 * 60 * 60 * 24,
     enabled: !!id,
+    persister: offlinePersister,
   });
 }
 
