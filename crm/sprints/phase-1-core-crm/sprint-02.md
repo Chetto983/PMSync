@@ -12,16 +12,16 @@
 
 ## Sprint Backlog
 
-- [ ] T-0201 — Creare pagina Account detail in `frontend/src/pages/dashboard/crm/accounts/[id].tsx` con layout a tab (Info, Contacts, Deals, Activity) — [2 SP] — 📋 TODO
-- [ ] T-0202 — Implementare card info Account (nome, website, industry, size, revenue, indirizzo) con editing inline — [2 SP] — 📋 TODO
-- [ ] T-0203 — Implementare componente albero gerarchia Account (parent-child) con MUI TreeView — [2 SP] — 📋 TODO
-- [ ] T-0204 — API parent-child Account: `PATCH /crm/accounts/:id` per settare `parentId`, endpoint `GET /crm/accounts/:id/children` per sotto-account — [2 SP] — 📋 TODO
-- [ ] T-0205 — API associazione Contact-Account: `POST /crm/accounts/:id/contacts` (body: contactId, role), `DELETE /crm/accounts/:accountId/contacts/:contactId` — [2 SP] — 📋 TODO
-- [ ] T-0206 — Tab Contacts nella pagina Account detail: lista contatti associati con ruolo, pulsante aggiungi contatto (picker dialog) — [2 SP] — 📋 TODO
+- [x] T-0201 — Creare pagina Account detail in `frontend/src/pages/dashboard/crm/accounts/[id].tsx` con layout a tab (Info, Contacts, Deals, Activity) — [2 SP] — ✅ DONE
+- [x] T-0202 — Implementare card info Account (nome, website, industry, size, revenue, indirizzo) con editing inline — [2 SP] — ✅ DONE
+- [x] T-0203 — Implementare componente albero gerarchia Account (parent-child) con MUI TreeView — [2 SP] — ✅ DONE
+- [x] T-0204 — API parent-child Account: `PATCH /crm/accounts/:id` per settare `parentId`, endpoint `GET /crm/accounts/:id/children` per sotto-account — [2 SP] — ✅ DONE
+- [x] T-0205 — API associazione Contact-Account: `POST /crm/accounts/:id/contacts` (body: contactId, role), `DELETE /crm/accounts/:accountId/contacts/:contactId` — [2 SP] — ✅ DONE
+- [x] T-0206 — Tab Contacts nella pagina Account detail: lista contatti associati con ruolo, pulsante aggiungi contatto (picker dialog) — [2 SP] — ✅ DONE
 - [ ] T-0207 — Aggiungere selettore Account nella pagina dettaglio Contact esistente (autocomplete con ricerca) — [1 SP] — 📋 TODO
-- [ ] T-0208 — Implementare breadcrumb navigation per Account (Dashboard > CRM > Accounts > Account Name) — [1 SP] — 📋 TODO
-- [ ] T-0209 — TanStack Query hooks: `useAccountChildren`, `useAccountContacts`, `useLinkContact`, `useUnlinkContact` — [1 SP] — 📋 TODO
-- [ ] T-0210 — Aggiornare traduzioni en/it per detail view, ruoli contatto, breadcrumb — [1 SP] — 📋 TODO
+- [x] T-0208 — Implementare breadcrumb navigation per Account (Dashboard > CRM > Accounts > Account Name) — [1 SP] — ✅ DONE
+- [x] T-0209 — TanStack Query hooks: `useAccountChildren`, `useAccountContacts`, `useLinkContact`, `useUnlinkContact` — [1 SP] — ✅ DONE
+- [x] T-0210 — Aggiornare traduzioni en/it per detail view, ruoli contatto, breadcrumb — [1 SP] — ✅ DONE
 - [ ] T-0211 — Type-check entrambe le app, verificare che non ci siano regressioni — [1 SP] — 📋 TODO
 
 ---
