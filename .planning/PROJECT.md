@@ -2,37 +2,23 @@
 
 ## What This Is
 
-A professional AI-powered email and productivity platform with enterprise-grade architecture. Backend built on NestJS/Prisma/BullMQ with standardized API contracts (response envelopes, correlation IDs, unified error handling), httpOnly cookie auth, encrypted fields with HMAC blind indexes, and AI cost observability. Frontend on Next.js/React/TanStack Query/shadcn/ui/Tailwind CSS with Lighthouse CI budget enforcement. AI layer on raw AI SDK v6 with tool orchestration, HITL, and hybrid RAG.
+A professional AI-powered email and productivity platform with enterprise-grade architecture. Backend built on NestJS/Prisma/BullMQ with standardized API contracts (response envelopes, correlation IDs, unified error handling), httpOnly cookie auth, encrypted fields with HMAC blind indexes, and AI cost observability. Frontend on Next.js/React/TanStack Query/MUI with Lighthouse CI budget enforcement and full PWA support (installable, offline email reading, background sync, push plumbing). AI layer on raw AI SDK v6 with tool orchestration, HITL, and hybrid RAG.
 
 ## Core Value
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v8.0 Progressive Web App
-
-**Goal:** Transform PMSync into a full PWA — installable on home screen, offline email reading via service worker caching, push notification frontend plumbing, and native-like install experience.
-
-**Target features:**
-- Web app manifest with icons for all platforms
-- Service worker with offline caching (inbox, read emails offline)
-- Install prompt UX (iOS instructions, beforeinstallprompt for Android/desktop)
-- Push notification frontend infrastructure (subscription UI, service worker handler)
-- Offline fallback page for uncached routes
-- Background sync for queued actions (mark read, archive) when reconnecting
-
-**Scope boundary:** Frontend only. No backend push trigger (BullMQ → web-push) in this milestone.
-
 ## Current State
 
-**Version:** v7.0 shipped (2026-03-23)
-**Status:** All 65 requirements satisfied, 8 non-blocking tech debt items documented
-**Previous:** v6.0 Enterprise Platform & AI Governance (partial — 4/66 reqs, archived 2026-03-20)
+**Version:** v8.0 shipped (2026-03-24)
+**Status:** All 21 PWA requirements satisfied, 9 non-blocking tech debt items documented
+**Previous:** v7.0 System Audit & Hardening (shipped 2026-03-23, 65/65 requirements)
 
-**v7.0 delivered:** Full-system verification and hardening — verified all 350+ API endpoints, fixed 20+ Gmail parity bugs, removed dead code, polished all pages with EmptyState/skeletons/error handling, verified security controls, deployed hybrid email search.
+**v8.0 delivered:** Full PWA transformation — Serwist service worker with precaching and API bypass, offline email reading via TanStack Query persist to IndexedDB, background sync with offline mutation queue, cross-platform install prompts, push notification frontend plumbing (VAPID subscription, SW handlers), and SW update snackbar.
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
-- Frontend: Next.js 16, React 19, TanStack Query, shadcn/ui, Tailwind CSS
+- Frontend: Next.js 16, React 19, TanStack Query, MUI, Serwist PWA (SW + IndexedDB persist)
 - AI: Mistral via AI SDK v6 (streamText + tool()), assistant-ui chat frontend
 - Editor: TipTap for rich email compose
 - Virtualization: VList for 1000+ email performance
@@ -145,17 +131,23 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 - ✓ SEC-01..05: Security verified (auth guards, tenant isolation, CSRF, rate limiting, RBAC)
 - ⚠️ UIPOL-08..11: Deferred to v8.0+ (Phase 97 OBSOLETE — chat uses AI SDK, not custom CSS)
 
+**v8.0 - Progressive Web App (shipped 2026-03-24):**
+- ✓ FOUND-01..04: Installable PWA with SW, manifest, icons, API bypass, Vercel cache headers — v8.0
+- ✓ OFFL-01..04: Offline fallback page, connectivity banner, offline email reading (IndexedDB), app shell cache — v8.0
+- ✓ INST-01..03: Cross-platform install prompts (beforeinstallprompt, iOS instructions, standalone detection) — v8.0
+- ✓ PUSH-01..04: VAPID subscription UI, SW push/notificationclick handlers, browser support gating — v8.0
+- ✓ SYNC-01..04: Offline mutation queue, auto-replay on reconnect, 30-min TTL, logout cleanup — v8.0
+- ✓ PLSH-01..02: SW update snackbar, Lighthouse PWA audit — v8.0
+
 ### Active
 
-<!-- v8.0 PWA requirements — see REQUIREMENTS.md -->
-- Validated in Phase 100: FOUND-01 (Serwist packages), FOUND-02 (service worker with API bypass), FOUND-03 (Vercel cache headers), FOUND-04 (manifest + icons + meta tags)
-- Validated in Phase 101: OFFL-01 (branded offline fallback page), OFFL-02 (online/offline connectivity banner), OFFL-04 (app shell cache verification)
-- Validated in Phase 105: PUSH-01 (push subscription backend), PUSH-02 (PushManager lifecycle hook), PUSH-03 (SW push/notificationclick handlers), PUSH-04 (push API module), PLSH-01 (notification settings UI + SW update snackbar), PLSH-02 (logout cleanup)
+<!-- Next milestone requirements TBD — run /gsd:new-milestone -->
+(No active milestone — run `/gsd:new-milestone` to start next cycle)
 
 ### Out of Scope
 
-- Mobile app (web-first, responsive)
-- Offline support beyond cached inbox (full offline-first architecture with conflict resolution)
+- Mobile app (web-first, PWA provides native-like experience)
+- Full offline-first architecture with conflict resolution (beyond current IndexedDB cache + action queue)
 - End-to-end encryption (separate security audit)
 - Custom email provider (focus on Gmail, Outlook, IMAP)
 - Mastra framework (NestJS incompatible -- explicitly no NestJS support)
@@ -272,6 +264,12 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v7.0: Security scripts with Swagger enumeration | Auth guard script dynamically enumerates routes from Swagger JSON | ✓ Good |
 | v7.0: Phase 97 OBSOLETE | Chat UI rebuilt with AI SDK components; custom CSS migration unnecessary | ✓ Good |
 | v7.0: Write-tier rate limit 30/min | Identified as cause of user-reported 429s; documented for future tuning | ⚠️ Revisit |
+| v8.0: Serwist over next-pwa | Active maintenance, Workbox 7 compatible, Pages Router support | ✓ Good |
+| v8.0: TQ persist to IndexedDB (not SW API caching) | httpOnly cookies make SW fetch interception a credential hazard | ✓ Good |
+| v8.0: Online event primary, BackgroundSync enhancement | Safari has zero BackgroundSync support; online event is universal | ✓ Good |
+| v8.0: Controlled SW updates via SKIP_WAITING message | User controls reload timing; no surprise page refreshes | ✓ Good |
+| v8.0: Separate IndexedDB stores per concern | pmsync-query-cache vs pmsync-action-queue prevent cross-contamination | ✓ Good |
+| v8.0: Frontend-only push scope | Backend push dispatch deferred to v9+; web-push package unused | ✓ Good |
 
 ---
-*Last updated: 2026-03-24 after Phase 105 (Push Plumbing & Polish) complete — final phase of v8.0*
+*Last updated: 2026-03-24 after v8.0 Progressive Web App milestone*

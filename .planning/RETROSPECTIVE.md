@@ -144,6 +144,55 @@
 
 ---
 
+## Milestone: v8.0 -- Progressive Web App
+
+**Shipped:** 2026-03-24
+**Phases:** 6 | **Plans:** 11
+
+### What Was Built
+- PWA foundation: Serwist service worker with precaching, NetworkOnly /api/ bypass, Vercel no-cache headers
+- Offline experience: branded offline fallback page, online/offline connectivity banner, app shell cache
+- Cross-platform install: beforeinstallprompt hook with 30-day dismiss, iOS instructions with ua-parser-js, standalone detection
+- Offline email reading: TanStack Query persist to IndexedDB with selective 24h gcTime, 5-site logout cleanup
+- Background sync: Zustand offline mutation queue in IndexedDB, auto-replay on reconnect, 30-min TTL discard, BackgroundSync enhancement
+- Push plumbing: VAPID subscription UI in settings, SW push/notificationclick handlers, backend PushSubscription model, SW update snackbar
+
+### What Worked
+- Phase dependency chain (100→101→102→103→104→105) was clean — each phase built on the previous without conflicts
+- All phases executed in 2 days — fastest milestone by wall-clock time
+- SW handler aggregation worked cleanly (precache + fallback + sync + push + SKIP_WAITING in one sw.ts) with no ordering conflicts
+- Logout cleanup module centralized 5 different data cleanup sites (IndexedDB, SW caches, push sub, TQ cache, action queue)
+- IndexedDB store isolation (separate databases per concern) prevented cross-contamination between query cache and action queue
+
+### What Was Inefficient
+- Nyquist validation was left incomplete on all 6 phases — should have been part of plan execution, not post-hoc
+- SUMMARY.md files still lack one_liner fields (same issue since v4.1) — template not updated
+- `web-push` package was installed in Phase 105 backend but never imported — should have been deferred to v9 entirely
+- NEXT_PUBLIC_VAPID_KEY unvalidated at build time — should have been added to env validation during the phase
+
+### Patterns Established
+- useSyncExternalStore for all browser API subscriptions (online status, install prompt, push support)
+- Separate IndexedDB stores per concern (pmsync-query-cache, pmsync-action-queue) — prevents cross-contamination
+- SW postMessage relay pattern for actions requiring httpOnly cookie auth (sync handler → client → API)
+- Controlled SW updates via SKIP_WAITING message (no auto-skipWaiting, user controls reload timing)
+- Module-level replay lock for preventing double-replay from simultaneous online+sync events
+- _resetForTesting() pattern for module-state hooks (avoids jest.isolateModules React duplication)
+
+### Key Lessons
+1. PWA is frontend-heavy work — 254 files changed but mostly in frontend/ with minimal backend surface
+2. httpOnly cookie auth constrains SW capabilities — cannot make authenticated fetch() from SW, must relay via postMessage
+3. iOS/Safari divergence is significant: no beforeinstallprompt, no BackgroundSync, push only in standalone mode — plan for separate code paths
+4. Nyquist validation should be integrated into plan execution, not deferred as a separate step
+5. 5-min average plan execution proves that well-scoped plans with clear tasks are consistently fast
+
+### Cost Observations
+- Model mix: quality profile (opus) for all phases
+- 11 plans completed in 2 days (~55min total execution)
+- Average plan execution: ~5min (fastest per-plan velocity across all milestones)
+- Fastest milestone by wall-clock time (2 days)
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -162,6 +211,7 @@
 | v5.1 | 11 | 30 | Test coverage, polish |
 | v6.0 | 12 | - | Partial ship, enterprise features deferred |
 | v7.0 | 10 | 35 | Full-system verification, audit-driven, live validation |
+| v8.0 | 6 | 11 | PWA, fastest milestone (2 days, 5min/plan avg) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -169,5 +219,6 @@
 2. Carry-forward items are fine when scoped explicitly (v3.2->v4.0 worked cleanly)
 3. Gap closure phases are the cheapest quality investment (avg 3min vs 11min for planned phases) — confirmed again in v7.0 P99
 4. Facade pattern for god-file splits is the safest refactoring approach -- zero consumer changes across v4.0 and v4.1
-5. Plan execution velocity improves with each milestone (v1: 8min, v3.2: 11min, v4.0: 8min, v4.1: 6.5min, v7.0: 7min)
+5. Plan execution velocity improves with each milestone (v1: 8min, v3.2: 11min, v4.0: 8min, v4.1: 6.5min, v7.0: 7min, v8.0: 5min)
 6. Live validation is non-negotiable — v7.0 Phase 90 proved that code review alone misses behavioral bugs (20+ Gmail parity bugs)
+7. SUMMARY.md one_liner fields are still missing after 4 milestones — fix the template, not the downstream extraction

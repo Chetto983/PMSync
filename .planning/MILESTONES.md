@@ -1,5 +1,40 @@
 # Project Milestones: PMSync
 
+## v8.0 Progressive Web App (Shipped: 2026-03-24)
+
+**Delivered:** Full PWA transformation — installable on all platforms with offline email reading via IndexedDB persistence, background sync for queued actions, push notification frontend plumbing, and native-like install experience with platform-specific UX.
+
+**Phases completed:** 100-105 (6 phases, 11 plans)
+
+**Key accomplishments:**
+
+- Serwist service worker with precaching, NetworkOnly /api/ bypass (preserves httpOnly cookie auth), Vercel no-cache headers, and controlled SW updates via SKIP_WAITING message pattern
+- Branded offline fallback page with dark/light mode, online/offline connectivity banner with collapse animation, app shell loads from SW cache
+- Cross-platform install: beforeinstallprompt for Android/desktop with 30-day dismiss persistence, iOS share instructions with ua-parser-js detection, standalone mode suppression
+- Offline email reading: TanStack Query persist to IndexedDB with selective 24h gcTime for email queries, 5-site logout cleanup (IndexedDB + SW caches + push sub + TQ cache + action queue)
+- Background sync: Zustand-backed offline mutation queue in IndexedDB, auto-replay on reconnect via online event, BackgroundSync as Chromium-only enhancement, 30-min TTL discard with notification
+- Push plumbing: VAPID subscription UI in settings (gated behind browser support), SW push/notificationclick handlers, backend PushSubscription model with multi-tenant upsert
+
+**Stats:**
+
+- 6 phases, 11 plans
+- ~121 commits, 254 files changed
+- +18,422 / -1,005 lines
+- 2 days (2026-03-23 → 2026-03-24)
+- Requirements: 21/21 satisfied
+- Average plan execution: ~5 min
+
+**Git tag:** `v8.0`
+
+**Known Tech Debt (accepted):**
+
+- Nyquist validation incomplete on all 6 phases (VALIDATION.md drafts, wave_0 not finished)
+- `web-push` package installed in backend but unused (dispatch deferred to v9+)
+- `NEXT_PUBLIC_VAPID_KEY` not validated at build time (silent subscription failure if unset)
+- Pre-existing TypeScript error in locales (consentRequired key missing type)
+
+---
+
 ## v7.0 System Audit & Hardening (Shipped: 2026-03-23)
 
 **Delivered:** Full-system verification and hardening — verified all 350+ API endpoints across 16 backend modules, fixed 20+ Gmail parity bugs (folder counts, draft sync, reply recipients, DnD, pagination), removed dead code (VoltAgent shims, orphaned renderers, unused deps), polished all 12 pages with EmptyState/QueryErrorAlert/skeletons, verified security controls (auth guards, tenant isolation, CSRF, rate limiting, RBAC), and deployed hybrid email search.
@@ -270,4 +305,4 @@
 
 ---
 
-*Milestones log updated: 2026-03-06*
+*Milestones log updated: 2026-03-24*
