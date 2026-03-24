@@ -41,10 +41,18 @@ export function useSwUpdate(): UseSwUpdateReturn {
   }, []);
 
   const activateUpdate = useCallback(() => {
-    if (!waitingSw) return;
+    if (!waitingSw) {
+      // No waiting SW — just hard reload
+      window.location.reload();
+      return;
+    }
     waitingSw.postMessage({ type: 'SKIP_WAITING' });
-    // Reload on controllerchange
+    // Reload on controllerchange, with fallback timeout
+    const fallbackTimer = setTimeout(() => {
+      window.location.reload();
+    }, 2000);
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+      clearTimeout(fallbackTimer);
       window.location.reload();
     }, { once: true });
   }, [waitingSw]);

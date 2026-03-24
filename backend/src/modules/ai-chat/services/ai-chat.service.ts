@@ -12,7 +12,6 @@ import {
   InvalidPromptError,
   convertToModelMessages,
   NoSuchToolError,
-  InvalidToolInputError,
   type UIMessage,
   type ModelMessage,
   type StepResult,
@@ -49,7 +48,7 @@ import { EmailProductivityToolsService } from '../tools/email-productivity-tools
 import { FollowUpToolsService } from '../tools/follow-up-tools.service';
 import { MemoryService } from './memory.service';
 import { ChatEnrichmentService } from './chat-enrichment.service';
-import { QueryRouterService, type QueryComplexity } from './query-router.service';
+import { QueryRouterService } from './query-router.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 import {
   redactModelMessagesForModel,
@@ -239,7 +238,7 @@ export class AiChatService {
 
     // DEBUG: Log message structure to diagnose ModelMessage[] schema errors
     this.logger.warn(
-      `[DIAG] Message chain (${messages.length} msgs): ${messages.map((m, i) => `[${i}] role=${m.role} contentType=${typeof m.content === 'string' ? 'string' : Array.isArray(m.content) ? 'array(' + (m.content as any[]).length + ')' : typeof m.content}`).join(' | ')}`,
+      `[DIAG] Message chain (${messages.length} msgs): ${messages.map((m, i) => `[${i}] role=${m.role} contentType=${typeof m.content === 'string' ? 'string' : Array.isArray(m.content) ? 'array(' + (m.content).length + ')' : typeof m.content}`).join(' | ')}`,
     );
 
     // 7. Audit log (fire-and-forget)
@@ -317,7 +316,7 @@ export class AiChatService {
       // so it can fix its own JSON instead of failing the step.
       experimental_repairToolCall: async ({
         toolCall,
-        tools: availableTools,
+        tools: _availableTools,
         inputSchema,
         error,
       }) => {
@@ -679,7 +678,7 @@ export class AiChatService {
         // Only keep valid ModelMessage content parts: 'text' and 'tool-call'.
         // Non-model parts like 'reasoning' are stored for display but must
         // NOT be sent to the model — they cause InvalidPromptError.
-        const validParts = (msg.content as any[]).filter((part) => {
+        const validParts = (msg.content).filter((part) => {
           if (!part || typeof part !== 'object' || !('type' in part)) return false;
           if (part.type === 'tool-call') {
             if (!part.toolCallId || !part.toolName) return false;
@@ -691,7 +690,7 @@ export class AiChatService {
         if (validParts.length === 0) {
           // Degenerate array — convert to empty text
           msg.content = '';
-        } else if (validParts.length !== (msg.content as any[]).length) {
+        } else if (validParts.length !== (msg.content).length) {
           msg.content = validParts;
         }
       }
@@ -700,8 +699,8 @@ export class AiChatService {
     // Pass 2: drop tool messages referencing unknown toolCallIds
     return messages.filter((msg) => {
       if (msg.role !== 'tool') return true;
-      if (!Array.isArray(msg.content) || (msg.content as any[]).length === 0) return false;
-      const toolCallId = (msg.content as any[])[0]?.toolCallId;
+      if (!Array.isArray(msg.content) || (msg.content).length === 0) return false;
+      const toolCallId = (msg.content)[0]?.toolCallId;
       return typeof toolCallId === 'string' && knownToolCallIds.has(toolCallId);
     }) as ModelMessage[];
   }

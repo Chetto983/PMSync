@@ -11,12 +11,15 @@ export function UpdateSnackbar() {
     <Snackbar
       open={updateAvailable}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      sx={{ zIndex: 1500 }}
     >
       <Alert
         severity="info"
+        variant="filled"
         icon={<RefreshCw size={20} />}
+        sx={{ boxShadow: 6, minWidth: 340 }}
         action={
-          <Button size="small" color="inherit" onClick={activateUpdate}>
+          <Button size="small" color="inherit" variant="outlined" onClick={activateUpdate}>
             {t.pwa?.update?.reload || 'Reload page'}
           </Button>
         }

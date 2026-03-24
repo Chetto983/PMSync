@@ -62,7 +62,7 @@ describe('Qwen 3.5 ToolLoopAgent E2E', () => {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(String(value));
+      chunks.push(typeof value === 'string' ? value : String(value as unknown));
     }
 
     const fullOutput = chunks.join('');
@@ -132,7 +132,7 @@ describe('Qwen 3.5 ToolLoopAgent E2E', () => {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(String(value));
+      chunks.push(typeof value === 'string' ? value : String(value as unknown));
     }
 
     const fullOutput = chunks.join('');

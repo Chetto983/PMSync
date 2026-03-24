@@ -111,7 +111,7 @@ export class MistralService implements OnModuleInit {
     validationContext?: ValidationContext;
   }): Promise<string> {
     const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000,
-      telemetryContext: _telemetryContext, modelTier, jsonMode = false, validationContext = 'USER_PROMPT' } = options;
+      telemetryContext: _telemetryContext, modelTier, jsonMode: _jsonMode = false, validationContext = 'USER_PROMPT' } = options;
 
     const modelId = this.getModel(modelTier);
     this.validatePromptInputs(userPrompt, systemPrompt, validationContext);
