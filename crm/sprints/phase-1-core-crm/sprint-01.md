@@ -12,16 +12,16 @@
 
 ## Sprint Backlog
 
-- [ ] T-0101 — Definire schema Prisma: modello `Account` con campi (name, website, industry, size, revenue, address, tenantId, parentId) e relazioni — [3 SP] — 📋 TODO
-- [ ] T-0102 — Definire schema Prisma: modelli `Pipeline`, `Stage` (position, probability, color), `Deal` (amount, currency, expectedCloseDate, stage, pipeline, account, contact) — [3 SP] — 📋 TODO
-- [ ] T-0103 — Definire schema Prisma: modelli `Product` (name, code, price, currency), `DealProduct` (quantity, discount, unitPrice), `AccountContact` (role, isPrimary) — [2 SP] — 📋 TODO
-- [ ] T-0104 — Eseguire migration Prisma e verificare che `npx prisma generate` produca il client corretto — [1 SP] — 📋 TODO
-- [ ] T-0105 — Creare modulo NestJS `AccountModule` con controller, service, DTOs (CreateAccountDto, UpdateAccountDto, AccountResponseDto) — [2 SP] — 📋 TODO
-- [ ] T-0106 — Implementare endpoint CRUD Account: `GET /crm/accounts`, `GET /crm/accounts/:id`, `POST /crm/accounts`, `PATCH /crm/accounts/:id`, `DELETE /crm/accounts/:id` — tutti tenant-scoped — [2 SP] — 📋 TODO
-- [ ] T-0107 — Creare pagina Account list in `frontend/src/pages/dashboard/crm/accounts/index.tsx` con MUI DataGrid (sorting, pagination, search) — [2 SP] — 📋 TODO
-- [ ] T-0108 — Creare dialog creazione Account (MUI Dialog con form: name, website, industry, size) — [1 SP] — 📋 TODO
-- [ ] T-0109 — Creare TanStack Query hooks: `useAccounts`, `useAccount`, `useCreateAccount`, `useUpdateAccount`, `useDeleteAccount` in `frontend/hooks/queries/use-accounts.ts` — [1 SP] — 📋 TODO
-- [ ] T-0110 — Aggiungere traduzioni CRM Account in `frontend/locales/en.ts` e `it.ts`, aggiornare types in `index.ts` — [1 SP] — 📋 TODO
+- [x] T-0101 — Definire schema Prisma: modello `CrmAccount` con campi (name, website, industry, size, revenue, address, tenantId, parentId) e relazioni — [3 SP] — ✅ DONE
+- [x] T-0102 — Definire schema Prisma: modelli `CrmPipeline`, `CrmStage`, `CrmDeal`, `CrmActivity` — [3 SP] — ✅ DONE
+- [x] T-0103 — Definire schema Prisma: modelli `CrmProduct`, `DealProduct`, `AccountContact`, `DealContact` — [2 SP] — ✅ DONE
+- [x] T-0104 — Eseguire `prisma db push` e verificare che `npx prisma generate` produca il client corretto — [1 SP] — ✅ DONE
+- [x] T-0105 — Creare modulo NestJS `AccountModule` con controller, service, DTOs — [2 SP] — ✅ DONE
+- [x] T-0106 — Implementare endpoint CRUD Account: tutti tenant-scoped — [2 SP] — ✅ DONE
+- [x] T-0107 — Creare pagina Account list con MUI Table (sorting, pagination, search) — [2 SP] — ✅ DONE
+- [x] T-0108 — Creare dialog creazione Account (MUI Dialog con form completo) — [1 SP] — ✅ DONE
+- [x] T-0109 — Creare TanStack Query hooks e API module in `frontend/hooks/queries/use-crm-accounts.ts` — [1 SP] — ✅ DONE
+- [x] T-0110 — Aggiungere traduzioni CRM Account in en.ts, it.ts, index.ts — [1 SP] — ✅ DONE
 
 ---
 

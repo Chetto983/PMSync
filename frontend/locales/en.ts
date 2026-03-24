@@ -30,6 +30,7 @@ export const en: AppTranslations = {
     tasks: 'Tasks',
     analytics: 'Analytics',
     ai: 'AI Assistant',
+    crmAccounts: 'Accounts',
     settings: 'Settings',
     profile: 'Profile',
     logout: 'Logout',

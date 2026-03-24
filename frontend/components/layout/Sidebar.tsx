@@ -22,6 +22,7 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
+  Building2,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -33,7 +34,7 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   href: string;
-  section?: 'main' | 'ai';
+  section?: 'main' | 'crm' | 'ai';
 }
 
 export interface PmSyncSidebarProps {
@@ -62,6 +63,7 @@ export function Sidebar({
     { label: t.nav.mail, icon: <Mail size={24} strokeWidth={1.7} />, href: '/dashboard/email', section: 'main' },
     { label: t.nav.calendar, icon: <Calendar size={24} strokeWidth={1.7} />, href: '/dashboard/calendar', section: 'main' },
     { label: t.nav.contacts, icon: <Users size={24} strokeWidth={1.7} />, href: '/dashboard/contacts', section: 'main' },
+    { label: t.nav.crmAccounts, icon: <Building2 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/accounts', section: 'crm' },
     { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={24} strokeWidth={1.7} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
     { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={24} strokeWidth={1.7} />, href: '/dashboard/reminders', section: 'ai' },
     { label: t.ai?.title || 'AI Assistant', icon: <Sparkles size={24} strokeWidth={1.7} />, href: '/dashboard/ai', section: 'ai' },
@@ -188,6 +190,7 @@ export function Sidebar({
   };
 
   const mainItems = navItems.filter((i) => i.section === 'main');
+  const crmItems = navItems.filter((i) => i.section === 'crm');
   const aiItems = navItems.filter((i) => i.section === 'ai');
 
   const drawerContent = (
@@ -241,6 +244,37 @@ export function Sidebar({
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {mainItems.map(renderNavItem)}
+      </Box>
+
+      {/* Section: CRM */}
+      <Box
+        sx={{
+          mx: collapsed ? 2 : 2.5,
+          my: 1.5,
+          height: '1px',
+          background: (th) =>
+            `linear-gradient(90deg, transparent, ${alpha(th.palette.divider, 0.4)}, transparent)`,
+        }}
+      />
+
+      {!collapsed && (
+        <Typography
+          sx={{
+            fontSize: '0.625rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'text.disabled',
+            px: 2.5,
+            pb: 0.75,
+          }}
+        >
+          CRM
+        </Typography>
+      )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {crmItems.map(renderNavItem)}
       </Box>
 
       {/* Section divider */}

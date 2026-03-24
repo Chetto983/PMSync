@@ -298,6 +298,7 @@ export interface AppTranslations {
     tasks: string;
     analytics: string;
     ai: string;
+    crmAccounts: string;
     settings: string;
     profile: string;
     logout: string;
