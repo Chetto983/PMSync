@@ -61,18 +61,28 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     ScheduleModule.forRoot(),
     // Phase 31: In-process event bus for domain event decoupling (Phase 32)
     EventEmitterModule.forRoot(),
-    // Rate limiting: dual tiers for read (100/min) and write (30/min) operations (SEC-05)
+    // Rate limiting: 4-tier system (RATE-01)
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          name: 'short',
+          name: 'read',
           ttl: 60000, // 1 minute
-          limit: 300, // 300 req/min for read operations (default)
+          limit: 300, // 300 req/min for GET/HEAD/OPTIONS
         },
         {
-          name: 'write',
+          name: 'safe-write',
           ttl: 60000, // 1 minute
-          limit: 30, // 30 req/min for write operations
+          limit: 100, // 100 req/min for POST/PATCH/PUT/DELETE (default mutations)
+        },
+        {
+          name: 'destructive-write',
+          ttl: 60000, // 1 minute
+          limit: 30, // 30 req/min for destructive operations
+        },
+        {
+          name: 'send',
+          ttl: 60000, // 1 minute
+          limit: 10, // 10 req/min for email sending
         },
       ],
     }),
