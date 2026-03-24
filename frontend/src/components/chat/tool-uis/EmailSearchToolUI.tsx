@@ -54,6 +54,10 @@ const EmailRow = memo(function EmailRow({ item, isFirst, tu }: { item: EmailSear
   const isUnread = item.isRead === false;
   return (
     <Box
+      component="a"
+      href={`/dashboard/email/thread/${item.id}`}
+      target="_blank"
+      rel="noopener"
       sx={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -64,6 +68,9 @@ const EmailRow = memo(function EmailRow({ item, isFirst, tu }: { item: EmailSear
         borderColor: 'divider',
         '&:hover': { bgcolor: 'action.hover' },
         transition: 'background-color 0.15s ease',
+        textDecoration: 'none',
+        color: 'inherit',
+        cursor: 'pointer',
       }}
     >
       <SenderAvatar name={item.from} size={28} />
