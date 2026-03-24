@@ -6,4 +6,6 @@ export const crmAccountsKeys = {
   listFiltered: (params?: ListAccountsParams) => [...crmAccountsKeys.list(), params ?? {}] as const,
   details: () => [...crmAccountsKeys.all, 'detail'] as const,
   detail: (id: string) => [...crmAccountsKeys.details(), id] as const,
+  children: (id: string) => [...crmAccountsKeys.all, 'children', id] as const,
+  contacts: (id: string) => [...crmAccountsKeys.all, 'contacts', id] as const,
 } as const;

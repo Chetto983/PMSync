@@ -4,6 +4,7 @@ import {
   type ListAccountsParams,
   type CreateAccountDto,
   type UpdateAccountDto,
+  type LinkContactDto,
 } from '@/lib/api/crm-accounts';
 import { crmAccountsKeys } from './crm-accounts-keys';
 
@@ -72,6 +73,70 @@ export function useDeleteAccount() {
       crmAccountsApi.delete(id).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: crmAccountsKeys.all });
+    },
+  });
+}
+
+// ---- Children & Contacts ----
+
+export function crmAccountChildrenOptions(id: string) {
+  return queryOptions({
+    queryKey: crmAccountsKeys.children(id),
+    queryFn: () => crmAccountsApi.getChildren(id).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!id,
+  });
+}
+
+export function useAccountChildren(id: string) {
+  return useQuery(crmAccountChildrenOptions(id));
+}
+
+export function crmAccountContactsOptions(accountId: string) {
+  return queryOptions({
+    queryKey: crmAccountsKeys.contacts(accountId),
+    queryFn: () => crmAccountsApi.getContacts(accountId).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!accountId,
+  });
+}
+
+export function useAccountContacts(accountId: string) {
+  return useQuery(crmAccountContactsOptions(accountId));
+}
+
+export function useLinkContact() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountId, dto }: { accountId: string; dto: LinkContactDto }) =>
+      crmAccountsApi.linkContact(accountId, dto).then((r) => r.data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: crmAccountsKeys.contacts(variables.accountId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: crmAccountsKeys.detail(variables.accountId),
+      });
+    },
+  });
+}
+
+export function useUnlinkContact() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountId, contactId }: { accountId: string; contactId: string }) =>
+      crmAccountsApi.unlinkContact(accountId, contactId).then((r) => r.data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: crmAccountsKeys.contacts(variables.accountId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: crmAccountsKeys.detail(variables.accountId),
+      });
     },
   });
 }

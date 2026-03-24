@@ -66,6 +66,29 @@ export interface CreateAccountDto {
 
 export interface UpdateAccountDto extends Partial<CreateAccountDto> {}
 
+export interface AccountContactLink {
+  id: string;
+  accountId: string;
+  contactId: string;
+  tenantId: string;
+  role: string | null;
+  isPrimary: boolean;
+  createdAt: string;
+  contact: {
+    id: string;
+    tenantId: string;
+    displayName: string | null;
+    company: string | null;
+    emails: Array<{ value: string; type?: string }> | null;
+    phoneNumbers: Array<{ value: string; type?: string }> | null;
+  };
+}
+
+export interface LinkContactDto {
+  contactId: string;
+  role?: string;
+}
+
 // ---- API ----
 
 export const crmAccountsApi = {
@@ -87,5 +110,23 @@ export const crmAccountsApi = {
 
   delete(id: string) {
     return apiClient.delete<{ deleted: boolean }>(`/crm/accounts/${id}`);
+  },
+
+  getChildren(id: string) {
+    return apiClient.get<CrmAccount[]>(`/crm/accounts/${id}/children`);
+  },
+
+  getContacts(accountId: string) {
+    return apiClient.get<AccountContactLink[]>(`/crm/accounts/${accountId}/contacts`);
+  },
+
+  linkContact(accountId: string, dto: LinkContactDto) {
+    return apiClient.post<AccountContactLink>(`/crm/accounts/${accountId}/contacts`, dto);
+  },
+
+  unlinkContact(accountId: string, contactId: string) {
+    return apiClient.delete<{ deleted: boolean }>(
+      `/crm/accounts/${accountId}/contacts/${contactId}`,
+    );
   },
 };
