@@ -13,9 +13,10 @@ import {
   Button,
   IconButton,
   TextField,
-  Chip,
   Tooltip,
   Grid,
+  MenuItem,
+  Divider,
 } from '@mui/material';
 import {
   ArrowLeft,
@@ -34,6 +35,7 @@ import type { CrmAccount, UpdateAccountDto } from '@/lib/api/crm-accounts';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { AccountHierarchyTree } from './AccountHierarchyTree';
 import { AccountContactsTab } from './AccountContactsTab';
+import { AddressEditSection } from './AddressEditSection';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -131,6 +133,15 @@ function InlineEditField({
   );
 }
 
+// ---- Constants ----
+
+const INDUSTRIES = [
+  'technology', 'healthcare', 'finance', 'manufacturing', 'retail',
+  'education', 'consulting', 'realEstate', 'media', 'energy', 'other',
+] as const;
+
+const SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'] as const;
+
 // ---- Info Section ----
 
 function AccountInfoCard({
@@ -150,13 +161,6 @@ function AccountInfoCard({
     },
     [onSave],
   );
-
-  const address = account.address;
-  const addressStr = address
-    ? [address.street, address.city, address.state, address.zip, address.country]
-        .filter(Boolean)
-        .join(', ')
-    : null;
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -198,46 +202,68 @@ function AccountInfoCard({
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <MapPin size={16} />
-              <Typography
-                variant="body2"
-                color={addressStr ? 'text.primary' : 'text.disabled'}
-                sx={{ px: 1 }}
-              >
-                {addressStr || (ta?.detail?.info?.noAddress ?? 'No address')}
-              </Typography>
+              <AddressEditSection
+                address={account.address}
+                onSave={(addr) => onSave({ address: addr })}
+              />
             </Box>
           </Box>
         </Grid>
+
         <Grid size={{ xs: 12 }}>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {account.industry && (
-              <Chip
-                label={
-                  ta?.industries?.[account.industry as keyof typeof ta.industries] ??
-                  account.industry
-                }
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {account.size && (
-              <Chip
-                label={
-                  ta?.sizes?.[account.size as keyof typeof ta.sizes] ?? account.size
-                }
-                size="small"
-                variant="outlined"
-              />
-            )}
-            {account.revenue && (
-              <Chip
-                label={`${account.currency ?? 'EUR'} ${Number(account.revenue).toLocaleString()}`}
-                size="small"
-                variant="outlined"
-                color="success"
-              />
-            )}
-          </Box>
+          <Divider sx={{ my: 0.5 }} />
+        </Grid>
+
+        {/* Industry / Size / Revenue — editable selects */}
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <TextField
+            label={ta?.form?.industry ?? 'Industry'}
+            value={account.industry ?? ''}
+            onChange={(e) => onSave({ industry: e.target.value || undefined })}
+            fullWidth
+            size="small"
+            select
+          >
+            <MenuItem value="">—</MenuItem>
+            {INDUSTRIES.map((ind) => (
+              <MenuItem key={ind} value={ind}>
+                {ta?.industries?.[ind] ?? ind}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <TextField
+            label={ta?.form?.size ?? 'Size'}
+            value={account.size ?? ''}
+            onChange={(e) => onSave({ size: e.target.value || undefined })}
+            fullWidth
+            size="small"
+            select
+          >
+            <MenuItem value="">—</MenuItem>
+            {SIZES.map((s) => (
+              <MenuItem key={s} value={s}>
+                {ta?.sizes?.[s] ?? s}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <TextField
+            label={ta?.form?.revenue ?? 'Revenue'}
+            type="number"
+            value={account.revenue ?? ''}
+            onChange={(e) =>
+              onSave({
+                revenue: e.target.value ? Number(e.target.value) : undefined,
+                currency: account.currency || 'EUR',
+              })
+            }
+            fullWidth
+            size="small"
+            slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+          />
         </Grid>
       </Grid>
     </Paper>
