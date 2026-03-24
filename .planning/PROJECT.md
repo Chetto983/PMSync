@@ -21,7 +21,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 ## Current State
 
 **Version:** v9.0 in progress (2026-03-24)
-**Status:** Phase 106 complete — tiered rate limiting shipped. v8.0 PWA fully shipped.
+**Status:** Phase 107 complete — push notification backend dispatch shipped. Push notifications now deliver to devices.
 **Previous:** v7.0 System Audit & Hardening (shipped 2026-03-23, 65/65 requirements)
 
 **v8.0 delivered:** Full PWA transformation — Serwist service worker with precaching and API bypass, offline email reading via TanStack Query persist to IndexedDB, background sync with offline mutation queue, cross-platform install prompts, push notification frontend plumbing (VAPID subscription, SW handlers), and SW update snackbar.
@@ -285,4 +285,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v8.0: Frontend-only push scope | Backend push dispatch deferred to v9+; web-push package unused | ✓ Good |
 
 ---
-*Last updated: 2026-03-24 after v9.0 milestone started*
+*Last updated: 2026-03-24 after Phase 107 complete*
