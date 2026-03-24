@@ -8,6 +8,16 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
+## Current Milestone: v9.0 AI Intelligence & Platform Hardening
+
+**Goal:** Make the AI agent smarter with graph-aware RAG, ship backend push notifications, harden rate limits, and add explicit HITL approval routing.
+
+**Target features:**
+- Push notification backend dispatch (complete the v8.0 plumbing)
+- Tiered write-rate limiting per endpoint category
+- Explicit HITL approval gates for destructive AI tools
+- Graph RAG: query routing, reranking, graph expansion, context assembly, entity graph, memory anchoring, tool consolidation, few-shot examples
+
 ## Current State
 
 **Version:** v8.0 shipped (2026-03-24)
@@ -141,8 +151,11 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ### Active
 
-<!-- Next milestone requirements TBD — run /gsd:new-milestone -->
-(No active milestone — run `/gsd:new-milestone` to start next cycle)
+<!-- v9.0 requirements — see REQUIREMENTS.md for full list -->
+- [ ] Push notification backend dispatch (event triggers, web-push delivery, per-user preferences)
+- [ ] Tiered write-rate limiting (endpoint-specific limits replacing flat 30/min)
+- [ ] Explicit HITL approval routing (destructive tool gates, approval UX)
+- [ ] Graph RAG pipeline (query router, reranking, graph expansion, context assembly, entity graph, memory anchoring, tool consolidation, few-shot examples)
 
 ### Out of Scope
 
@@ -272,4 +285,4 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v8.0: Frontend-only push scope | Backend push dispatch deferred to v9+; web-push package unused | ✓ Good |
 
 ---
-*Last updated: 2026-03-24 after v8.0 Progressive Web App milestone*
+*Last updated: 2026-03-24 after v9.0 milestone started*

@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
+milestone: v9.0
+milestone_name: "AI Intelligence & Platform Hardening"
 current_plan: null
-status: milestone_complete
-stopped_at: "v8.0 Progressive Web App shipped"
-last_updated: "2026-03-24T10:10:00.000Z"
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-24T12:00:00.000Z"
 progress:
   total_phases: 0
   completed_phases: 0
@@ -20,12 +20,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-24)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Planning next milestone
+**Current focus:** v9.0 AI Intelligence & Platform Hardening
 
 ## Current Position
 
-No active milestone. v8.0 completed 2026-03-24.
-Run `/gsd:new-milestone` to start next cycle.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-24 — Milestone v9.0 started
 
 ## Performance Metrics
 
@@ -40,7 +42,7 @@ Run `/gsd:new-milestone` to start next cycle.
 
 ### Decisions
 
-(Cleared — see PROJECT.md Key Decisions for v8.0 entries)
+(None yet for v9.0)
 
 ### Pending Todos
 
@@ -53,5 +55,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: v8.0 milestone completed
+Stopped at: Defining v9.0 requirements
 Resume file: None
