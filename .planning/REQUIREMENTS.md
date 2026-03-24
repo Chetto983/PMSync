@@ -9,13 +9,13 @@ Requirements for v9.0 AI Intelligence & Platform Hardening. Each maps to roadmap
 
 ### Push Notification Dispatch
 
-- [ ] **PUSH-01**: User receives push notification when a new email arrives
-- [ ] **PUSH-02**: Push dispatch routes through BullMQ queue (not inline event handler)
-- [ ] **PUSH-03**: Stale subscriptions are deleted on web-push 410/404 response
-- [ ] **PUSH-04**: User receives push on all subscribed devices (multi-device delivery)
-- [ ] **PUSH-05**: User can configure push preferences per category (new email, calendar, AI)
+- [x] **PUSH-01**: User receives push notification when a new email arrives
+- [x] **PUSH-02**: Push dispatch routes through BullMQ queue (not inline event handler)
+- [x] **PUSH-03**: Stale subscriptions are deleted on web-push 410/404 response
+- [x] **PUSH-04**: User receives push on all subscribed devices (multi-device delivery)
+- [x] **PUSH-05**: User can configure push preferences per category (new email, calendar, AI)
 - [ ] **PUSH-06**: Clicking a push notification opens the specific email thread in the app
-- [ ] **PUSH-07**: Multiple emails in the same thread produce a single grouped notification with count
+- [x] **PUSH-07**: Multiple emails in the same thread produce a single grouped notification with count
 
 ### Rate Limiting
 
@@ -81,13 +81,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RATE-01 | Phase 106 | Complete |
 | RATE-02 | Phase 106 | Complete |
 | RATE-03 | Phase 106 | Complete |
-| PUSH-01 | Phase 107 | Pending |
-| PUSH-02 | Phase 107 | Pending |
-| PUSH-03 | Phase 107 | Pending |
-| PUSH-04 | Phase 107 | Pending |
-| PUSH-05 | Phase 107 | Pending |
+| PUSH-01 | Phase 107 | Complete |
+| PUSH-02 | Phase 107 | Complete |
+| PUSH-03 | Phase 107 | Complete |
+| PUSH-04 | Phase 107 | Complete |
+| PUSH-05 | Phase 107 | Complete |
 | PUSH-06 | Phase 107 | Pending |
-| PUSH-07 | Phase 107 | Pending |
+| PUSH-07 | Phase 107 | Complete |
 | HITL-01 | Phase 108 | Pending |
 | HITL-02 | Phase 108 | Pending |
 | HITL-03 | Phase 108 | Pending |
