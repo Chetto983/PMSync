@@ -16,7 +16,12 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
 import { AccountService } from '../services/account.service';
-import { CreateAccountDto, UpdateAccountDto, ListAccountsQueryDto } from '../dto/account.dto';
+import {
+  CreateAccountDto,
+  UpdateAccountDto,
+  ListAccountsQueryDto,
+  LinkContactDto,
+} from '../dto/account.dto';
 
 @ApiTags('CRM - Accounts')
 @ApiBearerAuth()
@@ -80,5 +85,40 @@ export class AccountController {
   async delete(@Req() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.accountService.delete(tenantId, id);
+  }
+
+  @Get(':id/contacts')
+  @ApiOperation({ summary: 'List contacts linked to account' })
+  @ApiResponse({ status: 200, description: 'Linked contacts returned' })
+  async getContacts(@Req() req: any, @Param('id') id: string) {
+    const tenantId = req.user.tenantId;
+    return this.accountService.getContacts(tenantId, id);
+  }
+
+  @Post(':id/contacts')
+  @ApiOperation({ summary: 'Link contact to account' })
+  @ApiResponse({ status: 201, description: 'Contact linked' })
+  @ApiResponse({ status: 409, description: 'Contact already linked' })
+  async linkContact(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: LinkContactDto,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.accountService.linkContact(tenantId, id, dto);
+  }
+
+  @Delete(':accountId/contacts/:contactId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Unlink contact from account' })
+  @ApiResponse({ status: 200, description: 'Contact unlinked' })
+  @ApiResponse({ status: 404, description: 'Link not found' })
+  async unlinkContact(
+    @Req() req: any,
+    @Param('accountId') accountId: string,
+    @Param('contactId') contactId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.accountService.unlinkContact(tenantId, accountId, contactId);
   }
 }

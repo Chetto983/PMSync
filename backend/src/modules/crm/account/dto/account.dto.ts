@@ -125,6 +125,16 @@ export class UpdateAccountDto {
   parentId?: string;
 }
 
+export class LinkContactDto {
+  @IsString()
+  contactId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  role?: string;
+}
+
 export class ListAccountsQueryDto {
   @IsOptional()
   @IsString()

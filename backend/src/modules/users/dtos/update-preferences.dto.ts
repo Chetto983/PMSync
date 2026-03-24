@@ -196,6 +196,16 @@ export class UpdatePreferencesDto {
   aiAutoApproveThreshold?: number;
 
   @ApiProperty({
+    description: 'HITL approval sensitivity level',
+    example: 'HIGH_ONLY',
+    enum: ['HIGH_ONLY', 'ALL_MUTATIONS', 'NONE'],
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  hitlSensitivity?: string;
+
+  @ApiProperty({
     description: 'Enable AI smart replies',
     example: true,
     required: false,

@@ -28,6 +28,18 @@ export interface LogToolExecutionInput {
   status: 'success' | 'error';
 }
 
+/**
+ * HITL decision audit input (HITL-04: approval/rejection logging)
+ */
+export interface LogHitlDecisionInput {
+  tenantId: string;
+  userId: string;
+  toolName: string;
+  toolCallId: string;
+  decision: 'approved' | 'rejected';
+  conversationId: string;
+}
+
 @Injectable()
 export class AuditService {
   private logger = new Logger(AuditService.name);
@@ -120,6 +132,28 @@ export class AuditService {
       });
     } catch (error) {
       this.logger.error(`Failed to log tool execution: ${error}`);
+    }
+  }
+
+  /**
+   * HITL-04: Log HITL approval/rejection decision.
+   *
+   * Fire-and-forget: errors are logged but NEVER thrown.
+   */
+  async logHitlDecision(data: LogHitlDecisionInput): Promise<void> {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          tenantId: data.tenantId,
+          userId: data.userId,
+          action: `HITL:${data.decision.toUpperCase()}`,
+          entity: 'AiChat',
+          entityId: data.toolCallId,
+          changes: { toolName: data.toolName, conversationId: data.conversationId },
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to log HITL decision: ${error}`);
     }
   }
 }
