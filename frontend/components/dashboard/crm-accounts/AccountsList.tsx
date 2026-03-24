@@ -27,6 +27,7 @@ import type { CrmAccount } from '@/lib/api/crm-accounts';
 export function AccountsList() {
   const t = useTranslations();
   const ta = t.crmAccounts;
+  const tc = t.common;
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -216,6 +217,13 @@ export function AccountsList() {
               setPage(0);
             }}
             rowsPerPageOptions={[10, 25, 50]}
+            labelRowsPerPage={tc?.rowsPerPage ?? 'Rows per page:'}
+            labelDisplayedRows={({ from, to, count }) =>
+              (tc?.displayedRows ?? '{from}-{to} of {count}')
+                .replace('{from}', String(from))
+                .replace('{to}', String(to))
+                .replace('{count}', count !== -1 ? String(count) : `more than ${to}`)
+            }
           />
         </>
       )}
