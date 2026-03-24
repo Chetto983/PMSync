@@ -22,7 +22,7 @@
 - [x] T-0208 — Implementare breadcrumb navigation per Account (Dashboard > CRM > Accounts > Account Name) — [1 SP] — ✅ DONE
 - [x] T-0209 — TanStack Query hooks: `useAccountChildren`, `useAccountContacts`, `useLinkContact`, `useUnlinkContact` — [1 SP] — ✅ DONE
 - [x] T-0210 — Aggiornare traduzioni en/it per detail view, ruoli contatto, breadcrumb — [1 SP] — ✅ DONE
-- [ ] T-0211 — Type-check entrambe le app, verificare che non ci siano regressioni — [1 SP] — 📋 TODO
+- [x] T-0211 — Type-check entrambe le app, verificare che non ci siano regressioni — [1 SP] — ✅ DONE
 
 ---
 
