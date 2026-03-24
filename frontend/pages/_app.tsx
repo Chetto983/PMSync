@@ -27,6 +27,10 @@ import { useLegalStatus } from '@/hooks/queries/use-data-rights';
 import { useWebSocket } from '@/hooks/use-websocket';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
+import '@/src/components/chat/chat-layout.css';
+import '@/src/components/chat/chat-sidebar.css';
+import '@/src/components/chat/chat-thread.css';
+import '@assistant-ui/react-markdown/styles/dot.css';
 import { Inter } from 'next/font/google';
 
 const inter = Inter({

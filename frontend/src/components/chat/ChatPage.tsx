@@ -4,12 +4,6 @@ import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import { ChatRuntimeProvider } from './ChatRuntimeProvider';
 import { ChatThemeBridge } from './ChatThemeBridge';
-
-// Chat-specific CSS — loaded only when this component mounts (dynamic import, ssr: false)
-import './chat-layout.css';
-import './chat-sidebar.css';
-import './chat-thread.css';
-import '@assistant-ui/react-markdown/styles/dot.css';
 import { ChatDesktopLayout } from './ChatDesktopLayout';
 import { ChatMobileLayout } from './ChatMobileLayout';
 
