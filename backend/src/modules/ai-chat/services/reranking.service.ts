@@ -46,13 +46,17 @@ export class RerankingService {
   /** Maximum total additive bonus to prevent stacking */
   private static readonly MAX_ADDITIVE_BONUS = 0.15;
 
+  /** Keyword match bonus — results containing query terms in subject/from */
+  private static readonly KEYWORD_MATCH_BONUS = 0.20;
+
   /**
    * Rerank email results with heuristic scoring adjustments.
    *
    * @param results - Email results with RRF scores from hybrid search
+   * @param query - Original search query (for keyword match boosting)
    * @returns Reranked results sorted by adjusted score
    */
-  rerank(results: RerankableEmailResult[]): RerankableEmailResult[] {
+  rerank(results: RerankableEmailResult[], query?: string): RerankableEmailResult[] {
     if (results.length <= 1) return results;
 
     // ── Phase 0: Min-max normalize RRF scores to [0, 1] ────────
@@ -85,8 +89,29 @@ export class RerankingService {
       }
     }
 
+    // Extract query keywords for keyword match boosting (3+ chars, lowered)
+    const queryTerms = query
+      ? query
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((t) => t.length >= 3)
+      : [];
+
     for (const result of normalized) {
       let additiveBonus = 0;
+
+      // Keyword match: boost results where query terms appear in subject/from
+      if (queryTerms.length > 0) {
+        const haystack = [result.subject, result.from]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        const matchCount = queryTerms.filter((t) => haystack.includes(t)).length;
+        if (matchCount > 0) {
+          const matchRatio = matchCount / queryTerms.length;
+          additiveBonus += RerankingService.KEYWORD_MATCH_BONUS * matchRatio;
+        }
+      }
 
       // Thread coherence: boost if same thread as a high-scoring result
       if (result.threadId && threadAnchors.has(result.threadId)) {
@@ -108,7 +133,7 @@ export class RerankingService {
       // Cap total additive bonus
       result.normalizedScore += Math.min(
         additiveBonus,
-        RerankingService.MAX_ADDITIVE_BONUS,
+        RerankingService.MAX_ADDITIVE_BONUS + RerankingService.KEYWORD_MATCH_BONUS,
       );
     }
 

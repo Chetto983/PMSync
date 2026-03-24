@@ -175,8 +175,8 @@ export class HybridSearchService {
         aiPriority: row.ai_priority,
       }));
 
-      // Graph RAG Step 2: Heuristic reranking (recency + thread + priority)
-      return this.rerankingService.rerank(mapped);
+      // Graph RAG Step 2: Heuristic reranking (recency + thread + priority + keyword match)
+      return this.rerankingService.rerank(mapped, query);
     } catch (error) {
       this.logger.warn(
         `Hybrid email search failed, returning empty: ${
