@@ -105,17 +105,20 @@ self.addEventListener('push', (evt: Event) => {
     title: string;
     body: string;
     icon?: string;
-    url?: string;
+    badge?: string;
     tag?: string;
+    renotify?: boolean;
+    data?: { url: string };
   };
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: data.icon || '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      badge: data.badge || '/icons/icon-192x192.png',
       tag: data.tag,
-      data: { url: data.url || '/' },
-    })
+      renotify: data.renotify ?? false,
+      data: { url: data.data?.url || '/' },
+    } as NotificationOptions)
   );
 });
 
