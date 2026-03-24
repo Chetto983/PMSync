@@ -56,7 +56,7 @@ completed: 2026-03-24
 - **Duration:** 4 min
 - **Started:** 2026-03-24T14:00:16Z
 - **Completed:** 2026-03-24T14:04:42Z
-- **Tasks:** 2 of 2 auto tasks complete (Task 3 is human-verify checkpoint)
+- **Tasks:** 3 of 3 complete (including human-verify checkpoint)
 - **Files modified:** 6
 
 ## Accomplishments
@@ -71,6 +71,7 @@ Each task was committed atomically:
 
 1. **Task 1: API types + state + handlers + parent wiring** - `1fb60238` (feat)
 2. **Task 2: AiSettings UI toggle + dialog + copy cleanup** - `291dfd73` (feat)
+3. **Task 3: Verify HITL settings and approval flow** - human-verify APPROVED
 
 ## Files Created/Modified
 - `frontend/lib/api/users.ts` - Added hitlSensitivity to UserPreferences and UpdatePreferencesData
@@ -107,10 +108,25 @@ None
 ## User Setup Required
 None - no external service configuration required.
 
+## Human Verification
+
+**Task 3 checkpoint APPROVED** by user on 2026-03-24. Visual verification confirmed:
+1. Old slider removed
+2. 3-option HITL toggle working (Solo alto rischio / Tutte le mutazioni / Nessuna)
+3. Confirmation dialog appears for NONE with correct Italian text
+4. Warning alert shows after confirming NONE
+5. Settings save and persist after reload
+6. AI Chat page loads correctly
+
 ## Next Phase Readiness
-- All 3 plans for Phase 108 are code-complete
-- Task 3 (human-verify checkpoint) pending user visual verification
-- Ready for production after manual approval
+- All 3 plans for Phase 108 complete (code + verification)
+- Phase 108 (hitl-approval-routing) is fully done
+
+## Self-Check: PASSED
+
+- Commit 1fb60238: FOUND
+- Commit 291dfd73: FOUND
+- SUMMARY.md: FOUND
 
 ---
 *Phase: 108-hitl-approval-routing*
