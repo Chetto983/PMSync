@@ -1,12 +1,20 @@
 import { ExecutionContext, Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { RATE_TIER_KEY, RateTier } from '../decorators/rate-tier.decorator';
 
 /**
- * Custom ThrottlerGuard that uses userId for authenticated requests
- * instead of IP address. This prevents users behind shared NAT/VPN/proxy
- * from exhausting each other's rate limits.
+ * Tier-aware ThrottlerGuard that applies exactly ONE rate limit tier per request.
  *
- * Falls back to IP for unauthenticated requests (login, register, etc.).
+ * Tier selection logic:
+ * 1. If @RateTier decorator is present, use that tier
+ * 2. Otherwise auto-assign: GET/HEAD/OPTIONS -> 'read', everything else -> 'safe-write'
+ *
+ * This prevents false 429s from the default NestJS behavior of checking ALL tiers
+ * on every request. A GET should only count against the read tier (300/min),
+ * not also against safe-write/destructive-write/send.
+ *
+ * Also uses userId for authenticated requests instead of IP address,
+ * preventing users behind shared NAT/VPN/proxy from exhausting each other's limits.
  */
 @Injectable()
 export class UserThrottlerGuard extends ThrottlerGuard {
@@ -34,5 +42,58 @@ export class UserThrottlerGuard extends ThrottlerGuard {
     }
 
     return false;
+  }
+
+  /**
+   * Override canActivate to filter throttlers to a single tier before
+   * delegating to the parent's per-throttler loop.
+   */
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Preserve existing skip logic (health, metrics)
+    if (await this.shouldSkip(context)) {
+      return true;
+    }
+
+    const handler = context.getHandler();
+    const classRef = context.getClass();
+
+    // Determine which single tier applies to this request
+    const decoratorTier = this.reflector.getAllAndOverride<RateTier>(
+      RATE_TIER_KEY,
+      [handler, classRef],
+    );
+
+    let tierName: string;
+    if (decoratorTier) {
+      tierName = decoratorTier;
+    } else {
+      const req = context
+        .switchToHttp()
+        .getRequest<{ method?: string }>();
+      const method = req.method || 'GET';
+      tierName =
+        method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+          ? 'read'
+          : 'safe-write';
+    }
+
+    // Filter to only the matching tier, then delegate to parent
+    const allThrottlers = this.throttlers;
+    const matchingThrottlers = allThrottlers.filter(
+      (t) => t.name === tierName,
+    );
+
+    if (matchingThrottlers.length === 0) {
+      // No matching tier config -- allow request (fail-open)
+      return true;
+    }
+
+    // Temporarily swap throttlers to only the matching tier
+    this.throttlers = matchingThrottlers;
+    try {
+      return await super.canActivate(context);
+    } finally {
+      this.throttlers = allThrottlers;
+    }
   }
 }
