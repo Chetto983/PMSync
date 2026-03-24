@@ -13,6 +13,11 @@ export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const onboardingCookie = request.cookies.get("pmsync:onboarding-complete");
 
+  // Authenticated user on landing page → dashboard
+  if (pathname === "/" && sessionCookie) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   if (pathname.startsWith("/dashboard") || pathname === "/onboarding") {
     if (!sessionCookie) {
       const loginUrl = new URL("/auth/login", request.url);
@@ -33,5 +38,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/auth/:path*", "/onboarding"],
+  matcher: ["/", "/dashboard/:path*", "/auth/:path*", "/onboarding"],
 };
