@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, Check, X, Loader2, Shield } from 'lucide-react';
+import { AlertTriangle, Check, X, Loader2, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -40,6 +40,8 @@ const HIGH_RISK_TEMPLATES: Record<string, (args: Record<string, unknown>) => str
   },
 };
 
+export const HIGH_RISK_TOOLS = new Set(Object.keys(HIGH_RISK_TEMPLATES));
+
 function generateToolSummary(toolName: string, args: Record<string, unknown>): string {
   const template = HIGH_RISK_TEMPLATES[toolName];
   if (template) {
@@ -53,7 +55,22 @@ function generateToolSummary(toolName: string, args: Record<string, unknown>): s
 }
 
 // ---------------------------------------------------------------------------
-// HitlApprovalWrapper -- SDK-native requires-action approval card
+// Display state logic
+// ---------------------------------------------------------------------------
+
+type HitlDisplayState = 'pending' | 'approved' | 'rejected';
+
+function getDisplayState(status: { type: string }, result: unknown): HitlDisplayState {
+  if (status.type === 'requires-action') return 'pending';
+  const r = result as Record<string, unknown> | undefined;
+  if (r && r.approved === true) return 'approved';
+  if (r && r.approved === false) return 'rejected';
+  // If complete but no approval data, treat as approved (tool executed normally)
+  return 'approved';
+}
+
+// ---------------------------------------------------------------------------
+// HitlApprovalWrapper -- SDK-native approval card with terminal states
 // ---------------------------------------------------------------------------
 
 interface HitlApprovalWrapperProps {
@@ -62,6 +79,7 @@ interface HitlApprovalWrapperProps {
   addResult: (result: any) => void;
   toolName: string;
   args: Record<string, unknown>;
+  result?: unknown;
 }
 
 export function HitlApprovalWrapper({
@@ -69,12 +87,12 @@ export function HitlApprovalWrapper({
   addResult,
   toolName,
   args,
+  result,
 }: HitlApprovalWrapperProps) {
   const t = useTranslations();
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
 
-  // Only render when requires-action
-  if (status.type !== 'requires-action') return null;
+  const displayState = getDisplayState(status, result);
 
   const handleApprove = () => {
     setBusy('approve');
@@ -89,6 +107,93 @@ export function HitlApprovalWrapper({
   const isBusy = busy !== null;
   const summary = generateToolSummary(toolName, args);
 
+  // --- Approved terminal state ---
+  if (displayState === 'approved') {
+    return (
+      <Box
+        data-testid="hitl-approved"
+        data-tool-name={toolName}
+        sx={{
+          border: 1,
+          borderColor: 'success.main',
+          borderRadius: 2,
+          p: 2,
+          bgcolor: (theme) => theme.palette.success.main + '0D',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.5,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CheckCircle
+            size={16}
+            style={{ flexShrink: 0, color: 'var(--mui-palette-success-main)' }}
+          />
+          <Typography variant="body2" fontWeight={500}>
+            {summary}
+          </Typography>
+          <Chip
+            label={t.chat.hitl.approvedChip}
+            size="small"
+            sx={{
+              ml: 'auto',
+              height: 20,
+              fontSize: '0.75rem',
+              bgcolor: 'success.light',
+              color: 'success.main',
+              '& .MuiChip-label': { px: 1 },
+            }}
+          />
+        </Box>
+        <ToolDetails toolName={toolName} args={args} />
+      </Box>
+    );
+  }
+
+  // --- Rejected terminal state ---
+  if (displayState === 'rejected') {
+    return (
+      <Box
+        data-testid="hitl-rejected"
+        data-tool-name={toolName}
+        sx={{
+          border: 1,
+          borderColor: 'error.main',
+          borderRadius: 2,
+          p: 2,
+          bgcolor: (theme) => theme.palette.error.main + '0D',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.5,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <XCircle
+            size={16}
+            style={{ flexShrink: 0, color: 'var(--mui-palette-error-main)' }}
+          />
+          <Typography variant="body2" fontWeight={500}>
+            {summary}
+          </Typography>
+          <Chip
+            label={t.chat.hitl.deniedChip}
+            size="small"
+            sx={{
+              ml: 'auto',
+              height: 20,
+              fontSize: '0.75rem',
+              bgcolor: 'error.light',
+              color: 'error.main',
+              '& .MuiChip-label': { px: 1 },
+            }}
+          />
+        </Box>
+        <ToolDetails toolName={toolName} args={args} />
+      </Box>
+    );
+  }
+
+  // --- Pending state (requires-action) ---
   return (
     <Box
       data-testid="hitl-approval"
@@ -114,7 +219,7 @@ export function HitlApprovalWrapper({
           {t.chat.hitl.pendingTitle}
         </Typography>
         <Chip
-          label="HIGH"
+          label={t.chat.hitl.highChip}
           size="small"
           sx={{
             ml: 'auto',
@@ -132,41 +237,7 @@ export function HitlApprovalWrapper({
         <Typography variant="body2" color="text.secondary">
           {summary}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
-          <Shield size={12} />
-          <Box component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-            {toolName}
-          </Box>
-        </Box>
-        {args && Object.keys(args).length > 0 && (
-          <Box component="details" sx={{ fontSize: '0.75rem' }}>
-            <Box
-              component="summary"
-              sx={{
-                color: 'text.secondary',
-                cursor: 'pointer',
-                userSelect: 'none',
-                '&:hover': { color: 'text.primary' },
-              }}
-            >
-              View parameters
-            </Box>
-            <Box
-              component="pre"
-              sx={{
-                mt: 0.5,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                p: 1,
-                overflowX: 'auto',
-                maxHeight: 128,
-                fontSize: '0.75rem',
-              }}
-            >
-              {JSON.stringify(args, null, 2)}
-            </Box>
-          </Box>
-        )}
+        <ToolDetails toolName={toolName} args={args} />
       </Box>
 
       {/* Approve / Deny buttons */}
@@ -217,5 +288,53 @@ export function HitlApprovalWrapper({
         </Button>
       </Box>
     </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared tool details (read-only collapsible parameters)
+// ---------------------------------------------------------------------------
+
+function ToolDetails({ toolName, args }: { toolName: string; args: Record<string, unknown> }) {
+  const t = useTranslations();
+
+  return (
+    <>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
+        <Shield size={12} />
+        <Box component="span" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+          {toolName}
+        </Box>
+      </Box>
+      {args && Object.keys(args).length > 0 && (
+        <Box component="details" sx={{ fontSize: '0.75rem' }}>
+          <Box
+            component="summary"
+            sx={{
+              color: 'text.secondary',
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover': { color: 'text.primary' },
+            }}
+          >
+            {t.chat.hitl.viewParameters}
+          </Box>
+          <Box
+            component="pre"
+            sx={{
+              mt: 0.5,
+              bgcolor: 'action.hover',
+              borderRadius: 1,
+              p: 1,
+              overflowX: 'auto',
+              maxHeight: 128,
+              fontSize: '0.75rem',
+            }}
+          >
+            {JSON.stringify(args, null, 2)}
+          </Box>
+        </Box>
+      )}
+    </>
   );
 }

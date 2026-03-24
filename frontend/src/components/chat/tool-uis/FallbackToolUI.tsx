@@ -5,7 +5,7 @@ import { Code, Loader2 } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { HitlApprovalWrapper } from '../HitlApprovalCard';
+import { HitlApprovalWrapper, HIGH_RISK_TOOLS } from '../HitlApprovalCard';
 
 /**
  * Generic fallback tool renderer for ALL unregistered tools.
@@ -30,6 +30,20 @@ export function FallbackToolRenderer({
         addResult={addResult}
         toolName={toolName}
         args={(args ?? {}) as Record<string, unknown>}
+        result={result}
+      />
+    );
+  }
+
+  // Completed destructive tools get terminal state rendering
+  if (status.type === 'complete' && HIGH_RISK_TOOLS.has(toolName)) {
+    return (
+      <HitlApprovalWrapper
+        status={status}
+        addResult={addResult}
+        toolName={toolName}
+        args={(args ?? {}) as Record<string, unknown>}
+        result={result}
       />
     );
   }
