@@ -4154,6 +4154,16 @@ export const en: AppTranslations = {
       blockedDescription: 'Your browser has blocked notifications for this site. Open your browser settings to re-enable them.',
       subscribeError: 'Could not enable notifications. Please try again.',
       unsubscribeError: 'Could not disable notifications. Please try again.',
+      prefsSaveError: 'Could not save notification preferences. Please try again.',
+      categoriesTitle: 'Category Preferences',
+      categories: {
+        email: 'New email',
+        emailDescription: 'Get notified when new emails arrive',
+        calendar: 'Calendar',
+        calendarDescription: 'Event invitations and reminders',
+        ai: 'AI assistant',
+        aiDescription: 'AI task completions and suggestions',
+      },
     },
     update: {
       available: 'A new version of PMSync is available.',

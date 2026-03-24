@@ -3984,6 +3984,16 @@ export interface AppTranslations {
       blockedDescription?: string;
       subscribeError?: string;
       unsubscribeError?: string;
+      prefsSaveError?: string;
+      categoriesTitle?: string;
+      categories?: {
+        email?: string;
+        emailDescription?: string;
+        calendar?: string;
+        calendarDescription?: string;
+        ai?: string;
+        aiDescription?: string;
+      };
     };
     update?: {
       available?: string;

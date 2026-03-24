@@ -230,4 +230,35 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   aiAutoTriageEnabled?: boolean;
+
+  // ==========================================
+  // Push Notification Category Fields
+  // ==========================================
+
+  @ApiProperty({
+    description: 'Enable push notifications for new emails',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  pushEmailEnabled?: boolean;
+
+  @ApiProperty({
+    description: 'Enable push notifications for calendar events',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  pushCalendarEnabled?: boolean;
+
+  @ApiProperty({
+    description: 'Enable push notifications for AI assistant',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  pushAiEnabled?: boolean;
 }

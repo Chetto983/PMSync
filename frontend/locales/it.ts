@@ -4131,6 +4131,16 @@ export const it: AppTranslations = {
       blockedDescription: 'Il tuo browser ha bloccato le notifiche per questo sito. Apri le impostazioni del browser per riattivarle.',
       subscribeError: 'Impossibile abilitare le notifiche. Riprova.',
       unsubscribeError: 'Impossibile disabilitare le notifiche. Riprova.',
+      prefsSaveError: 'Impossibile salvare le preferenze di notifica. Riprova.',
+      categoriesTitle: 'Preferenze per categoria',
+      categories: {
+        email: 'Nuova email',
+        emailDescription: 'Ricevi notifiche quando arrivano nuove email',
+        calendar: 'Calendario',
+        calendarDescription: 'Inviti a eventi e promemoria',
+        ai: 'Assistente AI',
+        aiDescription: "Completamenti e suggerimenti dell'assistente AI",
+      },
     },
     update: {
       available: 'Una nuova versione di PMSync è disponibile.',
