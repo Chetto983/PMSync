@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { Public } from '../../../common/auth/public.decorator';
 import { TelegramBotService } from '../services/telegram-bot.service';
 import { TelegramWebhookService } from '../services/telegram-webhook.service';
@@ -17,7 +17,7 @@ import { TelegramWebhookService } from '../services/telegram-webhook.service';
  * Rate limited to 60 req/min to mitigate abuse on the public endpoint.
  */
 @ApiExcludeController()
-@Throttle({ default: { limit: 60, ttl: 60000 } })
+@RateTierDecorator('safe-write')
 @Controller('telegram/webhook')
 export class TelegramWebhookController {
   constructor(

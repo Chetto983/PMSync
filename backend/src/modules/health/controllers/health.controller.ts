@@ -1,12 +1,10 @@
 import { Controller, Get, Header, Inject, Param, Optional } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../../common/auth/public.decorator';
 import { HealthService } from '../services/health.service';
 import { QueueHealthService } from '../../../common/services/queue-health.service';
 
 @ApiTags('Health')
-@Throttle({ default: { limit: 30, ttl: 60000 } })
 @Public()
 @Controller('health')
 export class HealthController {

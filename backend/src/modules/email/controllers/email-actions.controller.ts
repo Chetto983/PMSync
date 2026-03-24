@@ -4,7 +4,7 @@
  */
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { Response } from 'express';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
@@ -98,7 +98,7 @@ export class EmailActionsController {
    */
   @Post('send')
   @Roles('admin', 'manager', 'super-admin')
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @RateTierDecorator('send')
   async sendEmail(@Req() req: AuthenticatedRequest, @Body() body: SendEmailRequestDto) {
     const tenantId = req.user.tenantId;
     const userId = req.user.id;
@@ -129,7 +129,7 @@ export class EmailActionsController {
    */
   @Post(':id/reply')
   @Roles('admin', 'manager', 'super-admin')
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @RateTierDecorator('send')
   async replyToEmail(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
@@ -169,7 +169,7 @@ export class EmailActionsController {
    */
   @Post(':id/forward')
   @Roles('admin', 'manager', 'super-admin')
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @RateTierDecorator('send')
   async forwardEmail(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,

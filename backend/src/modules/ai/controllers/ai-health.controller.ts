@@ -6,7 +6,6 @@
  */
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../../common/auth/public.decorator';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
@@ -34,7 +33,6 @@ export interface AiHealthDetailedResponse {
 }
 
 @ApiTags('AI')
-@Throttle({ default: { limit: 30, ttl: 60000 } })
 @Controller('ai')
 export class AiHealthController {
   constructor(

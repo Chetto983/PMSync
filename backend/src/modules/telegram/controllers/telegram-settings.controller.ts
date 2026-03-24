@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { IsBoolean, IsOptional, IsString, Matches } from 'class-validator';
 import { randomBytes } from 'crypto';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
@@ -99,7 +99,7 @@ export class TelegramSettingsController {
    * Token is stored in Redis with 5 min TTL, keyed to tenantId + userId.
    */
   @Post('link-token')
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Generate Telegram QR link token' })
   async generateLinkToken(@Req() req: AuthenticatedRequest) {
     const token = randomBytes(16).toString('hex');

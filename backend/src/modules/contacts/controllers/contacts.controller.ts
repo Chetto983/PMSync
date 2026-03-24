@@ -17,7 +17,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Throttle } from '@nestjs/throttler';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { RelationshipScoreService } from '../services/relationship-score.service';
@@ -304,7 +304,7 @@ export class ContactsController {
    * Works for any provider, especially useful for generic IMAP
    */
   @Post('extract-from-emails')
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @RateTierDecorator('safe-write')
   @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Extract contacts from emails', description: 'Extracts contacts from email headers' })
   @ApiBody({ type: ExtractContactsDto })
@@ -328,7 +328,7 @@ export class ContactsController {
    * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
    */
   @Post('import/vcard')
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @RateTierDecorator('safe-write')
   @Roles('admin', 'super-admin')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -388,7 +388,7 @@ export class ContactsController {
    * POST /api/contacts/sync/:providerId
    */
   @Post('sync/:providerId')
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @RateTierDecorator('safe-write')
   @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Sync provider contacts', description: 'Triggers manual sync for a provider' })
   @ApiParam({ name: 'providerId', description: 'Provider ID' })
@@ -425,7 +425,7 @@ export class ContactsController {
    * ✅ TENANT ISOLATED: Only queues jobs for the authenticated user's providers
    */
   @Post('sync-all')
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @RateTierDecorator('safe-write')
   @Roles('admin', 'super-admin')
   @ApiOperation({ summary: 'Sync all providers', description: 'Queues sync jobs for all contact-enabled providers' })
   @ApiResponse({ status: 200, description: 'Sync jobs queued successfully' })

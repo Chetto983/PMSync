@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Body, Controller, Get, Logger, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
@@ -134,7 +134,7 @@ export class EmailCalendarInviteController {
 
   @Post('calendar-invite/send')
   @Roles('admin', 'manager', 'super-admin')
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @RateTierDecorator('send')
   async sendCalendarInvite(
     @Req() req: AuthenticatedRequest,
     @Body() body: {

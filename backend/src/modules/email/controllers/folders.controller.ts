@@ -12,7 +12,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import {
   ApiTags,
   ApiOperation,
@@ -211,7 +211,6 @@ export class FoldersController {
    * Frontend can use this to avoid duplicating folder type logic
    */
   @Get('metadata')
-  @Throttle({ default: { limit: 60, ttl: 60000 } })
   @ApiOperation({
     summary: 'Get canonical folder type metadata',
     description: `Returns folder type definitions and localized name mappings.
@@ -586,7 +585,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
    */
   @Post()
   @Roles('admin', 'manager', 'super-admin')
-  @Throttle({ default: { ttl: 60000, limit: 10 } }) // 10 requests per minute
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Create a new folder' })
   @ApiBody({ type: CreateFolderDto })
   @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
@@ -671,7 +670,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
 
   @Patch(':folderId')
   @Roles('admin', 'manager', 'super-admin')
-  @Throttle({ default: { ttl: 60000, limit: 10 } }) // SEC-4: 10 requests per minute
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Rename or move a folder' })
   @ApiBody({
     description: 'Rename folder (newName) or move folder (parentId) or both',
@@ -774,7 +773,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
 
   @Delete(':folderId')
   @Roles('admin', 'manager', 'super-admin')
-  @Throttle({ default: { ttl: 60000, limit: 10 } }) // SEC-4: 10 requests per minute
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Delete a folder' })
   @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
   @ApiResponse({ status: 200, description: 'Folder deleted successfully' })

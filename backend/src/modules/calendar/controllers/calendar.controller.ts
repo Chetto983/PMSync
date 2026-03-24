@@ -15,7 +15,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { CalendarService, ListEventsFilters } from '../services/calendar.service';
 import { CalendarConflictService } from '../services/calendar-conflict.service';
 import { FocusTimeService } from '../services/focus-time.service';
@@ -263,7 +263,7 @@ export class CalendarController {
    * POST /api/calendar/sync/:providerId
    */
   @Post('sync/:providerId')
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Sync provider calendars', description: 'Triggers manual sync for a provider' })
   @ApiParam({ name: 'providerId', description: 'Provider ID' })
   @ApiResponse({ status: 200, description: 'Sync started successfully' })
