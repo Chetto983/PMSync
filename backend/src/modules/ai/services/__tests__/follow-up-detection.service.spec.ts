@@ -8,11 +8,12 @@ import { AiRunLedgerService } from '../ai-run-ledger.service';
 // Mock 'ai' module to avoid real LLM calls
 jest.mock('ai', () => ({
   generateText: jest.fn(),
+  generateObject: jest.fn(),
   Output: { object: jest.fn() },
   NoObjectGeneratedError: { isInstance: jest.fn().mockReturnValue(false) },
 }));
 
-import { generateText } from 'ai';
+import { generateText, generateObject } from 'ai';
 
 const mockPrisma = {
   email: {
@@ -26,6 +27,7 @@ const mockPrisma = {
 
 const mockMistralProvider = {
   getChatModel: jest.fn().mockReturnValue('mock-model'),
+  getChatModelName: jest.fn().mockReturnValue('mock-model'),
 };
 
 const mockUsageTracking = {
@@ -109,8 +111,8 @@ describe('FollowUpDetectionService', () => {
         batchSummary: { totalAnalyzed: 1, totalDetected: 1, highUrgencyCount: 1 },
       };
 
-      (generateText as jest.Mock).mockResolvedValue({
-        output: llmOutput,
+      (generateObject as jest.Mock).mockResolvedValue({
+        object: llmOutput,
         usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
       });
 
@@ -124,7 +126,7 @@ describe('FollowUpDetectionService', () => {
 
       expect(result.data.detectedFollowUps).toHaveLength(1);
       expect(result.data.detectedFollowUps[0].emailId).toBe('email-1');
-      expect(generateText).toHaveBeenCalledTimes(1);
+      expect(generateObject).toHaveBeenCalledTimes(1);
 
       // Verify persistence
       expect(mockPrisma.emailFollowUp.upsert).toHaveBeenCalledWith(

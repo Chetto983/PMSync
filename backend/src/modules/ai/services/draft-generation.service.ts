@@ -9,7 +9,7 @@
  * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { generateText } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
@@ -26,10 +26,10 @@ export const draftGenerationSchema = z.object({
   body: z.string().describe('Draft reply body text'),
   suggestedRecipients: z.array(z.object({
     email: z.string().describe('Recipient email address'),
-    name: z.string().nullable().describe('Recipient display name'),
-  })).describe('Suggested recipients for the reply'),
-  confidence: z.number().describe('Confidence score 0-1 for draft quality'),
-  tone: z.enum(['formal', 'casual', 'technical', 'friendly']).describe('Detected tone of the draft'),
+    name: z.string().nullable().default(null).describe('Recipient display name'),
+  })).default([]).describe('Suggested recipients for the reply'),
+  confidence: z.number().default(0.5).describe('Confidence score 0-1 for draft quality'),
+  tone: z.enum(['formal', 'casual', 'technical', 'friendly']).default('formal').describe('Detected tone of the draft'),
 });
 
 export type DraftGenerationOutput = z.infer<typeof draftGenerationSchema>;
@@ -158,44 +158,88 @@ export class DraftGenerationService {
     replyContext: string,
     tenantId = 'system',
   ): Promise<{ data: DraftGenerationOutput; error?: string }> {
+    const modelName = this.mistralProvider.getChatModelName();
+
+    // Attempt 1: generateObject (structured output)
+    const attempt1 = await this.tryGenerateObject(replyContext, modelName, tenantId);
+    if (attempt1) {
+      await this.trackUsage();
+      return { data: attempt1 };
+    }
+
+    // Attempt 2: generateText + manual JSON extraction (fallback)
+    const attempt2 = await this.tryGenerateText(replyContext, modelName, tenantId);
+    if (attempt2) {
+      await this.trackUsage();
+      return { data: attempt2 };
+    }
+
+    this.logger.error('Draft generation failed on all attempts');
+    return { data: SAFE_FALLBACK, error: 'Draft generation failed' };
+  }
+
+  private async tryGenerateObject(
+    prompt: string, modelName: string, tenantId: string,
+  ): Promise<DraftGenerationOutput | null> {
+    const startTime = Date.now();
+    try {
+      const result = await generateObject({
+        model: this.mistralProvider.getChatModel(),
+        schema: draftGenerationSchema,
+        schemaName: 'DraftGeneration',
+        system: SYSTEM_PROMPT,
+        prompt,
+        temperature: 0.3,
+        abortSignal: AbortSignal.timeout(45_000),
+      });
+      this.ledgerService?.recordRun({
+        tenantId, userId: 'system', runType: 'draft-generation', model: modelName,
+        promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
+        promptVersion: promptHash(SYSTEM_PROMPT),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      return result.object;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`generateObject failed for draft generation: ${msg}`);
+      this.ledgerService?.recordRun({
+        tenantId, userId: 'system', runType: 'draft-generation', model: modelName,
+        promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED, errorMessage: `generateObject: ${msg}`,
+        promptVersion: promptHash(SYSTEM_PROMPT),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      return null;
+    }
+  }
+
+  private async tryGenerateText(
+    prompt: string, modelName: string, tenantId: string,
+  ): Promise<DraftGenerationOutput | null> {
     const startTime = Date.now();
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(),
         system: SYSTEM_PROMPT,
-        prompt: replyContext + '\n\nReturn valid JSON.',
+        prompt: prompt + '\n\nReturn valid JSON.',
+        abortSignal: AbortSignal.timeout(45_000),
       });
-
       this.ledgerService?.recordRun({
-        tenantId,
-        userId: 'system',
-        runType: 'draft-generation',
-        model: this.mistralProvider.getChatModelName(),
-        promptTokens: result.usage?.inputTokens ?? 0,
-        completionTokens: result.usage?.outputTokens ?? 0,
-        totalTokens: result.usage?.totalTokens ?? 0,
-        latencyMs: Date.now() - startTime,
+        tenantId, userId: 'system', runType: 'draft-generation', model: modelName,
+        promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
         promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-      const parsed = parseJsonOutput(result.text, draftGenerationSchema);
-      await this.trackUsage();
-      return { data: parsed };
+      return parseJsonOutput(result.text, draftGenerationSchema);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`generateText fallback failed for draft generation: ${msg}`);
       this.ledgerService?.recordRun({
-        tenantId,
-        userId: 'system',
-        runType: 'draft-generation',
-        model: this.mistralProvider.getChatModelName(),
-        promptTokens: 0, completionTokens: 0, totalTokens: 0,
-        latencyMs: Date.now() - startTime,
-        status: AiRunStatus.FAILED,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        tenantId, userId: 'system', runType: 'draft-generation', model: modelName,
+        promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED, errorMessage: `generateText: ${msg}`,
         promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-      this.logger.error(`Draft generation failed: ${error}`);
-      return { data: SAFE_FALLBACK, error: 'Draft generation failed' };
+      return null;
     }
   }
 

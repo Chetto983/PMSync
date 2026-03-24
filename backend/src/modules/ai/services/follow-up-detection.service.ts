@@ -9,7 +9,7 @@
  * JSON extracted from raw text via parseJsonOutput (Qwen 3.5 via OpenRouter).
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { generateText } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
@@ -26,16 +26,16 @@ export const followUpDetectionSchema = z.object({
   detectedFollowUps: z.array(z.object({
     emailId: z.string().describe('ID of the email needing follow-up'),
     reason: z.string().describe('Why this email needs follow-up'),
-    suggestedDueDate: z.string().nullable().describe('ISO date string for suggested due date'),
-    urgency: z.enum(['high', 'medium', 'low']).describe('Follow-up urgency level'),
-    confidence: z.number().describe('Confidence score 0-1'),
-  })).describe('Emails detected as needing follow-up'),
+    suggestedDueDate: z.string().nullable().default(null).describe('ISO date string for suggested due date'),
+    urgency: z.enum(['high', 'medium', 'low']).default('medium').describe('Follow-up urgency level'),
+    confidence: z.number().default(0.5).describe('Confidence score 0-1'),
+  })).default([]).describe('Emails detected as needing follow-up'),
 
   batchSummary: z.object({
-    totalAnalyzed: z.number().describe('Number of emails analyzed in this batch'),
-    totalDetected: z.number().describe('Number of follow-ups detected'),
-    highUrgencyCount: z.number().describe('Number of high-urgency follow-ups'),
-  }).describe('Summary of the batch analysis'),
+    totalAnalyzed: z.number().default(0).describe('Number of emails analyzed in this batch'),
+    totalDetected: z.number().default(0).describe('Number of follow-ups detected'),
+    highUrgencyCount: z.number().default(0).describe('Number of high-urgency follow-ups'),
+  }).default({ totalAnalyzed: 0, totalDetected: 0, highUrgencyCount: 0 }).describe('Summary of the batch analysis'),
 });
 
 export type FollowUpDetectionOutput = z.infer<typeof followUpDetectionSchema>;
@@ -173,51 +173,97 @@ export class FollowUpDetectionService {
     tenantId = 'system',
     locale?: string,
   ): Promise<{ data: FollowUpDetectionOutput; error?: string }> {
+    const systemPrompt = buildSystemPrompt(locale);
+    const modelName = this.mistralProvider.getChatModelName();
+
+    // Attempt 1: generateObject (structured output)
+    const attempt1 = await this.tryGenerateObject(batchPrompt, systemPrompt, modelName, tenantId);
+    if (attempt1) {
+      await this.trackUsage();
+      await this.persistDetectedFollowUps(attempt1, tenantId);
+      return { data: attempt1 };
+    }
+
+    // Attempt 2: generateText + manual JSON extraction (fallback)
+    const attempt2 = await this.tryGenerateText(batchPrompt, systemPrompt, modelName, tenantId);
+    if (attempt2) {
+      await this.trackUsage();
+      await this.persistDetectedFollowUps(attempt2, tenantId);
+      return { data: attempt2 };
+    }
+
+    this.logger.error('Follow-up detection failed on all attempts');
+    return {
+      data: {
+        detectedFollowUps: [],
+        batchSummary: { totalAnalyzed, totalDetected: 0, highUrgencyCount: 0 },
+      },
+      error: 'Follow-up detection failed',
+    };
+  }
+
+  private async tryGenerateObject(
+    prompt: string, systemPrompt: string, modelName: string, tenantId: string,
+  ): Promise<FollowUpDetectionOutput | null> {
+    const startTime = Date.now();
+    try {
+      const result = await generateObject({
+        model: this.mistralProvider.getChatModel(),
+        schema: followUpDetectionSchema,
+        schemaName: 'FollowUpDetection',
+        system: systemPrompt,
+        prompt,
+        temperature: 0.1,
+        abortSignal: AbortSignal.timeout(45_000),
+      });
+      this.ledgerService?.recordRun({
+        tenantId, userId: 'system', runType: 'follow-up-detection', model: modelName,
+        promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
+        promptVersion: promptHash(SYSTEM_PROMPT),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      return result.object;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`generateObject failed for follow-up detection: ${msg}`);
+      this.ledgerService?.recordRun({
+        tenantId, userId: 'system', runType: 'follow-up-detection', model: modelName,
+        promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED, errorMessage: `generateObject: ${msg}`,
+        promptVersion: promptHash(SYSTEM_PROMPT),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      return null;
+    }
+  }
+
+  private async tryGenerateText(
+    prompt: string, systemPrompt: string, modelName: string, tenantId: string,
+  ): Promise<FollowUpDetectionOutput | null> {
     const startTime = Date.now();
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(),
-        system: buildSystemPrompt(locale),
-        prompt: batchPrompt + '\n\nReturn valid JSON.',
+        system: systemPrompt,
+        prompt: prompt + '\n\nReturn valid JSON.',
+        abortSignal: AbortSignal.timeout(45_000),
       });
-
       this.ledgerService?.recordRun({
-        tenantId,
-        userId: 'system',
-        runType: 'follow-up-detection',
-        model: this.mistralProvider.getChatModelName(),
-        promptTokens: result.usage?.inputTokens ?? 0,
-        completionTokens: result.usage?.outputTokens ?? 0,
-        totalTokens: result.usage?.totalTokens ?? 0,
-        latencyMs: Date.now() - startTime,
+        tenantId, userId: 'system', runType: 'follow-up-detection', model: modelName,
+        promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
         promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-      const parsed = parseJsonOutput(result.text, followUpDetectionSchema);
-      await this.trackUsage();
-      await this.persistDetectedFollowUps(parsed, tenantId);
-      return { data: parsed };
+      return parseJsonOutput(result.text, followUpDetectionSchema);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`generateText fallback failed for follow-up detection: ${msg}`);
       this.ledgerService?.recordRun({
-        tenantId,
-        userId: 'system',
-        runType: 'follow-up-detection',
-        model: this.mistralProvider.getChatModelName(),
-        promptTokens: 0, completionTokens: 0, totalTokens: 0,
-        latencyMs: Date.now() - startTime,
-        status: AiRunStatus.FAILED,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        tenantId, userId: 'system', runType: 'follow-up-detection', model: modelName,
+        promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED, errorMessage: `generateText: ${msg}`,
         promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-      this.logger.error(`Follow-up detection failed: ${error}`);
-      return {
-        data: {
-          detectedFollowUps: [],
-          batchSummary: { totalAnalyzed, totalDetected: 0, highUrgencyCount: 0 },
-        },
-        error: 'Follow-up detection failed',
-      };
+      return null;
     }
   }
 

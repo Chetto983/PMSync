@@ -10,7 +10,7 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateText } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
@@ -27,54 +27,54 @@ export const briefingSchema = z.object({
     emailId: z.string().describe('Email ID'),
     subject: z.string().describe('Email subject line'),
     sender: z.string().describe('Sender email or name'),
-    urgency: z.enum(['critical', 'high', 'medium', 'low']).describe('Urgency level'),
+    urgency: z.enum(['critical', 'high', 'medium', 'low']).default('medium').describe('Urgency level'),
     reason: z.string().describe('Why this email is a priority'),
-  })).describe('Top priority emails requiring attention'),
+  })).default([]).describe('Top priority emails requiring attention'),
 
   calendarSnapshot: z.array(z.object({
     eventId: z.string().describe('Calendar event ID'),
     title: z.string().describe('Event title'),
     startTime: z.string().describe('ISO 8601 start time'),
     endTime: z.string().describe('ISO 8601 end time'),
-    hasConflict: z.boolean().describe('Whether event overlaps with another'),
-  })).describe('Today calendar events with conflict flags'),
+    hasConflict: z.boolean().default(false).describe('Whether event overlaps with another'),
+  })).default([]).describe('Today calendar events with conflict flags'),
 
   pendingFollowUps: z.array(z.object({
     emailId: z.string().describe('Email ID requiring follow-up'),
     contactName: z.string().describe('Contact name'),
     reason: z.string().describe('Follow-up reason'),
-    suggestedDueDate: z.string().nullable().describe('Suggested due date ISO string'),
-    urgency: z.enum(['high', 'medium', 'low']).describe('Follow-up urgency'),
-  })).describe('Pending follow-ups requiring action'),
+    suggestedDueDate: z.string().nullable().default(null).describe('Suggested due date ISO string'),
+    urgency: z.enum(['high', 'medium', 'low']).default('medium').describe('Follow-up urgency'),
+  })).default([]).describe('Pending follow-ups requiring action'),
 
-  executiveSummary: z.string().describe('2-3 sentence natural language executive summary'),
+  executiveSummary: z.string().default('No briefing data available.').describe('2-3 sentence natural language executive summary'),
 
   staleContactsAlert: z.array(z.object({
     contactId: z.string().describe('Contact ID'),
     name: z.string().describe('Contact display name'),
-    daysSinceContact: z.number().describe('Days since last interaction'),
+    daysSinceContact: z.number().default(0).describe('Days since last interaction'),
     suggestedAction: z.string().describe('Suggested re-engagement action'),
-  })).describe('Contacts losing touch'),
+  })).default([]).describe('Contacts losing touch'),
 
   draftSuggestions: z.array(z.object({
     emailId: z.string().describe('Email ID that may need a reply'),
     subject: z.string().describe('Email subject'),
     reason: z.string().describe('Why a reply is suggested'),
-  })).describe('Emails that may need a reply draft'),
+  })).default([]).describe('Emails that may need a reply draft'),
 
   emailVolumeTrends: z.object({
-    todayReceived: z.number().describe('Emails received today'),
-    todaySent: z.number().describe('Emails sent today'),
-    weeklyAvgReceived: z.number().describe('Weekly average received'),
-    weeklyAvgSent: z.number().describe('Weekly average sent'),
-    trend: z.enum(['increasing', 'stable', 'decreasing']).describe('Volume trend'),
-  }).describe('Email volume trends'),
+    todayReceived: z.number().default(0).describe('Emails received today'),
+    todaySent: z.number().default(0).describe('Emails sent today'),
+    weeklyAvgReceived: z.number().default(0).describe('Weekly average received'),
+    weeklyAvgSent: z.number().default(0).describe('Weekly average sent'),
+    trend: z.enum(['increasing', 'stable', 'decreasing']).default('stable').describe('Volume trend'),
+  }).default({ todayReceived: 0, todaySent: 0, weeklyAvgReceived: 0, weeklyAvgSent: 0, trend: 'stable' }).describe('Email volume trends'),
 
   focusTimeRecommendations: z.array(z.object({
     startTime: z.string().describe('ISO 8601 recommended focus start'),
     endTime: z.string().describe('ISO 8601 recommended focus end'),
     reason: z.string().describe('Why this time block is recommended'),
-  })).describe('Recommended focus time blocks based on calendar gaps'),
+  })).default([]).describe('Recommended focus time blocks based on calendar gaps'),
 });
 
 export type BriefingOutput = z.infer<typeof briefingSchema>;
@@ -277,46 +277,88 @@ export class BriefingService {
     dataContext: string,
     tenantId = 'system',
   ): Promise<{ data: BriefingOutput; error?: string }> {
+    // Attempt 1: generateObject (structured output)
+    const attempt1 = await this.tryGenerateObject(dataContext, tenantId);
+    if (attempt1) {
+      await this.trackUsage();
+      return { data: attempt1 };
+    }
+
+    // Attempt 2: generateText + manual JSON extraction (fallback)
+    const attempt2 = await this.tryGenerateText(dataContext, tenantId);
+    if (attempt2) {
+      await this.trackUsage();
+      return { data: attempt2 };
+    }
+
+    this.logger.error('Briefing generation failed on all attempts');
+    return { data: SAFE_FALLBACK, error: 'Briefing generation failed' };
+  }
+
+  private async tryGenerateObject(
+    prompt: string, tenantId: string,
+  ): Promise<BriefingOutput | null> {
+    const startTime = Date.now();
+    try {
+      const result = await generateObject({
+        model: this.mistralProvider.getChatModel(this.briefingModelId),
+        schema: briefingSchema,
+        schemaName: 'DailyBriefing',
+        system: SYSTEM_PROMPT,
+        prompt,
+        temperature: 0.1,
+        maxOutputTokens: 1500,
+        abortSignal: AbortSignal.timeout(45_000),
+      });
+      this.ledgerService?.recordRun({
+        tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
+        promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
+        promptVersion: promptHash(SYSTEM_PROMPT),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      return result.object;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`generateObject failed for briefing: ${msg}`);
+      this.ledgerService?.recordRun({
+        tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
+        promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED, errorMessage: `generateObject: ${msg}`,
+        promptVersion: promptHash(SYSTEM_PROMPT),
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      return null;
+    }
+  }
+
+  private async tryGenerateText(
+    prompt: string, tenantId: string,
+  ): Promise<BriefingOutput | null> {
     const startTime = Date.now();
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(this.briefingModelId),
         system: SYSTEM_PROMPT,
-        prompt: dataContext + '\n\nReturn valid JSON.',
+        prompt: prompt + '\n\nReturn valid JSON.',
         maxOutputTokens: 1200,
-        abortSignal: AbortSignal.timeout(30_000),
+        abortSignal: AbortSignal.timeout(45_000),
       });
-
       this.ledgerService?.recordRun({
-        tenantId,
-        userId: 'system',
-        runType: 'briefing',
-        model: this.briefingModelId,
-        promptTokens: result.usage?.inputTokens ?? 0,
-        completionTokens: result.usage?.outputTokens ?? 0,
-        totalTokens: result.usage?.totalTokens ?? 0,
-        latencyMs: Date.now() - startTime,
+        tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
+        promptTokens: result.usage?.inputTokens ?? 0, completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0, latencyMs: Date.now() - startTime,
         promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-      const parsed = parseJsonOutput(result.text, briefingSchema);
-      await this.trackUsage();
-      return { data: parsed };
-    } catch (firstError) {
+      return parseJsonOutput(result.text, briefingSchema);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`generateText fallback failed for briefing: ${msg}`);
       this.ledgerService?.recordRun({
-        tenantId,
-        userId: 'system',
-        runType: 'briefing',
-        model: this.briefingModelId,
-        promptTokens: 0, completionTokens: 0, totalTokens: 0,
-        latencyMs: Date.now() - startTime,
-        status: AiRunStatus.FAILED,
-        errorMessage: firstError instanceof Error ? firstError.message : String(firstError),
+        tenantId, userId: 'system', runType: 'briefing', model: this.briefingModelId,
+        promptTokens: 0, completionTokens: 0, totalTokens: 0, latencyMs: Date.now() - startTime,
+        status: AiRunStatus.FAILED, errorMessage: `generateText: ${msg}`,
         promptVersion: promptHash(SYSTEM_PROMPT),
       }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
-
-      this.logger.error(`Briefing generation failed: ${firstError}`);
-      return { data: SAFE_FALLBACK, error: 'Briefing generation failed' };
+      return null;
     }
   }
 
