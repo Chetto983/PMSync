@@ -39,24 +39,28 @@ const transport = new AssistantChatTransport({
   credentials: 'include',
   headers: getHeaders,
   prepareSendMessagesRequest(options) {
-    // When we have a real backend conversation ID (set by the adapter's
-    // initialize() or list()), override the body to use it.
-    // This bypasses the transport's internal initialize() chain which
-    // requires setRuntime(outerRuntime) — fragile with
-    // useRemoteThreadListRuntime.
-    return {
-      body: {
-        ...options.body,
-        // Use real backend ID when available, otherwise fall back to
-        // the useChat id (which the transport's outer code may override
-        // with initialize()'s remoteId for new threads).
-        id: _remoteId ?? options.id,
-        messages: options.messages,
-        trigger: options.trigger,
-        messageId: options.messageId,
-        metadata: options.requestMetadata,
-      },
-    };
+    // For EXISTING threads, _remoteId is the real backend conversation ID.
+    // Override the body to use it, bypassing the transport's internal
+    // initialize() chain which can be fragile.
+    if (_remoteId) {
+      return {
+        body: {
+          ...options.body,
+          id: _remoteId,
+          messages: options.messages,
+          trigger: options.trigger,
+          messageId: options.messageId,
+          metadata: options.requestMetadata,
+        },
+      };
+    }
+
+    // For NEW threads (_remoteId is undefined), return body=null.
+    // The outer AssistantChatTransport uses `preparedRequest?.body ?? defaultBody`:
+    //   - null is nullish → falls through to defaultBody
+    //   - defaultBody includes `id` from initialize() which creates the
+    //     backend conversation via the adapter
+    return { body: null } as never;
   },
 });
 
@@ -80,15 +84,7 @@ function useThreadRuntime() {
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
-  const runtime = useAISDKRuntime(chat);
-
-  // Set inner runtime for model context (system prompt, tools).
-  // ID mapping is handled by _remoteId + prepareSendMessagesRequest above.
-  if (transport instanceof AssistantChatTransport) {
-    transport.setRuntime(runtime);
-  }
-
-  return runtime;
+  return useAISDKRuntime(chat);
 }
 
 export function ChatRuntimeProvider({
@@ -112,6 +108,13 @@ export function ChatRuntimeProvider({
     runtimeHook: useThreadRuntime,
     adapter,
   });
+
+  // Set the OUTER runtime on the transport so that initialize() can reach
+  // the thread list adapter for new threads. For existing threads, the
+  // prepareSendMessagesRequest above uses _remoteId directly.
+  if (transport instanceof AssistantChatTransport) {
+    transport.setRuntime(runtime);
+  }
 
   useEffect(() => {
     const restoreMostRecentConversation = () => {
