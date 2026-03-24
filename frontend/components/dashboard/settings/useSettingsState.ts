@@ -34,7 +34,7 @@ import {
 /** Noop query result for sections that aren't active */
 const EMPTY_SIGNATURES: never[] = [];
 
-export type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'signatures' | 'templates' | 'scheduled' | 'consent' | 'dataRights' | 'account' | 'billing' | 'telegram';
+export type SettingsSection = 'general' | 'notifications' | 'security' | 'ai' | 'accounts' | 'signatures' | 'templates' | 'scheduled' | 'consent' | 'dataRights' | 'account' | 'billing' | 'telegram';
 
 const COMMUNICATION_STYLES = new Set<CommunicationStyle>([
   'FORMAL',

@@ -19,6 +19,28 @@ export async function clearOfflineData(): Promise<void> {
   // 2. Clear IndexedDB offline action queue
   await clearActionQueue();
 
+  // 2.5. Unsubscribe from push notifications (prevents cross-user notification leak)
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        const sub = await reg.pushManager?.getSubscription();
+        if (sub) {
+          await sub.unsubscribe();
+          // Best-effort backend cleanup (session may already be ending)
+          try {
+            const { pushApi } = await import('./api/push');
+            await pushApi.unsubscribe(sub.endpoint);
+          } catch {
+            // Ignore -- subscription removed client-side regardless
+          }
+        }
+      }
+    }
+  } catch {
+    // Push unsubscribe is best-effort; don't block logout
+  }
+
   // 3. Clear all Service Worker caches
   if ('caches' in window) {
     const keys = await caches.keys();

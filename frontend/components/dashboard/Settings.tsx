@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   DatabaseZap,
   Send,
+  Bell,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import {
@@ -27,6 +28,7 @@ import {
   AccountSettings,
 } from '@/components/settings';
 import { FileText, Clock } from 'lucide-react';
+import { NotificationSettings } from './settings/NotificationSettings';
 
 // Lazy-loaded settings sections — only loaded when their tab is selected
 const WritingStyleSettings = dynamic(() => import('@/components/email/compose/WritingStyleSettings').then(m => ({ default: m.WritingStyleSettings })), { ssr: false });
@@ -98,6 +100,7 @@ export function Settings() {
   const sections = useMemo(
     () => [
       { id: 'general', label: settingsCopy.sections.general, icon: <SettingsIcon size={18} /> },
+      { id: 'notifications', label: settingsCopy.sections.notifications || 'Notifications', icon: <Bell size={18} /> },
       { id: 'security', label: settingsCopy.sections.security || 'Security', icon: <Shield size={18} /> },
       { id: 'ai', label: settingsCopy.sections.ai, icon: <Sparkles size={18} /> },
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
@@ -226,6 +229,7 @@ export function Settings() {
             {s.selectedSection === 'general' && (
               <GeneralSettings theme={s.theme} setTheme={s.setTheme} language={s.language} setLanguage={s.setLanguage} timezone={s.timezone} setTimezone={s.setTimezone} emailDensity={s.emailDensity} setEmailDensity={s.setEmailDensity} saveLoading={s.saveLoading} onSave={h.handleSaveSettings} success={s.generalSuccess} error={s.generalError} onClearSuccess={() => s.setGeneralSuccess('')} onClearError={() => s.setGeneralError('')} copy={generalCopy} />
             )}
+            {s.selectedSection === 'notifications' && <NotificationSettings />}
             {s.selectedSection === 'security' && <SecuritySettings />}
             {s.selectedSection === 'ai' && (
               <>
