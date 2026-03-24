@@ -565,7 +565,6 @@ export class AiController {
         userId: req.user.userId,
         status: { in: [FollowUpStatus.PENDING, FollowUpStatus.REMINDED] },
         dueDate: {
-          gte: now,
           lte: end,
         },
       },

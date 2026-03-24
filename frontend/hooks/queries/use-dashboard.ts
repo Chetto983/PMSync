@@ -98,14 +98,16 @@ export function briefingOptions(enabled = true) {
     queryFn: async (): Promise<BriefingData> => {
       const response = await aiChatApi.getBriefing();
       const briefing = response.data?.briefing || {};
+      const b = briefing as Record<string, unknown>;
+      const priorityEmails = Array.isArray(b.priorityEmails) ? b.priorityEmails : [];
       return {
-        summary: (briefing as Record<string, unknown>).summary as string || '',
-        urgentEmails: (briefing as Record<string, unknown>).urgentEmails as number || 0,
-        deadlinesToday: (briefing as Record<string, unknown>).deadlinesToday as number || 0,
-        pendingFollowUps: (briefing as Record<string, unknown>).pendingFollowUps as number || 0,
-        staleContacts: (briefing as Record<string, unknown>).staleContacts as number || 0,
-        highlights: ((briefing as Record<string, unknown>).highlights as string[]) || [],
-        generatedAt: (briefing as Record<string, unknown>).generatedAt as string || new Date().toISOString(),
+        summary: b.summary as string || '',
+        urgentEmails: (b.urgentEmails as number) || priorityEmails.length,
+        deadlinesToday: b.deadlinesToday as number || 0,
+        pendingFollowUps: b.pendingFollowUps as number || 0,
+        staleContacts: b.staleContacts as number || 0,
+        highlights: (b.highlights as string[]) || [],
+        generatedAt: b.generatedAt as string || new Date().toISOString(),
       };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
