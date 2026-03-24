@@ -42,6 +42,15 @@ export class AccountController {
     return this.accountService.findById(tenantId, id);
   }
 
+  @Get(':id/children')
+  @ApiOperation({ summary: 'Get child accounts' })
+  @ApiResponse({ status: 200, description: 'Child accounts returned' })
+  @ApiResponse({ status: 404, description: 'Parent account not found' })
+  async getChildren(@Req() req: any, @Param('id') id: string) {
+    const tenantId = req.user.tenantId;
+    return this.accountService.getChildren(tenantId, id);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create account' })
   @ApiResponse({ status: 201, description: 'Account created' })

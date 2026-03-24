@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreateAccountDto, UpdateAccountDto, ListAccountsQueryDto } from '../dto/account.dto';
@@ -91,9 +91,27 @@ export class AccountService {
     });
   }
 
+  async getChildren(tenantId: string, id: string) {
+    // Verify parent exists
+    await this.findById(tenantId, id);
+
+    return this.prisma.crmAccount.findMany({
+      where: { tenantId, parentId: id, deletedAt: null },
+      include: {
+        _count: { select: { contacts: true, deals: true, children: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async update(tenantId: string, id: string, dto: UpdateAccountDto) {
     // Verify existence and tenant ownership
     await this.findById(tenantId, id);
+
+    // Cycle detection when setting parentId
+    if (dto.parentId !== undefined && dto.parentId !== null) {
+      await this.validateNoCycle(tenantId, id, dto.parentId);
+    }
 
     return this.prisma.crmAccount.update({
       where: { id },
@@ -127,5 +145,39 @@ export class AccountService {
     });
 
     return { deleted: true };
+  }
+
+  /**
+   * Walk the ancestor chain from targetParentId upward.
+   * If we ever encounter `accountId`, it means setting this parent
+   * would create a cycle. Max depth: 5 levels.
+   */
+  private async validateNoCycle(
+    tenantId: string,
+    accountId: string,
+    targetParentId: string,
+  ): Promise<void> {
+    if (targetParentId === accountId) {
+      throw new BadRequestException('An account cannot be its own parent');
+    }
+
+    let currentId: string | null = targetParentId;
+    const maxDepth = 5;
+
+    for (let depth = 0; depth < maxDepth && currentId; depth++) {
+      const ancestor: { parentId: string | null } | null =
+        await this.prisma.crmAccount.findFirst({
+          where: { id: currentId, tenantId, deletedAt: null },
+          select: { parentId: true },
+        });
+
+      if (!ancestor) break;
+      if (ancestor.parentId === accountId) {
+        throw new BadRequestException(
+          'Setting this parent would create a cycle in the account hierarchy',
+        );
+      }
+      currentId = ancestor.parentId;
+    }
   }
 }
