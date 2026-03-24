@@ -130,7 +130,10 @@
   2. A user performing bulk label/move operations uses the safe-write tier (100/min) without being blocked by the old flat 30/min limit
   3. Read-heavy pages (inbox loading, search, thread view) continue working at 300/min with no regression
   4. All existing @Throttle() decorators map to named tiers with no unintended cross-tier enforcement
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 106-01-PLAN.md — Create @RateTier decorator, 4-tier ThrottlerModule config, tier-aware guard
+- [ ] 106-02-PLAN.md — Audit and update all @Throttle decorators, add @RateTier to undecorated endpoints
 
 ### Phase 107: Push Notification Backend Dispatch
 **Goal**: Users who enabled push notifications in v8.0 settings actually receive push notifications on their devices
@@ -173,7 +176,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 106. Tiered Rate Limiting | 0/TBD | Not started | - |
+| 106. Tiered Rate Limiting | 0/2 | Planned | - |
 | 107. Push Notification Backend Dispatch | 0/TBD | Not started | - |
 | 108. HITL Approval Routing | 0/TBD | Not started | - |
 | 109. Graph RAG Pipeline | 0/TBD | Not started | - |
