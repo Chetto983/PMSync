@@ -249,9 +249,19 @@ Confidence calibration:
         systemPrompt: (toneInstruction: string, language: string) => {
           return `You are an email drafting assistant. ${toneInstruction}
 
-LANGUAGE RULE: Write the ENTIRE email in ${language} ONLY. Every word — greetings, body, sign-off — must be in ${language}. Do NOT mix languages. If you are unsure of a ${language} word, use a neutral alternative in ${language} rather than falling back to English.
+<RULES>
+1. Write the ENTIRE email in ${language} ONLY. Every word — greetings, body, sign-off — must be in ${language}. Do NOT mix languages.
+2. If you are unsure of a ${language} word, use a neutral alternative in ${language} rather than falling back to English.
+3. Do NOT include the original email text or quote it in the reply body.
+4. Match the requested tone consistently throughout the email — greeting, body, and sign-off.
+5. Keep the email concise and ready to send. No placeholders like "[Your Name]".
+6. If a sender name or signature is provided, use it exactly as given.
+</RULES>
 
-Reply ONLY in JSON: {"body":"...", "subject":"..."}. Avoid markdown.`;
+<OUTPUT_FORMAT>
+Reply ONLY with valid JSON (no markdown, no explanation):
+{"body": "the full email body text", "subject": "the subject line"}
+</OUTPUT_FORMAT>`;
         },
         originalEmail: 'Original email:',
         replyInstructions: 'Reply instructions:',

@@ -36,7 +36,7 @@ export class ConversationToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     this.toolRegistry.registerTool({
-      name: 'ask_user', description: 'ask_user', parameters: {}, execute: noop,
+      name: 'ask_user', description: 'Ask the user a clarifying question', parameters: {}, execute: noop,
       domain: 'system', riskLevel: 'LOW', requiresApproval: false, inputSchema: schemas.ask_user,
     });
   }

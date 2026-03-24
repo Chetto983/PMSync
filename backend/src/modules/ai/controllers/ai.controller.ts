@@ -33,6 +33,7 @@ import { EmailInsightsService } from '../services/email-insights.service';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
 import { EmailTriageService } from '../services/email-triage.service';
 import { RequiresConsent } from '../../compliance/decorators/requires-consent.decorator';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { ConsentGuard } from '../../compliance/guards/consent.guard';
 import { TriageBackfillSchedulerService } from '../services/triage-backfill-scheduler.service';
 // Phase 26: Non-chat AI services
@@ -92,6 +93,7 @@ export class AiController {
    * AI-assisted email composition (draft body + optional subject)
    */
   @Post('compose')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -110,6 +112,7 @@ export class AiController {
 
   /** Summarize email (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('summarize/:emailId')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -136,6 +139,7 @@ export class AiController {
 
   /** Generate smart reply suggestions */
   @Post('smart-reply/:emailId')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -163,6 +167,7 @@ export class AiController {
 
   /** Categorize email (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('categorize/:emailId')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -189,6 +194,7 @@ export class AiController {
 
   /** Search knowledge base using semantic similarity (RAG) */
   @Post('memory/search')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
   @ApiOperation({
@@ -224,6 +230,7 @@ export class AiController {
 
   /** Analyze email sentiment (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('sentiment/:emailId')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -260,6 +267,7 @@ export class AiController {
 
   /** Calculate email priority (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('priority/:emailId')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -301,6 +309,7 @@ export class AiController {
 
   /** Comprehensive email analysis (CONSOLIDATED: unified analysis with 24h cache) */
   @Post('analyze/:emailId')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -346,6 +355,7 @@ export class AiController {
 
   /** Trigger auto-triage for untriaged emails */
   @Post('triage')
+  @RateTierDecorator('safe-write')
   @RequiresConsent('ai_auto_triage')
   @HttpCode(HttpStatus.OK)
   @RequiresQuota('ai')
@@ -428,6 +438,7 @@ export class AiController {
 
   /** Manually trigger triage backfill */
   @Post('triage/backfill')
+  @RateTierDecorator('safe-write')
   @RequiresConsent('ai_auto_triage')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -457,13 +468,14 @@ export class AiController {
   async getBriefing(@Request() req: AuthenticatedRequest) {
     const prefs = await this.prisma.userPreferences.findFirst({
       where: { tenantId: req.user.tenantId, userId: req.user.userId },
-      select: { timezone: true },
+      select: { timezone: true, language: true },
     });
-    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined);
+    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined, prefs?.language || undefined);
     return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
   }
 
   @Post('briefing/refresh')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -472,9 +484,9 @@ export class AiController {
   async refreshBriefing(@Request() req: AuthenticatedRequest) {
     const prefs = await this.prisma.userPreferences.findFirst({
       where: { tenantId: req.user.tenantId, userId: req.user.userId },
-      select: { timezone: true },
+      select: { timezone: true, language: true },
     });
-    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined);
+    const result = await this.briefingService.generateBriefing(req.user.tenantId, prefs?.timezone || undefined, prefs?.language || undefined);
     return { success: true, briefing: result.data, ...(result.error ? { error: result.error } : {}) };
   }
 
@@ -635,6 +647,7 @@ export class AiController {
   }
 
   @Patch('follow-ups/:id/status')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update follow-up status' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   @ApiResponse({ status: 200, description: 'Status updated' })
@@ -664,6 +677,7 @@ export class AiController {
   }
 
   @Patch('follow-ups/:id/snooze')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Snooze a follow-up' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   @ApiResponse({ status: 200, description: 'Follow-up snoozed' })
@@ -695,6 +709,7 @@ export class AiController {
   }
 
   @Delete('follow-ups/:id')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Soft-delete a follow-up' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   @ApiResponse({ status: 200, description: 'Follow-up deleted' })
@@ -859,6 +874,7 @@ export class AiController {
   }
 
   @Post('follow-ups/detect')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -873,6 +889,7 @@ export class AiController {
   }
 
   @Post('drafts/generate')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @RequiresQuota('ai')
@@ -940,6 +957,7 @@ export class AiController {
   }
 
   @Post('writing-style/manual-samples')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_email_processing')
   @ApiOperation({ summary: 'Update manual writing samples' })

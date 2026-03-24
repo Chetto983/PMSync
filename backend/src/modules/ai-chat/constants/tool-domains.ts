@@ -33,8 +33,6 @@ export const TOOL_DOMAINS: Record<string, string> = {
   // Folders domain
   list_folders: 'folders',
   create_folder: 'folders',
-  rename_folder: 'folders',
-  delete_folder: 'folders',
   // Knowledge / memory domain (always active after step 0)
   semantic_search: 'knowledge',
   graph_context_search: 'knowledge',
@@ -50,6 +48,7 @@ export const TOOL_DOMAINS: Record<string, string> = {
   delete_reminder: 'productivity',
   // Utility domain (always active after step 0)
   run_code: 'utility',
+  code_assistant: 'utility',
   ask_user: 'utility',
 };
 

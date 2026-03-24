@@ -43,12 +43,12 @@ export class FolderToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'list_folders', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.list_folders },
-      { name: 'create_folder', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_folder },
+      { name: 'list_folders', description: 'List all email folders', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.list_folders },
+      { name: 'create_folder', description: 'Create a new custom email folder', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_folder },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
-        name: t.name, description: t.name, parameters: {}, execute: noop,
+        name: t.name, description: t.description, parameters: {}, execute: noop,
         domain: 'email', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
       });
     }

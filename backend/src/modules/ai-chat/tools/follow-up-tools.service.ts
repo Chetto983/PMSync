@@ -41,12 +41,12 @@ export class FollowUpToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'list_follow_ups', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: followUpSchemas.list_follow_ups },
-      { name: 'update_follow_up', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: followUpSchemas.update_follow_up },
+      { name: 'list_follow_ups', description: 'List pending follow-ups needing action', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: followUpSchemas.list_follow_ups },
+      { name: 'update_follow_up', description: 'Resolve, snooze, or reopen a follow-up', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: followUpSchemas.update_follow_up },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
-        name: t.name, description: t.name, parameters: {}, execute: noop,
+        name: t.name, description: t.description, parameters: {}, execute: noop,
         domain: 'productivity', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
       });
     }

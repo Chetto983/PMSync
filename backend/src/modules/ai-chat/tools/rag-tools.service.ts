@@ -48,7 +48,7 @@ const schemas = {
     limit: z.number().min(1).max(10).optional().describe('Maximum seed results for expansion (default 5)'),
   }),
   save_memory: z.object({
-    content: z.string().describe('The information to remember'),
+    content: z.string().max(5000).describe('The information to remember'),
     category: z.string().optional().describe('Category for organizing memories (e.g., "preference", "fact", "decision")'),
     tags: z.string().optional().describe('Comma-separated tags for filtering'),
   }),
@@ -77,15 +77,15 @@ export class RagToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'semantic_search', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.semantic_search },
-      { name: 'graph_context_search', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.graph_context_search },
-      { name: 'save_memory', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.save_memory },
-      { name: 'list_memories', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.list_memories },
-      { name: 'delete_memory', riskLevel: 'MEDIUM' as const, requiresApproval: true, inputSchema: schemas.delete_memory },
+      { name: 'semantic_search', description: 'Vector similarity search across emails, contacts, and calendar', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.semantic_search },
+      { name: 'graph_context_search', description: 'Deep contextual search with graph expansion', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.graph_context_search },
+      { name: 'save_memory', description: 'Store a fact or preference for future conversations', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.save_memory },
+      { name: 'list_memories', description: 'List stored user memories', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.list_memories },
+      { name: 'delete_memory', description: 'Delete a stored memory by ID', riskLevel: 'MEDIUM' as const, requiresApproval: true, inputSchema: schemas.delete_memory },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
-        name: t.name, description: t.name, parameters: {}, execute: noop,
+        name: t.name, description: t.description, parameters: {}, execute: noop,
         domain: 'knowledge', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
       });
     }
@@ -348,6 +348,7 @@ export class RagToolsService implements OnModuleInit {
         'Use list_memories first to find the memory ID. ' +
         'Requires user approval before executing.',
       inputSchema: schemas.delete_memory,
+      needsApproval: true,
       execute: async (args) => {
         const result = await this.prisma.aIMemory.deleteMany({
           where: {

@@ -66,6 +66,7 @@ export class TelegramSettingsController {
   }
 
   @Put()
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update Telegram settings' })
   async update(
     @Req() req: AuthenticatedRequest,
@@ -136,6 +137,7 @@ export class TelegramSettingsController {
   }
 
   @Delete()
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Disconnect Telegram' })
   async disconnect(@Req() req: AuthenticatedRequest) {
     await this.prisma.telegramSettings.deleteMany({

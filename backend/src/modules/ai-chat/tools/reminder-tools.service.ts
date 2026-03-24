@@ -38,12 +38,12 @@ export class ReminderToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'create_reminder', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: reminderSchemas.create_reminder },
-      { name: 'list_reminders', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: reminderSchemas.list_reminders },
+      { name: 'create_reminder', description: 'Create a smart follow-up reminder from natural language', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: reminderSchemas.create_reminder },
+      { name: 'list_reminders', description: 'List active reminders', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: reminderSchemas.list_reminders },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
-        name: t.name, description: t.name, parameters: {}, execute: noop,
+        name: t.name, description: t.description, parameters: {}, execute: noop,
         domain: 'productivity', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
       });
     }

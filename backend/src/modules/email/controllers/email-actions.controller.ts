@@ -205,6 +205,7 @@ export class EmailActionsController {
    */
   @Patch(':id')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async updateEmail(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
@@ -220,6 +221,7 @@ export class EmailActionsController {
    */
   @Delete('bulk')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('destructive-write')
   async bulkDelete(
     @Req() req: AuthenticatedRequest,
     @Body() data: BulkDeleteDto,
@@ -233,6 +235,7 @@ export class EmailActionsController {
    */
   @Delete(':id')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
@@ -244,6 +247,7 @@ export class EmailActionsController {
    */
   @Post('drafts')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async saveDraft(
     @Req() req: AuthenticatedRequest,
     @Body() dto: SaveDraftDto,
@@ -266,6 +270,7 @@ export class EmailActionsController {
    */
   @Delete('drafts/:id')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteDraft(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
@@ -275,6 +280,7 @@ export class EmailActionsController {
   /** PATCH /emails/bulk/read - Mark multiple emails as read/unread */
   @Patch('bulk/read')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async bulkUpdateRead(@Req() req: AuthenticatedRequest, @Body() data: BulkUpdateReadDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateRead(data.emailIds, tenantId, data.isRead);
@@ -283,6 +289,7 @@ export class EmailActionsController {
   /** PATCH /emails/bulk/star - Bulk star/unstar emails */
   @Patch('bulk/star')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async bulkUpdateStar(@Req() req: AuthenticatedRequest, @Body() data: BulkUpdateStarDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateStarred(data.emailIds, tenantId, data.isStarred);
@@ -291,6 +298,7 @@ export class EmailActionsController {
   /** PATCH /emails/bulk/flag - Bulk flag/unflag emails */
   @Patch('bulk/flag')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async bulkUpdateFlag(@Req() req: AuthenticatedRequest, @Body() data: BulkUpdateFlagDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateFlagged(data.emailIds, tenantId, data.isFlagged);
@@ -299,6 +307,7 @@ export class EmailActionsController {
   /** PATCH /emails/bulk/move - Bulk move emails to folder */
   @Patch('bulk/move')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async bulkMoveToFolder(@Req() req: AuthenticatedRequest, @Body() data: BulkMoveToFolderDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkMoveToFolder(data.emailIds, tenantId, data.folder);
@@ -307,6 +316,7 @@ export class EmailActionsController {
   /** PATCH /emails/bulk/labels/add - Bulk add labels to emails */
   @Patch('bulk/labels/add')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async bulkAddLabels(@Req() req: AuthenticatedRequest, @Body() data: BulkLabelsDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkAddLabels(data.emailIds, tenantId, data.labelIds);
@@ -315,6 +325,7 @@ export class EmailActionsController {
   /** PATCH /emails/bulk/labels/remove - Bulk remove labels from emails */
   @Patch('bulk/labels/remove')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async bulkRemoveLabels(@Req() req: AuthenticatedRequest, @Body() data: BulkLabelsDto) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkRemoveLabels(data.emailIds, tenantId, data.labelIds);
@@ -323,6 +334,7 @@ export class EmailActionsController {
   /** POST /emails/:id/fetch-archived - Fetch archived email from server */
   @Post(':id/fetch-archived')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   async fetchArchivedEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.fetchService.fetchArchivedEmail(id, tenantId);
@@ -331,6 +343,7 @@ export class EmailActionsController {
   /** POST /emails/maintenance/cleanup - Remove duplicates and purge deleted emails */
   @Post('maintenance/cleanup')
   @Roles('admin', 'super-admin')
+  @RateTierDecorator('destructive-write')
   async runTenantCleanup(@Req() req: AuthenticatedRequest) {
     return this.cleanupService.runTenantMaintenance(req.user.tenantId);
   }
@@ -346,6 +359,7 @@ export class EmailActionsController {
   /** POST /emails/retention/run - Manually run retention policy */
   @Post('retention/run')
   @Roles('super-admin')
+  @RateTierDecorator('destructive-write')
   async runRetentionPolicy(@Req() req: AuthenticatedRequest, @Body() data?: { retentionDays?: number }) {
     const tenantId = req.user.tenantId;
     return this.retentionService.runManualRetention(tenantId, data?.retentionDays);

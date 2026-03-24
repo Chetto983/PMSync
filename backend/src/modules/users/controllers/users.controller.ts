@@ -5,6 +5,7 @@ import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { UpdatePreferencesDto } from '../dtos/update-preferences.dto';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 /**
  * UsersController — Self-service user profile endpoints only.
@@ -37,6 +38,7 @@ export class UsersController {
    * PUT /users/me
    */
   @Put('me')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update user profile (name, avatar)' })
   async updateMyProfile(@Request() req: AuthenticatedRequest, @Body() body: { firstName?: string; lastName?: string; avatarUrl?: string }) {
     return this.usersService.updateUserProfile(req.user.userId, body);
@@ -48,6 +50,7 @@ export class UsersController {
    * Accepts base64 data URL in body
    */
   @Put('me/avatar')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Upload user avatar (base64 data URL)' })
   @ApiResponse({ status: 200, description: 'Avatar updated successfully' })
   async updateMyAvatar(@Request() req: AuthenticatedRequest, @Body() body: { avatarUrl: string }) {
@@ -59,6 +62,7 @@ export class UsersController {
    * DELETE /users/me/avatar
    */
   @Delete('me/avatar')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Delete user avatar' })
   @ApiResponse({ status: 200, description: 'Avatar deleted successfully' })
   async deleteMyAvatar(@Request() req: AuthenticatedRequest) {
@@ -70,6 +74,7 @@ export class UsersController {
    * DELETE /users/me
    */
   @Delete('me')
+  @RateTierDecorator('destructive-write')
   async deleteMyAccount(@Request() req: AuthenticatedRequest) {
     return this.usersService.deleteUserAccount(req.user.userId);
   }
@@ -90,6 +95,7 @@ export class UsersController {
    * PATCH /users/me/preferences
    */
   @Patch('me/preferences')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update user preferences' })
   @ApiResponse({ status: 200, description: 'Preferences updated successfully' })
   async updateMyPreferences(
@@ -104,6 +110,7 @@ export class UsersController {
    * DELETE /users/me/ai-memory
    */
   @Delete('me/ai-memory')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Clear user AI memory' })
   @ApiResponse({ status: 200, description: 'AI memory deleted successfully' })
   async clearMyAiMemory(@Request() req: AuthenticatedRequest) {
@@ -129,6 +136,7 @@ export class UsersController {
    * PUT /users/me/dashboard-preferences
    */
   @Put('me/dashboard-preferences')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update dashboard layout preferences' })
   @ApiResponse({ status: 200, description: 'Dashboard preferences updated' })
   async updateMyDashboardPreferences(@Request() req: AuthenticatedRequest, @Body() body: { layout: any[] }) {

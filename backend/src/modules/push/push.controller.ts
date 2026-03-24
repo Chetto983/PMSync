@@ -11,6 +11,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantGuard } from '../../common/auth/tenant.guard';
 import { RolesGuard } from '../../common/auth/roles.guard';
 import { PushService } from './push.service';
+import { RateTierDecorator } from '../../common/decorators/rate-tier.decorator';
 import {
   CreatePushSubscriptionDto,
   DeletePushSubscriptionDto,
@@ -29,6 +30,7 @@ export class PushController {
   constructor(private readonly pushService: PushService) {}
 
   @Post('subscribe')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Register a push subscription' })
   async subscribe(
     @Req() req: AuthenticatedRequest,
@@ -44,6 +46,7 @@ export class PushController {
   }
 
   @Delete('subscribe')
+  @RateTierDecorator('safe-write')
   @HttpCode(204)
   @ApiOperation({ summary: 'Remove a push subscription' })
   async unsubscribe(

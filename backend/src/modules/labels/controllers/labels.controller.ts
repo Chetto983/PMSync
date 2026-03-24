@@ -23,6 +23,7 @@ import { TenantGuard } from '../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
 import { FeatureFlag } from '../../../common/decorators/feature-flag.decorator';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { FeatureFlagGuard } from '../../../common/guards/feature-flag.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 
@@ -54,6 +55,7 @@ export class LabelsController {
 
   @Post()
   @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Create label', description: 'Creates a new user label' })
   @ApiBody({ type: CreateLabelDto })
   @ApiResponse({ status: 201, description: 'Label created successfully' })
@@ -64,6 +66,7 @@ export class LabelsController {
 
   @Put(':id')
   @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update label', description: 'Updates an existing label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
   @ApiBody({ type: UpdateLabelDto })
@@ -79,6 +82,7 @@ export class LabelsController {
 
   @Delete(':id')
   @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete label', description: 'Deletes a user label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
@@ -89,6 +93,7 @@ export class LabelsController {
 
   @Post(':id/emails')
   @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Add emails to label', description: 'Adds one or more emails to a label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
   @ApiBody({ type: AddEmailsToLabelDto })
@@ -104,6 +109,7 @@ export class LabelsController {
 
   @Delete(':id/emails/:emailId')
   @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Remove email from label', description: 'Removes an email from a label' })
   @ApiParam({ name: 'id', description: 'Label ID' })
   @ApiParam({ name: 'emailId', description: 'Email ID' })
@@ -128,6 +134,7 @@ export class LabelsController {
 
   @Post('reorder')
   @Roles('super-admin', 'admin', 'manager')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Reorder labels', description: 'Reorders user labels' })
   @ApiBody({ type: ReorderLabelsDto })

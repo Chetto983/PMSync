@@ -27,6 +27,7 @@ import { RolesGuard } from '../../../common/auth/roles.guard';
 import { Roles } from '../../../common/auth/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { SubscriptionService, PLAN_LIMITS } from '../services/subscription.service';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UsageTrackingService } from '../services/usage-tracking.service';
 import { CostProtectionService } from '../services/cost-protection.service';
@@ -185,6 +186,7 @@ export class SubscriptionController {
   }
 
   @Post('cancel')
+  @RateTierDecorator('destructive-write')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @HttpCode(HttpStatus.OK)

@@ -22,6 +22,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { DataExportService } from '../services/data-export.service';
 import { DataExportResponseDto, DataExportListDto } from '../dto/data-export.dto';
 import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 /**
  * REST API for GDPR data portability exports (DATA-01 / Article 20)
@@ -46,6 +47,7 @@ export class DataExportController {
    * Request a new data export. Returns existing export if one is already in progress.
    */
   @Post()
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Request a GDPR data export' })
   @ApiOkResponse({
     type: DataExportResponseDto,

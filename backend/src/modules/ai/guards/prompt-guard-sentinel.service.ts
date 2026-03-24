@@ -104,6 +104,9 @@ export class PromptGuardService {
    *   - SYSTEM_INTERNAL: Minimal validation for internal system operations
    */
   validateInput(input: string, context: ValidationContext = 'USER_PROMPT'): PromptValidationResult {
+    // Normalize Unicode to defeat homoglyph and decomposed-character bypasses
+    input = input.normalize('NFKC');
+
     // Context-aware max length
     const maxLength = context === 'EMAIL_CONTENT'
       ? 100000 // 100KB for email content analysis

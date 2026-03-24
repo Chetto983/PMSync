@@ -30,6 +30,7 @@ import {
   UpdateProviderDto,
 } from '../dto';
 import { ImapService } from '../services/imap.service';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 @ApiTags('Providers')
 @ApiBearerAuth()
@@ -47,6 +48,7 @@ export class ProvidersController {
   // ========== GOOGLE PROVIDER ==========
 
   @Post('google/auth-url')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Get Google OAuth2 authorization URL with PKCE' })
   @ApiResponse({ status: 200, type: OAuthUrlResponseDto })
   async getGoogleAuthUrl(
@@ -74,6 +76,7 @@ export class ProvidersController {
   }
 
   @Post('google/connect')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Connect Google provider (Gmail + Calendar)' })
   @ApiResponse({ status: 201, type: ProviderConfigResponseDto })
@@ -96,6 +99,7 @@ export class ProvidersController {
   // ========== MICROSOFT PROVIDER ==========
 
   @Post('microsoft/auth-url')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Get Microsoft OAuth2 authorization URL with PKCE' })
   @ApiResponse({ status: 200, type: OAuthUrlResponseDto })
   async getMicrosoftAuthUrl(
@@ -123,6 +127,7 @@ export class ProvidersController {
   }
 
   @Post('microsoft/connect')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Connect Microsoft provider (Outlook + Graph API)' })
   @ApiResponse({ status: 201, type: ProviderConfigResponseDto })
@@ -145,6 +150,7 @@ export class ProvidersController {
   // ========== AUTO-CONNECT FROM SOCIAL LOGIN ==========
 
   @Post('auto-connect-social')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Auto-connect email provider from social login tokens',
@@ -174,6 +180,7 @@ export class ProvidersController {
   // ========== GENERIC PROVIDER (IMAP/CalDAV) ==========
 
   @Post('generic/connect')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Connect generic provider (IMAP/SMTP + CalDAV/CardDAV)' })
   @ApiResponse({ status: 201, type: ProviderConfigResponseDto })
@@ -186,6 +193,7 @@ export class ProvidersController {
   }
 
   @Post('generic/test')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Test IMAP/SMTP credentials before creating provider' })
   @ApiResponse({
@@ -290,6 +298,7 @@ export class ProvidersController {
   }
 
   @Patch(':id')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update provider settings (displayName, scope, isDefault)' })
   @ApiResponse({ status: 200, type: ProviderConfigResponseDto })
   async updateProvider(
@@ -310,6 +319,7 @@ export class ProvidersController {
   }
 
   @Delete(':id')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a provider config' })
   @ApiResponse({ status: 204, description: 'Provider config deleted successfully' })

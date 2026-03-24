@@ -47,6 +47,7 @@ export class EmailCalendarInviteController {
   }
 
   @Post(':id/calendar-invite/respond')
+  @RateTierDecorator('send')
   @Roles('admin', 'manager', 'super-admin')
   async respondToCalendarInvite(
     @Req() req: AuthenticatedRequest,
@@ -180,6 +181,7 @@ export class EmailCalendarInviteController {
   }
 
   @Post('calendar-invite/:eventId/cancel')
+  @RateTierDecorator('send')
   @Roles('admin', 'manager', 'super-admin')
   async cancelCalendarInvite(
     @Req() req: AuthenticatedRequest,

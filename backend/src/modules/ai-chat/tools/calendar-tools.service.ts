@@ -65,15 +65,15 @@ export class CalendarToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'view_calendar', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.view_calendar },
-      { name: 'create_event', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_event },
-      { name: 'update_event', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.update_event },
-      { name: 'delete_event', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_event },
+      { name: 'view_calendar', description: 'List calendar events in a date range', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.view_calendar },
+      { name: 'create_event', description: 'Create a new calendar event', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_event },
+      { name: 'update_event', description: 'Update an existing calendar event', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.update_event },
+      { name: 'delete_event', description: 'Delete a calendar event', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_event },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
         name: t.name,
-        description: t.name,
+        description: t.description,
         parameters: {},
         execute: noop,
         domain: 'calendar',

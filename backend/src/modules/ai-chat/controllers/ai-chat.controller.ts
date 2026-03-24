@@ -40,6 +40,7 @@ import {
   hasApprovalResponses,
 } from '../dto/chat-request.dto';
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 /**
  * AiChatController -- Streaming chat endpoint + conversation management.
@@ -87,6 +88,7 @@ export class AiChatController {
    * Do NOT call res.json() or return a value.
    */
   @Post('chat')
+  @RateTierDecorator('safe-write')
   @SkipEnvelope()
   @HttpCode(HttpStatus.OK)
   @RequiresConsent('ai_chat')
@@ -148,6 +150,7 @@ export class AiChatController {
    * before the first message is sent.
    */
   @Post('chat/conversations')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create a new AI chat conversation',
@@ -209,6 +212,7 @@ export class AiChatController {
    * Bulk-delete conversations in a single query.
    */
   @Post('chat/conversations/bulk-delete')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Bulk delete AI chat conversations',
@@ -270,6 +274,7 @@ export class AiChatController {
    * Delete a conversation and all its messages.
    */
   @Delete('chat/conversations/:id')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete an AI chat conversation',

@@ -21,14 +21,14 @@ import {
  */
 const schemas = {
   run_code: z.object({
-    code: z.string().describe('The code to execute'),
+    code: z.string().max(30000).describe('The code to execute'),
     language: z.enum(['python', 'javascript']).describe('Programming language'),
-    inputData: z.string().optional().describe('Optional data to pass to the code.'),
+    inputData: z.string().max(50000).optional().describe('Optional data to pass to the code.'),
   }),
   code_assistant: z.object({
-    task: z.string().describe('Natural language description of what the code should do.'),
+    task: z.string().max(5000).describe('Natural language description of what the code should do.'),
     language: z.enum(['python', 'javascript']).default('javascript').describe('Preferred language (default: javascript)'),
-    inputData: z.string().optional().describe('Data to process.'),
+    inputData: z.string().max(50000).optional().describe('Data to process.'),
   }),
 };
 
@@ -46,12 +46,12 @@ export class SandboxToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'run_code', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.run_code },
-      { name: 'code_assistant', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.code_assistant },
+      { name: 'run_code', description: 'Execute Python or JavaScript in an isolated sandbox', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.run_code },
+      { name: 'code_assistant', description: 'Delegate a coding task to Devstral for code generation and execution', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.code_assistant },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
-        name: t.name, description: t.name, parameters: {}, execute: noop,
+        name: t.name, description: t.description, parameters: {}, execute: noop,
         domain: 'system', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
       });
     }
@@ -204,6 +204,17 @@ export class SandboxToolsService implements OnModuleInit {
         ? 'INPUT_DATA_PATH (Python variable with file path)'
         : 'INPUT_DATA_PATH (JS const with file path)';
 
+    const systemPrompt =
+      `You are a code generation assistant. Return ONLY executable ${runtime} code.\n` +
+      `Rules:\n` +
+      `- No markdown fences, no explanations, no comments — just runnable code\n` +
+      `- Only use standard library (no external packages via npm/pip)\n` +
+      `- No network requests (no fetch, no http, no urllib, no requests)\n` +
+      `- No file system writes outside the current temp directory\n` +
+      `- No process.exit(), no eval(), no exec(), no require('child_process'), no os.system()\n` +
+      `- No reading environment variables or system configuration\n` +
+      `- Output results via ${language === 'python' ? 'print()' : 'console.log()'} only`;
+
     let prompt =
       `Write ${runtime} code that does the following:\n${task}\n\n` +
       `Rules:\n` +
@@ -226,6 +237,7 @@ export class SandboxToolsService implements OnModuleInit {
 
     const { text } = await generateText({
       model: this.mistralProvider.getChatModel(),
+      system: systemPrompt,
       messages: [{ role: 'user', content: prompt }],
       maxOutputTokens: 2000,
     });

@@ -392,6 +392,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
 
   @Post('sync/:providerId')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Sync folders for a specific provider' })
   @ApiResponse({ status: 200, description: 'Folders synced successfully' })
   async syncFolders(
@@ -430,6 +431,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
 
   @Post('sync-all')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Sync folders for all providers' })
   @ApiResponse({ status: 200, description: 'Folders synced for all providers' })
   async syncAllFolders(@Request() req: AuthenticatedRequest) {
@@ -481,6 +483,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
 
   @Post('update-counts/:providerId')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update folder counts for a provider' })
   @ApiResponse({
     status: 200,
@@ -548,6 +551,7 @@ Frontend can use this to avoid duplicating folder type logic.`,
 
   @Post('cleanup/:providerId')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Clean up orphaned folders for a provider' })
   @ApiResponse({ status: 200, description: 'Orphaned folders cleaned up' })
   async cleanupOrphanedFolders(

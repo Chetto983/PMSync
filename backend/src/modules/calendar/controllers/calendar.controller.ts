@@ -128,6 +128,7 @@ export class CalendarController {
    * POST /api/calendar/calendars
    */
   @Post('calendars')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create calendar', description: 'Creates a new calendar' })
   @ApiBody({ type: CreateCalendarDto })
@@ -142,6 +143,7 @@ export class CalendarController {
    * PATCH /api/calendar/calendars/:providerId/:calendarId
    */
   @Patch('calendars/:providerId/:calendarId')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update calendar preferences', description: 'Updates calendar name or color' })
   @ApiParam({ name: 'providerId', description: 'Provider ID' })
   @ApiParam({ name: 'calendarId', description: 'Calendar ID' })
@@ -162,6 +164,7 @@ export class CalendarController {
    * DELETE /api/calendar/calendars/:providerId/:calendarId
    */
   @Delete('calendars/:providerId/:calendarId')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete calendar', description: 'Deletes a provider calendar' })
   @ApiParam({ name: 'providerId', description: 'Provider ID' })
@@ -217,6 +220,7 @@ export class CalendarController {
    * POST /api/calendar/events
    */
   @Post('events')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create event', description: 'Creates a new calendar event' })
   @ApiBody({ type: CreateEventDto })
@@ -231,6 +235,7 @@ export class CalendarController {
    * PATCH /api/calendar/events/:id
    */
   @Patch('events/:id')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update event', description: 'Updates a calendar event' })
   @ApiParam({ name: 'id', description: 'Event ID' })
   @ApiBody({ type: UpdateEventDto })
@@ -249,6 +254,7 @@ export class CalendarController {
    * DELETE /api/calendar/events/:id
    */
   @Delete('events/:id')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete event', description: 'Deletes a calendar event' })
   @ApiParam({ name: 'id', description: 'Event ID' })

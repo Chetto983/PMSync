@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { ConsentService } from '../services/consent.service';
 import { ConsentHistoryDto, ConsentStateDto, UpdateConsentDto } from '../dto/consent.dto';
 import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 /**
  * REST API for user consent management (CONSENT-01)
@@ -39,6 +40,7 @@ export class ConsentController {
    * Update consent for a specific feature
    */
   @Post()
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Update consent for a specific feature' })
   @ApiOkResponse({ type: ConsentStateDto, description: 'Updated consent state' })
   updateConsent(

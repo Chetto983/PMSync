@@ -65,15 +65,15 @@ export class ContactToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'search_contacts', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.search_contacts },
-      { name: 'create_contact', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_contact },
-      { name: 'update_contact', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.update_contact },
-      { name: 'delete_contact', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_contact },
+      { name: 'search_contacts', description: 'Find contacts by name or email', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.search_contacts },
+      { name: 'create_contact', description: 'Create a new contact', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.create_contact },
+      { name: 'update_contact', description: 'Update contact information', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.update_contact },
+      { name: 'delete_contact', description: 'Delete a contact', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_contact },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
         name: t.name,
-        description: t.name,
+        description: t.description,
         parameters: {},
         execute: noop,
         domain: 'contacts',

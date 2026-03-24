@@ -11,6 +11,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { AccountDeletionService } from '../services/account-deletion.service';
 import { DeletionResponseDto, DeletionStatusDto } from '../dto/data-deletion.dto';
 import { SkipLegalCheck } from '../decorators/skip-legal-check.decorator';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 /**
  * REST API for account deletion (GDPR Article 17 - Right to Erasure)
@@ -39,6 +40,7 @@ export class DataDeletionController {
    * User has 30 days to cancel before hard-delete occurs.
    */
   @Post()
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Request account deletion (30-day grace period)' })
   @ApiOkResponse({ type: DeletionResponseDto, description: 'Deletion scheduled' })
   async requestDeletion(
@@ -67,6 +69,7 @@ export class DataDeletionController {
    * Reactivates the user account. Only works within 30-day grace period.
    */
   @Delete('cancel')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Cancel pending account deletion' })
   @ApiOkResponse({ type: DeletionResponseDto, description: 'Deletion cancelled' })
   @ApiResponse({ status: 400, description: 'No pending deletion request' })

@@ -65,14 +65,14 @@ export class EmailProductivityToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'list_email_index', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.list_email_index },
-      { name: 'star_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.star_email },
-      { name: 'mark_email_read', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.mark_email_read },
-      { name: 'label_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.label_email },
+      { name: 'list_email_index', description: 'Get a numbered index of recent emails', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.list_email_index },
+      { name: 'star_email', description: 'Star or unstar an email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.star_email },
+      { name: 'mark_email_read', description: 'Mark an email as read or unread', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.mark_email_read },
+      { name: 'label_email', description: 'Add or remove workspace labels on an email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: emailProductivitySchemas.label_email },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
-        name: t.name, description: t.name, parameters: {}, execute: noop,
+        name: t.name, description: t.description, parameters: {}, execute: noop,
         domain: 'productivity', riskLevel: t.riskLevel, requiresApproval: t.requiresApproval, inputSchema: t.inputSchema,
       });
     }

@@ -18,6 +18,7 @@ import { RolesGuard } from '../../../common/auth/roles.guard';
 import { ReminderService } from '../services/reminder.service';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { UpdateReminderDto } from '../dto/update-reminder.dto';
+import { RateTierDecorator } from '../../../common/decorators/rate-tier.decorator';
 
 interface AuthenticatedRequest {
   user: { id: string; tenantId: string };
@@ -31,6 +32,7 @@ export class ReminderController {
   constructor(private readonly reminderService: ReminderService) {}
 
   @Post()
+  @RateTierDecorator('safe-write')
   @HttpCode(201)
   @ApiOperation({ summary: 'Create a reminder (AI-parsed or structured)' })
   async create(@Req() req: AuthenticatedRequest, @Body() dto: CreateReminderDto) {
@@ -79,6 +81,7 @@ export class ReminderController {
   }
 
   @Patch(':id')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update a reminder' })
   async update(
     @Req() req: AuthenticatedRequest,
@@ -95,6 +98,7 @@ export class ReminderController {
   }
 
   @Post(':id/complete')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Mark a reminder as completed' })
   async complete(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const reminder = await this.reminderService.completeReminder(
@@ -106,6 +110,7 @@ export class ReminderController {
   }
 
   @Delete(':id')
+  @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Soft-delete a reminder (sets status to annullato)' })
   async delete(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const reminder = await this.reminderService.deleteReminder(

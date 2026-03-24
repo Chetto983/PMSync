@@ -33,8 +33,8 @@ const schemas = {
     to: z.string().describe('Recipient email address'),
     cc: z.string().optional().describe('CC recipients, comma-separated'),
     bcc: z.string().optional().describe('BCC recipients, comma-separated'),
-    subject: z.string().describe('Email subject line'),
-    body: z.string().describe('Email body in plain text or HTML'),
+    subject: z.string().max(500).describe('Email subject line'),
+    body: z.string().max(50000).describe('Email body in plain text or HTML'),
   }),
   search_emails: z.object({
     query: z.string().describe('Search query (keywords, sender name, subject text)'),
@@ -56,17 +56,17 @@ const schemas = {
   forward_email: z.object({
     emailId: z.string().describe('The ID of the email to forward'),
     to: z.string().describe('Recipient email address for forwarding'),
-    message: z.string().optional().describe('Optional message to prepend'),
+    message: z.string().max(10000).optional().describe('Optional message to prepend'),
   }),
   reply_email: z.object({
     emailId: z.string().describe('The ID of the email to reply to'),
-    body: z.string().describe('Reply message body'),
+    body: z.string().max(50000).describe('Reply message body'),
     replyAll: z.boolean().optional().describe('Reply to all recipients (default false)'),
   }),
   draft_email: z.object({
     to: z.string().describe('Recipient email address'),
-    subject: z.string().describe('Email subject line'),
-    body: z.string().describe('Email body content'),
+    subject: z.string().max(500).describe('Email subject line'),
+    body: z.string().max(50000).describe('Email body content'),
   }),
 };
 
@@ -87,20 +87,20 @@ export class EmailToolsService implements OnModuleInit {
   onModuleInit() {
     const noop = async () => ({});
     const tools = [
-      { name: 'search_emails', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.search_emails },
-      { name: 'read_email', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.read_email },
-      { name: 'send_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.send_email },
-      { name: 'delete_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_email },
-      { name: 'forward_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.forward_email },
-      { name: 'reply_email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.reply_email },
-      { name: 'draft_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.draft_email },
-      { name: 'archive_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.archive_email },
-      { name: 'move_email', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.move_email },
+      { name: 'search_emails', description: 'Search emails by keyword, sender, or subject', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.search_emails },
+      { name: 'read_email', description: 'Fetch full content of a specific email by ID', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.read_email },
+      { name: 'send_email', description: 'Queue an email for delivery on behalf of the user', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.send_email },
+      { name: 'delete_email', description: 'Permanently delete an email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.delete_email },
+      { name: 'forward_email', description: 'Forward an email to another recipient', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.forward_email },
+      { name: 'reply_email', description: 'Reply to an email', riskLevel: 'HIGH' as const, requiresApproval: true, inputSchema: schemas.reply_email },
+      { name: 'draft_email', description: 'Create a draft email without sending', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.draft_email },
+      { name: 'archive_email', description: 'Move an email to the Archive folder', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.archive_email },
+      { name: 'move_email', description: 'Move an email to a specific folder', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.move_email },
     ];
     for (const t of tools) {
       this.toolRegistry.registerTool({
         name: t.name,
-        description: t.name,
+        description: t.description,
         parameters: {},
         execute: noop,
         domain: 'email',

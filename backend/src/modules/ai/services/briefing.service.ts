@@ -124,12 +124,24 @@ Rules:
 - focusTimeRecommendations: Suggest focus blocks in calendar gaps.
 
 Be concise, actionable, and data-driven. Do NOT fabricate data -- only reference items from the provided context.
+If a field has no matching data in the provided context, return an empty array or null — never synthesize missing data.
 
 Confidence calibration for urgency ratings:
 - critical: Explicit deadline within 24h, or sender flagged as VIP, or escalation/complaint
 - high: Deadline within 48h, direct question requiring action, or important sender
 - medium: General action item, no hard deadline, within the week
 - low: FYI email, newsletter, or optional action`;
+
+const LOCALE_LANGUAGE_MAP: Record<string, string> = {
+  en: 'English',
+  it: 'Italian',
+};
+
+function buildBriefingSystemPrompt(locale?: string): string {
+  const lang = LOCALE_LANGUAGE_MAP[locale ?? 'en'] ?? 'English';
+  if (lang === 'English') return SYSTEM_PROMPT;
+  return SYSTEM_PROMPT + `\n\nIMPORTANT: Write all free-text fields (executiveSummary, reason, suggestedAction, suggestedResponse) in ${lang}. JSON keys must remain in English.`;
+}
 
 @Injectable()
 export class BriefingService {
@@ -151,7 +163,7 @@ export class BriefingService {
    * Generate a comprehensive daily briefing for a tenant.
    * Pre-fetches all data in parallel, then makes a single LLM call.
    */
-  async generateBriefing(tenantId: string, timezone?: string): Promise<{ data: BriefingOutput; error?: string }> {
+  async generateBriefing(tenantId: string, timezone?: string, locale?: string): Promise<{ data: BriefingOutput; error?: string }> {
     const now = new Date();
     // Calculate "today" boundaries in user's timezone
     const tz = timezone || 'UTC';
@@ -270,22 +282,25 @@ export class BriefingService {
     }, null, 0);
 
     // 3. Generate briefing with graceful fallback
-    return this.generateWithFallback(dataContext, tenantId);
+    return this.generateWithFallback(dataContext, tenantId, locale);
   }
 
   private async generateWithFallback(
     dataContext: string,
     tenantId = 'system',
+    locale?: string,
   ): Promise<{ data: BriefingOutput; error?: string }> {
+    const systemPrompt = buildBriefingSystemPrompt(locale);
+
     // Attempt 1: generateObject (structured output)
-    const attempt1 = await this.tryGenerateObject(dataContext, tenantId);
+    const attempt1 = await this.tryGenerateObject(dataContext, tenantId, systemPrompt);
     if (attempt1) {
       await this.trackUsage();
       return { data: attempt1 };
     }
 
     // Attempt 2: generateText + manual JSON extraction (fallback)
-    const attempt2 = await this.tryGenerateText(dataContext, tenantId);
+    const attempt2 = await this.tryGenerateText(dataContext, tenantId, systemPrompt);
     if (attempt2) {
       await this.trackUsage();
       return { data: attempt2 };
@@ -296,7 +311,7 @@ export class BriefingService {
   }
 
   private async tryGenerateObject(
-    prompt: string, tenantId: string,
+    prompt: string, tenantId: string, systemPrompt: string = SYSTEM_PROMPT,
   ): Promise<BriefingOutput | null> {
     const startTime = Date.now();
     try {
@@ -304,7 +319,7 @@ export class BriefingService {
         model: this.mistralProvider.getChatModel(this.briefingModelId),
         schema: briefingSchema,
         schemaName: 'DailyBriefing',
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         prompt,
         temperature: 0.1,
         maxOutputTokens: 1500,
@@ -331,13 +346,13 @@ export class BriefingService {
   }
 
   private async tryGenerateText(
-    prompt: string, tenantId: string,
+    prompt: string, tenantId: string, systemPrompt: string = SYSTEM_PROMPT,
   ): Promise<BriefingOutput | null> {
     const startTime = Date.now();
     try {
       const result = await generateText({
         model: this.mistralProvider.getChatModel(this.briefingModelId),
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         prompt: prompt + '\n\nReturn valid JSON.',
         maxOutputTokens: 1200,
         abortSignal: AbortSignal.timeout(45_000),

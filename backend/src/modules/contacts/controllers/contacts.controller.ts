@@ -178,6 +178,7 @@ export class ContactsController {
    */
   @Post('lookup-by-emails')
   @Roles('admin', 'manager', 'super-admin')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Lookup contacts by emails',
@@ -196,6 +197,7 @@ export class ContactsController {
    */
   @Post()
   @Roles('admin', 'super-admin')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create contact', description: 'Creates a new contact' })
   @ApiBody({ type: CreateContactDto })
@@ -211,6 +213,7 @@ export class ContactsController {
    */
   @Patch(':id')
   @Roles('admin', 'super-admin')
+  @RateTierDecorator('safe-write')
   @ApiOperation({ summary: 'Update contact', description: 'Updates an existing contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiBody({ type: UpdateContactDto })
@@ -232,6 +235,7 @@ export class ContactsController {
    */
   @Delete('bulk')
   @Roles('admin', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bulk delete contacts', description: 'Soft-deletes multiple contacts in one call' })
   @ApiBody({ type: BulkDeleteContactsDto })
@@ -248,6 +252,7 @@ export class ContactsController {
    */
   @Delete(':id')
   @Roles('admin', 'super-admin')
+  @RateTierDecorator('destructive-write')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete contact', description: 'Deletes a contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
@@ -262,6 +267,7 @@ export class ContactsController {
    * POST /api/contacts/:id/vip
    */
   @Post(':id/vip')
+  @RateTierDecorator('safe-write')
   @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Toggle VIP status', description: 'Toggles VIP status for a contact' })
   @ApiParam({ name: 'id', description: 'Contact ID' })
@@ -289,6 +295,7 @@ export class ContactsController {
    */
   @Post('local')
   @Roles('admin', 'super-admin')
+  @RateTierDecorator('safe-write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create local contact', description: 'Creates a local-only contact (no provider sync)' })
   @ApiBody({ type: CreateLocalContactDto })
