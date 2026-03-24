@@ -4,16 +4,12 @@ import Link from 'next/link';
 import {
   Box,
   Drawer,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   IconButton,
   Tooltip,
-  Divider,
   useMediaQuery,
   useTheme,
   alpha,
+  Typography,
 } from '@mui/material';
 import {
   Home,
@@ -22,20 +18,22 @@ import {
   Users,
   Bell,
   AlarmClock,
-  ChevronLeft,
-  ChevronRight,
+  Sparkles,
+  Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
-const DRAWER_WIDTH_EXPANDED = 240;
-const DRAWER_WIDTH_COLLAPSED = 56;
+const RAIL_WIDTH = 64;
+const EXPANDED_WIDTH = 220;
 
-interface NavigationItem {
+interface NavItem {
   label: string;
   icon: React.ReactNode;
   href: string;
-  badge?: number;
+  section?: 'main' | 'ai';
 }
 
 export interface PmSyncSidebarProps {
@@ -57,45 +55,140 @@ export function Sidebar({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const t = useTranslations();
+  const isDark = theme.palette.mode === 'dark';
 
-  const navigationItems: NavigationItem[] = [
-    {
-      label: t.nav.home,
-      icon: <Home size={20} />,
-      href: '/dashboard',
-    },
-    {
-      label: t.nav.mail,
-      icon: <Mail size={20} />,
-      href: '/dashboard/email',
-    },
-    {
-      label: t.nav.calendar,
-      icon: <Calendar size={20} />,
-      href: '/dashboard/calendar',
-    },
-    {
-      label: t.nav.contacts,
-      icon: <Users size={20} />,
-      href: '/dashboard/contacts',
-    },
-    {
-      label: t.ai.followUpTracker?.title || 'Follow-ups',
-      icon: <Bell size={20} />,
-      href: '/dashboard/ai/follow-ups',
-    },
-    {
-      label: t.ai.reminders?.title || 'Reminders',
-      icon: <AlarmClock size={20} />,
-      href: '/dashboard/reminders',
-    },
+  const navItems: NavItem[] = [
+    { label: t.nav.home, icon: <Home size={20} strokeWidth={1.8} />, href: '/dashboard', section: 'main' },
+    { label: t.nav.mail, icon: <Mail size={20} strokeWidth={1.8} />, href: '/dashboard/email', section: 'main' },
+    { label: t.nav.calendar, icon: <Calendar size={20} strokeWidth={1.8} />, href: '/dashboard/calendar', section: 'main' },
+    { label: t.nav.contacts, icon: <Users size={20} strokeWidth={1.8} />, href: '/dashboard/contacts', section: 'main' },
+    { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={20} strokeWidth={1.8} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
+    { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={20} strokeWidth={1.8} />, href: '/dashboard/reminders', section: 'ai' },
+    { label: t.ai?.title || 'AI Assistant', icon: <Sparkles size={20} strokeWidth={1.8} />, href: '/dashboard/ai', section: 'ai' },
   ];
 
-  const isActive = (href: string) => {
-    return router.pathname === href;
+  const isActive = (href: string) => router.pathname === href;
+
+  const drawerWidth = collapsed ? RAIL_WIDTH : EXPANDED_WIDTH;
+
+  // Brand gradient for active pill
+  const activeBg = isDark
+    ? `linear-gradient(135deg, ${alpha('#55cae5', 0.15)} 0%, ${alpha('#7650ce', 0.12)} 100%)`
+    : `linear-gradient(135deg, ${alpha('#00aced', 0.1)} 0%, ${alpha('#7650ce', 0.08)} 100%)`;
+  const activeGlow = isDark
+    ? `0 0 16px ${alpha('#55cae5', 0.2)}, 0 0 4px ${alpha('#55cae5', 0.1)}`
+    : `0 0 12px ${alpha('#00aced', 0.12)}, 0 0 4px ${alpha('#00aced', 0.06)}`;
+  const activeBorder = isDark
+    ? alpha('#55cae5', 0.25)
+    : alpha('#00aced', 0.2);
+
+  const renderNavItem = (item: NavItem) => {
+    const active = isActive(item.href);
+
+    const button = (
+      <Box
+        component={Link}
+        href={item.href}
+        onClick={() => { if (isMobile && onClose) onClose(); }}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          position: 'relative',
+          textDecoration: 'none',
+          color: 'inherit',
+          px: collapsed ? 0 : 1.5,
+          py: 0,
+          mx: collapsed ? 'auto' : 1,
+          height: 40,
+          width: collapsed ? 40 : 'auto',
+          borderRadius: '12px',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          overflow: 'hidden',
+          // Active pill
+          background: active ? activeBg : 'transparent',
+          border: '1px solid',
+          borderColor: active ? activeBorder : 'transparent',
+          boxShadow: active ? activeGlow : 'none',
+          // Transitions
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: 'translateZ(0)',
+          '&:hover': {
+            background: active
+              ? activeBg
+              : alpha(theme.palette.text.primary, isDark ? 0.06 : 0.04),
+            borderColor: active
+              ? activeBorder
+              : alpha(theme.palette.divider, 0.15),
+            transform: 'translateZ(0) scale(1.02)',
+          },
+          '&:active': {
+            transform: 'translateZ(0) scale(0.98)',
+          },
+        }}
+      >
+        {/* Active left accent — thin gradient bar */}
+        {active && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 0,
+              top: '20%',
+              bottom: '20%',
+              width: 3,
+              borderRadius: '0 2px 2px 0',
+              background: 'linear-gradient(180deg, #55cae5 0%, #7650ce 100%)',
+            }}
+          />
+        )}
+
+        {/* Icon */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            width: 20,
+            height: 20,
+            color: active ? 'primary.main' : 'text.secondary',
+            transition: 'color 0.2s ease',
+          }}
+        >
+          {item.icon}
+        </Box>
+
+        {/* Label */}
+        {!collapsed && (
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{
+              fontSize: '0.8125rem',
+              fontWeight: active ? 600 : 450,
+              color: active ? 'text.primary' : 'text.secondary',
+              letterSpacing: '-0.01em',
+              transition: 'color 0.2s ease, font-weight 0.2s ease',
+              lineHeight: 1,
+            }}
+          >
+            {item.label}
+          </Typography>
+        )}
+      </Box>
+    );
+
+    return collapsed ? (
+      <Tooltip key={item.href} title={item.label} placement="right" arrow>
+        {button}
+      </Tooltip>
+    ) : (
+      <React.Fragment key={item.href}>{button}</React.Fragment>
+    );
   };
 
-  const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED;
+  const mainItems = navItems.filter((i) => i.section === 'main');
+  const aiItems = navItems.filter((i) => i.section === 'ai');
 
   const drawerContent = (
     <Box
@@ -103,109 +196,156 @@ export function Sidebar({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: 'transparent', // Transparent to let glass effect show
+        py: 1,
       }}
     >
-      {/* Logo and Brand */}
+      {/* Logo */}
       <Box
         sx={{
-          p: 2,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          minHeight: 64,
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          px: collapsed ? 1 : 2,
+          height: 56,
+          flexShrink: 0,
+          mb: 0.5,
         }}
       >
         <Image
           src="/Logo PMSync.svg"
           alt={t.app.name}
-          width={collapsed ? 48 : 120}
-          height={collapsed ? 48 : 56}
+          width={collapsed ? 32 : 110}
+          height={collapsed ? 32 : 44}
           priority
+          style={{ objectFit: 'contain', objectPosition: 'left center' }}
         />
-        {!isMobile && onToggleCollapse && (
+      </Box>
+
+      {/* Section: Main */}
+      {!collapsed && (
+        <Typography
+          sx={{
+            fontSize: '0.625rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'text.disabled',
+            px: 2.5,
+            pt: 1.5,
+            pb: 0.75,
+          }}
+        >
+          {t.nav.home ? 'Navigation' : 'Nav'}
+        </Typography>
+      )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+        {mainItems.map(renderNavItem)}
+      </Box>
+
+      {/* Section divider */}
+      <Box
+        sx={{
+          mx: collapsed ? 2 : 2.5,
+          my: 1.5,
+          height: '1px',
+          background: (th) =>
+            `linear-gradient(90deg, transparent, ${alpha(th.palette.divider, 0.4)}, transparent)`,
+        }}
+      />
+
+      {/* Section: AI & Productivity */}
+      {!collapsed && (
+        <Typography
+          sx={{
+            fontSize: '0.625rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'text.disabled',
+            px: 2.5,
+            pb: 0.75,
+          }}
+        >
+          AI
+        </Typography>
+      )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+        {aiItems.map(renderNavItem)}
+      </Box>
+
+      {/* Spacer */}
+      <Box sx={{ flex: 1, minHeight: 16 }} />
+
+      {/* Bottom: Settings */}
+      <Box
+        sx={{
+          mx: collapsed ? 2 : 2.5,
+          mb: 1,
+          height: '1px',
+          background: (th) =>
+            `linear-gradient(90deg, transparent, ${alpha(th.palette.divider, 0.3)}, transparent)`,
+        }}
+      />
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, mb: 0.5 }}>
+        {renderNavItem({
+          label: t.nav.settings,
+          icon: <Settings size={20} strokeWidth={1.8} />,
+          href: '/dashboard/settings',
+          section: 'main',
+        })}
+      </Box>
+
+      {/* Collapse toggle */}
+      {!isMobile && onToggleCollapse && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: collapsed ? 'center' : 'flex-end',
+            px: collapsed ? 0 : 1.5,
+            pb: 0.5,
+          }}
+        >
           <IconButton
             size="small"
             onClick={onToggleCollapse}
             sx={{
-              display: collapsed ? 'none' : 'flex',
+              width: 28,
+              height: 28,
+              color: 'text.disabled',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                color: 'text.secondary',
+                bgcolor: alpha(theme.palette.text.primary, 0.06),
+              },
             }}
           >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
           </IconButton>
-        )}
-      </Box>
-
-      <Divider />
-
-      {/* Navigation Items */}
-      <List sx={{ pt: 2, px: 1 }}>
-        {navigationItems.map((item) => (
-          <Tooltip
-            key={item.href}
-            title={collapsed ? item.label : ''}
-            placement="right"
-            arrow
-          >
-            <ListItemButton
-              component={Link}
-              href={item.href}
-              selected={isActive(item.href)}
-              sx={{
-                mb: 0.5,
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                px: collapsed ? 1.5 : 2,
-                textDecoration: 'none',
-                color: 'inherit',
-              }}
-              onClick={() => {
-                if (isMobile && onClose) {
-                  onClose();
-                }
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: collapsed ? 'auto' : 40,
-                  color: isActive(item.href) ? 'primary.main' : 'text.secondary',
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
-              {!collapsed && (
-                <ListItemText
-                  primary={item.label}
-                  primaryTypographyProps={{
-                    fontSize: '0.875rem',
-                    fontWeight: isActive(item.href) ? 600 : 500,
-                  }}
-                />
-              )}
-            </ListItemButton>
-          </Tooltip>
-        ))}
-      </List>
-
-      {/* Spacer — Settings & AI Chat are in the Header */}
-      <Box sx={{ flex: 1 }} />
+        </Box>
+      )}
     </Box>
   );
 
-  // Mobile Drawer
   if (isMobile) {
     return (
       <Drawer
         variant="temporary"
         open={mobileOpen}
         onClose={onClose}
-        ModalProps={{
-          keepMounted: true, // Better mobile performance
-        }}
+        ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
-            width: DRAWER_WIDTH_EXPANDED,
+            width: EXPANDED_WIDTH,
+            backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.85 : 0.92),
+            backdropFilter: 'blur(24px)',
+            borderRight: '1px solid',
+            borderColor: alpha(theme.palette.divider, 0.08),
           },
         }}
       >
@@ -214,7 +354,6 @@ export function Sidebar({
     );
   }
 
-  // Desktop Drawer
   return (
     <Drawer
       variant="permanent"
@@ -226,13 +365,14 @@ export function Sidebar({
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
-          backgroundColor: alpha(theme.palette.background.paper, 0.7),
-          backdropFilter: 'blur(12px)',
+          backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.6 : 0.85),
+          backdropFilter: 'blur(24px)',
           borderRight: '1px solid',
-          borderColor: alpha(theme.palette.divider, 0.1),
+          borderColor: alpha(theme.palette.divider, 0.06),
+          overflowX: 'hidden',
           transition: theme.transitions.create('width', {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
+            easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+            duration: 250,
           }),
         },
       }}
