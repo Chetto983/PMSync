@@ -195,8 +195,8 @@ Plans:
   5. User sees a "New version available" snackbar after a deploy and can trigger a reload to activate the new service worker
 **Plans:** 2 plans
 Plans:
-- [ ] 102-01-PLAN.md -- Translations + useInstallPrompt hook + unit tests
-- [ ] 102-02-PLAN.md -- InstallPromptBanner component + Layout wiring
+- [ ] 105-01-PLAN.md -- Backend push module + frontend push hook + SW push/notificationclick handlers + translations
+- [ ] 105-02-PLAN.md -- NotificationSettings UI + SW update snackbar + Layout wiring + logout cleanup
 
 ## Progress
 
@@ -210,7 +210,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 | 102. Install Experience | 2/2 | Complete    | 2026-03-23 | - |
 | 103. Offline Email Reading | 2/2 | Complete    | 2026-03-23 | - |
 | 104. Background Sync | 2/2 | Complete    | 2026-03-23 | - |
-| 105. Push Plumbing & Polish | v8.0 | 0/TBD | Not started | - |
+| 105. Push Plumbing & Polish | v8.0 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*

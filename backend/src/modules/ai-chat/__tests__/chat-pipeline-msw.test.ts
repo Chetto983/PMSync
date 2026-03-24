@@ -169,6 +169,7 @@ describe('Chat Pipeline (MSW)', () => {
       toolsServiceStub, // ReminderToolsService
       memoryServiceMock,
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
+      { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
       undefined, // UsageTrackingService
     );
   });

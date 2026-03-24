@@ -153,6 +153,7 @@ describe('AiChatService E2E (real Mistral API)', () => {
       toolsServiceStub,        // ReminderToolsService stub
       { getRelevantMemories: async () => [], formatMemoriesForPrompt: () => '' } as any,
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
+      { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
       undefined,               // UsageTrackingService is @Optional
     );
   }, 30_000);

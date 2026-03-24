@@ -49,6 +49,7 @@ import { EmailProductivityToolsService } from '../tools/email-productivity-tools
 import { FollowUpToolsService } from '../tools/follow-up-tools.service';
 import { MemoryService } from './memory.service';
 import { ChatEnrichmentService } from './chat-enrichment.service';
+import { QueryRouterService, type QueryComplexity } from './query-router.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 import {
   redactModelMessagesForModel,
@@ -110,6 +111,8 @@ export class AiChatService {
     private readonly memoryService: MemoryService,
     // Phase 87: Extracted enrichment service (title, summary, runtime context)
     private readonly chatEnrichmentService: ChatEnrichmentService,
+    // Graph RAG Step 1: Query complexity router
+    private readonly queryRouterService: QueryRouterService,
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,
@@ -159,6 +162,12 @@ export class AiChatService {
       );
 
     const isApprovalResubmit = !!params.clientMessages?.length;
+
+    // Graph RAG Step 1: Classify query complexity before tool creation
+    const classification = this.queryRouterService.classify(message);
+    this.logger.log(
+      `[QueryRouter] "${message.slice(0, 60)}" → ${classification.complexity} (${classification.confidence.toFixed(2)}) [${classification.signals.join(', ')}]`,
+    );
 
     let messages: { role: string; content: unknown }[];
     let systemPromptWithMemory = buildSystemPrompt();
@@ -259,10 +268,24 @@ export class AiChatService {
       temperature: 0.3,
       stopWhen: stepCountIs(8),
 
-      // Dynamic tool routing: step 0 gets all tools, subsequent steps get
-      // the active domain + utility tools to reduce confusion.
+      // Dynamic tool routing: step 0 respects query complexity (Graph RAG Step 1),
+      // subsequent steps get the active domain + utility tools to reduce confusion.
       prepareStep: async ({ steps, stepNumber }) => {
-        if (stepNumber === 0) return {};
+        if (stepNumber === 0) {
+          // Graph RAG Step 1: For simple queries, exclude heavy domains on step 0
+          const excludedDomains = this.queryRouterService.getExcludedDomains(
+            classification.complexity,
+          );
+          if (excludedDomains.length > 0) {
+            const excludedSet = new Set(excludedDomains);
+            const activeTools = toolNames.filter((name) => {
+              const domain = getToolDomain(name);
+              return !domain || !excludedSet.has(domain);
+            }) as Array<keyof typeof tools>;
+            return { activeTools };
+          }
+          return {};
+        }
 
         const usedTools = new Set<string>();
         for (const step of steps) {

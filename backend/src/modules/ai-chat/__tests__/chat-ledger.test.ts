@@ -108,6 +108,7 @@ describe('AiChatService ledger wiring', () => {
       mockReminderTools as any,
       mockMemoryService as any,
       mockChatEnrichmentService as any,
+      { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
       mockUsageTracking as any,
       mockLedger as unknown as AiRunLedgerService,
     );

@@ -290,7 +290,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       noopRegistry,
     );
     folderToolsService = new FolderToolsService(prisma as any, noopRegistry);
-    hybridSearchService = new HybridSearchService(prisma as any, mistralEmbeddingService);
+    hybridSearchService = new HybridSearchService(prisma as any, mistralEmbeddingService, new (await import('../services/reranking.service')).RerankingService());
     ragToolsService = new RagToolsService(
       mistralEmbeddingService,
       prisma as any,
@@ -321,6 +321,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       { getTools: () => ({}) } as any, // ReminderToolsService
       memoryService,
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
+      { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
       undefined,
     );
   }, 30_000);

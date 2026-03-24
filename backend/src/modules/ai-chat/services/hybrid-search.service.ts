@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
+import { RerankingService, type RerankableEmailResult } from './reranking.service';
 
 // ─── Result types ───────────────────────────────────────────
 
@@ -50,6 +51,8 @@ interface RawEmailRow {
   snippet: string | null;
   received_at: Date | null;
   rrf_score: number;
+  thread_id: string | null;
+  ai_priority: string | null;
 }
 
 interface RawContactRow {
@@ -91,6 +94,7 @@ export class HybridSearchService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistralEmbeddingService: MistralEmbeddingService,
+    private readonly rerankingService: RerankingService,
   ) {}
 
   /**
@@ -159,7 +163,7 @@ export class HybridSearchService {
         this.logger.warn(`Slow hybrid email search: ${elapsed}ms (limit=${limit}, results=${rows.length})`);
       }
 
-      return rows.map((row) => ({
+      const mapped: RerankableEmailResult[] = rows.map((row) => ({
         source: 'email' as const,
         emailId: row.email_id,
         subject: row.subject,
@@ -167,7 +171,12 @@ export class HybridSearchService {
         snippet: row.snippet,
         receivedAt: row.received_at,
         rrfScore: Number(row.rrf_score) || 0,
+        threadId: row.thread_id,
+        aiPriority: row.ai_priority,
       }));
+
+      // Graph RAG Step 2: Heuristic reranking (recency + thread + priority)
+      return this.rerankingService.rerank(mapped);
     } catch (error) {
       this.logger.warn(
         `Hybrid email search failed, returning empty: ${

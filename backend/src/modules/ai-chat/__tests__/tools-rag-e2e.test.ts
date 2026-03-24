@@ -163,6 +163,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
     hybridSearchService = new HybridSearchService(
       prisma as any,
       mistralEmbeddingService,
+      { rerank: (r: any[]) => r } as any, // RerankingService stub
     );
 
     // 6. Compose AiChatService with real Phase 25 services
@@ -185,6 +186,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
       toolsServiceStub, // ReminderToolsService
       memoryService, // REAL -- will be spied on
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
+      { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
       undefined, // UsageTrackingService is @Optional
     );
   }, 30_000);

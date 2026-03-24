@@ -33,7 +33,7 @@ describe('HybridSearchService', () => {
     vi.clearAllMocks();
     mockPrisma = createMockPrisma();
     mockEmbeddingService = createMockEmbeddingService();
-    service = new HybridSearchService(mockPrisma, mockEmbeddingService);
+    service = new HybridSearchService(mockPrisma, mockEmbeddingService, { rerank: (r: any[]) => r } as any);
   });
 
   describe('searchEmails', () => {

@@ -30,6 +30,8 @@ import { ChatEnrichmentService } from './services/chat-enrichment.service';
 import { SandboxService } from './services/sandbox.service';
 import { MemoryService } from './services/memory.service';
 import { HybridSearchService } from './services/hybrid-search.service';
+import { QueryRouterService } from './services/query-router.service';
+import { RerankingService } from './services/reranking.service';
 
 /**
  * AiChatModule -- Streaming AI chat with conversation persistence.
@@ -84,6 +86,10 @@ import { HybridSearchService } from './services/hybrid-search.service';
     MemoryService,
     // Phase 25 Plan 03: Hybrid search (vector + FTS)
     HybridSearchService,
+    // Graph RAG Step 1: Query complexity router
+    QueryRouterService,
+    // Graph RAG Step 2: Heuristic reranking
+    RerankingService,
   ],
   exports: [AiChatService, ConversationService],
 })
