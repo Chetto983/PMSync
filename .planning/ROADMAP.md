@@ -160,7 +160,11 @@ Plans:
   2. Destructive tool calls are visually distinct from informational tool calls (different color/icon treatment)
   3. User can set HITL sensitivity to HIGH_ONLY, ALL_MUTATIONS, or NONE in AI settings
   4. Every approval and rejection is logged in the audit trail for GDPR accountability
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 108-01-PLAN.md — Backend: schema migration, dynamic needsApproval, audit logging
+- [ ] 108-02-PLAN.md — Frontend: approval card terminal states, destructive visual distinction, translations
+- [ ] 108-03-PLAN.md — Frontend: HITL sensitivity toggle in AI settings, NONE confirmation dialog
 
 ### Phase 109: Graph RAG Pipeline
 **Goal**: AI chat produces more accurate, context-rich responses by assembling graph-expanded results within a token budget and using entity-anchored memories
@@ -182,7 +186,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109
 |-------|----------------|--------|-----------|
 | 106. Tiered Rate Limiting | 2/2 | Complete    | 2026-03-24 |
 | 107. Push Notification Backend Dispatch | 3/3 | Complete   | 2026-03-24 |
-| 108. HITL Approval Routing | 0/TBD | Not started | - |
+| 108. HITL Approval Routing | 0/3 | Not started | - |
 | 109. Graph RAG Pipeline | 0/TBD | Not started | - |
 
 ---
