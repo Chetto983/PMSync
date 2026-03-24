@@ -1,5 +1,5 @@
 .vercel
 
-# Serwist generated service worker source maps (not needed in deployment)
+# Serwist generated service worker (rebuilt on each deploy)
 public/sw.js.map
 public/swe-worker-*.js.map

@@ -676,14 +676,17 @@ export class AiChatService {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-        // Validate each part has required fields
+        // Only keep valid ModelMessage content parts: 'text' and 'tool-call'.
+        // Non-model parts like 'reasoning' are stored for display but must
+        // NOT be sent to the model — they cause InvalidPromptError.
         const validParts = (msg.content as any[]).filter((part) => {
           if (!part || typeof part !== 'object' || !('type' in part)) return false;
           if (part.type === 'tool-call') {
             if (!part.toolCallId || !part.toolName) return false;
             knownToolCallIds.add(part.toolCallId);
+            return true;
           }
-          return true;
+          return part.type === 'text';
         });
         if (validParts.length === 0) {
           // Degenerate array — convert to empty text

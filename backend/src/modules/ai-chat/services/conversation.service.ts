@@ -384,8 +384,21 @@ export class ConversationService {
 
         // assistant — may be text-only OR array with text + tool-call parts
         if (Array.isArray(content)) {
-          // Multi-part assistant message (text + tool calls from onStepFinish)
-          return { role: 'assistant', content } as any;
+          // Multi-part assistant message (text + tool calls from onStepFinish).
+          // Strip non-model parts (e.g. 'reasoning') — they are stored for
+          // display but are NOT valid ModelMessage content part types.
+          // Only 'text' and 'tool-call' are accepted by the AI SDK.
+          const modelParts = (content as any[]).filter(
+            (part) =>
+              part &&
+              typeof part === 'object' &&
+              'type' in part &&
+              (part.type === 'text' || part.type === 'tool-call'),
+          );
+          if (modelParts.length === 0) {
+            return { role: 'assistant', content: '' };
+          }
+          return { role: 'assistant', content: modelParts } as any;
         }
         const text =
           typeof content === 'string'
