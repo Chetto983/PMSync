@@ -9,9 +9,22 @@
 .chat-sidebar-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 12px;
+  gap: 4px;
+  padding: 10px 8px 10px 4px;
   border-bottom: 1px solid var(--chat-border);
+}
+
+/* Push right-side elements (new-btn / bulk actions) to the end */
+.chat-sidebar-header .chat-sidebar-title,
+.chat-sidebar-header > [class*="MuiTypography"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-sidebar-select-all {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .chat-sidebar-title {

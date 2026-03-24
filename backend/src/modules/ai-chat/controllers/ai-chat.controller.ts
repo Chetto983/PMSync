@@ -47,6 +47,7 @@ import type { AuthenticatedRequest } from '../../../common/types/request.types';
  * POST /ai/chat         -- Stream a chat response (SSE via AI SDK v6)
  * GET  /ai/chat/conversations       -- List conversations
  * GET  /ai/chat/conversations/:id   -- Get conversation with messages
+ * POST /ai/chat/conversations/bulk-delete -- Bulk delete conversations
  * DELETE /ai/chat/conversations/:id -- Delete a conversation
  *
  * Guards: TenantGuard, ConsentGuard, QuotaGuard
@@ -202,6 +203,29 @@ export class AiChatController {
       conversations,
       total: conversations.length,
     };
+  }
+
+  /**
+   * Bulk-delete conversations in a single query.
+   */
+  @Post('chat/conversations/bulk-delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Bulk delete AI chat conversations',
+    description: 'Permanently deletes multiple conversations and their messages in one query',
+  })
+  @ApiResponse({ status: 200, description: 'Conversations deleted' })
+  async bulkDeleteConversations(
+    @Req() req: Request & { user: AuthenticatedRequest['user'] },
+    @Body() body: { ids: string[] },
+  ) {
+    const ids = Array.isArray(body.ids) ? body.ids.slice(0, 100) : [];
+    const deletedCount = await this.conversationService.bulkDeleteConversations(
+      ids,
+      req.user.tenantId,
+      req.user.userId,
+    );
+    return { success: true, deletedCount };
   }
 
   /**

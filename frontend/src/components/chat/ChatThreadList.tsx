@@ -24,6 +24,7 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { aiChatApi } from '@/lib/api/ai';
 
 /* ------------------------------------------------------------------ */
 /*  Selection context — shared between header and each thread item    */
@@ -31,9 +32,10 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface SelectionCtx {
   selectedIds: Set<string>;
+  allRegisteredIds: () => string[];
   toggle: (id: string) => void;
   clear: () => void;
-  /** Each item registers its runtime so bulk-delete can call .delete() */
+  selectAll: () => void;
   register: (id: string, rt: ThreadListItemRuntime) => void;
   unregister: (id: string) => void;
   bulkDeletePending: boolean;
@@ -41,8 +43,10 @@ interface SelectionCtx {
 
 const SelectionContext = createContext<SelectionCtx>({
   selectedIds: new Set(),
+  allRegisteredIds: () => [],
   toggle: () => {},
   clear: () => {},
+  selectAll: () => {},
   register: () => {},
   unregister: () => {},
   bulkDeletePending: false,
@@ -58,10 +62,8 @@ function ThreadListItem() {
   const ctx = useContext(SelectionContext);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Stable id for this item (remoteId may be undefined for new threads)
   const itemId = runtime.getState().remoteId ?? runtime.getState().id;
 
-  // Register runtime so parent can call .delete() during bulk operations
   useEffect(() => {
     ctx.register(itemId, runtime);
     return () => ctx.unregister(itemId);
@@ -78,25 +80,18 @@ function ThreadListItem() {
     [ctx, itemId],
   );
 
-  const handleDeleteClick = useCallback(() => {
-    setConfirmOpen(true);
-  }, []);
-
+  const handleDeleteClick = useCallback(() => setConfirmOpen(true), []);
   const handleConfirmDelete = useCallback(() => {
     setConfirmOpen(false);
     void runtime.delete();
   }, [runtime]);
-
-  const handleCancelDelete = useCallback(() => {
-    setConfirmOpen(false);
-  }, []);
+  const handleCancelDelete = useCallback(() => setConfirmOpen(false), []);
 
   return (
     <>
       <ThreadListItemPrimitive.Root
         className={`chat-thread-item group ${isSelected ? 'chat-thread-item--selected' : ''}`}
       >
-        {/* Checkbox for multi-select */}
         <span
           className="chat-thread-item-checkbox"
           onClick={handleCheckbox}
@@ -109,7 +104,7 @@ function ThreadListItem() {
             tabIndex={-1}
             disableRipple
             sx={{ p: 0.5 }}
-            inputProps={{ 'aria-label': `Select conversation` }}
+            inputProps={{ 'aria-label': 'Select conversation' }}
           />
         </span>
 
@@ -123,11 +118,7 @@ function ThreadListItem() {
           <span className="chat-thread-item-title">
             <ThreadListItemPrimitive.Title
               fallback={
-                <Typography
-                  component="span"
-                  variant="body2"
-                  color="text.secondary"
-                >
+                <Typography component="span" variant="body2" color="text.secondary">
                   {t.chat.threadList.newChat}
                 </Typography>
               }
@@ -148,7 +139,8 @@ function ThreadListItem() {
         <DialogTitle>{t.chat.threadList.deleteConfirm}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {t.chat.threadList.deleteConfirmDescription ?? 'This conversation will be permanently deleted. This action cannot be undone.'}
+            {t.chat.threadList.deleteConfirmDescription ??
+              'This conversation will be permanently deleted. This action cannot be undone.'}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -169,7 +161,6 @@ function ThreadListItem() {
 export function ChatThreadList() {
   const t = useTranslations();
 
-  // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeletePending, setBulkDeletePending] = useState(false);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
@@ -186,6 +177,15 @@ export function ChatThreadList() {
 
   const clear = useCallback(() => setSelectedIds(new Set()), []);
 
+  const allRegisteredIds = useCallback(
+    () => Array.from(runtimeMapRef.current.keys()),
+    [],
+  );
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(runtimeMapRef.current.keys()));
+  }, []);
+
   const register = useCallback((id: string, rt: ThreadListItemRuntime) => {
     runtimeMapRef.current.set(id, rt);
   }, []);
@@ -194,25 +194,27 @@ export function ChatThreadList() {
     runtimeMapRef.current.delete(id);
   }, []);
 
-  const handleBulkDeleteClick = useCallback(() => {
-    setBulkConfirmOpen(true);
-  }, []);
+  const handleBulkDeleteClick = useCallback(() => setBulkConfirmOpen(true), []);
 
   const handleBulkConfirm = useCallback(async () => {
     setBulkConfirmOpen(false);
     setBulkDeletePending(true);
 
-    // Delete each selected thread via its registered runtime
-    // The adapter serializes API calls with rate-limit delay
     const ids = Array.from(selectedIds);
+
+    // 1. Single API call to delete all conversations from backend
+    try {
+      await aiChatApi.bulkDeleteConversations(ids);
+    } catch {
+      // Continue — remove from UI even if API partially failed
+    }
+
+    // 2. Remove each from assistant-ui's local thread list
+    //    The adapter's delete() will 404 silently since backend rows are already gone
     for (const id of ids) {
       const rt = runtimeMapRef.current.get(id);
       if (rt) {
-        try {
-          await rt.delete();
-        } catch {
-          // Thread may already be gone — continue
-        }
+        try { await rt.delete(); } catch { /* already gone */ }
       }
     }
 
@@ -220,16 +222,27 @@ export function ChatThreadList() {
     setBulkDeletePending(false);
   }, [selectedIds]);
 
-  const handleBulkCancel = useCallback(() => {
-    setBulkConfirmOpen(false);
-  }, []);
+  const handleBulkCancel = useCallback(() => setBulkConfirmOpen(false), []);
 
   const hasSelection = selectedIds.size > 0;
+  const registeredCount = runtimeMapRef.current.size;
+  const allSelected = hasSelection && selectedIds.size >= registeredCount;
+  const someSelected = hasSelection && !allSelected;
+
+  const handleSelectAllCheckbox = useCallback(() => {
+    if (allSelected) {
+      clear();
+    } else {
+      selectAll();
+    }
+  }, [allSelected, clear, selectAll]);
 
   const ctxValue: SelectionCtx = {
     selectedIds,
+    allRegisteredIds,
     toggle,
     clear,
+    selectAll,
     register,
     unregister,
     bulkDeletePending,
@@ -240,6 +253,26 @@ export function ChatThreadList() {
       <ThreadListPrimitive.Root className="chat-sidebar-root">
         {/* Header */}
         <div className="chat-sidebar-header">
+          {/* Select-all checkbox */}
+          <span
+            className="chat-sidebar-select-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Checkbox
+              checked={allSelected}
+              indeterminate={someSelected}
+              onChange={handleSelectAllCheckbox}
+              size="small"
+              disableRipple
+              sx={{ p: 0.5 }}
+              inputProps={{
+                'aria-label': allSelected
+                  ? (t.emailList?.deselectAll ?? 'Deselect all')
+                  : (t.emailList?.selectAll ?? 'Select all'),
+              }}
+            />
+          </span>
+
           {hasSelection ? (
             <>
               <Typography

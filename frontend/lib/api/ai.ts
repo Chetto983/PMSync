@@ -517,6 +517,13 @@ export const aiChatApi = {
     );
   },
 
+  bulkDeleteConversations(ids: string[]) {
+    return apiClient.post<{ success: boolean; deletedCount: number }>(
+      '/ai/chat/conversations/bulk-delete',
+      { ids },
+    );
+  },
+
   // Deadlines
   getUpcomingDeadlines(params?: { days?: number }) {
     return apiClient.get<{

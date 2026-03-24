@@ -304,6 +304,21 @@ export class ConversationService {
   }
 
   /**
+   * Bulk-delete conversations in a single query. Returns count of deleted rows.
+   */
+  async bulkDeleteConversations(
+    conversationIds: string[],
+    tenantId: string,
+    userId: string,
+  ): Promise<number> {
+    if (conversationIds.length === 0) return 0;
+    const result = await this.prisma.aiConversation.deleteMany({
+      where: { id: { in: conversationIds }, tenantId, userId },
+    });
+    return result.count;
+  }
+
+  /**
    * Get the N most recent messages in chronological order.
    */
   async getRecentMessages(
