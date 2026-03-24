@@ -116,7 +116,7 @@
 
 - [x] **Phase 106: Tiered Rate Limiting** - Replace flat write-rate limit with named tiers to fix user-reported 429s (completed 2026-03-24)
 - [x] **Phase 107: Push Notification Backend Dispatch** - Complete the v8.0 push plumbing with actual web-push delivery (completed 2026-03-24)
-- [x] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls (completed 2026-03-24)
+- [x] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls (completed 2026-03-24)
 - [ ] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI
 
 ## Phase Details
@@ -175,7 +175,11 @@ Plans:
   2. Token usage for RAG context is 40-60% lower than raw result injection (measurable via AiRunLedger)
   3. User can ask "What do I remember about [contact]?" and get entity-anchored memory results, not just semantic search hits
   4. Multi-hop queries ("Find emails from people I met at the conference about budget") trigger few-shot guided tool chains that produce relevant results
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 109-01-PLAN.md — Schema foundation: GraphNode/GraphEdge tables, AIMemory FK columns, entity extraction service
+- [ ] 109-02-PLAN.md — EntityGraphService (recursive CTE traversal) + ContextAssemblyService (token-budgeted builder)
+- [ ] 109-03-PLAN.md — Integration: memory anchoring, rag-tools refactor, query router sub-classification, few-shot injection, ledger tracking
 
 ## Progress
 
@@ -187,7 +191,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109
 | 106. Tiered Rate Limiting | 2/2 | Complete    | 2026-03-24 |
 | 107. Push Notification Backend Dispatch | 3/3 | Complete   | 2026-03-24 |
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
-| 109. Graph RAG Pipeline | 0/TBD | Not started | - |
+| 109. Graph RAG Pipeline | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-09*
