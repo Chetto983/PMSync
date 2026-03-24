@@ -58,13 +58,13 @@ export function Sidebar({
   const isDark = theme.palette.mode === 'dark';
 
   const navItems: NavItem[] = [
-    { label: t.nav.home, icon: <Home size={20} strokeWidth={1.8} />, href: '/dashboard', section: 'main' },
-    { label: t.nav.mail, icon: <Mail size={20} strokeWidth={1.8} />, href: '/dashboard/email', section: 'main' },
-    { label: t.nav.calendar, icon: <Calendar size={20} strokeWidth={1.8} />, href: '/dashboard/calendar', section: 'main' },
-    { label: t.nav.contacts, icon: <Users size={20} strokeWidth={1.8} />, href: '/dashboard/contacts', section: 'main' },
-    { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={20} strokeWidth={1.8} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
-    { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={20} strokeWidth={1.8} />, href: '/dashboard/reminders', section: 'ai' },
-    { label: t.ai?.title || 'AI Assistant', icon: <Sparkles size={20} strokeWidth={1.8} />, href: '/dashboard/ai', section: 'ai' },
+    { label: t.nav.home, icon: <Home size={24} strokeWidth={1.7} />, href: '/dashboard', section: 'main' },
+    { label: t.nav.mail, icon: <Mail size={24} strokeWidth={1.7} />, href: '/dashboard/email', section: 'main' },
+    { label: t.nav.calendar, icon: <Calendar size={24} strokeWidth={1.7} />, href: '/dashboard/calendar', section: 'main' },
+    { label: t.nav.contacts, icon: <Users size={24} strokeWidth={1.7} />, href: '/dashboard/contacts', section: 'main' },
+    { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={24} strokeWidth={1.7} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
+    { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={24} strokeWidth={1.7} />, href: '/dashboard/reminders', section: 'ai' },
+    { label: t.ai?.title || 'AI Assistant', icon: <Sparkles size={24} strokeWidth={1.7} />, href: '/dashboard/ai', section: 'ai' },
   ];
 
   const isActive = (href: string) => router.pathname === href;
@@ -100,8 +100,8 @@ export function Sidebar({
           px: collapsed ? 0 : 1.5,
           py: 0,
           mx: collapsed ? 'auto' : 1,
-          height: 40,
-          width: collapsed ? 40 : 'auto',
+          height: 44,
+          width: collapsed ? 44 : 'auto',
           borderRadius: '12px',
           justifyContent: collapsed ? 'center' : 'flex-start',
           overflow: 'hidden',
@@ -149,8 +149,8 @@ export function Sidebar({
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
-            width: 20,
-            height: 20,
+            width: 24,
+            height: 24,
             color: active ? 'primary.main' : 'text.secondary',
             transition: 'color 0.2s ease',
           }}
@@ -239,7 +239,7 @@ export function Sidebar({
         </Typography>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {mainItems.map(renderNavItem)}
       </Box>
 
@@ -271,7 +271,7 @@ export function Sidebar({
         </Typography>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {aiItems.map(renderNavItem)}
       </Box>
 
@@ -292,7 +292,7 @@ export function Sidebar({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, mb: 0.5 }}>
         {renderNavItem({
           label: t.nav.settings,
-          icon: <Settings size={20} strokeWidth={1.8} />,
+          icon: <Settings size={24} strokeWidth={1.7} />,
           href: '/dashboard/settings',
           section: 'main',
         })}
