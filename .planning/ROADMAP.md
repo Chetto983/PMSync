@@ -193,7 +193,7 @@ Plans:
   3. User tapping a push notification opens PMSync to the relevant view
   4. Push subscription UI is hidden on browsers that do not support PushManager or on iOS Safari outside standalone mode
   5. User sees a "New version available" snackbar after a deploy and can trigger a reload to activate the new service worker
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 105-01-PLAN.md -- Backend push module + frontend push hook + SW push/notificationclick handlers + translations
 - [ ] 105-02-PLAN.md -- NotificationSettings UI + SW update snackbar + Layout wiring + logout cleanup
@@ -210,7 +210,7 @@ Phases execute in numeric order: 100 -> 101 -> 102 -> 103 -> 104 -> 105
 | 102. Install Experience | 2/2 | Complete    | 2026-03-23 | - |
 | 103. Offline Email Reading | 2/2 | Complete    | 2026-03-23 | - |
 | 104. Background Sync | 2/2 | Complete    | 2026-03-23 | - |
-| 105. Push Plumbing & Polish | v8.0 | 0/2 | Not started | - |
+| 105. Push Plumbing & Polish | 1/2 | In Progress|  | - |
 
 ---
 *Roadmap created: 2026-02-09*

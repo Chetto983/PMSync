@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
 status: unknown
-stopped_at: Completed 104-02-PLAN.md
-last_updated: "2026-03-23T16:34:05.524Z"
+stopped_at: Phase 105 UI-SPEC approved
+last_updated: "2026-03-24T07:50:04.918Z"
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 10
 ---
 
 # Project State
@@ -19,18 +19,18 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-23)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 104 — background-sync
+**Current focus:** Phase 105 — push-plumbing-polish
 
 ## Current Position
 
-Phase: 104 (background-sync) — COMPLETE
-Plan: 2 of 2 (all complete)
+Phase: 105 (push-plumbing-polish) — EXECUTING
+Current Plan: 2 of 2
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: ~5min
 - Total execution time: ~33 min
 
@@ -69,10 +69,13 @@ None yet.
 
 - Phase 103: TQ v5 experimental_createQueryPersister verified compatible (RESOLVED)
 - Phase 104: Safari has zero BackgroundSync support -- online event is the primary replay path
-- Phase 105: Check Prisma schema for PushSubscription storage -- may need new model + migration
+- Phase 105: Check Prisma schema for PushSubscription storage -- may need new model + migration (RESOLVED: model added)
+- [Phase 105]: PushSubscription model uses (tenantId, endpoint) unique constraint for multi-tenant upsert
+- [Phase 105]: iOS push requires standalone mode -- non-standalone iOS Safari returns isSupported=false
+- [Phase 105]: SW push/notificationclick use Event cast pattern for type safety (consistent with sync handler)
 
 ## Session Continuity
 
-Last session: 2026-03-23T16:28:08Z
-Stopped at: Completed 104-02-PLAN.md
-Resume file: None
+Last session: 2026-03-24T08:02:16Z
+Stopped at: Completed 105-01-PLAN.md
+Resume file: .planning/phases/105-push-plumbing-polish/105-02-PLAN.md

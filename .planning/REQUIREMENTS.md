@@ -29,10 +29,10 @@ Requirements for Progressive Web App milestone. Each maps to roadmap phases.
 
 ### Push
 
-- [ ] **PUSH-01**: User can opt into push notifications from settings page (VAPID subscription via PushManager)
-- [ ] **PUSH-02**: Service worker handles push events and displays notifications with app icon
-- [ ] **PUSH-03**: User tapping notification opens PMSync to relevant view
-- [ ] **PUSH-04**: Push subscription UI gated behind browser support check (hidden on unsupported browsers/iOS Safari non-standalone)
+- [x] **PUSH-01**: User can opt into push notifications from settings page (VAPID subscription via PushManager)
+- [x] **PUSH-02**: Service worker handles push events and displays notifications with app icon
+- [x] **PUSH-03**: User tapping notification opens PMSync to relevant view
+- [x] **PUSH-04**: Push subscription UI gated behind browser support check (hidden on unsupported browsers/iOS Safari non-standalone)
 
 ### Sync
 
@@ -88,10 +88,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INST-01 | Phase 102 | Complete |
 | INST-02 | Phase 102 | Complete |
 | INST-03 | Phase 102 | Complete |
-| PUSH-01 | Phase 105 | Pending |
-| PUSH-02 | Phase 105 | Pending |
-| PUSH-03 | Phase 105 | Pending |
-| PUSH-04 | Phase 105 | Pending |
+| PUSH-01 | Phase 105 | Complete |
+| PUSH-02 | Phase 105 | Complete |
+| PUSH-03 | Phase 105 | Complete |
+| PUSH-04 | Phase 105 | Complete |
 | SYNC-01 | Phase 104 | Complete |
 | SYNC-02 | Phase 104 | Complete |
 | SYNC-03 | Phase 104 | Complete |
