@@ -16,6 +16,7 @@ import { PendingInvitationBanner } from '@/components/organizations/PendingInvit
 import { ImpersonationBanner } from '@/components/admin/ImpersonationBanner';
 import { OfflineBanner } from '@/components/layout/OfflineBanner';
 import { InstallPromptBanner } from '@/components/layout/InstallPromptBanner';
+import { UpdateSnackbar } from '@/components/layout/UpdateSnackbar';
 import { useOfflineActions } from '@/hooks/use-offline-actions';
 
 export interface LayoutProps {
@@ -187,6 +188,7 @@ export function Layout({ children }: LayoutProps) {
           </Snackbar>
         )}
         <InstallPromptBanner />
+        <UpdateSnackbar />
         <CookieConsent />
         <CommandPalette />
       </Box>

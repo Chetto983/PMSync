@@ -14,6 +14,7 @@ declare const self: WorkerGlobalScope & typeof globalThis & {
     openWindow(url: string): Promise<WindowClient | null>;
   };
   registration: ServiceWorkerRegistration;
+  skipWaiting(): void;
 };
 
 interface WindowClient {
@@ -45,7 +46,6 @@ const filteredCache = defaultCache.filter((entry) => {
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
   precacheOptions: {
@@ -138,6 +138,13 @@ self.addEventListener('notificationclick', (evt: Event) => {
         return self.clients.openWindow(url);
       })
   );
+});
+
+// PLSH-01: Allow controlled SW updates via snackbar
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 serwist.addEventListeners();
