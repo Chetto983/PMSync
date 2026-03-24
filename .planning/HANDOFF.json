@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-03-24T16:14:57.055Z",
+  "phase": "109",
+  "phase_name": "graph-rag-pipeline",
+  "phase_dir": ".planning/phases/109-graph-rag-pipeline",
+  "plan": 0,
+  "task": 0,
+  "total_tasks": 6,
+  "status": "planned",
+  "completed_tasks": [],
+  "remaining_tasks": [
+    {"id": "109-01-T1", "name": "Schema: GraphNode, GraphEdge, AIMemory FKs, AiRunLedger token cols + migration", "status": "not_started"},
+    {"id": "109-01-T2", "name": "EntityExtractionService wired into embedding queues via KnowledgeBaseService", "status": "not_started"},
+    {"id": "109-02-T1", "name": "EntityGraphService with recursive CTE multi-hop traversal", "status": "not_started"},
+    {"id": "109-02-T2", "name": "ContextAssemblyService with token-budgeted structured context builder", "status": "not_started"},
+    {"id": "109-03-T1", "name": "Query router sub-classification + few-shot dynamic injection", "status": "not_started"},
+    {"id": "109-03-T2", "name": "Memory anchoring + rag-tools refactor + ai-chat wiring + ledger tracking", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {"decision": "Postgres-maximalist: recursive CTEs for graph traversal, no Apache AGE or external graph DB", "rationale": "Deterministic, fast, already have pgvector + Prisma raw SQL patterns", "phase": "109"},
+    {"decision": "Entity extraction piggybacked on existing embedding queues, not a separate queue", "rationale": "Single pipeline, doubles API calls but uses cheap mistral-small model", "phase": "109"},
+    {"decision": "save_memory tool gets explicit contactId/emailId optional params for auto-anchoring", "rationale": "Checker blocker: conversation context doesn't reliably carry entity IDs to tool handler", "phase": "109"},
+    {"decision": "4K token budget split 60/20/20 (graph/memory/few-shot), structured extraction only", "rationale": "No LLM summarization — graph structure provides the summary via relationship paths", "phase": "109"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Run /gsd:execute-phase 109 to execute all 3 plans (3 waves, 6 tasks total)",
+  "context_notes": "Planning complete with research + verification loop. Checker found 2 blockers on first pass (save_memory anchoring source undefined, Plan 03 lacked behavioral tests). Both fixed in revision, passed on iteration 2. All 6 GRAG requirements covered. No code changes yet — all artifacts are planning docs."
+}
