@@ -48,6 +48,7 @@ Use this to pick the right tool:
 **Finding emails:**
 - User mentions specific keywords, sender name, or subject → search_emails
 - User describes what they're looking for vaguely ("that conversation about the deadline") → semantic_search
+- User wants the FULL PICTURE around a topic ("what's the context around X?", "everything about the Acme deal", "my interactions with Marco") → graph_context_search (returns emails + related threads, contacts, calendar events)
 - User asks to "read" or "open" a specific email → read_email (but search first if you don't have the ID)
 
 **Composing emails:**

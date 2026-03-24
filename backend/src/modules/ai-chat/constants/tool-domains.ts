@@ -37,6 +37,7 @@ export const TOOL_DOMAINS: Record<string, string> = {
   delete_folder: 'folders',
   // Knowledge / memory domain (always active after step 0)
   semantic_search: 'knowledge',
+  graph_context_search: 'knowledge',
   save_memory: 'knowledge',
   list_memories: 'knowledge',
   delete_memory: 'knowledge',

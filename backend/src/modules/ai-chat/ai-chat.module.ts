@@ -32,6 +32,7 @@ import { MemoryService } from './services/memory.service';
 import { HybridSearchService } from './services/hybrid-search.service';
 import { QueryRouterService } from './services/query-router.service';
 import { RerankingService } from './services/reranking.service';
+import { GraphExpansionService } from './services/graph-expansion.service';
 
 /**
  * AiChatModule -- Streaming AI chat with conversation persistence.
@@ -90,6 +91,8 @@ import { RerankingService } from './services/reranking.service';
     QueryRouterService,
     // Graph RAG Step 2: Heuristic reranking
     RerankingService,
+    // Graph RAG Step 3: Graph-aware context expansion
+    GraphExpansionService,
   ],
   exports: [AiChatService, ConversationService],
 })

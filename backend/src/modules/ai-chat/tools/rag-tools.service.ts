@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
+import { GraphExpansionService } from '../services/graph-expansion.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
 import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import {
@@ -20,9 +21,9 @@ type PiiResolveFn = (
 ) => Promise<Record<string, unknown>>;
 
 /**
- * RagToolsService -- 4 RAG tools for the AI chat pipeline.
+ * RagToolsService -- 5 RAG tools for the AI chat pipeline.
  *
- * Tools: semantic_search, save_memory, list_memories, delete_memory
+ * Tools: semantic_search, graph_context_search, save_memory, list_memories, delete_memory
  *
  * semantic_search: Generates an embedding for the query and performs
  * vector similarity search across emails, contacts, and calendar data.
@@ -41,6 +42,10 @@ const schemas = {
     query: z.string().describe('Natural language search query'),
     sources: z.array(z.enum(['emails', 'contacts', 'calendar'])).optional().describe('Sources to search. Omit to search all.'),
     limit: z.number().min(1).max(20).optional().describe('Maximum results (default 10)'),
+  }),
+  graph_context_search: z.object({
+    query: z.string().describe('Natural language search query'),
+    limit: z.number().min(1).max(10).optional().describe('Maximum seed results for expansion (default 5)'),
   }),
   save_memory: z.object({
     content: z.string().describe('The information to remember'),
@@ -64,6 +69,7 @@ export class RagToolsService implements OnModuleInit {
     private readonly mistralEmbeddingService: MistralEmbeddingService,
     private readonly prisma: PrismaService,
     private readonly hybridSearchService: HybridSearchService,
+    private readonly graphExpansionService: GraphExpansionService,
     @Inject(TOOL_REGISTRY_SERVICE)
     private readonly toolRegistry: IToolRegistryService,
   ) {}
@@ -72,6 +78,7 @@ export class RagToolsService implements OnModuleInit {
     const noop = async () => ({});
     const tools = [
       { name: 'semantic_search', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.semantic_search },
+      { name: 'graph_context_search', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.graph_context_search },
       { name: 'save_memory', riskLevel: 'MEDIUM' as const, requiresApproval: false, inputSchema: schemas.save_memory },
       { name: 'list_memories', riskLevel: 'LOW' as const, requiresApproval: false, inputSchema: schemas.list_memories },
       { name: 'delete_memory', riskLevel: 'MEDIUM' as const, requiresApproval: true, inputSchema: schemas.delete_memory },
@@ -94,6 +101,7 @@ export class RagToolsService implements OnModuleInit {
   ) {
     return {
       semantic_search: this.buildSemanticSearch(tenantId, piiResolve),
+      graph_context_search: this.buildGraphContextSearch(tenantId, piiResolve),
       save_memory: this.buildSaveMemory(tenantId, userId, piiResolve),
       list_memories: this.buildListMemories(tenantId, userId),
       delete_memory: this.buildDeleteMemory(tenantId, userId),
@@ -123,6 +131,71 @@ export class RagToolsService implements OnModuleInit {
         );
 
         return truncateToolResult({ results, count: results.length });
+      },
+    });
+  }
+
+  private buildGraphContextSearch(tenantId: string, piiResolve: PiiResolveFn) {
+    return tool({
+      description:
+        'Deep contextual search that finds emails AND expands related context: ' +
+        'thread conversation history, sender contact info, and recent calendar events with those senders. ' +
+        'Use when the user needs to understand the FULL PICTURE around a topic — not just matching emails. ' +
+        'Examples: "what\'s the full context around the Acme deal?", "give me everything about the project deadline discussion", ' +
+        '"what do I know about my interactions with Marco?". ' +
+        'Returns: seed email results + thread siblings + matched contacts + related calendar events.',
+      inputSchema: schemas.graph_context_search,
+      execute: async (args) => {
+        const resolved = (await piiResolve(
+          args as unknown as Record<string, unknown>,
+        )) as typeof args;
+
+        const limit = resolved.limit ?? 5;
+
+        // Step 1: Hybrid search for seed emails
+        const seedResults = await this.hybridSearchService.searchEmails(
+          tenantId,
+          resolved.query,
+          limit,
+        );
+
+        if (seedResults.length === 0) {
+          return truncateToolResult({
+            seeds: [],
+            expansion: { threadSiblings: [], contactMatches: [], calendarMatches: [] },
+            summary: 'No matching emails found.',
+          });
+        }
+
+        // Step 2: Extract graph expansion inputs from seeds
+        const seedEmailIds = seedResults.map((r) => r.emailId);
+        const seedThreadIds = seedResults.map((r) => (r as any).threadId ?? null);
+        const seedSenders = seedResults.map((r) => r.from);
+
+        // Step 3: Graph expansion (3 parallel queries)
+        const expansion = await this.graphExpansionService.expand(
+          tenantId,
+          seedEmailIds,
+          seedThreadIds,
+          seedSenders,
+        );
+
+        return truncateToolResult({
+          seeds: seedResults.map((r) => ({
+            emailId: r.emailId,
+            subject: r.subject,
+            from: r.from,
+            snippet: r.snippet,
+            receivedAt: r.receivedAt,
+            score: r.rrfScore,
+          })),
+          expansion: {
+            threadSiblings: expansion.threadSiblings,
+            contactMatches: expansion.contactMatches,
+            calendarMatches: expansion.calendarMatches,
+          },
+          summary: `Found ${seedResults.length} seed emails, expanded to ${expansion.threadSiblings.length} thread siblings, ${expansion.contactMatches.length} contacts, ${expansion.calendarMatches.length} calendar events.`,
+        });
       },
     });
   }

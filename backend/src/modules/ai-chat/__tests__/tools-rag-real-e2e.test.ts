@@ -295,6 +295,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       mistralEmbeddingService,
       prisma as any,
       hybridSearchService,
+      new (await import('../services/graph-expansion.service')).GraphExpansionService(prisma as any),
       noopRegistry,
     );
 

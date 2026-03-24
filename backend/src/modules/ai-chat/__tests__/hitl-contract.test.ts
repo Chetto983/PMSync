@@ -42,7 +42,7 @@ function buildPopulatedRegistry(): ToolRegistryService {
     new CalendarToolsService(null as any, null as any, registry),
     new ContactToolsService(null as any, null as any, registry),
     new FolderToolsService(null as any, registry),
-    new RagToolsService(null as any, null as any, null as any, registry),
+    new RagToolsService(null as any, null as any, null as any, null as any, registry),
     new ConversationToolsService(registry),
     new SandboxToolsService(null as any, null as any, registry),
     new EmailProductivityToolsService(null as any, null as any, null as any, registry),
