@@ -33,6 +33,7 @@ import { useAccount, useUpdateAccount } from '@/hooks/queries';
 import type { CrmAccount, UpdateAccountDto } from '@/lib/api/crm-accounts';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { AccountHierarchyTree } from './AccountHierarchyTree';
+import { AccountContactsTab } from './AccountContactsTab';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -389,9 +390,7 @@ export function AccountDetail() {
       </TabPanel>
 
       <TabPanel value={tab} index={1}>
-        <Typography color="text.secondary">
-          Contacts tab — see T-0206
-        </Typography>
+        <AccountContactsTab accountId={id} />
       </TabPanel>
 
       <TabPanel value={tab} index={2}>
