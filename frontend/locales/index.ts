@@ -299,6 +299,7 @@ export interface AppTranslations {
     analytics: string;
     ai: string;
     crmAccounts: string;
+    crmPipelines: string;
     settings: string;
     profile: string;
     logout: string;
@@ -4165,6 +4166,55 @@ export interface AppTranslations {
       dashboard?: string;
       crm?: string;
       accounts?: string;
+    };
+  };
+  crmPipelines?: {
+    title?: string;
+    description?: string;
+    newPipeline?: string;
+    editPipeline?: string;
+    deletePipeline?: string;
+    deleteConfirm?: string;
+    noPipelinesFound?: string;
+    noPipelinesDescription?: string;
+    stages?: string;
+    deals?: string;
+    defaultBadge?: string;
+    activeBadge?: string;
+    inactiveBadge?: string;
+    form?: {
+      name?: string;
+      namePlaceholder?: string;
+      description?: string;
+      descriptionPlaceholder?: string;
+      isDefault?: string;
+      isActive?: string;
+    };
+    settings?: {
+      title?: string;
+      stagesTitle?: string;
+      stagesDescription?: string;
+      addStage?: string;
+      editStage?: string;
+      deleteStage?: string;
+      deleteStageConfirm?: string;
+      cannotDeleteWithDeals?: string;
+      noStages?: string;
+      noStagesDescription?: string;
+      stageForm?: {
+        name?: string;
+        namePlaceholder?: string;
+        probability?: string;
+        color?: string;
+        isWon?: string;
+        isLost?: string;
+      };
+      reorderSuccess?: string;
+      reorderError?: string;
+    };
+    breadcrumb?: {
+      pipelines?: string;
+      settings?: string;
     };
   };
 }
