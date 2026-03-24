@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v9.0
 milestone_name: AI Intelligence & Platform Hardening
 status: unknown
-last_updated: "2026-03-24T13:47:21.620Z"
+last_updated: "2026-03-24T13:58:50.340Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 75
 ---
 
@@ -33,12 +33,12 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-24)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 107 — push-notification-backend-dispatch
+**Current focus:** Phase 108 — hitl-approval-routing
 
 ## Current Position
 
-Phase: 107 (push-notification-backend-dispatch) — EXECUTING
-Plan: 3 of 3
+Phase: 108 (hitl-approval-routing) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -63,6 +63,8 @@ Plan: 3 of 3
 - [Phase 107-02]: Used data-driven CATEGORY_KEYS array for DRY category toggle rendering
 - [Phase 107-01]: Used getSharedRedisConnection() for Redis INCR/EXPIRE ops in push dispatch (consistent with project patterns)
 - [Phase 107-01]: Cast showNotification options as NotificationOptions to work around TS missing renotify property
+- [Phase 108]: Injected PrismaService directly into AiChatService for userPreferences lookup
+- [Phase 108]: sensitivity default parameter in getTools() for backward compatibility with test constructors
 
 ### Research Flags
 
@@ -75,6 +77,6 @@ Plan: 3 of 3
 
 ## Session Continuity
 
-Last session: 2026-03-24T13:47:21.615Z
+Last session: 2026-03-24T13:58:50.336Z
 Completed: 107-01-PLAN.md (push dispatch pipeline)
 Resume file: None
