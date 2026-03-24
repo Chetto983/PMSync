@@ -33,7 +33,12 @@ const transport = new AssistantChatTransport({
  *   useChat({ id, transport }) → useAISDKRuntime(chat) → transport.setRuntime(runtime)
  */
 function useThreadRuntime() {
-  const id = useAuiState((s) => s.threadListItem.id);
+  // Use remoteId (real backend conversation ID set by initialize()) so
+  // all messages in a thread hit the same backend conversation.
+  // Falls back to client-side id before initialize() completes.
+  const id = useAuiState(
+    (s) => s.threadListItem.remoteId ?? s.threadListItem.id,
+  );
 
   const chat = useChat({
     id,
