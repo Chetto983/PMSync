@@ -132,6 +132,9 @@ model UserPreferences {
   aiSchedulingEnabled         Boolean  @default(true)
   aiAutoApproveThreshold      Float?   @default(0.9)
   aiAutoTriageEnabled         Boolean  @default(false) // Auto-label and prioritize new emails
+  pushEmailEnabled            Boolean  @default(true)
+  pushCalendarEnabled         Boolean  @default(true)
+  pushAiEnabled               Boolean  @default(true)
   jobTitle                    String?
   jobRole                     String?  @default("OTHER")
   department                  String?

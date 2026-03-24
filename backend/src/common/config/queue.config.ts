@@ -435,4 +435,7 @@ export const QUEUE_NAMES = {
 
   // Reminder check scheduler (follow-up due date notifications)
   REMINDER_CHECK: 'reminder-check',
+
+  // Push notification dispatch (user-facing, latency-sensitive)
+  PUSH_DISPATCH: 'push-dispatch',
 } as const;
