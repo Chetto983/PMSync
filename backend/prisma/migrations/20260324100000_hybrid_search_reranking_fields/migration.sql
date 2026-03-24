@@ -62,7 +62,7 @@ BEGIN
     e."from",
     e.snippet,
     e."receivedAt" AS received_at,
-    c.score AS rrf_score,
+    c.score::DOUBLE PRECISION AS rrf_score,
     e."threadId" AS thread_id,
     ea.priority::TEXT AS ai_priority
   FROM combined c
