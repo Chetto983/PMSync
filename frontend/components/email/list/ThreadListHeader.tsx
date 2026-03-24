@@ -114,7 +114,7 @@ export function ThreadListHeader({
         size="small"
         disabled={totalCount === 0}
         inputProps={{ 'aria-label': allSelected ? (t.emailList?.deselectAll || 'Deselect all') : (t.emailList?.selectAll || 'Select all') }}
-        sx={{ p: { xs: 1, md: 0.5 }, display: { xs: 'none', md: 'inline-flex' } }}
+        sx={{ p: { xs: 1, md: 0.5 } }}
       />
 
       {/* Selected count or total count */}

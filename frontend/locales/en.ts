@@ -3941,6 +3941,10 @@ export const en: AppTranslations = {
       deleteConfirm: 'Delete this conversation?',
       deleteConfirmDescription: 'This conversation will be permanently deleted. This action cannot be undone.',
       noConversations: 'No conversations yet',
+      selected: '{count} selected',
+      bulkDelete: 'Delete selected',
+      bulkDeleteConfirm: 'Delete conversations?',
+      bulkDeleteConfirmDescription: '{count} conversations will be permanently deleted. This action cannot be undone.',
     },
     hitl: {
       approveLabel: 'Approve',

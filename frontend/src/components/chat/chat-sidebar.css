@@ -77,6 +77,53 @@
   display: none;
 }
 
+/* Bulk action bar in header */
+.chat-sidebar-bulk-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.chat-sidebar-bulk-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: hsl(var(--destructive));
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.chat-sidebar-bulk-delete-btn:hover {
+  opacity: 0.9;
+}
+
+.chat-sidebar-bulk-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-sidebar-bulk-cancel-btn {
+  padding: 6px 10px;
+  border: 1px solid var(--chat-border);
+  border-radius: 7px;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.chat-sidebar-bulk-cancel-btn:hover {
+  background: var(--chat-muted-bg);
+}
+
 /* Thread items */
 .chat-thread-item {
   position: relative;
@@ -88,6 +135,11 @@
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+.chat-thread-item--selected {
+  background: hsl(var(--primary) / 0.08);
+  border-color: hsl(var(--primary) / 0.25);
+}
+
 .chat-thread-item:hover {
   border-color: var(--chat-border-strong);
   background: var(--chat-muted-bg);
@@ -96,6 +148,28 @@
 .chat-thread-item[data-active='true'] {
   border-color: hsl(var(--primary) / 0.4);
   background: hsl(var(--primary) / 0.12);
+}
+
+/* Checkbox — visible on hover/selected (desktop), always visible (mobile) */
+.chat-thread-item-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 4px;
+  visibility: hidden;
+  cursor: pointer;
+}
+
+.chat-thread-item:hover .chat-thread-item-checkbox,
+.chat-thread-item--selected .chat-thread-item-checkbox {
+  visibility: visible;
+}
+
+@media (max-width: 767px) {
+  .chat-thread-item-checkbox {
+    visibility: visible;
+  }
 }
 
 .chat-thread-item-trigger {

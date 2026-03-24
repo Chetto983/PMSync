@@ -3918,6 +3918,10 @@ export const it: AppTranslations = {
       deleteConfirm: 'Eliminare questa conversazione?',
       deleteConfirmDescription: 'Questa conversazione verrà eliminata definitivamente. Questa azione non può essere annullata.',
       noConversations: 'Nessuna conversazione',
+      selected: '{count} selezionate',
+      bulkDelete: 'Elimina selezionate',
+      bulkDeleteConfirm: 'Eliminare le conversazioni?',
+      bulkDeleteConfirmDescription: '{count} conversazioni verranno eliminate definitivamente. Questa azione non può essere annullata.',
     },
     hitl: {
       approveLabel: 'Approva',

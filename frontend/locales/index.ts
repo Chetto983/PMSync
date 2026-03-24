@@ -3771,6 +3771,10 @@ export interface AppTranslations {
       deleteConfirm: string;
       deleteConfirmDescription?: string;
       noConversations?: string;
+      selected?: string;
+      bulkDelete?: string;
+      bulkDeleteConfirm?: string;
+      bulkDeleteConfirmDescription?: string;
     };
     hitl: {
       approveLabel: string;

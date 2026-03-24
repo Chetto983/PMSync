@@ -210,22 +210,15 @@ export function ThreadList({
 
   // Handle select with modifier key detection for Shift+click range selection
   const handleSelect = useCallback(
-    (id: string, checked: boolean, event?: React.MouseEvent) => {
+    (id: string, _checked: boolean, event?: React.MouseEvent) => {
       const threadIds = threads.map((t) => t.id);
 
       if (event?.shiftKey && lastSelectedId) {
         // Shift+click: range selection from last selected to clicked
         selectRange(lastSelectedId, id, threadIds);
-      } else if (event?.ctrlKey || event?.metaKey) {
-        // Ctrl/Cmd+click: toggle single selection
-        toggleSelection(id);
       } else {
-        // Normal click: single select (replaces selection)
-        if (checked) {
-          selectEmail(id);
-        } else {
-          toggleSelection(id);
-        }
+        // Normal click or Ctrl/Cmd+click: toggle individual checkbox
+        toggleSelection(id);
       }
     },
     [threads, lastSelectedId, selectRange, toggleSelection, selectEmail]

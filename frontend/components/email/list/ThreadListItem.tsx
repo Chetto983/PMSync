@@ -198,7 +198,6 @@ export const ThreadListItem = memo<ThreadListItemProps>(function ThreadListItem(
             width: 36,
             flexShrink: 0,
             visibility: showSelectionAffordance ? 'visible' : 'hidden',
-            display: { xs: 'none', md: 'block' },
           }}
           onMouseDown={stopPointer}
           onPointerDown={stopPointer}
