@@ -21,7 +21,7 @@ created: 2026-03-24
 | Preset | not applicable |
 | Component library | MUI 7.x (`@mui/material`) |
 | Icon library | lucide-react |
-| Font | Inter (400, 500, 600, 700 loaded via @fontsource) |
+| Font | Inter (400, 600 used this phase; 500, 700 also loaded via @fontsource but not used here) |
 
 Source: CLAUDE.md ("ALL components use MUI -- Radix/shadcn fully removed"), `_app.tsx`, `theme/tokens.ts`.
 
@@ -41,7 +41,7 @@ Declared values from `frontend/theme/tokens.ts` (8px base, Tailwind-inspired):
 | 2xl | 48px | Not used this phase |
 | 3xl | 64px | Not used this phase |
 
-Exceptions: 44px touch target for the notification Switch (matches MUI Switch default).
+Exceptions: 44px touch target for the notification Switch. This value is an MUI `<Switch>` component internal default and is not author-controlled.
 
 ---
 
@@ -53,7 +53,7 @@ All values from `frontend/theme/typography.ts`. Only the roles used in this phas
 |------|------|--------|-------------|-------------|
 | Body (body1) | 14px (0.875rem) | 400 | 1.625 | Settings description text, snackbar message body |
 | Body small (body2) | 13px (0.8125rem) | 400 | 1.625 | Help text under permission-denied state |
-| Label (subtitle2) | 14px (0.875rem) | 500 | 1.5 | Notification toggle label |
+| Label (subtitle2) | 14px (0.875rem) | 600 | 1.5 | Notification toggle label |
 | Section heading (h6) | 16px (1rem) | 600 | 1.5 | "Notifications" section title in settings |
 
 ---
@@ -66,12 +66,12 @@ All values from `frontend/theme/tokens.ts`. This phase uses the existing MUI the
 |------|-----------|-------------|---------------------|
 | Dominant (60%) | `#0c1017` (background.default) | `#f8fafc` | Page background behind settings |
 | Secondary (30%) | `#131a24` (background.paper) | `#ffffff` | Settings card surfaces |
-| Accent (10%) | `#55cae5` (primary.main dark) / `#00aced` (primary.main light) | -- | Active notification switch track, "Reload" button in update snackbar |
+| Accent (10%) | `#55cae5` (primary.main dark) / `#00aced` (primary.main light) | -- | Active notification switch track, "Reload page" button in update snackbar |
 | Info | MUI `info` severity | -- | Update snackbar alert severity |
 | Warning | MUI `warning` severity | -- | Permission-denied help text icon |
 | Success | MUI `success` severity | -- | Push subscription confirmation feedback |
 
-Accent reserved for: Notification switch (active state), "Reload" CTA button in update snackbar. Nothing else.
+Accent reserved for: Notification switch (active state), "Reload page" CTA button in update snackbar. Nothing else.
 
 ---
 
@@ -114,18 +114,18 @@ Accent reserved for: Notification switch (active state), "Reload" CTA button in 
 **Layout:**
 - `<Snackbar open={updateAvailable} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>`
 - `<Alert severity="info" icon={<RefreshCw size={20} />}>`
-- Message text + "Reload" `<Button size="small" color="inherit">`
-- No dismiss/close button. Snackbar persists until user taps Reload or the page is closed.
+- Message text + "Reload page" `<Button size="small" color="inherit">`
+- No dismiss/close button. Snackbar persists until user taps Reload page or the page is closed.
 
 **States:**
 | State | What renders |
 |-------|-------------|
 | No waiting SW | Nothing rendered |
-| Waiting SW detected | Snackbar visible with message + Reload button |
-| After Reload clicked | `postMessage({ type: 'SKIP_WAITING' })` then `window.location.reload()` on `controllerchange` |
+| Waiting SW detected | Snackbar visible with message + Reload page button |
+| After Reload page clicked | `postMessage({ type: 'SKIP_WAITING' })` then `window.location.reload()` on `controllerchange` |
 
 **Interaction:**
-- "Reload" button: posts `SKIP_WAITING` to waiting SW, listens for `controllerchange`, then reloads page.
+- "Reload page" button: posts `SKIP_WAITING` to waiting SW, listens for `controllerchange`, then reloads page.
 - No auto-dismiss. No timeout. User must act or ignore.
 
 ### 3. Settings Sidebar Addition
@@ -151,7 +151,7 @@ All strings go into `frontend/locales/en.ts` under `pwa.push` and `pwa.update` n
 | Subscribe error | `pwa.push.subscribeError` | `Could not enable notifications. Please try again.` |
 | Unsubscribe error | `pwa.push.unsubscribeError` | `Could not disable notifications. Please try again.` |
 | Update snackbar message | `pwa.update.available` | `A new version of PMSync is available.` |
-| Update snackbar CTA | `pwa.update.reload` | `Reload` |
+| Update snackbar CTA | `pwa.update.reload` | `Reload page` |
 
 **Empty state:** Not applicable. The notification settings section either shows the toggle or is hidden entirely (PUSH-04).
 
@@ -198,7 +198,7 @@ App loads -> useSwUpdate hook registers for SW events
       Listen for 'statechange' on reg.installing ->
         IF state === 'installed' && navigator.serviceWorker.controller ->
           set updateAvailable = true
-  User clicks "Reload" ->
+  User clicks "Reload page" ->
     waitingSw.postMessage({ type: 'SKIP_WAITING' })
     navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload())
 ```
