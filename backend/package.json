@@ -107,6 +107,7 @@
     "socket.io": "^4.8.3",
     "tsdav": "^2.1.7",
     "vcf": "^2.1.2",
+    "web-push": "^3.6.7",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -126,6 +127,7 @@
     "@types/node": "^25.2.2",
     "@types/nodemailer": "^7.0.9",
     "@types/supertest": "^6.0.3",
+    "@types/web-push": "^3.6.4",
     "cross-env": "^10.1.0",
     "dependency-cruiser": "^17.3.8",
     "dotenv-cli": "^11.0.0",

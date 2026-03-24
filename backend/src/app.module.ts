@@ -39,6 +39,7 @@ import { OpenRouterModule } from './modules/openrouter/openrouter.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { ReminderModule } from './modules/reminder/reminder.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
+import { PushModule } from './modules/push/push.module';
 import { ToolRegistryModule } from './common/modules/tool-registry/tool-registry.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { HttpMetricsInterceptor } from './common/metrics/http-metrics.interceptor';
@@ -102,6 +103,7 @@ import { BetterAuthGuard } from './common/auth/better-auth.guard';
     SubscriptionModule, // P10: Billing & subscription management with Autumn
     ReminderModule, // Follow-Up AI: Smart reminder system with Telegram
     TelegramModule, // Follow-Up AI: Telegram bot, scheduler, webhook
+    PushModule, // Phase 105: Web Push subscription management
   ],
   providers: [
     // Redis-backed throttler storage for distributed rate limiting
