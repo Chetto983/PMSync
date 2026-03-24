@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { MessagePrimitive } from '@assistant-ui/react';
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown';
@@ -32,8 +32,12 @@ function ReasoningText({ text }: { type: 'reasoning'; text: string }) {
  */
 function ToolDispatcher(props: ToolCallMessagePartProps) {
   const Renderer = (TOOL_RENDERERS as Record<string, React.ComponentType<ToolCallMessagePartProps> | undefined>)[props.toolName];
-  if (Renderer) return <Renderer {...props} />;
+  if (Renderer) return <Suspense fallback={<ToolLoadingSkeleton />}><Renderer {...props} /></Suspense>;
   return <FallbackToolRenderer {...props} />;
+}
+
+function ToolLoadingSkeleton() {
+  return <div className="chat-tool-skeleton" />;
 }
 
 /**

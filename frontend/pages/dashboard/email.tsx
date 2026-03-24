@@ -8,7 +8,7 @@ import { ThreadList } from '@/components/email/list';
 
 const ExpandedMessage = dynamic(
   () => import('@/components/email/thread').then(m => ({ default: m.ExpandedMessage })),
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: ExpandedMessageSkeleton }
 );
 const LabelPickerDialog = dynamic(
   () => import('@/components/email/labels').then(m => ({ default: m.LabelPickerDialog })),
@@ -39,6 +39,16 @@ import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 import { extractEmailAddress, formatEmailToThread } from '@/components/email/utils/email-formatters';
 import { useEmailPageActions, type EmailPageStateSnapshot } from '@/components/email/hooks/use-email-page-actions';
+
+function ExpandedMessageSkeleton() {
+  return (
+    <Box sx={{ p: 2 }}>
+      <Skeleton width="60%" height={28} />
+      <Skeleton width="40%" height={20} sx={{ mt: 1 }} />
+      <Skeleton variant="rectangular" height={200} sx={{ mt: 2, borderRadius: 1 }} />
+    </Box>
+  );
+}
 
 export default function EmailPage() {
   const router = useRouter();
@@ -235,8 +245,9 @@ export default function EmailPage() {
 
   const { data: senderPhotos } = useSenderPhotos(senderEmails);
 
+  // Render threads immediately without photos; enhance when photos arrive
   const threads = useMemo(
-    () => emails.map((email) => formatEmailToThread(email, senderPhotos)),
+    () => emails.map((email) => formatEmailToThread(email, senderPhotos ?? undefined)),
     [emails, senderPhotos]
   );
 
@@ -508,12 +519,12 @@ export default function EmailPage() {
           <Box sx={{ p: 2 }}>
             {Array.from({ length: 8 }).map((_, i) => (
               <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Skeleton variant="circular" width={40} height={40} animation="wave" />
+                <Skeleton variant="circular" width={40} height={40} animation="pulse" />
                 <Box sx={{ flex: 1 }}>
-                  <Skeleton width="40%" height={20} animation="wave" />
-                  <Skeleton width="70%" height={16} animation="wave" sx={{ mt: 0.5 }} />
+                  <Skeleton width="40%" height={20} animation="pulse" />
+                  <Skeleton width="70%" height={16} animation="pulse" sx={{ mt: 0.5 }} />
                 </Box>
-                <Skeleton width={60} height={16} animation="wave" />
+                <Skeleton width={60} height={16} animation="pulse" />
               </Box>
             ))}
           </Box>

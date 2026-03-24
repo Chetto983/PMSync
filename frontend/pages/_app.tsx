@@ -4,7 +4,12 @@ import Head from 'next/head';
 
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
-import { SpeedInsights } from '@vercel/speed-insights/next';
+import dynamic from 'next/dynamic';
+
+const SpeedInsights = dynamic(
+  () => import('@vercel/speed-insights/next').then(m => ({ default: m.SpeedInsights })),
+  { ssr: false },
+);
 import { MotionConfig } from 'framer-motion';
 import {
   ThemeProvider as MuiThemeProvider,
@@ -22,14 +27,13 @@ import { useLegalStatus } from '@/hooks/queries/use-data-rights';
 import { useWebSocket } from '@/hooks/use-websocket';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
-import '@/src/components/chat/chat-layout.css';
-import '@/src/components/chat/chat-sidebar.css';
-import '@/src/components/chat/chat-thread.css';
-import '@assistant-ui/react-markdown/styles/dot.css';
-import '@fontsource/inter/300.css';
-import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
-import '@fontsource/inter/700.css';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '700'],
+  display: 'swap',
+});
 
 /**
  * Material UI Theme Wrapper
@@ -166,14 +170,17 @@ export default function App({ Component, pageProps }: AppProps) {
   // Keep SEO-critical public pages SSR-rendered; only hold private routes during hydration.
   if (shouldShowHydrationSkeleton) {
     return (
-      <MuiThemeProvider theme={lightTheme}>
-        <CssBaseline />
-        <AppSkeleton />
-      </MuiThemeProvider>
+      <div className={inter.className}>
+        <MuiThemeProvider theme={lightTheme}>
+          <CssBaseline />
+          <AppSkeleton />
+        </MuiThemeProvider>
+      </div>
     );
   }
 
   return (
+    <div className={inter.className}>
     <QueryProvider>
       <Head>
         {/* iOS safe area support - must be in _app, not _document */}
@@ -195,5 +202,6 @@ export default function App({ Component, pageProps }: AppProps) {
         </MaterialThemeWrapper>
       </NextThemeProvider>
     </QueryProvider>
+    </div>
   );
 }

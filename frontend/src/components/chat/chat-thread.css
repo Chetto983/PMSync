@@ -9,7 +9,6 @@
 .chat-thread-viewport {
   flex: 1;
   overflow-y: auto;
-  scroll-behavior: smooth;
   background: var(--chat-thread-bg);
 }
 
@@ -31,6 +30,7 @@
   position: sticky;
   bottom: 0;
   padding: 0 12px 12px;
+  will-change: transform;
   background: linear-gradient(
     to bottom,
     transparent,
@@ -186,6 +186,14 @@
 /* Messages */
 .chat-message-row {
   padding: 16px 0;
+  contain: layout style;
+}
+
+.chat-tool-skeleton {
+  height: 48px;
+  border-radius: 8px;
+  background: var(--chat-border);
+  opacity: 0.3;
 }
 
 .chat-message-row + .chat-message-row {

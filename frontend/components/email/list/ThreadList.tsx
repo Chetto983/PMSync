@@ -420,7 +420,7 @@ export function ThreadList({
           flex: 1,
           minHeight: 0, // CRITICAL: Allow flex shrinking for virtualizer
           overflow: 'auto',
-          contain: 'layout',
+          contain: 'layout style paint',
           WebkitOverflowScrolling: 'touch',
         }}
       >

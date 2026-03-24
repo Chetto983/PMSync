@@ -29,12 +29,24 @@ import dynamic from 'next/dynamic';
 import { SeoHead } from '@/components/seo/SeoHead';
 import { minViewportHeightSx } from '@/lib/ui/viewport';
 
-const Hero = dynamic(() => import('@/components/landing/hero').then((mod) => mod.Hero));
-const Features = dynamic(() => import('@/components/landing/features').then((mod) => mod.Features));
-const Modules = dynamic(() => import('@/components/landing/modules').then((mod) => mod.Modules));
-const Testimonial = dynamic(() => import('@/components/landing/testimonial').then((mod) => mod.Testimonial));
-const Cta = dynamic(() => import('@/components/landing/cta').then((mod) => mod.Cta));
-const Footer = dynamic(() => import('@/components/landing/footer').then((mod) => mod.Footer));
+const Hero = dynamic(() => import('@/components/landing/hero').then((mod) => mod.Hero), {
+  loading: () => <Box sx={{ height: { xs: 500, md: 600 } }} />,
+});
+const Features = dynamic(() => import('@/components/landing/features').then((mod) => mod.Features), {
+  loading: () => <Box sx={{ height: 600 }} />,
+});
+const Modules = dynamic(() => import('@/components/landing/modules').then((mod) => mod.Modules), {
+  loading: () => <Box sx={{ height: 500 }} />,
+});
+const Testimonial = dynamic(() => import('@/components/landing/testimonial').then((mod) => mod.Testimonial), {
+  loading: () => <Box sx={{ height: 300 }} />,
+});
+const Cta = dynamic(() => import('@/components/landing/cta').then((mod) => mod.Cta), {
+  loading: () => <Box sx={{ height: 300 }} />,
+});
+const Footer = dynamic(() => import('@/components/landing/footer').then((mod) => mod.Footer), {
+  loading: () => <Box sx={{ height: 200 }} />,
+});
 
 // Premium background animations
 const float = keyframes`
@@ -451,7 +463,7 @@ export default function Home() {
   );
 }
 
-// Force SSR to avoid NextRouter SSR errors
-export const getServerSideProps = async () => {
-  return { props: {} };
+// ISR: static generation with hourly revalidation (no per-request SSR needed)
+export const getStaticProps = async () => {
+  return { props: {}, revalidate: 3600 };
 };

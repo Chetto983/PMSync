@@ -1,23 +1,31 @@
 /**
  * Barrel export for chat tool UI renderers.
- * TOOL_RENDERERS maps tool names to renderer components for MessagePrimitive.Content.
+ * TOOL_RENDERERS maps tool names to lazy-loaded renderer components.
  * FallbackToolRenderer handles unregistered tools and HITL approval cards.
  */
-import { EmailSearchRenderer, ListEmailsRenderer, SemanticSearchRenderer } from './EmailSearchToolUI';
-import { EmailListRenderer } from './EmailListToolUI';
-import { EmailContentRenderer } from './EmailContentToolUI';
-import { FollowUpRenderer } from './FollowUpToolUI';
-import { ContactRenderer } from './ContactToolUI';
-import { EventRenderer } from './EventToolUI';
-import { CountRenderer } from './CountToolUI';
-import { FolderRenderer } from './FolderToolUI';
-import { AnalysisRenderer } from './AnalysisToolUI';
-import { MemoryRenderer, MemorySearchRenderer } from './MemoryToolUI';
-import { BriefingRenderer } from './BriefingToolUI';
-import { CrmRenderer } from './CrmToolUI';
-import { DraftEmailRenderer } from './DraftEmailToolUI';
-import { AskUserRenderer, SaveMemoryRenderer } from './ConversationToolUI';
-import { CreateReminderRenderer, ListRemindersRenderer } from './ReminderToolUI';
+import { lazy } from 'react';
+
+// Lazy-load tool renderers — only the renderer(s) actually used get loaded
+const EmailSearchRenderer = lazy(() => import('./EmailSearchToolUI').then(m => ({ default: m.EmailSearchRenderer })));
+const ListEmailsRenderer = lazy(() => import('./EmailSearchToolUI').then(m => ({ default: m.ListEmailsRenderer })));
+const SemanticSearchRenderer = lazy(() => import('./EmailSearchToolUI').then(m => ({ default: m.SemanticSearchRenderer })));
+const EmailListRenderer = lazy(() => import('./EmailListToolUI').then(m => ({ default: m.EmailListRenderer })));
+const EmailContentRenderer = lazy(() => import('./EmailContentToolUI').then(m => ({ default: m.EmailContentRenderer })));
+const FollowUpRenderer = lazy(() => import('./FollowUpToolUI').then(m => ({ default: m.FollowUpRenderer })));
+const ContactRenderer = lazy(() => import('./ContactToolUI').then(m => ({ default: m.ContactRenderer })));
+const EventRenderer = lazy(() => import('./EventToolUI').then(m => ({ default: m.EventRenderer })));
+const CountRenderer = lazy(() => import('./CountToolUI').then(m => ({ default: m.CountRenderer })));
+const FolderRenderer = lazy(() => import('./FolderToolUI').then(m => ({ default: m.FolderRenderer })));
+const AnalysisRenderer = lazy(() => import('./AnalysisToolUI').then(m => ({ default: m.AnalysisRenderer })));
+const MemoryRenderer = lazy(() => import('./MemoryToolUI').then(m => ({ default: m.MemoryRenderer })));
+const MemorySearchRenderer = lazy(() => import('./MemoryToolUI').then(m => ({ default: m.MemorySearchRenderer })));
+const BriefingRenderer = lazy(() => import('./BriefingToolUI').then(m => ({ default: m.BriefingRenderer })));
+const CrmRenderer = lazy(() => import('./CrmToolUI').then(m => ({ default: m.CrmRenderer })));
+const DraftEmailRenderer = lazy(() => import('./DraftEmailToolUI').then(m => ({ default: m.DraftEmailRenderer })));
+const AskUserRenderer = lazy(() => import('./ConversationToolUI').then(m => ({ default: m.AskUserRenderer })));
+const SaveMemoryRenderer = lazy(() => import('./ConversationToolUI').then(m => ({ default: m.SaveMemoryRenderer })));
+const CreateReminderRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.CreateReminderRenderer })));
+const ListRemindersRenderer = lazy(() => import('./ReminderToolUI').then(m => ({ default: m.ListRemindersRenderer })));
 
 export { FallbackToolRenderer } from './FallbackToolUI';
 
