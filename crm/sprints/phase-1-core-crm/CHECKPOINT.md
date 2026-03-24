@@ -1,58 +1,51 @@
-# Sprint 01 — Checkpoint
+# Sprint 02 — Checkpoint
 
 ## Stato
-- **Sprint:** 01 — Schema CRM & Account Model
-- **Last Task Completed:** T-0110 — Traduzioni CRM Account
-- **Next Task:** Sprint 01 complete. Next: Sprint 02 — Account UI + Contact-Account Linking
-- **Tasks Done:** 10/10
-- **SP Completed:** 18/18
-- **Last Updated:** 2026-03-24 22:00
+- **Sprint:** 02 — Account Detail & Contact-Account Linking
+- **Last Task Completed:** T-0211 — Type-check validation
+- **Next Task:** Sprint 02 COMPLETE — proceed to Sprint 03
+- **Tasks Done:** 11/11
+- **SP Completed:** 17/17
+- **Last Updated:** 2026-03-24 (session 2)
 
 ## Last Modified Files
-- backend/prisma/schema.prisma (CrmAccount, CrmPipeline, CrmStage, CrmDeal, CrmActivity, CrmProduct, DealProduct, AccountContact, DealContact)
-- backend/src/modules/crm/crm.module.ts
-- backend/src/modules/crm/account/account.module.ts
-- backend/src/modules/crm/account/controllers/account.controller.ts
 - backend/src/modules/crm/account/services/account.service.ts
+- backend/src/modules/crm/account/controllers/account.controller.ts
 - backend/src/modules/crm/account/dto/account.dto.ts
-- backend/src/app.module.ts (CrmModule registered)
 - frontend/lib/api/crm-accounts.ts
-- frontend/hooks/queries/crm-accounts-keys.ts
 - frontend/hooks/queries/use-crm-accounts.ts
-- frontend/hooks/queries/index.ts
-- frontend/locales/en.ts (crmAccounts section + nav.crmAccounts)
-- frontend/locales/it.ts (crmAccounts section + nav.crmAccounts)
-- frontend/locales/index.ts (AppTranslations type updated)
-- frontend/components/layout/Sidebar.tsx (CRM section added)
-- frontend/pages/dashboard/crm/accounts.tsx
+- frontend/hooks/queries/crm-accounts-keys.ts
+- frontend/pages/dashboard/crm/accounts/[id].tsx
+- frontend/components/dashboard/crm-accounts/AccountDetail.tsx
+- frontend/components/dashboard/crm-accounts/AccountHierarchyTree.tsx
+- frontend/components/dashboard/crm-accounts/AccountContactsTab.tsx
 - frontend/components/dashboard/crm-accounts/AccountsList.tsx
-- frontend/components/dashboard/crm-accounts/CreateAccountDialog.tsx
-- crm/sprints/phase-1-core-crm/sprint-01.md
+- frontend/components/contacts/contact-detail/ContactAccountsSection.tsx
+- frontend/components/contacts/contact-detail/ContactInfoPanel.tsx
+- frontend/locales/en.ts
+- frontend/locales/it.ts
+- frontend/locales/index.ts
 
 ## Key Decisions Made
-- Named CRM account model `CrmAccount` (not `Account`) to avoid collision with better-auth OAuth `Account` model
-- Used `prisma db push` instead of `prisma migrate dev` due to migration drift on Railway DB
-- Used MUI Table instead of DataGrid (MUI X) — no `@mui/x-data-grid` dependency. Can upgrade later if needed.
-- All CRM models prefixed with `Crm` to avoid namespace collisions (CrmPipeline, CrmStage, CrmDeal, CrmActivity, CrmProduct)
-- Contact composite PK `@@id([id, tenantId])` requires compound FK in join tables (AccountContact, DealContact)
-- Added CRM section to sidebar between Navigation and AI sections
+- Used recursive MUI Collapse tree instead of @mui/x-tree-view (not installed, avoiding deps)
+- Cycle detection walks ancestor chain (max 5 levels) rather than loading full tree
+- Contact model uses JSON `emails`/`phoneNumbers` fields, not `primaryEmail`/`primaryPhone`
+- Reverse lookup endpoint at `GET /crm/accounts/by-contact/:contactId` (on AccountController)
+- Account selector uses Autocomplete with server-side search (not preloaded list)
 
 ## Patterns Established
-- CRM backend modules under `backend/src/modules/crm/<entity>/`
-- CRM umbrella module: `backend/src/modules/crm/crm.module.ts`
-- CRM API routes: `/api/v1/crm/accounts`, `/api/v1/crm/pipelines`, etc.
-- CRM frontend pages: `frontend/pages/dashboard/crm/<entity>.tsx`
-- CRM frontend components: `frontend/components/dashboard/crm-<entity>/`
-- CRM API module: `frontend/lib/api/crm-accounts.ts`
-- CRM query keys: `frontend/hooks/queries/crm-accounts-keys.ts`
-- CRM query hooks: `frontend/hooks/queries/use-crm-accounts.ts`
-- Translation keys: `t.crmAccounts.*` for page-level, `t.nav.crmAccounts` for nav
+- CRM query hooks follow: `frontend/hooks/queries/use-crm-*.ts`
+- CRM API modules at: `frontend/lib/api/crm-accounts.ts`
+- Account detail page: tab layout (Info, Contacts, Deals, Activity) with lazy tab panels
+- Inline editing pattern: `InlineEditField` component with edit/save/cancel
+- Contact-Account linking: bidirectional (account->contacts tab, contact->accounts section)
+- Contact roles: CONTACT_ROLES constant array shared between dialog and display
 
 ## Blockers / Notes
-- Migration drift exists on Railway DB (modified migrations). Using `prisma db push` for now.
-- Sprint 02 should add Contact-Account linking UI and Account detail page.
+- Deals tab and Activity tab are placeholders ("coming in Sprint 04")
+- AccountContact composite FK uses `(id, tenantId)` on Contact — join tables must include tenantId
 
 ## Validation Status
-- Backend tsc: ✅ passing
-- Frontend tsc: ✅ passing
-- Circular deps: not checked (no new cross-module imports)
+- Backend tsc: passing
+- Frontend tsc: passing
+- Circular deps: zero
