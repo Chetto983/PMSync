@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: Progressive Web App
+current_plan: 2 of 2
 status: unknown
-stopped_at: Phase 105 UI-SPEC approved
-last_updated: "2026-03-24T07:50:04.918Z"
+stopped_at: Completed 105-02-PLAN.md
+last_updated: "2026-03-24T08:10:31.101Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -60,6 +61,9 @@ Current Plan: 2 of 2
 - [Phase 104]: Separate idb-keyval store (pmsync-action-queue) from query cache (pmsync-query-cache) in same DB
 - [Phase 104]: SW sync handler relays via postMessage (cannot make authenticated API calls with httpOnly cookies)
 - [Phase 104]: Module-level replay lock prevents double-replay from simultaneous online+sync events
+- [Phase 105]: Controlled SW updates via SKIP_WAITING message pattern instead of auto skipWaiting
+- [Phase 105]: NotificationSettings returns null when push unsupported (feature gating)
+- [Phase 105]: Push unsubscribe on logout is best-effort -- does not block signout flow
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T08:02:16Z
-Stopped at: Completed 105-01-PLAN.md
-Resume file: .planning/phases/105-push-plumbing-polish/105-02-PLAN.md
+Last session: 2026-03-24T08:10:31.098Z
+Stopped at: Completed 105-02-PLAN.md
+Resume file: None

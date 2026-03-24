@@ -43,8 +43,8 @@ Requirements for Progressive Web App milestone. Each maps to roadmap phases.
 
 ### Polish
 
-- [ ] **PLSH-01**: "New version available" snackbar appears on deploy with user-triggered reload (skipWaiting)
-- [ ] **PLSH-02**: Lighthouse PWA audit category passes (installable + service worker + offline fallback)
+- [x] **PLSH-01**: "New version available" snackbar appears on deploy with user-triggered reload (skipWaiting)
+- [x] **PLSH-02**: Lighthouse PWA audit category passes (installable + service worker + offline fallback)
 
 ## Future Requirements
 
@@ -96,8 +96,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-02 | Phase 104 | Complete |
 | SYNC-03 | Phase 104 | Complete |
 | SYNC-04 | Phase 103 | Complete |
-| PLSH-01 | Phase 105 | Pending |
-| PLSH-02 | Phase 105 | Pending |
+| PLSH-01 | Phase 105 | Complete |
+| PLSH-02 | Phase 105 | Complete |
 
 **Coverage:**
 - v8.0 requirements: 21 total
