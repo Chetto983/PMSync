@@ -392,6 +392,8 @@ export interface AppTranslations {
     providerConnectError?: string;
     providerConnectSuccess?: string;
     offlineBanner?: string;
+    rowsPerPage?: string;
+    displayedRows?: string;
   };
   timeAgo: {
     justNow: string;
@@ -3235,6 +3237,11 @@ export interface AppTranslations {
         edit: string;
       };
       deleteConfirm?: string;
+      bulkDeleteConfirm?: string;
+      selected?: string;
+      selectAll?: string;
+      deselectAll?: string;
+      deleteSelected?: string;
       fields: {
         contact: string;
         deadline: string;

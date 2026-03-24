@@ -146,6 +146,9 @@ export const remindersApi = {
   delete: (id: string) =>
     apiClient.delete<{ data: Reminder }>(`/reminders/${id}`),
 
+  bulkDelete: (ids: string[]) =>
+    apiClient.delete<{ data: { deleted: number } }>('/reminders/bulk', { data: { ids } }),
+
   complete: (id: string) =>
     apiClient.post<{ data: Reminder }>(`/reminders/${id}/complete`),
 };

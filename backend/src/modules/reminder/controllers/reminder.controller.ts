@@ -109,6 +109,18 @@ export class ReminderController {
     return { data: reminder };
   }
 
+  @Delete('bulk')
+  @RateTierDecorator('destructive-write')
+  @ApiOperation({ summary: 'Bulk-delete reminders permanently' })
+  async bulkDelete(@Req() req: AuthenticatedRequest, @Body() body: { ids: string[] }) {
+    const result = await this.reminderService.bulkDeleteReminders(
+      req.user.tenantId,
+      req.user.id,
+      body.ids,
+    );
+    return { data: result };
+  }
+
   @Delete(':id')
   @RateTierDecorator('destructive-write')
   @ApiOperation({ summary: 'Delete a reminder permanently' })

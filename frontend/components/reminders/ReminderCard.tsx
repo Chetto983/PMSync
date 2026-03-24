@@ -7,6 +7,7 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Checkbox,
 } from '@mui/material';
 import { CheckCircle2, Trash2, Send } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -14,6 +15,8 @@ import type { Reminder } from '@/lib/api/reminders';
 
 interface ReminderCardProps {
   reminder: Reminder;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
   onComplete: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -27,7 +30,7 @@ function prioritaColor(p: string): 'error' | 'warning' | 'success' | 'default' {
   }
 }
 
-export function ReminderCard({ reminder, onComplete, onDelete }: ReminderCardProps) {
+export function ReminderCard({ reminder, selected, onSelect, onComplete, onDelete }: ReminderCardProps) {
   const t = useTranslations();
   const tr = t.ai.reminders;
 
@@ -38,20 +41,32 @@ export function ReminderCard({ reminder, onComplete, onDelete }: ReminderCardPro
       variant="outlined"
       sx={{
         opacity: isCompleted ? 0.6 : 1,
-        transition: 'opacity 0.2s',
+        transition: 'opacity 0.2s, border-color 0.2s',
+        borderColor: selected ? 'primary.main' : undefined,
+        bgcolor: selected ? 'action.selected' : undefined,
       }}
     >
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>
-              {reminder.titolo}
-            </Typography>
-            {reminder.descrizione && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }} noWrap>
-                {reminder.descrizione}
-              </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0, gap: 1 }}>
+            {onSelect && (
+              <Checkbox
+                checked={!!selected}
+                onChange={() => onSelect(reminder.id)}
+                size="small"
+                sx={{ mt: -0.5, ml: -0.5 }}
+              />
             )}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body1" sx={{ fontWeight: 600 }} noWrap>
+                {reminder.titolo}
+              </Typography>
+              {reminder.descrizione && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }} noWrap>
+                  {reminder.descrizione}
+                </Typography>
+              )}
+            </Box>
           </Box>
           {!isCompleted && (
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>

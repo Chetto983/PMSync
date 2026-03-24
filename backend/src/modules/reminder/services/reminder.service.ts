@@ -209,4 +209,12 @@ export class ReminderService {
       where: { id },
     });
   }
+
+  async bulkDeleteReminders(tenantId: string, userId: string, ids: string[]) {
+    const result = await this.prisma.reminder.deleteMany({
+      where: { id: { in: ids }, tenantId, userId },
+    });
+    this.logger.log(`Bulk-deleted ${result.count} reminders for user ${userId}`);
+    return { deleted: result.count };
+  }
 }

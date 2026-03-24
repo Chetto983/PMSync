@@ -124,6 +124,8 @@ export const en: AppTranslations = {
     providerConnectError: 'Failed to connect provider',
     providerConnectSuccess: 'Account connected successfully',
     offlineBanner: 'You are offline. Some features may be unavailable.',
+    rowsPerPage: 'Rows per page:',
+    displayedRows: '{from}-{to} of {count}',
   },
   timeAgo: {
     justNow: 'Just now',
@@ -3221,6 +3223,11 @@ export const en: AppTranslations = {
         edit: 'Edit',
       },
       deleteConfirm: 'Are you sure you want to delete this reminder? This action cannot be undone.',
+      bulkDeleteConfirm: 'Are you sure you want to delete {count} reminder(s)? This action cannot be undone.',
+      selected: '{count} selected',
+      selectAll: 'Select all',
+      deselectAll: 'Deselect all',
+      deleteSelected: 'Delete selected',
       fields: {
         contact: 'Contact',
         deadline: 'Deadline',

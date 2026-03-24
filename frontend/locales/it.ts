@@ -124,6 +124,8 @@ export const it: AppTranslations = {
     providerConnectError: 'Impossibile collegare il provider',
     providerConnectSuccess: 'Account collegato con successo',
     offlineBanner: 'Sei offline. Alcune funzionalita potrebbero non essere disponibili.',
+    rowsPerPage: 'Righe per pagina:',
+    displayedRows: '{from}-{to} di {count}',
   },
   timeAgo: {
     justNow: 'Adesso',
@@ -3202,6 +3204,11 @@ export const it: AppTranslations = {
         edit: 'Modifica',
       },
       deleteConfirm: 'Sei sicuro di voler eliminare questo promemoria? Questa azione non può essere annullata.',
+      bulkDeleteConfirm: 'Sei sicuro di voler eliminare {count} promemoria? Questa azione non può essere annullata.',
+      selected: '{count} selezionati',
+      selectAll: 'Seleziona tutti',
+      deselectAll: 'Deseleziona tutti',
+      deleteSelected: 'Elimina selezionati',
       fields: {
         contact: 'Contatto',
         deadline: 'Scadenza',

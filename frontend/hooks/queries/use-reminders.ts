@@ -137,12 +137,26 @@ export function useCompleteReminder() {
   });
 }
 
-/** Mutation: soft-delete reminder (status → annullato) */
+/** Mutation: delete reminder permanently */
 export function useDeleteReminder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string): Promise<Reminder> => {
       const response = await remindersApi.delete(id);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.all });
+    },
+  });
+}
+
+/** Mutation: bulk-delete reminders permanently */
+export function useBulkDeleteReminders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]): Promise<{ deleted: number }> => {
+      const response = await remindersApi.bulkDelete(ids);
       return response.data?.data;
     },
     onSuccess: () => {
