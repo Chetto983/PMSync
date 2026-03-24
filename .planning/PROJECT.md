@@ -20,8 +20,8 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 ## Current State
 
-**Version:** v8.0 shipped (2026-03-24)
-**Status:** All 21 PWA requirements satisfied, 9 non-blocking tech debt items documented
+**Version:** v9.0 in progress (2026-03-24)
+**Status:** Phase 106 complete — tiered rate limiting shipped. v8.0 PWA fully shipped.
 **Previous:** v7.0 System Audit & Hardening (shipped 2026-03-23, 65/65 requirements)
 
 **v8.0 delivered:** Full PWA transformation — Serwist service worker with precaching and API bypass, offline email reading via TanStack Query persist to IndexedDB, background sync with offline mutation queue, cross-platform install prompts, push notification frontend plumbing (VAPID subscription, SW handlers), and SW update snackbar.
@@ -153,7 +153,7 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 <!-- v9.0 requirements — see REQUIREMENTS.md for full list -->
 - [ ] Push notification backend dispatch (event triggers, web-push delivery, per-user preferences)
-- [ ] Tiered write-rate limiting (endpoint-specific limits replacing flat 30/min)
+- [x] Tiered write-rate limiting (endpoint-specific limits replacing flat 30/min) — Validated in Phase 106: Tiered Rate Limiting
 - [ ] Explicit HITL approval routing (destructive tool gates, approval UX)
 - [ ] Graph RAG pipeline (query router, reranking, graph expansion, context assembly, entity graph, memory anchoring, tool consolidation, few-shot examples)
 
