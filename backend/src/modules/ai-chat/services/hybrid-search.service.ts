@@ -3,44 +3,16 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
-import { RerankingService, type RerankableEmailResult } from './reranking.service';
+import { RerankingService } from './reranking.service';
+import type {
+  EmailSearchResult,
+  ContactSearchResult,
+  CalendarSearchResult,
+  UnifiedSearchResult,
+  RerankableEmailResult,
+} from './search-types';
 
-// ─── Result types ───────────────────────────────────────────
-
-export interface EmailSearchResult {
-  source: 'email';
-  emailId: string;
-  subject: string | null;
-  from: string | null;
-  snippet: string | null;
-  receivedAt: Date | null;
-  rrfScore: number;
-}
-
-export interface ContactSearchResult {
-  source: 'contact';
-  contactId: string;
-  displayName: string | null;
-  company: string | null;
-  jobTitle: string | null;
-  rrfScore: number;
-}
-
-export interface CalendarSearchResult {
-  source: 'calendar';
-  eventId: string;
-  title: string | null;
-  description: string | null;
-  startTime: Date | null;
-  endTime: Date | null;
-  location: string | null;
-  rrfScore: number;
-}
-
-export type UnifiedSearchResult =
-  | EmailSearchResult
-  | ContactSearchResult
-  | CalendarSearchResult;
+export type { EmailSearchResult, ContactSearchResult, CalendarSearchResult, UnifiedSearchResult };
 
 // ─── Raw SQL row types ──────────────────────────────────────
 

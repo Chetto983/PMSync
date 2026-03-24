@@ -1,14 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { EmailSearchResult } from './hybrid-search.service';
+import type { EmailSearchResult, RerankableEmailResult } from './search-types';
 
-/**
- * Extended email result with metadata for reranking.
- * The SQL function now returns thread_id and ai_priority alongside RRF scores.
- */
-export interface RerankableEmailResult extends EmailSearchResult {
-  threadId: string | null;
-  aiPriority: string | null;
-}
+export type { RerankableEmailResult };
 
 /**
  * RerankingService — Lightweight heuristic post-RRF scoring for email results.
