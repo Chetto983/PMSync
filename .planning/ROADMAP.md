@@ -114,7 +114,7 @@
 
 **Milestone Goal:** Make the AI agent smarter with graph-aware RAG, ship backend push notifications, harden rate limits, and add explicit HITL approval routing.
 
-- [ ] **Phase 106: Tiered Rate Limiting** - Replace flat write-rate limit with named tiers to fix user-reported 429s
+- [x] **Phase 106: Tiered Rate Limiting** - Replace flat write-rate limit with named tiers to fix user-reported 429s (completed 2026-03-24)
 - [ ] **Phase 107: Push Notification Backend Dispatch** - Complete the v8.0 push plumbing with actual web-push delivery
 - [ ] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls
 - [ ] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI
@@ -176,7 +176,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 106. Tiered Rate Limiting | 1/2 | In Progress|  |
+| 106. Tiered Rate Limiting | 2/2 | Complete   | 2026-03-24 |
 | 107. Push Notification Backend Dispatch | 0/TBD | Not started | - |
 | 108. HITL Approval Routing | 0/TBD | Not started | - |
 | 109. Graph RAG Pipeline | 0/TBD | Not started | - |
