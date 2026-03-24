@@ -77,6 +77,23 @@ export function useDeleteAccount() {
   });
 }
 
+// ---- By Contact (reverse lookup) ----
+
+export function crmAccountsByContactOptions(contactId: string) {
+  return queryOptions({
+    queryKey: crmAccountsKeys.byContact(contactId),
+    queryFn: () => crmAccountsApi.getAccountsByContact(contactId).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!contactId,
+  });
+}
+
+export function useContactAccounts(contactId: string) {
+  return useQuery(crmAccountsByContactOptions(contactId));
+}
+
 // ---- Children & Contacts ----
 
 export function crmAccountChildrenOptions(id: string) {
@@ -120,6 +137,9 @@ export function useLinkContact() {
       });
       queryClient.invalidateQueries({
         queryKey: crmAccountsKeys.detail(variables.accountId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: crmAccountsKeys.byContact(variables.dto.contactId),
       });
     },
   });

@@ -1773,6 +1773,18 @@ export interface AppTranslations {
         noNotes: string;
         addNote: string;
       };
+      accounts?: {
+        title: string;
+        searchAccounts: string;
+        linkAccount: string;
+        unlinkConfirm: string;
+        linked: string;
+        unlinked: string;
+        noAccounts: string;
+        noAccountsDescription: string;
+        alreadyLinked: string;
+        selectRole: string;
+      };
       // Additional fields
       relationshipIntelligence: string;
       totalInteractions: string;

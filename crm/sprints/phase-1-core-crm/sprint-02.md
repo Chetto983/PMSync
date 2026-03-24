@@ -18,7 +18,7 @@
 - [x] T-0204 — API parent-child Account: `PATCH /crm/accounts/:id` per settare `parentId`, endpoint `GET /crm/accounts/:id/children` per sotto-account — [2 SP] — ✅ DONE
 - [x] T-0205 — API associazione Contact-Account: `POST /crm/accounts/:id/contacts` (body: contactId, role), `DELETE /crm/accounts/:accountId/contacts/:contactId` — [2 SP] — ✅ DONE
 - [x] T-0206 — Tab Contacts nella pagina Account detail: lista contatti associati con ruolo, pulsante aggiungi contatto (picker dialog) — [2 SP] — ✅ DONE
-- [ ] T-0207 — Aggiungere selettore Account nella pagina dettaglio Contact esistente (autocomplete con ricerca) — [1 SP] — 📋 TODO
+- [x] T-0207 — Aggiungere selettore Account nella pagina dettaglio Contact esistente (autocomplete con ricerca) — [1 SP] — ✅ DONE
 - [x] T-0208 — Implementare breadcrumb navigation per Account (Dashboard > CRM > Accounts > Account Name) — [1 SP] — ✅ DONE
 - [x] T-0209 — TanStack Query hooks: `useAccountChildren`, `useAccountContacts`, `useLinkContact`, `useUnlinkContact` — [1 SP] — ✅ DONE
 - [x] T-0210 — Aggiornare traduzioni en/it per detail view, ruoli contatto, breadcrumb — [1 SP] — ✅ DONE

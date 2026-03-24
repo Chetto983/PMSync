@@ -87,6 +87,17 @@ export class AccountController {
     return this.accountService.delete(tenantId, id);
   }
 
+  @Get('by-contact/:contactId')
+  @ApiOperation({ summary: 'List accounts linked to a contact' })
+  @ApiResponse({ status: 200, description: 'Linked accounts returned' })
+  async getAccountsByContact(
+    @Req() req: any,
+    @Param('contactId') contactId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.accountService.getAccountsByContact(tenantId, contactId);
+  }
+
   @Get(':id/contacts')
   @ApiOperation({ summary: 'List contacts linked to account' })
   @ApiResponse({ status: 200, description: 'Linked contacts returned' })

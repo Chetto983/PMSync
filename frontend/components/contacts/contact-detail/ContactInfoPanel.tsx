@@ -24,6 +24,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
 import type { Contact } from '@/lib/api/contacts';
 import { ProviderIcon } from './ProviderIcon';
+import { ContactAccountsSection } from './ContactAccountsSection';
 import { formatDate } from './contact-detail-utils';
 
 export interface ContactInfoPanelProps {
@@ -201,6 +202,9 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
           </Box>
         </Box>
       )}
+
+      {/* Linked Accounts */}
+      <ContactAccountsSection contactId={contact.id} />
 
       {/* Important Dates */}
       {(contact.birthday || contact.anniversary) && (

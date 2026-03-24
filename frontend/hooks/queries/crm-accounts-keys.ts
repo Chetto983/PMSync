@@ -8,4 +8,5 @@ export const crmAccountsKeys = {
   detail: (id: string) => [...crmAccountsKeys.details(), id] as const,
   children: (id: string) => [...crmAccountsKeys.all, 'children', id] as const,
   contacts: (id: string) => [...crmAccountsKeys.all, 'contacts', id] as const,
+  byContact: (contactId: string) => [...crmAccountsKeys.all, 'by-contact', contactId] as const,
 } as const;

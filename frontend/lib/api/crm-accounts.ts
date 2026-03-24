@@ -84,6 +84,22 @@ export interface AccountContactLink {
   };
 }
 
+export interface ContactAccountLink {
+  id: string;
+  accountId: string;
+  contactId: string;
+  tenantId: string;
+  role: string | null;
+  isPrimary: boolean;
+  createdAt: string;
+  account: {
+    id: string;
+    name: string;
+    website: string | null;
+    industry: string | null;
+  };
+}
+
 export interface LinkContactDto {
   contactId: string;
   role?: string;
@@ -114,6 +130,10 @@ export const crmAccountsApi = {
 
   getChildren(id: string) {
     return apiClient.get<CrmAccount[]>(`/crm/accounts/${id}/children`);
+  },
+
+  getAccountsByContact(contactId: string) {
+    return apiClient.get<ContactAccountLink[]>(`/crm/accounts/by-contact/${contactId}`);
   },
 
   getContacts(accountId: string) {

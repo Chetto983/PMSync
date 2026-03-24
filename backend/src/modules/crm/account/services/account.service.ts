@@ -158,6 +158,23 @@ export class AccountService {
     return { deleted: true };
   }
 
+  async getAccountsByContact(tenantId: string, contactId: string) {
+    return this.prisma.accountContact.findMany({
+      where: { contactId, tenantId },
+      include: {
+        account: {
+          select: {
+            id: true,
+            name: true,
+            website: true,
+            industry: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getContacts(tenantId: string, accountId: string) {
     await this.findById(tenantId, accountId);
 

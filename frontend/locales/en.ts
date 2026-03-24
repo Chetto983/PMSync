@@ -3526,6 +3526,19 @@ export const en: AppTranslations = {
         noNotes: 'No notes yet',
         addNote: 'Add Note',
       },
+      // Linked accounts
+      accounts: {
+        title: 'Linked Accounts',
+        searchAccounts: 'Search accounts...',
+        linkAccount: 'Link Account',
+        unlinkConfirm: 'Remove this account link?',
+        linked: 'Account linked',
+        unlinked: 'Account removed',
+        noAccounts: 'No accounts linked',
+        noAccountsDescription: 'Link this contact to CRM accounts.',
+        alreadyLinked: 'Already linked to this account',
+        selectRole: 'Select role (optional)',
+      },
       // CRM Intelligence
       relationshipIntelligence: 'Relationship Intelligence',
       totalInteractions: 'Total Interactions',
