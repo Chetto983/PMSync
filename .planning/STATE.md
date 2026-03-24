@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v9.0
 milestone_name: AI Intelligence & Platform Hardening
 status: unknown
-stopped_at: Completed 107-02-PLAN.md
-last_updated: "2026-03-24T11:35:35.107Z"
+stopped_at: Completed 107-01-PLAN.md
+last_updated: "2026-03-24T11:36:20.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -47,6 +47,8 @@ Plan: 3 of 3
 - [Phase 107]: All 19 test stubs use expect(true).toBe(false) for unambiguous RED state
 - [Phase 107-02]: Reused existing GET/PATCH /users/me/preferences endpoints instead of creating push-specific ones
 - [Phase 107-02]: Used data-driven CATEGORY_KEYS array for DRY category toggle rendering
+- [Phase 107-01]: Used getSharedRedisConnection() for Redis INCR/EXPIRE ops in push dispatch (consistent with project patterns)
+- [Phase 107-01]: Cast showNotification options as NotificationOptions to work around TS missing renotify property
 
 ### Research Flags
 
@@ -59,6 +61,6 @@ Plan: 3 of 3
 
 ## Session Continuity
 
-Last session: 2026-03-24T11:35:35.103Z
-Stopped at: Completed 107-02-PLAN.md
-Resume file: None
+Last session: 2026-03-24T11:36:20Z
+Completed: 107-01-PLAN.md (push dispatch pipeline)
+Resume file: .planning/phases/107-push-notification-backend-dispatch/107-01-SUMMARY.md

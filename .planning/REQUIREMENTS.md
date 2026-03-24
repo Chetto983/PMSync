@@ -14,7 +14,7 @@ Requirements for v9.0 AI Intelligence & Platform Hardening. Each maps to roadmap
 - [x] **PUSH-03**: Stale subscriptions are deleted on web-push 410/404 response
 - [x] **PUSH-04**: User receives push on all subscribed devices (multi-device delivery)
 - [x] **PUSH-05**: User can configure push preferences per category (new email, calendar, AI)
-- [ ] **PUSH-06**: Clicking a push notification opens the specific email thread in the app
+- [x] **PUSH-06**: Clicking a push notification opens the specific email thread in the app
 - [x] **PUSH-07**: Multiple emails in the same thread produce a single grouped notification with count
 
 ### Rate Limiting
@@ -86,7 +86,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PUSH-03 | Phase 107 | Complete |
 | PUSH-04 | Phase 107 | Complete |
 | PUSH-05 | Phase 107 | Complete |
-| PUSH-06 | Phase 107 | Pending |
+| PUSH-06 | Phase 107 | Complete |
 | PUSH-07 | Phase 107 | Complete |
 | HITL-01 | Phase 108 | Pending |
 | HITL-02 | Phase 108 | Pending |
