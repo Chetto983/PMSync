@@ -25,8 +25,8 @@ Requirements for v9.0 AI Intelligence & Platform Hardening. Each maps to roadmap
 
 ### HITL Approval Routing
 
-- [ ] **HITL-01**: Frontend renders approve/reject buttons when a tool call is in `approval-requested` state
-- [ ] **HITL-02**: Destructive tool calls are visually distinct (warning styling) from informational tool calls
+- [x] **HITL-01**: Frontend renders approve/reject buttons when a tool call is in `approval-requested` state
+- [x] **HITL-02**: Destructive tool calls are visually distinct (warning styling) from informational tool calls
 - [ ] **HITL-03**: User can configure HITL sensitivity: HIGH_ONLY / ALL_MUTATIONS / NONE in AI settings
 - [ ] **HITL-04**: Approval and rejection events are logged via AuditService for GDPR accountability
 
@@ -88,8 +88,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PUSH-05 | Phase 107 | Complete |
 | PUSH-06 | Phase 107 | Complete |
 | PUSH-07 | Phase 107 | Complete |
-| HITL-01 | Phase 108 | Pending |
-| HITL-02 | Phase 108 | Pending |
+| HITL-01 | Phase 108 | Complete |
+| HITL-02 | Phase 108 | Complete |
 | HITL-03 | Phase 108 | Pending |
 | HITL-04 | Phase 108 | Pending |
 | GRAG-01 | Phase 109 | Pending |
