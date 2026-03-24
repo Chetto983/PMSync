@@ -19,9 +19,9 @@ Requirements for v9.0 AI Intelligence & Platform Hardening. Each maps to roadmap
 
 ### Rate Limiting
 
-- [ ] **RATE-01**: Write endpoints use tiered limits: safe-write 100/min, destructive-write 30/min, send 10/min
+- [x] **RATE-01**: Write endpoints use tiered limits: safe-write 100/min, destructive-write 30/min, send 10/min
 - [ ] **RATE-02**: All existing `@Throttle()` decorators are audited and mapped to correct named tiers
-- [ ] **RATE-03**: Read tier remains at 300/min (no regression)
+- [x] **RATE-03**: Read tier remains at 300/min (no regression)
 
 ### HITL Approval Routing
 
@@ -78,9 +78,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RATE-01 | Phase 106 | Pending |
+| RATE-01 | Phase 106 | Complete |
 | RATE-02 | Phase 106 | Pending |
-| RATE-03 | Phase 106 | Pending |
+| RATE-03 | Phase 106 | Complete |
 | PUSH-01 | Phase 107 | Pending |
 | PUSH-02 | Phase 107 | Pending |
 | PUSH-03 | Phase 107 | Pending |

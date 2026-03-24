@@ -1,16 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v9.0
-milestone_name: "AI Intelligence & Platform Hardening"
-current_plan: null
-status: ready_to_plan
-stopped_at: null
-last_updated: "2026-03-24T14:00:00.000Z"
+milestone_name: AI Intelligence & Platform Hardening
+status: unknown
+stopped_at: Completed 106-01-PLAN.md
+last_updated: "2026-03-24T10:10:22.968Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -20,16 +19,12 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-24)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 106 - Tiered Rate Limiting
+**Current focus:** Phase 106 — tiered-rate-limiting
 
 ## Current Position
 
-Phase: 1 of 4 (Phase 106: Tiered Rate Limiting)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-03-24 — Roadmap created for v9.0
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 106 (tiered-rate-limiting) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -44,7 +39,8 @@ Progress: [░░░░░░░░░░] 0%
 
 ### Decisions
 
-(None yet for v9.0)
+- [106-01] Used throttler array swap-and-restore for single-tier-per-request filtering
+- [106-01] Auto-assign GET/HEAD/OPTIONS to read tier, mutations to safe-write tier
 
 ### Research Flags
 
@@ -57,6 +53,6 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Session Continuity
 
-Last session: 2026-03-24
-Stopped at: Roadmap created, ready to plan Phase 106
+Last session: 2026-03-24T10:10:22.965Z
+Stopped at: Completed 106-01-PLAN.md
 Resume file: None
