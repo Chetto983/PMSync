@@ -33,11 +33,16 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import type { CrmStage } from '@/lib/api/crm-pipelines';
+import type { AppTranslations } from '@/locales';
+
+type PipelineTranslations = AppTranslations['crmPipelines'];
+type CommonTranslations = AppTranslations['common'];
+type SettingsTranslations = NonNullable<PipelineTranslations>['settings'];
 
 interface SortableStageListProps {
   stages: CrmStage[];
-  tp: any; // crmPipelines translations
-  tc: any; // common translations
+  tp: PipelineTranslations;
+  tc: CommonTranslations;
   onReorder: (orderedIds: string[]) => void;
   onCreateStage: (dto: { name: string; probability?: number; color?: string; isWon?: boolean; isLost?: boolean }) => void;
   onUpdateStage: (stageId: string, dto: { name?: string; probability?: number; color?: string; isWon?: boolean; isLost?: boolean }) => void;
@@ -109,7 +114,6 @@ export function SortableStageList({
                 key={stage.id}
                 stage={stage}
                 ts={ts}
-                tc={tc}
                 onUpdate={onUpdateStage}
                 onDelete={onDeleteStage}
               />
@@ -133,9 +137,8 @@ export function SortableStageList({
 
 interface SortableStageItemProps {
   stage: CrmStage;
-  ts: any;
-  tc: any;
-  onUpdate: (stageId: string, dto: any) => void;
+  ts: SettingsTranslations;
+  onUpdate: (stageId: string, dto: { name?: string; probability?: number; color?: string }) => void;
   onDelete: (stageId: string) => void;
 }
 
@@ -282,8 +285,8 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
 interface CreateStageDialogProps {
   open: boolean;
   onClose: () => void;
-  ts: any;
-  tc: any;
+  ts: SettingsTranslations;
+  tc: CommonTranslations;
   onCreate: (dto: { name: string; probability?: number; color?: string; isWon?: boolean; isLost?: boolean }) => void;
 }
 

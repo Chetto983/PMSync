@@ -161,7 +161,7 @@ export class PipelineService {
   }
 
   async updateStage(tenantId: string, stageId: string, dto: UpdateStageDto) {
-    const stage = await this.findStageWithTenantCheck(tenantId, stageId);
+    await this.findStageWithTenantCheck(tenantId, stageId);
 
     try {
       return await this.prisma.crmStage.update({
