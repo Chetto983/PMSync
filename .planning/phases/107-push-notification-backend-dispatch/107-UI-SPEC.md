@@ -52,14 +52,18 @@ Exceptions: none
 
 ## Typography
 
-Inherited from project tokens. Only these roles are used in this phase:
+Inherited from project tokens. Only these roles are used in this phase.
+
+**Weights: 2 total -- 400 (normal) + 600 (semibold).**
 
 | Role | Size | Weight | Line Height | MUI variant |
 |------|------|--------|-------------|-------------|
 | Section heading | 20px (1.25rem) | 600 (semibold) | 1.25 | `h6` |
-| Toggle label | 14px (0.875rem) | 500 (medium) | 1.5 | `subtitle2` |
+| Toggle label | 14px (0.875rem) | 400 (normal) | 1.5 | `subtitle2` |
 | Description | 14px (0.875rem) | 400 (normal) | 1.5 | `body2` |
-| Category sublabel | 13px (0.8125rem) | 400 (normal) | 1.5 | `body2` with `color="text.secondary"` |
+| Category sublabel | 14px (0.875rem) | 400 (normal) | 1.5 | `body2` with `color="text.secondary"` |
+
+Note: Toggle label and category sublabel share the same size and weight. Visual distinction between description and category sublabel is achieved through `color="text.secondary"` alone, not through size or weight.
 
 Source: Existing `NotificationSettings.tsx` already uses `h6`, `body1`, `subtitle2`.
 
