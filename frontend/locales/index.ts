@@ -4101,6 +4101,59 @@ export interface AppTranslations {
     created?: string;
     updated?: string;
     deleted?: string;
+    detail?: {
+      tabs?: {
+        info?: string;
+        contacts?: string;
+        deals?: string;
+        activity?: string;
+      };
+      hierarchy?: {
+        title?: string;
+        parent?: string;
+        children?: string;
+        noChildren?: string;
+        setParent?: string;
+        removeParent?: string;
+      };
+      contacts?: {
+        title?: string;
+        addContact?: string;
+        removeContact?: string;
+        removeConfirm?: string;
+        noContacts?: string;
+        noContactsDescription?: string;
+        searchContacts?: string;
+        selectContact?: string;
+        linked?: string;
+        unlinked?: string;
+        alreadyLinked?: string;
+      };
+      contactRoles?: {
+        label?: string;
+        placeholder?: string;
+        decisionMaker?: string;
+        influencer?: string;
+        technicalContact?: string;
+        billing?: string;
+        user?: string;
+        champion?: string;
+        other?: string;
+      };
+      info?: {
+        editField?: string;
+        noDescription?: string;
+        noWebsite?: string;
+        noPhone?: string;
+        noAddress?: string;
+        noIndustry?: string;
+      };
+    };
+    breadcrumb?: {
+      dashboard?: string;
+      crm?: string;
+      accounts?: string;
+    };
   };
 }
 
