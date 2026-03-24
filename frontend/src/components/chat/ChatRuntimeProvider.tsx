@@ -39,8 +39,6 @@ const transport = new AssistantChatTransport({
   credentials: 'include',
   headers: getHeaders,
   prepareSendMessagesRequest(options) {
-    // eslint-disable-next-line no-console
-    console.log('[transport] _remoteId:', _remoteId, 'options.id:', options.id);
     // For EXISTING threads, _remoteId is the real backend conversation ID.
     // Override the body to use it, bypassing the transport's internal
     // initialize() chain which can be fragile.
@@ -75,9 +73,11 @@ function useThreadRuntime() {
   const remoteId = useAuiState((s) => s.threadListItem.remoteId);
 
   // Sync remoteId to module scope so the transport can read it at send-time.
-  // eslint-disable-next-line no-console
-  console.log('[runtime] id:', id, 'remoteId:', remoteId);
-  _remoteId = remoteId;
+  // Done in useEffect to satisfy React purity rules — the effect fires
+  // after render but before any user interaction triggers a send.
+  useEffect(() => {
+    _remoteId = remoteId;
+  }, [remoteId]);
 
   const chat = useChat({
     id,
