@@ -17,6 +17,7 @@ export interface UserPreferences {
   aiSchedulingEnabled?: boolean;
   aiAutoTriageEnabled?: boolean;
   aiAutoApproveThreshold?: number;
+  hitlSensitivity?: string;
   // AI Personalization
   jobTitle?: string;
   jobRole?: string;
@@ -56,6 +57,7 @@ export interface UpdatePreferencesData {
   workingDays?: string[];
   notificationFrequency?: 'IMMEDIATE' | 'DIGEST' | 'MINIMAL';
   aiAutoApproveThreshold?: number;
+  hitlSensitivity?: string;
   aiSmartRepliesEnabled?: boolean;
   aiSummarizationEnabled?: boolean;
   aiSchedulingEnabled?: boolean;

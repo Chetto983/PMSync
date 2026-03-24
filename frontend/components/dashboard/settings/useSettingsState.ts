@@ -132,7 +132,7 @@ export function useSettingsState() {
   const [communicationStyle, setCommunicationStyle] = useState<CommunicationStyle>('CASUAL');
   const [responseLength, setResponseLength] = useState<ResponseLength>('MODERATE');
   const [proactivityLevel, setProactivityLevel] = useState<ProactivityLevel>('MEDIUM');
-  const [autoApproveThreshold, setAutoApproveThreshold] = useState<number>(85);
+  const [hitlSensitivity, setHitlSensitivity] = useState<string>('HIGH_ONLY');
   const [smartRepliesEnabled, setSmartRepliesEnabled] = useState(true);
   const [summarizationEnabled, setSummarizationEnabled] = useState(true);
   const [schedulingEnabled, setSchedulingEnabled] = useState(true);
@@ -174,7 +174,7 @@ export function useSettingsState() {
         setSummarizationEnabled(userPrefsData.aiSummarizationEnabled ?? true);
         setSchedulingEnabled(userPrefsData.aiSchedulingEnabled ?? true);
         setTriageEnabled(userPrefsData.aiAutoTriageEnabled ?? false);
-        setAutoApproveThreshold((userPrefsData.aiAutoApproveThreshold ?? 0.85) * 100);
+        setHitlSensitivity(userPrefsData.hitlSensitivity ?? 'HIGH_ONLY');
         setEmailDensity(userPrefsData.emailDensity ?? 'comfortable');
         setJobRole(getDisplayedRole(userPrefsData.jobTitle, userPrefsData.jobRole));
         setCommunicationStyle(
@@ -236,7 +236,7 @@ export function useSettingsState() {
     communicationStyle, setCommunicationStyle,
     responseLength, setResponseLength,
     proactivityLevel, setProactivityLevel,
-    autoApproveThreshold, setAutoApproveThreshold,
+    hitlSensitivity, setHitlSensitivity,
     smartRepliesEnabled, setSmartRepliesEnabled,
     summarizationEnabled, setSummarizationEnabled,
     schedulingEnabled, setSchedulingEnabled,

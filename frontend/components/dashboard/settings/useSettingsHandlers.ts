@@ -39,7 +39,7 @@ export function useSettingsHandlers(s: State, settingsCopy: SettingsCopy) {
     summarizationEnabled,
     schedulingEnabled,
     triageEnabled,
-    autoApproveThreshold,
+    hitlSensitivity,
     jobRole,
     communicationStyle,
     responseLength,
@@ -155,7 +155,7 @@ export function useSettingsHandlers(s: State, settingsCopy: SettingsCopy) {
         aiSummarizationEnabled: summarizationEnabled,
         aiSchedulingEnabled: schedulingEnabled,
         aiAutoTriageEnabled: triageEnabled,
-        aiAutoApproveThreshold: autoApproveThreshold / 100,
+        hitlSensitivity,
         jobTitle: normalizedJobTitle || undefined,
         communicationStyle,
         responseLength,
@@ -168,7 +168,7 @@ export function useSettingsHandlers(s: State, settingsCopy: SettingsCopy) {
     }
   }, [
     aiSavedMessage,
-    autoApproveThreshold,
+    hitlSensitivity,
     communicationStyle,
     generalSaveError,
     jobRole,
