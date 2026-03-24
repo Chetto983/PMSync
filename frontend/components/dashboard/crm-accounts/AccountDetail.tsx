@@ -32,6 +32,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAccount, useUpdateAccount } from '@/hooks/queries';
 import type { CrmAccount, UpdateAccountDto } from '@/lib/api/crm-accounts';
 import { useGlobalToast } from '@/lib/context/toast-context';
+import { AccountHierarchyTree } from './AccountHierarchyTree';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -384,6 +385,7 @@ export function AccountDetail() {
       {/* Tab Panels */}
       <TabPanel value={tab} index={0}>
         <AccountInfoCard account={account} onSave={handleSave} />
+        <AccountHierarchyTree account={account} />
       </TabPanel>
 
       <TabPanel value={tab} index={1}>
