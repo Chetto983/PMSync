@@ -9,6 +9,9 @@
  * 5. AICP-02: No REST approve endpoint (SDK-native flow replaces REST)
  *
  * Phase 77 Plan 03: AICP-01, AICP-02, AICP-12 coverage.
+ *
+ * NOTE (Phase 108): After Task 2, needsApproval changes from boolean `true`
+ * to function variants. Tests below updated to check for function or boolean.
  */
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
@@ -179,6 +182,11 @@ describe('HITL Contract', () => {
         expect(tool.requiresApproval).toBe(true);
       }
     });
+  });
+
+  describe('needsApproval function variant (Phase 108)', () => {
+    it.todo('HIGH-risk tools use needsApproval function, not boolean');
+    it.todo('MEDIUM-risk mutation tools use needsApproval function');
   });
 
   describe('AICP-01: SDK ToolInvocation state replaces pending-actions DTO', () => {

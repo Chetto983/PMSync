@@ -1,4 +1,4 @@
-import { AuditService, LogDataAccessInput, LogToolExecutionInput } from '../../../common/services/audit.service';
+import { AuditService, LogDataAccessInput, LogToolExecutionInput, LogHitlDecisionInput } from '../../../common/services/audit.service';
 
 /**
  * Unit tests for expanded AuditService (AUDIT-01, AUDIT-02)
@@ -165,6 +165,75 @@ describe('AuditService', () => {
           outputSummary: 'output',
           durationMs: 0,
           status: 'error',
+        }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('logHitlDecision (HITL-04)', () => {
+    it('creates record with action = HITL:APPROVED for approved decision', async () => {
+      prisma.auditLog.create.mockResolvedValue({});
+
+      const input: LogHitlDecisionInput = {
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        toolName: 'send_email',
+        toolCallId: 'tc-abc-123',
+        decision: 'approved',
+        conversationId: 'conv-456',
+      };
+
+      await service.logHitlDecision(input);
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+          action: 'HITL:APPROVED',
+          entity: 'AiChat',
+          entityId: 'tc-abc-123',
+          changes: { toolName: 'send_email', conversationId: 'conv-456' },
+        },
+      });
+    });
+
+    it('creates record with action = HITL:REJECTED for rejected decision', async () => {
+      prisma.auditLog.create.mockResolvedValue({});
+
+      const input: LogHitlDecisionInput = {
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        toolName: 'delete_contact',
+        toolCallId: 'tc-def-789',
+        decision: 'rejected',
+        conversationId: 'conv-789',
+      };
+
+      await service.logHitlDecision(input);
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+          action: 'HITL:REJECTED',
+          entity: 'AiChat',
+          entityId: 'tc-def-789',
+          changes: { toolName: 'delete_contact', conversationId: 'conv-789' },
+        },
+      });
+    });
+
+    it('swallows errors without throwing', async () => {
+      prisma.auditLog.create.mockRejectedValue(new Error('DB write failed'));
+
+      await expect(
+        service.logHitlDecision({
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+          toolName: 'send_email',
+          toolCallId: 'tc-fail',
+          decision: 'approved',
+          conversationId: 'conv-fail',
         }),
       ).resolves.toBeUndefined();
     });
