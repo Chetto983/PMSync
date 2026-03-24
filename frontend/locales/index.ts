@@ -3972,6 +3972,19 @@ export interface AppTranslations {
       iosStep2?: string;
       iosStep3?: string;
     };
+    push?: {
+      title?: string;
+      description?: string;
+      enableLabel?: string;
+      blockedTitle?: string;
+      blockedDescription?: string;
+      subscribeError?: string;
+      unsubscribeError?: string;
+    };
+    update?: {
+      available?: string;
+      reload?: string;
+    };
   };
   offlineQueue?: {
     pendingActions?: string;

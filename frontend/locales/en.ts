@@ -4142,6 +4142,19 @@ export const en: AppTranslations = {
       iosStep2: 'Scroll down and tap "Add to Home Screen"',
       iosStep3: 'Tap "Add" to confirm',
     },
+    push: {
+      title: 'Push Notifications',
+      description: 'Receive alerts when new emails arrive, even when PMSync is closed.',
+      enableLabel: 'Enable push notifications',
+      blockedTitle: 'Notifications blocked',
+      blockedDescription: 'Your browser has blocked notifications for this site. Open your browser settings to re-enable them.',
+      subscribeError: 'Could not enable notifications. Please try again.',
+      unsubscribeError: 'Could not disable notifications. Please try again.',
+    },
+    update: {
+      available: 'A new version of PMSync is available.',
+      reload: 'Reload page',
+    },
   },
   offlineQueue: {
     pendingActions: '{count} pending action(s)',

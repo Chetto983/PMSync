@@ -10,9 +10,28 @@ declare global {
 
 declare const self: WorkerGlobalScope & typeof globalThis & {
   clients: {
-    matchAll(options?: { type?: string; includeUncontrolled?: boolean }): Promise<{ postMessage(message: unknown): void }[]>;
+    matchAll(options?: { type?: string; includeUncontrolled?: boolean }): Promise<(WindowClient | { postMessage(message: unknown): void })[]>;
+    openWindow(url: string): Promise<WindowClient | null>;
   };
+  registration: ServiceWorkerRegistration;
 };
+
+interface WindowClient {
+  postMessage(message: unknown): void;
+  focus(): Promise<WindowClient>;
+  navigate(url: string): Promise<WindowClient | null>;
+}
+
+// Web Push types (not included in default tsconfig lib)
+interface PushEvent extends Event {
+  readonly data: { json(): unknown; text(): string } | null;
+  waitUntil(promise: Promise<unknown>): void;
+}
+
+interface NotificationEvent extends Event {
+  readonly notification: Notification & { data: unknown };
+  waitUntil(promise: Promise<unknown>): void;
+}
 
 // Filter out any defaultCache entries that match /api/ routes.
 // Serwist's defaultCache may include rules for /api/ which
@@ -76,6 +95,49 @@ self.addEventListener('sync', (event: Event & { tag?: string; waitUntil?: (p: Pr
       })
     );
   }
+});
+
+// Push notification handler (PUSH-02)
+self.addEventListener('push', (evt: Event) => {
+  const event = evt as PushEvent;
+  if (!event.data) return;
+  const data = event.data.json() as {
+    title: string;
+    body: string;
+    icon?: string;
+    url?: string;
+    tag?: string;
+  };
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png',
+      tag: data.tag,
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+// Notification click handler -- deep-link to relevant view (PUSH-03)
+self.addEventListener('notificationclick', (evt: Event) => {
+  const event = evt as NotificationEvent;
+  event.notification.close();
+  const url = (event.notification.data as { url?: string })?.url || '/';
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window' })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if ('focus' in client) {
+            (client as WindowClient).focus();
+            (client as WindowClient).navigate(url);
+            return;
+          }
+        }
+        return self.clients.openWindow(url);
+      })
+  );
 });
 
 serwist.addEventListeners();

@@ -4119,6 +4119,19 @@ export const it: AppTranslations = {
       iosStep2: 'Scorri e tocca "Aggiungi alla schermata Home"',
       iosStep3: 'Tocca "Aggiungi" per confermare',
     },
+    push: {
+      title: 'Notifiche Push',
+      description: 'Ricevi avvisi quando arrivano nuove email, anche quando PMSync è chiuso.',
+      enableLabel: 'Abilita notifiche push',
+      blockedTitle: 'Notifiche bloccate',
+      blockedDescription: 'Il tuo browser ha bloccato le notifiche per questo sito. Apri le impostazioni del browser per riattivarle.',
+      subscribeError: 'Impossibile abilitare le notifiche. Riprova.',
+      unsubscribeError: 'Impossibile disabilitare le notifiche. Riprova.',
+    },
+    update: {
+      available: 'Una nuova versione di PMSync è disponibile.',
+      reload: 'Ricarica pagina',
+    },
   },
   offlineQueue: {
     pendingActions: '{count} azione/i in attesa',
