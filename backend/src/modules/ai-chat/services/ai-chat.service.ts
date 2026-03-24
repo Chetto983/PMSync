@@ -18,6 +18,7 @@ import {
   type ToolSet,
 } from 'ai';
 import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
 import { ConversationService } from './conversation.service';
 import { PiiDetectionService } from '../../ai/guards/pii-detection-sentinel.service';
@@ -86,6 +87,7 @@ export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
 
   constructor(
+    private readonly prisma: PrismaService,
     private readonly mistralProvider: OpenRouterProviderService,
     private readonly conversationService: ConversationService,
     // Plan 02: Cross-cutting concerns
@@ -168,9 +170,16 @@ export class AiChatService {
       `[QueryRouter] "${message.slice(0, 60)}" → ${classification.complexity} (${classification.confidence.toFixed(2)}) [${classification.signals.join(', ')}]`,
     );
 
+    // Phase 108: Load HITL sensitivity preference for dynamic needsApproval
+    const userPrefs = await this.prisma.userPreferences.findUnique({
+      where: { userId },
+      select: { hitlSensitivity: true },
+    });
+    const sensitivity = userPrefs?.hitlSensitivity ?? 'HIGH_ONLY';
+
     let messages: { role: string; content: unknown }[];
     let systemPromptWithMemory = buildSystemPrompt();
-    const tools = this.createToolSet(tenantId, userId, conversation.id);
+    const tools = this.createToolSet(tenantId, userId, conversation.id, sensitivity);
 
     if (isApprovalResubmit) {
       // HITL approval re-submit: convert client UIMessages to ModelMessages.
@@ -416,6 +425,23 @@ export class AiChatService {
               .catch((err) =>
                 this.logger.warn(`Tool audit failed: ${err.message}`),
               );
+          }
+        }
+
+        // Phase 108: Log HITL approval/rejection decisions
+        if (toolResults?.length) {
+          for (const tr of toolResults) {
+            const resultObj = tr.output as Record<string, unknown> | undefined;
+            if (resultObj && typeof resultObj === 'object' && 'approved' in resultObj) {
+              this.auditService.logHitlDecision({
+                tenantId,
+                userId,
+                toolName: tr.toolName,
+                toolCallId: tr.toolCallId,
+                decision: resultObj.approved ? 'approved' : 'rejected',
+                conversationId: conversation.id,
+              }).catch(() => {}); // fire-and-forget
+            }
           }
         }
       },
@@ -718,14 +744,14 @@ export class AiChatService {
   }
 
   /** Create tool set with PII resolution via closure. */
-  private createToolSet(tenantId: string, userId: string, conversationId: string) {
+  private createToolSet(tenantId: string, userId: string, conversationId: string, sensitivity: string) {
     const piiResolve = async (payload: Record<string, unknown>) =>
       this.piiResolutionService.resolvePayload(tenantId, conversationId, payload);
 
     const toolSets = {
-      ...this.emailToolsService.getTools(tenantId, piiResolve),
-      ...this.calendarToolsService.getTools(tenantId, piiResolve),
-      ...this.contactToolsService.getTools(tenantId, piiResolve),
+      ...this.emailToolsService.getTools(tenantId, piiResolve, sensitivity),
+      ...this.calendarToolsService.getTools(tenantId, piiResolve, sensitivity),
+      ...this.contactToolsService.getTools(tenantId, piiResolve, sensitivity),
       ...this.folderToolsService.getTools(tenantId, piiResolve),
       ...this.ragToolsService.getTools(tenantId, userId, piiResolve),
       ...this.emailProductivityToolsService.getTools(tenantId),

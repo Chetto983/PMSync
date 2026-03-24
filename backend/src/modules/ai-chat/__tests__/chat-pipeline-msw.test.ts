@@ -151,6 +151,7 @@ describe('Chat Pipeline (MSW)', () => {
 
     // AiChatService with all mocked dependencies
     aiChatService = new AiChatService(
+      null as any, // PrismaService (Phase 108)
       mistralProvider,
       conversationServiceMock,
       new PiiDetectionService(),

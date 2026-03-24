@@ -168,6 +168,7 @@ describe('Phase 25 E2E: Tools & RAG Pipeline (real Mistral API)', () => {
 
     // 6. Compose AiChatService with real Phase 25 services
     aiChatService = new AiChatService(
+      null as any, // PrismaService (Phase 108)
       mistralProvider,
       conversationService,
       piiDetectionService,

@@ -86,16 +86,18 @@ export class CalendarToolsService implements OnModuleInit {
 
   /**
    * Returns all calendar tools with PII resolution via closure.
+   * Phase 108: sensitivity param controls dynamic needsApproval.
    */
   getTools(
     tenantId: string,
     piiResolve: PiiResolveFn,
+    sensitivity: string = 'HIGH_ONLY',
   ) {
     return {
       view_calendar: this.buildViewCalendar(tenantId, piiResolve),
-      create_event: this.buildCreateEvent(tenantId, piiResolve),
-      update_event: this.buildUpdateEvent(tenantId, piiResolve),
-      delete_event: this.buildDeleteEvent(tenantId, piiResolve),
+      create_event: this.buildCreateEvent(tenantId, piiResolve, sensitivity),
+      update_event: this.buildUpdateEvent(tenantId, piiResolve, sensitivity),
+      delete_event: this.buildDeleteEvent(tenantId, piiResolve, sensitivity),
     };
   }
 
@@ -143,7 +145,7 @@ export class CalendarToolsService implements OnModuleInit {
     });
   }
 
-  private buildCreateEvent(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildCreateEvent(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Create a new calendar event. Provide title and start/end times at minimum. ' +
@@ -152,6 +154,7 @@ export class CalendarToolsService implements OnModuleInit {
         'Times must be ISO 8601 format (e.g., "2026-03-15T09:00:00Z"). ' +
         'Returns: { id, title, start, end, location, attendees, status: "created" }.',
       inputSchema: schemas.create_event,
+      needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -185,13 +188,14 @@ export class CalendarToolsService implements OnModuleInit {
     });
   }
 
-  private buildUpdateEvent(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildUpdateEvent(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Update an existing calendar event. Provide the event ID and only the fields to change. ' +
         'ALWAYS call view_calendar first to confirm the event exists and get its current details. ' +
         'Returns: { id, title, start, end, location, status: "updated" }.',
       inputSchema: schemas.update_event,
+      needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -225,14 +229,14 @@ export class CalendarToolsService implements OnModuleInit {
     });
   }
 
-  private buildDeleteEvent(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildDeleteEvent(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Delete a calendar event permanently. This action cannot be undone. ' +
         'Use ONLY when the user explicitly asks to cancel or delete an event. ' +
         'Returns: { id, deleted: true }. Requires user approval before execution.',
       inputSchema: schemas.delete_event,
-      needsApproval: true,
+      needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,

@@ -135,6 +135,7 @@ describe('AiChatService E2E (real Mistral API)', () => {
     // Tools are model-driven now; these basic chat tests keep tool services stubbed.
     const toolsServiceStub = { getTools: () => ({}) } as any;
     aiChatService = new AiChatService(
+      null as any, // PrismaService (Phase 108)
       mistralProvider,
       conversationService,
       piiDetectionService,

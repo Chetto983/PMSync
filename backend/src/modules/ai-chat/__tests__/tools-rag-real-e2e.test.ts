@@ -304,6 +304,7 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
 
     // ── AiChatService with REAL ToolsServices ──
     aiChatService = new AiChatService(
+      null as any, // PrismaService (Phase 108)
       mistralProvider,
       new ConversationService(prisma as any),
       new PiiDetectionService(),

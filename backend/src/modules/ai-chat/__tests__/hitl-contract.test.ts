@@ -60,25 +60,22 @@ function buildPopulatedRegistry(): ToolRegistryService {
 
 describe('HITL Contract', () => {
   describe('AI SDK needsApproval on tool() calls', () => {
-    it('all HIGH-risk tool source files have needsApproval: true on tool() definitions', () => {
-      // Structural verification: scan the source files for tool() calls with needsApproval
+    it('all HIGH-risk tool source files have needsApproval function on tool() definitions', () => {
+      // Phase 108: needsApproval changed from boolean to function.
+      // Structural verification: scan the source files for needsApproval in HIGH-risk build methods.
       const toolsDir = path.resolve(__dirname, '..', 'tools');
       const toolServiceFiles = fs.readdirSync(toolsDir)
         .filter((f) => f.endsWith('-tools.service.ts') && !f.endsWith('.spec.ts'));
 
-      // Collect all needsApproval occurrences from source
       const toolsWithApproval: string[] = [];
       for (const file of toolServiceFiles) {
         const content = fs.readFileSync(path.join(toolsDir, file), 'utf-8');
-        // Find tool names near needsApproval: true
         const lines = content.split('\n');
         for (let i = 0; i < lines.length; i++) {
-          if (lines[i].includes('needsApproval: true')) {
-            // Look backwards to find the tool name (buildXxx method or tool name)
+          if (lines[i].includes('needsApproval:') && lines[i].includes('sensitivity')) {
             for (let j = i - 1; j >= Math.max(0, i - 20); j--) {
               const buildMatch = lines[j].match(/private\s+build(\w+)\(/);
               if (buildMatch) {
-                // Convert PascalCase to snake_case
                 const name = buildMatch[1]
                   .replace(/([A-Z])/g, '_$1')
                   .toLowerCase()
@@ -93,47 +90,20 @@ describe('HITL Contract', () => {
 
       // Verify all HIGH-risk tools are in the list
       for (const toolName of HIGH_RISK_TOOLS) {
-        const snakeName = toolName;
         expect(
-          toolsWithApproval.some((t) => t === snakeName || t.replace(/_/g, '') === snakeName.replace(/_/g, '')),
+          toolsWithApproval.some((t) => t === toolName || t.replace(/_/g, '') === toolName.replace(/_/g, '')),
         ).toBe(true);
       }
     });
 
-    it('non-HIGH-risk tools do NOT have needsApproval in their tool() definitions', () => {
+    it('email/calendar/contact tool files do not contain needsApproval: true (all use function variant)', () => {
+      // Phase 108: Email, calendar, and contact tools use function-based needsApproval.
       const toolsDir = path.resolve(__dirname, '..', 'tools');
-      const toolServiceFiles = fs.readdirSync(toolsDir)
-        .filter((f) => f.endsWith('-tools.service.ts') && !f.endsWith('.spec.ts'));
+      const targetFiles = ['email-tools.service.ts', 'calendar-tools.service.ts', 'contact-tools.service.ts'];
 
-      // Collect all tool build methods
-      for (const file of toolServiceFiles) {
+      for (const file of targetFiles) {
         const content = fs.readFileSync(path.join(toolsDir, file), 'utf-8');
-        // Find build methods that have needsApproval
-        const methodBlocks = content.split(/private\s+build/);
-        for (const block of methodBlocks.slice(1)) { // Skip first (before first build method)
-          const methodName = block.match(/^(\w+)\(/)?.[1];
-          if (!methodName) continue;
-          const toolName = methodName
-            .replace(/([A-Z])/g, '_$1')
-            .toLowerCase()
-            .replace(/^_/, '');
-
-          // Only check non-HIGH-risk tools
-          const isHighRisk = HIGH_RISK_TOOLS.some(
-            (h) => h === toolName || h.replace(/_/g, '') === toolName.replace(/_/g, ''),
-          );
-          if (isHighRisk) continue;
-
-          // Check that this method block doesn't have needsApproval: true
-          // Take only the current method (up to next private build or end)
-          const methodBody = block.split(/\n\s*private\s+build/)[0];
-          if (methodBody.includes('needsApproval: true')) {
-            throw new Error(
-              `Non-HIGH-risk tool build${methodName} has needsApproval: true -- ` +
-              `only HIGH-risk tools should have needsApproval`,
-            );
-          }
-        }
+        expect(content).not.toContain('needsApproval: true');
       }
     });
   });
@@ -185,8 +155,57 @@ describe('HITL Contract', () => {
   });
 
   describe('needsApproval function variant (Phase 108)', () => {
-    it.todo('HIGH-risk tools use needsApproval function, not boolean');
-    it.todo('MEDIUM-risk mutation tools use needsApproval function');
+    it('HIGH-risk tools use needsApproval function with sensitivity !== NONE', () => {
+      const toolsDir = path.resolve(__dirname, '..', 'tools');
+      const toolServiceFiles = fs.readdirSync(toolsDir)
+        .filter((f) => f.endsWith('-tools.service.ts') && !f.endsWith('.spec.ts'));
+
+      // Find HIGH-risk build methods and verify they use sensitivity !== 'NONE'
+      for (const toolName of HIGH_RISK_TOOLS) {
+        let found = false;
+        for (const file of toolServiceFiles) {
+          const content = fs.readFileSync(path.join(toolsDir, file), 'utf-8');
+          const pascalName = toolName
+            .split('_')
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join('');
+          const buildRegex = new RegExp(`build${pascalName}[\\s\\S]*?needsApproval:\\s*\\(\\)\\s*=>\\s*sensitivity\\s*!==\\s*'NONE'`);
+          if (buildRegex.test(content)) {
+            found = true;
+            break;
+          }
+        }
+        expect(found).toBe(true);
+      }
+    });
+
+    it('MEDIUM-risk mutation tools use needsApproval function with sensitivity === ALL_MUTATIONS', () => {
+      const MEDIUM_RISK_MUTATIONS = [
+        'archive_email', 'move_email', 'draft_email',
+        'create_event', 'update_event',
+        'create_contact', 'update_contact',
+      ];
+      const toolsDir = path.resolve(__dirname, '..', 'tools');
+      const toolServiceFiles = fs.readdirSync(toolsDir)
+        .filter((f) => f.endsWith('-tools.service.ts') && !f.endsWith('.spec.ts'));
+
+      for (const toolName of MEDIUM_RISK_MUTATIONS) {
+        let found = false;
+        for (const file of toolServiceFiles) {
+          const content = fs.readFileSync(path.join(toolsDir, file), 'utf-8');
+          const pascalName = toolName
+            .split('_')
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join('');
+          const buildRegex = new RegExp(`build${pascalName}[\\s\\S]*?needsApproval:\\s*\\(\\)\\s*=>\\s*sensitivity\\s*===\\s*'ALL_MUTATIONS'`);
+          if (buildRegex.test(content)) {
+            found = true;
+            break;
+          }
+        }
+        expect(found).toBe(true);
+      }
+    });
   });
 
   describe('AICP-01: SDK ToolInvocation state replaces pending-actions DTO', () => {

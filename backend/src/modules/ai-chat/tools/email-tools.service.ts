@@ -113,25 +113,27 @@ export class EmailToolsService implements OnModuleInit {
 
   /**
    * Returns all email tools with PII resolution via closure.
+   * Phase 108: sensitivity param controls dynamic needsApproval.
    */
   getTools(
     tenantId: string,
     piiResolve: PiiResolveFn,
+    sensitivity: string = 'HIGH_ONLY',
   ) {
     return {
-      send_email: this.buildSendEmail(tenantId, piiResolve),
+      send_email: this.buildSendEmail(tenantId, piiResolve, sensitivity),
       search_emails: this.buildSearchEmails(tenantId, piiResolve),
       read_email: this.buildReadEmail(tenantId, piiResolve),
-      archive_email: this.buildArchiveEmail(tenantId, piiResolve),
-      move_email: this.buildMoveEmail(tenantId, piiResolve),
-      delete_email: this.buildDeleteEmail(tenantId, piiResolve),
-      forward_email: this.buildForwardEmail(tenantId, piiResolve),
-      reply_email: this.buildReplyEmail(tenantId, piiResolve),
-      draft_email: this.buildDraftEmail(tenantId, piiResolve),
+      archive_email: this.buildArchiveEmail(tenantId, piiResolve, sensitivity),
+      move_email: this.buildMoveEmail(tenantId, piiResolve, sensitivity),
+      delete_email: this.buildDeleteEmail(tenantId, piiResolve, sensitivity),
+      forward_email: this.buildForwardEmail(tenantId, piiResolve, sensitivity),
+      reply_email: this.buildReplyEmail(tenantId, piiResolve, sensitivity),
+      draft_email: this.buildDraftEmail(tenantId, piiResolve, sensitivity),
     };
   }
 
-  private buildSendEmail(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildSendEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Send an email on behalf of the user. The email is QUEUED for delivery, not sent instantly. ' +
@@ -140,7 +142,7 @@ export class EmailToolsService implements OnModuleInit {
         'Returns: { jobId, to, subject, status: "queued" }. ' +
         'Requires user approval before execution.',
       inputSchema: schemas.send_email,
-      needsApproval: true,
+      needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const provider = await this.getDefaultProvider(tenantId);
@@ -263,7 +265,7 @@ export class EmailToolsService implements OnModuleInit {
     });
   }
 
-  private buildArchiveEmail(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildArchiveEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Move an email to the Archive folder, removing it from the Inbox. ' +
@@ -271,6 +273,7 @@ export class EmailToolsService implements OnModuleInit {
         'Use when user says "archive", "clean up", or "done with this". ' +
         'Returns: { id, archived: true }.',
       inputSchema: schemas.archive_email,
+      needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         await this.emailCrudService.updateEmail(
@@ -283,12 +286,13 @@ export class EmailToolsService implements OnModuleInit {
     });
   }
 
-  private buildMoveEmail(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildMoveEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Move an email to a specific folder. Use list_folders first if you do not know the exact folder name. ' +
         'Returns: { id, movedTo: <folder name> }.',
       inputSchema: schemas.move_email,
+      needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         await this.emailCrudService.updateEmail(
@@ -301,14 +305,14 @@ export class EmailToolsService implements OnModuleInit {
     });
   }
 
-  private buildDeleteEmail(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildDeleteEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Permanently delete an email. This action CANNOT be undone. ' +
         'Use ONLY when the user explicitly asks to delete. For cleanup, prefer archive_email. ' +
         'Returns: { id, deleted: true }. Requires user approval before execution.',
       inputSchema: schemas.delete_email,
-      needsApproval: true,
+      needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         await this.emailCrudService.deleteEmail(resolved.emailId, tenantId);
@@ -317,7 +321,7 @@ export class EmailToolsService implements OnModuleInit {
     });
   }
 
-  private buildForwardEmail(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildForwardEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Forward an existing email to another recipient, including the original email body. ' +
@@ -325,7 +329,7 @@ export class EmailToolsService implements OnModuleInit {
         'Returns: { jobId, forwardedEmailId, to, subject, status: "queued" }. ' +
         'Requires user approval before execution.',
       inputSchema: schemas.forward_email,
-      needsApproval: true,
+      needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const original = await this.prisma.email.findFirst({
@@ -359,7 +363,7 @@ export class EmailToolsService implements OnModuleInit {
     });
   }
 
-  private buildReplyEmail(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildReplyEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Reply to an email. The original sender becomes the recipient automatically. ' +
@@ -368,7 +372,7 @@ export class EmailToolsService implements OnModuleInit {
         'Returns: { jobId, repliedToEmailId, to, subject, status: "queued" }. ' +
         'Requires user approval before execution.',
       inputSchema: schemas.reply_email,
-      needsApproval: true,
+      needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const original = await this.prisma.email.findFirst({
@@ -416,7 +420,7 @@ export class EmailToolsService implements OnModuleInit {
     });
   }
 
-  private buildDraftEmail(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildDraftEmail(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Create a draft email saved in the Drafts folder WITHOUT sending it. ' +
@@ -424,6 +428,7 @@ export class EmailToolsService implements OnModuleInit {
         'The user can review and send the draft later. ' +
         'Returns: { id, subject, to, status: "draft" }.',
       inputSchema: schemas.draft_email,
+      needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const provider = await this.getDefaultProvider(tenantId);

@@ -90,6 +90,7 @@ describe('AiChatService ledger wiring', () => {
     const mockUsageTracking = { trackUsage: vi.fn().mockResolvedValue(undefined) };
 
     aiChatService = new AiChatService(
+      null as any, // PrismaService (Phase 108)
       mockMistralProvider as any,
       mockConversationService as any,
       mockPiiDetection as any,

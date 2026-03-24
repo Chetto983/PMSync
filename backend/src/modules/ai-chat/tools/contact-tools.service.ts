@@ -49,7 +49,9 @@ const schemas = {
  * Tools: search_contacts, create_contact, update_contact, delete_contact
  *
  * Phase 25: Tools & RAG
- * Phase 77: Added delete_contact with needsApproval: true
+ * Phase 77: Added delete_contact with needsApproval
+ * Phase 108: Dynamic needsApproval via sensitivity parameter
+ * Phase 108: Dynamic needsApproval via sensitivity parameter
  */
 @Injectable()
 export class ContactToolsService implements OnModuleInit {
@@ -86,16 +88,18 @@ export class ContactToolsService implements OnModuleInit {
 
   /**
    * Returns all contact tools with PII resolution via closure.
+   * Phase 108: sensitivity param controls dynamic needsApproval.
    */
   getTools(
     tenantId: string,
     piiResolve: PiiResolveFn,
+    sensitivity: string = 'HIGH_ONLY',
   ) {
     return {
       search_contacts: this.buildSearchContacts(tenantId, piiResolve),
-      create_contact: this.buildCreateContact(tenantId, piiResolve),
-      update_contact: this.buildUpdateContact(tenantId, piiResolve),
-      delete_contact: this.buildDeleteContact(tenantId, piiResolve),
+      create_contact: this.buildCreateContact(tenantId, piiResolve, sensitivity),
+      update_contact: this.buildUpdateContact(tenantId, piiResolve, sensitivity),
+      delete_contact: this.buildDeleteContact(tenantId, piiResolve, sensitivity),
     };
   }
 
@@ -138,13 +142,14 @@ export class ContactToolsService implements OnModuleInit {
     });
   }
 
-  private buildCreateContact(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildCreateContact(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Add a new contact to the address book. Provide at least a name or email address. ' +
         'ALWAYS search_contacts first to check if the contact already exists — avoid duplicates. ' +
         'Returns: { id, name, email, company, jobTitle, status: "created" }.',
       inputSchema: schemas.create_contact,
+      needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -184,13 +189,14 @@ export class ContactToolsService implements OnModuleInit {
     });
   }
 
-  private buildUpdateContact(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildUpdateContact(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Update an existing contact. Provide the contact ID and only the fields to change. ' +
         'ALWAYS use search_contacts first to find the contact and confirm the ID. ' +
         'Returns: { id, name, company, jobTitle, status: "updated" }.',
       inputSchema: schemas.update_contact,
+      needsApproval: () => sensitivity === 'ALL_MUTATIONS',
       execute: async (args) => {
         const resolved = (await piiResolve(
           args as unknown as Record<string, unknown>,
@@ -228,7 +234,7 @@ export class ContactToolsService implements OnModuleInit {
     });
   }
 
-  private buildDeleteContact(tenantId: string, piiResolve: PiiResolveFn) {
+  private buildDeleteContact(tenantId: string, piiResolve: PiiResolveFn, sensitivity: string) {
     return tool({
       description:
         'Permanently delete a contact from the address book. This action CANNOT be undone. ' +
@@ -236,7 +242,7 @@ export class ContactToolsService implements OnModuleInit {
         'ALWAYS use search_contacts first to confirm the contact exists and get the ID. ' +
         'Returns: { contactId, deleted: true }. Requires user approval before execution.',
       inputSchema: schemas.delete_contact,
-      needsApproval: true,
+      needsApproval: () => sensitivity !== 'NONE',
       execute: async (args) => {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         await this.contactsService.deleteContact(tenantId, resolved.contactId);
