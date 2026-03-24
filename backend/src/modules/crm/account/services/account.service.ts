@@ -1,7 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { CreateAccountDto, UpdateAccountDto, ListAccountsQueryDto } from '../dto/account.dto';
+import {
+  CreateAccountDto,
+  UpdateAccountDto,
+  ListAccountsQueryDto,
+  LinkContactDto,
+} from '../dto/account.dto';
 
 @Injectable()
 export class AccountService {
@@ -144,6 +155,83 @@ export class AccountService {
       data: { deletedAt: new Date() },
     });
 
+    return { deleted: true };
+  }
+
+  async getContacts(tenantId: string, accountId: string) {
+    await this.findById(tenantId, accountId);
+
+    return this.prisma.accountContact.findMany({
+      where: { accountId, tenantId },
+      include: {
+        contact: {
+          select: {
+            id: true,
+            tenantId: true,
+            displayName: true,
+            company: true,
+            emails: true,
+            phoneNumbers: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async linkContact(tenantId: string, accountId: string, dto: LinkContactDto) {
+    await this.findById(tenantId, accountId);
+
+    // Verify contact exists in same tenant
+    const contact = await this.prisma.contact.findFirst({
+      where: { id: dto.contactId, tenantId },
+    });
+    if (!contact) {
+      throw new NotFoundException(`Contact ${dto.contactId} not found`);
+    }
+
+    try {
+      return await this.prisma.accountContact.create({
+        data: {
+          accountId,
+          contactId: dto.contactId,
+          tenantId,
+          role: dto.role,
+        },
+        include: {
+          contact: {
+            select: {
+              id: true,
+              tenantId: true,
+              displayName: true,
+              company: true,
+              emails: true,
+              phoneNumbers: true,
+            },
+          },
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException('Contact is already linked to this account');
+      }
+      throw error;
+    }
+  }
+
+  async unlinkContact(
+    tenantId: string,
+    accountId: string,
+    contactId: string,
+  ) {
+    const link = await this.prisma.accountContact.findFirst({
+      where: { accountId, contactId, tenantId },
+    });
+    if (!link) {
+      throw new NotFoundException('Contact-Account link not found');
+    }
+
+    await this.prisma.accountContact.delete({ where: { id: link.id } });
     return { deleted: true };
   }
 

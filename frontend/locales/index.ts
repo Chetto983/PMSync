@@ -3788,6 +3788,21 @@ export interface AppTranslations {
       approveLabel: string;
       rejectLabel: string;
       pendingTitle: string;
+      approvedChip: string;
+      deniedChip: string;
+      highChip: string;
+      viewParameters: string;
+      sensitivityLabel: string;
+      sensitivityDescription: string;
+      highOnly: string;
+      allMutations: string;
+      noneAutoExecute: string;
+      noneWarning: string;
+      noneDialogTitle: string;
+      noneDialogBody: string;
+      noneDialogConfirm: string;
+      noneDialogCancel: string;
+      updateError: string;
     };
     suggestions: {
       label: string;
