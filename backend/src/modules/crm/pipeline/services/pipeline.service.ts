@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { withPrismaRetry } from '../../../../common/services/prisma-retry.service';
 import {
   CreatePipelineDto,
   UpdatePipelineDto,
@@ -247,24 +248,29 @@ export class PipelineService {
     }
 
     // Atomic reorder with serializable isolation to prevent race conditions
-    await this.prisma.$transaction(
-      async (tx) => {
-        // First set all positions to negative to avoid unique constraint violations
-        for (let i = 0; i < dto.orderedIds.length; i++) {
-          await tx.crmStage.update({
-            where: { id: dto.orderedIds[i] },
-            data: { position: -(i + 1) },
-          });
-        }
-        // Then set to actual positions
-        for (let i = 0; i < dto.orderedIds.length; i++) {
-          await tx.crmStage.update({
-            where: { id: dto.orderedIds[i] },
-            data: { position: i },
-          });
-        }
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    // Wrapped in P2034 deadlock retry with exponential backoff
+    await withPrismaRetry(
+      () =>
+        this.prisma.$transaction(
+          async (tx) => {
+            // First set all positions to negative to avoid unique constraint violations
+            for (let i = 0; i < dto.orderedIds.length; i++) {
+              await tx.crmStage.update({
+                where: { id: dto.orderedIds[i] },
+                data: { position: -(i + 1) },
+              });
+            }
+            // Then set to actual positions
+            for (let i = 0; i < dto.orderedIds.length; i++) {
+              await tx.crmStage.update({
+                where: { id: dto.orderedIds[i] },
+                data: { position: i },
+              });
+            }
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        ),
+      { loggerName: 'StageReorder', maxAttempts: 3 },
     );
 
     // Return updated stages

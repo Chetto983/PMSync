@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -28,6 +28,8 @@ import {
   useCreatePipeline,
   useDeletePipeline,
 } from '@/hooks/queries/use-crm-pipelines';
+import { useGlobalToast } from '@/lib/context/toast-context';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CrmPipeline } from '@/lib/api/crm-pipelines';
 
 export function PipelinesList() {
@@ -35,23 +37,34 @@ export function PipelinesList() {
   const tp = t.crmPipelines;
   const tc = t.common;
   const router = useRouter();
+  const toast = useGlobalToast();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: pipelines, isLoading, isError, error } = usePipelines();
   const deletePipeline = useDeletePipeline();
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDeleteClick = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm(tp?.deleteConfirm ?? 'Delete?')) {
-      deletePipeline.mutate(id);
-    }
-  };
+    setDeleteTarget(id);
+  }, []);
 
-  const handleOpenSettings = (e: React.MouseEvent, id: string) => {
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteTarget) return;
+    deletePipeline.mutate(deleteTarget, {
+      onSuccess: () => {
+        toast.success(tp?.deleteSuccess ?? 'Pipeline deleted');
+        setDeleteTarget(null);
+      },
+      onError: () => toast.error(tp?.deleteError ?? 'Failed to delete pipeline'),
+    });
+  }, [deleteTarget, deletePipeline, toast, tp]);
+
+  const handleOpenSettings = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     router.push(`/dashboard/crm/pipelines/${id}/settings`);
-  };
+  }, [router]);
 
   // Loading state
   if (isLoading) {
@@ -127,7 +140,7 @@ export function PipelinesList() {
                 pipeline={pipeline}
                 tp={tp}
                 onSettings={(e) => handleOpenSettings(e, pipeline.id)}
-                onDelete={(e) => handleDelete(e, pipeline.id)}
+                onDelete={(e) => handleDeleteClick(e, pipeline.id)}
               />
             </Grid>
           ))}
@@ -140,6 +153,19 @@ export function PipelinesList() {
         onClose={() => setCreateOpen(false)}
         tp={tp}
         tc={tc}
+      />
+
+      {/* Delete confirm dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        variant="danger"
+        title={tp?.deletePipeline ?? 'Delete Pipeline'}
+        message={tp?.deleteConfirm ?? 'Are you sure you want to delete this pipeline?'}
+        confirmText={tc?.delete ?? 'Delete'}
+        cancelText={tc?.cancel ?? 'Cancel'}
+        isLoading={deletePipeline.isPending}
       />
     </Box>
   );
@@ -154,7 +180,7 @@ interface PipelineCardProps {
   onDelete: (e: React.MouseEvent) => void;
 }
 
-function PipelineCard({ pipeline, tp, onSettings, onDelete }: PipelineCardProps) {
+const PipelineCard = memo(function PipelineCard({ pipeline, tp, onSettings, onDelete }: PipelineCardProps) {
   const router = useRouter();
 
   return (
@@ -170,12 +196,12 @@ function PipelineCard({ pipeline, tp, onSettings, onDelete }: PipelineCardProps)
             </Box>
             <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
               <Tooltip title={tp?.settings?.title ?? 'Settings'}>
-                <IconButton size="small" onClick={onSettings}>
+                <IconButton size="small" onClick={onSettings} aria-label={tp?.settings?.title ?? 'Settings'}>
                   <Settings size={16} />
                 </IconButton>
               </Tooltip>
               <Tooltip title={tp?.deletePipeline ?? 'Delete'}>
-                <IconButton size="small" onClick={onDelete}>
+                <IconButton size="small" onClick={onDelete} aria-label={tp?.deletePipeline ?? 'Delete'}>
                   <Trash2 size={16} />
                 </IconButton>
               </Tooltip>
@@ -217,7 +243,7 @@ function PipelineCard({ pipeline, tp, onSettings, onDelete }: PipelineCardProps)
       </CardActionArea>
     </Card>
   );
-}
+});
 
 // ---- Create Pipeline Dialog ----
 
@@ -233,6 +259,7 @@ function CreatePipelineDialog({ open, onClose, tp, tc }: CreatePipelineDialogPro
   const [description, setDescription] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const createPipeline = useCreatePipeline();
+  const toast = useGlobalToast();
 
   const handleSubmit = () => {
     if (!name.trim()) return;
@@ -240,11 +267,13 @@ function CreatePipelineDialog({ open, onClose, tp, tc }: CreatePipelineDialogPro
       { name: name.trim(), description: description.trim() || undefined, isDefault },
       {
         onSuccess: () => {
+          toast.success(tp?.createSuccess ?? 'Pipeline created');
           setName('');
           setDescription('');
           setIsDefault(false);
           onClose();
         },
+        onError: () => toast.error(tp?.createError ?? 'Failed to create pipeline'),
       },
     );
   };

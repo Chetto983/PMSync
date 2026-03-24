@@ -4175,6 +4175,12 @@ export interface AppTranslations {
     editPipeline?: string;
     deletePipeline?: string;
     deleteConfirm?: string;
+    createSuccess?: string;
+    createError?: string;
+    updateSuccess?: string;
+    updateError?: string;
+    deleteSuccess?: string;
+    deleteError?: string;
     noPipelinesFound?: string;
     noPipelinesDescription?: string;
     stages?: string;
@@ -4211,6 +4217,12 @@ export interface AppTranslations {
       };
       reorderSuccess?: string;
       reorderError?: string;
+      stageCreated?: string;
+      stageCreateError?: string;
+      stageUpdated?: string;
+      stageUpdateError?: string;
+      stageDeleted?: string;
+      stageDeleteError?: string;
     };
     breadcrumb?: {
       pipelines?: string;

@@ -9,8 +9,24 @@ import {
   Max,
   Matches,
   ArrayMinSize,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  Validate,
+  type ValidationArguments,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+@ValidatorConstraint({ name: 'wonLostExclusive', async: false })
+class WonLostExclusiveConstraint implements ValidatorConstraintInterface {
+  validate(_: unknown, args: ValidationArguments) {
+    const obj = args.object as { isWon?: boolean; isLost?: boolean };
+    return !(obj.isWon && obj.isLost);
+  }
+
+  defaultMessage() {
+    return 'A stage cannot be both Won and Lost';
+  }
+}
 
 // ---- Pipeline DTOs ----
 
@@ -74,6 +90,7 @@ export class CreateStageDto {
 
   @IsOptional()
   @IsBoolean()
+  @Validate(WonLostExclusiveConstraint)
   isLost?: boolean;
 }
 
@@ -101,6 +118,7 @@ export class UpdateStageDto {
 
   @IsOptional()
   @IsBoolean()
+  @Validate(WonLostExclusiveConstraint)
   isLost?: boolean;
 }
 

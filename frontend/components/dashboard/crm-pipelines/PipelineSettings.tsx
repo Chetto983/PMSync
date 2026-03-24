@@ -26,6 +26,7 @@ import {
   useDeleteStage,
   useReorderStages,
 } from '@/hooks/queries/use-crm-pipelines';
+import { useGlobalToast } from '@/lib/context/toast-context';
 import { SortableStageList } from './SortableStageList';
 
 interface PipelineSettingsProps {
@@ -39,6 +40,7 @@ export function PipelineSettings({ pipelineId }: PipelineSettingsProps) {
   const router = useRouter();
 
   const { data: pipeline, isLoading, isError, error } = usePipeline(pipelineId);
+  const toast = useGlobalToast();
   const updatePipeline = useUpdatePipeline();
   const createStage = useCreateStage();
   const updateStage = useUpdateStage(pipelineId);
@@ -81,13 +83,16 @@ export function PipelineSettings({ pipelineId }: PipelineSettingsProps) {
 
       {/* Header with inline-editable name */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => router.push('/dashboard/crm/pipelines')}>
+        <IconButton size="small" onClick={() => router.push('/dashboard/crm/pipelines')} aria-label="Back to pipelines">
           <ArrowLeft size={20} />
         </IconButton>
         <GitBranch size={28} />
         <PipelineNameEditor
           value={pipeline.name}
-          onSave={(name) => updatePipeline.mutate({ id: pipelineId, dto: { name } })}
+          onSave={(name) => updatePipeline.mutate({ id: pipelineId, dto: { name } }, {
+            onSuccess: () => toast.success(tp?.updateSuccess ?? 'Pipeline updated'),
+            onError: () => toast.error(tp?.updateError ?? 'Failed to update pipeline'),
+          })}
         />
       </Box>
 
@@ -96,7 +101,10 @@ export function PipelineSettings({ pipelineId }: PipelineSettingsProps) {
         <PipelineDescEditor
           value={pipeline.description ?? ''}
           placeholder={tp?.form?.descriptionPlaceholder ?? 'Add a description...'}
-          onSave={(desc) => updatePipeline.mutate({ id: pipelineId, dto: { description: desc || undefined } })}
+          onSave={(desc) => updatePipeline.mutate({ id: pipelineId, dto: { description: desc || undefined } }, {
+            onSuccess: () => toast.success(tp?.updateSuccess ?? 'Pipeline updated'),
+            onError: () => toast.error(tp?.updateError ?? 'Failed to update pipeline'),
+          })}
         />
       </Box>
 
@@ -107,7 +115,10 @@ export function PipelineSettings({ pipelineId }: PipelineSettingsProps) {
             control={
               <Switch
                 checked={pipeline.isDefault}
-                onChange={(e) => updatePipeline.mutate({ id: pipelineId, dto: { isDefault: e.target.checked } })}
+                onChange={(e) => updatePipeline.mutate({ id: pipelineId, dto: { isDefault: e.target.checked } }, {
+                  onSuccess: () => toast.success(tp?.updateSuccess ?? 'Pipeline updated'),
+                  onError: () => toast.error(tp?.updateError ?? 'Failed to update pipeline'),
+                })}
               />
             }
             label={tp?.form?.isDefault ?? 'Default pipeline'}
@@ -116,7 +127,10 @@ export function PipelineSettings({ pipelineId }: PipelineSettingsProps) {
             control={
               <Switch
                 checked={pipeline.isActive}
-                onChange={(e) => updatePipeline.mutate({ id: pipelineId, dto: { isActive: e.target.checked } })}
+                onChange={(e) => updatePipeline.mutate({ id: pipelineId, dto: { isActive: e.target.checked } }, {
+                  onSuccess: () => toast.success(tp?.updateSuccess ?? 'Pipeline updated'),
+                  onError: () => toast.error(tp?.updateError ?? 'Failed to update pipeline'),
+                })}
               />
             }
             label={tp?.form?.isActive ?? 'Active'}
@@ -131,10 +145,21 @@ export function PipelineSettings({ pipelineId }: PipelineSettingsProps) {
         stages={pipeline.stages ?? []}
         tp={tp}
         tc={tc}
-        onReorder={(orderedIds) => reorderStages.mutate(orderedIds)}
-        onCreateStage={(dto) => createStage.mutate({ pipelineId, dto })}
-        onUpdateStage={(stageId, dto) => updateStage.mutate({ stageId, dto })}
-        onDeleteStage={(stageId) => deleteStage.mutate(stageId)}
+        onReorder={(orderedIds) => reorderStages.mutate(orderedIds, {
+          onError: () => toast.error(tp?.settings?.reorderError ?? 'Failed to reorder stages'),
+        })}
+        onCreateStage={(dto) => createStage.mutate({ pipelineId, dto }, {
+          onSuccess: () => toast.success(tp?.settings?.stageCreated ?? 'Stage created'),
+          onError: () => toast.error(tp?.settings?.stageCreateError ?? 'Failed to create stage'),
+        })}
+        onUpdateStage={(stageId, dto) => updateStage.mutate({ stageId, dto }, {
+          onSuccess: () => toast.success(tp?.settings?.stageUpdated ?? 'Stage updated'),
+          onError: () => toast.error(tp?.settings?.stageUpdateError ?? 'Failed to update stage'),
+        })}
+        onDeleteStage={(stageId) => deleteStage.mutate(stageId, {
+          onSuccess: () => toast.success(tp?.settings?.stageDeleted ?? 'Stage deleted'),
+          onError: () => toast.error(tp?.settings?.stageDeleteError ?? 'Failed to delete stage'),
+        })}
       />
     </Box>
   );
@@ -162,8 +187,8 @@ function PipelineNameEditor({ value, onSave }: { value: string; onSave: (v: stri
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
         />
-        <IconButton size="small" onClick={handleSave}><Check size={16} /></IconButton>
-        <IconButton size="small" onClick={() => { setDraft(value); setEditing(false); }}><X size={16} /></IconButton>
+        <IconButton size="small" onClick={handleSave} aria-label="Save"><Check size={16} /></IconButton>
+        <IconButton size="small" onClick={() => { setDraft(value); setEditing(false); }} aria-label="Cancel"><X size={16} /></IconButton>
       </Box>
     );
   }
@@ -171,8 +196,11 @@ function PipelineNameEditor({ value, onSave }: { value: string; onSave: (v: stri
   return (
     <Tooltip title="Click to edit">
       <Box
+        role="button"
+        tabIndex={0}
         sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5, borderRadius: 1, px: 0.5, '&:hover': { bgcolor: 'action.hover' } }}
         onClick={() => setEditing(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditing(true); } }}
       >
         <Typography variant="h5" fontWeight={600}>{value}</Typography>
         <Pencil size={14} style={{ opacity: 0.4 }} />
@@ -203,16 +231,19 @@ function PipelineDescEditor({ value, placeholder, onSave }: { value: string; pla
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
         />
-        <IconButton size="small" onClick={handleSave}><Check size={16} /></IconButton>
-        <IconButton size="small" onClick={() => { setDraft(value); setEditing(false); }}><X size={16} /></IconButton>
+        <IconButton size="small" onClick={handleSave} aria-label="Save"><Check size={16} /></IconButton>
+        <IconButton size="small" onClick={() => { setDraft(value); setEditing(false); }} aria-label="Cancel"><X size={16} /></IconButton>
       </Box>
     );
   }
 
   return (
     <Box
+      role="button"
+      tabIndex={0}
       sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5, borderRadius: 1, px: 0.5, '&:hover': { bgcolor: 'action.hover' } }}
       onClick={() => setEditing(true)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditing(true); } }}
     >
       <Typography variant="body2" color={value ? 'text.secondary' : 'text.disabled'}>
         {value || placeholder}

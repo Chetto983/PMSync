@@ -15,6 +15,8 @@ import {
   Paper,
 } from '@mui/material';
 import { GripVertical, Pencil, Trash2, Plus, Check, X } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ColorPicker, ColorPickerPopover } from '@/components/common/ColorPicker';
 import {
   DndContext,
   closestCenter,
@@ -147,6 +149,8 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
   const [editName, setEditName] = useState(stage.name);
   const [editProb, setEditProb] = useState(String(stage.probability));
   const [editColor, setEditColor] = useState(stage.color ?? '#6B7280');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [colorAnchor, setColorAnchor] = useState<HTMLElement | null>(null);
 
   const {
     attributes,
@@ -179,12 +183,6 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
     setEditing(false);
   };
 
-  const handleDelete = () => {
-    if (window.confirm(ts?.deleteStageConfirm ?? 'Delete this stage?')) {
-      onDelete(stage.id);
-    }
-  };
-
   return (
     <Paper
       ref={setNodeRef}
@@ -200,13 +198,23 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
         '&:hover': { bgcolor: 'action.hover' },
       }}
     >
-      {/* Drag handle */}
+      {/* Drag handle — 44px touch target */}
       <Box
         {...attributes}
         {...listeners}
-        sx={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'text.disabled' }}
+        role="button"
+        aria-label={`Drag to reorder ${stage.name}`}
+        sx={{
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'text.disabled',
+          minWidth: 44,
+          minHeight: 44,
+        }}
       >
-        <GripVertical size={18} />
+        <GripVertical size={20} />
       </Box>
 
       {/* Color indicator */}
@@ -221,33 +229,43 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
       />
 
       {editing ? (
-        /* Edit mode */
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+        /* Edit mode — wraps on xs screens */
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
           <TextField
             size="small"
+            label={ts?.stageForm?.name ?? 'Name'}
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             autoFocus
-            sx={{ flex: 1 }}
+            sx={{ flex: 1, minWidth: 120 }}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel(); }}
           />
           <TextField
             size="small"
             type="number"
+            label="%"
             value={editProb}
             onChange={(e) => setEditProb(e.target.value)}
             sx={{ width: 80 }}
             slotProps={{ htmlInput: { min: 0, max: 100 } }}
           />
-          <input
-            type="color"
-            title={ts?.stageForm?.color ?? 'Stage color'}
-            value={editColor}
-            onChange={(e) => setEditColor(e.target.value)}
-            style={{ width: 32, height: 32, border: 'none', cursor: 'pointer', padding: 0 }}
+          <Tooltip title={ts?.stageForm?.color ?? 'Color'}>
+            <IconButton
+              onClick={(e) => setColorAnchor(e.currentTarget)}
+              aria-label={ts?.stageForm?.color ?? 'Stage color'}
+              sx={{ width: 44, height: 44, p: 0 }}
+            >
+              <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: editColor, border: '2px solid', borderColor: 'divider' }} />
+            </IconButton>
+          </Tooltip>
+          <ColorPickerPopover
+            anchorEl={colorAnchor}
+            onClose={() => setColorAnchor(null)}
+            selectedColor={editColor}
+            onColorSelect={(c) => setEditColor(c)}
           />
-          <IconButton size="small" onClick={handleSave}><Check size={16} /></IconButton>
-          <IconButton size="small" onClick={handleCancel}><X size={16} /></IconButton>
+          <IconButton onClick={handleSave} aria-label="Save"><Check size={18} /></IconButton>
+          <IconButton onClick={handleCancel} aria-label="Cancel"><X size={18} /></IconButton>
         </Box>
       ) : (
         /* Display mode */
@@ -265,17 +283,27 @@ function SortableStageItem({ stage, ts, onUpdate, onDelete }: SortableStageItemP
             <Typography variant="caption" color="error.main" fontWeight={600}>Lost</Typography>
           )}
           <Tooltip title={ts?.editStage ?? 'Edit'}>
-            <IconButton size="small" onClick={() => setEditing(true)}>
-              <Pencil size={14} style={{ opacity: 0.4 }} />
+            <IconButton onClick={() => setEditing(true)} aria-label={ts?.editStage ?? 'Edit stage'}>
+              <Pencil size={16} />
             </IconButton>
           </Tooltip>
           <Tooltip title={ts?.deleteStage ?? 'Delete'}>
-            <IconButton size="small" onClick={handleDelete}>
-              <Trash2 size={14} style={{ opacity: 0.4 }} />
+            <IconButton onClick={() => setConfirmDeleteOpen(true)} aria-label={ts?.deleteStage ?? 'Delete stage'}>
+              <Trash2 size={16} />
             </IconButton>
           </Tooltip>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={() => { onDelete(stage.id); setConfirmDeleteOpen(false); }}
+        variant="danger"
+        title={ts?.deleteStage ?? 'Delete Stage'}
+        message={ts?.deleteStageConfirm ?? `Delete stage "${stage.name}"?`}
+        confirmText={ts?.deleteStage ?? 'Delete'}
+      />
     </Paper>
   );
 }
@@ -339,14 +367,13 @@ function CreateStageDialog({ open, onClose, ts, tc, onCreate }: CreateStageDialo
           slotProps={{ htmlInput: { min: 0, max: 100 } }}
           sx={{ mb: 2 }}
         />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography variant="body2">{ts?.stageForm?.color ?? 'Color'}</Typography>
-          <input
-            type="color"
-            title={ts?.stageForm?.color ?? 'Stage color'}
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            style={{ width: 40, height: 32, border: 'none', cursor: 'pointer', padding: 0 }}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>{ts?.stageForm?.color ?? 'Color'}</Typography>
+          <ColorPicker
+            selectedColor={color}
+            onColorSelect={setColor}
+            columns={6}
+            swatchSize={36}
           />
         </Box>
         <FormControlLabel
