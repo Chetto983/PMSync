@@ -1,0 +1,135 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { TenantGuard } from '../../../../common/auth/tenant.guard';
+import { RolesGuard } from '../../../../common/auth/roles.guard';
+import { PipelineService } from '../services/pipeline.service';
+import {
+  CreatePipelineDto,
+  UpdatePipelineDto,
+  CreateStageDto,
+  UpdateStageDto,
+  ReorderStagesDto,
+} from '../dto/pipeline.dto';
+
+@ApiTags('CRM - Pipelines')
+@ApiBearerAuth()
+@Controller('crm/pipelines')
+@UseGuards(TenantGuard, RolesGuard)
+export class PipelineController {
+  constructor(private readonly pipelineService: PipelineService) {}
+
+  // ---- Pipeline endpoints ----
+
+  @Get()
+  @ApiOperation({ summary: 'List pipelines' })
+  @ApiResponse({ status: 200, description: 'Pipelines returned successfully' })
+  async list(@Req() req: any) {
+    return this.pipelineService.listPipelines(req.user.tenantId);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get pipeline by ID (includes stages)' })
+  @ApiResponse({ status: 200, description: 'Pipeline returned' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  async findById(@Req() req: any, @Param('id') id: string) {
+    return this.pipelineService.findPipelineById(req.user.tenantId, id);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create pipeline' })
+  @ApiResponse({ status: 201, description: 'Pipeline created' })
+  async create(@Req() req: any, @Body() dto: CreatePipelineDto) {
+    return this.pipelineService.createPipeline(req.user.tenantId, dto);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update pipeline' })
+  @ApiResponse({ status: 200, description: 'Pipeline updated' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  async update(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdatePipelineDto,
+  ) {
+    return this.pipelineService.updatePipeline(req.user.tenantId, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete pipeline (soft)' })
+  @ApiResponse({ status: 200, description: 'Pipeline soft-deleted' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  @ApiResponse({ status: 400, description: 'Pipeline has active deals' })
+  async delete(@Req() req: any, @Param('id') id: string) {
+    return this.pipelineService.deletePipeline(req.user.tenantId, id);
+  }
+
+  // ---- Stage endpoints ----
+
+  @Post(':id/stages')
+  @ApiOperation({ summary: 'Create stage in pipeline' })
+  @ApiResponse({ status: 201, description: 'Stage created' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  async createStage(
+    @Req() req: any,
+    @Param('id') pipelineId: string,
+    @Body() dto: CreateStageDto,
+  ) {
+    return this.pipelineService.createStage(req.user.tenantId, pipelineId, dto);
+  }
+
+  @Patch(':id/stages/reorder')
+  @ApiOperation({ summary: 'Reorder stages in pipeline' })
+  @ApiResponse({ status: 200, description: 'Stages reordered' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  async reorderStages(
+    @Req() req: any,
+    @Param('id') pipelineId: string,
+    @Body() dto: ReorderStagesDto,
+  ) {
+    return this.pipelineService.reorderStages(req.user.tenantId, pipelineId, dto);
+  }
+}
+
+// Separate controller for stage-level operations (no pipeline param)
+@ApiTags('CRM - Stages')
+@ApiBearerAuth()
+@Controller('crm/stages')
+@UseGuards(TenantGuard, RolesGuard)
+export class StageController {
+  constructor(private readonly pipelineService: PipelineService) {}
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update stage' })
+  @ApiResponse({ status: 200, description: 'Stage updated' })
+  @ApiResponse({ status: 404, description: 'Stage not found' })
+  async update(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateStageDto,
+  ) {
+    return this.pipelineService.updateStage(req.user.tenantId, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete stage' })
+  @ApiResponse({ status: 200, description: 'Stage deleted' })
+  @ApiResponse({ status: 404, description: 'Stage not found' })
+  @ApiResponse({ status: 400, description: 'Stage has active deals' })
+  async delete(@Req() req: any, @Param('id') id: string) {
+    return this.pipelineService.deleteStage(req.user.tenantId, id);
+  }
+}
