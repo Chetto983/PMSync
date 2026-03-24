@@ -57,6 +57,10 @@ model Tenant {
   reminders                Reminder[]
   telegramLogs             TelegramLog[]
   pushSubscriptions        PushSubscription[]
+  crmAccounts              CrmAccount[]
+  crmPipelines             CrmPipeline[]
+  crmDeals                 CrmDeal[]
+  crmProducts              CrmProduct[]
 
   @@map("tenants")
 }
@@ -861,6 +865,8 @@ model Contact {
   providerContacts    ProviderContact[]
   embeddings          Embedding[]
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  accountContacts     AccountContact[]
+  dealContacts        DealContact[]
 
   @@id([id, tenantId])
   @@index([tenantId, displayName])
@@ -1652,4 +1658,206 @@ model PushSubscription {
   @@unique([tenantId, endpoint])
   @@index([tenantId, userId])
   @@map("push_subscriptions")
+}
+
+// ============================================================
+// CRM Models — Phase 1 Core CRM
+// ============================================================
+
+model CrmAccount {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String
+  website     String?
+  industry    String?
+  size        String?      // "1-10", "11-50", "51-200", "201-500", "500+"
+  revenue     Decimal?     @db.Decimal(15, 2)
+  currency    String?      @default("EUR")
+  address     Json?        // { street, city, state, zip, country }
+  phone       String?
+  description String?
+  parentId    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent      CrmAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    CrmAccount[] @relation("AccountHierarchy")
+  contacts    AccountContact[]
+  deals       CrmDeal[]
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, industry])
+  @@index([tenantId, parentId])
+  @@map("crm_accounts")
+}
+
+model CrmPipeline {
+  id          String     @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  isDefault   Boolean    @default(false)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stages      CrmStage[]
+  deals       CrmDeal[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("crm_pipelines")
+}
+
+model CrmStage {
+  id          String      @id @default(cuid())
+  pipelineId  String
+  name        String
+  position    Int
+  probability Int         @default(0) // 0-100 win probability
+  color       String?     @default("#6B7280")
+  isWon       Boolean     @default(false)
+  isLost      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  pipeline    CrmPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals       CrmDeal[]
+
+  @@unique([pipelineId, name])
+  @@unique([pipelineId, position])
+  @@index([pipelineId])
+  @@map("crm_stages")
+}
+
+model CrmDeal {
+  id                String        @id @default(cuid())
+  tenantId          String
+  pipelineId        String
+  stageId           String
+  accountId         String?
+  name              String
+  amount            Decimal?      @db.Decimal(15, 2)
+  currency          String        @default("EUR")
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+  priority          String?       @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  source            String?       // WEBSITE, REFERRAL, COLD_CALL, etc.
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline          CrmPipeline   @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stage             CrmStage      @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  account           CrmAccount?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  activities        CrmActivity[]
+  dealProducts      DealProduct[]
+  dealContacts      DealContact[]
+
+  @@index([tenantId])
+  @@index([tenantId, pipelineId])
+  @@index([tenantId, stageId])
+  @@index([tenantId, accountId])
+  @@index([tenantId, expectedCloseDate])
+  @@map("crm_deals")
+}
+
+model CrmActivity {
+  id        String   @id @default(cuid())
+  tenantId  String
+  dealId    String
+  type      String   // STAGE_CHANGE, NOTE, EMAIL, CALL, MEETING, TASK
+  content   String?
+  metadata  Json?    // { fromStage, toStage } for STAGE_CHANGE, etc.
+  createdAt DateTime @default(now())
+
+  deal      CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([tenantId, dealId, createdAt])
+  @@map("crm_activities")
+}
+
+model CrmProduct {
+  id          String        @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String?
+  description String?
+  price       Decimal       @db.Decimal(15, 2)
+  currency    String        @default("EUR")
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealProducts DealProduct[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@map("crm_products")
+}
+
+model DealProduct {
+  id        String     @id @default(cuid())
+  dealId    String
+  productId String
+  quantity  Int        @default(1)
+  unitPrice Decimal    @db.Decimal(15, 2)
+  discount  Decimal    @default(0) @db.Decimal(5, 2) // percentage 0-100
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  deal      CrmDeal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  product   CrmProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([dealId, productId])
+  @@index([dealId])
+  @@map("crm_deal_products")
+}
+
+/// Join table: CrmAccount <-> Contact (with role metadata)
+model AccountContact {
+  id        String     @id @default(cuid())
+  accountId String
+  contactId String
+  tenantId  String
+  role      String?    // "Decision Maker", "Technical Contact", "Billing", etc.
+  isPrimary Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  account   CrmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact   Contact    @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([accountId, contactId, tenantId])
+  @@index([accountId])
+  @@index([contactId, tenantId])
+  @@map("crm_account_contacts")
+}
+
+/// Join table: CrmDeal <-> Contact (with role metadata)
+model DealContact {
+  id        String   @id @default(cuid())
+  dealId    String
+  contactId String
+  tenantId  String
+  role      String?  // "Buyer", "Influencer", "Champion", etc.
+  createdAt DateTime @default(now())
+
+  deal      CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact   Contact  @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([dealId, contactId, tenantId])
+  @@index([dealId])
+  @@index([contactId, tenantId])
+  @@map("crm_deal_contacts")
 }

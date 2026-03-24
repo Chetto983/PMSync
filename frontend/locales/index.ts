@@ -4008,6 +4008,77 @@ export interface AppTranslations {
     replayPartialFailure?: string;
     queueFull?: string;
   };
+  crmAccounts?: {
+    title?: string;
+    description?: string;
+    newAccount?: string;
+    editAccount?: string;
+    deleteAccount?: string;
+    deleteConfirm?: string;
+    searchPlaceholder?: string;
+    noAccountsFound?: string;
+    noAccountsDescription?: string;
+    columns?: {
+      name?: string;
+      website?: string;
+      industry?: string;
+      size?: string;
+      revenue?: string;
+      phone?: string;
+      contacts?: string;
+      deals?: string;
+      createdAt?: string;
+    };
+    form?: {
+      name?: string;
+      namePlaceholder?: string;
+      website?: string;
+      websitePlaceholder?: string;
+      industry?: string;
+      industryPlaceholder?: string;
+      size?: string;
+      revenue?: string;
+      currency?: string;
+      phone?: string;
+      phonePlaceholder?: string;
+      description?: string;
+      descriptionPlaceholder?: string;
+      parent?: string;
+      parentPlaceholder?: string;
+      address?: string;
+      street?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+    };
+    industries?: {
+      technology?: string;
+      healthcare?: string;
+      finance?: string;
+      manufacturing?: string;
+      retail?: string;
+      education?: string;
+      consulting?: string;
+      realEstate?: string;
+      media?: string;
+      energy?: string;
+      other?: string;
+    };
+    sizes?: {
+      '1-10'?: string;
+      '11-50'?: string;
+      '51-200'?: string;
+      '201-500'?: string;
+      '500+'?: string;
+    };
+    save?: string;
+    cancel?: string;
+    create?: string;
+    created?: string;
+    updated?: string;
+    deleted?: string;
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
