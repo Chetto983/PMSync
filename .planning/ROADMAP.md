@@ -145,9 +145,10 @@ Plans:
   3. User can configure which categories trigger push notifications (new email, calendar, AI) in settings
   4. Multiple emails in the same thread within a short window produce a single grouped notification with count
   5. Stale browser subscriptions (uninstalled PWA, revoked permissions) are automatically cleaned up without silent failure accumulation
-**Plans**: 2 plans
+**Plans**: 3 plans
 Plans:
-- [ ] 107-01-PLAN.md — Backend dispatch pipeline: schema migration, queue config, VAPID init, event handler, BullMQ worker, thread grouping
+- [ ] 107-00-PLAN.md — Wave 0: Test stub creation for Nyquist compliance
+- [ ] 107-01-PLAN.md — Backend dispatch pipeline: schema migration, queue config, VAPID init, event handler, BullMQ worker, SW payload alignment
 - [ ] 107-02-PLAN.md — Frontend category preference toggles: DTO, translations, push API, NotificationSettings UI
 
 ### Phase 108: HITL Approval Routing
@@ -180,7 +181,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 106. Tiered Rate Limiting | 2/2 | Complete    | 2026-03-24 |
-| 107. Push Notification Backend Dispatch | 0/2 | Not started | - |
+| 107. Push Notification Backend Dispatch | 0/3 | Not started | - |
 | 108. HITL Approval Routing | 0/TBD | Not started | - |
 | 109. Graph RAG Pipeline | 0/TBD | Not started | - |
 
