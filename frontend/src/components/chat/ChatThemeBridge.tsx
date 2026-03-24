@@ -81,19 +81,19 @@ export function ChatThemeBridge({ children }: ChatThemeBridgeProps) {
       // ----- Resolved --chat-* variables (full CSS color values) -----
       '--chat-bg': p.background.default,
       '--chat-surface': p.background.paper,
-      '--chat-thread-bg': p.background.paper,
+      '--chat-thread-bg': isDark ? p.background.paper : p.background.default,
       '--chat-border': isDark
         ? 'rgba(30, 41, 59, 0.9)'
-        : alpha(p.divider, 0.72),
+        : alpha(p.divider, 1),
       '--chat-border-strong': isDark
         ? 'rgba(51, 65, 85, 0.95)'
-        : p.divider,
+        : '#cbd5e1',
       '--chat-sidebar-bg': isDark
         ? '#111827'
         : alpha('#e2e8f0', 0.4),
       '--chat-muted-bg': isDark
         ? 'rgba(31, 41, 55, 0.78)'
-        : alpha('#e2e8f0', 0.62),
+        : alpha('#cbd5e1', 0.35),
       '--chat-elev-1': isDark
         ? '0 8px 24px rgba(0, 0, 0, 0.28)'
         : '0 2px 10px hsl(0 0% 0% / 0.05)',

@@ -64,7 +64,7 @@ export function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="chat-message-row chat-message-assistant group">
       <div className="chat-message-avatar">
-        <Bot size={16} style={{ color: 'var(--mui-palette-primary-contrastText)' }} />
+        <Bot size={16} />
       </div>
       <div className="chat-message-main">
         <div className="chat-assistant-bubble">
