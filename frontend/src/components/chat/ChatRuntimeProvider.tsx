@@ -33,12 +33,7 @@ const transport = new AssistantChatTransport({
  *   useChat({ id, transport }) → useAISDKRuntime(chat) → transport.setRuntime(runtime)
  */
 function useThreadRuntime() {
-  // Use remoteId (real backend conversation ID set by initialize()) so
-  // all messages in a thread hit the same backend conversation.
-  // Falls back to client-side id before initialize() completes.
-  const id = useAuiState(
-    (s) => s.threadListItem.remoteId ?? s.threadListItem.id,
-  );
+  const id = useAuiState((s) => s.threadListItem.id);
 
   const chat = useChat({
     id,
@@ -47,13 +42,7 @@ function useThreadRuntime() {
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   });
 
-  const runtime = useAISDKRuntime(chat);
-
-  if (transport instanceof AssistantChatTransport) {
-    transport.setRuntime(runtime);
-  }
-
-  return runtime;
+  return useAISDKRuntime(chat);
 }
 
 export function ChatRuntimeProvider({
@@ -77,6 +66,14 @@ export function ChatRuntimeProvider({
     runtimeHook: useThreadRuntime,
     adapter,
   });
+
+  // Set the OUTER runtime (which has the thread list adapter) on the
+  // transport. The transport's prepareSendMessagesRequest calls
+  // runtime.threads.mainItem.initialize() to get the real remoteId
+  // from the adapter — this only works with the outer runtime.
+  if (transport instanceof AssistantChatTransport) {
+    transport.setRuntime(runtime);
+  }
 
   useEffect(() => {
     const restoreMostRecentConversation = () => {
