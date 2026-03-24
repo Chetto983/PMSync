@@ -1,535 +1,510 @@
-# Architecture Patterns: PWA Integration into PMSync
+# Architecture Patterns
 
-**Domain:** PWA for existing Next.js 16 email client
-**Researched:** 2026-03-23
-**Confidence:** HIGH (official Next.js docs + Serwist docs + Workbox patterns verified)
+**Domain:** AI email client -- v9.0 integration of push dispatch, tiered rate limiting, HITL approval routing, Graph RAG
+**Researched:** 2026-03-24
+**Confidence:** HIGH (all recommendations derive from reading existing codebase, not external sources)
 
-## Recommended Architecture
+## Scope
 
-### Architecture Overview
+This document covers how four new feature areas integrate into the existing PMSync architecture. It does NOT cover the existing architecture exhaustively -- see `.planning/codebase/ARCHITECTURE.md` for that. Focus is on integration points, new components, modified components, and data flow changes.
 
-PMSync is a **Pages Router** app (not App Router). All pages live under `pages/`, the entry point is `pages/_app.tsx`, and API proxy lives at `pages/api/v1/[...path].ts`. The PWA layer must integrate without migrating to App Router.
+---
 
-The PWA adds three new layers that sit **alongside** existing code:
+## 1. Push Notification Backend Dispatch
 
-1. **Service Worker** (sw.ts) -- a separate execution context running in the browser, outside React
-2. **PWA Shell** (manifest, meta tags, install prompt) -- wired into `_document.tsx` and `_app.tsx`
-3. **Offline/Sync Bridge** (hooks + IndexedDB queue) -- connects SW capabilities to TanStack Query and Zustand
+### Current State
+
+- `PushModule` exists with `PushService` (subscribe/unsubscribe only) and `PushController` (POST/DELETE `/push/subscribe`)
+- `PushSubscription` Prisma model: `{id, tenantId, userId, endpoint, p256dh, auth, userAgent}` with `@@unique([tenantId, endpoint])`
+- `web-push` npm package installed but never imported at runtime
+- Frontend has VAPID subscription UI, SW push/notificationclick handlers (v8.0 PUSH-01..04)
+- `RealtimeEventsService` handles WebSocket event emission with tenant-scoped rooms, buffering, deduplication
+- No push dispatch logic exists anywhere in backend
+
+### Integration Architecture
 
 ```
-+---------------------------------------------------+
-|                  Browser Tab                       |
-|  +---------------------------------------------+  |
-|  |  Next.js Pages Router (_app.tsx)             |  |
-|  |  +--------+ +-----------+ +---------------+ |  |
-|  |  |TanStack| |  Zustand  | |  Socket.IO    | |  |
-|  |  | Query  | | UI Stores | |  WebSocket    | |  |
-|  |  +---+----+ +-----+-----+ +-------+-------+ |  |
-|  |      |             |               |          |  |
-|  |      v             v               v          |  |
-|  |  [useOfflineStatus] [usePWAInstall]           |  |
-|  |  [useBackgroundSync] [usePushSubscription]    |  |
-|  +-----+-------------------+---------------------+  |
-|        |                   |                         |
-|  +-----v-------------------v-----+                   |
-|  |  navigator.serviceWorker      |  <-- postMessage  |
-|  +-------------------------------+       bridge       |
-+---------------------------------------------------+
-         |
-+--------v------------------------------------------+
-|  Service Worker (sw.js, generated from sw.ts)     |
-|  +--------------------------------------------+   |
-|  | Serwist core (precache + runtime cache)    |   |
-|  +--------------------------------------------+   |
-|  | Custom handlers:                           |   |
-|  |   - API cache (NetworkFirst for /api/v1/)  |   |
-|  |   - Push event listener                    |   |
-|  |   - Background sync (IndexedDB queue)      |   |
-|  |   - Offline fallback page                  |   |
-|  +--------------------------------------------+   |
-+---------------------------------------------------+
+EventEmitter2 domain events
+    |
+    v
+PushDispatchListener (@OnEvent)      <-- NEW
+    |
+    +-- filters by event type (new_email, follow_up_reminder, ai_action_complete)
+    +-- loads user push preferences (per-category opt-in)
+    +-- loads PushSubscription records for target user(s)
+    |
+    v
+PushDispatchService                  <-- NEW
+    |
+    +-- builds notification payload (title, body, icon, action URL, tag)
+    +-- calls web-push.sendNotification() per subscription
+    +-- handles 410 Gone (auto-delete expired subscriptions)
+    +-- handles 429 (exponential backoff via BullMQ delayed job)
+    +-- Prometheus counter: push_notifications_sent_total{status,event_type}
+    |
+    v
+web-push library (RFC 8291 encryption)
 ```
 
 ### Component Boundaries
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `sw.ts` (Service Worker source) | Precaching, runtime caching, push handling, background sync, offline fallback | Browser Cache API, IndexedDB, Push API |
-| `@serwist/next` (build plugin) | Wraps next.config.js, generates precache manifest, compiles sw.ts to public/sw.js | Webpack/Turbopack build pipeline |
-| `public/manifest.json` | PWA metadata (name, icons, display mode, theme color) | Browser install flow |
-| `_document.tsx` additions | Manifest link, apple-touch-icon, theme-color meta | Browser PWA detection |
-| `_app.tsx` additions | SW registration, online/offline state provider | Service Worker API |
-| `useOfflineStatus` hook | Tracks navigator.onLine + SW message channel | `_app.tsx`, email components |
-| `usePWAInstall` hook | Captures beforeinstallprompt, provides install(), tracks standalone mode | Install prompt component |
-| `usePushSubscription` hook | Subscribe/unsubscribe push, sends PushSubscription to backend | Push API, backend API |
-| `useBackgroundSync` hook | Queues failed mutations to IndexedDB, registers SW sync events | IndexedDB, SW sync API |
-| `OfflineBanner` component | Shows "You are offline" bar when disconnected | `useOfflineStatus` |
-| `InstallPromptBanner` component | Install CTA for Android/desktop, iOS instructions | `usePWAInstall` |
-| `PushSettingsPanel` component | Push notification toggle in settings | `usePushSubscription` |
-| `OfflineFallbackPage` (pages/~offline.tsx) | Shown when navigating to uncached route while offline | Service Worker fallback |
+| Component | Location | Responsibility | New/Modified |
+|-----------|----------|---------------|--------------|
+| `PushDispatchService` | `backend/src/modules/push/push-dispatch.service.ts` | Build payloads, send via web-push, handle errors, prune stale subscriptions | **NEW** |
+| `PushDispatchListener` | `backend/src/modules/push/push-dispatch.listener.ts` | Listen to domain events, resolve target users, check preferences, delegate to dispatch | **NEW** |
+| `PushPreferenceService` | `backend/src/modules/push/push-preference.service.ts` | CRUD for per-user notification preferences (which categories enabled) | **NEW** |
+| `PushPreference` | `backend/prisma/schema.prisma` | New model: `{tenantId, userId, category, enabled}` | **NEW** |
+| `PushService` | `backend/src/modules/push/push.service.ts` | Add `getSubscriptionsByUser(tenantId, userId)` and `pruneExpired(endpoint)` | **MODIFIED** |
+| `PushModule` | `backend/src/modules/push/push.module.ts` | Import EventEmitterModule, register listener, export dispatch service | **MODIFIED** |
+| `PushController` | `backend/src/modules/push/push.controller.ts` | Add GET/PATCH `/push/preferences` endpoints | **MODIFIED** |
+
+### Event Trigger Points
+
+These existing domain events should trigger push notifications:
+
+| Event | Source | Push Category | Notification Content |
+|-------|--------|--------------|---------------------|
+| `email:new` | `RealtimeEventsService.emitEmailEvent()` | `new_email` | "New email from {sender}: {subject}" |
+| `followup:reminder` | `ReminderSchedulerService` | `follow_up` | "Follow-up due: {subject}" |
+| `ai:action_complete` | `AiChatService.onStepFinish` | `ai_action` | "AI completed: {toolName}" |
+| `calendar:reminder` | `CalendarModule` cron | `calendar` | "Upcoming: {event title} in {time}" |
+
+### Key Design Decisions
+
+1. **Event-driven, not controller-driven.** Push dispatch listens to `EventEmitter2` events -- the same events that drive WebSocket updates. This avoids duplicating trigger logic across HTTP controllers.
+
+2. **Fire-and-forget with BullMQ fallback.** Normal sends are synchronous (web-push is fast, ~50ms). Failed sends with 429 status retry via a BullMQ delayed job. No new queue -- reuse the existing Redis/BullMQ infrastructure.
+
+3. **Prune on 410 Gone.** When a push endpoint returns HTTP 410, the subscription is stale (user revoked permission or browser unregistered). Auto-delete from `PushSubscription` table. This is the standard web-push pattern.
+
+4. **Tag-based deduplication in SW.** Push payloads include a `tag` field (e.g., `email:{emailId}`). The browser's service worker replaces existing notifications with the same tag, preventing notification floods during bulk sync.
 
 ### Data Flow
 
-#### Normal Flow (Online)
-
-No change. TanStack Query fetches from `/api/v1/*` proxy, which forwards to NestJS backend. Service worker intercepts but uses **NetworkFirst** strategy -- network response is served and cached simultaneously.
-
-#### Offline Read Flow
-
-1. User navigates to inbox while offline
-2. Service Worker intercepts `/api/v1/emails?folder=INBOX` request
-3. NetworkFirst strategy fails network, falls back to cached response
-4. TanStack Query receives cached response (stale data, but functional)
-5. `useOfflineStatus` sets `isOffline: true`
-6. UI shows `OfflineBanner` and disables mutation buttons (compose, send)
-
-#### Offline Action Queue Flow (Background Sync)
-
-1. User marks email as read while offline
-2. Mutation hook calls API, service worker intercepts the failing request
-3. SW stores request payload in IndexedDB action queue
-4. SW registers a `sync` event tag (e.g., `pmsync-action-sync`)
-5. When connectivity returns, browser fires `sync` event
-6. SW replays queued actions from IndexedDB to backend
-7. SW posts message to client via `postMessage` channel
-8. `useBackgroundSync` hook receives message, invalidates relevant TanStack Query keys
-
-#### Push Notification Flow (Frontend Only -- v8.0 Scope)
-
-1. User enables push in Settings
-2. `usePushSubscription` calls `registration.pushManager.subscribe()` with VAPID key
-3. Hook sends PushSubscription JSON to backend endpoint (new: `POST /api/v1/push/subscribe`)
-4. Backend stores subscription (future milestone sends push via web-push)
-5. SW listens for `push` event, shows notification
-6. On `notificationclick`, SW opens app to relevant URL
-
-## Integration Points with Existing Architecture
-
-### 1. next.config.js -- Serwist Build Plugin
-
-**What changes:** Wrap existing config with `withSerwist()`.
-
-```javascript
-// next.config.js
-const withSerwistInit = require('@serwist/next').default;
-const bundleAnalyzer = require('@next/bundle-analyzer');
-
-const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === 'true' });
-
-const withSerwist = withSerwistInit({
-  swSrc: 'service-worker/sw.ts',
-  swDest: 'public/sw.js',
-  additionalPrecacheEntries: [{ url: '/~offline', revision: process.env.VERCEL_GIT_COMMIT_SHA || 'dev' }],
-  disable: process.env.NODE_ENV === 'development', // disable in dev to avoid caching issues
-});
-
-const nextConfig = { /* existing config */ };
-
-module.exports = withBundleAnalyzer(withSerwist(nextConfig));
+```
+1. Email arrives via sync -> EmailSyncModule persists -> emits 'email:new' event
+2. RealtimeEventsService handles it (WebSocket broadcast, unchanged)
+3. PushDispatchListener ALSO handles 'email:new' event (new)
+4. Listener checks PushPreference for target userId + category 'new_email'
+5. If enabled, loads PushSubscription records for userId
+6. PushDispatchService builds payload, calls web-push.sendNotification()
+7. Success -> Prometheus counter. 410 -> prune. 429 -> BullMQ retry.
 ```
 
-**Impact:** Adds service worker compilation step to build. No runtime changes to existing pages.
+---
 
-### 2. pages/_document.tsx -- Manifest and Meta Tags
+## 2. Tiered Write-Rate Limiting
 
-**What changes:** Add manifest link, apple-touch-icon, theme-color.
+### Current State
 
-```tsx
-<Head>
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180x180.png" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="theme-color" content="#0e9aa7" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
-</Head>
+- `ThrottlerModule` configured globally with two named tiers: `short` (300/min read) and `write` (30/min write)
+- Per-endpoint `@Throttle()` decorators on ~18 controller methods with custom limits
+- `RedisRateLimiterService` provides distributed rate limiting via Lua scripts (used for AI chat: 30 req/60s per user)
+- `UserThrottlerGuard` extends NestJS ThrottlerGuard for per-user (not per-IP) limiting
+- The flat 30/min write limit was identified as "cause of user-reported 429s" (v7.0 decision, marked for revisit)
+
+### Integration Architecture
+
+The existing `@Throttle()` system is the right mechanism. No new services needed -- just reconfigure the decorator limits per endpoint category.
+
+```
+Tier Definitions (in ThrottlerModule.forRoot):
+  read:    300/min  (default, most GET endpoints)
+  write:   60/min   (general mutations: PATCH, POST that create data)
+  send:    10/min   (email sending, external API calls)
+  delete:  20/min   (destructive operations)
+  ai:      30/min   (AI chat, separate from HTTP throttler -- uses RedisRateLimiterService)
 ```
 
-**Impact:** Static meta additions only. No behavioral change.
+### Component Boundaries
 
-### 3. pages/_app.tsx -- Service Worker Registration and Online Status
+| Component | Location | Responsibility | New/Modified |
+|-----------|----------|---------------|--------------|
+| `AppModule` | `backend/src/app.module.ts` | Expand `ThrottlerModule.forRoot` with 4 named tiers | **MODIFIED** |
+| `UserThrottlerGuard` | `backend/src/common/guards/user-throttler.guard.ts` | No changes needed -- already supports named throttlers | **UNCHANGED** |
+| Controller decorators | Various `*.controller.ts` | Replace `@Throttle({ default: ... })` with named tier references | **MODIFIED** (many files) |
+| `RedisRateLimiterService` | `backend/src/common/services/redis-rate-limiter.service.ts` | No changes -- AI chat rate limiting is separate and correct | **UNCHANGED** |
 
-**What changes:** Add SW registration effect and offline status context.
+### Tier Assignment
 
-The service worker registration should happen in `_app.tsx` because:
-- It runs once for all page transitions (singleton pattern, same as WebSocket)
-- It needs to run after hydration (client-side only)
-- Pages Router does not have `app/sw.ts` auto-registration
+| Tier | Limit | Endpoints |
+|------|-------|-----------|
+| `read` | 300/min | GET endpoints (emails list, contacts list, calendar, folders, conversations) |
+| `write` | 60/min | POST/PATCH (create contact, update event, label email, star, mark read) |
+| `send` | 10/min | POST /emails/send, POST /emails/forward, POST /emails/reply |
+| `delete` | 20/min | DELETE endpoints (emails, contacts, events, folders, conversations) |
+| `ai` | 30/min | Handled by `RedisRateLimiterService` in `AiChatService`, not ThrottlerModule |
 
-```tsx
-// In _app.tsx, add to PrivateRouteGate or a new PWAProvider
-useEffect(() => {
-  if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' });
-  }
-}, []);
+### Key Design Decisions
+
+1. **Named tiers in ThrottlerModule, not a custom service.** `@nestjs/throttler` already supports multiple named throttlers. The existing `@Throttle()` decorators already use this pattern. Adding tiers is a configuration change, not an architectural one.
+
+2. **Keep AI chat rate limiting separate.** The AI chat limit lives in `AiChatService.prepareChatAgent()` via `RedisRateLimiterService` because it needs per-user distributed limiting (not per-IP). This is correct and should not change. The ThrottlerModule handles HTTP-level limiting.
+
+3. **Raise the write limit from 30 to 60.** The flat 30/min write limit caused user-reported 429s (documented in v7.0). Analysis: labeling 5 emails, starring 3, archiving 2 = 10 write ops in seconds. 30/min is too aggressive. 60/min accommodates power-user bursts while still preventing abuse.
+
+4. **Separate send tier.** Email sending has external side effects (SMTP delivery) and cost implications. A dedicated 10/min tier prevents AI chat from accidentally spam-sending through tool calls.
+
+---
+
+## 3. Explicit HITL Approval Routing
+
+### Current State
+
+- AI SDK v6 `needsApproval: true` on `tool()` definitions for 6 HIGH-risk tools: `send_email`, `delete_email`, `forward_email`, `reply_email`, `delete_event`, `delete_contact`
+- ToolRegistry tracks `requiresApproval` and `riskLevel` metadata for all 31 tools
+- Frontend `assistant-ui` handles tool approval inline via AI SDK `ToolInvocation` state machine (`partial` -> approved/rejected by user)
+- Old HitlController/HitlService were deleted (AICP-01, AICP-02) -- all HITL is SDK-native
+- HITL re-submit works via `clientMessages` in `ChatRequestDto` -> `convertToModelMessages()` in `AiChatService`
+- Problem: MEDIUM-risk tools (create_event, update_event, create_contact, update_contact, draft_email, save_memory) do NOT require approval, despite having side effects
+
+### What "Explicit HITL Approval Routing" Means
+
+The goal is NOT to replace the AI SDK native HITL mechanism (which works). The goal is:
+
+1. **Expand the approval gate** to cover all mutating tools, not just HIGH-risk ones
+2. **Add a "destructive action" confirmation UI** that shows exactly what will change before the user approves
+3. **Allow per-user HITL preference** (some users want approval for ALL mutations, others only for HIGH-risk)
+
+### Integration Architecture
+
+```
+Tool Definition (tool-services)
+    |
+    +-- riskLevel: HIGH -> needsApproval: true (always)
+    +-- riskLevel: MEDIUM -> needsApproval: configurable per user
+    +-- riskLevel: LOW -> needsApproval: false (always)
+    |
+    v
+AiChatService.createToolSet()
+    |
+    +-- loads user HITL preference (from new UserAiPreference model)
+    +-- wraps MEDIUM-risk tool() calls: sets needsApproval dynamically
+    |
+    v
+AI SDK ToolLoopAgent
+    |
+    +-- tool call with needsApproval -> pauses, emits tool-approval-request
+    +-- frontend shows approval UI with structured diff
+    +-- user approves/rejects -> re-submit with clientMessages
 ```
 
-If using Serwist with `register: true`, this is handled automatically by the injected registration code.
+### Component Boundaries
 
-**Impact:** One new useEffect. No change to existing providers or rendering.
+| Component | Location | Responsibility | New/Modified |
+|-----------|----------|---------------|--------------|
+| `UserAiPreference` | `backend/prisma/schema.prisma` | New model: `{tenantId, userId, hitlLevel: 'HIGH_ONLY' \| 'ALL_MUTATIONS' \| 'NONE'}` | **NEW** |
+| `AiPreferenceService` | `backend/src/modules/ai-chat/services/ai-preference.service.ts` | CRUD for user AI preferences, cached in Redis (5min TTL) | **NEW** |
+| `AiChatService.createToolSet()` | `backend/src/modules/ai-chat/services/ai-chat.service.ts` | Load HITL preference, set `needsApproval` dynamically on MEDIUM-risk tools | **MODIFIED** |
+| Tool services | `backend/src/modules/ai-chat/tools/*.service.ts` | No changes -- `needsApproval` is already on HIGH-risk tools | **UNCHANGED** |
+| Frontend approval renderer | `frontend/src/components/ai-elements/tool-renderers/` | Enhanced approval UI showing structured diff of what will change | **MODIFIED** |
+| Settings page | `frontend/pages/settings/` | New "AI Safety" section for HITL preference toggle | **MODIFIED** |
 
-### 4. TanStack Query -- networkMode: 'offlineFirst'
+### Key Design Decisions
 
-**What changes:** Set `networkMode: 'offlineFirst'` globally in QueryClient config.
+1. **Dynamic `needsApproval` via wrapper, not tool redefinition.** The AI SDK `tool()` accepts `needsApproval` at definition time. For MEDIUM-risk tools where approval depends on user preference, wrap the tool definition in `createToolSet()` to conditionally set `needsApproval: true`. This avoids duplicating tool definitions.
 
-```typescript
-// lib/query-client.ts
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      networkMode: 'offlineFirst',  // NEW: let SW serve cached responses
-      staleTime: 5 * 60 * 1000,    // existing: 5min
-      gcTime: 30 * 60 * 1000,      // existing: 30min
-      retry: 1,                     // existing
-    },
-    mutations: {
-      networkMode: 'offlineFirst',  // NEW: attempt mutation, SW handles failure
-    },
-  },
-});
+2. **Three HITL levels, not a per-tool toggle.** Per-tool configuration creates UX complexity (31 toggles). Three levels cover the actual use cases:
+   - `HIGH_ONLY` (default): Only irreversible actions need approval (current behavior)
+   - `ALL_MUTATIONS`: Every MEDIUM and HIGH tool needs approval (cautious users)
+   - `NONE`: Skip all approval gates (power users who trust the AI)
+
+3. **`NONE` mode still logs to audit trail.** Even without approval, all tool executions are logged via `AuditService.logToolExecution()` (already exists). This satisfies compliance without blocking workflow.
+
+4. **Structured diff in approval UI.** Instead of "AI wants to call send_email. Allow?", show: "Send email to john@example.com, Subject: 'Budget update', Body: [preview]. Allow?" This is a frontend enhancement to the existing `FallbackToolRenderer` -- render the tool's input schema as a readable summary.
+
+### Data Flow (MEDIUM-risk tool with ALL_MUTATIONS preference)
+
+```
+1. User sends message "Create a meeting with John tomorrow at 3pm"
+2. AiChatService.createToolSet() loads preference -> ALL_MUTATIONS
+3. create_event tool is wrapped with needsApproval: true (normally false)
+4. ToolLoopAgent calls create_event -> pauses, emits approval request
+5. Frontend shows: "Create event: 'Meeting with John', Tomorrow 3:00 PM. Allow?"
+6. User clicks Approve
+7. Frontend re-submits with approval response in clientMessages
+8. AiChatService.prepareChatAgent() detects HITL re-submit
+9. convertToModelMessages() processes approval, tool executes
+10. Event created, result streamed back
 ```
 
-**Why `offlineFirst`:** The service worker intercepts all `/api/v1/*` requests. With `offlineFirst`, TanStack Query always fires the request (letting SW decide the caching strategy), rather than pausing queries when `navigator.onLine` is false. This avoids the synchronization gap where TanStack Query thinks it is offline but the SW has a cached response ready.
+---
 
-**Impact:** One config line change. All existing queries behave identically when online. When offline, queries that have cached SW responses will resolve from cache instead of hanging.
+## 4. Graph RAG Pipeline
 
-### 5. Service Worker Caching Strategies
+### Current State (Steps 1-3 implemented)
 
-The service worker uses different strategies per resource type:
+The Graph RAG plan from the project memory outlines 8 steps. Steps 1-3 are already implemented:
 
-| Resource Pattern | Strategy | Rationale |
-|-----------------|----------|-----------|
-| `/_next/static/**` | **Precache** (build-time) | Immutable hashed assets, always cached |
-| `/icons/**`, `/favicon.*` | **CacheFirst** (30 days) | Rarely change, serve fast |
-| `/api/v1/emails*` (GET) | **NetworkFirst** (5min timeout) | Fresh data preferred, cache fallback when offline |
-| `/api/v1/folders*` (GET) | **StaleWhileRevalidate** | Folder structure changes infrequently |
-| `/api/v1/contacts*` (GET) | **StaleWhileRevalidate** | Contact data changes infrequently |
-| `/api/v1/calendar*` (GET) | **NetworkFirst** (5min timeout) | Calendar needs freshness |
-| `/api/v1/*` (POST/PUT/DELETE) | **NetworkOnly** + **BackgroundSync** | Mutations must hit server; queue if offline |
-| `/api/v1/ai/**` | **NetworkOnly** | AI/SSE streams cannot be cached |
-| Navigation (HTML) | **NetworkFirst** + offline fallback | Serve app shell, fallback to `/~offline` |
+| Step | Status | Component | What It Does |
+|------|--------|-----------|-------------|
+| 1. Query Router | DONE | `QueryRouterService` | Classifies queries as simple/search/multi_hop, excludes tool domains on step 0 |
+| 2. Reranking | DONE | `RerankingService` | Post-RRF heuristic scoring: recency decay, thread coherence, priority boost, keyword match |
+| 3. Graph Expansion | DONE | `GraphExpansionService` | Expands seed email results via thread siblings, sender->contact, sender->calendar attendee |
+| 4. Context Assembly | NOT STARTED | -- | Assemble expanded results into structured LLM context |
+| 5. Entity Graph | NOT STARTED | -- | Persistent entity-relationship graph in PostgreSQL |
+| 6. Memory Anchoring | NOT STARTED | -- | Link memories to entities for contextual recall |
+| 7. Tool Consolidation | NOT STARTED | -- | Merge semantic_search + graph_context_search into unified retrieval |
+| 8. Few-shot Examples | NOT STARTED | -- | Dynamic few-shot injection based on query type |
 
-### 6. Socket.IO -- No Direct Integration
+### Remaining Steps Architecture
 
-**The service worker does NOT intercept WebSocket connections.** Service workers only intercept HTTP fetch requests. Socket.IO's WebSocket transport bypasses the SW entirely.
+#### Step 4: Context Assembly Service
 
-However, two coordination points exist:
+```
+GraphExpansionService output
+    |
+    v
+ContextAssemblyService                    <-- NEW
+    |
+    +-- Deduplicates across seed results and expansion
+    +-- Formats into structured sections (Emails, Contacts, Calendar, Memories)
+    +-- Truncates to token budget (e.g., 4000 tokens for context)
+    +-- Prioritizes by reranked score
+    |
+    v
+Injected as tool result in graph_context_search
+```
 
-1. **Online/Offline transition:** When `useOfflineStatus` detects reconnection, it should call `websocketClient.connect()` if disconnected. The existing `useWebSocket` hook already handles reconnection via Socket.IO's built-in reconnection, so no change needed here.
+| Component | Location | New/Modified |
+|-----------|----------|--------------|
+| `ContextAssemblyService` | `backend/src/modules/ai-chat/services/context-assembly.service.ts` | **NEW** |
+| `RagToolsService.buildGraphContextSearch()` | `backend/src/modules/ai-chat/tools/rag-tools.service.ts` | **MODIFIED** -- use ContextAssemblyService for formatting |
 
-2. **Background sync completion:** When the SW replays queued actions, it should `postMessage` the client. The client-side handler should call `queryClient.invalidateQueries()` for affected keys (e.g., `emailKeys.all`). This is similar to how `useEmailRealtime` already invalidates on `sync:status` events.
+#### Step 5: Entity Graph
 
-### 7. Zustand -- Minimal Changes
+```
+Prisma Schema additions:
+  EntityNode { id, tenantId, type, name, metadata, embedding, createdAt }
+  EntityEdge { id, tenantId, sourceId, targetId, relationship, weight, metadata, createdAt }
 
-Zustand stores (`email-ui-store`, `sync-store`, etc.) are UI-only state. They do not need service worker integration.
+  Types: PERSON, ORGANIZATION, PROJECT, TOPIC
+  Relationships: SENT_EMAIL_TO, ATTENDED_MEETING_WITH, WORKS_AT, PART_OF_PROJECT
+```
 
-One new piece of state: `isOffline` could live in an existing store or a dedicated context. Recommendation: use a lightweight React context (`OfflineStatusContext`) rather than a Zustand store, because:
-- It is a single boolean derived from browser API events
-- It does not need persistence
-- It does not need Zustand devtools
+| Component | Location | New/Modified |
+|-----------|----------|--------------|
+| `EntityNode` / `EntityEdge` | `backend/prisma/schema.prisma` | **NEW** models |
+| `EntityGraphService` | `backend/src/modules/ai-chat/services/entity-graph.service.ts` | **NEW** -- CRUD for entity graph, relationship inference |
+| `EntityGraphBuildService` | `backend/src/modules/ai-chat/services/entity-graph-build.service.ts` | **NEW** -- batch builder from emails/contacts/calendar (BullMQ job) |
+| `GraphExpansionService` | `backend/src/modules/ai-chat/services/graph-expansion.service.ts` | **MODIFIED** -- use EntityEdge for richer traversal instead of raw SQL joins |
 
-### 8. Vercel Deployment -- Headers and Caching
+**Important constraint:** Entity graph construction is an expensive batch operation. It should run as a BullMQ scheduled job (nightly, like embedding backfill), NOT inline during chat. The graph is pre-computed and queried at chat time.
 
-**vercel.json additions:**
+#### Step 6: Memory Anchoring
 
-```json
-{
-  "headers": [
-    {
-      "source": "/sw.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
-      ]
-    },
-    {
-      "source": "/manifest.json",
-      "headers": [
-        { "key": "Content-Type", "value": "application/manifest+json" }
-      ]
-    }
-  ]
+```
+AIMemory model extension:
+  + entityNodeId  String?   (FK to EntityNode)
+
+MemoryService enhancements:
+  - When saving memory, extract entities and link to EntityNode
+  - When retrieving memories, include entity-adjacent memories
+```
+
+| Component | Location | New/Modified |
+|-----------|----------|--------------|
+| `AIMemory` | `backend/prisma/schema.prisma` | **MODIFIED** -- add `entityNodeId` FK |
+| `MemoryService` | `backend/src/modules/ai-chat/services/memory.service.ts` | **MODIFIED** -- entity-aware retrieval |
+
+#### Step 7: Tool Consolidation
+
+Merge `semantic_search` and `graph_context_search` into a single `search` tool that auto-selects the retrieval strategy based on `QueryRouterService` classification.
+
+```
+QueryRouterService.classify(query)
+    |
+    +-- simple -> no search (unchanged)
+    +-- search -> HybridSearchService.search() (vector + FTS)
+    +-- multi_hop -> HybridSearchService.search() + GraphExpansionService.expand() + ContextAssemblyService.assemble()
+```
+
+| Component | Location | New/Modified |
+|-----------|----------|--------------|
+| `RagToolsService` | `backend/src/modules/ai-chat/tools/rag-tools.service.ts` | **MODIFIED** -- merge two tools into one with internal routing |
+| `TOOL_DOMAINS` | `backend/src/modules/ai-chat/constants/tool-domains.ts` | **MODIFIED** -- replace semantic_search + graph_context_search with unified `search` |
+| Tool renderers | `frontend/src/components/ai-elements/tool-renderers/` | **MODIFIED** -- unified search result renderer |
+
+#### Step 8: Few-shot Examples
+
+```
+System prompt injection:
+  QueryRouterService.classify() -> complexity tier
+  FewShotService.getExamples(complexity) -> 2-3 example interactions
+  Injected into system prompt BEFORE user message
+```
+
+| Component | Location | New/Modified |
+|-----------|----------|--------------|
+| `FewShotService` | `backend/src/modules/ai-chat/services/few-shot.service.ts` | **NEW** -- static example bank, selected by query type |
+| `AiChatService.prepareChatAgent()` | `backend/src/modules/ai-chat/services/ai-chat.service.ts` | **MODIFIED** -- inject few-shot examples into system prompt |
+
+---
+
+## Cross-Cutting Integration Points
+
+### Shared Infrastructure (No Changes Needed)
+
+| Infrastructure | Used By | Status |
+|---------------|---------|--------|
+| Redis (ioredis) | Rate limiting, push retry backoff, HITL preference cache | EXISTING |
+| BullMQ | Entity graph build jobs, push retry jobs | EXISTING (new job types) |
+| EventEmitter2 | Push dispatch triggers | EXISTING (new listeners) |
+| Prometheus | Push notification counters, rate limit metrics | EXISTING (new metrics) |
+| PrismaService | All new models | EXISTING |
+| AuditService | HITL logging, push dispatch logging | EXISTING |
+
+### New Prisma Models Summary
+
+```prisma
+model PushPreference {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  category  String   // 'new_email' | 'follow_up' | 'ai_action' | 'calendar'
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([tenantId, userId, category])
+}
+
+model UserAiPreference {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  hitlLevel String   @default("HIGH_ONLY") // 'HIGH_ONLY' | 'ALL_MUTATIONS' | 'NONE'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([tenantId, userId])
+}
+
+model EntityNode {
+  id         String       @id @default(cuid())
+  tenantId   String
+  type       String       // 'PERSON' | 'ORGANIZATION' | 'PROJECT' | 'TOPIC'
+  name       String
+  metadata   Json?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  outEdges   EntityEdge[] @relation("source")
+  inEdges    EntityEdge[] @relation("target")
+  memories   AIMemory[]
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@unique([tenantId, type, name])
+  @@index([tenantId, type])
+}
+
+model EntityEdge {
+  id           String     @id @default(cuid())
+  tenantId     String
+  sourceId     String
+  targetId     String
+  relationship String     // 'SENT_EMAIL_TO' | 'ATTENDED_MEETING_WITH' | 'WORKS_AT' | etc.
+  weight       Float      @default(1.0)
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  source       EntityNode @relation("source", fields: [sourceId], references: [id], onDelete: Cascade)
+  target       EntityNode @relation("target", fields: [targetId], references: [id], onDelete: Cascade)
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([tenantId, sourceId])
+  @@index([tenantId, targetId])
+  @@index([tenantId, relationship])
 }
 ```
 
-**Why this matters on Vercel:**
-- Vercel's Edge CDN aggressively caches static assets. The service worker file MUST NOT be cached by Vercel's CDN (or updates will never propagate).
-- `Service-Worker-Allowed: /` ensures the SW scope covers the entire app even though `sw.js` is served from root.
-- Vercel serves static files from `public/` with immutable cache headers by default. The explicit `max-age=0` for `sw.js` overrides this.
+### Modified Existing Models
 
-### 9. Icons and Manifest
-
-**New files in `public/`:**
-
-```
-public/
-  manifest.json
-  icons/
-    icon-72x72.png
-    icon-96x96.png
-    icon-128x128.png
-    icon-144x144.png
-    icon-152x152.png
-    icon-192x192.png
-    icon-384x384.png
-    icon-512x512.png
-    apple-touch-icon-180x180.png
-    maskable-icon-512x512.png
-```
-
-Generate from existing `Logo PMSync.svg` using a favicon generator tool.
-
-### 10. Offline Fallback Page
-
-**New file: `pages/~offline.tsx`**
-
-A minimal page rendered when the user navigates to an uncached route while offline. Uses MUI components for consistency. No API calls. Shows:
-- PMSync logo
-- "You are offline" message
-- "Return to inbox" button (links to cached `/dashboard/email`)
-
-The tilde prefix (`~offline`) avoids collision with any future route and follows Serwist convention.
-
-## Patterns to Follow
-
-### Pattern 1: SW-to-Client Message Bridge
-
-**What:** Service worker communicates cache/sync events to the React app via `postMessage`.
-
-**When:** After background sync completes, after push notification received, after cache update.
-
-```typescript
-// In service worker (sw.ts)
-async function notifyClients(type: string, payload: unknown) {
-  const clients = await self.clients.matchAll({ type: 'window' });
-  for (const client of clients) {
-    client.postMessage({ type, payload });
-  }
-}
-
-// In React hook
-useEffect(() => {
-  const handler = (event: MessageEvent) => {
-    if (event.data?.type === 'SYNC_COMPLETE') {
-      queryClient.invalidateQueries({ queryKey: emailKeys.all });
-    }
-  };
-  navigator.serviceWorker?.addEventListener('message', handler);
-  return () => navigator.serviceWorker?.removeEventListener('message', handler);
-}, [queryClient]);
-```
-
-### Pattern 2: Action Queue with IndexedDB
-
-**What:** Failed mutations are stored in IndexedDB and replayed on reconnection.
-
-**When:** User performs mark-read, archive, or star/flag while offline.
-
-**Scoped actions (v8.0):**
-- `PATCH /api/v1/emails/:id` (mark read/unread, star/flag)
-- `PUT /api/v1/emails/:id/archive`
-- `PUT /api/v1/emails/:id/move`
-
-**NOT queued (too complex for v8.0):**
-- Send email (compose requires attachment handling)
-- Delete email (irreversible, needs confirmation)
-- AI chat (SSE stream, no caching model)
-
-```typescript
-// In service worker
-interface QueuedAction {
-  id: string;
-  url: string;
-  method: string;
-  body: string;
-  headers: Record<string, string>;
-  timestamp: number;
-}
-
-// Store in IndexedDB 'pmsync-action-queue' object store
-// Replay in FIFO order on sync event
-```
-
-### Pattern 3: Offline-Aware Mutation Hooks
-
-**What:** Existing mutation hooks gain offline awareness via a wrapper.
-
-**When:** Any mutation that should queue offline.
-
-```typescript
-// Pattern for mutation hooks
-function useMarkAsRead() {
-  const { isOffline } = useOfflineStatus();
-
-  return useMutation({
-    mutationFn: (emailId: string) => emailsApi.markAsRead(emailId),
-    onMutate: async (emailId) => {
-      // Optimistic update (already exists in codebase)
-      // Works identically online and offline
-    },
-    onError: (error, emailId, context) => {
-      if (isOffline) {
-        // Don't rollback -- SW queued the action
-        // Show toast: "Action queued, will sync when online"
-        return;
-      }
-      // Online error: rollback as usual
-    },
-  });
+```prisma
+// AIMemory -- add entity link
+model AIMemory {
+  // ... existing fields ...
+  entityNodeId String?      // NEW: FK to EntityNode for memory anchoring
+  entityNode   EntityNode?  @relation(fields: [entityNodeId], references: [id], onDelete: SetNull)
 }
 ```
+
+---
+
+## Suggested Build Order
+
+The four features have these dependency relationships:
+
+```
+Tiered Rate Limiting (independent, pure config)
+    |
+    v (should ship first -- prevents 429s during development)
+
+Push Notification Dispatch (depends on: Prisma migration for PushPreference)
+    |
+    v (independent of other features)
+
+HITL Approval Routing (depends on: Prisma migration for UserAiPreference)
+    |
+    v (independent of Graph RAG)
+
+Graph RAG Steps 4-8 (depends on: Prisma migration for EntityNode/EntityEdge)
+    Step 4: Context Assembly (no schema deps, pure service)
+    Step 5: Entity Graph (schema + batch builder)
+    Step 6: Memory Anchoring (depends on Step 5)
+    Step 7: Tool Consolidation (depends on Steps 4-6)
+    Step 8: Few-shot Examples (independent of Steps 4-7)
+```
+
+### Recommended Phase Order
+
+1. **Tiered Rate Limiting** -- Zero risk, immediate user benefit (fixes 429s), no schema changes, pure config + decorator updates. Ship in one phase.
+
+2. **Push Notification Backend Dispatch** -- Independent feature, completes v8.0 plumbing. Requires one Prisma migration (PushPreference model). Ships in 2-3 phases (service + listener + preferences).
+
+3. **HITL Approval Routing** -- Touches AiChatService (high-traffic code), needs careful testing. Requires one Prisma migration (UserAiPreference). Ships in 2 phases (backend dynamic approval + frontend settings).
+
+4. **Graph RAG Steps 4-8** -- Most complex, most phases, highest risk. Entity graph is a significant schema addition. Ships in 4-5 phases (context assembly -> entity graph schema + builder -> memory anchoring -> tool consolidation + few-shot).
+
+### Rationale
+
+- Rate limiting first because it is the simplest change with the most immediate user benefit.
+- Push before HITL because push is a standalone feature with no impact on the chat pipeline. HITL modifies the core chat pipeline and needs more testing.
+- Graph RAG last because it is the largest feature and Steps 1-3 are already working. The existing search is functional; this makes it better, not functional.
+
+---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Caching API Mutations
+### Anti-Pattern 1: Push Dispatch in Controllers
+**What:** Adding push notification sends inside HTTP controller methods.
+**Why bad:** Controllers already emit domain events via `RealtimeEventsService`. Adding push dispatch creates duplicate trigger logic and misses events from non-HTTP sources (cron jobs, queue workers).
+**Instead:** Listen to existing domain events with `@OnEvent` in `PushDispatchListener`.
 
-**What:** Caching POST/PUT/DELETE responses in the service worker.
+### Anti-Pattern 2: Per-Tool HITL Configuration
+**What:** Adding a UI toggle for each of the 31 tools individually.
+**Why bad:** UX nightmare (31 toggles), maintenance burden (new tools need new settings), users do not understand individual tool risk profiles.
+**Instead:** Three-level HITL preference (HIGH_ONLY, ALL_MUTATIONS, NONE) maps cleanly to the existing riskLevel taxonomy.
 
-**Why bad:** Mutation responses are not idempotent. Replaying a cached mutation response gives stale data and may cause the client to believe an action succeeded when it did not.
+### Anti-Pattern 3: Inline Entity Graph Construction
+**What:** Building entity relationships during chat requests.
+**Why bad:** Entity extraction from emails requires LLM calls (~500ms each). Doing this inline adds seconds to chat response time.
+**Instead:** Nightly BullMQ batch job for entity graph construction, like the existing embedding backfill pattern.
 
-**Instead:** Use NetworkOnly for mutations + Background Sync for retry.
+### Anti-Pattern 4: Separate Rate Limiting Service for HTTP
+**What:** Building a custom rate limiting service for HTTP endpoints.
+**Why bad:** `@nestjs/throttler` with named tiers already handles this. The existing `RedisThrottlerStorage` provides distributed counting. A custom service would duplicate infrastructure.
+**Instead:** Reconfigure `ThrottlerModule.forRoot()` tiers and update `@Throttle()` decorators.
 
-### Anti-Pattern 2: Running TanStack QueryClient Inside Service Worker
+### Anti-Pattern 5: Replacing AI SDK HITL with Custom REST Endpoints
+**What:** Re-creating HitlController/HitlService (previously deleted in AICP-01/02).
+**Why bad:** AI SDK v6 ToolInvocation state machine handles approval natively. Custom REST endpoints create state synchronization issues between the streaming SSE response and REST calls.
+**Instead:** Keep the SDK-native flow. The only backend change is dynamic `needsApproval` based on user preference.
 
-**What:** Creating a QueryClient instance in the service worker to share cache.
-
-**Why bad:** Service workers run in a separate thread with no DOM access. TanStack Query is designed for React components. Running it in a SW creates two disconnected cache layers with synchronization nightmares.
-
-**Instead:** Let TanStack Query manage in-memory cache. Let the SW manage HTTP cache. Use `networkMode: 'offlineFirst'` so TQ defers to SW.
-
-### Anti-Pattern 3: Caching SSE/AI Chat Streams
-
-**What:** Attempting to cache the AI chat SSE endpoint (`/api/v1/ai/chat`).
-
-**Why bad:** SSE is a long-lived connection. Caching makes no sense -- each response is unique and streamed. The service worker would need to buffer the entire stream and it would serve stale AI responses.
-
-**Instead:** Mark all `/api/v1/ai/**` routes as NetworkOnly. Show "AI chat requires internet" when offline.
-
-### Anti-Pattern 4: Overly Aggressive Precaching
-
-**What:** Precaching all pages and API responses at install time.
-
-**Why bad:** The email inbox can be hundreds of MB. Precaching it wastes bandwidth and storage. Also, precached API responses become stale immediately.
-
-**Instead:** Precache only the app shell (JS/CSS bundles, offline fallback page, icons). Runtime-cache API responses on first access.
-
-### Anti-Pattern 5: Disabling SW in Development with Conditional Registration
-
-**What:** Using `if (process.env.NODE_ENV === 'production')` inside `_app.tsx` to conditionally register.
-
-**Why bad:** Makes the SW untestable in development. Stale SW from a previous build can persist.
-
-**Instead:** Use Serwist's `disable: true` option in next.config.js for development. This prevents SW compilation entirely. For local testing, use `next build && next start`.
-
-## New Components Inventory
-
-### Files to Create (New)
-
-| File | Type | Purpose |
-|------|------|---------|
-| `service-worker/sw.ts` | Service Worker source | Core SW with Serwist, caching strategies, push, sync |
-| `service-worker/cache-strategies.ts` | SW module | Runtime caching route definitions |
-| `service-worker/background-sync.ts` | SW module | IndexedDB queue + sync event handler |
-| `service-worker/push-handler.ts` | SW module | Push event listener + notification display |
-| `public/manifest.json` | Static | Web app manifest |
-| `public/icons/*.png` | Static | App icons for all platforms |
-| `pages/~offline.tsx` | Page | Offline fallback page |
-| `hooks/use-offline-status.ts` | React hook | Online/offline detection |
-| `hooks/use-pwa-install.ts` | React hook | Install prompt capture + iOS detection |
-| `hooks/use-push-subscription.ts` | React hook | Push subscription management |
-| `hooks/use-background-sync.ts` | React hook | Listens for SW sync completion messages |
-| `components/common/OfflineBanner.tsx` | Component | "You are offline" indicator bar |
-| `components/common/InstallPromptBanner.tsx` | Component | PWA install CTA |
-| `components/settings/PushSettingsPanel.tsx` | Component | Push notification toggle |
-| `lib/context/offline-context.tsx` | Context | OfflineStatusProvider wrapping app |
-
-### Files to Modify (Existing)
-
-| File | Change |
-|------|--------|
-| `next.config.js` | Wrap with `withSerwist()` |
-| `pages/_document.tsx` | Add manifest link, apple-touch-icon, theme-color meta |
-| `pages/_app.tsx` | Add `OfflineStatusProvider`, import SW registration |
-| `lib/query-client.ts` | Add `networkMode: 'offlineFirst'` |
-| `frontend/vercel.json` | Add sw.js and manifest.json headers |
-| `frontend/tsconfig.json` | Add `@serwist/next/typings` to types, `WebWorker` to lib |
-| `frontend/.gitignore` | Add `public/sw.js`, `public/sw.js.map` |
-| `frontend/lighthouserc.js` | Add PWA category assertion |
-
-## Build Order (Dependency-Driven)
-
-Based on component dependencies, the build order should be:
-
-### Phase 1: Foundation (No Dependencies)
-
-1. **Manifest + Icons** -- Generate icons, create `manifest.json`, update `_document.tsx`
-2. **Serwist setup** -- Install packages, configure `next.config.js`, create minimal `sw.ts` with precache only
-3. **TypeScript config** -- Add SW types to tsconfig
-4. **Vercel headers** -- Update `vercel.json`
-5. **`.gitignore`** -- Exclude generated SW files
-
-**Validation:** `npm run build` succeeds, service worker registered in production build, Lighthouse PWA audit passes installability checks.
-
-### Phase 2: Offline Shell (Depends on Phase 1)
-
-6. **Offline fallback page** (`pages/~offline.tsx`)
-7. **Runtime caching strategies** in SW (API routes, static assets)
-8. **`useOfflineStatus` hook** + `OfflineStatusProvider`
-9. **`OfflineBanner` component**
-10. **TanStack Query `networkMode: 'offlineFirst'`**
-
-**Validation:** Disconnect network in DevTools, navigate app, see cached inbox data, see offline banner, uncached routes show offline page.
-
-### Phase 3: Install Experience (Depends on Phase 1)
-
-11. **`usePWAInstall` hook** (beforeinstallprompt + iOS detection)
-12. **`InstallPromptBanner` component**
-
-**Validation:** In Chrome mobile emulation, install prompt appears. On iOS Safari, instructions shown.
-
-### Phase 4: Background Sync (Depends on Phase 2)
-
-13. **IndexedDB action queue** in SW
-14. **Background sync handler** in SW
-15. **`useBackgroundSync` hook** (message listener)
-16. **Integrate with existing mutation hooks** (mark read, archive, star)
-
-**Validation:** Go offline, mark email as read, reconnect, verify action synced to backend.
-
-### Phase 5: Push Infrastructure (Depends on Phase 1)
-
-17. **Push event handler** in SW
-18. **VAPID key generation** + env vars
-19. **`usePushSubscription` hook**
-20. **`PushSettingsPanel` component** in settings
-21. **Backend endpoint stub** (`POST /api/v1/push/subscribe`) -- minimal, stores subscription
-
-**Validation:** Subscribe to push, send test notification via DevTools, notification appears.
-
-### Phase 6: Polish and Testing
-
-22. **Lighthouse CI** -- Add PWA category to `lighthouserc.js`
-23. **E2E tests** -- Playwright tests for install, offline, push
-24. **Cache size management** -- Set max entries/age for runtime caches
-
-## Scalability Considerations
-
-| Concern | At 100 Users | At 10K Users | At 1M Users |
-|---------|--------------|--------------|-------------|
-| SW cache size | No issue, ~50MB per user | Monitor via Storage Manager API | Add cache eviction (max 500 entries per cache, 7-day expiry) |
-| Background sync queue | Rare, 1-2 actions | Add queue size limit (50 actions max) | Add queue TTL (1 hour), dedup same-resource actions |
-| Push subscriptions (backend) | Store in DB column | Dedicated PushSubscription table | Consider push service (OneSignal) or partition table |
-| Manifest/Icon bandwidth | Negligible | Negligible | Use CDN (Vercel already does this) |
+---
 
 ## Sources
 
-- [Next.js Official PWA Guide](https://nextjs.org/docs/app/guides/progressive-web-apps) -- HIGH confidence, official docs (last updated 2026-02-11)
-- [Serwist Getting Started](https://serwist.pages.dev/docs/next/getting-started) -- HIGH confidence, library docs
-- [TanStack Query Network Mode](https://tanstack.com/query/v4/docs/react/guides/network-mode) -- HIGH confidence, official docs
-- [Offline React Query (TkDodo)](https://tkdodo.eu/blog/offline-react-query) -- HIGH confidence, maintainer blog
-- [TanStack Query + Service Worker Discussion #8034](https://github.com/TanStack/query/discussions/8034) -- MEDIUM confidence, community discussion
-- [Workbox Caching Strategies](https://developer.chrome.com/docs/workbox/caching-strategies-overview/) -- HIGH confidence, Chrome docs
-- [MDN Background Sync](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation) -- HIGH confidence, MDN
-- [Socket.IO Offline Behavior](https://socket.io/docs/v3/client-offline-behavior/) -- HIGH confidence, official docs
-- [Background Sync Browser Support (Progressier)](https://progressier.com/pwa-capabilities/background-sync) -- MEDIUM confidence, third-party reference
+- Codebase analysis: all files referenced above were read directly from the repository
+- Existing architecture doc: `.planning/codebase/ARCHITECTURE.md` (2026-01-31 analysis)
+- v8.0 research: `.planning/research/ARCHITECTURE.md` (2026-03-23, push frontend plumbing)
+- HITL contract tests: `backend/src/modules/ai-chat/__tests__/hitl-contract.test.ts`
+- v7.0 rate limit decision: `.planning/PROJECT.md` line 279 (marked for revisit)

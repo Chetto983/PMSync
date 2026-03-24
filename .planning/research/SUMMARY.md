@@ -1,208 +1,191 @@
 # Project Research Summary
 
-**Project:** PMSync v8.0 Progressive Web App
-**Domain:** PWA layer added to existing Next.js 16 AI email client
-**Researched:** 2026-03-23
+**Project:** PMSync v9.0 — AI Intelligence & Platform Hardening
+**Domain:** Multi-tenant AI email client — push dispatch, tiered rate limiting, HITL approval, Graph RAG
+**Researched:** 2026-03-24
 **Confidence:** HIGH
 
 ## Executive Summary
 
-PMSync v8.0 adds a PWA layer to a fully-shipped AI email client. The milestone is frontend-only — no backend push triggers ship this cycle. The recommended approach centers on `@serwist/next` for service worker integration (the officially-referenced Next.js solution, successor to the abandoned next-pwa), `idb-keyval` for lightweight IndexedDB key-value storage, and browser-native APIs for install prompts and push subscription plumbing. All six core PWA features (manifest, service worker, offline fallback, app shell caching, install prompt, push frontend) are well-documented with high-confidence sources. Stack additions are minimal: two runtime packages and two dev dependencies on top of what already exists.
+PMSync v9.0 is a brownfield hardening release, not a greenfield build. The research confirms that every capability needed for this version is already present in installed dependencies — no new packages are required. The four feature areas (push notification backend dispatch, tiered rate limiting, explicit HITL approval routing, Graph RAG steps 4-8) each extend existing infrastructure rather than introduce new systems. The recommended approach is strictly additive: configure what is already installed, fix what is already partially wired, complete what was started, and avoid the temptation to import external services where the current stack already covers the requirement.
 
-The single most important architectural constraint is this: **the service worker must not intercept API requests.** This is where the two research documents diverge in a meaningful way. ARCHITECTURE.md proposed NetworkFirst caching for `/api/v1/emails*`; PITFALLS.md argues the opposite with three critical-severity justifications — httpOnly cookie credential stripping (P1), double-caching conflict with TanStack Query (P2), and SSE stream corruption for AI chat (P3). The PITFALLS position is adopted here as the authoritative stance. PMSync's auth model (httpOnly cookies with no Authorization header fallback) makes any SW-intercepted API fetch a silent 401 generator. TanStack Query already caches API responses with intelligent mutation-driven invalidation. The service worker's role should be limited to: static asset caching, offline fallback page, push event handling, and SW update notification. Offline email reading — the highest-value differentiator — is achievable through TanStack Query's `persistQueryClient` with IndexedDB, keeping a single authoritative cache layer.
+The single most urgent item is push notification backend dispatch. The v8.0 settings UI has a push notification toggle that has always been a lie — `web-push` is installed but never called. Users who opted in have been silently receiving nothing. This is a broken promise, not a missing feature, and it carries trust damage if left unaddressed. Tiered rate limiting is the second urgent fix: the flat 30/min write limit was documented in v7.0 as causing user-reported 429s during normal workflows and was explicitly deferred for v9.0 resolution. These two items are table stakes. HITL approval UX and Graph RAG steps 4-8 complete existing plumbing rather than fix active regressions.
 
-The key execution risk is scope creep inside the service worker. Background sync for offline mutations is achievable but requires careful session expiry handling (the better-auth session may have expired while the device was offline for hours), must exclude irreversible actions (delete, send), and must treat the `online` event as the primary fallback path rather than the BackgroundSync API, which has no Safari support. A secondary risk is the Pages Router / App Router distinction: STACK.md references `app/manifest.ts` (an App Router convention) but PMSync uses Pages Router. The manifest must be a static `public/manifest.json` or an API route — this must be resolved before Phase 1 implementation begins.
+The primary risks are operational rather than architectural. Stale push subscriptions and event-loop blocking are the top two push pitfalls, both preventable by routing dispatch through BullMQ. HITL approval re-submit can lose conversation state under multi-tab usage. Graph expansion has a latent JSONB N+1 query problem that degrades past 10K contacts. None of these require architectural pivots — they require disciplined implementation: 410 cleanup on push, BullMQ queuing, server-side approval correlation, and either a GIN index or junction table for contact email lookups.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack is minimal and well-justified. `@serwist/next` v9.5.4 handles the service worker compilation pipeline for Next.js Pages Router, including precache manifest generation and Turbopack dev-mode compatibility via `@serwist/turbopack`. It is the library the Next.js official docs reference for offline support (updated 2026-02-11). `idb-keyval` (~600 bytes brotli'd) provides IndexedDB key-value storage for the offline action queue and inbox snapshot caching — the correct abstraction for PMSync's needs (simple get/set, not relational queries). Web app manifest is handled via a static `public/manifest.json` (Pages Router). VAPID key generation is a one-time CLI operation via `web-push generate-vapid-keys`.
+No new dependencies. Every tool needed is already in `backend/package.json`. The decision is validated against the full feature set:
 
-**Core technologies:**
-- `@serwist/next` ^9.5.4: Service worker compilation and precaching — official Next.js recommendation, actively maintained (npm publish 2026-03-22)
-- `serwist` ^9.5.7: Core Workbox-based caching strategies (dev dep peer)
-- `@serwist/turbopack` ^9.5.6: Turbopack dev mode support (dev dep) — Next.js 16 defaults to Turbopack in dev
-- `idb-keyval` ^6.2.1: IndexedDB key-value store for offline queue — 600 bytes brotli, by Chrome team member, zero config
-- `public/manifest.json` (static): Web app manifest for Pages Router — no library needed
+**Core technologies in use for v9.0:**
+- `web-push` ^3.6.7 — push notification dispatch — already installed, zero imports at runtime; just needs `PushDispatchService` wrapping `sendNotification()`
+- `@nestjs/throttler` ^6.5.0 — tiered rate limiting — named throttlers already working with Redis storage; v9.0 adds `write`, `send`, and `delete` tiers
+- `ai` (AI SDK) ^6.0.49 — HITL approval — `needsApproval` property on `tool()` definitions is SDK-native; dynamic per-user wrapping in `createToolSet()` is the only gap
+- `bullmq` ^5.67.1 — async push dispatch, entity graph nightly build — already global, needs new job types
+- `prisma` ^7.3.0 — `PushPreference`, `UserAiPreference`, `EntityNode`, `EntityEdge` models — schema additions only
+- `tokenlens` ^1.3.1 — token budgeting in `ContextAssemblyService` — already installed
+- `EventEmitter2` (via `@nestjs/event-emitter`) — domain event bus for push triggers — already global; new `@OnEvent` listeners only
 
-**What NOT to add:** `next-pwa` (abandoned 2022), `@ducanh2912/next-pwa`, `localforage`, `dexie`, raw Workbox without Serwist, `TanStack Query persistQueryClient` in v8.0 (defer to v8.x when cold-start latency is a measurable problem).
+Alternatives considered and rejected: Firebase/OneSignal (Google lock-in, SaaS dependency), Neo4j (overkill for adjacency-list graph at email scale), LangChain (Python ecosystem), mem0 (multi-tenant incompatible), Cohere Rerank (external latency + cost), express-rate-limit (conflicts with existing throttler).
 
 ### Expected Features
 
-All features in scope are P1. The milestone has a tight boundary with no P2 work in v8.0.
-
 **Must have (table stakes):**
-- Web App Manifest with full icon set — required for installability on all platforms
-- Service worker registration — prerequisite for all PWA capabilities
-- Offline fallback page (`pages/~offline.tsx`) — branded page instead of Chrome dinosaur
-- App shell caching — JS/CSS/fonts load from cache for instant app open
-- Install prompt UX — Android/desktop via `beforeinstallprompt`, iOS via manual "Add to Home Screen" instructions (no API available on iOS)
-- Standalone display theming — manifest `theme_color`/`background_color` matching PMSync teal brand
+- Push notification backend dispatch — toggle exists in v8.0, nothing fires; trust-destroying broken promise
+- Event-driven dispatch service (`PushDispatchListener` + `PushDispatchService`) — wires `email:new` event to web-push
+- Per-user notification preferences scoped to `(tenantId, userId)` — minimum on/off per category
+- Stale subscription cleanup on 410/404 from web-push — prevents silent accumulation of dead endpoints
+- Per-category write-rate limits — `read` (300/min), `write` (60/min), `send` (10/min), `delete` (20/min)
+- HITL approval/rejection buttons for `part.state === 'approval-requested'` — backend pauses, frontend shows nothing currently
+- Visual distinction between informational tool calls and destructive approval prompts — prevents approval fatigue
 
-**Should have (differentiators):**
-- Offline email reading — cached inbox readable without network (highest-value, most complex)
-- Push notification frontend plumbing — VAPID subscription, SW push handler, settings toggle (backend triggers deferred)
-- Background sync for queued offline mutations — mark read, archive, star queue via idb-keyval, replay on reconnect
-- SW update notification — "New version available" MUI Snackbar with user-triggered skipWaiting
-- Online/offline indicator — MUI Alert bar when disconnected, Zustand `isOnline` state
+**Should have (competitive differentiators):**
+- Graph RAG Step 6: Memory-entity anchoring — link AIMemory records to EntityNode for contextual recall
+- Graph RAG Step 4: Context assembly — structured summarization of graph expansion results, 40-60% token reduction
+- Graph RAG Step 8: Few-shot tool chain examples — dynamic injection by query complexity tier, ~250 extra tokens per query
+- Three-level HITL preference (`HIGH_ONLY` / `ALL_MUTATIONS` / `NONE`) — per-user configurable in AI Safety settings
+- Rate limit response headers (`X-RateLimit-Remaining` / `X-RateLimit-Reset`) — proactive client warnings before hitting 429
+- Approval audit logging via existing `AuditService.logAudit()` — GDPR accountability trail
 
-**Defer (v8.x+):**
-- TanStack Query `persistQueryClient` bridge to IndexedDB — add when cold-start latency becomes measurable
-- Notification action buttons (Reply, Archive) — requires backend push triggers (v9+)
-- Badge API unread count — Chrome/Android only, low priority
-- Full offline compose-and-send — SMTP queue and attachment handling, explicitly out of scope per PROJECT.md
+**Defer to v9.x+:**
+- Graph RAG Step 5: Materialized entity graph — current ~200ms JSONB graph expansion is acceptable; optimize when query volume justifies it
+- Graph RAG Step 7: Tool consolidation (`semantic_search` + `graph_context_search` merge) — requires alias period; ship after Steps 4/6/8 stabilize
+- AI triage batch notifications ("3 urgent emails need attention") — additional AI pipeline; ship basic per-email push first
+- Approval with parameter modification (edit args before approving) — complex custom UI; simple approve/reject covers the requirement
+- Progressive rate limiting with escalating cooldowns — standard 429 + Retry-After covers requirements
+
+**Explicit anti-features (do not build):**
+- Push for every single email — notification fatigue destroys the feature; default to important/urgent or batch
+- Per-endpoint rate limit config UI — hardcoded tiers are correct; env var overrides at most
+- Drag-and-drop HITL workflow builder — enterprise ABAC territory, out of scope
+- Cross-model reranker API (Cohere/BGE) — heuristic reranking already sufficient at current data volumes
+- Neo4j or any graph database — PostgreSQL adjacency list is sufficient at email scale
+- Universal mega-search tool (all domains merged) — confuses model with too many optional parameters
 
 ### Architecture Approach
 
-PMSync is a **Pages Router** app (`pages/`, `pages/_app.tsx`, `pages/_document.tsx`). The PWA adds three layers alongside existing code: (1) a service worker (`service-worker/sw.ts` compiled to `public/sw.js`) handling static asset caching, push, and update messaging; (2) a PWA shell layer wired into `_document.tsx` (manifest link, meta tags) and `_app.tsx` (SW registration, online status provider); and (3) an offline/sync bridge via React hooks and idb-keyval connecting SW capabilities to the existing TanStack Query and Zustand stack. The `next.config.js` wraps existing config as `withBundleAnalyzer(withSerwist(nextConfig))`. TanStack Query gets `networkMode: 'offlineFirst'` globally so it always fires requests and lets the SW serve cached static responses, rather than pausing queries on `navigator.onLine === false`.
+All four features follow the same integration philosophy: extend existing services and event infrastructure, never duplicate trigger logic, keep state in the right layer. Push dispatch hangs off `EventEmitter2` domain events via a new `PushDispatchListener` — the same events already driving WebSocket broadcast — then delegates to `PushDispatchService` which calls `web-push.sendNotification()` asynchronously via BullMQ. Rate limiting is purely a configuration change to `ThrottlerModule.forRoot()` plus `@Throttle()` decorator updates across ~18 controller files. HITL approval routing modifies only `AiChatService.createToolSet()` to dynamically set `needsApproval` based on a new `UserAiPreference` model, with no changes to the underlying AI SDK streaming protocol. Graph RAG builds a chain of services: `ContextAssemblyService` (Step 4) -> `EntityGraphService` + nightly BullMQ build job (Step 5, deferred) -> `MemoryService` entity-aware retrieval (Step 6) -> `FewShotService` dynamic injection (Step 8).
 
-**Major components:**
-1. `service-worker/sw.ts` — Serwist core with static asset precaching; **explicitly excludes all `/api/*` interception** to preserve httpOnly cookie auth
-2. PWA hooks (`useOfflineStatus`, `usePWAInstall`, `usePushSubscription`, `useBackgroundSync`) — connects browser APIs to React components
-3. `lib/context/offline-context.tsx` — lightweight React context (not Zustand) for `isOffline` boolean derived from browser events; no persistence needed
-4. `pages/~offline.tsx` — minimal branded offline fallback with no API calls, MUI components only
-5. Offline mutation wrappers — extend existing optimistic update patterns; on `isOffline` error, skip rollback and show "will sync when reconnected" toast
-
-**Caching strategy matrix:**
-
-| Resource | Strategy | Rationale |
-|---|---|---|
-| `/_next/static/**` | CacheFirst (runtime, maxEntries limit) | Immutable hashed assets; limit entries to prevent storage bloat across deploys |
-| `/icons/**`, `/favicon.*` | CacheFirst 30 days | Rarely change |
-| `/api/v1/**` (all methods) | **NetworkOnly, never cached** | httpOnly cookie auth constraint + TanStack Query owns API caching |
-| `/api/v1/ai/**` | NetworkOnly | SSE streams incompatible with SW caching |
-| Navigation HTML | NetworkFirst + `/~offline` fallback | App shell served fresh, offline page as safety net |
+**Major components (new or modified):**
+1. `PushDispatchService` / `PushDispatchListener` / `PushPreferenceService` — complete the push pipeline left unfinished in v8.0
+2. `ThrottlerModule` tier config + controller `@Throttle()` decorators — split flat write tier into `write` (60/min), `send` (10/min), `delete` (20/min)
+3. `AiPreferenceService` + `AiChatService.createToolSet()` modification + split approval UI renderer — dynamic HITL gate with structured diff display
+4. `ContextAssemblyService` + `FewShotService` — token-efficient RAG context packaging with query-type-aware few-shot examples
+5. Prisma schema additions: `PushPreference`, `UserAiPreference`, `EntityNode`, `EntityEdge` (Step 5, deferred), AIMemory `entityNodeId` FK
 
 ### Critical Pitfalls
 
-1. **SW strips httpOnly cookies from re-issued API requests** — Never call `event.respondWith()` for `/api/*` requests. Return without calling it to let the browser handle natively with full credential context. This is a W3C spec behavior, not a bug — SW-initiated fetches do not automatically include cookies. Manifests as intermittent 401s after SW activation.
+1. **Stale push subscriptions silently dropping notifications** — check every `sendNotification()` response for HTTP 410/404; immediately delete the subscription row; track `failureCount`/`lastSuccessAt`; add weekly cleanup job. This is the #1 backend push failure mode in production post-mortems.
 
-2. **Double caching conflict between SW and TanStack Query** — TanStack Query owns API response caching with mutation-driven invalidation. If the SW also caches API responses, `queryClient.invalidateQueries()` after a mutation triggers a refetch that the SW intercepts and serves stale data from. Result: mark-read appears to undo itself. Fix: SW caches only static assets, never API responses.
+2. **Push dispatch blocking the event loop** — never await delivery inline in an event handler; route all sends through a `push-dispatch` BullMQ queue with concurrency 5-10; set 5s timeout on each `sendNotification()` call.
 
-3. **SSE AI chat stream corruption** — SW fetch handlers that don't explicitly skip streaming responses will buffer or corrupt the AI chat stream. Passthrough rule: if `request.headers.get('accept')?.includes('text/event-stream')` or URL starts with `/api/`, return without calling `event.respondWith()`.
+3. **Throttler tier name collision breaking existing rate limits** — `@Throttle()` applies ALL named throttlers simultaneously unless explicitly skipped; audit all 17+ existing decorators before changing `ThrottlerModule.forRoot()` config; use `@SkipThrottle({ read: true })` on write-only endpoints rather than trying to override.
 
-4. **Vercel caches sw.js at edge with immutable headers** — `public/sw.js` has a fixed filename and gets CDN-cached. Users get stuck on stale service workers indefinitely. Mitigation: explicit `Cache-Control: no-cache, no-store, must-revalidate` header for `/sw.js` in `next.config.js` headers config AND `updateViaCache: 'none'` in SW registration call. Set this before first deployment.
+4. **HITL approval re-submit losing conversation state** — client-side approval re-submit trusts `clientMessages` and bypasses server-side history loading; under multi-tab usage or background enrichment, re-submitted messages diverge; add server-side `pendingApprovalId` correlation and idempotency check on `toolCallId`.
 
-5. **Background sync queue loses auth context on session expiry** — better-auth sessions expire. Queued offline actions replayed hours later may 401 silently. Mitigation: 30-minute queue TTL (discard older actions with user notification), exclude irreversible actions (delete, send) entirely, implement `online` event fallback as the primary replay mechanism rather than the BackgroundSync API.
+5. **Graph expansion JSONB N+1 from contact email lookup** — `unified_contacts.emails` is a JSONB array with no GIN index; `EXISTS (SELECT 1 FROM jsonb_array_elements(...))` JOIN pattern causes sequential scans past 10K contacts; add GIN index or extract to `contact_emails` junction table; enforce 200ms hard timeout on graph expansion.
+
+---
 
 ## Implications for Roadmap
 
-The feature dependency tree (from FEATURES.md) and the build order (from ARCHITECTURE.md) map cleanly to a 6-phase structure. Each phase is independently deployable and testable.
+Based on combined research, the architecture file's suggested build order is authoritative and well-reasoned. Four main phases with clean dependency boundaries:
 
-### Phase 1: PWA Foundation
-**Rationale:** Manifest, service worker registration, and icons are prerequisites for every other phase. Zero-risk, fully-documented steps. Must ship first.
-**Delivers:** Installable app shell — passes Lighthouse PWA installability audit; SW registered and serving precached static assets
-**Addresses:** `public/manifest.json`, icon set (192, 512, maskable, iOS 180), Serwist build plugin config, `_document.tsx` meta tags, `_app.tsx` SW registration, `vercel.json` / `next.config.js` `sw.js` cache headers, `.gitignore` for generated SW files, TypeScript `WebWorker` lib config
-**Avoids:** P4 (Vercel sw.js caching) — explicit no-cache headers configured from day one; P14 (multiple SW registrations) — single registration point in `_app.tsx`
-**Research flag:** No additional research needed. Fully covered by official Next.js PWA guide and Serwist docs. One implementation decision to resolve: Pages Router uses `public/manifest.json` (not `app/manifest.ts`).
+### Phase 1: Tiered Rate Limiting
 
-### Phase 2: Offline Shell
-**Rationale:** Depends on Phase 1 SW. Establishes the offline detection layer and caching patterns that all subsequent phases build on. Validates the no-API-caching architectural decision.
-**Delivers:** App opens offline from home screen; cached static assets load instantly; uncached routes show branded fallback; offline banner visible
-**Uses:** Serwist CacheFirst for static assets with maxEntries eviction, NetworkFirst for navigation, explicit NetworkOnly passthrough for all `/api/*`
-**Implements:** `pages/~offline.tsx`, `lib/context/offline-context.tsx`, `useOfflineStatus` hook, `OfflineBanner` MUI component, TanStack Query `networkMode: 'offlineFirst'`
-**Avoids:** P2 (double caching) — SW routes configured to never touch `/api/*`; P3 (SSE interception) — explicit passthrough rule in SW fetch handler
-**Research flag:** No additional research needed.
+**Rationale:** Zero schema changes, zero service additions, immediate user-visible benefit. Fixes the documented v7.0 regression (user-reported 429s during normal workflows). Pure configuration + decorator updates. Lowest-risk change in the entire release. Should ship before any other feature so developers are not hitting false 429s during their own testing.
+**Delivers:** Named throttle tiers (`read` 300/min, `write` 60/min, `send` 10/min, `delete` 20/min), updated `@Throttle()` decorators on all controllers, rate limit response headers.
+**Addresses:** Tiered write-rate limiting table stakes (MVP Priority 1 from FEATURES.md).
+**Avoids:** Pitfall 3 (tier name collision) — requires pre-flight audit of all 17+ existing decorators before touching `ThrottlerModule.forRoot()` config.
 
-### Phase 3: Install Experience
-**Rationale:** Depends on Phase 1 manifest only. No dependency on offline caching layer — can be developed in parallel with Phase 2 but logically follows it in delivery.
-**Delivers:** Install prompt for Android/desktop Chrome; iOS manual "Add to Home Screen" instructions; "already installed" detection hides prompt in standalone mode
-**Uses:** `beforeinstallprompt` browser API, `window.matchMedia('(display-mode: standalone)')`, iOS UA detection
-**Implements:** `usePWAInstall` hook, `InstallPromptBanner` MUI Snackbar/Dialog component
-**Avoids:** P8 (iOS limitations) — three explicit code paths: Android/desktop (`beforeinstallprompt`), iOS home screen (partial push support), iOS browser (no install API at all)
-**Research flag:** No additional research needed.
+### Phase 2: Push Notification Backend Dispatch
 
-### Phase 4: Offline Email Reading
-**Rationale:** Depends on Phase 2 offline shell (online detection context needed for UI coherence). This is the highest-value differentiator. Implementation path: TanStack Query `persistQueryClient` with IndexedDB — NOT SW API response caching — to avoid the double-caching pitfall while still surviving app restart offline.
-**Delivers:** User can read recently-synced emails after closing and reopening the app without network; inbox metadata and email bodies survive app close
-**Uses:** `idb-keyval` for inbox snapshot storage; TanStack Query `experimental_createPersister` (v5) or `@tanstack/query-persist-client-core` for IndexedDB hydration
-**Implements:** IndexedDB persistence layer for TQ cache; stale-while-rehydrate pattern on cold start
-**Avoids:** P1 (cookie stripping) — zero SW API interception; P2 (double caching) — single cache authority via TanStack Query + IndexedDB
-**Research flag:** NEEDS RESEARCH BEFORE IMPLEMENTATION. Verify `experimental_createPersister` API in TanStack Query v5 works with existing config (`staleTime: 5min`, `gcTime: 30min`, `retry: 1`). Critical question: does persisted cache get invalidated correctly after mutations, or does stale IndexedDB data rehydrate on top of fresh in-memory state? Check TanStack Query v5 changelog and any open issues before writing code.
+**Rationale:** Standalone feature with no impact on the chat pipeline. Completes the broken v8.0 push promise. One Prisma migration (`PushPreference` model). BullMQ dispatch pattern mirrors existing email-sync job patterns — low novelty, high urgency.
+**Delivers:** `PushDispatchService`, `PushDispatchListener`, `PushPreferenceService`, `PushPreference` model, preferences API endpoints (`GET/PATCH /push/preferences`), 410/404 subscription cleanup, `push-dispatch` BullMQ queue.
+**Addresses:** All push dispatch table stakes (MVP Priority 1 from FEATURES.md).
+**Avoids:** Pitfall 1 (stale subscriptions — 410 cleanup on every send), Pitfall 2 (event loop blocking — BullMQ queue required), Pitfall 6 (4KB payload limit — strict schema with truncation), Pitfall 11 (tenant isolation — all preferences scoped to `(tenantId, userId)`), Pitfall 13 (VAPID key mismatch — backend serves public key as single source of truth).
+**Operational prerequisite:** `VAPID_PRIVATE_KEY` must be added to Railway backend environment before this phase can go live in production.
 
-### Phase 5: Background Sync
-**Rationale:** Depends on Phase 2 (offline detection) and Phase 4 (established offline UI patterns). Most complex phase. Requires careful scoping of which actions are safe to queue.
-**Delivers:** Mark read, archive, star while offline; actions queue in idb-keyval and replay on reconnect; user informed of queued/synced state
-**Uses:** `idb-keyval` FIFO action queue; `online` event as primary replay trigger (BackgroundSync API as progressive enhancement for Chromium only, ~70% support); `postMessage` bridge from SW to TQ `invalidateQueries` after replay
-**Implements:** `useBackgroundSync` hook, SW sync event handler and `online` event fallback, offline-aware mutation hook wrappers (no rollback on offline error), 30-minute queue TTL
-**Avoids:** P6 (auth expiry) — TTL limit on queue; P8 (no Safari BackgroundSync) — `online` event fallback is the primary path, not the fallback
-**Research flag:** NEEDS RESEARCH. Treat BackgroundSync API as a Chromium-only progressive enhancement. Confirm current Safari status — assume zero support and build accordingly. Also verify the `postMessage` -> TQ invalidation pattern works correctly when SW replays actions before the React app has fully hydrated.
+### Phase 3: Explicit HITL Approval Routing
 
-### Phase 6: Push Notification Plumbing + Polish
-**Rationale:** SW registration (Phase 1) is the only prerequisite. Push is self-contained and frontend-only in v8.0. Polish items (SW update notification, Lighthouse PWA audit) are low-risk and can be developed alongside push.
-**Delivers:** Users can opt into push notifications; PushSubscription stored in backend for future use; Lighthouse PWA audit green; "New version available" snackbar on deploy
-**Uses:** `PushManager.subscribe()` with VAPID public key, `push` and `notificationclick` SW event handlers
-**Implements:** `usePushSubscription` hook, `PushSettingsPanel` in settings (MUI Switch), `POST /api/v1/push/subscribe` NestJS endpoint stub, SW update notification via `registration.waiting` detection and user-triggered `skipWaiting`, Lighthouse PWA category in `lighthouserc.js`
-**Avoids:** P8 (iOS push limitations) — gate subscription UI behind `'PushManager' in window` AND `window.matchMedia('(display-mode: standalone)').matches` check; P9 (users stuck on old SW) — skipWaiting only on user confirmation via postMessage, never unconditionally in install handler
-**Research flag:** NEEDS SCHEMA CHECK. Confirm Prisma schema can store PushSubscription JSON before writing the NestJS endpoint. Check existing `User` or `Tenant` model — if no `pushSubscriptions` relation exists, a migration is needed and this may scope into a backend task.
+**Rationale:** Touches `AiChatService` (highest-traffic code path); needs careful testing in isolation. Requires one Prisma migration (`UserAiPreference` model). Backend dynamic approval is minimal — `createToolSet()` wrapping. Frontend approval renderer with structured diff display is the bulk of the work. Independent of Graph RAG.
+**Delivers:** `AiPreferenceService`, `UserAiPreference` model, dynamic `needsApproval` in `createToolSet()`, split approval/informational frontend tool renderers with structured diff display, AI Safety settings section, approval audit logging.
+**Addresses:** HITL approval UX table stakes + three-level HITL preference differentiator (MVP Priority 2 from FEATURES.md).
+**Avoids:** Pitfall 4 (conversation state divergence — server-side `pendingApprovalId` correlation and toolCallId idempotency), Pitfall 8 (approval fatigue — split informational vs. approval renderers with distinct visual treatment).
+**Research flag:** The server-side `pendingApprovalId` correlation mechanism is not currently implemented. The approach needs validation against AI SDK v6 streaming protocol constraints before implementation begins. Spike required at start of phase.
+
+### Phase 4: Graph RAG Steps 4, 6, 8 (Context Assembly + Memory Anchoring + Few-shot)
+
+**Rationale:** Steps 1-3 are working. These three steps deliver the highest value among the remaining graph RAG steps: Step 4 cuts token waste, Step 6 enables entity-aware memory recall, Step 8 improves tool chain accuracy for multi-hop queries. All three are independent of the entity graph materialization (Step 5) which is deferred. Step 8 is the lowest effort with the highest signal-to-code ratio.
+**Delivers:** `ContextAssemblyService` with 4K token budget, updated `RagToolsService` using assembled context, AIMemory `entityNodeId` FK + entity-aware `MemoryService` retrieval, `FewShotService` with dynamic query-tier injection, system prompt modification (~40 lines, ~250 tokens per query).
+**Addresses:** Graph RAG differentiators (MVP Priority 3 from FEATURES.md).
+**Avoids:** Pitfall 5 (JSONB N+1 — add GIN index on `unified_contacts.emails` in this phase; measure query plan first), Pitfall 12 (context inflation — fixed 4K token budget in `ContextAssemblyService`, no recursive expansion from memory injection), Pitfall 15 (prompt bloat — dynamic few-shot injection by tier, not global injection, monitored via `AiRunLedger` input token tracking).
+**Note:** Step 5 (entity graph materialization) and Step 7 (tool consolidation) are explicitly deferred to v9.x per MVP recommendation.
 
 ### Phase Ordering Rationale
 
-- Phase 1 is a hard prerequisite: no SW = no installability, no push, no offline, nothing
-- Phase 2 before Phase 4: offline reading UI needs the `isOffline` context and the established caching architecture to be correct
-- Phase 3 is independent after Phase 1: install prompt has no dependency on caching layer, can be shipped separately
-- Phase 4 before Phase 5: background sync's "don't rollback on offline mutation" pattern assumes the offline reading layer exists so UI state remains coherent
-- Phase 6 last: push and polish are self-contained with no downstream dependencies
+- Rate limiting first: unblocks clean testing of all other features, carries zero schema risk, fixes documented regression immediately.
+- Push before HITL: push is self-contained with no impact on the chat pipeline; HITL modifies `AiChatService` (the most critical service) and needs isolated testing.
+- HITL before Graph RAG: HITL is simpler (one new model, one method modification) vs. Graph RAG (multiple service chains, schema additions, context budgeting); HITL is also closer to a broken promise (backend pauses, frontend shows nothing) than Graph RAG (search works, just could be smarter).
+- Graph RAG last: Steps 1-3 already provide functional search; Steps 4/6/8 improve quality, not restore broken functionality; can ship incrementally within the phase.
 
 ### Research Flags
 
-**Needs deeper research before implementation:**
-- **Phase 4 (Offline Email Reading):** TanStack Query v5 `experimental_createPersister` / `persistQueryClient` — compatibility with existing config, mutation invalidation behavior, IndexedDB hydration ordering
-- **Phase 5 (Background Sync):** Current Safari/iOS BackgroundSync API support status — assume none, build `online` event as primary path; verify Chrome's minimum-engagement heuristic for sync event registration
-- **Phase 6 (Push backend stub):** Check Prisma schema before writing NestJS endpoint — `PushSubscription` storage may require a new model and migration
+**Phases likely needing `/gsd:research-phase` during planning:**
+- **Phase 3 (HITL Approval Routing):** Server-side `pendingApprovalId` correlation against AI SDK v6 streaming protocol is underspecified in research. Pitfall 4 (conversation state divergence) identifies the risk but the fix requires API-level validation before implementation. Treat as a mandatory spike before writing code.
+- **Phase 4 (Graph RAG):** GIN index vs. junction table for `unified_contacts.emails` lookup (Pitfall 5) requires a query plan analysis against real data volumes before committing to an approach. The JSONB pattern is confirmed as an anti-pattern but the threshold for degradation needs measurement.
 
-**Standard patterns, skip research-phase:**
-- **Phase 1 (Foundation):** Fully covered by official Next.js PWA guide and Serwist docs
-- **Phase 2 (Offline Shell):** Workbox caching strategies are extensively documented; NetworkOnly for API is a clear decision
-- **Phase 3 (Install Experience):** `beforeinstallprompt` and iOS detection are stable browser APIs with no ambiguity
+**Phases with standard patterns (skip research-phase):**
+- **Phase 1 (Rate Limiting):** Well-documented `@nestjs/throttler` pattern; codebase already has working named throttler examples; change is purely additive configuration.
+- **Phase 2 (Push Dispatch):** `web-push` API is simple and documented; BullMQ dispatch pattern mirrors existing email-sync jobs; `EventEmitter2` listener pattern is established in codebase. No novel integration work.
+
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All recommendations sourced from official Next.js docs and library maintainer docs. Serwist npm versions confirmed current (published 2026-03-22). idb-keyval by Chrome team member, battle-tested. |
-| Features | HIGH | Feature scope is tightly bounded (frontend-only v8.0). Dependency tree is unambiguous. All features are established PWA standards with multi-source documentation. |
-| Architecture | HIGH | Official docs and Workbox patterns. One internal conflict (ARCHITECTURE.md vs PITFALLS.md on API caching) resolved: no SW API interception. Pages Router distinction identified and flagged. |
-| Pitfalls | HIGH | 4 of 5 critical pitfalls sourced from W3C specs, official Next.js docs, or TanStack Query maintainer issues. Moderate pitfall on session expiry is MEDIUM confidence — PMSync-specific auth config not externally benchmarked. |
+| Stack | HIGH | All recommendations verified against actual `package.json` and codebase imports. No speculative dependencies. Alternatives considered and explicitly rejected with rationale. |
+| Features | HIGH | Every feature verified against existing codebase state. Broken promises identified by direct code reading (no `sendNotification()` calls exist in codebase). Priority ordering is unambiguous. |
+| Architecture | HIGH | All patterns derive from reading existing services, not external sources. Integration points mapped to specific files. Anti-patterns explicitly documented with reasoning. |
+| Pitfalls | HIGH | Pitfalls 1, 2, 3, 5, 6, 7, 11, 13, 14 are HIGH confidence (visible in code or MDN-documented). Pitfalls 4, 8, 9, 10, 12, 15 are MEDIUM (design risks, not current bugs). |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Pages Router vs App Router manifest convention:** STACK.md referenced `app/manifest.ts` (App Router). PMSync uses Pages Router. Use `public/manifest.json` (static file) instead. Resolve before writing any Phase 1 code.
+- **HITL approval server-side state (HIGH priority):** `convertToModelMessages()` HITL path trusts client-provided messages. Pitfall 4 identifies a multi-tab state divergence risk. The fix (`pendingApprovalId` server-side correlation) is not designed. Resolve with a spike at the start of Phase 3 planning before writing any implementation code.
 
-- **Serwist Pages Router compatibility:** PITFALLS.md (P15) notes Serwist has open issues with Next.js 15+ App Router. Pages Router compatibility is not explicitly confirmed. Verify Serwist v9.5.x works correctly with `pages/` directory before committing. Manual `public/sw.js` (from official Next.js guide) is the fallback.
+- **Contact email lookup performance (MEDIUM priority):** JSONB `jsonb_array_elements()` JOIN is a confirmed anti-pattern but current contact volumes may be below the degradation threshold. Measure actual PostgreSQL query plan on production data before committing to GIN index vs. junction table. Do this at the start of Phase 4.
 
-- **CORS and cross-origin credential flow:** PMSync frontend on Vercel calls backend API on Railway (different origin). SW fetch passthroughs for `/api/*` must ensure the browser's `credentials: 'include'` behavior is preserved. Verify CORS headers on the Railway backend allow credentials for the Vercel domain — this is a deployment concern, not a code concern, but it must be confirmed before offline testing.
+- **VAPID key deployment (operational blocker for Phase 2):** `VAPID_PRIVATE_KEY` does not exist in the Railway backend environment. Must be added and matched to the existing `VAPID_PUBLIC_KEY` in frontend config before Phase 2 can ship to production. This is an ops prerequisite, not a code gap — but it blocks production verification of the entire push feature.
 
-- **Cache-on-logout:** When the user signs out, idb-keyval inbox data and any SW cache entries for static assets that include user-specific content must be cleared. The existing sign-out flow (better-auth) needs to trigger `idb-keyval.clear()` and potentially `caches.delete()`. Implement this in Phase 2 or Phase 4 — do not defer to v8.x.
+- **Rate-limiting decorator audit (prerequisite for Phase 1):** 17+ existing `@Throttle()` decorators must be mapped to new tiers before changing `ThrottlerModule.forRoot()`. No code is blocked by this, but shipping rate limit changes without the audit risks worsening the 429 situation. Do this before writing Phase 1 code.
 
-- **Icon asset generation:** Full icon set (72, 96, 128, 144, 152, 192, 384, 512, maskable-512, iOS-180) must be generated from `Logo PMSync.svg`. Requires a favicon generator tool. Not a code problem but a gating dependency for Phase 1.
+---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Next.js Official PWA Guide](https://nextjs.org/docs/app/guides/progressive-web-apps) — installability, SW registration, manifest, offline patterns (updated 2026-02-11)
-- [Serwist Getting Started](https://serwist.pages.dev/docs/next/getting-started) — build plugin config, SW compilation, Turbopack support
-- [TanStack Query Network Mode](https://tanstack.com/query/v4/docs/react/guides/network-mode) — `offlineFirst` mode behavior and rationale
-- [TkDodo: Offline React Query](https://tkdodo.eu/blog/offline-react-query) — TQ maintainer on offline patterns and SW integration
-- [Workbox Caching Strategies](https://developer.chrome.com/docs/workbox/caching-strategies-overview/) — CacheFirst, NetworkFirst, StaleWhileRevalidate
-- [MDN: Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) — platform requirements
-- [MDN: Offline and background operation](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation) — BackgroundSync, push
-- [W3C ServiceWorker Issue #837](https://github.com/w3c/ServiceWorker/issues/837) — httpOnly cookie credential stripping in SW
-- [W3C ServiceWorker Issue #885](https://github.com/w3c/ServiceWorker/issues/885) — EventSource/SSE bypass requirement
+- Existing codebase — all services, models, controllers, test files read directly; all recommendations verified against running code
+- AI SDK v6 HITL cookbook (ai-sdk.dev/cookbook/next/human-in-the-loop) — `needsApproval` property, approval/denial flow
+- web-push npm v3.6.7 (npmjs.com/package/web-push) — `sendNotification()` API, VAPID configuration
+- NestJS Throttler docs (docs.nestjs.com/security/rate-limiting) — named tiers, `@Throttle()`, `@SkipThrottle()`
+- Graph RAG 8-step plan (`C:\Users\Davide\.claude\plans\rosy-imagining-starlight.md`) — Steps 1-3 verified in codebase
 
 ### Secondary (MEDIUM confidence)
-- [TanStack Query Issue #7897](https://github.com/TanStack/query/issues/7897) — SW + TQ double-caching conflict
-- [TanStack Query Discussion #8034](https://github.com/TanStack/query/discussions/8034) — maintainer confirmation of no built-in SW integration
-- [next-pwa Issue #323](https://github.com/shadowwalker/next-pwa/issues/323) — middleware blocking SW files pattern
-- [PWA iOS Limitations 2026 (MagicBell)](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide) — iOS Safari PWA API support status
-- [Socket.IO Offline Behavior](https://socket.io/docs/v3/client-offline-behavior/) — WebSocket not intercepted by SW
+- MDN Web Push API Best Practices — payload limits (4KB), subscription lifecycle, 410 handling
+- NestJS Throttler GitHub — per-endpoint override behavior, simultaneous throttler application
+- Graph RAG vs SQL RAG (towardsdatascience.com) — PostgreSQL graph query complexity at modest data volumes
 
-### Tertiary (LOW confidence — validate before implementation)
-- [Background Sync Browser Support (Progressier)](https://progressier.com/pwa-capabilities/background-sync) — ~70% support figure; verify against current browser release data before Phase 5
+### Tertiary (LOW confidence)
+- AI SDK v6 needsApproval mid-execute issue #9862 (github.com/vercel/ai) — limitations of current HITL model; relevant to Pitfall 4 but issue-tracker, not documentation
+- EDB SQL/PGQ for PostgreSQL — recursive CTE performance characteristics; informational context for entity graph design
 
 ---
-*Research completed: 2026-03-23*
+*Research completed: 2026-03-24*
 *Ready for roadmap: yes*

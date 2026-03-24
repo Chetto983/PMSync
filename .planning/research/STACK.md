@@ -1,134 +1,260 @@
-# Technology Stack: PWA Features
+# Technology Stack
 
-**Project:** PMSync v8.0 Progressive Web App
-**Researched:** 2026-03-23
+**Project:** PMSync v9.0 -- AI Intelligence & Platform Hardening
+**Researched:** 2026-03-24
 **Overall confidence:** HIGH
 
-## Recommended Stack
+## Executive Decision
 
-### Service Worker & Offline Caching
+**No new npm packages required.** Every capability needed for v9.0 is achievable with already-installed dependencies. This is the ideal outcome for a brownfield project -- zero dependency surface increase.
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `@serwist/next` | ^9.5.4 | Next.js service worker integration | Official Next.js docs recommend Serwist for offline support. Successor to abandoned next-pwa. Wraps Workbox with Next.js-aware precaching, route matching, and build integration. 26K+ weekly downloads, actively maintained. |
-| `serwist` | ^9.5.7 | Core service worker toolkit (dev dep) | Required peer — provides Workbox-based caching strategies (StaleWhileRevalidate, CacheFirst, NetworkFirst), precache manifest injection, and background sync primitives. |
+## What Is Already Installed (DO NOT ADD)
 
-### Turbopack Compatibility
+| Package | Version | Used For in v9.0 |
+|---------|---------|------------------|
+| `web-push` | ^3.6.7 | Push notification dispatch (installed v8.0, unused) |
+| `@types/web-push` | ^3.6.4 | TypeScript types for web-push |
+| `@nestjs/throttler` | ^6.5.0 | Tiered rate limiting (already configured with named throttlers) |
+| `ai` (AI SDK) | ^6.0.49 | HITL approval via `needsApproval` on tool definitions |
+| `@ai-sdk/react` | (installed) | Frontend `addToolApprovalResponse` for HITL UX |
+| `ioredis` | ^5.9.2 | Redis-backed throttler storage (already implemented) |
+| `bullmq` | ^5.67.1 | Entity graph nightly refresh job |
+| `@nestjs/schedule` | ^6.1.0 | Cron scheduling for graph refresh |
+| `eventemitter2` (via `@nestjs/event-emitter`) | (installed) | Domain events for push notification triggers |
+| `prisma` | ^7.3.0 | EntityGraph model, AIMemory anchoring fields |
+| `pgvector` (via Prisma) | (installed) | Existing hybrid search, unchanged |
+| `prom-client` | (installed) | Metrics for push delivery, throttle hits |
+| `tokenlens` | ^1.3.1 | Token counting for context assembly budget |
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `@serwist/turbopack` | ^9.5.6 | Turbopack dev mode support (dev dep) | Next.js 16 defaults to Turbopack. @serwist/next requires webpack for builds, but @serwist/turbopack enables `next dev --turbopack` without losing service worker DX. Build still uses webpack via `next build`. No script changes needed for dev. |
-| `esbuild` | (already in node_modules) | SW bundling for Turbopack mode | Required by @serwist/turbopack to compile the service worker file during Turbopack dev. Check if already a transitive dep before adding explicitly. |
+## Feature-by-Feature Stack Analysis
 
-### Push Notifications (Frontend Plumbing Only)
+### 1. Push Notification Backend Dispatch
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `web-push` | ^3.6.7 | VAPID key generation (dev dep, CLI only) | Needed once to run `web-push generate-vapid-keys`. Not a runtime dependency for this milestone (no backend push trigger). Keys go into `.env`. Official Next.js PWA guide uses this exact approach. |
+**What exists:**
+- `web-push` ^3.6.7 installed but never imported in backend code
+- `PushSubscription` Prisma model with multi-tenant upsert
+- `PushService` with subscribe/unsubscribe methods only
+- Frontend: Serwist SW handlers for `push` and `notificationclick` events
+- Frontend: VAPID subscription UI with browser support gating
 
-### Offline Data Storage
+**What to build (no new packages):**
+- `PushDispatchService` -- wraps `web-push.sendNotification()` with VAPID config from env vars
+- Event listeners on `EventEmitter2` for trigger events (new email, HITL pending, calendar reminder)
+- `NotificationPreferencesService` -- per-user opt-in/out by category (stored in existing User model or new Prisma field)
+- Dead subscription cleanup -- handle 410 Gone responses from push services
+- BullMQ job for batched/delayed push dispatch (avoid spam on bulk email sync)
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `idb-keyval` | ^6.2.1 | IndexedDB key-value store for offline cache | 295-573 bytes brotli'd. PMSync needs simple key-value caching (inbox list, read email bodies), not full database queries. `idb-keyval` is the right abstraction — localStorage API familiarity, IndexedDB persistence, zero config. Upgrade path to `idb` if needs grow. By Jake Archibald (Chrome team). |
+**Why no new packages:**
+- `web-push` handles VAPID signing, payload encryption, and HTTP/2 dispatch to push services. It is the standard Node.js library for Web Push Protocol (RFC 8030). Nothing else needed.
+- `EventEmitter2` (already global) provides the event bus for trigger routing.
+- `BullMQ` (already global) handles async dispatch with retry.
 
-### Web App Manifest
+**Environment variables needed:**
+```
+VAPID_PUBLIC_KEY=    # Already exists (frontend uses it)
+VAPID_PRIVATE_KEY=   # Needs adding to backend .env
+VAPID_SUBJECT=mailto:admin@pmsync.local
+```
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Next.js built-in | ^16.1.6 (existing) | `app/manifest.ts` file convention | Next.js App Router has native support for `app/manifest.ts` that generates `/manifest.webmanifest`. No library needed. TypeScript-typed via `MetadataRoute.Manifest`. Already in our stack. |
+**Confidence:** HIGH -- web-push is the de facto standard, already installed, well-documented API.
 
-### Install Prompt
+---
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| No library needed | N/A | `beforeinstallprompt` browser API + manual iOS detection | The install prompt is a browser API, not a library concern. Capture `beforeinstallprompt` event for Chrome/Edge/Android. For iOS Safari, detect UA and show manual "Add to Home Screen" instructions. Official Next.js guide confirms this approach. |
+### 2. Tiered Write-Rate Limiting
+
+**What exists:**
+- `@nestjs/throttler` ^6.5.0 with named throttlers (`short`: 300/min, `write`: 30/min)
+- `RedisThrottlerStorage` -- Lua-script-based atomic increment with blocking
+- `UserThrottlerGuard` -- tracks by userId (auth'd) or IP (anon)
+- Per-route `@Throttle()` overrides on email send/reply/forward (10/min)
+- `@SkipThrottle()` on health, metrics, webhooks
+
+**What to build (no new packages):**
+- Add more named throttlers in `ThrottlerModule.forRoot()` for granular tiers:
+  - `auth`: 5/min (login, register, password reset -- anti-brute-force)
+  - `ai`: 20/min (AI chat streaming -- expensive operations)
+  - `bulk`: 50/min (bulk email actions, label operations)
+  - Keep `short` (300/min read) and `write` (30/min general write)
+- Apply `@Throttle({ ai: { limit: 20, ttl: 60000 } })` to AI chat controller
+- Apply `@Throttle({ auth: { limit: 5, ttl: 60000 } })` to auth endpoints
+- Apply `@Throttle({ bulk: { limit: 50, ttl: 60000 } })` to bulk action endpoints
+
+**Why `@nestjs/throttler` v6 is sufficient:**
+- Named throttlers already work (proven in codebase with `short` and `write`)
+- Per-route `@Throttle()` decorator overrides global config per throttler name
+- Redis storage already distributes across replicas
+- `@SkipThrottle({ write: true })` selectively disables specific tiers per route
+- No need for external rate limiting (nginx, Cloudflare) -- app-level is correct for user-based tracking
+
+**Confidence:** HIGH -- already working in production, just needs more named tiers.
+
+---
+
+### 3. Explicit HITL Approval Routing
+
+**What exists:**
+- Tool registry with `requiresApproval: boolean` and `riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'` metadata
+- HITL contract tests verifying HIGH-risk tools require approval
+- `HitlApprovalWrapper` frontend component
+- AI SDK v6 `tool()` definitions in tool service files
+- Inconsistent enforcement: some mutating tools bypass approval (noted in `docs/technical_overview.md`)
+
+**What to build (no new packages):**
+- Use AI SDK v6 native `needsApproval` property on tool definitions:
+  ```typescript
+  tool({
+    description: '...',
+    parameters: z.object({...}),
+    needsApproval: true, // or async (args) => args.permanent === true
+    execute: async (args, { tenantId }) => { ... }
+  })
+  ```
+- Dynamic approval logic: `needsApproval: async (args) => isDestructive(args)` for conditional gates
+- Frontend: `addToolApprovalResponse(toolCallId, approved)` via `@ai-sdk/react` `useChat`
+- Map tool registry `requiresApproval` metadata to AI SDK `needsApproval` at tool registration time
+- Audit every tool's `riskLevel` and ensure HIGH-risk tools have `needsApproval: true`
+
+**Why AI SDK v6 native HITL is the right approach:**
+- Already installed (`ai` ^6.0.49)
+- `needsApproval` pauses the tool loop agent automatically -- no custom state machine
+- Frontend gets `approval-requested` tool part state natively
+- Denial message forwarded to model so it can respond appropriately
+- Memory reference confirms this pattern: `memory/reference_ai_sdk_hitl.md`
+
+**What NOT to do:**
+- Do NOT build custom approval queue/polling (AI SDK handles this in-stream)
+- Do NOT add WebSocket channels for approval (SSE stream already carries tool states)
+- Do NOT add a separate approval database table (approval state lives in message stream)
+
+**Confidence:** HIGH -- AI SDK v6 docs explicit, memory reference confirms pattern, existing code partially implements.
+
+---
+
+### 4. Graph RAG Pipeline
+
+**What exists:**
+- Hybrid search: pgvector HNSW + tsvector FTS with RRF (k=60) in SQL functions
+- `HybridSearchService` with `hybrid_email_search` SQL function
+- `RerankingService` already created (heuristic reranking pass)
+- 31 tools registered via `ToolRegistryModule` with domain/risk metadata
+- `AIMemory` Prisma model for memory storage
+- Full 8-step plan in `rosy-imagining-starlight.md`
+
+**What to build (no new packages):**
+
+All 8 Graph RAG steps use only PostgreSQL + Prisma + existing NestJS patterns:
+
+| Step | New Service | Dependencies Used |
+|------|------------|-------------------|
+| 1. Query Router | `QueryRouterService` | Pure TypeScript (regex + keyword scoring) |
+| 2. Reranking | `RerankingService` (exists) | Heuristic scoring on RRF results |
+| 3. Graph Expansion | `GraphExpansionService` | 3 parallel SQL queries via Prisma |
+| 4. Context Assembly | `ContextAssemblerService` | `tokenlens` (installed) for token counting |
+| 5. Entity Graph | `EntityGraphService` + migration | New `entity_graph` Prisma model, BullMQ nightly job |
+| 6. Memory Anchoring | Migration + tool update | Add `emailId`/`contactId` FKs to `AIMemory` |
+| 7. Tool Consolidation | Modify `rag-tools.service.ts` | Merge search tools, no new deps |
+| 8. Few-Shot Examples | Modify `system-prompt.ts` | ~40 lines of prompt text |
+
+**Why no graph database (Neo4j, etc.):**
+- The entity graph is a simple adjacency list (source, target, edge_type, weight)
+- PostgreSQL handles this with indexed FK lookups in <20ms
+- Data volume is modest (10K-100K emails per tenant, not billions of nodes)
+- Adding Neo4j would mean: new infra, new connection management, new deployment config, data sync
+- The plan explicitly states "All PostgreSQL -- no new dependencies"
+
+**Why not mem0:**
+- mem0 is a standalone graph memory service designed for single-agent scenarios
+- PMSync is multi-tenant with existing Prisma-managed memory table
+- Adopting mem0 would require: separate process, separate database, migration of AIMemory data
+- The memory anchoring approach (Step 6) achieves the same entity-linked recall within Prisma
+
+**Confidence:** HIGH -- plan fully specified, all infrastructure exists, pure PostgreSQL approach validated.
+
+---
+
+## Alternatives Considered and Rejected
+
+| Category | Considered | Why Rejected |
+|----------|-----------|--------------|
+| Push dispatch | Firebase Cloud Messaging (FCM) | web-push already installed; FCM adds Google dependency and complexity for a feature that only needs Web Push Protocol |
+| Push dispatch | OneSignal / Pushover | Third-party SaaS dependency; web-push is self-hosted and sufficient |
+| Rate limiting | `express-rate-limit` | Already have `@nestjs/throttler` with Redis storage; adding another would create two competing systems |
+| Rate limiting | Cloudflare Rate Limiting | App-level user-based tracking needed; Cloudflare only sees IP |
+| HITL | Custom approval queue + WebSocket | AI SDK v6 `needsApproval` handles this natively in the streaming protocol |
+| HITL | Separate approval database table | Approval state is transient (per-stream), not persistent; DB table is overengineering |
+| Graph RAG | Neo4j / ArangoDB | Overkill for adjacency-list entity graph; adds deployment complexity for modest data volume |
+| Graph RAG | LangChain / LlamaIndex | Python ecosystem; project is TypeScript-only; AI SDK v6 covers all needs |
+| Graph RAG | mem0 | Separate process; multi-tenant mismatch; Prisma-native anchoring is simpler |
+| Reranking | Cohere Rerank API | External API call adds latency and cost; heuristic reranking is sufficient for email domain |
+
+## Schema Changes Required (Prisma, no new packages)
+
+```prisma
+// New model for Step 5: Entity Graph
+model EntityGraph {
+  id           String   @id @default(cuid())
+  tenantId     String
+  sourceType   String   // 'email' | 'contact' | 'calendar_event'
+  sourceId     String
+  targetType   String
+  targetId     String
+  edgeType     String   // 'email_sender' | 'co_thread' | 'co_attendee' | etc.
+  weight       Float    @default(1.0)
+  lastSeenAt   DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, sourceType, sourceId, targetType, targetId, edgeType])
+  @@index([tenantId, sourceType, sourceId])
+  @@index([tenantId, targetType, targetId])
+}
+
+// Modified model for Step 6: Memory Anchoring
+model AIMemory {
+  // ... existing fields ...
+  emailId    String?  // FK to Email (nullable)
+  contactId  String?  // FK to Contact (nullable)
+
+  @@index([tenantId, emailId])
+  @@index([tenantId, contactId])
+}
+```
+
+## Environment Variables (New)
+
+```bash
+# Push notifications (backend dispatch)
+VAPID_PRIVATE_KEY=       # Base64-encoded ECDSA private key
+VAPID_SUBJECT=mailto:admin@pmsync.local  # Contact URI for push service
+# VAPID_PUBLIC_KEY already exists in frontend config
+```
 
 ## What NOT to Add
 
-| Anti-Recommendation | Why Not |
-|---------------------|---------|
-| `next-pwa` (shadowwalker) | Abandoned. Last meaningful update 2022. Does not support Next.js 14+, let alone 16. |
-| `@ducanh2912/next-pwa` | Fork that maintained next-pwa for a while, but Serwist has surpassed it in ecosystem adoption and is the officially-referenced solution in Next.js docs. |
-| `next-pwa-pack` | Too new, too little community adoption. Unnecessary abstraction over what Serwist already handles cleanly. |
-| `workbox-*` (direct) | Serwist wraps Workbox. Using Workbox directly means manual webpack plugin config, no Next.js-aware precaching, and duplicating what @serwist/next provides out of the box. |
-| `dexie` or `idb` (full) | Overkill. PMSync is not building an offline-first database. We need to cache a read-only snapshot of inbox data and email bodies. Key-value storage is sufficient. |
-| `localforage` | Legacy choice. Larger bundle, polyfills no longer needed (IndexedDB support is universal). idb-keyval is smaller and more modern. |
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| SW integration | @serwist/next | Manual Workbox | Serwist handles Next.js build output precaching, App Router route matching, and SW lifecycle. Manual Workbox requires recreating all of this. |
-| SW integration | @serwist/next | No SW library (raw SW) | Next.js official guide shows raw `public/sw.js` for push only. But offline caching with precache manifests, runtime caching strategies, and cache versioning is too much boilerplate to hand-roll. |
-| Offline storage | idb-keyval | idb (full) | idb gives full IndexedDB API access (cursors, indexes, ranges). We don't need that — just get/set for cached email data. |
-| Offline storage | idb-keyval | Cache API only | Cache API is great for HTTP responses but awkward for storing processed/transformed data (parsed email objects). idb-keyval stores arbitrary JS objects. |
-| Push notifications | web-push (CLI) | vapidkeys.com | Web tool works but `web-push generate-vapid-keys` is reproducible, scriptable, and doesn't send keys through a third-party website. |
-
-## Integration Points with Existing Stack
-
-### TanStack Query + Offline Caching
-TanStack Query already has `gcTime: 30min` and `staleTime: 5min`. For offline reading:
-- Service worker caches API responses (runtime caching with NetworkFirst strategy)
-- TanStack Query reads from its in-memory cache first (instant)
-- If memory cache is empty + offline, SW intercepts fetch and returns cached response
-- `idb-keyval` stores inbox snapshot for cold-start offline (SW populates Cache API, TanStack Query hydrates from cached responses)
-
-### Zustand + Offline State
-- Add a `pwa` slice to Zustand store: `isOnline`, `isInstalled`, `isStandalone`, `pendingActions[]`
-- Background sync queue stored in `idb-keyval`, Zustand holds in-memory mirror
-- On reconnect, flush pending actions queue via Background Sync API (or manual retry fallback)
-
-### MUI + Install Prompt
-- Install prompt banner as MUI `Snackbar` or `Alert` component
-- iOS instructions as MUI `Dialog` with step-by-step
-- Push notification toggle in Settings page using MUI `Switch`
-
-### Vercel Deployment Constraints
-- Service worker file (`/sw.js`) must be in `public/` output — Serwist handles this via `swDest: "public/sw.js"`
-- SW headers: Vercel serves static files from `public/` with correct Content-Type. Add `Cache-Control: no-cache, no-store, must-revalidate` for `sw.js` via `next.config.js` headers or `vercel.json`
-- Manifest served from `app/manifest.ts` — Next.js handles Content-Type automatically
-- HTTPS guaranteed on Vercel (required for SW registration)
-- No server-side SW registration needed — all client-side
-
-### Build Configuration Impact
-- `next.config.js` wraps existing config with `withSerwist()` from `@serwist/next`
-- Build uses webpack (Serwist requirement). Since current config already uses webpack (no `--turbopack` in build script), no change needed for `npm run build`.
-- Dev mode: `@serwist/turbopack` allows keeping `next dev --turbopack` (if used). If PMSync uses `next dev` without turbopack flag, no issue — webpack is the default fallback.
-- Current `next.config.js` uses `withBundleAnalyzer` wrapper. Serwist wraps around it: `withSerwist(withBundleAnalyzer(nextConfig))`
+| Package | Why Not |
+|---------|---------|
+| `firebase-admin` | web-push covers Web Push Protocol without Google lock-in |
+| `@langchain/*` | Python-centric ecosystem; AI SDK v6 is the TypeScript standard |
+| `neo4j-driver` | PostgreSQL adjacency list sufficient for email-scale graph |
+| `mem0` | Multi-tenant incompatible; Prisma-native anchoring simpler |
+| `express-rate-limit` | Conflicts with existing @nestjs/throttler |
+| `@cohere-ai/cohere` | External reranking API unnecessary; heuristic reranking sufficient |
+| `graphql` | REST API pattern established; no benefit for these features |
+| Any embedding model package | pgvector + Mistral embeddings already working |
 
 ## Installation
 
 ```bash
-# Runtime dependencies
-npm install @serwist/next idb-keyval
-
-# Dev dependencies
-npm install -D serwist @serwist/turbopack
-
-# One-time VAPID key generation (global install, run once)
-npx web-push generate-vapid-keys
+# Nothing to install. All packages already present.
+# Verify with:
+cd backend && node -e "require('web-push'); console.log('web-push OK')"
 ```
-
-## Configuration Files Needed
-
-| File | Purpose |
-|------|---------|
-| `app/manifest.ts` | Web app manifest (Next.js convention) |
-| `app/sw.ts` | Service worker source (Serwist compiles to `public/sw.js`) |
-| `next.config.js` | Add `withSerwist()` wrapper |
-| `tsconfig.json` | Add `"@serwist/next/typings"` and `"webworker"` lib |
-| `.gitignore` | Add `public/sw*` and `public/swe-worker*` |
-| `.env` | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
 
 ## Sources
 
-- [Next.js Official PWA Guide](https://nextjs.org/docs/app/guides/progressive-web-apps) — HIGH confidence, official docs (v16.2.1, updated 2026-02-11)
-- [Serwist Getting Started](https://serwist.pages.dev/docs/next/getting-started) — HIGH confidence, official docs
-- [@serwist/next on npm](https://www.npmjs.com/package/@serwist/next) — v9.5.4, published 2026-03-22
-- [serwist on npm](https://www.npmjs.com/package/serwist) — v9.5.7, published 2026-03-19
-- [@serwist/turbopack on npm](https://www.npmjs.com/package/@serwist/turbopack) — v9.5.6
-- [idb-keyval on GitHub](https://github.com/jakearchibald/idb-keyval) — ~600 bytes, promise-based IndexedDB
-- [web-push on npm](https://www.npmjs.com/package/web-push) — VAPID key generation
-- [Workbox Background Sync](https://developer.chrome.com/docs/workbox/retrying-requests-when-back-online/) — Queue + retry pattern for offline actions
-- [MDN Background Sync API](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation) — Browser support ~70%, fallback needed for Safari
+- [@nestjs/throttler npm](https://www.npmjs.com/package/@nestjs/throttler) -- v6.5.0 named throttlers, per-route `@Throttle()` (HIGH confidence)
+- [AI SDK v6 Tool Execution Approval](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling) -- `needsApproval` property (HIGH confidence)
+- [AI SDK HITL Cookbook](https://ai-sdk.dev/cookbook/next/human-in-the-loop) -- Frontend approval flow (HIGH confidence)
+- [web-push npm](https://www.npmjs.com/package/web-push) -- v3.6.7 sendNotification API (HIGH confidence)
+- [web-push GitHub](https://github.com/web-push-libs/web-push) -- VAPID configuration, payload encryption (HIGH confidence)
+- Graph RAG plan: `C:\Users\Davide\.claude\plans\rosy-imagining-starlight.md` -- Full 8-step implementation (HIGH confidence, project-internal)
+- Existing codebase analysis (HIGH confidence, verified by reading source files)

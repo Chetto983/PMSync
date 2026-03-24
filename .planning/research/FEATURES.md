@@ -1,143 +1,190 @@
-# Feature Landscape: PWA
+# Feature Landscape: v9.0 AI Intelligence & Platform Hardening
 
-**Domain:** PWA capabilities for an existing AI email client (PMSync)
-**Researched:** 2026-03-23
-**Confidence:** HIGH
+**Domain:** Push dispatch, tiered rate limiting, explicit HITL approval, Graph RAG for AI email client
+**Researched:** 2026-03-24
+**Confidence:** HIGH (all features verified against existing codebase)
 
 ## Scope Note
 
-This document covers only PWA-specific features for v8.0. The following are already shipped and NOT re-listed:
+This document covers only v9.0 features. The following are already shipped and NOT re-listed:
 - Full email client (VList, TipTap, kanban, keyboard nav, search, dark mode)
-- AI chat with streaming, 20 tools, HITL approval, tool renderers
-- Calendar, contacts, CRM, admin panel, settings
-- All pages polished with loading/error/empty states
-- Lighthouse CI with LCP/TTI/CLS budgets
-- httpOnly cookie auth, AES-256-GCM encryption, tenant isolation
-
-**Milestone scope boundary:** Frontend only. No backend push triggers (BullMQ -> web-push) in v8.0.
+- AI chat with streaming, 31 tools, PII tokenization, circuit breaker
+- PWA: installable, offline email reading, background sync, SW push handlers
+- Push subscription UI toggle in settings, PushSubscription model in DB
+- Flat rate limiting: 300/min read, 30/min write (ThrottlerModule), 30/60s AI chat (RedisRateLimiter)
+- `needsApproval: true` on 6 HIGH-risk tools (send/delete/forward/reply email, delete contact, delete calendar)
+- AI SDK v6 HITL: backend pauses tool execution, frontend re-submits via `convertToModelMessages`
+- Graph RAG Steps 1-3 complete: QueryRouterService, RerankingService, GraphExpansionService
+- `graph_context_search` tool with thread/contact/calendar expansion
 
 ---
 
-## Table Stakes (Users Expect These)
+## Table Stakes
 
-Features users assume exist once an app claims to be installable.
+Features that MUST work. Missing = broken promises or user frustration.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Web App Manifest with full icon set | Required for installability. Chrome/Edge/Safari all require a valid manifest. | LOW | Next.js 16 has built-in `app/manifest.ts`. Need 192x192, 512x512 minimum. Use `display: standalone`, PMSync teal as `theme_color`. |
-| Service worker registration | Required for installability on all platforms. Browser needs registered SW. | LOW | Serwist handles compilation of `app/sw.ts` -> `public/sw.js`. Registration via Serwist's client-side helper or manual `navigator.serviceWorker.register()`. |
-| Offline fallback page | When user opens app offline and navigates to uncached route, they see branded PMSync page, not Chrome's dinosaur. | LOW | Serwist precaches `/~offline` page. SW serves it as fallback for failed navigation requests. |
-| App shell caching (static assets) | JS/CSS/fonts must load from cache so app opens instantly. | MEDIUM | Serwist's `defaultCache` handles Next.js static assets with StaleWhileRevalidate. Precache manifest auto-generated at build time. |
-| Install prompt UX | Users need to know they CAN install. Chrome shows mini-infobar but easy to miss. iOS has zero native prompt. | MEDIUM | `beforeinstallprompt` on Android/desktop Chrome/Edge. Manual instructions for iOS Safari (share > Add to Home Screen). MUI Snackbar banner. |
-| Standalone display theming | Installed app title bar, status bar, splash screen must match PMSync branding. | LOW | `theme_color` and `background_color` in manifest. PMSync already has `viewport-fit=cover` and safe area tokens (v2.1). |
+### 1. Push Notification Backend Dispatch
 
-## Differentiators (Competitive Advantage)
+| Feature | Why Expected | Complexity | Dependencies |
+|---------|--------------|------------|--------------|
+| New email push notification | Users toggled push ON in v8.0 settings. Nothing fires. The toggle is a lie. Trust-destroying. | Medium | PushSubscription model (exists), web-push 3.6.7 (installed, unused), SW push/notificationclick handlers (exist) |
+| Event-driven dispatch service | PushService only has subscribe/unsubscribe. No `sendNotification()` method. Need: event trigger -> lookup user subscriptions -> web-push.sendNotification() per device. | Medium | EventEmitter2 (exists), new PushDispatchService, VAPID keys from env |
+| Per-user notification preferences | Without preferences, push is all-or-nothing. Users need category controls (new email, calendar reminder, AI completion). Minimum: on/off per category. | Low | Extend UserPreferences or new PushPreference columns |
+| Stale subscription cleanup | Browsers silently revoke push endpoints. Sending to dead endpoints returns 410 Gone. Must delete subscription on 410/404 from web-push. | Low | Error callback in web-push.sendNotification(), PushService.unsubscribe() |
+| Multi-device delivery | Users subscribe from phone + laptop. Each device must receive notification. | Low | Already handled -- PushSubscription keyed by `tenantId_endpoint`, not userId uniquely. Multiple rows per user = multiple devices. |
 
-Features that elevate PMSync from "installable website" to "feels like a native email app."
+### 2. Tiered Rate Limiting
+
+| Feature | Why Expected | Complexity | Dependencies |
+|---------|--------------|------------|--------------|
+| Per-category write limits | Flat 30/min write tier causes false 429s during normal workflows. Archiving 10 emails = 10 writes. Chat + email actions compete for same budget. Users get blocked doing expected things. v7.0 explicitly flagged this for revisit. | Low | ThrottlerModule already supports named throttlers. Add `@Throttle()` per controller/route. |
+| Burst-friendly limits for safe writes | Archive, star, mark-read are safe, reversible. 30/min is hostile to power users doing email triage. These need higher limits (e.g., 100/min) than send/delete (30/min). | Low | Named throttle tiers: `read` (300/min), `write-safe` (100/min), `write-destructive` (30/min) |
+| Rate limit response headers | Frontend needs `X-RateLimit-Remaining` / `X-RateLimit-Reset` to show proactive warnings before hitting 429. Prevents surprise errors. | Low | UserThrottlerGuard header injection, already standard NestJS pattern |
+
+### 3. Explicit HITL Approval UX
+
+| Feature | Why Expected | Complexity | Dependencies |
+|---------|--------------|------------|--------------|
+| Approval/rejection buttons on destructive tool calls | Backend already pauses (needsApproval: true, AI SDK enters `approval-requested` state). Frontend renders nothing special -- all tool calls look the same through FallbackToolRenderer. Users cannot distinguish "read email" from "delete email". | Medium | AI SDK `part.state === 'approval-requested'`, `addToolApprovalResponse()`, tool renderer component |
+| Visual distinction for destructive tools | Tool calls with HIGH risk must look dangerous (red/warning styling, shield icon). Currently all tools render identically. | Low | Existing smart tool renderer registry, add approval-state variant |
+| Approval resubmit flow | After user clicks approve/reject, frontend must call `addToolApprovalResponse()` which re-submits the message chain. Backend already handles this via `isApprovalResubmit` path in `prepareChatAgent`. | Medium | `sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses` (AI SDK pattern) |
+| Approval audit logging | Who approved what destructive action and when. GDPR-relevant accountability trail. | Low | AuditService.logAudit() already exists. Fire on approval/rejection. |
+
+### 4. Graph RAG Steps 4-8 (Continuing Existing Roadmap)
+
+Steps 1-3 are complete and working. These are the remaining planned steps.
+
+| Feature | Why Expected | Complexity | Dependencies |
+|---------|--------------|------------|--------------|
+| Memory-entity anchoring (Step 6) | AIMemory records float free. "Marco prefers PDF invoices" has no link to Marco's contact ID. "What do I know about Marco?" requires semantic search instead of direct lookup. | Medium | AIMemory schema extension (add emailId?, contactId?), save_memory tool update, system prompt instruction |
+| Context assembly (Step 4) | graph_context_search returns raw results. Dumping 10 email snippets into LLM context wastes tokens. Structured summary ("3 contacts at Acme, 12 emails in 2 threads") = same signal in 40-60% fewer tokens. | Medium | GraphExpansionService (exists), new ContextAssemblerService |
+| Few-shot tool chain examples (Step 8) | Model sometimes picks wrong tool sequences for multi-hop queries. 3-5 concrete examples in system prompt fix this. ~40 lines, ~250 extra tokens. | Low | System prompt modification only |
+
+## Differentiators
+
+Features that elevate the product. Not expected, but valued when present.
+
+### Push Notifications (Beyond Table Stakes)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Offline email reading (cached inbox) | Users can read recently synced emails without network. Outlook PWA and Gmail offline both offer this. | HIGH | SW intercepts `/api/v1/emails` GET requests, caches with NetworkFirst (5s timeout). Email bodies cached with CacheFirst on read. idb-keyval for structured offline data. Must handle pagination (cache first N pages), skip attachments (too large). |
-| Push notification frontend plumbing | Users can opt in to email notifications. Having VAPID subscription + SW push handler ready means it works when backend ships. | MEDIUM | VAPID key generation, `PushManager.subscribe()`, subscription sent to backend API. SW `push` event handler with `showNotification`. iOS requires installed PWA (iOS 16.4+). Settings page toggle. |
-| Background sync for queued offline actions | Mark read, archive, star while offline. Actions queue and replay on reconnect. Makes app feel trustworthy. | HIGH | BackgroundSync API works in Chromium only (~70%). Fallback: store in idb-keyval, replay on `online` event. Must handle idempotent operations only. Integrates with existing Zustand optimistic update patterns. |
-| SW update notification | "New version available" snackbar on deploy. User clicks to refresh. | LOW | SW `updatefound` event + MUI Snackbar. Prevents stale-app confusion. Professional touch. |
-| Online/offline indicator | Subtle bar showing "Offline - changes will sync when reconnected." | LOW | `navigator.onLine` + events. MUI Alert at top of layout. Zustand `isOnline` state. |
+| AI triage batch notifications | "3 urgent emails need attention" instead of 5 separate alerts. Superhuman-grade intelligent batching. | High | Requires debounce window (e.g., 60s), email triage service (exists), summary generation |
+| Thread-grouped notifications | Multiple emails in same thread = single notification with count, not N separate alerts | Medium | web-push `tag` field for collapsing, thread ID from email model |
+| Deep link to email thread | Click notification -> opens exact email thread in app, not just inbox | Low | SW notificationclick handler exists, needs thread/email ID in push payload |
+| Follow-up reminder push | "Reminder: You haven't replied to Marco's email from Tuesday" | Medium | ReminderModule exists, needs push dispatch integration |
 
-## Anti-Features (Do NOT Build)
+### Rate Limiting (Beyond Table Stakes)
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Full offline compose-and-send | "Write emails offline" | Requires SMTP queue, attachment handling, draft conflict resolution. Outlook PWA does NOT reliably support this. PROJECT.md lists full offline-first as out of scope. | Show "offline" badge on compose. Queue simple idempotent actions only. |
-| Cache all attachments offline | "Need attachments when traveling" | 100 emails with attachments = 2.5GB cache. Quota limits exist (~60% of disk on Chrome). | Cache text bodies only. Show "attachment available online" placeholder. |
-| Periodic background sync | "Keep inbox updated when closed" | Chrome-only, requires engagement heuristic, minimum interval browser-decided (12+ hours). Unreliable. | Push notifications (future milestone) for alerts. TanStack Query refetches on app open via staleTime. |
-| Full route precaching | "Instant navigation everywhere" | PMSync has 12+ pages. Precaching all wastes bandwidth. Most users live in inbox. | Precache app shell only. Runtime-cache pages on first visit. |
-| Serwist bypass for manual SW | "Simpler without a library" | Manual SW for offline caching requires hand-rolling precache manifests, cache versioning, route matching, update lifecycle. Serwist provides all of this for Next.js. | Use Serwist. Next.js official docs recommend it for offline. |
-| Badge API unread count | "Show unread on home screen icon" | `navigator.setAppBadge()` works Chrome/Edge/Android only. NOT iOS. Needs backend push or periodic sync to keep current while closed. | Document title `(5) PMSync - Inbox` works everywhere. Progressive enhancement only. |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Progressive rate limiting | First hit = 429 with retry-after. Sustained abuse = exponentially longer cooldowns. Better than cliff-edge blocking. | Medium | Sliding window with escalation in Redis |
+| Cost-aware AI throttling | AI calls have real $ cost. Separate monthly token budget prevents accidental cost spikes. | Medium | AiRunLedger (exists) has cost data; add threshold check |
+
+### HITL Approval (Beyond Table Stakes)
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Approval with parameter modification | User sees "Send email to john@acme.com" and edits recipient before approving. Fix-in-place instead of reject-and-retype. | High | Custom editable tool args UI, re-injection into agent pipeline |
+| Batch approval for multi-step plans | AI proposes "archive 5 emails" -- user approves all at once instead of 5 clicks | Medium | Grouped approval UI, multi-approval batching |
+| Auto-reject timeout | Pending approvals auto-reject after N minutes if user walks away. Prevents stuck agent loops. | Low | Frontend timer, state cleanup, no backend changes |
+
+### Graph RAG (Beyond Table Stakes, Steps 5 and 7)
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Materialized entity graph (Step 5) | Pre-computed relationship edges drop graph expansion latency from ~200ms JSONB queries to ~20ms index lookups. entity_graph table with edge types: email_sender, email_recipient, co_thread, co_attendee. | High | New Prisma model, nightly BullMQ rebuild, incremental updates on email sync events |
+| Tool consolidation (Step 7) | Merge search_emails + semantic_search into unified `search` tool with `mode: keyword/semantic/auto`. Reduces model confusion across 31 tools. Keep old names as aliases for 1 release. | Medium | QueryRouterService (exists) routes auto mode. Alias period for backward compat. |
+
+## Anti-Features
+
+Features to explicitly NOT build.
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Push for every single email | Notification fatigue. Users disable push entirely. Defeats the purpose. | Default to "important/urgent only" or batch via AI triage. Per-category preferences. |
+| Per-endpoint rate limit config UI | Over-engineering. No evidence admins need to tune individual endpoints. | Hardcoded tiers (read/write-safe/write-destructive/ai) with sensible defaults. Env var overrides at most. |
+| Drag-and-drop HITL approval workflow builder | Enterprise ABAC territory. Out of scope per PROJECT.md constraints. | Simple boolean `requiresApproval` on tool registry. Conditional rules are a much later phase. |
+| Cross-model reranker (Cohere/BGE rerank API) | Extra latency (~200ms), cost, and external dependency. Heuristic reranking (Step 2, already built) is sufficient for current data volumes. | Keep RerankingService with recency/thread/priority/keyword heuristics. Revisit only if result quality measurably degrades. |
+| Neo4j or separate graph database | New operational dependency. PostgreSQL handles the traversal patterns via joins on entity_graph table. | Materialized entity_graph in PostgreSQL (Step 5). |
+| Universal mega-search tool | Merging ALL search tools (contacts, calendar, emails, semantic) into one confuses the model with too many optional parameters. | Consolidate only search_emails + semantic_search (Step 7). Keep domain-specific contact/calendar search separate. |
+| Real-time entity graph (event-sourced) | Complex event choreography for marginal freshness gain. | Nightly full rebuild + incremental edge upsert on email sync. |
 
 ## Feature Dependencies
 
 ```
-Web App Manifest
-    |
-    +---> Install Prompt UX (requires valid manifest for beforeinstallprompt)
-    |
-    +---> Standalone Display Theming (manifest theme_color/background_color)
+Push Notification Dispatch
+  PushSubscription model (EXISTS) --> PushDispatchService.sendNotification() (NEW)
+  EventEmitter2 domain events (EXISTS) --> email.received trigger --> push dispatch (NEW)
+  NotificationSettings toggle (EXISTS) --> per-user category preferences (NEW)
+  web-push 3.6.7 (INSTALLED) --> VAPID env config (NEW)
 
-Service Worker Registration (Serwist)
-    |
-    +---> Offline Fallback Page (SW intercepts failed navigations)
-    |
-    +---> App Shell Caching (SW caches static assets via precache manifest)
-    |         |
-    |         +---> Offline Email Reading (extends SW with API response caching)
-    |
-    +---> Push Notification Subscription (SW handles push events)
-    |
-    +---> Background Sync (SW handles sync events)
-              |
-              +---> Queued Actions Replay (idb-keyval queue + sync/online handler)
+Tiered Rate Limiting
+  ThrottlerModule named throttlers (EXISTS: 'short' + 'write') --> @Throttle() per controller (NEW)
+  UserThrottlerGuard (EXISTS) --> rate limit response headers (NEW)
+  RedisThrottlerStorage (EXISTS) --> no changes needed
 
-Online/Offline Detection (browser API)
-    |
-    +---> Offline Indicator UI
-    |
-    +---> Background Sync trigger (online event -> flush queue)
+HITL Explicit Approval
+  needsApproval: true on 6 tools (EXISTS) --> frontend approval-requested rendering (NEW)
+  convertToModelMessages HITL path (EXISTS) --> approval resubmit UX (NEW)
+  Tool registry governance metadata (EXISTS) --> approval audit logging (NEW)
+  Smart tool renderers (EXISTS, 10 custom) --> approval-state variant renderer (NEW)
+
+Graph RAG Continuation
+  QueryRouterService (EXISTS, Step 1) --> Tool consolidation auto mode (Step 7)
+  RerankingService (EXISTS, Step 2) --> Better seed quality (passive)
+  GraphExpansionService (EXISTS, Step 3) --> ContextAssemblerService (Step 4)
+  GraphExpansionService (EXISTS, Step 3) --> EntityGraphService + migration (Step 5)
+  AIMemory model (EXISTS) --> add emailId/contactId columns (Step 6, independent)
+  Steps 1+3 --> Tool consolidation unified search (Step 7)
+  Step 7 --> Few-shot examples in system prompt (Step 8)
 ```
 
-## MVP Definition
+## MVP Recommendation
 
-### Launch With (v8.0)
+### Priority 1 (Fix broken promises)
 
-- [ ] Web App Manifest (`app/manifest.ts`) with 192/512/maskable icons -- LOW effort
-- [ ] Service Worker via Serwist with app shell caching + offline fallback -- MEDIUM effort
-- [ ] Install prompt UX (beforeinstallprompt + iOS instructions) -- MEDIUM effort
-- [ ] Offline email reading (NetworkFirst inbox, CacheFirst bodies) -- HIGH effort, core value
-- [ ] Push notification frontend plumbing (VAPID, subscription UI, SW handler) -- MEDIUM effort
-- [ ] Background sync for queued offline mutations -- HIGH effort
+1. **Push notification backend dispatch** -- Toggle exists, nothing fires. Trust-destroying broken promise.
+   - PushDispatchService with web-push.sendNotification()
+   - Email received event trigger
+   - 410/404 subscription cleanup
+   - Per-user category preferences (minimum: on/off per category)
 
-### Defer (v8.x+)
+2. **Tiered rate limiting** -- Users hit 429 during normal workflows. Quick config fix.
+   - Named throttle tiers: `read` (300/min, existing), `write-safe` (100/min), `write-destructive` (30/min, existing), `ai-chat` (30/min, existing separate)
+   - `@Throttle()` decorators on controllers
+   - Rate limit headers in response
 
-- [ ] TanStack Query `persistQueryClient` bridge to IndexedDB -- add when cold start latency is measurable problem
-- [ ] Notification action buttons (Reply, Archive) -- add when backend push triggers ship
-- [ ] Badge API unread count -- progressive enhancement, low priority
-- [ ] Explicit "pin for offline" per-email -- future based on usage data
+### Priority 2 (Complete existing plumbing)
 
-## Feature Prioritization Matrix
+3. **Explicit HITL approval UX** -- Backend pauses, frontend shows nothing.
+   - Approval/rejection buttons for `part.state === 'approval-requested'`
+   - Visual distinction (red/warning for destructive tools)
+   - `addToolApprovalResponse()` integration
+   - Audit logging on approve/reject
 
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Web App Manifest | HIGH | LOW | P1 |
-| Service Worker + app shell cache | HIGH | MEDIUM | P1 |
-| Offline fallback page | MEDIUM | LOW | P1 |
-| Install prompt UX | HIGH | MEDIUM | P1 |
-| Offline email reading | HIGH | HIGH | P1 |
-| Push notification frontend | HIGH | MEDIUM | P1 |
-| Background sync queued actions | MEDIUM | HIGH | P1 |
-| SW update notification | MEDIUM | LOW | P1 |
-| Online/offline indicator | MEDIUM | LOW | P1 |
-| TanStack Query persistence | MEDIUM | HIGH | P2 |
-| Notification action buttons | LOW | MEDIUM | P3 |
-| Badge API unread count | LOW | LOW | P3 |
+### Priority 3 (Intelligence improvements)
 
-## Existing Feature Integration Points
+4. **Graph RAG Steps 6, 4, 8** -- Extend existing working pipeline.
+   - Step 6: Memory-entity anchoring (standalone, no dependencies)
+   - Step 4: Context assembly (depends on Step 3, token efficiency)
+   - Step 8: Few-shot examples (lowest effort, highest signal-to-code ratio)
 
-| Existing Feature | PWA Integration | Notes |
-|------------------|-----------------|-------|
-| TanStack Query (`staleTime: 5min`, `gcTime: 30min`) | SW caching mirrors TQ strategy. NetworkFirst in SW matches TQ behavior. | TQ handles refetch-on-focus. SW adds disk persistence. |
-| Zustand email-ui-store (optimistic updates) | Background sync integrates with existing optimistic patterns. Offline: Zustand updates UI; action queues to idb-keyval for SW replay. | Extend existing patterns, don't replace them. |
-| VList virtualization | Offline cached inbox must work with VList. Cache enough metadata for 100-200 items. | VList renders from TQ cache; if SW serves cached API response, VList works unchanged. |
-| Dark mode + MUI theming | Manifest `theme_color` must work in both light and dark mode. | PMSync teal `hsl(189, 70%, 50%)` is theme-neutral. |
-| httpOnly cookie auth | SW fetch requests automatically include cookies (same-origin). Cross-origin API needs CORS to allow credentials. | Session expiry while offline = redirect to login on reconnect. |
-| Lighthouse CI | Add PWA audit category to existing pipeline. | Already have LCP/TTI/CLS budgets. Add installability + offline checks. |
+### Defer to v9.x+
+
+- **Step 5 (Entity graph materialization)**: Performance optimization for graph expansion. Current ~200ms JSONB is acceptable. Build when query volume justifies it.
+- **Step 7 (Tool consolidation)**: Reduces model confusion but requires alias period. Ship after Steps 4/6/8 prove the pipeline.
+- AI triage batch notifications: Additional AI pipeline work. Ship basic per-email push first.
+- Approval with parameter modification: Complex UI. Simple approve/reject is sufficient.
+- Progressive rate limiting: Standard 429 + retry-after covers requirements.
 
 ## Sources
 
-- [Next.js PWA Guide (official, v16)](https://nextjs.org/docs/app/guides/progressive-web-apps) -- HIGH confidence
-- [MDN: Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) -- HIGH confidence
-- [MDN: Offline and background operation](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation) -- HIGH confidence
-- [Serwist Next.js docs](https://serwist.pages.dev/docs/next/getting-started) -- HIGH confidence
-- [Workbox Background Sync](https://developer.chrome.com/docs/workbox/retrying-requests-when-back-online/) -- HIGH confidence
+- Codebase analysis: PushService, PushController, ThrottlerModule config, UserThrottlerGuard, tool-registry.interface.ts, EmailToolsService (needsApproval), AiChatService (HITL resubmit path), HybridSearchService, RerankingService, GraphExpansionService, QueryRouterService, RagToolsService
+- AI SDK v6 HITL cookbook: https://ai-sdk.dev/cookbook/next/human-in-the-loop (HIGH confidence, verified via memory reference)
+- Graph RAG 8-step plan: `C:\Users\Davide\.claude\plans\rosy-imagining-starlight.md` (HIGH confidence, Steps 1-3 verified in codebase)
+- web-push npm: v3.6.7 installed in backend/package.json but unused (no sendNotification calls in codebase)
+- NestJS ThrottlerModule: named throttlers supported, @Throttle() per-route decoration (HIGH confidence, verified in app.module.ts config)
 
 ---
-*Feature research for: PWA capabilities in AI email client*
-*Researched: 2026-03-23*
+*Feature research for: v9.0 AI Intelligence & Platform Hardening*
+*Researched: 2026-03-24*

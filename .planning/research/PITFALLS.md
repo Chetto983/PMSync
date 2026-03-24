@@ -1,386 +1,266 @@
 # Domain Pitfalls
 
-**Domain:** Adding PWA (service worker, offline cache, push notifications, install prompt) to an existing Next.js 16 App Router email client on Vercel
-**Researched:** 2026-03-23
-**System context:** PMSync v8.0 -- Next.js 16 on Vercel, httpOnly cookie auth (better-auth), TanStack Query (staleTime 5min/gcTime 30min), SSE streaming for AI chat, MUI with dark mode, no Next.js middleware file (auth via layout guards)
+**Domain:** Adding push dispatch, tiered rate limiting, HITL approval routing, and Graph RAG to existing NestJS AI email client
+**Researched:** 2026-03-24
 
 ## Critical Pitfalls
 
-Mistakes that cause broken auth, stale data loops, or deployment failures.
+Mistakes that cause rewrites, data loss, or security vulnerabilities.
 
-### Pitfall 1: Service Worker Fetch Interception Strips Cookie Credentials
+### Pitfall 1: Stale Push Subscriptions Silently Dropping Notifications
 
-**What goes wrong:** Service worker `fetch` events intercept all same-origin requests by default. When the service worker responds from cache or re-fetches, it may not include `credentials: 'include'` on the re-issued request. httpOnly cookies are silently dropped, and the backend returns 401. The app appears "logged out" despite having a valid session.
+**What goes wrong:** Backend sends push notifications via `web-push` to endpoints stored in `PushSubscription`, but browser endpoints go stale when users clear browser data, uninstall the PWA, or when the push service rotates the endpoint URL. The `sendNotification()` call returns a 410 Gone or 404, but if you catch-and-swallow these errors, you accumulate dead subscriptions and users silently stop receiving notifications with no feedback.
 
-**Why it happens:** The Fetch API inside service workers does NOT automatically attach cookies. Unlike browser-initiated fetches where `credentials: 'same-origin'` is default, service worker fetches require explicit `credentials: 'include'` in the `RequestInit`. PMSync uses httpOnly cookies exclusively (no Authorization header), so this is the single point of failure.
+**Why it happens:** The current `PushSubscription` model has no `lastSuccessAt` or `failureCount` field. The `push.service.ts` only handles subscribe/unsubscribe -- there is no cleanup path for server-detected failures.
 
-**Consequences:** Every API call routed through the service worker cache-then-network strategy returns 401. Users see empty inboxes, broken AI chat, failed mutations. Worse: this only manifests after the service worker activates (not on first load), making it intermittent and hard to reproduce.
+**Consequences:** Database fills with dead subscriptions. Dispatch latency grows as you attempt delivery to stale endpoints. Users think notifications are broken but have no way to diagnose it.
 
 **Prevention:**
-1. **Never cache API routes.** Exclude `/api/*` from all service worker routing. Let them pass through to the network with original credentials.
-2. If you must intercept API fetches (e.g., for offline queue), clone the original request and preserve credentials:
-   ```js
-   // In sw.js fetch handler
-   if (event.request.url.includes('/api/')) {
-     // Pass through -- do NOT cache API responses
-     return; // Let browser handle it with cookies
-   }
-   ```
-3. Alternatively, use `navigationPreload` so the service worker doesn't block navigation requests.
-4. Test explicitly: after SW activation, verify that `document.cookie` is empty (httpOnly) but API calls still return 200.
+1. On every `web-push.sendNotification()` response, check for HTTP 404/410 -- immediately delete the subscription row.
+2. Track `failureCount` and `lastSuccessAt` on the model. After 3 consecutive failures, soft-delete the subscription.
+3. Return delivery stats (sent/failed/stale) from the dispatch method so callers can log observability metrics.
+4. Add a scheduled cleanup job (e.g., weekly) to purge subscriptions with no success in 30+ days.
 
-**Detection:** After deploying service worker, test: login -> close tab -> reopen -> check if API calls succeed. If they 401, the SW is stripping credentials.
+**Detection:** Monitor `PushSubscription` table growth vs. active user count. If subscriptions grow faster than users, you have a stale endpoint problem.
 
-**Confidence:** HIGH -- this is a well-documented spec behavior. The W3C ServiceWorker spec explicitly states cookies are not sent by default in SW-initiated fetches. The httpOnly attribute means you cannot even read cookies in SW to manually attach them.
-
-**Sources:**
-- [W3C ServiceWorker Issue #837 -- Cookie modification on intercepted fetch](https://github.com/w3c/ServiceWorker/issues/837)
-- [whatwg/cookiestore Issue #37 -- httpOnly cookies in SW](https://github.com/whatwg/cookiestore/issues/37)
+**Confidence:** HIGH -- this is the #1 cited backend push failure mode across MDN docs and production post-mortems.
 
 ---
 
-### Pitfall 2: Double Caching -- Service Worker Cache vs TanStack Query Cache
+### Pitfall 2: Push Dispatch Blocking the Event Loop
 
-**What goes wrong:** TanStack Query already has an in-memory cache with `staleTime: 5min` and `gcTime: 30min`. If the service worker also caches API responses (e.g., with a `StaleWhileRevalidate` strategy), you get two independent, unsynchronized caching layers. After a mutation (mark email read, archive), TanStack Query invalidates its cache and refetches -- but the service worker serves the stale cached response. The UI shows the old state.
+**What goes wrong:** When a triggering event (new email, AI triage complete, calendar reminder) fires, the push dispatch runs synchronously in the same request/job handler. With `web-push.sendNotification()` making HTTPS calls to push service endpoints (FCM, Mozilla, Apple), each call takes 100-500ms. If a user has 5 subscriptions across devices, that is 500ms-2.5s of blocking.
 
-**Why it happens:** TanStack Query and the service worker cache have zero communication. TanStack Query's `queryClient.invalidateQueries()` triggers a network fetch, but the service worker's cache intercepts it before it hits the network, returning the pre-mutation data.
+**Why it happens:** The natural approach is to call dispatch inline after the domain event completes. The existing codebase uses `EventEmitter2` for domain events with async handlers, but if the push handler awaits delivery, it blocks the event chain.
 
-**Consequences:** Optimistic updates revert. "Mark as read" appears to undo itself. Archive action seems to fail. Users lose trust in the UI. Debugging is hell because the bug is intermittent (depends on SW cache timing).
+**Consequences:** Email sync jobs slow down. API response latency spikes. BullMQ job throughput drops. Under load, the event loop backs up.
 
 **Prevention:**
-1. **Do NOT cache API responses in the service worker.** Period. TanStack Query is your API cache. The service worker should only cache static assets (JS bundles, CSS, images, fonts, offline fallback HTML).
-2. If offline read access is needed, use TanStack Query's `persistQueryClient` with IndexedDB (not SW cache) so there's a single source of truth.
-3. Configure the service worker routing to explicitly skip API paths:
-   ```js
-   // Only cache static assets -- never API responses
-   // /_next/static/* -- JS/CSS bundles (cache-first, immutable)
-   // /icons/* -- app icons (cache-first)
-   // / (HTML shell) -- network-first for navigation
-   // /api/* -- NEVER cache
-   ```
+1. Push dispatch MUST go through BullMQ, not inline execution. Create a `push-dispatch` queue with a dedicated worker.
+2. The domain event handler should only enqueue the job (fire-and-forget), never await delivery.
+3. Set concurrency on the push worker to 5-10 to parallelize deliveries without flooding outbound connections.
+4. Use `web-push.sendNotification()` with a timeout option (5s) to prevent hanging on unresponsive endpoints.
 
-**Detection:** After mutation, check DevTools > Application > Cache Storage. If the old API response is in there, the SW is caching API calls.
+**Detection:** Monitor BullMQ job duration for email-sync and triage jobs. If they spike after push dispatch is added, push is blocking inline.
 
-**Confidence:** HIGH -- this is documented in [TanStack Query Issue #7897](https://github.com/TanStack/query/issues/7897) and [Discussion #8034](https://github.com/TanStack/query/discussions/8034). The maintainers confirm there is no built-in integration between TanStack Query and service worker caches.
+**Confidence:** HIGH -- directly observable from the codebase architecture (EventEmitter2 async handlers, BullMQ patterns).
 
 ---
 
-### Pitfall 3: Service Worker Intercepts SSE AI Chat Stream
+### Pitfall 3: Throttler Tier Name Collision Breaking Existing Rate Limits
 
-**What goes wrong:** The AI chat uses SSE (Server-Sent Events) via `fetch()` with `credentials: 'include'`. A service worker `fetch` handler that doesn't explicitly exclude streaming responses will attempt to cache or buffer the SSE response. This either: (a) buffers the entire stream before returning it (breaking real-time), (b) returns a cached stale response, or (c) causes the stream to hang because the SW tries to clone a ReadableStream that's being consumed.
+**What goes wrong:** The current `ThrottlerModule.forRoot()` defines two named tiers: `short` (300/min reads) and `write` (30/min writes). Controllers use `@Throttle({ default: { ... } })` with the `default` key, NOT the tier names. When you add new per-endpoint tiers, if you use `@Throttle({ write: { limit: 10, ttl: 60000 } })` expecting to override only the write tier, the `short` tier still applies simultaneously. The endpoint gets BOTH limits -- the per-endpoint write limit AND the global 300/min read limit. This is correct behavior but often surprises developers.
 
-**Why it happens:** EventSource and streaming fetch responses are fundamentally incompatible with cache-first strategies. The W3C ServiceWorker spec notes this is a known problem area -- EventSource was designed for persistent open connections, which conflicts with the request/response model of service worker fetch events.
+**Why it happens:** `@nestjs/throttler` applies ALL defined throttlers unless a specific one is skipped. The `@Throttle()` decorator overrides limits for named throttlers but does not disable the others. The current codebase uses `{ default: { ... } }` which overrides ALL throttlers with a single rule -- this was a workaround, not intentional tiered design.
 
-**Consequences:** AI chat appears frozen. Tokens don't stream in real-time. Or worse: you see a previous conversation's response replayed from cache.
+**Consequences:** Endpoints either get rate limited twice (too strict) or the wrong tier applies. Existing 429 responses (already flagged in v7.0 as a user-reported issue) get worse instead of better.
 
 **Prevention:**
-1. In the service worker fetch handler, detect SSE requests and pass through immediately:
-   ```js
-   self.addEventListener('fetch', (event) => {
-     const url = new URL(event.request.url);
-     // Skip SSE/streaming endpoints
-     if (url.pathname.startsWith('/api/') ||
-         event.request.headers.get('accept')?.includes('text/event-stream')) {
-       return; // Don't call respondWith -- let browser handle natively
-     }
-     // ... handle other requests
-   });
-   ```
-2. Never call `event.respondWith()` for streaming requests. Returning without calling `respondWith` tells the browser to handle the request normally.
+1. Before changing anything, audit every `@Throttle()` usage in the codebase -- there are 17+ decorators already. Map which tier each endpoint should belong to.
+2. Rename the global tiers to be explicit: `read` and `write` instead of `short` and `write`.
+3. Use `@SkipThrottle({ read: true })` on write-only endpoints to disable the read tier, rather than trying to override it.
+4. Write a verification script (like the existing `verify-rate-limiting.ts`) that tests each tier independently.
 
-**Detection:** Open AI chat after SW activation. If tokens don't stream character-by-character, the SW is buffering.
+**Detection:** The existing `scripts/verify-rate-limiting.ts` should be extended to validate per-endpoint limits against the intended tier config.
 
-**Confidence:** HIGH -- [W3C ServiceWorker Issue #885](https://github.com/w3c/ServiceWorker/issues/885) explicitly discusses EventSource bypass.
+**Confidence:** HIGH -- verified by reading the actual throttler config in `app.module.ts` and the 17+ `@Throttle()` decorators.
 
 ---
 
-### Pitfall 4: Vercel Deployment Caches sw.js with Immutable Headers
+### Pitfall 4: HITL Approval Re-submit Losing Conversation State
 
-**What goes wrong:** Vercel's CDN aggressively caches static assets. If `sw.js` is placed in `public/` and served without explicit `Cache-Control: no-cache` headers, Vercel may cache it at the edge with a long TTL. Users get stuck on an old service worker that can't be updated, potentially serving stale content indefinitely.
+**What goes wrong:** When a tool with `needsApproval: true` fires, the AI SDK pauses the stream and sends a `tool-approval-request` to the client. The user approves/denies. The client then re-submits the full `messages[]` array (including the approval response) via `clientMessages` in the `StreamChatParams`. The `prepareChatAgent` method handles this via `convertToModelMessages()`. But if the conversation history has been modified between the original request and the approval re-submit (e.g., another message was sent in a different tab, or a background enrichment ran), the re-submitted messages diverge from server state, causing either `InvalidPromptError` or tool calls referencing non-existent context.
 
-**Why it happens:** Vercel treats files in `public/` as static assets and applies its default caching strategy. Unlike `_next/static/*` files (which have content hashes in filenames), `sw.js` has a fixed filename and MUST always be re-validated.
+**Why it happens:** The current flow trusts `clientMessages` for HITL re-submits (line 184 in `ai-chat.service.ts`) and bypasses server-side history loading. There is no server-side correlation between the pending approval and the re-submitted messages. The approval is purely client-side state.
 
-**Consequences:** Users are stuck on old app versions. The "update available" toast never fires because the browser thinks sw.js hasn't changed. In extreme cases, users must manually clear site data.
+**Consequences:** Intermittent `InvalidPromptError` during approval flows. Users approve an action, get an error, and have to re-ask the AI from scratch. The destructive tool may or may not have executed depending on when the error occurred.
 
 **Prevention:**
-1. Add explicit headers in `next.config.js`:
-   ```js
-   async headers() {
-     return [
-       {
-         source: '/sw.js',
-         headers: [
-           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
-           { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
-         ],
-       },
-       {
-         source: '/manifest.json',
-         headers: [
-           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
-         ],
-       },
-     ];
-   },
-   ```
-2. Also set `updateViaCache: 'none'` in the registration call (Next.js official guide recommends this).
-3. Verify with `curl -I https://your-domain.com/sw.js` after deploy -- check `Cache-Control` header.
+1. Store a `pendingApprovalId` server-side when a tool triggers `needsApproval`. Include the tool call context (toolCallId, toolName, args).
+2. On re-submit, validate that the `pendingApprovalId` matches and the tool call context is unchanged.
+3. If the conversation state has diverged, reject the approval with a clear error message instead of silently proceeding.
+4. Add idempotency protection -- if the same `toolCallId` has already been executed, return the cached result instead of re-executing.
 
-**Detection:** Deploy a sw.js change, wait 5 minutes, hard-refresh. If the old SW is still active, Vercel is caching it.
+**Detection:** Log correlation between approval re-submits and `InvalidPromptError` occurrences. If they spike together, this is the cause.
 
-**Confidence:** HIGH -- [Next.js official PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps) explicitly recommends `no-cache, no-store, must-revalidate` for sw.js. PMSync's current `vercel.json` has no custom headers.
+**Confidence:** MEDIUM -- the vulnerability is visible in the code, but the exact failure frequency depends on user behavior patterns (multi-tab usage, slow approval).
 
 ---
 
-### Pitfall 5: Next.js Middleware Blocks PWA Files
+### Pitfall 5: Graph Expansion N+1 Queries from Contact Email Lookup
 
-**What goes wrong:** If a Next.js middleware is later added (for auth redirects, tenant switching, etc.), it may intercept requests to `/sw.js`, `/manifest.json`, and `/workbox-*.js`. The middleware could redirect unauthenticated requests to `/login`, causing the service worker registration to fail because the browser receives an HTML redirect response instead of JavaScript.
+**What goes wrong:** The `GraphExpansionService.expandContacts()` runs two SQL queries: one to find contacts matching seed senders (via JSONB `emails` array), then another to find recent emails from those contacts. The second query JOINs `emails` with `unified_contacts` using a JSONB subquery (`EXISTS (SELECT 1 FROM jsonb_array_elements(...))`). This is functionally correct but the JSONB `jsonb_array_elements` call in the JOIN condition prevents PostgreSQL from using indexes effectively, causing a sequential scan on the contacts table for each email row.
 
-**Why it happens:** Next.js middleware runs on ALL requests by default (unless a `matcher` config excludes paths). PWA core files must be served without auth checks or redirects. The browser's service worker spec explicitly rejects service workers served via redirect.
+**Why it happens:** The `unified_contacts.emails` field is a JSONB array, not a normalized relation. There is no GIN index on the email values within the JSONB structure. The existing code (lines 204-241 in `graph-expansion.service.ts`) works at small scale but degrades quadratically.
 
-**Consequences:** Service worker fails to register. PWA install fails. Push notifications stop working. No clear error message -- just a silent failure in the SW registration promise.
+**Consequences:** Graph expansion latency grows from ~50ms to 500ms+ as the contact table grows past 10K records. The 300ms slow-expansion warning will trigger frequently. The entire RAG pipeline stalls because graph expansion is on the critical path.
 
 **Prevention:**
-1. PMSync currently has no Next.js middleware file, which avoids this. But if middleware is ever added, the FIRST thing it must do is exclude PWA files:
-   ```ts
-   export function middleware(request: NextRequest) {
-     const { pathname } = request.nextUrl;
-     // Allow PWA core files through without auth checks
-     if (pathname === '/sw.js' ||
-         pathname === '/manifest.json' ||
-         pathname.startsWith('/workbox-') ||
-         pathname.startsWith('/icons/')) {
-       return NextResponse.next();
-     }
-     // ... auth logic
-   }
-   ```
-2. Alternatively, use `matcher` in the middleware config to exclude these paths.
+1. Add a GIN index on the email values: `CREATE INDEX idx_contacts_emails_gin ON unified_contacts USING GIN ((emails jsonb_path_ops))` -- but verify this actually helps with the `ANY()` pattern used.
+2. Better: extract contact emails into a junction table `contact_emails(contactId, email)` with a B-tree index. This is a schema change but eliminates the JSONB scan entirely.
+3. If schema change is too invasive, pre-compute a materialized mapping table `sender_contact_map(sender_email, contact_id)` refreshed on contact updates, and use that for the JOIN instead.
+4. Set a hard timeout (200ms) on graph expansion and return partial results if exceeded.
 
-**Detection:** Check DevTools > Application > Service Workers. If registration state shows "redundant" or fails, check Network tab for sw.js -- if it returned a 302 redirect, middleware is the culprit.
+**Detection:** The existing `elapsed > 300` warning in `GraphExpansionService` is the canary. Monitor its frequency as contact volume grows.
 
-**Confidence:** HIGH -- [next-pwa Issue #323](https://github.com/shadowwalker/next-pwa/issues/323) documents this exact problem.
+**Confidence:** HIGH -- the JSONB pattern is visible in the code and is a well-documented PostgreSQL anti-pattern for JOIN conditions.
 
 ## Moderate Pitfalls
 
-### Pitfall 6: Background Sync Queue Loses Auth Context
+### Pitfall 6: Push Notification Payload Size Exceeding Browser Limits
 
-**What goes wrong:** Background sync (for offline actions like "mark read" or "archive") queues requests in IndexedDB. When the device comes back online, the service worker replays them. But if the session has expired in the meantime (better-auth sessions have idle timeout), the replayed requests fail with 401. The queued actions are silently lost.
-
-**Why it happens:** httpOnly cookies have expiry. better-auth sessions have `cookieCache` with 300s maxAge. If the device was offline for hours, the session cookie may have expired or been invalidated server-side.
+**What goes wrong:** Web Push payloads are limited to ~4KB (varies by browser). If you include the full email subject, sender info, snippet, and metadata, you can exceed this limit. `web-push.sendNotification()` silently truncates or the push service rejects the payload entirely.
 
 **Prevention:**
-1. Implement retry-with-backoff in the sync handler. On 401, emit a client event requesting re-authentication before retrying.
-2. Store the `tenantId` and action metadata in the sync queue, not the raw request. When replaying, construct a fresh authenticated request.
-3. Limit the background sync window. Actions queued more than 30 minutes ago should be discarded with a user notification rather than silently failing.
-4. Use the Background Sync API's `lastChance` property to detect the final retry attempt and notify the user.
+1. Define a strict notification payload schema with max lengths: title (50 chars), body (100 chars), icon URL, click URL, and a data object for routing.
+2. Never include email body content in the push payload -- only enough to identify and route.
+3. Test with Firefox (strictest limit at ~3.9KB) not just Chrome.
 
-**Detection:** Airplane mode for 30 min -> queue some actions -> reconnect -> check if actions were applied.
-
-**Confidence:** MEDIUM -- the auth expiry interaction is specific to PMSync's session config, but the pattern is well-known.
+**Confidence:** HIGH -- documented browser limitation.
 
 ---
 
-### Pitfall 7: Precaching Next.js Hashed Bundles Bloats Cache Storage
+### Pitfall 7: Rate Limit Bypass via AI Chat Tool Calls
 
-**What goes wrong:** Next.js generates hashed JS chunks in `/_next/static/`. If you precache all of them, every deployment creates a completely new set of chunks (new hashes). Users accumulate multiple versions in Cache Storage, consuming significant device storage. On mobile, browsers may evict PWA data when storage pressure is high, breaking the offline experience.
-
-**Why it happens:** Next.js chunk filenames change on every build. Precaching the full bundle means the old cached version is never cleaned up unless you explicitly call `caches.delete()` for old cache versions.
-
-**Consequences:** Cache Storage grows by 2-5 MB per deployment. After 10 deploys without cleanup, users have 50 MB of stale JS. Mobile browsers may revoke storage permission entirely.
+**What goes wrong:** The AI chat pipeline has its own rate limiter (`RedisRateLimiterService` at 30 req/min per user in `ai-chat.service.ts`), separate from the HTTP-level `@nestjs/throttler`. But AI tool calls (send_email, delete_email, etc.) execute server-side within the agent loop and bypass the HTTP throttler entirely. A single chat message can trigger 8 tool calls (the `stepCountIs(8)` limit), meaning one chat request could execute 8 email sends -- far exceeding the intended 10/min write limit on the email actions endpoint.
 
 **Prevention:**
-1. Use **runtime caching** (cache-first with expiration) for `/_next/static/*` instead of precaching. This caches chunks on first use and auto-expires old ones.
-2. Set `maxEntries` and `maxAgeSeconds` on the cache:
-   ```js
-   // Runtime cache for Next.js bundles
-   { urlPattern: /\/_next\/static\/.*/, handler: 'CacheFirst',
-     options: { cacheName: 'next-static', expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 3600 } } }
-   ```
-3. On service worker activation, delete old cache versions:
-   ```js
-   self.addEventListener('activate', (event) => {
-     event.waitUntil(
-       caches.keys().then(keys =>
-         Promise.all(keys.filter(k => k !== CURRENT_CACHE).map(k => caches.delete(k)))
-       )
-     );
-   });
-   ```
+1. Add per-tool rate limits within the tool execution layer, not just at the HTTP level.
+2. The `ToolRegistryService` already tracks tool metadata -- extend it with per-tool rate limit config.
+3. Check rate limits inside the tool's `execute` function before performing the action.
+4. Consider the total tool calls per chat message (currently max 8 steps) as a multiplier when setting chat-level rate limits.
 
-**Detection:** DevTools > Application > Cache Storage. Check total size after several deploys.
-
-**Confidence:** HIGH -- [next-pwa Discussion #64336](https://github.com/vercel/next.js/discussions/64336) documents this problem with Next.js hashed assets.
+**Confidence:** HIGH -- directly visible from the code: `stopWhen: stepCountIs(8)` and no per-tool rate limiting.
 
 ---
 
-### Pitfall 8: iOS Safari PWA Limitations
+### Pitfall 8: HITL FallbackToolRenderer Showing Approval UI for Non-Destructive Tools
 
-**What goes wrong:** iOS does not support `beforeinstallprompt`. Chrome/Edge on iOS cannot install PWAs at all (WebKit restriction). Push notifications only work on iOS 16.4+ AND only when the PWA is added to the home screen (not in Safari browser). Background sync is not supported on Safari/iOS.
-
-**Why it happens:** Apple's WebKit-only policy on iOS means all browsers use the same engine with the same limitations. Apple has been slow to adopt PWA APIs.
-
-**Consequences:** Your install prompt, push notification subscription, and background sync features need three separate code paths: (1) Chrome/Android (full support), (2) iOS home screen (partial), (3) iOS browser (minimal). If you don't detect and adapt, users get broken UI or misleading prompts.
+**What goes wrong:** The current `FallbackToolRenderer` in the frontend shows ALL tool invocations in the chat UI, including read-only tools like `search_emails` and `semantic_search`. When you add explicit approval routing for destructive tools, users may confuse the informational tool-call display (showing what the AI searched) with the approval prompt (asking permission to delete). This creates "approval fatigue" -- users click approve habitually without reading, defeating the purpose of HITL.
 
 **Prevention:**
-1. Detect platform and show appropriate UX:
-   - Android/Desktop Chrome: Use `beforeinstallprompt` for native install button.
-   - iOS: Show manual instructions ("Tap Share > Add to Home Screen").
-   - Check `window.matchMedia('(display-mode: standalone)')` to hide install prompts when already installed.
-2. For push notifications, gate the subscription UI behind both `'PushManager' in window` and `'Notification' in window` checks. On iOS in-browser (not home screen), these exist but don't work.
-3. For background sync, always implement a fallback: retry queued actions on next app open using TanStack Query's `onlineManager`.
+1. Split the tool renderer into two distinct UIs: an informational renderer (collapsed, non-interactive) for read-only tools, and an approval renderer (prominent, with explicit approve/deny buttons and a summary of what will happen) for `needsApproval` tools.
+2. The approval renderer must show the tool's effect in plain language ("Send email to john@example.com with subject 'Re: Budget'"), not raw JSON args.
+3. Auto-collapse completed tool calls after approval to reduce visual noise.
 
-**Detection:** Test on actual iOS devices (not just simulators). Safari DevTools has limited SW debugging.
-
-**Confidence:** HIGH -- [PWA iOS Limitations 2026](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide) is comprehensive and current.
+**Confidence:** MEDIUM -- based on the HITL contract test showing 6 HIGH-risk tools and ~20 total tools all going through FallbackToolRenderer.
 
 ---
 
-### Pitfall 9: Service Worker Update Leaves Users on Old Version
+### Pitfall 9: Query Router False Negatives Skipping RAG for Complex Queries
 
-**What goes wrong:** When you deploy a new sw.js, the browser downloads it but enters a "waiting" state. The new service worker doesn't activate until ALL tabs of the app are closed. For an email client that users keep open all day, this means updates never apply.
-
-**Why it happens:** The browser's default SW lifecycle is conservative: `install` -> `waiting` -> `activate`. The "waiting" state persists as long as any tab has the old SW controlling it.
-
-**Consequences:** Users run stale code indefinitely. Bug fixes don't reach them. If you change API response shapes in a deploy, the old frontend code breaks against the new backend.
+**What goes wrong:** The `QueryRouterService` uses regex heuristics to classify query complexity. The `MULTI_HOP_PATTERNS` list has 8 patterns, but natural language is infinitely varied. A query like "what happened with the Johnson proposal after our lunch" has multi-hop intent (email + calendar + contact) but may not match any pattern, falling through to the `search` tier which skips graph expansion.
 
 **Prevention:**
-1. Implement an "Update Available" toast/snackbar. When `registration.waiting` is detected, show a prompt.
-2. On user confirmation, send `skipWaiting()` to the waiting SW and reload:
-   ```js
-   // In the app
-   registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-   // In sw.js
-   self.addEventListener('message', (event) => {
-     if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
-   });
-   ```
-3. Listen for `controllerchange` to reload the page:
-   ```js
-   navigator.serviceWorker.addEventListener('controllerchange', () => {
-     window.location.reload();
-   });
-   ```
-4. Do NOT call `self.skipWaiting()` unconditionally in the install handler. This causes mid-session cache invalidation and can break the running app.
+1. Default to `search` (not `simple`) for unmatched queries -- already done, this is correct.
+2. Make `graph_context_search` available as a tool at the `search` tier, not just `multi_hop`. Let the LLM decide when to use it based on the tool description.
+3. Add telemetry: log classification results and compare with whether the user's follow-up suggests the initial results were insufficient (e.g., "no, I meant the conversation with Johnson AND the meeting").
+4. Do NOT try to make the regex classifier comprehensive -- it will never catch everything. The LLM's tool selection is the real router; the heuristic classifier is a performance optimization for step 0 tool filtering.
 
-**Detection:** Deploy a change, observe in DevTools > Application > Service Workers that a new SW is "waiting to activate."
-
-**Confidence:** HIGH -- this is standard SW lifecycle behavior, documented in every PWA guide.
+**Confidence:** HIGH -- the regex approach is inherently limited and this is acknowledged by the 0.5 confidence default fallback.
 
 ---
 
-### Pitfall 10: MUI Theme / Dark Mode Flash in Standalone PWA
+### Pitfall 10: Entity Graph Materialization Stale Data
 
-**What goes wrong:** When the PWA launches in standalone mode (from home screen), there's no browser chrome to mask the initial render. If the theme (light/dark) is determined client-side (from localStorage or `prefers-color-scheme`), users see a white flash before the correct theme applies. This is more jarring in standalone mode than in a browser tab.
-
-**Why it happens:** Next.js SSR renders with a default theme. The client hydrates and switches to the user's preferred theme. In browser mode, the address bar masks some of this. In standalone PWA mode, the full viewport is your app -- every frame of FOUC is visible.
-
-**Consequences:** Unprofessional appearance. Users notice the flash every time they open the app. For a "native-like" experience, this kills the illusion.
+**What goes wrong:** If you materialize an entity graph (email-to-contact-to-calendar relationships) as a table or materialized view, it becomes stale as new emails arrive, contacts are updated, and calendar events change. The graph expansion results will be incorrect until the next refresh, leading to the AI providing outdated relationship context.
 
 **Prevention:**
-1. Set `theme_color` in the manifest to match the dark mode background if dark mode is the primary theme.
-2. Use a blocking `<script>` in `<head>` (before React hydration) that reads the theme preference and sets a CSS class on `<html>`:
-   ```html
-   <script>
-     (function() {
-       var theme = localStorage.getItem('pmsync:theme') ||
-         (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-       document.documentElement.setAttribute('data-theme', theme);
-     })();
-   </script>
-   ```
-3. Set `background_color` in the manifest to your dark mode background color.
+1. Do NOT use a materialized view for the entity graph. The current approach of running live SQL queries in `GraphExpansionService` is correct -- it always reflects current data.
+2. If performance requires caching, cache at the query level (Redis, 5-min TTL) keyed by `(tenantId, seedEmailIds hash)`, not at the graph level.
+3. If you add a `sender_contact_map` table (per Pitfall 5), update it via domain events (`ContactUpdatedEvent`, `ContactCreatedEvent`) to keep it in sync.
 
-**Detection:** Install PWA, set dark mode, kill app, reopen. Watch for white flash.
+**Confidence:** MEDIUM -- this is a design temptation, not a current bug.
 
-**Confidence:** MEDIUM -- specific to MUI's client-side theme detection pattern.
+---
+
+### Pitfall 11: Push Notification Preferences Not Respecting Tenant Isolation
+
+**What goes wrong:** Push notification preferences (which event types trigger notifications) need to be per-user AND per-tenant. If a user belongs to multiple tenants (orgs), they may want notifications for one org but not another. Storing preferences at the user level without tenant scoping leaks notification preferences across organizational boundaries.
+
+**Prevention:**
+1. The `PushSubscription` model already has `tenantId` -- good. But notification preferences (event type toggles) must also be scoped to `(tenantId, userId)`, not just `userId`.
+2. When dispatching, filter subscriptions by `tenantId` to ensure notifications only go to subscriptions registered in the same tenant context.
+3. The existing `NotificationSettings.tsx` frontend component should be checked to ensure it sends `tenantId` with preference updates.
+
+**Confidence:** HIGH -- multi-tenancy is a core architectural constraint and every new feature must respect it.
+
+---
+
+### Pitfall 12: Memory Anchoring Creating Circular Context Inflation
+
+**What goes wrong:** When implementing memory anchoring for Graph RAG (injecting relevant AI memories alongside search results), the memories themselves may reference entities that trigger additional graph expansion, which finds more context, which activates more memories. Each chat turn grows the context window.
+
+**Prevention:**
+1. Cap total context assembly at a fixed token budget (e.g., 4K tokens for RAG context + 1K for memories).
+2. Never re-expand graph results found via memory injection -- memories are additive context, not new seed queries.
+3. The existing `memoryService.getRelevantMemories(tenantId, userId, llmMessage, 5)` with limit=5 is a good starting point. Keep this limit low.
+4. Track total context size in the `AiRunLedger` and alert if average context per chat message exceeds the budget.
+
+**Confidence:** MEDIUM -- this is a design risk for the upcoming implementation, not a current bug.
 
 ## Minor Pitfalls
 
-### Pitfall 11: manifest.json start_url Mismatch
+### Pitfall 13: web-push VAPID Key Mismatch Between Environments
 
-**What goes wrong:** If `start_url` in the manifest doesn't match the actual authenticated landing page (e.g., it's `/` but auth redirects to `/inbox`), the PWA opens, hits a redirect, and the standalone window briefly shows the wrong page or a loading spinner.
+**What goes wrong:** VAPID keys must match between the frontend (subscription request) and backend (notification send). If environment variables are not in sync (e.g., different keys in development vs. Railway deployment), subscriptions created in one environment fail silently in another.
 
-**Prevention:** Set `start_url` to the authenticated landing page (`/inbox` or wherever users actually land). If auth is needed, the redirect chain should be minimal.
+**Prevention:** Store VAPID keys as a single source of truth in environment config. The frontend should fetch the public VAPID key from a backend endpoint, not from a hardcoded env variable.
 
----
-
-### Pitfall 12: CSP Blocks Service Worker Registration
-
-**What goes wrong:** If a Content Security Policy is later added to PMSync (which it currently lacks), the `worker-src` directive must include `'self'`. Without it, the browser blocks sw.js registration silently.
-
-**Prevention:** When adding CSP headers, include: `worker-src 'self'; connect-src 'self' https://your-api-domain.com;`
+**Confidence:** HIGH -- standard web-push deployment issue.
 
 ---
 
-### Pitfall 13: Offline Fallback Page Missing Auth State
+### Pitfall 14: Throttler Redis Storage Fail-Open Allowing Unlimited Requests
 
-**What goes wrong:** The offline fallback page (shown when a navigation request fails and isn't cached) renders without any user context. If it has navigation elements that assume a logged-in user (sidebar, user avatar), those break or show empty states.
+**What goes wrong:** The existing `RedisThrottlerStorage` has a `catch` block that returns `totalHits: 0` on Redis errors (line 88-96), meaning if Redis goes down, ALL rate limits are disabled. This is intentional (fail-open to not block users), but it means a Redis outage creates an unprotected window.
 
-**Prevention:** The offline fallback page should be a minimal, self-contained HTML page with no API calls. Just a "You're offline" message with a retry button. Don't try to render the full app shell.
+**Prevention:**
+1. Log fail-open events with WARN level and increment a Prometheus counter.
+2. Consider a local in-memory fallback with conservative limits (e.g., 10 req/min) when Redis is unreachable.
+3. Monitor the fail-open counter in dashboards -- any non-zero value needs investigation.
 
----
-
-### Pitfall 14: Multiple Service Worker Registrations
-
-**What goes wrong:** If the SW registration code runs in multiple components (e.g., both a `PushNotificationManager` and a `ServiceWorkerProvider`), or if a third-party library (Serwist, next-pwa) auto-registers while you also manually register, you get competing registrations. The browser handles this by using the last-registered scope, but the intermediate states cause race conditions.
-
-**Prevention:** Register the service worker in exactly one place: a `ServiceWorkerProvider` component rendered once in the root layout. All other components should access the registration via context/state, never call `navigator.serviceWorker.register()` themselves.
+**Confidence:** HIGH -- visible in the code.
 
 ---
 
-### Pitfall 15: Library Choice -- Serwist vs Manual SW
+### Pitfall 15: Graph RAG Few-Shot Examples Inflating Prompt Size
 
-**What goes wrong:** Developers reach for `@serwist/next` or `@ducanh2912/next-pwa` for convenience, then discover these libraries have compatibility issues with the latest Next.js App Router, generate opinionated precache manifests that conflict with Vercel CDN caching, and add Workbox runtime overhead.
+**What goes wrong:** Adding few-shot examples to the system prompt for Graph RAG tool usage guidance increases the base prompt size. With 20+ tools already, the system prompt is already substantial. Adding 3-5 few-shot examples (each ~200-500 tokens) can push the base prompt past 3K tokens, reducing the available context window for actual conversation history and RAG results.
 
-**Why it happens:** The Next.js PWA library ecosystem is fragmented. `shadowwalker/next-pwa` is abandoned. `@ducanh2912/next-pwa` evolved into Serwist. Serwist has open issues with Next.js 15+ App Router.
+**Prevention:**
+1. Use dynamic few-shot injection -- only include examples relevant to the detected query complexity tier.
+2. Keep few-shot examples minimal (1-2 per tier, not per tool).
+3. Monitor total input tokens via `AiRunLedger` -- if average prompt tokens increase by more than 500 after few-shot addition, the examples are too verbose.
 
-**Prevention:** Follow the [official Next.js PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps) which recommends a manual `public/sw.js` approach. For PMSync's scope (offline inbox cache, push notification plumbing, install prompt), a manual service worker is simpler and more debuggable than adding a library dependency. Only consider Serwist if you need complex precaching or routing strategies that would be painful to implement manually.
-
-**Confidence:** MEDIUM -- Serwist may have improved since research date. Check current release notes before deciding.
+**Confidence:** MEDIUM -- depends on implementation choices.
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Manifest + Icons | start_url mismatch with auth redirect (P11) | Set start_url to /inbox, test standalone launch |
-| Service Worker Registration | Multiple registration points (P14), middleware blocking (P5) | Single registration point, exclude PWA files from any future middleware |
-| Offline Caching Strategy | Double caching with TanStack Query (P2), bloated precache (P7) | Cache ONLY static assets in SW; TanStack Query owns API cache |
-| SSE/Streaming | SW intercepts AI chat stream (P3) | Explicit passthrough for /api/* and text/event-stream |
-| Cookie Auth | SW strips httpOnly cookies (P1) | Never intercept API requests in SW |
-| Push Notifications | iOS limitations (P8), CSP blocks (P12) | Platform detection, worker-src in CSP |
-| Install Prompt | iOS has no beforeinstallprompt (P8) | Manual instructions for iOS, beforeinstallprompt for Android/desktop |
-| Background Sync | Auth expiry on queued actions (P6), no Safari support (P8) | TanStack Query onlineManager as fallback, time-limit queued actions |
-| SW Updates | Users stuck on old version (P9) | "Update Available" toast with skipWaiting on confirmation |
-| Standalone UX | Dark mode flash (P10) | Blocking theme script, manifest theme_color |
-| Vercel Deploy | sw.js cached at edge (P4) | no-cache headers in next.config.js |
-
-## Key Architectural Decision
-
-**The service worker should NOT intercept API requests. Ever.** For PMSync specifically:
-
-- httpOnly cookie auth means the SW cannot inspect or manage auth state
-- TanStack Query already caches API responses in-memory with intelligent invalidation
-- SSE streaming for AI chat is incompatible with SW caching
-- Background sync should use IndexedDB for action queuing, not SW request replay
-
-The SW's role should be limited to:
-1. Caching static assets (JS bundles, CSS, images, fonts) for faster loads
-2. Serving an offline fallback page for uncached navigation requests
-3. Handling push notification `push` and `notificationclick` events
-4. Communicating with the main thread for update prompts
-
-Everything else (API caching, offline data, mutation queuing) belongs in the application layer via TanStack Query + IndexedDB.
+| Push backend dispatch | Stale subscriptions (P1), blocking event loop (P2) | BullMQ queue, 410 cleanup, delivery metrics |
+| Push notification preferences | Tenant isolation leak (P11) | Scope all preferences to (tenantId, userId) |
+| Push payload construction | 4KB payload limit (P6) | Strict schema, truncation, test on Firefox |
+| VAPID key deployment | Key mismatch (P13) | Backend serves public key, single source of truth |
+| Tiered rate limiting migration | Tier name collision (P3), existing @Throttle audit | Map all 17+ decorators before changing config |
+| Rate limiting AI tools | Tool call bypass (P7) | Per-tool rate limits in execute(), not just HTTP |
+| Throttler Redis failover | Fail-open unlimited (P14) | Local fallback, Prometheus counter |
+| HITL approval routing | State divergence (P4), approval fatigue (P8) | Server-side pending state, split UI renderers |
+| HITL for new destructive tools | Inconsistent classification | Extend HITL contract test for every new tool |
+| Query router accuracy | False negatives (P9) | LLM tool selection is the real router, not regex |
+| Graph expansion performance | JSONB N+1 (P5) | GIN index or junction table, 200ms timeout |
+| Entity graph materialization | Stale data (P10) | Live queries, not materialized views |
+| Memory anchoring | Context inflation (P12) | Fixed token budget, no recursive expansion |
+| Few-shot examples | Prompt bloat (P15) | Dynamic injection by tier, monitor input tokens |
 
 ## Sources
 
-- [Next.js Official PWA Guide](https://nextjs.org/docs/app/guides/progressive-web-apps) -- HIGH confidence
-- [W3C ServiceWorker Issue #837 -- Cookie modification](https://github.com/w3c/ServiceWorker/issues/837) -- HIGH confidence
-- [W3C ServiceWorker Issue #885 -- EventSource bypass](https://github.com/w3c/ServiceWorker/issues/885) -- HIGH confidence
-- [TanStack Query Issue #7897 -- SW integration](https://github.com/TanStack/query/issues/7897) -- HIGH confidence
-- [TanStack Query Discussion #8034 -- Double caching](https://github.com/TanStack/query/discussions/8034) -- HIGH confidence
-- [next-pwa Issue #323 -- Middleware conflict](https://github.com/shadowwalker/next-pwa/issues/323) -- HIGH confidence
-- [PWA iOS Limitations 2026](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide) -- MEDIUM confidence
-- [Serwist Getting Started](https://serwist.pages.dev/docs/next/getting-started) -- MEDIUM confidence
-- [MDN: Making PWAs installable](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) -- HIGH confidence
-- [MDN: Offline and background operation](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation) -- HIGH confidence
+- [MDN Web Push API Best Practices](https://developer.mozilla.org/en-US/docs/Web/API/Push_API/Best_Practices) -- payload limits, subscription lifecycle
+- [NestJS Rate Limiting Docs](https://docs.nestjs.com/security/rate-limiting) -- throttler module, named tiers, @SkipThrottle
+- [NestJS Throttler GitHub](https://github.com/nestjs/throttler) -- per-endpoint override behavior
+- [AI SDK v6 HITL Cookbook](https://ai-sdk.dev/cookbook/next/human-in-the-loop) -- needsApproval flow, approval/denial handling
+- [AI SDK v6 needsApproval mid-execute issue #9862](https://github.com/vercel/ai/issues/9862) -- limitations of current HITL model
+- [Graph RAG vs SQL RAG](https://towardsdatascience.com/graph-rag-vs-sql-rag/) -- PostgreSQL graph query complexity
+- [EDB SQL/PGQ for PostgreSQL](https://www.enterprisedb.com/blog/representing-graphs-postgresql-sqlpgq) -- recursive CTE performance characteristics
+- Codebase analysis: `backend/src/app.module.ts` (throttler config), `backend/src/modules/push/push.service.ts` (current push implementation), `backend/src/modules/ai-chat/services/ai-chat.service.ts` (HITL flow, tool creation), `backend/src/modules/ai-chat/services/graph-expansion.service.ts` (JSONB join pattern), `backend/src/common/guards/redis-throttler-storage.service.ts` (fail-open behavior)
