@@ -1,14 +1,14 @@
 /**
  * ReminderAiParserService — Natural language parsing for reminders.
  *
- * Uses Qwen 3.5 via OpenRouter + `generateText` + `parseJsonOutput` with Zod schema
- * to extract structured reminder fields from Italian/English free text.
- *
- * Pattern: follows FollowUpDetectionService
+ * Uses AI SDK `generateObject` with Zod schema for structured extraction
+ * from Italian/English free text. Falls back to `generateText` + manual
+ * JSON parsing when `generateObject` fails (e.g. model doesn't support
+ * response_format).
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateText } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { AiRunStatus } from '@prisma/client';
 import { z } from 'zod';
 import { OpenRouterProviderService } from '../../openrouter/openrouter-provider.service';
@@ -17,33 +17,40 @@ import { parseJsonOutput } from '../../ai/utils/parse-json-output';
 
 // ============ Zod Schema ============
 
+// Schema uses .default() on non-critical fields to tolerate partial LLM output.
+// Only is_reminder + titolo + risposta_chat are truly required.
 export const reminderParseSchema = z.object({
   is_reminder: z.boolean().describe('True if the input is a reminder request'),
   titolo: z.string().describe('Short title, max 60 chars, clear and direct'),
-  descrizione: z.string().nullable().describe('Full description of the task'),
-  contatto: z.string().nullable().describe('Company or person name, null if not present'),
-  scadenza_datetime: z.string().nullable().describe('ISO 8601 date string for the deadline'),
+  descrizione: z.string().nullable().default(null).describe('Full description of the task'),
+  contatto: z.string().nullable().default(null).describe('Company or person name, null if not present'),
+  scadenza_datetime: z.string().nullable().default(null).describe('ISO 8601 date string for the deadline'),
   periodo: z
     .enum(['mattina', 'pomeriggio', 'sera', 'tutto_il_giorno'])
     .nullable()
+    .default(null)
     .describe('Time of day'),
   azione: z
     .enum(['chiama', 'scrivi_mail', 'verifica', 'conferma', 'controlla', 'altro'])
+    .default('altro')
     .describe('Type of action'),
-  priorita: z.enum(['alta', 'media', 'bassa']).describe('Priority level'),
+  priorita: z.enum(['alta', 'media', 'bassa']).default('media').describe('Priority level'),
   condizione_tipo: z
     .enum(['sempre', 'se_risponde_mail', 'se_non_risponde_mail', 'manuale'])
+    .default('sempre')
     .describe('Condition type for notification'),
-  condizione_dettaglio: z.string().nullable().describe('Condition explanation or null'),
-  monitora_email: z.boolean().describe('Whether to monitor email for this reminder'),
-  email_keywords: z.array(z.string()).describe('Keywords for email matching'),
-  email_mittente: z.string().nullable().describe('Expected sender email or null'),
+  condizione_dettaglio: z.string().nullable().default(null).describe('Condition explanation or null'),
+  monitora_email: z.boolean().default(false).describe('Whether to monitor email for this reminder'),
+  email_keywords: z.array(z.string()).default([]).describe('Keywords for email matching'),
+  email_mittente: z.string().nullable().default(null).describe('Expected sender email or null'),
   messaggio_telegram: z
     .string()
     .nullable()
+    .default(null)
     .describe('Telegram notification text, max 120 chars, starts with action emoji'),
   risposta_chat: z
     .string()
+    .default('Promemoria creato.')
     .describe('Conversational response confirming what was understood'),
 });
 
@@ -119,75 +126,160 @@ export class ReminderAiParserService {
     tenantId: string,
     userId: string,
   ): Promise<ReminderParseOutput> {
-    const maxAttempts = 2;
+    const now = new Date().toISOString();
+    const userPrompt = `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}`;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const now = new Date().toISOString();
-      const startTime = Date.now();
+    // Attempt 1: generateObject (structured output — most reliable)
+    const attempt1 = await this.tryGenerateObject(userPrompt, tenantId, userId);
+    if (attempt1) return attempt1;
 
-      try {
-        const model = this.mistralProvider.getChatModel(this.parserModelId);
+    // Attempt 2: generateText + manual JSON extraction (fallback for models
+    // that don't support response_format / structured output)
+    const attempt2 = await this.tryGenerateText(userPrompt, tenantId, userId);
+    if (attempt2) return attempt2;
 
-        const result = await generateText({
-          model,
-          system: SYSTEM_PROMPT,
-          prompt: `Data/ora corrente: ${now}\n\nRichiesta utente:\n${inputUtente}\n\nRispondi SOLO con un singolo oggetto JSON (NON un array). Inizia con { e termina con }. Nessun testo prima o dopo il JSON.`,
-          temperature: attempt === 1 ? 0.1 : 0.3,
-          // Qwen 3.5 Flash emits <think> tokens before JSON — budget extra tokens
-          maxOutputTokens: 1200,
-          abortSignal: AbortSignal.timeout(45_000),
-        });
+    // Both attempts failed — return marked fallback
+    this.logger.error(`All parsing attempts failed for: "${inputUtente}"`);
+    return {
+      ...SAFE_FALLBACK,
+      _parserError: true,
+      _errorMessage: 'All parsing attempts failed',
+    } as ReminderParseOutput & { _parserError: true; _errorMessage: string };
+  }
 
-        const latencyMs = Date.now() - startTime;
-        this.logger.debug(
-          `AI parser raw response attempt=${attempt} (${result.text.length} chars, ${latencyMs}ms, model=${this.parserModelId}): ${result.text.slice(0, 500)}`,
-        );
-        const parsed = parseJsonOutput(result.text, reminderParseSchema);
-        this.logger.debug(`AI parser result: is_reminder=${parsed.is_reminder}, titolo="${parsed.titolo}"`);
+  /**
+   * Primary: AI SDK generateObject with Zod schema validation.
+   * Handles JSON extraction, schema coercion, and retries internally.
+   */
+  private async tryGenerateObject(
+    userPrompt: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<ReminderParseOutput | null> {
+    const startTime = Date.now();
+    try {
+      const model = this.mistralProvider.getChatModel(this.parserModelId);
 
-        this.aiRunLedger.recordRun({
-          tenantId,
-          userId,
-          runType: 'reminder-parse',
-          model: this.parserModelId,
-          promptTokens: result.usage?.inputTokens ?? 0,
-          completionTokens: result.usage?.outputTokens ?? 0,
-          totalTokens: result.usage?.totalTokens ?? 0,
-          latencyMs,
-          status: AiRunStatus.SUCCESS,
-        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      const result = await generateObject({
+        model,
+        schema: reminderParseSchema,
+        schemaName: 'ReminderParse',
+        schemaDescription: 'Structured reminder extracted from natural language input',
+        system: SYSTEM_PROMPT,
+        prompt: userPrompt,
+        temperature: 0.1,
+        maxOutputTokens: 800,
+        abortSignal: AbortSignal.timeout(45_000),
+      });
 
-        return parsed;
-      } catch (error) {
-        const latencyMs = Date.now() - startTime;
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          `AI parser error attempt=${attempt}/${maxAttempts} (${latencyMs}ms, model=${this.parserModelId}): ${message}`,
-        );
+      const latencyMs = Date.now() - startTime;
+      this.logger.debug(
+        `generateObject success (${latencyMs}ms, model=${this.parserModelId}): is_reminder=${result.object.is_reminder}, titolo="${result.object.titolo}"`,
+      );
 
-        this.aiRunLedger.recordRun({
-          tenantId,
-          userId,
-          runType: 'reminder-parse',
-          model: this.parserModelId,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
-          latencyMs,
-          status: AiRunStatus.FAILED,
-          errorMessage: message,
-        }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+      this.aiRunLedger.recordRun({
+        tenantId,
+        userId,
+        runType: 'reminder-parse',
+        model: this.parserModelId,
+        promptTokens: result.usage?.inputTokens ?? 0,
+        completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0,
+        latencyMs,
+        status: AiRunStatus.SUCCESS,
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
-        // On last attempt, return fallback marked as parser failure
-        if (attempt === maxAttempts) {
-          return { ...SAFE_FALLBACK, _parserError: true, _errorMessage: message } as ReminderParseOutput & { _parserError: true; _errorMessage: string };
-        }
+      return result.object;
+    } catch (error) {
+      const latencyMs = Date.now() - startTime;
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `generateObject failed (${latencyMs}ms, model=${this.parserModelId}): ${message}`,
+      );
 
-        this.logger.warn(`Retrying AI parser (attempt ${attempt + 1}/${maxAttempts})...`);
-      }
+      this.aiRunLedger.recordRun({
+        tenantId,
+        userId,
+        runType: 'reminder-parse',
+        model: this.parserModelId,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        latencyMs,
+        status: AiRunStatus.FAILED,
+        errorMessage: `generateObject: ${message}`,
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
+      return null;
     }
+  }
 
-    // Unreachable, but TypeScript needs it
-    return SAFE_FALLBACK;
+  /**
+   * Fallback: generateText + manual JSON extraction via parseJsonOutput.
+   * Works with models that emit <think> tokens or don't support response_format.
+   */
+  private async tryGenerateText(
+    userPrompt: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<ReminderParseOutput | null> {
+    const startTime = Date.now();
+    try {
+      const model = this.mistralProvider.getChatModel(this.parserModelId);
+
+      const result = await generateText({
+        model,
+        system: SYSTEM_PROMPT,
+        prompt: `${userPrompt}\n\nRispondi SOLO con un singolo oggetto JSON (NON un array). Inizia con { e termina con }. Nessun testo prima o dopo il JSON.`,
+        temperature: 0.3,
+        maxOutputTokens: 1200,
+        abortSignal: AbortSignal.timeout(45_000),
+      });
+
+      const latencyMs = Date.now() - startTime;
+      this.logger.debug(
+        `generateText raw response (${result.text.length} chars, ${latencyMs}ms, model=${this.parserModelId}): ${result.text.slice(0, 500)}`,
+      );
+
+      const parsed = parseJsonOutput(result.text, reminderParseSchema);
+      this.logger.debug(
+        `generateText parsed: is_reminder=${parsed.is_reminder}, titolo="${parsed.titolo}"`,
+      );
+
+      this.aiRunLedger.recordRun({
+        tenantId,
+        userId,
+        runType: 'reminder-parse',
+        model: this.parserModelId,
+        promptTokens: result.usage?.inputTokens ?? 0,
+        completionTokens: result.usage?.outputTokens ?? 0,
+        totalTokens: result.usage?.totalTokens ?? 0,
+        latencyMs,
+        status: AiRunStatus.SUCCESS,
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
+      return parsed;
+    } catch (error) {
+      const latencyMs = Date.now() - startTime;
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `generateText fallback failed (${latencyMs}ms, model=${this.parserModelId}): ${message}`,
+      );
+
+      this.aiRunLedger.recordRun({
+        tenantId,
+        userId,
+        runType: 'reminder-parse',
+        model: this.parserModelId,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        latencyMs,
+        status: AiRunStatus.FAILED,
+        errorMessage: `generateText: ${message}`,
+      }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
+
+      return null;
+    }
   }
 }
