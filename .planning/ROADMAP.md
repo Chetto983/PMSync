@@ -15,6 +15,7 @@
 - ✅ **v6.0 Enterprise Platform & AI Governance** — Phases 77-88 (partial, archived 2026-03-20)
 - ✅ **v7.0 System Audit & Hardening** — Phases 89-99 (shipped 2026-03-23)
 - ✅ **v8.0 Progressive Web App** — Phases 100-105 (shipped 2026-03-24)
+- **v9.0 AI Intelligence & Platform Hardening** — Phases 106-109 (in progress)
 
 ## Phases
 
@@ -109,6 +110,75 @@
 
 </details>
 
+### v9.0 AI Intelligence & Platform Hardening (In Progress)
+
+**Milestone Goal:** Make the AI agent smarter with graph-aware RAG, ship backend push notifications, harden rate limits, and add explicit HITL approval routing.
+
+- [ ] **Phase 106: Tiered Rate Limiting** - Replace flat write-rate limit with named tiers to fix user-reported 429s
+- [ ] **Phase 107: Push Notification Backend Dispatch** - Complete the v8.0 push plumbing with actual web-push delivery
+- [ ] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls
+- [ ] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI
+
+## Phase Details
+
+### Phase 106: Tiered Rate Limiting
+**Goal**: Users stop hitting false 429 errors during normal workflows because write operations use appropriate per-category limits
+**Depends on**: Nothing (first phase in v9.0)
+**Requirements**: RATE-01, RATE-02, RATE-03
+**Success Criteria** (what must be TRUE):
+  1. A user sending emails hits the send-tier limit (10/min) independently of other write operations
+  2. A user performing bulk label/move operations uses the safe-write tier (100/min) without being blocked by the old flat 30/min limit
+  3. Read-heavy pages (inbox loading, search, thread view) continue working at 300/min with no regression
+  4. All existing @Throttle() decorators map to named tiers with no unintended cross-tier enforcement
+**Plans**: TBD
+
+### Phase 107: Push Notification Backend Dispatch
+**Goal**: Users who enabled push notifications in v8.0 settings actually receive push notifications on their devices
+**Depends on**: Phase 106
+**Requirements**: PUSH-01, PUSH-02, PUSH-03, PUSH-04, PUSH-05, PUSH-06, PUSH-07
+**Success Criteria** (what must be TRUE):
+  1. When a new email arrives, user receives a push notification on all subscribed devices within 30 seconds
+  2. Clicking a push notification opens the specific email thread in the app
+  3. User can configure which categories trigger push notifications (new email, calendar, AI) in settings
+  4. Multiple emails in the same thread within a short window produce a single grouped notification with count
+  5. Stale browser subscriptions (uninstalled PWA, revoked permissions) are automatically cleaned up without silent failure accumulation
+**Plans**: TBD
+
+### Phase 108: HITL Approval Routing
+**Goal**: Users have explicit control over destructive AI actions with clear approve/reject UX and configurable sensitivity
+**Depends on**: Phase 107
+**Requirements**: HITL-01, HITL-02, HITL-03, HITL-04
+**Success Criteria** (what must be TRUE):
+  1. When the AI proposes a destructive action (send email, delete, move), user sees approve/reject buttons with warning styling before it executes
+  2. Destructive tool calls are visually distinct from informational tool calls (different color/icon treatment)
+  3. User can set HITL sensitivity to HIGH_ONLY, ALL_MUTATIONS, or NONE in AI settings
+  4. Every approval and rejection is logged in the audit trail for GDPR accountability
+**Plans**: TBD
+
+### Phase 109: Graph RAG Pipeline
+**Goal**: AI chat produces more accurate, context-rich responses by assembling graph-expanded results within a token budget and using entity-anchored memories
+**Depends on**: Phase 108
+**Requirements**: GRAG-01, GRAG-02, GRAG-03, GRAG-04, GRAG-05, GRAG-06
+**Success Criteria** (what must be TRUE):
+  1. AI responses to relationship questions ("What did Marco say about the project?") include graph-expanded context from related contacts and threads
+  2. Token usage for RAG context is 40-60% lower than raw result injection (measurable via AiRunLedger)
+  3. User can ask "What do I remember about [contact]?" and get entity-anchored memory results, not just semantic search hits
+  4. Multi-hop queries ("Find emails from people I met at the conference about budget") trigger few-shot guided tool chains that produce relevant results
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 106 -> 107 -> 108 -> 109
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 106. Tiered Rate Limiting | 0/TBD | Not started | - |
+| 107. Push Notification Backend Dispatch | 0/TBD | Not started | - |
+| 108. HITL Approval Routing | 0/TBD | Not started | - |
+| 109. Graph RAG Pipeline | 0/TBD | Not started | - |
+
 ---
 *Roadmap created: 2026-02-09*
 *v8.0 completed: 2026-03-24 -- 6 phases, 11 plans, 21/21 requirements*
+*v9.0 roadmap added: 2026-03-24 -- 4 phases, 20 requirements*

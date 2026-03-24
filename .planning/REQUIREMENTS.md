@@ -78,32 +78,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PUSH-01 | — | Pending |
-| PUSH-02 | — | Pending |
-| PUSH-03 | — | Pending |
-| PUSH-04 | — | Pending |
-| PUSH-05 | — | Pending |
-| PUSH-06 | — | Pending |
-| PUSH-07 | — | Pending |
-| RATE-01 | — | Pending |
-| RATE-02 | — | Pending |
-| RATE-03 | — | Pending |
-| HITL-01 | — | Pending |
-| HITL-02 | — | Pending |
-| HITL-03 | — | Pending |
-| HITL-04 | — | Pending |
-| GRAG-01 | — | Pending |
-| GRAG-02 | — | Pending |
-| GRAG-03 | — | Pending |
-| GRAG-04 | — | Pending |
-| GRAG-05 | — | Pending |
-| GRAG-06 | — | Pending |
+| RATE-01 | Phase 106 | Pending |
+| RATE-02 | Phase 106 | Pending |
+| RATE-03 | Phase 106 | Pending |
+| PUSH-01 | Phase 107 | Pending |
+| PUSH-02 | Phase 107 | Pending |
+| PUSH-03 | Phase 107 | Pending |
+| PUSH-04 | Phase 107 | Pending |
+| PUSH-05 | Phase 107 | Pending |
+| PUSH-06 | Phase 107 | Pending |
+| PUSH-07 | Phase 107 | Pending |
+| HITL-01 | Phase 108 | Pending |
+| HITL-02 | Phase 108 | Pending |
+| HITL-03 | Phase 108 | Pending |
+| HITL-04 | Phase 108 | Pending |
+| GRAG-01 | Phase 109 | Pending |
+| GRAG-02 | Phase 109 | Pending |
+| GRAG-03 | Phase 109 | Pending |
+| GRAG-04 | Phase 109 | Pending |
+| GRAG-05 | Phase 109 | Pending |
+| GRAG-06 | Phase 109 | Pending |
 
 **Coverage:**
 - v9.0 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20 ⚠️
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after initial definition*
+*Last updated: 2026-03-24 after roadmap creation*
