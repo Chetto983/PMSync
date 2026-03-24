@@ -51,8 +51,6 @@ export function useSettingsCopy() {
     communicationLabel: settingsCopy.aiPanel?.communicationLabel || 'Communication',
     responseLengthLabel: settingsCopy.aiPanel?.responseLengthLabel || 'Length',
     proactivityLabel: settingsCopy.aiPanel?.proactivityLabel || 'Proactivity',
-    autoApproveLabel: settingsCopy.aiPanel?.autoApproveLabel || 'Auto-Approve',
-    autoApproveHint: settingsCopy.aiPanel?.autoApproveHint || '',
     savePreferences: settingsCopy.aiPanel?.savePreferences || 'Save',
     saving: settingsCopy.aiPanel?.saving || 'Saving...',
     openAssistant: settingsCopy.aiPanel?.openAssistant || 'Open AI',

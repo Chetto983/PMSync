@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -8,15 +8,20 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Stack,
-  Slider,
   Chip,
   Divider,
   Alert,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import { MessageSquare, FileText, Calendar, Trash2, ExternalLink, ListFilter } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SettingRow } from './SettingRow';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/ai';
 
 export interface AiSettingsProps {
@@ -48,8 +53,8 @@ export interface AiSettingsProps {
   setResponseLength: (v: ResponseLength) => void;
   proactivityLevel: ProactivityLevel;
   setProactivityLevel: (v: ProactivityLevel) => void;
-  autoApproveThreshold: number;
-  setAutoApproveThreshold: (v: number) => void;
+  hitlSensitivity: string;
+  setHitlSensitivity: (v: string) => void;
   // Actions
   onSave: () => void;
   onClearMemory: () => void;
@@ -77,8 +82,6 @@ export interface AiSettingsProps {
     communicationLabel: string;
     responseLengthLabel: string;
     proactivityLabel: string;
-    autoApproveLabel: string;
-    autoApproveHint: string;
     savePreferences: string;
     saving: string;
     openAssistant: string;
@@ -119,13 +122,16 @@ export function AiSettings({
   setResponseLength,
   proactivityLevel,
   setProactivityLevel,
-  autoApproveThreshold,
-  setAutoApproveThreshold,
+  hitlSensitivity,
+  setHitlSensitivity,
   onSave,
   onClearMemory,
   onOpenAssistant,
   copy,
 }: AiSettingsProps) {
+  const t = useTranslations();
+  const [noneDialogOpen, setNoneDialogOpen] = useState(false);
+
   return (
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -289,22 +295,35 @@ export function AiSettings({
               </Box>
 
               <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {copy.autoApproveLabel}
-                  </Typography>
-                  <Chip label={`${autoApproveThreshold}%`} size="small" />
-                </Box>
-                <Slider
-                  value={autoApproveThreshold}
-                  onChange={(_, v) => setAutoApproveThreshold(v as number)}
-                  min={50}
-                  max={100}
-                  step={5}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  {copy.autoApproveHint}
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                  {t.chat.hitl.sensitivityLabel}
                 </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>
+                  {t.chat.hitl.sensitivityDescription}
+                </Typography>
+                <ToggleButtonGroup
+                  value={hitlSensitivity}
+                  exclusive
+                  onChange={(_, v) => {
+                    if (!v) return;
+                    if (v === 'NONE') {
+                      setNoneDialogOpen(true);
+                    } else {
+                      setHitlSensitivity(v);
+                    }
+                  }}
+                  fullWidth
+                  size="small"
+                >
+                  <ToggleButton value="HIGH_ONLY">{t.chat.hitl.highOnly}</ToggleButton>
+                  <ToggleButton value="ALL_MUTATIONS">{t.chat.hitl.allMutations}</ToggleButton>
+                  <ToggleButton value="NONE">{t.chat.hitl.noneAutoExecute}</ToggleButton>
+                </ToggleButtonGroup>
+                {hitlSensitivity === 'NONE' && (
+                  <Alert severity="warning" sx={{ mt: 1.5 }}>
+                    {t.chat.hitl.noneWarning}
+                  </Alert>
+                )}
               </Box>
             </Stack>
 
@@ -339,6 +358,28 @@ export function AiSettings({
           </SectionCard>
         </>
       )}
+
+      <Dialog open={noneDialogOpen} onClose={() => setNoneDialogOpen(false)}>
+        <DialogTitle>{t.chat.hitl.noneDialogTitle}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t.chat.hitl.noneDialogBody}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNoneDialogOpen(false)}>
+            {t.chat.hitl.noneDialogCancel}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setHitlSensitivity('NONE');
+              setNoneDialogOpen(false);
+            }}
+          >
+            {t.chat.hitl.noneDialogConfirm}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
