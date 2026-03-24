@@ -111,7 +111,7 @@ export class ReminderController {
 
   @Delete(':id')
   @RateTierDecorator('destructive-write')
-  @ApiOperation({ summary: 'Soft-delete a reminder (sets status to annullato)' })
+  @ApiOperation({ summary: 'Delete a reminder permanently' })
   async delete(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const reminder = await this.reminderService.deleteReminder(
       req.user.tenantId,

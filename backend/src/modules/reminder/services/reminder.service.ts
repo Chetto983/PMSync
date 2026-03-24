@@ -205,9 +205,8 @@ export class ReminderService {
 
   async deleteReminder(tenantId: string, userId: string, id: string) {
     await this.getReminder(tenantId, userId, id);
-    return this.prisma.reminder.update({
+    return this.prisma.reminder.delete({
       where: { id },
-      data: { status: 'annullato' },
     });
   }
 }
