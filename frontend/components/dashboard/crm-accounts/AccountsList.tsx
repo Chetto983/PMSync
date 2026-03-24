@@ -19,6 +19,7 @@ import {
   TablePagination,
 } from '@mui/material';
 import { Search, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAccounts, useDeleteAccount } from '@/hooks/queries/use-crm-accounts';
 import { CreateAccountDialog } from './CreateAccountDialog';
@@ -40,6 +41,7 @@ export function AccountsList() {
     offset: page * rowsPerPage,
   });
 
+  const router = useRouter();
   const deleteAccount = useDeleteAccount();
 
   const handleDelete = (id: string) => {
@@ -149,9 +151,14 @@ export function AccountsList() {
               </TableHead>
               <TableBody>
                 {rows.map((account: CrmAccount) => (
-                  <TableRow key={account.id} hover>
+                  <TableRow
+                    key={account.id}
+                    hover
+                    onClick={() => router.push(`/dashboard/crm/accounts/${account.id}`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" fontWeight={500} color="primary">
                         {account.name}
                       </Typography>
                     </TableCell>
