@@ -41,7 +41,7 @@ Declared values from `frontend/theme/tokens.ts` (project-wide, no phase-specific
 | 2xl | 48px (spacing[12]) | Major section breaks |
 | 3xl | 64px (spacing[16]) | Page-level spacing |
 
-Exceptions: 44px touch target for approve/reject buttons on mobile (spacing[11]).
+Exceptions: 44px min-height touch target for approve/reject buttons on mobile (spacing[11]). This applies to min-height only; horizontal padding follows the standard scale (16px).
 
 ---
 
@@ -58,7 +58,7 @@ All values from `frontend/theme/typography.ts` — no overrides for this phase.
 | Section heading | 16px (1rem) | 600 (semibold) | 1.5 (normal) | h6 |
 | Chip text | 12px (0.75rem) | 600 (semibold) | 1.5 (normal) | overline style |
 
-**Phase-specific note:** Approval card header uses body2 at weight 500, matching the existing `HitlApprovalCard.tsx` pattern.
+**Phase-specific note:** Approval card header uses body2 at weight 600 (semibold), providing visual hierarchy without introducing a third font weight.
 
 ---
 
@@ -77,6 +77,8 @@ All colors from `frontend/theme/tokens.ts`. Both dark and light mode values are 
 | Informational tool | `primary.main` | Non-destructive tool call spinner/icon (existing pattern) |
 
 **Accent reserved for:** Approve button (success.main), reject button (error.main), HIGH-risk severity chip (error.light bg / error.main text), approval card border (warning.main). Never used for general interactive elements.
+
+**Primary focal point:** The pending-approval card with its 2px warning border and tinted background is the dominant visual element in the chat stream. It draws the eye before any surrounding message bubbles or informational tool cards, which use flat Paper outlines with no color fill.
 
 ### Destructive vs Informational Visual Distinction (HITL-02)
 
@@ -118,8 +120,8 @@ All colors from `frontend/theme/tokens.ts`. Both dark and light mode values are 
 1. AI proposes destructive tool call (send_email, delete_email, forward_email, reply_email, delete_event, delete_contact)
 2. SDK sets tool status to `requires-action`
 3. `HitlApprovalWrapper` renders with warning border, tool summary, approve/reject buttons
-4. User clicks **Approve**: `addResult({ approved: true })` is called, button shows Loader2 spinner, card transitions to approved terminal state
-5. User clicks **Deny**: `addResult({ approved: false, reason: 'User rejected' })` is called, button shows Loader2 spinner, card transitions to rejected terminal state
+4. User clicks **Approve Action**: `addResult({ approved: true })` is called, button shows Loader2 spinner, card transitions to approved terminal state
+5. User clicks **Deny Action**: `addResult({ approved: false, reason: 'User rejected' })` is called, button shows Loader2 spinner, card transitions to rejected terminal state
 6. Terminal states are non-interactive (no buttons, just status badge)
 
 ### Sensitivity Setting (HITL-03)
@@ -131,6 +133,8 @@ All colors from `frontend/theme/tokens.ts`. Both dark and light mode values are 
 | NONE | No approval gates, all tools auto-execute | "None (auto-execute)" |
 
 Default: HIGH_ONLY (matches current `autoApproveThreshold: 0.9` behavior).
+
+**NONE confirmation gate:** Selecting NONE opens a confirmation dialog (MUI Dialog) before the setting takes effect. Dialog copy: title "Disable all approval gates?", body "All AI actions will execute immediately without asking for your confirmation. This cannot be undone per-action.", confirm button "Confirm: auto-execute all" (error color), cancel button "Keep current setting". Only on confirm does the preference persist via `PATCH /users/me/preferences`.
 
 Setting is persisted via existing `PATCH /users/me/preferences` endpoint with a new `hitlSensitivity` field.
 
@@ -145,8 +149,8 @@ Backend-only. No additional UI elements. Approval/rejection events logged via ex
 | Element | EN Copy | IT Copy |
 |---------|---------|---------|
 | Approval card title | "Action requires approval" | "L'azione richiede approvazione" |
-| Approve button | "Approve" | "Approva" |
-| Reject button | "Deny" | "Nega" |
+| Approve button | "Approve Action" | "Approva azione" |
+| Reject button | "Deny Action" | "Nega azione" |
 | HIGH chip | "HIGH" | "ALTO" |
 | APPROVED chip | "APPROVED" | "APPROVATO" |
 | DENIED chip | "DENIED" | "NEGATO" |
@@ -156,11 +160,15 @@ Backend-only. No additional UI elements. Approval/rejection events logged via ex
 | HIGH_ONLY option | "High risk only" | "Solo alto rischio" |
 | ALL_MUTATIONS option | "All mutations" | "Tutte le mutazioni" |
 | NONE option | "None (auto-execute)" | "Nessuna (esecuzione automatica)" |
-| NONE warning | "All AI actions will execute without confirmation. Use with caution." | "Tutte le azioni AI verranno eseguite senza conferma. Usa con cautela." |
+| NONE warning (inline) | "All AI actions will execute without confirmation. Use with caution." | "Tutte le azioni AI verranno eseguite senza conferma. Usa con cautela." |
+| NONE dialog title | "Disable all approval gates?" | "Disattivare tutti i controlli di approvazione?" |
+| NONE dialog body | "All AI actions will execute immediately without asking for your confirmation. This cannot be undone per-action." | "Tutte le azioni AI verranno eseguite immediatamente senza chiedere conferma. Non e possibile annullare per singola azione." |
+| NONE dialog confirm | "Confirm: auto-execute all" | "Conferma: esegui tutto automaticamente" |
+| NONE dialog cancel | "Keep current setting" | "Mantieni impostazione attuale" |
 | Empty state | N/A — no standalone page, HITL cards only appear inline in chat | N/A |
 | Error state | "Failed to update HITL settings. Try again." | "Aggiornamento impostazioni HITL fallito. Riprova." |
 
-**Source:** `pendingTitle`, `approveLabel`, `rejectLabel` already exist at `frontend/locales/en.ts` line 3950-3953. New keys needed for terminal states, sensitivity toggle, and chip labels.
+**Source:** `pendingTitle`, `approveLabel`, `rejectLabel` already exist at `frontend/locales/en.ts` line 3950-3953. New keys needed for terminal states, sensitivity toggle, chip labels, and NONE confirmation dialog.
 
 ---
 
@@ -174,6 +182,7 @@ Backend-only. No additional UI elements. Approval/rejection events logged via ex
 | Approved (terminal) | Success border + bg, "APPROVED" chip, no buttons | Read-only, collapsible parameters |
 | Rejected (terminal) | Error border + bg, "DENIED" chip, no buttons | Read-only, collapsible parameters |
 | Sensitivity: NONE selected | ToggleButton selected, Alert warning below | Can change selection |
+| Sensitivity: NONE confirming | Dialog open with destructive confirm button | Confirm or cancel |
 
 ---
 
