@@ -273,6 +273,11 @@ function ThreadHistoryProvider({ children }: { children: ReactNode }) {
  * - archive()    -> DELETE (no archive concept)
  */
 export function createPmSyncThreadListAdapter() {
+  // Idempotent initialize: cache the in-flight promise per threadId so
+  // concurrent calls (from AssistantChatTransport + _InnerActiveThreadProvider)
+  // resolve to the same backend conversation instead of creating duplicates.
+  const initializeCache = new Map<string, Promise<RemoteThreadInitializeResponse>>();
+
   // Serialize delete calls to avoid 429 rate-limit errors when bulk-deleting
   let deleteQueue: Promise<void> = Promise.resolve();
   async function deleteThread(remoteId: string) {
@@ -375,13 +380,21 @@ export function createPmSyncThreadListAdapter() {
     async initialize(
       _threadId: string,
     ): Promise<RemoteThreadInitializeResponse> {
-      // Eagerly create the conversation on the backend so we get a real
-      // server-assigned CUID. assistant-ui calls this before the first
-      // message send; the returned remoteId is then forwarded as
-      // conversationId on every subsequent request.
-      const { data } = await apiClient.post('/ai/chat/conversations');
-      const remoteId: string = data?.conversation?.id ?? _threadId;
-      return { remoteId, externalId: undefined };
+      // Idempotent: if a call is already in-flight for this threadId,
+      // return the same promise. Prevents the race between
+      // AssistantChatTransport and _InnerActiveThreadProvider from
+      // creating duplicate backend conversations.
+      const cached = initializeCache.get(_threadId);
+      if (cached) return cached;
+
+      const promise = (async (): Promise<RemoteThreadInitializeResponse> => {
+        const { data } = await apiClient.post('/ai/chat/conversations');
+        const remoteId: string = data?.conversation?.id ?? _threadId;
+        return { remoteId, externalId: undefined };
+      })();
+
+      initializeCache.set(_threadId, promise);
+      return promise;
     },
 
     async generateTitle(
