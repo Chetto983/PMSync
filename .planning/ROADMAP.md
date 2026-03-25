@@ -119,7 +119,7 @@
 - [x] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls (completed 2026-03-24)
 - [x] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI (completed 2026-03-25)
 - [x] **Phase 110: Wire Entity-Anchored Memory Retrieval** - Close GRAG-04 integration gap: wire getMemoriesByEntity() into context assembly after graph traversal (completed 2026-03-25)
-- [ ] **Phase 111: Push Notification Test Debt** - Replace 19 RED test stubs across Phase 107 spec files with real assertions
+- [x] **Phase 111: Push Notification Test Debt** - Replace 19 RED test stubs across Phase 107 spec files with real assertions (completed 2026-03-25)
 
 ## Phase Details
 
@@ -207,8 +207,8 @@ Plans:
   3. No test is skipped or marked `.todo` as a replacement for a RED stub
 **Plans**: 2 plans
 Plans:
-- [ ] 111-01-PLAN.md — Replace 7 RED stubs in push.controller.spec.ts and push.service.spec.ts� Replace 7 RED stubs in push.controller.spec.ts and push.service.spec.ts
-- [ ] 111-02-PLAN.md — Replace 12 RED stubs in push-dispatch.handler.spec.ts and push-dispatch.worker.spec.ts� Replace 12 RED stubs in push-dispatch.handler.spec.ts and push-dispatch.worker.spec.ts
+- [ ] 111-01-PLAN.md — Replace 7 RED stubs in push.controller.spec.ts and push.service.spec.ts� Replace 7 RED stubs in push.controller.spec.ts and push.service.spec.ts
+- [ ] 111-02-PLAN.md — Replace 12 RED stubs in push-dispatch.handler.spec.ts and push-dispatch.worker.spec.ts� Replace 12 RED stubs in push-dispatch.handler.spec.ts and push-dispatch.worker.spec.ts
 
 ## Progress
 
@@ -222,7 +222,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109 -> 110 -> 111
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
 | 109. Graph RAG Pipeline | 1/3 | Complete    | 2026-03-25 |
 | 110. Wire Entity-Anchored Memory Retrieval | 0/1 | Complete    | 2026-03-25 |
-| 111. Push Notification Test Debt | 0/2 | Pending | — |
+| 111. Push Notification Test Debt | 0/2 | Complete    | 2026-03-25 |
 
 ---
 *Roadmap created: 2026-02-09*
