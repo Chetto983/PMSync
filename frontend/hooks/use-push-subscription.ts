@@ -118,9 +118,14 @@ export function usePushSubscription() {
     }
 
     const reg = await navigator.serviceWorker.ready;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY ?? '';
+    // Convert base64url to Uint8Array — pushManager requires this in all browsers
+    const raw = atob(vapidKey.replace(/-/g, '+').replace(/_/g, '/'));
+    const key = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: process.env.NEXT_PUBLIC_VAPID_KEY,
+      applicationServerKey: key,
     });
 
     const json = sub.toJSON();
