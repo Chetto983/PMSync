@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { NetworkOnly, Serwist } from 'serwist';
+import { NetworkFirst, NetworkOnly, Serwist } from 'serwist';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -67,6 +67,14 @@ const serwist = new Serwist({
     {
       matcher: /^\/_next\/data\/.*/,
       handler: new NetworkOnly(),
+    },
+    // Navigation requests (HTML pages) use NetworkFirst to avoid "no-response"
+    // errors when dynamic pages aren't in the precache manifest.
+    {
+      matcher({ request }) {
+        return request.mode === 'navigate';
+      },
+      handler: new NetworkFirst({ networkTimeoutSeconds: 5 }),
     },
     ...filteredCache,
   ],
