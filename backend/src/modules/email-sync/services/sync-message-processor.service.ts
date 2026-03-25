@@ -246,6 +246,14 @@ export class SyncMessageProcessorService {
         existing?.userModifiedAt &&
         Date.now() - existing.userModifiedAt.getTime() < 5 * 60 * 1000;
 
+      // T-0202: Label merge logic — preserve user-added custom labels during sync
+      // System labels (INBOX, SENT, etc.) trust Gmail as source of truth.
+      // Custom labels (Label_*) in DB but not in Gmail are preserved
+      // (could be user-added labels not yet synced back to Gmail).
+      const mergedLabels = existing
+        ? this.mergeLabels(existing.labels, canonicalMsg.labels || [])
+        : canonicalMsg.labels || [];
+
       const updateData = userModifiedRecently
         ? {
             ...baseUpdateData,
@@ -257,7 +265,7 @@ export class SyncMessageProcessorService {
             isRead: canonicalMsg.isRead ?? false,
             isStarred: canonicalMsg.isStarred ?? false,
             isFlagged: canonicalMsg.isFlagged ?? false,
-            labels: canonicalMsg.labels || [],
+            labels: mergedLabels,
             folder: canonicalMsg.folder,
           };
 
@@ -641,5 +649,49 @@ export class SyncMessageProcessorService {
     }
 
     return { processed: results.length, newCount };
+  }
+
+  /**
+   * T-0202: Merge labels from Gmail sync with existing DB labels.
+   *
+   * System labels (INBOX, SENT, TRASH, etc.) trust Gmail as source of truth.
+   * Custom labels (Label_*, label_*) in DB but absent from Gmail are preserved
+   * — they may be user-added labels not yet synced back to the provider.
+   */
+  private mergeLabels(
+    existingLabels: string[],
+    gmailLabels: string[],
+  ): string[] {
+    const gmailSet = new Set(gmailLabels);
+    const merged = new Set(gmailLabels);
+
+    for (const label of existingLabels) {
+      if (!gmailSet.has(label) && !this.isSystemLabel(label)) {
+        // Custom label in DB but not in Gmail — preserve it
+        merged.add(label);
+      }
+    }
+
+    return Array.from(merged);
+  }
+
+  /** Gmail system labels that should trust the provider as source of truth. */
+  private static readonly SYSTEM_LABELS = new Set([
+    'INBOX',
+    'SENT',
+    'TRASH',
+    'SPAM',
+    'DRAFT',
+    'STARRED',
+    'IMPORTANT',
+    'UNREAD',
+    'CHAT',
+  ]);
+
+  private isSystemLabel(label: string): boolean {
+    return (
+      SyncMessageProcessorService.SYSTEM_LABELS.has(label) ||
+      label.startsWith('CATEGORY_')
+    );
   }
 }

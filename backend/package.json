@@ -79,6 +79,7 @@
     "cookie-parser": "^1.4.7",
     "csrf-csrf": "^4.0.3",
     "dotenv": "^17.2.4",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "google-auth-library": "^10.5.0",
     "googleapis": "^171.4.0",
