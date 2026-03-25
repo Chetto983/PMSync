@@ -15,7 +15,7 @@
 - ✅ **v6.0 Enterprise Platform & AI Governance** — Phases 77-88 (partial, archived 2026-03-20)
 - ✅ **v7.0 System Audit & Hardening** — Phases 89-99 (shipped 2026-03-23)
 - ✅ **v8.0 Progressive Web App** — Phases 100-105 (shipped 2026-03-24)
-- **v9.0 AI Intelligence & Platform Hardening** — Phases 106-109 (in progress)
+- **v9.0 AI Intelligence & Platform Hardening** — Phases 106-111 (in progress)
 
 ## Phases
 
@@ -118,6 +118,8 @@
 - [x] **Phase 107: Push Notification Backend Dispatch** - Complete the v8.0 push plumbing with actual web-push delivery (completed 2026-03-24)
 - [x] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls (completed 2026-03-24)
 - [x] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI (completed 2026-03-25)
+- [ ] **Phase 110: Wire Entity-Anchored Memory Retrieval** - Close GRAG-04 integration gap: wire getMemoriesByEntity() into context assembly after graph traversal
+- [ ] **Phase 111: Push Notification Test Debt** - Replace 19 RED test stubs across Phase 107 spec files with real assertions
 
 ## Phase Details
 
@@ -181,10 +183,32 @@ Plans:
 - [ ] 109-02-PLAN.md — EntityGraphService (recursive CTE traversal) + ContextAssemblyService (token-budgeted builder)
 - [ ] 109-03-PLAN.md — Integration: memory anchoring, rag-tools refactor, query router sub-classification, few-shot injection, ledger tracking
 
+### Phase 110: Wire Entity-Anchored Memory Retrieval
+**Goal**: Entity-anchored memories from getMemoriesByEntity() are actually used in AI chat responses after graph traversal, closing the GRAG-04 integration gap
+**Depends on**: Phase 109
+**Requirements**: GRAG-04
+**Gap Closure**: Closes GRAG-04 integration gap, ContextAssembly→MemoryService wiring, entity memory query flow step 4
+**Success Criteria** (what must be TRUE):
+  1. After graph traversal returns entity nodes, contact/email entity IDs are extracted and passed to getMemoriesByEntity()
+  2. FK-anchored memories are merged with vector-search memories before context assembly
+  3. "What do I remember about [contact]?" queries return entity-specific memories, not just semantic search hits
+**Plans**: TBD (run `/gsd:plan-phase 110`)
+
+### Phase 111: Push Notification Test Debt
+**Goal**: All 19 RED test stubs in Phase 107 spec files are replaced with real assertions that validate actual behavior
+**Depends on**: Phase 110
+**Requirements**: None (tech debt)
+**Gap Closure**: Closes tech debt from v9.0 audit — 19 RED test stubs across 4 spec files
+**Success Criteria** (what must be TRUE):
+  1. Zero `expect(true).toBe(false)` stubs remain in push notification spec files
+  2. All replacement tests pass with real assertions against actual service/handler behavior
+  3. No test is skipped or marked `.todo` as a replacement for a RED stub
+**Plans**: TBD (run `/gsd:plan-phase 111`)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 106 -> 107 -> 108 -> 109
+Phases execute in numeric order: 106 -> 107 -> 108 -> 109 -> 110 -> 111
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -192,6 +216,8 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109
 | 107. Push Notification Backend Dispatch | 3/3 | Complete   | 2026-03-24 |
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
 | 109. Graph RAG Pipeline | 1/3 | Complete    | 2026-03-25 |
+| 110. Wire Entity-Anchored Memory Retrieval | 0/0 | Pending | — |
+| 111. Push Notification Test Debt | 0/0 | Pending | — |
 
 ---
 *Roadmap created: 2026-02-09*
