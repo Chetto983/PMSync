@@ -17,6 +17,13 @@ import {
   Grid,
   MenuItem,
   Divider,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
   ArrowLeft,
@@ -31,6 +38,7 @@ import {
 import NextLink from 'next/link';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAccount, useUpdateAccount } from '@/hooks/queries';
+import { useDeals } from '@/hooks/queries/use-crm-deals';
 import type { CrmAccount, UpdateAccountDto } from '@/lib/api/crm-accounts';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { AccountHierarchyTree } from './AccountHierarchyTree';
@@ -270,21 +278,118 @@ function AccountInfoCard({
   );
 }
 
-// ---- Placeholder tabs ----
+// ---- Account Deals Tab ----
 
-function DealsTab() {
+function AccountDealsTab({ accountId }: { accountId: string }) {
+  const t = useTranslations();
+  const td = t.crmDeals;
+  const ta = t.crmAccounts;
+  const router = useRouter();
+  const { data, isLoading } = useDeals({ accountId, limit: 50 });
+  const rows = data?.data ?? [];
+
+  if (isLoading) {
+    return (
+      <Box sx={{ py: 2 }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} width="100%" height={40} sx={{ mb: 0.5 }} />
+        ))}
+      </Box>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <Box sx={{ py: 4, textAlign: 'center' }}>
+        <Typography color="text.secondary">
+          {ta?.detail?.deals?.noDeals ?? 'No deals for this account'}
+        </Typography>
+        <Button
+          variant="outlined"
+          size="small"
+          sx={{ mt: 1 }}
+          onClick={() => router.push('/dashboard/crm/deals')}
+        >
+          {ta?.detail?.deals?.goToDeals ?? 'Go to Deals'}
+        </Button>
+      </Box>
+    );
+  }
+
   return (
-    <Box sx={{ py: 4, textAlign: 'center' }}>
-      <Typography color="text.secondary">Deals tab coming in Sprint 04</Typography>
-    </Box>
+    <TableContainer>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>{td?.columns?.name ?? 'Name'}</TableCell>
+            <TableCell>{td?.columns?.stage ?? 'Stage'}</TableCell>
+            <TableCell align="right">{td?.columns?.amount ?? 'Amount'}</TableCell>
+            <TableCell>{td?.columns?.priority ?? 'Priority'}</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((deal) => (
+            <TableRow
+              key={deal.id}
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => router.push(`/dashboard/crm/deals/${deal.id}`)}
+            >
+              <TableCell>
+                <Typography variant="body2" fontWeight={500} color="primary">
+                  {deal.name}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                {deal.stage ? (
+                  <Chip
+                    label={deal.stage.name}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      borderColor: deal.stage.color ?? undefined,
+                      color: deal.stage.color ?? undefined,
+                    }}
+                  />
+                ) : '—'}
+              </TableCell>
+              <TableCell align="right">
+                <Typography variant="body2">
+                  {deal.amount
+                    ? new Intl.NumberFormat(undefined, {
+                        style: 'currency',
+                        currency: deal.currency,
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                      }).format(parseFloat(deal.amount))
+                    : '—'}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                {deal.priority ? (
+                  <Chip
+                    label={td?.priorities?.[deal.priority as keyof NonNullable<typeof td.priorities>] ?? deal.priority}
+                    size="small"
+                    variant="outlined"
+                  />
+                ) : '—'}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
+// ---- Activity Placeholder ----
+
 function ActivityTab() {
+  const t = useTranslations();
   return (
     <Box sx={{ py: 4, textAlign: 'center' }}>
       <Typography color="text.secondary">
-        Activity tab coming in Sprint 04
+        {t.crmAccounts?.detail?.placeholder?.activity ?? 'Coming in Sprint 07'}
       </Typography>
     </Box>
   );
@@ -420,7 +525,7 @@ export function AccountDetail() {
       </TabPanel>
 
       <TabPanel value={tab} index={2}>
-        <DealsTab />
+        <AccountDealsTab accountId={id} />
       </TabPanel>
 
       <TabPanel value={tab} index={3}>

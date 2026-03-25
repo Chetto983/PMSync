@@ -4162,6 +4162,13 @@ export interface AppTranslations {
         noAddress?: string;
         noIndustry?: string;
       };
+      deals?: {
+        noDeals?: string;
+        goToDeals?: string;
+      };
+      placeholder?: {
+        activity?: string;
+      };
     };
     breadcrumb?: {
       dashboard?: string;

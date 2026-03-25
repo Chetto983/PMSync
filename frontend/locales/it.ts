@@ -4310,6 +4310,13 @@ export const it: AppTranslations = {
         noAddress: 'Nessun indirizzo',
         noIndustry: 'Non specificato',
       },
+      deals: {
+        noDeals: 'Nessuna trattativa per questo account',
+        goToDeals: 'Vai alle Trattative',
+      },
+      placeholder: {
+        activity: 'In arrivo nello Sprint 07',
+      },
     },
     breadcrumb: {
       dashboard: 'Dashboard',
