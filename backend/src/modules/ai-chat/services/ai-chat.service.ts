@@ -737,10 +737,16 @@ export class AiChatService {
       messages.shift();
     }
 
-    // 2. Drop orphaned tool messages (not preceded by assistant)
+    // 2. Drop orphaned tool messages (not preceded by assistant or tool-after-assistant).
+    // Multiple tool calls in one step produce consecutive tool messages — all valid.
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'tool') {
-        if (i === 0 || messages[i - 1].role !== 'assistant') {
+        // Walk backwards past other tool messages to find the anchor
+        let anchor = i - 1;
+        while (anchor >= 0 && messages[anchor].role === 'tool') {
+          anchor--;
+        }
+        if (anchor < 0 || messages[anchor].role !== 'assistant') {
           messages.splice(i, 1);
         }
       }
