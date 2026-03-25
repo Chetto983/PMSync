@@ -389,7 +389,7 @@ function ActivityTab() {
   return (
     <Box sx={{ py: 4, textAlign: 'center' }}>
       <Typography color="text.secondary">
-        {t.crmAccounts?.detail?.placeholder?.activity ?? 'Coming in Sprint 07'}
+        {t.crmAccounts?.detail?.placeholder?.activity ?? 'Coming in Sprint 08'}
       </Typography>
     </Box>
   );
