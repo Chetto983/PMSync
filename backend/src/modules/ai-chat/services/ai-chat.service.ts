@@ -737,8 +737,31 @@ export class AiChatService {
       );
     }
 
+    // When the LLM goes straight to a tool-call without generating text,
+    // result.text is empty. Build a summary so the user knows what's happening.
+    let text = result.text;
+    if (!text?.trim() && pendingApprovals.length > 0) {
+      const toolLabels: Record<string, string> = {
+        send_email: 'inviare un\'email',
+        reply_email: 'rispondere a un\'email',
+        forward_email: 'inoltrare un\'email',
+        draft_email: 'creare una bozza',
+        delete_email: 'eliminare un\'email',
+        delete_contact: 'eliminare un contatto',
+        delete_event: 'eliminare un evento',
+        create_event: 'creare un evento',
+        update_event: 'aggiornare un evento',
+        create_contact: 'creare un contatto',
+        update_contact: 'aggiornare un contatto',
+      };
+      const actions = pendingApprovals.map(
+        (a) => toolLabels[a.toolName] ?? a.toolName,
+      );
+      text = `Vorrei ${actions.join(' e ')}. Controlla i dettagli qui sotto:`;
+    }
+
     return {
-      text: result.text,
+      text,
       conversationId,
       pendingApprovals,
       responseMessages: pendingApprovals.length > 0
