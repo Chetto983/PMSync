@@ -99,6 +99,6 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     EntityGraphService,
     ContextAssemblyService,
   ],
-  exports: [AiChatService, ConversationService],
+  exports: [AiChatService, ConversationService, PiiResolutionService],
 })
 export class AiChatModule {}

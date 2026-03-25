@@ -458,6 +458,13 @@ export class AiChatService {
         //
         // MiniMax M2.7 Interleaved Thinking: reasoning blocks are preserved
         // in history to maintain multi-turn reasoning chain coherence.
+        // Resolve PII placeholders before persisting — the LLM outputs redacted
+        // tokens (EMAIL_REDACTED:xxx) in its text and tool-call args. We resolve
+        // them here so conversation history displayed in the frontend is clean.
+        const resolvedText = text
+          ? await this.piiResolutionService.resolveText(tenantId, conversation.id, text)
+          : text;
+
         const contentParts: Prisma.InputJsonValue[] = [];
         if (reasoning?.length) {
           const reasoningText = reasoning.map((r) => r.text).join('\n');
@@ -465,16 +472,19 @@ export class AiChatService {
             contentParts.push({ type: 'reasoning', text: reasoningText });
           }
         }
-        if (text) {
-          contentParts.push({ type: 'text', text });
+        if (resolvedText) {
+          contentParts.push({ type: 'text', text: resolvedText });
         }
         if (toolCalls?.length) {
           for (const tc of toolCalls) {
+            const resolvedInput = await this.piiResolutionService.resolvePayload(
+              tenantId, conversation.id, tc.input as Record<string, unknown>,
+            );
             contentParts.push({
               type: 'tool-call',
               toolCallId: tc.toolCallId,
               toolName: tc.toolName,
-              input: tc.input as Prisma.InputJsonValue,
+              input: resolvedInput as Prisma.InputJsonValue,
             });
           }
         }

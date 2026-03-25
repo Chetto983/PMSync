@@ -15,6 +15,7 @@ import { AiChatService, type PendingToolApproval } from '../../ai-chat/services/
 import { ConversationService } from '../../ai-chat/services/conversation.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import { AuditService } from '../../../common/services/audit.service';
+import { PiiResolutionService } from '../../ai/guards/pii-resolution.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 interface TelegramUpdate {
@@ -65,6 +66,7 @@ export class TelegramWebhookService {
     private readonly aiChatService: AiChatService,
     private readonly conversationService: ConversationService,
     private readonly auditService: AuditService,
+    private readonly piiResolution: PiiResolutionService,
   ) {}
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
@@ -211,7 +213,11 @@ export class TelegramWebhookService {
         return;
       }
 
-      await this.sendAiResponse(chatId, result.text, settings.userId);
+      // Resolve PII placeholders in text before sending to user
+      const resolvedText = await this.piiResolution.resolveText(
+        settings.tenantId, result.conversationId, result.text,
+      );
+      await this.sendAiResponse(chatId, resolvedText, settings.userId);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Chat relay error for chatId=${chatId}: ${msg}`);
@@ -243,13 +249,19 @@ export class TelegramWebhookService {
     }
 
     // Send one approval card per tool, collect message_ids for later editing
+    // Resolve PII placeholders in display — user should see real values, not redacted tokens
     const approvalMessageIds: number[] = [];
     for (const approval of result.pendingApprovals) {
+      const displayInput = await this.piiResolution.resolvePayload(
+        tenantId,
+        result.conversationId,
+        approval.input as Record<string, unknown>,
+      );
       const msgId = await this.telegramBot.sendToolApproval(
         chatId,
         groupId,
         approval.toolName,
-        approval.input,
+        displayInput,
       );
       if (msgId) approvalMessageIds.push(msgId);
     }
@@ -370,7 +382,10 @@ export class TelegramWebhookService {
         return;
       }
 
-      await this.sendAiResponse(chatId, result.text, state.userId);
+      const resolvedText = await this.piiResolution.resolveText(
+        state.tenantId, state.conversationId, result.text,
+      );
+      await this.sendAiResponse(chatId, resolvedText, state.userId);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(`HITL resume error for groupId=${groupId}: ${msg}`);
