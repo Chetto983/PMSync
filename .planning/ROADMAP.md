@@ -205,7 +205,10 @@ Plans:
   1. Zero `expect(true).toBe(false)` stubs remain in push notification spec files
   2. All replacement tests pass with real assertions against actual service/handler behavior
   3. No test is skipped or marked `.todo` as a replacement for a RED stub
-**Plans**: TBD (run `/gsd:plan-phase 111`)
+**Plans**: 2 plans
+Plans:
+- [ ] 111-01-PLAN.md — Replace 7 RED stubs in push.controller.spec.ts and push.service.spec.ts� Replace 7 RED stubs in push.controller.spec.ts and push.service.spec.ts
+- [ ] 111-02-PLAN.md — Replace 12 RED stubs in push-dispatch.handler.spec.ts and push-dispatch.worker.spec.ts� Replace 12 RED stubs in push-dispatch.handler.spec.ts and push-dispatch.worker.spec.ts
 
 ## Progress
 
@@ -219,7 +222,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109 -> 110 -> 111
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
 | 109. Graph RAG Pipeline | 1/3 | Complete    | 2026-03-25 |
 | 110. Wire Entity-Anchored Memory Retrieval | 0/1 | Complete    | 2026-03-25 |
-| 111. Push Notification Test Debt | 0/0 | Pending | — |
+| 111. Push Notification Test Debt | 0/2 | Pending | — |
 
 ---
 *Roadmap created: 2026-02-09*
