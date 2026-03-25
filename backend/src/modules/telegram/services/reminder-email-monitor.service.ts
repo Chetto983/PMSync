@@ -14,6 +14,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 import {
   ScheduledJobsQueueService,
   ScheduledJobType,
@@ -39,6 +40,11 @@ export class ReminderEmailMonitorService implements OnModuleInit {
   }
 
   private async checkEmails(): Promise<void> {
+    // BullMQ scheduled job — no HTTP request context, bypass tenant scoping
+    return withoutTenantScopingAsync(() => this.checkEmailsInternal());
+  }
+
+  private async checkEmailsInternal(): Promise<void> {
     // Find all reminders with email monitoring enabled
     const reminders = await this.prisma.reminder.findMany({
       where: {

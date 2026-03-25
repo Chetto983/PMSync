@@ -13,6 +13,7 @@ import { CacheService, CacheNamespace } from '../../../common/services/cache.ser
 import { AiChatService } from '../../ai-chat/services/ai-chat.service';
 import { ConversationService } from '../../ai-chat/services/conversation.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
+import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 interface TelegramUpdate {
   callback_query?: {
@@ -93,19 +94,22 @@ export class TelegramWebhookService {
       await this.cache.del(token, { namespace: CacheNamespace.TELEGRAM_LINK });
 
       // Upsert TelegramSettings with the chatId
-      await this.prisma.telegramSettings.upsert({
-        where: { userId: payload.userId },
-        create: {
-          tenantId: payload.tenantId,
-          userId: payload.userId,
-          telegramChatId: chatId,
-          isActive: true,
-        },
-        update: {
-          telegramChatId: chatId,
-          isActive: true,
-        },
-      });
+      // Webhook is @Public() — no tenant context available, bypass scoping
+      await withoutTenantScopingAsync(() =>
+        this.prisma.telegramSettings.upsert({
+          where: { userId: payload.userId },
+          create: {
+            tenantId: payload.tenantId,
+            userId: payload.userId,
+            telegramChatId: chatId,
+            isActive: true,
+          },
+          update: {
+            telegramChatId: chatId,
+            isActive: true,
+          },
+        }),
+      );
 
       const userName = message.from?.first_name ?? 'utente';
       await this.telegramBot.sendMessage(
@@ -151,10 +155,13 @@ export class TelegramWebhookService {
    */
   private async handleChatRelay(chatId: string, text: string): Promise<void> {
     // Look up linked user by chatId (include conversation ID for history)
-    const settings = await this.prisma.telegramSettings.findFirst({
-      where: { telegramChatId: chatId, isActive: true },
-      select: { id: true, tenantId: true, userId: true, aiConversationId: true },
-    });
+    // Webhook is @Public() — no tenant context, bypass scoping
+    const settings = await withoutTenantScopingAsync(() =>
+      this.prisma.telegramSettings.findFirst({
+        where: { telegramChatId: chatId, isActive: true },
+        select: { id: true, tenantId: true, userId: true, aiConversationId: true },
+      }),
+    );
 
     if (!settings) {
       await this.telegramBot.sendMessage(
@@ -255,10 +262,12 @@ export class TelegramWebhookService {
    * Detaches the current conversation so next message starts fresh.
    */
   private async handleClearConversation(chatId: string): Promise<void> {
-    const settings = await this.prisma.telegramSettings.findFirst({
-      where: { telegramChatId: chatId, isActive: true },
-      select: { id: true, aiConversationId: true },
-    });
+    const settings = await withoutTenantScopingAsync(() =>
+      this.prisma.telegramSettings.findFirst({
+        where: { telegramChatId: chatId, isActive: true },
+        select: { id: true, aiConversationId: true },
+      }),
+    );
 
     if (!settings) {
       await this.telegramBot.sendMessage(
@@ -269,10 +278,12 @@ export class TelegramWebhookService {
     }
 
     if (settings.aiConversationId) {
-      await this.prisma.telegramSettings.update({
-        where: { id: settings.id },
-        data: { aiConversationId: null },
-      });
+      await withoutTenantScopingAsync(() =>
+        this.prisma.telegramSettings.update({
+          where: { id: settings.id },
+          data: { aiConversationId: null },
+        }),
+      );
     }
 
     await this.telegramBot.sendMessage(chatId, 'Conversazione cancellata. Il prossimo messaggio inizierà una nuova chat.');
@@ -321,34 +332,41 @@ export class TelegramWebhookService {
       try {
         // SEC: Resolve the user via chatId to enforce tenant boundary.
         // Without this, a crafted callback_data could complete another tenant's reminder.
-        const settings = await this.prisma.telegramSettings.findFirst({
-          where: { telegramChatId: chatId, isActive: true },
-          select: { tenantId: true, userId: true },
-        });
+        // Webhook is @Public() — no tenant context, bypass scoping
+        const settings = await withoutTenantScopingAsync(() =>
+          this.prisma.telegramSettings.findFirst({
+            where: { telegramChatId: chatId, isActive: true },
+            select: { tenantId: true, userId: true },
+          }),
+        );
 
         if (!settings) {
           await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Account non collegato');
           return;
         }
 
-        const reminder = await this.prisma.reminder.findFirst({
-          where: {
-            id: reminderId,
-            tenantId: settings.tenantId,
-            userId: settings.userId,
-            status: ReminderStatus.attivo,
-          },
-        });
+        const reminder = await withoutTenantScopingAsync(() =>
+          this.prisma.reminder.findFirst({
+            where: {
+              id: reminderId,
+              tenantId: settings.tenantId,
+              userId: settings.userId,
+              status: ReminderStatus.attivo,
+            },
+          }),
+        );
 
         if (!reminder) {
           await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Reminder non trovato');
           return;
         }
 
-        await this.prisma.reminder.update({
-          where: { id: reminderId },
-          data: { status: ReminderStatus.completato, completatoAt: new Date() },
-        });
+        await withoutTenantScopingAsync(() =>
+          this.prisma.reminder.update({
+            where: { id: reminderId },
+            data: { status: ReminderStatus.completato, completatoAt: new Date() },
+          }),
+        );
 
         await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Completato!');
 
