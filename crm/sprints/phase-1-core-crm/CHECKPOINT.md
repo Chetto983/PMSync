@@ -60,3 +60,7 @@
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
 - Circular deps: ✅ zero
+- Railway: ✅ /health → 200, /api/v1/crm/deals → 401 (route registered, auth guard active)
+- Vercel: ✅ /dashboard/crm/deals → 307 (auth redirect, route exists)
+- Browser (Edge CDP): ✅ 12/12 checks PASS — list page, create dialog, mobile viewport
+- Screenshots reviewed: ✅ Italian locale, empty state, dialog fields, mobile stacking all correct
