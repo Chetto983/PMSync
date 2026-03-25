@@ -30,6 +30,7 @@ import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
 import { Roles } from '../../../../common/auth/roles.decorator';
 import { CustomFieldService } from '../services/custom-field.service';
+import { SegmentService, SegmentGroup } from '../services/segment.service';
 import {
   CreateCustomFieldDto,
   UpdateCustomFieldDto,
@@ -42,7 +43,10 @@ import {
 @Controller('crm/custom-fields')
 @UseGuards(TenantGuard, RolesGuard)
 export class CustomFieldController {
-  constructor(private readonly customFieldService: CustomFieldService) {}
+  constructor(
+    private readonly customFieldService: CustomFieldService,
+    private readonly segmentService: SegmentService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List custom fields' })
@@ -104,5 +108,32 @@ export class CustomFieldController {
       entityId,
       dto.values,
     );
+  }
+
+  @Post('segment/query')
+  @ApiOperation({ summary: 'Query contacts matching segment rules' })
+  @ApiResponse({ status: 200, description: 'Matching contacts' })
+  async querySegment(
+    @Req() req: any,
+    @Body() body: { segment: SegmentGroup; limit?: number; offset?: number },
+  ) {
+    return this.segmentService.querySegment(req.user.tenantId, body.segment, {
+      limit: body.limit,
+      offset: body.offset,
+    });
+  }
+
+  @Post('segment/count')
+  @ApiOperation({ summary: 'Count contacts matching segment rules' })
+  @ApiResponse({ status: 200, description: 'Count of matching contacts' })
+  async countSegment(
+    @Req() req: any,
+    @Body() body: { segment: SegmentGroup },
+  ) {
+    const count = await this.segmentService.countSegment(
+      req.user.tenantId,
+      body.segment,
+    );
+    return { count };
   }
 }

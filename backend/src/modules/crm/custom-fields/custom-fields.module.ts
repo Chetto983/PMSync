@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { CustomFieldService } from './services/custom-field.service';
+import { SegmentService } from './services/segment.service';
 import { CustomFieldController } from './controllers/custom-field.controller';
 
 @Module({
   controllers: [CustomFieldController],
-  providers: [CustomFieldService],
-  exports: [CustomFieldService],
+  providers: [CustomFieldService, SegmentService],
+  exports: [CustomFieldService, SegmentService],
 })
 export class CustomFieldsModule {}
