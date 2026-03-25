@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v10.0
 milestone_name: Email & Sync Production Validation
-status: Defining requirements
+status: Roadmap created
 last_updated: "2026-03-25"
 progress:
-  total_phases: 0
+  total_phases: 11
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -22,10 +22,15 @@ See: `.planning/PROJECT.md` (updated 2026-03-25)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 112 (Full Sync Validation) — not started
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-25 — Milestone v10.0 started
+Status: Roadmap created, awaiting phase planning
+Last activity: 2026-03-25 — Roadmap created with 11 phases, 41 requirements mapped
+
+**Progress:**
+```
+v10.0: [...........] 0/11 phases (0%)
+```
 
 ## Performance Metrics
 
@@ -37,11 +42,21 @@ Last activity: 2026-03-25 — Milestone v10.0 started
 - Timeline: 2 days (2026-03-24 -> 2026-03-25)
 - Requirements: 20/20 satisfied
 
+**v10.0 (current):**
+
+- Phases: 0/11 completed
+- Requirements: 0/41 satisfied
+- Bugs found & fixed: 0
+
 ## Accumulated Context
 
 ### Decisions
 
-(New milestone — clean slate)
+- Phases numbered 112-122 (continuing from v9.0 Phase 111)
+- 11 phases derived from 6 requirement categories (SYNC, READ, WRITE, FOLD, INFRA, XCUT)
+- Sync split into 3 phases (full, incremental+webhooks, sync-back) to keep scope manageable
+- Cross-cutting validation (Phase 122) runs last as a sweep across all endpoints
+- Bugs found during validation get fixed in-place within the same phase
 
 ### Research Flags
 
@@ -50,9 +65,11 @@ Last activity: 2026-03-25 — Milestone v10.0 started
 ### Blockers/Concerns
 
 - Phase 107 requires VAPID_PRIVATE_KEY in Railway backend environment before production push delivery verification
+- All three providers (Gmail, Outlook, IMAP) must have active test accounts with real data
 
 ## Session Continuity
 
 Last session: 2026-03-25
-Completed: v10.0 milestone initialization
+Completed: v10.0 roadmap creation (11 phases, 41 requirements)
+Next action: `/gsd:plan-phase 112` to plan Full Sync Validation
 Resume file: None

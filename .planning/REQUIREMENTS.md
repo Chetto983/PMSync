@@ -93,62 +93,62 @@ Comprehensive audit of all email and email-sync operations against live provider
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SYNC-01 | — | Pending |
-| SYNC-02 | — | Pending |
-| SYNC-03 | — | Pending |
-| SYNC-04 | — | Pending |
-| SYNC-05 | — | Pending |
-| SYNC-06 | — | Pending |
-| SYNC-07 | — | Pending |
-| SYNC-08 | — | Pending |
-| SYNC-09 | — | Pending |
-| SYNC-10 | — | Pending |
-| SYNC-11 | — | Pending |
-| SYNC-12 | — | Pending |
-| SYNC-13 | — | Pending |
-| READ-01 | — | Pending |
-| READ-02 | — | Pending |
-| READ-03 | — | Pending |
-| READ-04 | — | Pending |
-| READ-05 | — | Pending |
-| READ-06 | — | Pending |
-| READ-07 | — | Pending |
-| READ-08 | — | Pending |
-| READ-09 | — | Pending |
-| WRITE-01 | — | Pending |
-| WRITE-02 | — | Pending |
-| WRITE-03 | — | Pending |
-| WRITE-04 | — | Pending |
-| WRITE-05 | — | Pending |
-| WRITE-06 | — | Pending |
-| WRITE-07 | — | Pending |
-| WRITE-08 | — | Pending |
-| WRITE-09 | — | Pending |
-| WRITE-10 | — | Pending |
-| FOLD-01 | — | Pending |
-| FOLD-02 | — | Pending |
-| FOLD-03 | — | Pending |
-| FOLD-04 | — | Pending |
-| FOLD-05 | — | Pending |
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| INFRA-05 | — | Pending |
-| INFRA-06 | — | Pending |
-| INFRA-07 | — | Pending |
-| INFRA-08 | — | Pending |
-| INFRA-09 | — | Pending |
-| INFRA-10 | — | Pending |
-| XCUT-01 | — | Pending |
-| XCUT-02 | — | Pending |
-| XCUT-03 | — | Pending |
+| SYNC-01 | Phase 112 | Pending |
+| SYNC-02 | Phase 112 | Pending |
+| SYNC-03 | Phase 112 | Pending |
+| SYNC-04 | Phase 113 | Pending |
+| SYNC-05 | Phase 113 | Pending |
+| SYNC-06 | Phase 113 | Pending |
+| SYNC-07 | Phase 113 | Pending |
+| SYNC-08 | Phase 113 | Pending |
+| SYNC-09 | Phase 114 | Pending |
+| SYNC-10 | Phase 114 | Pending |
+| SYNC-11 | Phase 114 | Pending |
+| SYNC-12 | Phase 114 | Pending |
+| SYNC-13 | Phase 114 | Pending |
+| READ-01 | Phase 115 | Pending |
+| READ-02 | Phase 115 | Pending |
+| READ-03 | Phase 115 | Pending |
+| READ-04 | Phase 115 | Pending |
+| READ-05 | Phase 115 | Pending |
+| READ-06 | Phase 116 | Pending |
+| READ-07 | Phase 116 | Pending |
+| READ-08 | Phase 116 | Pending |
+| READ-09 | Phase 116 | Pending |
+| WRITE-01 | Phase 117 | Pending |
+| WRITE-02 | Phase 117 | Pending |
+| WRITE-03 | Phase 117 | Pending |
+| WRITE-04 | Phase 117 | Pending |
+| WRITE-05 | Phase 117 | Pending |
+| WRITE-06 | Phase 118 | Pending |
+| WRITE-07 | Phase 118 | Pending |
+| WRITE-08 | Phase 118 | Pending |
+| WRITE-09 | Phase 118 | Pending |
+| WRITE-10 | Phase 118 | Pending |
+| FOLD-01 | Phase 119 | Pending |
+| FOLD-02 | Phase 119 | Pending |
+| FOLD-03 | Phase 119 | Pending |
+| FOLD-04 | Phase 119 | Pending |
+| FOLD-05 | Phase 119 | Pending |
+| INFRA-01 | Phase 120 | Pending |
+| INFRA-02 | Phase 120 | Pending |
+| INFRA-03 | Phase 120 | Pending |
+| INFRA-04 | Phase 120 | Pending |
+| INFRA-05 | Phase 120 | Pending |
+| INFRA-06 | Phase 121 | Pending |
+| INFRA-07 | Phase 121 | Pending |
+| INFRA-08 | Phase 121 | Pending |
+| INFRA-09 | Phase 121 | Pending |
+| INFRA-10 | Phase 121 | Pending |
+| XCUT-01 | Phase 122 | Pending |
+| XCUT-02 | Phase 122 | Pending |
+| XCUT-03 | Phase 122 | Pending |
 
 **Coverage:**
 - v10.0 requirements: 41 total
-- Mapped to phases: 0
-- Unmapped: 41 ⚠️
+- Mapped to phases: 41
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-25*
-*Last updated: 2026-03-25 after initial definition*
+*Last updated: 2026-03-25 — traceability updated with phase mappings (112-122)*
