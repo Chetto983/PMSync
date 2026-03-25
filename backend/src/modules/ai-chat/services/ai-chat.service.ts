@@ -201,6 +201,7 @@ export class AiChatService {
       select: { hitlSensitivity: true },
     });
     const sensitivity = userPrefs?.hitlSensitivity ?? 'HIGH_ONLY';
+    this.logger.log(`[HITL] sensitivity=${sensitivity} (raw=${userPrefs?.hitlSensitivity ?? 'null'}) userId=${userId}`);
 
     // Phase 109: Select few-shot examples based on query complexity
     const fewShotExamples = selectFewShotExamples(classification);
@@ -702,6 +703,11 @@ export class AiChatService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private buildGenerateChatResult(result: any, conversationId: string): GenerateChatResult {
     const pendingApprovals: PendingToolApproval[] = [];
+
+    // DEBUG: Log all content parts to trace HITL approval detection
+    this.logger.log(
+      `[HITL-DEBUG] result.content parts: ${(result.content ?? []).map((p: any) => `${p.type}${p.toolName ? ':' + p.toolName : ''}${p.approvalId ? ':aid=' + p.approvalId : ''}`).join(', ') || 'EMPTY'}`,
+    );
 
     for (const part of result.content) {
       if (part.type === 'tool-approval-request') {

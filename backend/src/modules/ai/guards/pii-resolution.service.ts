@@ -230,8 +230,13 @@ export class PiiResolutionService {
       });
 
       if (!store || store.mappings.length === 0) {
+        this.logger.warn(`[PII-DEBUG] resolvePayload: no store/mappings for key=${key}`);
         return payload;
       }
+
+      this.logger.log(
+        `[PII-DEBUG] resolvePayload: ${store.mappings.length} mapping(s), payload keys=${Object.keys(payload).join(',')}`,
+      );
 
       let resolutionCount = 0;
 
@@ -240,9 +245,17 @@ export class PiiResolutionService {
         if (typeof value === 'string') {
           let resolved = value;
           for (const mapping of store.mappings) {
+            // Also try without brackets — LLMs sometimes strip them
+            const noBrackets = mapping.placeholder.replace(/^\[|\]$/g, '');
             if (resolved.includes(mapping.placeholder)) {
               resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
               resolutionCount++;
+            } else if (resolved.includes(noBrackets)) {
+              resolved = resolved.replaceAll(noBrackets, mapping.originalValue);
+              resolutionCount++;
+              this.logger.warn(
+                `[PII-DEBUG] Resolved bracket-stripped placeholder: "${noBrackets}" → originalValue`,
+              );
             }
           }
           return resolved;
