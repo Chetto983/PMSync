@@ -12,6 +12,7 @@ import {
   UpdateDealDto,
   ListDealsQueryDto,
   LinkDealContactDto,
+  ChangeStageDto,
 } from '../dto/deal.dto';
 
 @Injectable()
@@ -275,6 +276,33 @@ export class DealService {
 
     await this.prisma.dealContact.delete({ where: { id: link.id } });
     return { deleted: true };
+  }
+
+  // ---- Stage Transition ----
+
+  async changeStage(tenantId: string, id: string, dto: ChangeStageDto) {
+    const deal = await this.findById(tenantId, id);
+    const oldStageId = deal.stageId;
+
+    if (oldStageId === dto.stageId) {
+      return deal; // No-op if same stage
+    }
+
+    // Validate new stage belongs to the deal's pipeline
+    await this.validateStageInPipeline(tenantId, deal.pipelineId, dto.stageId);
+
+    const updated = await this.prisma.crmDeal.update({
+      where: { id },
+      data: { stageId: dto.stageId },
+      include: {
+        pipeline: { select: { id: true, name: true } },
+        stage: { select: { id: true, name: true, color: true, probability: true, isWon: true, isLost: true } },
+        account: { select: { id: true, name: true } },
+        _count: { select: { dealContacts: true, dealProducts: true } },
+      },
+    });
+
+    return { deal: updated, oldStageId };
   }
 
   // ---- Helpers ----

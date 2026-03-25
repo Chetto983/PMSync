@@ -179,6 +179,11 @@ export class ListDealsQueryDto {
   offset?: number = 0;
 }
 
+export class ChangeStageDto {
+  @IsString()
+  stageId!: string;
+}
+
 export class LinkDealContactDto {
   @IsString()
   contactId!: string;

@@ -143,6 +143,11 @@ export const crmDealsApi = {
     return apiClient.delete<{ deleted: boolean }>(`/crm/deals/${id}`);
   },
 
+  // Stage transition
+  changeStage(dealId: string, stageId: string) {
+    return apiClient.patch<CrmDeal>(`/crm/deals/${dealId}/stage`, { stageId });
+  },
+
   // Deal-Contact associations
   getContacts(dealId: string) {
     return apiClient.get<CrmDealContactLink[]>(`/crm/deals/${dealId}/contacts`);

@@ -21,6 +21,7 @@ import {
   UpdateDealDto,
   ListDealsQueryDto,
   LinkDealContactDto,
+  ChangeStageDto,
 } from '../dto/deal.dto';
 
 @ApiTags('CRM - Deals')
@@ -71,6 +72,26 @@ export class DealController {
   @ApiResponse({ status: 404, description: 'Deal not found' })
   async delete(@Req() req: any, @Param('id') id: string) {
     return this.dealService.delete(req.user.tenantId, id);
+  }
+
+  // ---- Stage Transition ----
+
+  @Patch(':id/stage')
+  @ApiOperation({ summary: 'Move deal to a different stage (same pipeline)' })
+  @ApiResponse({ status: 200, description: 'Deal stage updated' })
+  @ApiResponse({ status: 400, description: 'Stage does not belong to pipeline' })
+  @ApiResponse({ status: 404, description: 'Deal not found' })
+  async changeStage(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: ChangeStageDto,
+  ) {
+    const result = await this.dealService.changeStage(req.user.tenantId, id, dto);
+    // If no stage change occurred, result is the deal directly
+    if ('deal' in result) {
+      return result.deal;
+    }
+    return result;
   }
 
   // ---- Deal-Contact associations ----

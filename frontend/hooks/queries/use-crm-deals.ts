@@ -92,6 +92,20 @@ export function useDeleteDeal() {
   });
 }
 
+export function useChangeDealStage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dealId, stageId }: { dealId: string; stageId: string }) =>
+      crmDealsApi.changeStage(dealId, stageId).then((r) => r.data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: crmDealsKeys.detail(variables.dealId),
+      });
+    },
+  });
+}
+
 export function useLinkDealContact(dealId: string) {
   const queryClient = useQueryClient();
   return useMutation({
