@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -7,36 +7,33 @@ import {
   Link as MuiLink,
   Tab,
   Tabs,
-  Paper,
   Skeleton,
   Alert,
   Button,
   IconButton,
-  TextField,
   Tooltip,
-  Grid,
-  MenuItem,
-  Divider,
   Chip,
 } from '@mui/material';
 import {
   ArrowLeft,
   Handshake,
-  Pencil,
-  Check,
-  X,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import NextLink from 'next/link';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useDeal, useUpdateDeal } from '@/hooks/queries/use-crm-deals';
+import { useDeal, useUpdateDeal, useDeleteDeal, useChangeDealStage } from '@/hooks/queries/use-crm-deals';
 import { usePipelines } from '@/hooks/queries/use-crm-pipelines';
-import { useAccounts } from '@/hooks/queries/use-crm-accounts';
 import { useGlobalToast } from '@/lib/context/toast-context';
-import type { CrmDeal, UpdateDealDto } from '@/lib/api/crm-deals';
+import type { UpdateDealDto } from '@/lib/api/crm-deals';
 import type { CrmPipeline } from '@/lib/api/crm-pipelines';
-
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
-const SOURCES = ['WEBSITE', 'REFERRAL', 'COLD_CALL', 'EMAIL', 'SOCIAL_MEDIA', 'TRADE_SHOW', 'OTHER'] as const;
+import {
+  InlineEditField,
+  PipelineProgressBar,
+  DeleteDealDialog,
+  DealInfoCard,
+} from './DealDetailParts';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -49,262 +46,6 @@ function TabPanel({ children, value, index }: TabPanelProps) {
   return <Box sx={{ py: 2 }}>{children}</Box>;
 }
 
-// ---- Inline Edit Field ----
-
-function InlineEditField({
-  value,
-  label,
-  placeholder,
-  multiline,
-  onSave,
-}: {
-  value: string | null | undefined;
-  label: string;
-  placeholder: string;
-  multiline?: boolean;
-  onSave: (val: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value ?? '');
-
-  const handleSave = () => {
-    onSave(draft);
-    setEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDraft(value ?? '');
-    setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-        <TextField
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          size="small"
-          fullWidth
-          multiline={multiline}
-          rows={multiline ? 3 : undefined}
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !multiline) handleSave();
-            if (e.key === 'Escape') handleCancel();
-          }}
-        />
-        <IconButton size="small" onClick={handleSave} color="primary" aria-label="Save">
-          <Check size={16} />
-        </IconButton>
-        <IconButton size="small" onClick={handleCancel} aria-label="Cancel">
-          <X size={16} />
-        </IconButton>
-      </Box>
-    );
-  }
-
-  return (
-    <Tooltip title={label}>
-      <Box
-        onClick={() => { setDraft(value ?? ''); setEditing(true); }}
-        sx={{
-          cursor: 'pointer',
-          '&:hover': { bgcolor: 'action.hover' },
-          borderRadius: 1,
-          px: 1,
-          py: 0.5,
-          minHeight: 32,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-        }}
-      >
-        <Typography
-          variant="body2"
-          color={value ? 'text.primary' : 'text.disabled'}
-          sx={{ flex: 1 }}
-        >
-          {value || placeholder}
-        </Typography>
-        <Pencil size={14} style={{ opacity: 0.4 }} />
-      </Box>
-    </Tooltip>
-  );
-}
-
-// ---- Info Card ----
-
-function DealInfoCard({
-  deal,
-  onSave,
-}: {
-  deal: CrmDeal;
-  onSave: (dto: UpdateDealDto) => void;
-}) {
-  const t = useTranslations();
-  const td = t.crmDeals;
-
-  const { data: pipelines } = usePipelines();
-  const { data: accountsData } = useAccounts({ limit: 100 });
-  const accounts = accountsData?.data ?? [];
-
-  // Local state for amount to avoid API call on every keystroke
-  const [localAmount, setLocalAmount] = useState(deal.amount ?? '');
-
-  const selectedPipeline = pipelines?.find(
-    (p: CrmPipeline) => p.id === deal.pipelineId,
-  );
-  const stages = selectedPipeline?.stages ?? [];
-
-  return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
-      <Grid container spacing={2}>
-        {/* Notes */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {td?.form?.notes}
-          </Typography>
-          <InlineEditField
-            value={deal.notes}
-            label={td?.detail?.info?.editField ?? 'Click to edit'}
-            placeholder={td?.detail?.info?.noNotes ?? 'No notes'}
-            multiline
-            onSave={(val) => onSave({ notes: val || null })}
-          />
-        </Grid>
-
-        {/* Amount + Close Date */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <TextField
-              label={td?.form?.amount}
-              type="number"
-              value={localAmount}
-              onChange={(e) => setLocalAmount(e.target.value)}
-              onBlur={() => {
-                const numVal = localAmount ? Number(localAmount) : null;
-                const current = deal.amount ? Number(deal.amount) : null;
-                if (numVal !== current) onSave({ amount: numVal });
-              }}
-              fullWidth
-              size="small"
-              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-            />
-            <TextField
-              label={td?.form?.expectedCloseDate}
-              type="date"
-              value={deal.expectedCloseDate ? deal.expectedCloseDate.slice(0, 10) : ''}
-              onChange={(e) =>
-                onSave({ expectedCloseDate: e.target.value || null })
-              }
-              fullWidth
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Box>
-        </Grid>
-
-        <Grid size={12}>
-          <Divider sx={{ my: 0.5 }} />
-        </Grid>
-
-        {/* Pipeline / Stage / Account */}
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <TextField
-            label={td?.form?.pipeline}
-            value={deal.pipelineId}
-            onChange={(e) => {
-              const newPipeline = pipelines?.find((p: CrmPipeline) => p.id === e.target.value);
-              const firstStage = newPipeline?.stages?.[0];
-              if (firstStage) {
-                onSave({ pipelineId: e.target.value, stageId: firstStage.id });
-              }
-            }}
-            fullWidth
-            size="small"
-            select
-          >
-            {(pipelines ?? []).map((p: CrmPipeline) => (
-              <MenuItem key={p.id} value={p.id}>
-                {p.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <TextField
-            label={td?.form?.stage}
-            value={deal.stageId}
-            onChange={(e) => onSave({ stageId: e.target.value })}
-            fullWidth
-            size="small"
-            select
-          >
-            {stages.map((s) => (
-              <MenuItem key={s.id} value={s.id}>
-                {s.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <TextField
-            label={td?.form?.account}
-            value={deal.accountId ?? ''}
-            onChange={(e) => onSave({ accountId: e.target.value || null })}
-            fullWidth
-            size="small"
-            select
-          >
-            <MenuItem value="">—</MenuItem>
-            {accounts.map((a) => (
-              <MenuItem key={a.id} value={a.id}>
-                {a.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-
-        {/* Priority / Source */}
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <TextField
-            label={td?.form?.priority}
-            value={deal.priority ?? ''}
-            onChange={(e) => onSave({ priority: e.target.value || null })}
-            fullWidth
-            size="small"
-            select
-          >
-            <MenuItem value="">—</MenuItem>
-            {PRIORITIES.map((p) => (
-              <MenuItem key={p} value={p}>
-                {td?.priorities?.[p] ?? p}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <TextField
-            label={td?.form?.source}
-            value={deal.source ?? ''}
-            onChange={(e) => onSave({ source: e.target.value || null })}
-            fullWidth
-            size="small"
-            select
-          >
-            <MenuItem value="">—</MenuItem>
-            {SOURCES.map((s) => (
-              <MenuItem key={s} value={s}>
-                {td?.sources?.[s] ?? s}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-      </Grid>
-    </Paper>
-  );
-}
-
 // ---- Main Component ----
 
 export function DealDetail() {
@@ -314,9 +55,22 @@ export function DealDetail() {
   const td = t.crmDeals;
   const toast = useGlobalToast();
   const [tab, setTab] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const { data: deal, isLoading, error } = useDeal(id);
+  const { data: pipelines } = usePipelines();
   const updateDeal = useUpdateDeal();
+  const deleteDeal = useDeleteDeal();
+  const changeDealStage = useChangeDealStage();
+
+  const selectedPipeline = pipelines?.find(
+    (p: CrmPipeline) => p.id === deal?.pipelineId,
+  );
+  const stages = useMemo(
+    () => selectedPipeline?.stages ?? [],
+    [selectedPipeline],
+  );
+  const currentStageIndex = stages.findIndex((s) => s.id === deal?.stageId);
 
   const handleSave = useCallback(
     async (dto: UpdateDealDto) => {
@@ -329,6 +83,40 @@ export function DealDetail() {
       }
     },
     [id, updateDeal, toast, td],
+  );
+
+  const handleDelete = useCallback(async () => {
+    if (!id) return;
+    try {
+      await deleteDeal.mutateAsync(id);
+      toast.success(td?.deleted ?? 'Deleted');
+      router.push('/dashboard/crm/deals');
+    } catch {
+      toast.error(td?.deleteError ?? 'Failed to delete');
+    } finally {
+      setDeleteDialogOpen(false);
+    }
+  }, [id, deleteDeal, toast, td, router]);
+
+  const handleChangeStage = useCallback(
+    async (direction: 'prev' | 'next') => {
+      if (!id || !deal) return;
+      const targetIndex = direction === 'prev' ? currentStageIndex - 1 : currentStageIndex + 1;
+      const targetStage = stages[targetIndex];
+      if (!targetStage) return;
+      try {
+        await changeDealStage.mutateAsync({ dealId: id, stageId: targetStage.id });
+        toast.success(
+          (td?.kanban?.stageMovedSuccess ?? 'Deal moved to {stage}').replace(
+            '{stage}',
+            targetStage.name,
+          ),
+        );
+      } catch {
+        toast.error(td?.kanban?.stageMoveError ?? 'Failed to move deal');
+      }
+    },
+    [id, deal, currentStageIndex, stages, changeDealStage, toast, td],
   );
 
   if (!router.isReady || isLoading) {
@@ -393,7 +181,7 @@ export function DealDetail() {
       </Breadcrumbs>
 
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
         <IconButton
           onClick={() => router.push('/dashboard/crm/deals')}
           size="small"
@@ -430,6 +218,52 @@ export function DealDetail() {
           </Typography>
         )}
       </Box>
+
+      {/* Action Buttons */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, ml: 7 }}>
+        <Tooltip title={td?.detail?.actions?.prevStage ?? 'Previous Stage'}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => handleChangeStage('prev')}
+              disabled={currentStageIndex <= 0 || changeDealStage.isPending}
+              aria-label="Previous stage"
+            >
+              <ChevronLeft size={18} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={td?.detail?.actions?.nextStage ?? 'Next Stage'}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => handleChangeStage('next')}
+              disabled={currentStageIndex >= stages.length - 1 || changeDealStage.isPending}
+              aria-label="Next stage"
+            >
+              <ChevronRight size={18} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Box sx={{ flex: 1 }} />
+        <Button
+          size="small"
+          color="error"
+          startIcon={<Trash2 size={16} />}
+          onClick={() => setDeleteDialogOpen(true)}
+        >
+          {td?.detail?.actions?.delete ?? 'Delete'}
+        </Button>
+      </Box>
+
+      {/* Pipeline Progress Bar */}
+      {stages.length > 0 && (
+        <PipelineProgressBar
+          stages={stages}
+          currentStageId={deal.stageId}
+          translations={td?.detail?.progressBar}
+        />
+      )}
 
       {/* Tabs */}
       <Tabs
@@ -471,6 +305,15 @@ export function DealDetail() {
           </Typography>
         </Box>
       </TabPanel>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteDealDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDelete}
+        loading={deleteDeal.isPending}
+        translations={td?.detail?.deleteDialog}
+      />
     </Box>
   );
 }

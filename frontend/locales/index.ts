@@ -4345,6 +4345,23 @@ export interface AppTranslations {
         products?: string;
         activity?: string;
       };
+      actions?: {
+        delete?: string;
+        prevStage?: string;
+        nextStage?: string;
+      };
+      deleteDialog?: {
+        title?: string;
+        message?: string;
+        confirm?: string;
+        cancel?: string;
+      };
+      progressBar?: {
+        stageOf?: string;
+        probability?: string;
+        won?: string;
+        lost?: string;
+      };
     };
     filters?: {
       pipeline?: string;

@@ -4493,6 +4493,23 @@ export const it: AppTranslations = {
         products: 'In arrivo nello Sprint 06',
         activity: 'In arrivo nello Sprint 07',
       },
+      actions: {
+        delete: 'Elimina Trattativa',
+        prevStage: 'Fase Precedente',
+        nextStage: 'Fase Successiva',
+      },
+      deleteDialog: {
+        title: 'Elimina Trattativa',
+        message: 'Sei sicuro di voler eliminare questa trattativa? Questa azione non può essere annullata.',
+        confirm: 'Elimina',
+        cancel: 'Annulla',
+      },
+      progressBar: {
+        stageOf: 'Fase {current} di {total}',
+        probability: '{value}% probabilità',
+        won: 'Vinta',
+        lost: 'Persa',
+      },
     },
     filters: {
       pipeline: 'Pipeline',

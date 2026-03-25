@@ -4509,6 +4509,23 @@ export const en: AppTranslations = {
         products: 'Coming in Sprint 06',
         activity: 'Coming in Sprint 07',
       },
+      actions: {
+        delete: 'Delete Deal',
+        prevStage: 'Previous Stage',
+        nextStage: 'Next Stage',
+      },
+      deleteDialog: {
+        title: 'Delete Deal',
+        message: 'Are you sure you want to delete this deal? This action cannot be undone.',
+        confirm: 'Delete',
+        cancel: 'Cancel',
+      },
+      progressBar: {
+        stageOf: 'Stage {current} of {total}',
+        probability: '{value}% probability',
+        won: 'Won',
+        lost: 'Lost',
+      },
     },
     filters: {
       pipeline: 'Pipeline',
