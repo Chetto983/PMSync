@@ -287,17 +287,27 @@ export class TelegramBotService implements OnModuleInit {
       previewLines.map((l) => `  ${l}`).join('\n') +
       `\n\nRichiede la tua approvazione.`;
 
-    return this.sendMessageRaw(chatId, text, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '\u{2705} Approva', callback_data: `approve:${groupId}` },
-            { text: '\u{274C} Rifiuta', callback_data: `reject:${groupId}` },
-          ],
+    const replyMarkup = {
+      inline_keyboard: [
+        [
+          { text: '\u{2705} Approva', callback_data: `approve:${groupId}` },
+          { text: '\u{274C} Rifiuta', callback_data: `reject:${groupId}` },
         ],
-      },
+      ],
+    };
+
+    // Try Markdown first, fallback to plain text if parsing fails
+    const msgId = await this.sendMessageRaw(chatId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: replyMarkup,
     });
+
+    if (msgId) return msgId;
+
+    // Fallback: strip Markdown formatting and send as plain text
+    const plainText = text.replace(/\*/g, '').replace(/\\/g, '');
+    this.logger.warn('sendToolApproval: Markdown failed, retrying as plain text');
+    return this.sendMessageRaw(chatId, plainText, { reply_markup: replyMarkup });
   }
 
   /**

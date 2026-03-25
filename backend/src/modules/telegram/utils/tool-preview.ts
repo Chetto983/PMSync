@@ -5,43 +5,53 @@
  * the AI wants to perform, so the user can make an informed decision.
  */
 
+/**
+ * Escape Telegram Markdown v1 special characters in user-provided values.
+ * Characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
+ * We only escape the 4 that Markdown v1 actually uses: _ * ` [
+ */
+function esc(value: unknown): string {
+  return String(value ?? '').replace(/([_*`\[])/g, '\\$1');
+}
+
 type ToolFormatter = (input: Record<string, unknown>) => string[];
 
 const emailFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
-  if (input.to) lines.push(`*A:* ${input.to}`);
-  if (input.cc) lines.push(`*CC:* ${input.cc}`);
-  if (input.subject) lines.push(`*Oggetto:* ${input.subject}`);
+  if (input.to) lines.push(`*A:* ${esc(input.to)}`);
+  if (input.cc) lines.push(`*CC:* ${esc(input.cc)}`);
+  if (input.subject) lines.push(`*Oggetto:* ${esc(input.subject)}`);
   if (input.body) {
     const body = String(input.body);
-    lines.push(`*Corpo:* ${body.length > 150 ? body.slice(0, 150) + '...' : body}`);
+    const truncated = body.length > 150 ? body.slice(0, 150) + '...' : body;
+    lines.push(`*Corpo:* ${esc(truncated)}`);
   }
-  if (input.emailId) lines.push(`*Email ID:* ${String(input.emailId).slice(0, 20)}...`);
+  if (input.emailId) lines.push(`*Email ID:* ${esc(String(input.emailId).slice(0, 20))}...`);
   return lines;
 };
 
 const deleteEmailFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
-  if (input.emailId) lines.push(`*Email ID:* ${input.emailId}`);
-  if (input.subject) lines.push(`*Oggetto:* ${input.subject}`);
+  if (input.emailId) lines.push(`*Email ID:* ${esc(input.emailId)}`);
+  if (input.subject) lines.push(`*Oggetto:* ${esc(input.subject)}`);
   lines.push('_Questa azione è irreversibile._');
   return lines;
 };
 
 const contactFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
-  if (input.name) lines.push(`*Nome:* ${input.name}`);
-  if (input.email) lines.push(`*Email:* ${input.email}`);
-  if (input.contactId) lines.push(`*Contatto ID:* ${String(input.contactId).slice(0, 20)}...`);
+  if (input.name) lines.push(`*Nome:* ${esc(input.name)}`);
+  if (input.email) lines.push(`*Email:* ${esc(input.email)}`);
+  if (input.contactId) lines.push(`*Contatto ID:* ${esc(String(input.contactId).slice(0, 20))}...`);
   return lines;
 };
 
 const eventFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
-  if (input.title) lines.push(`*Titolo:* ${input.title}`);
-  if (input.start) lines.push(`*Inizio:* ${input.start}`);
-  if (input.end) lines.push(`*Fine:* ${input.end}`);
-  if (input.eventId) lines.push(`*Evento ID:* ${String(input.eventId).slice(0, 20)}...`);
+  if (input.title) lines.push(`*Titolo:* ${esc(input.title)}`);
+  if (input.start) lines.push(`*Inizio:* ${esc(input.start)}`);
+  if (input.end) lines.push(`*Fine:* ${esc(input.end)}`);
+  if (input.eventId) lines.push(`*Evento ID:* ${esc(String(input.eventId).slice(0, 20))}...`);
   return lines;
 };
 
@@ -52,7 +62,7 @@ const genericFormatter: ToolFormatter = (input) => {
       const val = typeof value === 'string'
         ? value.length > 150 ? value.slice(0, 150) + '...' : value
         : JSON.stringify(value)?.slice(0, 150) ?? '';
-      return `*${key}:* ${val}`;
+      return `*${esc(key)}:* ${esc(val)}`;
     });
 };
 
