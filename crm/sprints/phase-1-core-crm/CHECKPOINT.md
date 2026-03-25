@@ -41,7 +41,8 @@
 ## Validation Status
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Circular deps: not checked (no new backend modules)
-- Railway deploy: ⏳ pending push
-- Vercel deploy: ⏳ pending push
-- Browser (Edge CDP): ⏳ pending production validation
+- Railway deploy: ✅ /health 200, /api/v1/crm/custom-fields 401 (auth guard active)
+- Vercel deploy: ✅ /dashboard/crm/settings/custom-fields page serving
+- Browser (Edge CDP): ✅ Page renders, 3 entity tabs, empty state, dialog works
+- Mobile (375px): ✅ Content stacks, no overflow, touch targets adequate
+- Screenshots reviewed: 2026-03-25
