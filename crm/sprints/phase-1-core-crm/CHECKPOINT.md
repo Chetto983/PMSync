@@ -2,7 +2,7 @@
 
 ## Stato
 - **Sprint:** 05 — Kanban Board & Drag-Drop
-- **Last Task Completed:** T-0508 — Socket.IO frontend subscription
+- **Last Task Completed:** T-0511 — Translations, type-check, audit fixes
 - **Next Task:** Sprint 06 — (next sprint)
 - **Tasks Done:** 11/11
 - **SP Completed:** 20/20
@@ -48,7 +48,13 @@
 - Deal cards don't support intra-column reordering (not in sprint scope)
 - Kanban fetches up to 500 deals per pipeline — may need virtualization for larger datasets (Sprint risk #2)
 
-## Validation Status
+## Audit Results (Skills + Dev Tools)
+
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing (pre-existing errors in email/org components, not from CRM)
-- Circular deps: not checked this session (no new modules created, only extended existing)
+- Circular deps: ✅ zero (madge --circular)
+- UX anti-patterns: ✅ optimistic update + rollback, loading skeletons, empty states
+- React perf (vercel-react-best-practices): ✅ React.memo on StageColumn, useMemo for derived data
+- Mobile design: ✅ horizontal scroll, touch-action: none on draggable, 44px+ touch targets
+- Accessibility: ⚠️ acceptable — KeyboardSensor enabled, semantic HTML, ARIA via dnd-kit built-in
+- MUI: ✅ theme tokens only, no hardcoded colors
