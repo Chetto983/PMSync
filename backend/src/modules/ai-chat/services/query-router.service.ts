@@ -9,12 +9,20 @@ import { Injectable, Logger } from '@nestjs/common';
  */
 export type QueryComplexity = 'simple' | 'search' | 'multi_hop';
 
+/**
+ * Sub-type for multi_hop queries. Used to select few-shot examples.
+ * Only set when complexity === 'multi_hop'.
+ */
+export type MultiHopSubType = 'relationship' | 'temporal_entity' | 'memory' | 'cross_domain' | 'general';
+
 export interface QueryClassification {
   complexity: QueryComplexity;
   /** Confidence score 0-1 (heuristic-derived, not probabilistic) */
   confidence: number;
   /** Which signals fired (for debugging/logging) */
   signals: string[];
+  /** Sub-classification for multi_hop queries. Only set when complexity === 'multi_hop'. */
+  multiHopSubType?: MultiHopSubType;
 }
 
 // ── Heuristic patterns ────────────────────────────────────────────────
@@ -41,7 +49,37 @@ const MULTI_HOP_PATTERNS: RegExp[] = [
   /\b(thread|conversation|chain)\b.*\b(with|about)\b/i,
   /\b(everyone|tutti)\b.*\b(involved|coinvolti)\b/i,
   /\b(history with|storico con)\b/i,
+  // Memory sub-type: recalling stored knowledge about entities
+  /\b(what do I know|cosa so|what do you remember)\b/i,
+  /\b(payment terms|contract terms|agreement)\b.*\b(with|about|for)\b/i,
+  // Cross-domain: correlating across calendar, email, contacts
+  /\b(who should|chi dovrei)\b/i,
+  /\b(follow up|follow-up)\b.*\b(this week|today|tomorrow)\b/i,
+  // Relationship sub-type: what someone said/wrote
+  /\b(what did)\b.*\b(say|said|tell|write|wrote)\b/i,
+  /\b(interactions? with|relazione con)\b/i,
 ];
+
+/** Multi-hop sub-classification patterns for few-shot example selection */
+const MULTI_HOP_SUB_PATTERNS: Record<string, RegExp[]> = {
+  relationship: [
+    /\b(what did|cosa ha detto)\b.*\b(say|said|tell|write|wrote)\b/i,
+    /\b(interactions? with|relazione con)\b/i,
+    /\b(history with|storico con)\b/i,
+  ],
+  temporal_entity: [
+    /\b(from people|from contacts|da persone)\b.*\b(met|at|during)\b/i,
+    /\b(at the|during the|al|durante)\b.*\b(conference|meeting|evento)\b/i,
+  ],
+  memory: [
+    /\b(what do I know|remember|recall|ricordo|cosa so)\b/i,
+    /\b(payment terms|contract|agreement|conditions)\b/i,
+  ],
+  cross_domain: [
+    /\b(follow up|follow-up|should I|dovrei)\b.*\b(this week|today|tomorrow)\b/i,
+    /\b(who should|chi dovrei)\b/i,
+  ],
+};
 
 /** Search keywords — explicit data retrieval intent */
 const SEARCH_KEYWORDS: RegExp[] = [
@@ -101,6 +139,7 @@ export class QueryRouterService {
         complexity: 'multi_hop',
         confidence: Math.min(0.6 + multiHopScore * 0.15, 0.95),
         signals,
+        multiHopSubType: this.subClassifyMultiHop(trimmed),
       };
     }
 
@@ -123,6 +162,21 @@ export class QueryRouterService {
     // ── Default: search (safe fallback — never skip tools by default) ─
     signals.push('default:no_match');
     return { complexity: 'search', confidence: 0.5, signals };
+  }
+
+  /**
+   * Sub-classify multi_hop queries into specific sub-types for few-shot selection.
+   * Pure regex — no external calls.
+   */
+  private subClassifyMultiHop(query: string): MultiHopSubType {
+    for (const [subType, patterns] of Object.entries(MULTI_HOP_SUB_PATTERNS)) {
+      for (const pattern of patterns) {
+        if (pattern.test(query)) {
+          return subType as MultiHopSubType;
+        }
+      }
+    }
+    return 'general';
   }
 
   /**

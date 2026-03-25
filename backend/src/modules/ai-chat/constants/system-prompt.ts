@@ -231,8 +231,14 @@ When a tool execution is denied by the user, do not retry it. Inform the user th
  *
  * Phase AI-AUDIT: Separated static instructions from runtime context.
  */
-export function buildSystemPrompt(): string {
-  return BASE_PROMPT;
+export function buildSystemPrompt(fewShotContext?: string): string {
+  let prompt = BASE_PROMPT;
+
+  if (fewShotContext) {
+    prompt += `\n\n## Multi-Step Query Examples\n\nWhen handling complex queries, follow these proven approaches:\n\n${fewShotContext}`;
+  }
+
+  return prompt;
 }
 
 /**
