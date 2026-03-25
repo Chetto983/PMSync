@@ -1,0 +1,119 @@
+[ {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/D7C754738FFC0E5AD23B98A029AF8022",
+   "faviconUrl": "https://mail-agent-indol.vercel.app/favicon.svg",
+   "id": "D7C754738FFC0E5AD23B98A029AF8022",
+   "title": "mail-agent-indol.vercel.app/dashboard/crm/pipelines/cmn4ustu3005101s73dyqns2z/settings",
+   "type": "page",
+   "url": "https://mail-agent-indol.vercel.app/dashboard/crm/pipelines/cmn4ustu3005101s73dyqns2z/settings",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/D7C754738FFC0E5AD23B98A029AF8022"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/4B612876B414BC8C809C525F69DBC3C4",
+   "faviconUrl": "https://mail-agent-indol.vercel.app/favicon.svg",
+   "id": "4B612876B414BC8C809C525F69DBC3C4",
+   "title": "mail-agent-indol.vercel.app/dashboard/settings?section=notifications",
+   "type": "page",
+   "url": "https://mail-agent-indol.vercel.app/dashboard/settings?section=notifications",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/4B612876B414BC8C809C525F69DBC3C4"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/0A7BF8A9713E3C5C18EADFAF564DB6E6",
+   "faviconUrl": "https://mail-agent-indol.vercel.app/favicon.svg",
+   "id": "0A7BF8A9713E3C5C18EADFAF564DB6E6",
+   "title": "mail-agent-indol.vercel.app/dashboard/settings?section=email-accounts",
+   "type": "page",
+   "url": "https://mail-agent-indol.vercel.app/dashboard/settings?section=email-accounts",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/0A7BF8A9713E3C5C18EADFAF564DB6E6"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/90B5702A39274E5300A9932F589A798C",
+   "faviconUrl": "https://mail-agent-indol.vercel.app/favicon.svg",
+   "id": "90B5702A39274E5300A9932F589A798C",
+   "title": "mail-agent-indol.vercel.app/dashboard/crm/deals",
+   "type": "page",
+   "url": "https://mail-agent-indol.vercel.app/dashboard/crm/deals",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/90B5702A39274E5300A9932F589A798C"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/3B076B67BC0D7F39E7432F087432A8EB",
+   "faviconUrl": "https://mail-agent-indol.vercel.app/favicon.svg",
+   "id": "3B076B67BC0D7F39E7432F087432A8EB",
+   "title": "mail-agent-indol.vercel.app/dashboard/crm/deals",
+   "type": "page",
+   "url": "https://mail-agent-indol.vercel.app/dashboard/crm/deals",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/3B076B67BC0D7F39E7432F087432A8EB"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/C0BCEAF3EDB59779540D088BD717A66E",
+   "faviconUrl": "https://assets.msn.com/statics/icons/favicon_newtabpage.png",
+   "id": "C0BCEAF3EDB59779540D088BD717A66E",
+   "title": "Nuova scheda",
+   "type": "other",
+   "url": "edge://newtab/",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/C0BCEAF3EDB59779540D088BD717A66E"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/worker_app.html?ws=localhost:9222/devtools/page/A75E11B810844B9DD5240B4751A8D2C4",
+   "id": "A75E11B810844B9DD5240B4751A8D2C4",
+   "title": "Service Worker https://mail-agent-indol.vercel.app/sw.js",
+   "type": "service_worker",
+   "url": "https://mail-agent-indol.vercel.app/sw.js",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/A75E11B810844B9DD5240B4751A8D2C4"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/worker_app.html?ws=localhost:9222/devtools/page/90A07B00D5DF2156511DD28981E9B4F8",
+   "id": "90A07B00D5DF2156511DD28981E9B4F8",
+   "title": "Service Worker https://mail-agent-indol.vercel.app/sw.js",
+   "type": "service_worker",
+   "url": "https://mail-agent-indol.vercel.app/sw.js",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/90A07B00D5DF2156511DD28981E9B4F8"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/8CF312AC079B9D693C9E58DB6B4FAA00",
+   "id": "8CF312AC079B9D693C9E58DB6B4FAA00",
+   "title": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "type": "worker",
+   "url": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/8CF312AC079B9D693C9E58DB6B4FAA00"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/0B46090BFAD8717A4E5FDA3C430010C9",
+   "id": "0B46090BFAD8717A4E5FDA3C430010C9",
+   "title": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "type": "worker",
+   "url": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/0B46090BFAD8717A4E5FDA3C430010C9"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/7D244F21A0BBDD9A33585255AE2AC6B3",
+   "id": "7D244F21A0BBDD9A33585255AE2AC6B3",
+   "title": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "type": "worker",
+   "url": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/7D244F21A0BBDD9A33585255AE2AC6B3"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/E88DDD534BF1859C924788C950463C45",
+   "id": "E88DDD534BF1859C924788C950463C45",
+   "title": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "type": "worker",
+   "url": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/E88DDD534BF1859C924788C950463C45"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/9F3D0C5F321D4334AF9BC7D217848B20",
+   "id": "9F3D0C5F321D4334AF9BC7D217848B20",
+   "title": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "type": "worker",
+   "url": "https://mail-agent-indol.vercel.app/swe-worker-ab00d3c7d2d59769.js",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/9F3D0C5F321D4334AF9BC7D217848B20"
+}, {
+   "description": "",
+   "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@a825c519de68e522b4f78eb405b48f3d47d4f124/inspector.html?ws=localhost:9222/devtools/page/38DCAB6174AA9084F607D647E7034A45",
+   "id": "38DCAB6174AA9084F607D647E7034A45",
+   "title": "",
+   "type": "worker",
+   "url": "",
+   "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/38DCAB6174AA9084F607D647E7034A45"
+} ]

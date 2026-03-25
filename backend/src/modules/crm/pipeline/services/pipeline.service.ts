@@ -28,6 +28,10 @@ export class PipelineService {
     return this.prisma.crmPipeline.findMany({
       where: { tenantId, deletedAt: null },
       include: {
+        stages: {
+          select: { id: true, name: true, color: true, probability: true, position: true },
+          orderBy: { position: 'asc' },
+        },
         _count: { select: { stages: true, deals: true } },
       },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
