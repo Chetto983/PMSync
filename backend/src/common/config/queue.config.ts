@@ -441,4 +441,7 @@ export const QUEUE_NAMES = {
 
   // CRM stage automation (triggered on deal stage changes)
   CRM_STAGE_AUTOMATION: 'crm-stage-automation',
+
+  // CRM contact import (async CSV processing with progress)
+  CRM_CONTACT_IMPORT: 'crm-contact-import',
 } as const;

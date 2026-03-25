@@ -183,6 +183,17 @@ export interface CrmAutomationNotifyPayload {
   timestamp: string;
 }
 
+export interface CrmImportProgressPayload {
+  jobId: string;
+  status: 'parsing' | 'validating' | 'importing' | 'completed' | 'failed';
+  total: number;
+  processed: number;
+  created: number;
+  skipped: number;
+  errorCount: number;
+  timestamp: string;
+}
+
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
   'email:update': EmailEventPayload;
@@ -263,6 +274,7 @@ export interface RealtimeEventPayloads {
   // CRM Events
   'crm:deal:stage-changed': CrmDealStageChangedPayload;
   'crm:automation:notify': CrmAutomationNotifyPayload;
+  'crm:import:progress': CrmImportProgressPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

@@ -14,6 +14,7 @@ import {
   FollowUpReminderPayload,
   CrmDealStageChangedPayload,
   CrmAutomationNotifyPayload,
+  CrmImportProgressPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -32,6 +33,7 @@ export type {
   FollowUpReminderPayload,
   CrmDealStageChangedPayload,
   CrmAutomationNotifyPayload,
+  CrmImportProgressPayload,
 } from '../types/realtime.types';
 
 /**
@@ -600,6 +602,10 @@ export class RealtimeEventsService implements OnModuleDestroy {
 
   emitCrmAutomationNotify(tenantId: string, payload: CrmAutomationNotifyPayload): void {
     void this.emitToTenant(tenantId, 'crm:automation:notify', payload);
+  }
+
+  emitCrmImportProgress(tenantId: string, payload: CrmImportProgressPayload): void {
+    void this.emitToTenant(tenantId, 'crm:import:progress', payload);
   }
 
   /**
