@@ -40,17 +40,17 @@
 
 ## Definition of Done
 
-- [ ] Kanban board mostra deal organizzati per stage
-- [ ] Drag-and-drop sposta deal tra stage con optimistic update
-- [ ] Rollback visivo se API fallisce
-- [ ] Valore pesato calcolato e mostrato per ogni stage
-- [ ] Header colonna mostra conteggio deal e valore totale
-- [ ] Evento Socket.IO emesso su stage change
-- [ ] Board si aggiorna in real-time per altri utenti dello stesso tenant
-- [ ] Loading skeleton e empty state presenti
-- [ ] Layout funziona su mobile (scroll orizzontale)
-- [ ] `cd backend && npx tsc --noEmit` passa
-- [ ] `cd frontend && npx tsc --noEmit` passa
+- [x] Kanban board mostra deal organizzati per stage
+- [x] Drag-and-drop sposta deal tra stage con optimistic update
+- [x] Rollback visivo se API fallisce
+- [x] Valore pesato calcolato e mostrato per ogni stage
+- [x] Header colonna mostra conteggio deal e valore totale
+- [x] Evento Socket.IO emesso su stage change
+- [x] Board si aggiorna in real-time per altri utenti dello stesso tenant
+- [x] Loading skeleton e empty state presenti
+- [x] Layout funziona su mobile (scroll orizzontale)
+- [x] `cd backend && npx tsc --noEmit` passa
+- [x] `cd frontend && npx tsc --noEmit` passa
 
 ## Deliverable Attesi
 

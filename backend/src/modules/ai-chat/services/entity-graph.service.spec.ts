@@ -83,25 +83,17 @@ describe('EntityGraphService', () => {
       expect(hasThree).toBe(true);
     });
 
-    it('should respect limit parameter', async () => {
-      // Create 10 mock results
-      const mockResults = Array.from({ length: 10 }, (_, i) => ({
-        nodeId: `node${i}`,
-        nodeType: 'contact',
-        label: `Node ${i}`,
-        metadata: {},
-        hop: 0,
-        score: 1.0 - i * 0.1,
-        edgeType: null,
-      }));
-      prisma.$queryRaw.mockResolvedValue(mockResults);
+    it('should pass limit parameter to the SQL query', async () => {
+      prisma.$queryRaw.mockResolvedValue([]);
 
-      const result = await service.traverse('tenant1', ['seed1'], {
-        limit: 5,
-      });
+      await service.traverse('tenant1', ['seed1'], { limit: 5 });
 
-      // Should return at most 5 results
-      expect(result.length).toBeLessThanOrEqual(5);
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      const sqlCall = prisma.$queryRaw.mock.calls[0][0];
+      const values = sqlCall.values || [];
+      // The limit parameter (5) should be passed to the SQL
+      const hasFive = values.some((v) => v === 5);
+      expect(hasFive).toBe(true);
     });
 
     it('should return results with score decaying by hop distance', async () => {

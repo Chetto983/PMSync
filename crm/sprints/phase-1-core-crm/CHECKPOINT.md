@@ -7,8 +7,10 @@
 - **Tasks Done:** 11/11
 - **SP Completed:** 20/20
 - **Last Updated:** 2026-03-25
+- **Production Validated:** ✅ 2026-03-25
 
 ## Last Modified Files
+- backend/src/modules/crm/pipeline/services/pipeline.service.ts ← BUG FIX: added stages include to listPipelines
 - backend/src/modules/crm/deal/controllers/deal.controller.ts
 - backend/src/modules/crm/deal/services/deal.service.ts
 - backend/src/modules/crm/deal/dto/deal.dto.ts
@@ -24,8 +26,10 @@
 - frontend/locales/en.ts
 - frontend/locales/it.ts
 - frontend/locales/index.ts
+- scripts/validate-crm-sprint05-e2e.mjs
 
 ## Key Decisions Made
+
 - Used @dnd-kit/core v6 (already installed) instead of @hello-pangea/dnd (sprint spec mentioned it but dnd-kit was already in deps)
 - KanbanBoard + DealCard placed in `frontend/components/dashboard/crm-deals/` alongside existing deal components (not separate kanban/ dir)
 - List/Kanban view toggle added to DealsList header with ToggleButtonGroup
@@ -34,6 +38,10 @@
 - Socket.IO event name: `crm:deal:stage-changed` (namespaced under crm: prefix)
 - DealCard uses useDraggable (not useSortable) — cards drop into stage columns, no intra-column reordering
 - Optimistic update uses queryClient.setQueryData with rollback on mutation error
+
+## Bug Fixes
+
+- **listPipelines missing stages include** — `PipelineService.listPipelines()` only had `_count: { select: { stages: true } }` but did NOT include the actual `stages` array. This caused the Stage dropdown in CreateDealDialog and DealDetail to be empty, blocking deal creation entirely. Fixed by adding `stages: { select: { id, name, color, probability, position }, orderBy: { position: 'asc' } }` to the Prisma include.
 
 ## Patterns Established
 - CRM realtime events: `CrmDealStageChangedPayload` type, `emitCrmDealStageChanged` method
@@ -44,6 +52,7 @@
 - View mode toggle: ToggleButtonGroup with List/Kanban icons from lucide-react
 
 ## Blockers / Notes
+
 - @dnd-kit/sortable v10 is installed but not used for Kanban (sortable is for reordering within a list, not cross-container moves)
 - Deal cards don't support intra-column reordering (not in sprint scope)
 - Kanban fetches up to 500 deals per pipeline — may need virtualization for larger datasets (Sprint risk #2)
@@ -58,3 +67,11 @@
 - Mobile design: ✅ horizontal scroll, touch-action: none on draggable, 44px+ touch targets
 - Accessibility: ⚠️ acceptable — KeyboardSensor enabled, semantic HTML, ARIA via dnd-kit built-in
 - MUI: ✅ theme tokens only, no hardcoded colors
+
+## Production Validation (2026-03-25)
+
+- Railway: ✅ /health → 200, /api/v1/crm/pipelines → 401 (auth guard active)
+- Vercel: ✅ /dashboard/crm/deals → 307 (auth redirect working)
+- Browser (Edge CDP): ✅ Kanban renders, stages populated, deals visible, drag-drop functional
+- E2E script: `scripts/validate-crm-sprint05-e2e.mjs` — pipeline creation, stage addition, deal creation, kanban view, drag-drop, mobile viewport
+- Screenshots: `scripts/screenshots/sprint05/`
