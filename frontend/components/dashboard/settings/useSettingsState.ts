@@ -170,6 +170,12 @@ export function useSettingsState() {
   useEffect(() => {
     if (userPrefsData) {
       queueMicrotask(() => {
+        if (userPrefsData.timezone) {
+          setTimezone(userPrefsData.timezone);
+        }
+        if (userPrefsData.language) {
+          setLanguage(userPrefsData.language);
+        }
         setSmartRepliesEnabled(userPrefsData.aiSmartRepliesEnabled ?? true);
         setSummarizationEnabled(userPrefsData.aiSummarizationEnabled ?? true);
         setSchedulingEnabled(userPrefsData.aiSchedulingEnabled ?? true);
