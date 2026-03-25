@@ -1,3 +1,7 @@
+/**
+ * @deprecated Use EntityGraphService instead. Kept for migration period.
+ * Will be removed once all consumers use the entity graph pipeline.
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';

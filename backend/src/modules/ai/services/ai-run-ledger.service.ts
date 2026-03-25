@@ -62,6 +62,10 @@ export interface RecordRunParams {
   errorCode?: string;
   errorMessage?: string;
   promptVersion?: string;
+  /** Phase 109: Raw context tokens before assembly */
+  rawContextTokens?: number;
+  /** Phase 109: Assembled context tokens after budget enforcement */
+  assembledContextTokens?: number;
 }
 
 @Injectable()
@@ -121,6 +125,8 @@ export class AiRunLedgerService {
         errorCode: params.errorCode,
         errorMessage: params.errorMessage,
         promptVersion: params.promptVersion,
+        rawContextTokens: params.rawContextTokens != null ? this.safeInt(params.rawContextTokens) : null,
+        assembledContextTokens: params.assembledContextTokens != null ? this.safeInt(params.assembledContextTokens) : null,
       },
     });
   }

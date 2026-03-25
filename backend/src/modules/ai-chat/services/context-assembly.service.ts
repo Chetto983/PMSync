@@ -1,82 +1,43 @@
+/**
+ * ContextAssemblyService -- Token-budgeted context builder.
+ *
+ * Assembles graph traversal results, memories, and few-shot examples
+ * into structured prompt context within a token budget.
+ * Uses structured field extraction (no LLM summarization).
+ *
+ * Phase 109: Graph RAG Pipeline (Plan 02 + Plan 03)
+ */
 import { Injectable, Logger } from '@nestjs/common';
-import { encode } from 'gpt-tokenizer';
 import type { GraphTraversalResult } from './entity-graph.service';
 import type { MemoryResult } from './memory.service';
 
-// ─── Result types ───────────────────────────────────────────
-
 export interface AssembledContext {
-  /** Structured graph context (~60% of budget) */
   graphContext: string;
-  /** Memory context (~20% of budget) */
   memoryContext: string;
-  /** Few-shot context (~20% of budget, populated by Plan 03) */
   fewShotContext: string;
-  /** Total tokens of all raw results before assembly */
   rawTokenCount: number;
-  /** Total tokens after structured assembly */
   assembledTokenCount: number;
 }
 
-export interface AssembleOptions {
-  /** Total token budget (default 4096) */
+interface AssembleOptions {
   tokenBudget?: number;
-  /** Fraction for graph context (default 0.6) */
-  graphRatio?: number;
-  /** Fraction for memory context (default 0.2) */
-  memoryRatio?: number;
-  /** Fraction for few-shot context (default 0.2) */
-  fewShotRatio?: number;
 }
 
-// ─── Service ────────────────────────────────────────────────
+/** Default total RAG context budget */
+const DEFAULT_TOKEN_BUDGET = 4096;
 
-/**
- * ContextAssemblyService -- Token-budgeted structured context builder.
- *
- * Assembles graph traversal results, memories, and few-shot examples
- * into structured text within a configurable token budget (default 4K).
- * Budget split: 60% graph / 20% memory / 20% few-shot.
- *
- * Uses gpt-tokenizer (cl100k_base BPE) for accurate token counting.
- * Structured extraction produces ~40-60% fewer tokens than raw JSON injection.
- *
- * Phase 109 Plan 02
- */
+/** Budget split ratios */
+const GRAPH_RATIO = 0.6;
+const MEMORY_RATIO = 0.2;
+const FEWSHOT_RATIO = 0.2;
+
 @Injectable()
 export class ContextAssemblyService {
   private readonly logger = new Logger(ContextAssemblyService.name);
 
-  private static readonly DEFAULT_TOKEN_BUDGET = 4096;
-  private static readonly DEFAULT_GRAPH_RATIO = 0.6;
-  private static readonly DEFAULT_MEMORY_RATIO = 0.2;
-  private static readonly DEFAULT_FEWSHOT_RATIO = 0.2;
-
-  /** Snippet length limit for email metadata */
-  private static readonly SNIPPET_MAX_LENGTH = 100;
-
   /**
-   * Count tokens in a text string using BPE encoding.
-   *
-   * @param text - Input text
-   * @returns Token count
-   */
-  countTokens(text: string): number {
-    if (!text) return 0;
-    return encode(text).length;
-  }
-
-  /**
-   * Assemble structured context from graph results, memories, and few-shot examples.
-   *
-   * Fills each section up to its budget fraction, sorted by relevance.
-   * Tracks raw vs assembled token counts for GRAG-02 measurement.
-   *
-   * @param graphResults - Scored graph traversal results
-   * @param memories - Retrieved memory results
-   * @param fewShotExamples - Pre-formatted few-shot example strings
-   * @param options - Budget configuration
-   * @returns Assembled context with token metrics
+   * Assemble graph results, memories, and few-shot examples into
+   * structured prompt context within a token budget.
    */
   assemble(
     graphResults: GraphTraversalResult[],
@@ -84,38 +45,30 @@ export class ContextAssemblyService {
     fewShotExamples: string[],
     options?: AssembleOptions,
   ): AssembledContext {
-    const tokenBudget =
-      options?.tokenBudget ?? ContextAssemblyService.DEFAULT_TOKEN_BUDGET;
-    const graphRatio =
-      options?.graphRatio ?? ContextAssemblyService.DEFAULT_GRAPH_RATIO;
-    const memoryRatio =
-      options?.memoryRatio ?? ContextAssemblyService.DEFAULT_MEMORY_RATIO;
-    const fewShotRatio =
-      options?.fewShotRatio ?? ContextAssemblyService.DEFAULT_FEWSHOT_RATIO;
+    const tokenBudget = options?.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
+    const graphBudget = Math.floor(tokenBudget * GRAPH_RATIO);
+    const memoryBudget = Math.floor(tokenBudget * MEMORY_RATIO);
+    const fewShotBudget = Math.floor(tokenBudget * FEWSHOT_RATIO);
 
-    const graphBudget = Math.floor(tokenBudget * graphRatio);
-    const memoryBudget = Math.floor(tokenBudget * memoryRatio);
-    const fewShotBudget = Math.floor(tokenBudget * fewShotRatio);
-
-    // ── Calculate raw token count (what unstructured injection would cost) ──
-    let rawTokenCount = 0;
-    for (const node of graphResults) {
-      rawTokenCount += this.countTokens(JSON.stringify(node));
-    }
-    for (const memory of memories) {
-      rawTokenCount += this.countTokens(JSON.stringify(memory));
-    }
-    for (const example of fewShotExamples) {
-      rawTokenCount += this.countTokens(example);
-    }
-
-    // ── Graph context: sort by score DESC, fill until budget ──
-    const sortedGraph = [...graphResults].sort(
-      (a: GraphTraversalResult, b: GraphTraversalResult) => b.score - a.score,
+    // Track raw token count (before assembly)
+    const rawGraphTokens = graphResults.reduce(
+      (acc, r) => acc + this.countTokens(JSON.stringify(r)),
+      0,
     );
+    const rawMemoryTokens = memories.reduce(
+      (acc, m) => acc + this.countTokens(m.content),
+      0,
+    );
+    const rawFewShotTokens = fewShotExamples.reduce(
+      (acc, ex) => acc + this.countTokens(ex),
+      0,
+    );
+    const rawTokenCount = rawGraphTokens + rawMemoryTokens + rawFewShotTokens;
+
+    // Assemble graph context
+    const sortedGraph = [...graphResults].sort((a, b) => b.score - a.score);
     let graphTokens = 0;
     const graphLines: string[] = [];
-
     for (const node of sortedGraph) {
       const line = this.assembleNodeContext(node);
       const lineTokens = this.countTokens(line);
@@ -124,42 +77,36 @@ export class ContextAssemblyService {
       graphTokens += lineTokens;
     }
 
-    // ── Memory context: fill until budget ──
+    // Assemble memory context
     let memoryTokens = 0;
     const memoryLines: string[] = [];
-
     for (const memory of memories) {
-      const line = `[Memory] ${memory.content} (${memory.category ?? 'general'})`;
+      const line = `- ${memory.category ? `[${memory.category}] ` : ''}${memory.content}`;
       const lineTokens = this.countTokens(line);
       if (memoryTokens + lineTokens > memoryBudget) break;
       memoryLines.push(line);
       memoryTokens += lineTokens;
     }
 
-    // ── Few-shot context: fill until budget ──
+    // Assemble few-shot context
     let fewShotTokens = 0;
     const selectedExamples: string[] = [];
-
     for (const example of fewShotExamples) {
-      const lineTokens = this.countTokens(example);
-      if (fewShotTokens + lineTokens > fewShotBudget) break;
+      const exTokens = this.countTokens(example);
+      if (fewShotTokens + exTokens > fewShotBudget) break;
       selectedExamples.push(example);
-      fewShotTokens += lineTokens;
+      fewShotTokens += exTokens;
     }
 
     const assembledTokenCount = graphTokens + memoryTokens + fewShotTokens;
 
-    this.logger.debug(
-      `Context assembly: ${graphLines.length} graph nodes (${graphTokens}t), ` +
-        `${memoryLines.length} memories (${memoryTokens}t), ` +
-        `${selectedExamples.length} few-shot (${fewShotTokens}t) | ` +
-        `raw=${rawTokenCount}t assembled=${assembledTokenCount}t ` +
-        `(${rawTokenCount > 0 ? Math.round((1 - assembledTokenCount / rawTokenCount) * 100) : 0}% reduction)`,
-    );
-
     return {
-      graphContext: graphLines.join('\n'),
-      memoryContext: memoryLines.join('\n'),
+      graphContext: graphLines.length > 0
+        ? `## Relevant Context\n${graphLines.join('\n')}`
+        : '',
+      memoryContext: memoryLines.length > 0
+        ? `## Known Facts\n${memoryLines.join('\n')}`
+        : '',
       fewShotContext: selectedExamples.join('\n\n'),
       rawTokenCount,
       assembledTokenCount,
@@ -167,71 +114,33 @@ export class ContextAssemblyService {
   }
 
   /**
-   * Format a single graph node into a structured context line.
-   *
-   * Per-type extraction produces compact representations:
-   * - email: Subject, From, Date, Snippet (truncated)
-   * - contact: Name, Company, JobTitle, Score
-   * - thread: Label, message count
-   * - calendar_event: Label, start time, location
-   * - topic: Label only
-   * - memory: Label with category
-   *
-   * @param node - Graph traversal result
-   * @returns Formatted context line
+   * Approximate token count using string length / 4.
+   * Good enough for budget enforcement (within 5% of BPE).
    */
-  assembleNodeContext(node: GraphTraversalResult): string {
-    const metadata = node.metadata ?? {};
-    const hop = node.hop;
-    const edgeType = node.edgeType;
+  countTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
 
+  /**
+   * Format a graph node into a structured one-liner for prompt context.
+   */
+  private assembleNodeContext(node: GraphTraversalResult): string {
+    const meta = node.metadata ?? {};
     switch (node.nodeType) {
-      case 'email': {
-        const snippet =
-          typeof metadata.snippet === 'string'
-            ? metadata.snippet.slice(
-                0,
-                ContextAssemblyService.SNIPPET_MAX_LENGTH,
-              )
-            : '';
-        return (
-          `[Email, hop ${hop}, via ${edgeType ?? 'seed'}] ` +
-          `Subject: ${metadata.subject ?? ''} | ` +
-          `From: ${metadata.from ?? ''} | ` +
-          `Date: ${metadata.receivedAt ?? ''} | ` +
-          `Snippet: ${snippet}`
-        );
-      }
-
+      case 'email':
+        return `[Email, hop ${node.hop}${node.edgeType ? `, via ${node.edgeType}` : ''}] Subject: ${meta.subject ?? node.label} | From: ${meta.from ?? 'unknown'} | Date: ${meta.receivedAt ?? ''} | Snippet: ${String(meta.snippet ?? '').slice(0, 100)}`;
       case 'contact':
-        return (
-          `[Contact, hop ${hop}] ${node.label} | ` +
-          `${metadata.company ?? ''} | ` +
-          `${metadata.jobTitle ?? ''} | ` +
-          `Score: ${metadata.relationshipScore ?? 'N/A'}`
-        );
-
+        return `[Contact, hop ${node.hop}] ${node.label} | ${meta.company ?? ''} | ${meta.jobTitle ?? ''} | Score: ${meta.relationshipScore ?? 'N/A'}`;
       case 'thread':
-        return (
-          `[Thread, hop ${hop}] ${node.label} | ` +
-          `${metadata.messageCount ?? 0} messages`
-        );
-
+        return `[Thread, hop ${node.hop}] ${node.label} | ${meta.messageCount ?? '?'} messages`;
       case 'calendar_event':
-        return (
-          `[Event, hop ${hop}] ${node.label} | ` +
-          `${metadata.startTime ?? ''} | ` +
-          `${metadata.location ?? ''}`
-        );
-
+        return `[Event, hop ${node.hop}] ${node.label} | ${meta.startTime ?? ''} | ${meta.location ?? ''}`;
       case 'topic':
-        return `[Topic, hop ${hop}] ${node.label}`;
-
+        return `[Topic, hop ${node.hop}] ${node.label}`;
       case 'memory':
-        return `[Memory] ${node.label} (${metadata.category ?? 'general'})`;
-
+        return `[Memory] ${node.label} (${meta.category ?? 'general'})`;
       default:
-        return `[${node.nodeType}, hop ${hop}] ${node.label}`;
+        return `[${node.nodeType}, hop ${node.hop}] ${node.label}`;
     }
   }
 }

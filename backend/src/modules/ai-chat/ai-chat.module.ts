@@ -95,9 +95,8 @@ import { ContextAssemblyService } from './services/context-assembly.service';
     RerankingService,
     // Graph RAG Step 3: Graph-aware context expansion
     GraphExpansionService,
-    // Phase 109: Entity graph traversal (replaces GraphExpansionService)
+    // Phase 109: Entity graph + context assembly (Graph RAG pipeline)
     EntityGraphService,
-    // Phase 109: Token-budgeted context assembly
     ContextAssemblyService,
   ],
   exports: [AiChatService, ConversationService],

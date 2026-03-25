@@ -34,6 +34,7 @@ import {
   buildSystemPrompt,
   buildExtendedRuntimeContext,
 } from '../constants/system-prompt';
+import { selectFewShotExamples } from '../constants/few-shot-examples';
 import { getToolDomain } from '../constants/tool-domains';
 import {
   EmailToolsService,
@@ -50,6 +51,8 @@ import { FollowUpToolsService } from '../tools/follow-up-tools.service';
 import { MemoryService } from './memory.service';
 import { ChatEnrichmentService } from './chat-enrichment.service';
 import { QueryRouterService } from './query-router.service';
+import { EntityGraphService } from './entity-graph.service';
+import { ContextAssemblyService } from './context-assembly.service';
 import { AiRunLedgerService } from '../../ai/services/ai-run-ledger.service';
 import {
   redactModelMessagesForModel,
@@ -114,6 +117,9 @@ export class AiChatService {
     private readonly chatEnrichmentService: ChatEnrichmentService,
     // Graph RAG Step 1: Query complexity router
     private readonly queryRouterService: QueryRouterService,
+    // Phase 109: Graph RAG entity graph + context assembly
+    @Optional() private readonly entityGraphService?: EntityGraphService,
+    @Optional() private readonly contextAssemblyService?: ContextAssemblyService,
     @Optional()
     @Inject(UsageTrackingService)
     private readonly usageTrackingService?: UsageTrackingService,
@@ -177,9 +183,17 @@ export class AiChatService {
     });
     const sensitivity = userPrefs?.hitlSensitivity ?? 'HIGH_ONLY';
 
+    // Phase 109: Select few-shot examples based on query complexity
+    const fewShotExamples = selectFewShotExamples(classification);
+
     let messages: { role: string; content: unknown }[];
-    let systemPromptWithMemory = buildSystemPrompt();
+    let systemPromptWithMemory = buildSystemPrompt(
+      fewShotExamples.length > 0 ? fewShotExamples.join('\n\n') : undefined,
+    );
     const tools = this.createToolSet(tenantId, userId, conversation.id, sensitivity);
+    // Track assembled context token counts for ledger
+    let assembledRawTokens = 0;
+    let assembledContextTokens = 0;
 
     if (isApprovalResubmit) {
       // HITL approval re-submit: convert client UIMessages to ModelMessages.
@@ -237,12 +251,44 @@ export class AiChatService {
       // Sanitize message sequence for model compatibility
       this.sanitizeMessages(messages);
 
-      // Append memory context to system prompt
-      const memoryBlock = redactTextForModel(
-        this.piiDetectionService,
-        this.memoryService.formatMemoriesForPrompt(memories),
-      );
-      if (memoryBlock) systemPromptWithMemory += '\n\n' + memoryBlock;
+      // Phase 109: Proactive graph context assembly (breadth context for system prompt)
+      if (this.entityGraphService && this.contextAssemblyService) {
+        try {
+          const seedIds = await this.entityGraphService.findSeedNodes(tenantId, llmMessage, 5);
+          const graphResults = seedIds.length > 0
+            ? await this.entityGraphService.traverse(tenantId, seedIds, { maxHops: 2 })
+            : [];
+          const assembled = this.contextAssemblyService.assemble(
+            graphResults,
+            memories,
+            fewShotExamples,
+          );
+          assembledRawTokens = assembled.rawTokenCount;
+          assembledContextTokens = assembled.assembledTokenCount;
+
+          // Inject assembled graph + memory context into system prompt
+          const contextBlock = [assembled.graphContext, assembled.memoryContext]
+            .filter(Boolean)
+            .join('\n\n');
+          if (contextBlock) {
+            systemPromptWithMemory += '\n\n' + redactTextForModel(
+              this.piiDetectionService,
+              contextBlock,
+            );
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Graph context assembly failed (non-blocking): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      } else {
+        // Fallback: append memory context to system prompt (pre-Graph RAG behavior)
+        const memoryBlock = redactTextForModel(
+          this.piiDetectionService,
+          this.memoryService.formatMemoriesForPrompt(memories),
+        );
+        if (memoryBlock) systemPromptWithMemory += '\n\n' + memoryBlock;
+      }
     }
 
     // DEBUG: Log message structure to diagnose ModelMessage[] schema errors
@@ -480,6 +526,8 @@ export class AiChatService {
           totalTokens: usage?.totalTokens ?? 0,
           latencyMs: Date.now() - chatStartTime,
           toolCallCount,
+          rawContextTokens: assembledRawTokens || undefined,
+          assembledContextTokens: assembledContextTokens || undefined,
         }).catch(err => this.logger.warn(`Ledger: ${err.message}`));
 
         this.chatEnrichmentService.maybeGenerateSmartTitle(
