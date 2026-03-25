@@ -57,6 +57,7 @@ export function StageAutomationsDialog({
   const [rules, setRules] = useState<StageAutomationRule[]>(() => parseRules(stage.automations));
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync props to local editable state on dialog open
     if (open) setRules(parseRules(stage.automations));
   }, [open, stage.automations]);
 

@@ -64,7 +64,7 @@ export interface CreateAccountDto {
   parentId?: string;
 }
 
-export interface UpdateAccountDto extends Partial<CreateAccountDto> {}
+export type UpdateAccountDto = Partial<CreateAccountDto>;
 
 export interface AccountContactLink {
   id: string;

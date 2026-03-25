@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { AsyncStorage } from '@tanstack/query-persist-client-core';
 import * as fs from 'fs';
 import * as path from 'path';

@@ -57,7 +57,7 @@ export function NotificationBell({
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return t.timeAgo.daysAgo.replace('{days}', diffDays.toString());
     return formatDateInTz(date, tz);
-  }, [t.timeAgo]);
+  }, [t.timeAgo, tz]);
 
   return (
     <Menu

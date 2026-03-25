@@ -57,9 +57,8 @@ export const ContactList: React.FC<ContactListProps> = ({
 }) => {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Virtual scrolling
+  // Virtual scrolling — TanStack Virtual is intentionally used for large contact lists
   const parentRef = useRef<HTMLDivElement>(null);
-  // TanStack Virtual is intentionally used here for large contact lists.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: contacts.length,
@@ -105,7 +104,6 @@ export const ContactList: React.FC<ContactListProps> = ({
 
   const isEmpty = contacts.length === 0;
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const t = useTranslations();
 
   if (isLoading && isEmpty) {

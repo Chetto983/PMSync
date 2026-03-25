@@ -225,8 +225,10 @@ export function ChatThreadList() {
   const handleBulkCancel = useCallback(() => setBulkConfirmOpen(false), []);
 
   const hasSelection = selectedIds.size > 0;
+  /* eslint-disable react-hooks/refs -- runtimeMapRef is stable; reading .size during render is intentional */
   const registeredCount = runtimeMapRef.current.size;
   const allSelected = hasSelection && selectedIds.size >= registeredCount;
+  /* eslint-enable react-hooks/refs */
   const someSelected = hasSelection && !allSelected;
 
   const handleSelectAllCheckbox = useCallback(() => {

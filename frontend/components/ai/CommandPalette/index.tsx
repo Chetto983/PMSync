@@ -159,7 +159,7 @@ export function CommandPalette() {
     };
 
     performSearch();
-  }, [debouncedSearch, router]);
+  }, [debouncedSearch, router, tz]);
 
   const commands: CommandItem[] = useMemo(() => [
     { id: 'home', name: t.commandPalette.commands.goToDashboard, shortcut: '⌘1', icon: Home, action: () => router.push('/dashboard'), group: 'navigation', keywords: ['home', 'dashboard', 'main'] },

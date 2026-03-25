@@ -27,6 +27,8 @@ const config = [
       'e2e-results/**',
       'test-results/**',
       '**/.playwright-artifacts-*/**',
+      '**/pdfjs-dist/**',
+      'public/sw.js',
     ],
   },
   ...filteredNextConfig,
@@ -53,7 +55,7 @@ const config = [
     },
   },
   {
-    files: ['e2e/**/*.ts'],
+    files: ['e2e/**/*.ts', 'scripts/**/*.ts'],
     rules: {
       'no-console': 'off',
     },

@@ -17,7 +17,7 @@ export function useSwUpdate(): UseSwUpdateReturn {
 
     // Check if user already dismissed in this session
     if (sessionStorage.getItem(DISMISS_KEY)) {
-      setDismissed(true);
+      setDismissed(true); // eslint-disable-line react-hooks/set-state-in-effect -- reading sessionStorage, not cascading
       return;
     }
 

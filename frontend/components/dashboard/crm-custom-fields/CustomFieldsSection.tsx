@@ -54,7 +54,6 @@ export function CustomFieldsSection({
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing remote -> local editable copy
     setLocalValues(map);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset dirty flag on remote data sync
     setDirty(false);
   }, [fieldValues]);
 

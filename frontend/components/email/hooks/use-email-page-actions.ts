@@ -129,7 +129,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       aiSentiment: selectedEmail.aiSentiment ?? null,
       aiLabels: selectedEmail.aiLabels ?? null,
     };
-  }, [selectedEmail, senderPhotos]);
+  }, [selectedEmail, senderPhotos, _actionsTz]);
 
   const handleReply = useCallback((messageId: string) => {
     router.push(`/dashboard/email/compose?mode=reply&emailId=${messageId}`);

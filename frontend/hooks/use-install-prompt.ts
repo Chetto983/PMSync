@@ -49,9 +49,11 @@ if (typeof window !== 'undefined') {
 }
 
 // --- Helper functions ---
+/* eslint-disable @typescript-eslint/no-require-imports */
 const UAParser = typeof window !== 'undefined'
   ? (require('ua-parser-js') as { new (ua: string): { getOS(): { name?: string } } })
   : null;
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 function getIsStandalone(): boolean {
   if (typeof window === 'undefined') return false;

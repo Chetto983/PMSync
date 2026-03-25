@@ -147,7 +147,7 @@ export function RecurrencePicker({
       return recurrenceCopy.weeklyOn.replace('{day}', dayName);
     }
     return recurrenceCopy.weekly;
-  }, [startDate, recurrenceCopy]);
+  }, [startDate, recurrenceCopy, _recurrenceTz]);
 
   // Generate label for monthly option based on start date
   const monthlyLabel = useMemo(() => {
@@ -167,7 +167,7 @@ export function RecurrencePicker({
       return recurrenceCopy.monthlyOn.replace('{ordinal}', ordinal).replace('{day}', dayName);
     }
     return recurrenceCopy.monthly;
-  }, [startDate, recurrenceCopy]);
+  }, [startDate, recurrenceCopy, _recurrenceTz]);
 
   const handleChange = (preset: RecurrencePreset) => {
     if (preset === 'custom') {

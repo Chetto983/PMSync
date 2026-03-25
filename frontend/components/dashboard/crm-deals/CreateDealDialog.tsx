@@ -55,11 +55,12 @@ export function CreateDealDialog({ open, onClose }: CreateDealDialogProps) {
   );
   const stages = selectedPipeline?.stages ?? [];
 
-  // Reset stage when pipeline changes
+  // Reset stage when pipeline changes and current stage is invalid
   useEffect(() => {
     if (form.pipelineId && form.stageId) {
       const stageExists = stages.some((s) => s.id === form.stageId);
       if (!stageExists) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- pipeline change invalidates stage selection
         setForm((prev) => ({ ...prev, stageId: '' }));
       }
     }
