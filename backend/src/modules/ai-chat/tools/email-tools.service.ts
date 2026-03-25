@@ -425,7 +425,7 @@ export class EmailToolsService implements OnModuleInit {
       description:
         'Create a draft email saved in the Drafts folder WITHOUT sending it. ' +
         'Use when user says "write", "draft", "compose", or "prepare" — NOT when they say "send". ' +
-        'The user can review and send the draft later. ' +
+        'The user can review and send the draft later from Gmail/Outlook. ' +
         'Returns: { id, subject, to, status: "draft" }.',
       inputSchema: schemas.draft_email,
       needsApproval: () => sensitivity === 'ALL_MUTATIONS',
@@ -433,27 +433,17 @@ export class EmailToolsService implements OnModuleInit {
         const resolved = (await piiResolve(args as unknown as Record<string, unknown>)) as typeof args;
         const provider = await this.getDefaultProvider(tenantId);
 
-        // Create draft in DB -- not actually sent
-        const draft = await this.prisma.email.create({
-          data: {
-            tenantId,
-            providerId: provider.id,
-            externalId: `draft-${Date.now()}`,
-            from: '', // Will be filled by provider
-            to: [resolved.to],
-            subject: resolved.subject,
-            bodyText: resolved.body,
-            bodyHtml: resolved.body,
-            snippet: resolved.body.slice(0, 200),
-            folder: 'Drafts',
-            isDraft: true,
-            isRead: true,
-            receivedAt: new Date(),
-          },
+        // Save draft via EmailCrudService — syncs to Google/IMAP provider
+        const draft = await this.emailCrudService.saveDraft(tenantId, {
+          providerId: provider.id,
+          to: [resolved.to],
+          subject: resolved.subject,
+          bodyHtml: resolved.body,
+          bodyText: resolved.body,
         });
 
         return truncateToolResult({
-          id: draft.id,
+          id: draft?.id ?? 'unknown',
           subject: resolved.subject,
           to: resolved.to,
           status: 'draft',
