@@ -4367,6 +4367,7 @@ export interface AppTranslations {
         empty?: string;
         emptyDescription?: string;
         loadMore?: string;
+        addActivity?: string;
         types?: {
           STAGE_CHANGE?: string;
           NOTE?: string;
@@ -4375,6 +4376,18 @@ export interface AppTranslations {
           MEETING?: string;
           TASK?: string;
         };
+      };
+      activityForm?: {
+        title?: string;
+        type?: string;
+        description?: string;
+        descriptionPlaceholder?: string;
+        date?: string;
+        duration?: string;
+        save?: string;
+        cancel?: string;
+        created?: string;
+        createError?: string;
       };
     };
     filters?: {

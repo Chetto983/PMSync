@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -6,6 +6,7 @@ import {
   Button,
   Skeleton,
 } from '@mui/material';
+import { Plus } from 'lucide-react';
 import {
   Timeline,
   TimelineItem,
@@ -26,6 +27,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useDealActivities } from '@/hooks/queries/use-crm-deals';
 import type { CrmActivity } from '@/lib/api/crm-deals';
+import { CreateActivityDialog } from './CreateActivityDialog';
 
 const ACTIVITY_ICON_MAP: Record<string, React.ReactNode> = {
   STAGE_CHANGE: <ArrowRightLeft size={16} />,
@@ -104,6 +106,7 @@ export function DealTimeline({ dealId }: { dealId: string }) {
   const t = useTranslations();
   const tl = t.crmDeals?.detail?.timeline;
   const { data, isLoading } = useDealActivities(dealId);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -126,22 +129,46 @@ export function DealTimeline({ dealId }: { dealId: string }) {
 
   if (activities.length === 0) {
     return (
-      <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="subtitle2" color="text.secondary">
-          {tl?.empty ?? 'No activity yet'}
-        </Typography>
-        <Typography variant="caption" color="text.disabled">
-          {tl?.emptyDescription ?? 'Activities and stage changes will appear here.'}
-        </Typography>
-      </Paper>
+      <>
+        <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            {tl?.empty ?? 'No activity yet'}
+          </Typography>
+          <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 1.5 }}>
+            {tl?.emptyDescription ?? 'Activities and stage changes will appear here.'}
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Plus size={16} />}
+            onClick={() => setDialogOpen(true)}
+          >
+            {tl?.addActivity ?? 'Log Activity'}
+          </Button>
+        </Paper>
+        <CreateActivityDialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          dealId={dealId}
+        />
+      </>
     );
   }
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-        {tl?.title ?? 'Activity Timeline'}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+        <Typography variant="subtitle1" fontWeight={600} sx={{ flex: 1 }}>
+          {tl?.title ?? 'Activity Timeline'}
+        </Typography>
+        <Button
+          size="small"
+          startIcon={<Plus size={16} />}
+          onClick={() => setDialogOpen(true)}
+        >
+          {tl?.addActivity ?? 'Log Activity'}
+        </Button>
+      </Box>
       <Timeline sx={{ p: 0, m: 0 }}>
         {activities.map((activity, idx) => (
           <ActivityItem
@@ -159,6 +186,11 @@ export function DealTimeline({ dealId }: { dealId: string }) {
           </Button>
         </Box>
       )}
+      <CreateActivityDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        dealId={dealId}
+      />
     </Paper>
   );
 }

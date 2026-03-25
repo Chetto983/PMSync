@@ -4531,6 +4531,7 @@ export const en: AppTranslations = {
         empty: 'No activity yet',
         emptyDescription: 'Activities and stage changes will appear here.',
         loadMore: 'Load more',
+        addActivity: 'Log Activity',
         types: {
           STAGE_CHANGE: 'Stage Change',
           NOTE: 'Note',
@@ -4539,6 +4540,18 @@ export const en: AppTranslations = {
           MEETING: 'Meeting',
           TASK: 'Task',
         },
+      },
+      activityForm: {
+        title: 'Log Activity',
+        type: 'Activity Type',
+        description: 'Description',
+        descriptionPlaceholder: 'What happened?',
+        date: 'Date & Time',
+        duration: 'Duration (minutes)',
+        save: 'Save',
+        cancel: 'Cancel',
+        created: 'Activity logged',
+        createError: 'Failed to log activity',
       },
     },
     filters: {

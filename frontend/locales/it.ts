@@ -4515,6 +4515,7 @@ export const it: AppTranslations = {
         empty: 'Nessuna attività',
         emptyDescription: 'Le attività e i cambi di fase appariranno qui.',
         loadMore: 'Carica altro',
+        addActivity: 'Registra Attività',
         types: {
           STAGE_CHANGE: 'Cambio Fase',
           NOTE: 'Nota',
@@ -4523,6 +4524,18 @@ export const it: AppTranslations = {
           MEETING: 'Riunione',
           TASK: 'Attività',
         },
+      },
+      activityForm: {
+        title: 'Registra Attività',
+        type: 'Tipo Attività',
+        description: 'Descrizione',
+        descriptionPlaceholder: 'Cosa è successo?',
+        date: 'Data e Ora',
+        duration: 'Durata (minuti)',
+        save: 'Salva',
+        cancel: 'Annulla',
+        created: 'Attività registrata',
+        createError: 'Errore nella registrazione dell\'attività',
       },
     },
     filters: {
