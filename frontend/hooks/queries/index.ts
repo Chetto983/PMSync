@@ -38,6 +38,10 @@ export * from './crm-accounts-keys';
 export * from './use-crm-accounts';
 export * from './crm-deals-keys';
 export * from './use-crm-deals';
+export * from './crm-pipelines-keys';
+export * from './use-crm-pipelines';
+export * from './crm-custom-fields-keys';
+export * from './use-crm-custom-fields';
 // Note: use-providers exports are NOT re-exported here because use-settings already
 // exports useProviders, useSyncAllProviders, useDeleteProvider. Import directly from
 // './use-providers' if you need the dedicated provider hooks (useProvider, useUpdateProvider etc).

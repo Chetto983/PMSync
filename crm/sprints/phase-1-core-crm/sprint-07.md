@@ -12,15 +12,15 @@
 
 ## Sprint Backlog
 
-- [ ] T-0701 — Creare servizio CSV import (`CsvImportService`): parsing con `papaparse`, validazione righe, deduplicazione per email, gestione errori riga per riga — [3 SP] — 📋 TODO
-- [ ] T-0702 — UI import contatti: dialog upload file, step 1: upload CSV, step 2: mapping colonne (drag source → target field), step 3: preview prime 5 righe, step 4: conferma e importa — [3 SP] — 📋 TODO
-- [ ] T-0703 — Endpoint import: `POST /crm/contacts/import` (multipart file upload), processamento async via BullMQ, progress tracking via Socket.IO — [2 SP] — 📋 TODO
-- [ ] T-0704 — Creare servizio Excel export (`ExcelExportService` con ExcelJS): export contatti e account con colonne configurabili — [2 SP] — 📋 TODO
-- [ ] T-0705 — Pulsante export nelle pagine lista Contacts e Accounts: `GET /crm/contacts/export?format=xlsx&filters=...` — download diretto — [1 SP] — 📋 TODO
-- [ ] T-0706 — API custom fields: `POST /crm/custom-fields` (entity, name, type: text|number|date|select, options[], required), `GET /crm/custom-fields?entity=account`, `PATCH`, `DELETE` — valori salvati in tabella `CustomFieldValue` (entityId, fieldId, value JSONB) — [3 SP] — 📋 TODO
-- [ ] T-0707 — Componenti rendering custom fields: `CustomFieldRenderer` che genera input MUI corretto per tipo (TextField, NumberField, DatePicker, Select), integrato nei form Account/Contact/Deal — [2 SP] — 📋 TODO
-- [ ] T-0708 — UI admin configurazione custom fields: pagina `frontend/src/pages/dashboard/crm/settings/custom-fields.tsx` con lista campi per entità, dialog crea/modifica — [1 SP] — 📋 TODO
-- [ ] T-0709 — Motore segmentazione dinamica: `SegmentService` che trasforma regole JSON (field, operator, value) in query Prisma — supporta AND/OR, campi standard + custom — [1 SP] — 📋 TODO
+- [x] T-0701 — Creare servizio CSV import (`CsvImportService`): parsing con `papaparse`, validazione righe, deduplicazione per email, gestione errori riga per riga — [3 SP] — ✅ DONE
+- [x] T-0702 — UI import contatti: dialog upload file, step 1: upload CSV, step 2: mapping colonne (drag source → target field), step 3: preview prime 5 righe, step 4: conferma e importa — [3 SP] — ✅ DONE
+- [x] T-0703 — Endpoint import: `POST /crm/contacts/import` (multipart file upload), processamento async via BullMQ, progress tracking via Socket.IO — [2 SP] — ✅ DONE
+- [x] T-0704 — Creare servizio Excel export (`ExcelExportService` con ExcelJS): export contatti e account con colonne configurabili — [2 SP] — ✅ DONE
+- [x] T-0705 — Pulsante export nelle pagine lista Contacts e Accounts: `GET /crm/contacts/export?format=xlsx&filters=...` — download diretto — [1 SP] — ✅ DONE
+- [x] T-0706 — API custom fields: `POST /crm/custom-fields` (entity, name, type: text|number|date|select, options[], required), `GET /crm/custom-fields?entity=account`, `PATCH`, `DELETE` — valori salvati in tabella `CustomFieldValue` (entityId, fieldId, value JSONB) — [3 SP] — ✅ DONE
+- [x] T-0707 — Componenti rendering custom fields: `CustomFieldRenderer` che genera input MUI corretto per tipo (TextField, NumberField, DatePicker, Select), integrato nei form Account/Contact/Deal — [2 SP] — ✅ DONE
+- [x] T-0708 — UI admin configurazione custom fields: pagina `frontend/src/pages/dashboard/crm/settings/custom-fields.tsx` con lista campi per entità, dialog crea/modifica — [1 SP] — ✅ DONE
+- [x] T-0709 — Motore segmentazione dinamica: `SegmentService` che trasforma regole JSON (field, operator, value) in query Prisma — supporta AND/OR, campi standard + custom — [1 SP] — ✅ DONE
 
 ---
 
