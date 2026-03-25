@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v9.0
 milestone_name: AI Intelligence & Platform Hardening
-status: Milestone complete
-last_updated: "2026-03-25T09:24:22.193Z"
+status: Phase complete — ready for verification
+last_updated: "2026-03-25T15:37:09.139Z"
 progress:
-  total_phases: 4
+  total_phases: 6
   completed_phases: 4
-  total_plans: 11
+  total_plans: 12
   completed_plans: 11
 ---
 
@@ -18,12 +18,12 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-24)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 109 — graph-rag-pipeline
+**Current focus:** Phase 110 — wire-entity-anchored-memory-retrieval
 
 ## Current Position
 
-Phase: 109
-Plan: Not started
+Phase: 110 (wire-entity-anchored-memory-retrieval) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -58,6 +58,8 @@ Plan: Not started
 - [Phase 109]: Used Prisma.sql tagged template for recursive CTE with parameterized queries
 - [Phase 109]: gpt-tokenizer cl100k_base BPE for token counting (within 5% of Mistral tokenizer)
 - [Phase 109]: Token budget split: 60% graph / 20% memory / 20% few-shot (4096 default)
+- [Phase 110]: Entity memories get priority over vector memories in merge order (entity-first dedup)
+- [Phase 110]: Used MemoryResult type import from memory.service for type safety in ai-chat.service
 
 ### Research Flags
 
@@ -70,6 +72,6 @@ Plan: Not started
 
 ## Session Continuity
 
-Last session: 2026-03-25T08:57:16.884Z
+Last session: 2026-03-25T15:37:09.134Z
 Completed: 108-03-PLAN.md (all 3 tasks complete, human-verify approved)
 Resume file: None

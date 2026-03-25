@@ -218,7 +218,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109 -> 110 -> 111
 | 107. Push Notification Backend Dispatch | 3/3 | Complete   | 2026-03-24 |
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
 | 109. Graph RAG Pipeline | 1/3 | Complete    | 2026-03-25 |
-| 110. Wire Entity-Anchored Memory Retrieval | 0/1 | Pending | — |
+| 110. Wire Entity-Anchored Memory Retrieval | 0/1 | Planned    |  |
 | 111. Push Notification Test Debt | 0/0 | Pending | — |
 
 ---

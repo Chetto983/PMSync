@@ -35,7 +35,7 @@ Requirements for v9.0 AI Intelligence & Platform Hardening. Each maps to roadmap
 - [x] **GRAG-01**: Context assembly produces structured summary of graph expansion results within a token budget
 - [x] **GRAG-02**: Context assembly reduces token usage by 40-60% compared to raw result injection
 - [x] **GRAG-03**: AIMemory records can be anchored to a contact or email entity
-- [ ] **GRAG-04**: Entity-anchored memories are retrievable by direct entity lookup (not just semantic search)
+- [x] **GRAG-04**: Entity-anchored memories are retrievable by direct entity lookup (not just semantic search)
 - [x] **GRAG-05**: System prompt includes 3-5 few-shot tool chain examples for multi-hop queries
 - [x] **GRAG-06**: Few-shot examples are injected dynamically based on query complexity tier
 
@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GRAG-01 | Phase 109 | Complete |
 | GRAG-02 | Phase 109 | Complete |
 | GRAG-03 | Phase 109 | Complete |
-| GRAG-04 | Phase 110 | Pending |
+| GRAG-04 | Phase 110 | Complete |
 | GRAG-05 | Phase 109 | Complete |
 | GRAG-06 | Phase 109 | Complete |
 
