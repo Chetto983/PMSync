@@ -3,6 +3,7 @@
  *
  * - /start {token}: QR code link flow — binds chatId to user via Redis token
  * - callback_query done:{reminderId}: Complete reminder via inline button
+ * - callback_query approve:{id} / reject:{id}: HITL tool approval via inline buttons
  * - Plain text: relays to AI chat and sends response back (Telegram as chat interface)
  */
 import { Injectable, Logger } from '@nestjs/common';
@@ -10,9 +11,10 @@ import { ReminderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { TelegramBotService } from './telegram-bot.service';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
-import { AiChatService } from '../../ai-chat/services/ai-chat.service';
+import { AiChatService, type PendingToolApproval } from '../../ai-chat/services/ai-chat.service';
 import { ConversationService } from '../../ai-chat/services/conversation.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
+import { AuditService } from '../../../common/services/audit.service';
 import { withoutTenantScopingAsync } from '../../../prisma/tenant-scoping';
 
 interface TelegramUpdate {
@@ -33,6 +35,22 @@ interface LinkTokenPayload {
   userId: string;
 }
 
+/** State stored in Redis while waiting for user to approve/reject a tool call */
+interface TelegramPendingApprovalState {
+  approvals: PendingToolApproval[];
+  conversationId: string;
+  chatId: string;
+  tenantId: string;
+  userId: string;
+  /** The response messages from the first generateChat call, needed for re-submit */
+  responseMessages: Array<{ role: string; content: unknown }>;
+  /** Telegram message_ids of approval cards (for editing after resolution) */
+  approvalMessageIds: number[];
+}
+
+/** 24 hours TTL for pending approvals */
+const APPROVAL_TTL_SECONDS = 86_400;
+
 @Injectable()
 export class TelegramWebhookService {
   private readonly logger = new Logger(TelegramWebhookService.name);
@@ -46,6 +64,7 @@ export class TelegramWebhookService {
     private readonly cache: CacheService,
     private readonly aiChatService: AiChatService,
     private readonly conversationService: ConversationService,
+    private readonly auditService: AuditService,
   ) {}
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
@@ -152,10 +171,218 @@ export class TelegramWebhookService {
   /**
    * Relay a Telegram message to the AI chat and send the response back.
    * Maintains persistent conversation history via aiConversationId on TelegramSettings.
+   * When a tool needs HITL approval, sends inline keyboard buttons instead of the AI text.
    */
   private async handleChatRelay(chatId: string, text: string): Promise<void> {
-    // Look up linked user by chatId (include conversation ID for history)
-    // Webhook is @Public() — no tenant context, bypass scoping
+    const settings = await this.resolveSettings(chatId);
+    if (!settings) return;
+
+    await this.telegramBot.sendChatAction(chatId, 'typing');
+
+    try {
+      const result = await CorrelationContext.run(
+        { tenantId: settings.tenantId, userId: settings.userId },
+        async () => {
+          const conversationId = await this.ensureConversation(
+            settings.id,
+            settings.aiConversationId,
+            settings.tenantId,
+            settings.userId,
+          );
+
+          return this.aiChatService.generateChat({
+            tenantId: settings.tenantId,
+            userId: settings.userId,
+            message: text,
+            conversationId,
+            abortSignal: AbortSignal.timeout(60_000),
+          });
+        },
+      );
+
+      // HITL: if the AI wants to call tools that need approval, pause and ask
+      if (result.pendingApprovals.length > 0) {
+        await this.sendApprovalRequests(
+          chatId,
+          result,
+          settings.tenantId,
+          settings.userId,
+        );
+        return;
+      }
+
+      await this.sendAiResponse(chatId, result.text, settings.userId);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Chat relay error for chatId=${chatId}: ${msg}`);
+      await this.telegramBot.sendMessage(
+        chatId,
+        'Si è verificato un errore. Riprova tra qualche istante.',
+      );
+    }
+  }
+
+  /**
+   * Store pending approvals in Redis and send inline keyboard buttons for each tool.
+   */
+  private async sendApprovalRequests(
+    chatId: string,
+    result: { text: string; conversationId: string; pendingApprovals: PendingToolApproval[]; responseMessages?: Array<{ role: string; content: unknown }> },
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    // Use the first approval's ID as the group key — all buttons share this key
+    const groupId = result.pendingApprovals[0].approvalId;
+
+    // If the AI generated text before the tool call, send it first
+    if (result.text?.trim()) {
+      const chunks = this.splitMessage(result.text);
+      for (const chunk of chunks) {
+        await this.telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
+      }
+    }
+
+    // Send one approval card per tool, collect message_ids for later editing
+    const approvalMessageIds: number[] = [];
+    for (const approval of result.pendingApprovals) {
+      const msgId = await this.telegramBot.sendToolApproval(
+        chatId,
+        groupId,
+        approval.toolName,
+        approval.input,
+      );
+      if (msgId) approvalMessageIds.push(msgId);
+    }
+
+    // Store state AFTER sending cards (we now have message_ids)
+    const state: TelegramPendingApprovalState = {
+      approvals: result.pendingApprovals,
+      conversationId: result.conversationId,
+      chatId,
+      tenantId,
+      userId,
+      responseMessages: result.responseMessages ?? [],
+      approvalMessageIds,
+    };
+
+    await this.cache.set(groupId, state, {
+      ttl: APPROVAL_TTL_SECONDS,
+      namespace: CacheNamespace.TELEGRAM_APPROVAL,
+    });
+
+    this.logger.log(
+      `HITL: ${result.pendingApprovals.length} approval(s) sent to chatId=${chatId} group=${groupId}`,
+    );
+  }
+
+  /**
+   * Handle approve/reject callback for a pending tool approval.
+   * Resumes the AI conversation with the approval response.
+   */
+  private async handleApprovalCallback(
+    callbackQueryId: string,
+    groupId: string,
+    approved: boolean,
+    chatId: string,
+  ): Promise<void> {
+    const state = await this.cache.get<TelegramPendingApprovalState>(groupId, {
+      namespace: CacheNamespace.TELEGRAM_APPROVAL,
+    });
+
+    if (!state) {
+      await this.telegramBot.answerCallbackQuery(
+        callbackQueryId,
+        'Approvazione scaduta o già gestita.',
+      );
+      return;
+    }
+
+    // Delete the Redis key (single-use — prevents double-click)
+    await this.cache.del(groupId, { namespace: CacheNamespace.TELEGRAM_APPROVAL });
+
+    const decision = approved ? 'approved' : 'rejected';
+    const label = approved ? 'Approvato' : 'Rifiutato';
+    await this.telegramBot.answerCallbackQuery(callbackQueryId, label);
+
+    // Edit all approval card messages to show resolution and remove buttons
+    const statusIcon = approved ? '\u{2705}' : '\u{274C}';
+    const toolNames = state.approvals.map((a) => a.toolName).join(', ');
+    const editText = `${statusIcon} *${label}*: ${toolNames}`;
+    for (const msgId of state.approvalMessageIds) {
+      await this.telegramBot.editMessageText(chatId, msgId, editText);
+    }
+
+    // Audit logging (fire-and-forget)
+    for (const a of state.approvals) {
+      this.auditService.logHitlDecision({
+        tenantId: state.tenantId,
+        userId: state.userId,
+        toolName: a.toolName,
+        toolCallId: a.toolCallId,
+        decision,
+        conversationId: state.conversationId,
+      });
+    }
+
+    if (!approved) {
+      // Rejected — no AI re-submit needed, just confirm
+      await this.telegramBot.sendMessage(chatId, '\u{274C} Azione rifiutata.');
+      return;
+    }
+
+    // Approved — resume AI with approval response
+    await this.telegramBot.sendChatAction(chatId, 'typing');
+
+    try {
+      const messages = [
+        ...state.responseMessages,
+        {
+          role: 'tool',
+          content: state.approvals.map((a) => ({
+            type: 'tool-approval-response',
+            approvalId: a.approvalId,
+            approved: true,
+          })),
+        },
+      ];
+
+      const result = await CorrelationContext.run(
+        { tenantId: state.tenantId, userId: state.userId },
+        () =>
+          this.aiChatService.generateChat({
+            tenantId: state!.tenantId,
+            userId: state!.userId,
+            message: '',
+            conversationId: state!.conversationId,
+            modelMessagesOverride: messages as Array<{ role: string; content: unknown }>,
+            abortSignal: AbortSignal.timeout(60_000),
+          }),
+      );
+
+      // Recursive: if the resumed call also needs approval, send new buttons
+      if (result.pendingApprovals.length > 0) {
+        await this.sendApprovalRequests(
+          chatId,
+          result,
+          state.tenantId,
+          state.userId,
+        );
+        return;
+      }
+
+      await this.sendAiResponse(chatId, result.text, state.userId);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`HITL resume error for groupId=${groupId}: ${msg}`);
+      await this.telegramBot.sendMessage(
+        chatId,
+        'Errore durante l\'esecuzione. Riprova.',
+      );
+    }
+  }
+
+  /** Look up linked Telegram settings by chatId, send error if not found */
+  private async resolveSettings(chatId: string) {
     const settings = await withoutTenantScopingAsync(() =>
       this.prisma.telegramSettings.findFirst({
         where: { telegramChatId: chatId, isActive: true },
@@ -168,57 +395,23 @@ export class TelegramWebhookService {
         chatId,
         'Account non collegato. Vai su PMSync > Impostazioni > Telegram per collegare il tuo account.',
       );
+      return null;
+    }
+    return settings;
+  }
+
+  /** Send AI text response, split into chunks if needed */
+  private async sendAiResponse(chatId: string, text: string, userId: string): Promise<void> {
+    if (!text.trim()) {
+      await this.telegramBot.sendMessage(chatId, 'Nessuna risposta generata.');
       return;
     }
 
-    // Send typing indicator while AI processes
-    await this.telegramBot.sendChatAction(chatId, 'typing');
-
-    try {
-      const responseText = await CorrelationContext.run(
-        { tenantId: settings.tenantId, userId: settings.userId },
-        async () => {
-          // Ensure a persistent conversation exists for this Telegram chat
-          const conversationId = await this.ensureConversation(
-            settings.id,
-            settings.aiConversationId,
-            settings.tenantId,
-            settings.userId,
-          );
-
-          // Use AI SDK native generateChat (non-streaming) — no manual stream parsing.
-          // Qwen 3.5 reasoning tokens can be slow; 60s timeout prevents webhook hangs.
-          const result = await this.aiChatService.generateChat({
-            tenantId: settings.tenantId,
-            userId: settings.userId,
-            message: text,
-            conversationId,
-            abortSignal: AbortSignal.timeout(60_000),
-          });
-          return result.text;
-        },
-      );
-
-      if (!responseText.trim()) {
-        await this.telegramBot.sendMessage(chatId, 'Nessuna risposta generata.');
-        return;
-      }
-
-      // Split long messages (Telegram 4096 char limit)
-      const chunks = this.splitMessage(responseText);
-      for (const chunk of chunks) {
-        await this.telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
-      }
-
-      this.logger.debug(`Chat relay: chatId=${chatId} userId=${settings.userId} len=${responseText.length}`);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Chat relay error for chatId=${chatId}: ${msg}`);
-      await this.telegramBot.sendMessage(
-        chatId,
-        'Si è verificato un errore. Riprova tra qualche istante.',
-      );
+    const chunks = this.splitMessage(text);
+    for (const chunk of chunks) {
+      await this.telegramBot.sendMessage(chatId, chunk, { parse_mode: 'Markdown' });
     }
+    this.logger.debug(`Chat relay: chatId=${chatId} userId=${userId} len=${text.length}`);
   }
 
   /**
@@ -324,10 +517,23 @@ export class TelegramWebhookService {
 
     if (!data) return;
 
+    const chatId = String(from.id);
+
+    // Handle HITL approve/reject callbacks
+    if (data.startsWith('approve:')) {
+      const approvalId = data.replace('approve:', '');
+      await this.handleApprovalCallback(callbackQueryId, approvalId, true, chatId);
+      return;
+    }
+    if (data.startsWith('reject:')) {
+      const approvalId = data.replace('reject:', '');
+      await this.handleApprovalCallback(callbackQueryId, approvalId, false, chatId);
+      return;
+    }
+
     // Handle "done:{reminderId}" callback
     if (data.startsWith('done:')) {
       const reminderId = data.replace('done:', '');
-      const chatId = String(from.id);
 
       try {
         // SEC: Resolve the user via chatId to enforce tenant boundary.

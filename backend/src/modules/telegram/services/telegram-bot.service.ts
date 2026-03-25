@@ -7,6 +7,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { formatToolPreview } from '../utils/tool-preview';
 
 interface InlineButton {
   text: string;
@@ -74,9 +75,21 @@ export class TelegramBotService implements OnModuleInit {
     text: string,
     options?: SendMessageOptions,
   ): Promise<boolean> {
+    return !!(await this.sendMessageRaw(chatId, text, options));
+  }
+
+  /**
+   * Send a message and return the Telegram message_id (or null on failure).
+   * Used when we need the message_id for later editing (e.g. HITL approval cards).
+   */
+  private async sendMessageRaw(
+    chatId: string,
+    text: string,
+    options?: SendMessageOptions,
+  ): Promise<number | null> {
     if (!this.botToken) {
       this.logger.warn('Cannot send message: TELEGRAM_BOT_TOKEN not configured');
-      return false;
+      return null;
     }
 
     try {
@@ -101,14 +114,15 @@ export class TelegramBotService implements OnModuleInit {
       if (!response.ok) {
         const errorBody = await response.text();
         this.logger.error(`Telegram sendMessage failed: ${response.status} ${errorBody}`);
-        return false;
+        return null;
       }
 
-      return true;
+      const json = await response.json() as { result?: { message_id?: number } };
+      return json.result?.message_id ?? null;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Telegram sendMessage error: ${msg}`);
-      return false;
+      return null;
     }
   }
 
@@ -252,6 +266,94 @@ export class TelegramBotService implements OnModuleInit {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(`setWebhook error: ${msg}`);
     }
+  }
+
+  /**
+   * Send a tool approval request with inline Approve/Reject buttons.
+   * @param groupId - Redis key for the approval group (used in callback_data)
+   * @returns Telegram message_id (for later editing) or null on failure
+   */
+  async sendToolApproval(
+    chatId: string,
+    groupId: string,
+    toolName: string,
+    input: Record<string, unknown>,
+  ): Promise<number | null> {
+    const toolEmoji = this.getToolEmoji(toolName);
+    const previewLines = formatToolPreview(toolName, input);
+
+    const text =
+      `${toolEmoji} *Tool: ${toolName}*\n` +
+      previewLines.map((l) => `  ${l}`).join('\n') +
+      `\n\nRichiede la tua approvazione.`;
+
+    return this.sendMessageRaw(chatId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '\u{2705} Approva', callback_data: `approve:${groupId}` },
+            { text: '\u{274C} Rifiuta', callback_data: `reject:${groupId}` },
+          ],
+        ],
+      },
+    });
+  }
+
+  /**
+   * Edit an existing message text (removes inline keyboard by default).
+   * Used to update approval cards after user decides.
+   */
+  async editMessageText(
+    chatId: string,
+    messageId: number,
+    text: string,
+    parseMode: 'Markdown' | 'HTML' = 'Markdown',
+  ): Promise<void> {
+    if (!this.botToken) return;
+
+    try {
+      const response = await fetch(
+        `https://api.telegram.org/bot${this.botToken}/editMessageText`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message_id: messageId,
+            text,
+            parse_mode: parseMode,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        this.logger.warn(`editMessageText failed: ${response.status} ${errorBody}`);
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`editMessageText error: ${msg}`);
+    }
+  }
+
+  private getToolEmoji(toolName: string): string {
+    const map: Record<string, string> = {
+      send_email: '\u{2709}\u{FE0F}',
+      reply_email: '\u{21A9}\u{FE0F}',
+      forward_email: '\u{27A1}\u{FE0F}',
+      delete_email: '\u{1F5D1}\u{FE0F}',
+      archive_email: '\u{1F4E6}',
+      move_email: '\u{1F4C2}',
+      draft_email: '\u{1F4DD}',
+      create_event: '\u{1F4C5}',
+      update_event: '\u{1F504}',
+      delete_event: '\u{274C}',
+      create_contact: '\u{1F464}',
+      update_contact: '\u{270F}\u{FE0F}',
+      delete_contact: '\u{1F6AB}',
+    };
+    return map[toolName] ?? '\u{1F527}';
   }
 
   private getActionEmoji(azione: string): string {

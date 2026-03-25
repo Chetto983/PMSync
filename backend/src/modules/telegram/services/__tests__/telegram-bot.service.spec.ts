@@ -11,7 +11,7 @@ const mockConfigService = {
 
 const mockPrismaService = {};
 
-function mockFetchOk(body: unknown = { ok: true }) {
+function mockFetchOk(body: unknown = { ok: true, result: { message_id: 1 } }) {
   return jest.fn().mockResolvedValue({
     ok: true,
     status: 200,

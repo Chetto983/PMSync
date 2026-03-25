@@ -46,6 +46,8 @@ export enum CacheNamespace {
   PII_RESOLUTION = 'pii:resolution',
   /** Telegram QR link tokens for user→chatId binding (5 min TTL) */
   TELEGRAM_LINK = 'telegram:link',
+  /** Telegram HITL pending tool approvals (24h TTL) */
+  TELEGRAM_APPROVAL = 'telegram:approval',
 }
 
 /**

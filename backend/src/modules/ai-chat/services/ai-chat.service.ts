@@ -72,6 +72,25 @@ export interface StreamChatParams {
   abortSignal?: AbortSignal;
   /** Full client UIMessages for HITL approval re-submits */
   clientMessages?: Array<Record<string, unknown>>;
+  /** Pre-built model messages for non-UI approval re-submits (Telegram) */
+  modelMessagesOverride?: Array<{ role: string; content: unknown }>;
+}
+
+/** Pending tool approval extracted from generateChat result */
+export interface PendingToolApproval {
+  approvalId: string;
+  toolCallId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+}
+
+/** Extended result from generateChat that may include pending approvals */
+export interface GenerateChatResult {
+  text: string;
+  conversationId: string;
+  pendingApprovals: PendingToolApproval[];
+  /** Response messages to persist for re-submit (only present when approvals pending) */
+  responseMessages?: Array<{ role: string; content: unknown }>;
 }
 
 /** Rate limit: 30 requests per 60 seconds per user */
@@ -168,7 +187,7 @@ export class AiChatService {
         userId,
       );
 
-    const isApprovalResubmit = !!params.clientMessages?.length;
+    const isApprovalResubmit = !!params.clientMessages?.length || !!params.modelMessagesOverride?.length;
 
     // Graph RAG Step 1: Classify query complexity before tool creation
     const classification = this.queryRouterService.classify(message);
@@ -196,17 +215,25 @@ export class AiChatService {
     let assembledContextTokens = 0;
 
     if (isApprovalResubmit) {
-      // HITL approval re-submit: convert client UIMessages to ModelMessages.
-      // The client sends the full messages[] with approval responses embedded
-      // in tool parts. convertToModelMessages() handles the conversion including
-      // tool-approval-request and tool-approval-response parts.
-      this.logger.log(
-        `HITL approval re-submit for conversation ${conversation.id}`,
-      );
-      messages = await convertToModelMessages(
-        params.clientMessages as unknown as UIMessage[],
-        { tools },
-      ) as { role: string; content: unknown }[];
+      if (params.modelMessagesOverride?.length) {
+        // Telegram approval re-submit: pre-built model messages with approval responses.
+        this.logger.log(
+          `HITL Telegram approval re-submit for conversation ${conversation.id}`,
+        );
+        messages = params.modelMessagesOverride;
+      } else {
+        // Web HITL approval re-submit: convert client UIMessages to ModelMessages.
+        // The client sends the full messages[] with approval responses embedded
+        // in tool parts. convertToModelMessages() handles the conversion including
+        // tool-approval-request and tool-approval-response parts.
+        this.logger.log(
+          `HITL approval re-submit for conversation ${conversation.id}`,
+        );
+        messages = await convertToModelMessages(
+          params.clientMessages as unknown as UIMessage[],
+          { tools },
+        ) as { role: string; content: unknown }[];
+      }
     } else {
       // Normal message flow: load server-side history + PII + save message
 
@@ -628,7 +655,7 @@ export class AiChatService {
    * Generate a chat response (non-streaming, for Telegram and other non-SSE consumers).
    * Uses AI SDK native agent.generate() — no manual stream parsing needed.
    */
-  async generateChat(params: StreamChatParams): Promise<{ text: string; conversationId: string }> {
+  async generateChat(params: StreamChatParams): Promise<GenerateChatResult> {
     const { agent, messages, circuitBreaker, conversation } =
       await this.prepareChatAgent(params);
 
@@ -638,7 +665,7 @@ export class AiChatService {
         abortSignal: params.abortSignal,
       });
 
-      return { text: result.text, conversationId: conversation.id };
+      return this.buildGenerateChatResult(result, conversation.id);
     } catch (error) {
       // Recovery: if history causes schema validation failure, retry with only
       // user messages (drops corrupted tool/assistant parts from old format).
@@ -651,7 +678,7 @@ export class AiChatService {
           messages: cleanMessages,
           abortSignal: params.abortSignal,
         });
-        return { text: result.text, conversationId: conversation.id };
+        return this.buildGenerateChatResult(result, conversation.id);
       }
 
       if (
@@ -665,6 +692,43 @@ export class AiChatService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Extract pending tool approvals from generate result content.
+   * When tools have needsApproval, the SDK stops the loop and returns
+   * tool-approval-request parts instead of executing the tool.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private buildGenerateChatResult(result: any, conversationId: string): GenerateChatResult {
+    const pendingApprovals: PendingToolApproval[] = [];
+
+    for (const part of result.content) {
+      if (part.type === 'tool-approval-request') {
+        const toolCall = part.toolCall as { toolName: string; toolCallId: string; input: Record<string, unknown> };
+        pendingApprovals.push({
+          approvalId: part.approvalId as string,
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          input: toolCall.input,
+        });
+      }
+    }
+
+    if (pendingApprovals.length > 0) {
+      this.logger.log(
+        `generateChat: ${pendingApprovals.length} tool(s) need approval: ${pendingApprovals.map((a) => a.toolName).join(', ')}`,
+      );
+    }
+
+    return {
+      text: result.text,
+      conversationId,
+      pendingApprovals,
+      responseMessages: pendingApprovals.length > 0
+        ? result.response.messages as Array<{ role: string; content: unknown }>
+        : undefined,
+    };
   }
 
   private async persistToolResults(
