@@ -22,6 +22,8 @@ import {
   ListDealsQueryDto,
   LinkDealContactDto,
   ChangeStageDto,
+  CreateActivityDto,
+  ListActivitiesQueryDto,
 } from '../dto/deal.dto';
 
 @ApiTags('CRM - Deals')
@@ -92,6 +94,31 @@ export class DealController {
       return result.deal;
     }
     return result;
+  }
+
+  // ---- Activities ----
+
+  @Get(':id/activities')
+  @ApiOperation({ summary: 'List activities for a deal' })
+  @ApiResponse({ status: 200, description: 'Activities returned' })
+  async listActivities(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query() query: ListActivitiesQueryDto,
+  ) {
+    return this.dealService.listActivities(req.user.tenantId, id, query);
+  }
+
+  @Post(':id/activities')
+  @ApiOperation({ summary: 'Create activity for a deal' })
+  @ApiResponse({ status: 201, description: 'Activity created' })
+  @ApiResponse({ status: 404, description: 'Deal not found' })
+  async createActivity(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateActivityDto,
+  ) {
+    return this.dealService.createActivity(req.user.tenantId, id, dto);
   }
 
   // ---- Deal-Contact associations ----

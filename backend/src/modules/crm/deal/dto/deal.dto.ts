@@ -193,3 +193,42 @@ export class LinkDealContactDto {
   @MaxLength(100)
   role?: string;
 }
+
+// ---- Activities ----
+
+const ACTIVITY_TYPES = ['CALL', 'EMAIL', 'MEETING', 'TASK'] as const;
+
+export class CreateActivityDto {
+  @IsString()
+  @IsIn(ACTIVITY_TYPES)
+  type!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  description?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  durationMinutes?: number;
+}
+
+export class ListActivitiesQueryDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  offset?: number = 0;
+}

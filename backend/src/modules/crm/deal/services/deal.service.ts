@@ -14,6 +14,8 @@ import {
   ListDealsQueryDto,
   LinkDealContactDto,
   ChangeStageDto,
+  CreateActivityDto,
+  ListActivitiesQueryDto,
 } from '../dto/deal.dto';
 
 @Injectable()
@@ -306,6 +308,21 @@ export class DealService {
       },
     });
 
+    // Record STAGE_CHANGE activity
+    const oldStage = await this.prisma.crmStage.findUnique({
+      where: { id: oldStageId },
+      select: { name: true },
+    });
+    await this.prisma.crmActivity.create({
+      data: {
+        tenantId,
+        dealId: id,
+        type: 'STAGE_CHANGE',
+        content: `Stage changed from ${oldStage?.name ?? 'unknown'} to ${updated.stage?.name ?? 'unknown'}`,
+        metadata: { fromStageId: oldStageId, toStageId: dto.stageId },
+      },
+    });
+
     // Emit real-time event for Kanban board sync
     this.realtimeEvents.emitCrmDealStageChanged(tenantId, {
       dealId: id,
@@ -317,6 +334,52 @@ export class DealService {
     });
 
     return { deal: updated, oldStageId };
+  }
+
+  // ---- Activities ----
+
+  async listActivities(
+    tenantId: string,
+    dealId: string,
+    query: ListActivitiesQueryDto,
+  ) {
+    await this.findById(tenantId, dealId);
+
+    const where = { dealId, tenantId };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.crmActivity.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: query.limit ?? 20,
+        skip: query.offset ?? 0,
+      }),
+      this.prisma.crmActivity.count({ where }),
+    ]);
+
+    return { data, total };
+  }
+
+  async createActivity(
+    tenantId: string,
+    dealId: string,
+    dto: CreateActivityDto,
+  ) {
+    await this.findById(tenantId, dealId);
+
+    return this.prisma.crmActivity.create({
+      data: {
+        tenantId,
+        dealId,
+        type: dto.type,
+        content: dto.description,
+        metadata: {
+          ...(dto.date && { date: dto.date }),
+          ...(dto.durationMinutes !== undefined && {
+            durationMinutes: dto.durationMinutes,
+          }),
+        },
+      },
+    });
   }
 
   // ---- Helpers ----
