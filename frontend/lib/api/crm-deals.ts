@@ -120,6 +120,35 @@ export interface LinkDealContactDto {
   role?: string;
 }
 
+// ---- Activity Types ----
+
+export interface CrmActivity {
+  id: string;
+  tenantId: string;
+  dealId: string;
+  type: 'STAGE_CHANGE' | 'NOTE' | 'EMAIL' | 'CALL' | 'MEETING' | 'TASK';
+  content: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface CrmActivityListResponse {
+  data: CrmActivity[];
+  total: number;
+}
+
+export interface CreateActivityDto {
+  type: 'CALL' | 'EMAIL' | 'MEETING' | 'TASK';
+  description?: string;
+  date?: string;
+  durationMinutes?: number;
+}
+
+export interface ListActivitiesQuery {
+  limit?: number;
+  offset?: number;
+}
+
 // ---- API ----
 
 export const crmDealsApi = {
@@ -161,5 +190,16 @@ export const crmDealsApi = {
     return apiClient.delete<{ deleted: boolean }>(
       `/crm/deals/${dealId}/contacts/${contactId}`,
     );
+  },
+
+  // Activities
+  listActivities(dealId: string, query?: ListActivitiesQuery) {
+    return apiClient.get<CrmActivityListResponse>(`/crm/deals/${dealId}/activities`, {
+      params: query,
+    });
+  },
+
+  createActivity(dealId: string, dto: CreateActivityDto) {
+    return apiClient.post<CrmActivity>(`/crm/deals/${dealId}/activities`, dto);
   },
 };

@@ -5,6 +5,8 @@ import {
   type CreateDealDto,
   type UpdateDealDto,
   type LinkDealContactDto,
+  type CreateActivityDto,
+  type ListActivitiesQuery,
 } from '@/lib/api/crm-deals';
 import { crmDealsKeys } from './crm-deals-keys';
 
@@ -126,6 +128,34 @@ export function useUnlinkDealContact(dealId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: crmDealsKeys.contacts(dealId) });
       queryClient.invalidateQueries({ queryKey: crmDealsKeys.detail(dealId) });
+    },
+  });
+}
+
+// ---- Activities ----
+
+export function crmDealActivitiesOptions(dealId: string, query?: ListActivitiesQuery) {
+  return queryOptions({
+    queryKey: crmDealsKeys.activities(dealId),
+    queryFn: () => crmDealsApi.listActivities(dealId, query).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!dealId,
+  });
+}
+
+export function useDealActivities(dealId: string, query?: ListActivitiesQuery) {
+  return useQuery(crmDealActivitiesOptions(dealId, query));
+}
+
+export function useCreateDealActivity(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateActivityDto) =>
+      crmDealsApi.createActivity(dealId, dto).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.activities(dealId) });
     },
   });
 }

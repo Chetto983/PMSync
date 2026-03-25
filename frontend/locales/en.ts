@@ -4526,6 +4526,20 @@ export const en: AppTranslations = {
         won: 'Won',
         lost: 'Lost',
       },
+      timeline: {
+        title: 'Activity Timeline',
+        empty: 'No activity yet',
+        emptyDescription: 'Activities and stage changes will appear here.',
+        loadMore: 'Load more',
+        types: {
+          STAGE_CHANGE: 'Stage Change',
+          NOTE: 'Note',
+          EMAIL: 'Email',
+          CALL: 'Call',
+          MEETING: 'Meeting',
+          TASK: 'Task',
+        },
+      },
     },
     filters: {
       pipeline: 'Pipeline',

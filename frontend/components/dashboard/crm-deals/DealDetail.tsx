@@ -34,6 +34,7 @@ import {
   DeleteDealDialog,
   DealInfoCard,
 } from './DealDetailParts';
+import { DealTimeline } from './DealTimeline';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -299,11 +300,7 @@ export function DealDetail() {
       </TabPanel>
 
       <TabPanel value={tab} index={3}>
-        <Box sx={{ py: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">
-            {td?.detail?.placeholder?.activity ?? 'Coming in Sprint 07'}
-          </Typography>
-        </Box>
+        <DealTimeline dealId={id} />
       </TabPanel>
 
       {/* Delete Confirmation Dialog */}

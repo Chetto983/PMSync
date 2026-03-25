@@ -4362,6 +4362,20 @@ export interface AppTranslations {
         won?: string;
         lost?: string;
       };
+      timeline?: {
+        title?: string;
+        empty?: string;
+        emptyDescription?: string;
+        loadMore?: string;
+        types?: {
+          STAGE_CHANGE?: string;
+          NOTE?: string;
+          EMAIL?: string;
+          CALL?: string;
+          MEETING?: string;
+          TASK?: string;
+        };
+      };
     };
     filters?: {
       pipeline?: string;

@@ -4510,6 +4510,20 @@ export const it: AppTranslations = {
         won: 'Vinta',
         lost: 'Persa',
       },
+      timeline: {
+        title: 'Cronologia Attività',
+        empty: 'Nessuna attività',
+        emptyDescription: 'Le attività e i cambi di fase appariranno qui.',
+        loadMore: 'Carica altro',
+        types: {
+          STAGE_CHANGE: 'Cambio Fase',
+          NOTE: 'Nota',
+          EMAIL: 'Email',
+          CALL: 'Chiamata',
+          MEETING: 'Riunione',
+          TASK: 'Attività',
+        },
+      },
     },
     filters: {
       pipeline: 'Pipeline',
