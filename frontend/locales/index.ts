@@ -300,6 +300,7 @@ export interface AppTranslations {
     ai: string;
     crmAccounts: string;
     crmPipelines: string;
+    crmDeals: string;
     settings: string;
     profile: string;
     logout: string;
@@ -4227,6 +4228,129 @@ export interface AppTranslations {
     breadcrumb?: {
       pipelines?: string;
       settings?: string;
+    };
+  };
+  crmDeals?: {
+    title?: string;
+    description?: string;
+    newDeal?: string;
+    editDeal?: string;
+    deleteDeal?: string;
+    deleteConfirm?: string;
+    searchPlaceholder?: string;
+    noDealsFound?: string;
+    noDealsDescription?: string;
+    columns?: {
+      name?: string;
+      amount?: string;
+      stage?: string;
+      pipeline?: string;
+      account?: string;
+      contact?: string;
+      expectedClose?: string;
+      priority?: string;
+      source?: string;
+      createdAt?: string;
+      updatedAt?: string;
+    };
+    form?: {
+      name?: string;
+      namePlaceholder?: string;
+      pipeline?: string;
+      pipelinePlaceholder?: string;
+      stage?: string;
+      stagePlaceholder?: string;
+      account?: string;
+      accountPlaceholder?: string;
+      amount?: string;
+      amountPlaceholder?: string;
+      currency?: string;
+      expectedCloseDate?: string;
+      priority?: string;
+      source?: string;
+      notes?: string;
+      notesPlaceholder?: string;
+    };
+    priorities?: {
+      LOW?: string;
+      MEDIUM?: string;
+      HIGH?: string;
+      URGENT?: string;
+    };
+    sources?: {
+      WEBSITE?: string;
+      REFERRAL?: string;
+      COLD_CALL?: string;
+      EMAIL?: string;
+      SOCIAL_MEDIA?: string;
+      TRADE_SHOW?: string;
+      OTHER?: string;
+    };
+    save?: string;
+    cancel?: string;
+    create?: string;
+    created?: string;
+    createError?: string;
+    updated?: string;
+    updateError?: string;
+    deleted?: string;
+    deleteError?: string;
+    detail?: {
+      tabs?: {
+        info?: string;
+        contacts?: string;
+        products?: string;
+        activity?: string;
+      };
+      contacts?: {
+        title?: string;
+        addContact?: string;
+        removeContact?: string;
+        removeConfirm?: string;
+        noContacts?: string;
+        noContactsDescription?: string;
+        searchContacts?: string;
+        selectContact?: string;
+        linked?: string;
+        unlinked?: string;
+        alreadyLinked?: string;
+      };
+      contactRoles?: {
+        label?: string;
+        placeholder?: string;
+        buyer?: string;
+        influencer?: string;
+        champion?: string;
+        decisionMaker?: string;
+        technicalEvaluator?: string;
+        endUser?: string;
+        other?: string;
+      };
+      info?: {
+        editField?: string;
+        noNotes?: string;
+        noAccount?: string;
+        noExpectedClose?: string;
+      };
+      placeholder?: {
+        products?: string;
+        activity?: string;
+      };
+    };
+    filters?: {
+      pipeline?: string;
+      stage?: string;
+      account?: string;
+      priority?: string;
+      dateRange?: string;
+      amountRange?: string;
+      clear?: string;
+      all?: string;
+    };
+    breadcrumb?: {
+      dashboard?: string;
+      crm?: string;
+      deals?: string;
     };
   };
 }
