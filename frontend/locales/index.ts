@@ -4377,6 +4377,24 @@ export interface AppTranslations {
           TASK?: string;
         };
       };
+      notes?: {
+        title?: string;
+        empty?: string;
+        emptyDescription?: string;
+        addNote?: string;
+        placeholder?: string;
+        save?: string;
+        cancel?: string;
+        edit?: string;
+        delete?: string;
+        deleteConfirm?: string;
+        created?: string;
+        updated?: string;
+        deleted?: string;
+        createError?: string;
+        updateError?: string;
+        deleteError?: string;
+      };
       activityForm?: {
         title?: string;
         type?: string;

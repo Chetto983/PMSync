@@ -7,6 +7,8 @@ import {
   type LinkDealContactDto,
   type CreateActivityDto,
   type ListActivitiesQuery,
+  type CreateNoteDto,
+  type UpdateNoteDto,
 } from '@/lib/api/crm-deals';
 import { crmDealsKeys } from './crm-deals-keys';
 
@@ -155,6 +157,59 @@ export function useCreateDealActivity(dealId: string) {
     mutationFn: (dto: CreateActivityDto) =>
       crmDealsApi.createActivity(dealId, dto).then((r) => r.data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.activities(dealId) });
+    },
+  });
+}
+
+// ---- Notes ----
+
+export function crmDealNotesOptions(dealId: string) {
+  return queryOptions({
+    queryKey: crmDealsKeys.notes(dealId),
+    queryFn: () => crmDealsApi.listNotes(dealId).then((r) => r.data),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
+    enabled: !!dealId,
+  });
+}
+
+export function useDealNotes(dealId: string) {
+  return useQuery(crmDealNotesOptions(dealId));
+}
+
+export function useCreateDealNote(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateNoteDto) =>
+      crmDealsApi.createNote(dealId, dto).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.notes(dealId) });
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.activities(dealId) });
+    },
+  });
+}
+
+export function useUpdateDealNote(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ noteId, dto }: { noteId: string; dto: UpdateNoteDto }) =>
+      crmDealsApi.updateNote(dealId, noteId, dto).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.notes(dealId) });
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.activities(dealId) });
+    },
+  });
+}
+
+export function useDeleteDealNote(dealId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (noteId: string) =>
+      crmDealsApi.deleteNote(dealId, noteId).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: crmDealsKeys.notes(dealId) });
       queryClient.invalidateQueries({ queryKey: crmDealsKeys.activities(dealId) });
     },
   });

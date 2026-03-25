@@ -149,6 +149,14 @@ export interface ListActivitiesQuery {
   offset?: number;
 }
 
+export interface CreateNoteDto {
+  content: string;
+}
+
+export interface UpdateNoteDto {
+  content: string;
+}
+
 // ---- API ----
 
 export const crmDealsApi = {
@@ -201,5 +209,22 @@ export const crmDealsApi = {
 
   createActivity(dealId: string, dto: CreateActivityDto) {
     return apiClient.post<CrmActivity>(`/crm/deals/${dealId}/activities`, dto);
+  },
+
+  // Notes
+  listNotes(dealId: string) {
+    return apiClient.get<CrmActivity[]>(`/crm/deals/${dealId}/notes`);
+  },
+
+  createNote(dealId: string, dto: CreateNoteDto) {
+    return apiClient.post<CrmActivity>(`/crm/deals/${dealId}/notes`, dto);
+  },
+
+  updateNote(dealId: string, noteId: string, dto: UpdateNoteDto) {
+    return apiClient.patch<CrmActivity>(`/crm/deals/${dealId}/notes/${noteId}`, dto);
+  },
+
+  deleteNote(dealId: string, noteId: string) {
+    return apiClient.delete<{ deleted: boolean }>(`/crm/deals/${dealId}/notes/${noteId}`);
   },
 };

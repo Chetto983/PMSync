@@ -35,6 +35,7 @@ import {
   DealInfoCard,
 } from './DealDetailParts';
 import { DealTimeline } from './DealTimeline';
+import { DealNotes } from './DealNotes';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -274,6 +275,7 @@ export function DealDetail() {
       >
         <Tab label={td?.detail?.tabs?.info ?? 'Info'} />
         <Tab label={td?.detail?.tabs?.contacts ?? 'Contacts'} />
+        <Tab label={td?.detail?.notes?.title ?? 'Notes'} />
         <Tab label={td?.detail?.tabs?.products ?? 'Products'} />
         <Tab label={td?.detail?.tabs?.activity ?? 'Activity'} />
       </Tabs>
@@ -292,6 +294,10 @@ export function DealDetail() {
       </TabPanel>
 
       <TabPanel value={tab} index={2}>
+        <DealNotes dealId={id} />
+      </TabPanel>
+
+      <TabPanel value={tab} index={3}>
         <Box sx={{ py: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
             {td?.detail?.placeholder?.products ?? 'Coming in Sprint 06'}
@@ -299,7 +305,7 @@ export function DealDetail() {
         </Box>
       </TabPanel>
 
-      <TabPanel value={tab} index={3}>
+      <TabPanel value={tab} index={4}>
         <DealTimeline dealId={id} />
       </TabPanel>
 

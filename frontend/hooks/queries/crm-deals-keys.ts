@@ -6,4 +6,5 @@ export const crmDealsKeys = {
   detail: (id: string) => [...crmDealsKeys.details(), id] as const,
   contacts: (dealId: string) => [...crmDealsKeys.detail(dealId), 'contacts'] as const,
   activities: (dealId: string) => [...crmDealsKeys.detail(dealId), 'activities'] as const,
+  notes: (dealId: string) => [...crmDealsKeys.detail(dealId), 'notes'] as const,
 } as const;
