@@ -63,6 +63,7 @@ model Tenant {
   crmProducts              CrmProduct[]
   graphNodes               GraphNode[]
   graphEdges               GraphEdge[]
+  crmCustomFields          CrmCustomField[]
 
   @@map("tenants")
 }
@@ -1871,6 +1872,48 @@ model DealContact {
   @@index([dealId])
   @@index([contactId, tenantId])
   @@map("crm_deal_contacts")
+}
+
+/// ========================================================================
+/// CRM Custom Fields — Tenant-configurable fields for Account/Contact/Deal
+/// ========================================================================
+
+model CrmCustomField {
+  id          String   @id @default(cuid())
+  tenantId    String
+  entity      String   // "account", "contact", "deal"
+  name        String
+  label       String
+  type        String   // "text", "number", "date", "select"
+  options     Json?    // For select type: ["Option A", "Option B"]
+  required    Boolean  @default(false)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  values      CrmCustomFieldValue[]
+
+  @@unique([tenantId, entity, name])
+  @@index([tenantId, entity])
+  @@map("crm_custom_fields")
+}
+
+model CrmCustomFieldValue {
+  id        String   @id @default(cuid())
+  fieldId   String
+  entityId  String   // ID of Account, Contact, or Deal
+  tenantId  String
+  value     Json     // Stored as JSON for type flexibility
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  field     CrmCustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, entityId, tenantId])
+  @@index([entityId, tenantId])
+  @@index([fieldId])
+  @@map("crm_custom_field_values")
 }
 
 /// ========================================================================
