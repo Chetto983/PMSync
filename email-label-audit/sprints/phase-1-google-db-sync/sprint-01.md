@@ -37,11 +37,11 @@
 - [x] Label_/label_ prefix already handled correctly
 - [x] Added 9 tests covering all system labels + categories (66 total now)
 
-### T-0105: Validate existing data consistency [2 SP]
-- [ ] Write SQL script to find emails where `folder` doesn't match `labels[]` derivation
-- [ ] Count emails with stale/unknown label IDs
-- [ ] Document findings for data migration in S02
-- [ ] Files: new script in `scripts/audit/`
+### T-0105: Validate existing data consistency [2 SP] ✅ DONE
+- [x] Script finds emails where `folder` doesn't match `labels[]` derivation
+- [x] Counts emails with stale/unknown label IDs (0 stale found)
+- [x] Findings: 16 mismatches (0.2%) — 1 C2 bug, 15 stale TRASH labels
+- [x] Files: `scripts/audit/validate-email-labels.mjs`
 
 ## Dependencies
 - None (first sprint)
@@ -51,15 +51,15 @@
 - Mitigation: Script validates BEFORE applying changes. Apply to new emails first, then backfill.
 
 ## Definition of Done
-- [ ] `determineFolderFromLabels()` handles all edge cases (unit tests)
-- [ ] `labelIdToFolderPath()` consistent with `determineFolderFromLabels()`
-- [ ] Stale label detection logic implemented
-- [ ] Data validation script runs and produces report
-- [ ] `npx tsc --noEmit` passes in backend
-- [ ] No existing tests broken
+- [x] `determineFolderFromLabels()` handles all edge cases (unit tests) — T-0101
+- [x] `labelIdToFolderPath()` consistent with `determineFolderFromLabels()` — T-0104
+- [x] Stale label detection logic implemented — T-0102, T-0103
+- [x] Data validation script runs and produces report — T-0105
+- [x] `npx tsc --noEmit` passes in backend
+- [x] No existing tests broken (66 tests passing)
 
 ## Deliverables
 - `backend/src/modules/email-sync/drivers/google/services/gmail-message.service.ts` (updated)
 - `backend/src/modules/email-sync/services/gmail/gmail-folder.service.ts` (updated)
-- `scripts/audit/validate-email-labels.ts` (new)
-- Unit tests for mapping functions
+- `backend/src/modules/email-sync/services/gmail/__tests__/gmail-folder.service.spec.ts` (updated)
+- `scripts/audit/validate-email-labels.mjs` (new)
