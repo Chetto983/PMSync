@@ -5,11 +5,16 @@
  * - POST /crm/contacts/import/headers — Parse CSV and return column headers
  * - POST /crm/contacts/import/preview — Preview mapped rows
  * - POST /crm/contacts/import — Start async import job
+ * - GET /crm/contacts/export — Export contacts to XLSX
+ * - GET /crm/accounts/export — Export accounts to XLSX
  */
 
 import {
   Controller,
+  Get,
   Post,
+  Query,
+  Res,
   UseGuards,
   Req,
   Body,
@@ -22,26 +27,30 @@ import {
   ApiOperation,
   ApiResponse,
   ApiConsumes,
+  ApiQuery,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TenantGuard } from '../../../../common/auth/tenant.guard';
 import { RolesGuard } from '../../../../common/auth/roles.guard';
 import { Roles } from '../../../../common/auth/roles.decorator';
 import { CsvImportService } from '../services/csv-import.service';
 import { ContactImportQueueService } from '../services/contact-import-queue.service';
+import { ExcelExportService } from '../services/excel-export.service';
 import { ImportContactsDto } from '../dto/import.dto';
 import { CSV_IMPORT_LIMITS } from '../types';
 
 @ApiTags('CRM Import/Export')
-@Controller('crm/contacts')
+@Controller('crm')
 @UseGuards(TenantGuard, RolesGuard)
 export class ImportExportController {
   constructor(
     private readonly csvImportService: CsvImportService,
     private readonly importQueueService: ContactImportQueueService,
+    private readonly excelExportService: ExcelExportService,
   ) {}
 
-  @Post('import/headers')
+  @Post('contacts/import/headers')
   @Roles('admin', 'super-admin')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -68,7 +77,7 @@ export class ImportExportController {
     return { headers };
   }
 
-  @Post('import/preview')
+  @Post('contacts/import/preview')
   @Roles('admin', 'super-admin')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -96,7 +105,7 @@ export class ImportExportController {
     return this.csvImportService.parsePreview(csvContent, dto.mappings);
   }
 
-  @Post('import')
+  @Post('contacts/import')
   @Roles('admin', 'super-admin')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -131,5 +140,45 @@ export class ImportExportController {
     });
 
     return { jobId, message: 'Import job enqueued. Track progress via Socket.IO event crm:import:progress' };
+  }
+
+  @Get('contacts/export')
+  @Roles('admin', 'super-admin')
+  @ApiOperation({ summary: 'Export contacts to XLSX' })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiResponse({ status: 200, description: 'XLSX file download' })
+  async exportContacts(
+    @Req() req: any,
+    @Res() res: Response,
+    @Query('search') search?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const buffer = await this.excelExportService.exportContacts(tenantId, { search });
+
+    const filename = `contacts_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Get('accounts/export')
+  @Roles('admin', 'super-admin')
+  @ApiOperation({ summary: 'Export accounts to XLSX' })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'industry', required: false })
+  @ApiResponse({ status: 200, description: 'XLSX file download' })
+  async exportAccounts(
+    @Req() req: any,
+    @Res() res: Response,
+    @Query('search') search?: string,
+    @Query('industry') industry?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const buffer = await this.excelExportService.exportAccounts(tenantId, { search, industry });
+
+    const filename = `accounts_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 }

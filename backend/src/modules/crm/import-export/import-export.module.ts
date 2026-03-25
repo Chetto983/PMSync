@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
 import { CsvImportService } from './services/csv-import.service';
+import { ExcelExportService } from './services/excel-export.service';
 import { ContactImportQueueService } from './services/contact-import-queue.service';
 import { ContactImportWorker } from './services/contact-import.worker';
 import { ImportExportController } from './controllers/import-export.controller';
@@ -15,7 +16,7 @@ import { ImportExportController } from './controllers/import-export.controller';
 @Module({
   imports: [PrismaModule, RealtimeModule],
   controllers: [ImportExportController],
-  providers: [CsvImportService, ContactImportQueueService, ContactImportWorker],
-  exports: [CsvImportService, ContactImportQueueService],
+  providers: [CsvImportService, ExcelExportService, ContactImportQueueService, ContactImportWorker],
+  exports: [CsvImportService, ExcelExportService, ContactImportQueueService],
 })
 export class ImportExportModule {}
