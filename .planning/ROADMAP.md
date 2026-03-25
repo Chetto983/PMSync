@@ -117,7 +117,7 @@
 - [x] **Phase 106: Tiered Rate Limiting** - Replace flat write-rate limit with named tiers to fix user-reported 429s (completed 2026-03-24)
 - [x] **Phase 107: Push Notification Backend Dispatch** - Complete the v8.0 push plumbing with actual web-push delivery (completed 2026-03-24)
 - [x] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls (completed 2026-03-24)
-- [x] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI (completed 2026-03-25)
+- [x] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI (completed 2026-03-25)
 - [ ] **Phase 110: Wire Entity-Anchored Memory Retrieval** - Close GRAG-04 integration gap: wire getMemoriesByEntity() into context assembly after graph traversal
 - [ ] **Phase 111: Push Notification Test Debt** - Replace 19 RED test stubs across Phase 107 spec files with real assertions
 
@@ -192,7 +192,9 @@ Plans:
   1. After graph traversal returns entity nodes, contact/email entity IDs are extracted and passed to getMemoriesByEntity()
   2. FK-anchored memories are merged with vector-search memories before context assembly
   3. "What do I remember about [contact]?" queries return entity-specific memories, not just semantic search hits
-**Plans**: TBD (run `/gsd:plan-phase 110`)
+**Plans**: 1 plan
+Plans:
+- [ ] 110-01-PLAN.md — Add externalId to traverse CTE, batch entity memory method, wire into prepareChatAgent
 
 ### Phase 111: Push Notification Test Debt
 **Goal**: All 19 RED test stubs in Phase 107 spec files are replaced with real assertions that validate actual behavior
@@ -216,7 +218,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109 -> 110 -> 111
 | 107. Push Notification Backend Dispatch | 3/3 | Complete   | 2026-03-24 |
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
 | 109. Graph RAG Pipeline | 1/3 | Complete    | 2026-03-25 |
-| 110. Wire Entity-Anchored Memory Retrieval | 0/0 | Pending | — |
+| 110. Wire Entity-Anchored Memory Retrieval | 0/1 | Pending | — |
 | 111. Push Notification Test Debt | 0/0 | Pending | — |
 
 ---
