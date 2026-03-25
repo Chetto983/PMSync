@@ -12,6 +12,7 @@ import {
   AiSessionEventPayload,
   AiAgentStepEventPayload,
   FollowUpReminderPayload,
+  CrmDealStageChangedPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -28,6 +29,7 @@ export type {
   AiSessionEventPayload,
   AiAgentStepEventPayload,
   FollowUpReminderPayload,
+  CrmDealStageChangedPayload,
 } from '../types/realtime.types';
 
 /**
@@ -584,6 +586,14 @@ export class RealtimeEventsService implements OnModuleDestroy {
 
   emitFollowUpReminderOverdue(tenantId: string, payload: FollowUpReminderPayload): void {
     void this.emitToTenant(tenantId, 'followup:reminder:overdue', payload);
+  }
+
+  /**
+   * CRM DEAL EVENTS
+   */
+
+  emitCrmDealStageChanged(tenantId: string, payload: CrmDealStageChangedPayload): void {
+    void this.emitToTenant(tenantId, 'crm:deal:stage-changed', payload);
   }
 
   /**

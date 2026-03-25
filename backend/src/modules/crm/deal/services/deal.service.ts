@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { Prisma } from '@prisma/client';
 import {
   CreateDealDto,
@@ -19,7 +20,10 @@ import {
 export class DealService {
   private readonly logger = new Logger(DealService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtimeEvents: RealtimeEventsService,
+  ) {}
 
   // ---- Deal CRUD ----
 
@@ -300,6 +304,16 @@ export class DealService {
         account: { select: { id: true, name: true } },
         _count: { select: { dealContacts: true, dealProducts: true } },
       },
+    });
+
+    // Emit real-time event for Kanban board sync
+    this.realtimeEvents.emitCrmDealStageChanged(tenantId, {
+      dealId: id,
+      dealName: updated.name,
+      pipelineId: updated.pipelineId,
+      oldStageId,
+      newStageId: dto.stageId,
+      newStageName: updated.stage?.name ?? '',
     });
 
     return { deal: updated, oldStageId };

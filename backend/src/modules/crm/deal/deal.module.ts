@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { DealController } from './controllers/deal.controller';
 import { DealService } from './services/deal.service';
 import { PrismaModule } from '../../../prisma/prisma.module';
+import { RealtimeModule } from '../../realtime/realtime.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, RealtimeModule],
   controllers: [DealController],
   providers: [DealService],
   exports: [DealService],

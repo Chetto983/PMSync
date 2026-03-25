@@ -164,6 +164,17 @@ export interface FollowUpReminderPayload {
   timestamp: string;
 }
 
+export interface CrmDealStageChangedPayload {
+  dealId: string;
+  dealName: string;
+  pipelineId: string;
+  oldStageId: string;
+  newStageId: string;
+  newStageName: string;
+  userId?: string;
+  timestamp?: string;
+}
+
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
   'email:update': EmailEventPayload;
@@ -241,6 +252,8 @@ export interface RealtimeEventPayloads {
   'followup:reminder:upcoming': FollowUpReminderPayload;
   'followup:reminder:imminent': FollowUpReminderPayload;
   'followup:reminder:overdue': FollowUpReminderPayload;
+  // CRM Events
+  'crm:deal:stage-changed': CrmDealStageChangedPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;
