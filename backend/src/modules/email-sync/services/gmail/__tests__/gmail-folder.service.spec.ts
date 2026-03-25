@@ -51,6 +51,8 @@ const mockPrismaService = {
     deleteMany: jest.fn(),
     upsert: jest.fn(),
   },
+  $queryRaw: jest.fn().mockResolvedValue([]),
+  $executeRaw: jest.fn().mockResolvedValue(0),
 };
 
 // Mock CryptoService

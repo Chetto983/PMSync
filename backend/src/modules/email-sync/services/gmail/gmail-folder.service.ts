@@ -4,7 +4,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
 import { ProviderTokenService } from '../provider-token.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
-import { isSystemFolder } from '../../drivers/interfaces/canonical.types';
+import { isSystemFolder, SYSTEM_LABEL_IDS } from '../../drivers/interfaces/canonical.types';
 
 /**
  * Gmail-specific folder (labels) management service
@@ -252,13 +252,23 @@ export class GmailFolderService {
 
       this.logger.log(`Synced ${labelsToSync.length} Gmail labels as folders for provider ${providerId}`);
 
-      // Build and return label ID -> name mapping for downstream stale detection
+      // Build label ID -> name mapping
       const labelIdToName = new Map<string, string>();
       for (const label of labels) {
         if (label.id && label.name) {
           labelIdToName.set(label.id, label.name);
         }
       }
+
+      // FIX C1: Clean stale label IDs from Email.labels[]
+      // Valid IDs = Gmail response labels + system labels (always valid)
+      const validLabelIds = new Set<string>([
+        ...labelIdToName.keys(),
+        ...SYSTEM_LABEL_IDS,
+      ]);
+
+      await this.cleanStaleLabels(tenantId, providerId, validLabelIds);
+
       return labelIdToName;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -418,6 +428,59 @@ export class GmailFolderService {
    */
   findStaleLabels(labelIds: string[], validLabelIds: Set<string>): string[] {
     return labelIds.filter((id) => !validLabelIds.has(id));
+  }
+
+  /**
+   * Remove stale label IDs from Email.labels[] for a provider.
+   * Called after folder sync to clean up IDs of deleted/renamed Gmail labels.
+   * Preserves Email.folder — only cleans the raw labels array.
+   *
+   * Uses batch raw SQL to avoid N+1 queries.
+   */
+  private async cleanStaleLabels(
+    tenantId: string,
+    providerId: string,
+    validLabelIds: Set<string>,
+  ): Promise<void> {
+    // Query emails that have any labels for this provider
+    // We need raw SQL because Prisma can't express "array contains element NOT in set"
+    const validArray = Array.from(validLabelIds);
+
+    // Find emails where labels[] contains at least one ID not in validLabelIds
+    // PostgreSQL: check if labels array has elements not contained in the valid set
+    const staleEmails: Array<{ id: string; labels: string[] }> = await this.prisma.$queryRaw`
+      SELECT "id", "labels"
+      FROM "emails"
+      WHERE "tenantId" = ${tenantId}
+        AND "providerId" = ${providerId}
+        AND array_length("labels", 1) > 0
+        AND NOT "labels" <@ ${validArray}::text[]
+      LIMIT 5000
+    `;
+
+    if (staleEmails.length === 0) {
+      return;
+    }
+
+    this.logger.log(`Found ${staleEmails.length} emails with stale label IDs for provider ${providerId}`);
+
+    // Batch update: remove stale IDs from each email's labels array
+    // Use a single UPDATE with array_intersect pattern
+    const updatedCount = await this.prisma.$executeRaw`
+      UPDATE "emails"
+      SET "labels" = (
+        SELECT array_agg(elem)
+        FROM unnest("labels") AS elem
+        WHERE elem = ANY(${validArray}::text[])
+      ),
+      "updatedAt" = NOW()
+      WHERE "tenantId" = ${tenantId}
+        AND "providerId" = ${providerId}
+        AND array_length("labels", 1) > 0
+        AND NOT "labels" <@ ${validArray}::text[]
+    `;
+
+    this.logger.log(`Cleaned stale labels from ${updatedCount} emails for provider ${providerId}`);
   }
 
   // ========== GMAIL LABEL CRUD OPERATIONS ==========
