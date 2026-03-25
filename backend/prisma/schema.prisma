@@ -545,6 +545,7 @@ model Email {
   @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([providerId, folder, isRead, isDeleted])
   @@index([tenantId, isDeleted, updatedAt])
+  @@index([labels], type: Gin)
   @@map("emails")
 }
 
