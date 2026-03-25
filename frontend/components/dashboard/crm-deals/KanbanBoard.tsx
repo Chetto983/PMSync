@@ -68,7 +68,7 @@ interface StageColumnProps {
   tk: Record<string, string | undefined>;
 }
 
-function StageColumn({ stage, deals, isOverCurrent, onDealClick, tk }: StageColumnProps) {
+const StageColumn = React.memo(function StageColumn({ stage, deals, isOverCurrent, onDealClick, tk }: StageColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const highlighted = isOver || isOverCurrent;
 
@@ -166,7 +166,7 @@ function StageColumn({ stage, deals, isOverCurrent, onDealClick, tk }: StageColu
       </Box>
     </Box>
   );
-}
+});
 
 // ---- Kanban Board ----
 
