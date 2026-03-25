@@ -127,6 +127,33 @@ describe('EntityGraphService', () => {
       expect(result[1].score).toBeLessThan(1.0);
     });
 
+    it('should include externalId in traversal results', async () => {
+      const mockResults = [
+        {
+          nodeId: 'node1',
+          nodeType: 'contact',
+          label: 'Marco Rossi',
+          metadata: {},
+          externalId: 'contact-abc-123',
+          hop: 0,
+          score: 1.0,
+          edgeType: null,
+        },
+      ];
+      prisma.$queryRaw.mockResolvedValue(mockResults);
+
+      const result = await service.traverse('tenant1', ['seed1']);
+
+      expect(result[0].externalId).toBe('contact-abc-123');
+      // Verify the CTE SQL selects externalId
+      const sqlCall = prisma.$queryRaw.mock.calls[0][0];
+      const sqlString =
+        typeof sqlCall === 'object' && sqlCall.strings
+          ? sqlCall.strings.join('')
+          : String(sqlCall);
+      expect(sqlString).toContain('externalId');
+    });
+
     it('should contain decay factor 0.7 in the SQL', async () => {
       prisma.$queryRaw.mockResolvedValue([]);
 

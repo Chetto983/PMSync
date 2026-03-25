@@ -95,6 +95,68 @@ describe('MemoryService', () => {
     });
   });
 
+  describe('getMemoriesByEntities', () => {
+    it('should return empty array when both arrays are empty', async () => {
+      const result = await service.getMemoriesByEntities('t1', 'u1', [], []);
+      expect(result).toEqual([]);
+      expect(mockPrisma.aIMemory.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should query with contactId IN condition for contact IDs only', async () => {
+      mockPrisma.aIMemory.findMany.mockResolvedValue([
+        { id: 'm1', content: 'Prefers morning calls', category: 'preference', createdAt: new Date() },
+      ]);
+
+      const result = await service.getMemoriesByEntities('t1', 'u1', ['c1', 'c2'], []);
+
+      expect(mockPrisma.aIMemory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId: 't1',
+            userId: 'u1',
+            OR: [{ contactId: { in: ['c1', 'c2'] } }],
+          },
+        }),
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('should query with emailId IN condition for email IDs only', async () => {
+      mockPrisma.aIMemory.findMany.mockResolvedValue([]);
+
+      await service.getMemoriesByEntities('t1', 'u1', [], ['e1']);
+
+      expect(mockPrisma.aIMemory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId: 't1',
+            userId: 'u1',
+            OR: [{ emailId: { in: ['e1'] } }],
+          },
+        }),
+      );
+    });
+
+    it('should query with both contactId and emailId OR conditions', async () => {
+      mockPrisma.aIMemory.findMany.mockResolvedValue([]);
+
+      await service.getMemoriesByEntities('t1', 'u1', ['c1'], ['e1']);
+
+      expect(mockPrisma.aIMemory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId: 't1',
+            userId: 'u1',
+            OR: [
+              { contactId: { in: ['c1'] } },
+              { emailId: { in: ['e1'] } },
+            ],
+          },
+        }),
+      );
+    });
+  });
+
   describe('formatMemoriesForPrompt', () => {
     it('should return empty string for no memories', () => {
       expect(service.formatMemoriesForPrompt([])).toBe('');

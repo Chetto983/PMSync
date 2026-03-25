@@ -48,7 +48,7 @@ import {
 } from '../tools/index';
 import { EmailProductivityToolsService } from '../tools/email-productivity-tools.service';
 import { FollowUpToolsService } from '../tools/follow-up-tools.service';
-import { MemoryService } from './memory.service';
+import { MemoryService, type MemoryResult } from './memory.service';
 import { ChatEnrichmentService } from './chat-enrichment.service';
 import { QueryRouterService } from './query-router.service';
 import { EntityGraphService } from './entity-graph.service';
@@ -258,9 +258,33 @@ export class AiChatService {
           const graphResults = seedIds.length > 0
             ? await this.entityGraphService.traverse(tenantId, seedIds, { maxHops: 2 })
             : [];
+
+          // Phase 110: Extract entity IDs from graph traversal for anchored memory lookup
+          const contactIds: string[] = [];
+          const emailIds: string[] = [];
+          for (const node of graphResults) {
+            if (node.externalId) {
+              if (node.nodeType === 'contact') contactIds.push(node.externalId);
+              else if (node.nodeType === 'email') emailIds.push(node.externalId);
+            }
+          }
+
+          // Fetch entity-anchored memories and merge with vector memories (entity-first for priority)
+          const entityMemories = await this.memoryService.getMemoriesByEntities(
+            tenantId, userId, contactIds, emailIds, 10,
+          );
+          const seenIds = new Set<string>();
+          const mergedMemories: MemoryResult[] = [];
+          for (const m of entityMemories) {
+            if (m.id && !seenIds.has(m.id)) { seenIds.add(m.id); mergedMemories.push(m); }
+          }
+          for (const m of memories) {
+            if (m.id && !seenIds.has(m.id)) { seenIds.add(m.id); mergedMemories.push(m); }
+          }
+
           const assembled = this.contextAssemblyService.assemble(
             graphResults,
-            memories,
+            mergedMemories.length > 0 ? mergedMemories : memories,
             fewShotExamples,
           );
           assembledRawTokens = assembled.rawTokenCount;
