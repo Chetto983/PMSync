@@ -71,15 +71,18 @@ export function GeneralSettings({
   copy,
 }: GeneralSettingsProps) {
   // Get all timezones with proper formatting
-  const { options } = useTimezoneSelect({
+  const { options, parseTimezone } = useTimezoneSelect({
     labelStyle: 'original',
     timezones: allTimezones,
   });
 
-  // Find the current timezone option
+  // Find the current timezone option using parseTimezone for fuzzy matching
+  // (e.g. Europe/Rome might map to Africa/Casablanca if same offset group)
   const selectedTimezone = useMemo(() => {
-    return options.find((opt) => opt.value === timezone) || null;
-  }, [options, timezone]);
+    if (!timezone) return null;
+    const parsed = parseTimezone(timezone);
+    return parsed?.value ? parsed : null;
+  }, [options, timezone, parseTimezone]);
 
   return (
     <Box>
