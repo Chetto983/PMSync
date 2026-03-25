@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -26,6 +26,7 @@ import { useDeals, useChangeDealStage } from '@/hooks/queries/use-crm-deals';
 import { usePipeline } from '@/hooks/queries/use-crm-pipelines';
 import { crmDealsKeys } from '@/hooks/queries/crm-deals-keys';
 import { useGlobalToast } from '@/lib/context/toast-context';
+import { websocketClient } from '@/lib/websocket-client';
 import { DealCard } from './DealCard';
 import type { CrmDeal, CrmDealListResponse } from '@/lib/api/crm-deals';
 import type { CrmStage } from '@/lib/api/crm-pipelines';
@@ -192,6 +193,16 @@ export function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     () => [...(pipeline?.stages ?? [])].sort((a, b) => a.position - b.position),
     [pipeline?.stages],
   );
+
+  // Socket.IO: refresh Kanban when another user moves a deal
+  useEffect(() => {
+    const unsubscribe = websocketClient.onCrmDealStageChanged((event) => {
+      if (event.pipelineId === pipelineId) {
+        queryClient.invalidateQueries({ queryKey: crmDealsKeys.all });
+      }
+    });
+    return unsubscribe;
+  }, [pipelineId, queryClient]);
 
   const [activeDeal, setActiveDeal] = useState<CrmDeal | null>(null);
   const [overStageId, setOverStageId] = useState<string | null>(null);

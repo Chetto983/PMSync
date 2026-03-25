@@ -202,6 +202,17 @@ export interface RealtimeAiAgentStepEvent {
   timestamp?: string;
 }
 
+export interface RealtimeCrmDealStageChangedEvent {
+  dealId: string;
+  dealName: string;
+  pipelineId: string;
+  oldStageId: string;
+  newStageId: string;
+  newStageName: string;
+  userId?: string;
+  timestamp?: string;
+}
+
 export type EventHandler<T> = (data: T) => void;
 
 interface RealtimeAuthTokenResponse {
@@ -773,6 +784,14 @@ class WebSocketClient {
    */
   onAiAgentStep(handler: EventHandler<RealtimeAiAgentStepEvent>): () => void {
     return this.registerHandler('ai:agent:step', handler as (...args: unknown[]) => void);
+  }
+
+  /**
+   * CRM DEAL EVENTS
+   */
+
+  onCrmDealStageChanged(handler: EventHandler<RealtimeCrmDealStageChangedEvent>): () => void {
+    return this.registerHandler('crm:deal:stage-changed', handler as (...args: unknown[]) => void);
   }
 
 }
