@@ -105,7 +105,7 @@ export class GmailFolderService {
     gmail: gmail_v1.Gmail,
     tenantId: string,
     providerId: string,
-  ): Promise<void> {
+  ): Promise<Map<string, string>> {
     this.logger.log(`Starting Gmail folder (labels) sync for provider ${providerId}`);
 
     try {
@@ -251,6 +251,15 @@ export class GmailFolderService {
       }
 
       this.logger.log(`Synced ${labelsToSync.length} Gmail labels as folders for provider ${providerId}`);
+
+      // Build and return label ID -> name mapping for downstream stale detection
+      const labelIdToName = new Map<string, string>();
+      for (const label of labels) {
+        if (label.id && label.name) {
+          labelIdToName.set(label.id, label.name);
+        }
+      }
+      return labelIdToName;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -362,7 +371,7 @@ export class GmailFolderService {
    * @param tenantId - Tenant ID
    * @param providerId - Provider config ID
    */
-  async syncFolders(tenantId: string, providerId: string): Promise<void> {
+  async syncFolders(tenantId: string, providerId: string): Promise<Map<string, string>> {
     // P0-5 FIX: Pass tenantId to enforce tenant isolation
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId, tenantId);
 
@@ -372,7 +381,43 @@ export class GmailFolderService {
 
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-    await this.syncGmailFolders(gmail, tenantId, providerId);
+    return this.syncGmailFolders(gmail, tenantId, providerId);
+  }
+
+  /**
+   * Get label ID -> name mapping from persisted Folder records.
+   * Uses the DB as source of truth (populated during syncGmailFolders).
+   *
+   * @returns Map of Gmail label ID (externalId) -> label name
+   */
+  async getLabelMapping(
+    tenantId: string,
+    providerId: string,
+  ): Promise<Map<string, string>> {
+    const folders = await this.prisma.folder.findMany({
+      where: { tenantId, providerId },
+      select: { externalId: true, name: true },
+    });
+
+    const mapping = new Map<string, string>();
+    for (const folder of folders) {
+      if (folder.externalId) {
+        mapping.set(folder.externalId, folder.name);
+      }
+    }
+    return mapping;
+  }
+
+  /**
+   * Detect stale label IDs in Email.labels[] that no longer exist in Gmail.
+   * Compares stored label IDs against the current label mapping.
+   *
+   * @param labelIds - Array of Gmail label IDs from an Email record
+   * @param validLabelIds - Set of currently valid Gmail label IDs
+   * @returns Array of stale label IDs not found in current Gmail labels
+   */
+  findStaleLabels(labelIds: string[], validLabelIds: Set<string>): string[] {
+    return labelIds.filter((id) => !validLabelIds.has(id));
   }
 
   // ========== GMAIL LABEL CRUD OPERATIONS ==========
