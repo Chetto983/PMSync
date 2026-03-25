@@ -12,17 +12,17 @@
 
 ## Sprint Backlog
 
-- [ ] T-0501 — Creare componente `KanbanBoard` in `frontend/src/components/crm/kanban/KanbanBoard.tsx` con `@hello-pangea/dnd` — colonne = stage, card = deal — [3 SP] — 📋 TODO
-- [ ] T-0502 — Creare componente `DealCard` con MUI Card: nome deal, importo formattato, contatto principale, badge colore stage, indicatore expected close — [2 SP] — 📋 TODO
-- [ ] T-0503 — Implementare endpoint `PATCH /crm/deals/:id/stage` per transizione stage con validazione (stageId deve appartenere alla stessa pipeline) — [2 SP] — 📋 TODO
-- [ ] T-0504 — Implementare optimistic update su drag-drop: aggiornamento immediato UI, rollback su errore API, toast di conferma/errore — [3 SP] — 📋 TODO
-- [ ] T-0505 — Calcolo valore pipeline pesato per stage: `sum(deal.amount * stage.probability / 100)` — visualizzare nel header di ogni colonna — [2 SP] — 📋 TODO
-- [ ] T-0506 — Riepilogo stage nel header colonna: conteggio deal, valore totale, valore pesato — [1 SP] — 📋 TODO
-- [ ] T-0507 — Emettere evento Socket.IO `deal:stage-changed` quando un deal cambia stage — broadcast a tutti gli utenti dello stesso tenant — [2 SP] — 📋 TODO
-- [ ] T-0508 — Sottoscrizione Socket.IO nel frontend: aggiornare Kanban board in real-time quando un altro utente sposta un deal — [2 SP] — 📋 TODO
-- [ ] T-0509 — Stati di caricamento e vuoto per Kanban: skeleton colonne durante fetch, messaggio "Nessun deal" per stage vuoti, empty state per pipeline senza deal — [1 SP] — 📋 TODO
-- [ ] T-0510 — Layout responsivo Kanban: scroll orizzontale su mobile, colonne compatte su schermi piccoli — [1 SP] — 📋 TODO
-- [ ] T-0511 — Traduzioni Kanban, type-check entrambe le app — [1 SP] — 📋 TODO
+- [x] T-0501 — Creare componente `KanbanBoard` con `@dnd-kit/core` — colonne = stage, card = deal — [3 SP] — ✅ DONE
+- [x] T-0502 — Creare componente `DealCard` con MUI Card: nome deal, importo formattato, contatto principale, badge colore stage, indicatore expected close — [2 SP] — ✅ DONE
+- [x] T-0503 — Implementare endpoint `PATCH /crm/deals/:id/stage` per transizione stage con validazione (stageId deve appartenere alla stessa pipeline) — [2 SP] — ✅ DONE
+- [x] T-0504 — Implementare optimistic update su drag-drop: aggiornamento immediato UI, rollback su errore API, toast di conferma/errore — [3 SP] — ✅ DONE
+- [x] T-0505 — Calcolo valore pipeline pesato per stage: `sum(deal.amount * stage.probability / 100)` — visualizzare nel header di ogni colonna — [2 SP] — ✅ DONE
+- [x] T-0506 — Riepilogo stage nel header colonna: conteggio deal, valore totale, valore pesato — [1 SP] — ✅ DONE
+- [x] T-0507 — Emettere evento Socket.IO `crm:deal:stage-changed` quando un deal cambia stage — broadcast a tutti gli utenti dello stesso tenant — [2 SP] — ✅ DONE
+- [x] T-0508 — Sottoscrizione Socket.IO nel frontend: aggiornare Kanban board in real-time quando un altro utente sposta un deal — [2 SP] — ✅ DONE
+- [x] T-0509 — Stati di caricamento e vuoto per Kanban: skeleton colonne durante fetch, messaggio "Nessun deal" per stage vuoti, empty state per pipeline senza deal — [1 SP] — ✅ DONE
+- [x] T-0510 — Layout responsivo Kanban: scroll orizzontale su mobile, colonne compatte su schermi piccoli — [1 SP] — ✅ DONE
+- [x] T-0511 — Traduzioni Kanban, type-check entrambe le app — [1 SP] — ✅ DONE
 
 ---
 
