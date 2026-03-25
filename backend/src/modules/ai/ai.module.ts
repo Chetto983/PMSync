@@ -66,6 +66,8 @@ import { AiRunLedgerService } from './services/ai-run-ledger.service';
 import { AiObservabilityController } from './controllers/ai-observability.controller';
 import { AiAnalyticsService } from './services/ai-analytics.service';
 import { RealtimeModule } from '../realtime/realtime.module';
+// Phase 109: Entity extraction for graph RAG
+import { EntityExtractionService } from './services/entity-extraction.service';
 
 /**
  * AiModule - AI/ML services, embeddings, triage, and RAG.
@@ -133,6 +135,8 @@ import { RealtimeModule } from '../realtime/realtime.module';
     EmailIndexedHandler,
     // Phase 45-03: Moved from EmailSyncModule (AI concern, not sync concern)
     EmailEmbeddingCleanupService,
+    // Phase 109: Entity extraction for graph RAG
+    EntityExtractionService,
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, AiObservabilityController],
   exports: [
@@ -158,6 +162,8 @@ import { RealtimeModule } from '../realtime/realtime.module';
     DraftGenerationService,
     // Phase 35: AI Run Ledger (exported for AiChatModule)
     AiRunLedgerService,
+    // Phase 109: Entity extraction (exported for ai-chat module)
+    EntityExtractionService,
   ],
 })
 export class AiModule implements OnModuleInit {
