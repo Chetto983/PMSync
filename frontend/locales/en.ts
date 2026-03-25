@@ -4441,6 +4441,7 @@ export const en: AppTranslations = {
       source: 'Source',
       notes: 'Notes',
       notesPlaceholder: 'Add notes about this deal...',
+      selectPipelineFirst: 'Select a pipeline first',
     },
     priorities: {
       LOW: 'Low',
@@ -4504,6 +4505,7 @@ export const en: AppTranslations = {
         noExpectedClose: 'Not set',
       },
       placeholder: {
+        contacts: 'Coming in Sprint 05',
         products: 'Coming in Sprint 06',
         activity: 'Coming in Sprint 07',
       },

@@ -148,6 +148,9 @@ function DealInfoCard({
   const { data: accountsData } = useAccounts({ limit: 100 });
   const accounts = accountsData?.data ?? [];
 
+  // Local state for amount to avoid API call on every keystroke
+  const [localAmount, setLocalAmount] = useState(deal.amount ?? '');
+
   const selectedPipeline = pipelines?.find(
     (p: CrmPipeline) => p.id === deal.pipelineId,
   );
@@ -176,10 +179,13 @@ function DealInfoCard({
             <TextField
               label={td?.form?.amount}
               type="number"
-              value={deal.amount ?? ''}
-              onChange={(e) =>
-                onSave({ amount: e.target.value ? Number(e.target.value) : null })
-              }
+              value={localAmount}
+              onChange={(e) => setLocalAmount(e.target.value)}
+              onBlur={() => {
+                const numVal = localAmount ? Number(localAmount) : null;
+                const current = deal.amount ? Number(deal.amount) : null;
+                if (numVal !== current) onSave({ amount: numVal });
+              }}
               fullWidth
               size="small"
               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
@@ -445,7 +451,7 @@ export function DealDetail() {
       <TabPanel value={tab} index={1}>
         <Box sx={{ py: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            {td?.detail?.placeholder?.products ?? 'Coming in Sprint 05'}
+            {td?.detail?.placeholder?.contacts ?? 'Coming in Sprint 05'}
           </Typography>
         </Box>
       </TabPanel>

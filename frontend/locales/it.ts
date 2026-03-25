@@ -4418,6 +4418,7 @@ export const it: AppTranslations = {
       source: 'Origine',
       notes: 'Note',
       notesPlaceholder: 'Aggiungi note sulla trattativa...',
+      selectPipelineFirst: 'Seleziona prima una pipeline',
     },
     priorities: {
       LOW: 'Bassa',
@@ -4481,6 +4482,7 @@ export const it: AppTranslations = {
         noExpectedClose: 'Non impostata',
       },
       placeholder: {
+        contacts: 'In arrivo nello Sprint 05',
         products: 'In arrivo nello Sprint 06',
         activity: 'In arrivo nello Sprint 07',
       },

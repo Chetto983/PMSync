@@ -147,6 +147,7 @@ export function CreateDealDialog({ open, onClose }: CreateDealDialogProps) {
                 select
                 required
                 disabled={!form.pipelineId}
+                helperText={!form.pipelineId ? (td?.form?.selectPipelineFirst ?? 'Select a pipeline first') : undefined}
               >
                 <MenuItem value="">—</MenuItem>
                 {stages.map((s) => (

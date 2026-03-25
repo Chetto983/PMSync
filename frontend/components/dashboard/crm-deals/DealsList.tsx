@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -55,14 +55,22 @@ export function DealsList() {
   const router = useRouter();
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
   const [filterPipeline, setFilterPipeline] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
+  // Debounce search to avoid API call on every keystroke
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
   const filters: ListDealsQuery = {
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     pipelineId: filterPipeline || undefined,
     limit: rowsPerPage,
     offset: page * rowsPerPage,
@@ -319,6 +327,7 @@ export function DealsList() {
         message={td?.deleteConfirm ?? 'Are you sure?'}
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
+        confirmDisabled={deleteDeal.isPending}
       />
     </Box>
   );

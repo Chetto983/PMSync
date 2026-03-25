@@ -4270,6 +4270,7 @@ export interface AppTranslations {
       source?: string;
       notes?: string;
       notesPlaceholder?: string;
+      selectPipelineFirst?: string;
     };
     priorities?: {
       LOW?: string;
@@ -4333,6 +4334,7 @@ export interface AppTranslations {
         noExpectedClose?: string;
       };
       placeholder?: {
+        contacts?: string;
         products?: string;
         activity?: string;
       };
