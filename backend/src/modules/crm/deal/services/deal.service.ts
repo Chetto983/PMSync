@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
+import { StageAutomationService } from '../../automation/stage-automation.service';
 import { Prisma } from '@prisma/client';
 import {
   CreateDealDto,
@@ -27,6 +28,7 @@ export class DealService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly stageAutomation: StageAutomationService,
   ) {}
 
   // ---- Deal CRUD ----
@@ -333,6 +335,18 @@ export class DealService {
       oldStageId,
       newStageId: dto.stageId,
       newStageName: updated.stage?.name ?? '',
+    });
+
+    // Enqueue stage automations (async, non-blocking)
+    await this.stageAutomation.enqueueStageChange({
+      tenantId,
+      dealId: id,
+      dealName: updated.name,
+      pipelineId: updated.pipelineId,
+      oldStageId,
+      newStageId: dto.stageId,
+      newStageName: updated.stage?.name ?? '',
+      triggeredByAutomation: false,
     });
 
     return { deal: updated, oldStageId };

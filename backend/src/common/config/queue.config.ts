@@ -438,4 +438,7 @@ export const QUEUE_NAMES = {
 
   // Push notification dispatch (user-facing, latency-sensitive)
   PUSH_DISPATCH: 'push-dispatch',
+
+  // CRM stage automation (triggered on deal stage changes)
+  CRM_STAGE_AUTOMATION: 'crm-stage-automation',
 } as const;

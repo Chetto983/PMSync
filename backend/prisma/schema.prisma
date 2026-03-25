@@ -1732,6 +1732,7 @@ model CrmStage {
   color       String?     @default("#6B7280")
   isWon       Boolean     @default(false)
   isLost      Boolean     @default(false)
+  automations Json?       // [{type:'NOTIFY'|'CREATE_TASK',enabled:boolean,params:{}}]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
