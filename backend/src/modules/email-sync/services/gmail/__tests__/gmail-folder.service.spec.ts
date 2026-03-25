@@ -232,6 +232,43 @@ describe('GmailFolderService', () => {
       const result = service.getFolderPathForLabel('UNKNOWN_ID', 'Unknown');
       expect(result).toBe('UNKNOWN_ID');
     });
+
+    // T-0104: Comprehensive system label mapping tests
+    it('should return SENT for SENT label', () => {
+      expect(service.getFolderPathForLabel('SENT', 'Sent')).toBe('SENT');
+    });
+
+    it('should return TRASH for TRASH label', () => {
+      expect(service.getFolderPathForLabel('TRASH', 'Trash')).toBe('TRASH');
+    });
+
+    it('should return SPAM for SPAM label', () => {
+      expect(service.getFolderPathForLabel('SPAM', 'Spam')).toBe('SPAM');
+    });
+
+    it('should return STARRED for STARRED label', () => {
+      expect(service.getFolderPathForLabel('STARRED', 'Starred')).toBe('STARRED');
+    });
+
+    it('should return IMPORTANT for IMPORTANT label', () => {
+      expect(service.getFolderPathForLabel('IMPORTANT', 'Important')).toBe('IMPORTANT');
+    });
+
+    it('should return UNREAD for UNREAD label', () => {
+      expect(service.getFolderPathForLabel('UNREAD', 'Unread')).toBe('UNREAD');
+    });
+
+    it('should return CHAT for CHAT label', () => {
+      expect(service.getFolderPathForLabel('CHAT', 'Chat')).toBe('CHAT');
+    });
+
+    it('should return UPDATES for CATEGORY_UPDATES', () => {
+      expect(service.getFolderPathForLabel('CATEGORY_UPDATES', 'Updates')).toBe('UPDATES');
+    });
+
+    it('should return FORUMS for CATEGORY_FORUMS', () => {
+      expect(service.getFolderPathForLabel('CATEGORY_FORUMS', 'Forums')).toBe('FORUMS');
+    });
   });
 
   describe('getSpecialUseForLabel', () => {
