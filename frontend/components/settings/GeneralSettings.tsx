@@ -107,15 +107,16 @@ export function GeneralSettings({
             exclusive
             onChange={(_, v) => v && setTheme(v)}
             size="small"
+            fullWidth
           >
-            <ToggleButton value="light" sx={{ px: 3 }}>
-              <Sun size={16} style={{ marginRight: 8 }} /> {copy.themeOptions?.light || 'Light'}
+            <ToggleButton value="light" sx={{ px: { xs: 1.5, sm: 3 } }}>
+              <Sun size={16} style={{ marginRight: 6 }} /> {copy.themeOptions?.light || 'Light'}
             </ToggleButton>
-            <ToggleButton value="dark" sx={{ px: 3 }}>
-              <Moon size={16} style={{ marginRight: 8 }} /> {copy.themeOptions?.dark || 'Dark'}
+            <ToggleButton value="dark" sx={{ px: { xs: 1.5, sm: 3 } }}>
+              <Moon size={16} style={{ marginRight: 6 }} /> {copy.themeOptions?.dark || 'Dark'}
             </ToggleButton>
-            <ToggleButton value="system" sx={{ px: 3 }}>
-              <Monitor size={16} style={{ marginRight: 8 }} /> {copy.themeOptions?.system || 'System'}
+            <ToggleButton value="system" sx={{ px: { xs: 1.5, sm: 3 } }}>
+              <Monitor size={16} style={{ marginRight: 6 }} /> {copy.themeOptions?.system || 'System'}
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
