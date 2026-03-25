@@ -63,5 +63,8 @@
 ## Validation Status
 - Backend tsc: ✅ passing
 - Frontend tsc: ✅ passing
-- Circular deps: pending check
-- Production validation: pending (push + deploy needed)
+- Circular deps: ✅ zero
+- Railway deploy: ✅ /health 200, CRM endpoints 401 (auth guard active)
+- Vercel deploy: ✅ /dashboard/crm/deals 307 (auth redirect)
+- Browser (Edge CDP): ✅ Deal detail renders (5 tabs, progress bar, stage nav), Notes tab empty state, Activity tab empty state, mobile viewport clean
+- Screenshots reviewed: 2026-03-25
