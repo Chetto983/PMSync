@@ -6,14 +6,18 @@ describe('EntityGraphService', () => {
     $queryRaw: jest.Mock;
     graphNode: { findMany: jest.Mock };
   };
+  let mistralEmbeddingService: { generateEmbedding: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       $queryRaw: jest.fn().mockResolvedValue([]),
       graphNode: { findMany: jest.fn().mockResolvedValue([]) },
     };
+    mistralEmbeddingService = {
+      generateEmbedding: jest.fn().mockResolvedValue(new Array(1024).fill(0)),
+    };
 
-    service = new EntityGraphService(prisma as any);
+    service = new EntityGraphService(prisma as any, mistralEmbeddingService as any);
   });
 
   describe('traverse()', () => {
@@ -186,12 +190,14 @@ describe('EntityGraphService', () => {
 
       const result = await service.getNodesByExternalId('tenant1', ['ext1']);
 
-      expect(prisma.graphNode.findMany).toHaveBeenCalledWith({
-        where: {
-          tenantId: 'tenant1',
-          externalId: { in: ['ext1'] },
-        },
-      });
+      expect(prisma.graphNode.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId: 'tenant1',
+            externalId: { in: ['ext1'] },
+          },
+        }),
+      );
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         nodeId: 'node1',
@@ -207,13 +213,15 @@ describe('EntityGraphService', () => {
 
       await service.getNodesByExternalId('tenant1', ['ext1'], 'contact');
 
-      expect(prisma.graphNode.findMany).toHaveBeenCalledWith({
-        where: {
-          tenantId: 'tenant1',
-          externalId: { in: ['ext1'] },
-          nodeType: 'contact',
-        },
-      });
+      expect(prisma.graphNode.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId: 'tenant1',
+            externalId: { in: ['ext1'] },
+            nodeType: 'contact',
+          },
+        }),
+      );
     });
   });
 });
