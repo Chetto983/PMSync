@@ -177,7 +177,7 @@ Plans:
   4. Multi-hop queries ("Find emails from people I met at the conference about budget") trigger few-shot guided tool chains that produce relevant results
 **Plans**: 3 plans
 Plans:
-- [ ] 109-01-PLAN.md — Schema foundation: GraphNode/GraphEdge tables, AIMemory FK columns, entity extraction service
+- [x] 109-01-PLAN.md — Schema foundation: GraphNode/GraphEdge tables, AIMemory FK columns, entity extraction service
 - [ ] 109-02-PLAN.md — EntityGraphService (recursive CTE traversal) + ContextAssemblyService (token-budgeted builder)
 - [ ] 109-03-PLAN.md — Integration: memory anchoring, rag-tools refactor, query router sub-classification, few-shot injection, ledger tracking
 
@@ -191,7 +191,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109
 | 106. Tiered Rate Limiting | 2/2 | Complete    | 2026-03-24 |
 | 107. Push Notification Backend Dispatch | 3/3 | Complete   | 2026-03-24 |
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
-| 109. Graph RAG Pipeline | 0/3 | Not started | - |
+| 109. Graph RAG Pipeline | 1/3 | In Progress|  |
 
 ---
 *Roadmap created: 2026-02-09*

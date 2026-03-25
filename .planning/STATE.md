@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v9.0
 milestone_name: AI Intelligence & Platform Hardening
-status: unknown
-last_updated: "2026-03-24T15:48:34.776Z"
+status: Ready to execute
+last_updated: "2026-03-25T08:57:16.888Z"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 11
+  completed_plans: 9
 ---
 
 # Project State
@@ -18,12 +18,12 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-24)
 
 **Core value:** The best professional AI mail client -- fast, intelligent, and secure
-**Current focus:** Phase 108 — hitl-approval-routing (COMPLETE)
+**Current focus:** Phase 109 — graph-rag-pipeline
 
 ## Current Position
 
-Phase: 108 (hitl-approval-routing) — COMPLETE
-Plan: 3 of 3 (all complete, human-verify approved)
+Phase: 109 (graph-rag-pipeline) — EXECUTING
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -52,6 +52,12 @@ Plan: 3 of 3 (all complete, human-verify approved)
 - [Phase 108]: sensitivity default parameter in getTools() for backward compatibility with test constructors
 - [Phase 108-03]: Used t.chat.hitl.* translations directly instead of copy prop for new HITL fields
 - [Phase 108-03]: Kept Chip import since it's still used for subscription badges in feature toggles
+- [Phase 109]: Used findFirst+create/update for GraphNode upserts (no unique constraint on tenantId+externalId)
+- [Phase 109]: Contact extraction skips LLM (direct metadata mapping)
+- [Phase 109]: Entity toggle via ENTITY_EXTRACTION_ENABLED env var (default true)
+- [Phase 109]: Used Prisma.sql tagged template for recursive CTE with parameterized queries
+- [Phase 109]: gpt-tokenizer cl100k_base BPE for token counting (within 5% of Mistral tokenizer)
+- [Phase 109]: Token budget split: 60% graph / 20% memory / 20% few-shot (4096 default)
 
 ### Research Flags
 
@@ -64,6 +70,6 @@ Plan: 3 of 3 (all complete, human-verify approved)
 
 ## Session Continuity
 
-Last session: 2026-03-24T15:48:34.773Z
+Last session: 2026-03-25T08:57:16.884Z
 Completed: 108-03-PLAN.md (all 3 tasks complete, human-verify approved)
-Resume file: .planning/phases/109-graph-rag-pipeline/109-CONTEXT.md
+Resume file: None
