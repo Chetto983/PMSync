@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit, Optional } from '@nestjs/common';
 import { tool } from 'ai';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -6,6 +6,8 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
 import { HybridSearchService } from '../services/hybrid-search.service';
 import { GraphExpansionService } from '../services/graph-expansion.service';
+import { EntityGraphService } from '../services/entity-graph.service';
+import { ContextAssemblyService } from '../services/context-assembly.service';
 import { truncateToolResult } from '../utils/tool-result-truncator';
 import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import {
@@ -46,11 +48,14 @@ const schemas = {
   graph_context_search: z.object({
     query: z.string().describe('Natural language search query'),
     limit: z.number().min(1).max(10).optional().describe('Maximum seed results for expansion (default 5)'),
+    hops: z.number().min(1).max(3).optional().describe('Graph traversal depth (default 2, max 3)'),
   }),
   save_memory: z.object({
     content: z.string().max(5000).describe('The information to remember'),
     category: z.string().optional().describe('Category for organizing memories (e.g., "preference", "fact", "decision")'),
     tags: z.string().optional().describe('Comma-separated tags for filtering'),
+    contactId: z.string().optional().describe('ID of the contact to anchor this memory to. Pass when memory relates to a specific contact.'),
+    emailId: z.string().optional().describe('ID of the email to anchor this memory to. Pass when memory relates to a specific email.'),
   }),
   list_memories: z.object({
     category: z.string().optional().describe('Filter by category (e.g., "preference", "fact"). Omit to list all.'),
@@ -70,6 +75,8 @@ export class RagToolsService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly hybridSearchService: HybridSearchService,
     private readonly graphExpansionService: GraphExpansionService,
+    @Optional() private readonly entityGraphService: EntityGraphService,
+    @Optional() private readonly contextAssemblyService: ContextAssemblyService,
     @Inject(TOOL_REGISTRY_SERVICE)
     private readonly toolRegistry: IToolRegistryService,
   ) {}
@@ -138,12 +145,12 @@ export class RagToolsService implements OnModuleInit {
   private buildGraphContextSearch(tenantId: string, piiResolve: PiiResolveFn) {
     return tool({
       description:
-        'Deep contextual search that finds emails AND expands related context: ' +
-        'thread conversation history, sender contact info, and recent calendar events with those senders. ' +
+        'Deep contextual search that finds emails AND expands related context via entity graph traversal: ' +
+        'thread conversation history, sender contact info, related calendar events, and entity relationships. ' +
         'Use when the user needs to understand the FULL PICTURE around a topic — not just matching emails. ' +
         'Examples: "what\'s the full context around the Acme deal?", "give me everything about the project deadline discussion", ' +
         '"what do I know about my interactions with Marco?". ' +
-        'Returns: seed email results + thread siblings + matched contacts + related calendar events.',
+        'Returns: graph-expanded context with entity relationships and structured summaries.',
       inputSchema: schemas.graph_context_search,
       execute: async (args) => {
         const resolved = (await piiResolve(
@@ -151,8 +158,58 @@ export class RagToolsService implements OnModuleInit {
         )) as typeof args;
 
         const limit = resolved.limit ?? 5;
+        const hops = resolved.hops ?? 2;
 
-        // Step 1: Hybrid search for seed emails
+        // Use EntityGraphService if available, otherwise fall back to legacy
+        if (this.entityGraphService && this.contextAssemblyService) {
+          // Step 1: Find seed nodes via entity graph
+          const seedIds = await this.entityGraphService.findSeedNodes(
+            tenantId,
+            resolved.query,
+            limit,
+          );
+
+          if (seedIds.length === 0) {
+            // Fallback: try hybrid search for seed emails
+            const seedResults = await this.hybridSearchService.searchEmails(
+              tenantId,
+              resolved.query,
+              limit,
+            );
+            if (seedResults.length === 0) {
+              return truncateToolResult({
+                context: '',
+                summary: 'No matching results found.',
+              });
+            }
+            return truncateToolResult({
+              context: seedResults.map((r) => `${r.subject} (from: ${r.from})`).join('\n'),
+              summary: `Found ${seedResults.length} matching emails via keyword search.`,
+            });
+          }
+
+          // Step 2: Multi-hop traversal
+          const traversalResults = await this.entityGraphService.traverse(
+            tenantId,
+            seedIds,
+            { maxHops: hops },
+          );
+
+          // Step 3: Assemble structured context
+          const assembled = this.contextAssemblyService.assemble(
+            traversalResults,
+            [],
+            [],
+          );
+
+          return truncateToolResult({
+            context: assembled.graphContext,
+            summary: `Graph traversal found ${traversalResults.length} related entities across ${hops} hops.`,
+            tokenCount: assembled.assembledTokenCount,
+          });
+        }
+
+        // Legacy fallback: use GraphExpansionService
         const seedResults = await this.hybridSearchService.searchEmails(
           tenantId,
           resolved.query,
@@ -167,12 +224,10 @@ export class RagToolsService implements OnModuleInit {
           });
         }
 
-        // Step 2: Extract graph expansion inputs from seeds
         const seedEmailIds = seedResults.map((r) => r.emailId);
         const seedThreadIds = seedResults.map((r) => (r as any).threadId ?? null);
         const seedSenders = seedResults.map((r) => r.from);
 
-        // Step 3: Graph expansion (3 parallel queries)
         const expansion = await this.graphExpansionService.expand(
           tenantId,
           seedEmailIds,
@@ -250,6 +305,8 @@ export class RagToolsService implements OnModuleInit {
               content: resolved.content,
               category: resolved.category ?? undefined,
               tags: resolved.tags ?? undefined,
+              contactId: resolved.contactId ?? undefined,
+              emailId: resolved.emailId ?? undefined,
               updatedAt: new Date(),
             },
           });
@@ -278,12 +335,18 @@ export class RagToolsService implements OnModuleInit {
             memoryType: 'FACT',
             confidence: 1.0,
             source: 'chat',
+            contactId: resolved.contactId ?? null,
+            emailId: resolved.emailId ?? null,
           },
         });
 
         await this.prisma.$executeRaw(
           Prisma.sql`UPDATE "ai_memories" SET "vector" = ${vectorLiteral} WHERE "id" = ${memory.id}`,
         );
+
+        // Auto-anchor memory to entity graph (fire-and-forget)
+        this.anchorMemoryToGraph(tenantId, memory.id, resolved.contactId, resolved.emailId)
+          .catch((err) => this.logger.warn(`Memory graph anchoring failed (non-blocking): ${err.message}`));
 
         return truncateToolResult({
           id: memory.id,
@@ -365,5 +428,71 @@ export class RagToolsService implements OnModuleInit {
         return { success: true, deletedId: args.memoryId };
       },
     });
+  }
+
+  /**
+   * Anchor a memory to entity graph nodes via 'anchored_to' edges.
+   * Fire-and-forget -- failure must not break memory save.
+   */
+  private async anchorMemoryToGraph(
+    tenantId: string,
+    memoryId: string,
+    contactId?: string,
+    emailId?: string,
+  ): Promise<void> {
+    if (!contactId && !emailId) return;
+    if (!this.entityGraphService) return;
+
+    // Find or create memory node
+    let memoryNode = await this.prisma.graphNode.findFirst({
+      where: { tenantId, externalId: memoryId, nodeType: 'memory' },
+    });
+
+    if (!memoryNode) {
+      memoryNode = await this.prisma.graphNode.create({
+        data: {
+          tenantId,
+          nodeType: 'memory',
+          externalId: memoryId,
+          label: `Memory: ${memoryId.slice(0, 8)}`,
+          metadata: {},
+        },
+      });
+    }
+
+    // Create anchored_to edges
+    const targets: Array<{ externalId: string; nodeType: string }> = [];
+    if (contactId) targets.push({ externalId: contactId, nodeType: 'contact' });
+    if (emailId) targets.push({ externalId: emailId, nodeType: 'email' });
+
+    for (const target of targets) {
+      const targetNode = await this.prisma.graphNode.findFirst({
+        where: { tenantId, externalId: target.externalId, nodeType: target.nodeType },
+      });
+      if (!targetNode) continue;
+
+      // Upsert edge (prevent duplicates)
+      const existingEdge = await this.prisma.graphEdge.findFirst({
+        where: {
+          tenantId,
+          sourceId: memoryNode.id,
+          targetId: targetNode.id,
+          edgeType: 'anchored_to',
+        },
+      });
+
+      if (!existingEdge) {
+        await this.prisma.graphEdge.create({
+          data: {
+            tenantId,
+            sourceId: memoryNode.id,
+            targetId: targetNode.id,
+            edgeType: 'anchored_to',
+            weight: 1.0,
+            metadata: {},
+          },
+        });
+      }
+    }
   }
 }

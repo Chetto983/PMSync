@@ -33,6 +33,8 @@ import { HybridSearchService } from './services/hybrid-search.service';
 import { QueryRouterService } from './services/query-router.service';
 import { RerankingService } from './services/reranking.service';
 import { GraphExpansionService } from './services/graph-expansion.service';
+import { EntityGraphService } from './services/entity-graph.service';
+import { ContextAssemblyService } from './services/context-assembly.service';
 
 /**
  * AiChatModule -- Streaming AI chat with conversation persistence.
@@ -93,6 +95,9 @@ import { GraphExpansionService } from './services/graph-expansion.service';
     RerankingService,
     // Graph RAG Step 3: Graph-aware context expansion
     GraphExpansionService,
+    // Phase 109: Entity graph + context assembly (Graph RAG pipeline)
+    EntityGraphService,
+    ContextAssemblyService,
   ],
   exports: [AiChatService, ConversationService],
 })

@@ -12,11 +12,12 @@
  * Phase 25: Tools & RAG (Plan 02)
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { validateEmbeddingVector } from '../../../common/utils/vector-validation';
 import { MistralEmbeddingService } from '../../ai/services/mistral-embedding.service';
+import { EntityGraphService } from './entity-graph.service';
 
 /** Memory result from vector search or direct load */
 export interface MemoryResult {
@@ -33,6 +34,7 @@ export class MemoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistralEmbeddingService: MistralEmbeddingService,
+    @Optional() private readonly entityGraphService?: EntityGraphService,
   ) {}
 
   /**
@@ -147,6 +149,36 @@ export class MemoryService {
     }
 
     return results;
+  }
+
+  /**
+   * Retrieve memories anchored to a specific entity (contact or email).
+   * Direct FK lookup -- no vector search needed.
+   */
+  async getMemoriesByEntity(
+    tenantId: string,
+    userId: string,
+    entityId: string,
+    entityType: 'contact' | 'email',
+    limit: number = 10,
+  ): Promise<MemoryResult[]> {
+    const where = entityType === 'contact'
+      ? { tenantId, userId, contactId: entityId }
+      : { tenantId, userId, emailId: entityId };
+
+    const memories = await this.prisma.aIMemory.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      select: { id: true, content: true, category: true, createdAt: true },
+    });
+
+    return memories.map((m) => ({
+      id: m.id,
+      content: m.content,
+      category: m.category,
+      createdAt: m.createdAt,
+    }));
   }
 
   /**
