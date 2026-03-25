@@ -1,31 +1,34 @@
 {
   "version": "1.0",
-  "timestamp": "2026-03-24T16:14:57.055Z",
-  "phase": "109",
-  "phase_name": "graph-rag-pipeline",
-  "phase_dir": ".planning/phases/109-graph-rag-pipeline",
+  "timestamp": "2026-03-25T17:01:07.428Z",
+  "phase": "112",
+  "phase_name": "Full Sync Validation",
+  "phase_dir": ".planning/phases/112-full-sync-validation",
   "plan": 0,
   "task": 0,
-  "total_tasks": 6,
-  "status": "planned",
+  "total_tasks": 0,
+  "status": "paused",
   "completed_tasks": [],
   "remaining_tasks": [
-    {"id": "109-01-T1", "name": "Schema: GraphNode, GraphEdge, AIMemory FKs, AiRunLedger token cols + migration", "status": "not_started"},
-    {"id": "109-01-T2", "name": "EntityExtractionService wired into embedding queues via KnowledgeBaseService", "status": "not_started"},
-    {"id": "109-02-T1", "name": "EntityGraphService with recursive CTE multi-hop traversal", "status": "not_started"},
-    {"id": "109-02-T2", "name": "ContextAssemblyService with token-budgeted structured context builder", "status": "not_started"},
-    {"id": "109-03-T1", "name": "Query router sub-classification + few-shot dynamic injection", "status": "not_started"},
-    {"id": "109-03-T2", "name": "Memory anchoring + rag-tools refactor + ai-chat wiring + ledger tracking", "status": "not_started"}
+    {"id": 1, "name": "Plan Phase 112 (Full Sync Validation)", "status": "not_started"},
+    {"id": 2, "name": "Execute Phase 112", "status": "not_started"}
   ],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
-    {"decision": "Postgres-maximalist: recursive CTEs for graph traversal, no Apache AGE or external graph DB", "rationale": "Deterministic, fast, already have pgvector + Prisma raw SQL patterns", "phase": "109"},
-    {"decision": "Entity extraction piggybacked on existing embedding queues, not a separate queue", "rationale": "Single pipeline, doubles API calls but uses cheap mistral-small model", "phase": "109"},
-    {"decision": "save_memory tool gets explicit contactId/emailId optional params for auto-anchoring", "rationale": "Checker blocker: conversation context doesn't reliably carry entity IDs to tool handler", "phase": "109"},
-    {"decision": "4K token budget split 60/20/20 (graph/memory/few-shot), structured extraction only", "rationale": "No LLM summarization — graph structure provides the summary via relationship paths", "phase": "109"}
+    {"decision": "v10.0 milestone: Email & Sync Production Validation with 41 requirements across 6 categories", "rationale": "Full audit of all email/emailsync operations against live providers (Gmail, Outlook, IMAP) with real data", "phase": "milestone"},
+    {"decision": "11 phases (112-122) continuing numbering from v9.0", "rationale": "Grouped by functional area: sync (3 phases), read (2), write (2), folders (1), infra (2), cross-cutting (1)", "phase": "milestone"},
+    {"decision": "No research phase — validation milestone, not feature milestone", "rationale": "Testing existing code, not building new features", "phase": "milestone"},
+    {"decision": "Both automated scripts and manual E2E verification", "rationale": "Scripts for reproducibility, manual for edge cases and real browser verification", "phase": "milestone"},
+    {"decision": "Bugs found get fixed in-place within same phase", "rationale": "No point deferring fixes when you're actively validating", "phase": "milestone"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Run /gsd:execute-phase 109 to execute all 3 plans (3 waves, 6 tasks total)",
-  "context_notes": "Planning complete with research + verification loop. Checker found 2 blockers on first pass (save_memory anchoring source undefined, Plan 03 lacked behavioral tests). Both fixed in revision, passed on iteration 2. All 6 GRAG requirements covered. No code changes yet — all artifacts are planning docs."
+  "uncommitted_files": [
+    "email-label-audit/sprints/phase-1-google-db-sync/sprint-02.md",
+    "frontend/components/layout/UpdateSnackbar.tsx",
+    "frontend/hooks/use-sw-update.ts",
+    "backend/src/modules/telegram/services/reminder-email-monitor.service.ts (staged)",
+    "backend/src/modules/telegram/services/telegram-webhook.service.ts (staged)"
+  ],
+  "next_action": "Run /gsd:plan-phase 112 to plan Full Sync Validation — write automated validation scripts and verify full sync across Gmail, Outlook, IMAP",
+  "context_notes": "Milestone v10.0 fully initialized. PROJECT.md updated, REQUIREMENTS.md written with 41 REQ-IDs, ROADMAP.md has 11 phases (112-122). All committed. No phase work started yet. Module surface area mapped: 9 controllers, ~55 endpoints, 7 BullMQ queues, 3 drivers."
 }
