@@ -193,6 +193,57 @@
 
 ---
 
+## Milestone: v9.0 -- AI Intelligence & Platform Hardening
+
+**Shipped:** 2026-03-25
+**Phases:** 6 | **Plans:** 14
+
+### What Was Built
+- Tiered rate limiting: 4-tier ThrottlerModule (read 300/min, safe-write 100/min, destructive-write 30/min, send 10/min) with @RateTier decorator and tier-aware guard
+- Push notification backend dispatch: email.indexed -> BullMQ -> web-push multi-device fan-out, thread grouping via Redis INCR/EXPIRE, stale subscription cleanup, per-category preference toggles
+- HITL approval routing: dynamic needsApproval closures per user sensitivity (HIGH_ONLY/ALL_MUTATIONS/NONE), approval card terminal states, GDPR audit trail
+- Graph RAG pipeline: entity extraction, GraphNode/GraphEdge models, recursive CTE traversal, token-budgeted context assembly (60/20/20 split), dynamic few-shot injection
+- Entity-anchored memory retrieval wired into live AI chat pipeline (GRAG-04 gap closure)
+- All 19 RED test stubs replaced with real assertions across 4 push notification spec files
+
+### What Worked
+- Milestone audit mid-stream identified GRAG-04 gap (getMemoriesByEntity orphaned) and test debt (19 RED stubs) -- spawned Phases 110-111 to close them
+- Phase 109 (Graph RAG) decomposed well into 3 plans: schema, services, integration -- each independently testable
+- Redis INCR/EXPIRE for thread grouping was simpler and more reliable than alternatives (no new dependencies)
+- Wave 0 test stub pattern (107-00) ensured test debt was visible and tracked from day one
+- 2-day milestone with 20/20 requirements -- fastest feature-rich milestone by time/requirement ratio
+
+### What Was Inefficient
+- Phase 109 plan tracking shows "1/3" complete in roadmap despite all 3 plans having SUMMARY.md -- checkbox drift persists
+- SUMMARY.md files still lack one_liner fields (same issue since v4.1, 5th milestone in a row)
+- Nyquist validation remains incomplete -- marked as "PARTIAL" in audit, never fully addressed
+- @Optional() guards on EntityGraphService/ContextAssemblyService are backward-compat safety that may never be needed (both are registered)
+- Token counting approximation (text.length / 4) shipped instead of using installed gpt-tokenizer -- technical debt acknowledged but not fixed
+
+### Patterns Established
+- @RateTier decorator + tier-aware guard for per-endpoint rate limit classification
+- Redis INCR/EXPIRE atomic pattern for short-lived deduplication windows (push thread grouping)
+- Dynamic needsApproval closures injected per-request from user preferences (no per-tool DB lookup)
+- Recursive CTE with Prisma.sql for graph traversal (parameterized, injectable)
+- Token budget split pattern: percentage-based allocation across context categories
+- Entity-first dedup: FK-anchored results take priority over vector search results in merge
+- Direct instantiation over TestingModule for simple unit tests without DI
+
+### Key Lessons
+1. Milestone audit -> gap closure phases continues to be the highest-value quality pattern (GRAG-04 gap would have shipped unwired without it)
+2. Wave 0 test stub pattern works well for tracking test debt -- but stubs must be replaced in the same milestone (Phase 111 proved this)
+3. Graph RAG is mostly a backend concern -- no frontend changes needed, just better system prompts and context assembly
+4. Entity-anchored memory retrieval is fundamentally different from semantic search -- both paths needed independently
+5. Per-user preference injection at request time (HITL sensitivity) is cleaner than per-tool configuration
+
+### Cost Observations
+- Model mix: quality profile (opus) for all phases
+- 14 plans completed in 2 days (~93 commits)
+- Average plan execution: ~7min (comparable to v7.0, slower than v8.0's 5min due to Graph RAG complexity)
+- Gap closure phases (110, 111): Phase 110 was 1 plan/~5min, Phase 111 was 2 plans/~10min -- still the cheapest quality investment
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -212,13 +263,15 @@
 | v6.0 | 12 | - | Partial ship, enterprise features deferred |
 | v7.0 | 10 | 35 | Full-system verification, audit-driven, live validation |
 | v8.0 | 6 | 11 | PWA, fastest milestone (2 days, 5min/plan avg) |
+| v9.0 | 6 | 14 | AI intelligence, audit-driven gap closure (Phases 110-111) |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. Milestone audits catch real gaps -- v3.0, v3.1, v4.0, and v7.0 all benefited from audit-before-ship (run at 80%+ completion)
+1. Milestone audits catch real gaps -- v3.0, v3.1, v4.0, v7.0, and v9.0 all benefited from audit-before-ship (run at 80%+ completion)
 2. Carry-forward items are fine when scoped explicitly (v3.2->v4.0 worked cleanly)
-3. Gap closure phases are the cheapest quality investment (avg 3min vs 11min for planned phases) — confirmed again in v7.0 P99
+3. Gap closure phases are the cheapest quality investment (avg 3-5min vs 7-11min for planned phases) -- confirmed in v9.0 P110/P111
 4. Facade pattern for god-file splits is the safest refactoring approach -- zero consumer changes across v4.0 and v4.1
-5. Plan execution velocity improves with each milestone (v1: 8min, v3.2: 11min, v4.0: 8min, v4.1: 6.5min, v7.0: 7min, v8.0: 5min)
-6. Live validation is non-negotiable — v7.0 Phase 90 proved that code review alone misses behavioral bugs (20+ Gmail parity bugs)
-7. SUMMARY.md one_liner fields are still missing after 4 milestones — fix the template, not the downstream extraction
+5. Plan execution velocity stabilizes around 5-7min for well-scoped plans (v8.0: 5min, v9.0: 7min)
+6. Live validation is non-negotiable -- v7.0 Phase 90 proved that code review alone misses behavioral bugs (20+ Gmail parity bugs)
+7. SUMMARY.md one_liner fields are still missing after 5 milestones -- fix the template, not the downstream extraction
+8. Wave 0 test stub pattern works but stubs MUST be replaced in the same milestone -- v9.0 proved this with Phase 111

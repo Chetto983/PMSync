@@ -8,23 +8,13 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 
 **The best professional AI mail client — fast, intelligent, and secure.**
 
-## Current Milestone: v9.0 AI Intelligence & Platform Hardening
-
-**Goal:** Make the AI agent smarter with graph-aware RAG, ship backend push notifications, harden rate limits, and add explicit HITL approval routing.
-
-**Target features:**
-- Push notification backend dispatch (complete the v8.0 plumbing)
-- Tiered write-rate limiting per endpoint category
-- Explicit HITL approval gates for destructive AI tools
-- Graph RAG: query routing, reranking, graph expansion, context assembly, entity graph, memory anchoring, tool consolidation, few-shot examples
-
 ## Current State
 
-**Version:** v9.0 in progress (2026-03-24)
-**Status:** Phase 108 complete — HITL approval routing shipped. Per-user sensitivity control, dynamic needsApproval on all AI tools, audit logging, frontend toggle and approval card terminal states.
-**Previous:** v7.0 System Audit & Hardening (shipped 2026-03-23, 65/65 requirements)
+**Version:** v9.0 shipped (2026-03-25)
+**Status:** All milestones through v9.0 complete. Planning next milestone.
+**Previous:** v8.0 Progressive Web App (shipped 2026-03-24, 21/21 requirements)
 
-**v8.0 delivered:** Full PWA transformation — Serwist service worker with precaching and API bypass, offline email reading via TanStack Query persist to IndexedDB, background sync with offline mutation queue, cross-platform install prompts, push notification frontend plumbing (VAPID subscription, SW handlers), and SW update snackbar.
+**v9.0 delivered:** AI intelligence upgrade — 4-tier rate limiting (read/safe-write/destructive-write/send), full push notification delivery via BullMQ with thread grouping and per-category preferences, HITL approval routing with per-user sensitivity control and GDPR audit logging, graph RAG pipeline with entity extraction, recursive CTE traversal, token-budgeted context assembly (60/20/20 split), dynamic few-shot injection, and entity-anchored memory retrieval wired into live AI chat pipeline.
 
 **Tech Stack:**
 - Backend: NestJS 11, PostgreSQL, Redis, BullMQ, Prisma 7
@@ -149,13 +139,16 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 - ✓ SYNC-01..04: Offline mutation queue, auto-replay on reconnect, 30-min TTL, logout cleanup — v8.0
 - ✓ PLSH-01..02: SW update snackbar, Lighthouse PWA audit — v8.0
 
+**v9.0 - AI Intelligence & Platform Hardening (shipped 2026-03-25):**
+- ✓ RATE-01..03: 4-tier rate limiting (read/safe-write/destructive-write/send), all endpoints audited — v9.0
+- ✓ PUSH-01..07: Push notification backend dispatch (BullMQ pipeline, web-push delivery, thread grouping, per-category preferences) — v9.0
+- ✓ HITL-01..04: HITL approval routing (dynamic needsApproval, per-user sensitivity, destructive styling, GDPR audit) — v9.0
+- ✓ GRAG-01..06: Graph RAG pipeline (entity extraction, graph traversal, context assembly, entity-anchored memory, few-shot injection) — v9.0
+
 ### Active
 
-<!-- v9.0 requirements — see REQUIREMENTS.md for full list -->
-- [ ] Push notification backend dispatch (event triggers, web-push delivery, per-user preferences)
-- [x] Tiered write-rate limiting (endpoint-specific limits replacing flat 30/min) — Validated in Phase 106: Tiered Rate Limiting
-- [x] Explicit HITL approval routing (destructive tool gates, approval UX) — Validated in Phase 108: HITL Approval Routing
-- [ ] Graph RAG pipeline (query router, reranking, graph expansion, context assembly, entity graph, memory anchoring, tool consolidation, few-shot examples)
+<!-- Next milestone requirements go here -->
+(None yet — run `/gsd:new-milestone` to define next milestone)
 
 ### Out of Scope
 
@@ -283,6 +276,13 @@ A professional AI-powered email and productivity platform with enterprise-grade 
 | v8.0: Controlled SW updates via SKIP_WAITING message | User controls reload timing; no surprise page refreshes | ✓ Good |
 | v8.0: Separate IndexedDB stores per concern | pmsync-query-cache vs pmsync-action-queue prevent cross-contamination | ✓ Good |
 | v8.0: Frontend-only push scope | Backend push dispatch deferred to v9+; web-push package unused | ✓ Good |
+| v9.0: Throttler array swap-and-restore | Single-tier-per-request filtering avoids cross-tier enforcement bugs | ✓ Good |
+| v9.0: Redis INCR/EXPIRE for thread grouping | Simple, atomic, no new dependencies for push notification dedup | ✓ Good |
+| v9.0: Dynamic needsApproval closures | Per-user sensitivity without per-request DB lookup in tool definition | ✓ Good |
+| v9.0: gpt-tokenizer cl100k_base BPE | Within 5% of Mistral tokenizer; no vendor-specific dependency | ✓ Good |
+| v9.0: Token budget 60/20/20 split | Graph context gets priority; memory and few-shot share remainder | ✓ Good |
+| v9.0: Entity memories priority over vector | Entity-first dedup ensures FK-anchored results take precedence | ✓ Good |
+| v9.0: Direct instantiation over TestingModule | Simple unit tests with no DI needed; faster test execution | ✓ Good |
 
 ---
-*Last updated: 2026-03-24 after Phase 107 complete*
+*Last updated: 2026-03-25 after v9.0 milestone*

@@ -1,5 +1,38 @@
 # Project Milestones: PMSync
 
+## v9.0 AI Intelligence & Platform Hardening (Shipped: 2026-03-25)
+
+**Delivered:** AI intelligence upgrade with graph-aware RAG, full push notification delivery, tiered rate limiting, and explicit HITL approval routing with per-user sensitivity control.
+
+**Phases completed:** 106-111 (6 phases, 14 plans, 31 tasks)
+
+**Key accomplishments:**
+
+- 4-tier rate limiting (@RateTier decorator + tier-aware guard) replacing flat 30/min limit — read 300/min, safe-write 100/min, destructive-write 30/min, send 10/min
+- Complete push dispatch pipeline: email.indexed -> BullMQ -> web-push multi-device fan-out, thread grouping via Redis INCR/EXPIRE, stale subscription cleanup on 410/404, per-category preference toggles (email/calendar/AI)
+- HITL approval routing: dynamic needsApproval closures per user sensitivity (HIGH_ONLY/ALL_MUTATIONS/NONE), approval card terminal states, GDPR audit trail via logHitlDecision
+- Graph RAG pipeline: entity extraction, GraphNode/GraphEdge models, recursive CTE traversal, token-budgeted context assembly (60% graph / 20% memory / 20% few-shot), dynamic few-shot injection
+- Entity-anchored memory retrieval wired into live AI chat pipeline (GRAG-04 gap closure)
+- All 19 RED test stubs replaced with real assertions across 4 push notification spec files
+
+**Stats:**
+
+- 93 commits, 476 files changed
+- +62,798 / -9,491 lines
+- 2 days (2026-03-24 → 2026-03-25)
+- Requirements: 20/20 satisfied
+
+**Git tag:** `v9.0`
+
+**Known Tech Debt (accepted):**
+
+- Token counting uses Math.ceil(text.length / 4) approximation instead of BPE tokenizer
+- @Optional() guards on EntityGraphService/ContextAssemblyService in ai-chat.service.ts
+- Phase 107 VAPID_PRIVATE_KEY needed in Railway env for production push delivery
+- Audit_logs DB query (SELECT HITL:* events) runtime data check pending
+
+---
+
 ## v8.0 Progressive Web App (Shipped: 2026-03-24)
 
 **Delivered:** Full PWA transformation — installable on all platforms with offline email reading via IndexedDB persistence, background sync for queued actions, push notification frontend plumbing, and native-like install experience with platform-specific UX.
