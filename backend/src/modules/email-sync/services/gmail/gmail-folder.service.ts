@@ -87,7 +87,10 @@ export class GmailFolderService {
       return 'INBOX';
     }
 
-    return fallback ?? 'INBOX';
+    // FIX C2: Emails with only custom labels (Label_xyz) or non-folder system
+    // labels (STARRED, IMPORTANT, UNREAD) were incorrectly defaulting to INBOX.
+    // In Gmail, absence of INBOX label means the email was archived.
+    return fallback ?? 'ARCHIVE';
   }
 
   /**

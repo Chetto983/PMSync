@@ -574,7 +574,10 @@ export class GmailMessageService {
 
     if (labelIds.includes('INBOX')) return 'INBOX';
 
-    return 'INBOX';
+    // FIX C2: Emails with only custom labels (Label_xyz, STARRED, IMPORTANT)
+    // and no system folder label were incorrectly defaulting to INBOX.
+    // In Gmail, absence of INBOX = archived.
+    return 'ARCHIVE';
   }
 
   private parseEmailAddress(address: string): { name?: string; email: string } {

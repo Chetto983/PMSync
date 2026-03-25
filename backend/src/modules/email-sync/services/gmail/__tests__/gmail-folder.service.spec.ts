@@ -4,6 +4,7 @@ import { GmailFolderService } from '../gmail-folder.service';
 import { PrismaService } from '../../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../../common/services/crypto.service';
 import { ProviderTokenService } from '../../provider-token.service';
+import { RealtimeEventsService } from '../../../../realtime/services/realtime-events.service';
 
 // Create mock functions that will be available in the factory
 // Using var to allow hoisting
@@ -62,6 +63,12 @@ const mockProviderTokenService = {
   getProviderWithToken: jest.fn(),
 };
 
+// Mock RealtimeEventsService
+const mockRealtimeEventsService = {
+  emitToTenant: jest.fn(),
+  emitFolderCountsUpdate: jest.fn(),
+};
+
 describe('GmailFolderService', () => {
   let service: GmailFolderService;
 
@@ -74,6 +81,7 @@ describe('GmailFolderService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: CryptoService, useValue: mockCryptoService },
         { provide: ProviderTokenService, useValue: mockProviderTokenService },
+        { provide: RealtimeEventsService, useValue: mockRealtimeEventsService },
       ],
     }).compile();
 
@@ -156,8 +164,28 @@ describe('GmailFolderService', () => {
       expect(result).toBe('CUSTOM');
     });
 
-    it('should return INBOX for unknown labels without fallback', () => {
+    it('should return ARCHIVE for custom-label-only emails (no system folder label)', () => {
       const result = service.determineFolderFromLabels(['Label_123', 'STARRED']);
+      expect(result).toBe('ARCHIVE');
+    });
+
+    it('should return ARCHIVE for emails with only STARRED label', () => {
+      const result = service.determineFolderFromLabels(['STARRED']);
+      expect(result).toBe('ARCHIVE');
+    });
+
+    it('should return ARCHIVE for emails with only IMPORTANT label', () => {
+      const result = service.determineFolderFromLabels(['IMPORTANT']);
+      expect(result).toBe('ARCHIVE');
+    });
+
+    it('should return ARCHIVE for emails with only custom labels', () => {
+      const result = service.determineFolderFromLabels(['Label_abc', 'Label_def']);
+      expect(result).toBe('ARCHIVE');
+    });
+
+    it('should return INBOX for emails with INBOX + custom labels', () => {
+      const result = service.determineFolderFromLabels(['INBOX', 'Label_abc', 'STARRED']);
       expect(result).toBe('INBOX');
     });
   });
