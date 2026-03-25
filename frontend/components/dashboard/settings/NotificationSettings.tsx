@@ -162,14 +162,13 @@ export function NotificationSettings() {
               sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, py: 0.5 }}
             >
               {savingKey === key ? (
-                <CircularProgress size={16} sx={{ mt: 0.5 }} />
+                <CircularProgress size={20} sx={{ mt: 1, ml: 1 }} />
               ) : (
                 <Switch
                   checked={prefs[key]}
                   onChange={() => handleCategoryToggle(key)}
                   disabled={!isSubscribed || isDenied}
                   color="primary"
-                  size="small"
                 />
               )}
               <Box>
