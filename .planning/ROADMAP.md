@@ -118,7 +118,7 @@
 - [x] **Phase 107: Push Notification Backend Dispatch** - Complete the v8.0 push plumbing with actual web-push delivery (completed 2026-03-24)
 - [x] **Phase 108: HITL Approval Routing** - Add explicit approve/reject gates for destructive AI tool calls (completed 2026-03-24)
 - [x] **Phase 109: Graph RAG Pipeline** - Context assembly, memory anchoring, and few-shot examples for smarter AI (completed 2026-03-25)
-- [ ] **Phase 110: Wire Entity-Anchored Memory Retrieval** - Close GRAG-04 integration gap: wire getMemoriesByEntity() into context assembly after graph traversal
+- [x] **Phase 110: Wire Entity-Anchored Memory Retrieval** - Close GRAG-04 integration gap: wire getMemoriesByEntity() into context assembly after graph traversal (completed 2026-03-25)
 - [ ] **Phase 111: Push Notification Test Debt** - Replace 19 RED test stubs across Phase 107 spec files with real assertions
 
 ## Phase Details
@@ -218,7 +218,7 @@ Phases execute in numeric order: 106 -> 107 -> 108 -> 109 -> 110 -> 111
 | 107. Push Notification Backend Dispatch | 3/3 | Complete   | 2026-03-24 |
 | 108. HITL Approval Routing | 3/3 | Complete    | 2026-03-24 |
 | 109. Graph RAG Pipeline | 1/3 | Complete    | 2026-03-25 |
-| 110. Wire Entity-Anchored Memory Retrieval | 0/1 | Planned    |  |
+| 110. Wire Entity-Anchored Memory Retrieval | 0/1 | Complete    | 2026-03-25 |
 | 111. Push Notification Test Debt | 0/0 | Pending | — |
 
 ---
