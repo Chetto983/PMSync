@@ -1,6 +1,6 @@
 import { get, set, del, clear, keys, createStore } from 'idb-keyval';
 
-const DB_NAME = 'pmsync-offline';
+const DB_NAME = 'pmsync-action-queue';
 const STORE_NAME = 'pmsync-action-queue';
 const actionStore = createStore(DB_NAME, STORE_NAME);
 
