@@ -4361,6 +4361,24 @@ export interface AppTranslations {
       crm?: string;
       deals?: string;
     };
+    kanban?: {
+      title?: string;
+      viewKanban?: string;
+      viewList?: string;
+      noPipeline?: string;
+      noPipelineDescription?: string;
+      noDeals?: string;
+      dropHere?: string;
+      stageMovedSuccess?: string;
+      stageMoveError?: string;
+      dealCount?: string;
+      totalValue?: string;
+      weightedValue?: string;
+      expectedClose?: string;
+      noPipelineDeals?: string;
+      noPipelineDealsDescription?: string;
+      loadingBoard?: string;
+    };
   };
 }
 
