@@ -1,15 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
 
+const DISMISS_KEY = 'pmsync:sw-update-dismissed';
+
 export interface UseSwUpdateReturn {
   updateAvailable: boolean;
   activateUpdate: () => void;
+  dismissUpdate: () => void;
 }
 
 export function useSwUpdate(): UseSwUpdateReturn {
   const [waitingSw, setWaitingSw] = useState<ServiceWorker | null>(null);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    // Check if user already dismissed in this session
+    if (sessionStorage.getItem(DISMISS_KEY)) {
+      setDismissed(true);
+      return;
+    }
 
     let cancelled = false;
 
@@ -57,7 +67,12 @@ export function useSwUpdate(): UseSwUpdateReturn {
     }, { once: true });
   }, [waitingSw]);
 
-  return { updateAvailable: !!waitingSw, activateUpdate };
+  const dismissUpdate = useCallback(() => {
+    setDismissed(true);
+    sessionStorage.setItem(DISMISS_KEY, '1');
+  }, []);
+
+  return { updateAvailable: !!waitingSw && !dismissed, activateUpdate, dismissUpdate };
 }
 
 /** @internal Reset for testing */
