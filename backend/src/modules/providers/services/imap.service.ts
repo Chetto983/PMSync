@@ -199,8 +199,13 @@ export class ImapService implements OnModuleDestroy {
 
       client = new ImapFlow(options);
 
-      // Connect to IMAP server
-      await client.connect();
+      // Connect with timeout to prevent hanging on blocked ports (Railway blocks SMTP/IMAP)
+      await Promise.race([
+        client.connect(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('IMAP connection timed out after 10s')), 10_000),
+        ),
+      ]);
 
       this.logger.log(`IMAP connection test successful for ${config.host}`);
       return true;
@@ -239,8 +244,13 @@ export class ImapService implements OnModuleDestroy {
         },
       });
 
-      // Verify connection
-      await transporter.verify();
+      // Verify connection with timeout to prevent hanging on blocked ports
+      await Promise.race([
+        transporter.verify(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP connection timed out after 10s')), 10_000),
+        ),
+      ]);
 
       this.logger.log(`SMTP connection test successful for ${config.host}`);
       return true;

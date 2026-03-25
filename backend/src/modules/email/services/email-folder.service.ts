@@ -500,6 +500,9 @@ export class EmailFolderService {
       }
 
       if (providerType === 'google') {
+        // T-0203: Unified count path — use OR(labels, folder) matching buildEmailWhere
+        // This ensures counts match what the email list displays, even if
+        // Email.labels[] and Email.folder disagree for some records (C3 fix).
         const results = await Promise.all(
           uniqueFolders.map(async (folder) => {
             const folderKey = folder.toUpperCase();
@@ -508,12 +511,18 @@ export class EmailFolderService {
             const isTrash =
               folderRecord?.specialUse?.toUpperCase() === 'TRASH' || folderKey === 'TRASH';
 
+            // Build OR filter: match by labels[] OR folder field
+            const folderConditions: Prisma.EmailWhereInput[] = [
+              { folder: { equals: folder, mode: 'insensitive' } },
+            ];
+            if (labelToken) {
+              folderConditions.push({ labels: { has: labelToken } });
+            }
+
             const baseWhere: Prisma.EmailWhereInput = {
               tenantId,
               providerId,
-              ...(labelToken
-                ? { labels: { has: labelToken } }
-                : { folder: { equals: folder, mode: 'insensitive' } }),
+              OR: folderConditions,
               ...(!isTrash ? { isDeleted: false } : {}),
             };
 
