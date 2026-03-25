@@ -232,3 +232,17 @@ export class ListActivitiesQueryDto {
   @Type(() => Number)
   offset?: number = 0;
 }
+
+// ---- Notes ----
+
+export class CreateNoteDto {
+  @IsString()
+  @MaxLength(10000)
+  content!: string;
+}
+
+export class UpdateNoteDto {
+  @IsString()
+  @MaxLength(10000)
+  content!: string;
+}

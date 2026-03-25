@@ -460,6 +460,12 @@ export class ConversationService {
     content: Record<string, unknown>,
     fallbackToolCallId?: string | null,
   ): ModelMessage {
+    // AI SDK v6 requires output to be a typed discriminated union:
+    // { type: 'text', value: string } | { type: 'json', value: JsonValue } | ...
+    // Stored tool results have raw output — wrap them in the proper format.
+    const rawOutput = content.output ?? content.result ?? content;
+    const output = this.wrapToolOutput(rawOutput);
+
     const toolResult = {
       type: 'tool-result',
       toolCallId:
@@ -468,28 +474,40 @@ export class ConversationService {
           : fallbackToolCallId ?? 'unknown',
       toolName:
         typeof content.toolName === 'string' ? content.toolName : 'unknown',
-      input: content.input ?? {},
-      output: content.output ?? content.result ?? content,
-      ...(typeof content.dynamic === 'boolean'
-        ? { dynamic: content.dynamic }
-        : { dynamic: true }),
-      ...(typeof content.providerExecuted === 'boolean'
-        ? { providerExecuted: content.providerExecuted }
-        : {}),
-      ...(typeof content.preliminary === 'boolean'
-        ? { preliminary: content.preliminary }
-        : {}),
-      ...(typeof content.title === 'string' ? { title: content.title } : {}),
-      ...(content.providerMetadata &&
-      typeof content.providerMetadata === 'object'
-        ? { providerMetadata: content.providerMetadata }
-        : {}),
+      output,
     };
 
     return {
       role: 'tool',
       content: [toolResult],
     } as any; // ModelMessage union type needs cast for tool
+  }
+
+  /**
+   * Wrap a raw tool output value in the AI SDK v6 typed output format.
+   * If already in typed format (has .type field matching outputSchema), pass through.
+   */
+  private wrapToolOutput(raw: unknown): { type: string; value: unknown } {
+    // Already in typed format (e.g. { type: 'text', value: '...' })
+    if (
+      raw &&
+      typeof raw === 'object' &&
+      'type' in raw &&
+      typeof (raw as any).type === 'string' &&
+      'value' in raw
+    ) {
+      const t = (raw as any).type;
+      if (['text', 'json', 'error-text', 'error-json', 'execution-denied', 'content'].includes(t)) {
+        return raw as { type: string; value: unknown };
+      }
+    }
+
+    if (typeof raw === 'string') {
+      return { type: 'text', value: raw };
+    }
+
+    // Objects/arrays → json typed output
+    return { type: 'json', value: raw ?? {} };
   }
 
   /**

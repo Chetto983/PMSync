@@ -770,12 +770,23 @@ export class AiChatService {
       }
     }
 
-    // Pass 2: drop tool messages referencing unknown toolCallIds
+    // Pass 2: drop tool messages referencing unknown toolCallIds,
+    // and normalize output format for tool-result parts.
     return messages.filter((msg) => {
       if (msg.role !== 'tool') return true;
       if (!Array.isArray(msg.content) || (msg.content).length === 0) return false;
-      const toolCallId = (msg.content)[0]?.toolCallId;
-      return typeof toolCallId === 'string' && knownToolCallIds.has(toolCallId);
+      const part = (msg.content)[0] as any;
+      const toolCallId = part?.toolCallId;
+      if (typeof toolCallId !== 'string' || !knownToolCallIds.has(toolCallId)) return false;
+      // Normalize tool-result output to AI SDK v6 typed format
+      if (part?.type === 'tool-result' && part.output != null) {
+        if (!part.output?.type || !('value' in (part.output ?? {}))) {
+          part.output = typeof part.output === 'string'
+            ? { type: 'text', value: part.output }
+            : { type: 'json', value: part.output ?? {} };
+        }
+      }
+      return true;
     }) as ModelMessage[];
   }
 

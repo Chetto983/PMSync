@@ -16,6 +16,8 @@ import {
   ChangeStageDto,
   CreateActivityDto,
   ListActivitiesQueryDto,
+  CreateNoteDto,
+  UpdateNoteDto,
 } from '../dto/deal.dto';
 
 @Injectable()
@@ -380,6 +382,56 @@ export class DealService {
         },
       },
     });
+  }
+
+  // ---- Notes (CrmActivity type=NOTE) ----
+
+  async listNotes(tenantId: string, dealId: string) {
+    await this.findById(tenantId, dealId);
+
+    return this.prisma.crmActivity.findMany({
+      where: { dealId, tenantId, type: 'NOTE' },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createNote(tenantId: string, dealId: string, dto: CreateNoteDto) {
+    await this.findById(tenantId, dealId);
+
+    return this.prisma.crmActivity.create({
+      data: {
+        tenantId,
+        dealId,
+        type: 'NOTE',
+        content: dto.content,
+      },
+    });
+  }
+
+  async updateNote(tenantId: string, noteId: string, dto: UpdateNoteDto) {
+    const note = await this.prisma.crmActivity.findFirst({
+      where: { id: noteId, tenantId, type: 'NOTE' },
+    });
+    if (!note) {
+      throw new NotFoundException(`Note ${noteId} not found`);
+    }
+
+    return this.prisma.crmActivity.update({
+      where: { id: noteId },
+      data: { content: dto.content },
+    });
+  }
+
+  async deleteNote(tenantId: string, noteId: string) {
+    const note = await this.prisma.crmActivity.findFirst({
+      where: { id: noteId, tenantId, type: 'NOTE' },
+    });
+    if (!note) {
+      throw new NotFoundException(`Note ${noteId} not found`);
+    }
+
+    await this.prisma.crmActivity.delete({ where: { id: noteId } });
+    return { deleted: true };
   }
 
   // ---- Helpers ----

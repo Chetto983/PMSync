@@ -46,9 +46,7 @@ describe('ConversationService tool message formatting', () => {
       type: 'tool-result',
       toolCallId: 'tool-1',
       toolName: 'list_email_index',
-      input: { folder: 'inbox' },
-      output: { count: 3 },
-      dynamic: true,
+      output: { type: 'json', value: { count: 3 } },
     });
   });
 
@@ -91,7 +89,7 @@ describe('ConversationService tool message formatting', () => {
       type: 'tool-result',
       toolCallId: 'tool-legacy',
       toolName: 'send_email',
-      output: { approved: false },
+      output: { type: 'json', value: { approved: false } },
     });
   });
 });

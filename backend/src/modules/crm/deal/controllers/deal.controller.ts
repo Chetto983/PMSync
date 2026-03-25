@@ -24,6 +24,8 @@ import {
   ChangeStageDto,
   CreateActivityDto,
   ListActivitiesQueryDto,
+  CreateNoteDto,
+  UpdateNoteDto,
 } from '../dto/deal.dto';
 
 @ApiTags('CRM - Deals')
@@ -119,6 +121,50 @@ export class DealController {
     @Body() dto: CreateActivityDto,
   ) {
     return this.dealService.createActivity(req.user.tenantId, id, dto);
+  }
+
+  // ---- Notes ----
+
+  @Get(':id/notes')
+  @ApiOperation({ summary: 'List notes for a deal' })
+  @ApiResponse({ status: 200, description: 'Notes returned' })
+  async listNotes(@Req() req: any, @Param('id') id: string) {
+    return this.dealService.listNotes(req.user.tenantId, id);
+  }
+
+  @Post(':id/notes')
+  @ApiOperation({ summary: 'Create note for a deal' })
+  @ApiResponse({ status: 201, description: 'Note created' })
+  async createNote(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateNoteDto,
+  ) {
+    return this.dealService.createNote(req.user.tenantId, id, dto);
+  }
+
+  @Patch(':id/notes/:noteId')
+  @ApiOperation({ summary: 'Update a note' })
+  @ApiResponse({ status: 200, description: 'Note updated' })
+  @ApiResponse({ status: 404, description: 'Note not found' })
+  async updateNote(
+    @Req() req: any,
+    @Param('noteId') noteId: string,
+    @Body() dto: UpdateNoteDto,
+  ) {
+    return this.dealService.updateNote(req.user.tenantId, noteId, dto);
+  }
+
+  @Delete(':id/notes/:noteId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a note' })
+  @ApiResponse({ status: 200, description: 'Note deleted' })
+  @ApiResponse({ status: 404, description: 'Note not found' })
+  async deleteNote(
+    @Req() req: any,
+    @Param('noteId') noteId: string,
+  ) {
+    return this.dealService.deleteNote(req.user.tenantId, noteId);
   }
 
   // ---- Deal-Contact associations ----
