@@ -18,8 +18,10 @@ import {
   TableRow,
   TablePagination,
   MenuItem,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
-import { Search, Plus, Trash2 } from 'lucide-react';
+import { Search, Plus, Trash2, List, Kanban } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useUserTimezone } from '@/hooks/use-user-timezone';
@@ -30,8 +32,11 @@ import { usePipelines } from '@/hooks/queries/use-crm-pipelines';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { CreateDealDialog } from './CreateDealDialog';
+import { KanbanBoard } from './KanbanBoard';
 import type { CrmDeal, ListDealsQuery } from '@/lib/api/crm-deals';
 import type { CrmPipeline } from '@/lib/api/crm-pipelines';
+
+type ViewMode = 'list' | 'kanban';
 
 function formatAmount(amount: string | null, currency: string): string {
   if (!amount) return '—';
@@ -66,6 +71,7 @@ export function DealsList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [filterPipeline, setFilterPipeline] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Debounce search to avoid API call on every keystroke
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -133,13 +139,33 @@ export function DealsList() {
             {td?.description}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Plus size={18} />}
-          onClick={() => setCreateOpen(true)}
-        >
-          {td?.newDeal}
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, v) => v && setViewMode(v as ViewMode)}
+            size="small"
+            aria-label="View mode"
+          >
+            <ToggleButton value="list" aria-label={td?.kanban?.viewList ?? 'List'}>
+              <Tooltip title={td?.kanban?.viewList ?? 'List'}>
+                <Box sx={{ display: 'flex' }}><List size={18} /></Box>
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="kanban" aria-label={td?.kanban?.viewKanban ?? 'Kanban'}>
+              <Tooltip title={td?.kanban?.viewKanban ?? 'Kanban'}>
+                <Box sx={{ display: 'flex' }}><Kanban size={18} /></Box>
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Button
+            variant="contained"
+            startIcon={<Plus size={18} />}
+            onClick={() => setCreateOpen(true)}
+          >
+            {td?.newDeal}
+          </Button>
+        </Box>
       </Box>
 
       {/* Search + Filters */}
@@ -183,6 +209,22 @@ export function DealsList() {
         </TextField>
       </Box>
 
+      {/* Kanban View */}
+      {viewMode === 'kanban' ? (
+        filterPipeline ? (
+          <KanbanBoard pipelineId={filterPipeline} />
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              {td?.kanban?.noPipeline ?? 'No pipeline selected'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {td?.kanban?.noPipelineDescription ?? 'Select a pipeline to view the Kanban board.'}
+            </Typography>
+          </Box>
+        )
+      ) : (
+      <>
       {/* Empty state */}
       {rows.length === 0 && !search && !filterPipeline ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -322,6 +364,8 @@ export function DealsList() {
             }
           />
         </>
+      )}
+      </>
       )}
 
       <CreateDealDialog open={createOpen} onClose={() => setCreateOpen(false)} />
