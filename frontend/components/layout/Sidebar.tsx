@@ -24,6 +24,7 @@ import {
   PanelLeftOpen,
   Building2,
   GitBranch,
+  Handshake,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -66,6 +67,7 @@ export function Sidebar({
     { label: t.nav.contacts, icon: <Users size={24} strokeWidth={1.7} />, href: '/dashboard/contacts', section: 'main' },
     { label: t.nav.crmAccounts, icon: <Building2 size={24} strokeWidth={1.7} />, href: '/dashboard/crm/accounts', section: 'crm' },
     { label: t.nav.crmPipelines, icon: <GitBranch size={24} strokeWidth={1.7} />, href: '/dashboard/crm/pipelines', section: 'crm' },
+    { label: t.nav.crmDeals, icon: <Handshake size={24} strokeWidth={1.7} />, href: '/dashboard/crm/deals', section: 'crm' },
     { label: t.ai.followUpTracker?.title || 'Follow-ups', icon: <Bell size={24} strokeWidth={1.7} />, href: '/dashboard/ai/follow-ups', section: 'ai' },
     { label: t.ai.reminders?.title || 'Reminders', icon: <AlarmClock size={24} strokeWidth={1.7} />, href: '/dashboard/reminders', section: 'ai' },
     { label: t.ai?.title || 'AI Assistant', icon: <Sparkles size={24} strokeWidth={1.7} />, href: '/dashboard/ai', section: 'ai' },
