@@ -11,7 +11,7 @@ import {
   DialogActions,
   Button,
 } from '@mui/material';
-import { Search, Menu, Download } from 'lucide-react';
+import { Search, Menu, Download, Upload } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   ContactLayout,
@@ -26,6 +26,7 @@ import { useContactForm } from './contacts-page/useContactForm';
 import { ContactFormDialog, DeleteContactDialog } from './contacts-page/ContactDialogs';
 import { useGlobalToast } from '@/lib/context/toast-context';
 import { crmImportExportApi } from '@/lib/api/crm-import-export';
+import { ImportContactsDialog } from './crm-import/ImportContactsDialog';
 // ComposeDialog removed during email rebuild
 
 export function Contacts() {
@@ -92,6 +93,7 @@ export function Contacts() {
 
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const handleBulkDeleteRequest = useCallback(async () => {
     setBulkDeleteDialogOpen(true);
@@ -164,6 +166,13 @@ export function Contacts() {
             },
           }}
         />
+        <IconButton
+          size="small"
+          onClick={() => setImportDialogOpen(true)}
+          title={translations.crmImportExport?.importContacts ?? 'Import'}
+        >
+          <Upload size={18} />
+        </IconButton>
         <IconButton
           size="small"
           disabled={exportingContacts}
@@ -283,6 +292,11 @@ export function Contacts() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ImportContactsDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+      />
     </>
   );
 }
