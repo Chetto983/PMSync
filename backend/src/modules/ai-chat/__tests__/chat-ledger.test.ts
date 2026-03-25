@@ -110,6 +110,8 @@ describe('AiChatService ledger wiring', () => {
       mockMemoryService as any,
       mockChatEnrichmentService as any,
       { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
+      null as any, // EntityGraphService (Phase 109, @Optional)
+      null as any, // ContextAssemblyService (Phase 109, @Optional)
       mockUsageTracking as any,
       mockLedger as unknown as AiRunLedgerService,
     );

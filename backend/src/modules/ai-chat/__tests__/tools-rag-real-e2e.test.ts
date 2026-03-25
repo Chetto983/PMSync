@@ -296,6 +296,8 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       prisma as any,
       hybridSearchService,
       new (await import('../services/graph-expansion.service')).GraphExpansionService(prisma as any),
+      null as any, // EntityGraphService (Phase 109, @Optional)
+      null as any, // ContextAssemblyService (Phase 109, @Optional)
       noopRegistry,
     );
 
@@ -324,6 +326,8 @@ describe('Phase 25 REAL E2E: Tool Execution (live data)', () => {
       memoryService,
       { getRuntimeContextMetadata: async () => ({}), maybeGenerateSmartTitle: async () => {}, maybeTriggerSummaryGeneration: async () => {} } as any, // ChatEnrichmentService
       { classify: () => ({ complexity: 'search', confidence: 0.5, signals: [] }), getExcludedDomains: () => [] } as any, // QueryRouterService
+      null as any, // EntityGraphService (Phase 109, @Optional)
+      null as any, // ContextAssemblyService (Phase 109, @Optional)
       undefined,
     );
   }, 30_000);
