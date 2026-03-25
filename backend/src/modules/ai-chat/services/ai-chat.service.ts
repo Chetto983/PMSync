@@ -795,13 +795,15 @@ export class AiChatService {
     }
 
     // Pass 2: drop tool messages referencing unknown toolCallIds,
-    // and normalize output format for tool-result parts.
-    return messages.filter((msg) => {
+    // collect answered toolCallIds, and normalize output format.
+    const answeredToolCallIds = new Set<string>();
+    const filtered = messages.filter((msg) => {
       if (msg.role !== 'tool') return true;
       if (!Array.isArray(msg.content) || (msg.content).length === 0) return false;
       const part = (msg.content)[0] as any;
       const toolCallId = part?.toolCallId;
       if (typeof toolCallId !== 'string' || !knownToolCallIds.has(toolCallId)) return false;
+      answeredToolCallIds.add(toolCallId);
       // Normalize tool-result output to AI SDK v6 typed format
       if (part?.type === 'tool-result' && part.output != null) {
         if (!part.output?.type || !('value' in (part.output ?? {}))) {
@@ -811,7 +813,23 @@ export class AiChatService {
         }
       }
       return true;
-    }) as ModelMessage[];
+    });
+
+    // Pass 3: strip tool-call parts from assistant messages when the
+    // corresponding tool-result is missing (AI_MissingToolResultsError fix).
+    for (const msg of filtered) {
+      if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
+      const hasOrphanedToolCall = (msg.content as any[]).some(
+        (p) => p?.type === 'tool-call' && !answeredToolCallIds.has(p.toolCallId),
+      );
+      if (!hasOrphanedToolCall) continue;
+      const cleaned = (msg.content as any[]).filter(
+        (p) => p?.type !== 'tool-call' || answeredToolCallIds.has(p.toolCallId),
+      );
+      msg.content = cleaned.length > 0 ? cleaned : '';
+    }
+
+    return filtered as ModelMessage[];
   }
 
   /**

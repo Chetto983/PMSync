@@ -73,7 +73,8 @@ gantt
     S05 Kanban Drag-Drop & Deal Detail         :s05, after s04, 14d
     S06 Deal Scoring & Products/Quotes         :s06, after s05, 14d
     S07 Contact Bulk Import & Segmentation     :s07, after s05, 14d
-    S08 Pipeline Dashboard & Alpha Testing     :s08, after s06, 14d
+    S07.1 Placeholder Cleanup (sub-sprint)     :s071, after s07, 5d
+    S08 Pipeline Dashboard & Alpha Testing     :s08, after s071, 14d
 
     section Phase 2 — Intelligence Layer
     S09 Lead Scoring Model                     :s09, after s08, 14d
@@ -111,7 +112,8 @@ gantt
 | S05 | Kanban Drag-Drop + Deal Detail View | L | 19 | DnD funzionante, deal detail con timeline |
 | S06 | Deal Scoring + Products/Price Lists | M | 16 | Scoring rule-based, catalogo prodotti, quote base |
 | S07 | Contact Bulk Import & Segmentation | M | 15 | CSV/XLSX import, filtri avanzati, custom fields |
-| S08 | Pipeline Dashboard + Alpha Testing | M | 17 | Grafici conversione/velocity, saved views, bug fix round |
+| **S07.1** | **Placeholder Cleanup (sub-sprint)** | **S** | **8** | **Product CRUD, Deal-Product UI, Account Activity timeline** |
+| S08 | Pipeline Dashboard + Alpha Testing | M | 14 | Grafici conversione/velocity, saved views, bug fix round (T-0806/T-0807 moved to S07.1) |
 
 #### Milestones
 
@@ -292,8 +294,9 @@ graph LR
     S04 --> S05[S05: Kanban DnD]
     S05 --> S06[S06: Scoring & Products]
     S05 --> S07[S07: Contact Import]
-    S06 --> S08[S08: Dashboard & Alpha]
-    S07 -.-> S08
+    S07 --> S07_1[S07.1: Placeholder Cleanup]
+    S07_1 --> S08[S08: Dashboard & Alpha]
+    S06 -.-> S08
 
     S08 --> S09[S09: Lead Scoring]
     S09 --> S10[S10: Score UI & AI Tools]
