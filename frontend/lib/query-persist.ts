@@ -2,7 +2,7 @@ import { experimental_createQueryPersister } from '@tanstack/query-persist-clien
 import type { AsyncStorage } from '@tanstack/query-persist-client-core';
 import { get, set, del, clear, createStore } from 'idb-keyval';
 
-const DB_NAME = 'pmsync-offline';
+const DB_NAME = 'pmsync-query-cache';
 const STORE_NAME = 'pmsync-query-cache';
 
 // Custom store isolates our data from default idb-keyval store

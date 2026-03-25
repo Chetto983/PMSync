@@ -61,6 +61,15 @@ function MaterialThemeWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+// One-time IDB migration: delete stale DB that had colliding object stores.
+// Both query-persist and offline-action-queue shared "pmsync-offline" DB with
+// different store names, causing NotFoundError. Now they use separate DBs.
+// Safe to remove this block after 2026-05-01.
+if (typeof window !== 'undefined' && !localStorage.getItem('pmsync:idb-v2')) {
+  indexedDB.deleteDatabase('pmsync-offline');
+  localStorage.setItem('pmsync:idb-v2', '1');
+}
+
 // Custom hook for client-side mounting check (hydration guard)
 // This is a standard React pattern for avoiding hydration mismatches
 function useHasMounted(): boolean {
