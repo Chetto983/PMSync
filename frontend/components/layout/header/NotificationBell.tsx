@@ -10,6 +10,8 @@ import {
 } from '@mui/material';
 import { Mail } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 
 interface HeaderNotification {
   id: string;
@@ -38,6 +40,7 @@ export function NotificationBell({
   onNotificationClick,
 }: NotificationBellProps) {
   const t = useTranslations();
+  const tz = useUserTimezone();
 
   const formatRelativeTime = useCallback((isoDate?: string) => {
     if (!isoDate) {
@@ -53,7 +56,7 @@ export function NotificationBell({
     if (diffHours < 24) return t.timeAgo.hoursAgo.replace('{hours}', diffHours.toString());
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return t.timeAgo.daysAgo.replace('{days}', diffDays.toString());
-    return date.toLocaleDateString();
+    return formatDateInTz(date, tz);
   }, [t.timeAgo]);
 
   return (

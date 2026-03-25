@@ -8,6 +8,8 @@
  *   C. Draft Statistics (read-only) - total drafts, accept/edit/reject rates, avg edit distance
  */
 import React, { useState, useCallback } from 'react';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import {
   Box,
   Card,
@@ -81,6 +83,7 @@ function StatCard({
 
 export function WritingStyleSettings() {
   const t = useTranslations();
+  const tz = useUserTimezone();
   const ws = t.settings?.writingStylePanel;
 
   const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -229,7 +232,7 @@ export function WritingStyleSettings() {
                     {ws.lastAnalyzed}:
                   </Typography>
                   <Typography variant="body2">
-                    {new Date(style.lastAnalyzed).toLocaleDateString()}
+                    {formatDateInTz(style.lastAnalyzed, tz)}
                   </Typography>
                 </Box>
               )}

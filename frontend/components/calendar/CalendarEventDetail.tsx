@@ -45,6 +45,9 @@ import {
   File,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import type { CalendarEvent as ApiCalendarEvent, CalendarEventAttachment } from '@/lib/api/calendar';
 import { AttendeesPicker, type Attendee } from './AttendeesPicker';
 import { RSVPButtons, type RSVPResponse } from './RSVPButtons';
@@ -186,6 +189,8 @@ export function CalendarEventDetail({
   const theme = useTheme();
   const t = useTranslations();
   const calendarCopy = t.calendar;
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
 
   // Handle close with state cleanup
@@ -362,7 +367,7 @@ export function CalendarEventDetail({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary' }}>
                 <Clock size={18} />
                 <Typography variant="body2">
-                  {new Date(selectedEvent.startTime).toLocaleString()} - {new Date(selectedEvent.endTime).toLocaleString()}
+                  {formatDateTimeInTz(selectedEvent.startTime, timezone, locale)} - {formatDateTimeInTz(selectedEvent.endTime, timezone, locale)}
                 </Typography>
               </Box>
 

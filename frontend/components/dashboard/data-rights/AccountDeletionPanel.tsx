@@ -12,24 +12,14 @@ import {
 } from '@mui/material';
 import { Trash2, ShieldAlert, Undo2 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import { useDeletionStatus, useDeletionMutation, useCancelDeletionMutation } from '@/hooks/queries';
 import { SectionCard } from '@/components/settings/SectionCard';
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '';
-  try {
-    return new Date(dateStr).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
 export function AccountDeletionPanel() {
   const t = useTranslations();
+  const tz = useUserTimezone();
   const copy = t.settings.dataRights?.deletion;
   const { data: deletionStatus, isLoading, error } = useDeletionStatus();
   const deletionMutation = useDeletionMutation();
@@ -75,7 +65,7 @@ export function AccountDeletionPanel() {
             </Typography>
             {deletionStatus?.purgeDate && (
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                {copy?.purgeDate}: {formatDate(deletionStatus.purgeDate)}
+                {copy?.purgeDate}: {formatDateInTz(deletionStatus.purgeDate, tz)}
               </Typography>
             )}
             {deletionStatus?.daysRemaining != null && (

@@ -30,24 +30,34 @@ export function getPrimaryEmail(contact: Contact): string | null {
   return primary?.value || contact.emails?.[0]?.value || null;
 }
 
-export function formatDate(date?: Date | string | null, fallback: string = 'Never', locale?: string): string {
+export function formatDate(date?: Date | string | null, fallback: string = 'Never', locale?: string, timezone?: string): string {
   if (!date) return fallback;
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  try {
+    return new Intl.DateTimeFormat(locale || undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(d);
+  } catch {
+    return d.toLocaleDateString(locale);
+  }
 }
 
-export function formatDateTime(date?: Date | string | null, locale?: string): string {
+export function formatDateTime(date?: Date | string | null, locale?: string, timezone?: string): string {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleString(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  try {
+    return new Intl.DateTimeFormat(locale || undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(d);
+  } catch {
+    return d.toLocaleString(locale);
+  }
 }

@@ -21,6 +21,9 @@ import {
 import { Mail, Calendar, Users, Pencil } from 'lucide-react';
 import { ProviderConfig, providersApi, UpdateProviderDto } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 
 interface ProvidersListProps {
   providers: ProviderConfig[];
@@ -31,6 +34,8 @@ interface ProvidersListProps {
 export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListProps) {
   const translations = useTranslations();
   const providersCopy = translations.providers;
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -126,10 +131,7 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
 
   const formatDate = (date?: string) => {
     if (!date) return providersCopy.neverSynced;
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+    return formatDateTimeInTz(date, timezone, locale);
   };
 
   if (providers.length === 0) {

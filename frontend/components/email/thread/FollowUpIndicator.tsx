@@ -8,14 +8,11 @@ import {
   useUpdateFollowUpStatus,
   useSnoozeFollowUp,
 } from '@/hooks/queries/use-follow-ups';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 
 interface FollowUpIndicatorProps {
   emailId: string;
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function truncate(text: string, max = 80): string {
@@ -27,6 +24,7 @@ export default function FollowUpIndicator({ emailId }: FollowUpIndicatorProps) {
   const updateStatus = useUpdateFollowUpStatus();
   const snooze = useSnoozeFollowUp();
   const [snoozed, setSnoozed] = useState(false);
+  const tz = useUserTimezone();
 
   if (isLoading || !followUp || snoozed) return null;
 
@@ -79,7 +77,7 @@ export default function FollowUpIndicator({ emailId }: FollowUpIndicatorProps) {
       </Typography>
       {followUp.dueDate && (
         <Typography variant="caption" component="span" sx={{ mr: 1 }}>
-          Due: {formatDate(followUp.dueDate)}
+          Due: {formatDateTimeInTz(followUp.dueDate, tz)}
         </Typography>
       )}
       {followUp.reason && (

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Box, Switch, Typography } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 
 interface ConsentToggleProps {
   feature: string;
@@ -23,6 +25,7 @@ export function ConsentToggle({
 }: ConsentToggleProps) {
   const t = useTranslations();
   const consentCopy = t.settings.consentPanel;
+  const tz = useUserTimezone();
 
   return (
     <Box
@@ -44,7 +47,7 @@ export function ConsentToggle({
         </Typography>
         {lastUpdated && (
           <Typography variant="caption" color="text.secondary">
-            {consentCopy?.lastUpdated}: {new Date(lastUpdated).toLocaleDateString()}
+            {consentCopy?.lastUpdated}: {formatDateInTz(lastUpdated, tz)}
           </Typography>
         )}
       </Box>

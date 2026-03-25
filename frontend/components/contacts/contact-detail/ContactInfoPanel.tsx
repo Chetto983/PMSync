@@ -9,6 +9,8 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import {
   Mail,
   Phone,
@@ -36,6 +38,7 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
   const theme = useTheme();
   const t = useTranslations();
   const { locale } = useLocale();
+  const tz = useUserTimezone();
   const contactsCopy = t.contacts || {};
   const detailsCopy = contactsCopy.details || {};
 
@@ -223,7 +226,7 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
                     </Typography>
                   </Box>
                   <Typography variant="body1">
-                    {new Date(contact.birthday).toLocaleDateString(locale)}
+                    {formatDateInTz(contact.birthday, tz, locale)}
                   </Typography>
                 </CardContent>
               </Card>
@@ -238,7 +241,7 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
                     </Typography>
                   </Box>
                   <Typography variant="body1">
-                    {new Date(contact.anniversary).toLocaleDateString(locale)}
+                    {formatDateInTz(contact.anniversary, tz, locale)}
                   </Typography>
                 </CardContent>
               </Card>
@@ -301,7 +304,7 @@ export function ContactInfoPanel({ contact, lastInteraction }: ContactInfoPanelP
                   {contactsCopy.details?.lastInteraction || 'Last Interaction'}
                 </Typography>
               </Box>
-              <Typography variant="body1">{formatDate(lastInteraction, detailsCopy.never ?? 'Never', locale)}</Typography>
+              <Typography variant="body1">{formatDate(lastInteraction, detailsCopy.never ?? 'Never', locale, tz)}</Typography>
             </CardContent>
           </Card>
 

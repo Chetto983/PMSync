@@ -13,6 +13,8 @@ import {
 } from '@mui/material';
 import { Download, FileArchive, Clock } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import { useDataExports, useExportMutation } from '@/hooks/queries';
 import { complianceApi, type DataExportResponse, type DataExportStatus } from '@/lib/api/compliance';
 import { SectionCard } from '@/components/settings/SectionCard';
@@ -41,23 +43,11 @@ function formatFileSize(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '';
-  try {
-    return new Date(dateStr).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return dateStr;
-  }
-}
+// formatDate is now imported from format-date-tz utilities
 
 export function DataExportPanel() {
   const t = useTranslations();
+  const tz = useUserTimezone();
   const copy = t.settings.dataRights?.export;
   const { data: exports, isLoading, error } = useDataExports();
   const exportMutation = useExportMutation();
@@ -171,11 +161,11 @@ export function DataExportPanel() {
                     >
                       <Clock size={14} />
                       <Typography variant="caption" color="text.secondary">
-                        {formatDate(exp.createdAt)}
+                        {formatDateTimeInTz(exp.createdAt, tz)}
                       </Typography>
                       {exp.status === 'READY' && exp.expiresAt && (
                         <Typography variant="caption" color="text.secondary">
-                          {' '}| {copy?.expiresAt}: {formatDate(exp.expiresAt)}
+                          {' '}| {copy?.expiresAt}: {formatDateTimeInTz(exp.expiresAt, tz)}
                         </Typography>
                       )}
                     </Box>

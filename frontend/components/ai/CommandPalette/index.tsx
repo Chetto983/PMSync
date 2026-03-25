@@ -43,6 +43,8 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { createLogger } from '@/lib/logger';
 import { emailsApi } from '@/lib/api/emails';
 import { contactsApi } from '@/lib/api/contacts';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 
 const logger = createLogger('CommandPalette');
 
@@ -66,6 +68,7 @@ interface SearchResult {
 }
 
 export function CommandPalette() {
+  const tz = useUserTimezone();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebounce(search, 300);
@@ -126,7 +129,7 @@ export function CommandPalette() {
               id: `email-${email.id}`,
               type: 'email' as const,
               title: email.subject || '(No subject)',
-              subtitle: `${email.from} • ${new Date(email.receivedAt).toLocaleDateString()}`,
+              subtitle: `${email.from} • ${formatDateInTz(email.receivedAt, tz)}`,
               icon: Mail,
               action: () => router.push(`/dashboard/email?id=${email.id}`),
             })),

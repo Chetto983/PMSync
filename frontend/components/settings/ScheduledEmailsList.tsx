@@ -20,6 +20,9 @@ import {
 } from '@mui/material';
 import { XCircle, Clock } from 'lucide-react';
 import { SectionCard } from './SectionCard';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import {
   useScheduledEmails,
   useCancelScheduledEmail,
@@ -49,6 +52,8 @@ const STATUS_COLOR: Record<StatusKey, 'info' | 'warning' | 'success' | 'error'> 
 };
 
 export function ScheduledEmailsList({ copy }: ScheduledEmailsListProps) {
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
   const { data: emails, isLoading } = useScheduledEmails();
   const cancelMutation = useCancelScheduledEmail();
   const rescheduleMutation = useRescheduleScheduledEmail();
@@ -72,7 +77,7 @@ export function ScheduledEmailsList({ copy }: ScheduledEmailsListProps) {
   };
 
   const formatDate = (iso: string) => {
-    try { return new Date(iso).toLocaleString(); }
+    try { return formatDateTimeInTz(iso, timezone, locale); }
     catch { return iso; }
   };
 

@@ -40,16 +40,10 @@ const UAParser = require('ua-parser-js') as { new(ua: string): { getBrowser(): {
 import { authClient } from '@/lib/auth-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 
 const MAX_PASSKEYS = 5;
-
-function formatDate(date: string | Date, locale: string) {
-  return new Date(date).toLocaleDateString(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
 
 function getAutoPasskeyName(): string {
   if (typeof navigator === 'undefined') return 'Passkey';
@@ -62,6 +56,7 @@ function getAutoPasskeyName(): string {
 export function SecurityMfaSection() {
   const t = useTranslations();
   const { locale } = useLocale();
+  const tz = useUserTimezone();
   const sec = t.settings.securityPanel;
   const mfa = sec?.mfa;
 
@@ -435,7 +430,7 @@ export function SecurityMfaSection() {
                   <ListItemText
                     primary={pk.name || 'Passkey'}
                     secondary={pk.createdAt
-                      ? `${mfa?.passkeys.registered || 'Registered'}: ${formatDate(pk.createdAt, locale)}`
+                      ? `${mfa?.passkeys.registered || 'Registered'}: ${formatDateInTz(pk.createdAt, tz, locale)}`
                       : undefined
                     }
                     primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}

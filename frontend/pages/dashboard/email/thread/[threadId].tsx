@@ -21,6 +21,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ArrowLeft } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 import { useGlobalToast } from '@/lib/context/toast-context';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 
 /**
  * Thread Detail Page
@@ -31,13 +33,13 @@ import { useGlobalToast } from '@/lib/context/toast-context';
  */
 
 // Map Email from API to ThreadMessageData for ThreadView component
-function mapEmailToThreadMessage(email: Email): ThreadMessageData {
+function mapEmailToThreadMessage(email: Email, timezone: string): ThreadMessageData {
   return {
     id: email.id,
     from: email.from,
     to: email.to || [],
     cc: email.cc,
-    date: new Date(email.receivedAt).toLocaleString(),
+    date: formatDateTimeInTz(email.receivedAt, timezone),
     subject: email.subject || '(No subject)',
     body: email.bodyHtml || email.bodyText || '',
     isUnread: !email.isRead,
@@ -55,6 +57,7 @@ export default function ThreadDetailPage() {
   const router = useRouter();
   const toast = useGlobalToast();
   const t = useTranslations();
+  const tz = useUserTimezone();
 
   // Get threadId from URL - may be string or string[] from Next.js
   const threadId = typeof router.query.threadId === 'string' ? router.query.threadId : '';
@@ -80,8 +83,8 @@ export default function ThreadDetailPage() {
   // Map emails to ThreadMessageData format
   const messages = useMemo(() => {
     if (!emails?.length) return [];
-    return emails.map(mapEmailToThreadMessage);
-  }, [emails]);
+    return emails.map((e) => mapEmailToThreadMessage(e, tz));
+  }, [emails, tz]);
 
   // Get thread subject from first email
   const subject = useMemo(() => {

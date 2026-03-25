@@ -13,6 +13,7 @@ import React, { useMemo } from 'react';
 import { FormControl, InputLabel, Select, MenuItem, Box, Typography } from '@mui/material';
 import { Repeat } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
 
 // ============================================================================
 // INTERFACES
@@ -133,6 +134,7 @@ export function RecurrencePicker({
   disabled = false,
 }: RecurrencePickerProps) {
   const t = useTranslations();
+  const _recurrenceTz = useUserTimezone();
   const recurrenceCopy = t.calendar.recurrence;
 
   // Detect current preset from recurrence array
@@ -141,7 +143,7 @@ export function RecurrencePicker({
   // Generate label for weekly option based on start date
   const weeklyLabel = useMemo(() => {
     if (startDate) {
-      const dayName = startDate.toLocaleDateString(undefined, { weekday: 'long' });
+      const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: _recurrenceTz }).format(startDate);
       return recurrenceCopy.weeklyOn.replace('{day}', dayName);
     }
     return recurrenceCopy.weekly;
@@ -151,7 +153,7 @@ export function RecurrencePicker({
   const monthlyLabel = useMemo(() => {
     if (startDate) {
       const week = getWeekOfMonth(startDate);
-      const dayName = startDate.toLocaleDateString(undefined, { weekday: 'long' });
+      const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: _recurrenceTz }).format(startDate);
       const ordinal =
         week === 1
           ? recurrenceCopy.ordinals.first

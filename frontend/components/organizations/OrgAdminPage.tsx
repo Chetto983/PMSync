@@ -35,6 +35,8 @@ import {
   Building2,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import {
   useOrganizations,
   useOrganizationDetail,
@@ -68,6 +70,7 @@ interface OrganizationMemberRow {
 
 function OrgMembersSection({ orgId }: { orgId: string }) {
   const t = useTranslations();
+  const tz = useUserTimezone();
   const { data: orgDetail, isLoading } = useOrganizationDetail(orgId);
   const removeMember = useRemoveMember();
   const [removeTarget, setRemoveTarget] = useState<string | null>(null);
@@ -112,7 +115,7 @@ function OrgMembersSection({ orgId }: { orgId: string }) {
                   <TableCell>{memberIdentifier || '-'}</TableCell>
                   <TableCell>
                     {member.createdAt
-                      ? new Date(member.createdAt).toLocaleDateString()
+                      ? formatDateInTz(member.createdAt, tz)
                       : '-'}
                   </TableCell>
                   <TableCell align="right">

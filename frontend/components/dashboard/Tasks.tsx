@@ -14,6 +14,9 @@ import {
 } from '@mui/material';
 import { Clock, CheckSquare, AlertCircle } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import { EmptyState } from '@/components/common/EmptyState';
 import { QueryErrorAlert } from '@/components/common/QueryErrorAlert';
 import {
@@ -90,6 +93,8 @@ function getTypeChipColor(
 export function Tasks() {
   const t = useTranslations();
   const theme = useTheme();
+  const timezone = useUserTimezone();
+  const { locale } = useLocale();
   const [filter, setFilter] = useState<FilterType>('all');
   const {
     data,
@@ -343,7 +348,7 @@ export function Tasks() {
                           ? t.tasks.overdue
                           : isToday(followUp.dueDate)
                             ? t.tasks.dueToday
-                            : new Date(followUp.dueDate).toLocaleDateString()
+                            : formatDateInTz(followUp.dueDate, timezone, locale)
                       }
                     />
                   )}

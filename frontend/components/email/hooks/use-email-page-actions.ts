@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateInTz } from '@/lib/utils/format-date-tz';
 import {
   useBulkMoveEmails,
   useBulkMarkRead,
@@ -77,6 +79,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
   const router = useRouter();
   const toast = useGlobalToast();
   const t = useTranslations();
+  const _actionsTz = useUserTimezone();
   const { clearSelection } = useEmailUIStore();
 
   // Mutations
@@ -107,7 +110,7 @@ export function useEmailPageActions(params: UseEmailPageActionsParams) {
       from: selectedEmail.from,
       to: selectedEmail.to || [],
       cc: selectedEmail.cc,
-      date: new Date(selectedEmail.receivedAt).toLocaleDateString(),
+      date: formatDateInTz(selectedEmail.receivedAt, _actionsTz),
       receivedAt: selectedEmail.receivedAt,
       subject: selectedEmail.subject || '',
       body: selectedEmail.bodyHtml || selectedEmail.bodyText || '',

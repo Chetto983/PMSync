@@ -11,6 +11,8 @@ import {
 } from '@mui/material';
 import { CheckCircle2, Trash2, Send } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
 import type { Reminder } from '@/lib/api/reminders';
 
 interface ReminderCardProps {
@@ -33,6 +35,7 @@ function prioritaColor(p: string): 'error' | 'warning' | 'success' | 'default' {
 export function ReminderCard({ reminder, selected, onSelect, onComplete, onDelete }: ReminderCardProps) {
   const t = useTranslations();
   const tr = t.ai.reminders;
+  const tz = useUserTimezone();
 
   const isCompleted = reminder.status === 'completato' || reminder.status === 'annullato';
 
@@ -123,7 +126,7 @@ export function ReminderCard({ reminder, selected, onSelect, onComplete, onDelet
           )}
           {reminder.scadenzaDatetime && (
             <Typography variant="caption" color="text.secondary">
-              {tr.fields.deadline}: {new Date(reminder.scadenzaDatetime).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              {tr.fields.deadline}: {formatDateTimeInTz(reminder.scadenzaDatetime, tz)}
             </Typography>
           )}
           {reminder.telegramInviato && (

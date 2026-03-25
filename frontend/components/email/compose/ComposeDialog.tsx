@@ -1,5 +1,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import DOMPurify from 'dompurify';
+import { formatDateTimeInTz } from '@/lib/utils/format-date-tz';
+import { useUserTimezone } from '@/hooks/use-user-timezone';
+import { useLocale } from '@/lib/hooks/use-locale';
 import dynamic from 'next/dynamic';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -110,10 +113,10 @@ function formatReplySubject(subject: string | undefined, mode: ComposeMode): str
 }
 
 /** Get quote header text (On date, sender wrote:) */
-function getQuoteHeader(originalEmail: OriginalEmail | undefined, mode: ComposeMode): string {
+function getQuoteHeader(originalEmail: OriginalEmail | undefined, mode: ComposeMode, timezone?: string, locale?: string): string {
   if (!originalEmail) return '';
   const date = originalEmail.receivedAt
-    ? new Date(originalEmail.receivedAt).toLocaleString()
+    ? (timezone ? formatDateTimeInTz(originalEmail.receivedAt, timezone, locale) : new Date(originalEmail.receivedAt).toLocaleString())
     : '';
   const from = originalEmail.from?.name || originalEmail.from?.email || '';
 
@@ -147,6 +150,8 @@ export default function ComposeDialog({
 }: ComposeDialogProps) {
   const t = useTranslations();
   const composer = t.email.composer;
+  const _composeTimezone = useUserTimezone();
+  const { locale: _composeLocale } = useLocale();
 
   // Mobile detection for responsive fullscreen
   const theme = useTheme();
@@ -245,7 +250,7 @@ export default function ComposeDialog({
   // Quoted content - rendered separately from editor (like Gmail/Outlook)
   const [showQuotedContent, setShowQuotedContent] = useState(true);
   const quotedContent = mode !== 'new' && originalEmail?.bodyHtml ? originalEmail.bodyHtml : '';
-  const quoteHeader = getQuoteHeader(originalEmail, mode);
+  const quoteHeader = getQuoteHeader(originalEmail, mode, _composeTimezone, _composeLocale);
 
   // Thread context for AI compose — strip HTML to plain text
   const threadContext = useMemo(() => {
