@@ -11,7 +11,7 @@ import {
   DialogActions,
   Button,
 } from '@mui/material';
-import { Search, Menu } from 'lucide-react';
+import { Search, Menu, Download } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   ContactLayout,
@@ -25,6 +25,7 @@ import { useContactsPageHandlers } from './contacts-page/useContactsPageHandlers
 import { useContactForm } from './contacts-page/useContactForm';
 import { ContactFormDialog, DeleteContactDialog } from './contacts-page/ContactDialogs';
 import { useGlobalToast } from '@/lib/context/toast-context';
+import { crmImportExportApi } from '@/lib/api/crm-import-export';
 // ComposeDialog removed during email rebuild
 
 export function Contacts() {
@@ -90,6 +91,7 @@ export function Contacts() {
   } = handlers;
 
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [exportingContacts, setExportingContacts] = useState(false);
 
   const handleBulkDeleteRequest = useCallback(async () => {
     setBulkDeleteDialogOpen(true);
@@ -162,6 +164,21 @@ export function Contacts() {
             },
           }}
         />
+        <IconButton
+          size="small"
+          disabled={exportingContacts}
+          onClick={async () => {
+            setExportingContacts(true);
+            try {
+              await crmImportExportApi.exportContactsXlsx({ search: searchQuery || undefined });
+            } finally {
+              setExportingContacts(false);
+            }
+          }}
+          title={translations.crmImportExport?.exportContacts ?? 'Export'}
+        >
+          <Download size={18} />
+        </IconButton>
       </Box>
 
       {selectedIds.size > 0 && (

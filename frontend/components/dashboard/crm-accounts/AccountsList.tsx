@@ -18,10 +18,11 @@ import {
   TableRow,
   TablePagination,
 } from '@mui/material';
-import { Search, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Search, Plus, Trash2, ExternalLink, Download } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAccounts, useDeleteAccount } from '@/hooks/queries/use-crm-accounts';
+import { crmImportExportApi } from '@/lib/api/crm-import-export';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import type { CrmAccount } from '@/lib/api/crm-accounts';
 
@@ -34,6 +35,7 @@ export function AccountsList() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [createOpen, setCreateOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading, isError, error } = useAccounts({
     search: search || undefined,
@@ -87,13 +89,30 @@ export function AccountsList() {
             {ta?.description}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Plus size={18} />}
-          onClick={() => setCreateOpen(true)}
-        >
-          {ta?.newAccount}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<Download size={18} />}
+            disabled={exporting}
+            onClick={async () => {
+              setExporting(true);
+              try {
+                await crmImportExportApi.exportAccountsXlsx({ search: search || undefined });
+              } finally {
+                setExporting(false);
+              }
+            }}
+          >
+            {exporting ? (ta?.exporting ?? 'Exporting...') : (ta?.exportXlsx ?? 'Export')}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Plus size={18} />}
+            onClick={() => setCreateOpen(true)}
+          >
+            {ta?.newAccount}
+          </Button>
+        </Box>
       </Box>
 
       {/* Search */}

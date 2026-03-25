@@ -149,4 +149,17 @@ export const crmAccountsApi = {
       `/crm/accounts/${accountId}/contacts/${contactId}`,
     );
   },
+
+  async exportXlsx(params?: { search?: string; industry?: string }) {
+    const response = await apiClient.get('/crm/accounts/export', {
+      params,
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(response.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `accounts_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 };

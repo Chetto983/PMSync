@@ -226,9 +226,9 @@ export class EmailCrudService {
     const { updated, originalFolder } = await this.prisma.$transaction(async (tx) => {
       // Lock the row with FOR UPDATE to prevent concurrent modifications
       const emails = await tx.$queryRaw<
-        Array<{ id: string; providerId: string; folder: string; externalId: string }>
+        Array<{ id: string; providerId: string; folder: string; externalId: string; labels: string[] }>
       >`
-        SELECT id, "providerId", folder, "externalId"
+        SELECT id, "providerId", folder, "externalId", labels
         FROM "emails"
         WHERE id = ${id} AND "tenantId" = ${tenantId}
         FOR UPDATE
@@ -241,10 +241,21 @@ export class EmailCrudService {
       const email = emails[0];
       await this.ensureProvidersActive(tenantId, [email.providerId]);
 
+      // T-0204: When folder changes, update labels[] to stay in sync
+      // This prevents drift between Email.folder and Email.labels[]
+      const updateData: typeof data & { labels?: string[] } = { ...data };
+      if (data.folder && data.folder !== email.folder) {
+        updateData.labels = this.updateLabelsForFolderChange(
+          email.labels || [],
+          email.folder,
+          data.folder,
+        );
+      }
+
       // Update within the same transaction
       const updatedEmail = await tx.email.update({
         where: { id_tenantId: { id, tenantId } },
-        data,
+        data: updateData,
         include: {
           provider: {
             select: {
@@ -828,5 +839,46 @@ export class EmailCrudService {
     if (providers.length !== uniqueIds.length) {
       throw new NotFoundException('Provider not found or inactive');
     }
+  }
+
+  /**
+   * T-0204: Update Email.labels[] to match a folder change.
+   * Removes the old folder's system label and adds the new one,
+   * preserving custom labels (Label_*) and non-folder system labels.
+   */
+  private updateLabelsForFolderChange(
+    currentLabels: string[],
+    oldFolder: string,
+    newFolder: string,
+  ): string[] {
+    // Map folder names to Gmail label IDs
+    const folderToLabel: Record<string, string> = {
+      INBOX: 'INBOX',
+      SENT: 'SENT',
+      TRASH: 'TRASH',
+      SPAM: 'SPAM',
+      DRAFTS: 'DRAFT',
+      PROMOTIONS: 'CATEGORY_PROMOTIONS',
+      SOCIAL: 'CATEGORY_SOCIAL',
+      UPDATES: 'CATEGORY_UPDATES',
+      FORUMS: 'CATEGORY_FORUMS',
+    };
+
+    const oldLabel = folderToLabel[oldFolder.toUpperCase()];
+    const newLabel = folderToLabel[newFolder.toUpperCase()];
+
+    const updated = new Set(currentLabels);
+
+    // Remove old folder label
+    if (oldLabel) {
+      updated.delete(oldLabel);
+    }
+
+    // Add new folder label (ARCHIVE has no Gmail label — just remove INBOX)
+    if (newLabel) {
+      updated.add(newLabel);
+    }
+
+    return Array.from(updated);
   }
 }

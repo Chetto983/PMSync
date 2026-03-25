@@ -4055,6 +4055,8 @@ export interface AppTranslations {
     searchPlaceholder?: string;
     noAccountsFound?: string;
     noAccountsDescription?: string;
+    exportXlsx?: string;
+    exporting?: string;
     columns?: {
       name?: string;
       website?: string;
@@ -4456,6 +4458,80 @@ export interface AppTranslations {
       noPipelineDeals?: string;
       noPipelineDealsDescription?: string;
       loadingBoard?: string;
+    };
+  };
+  crmImportExport?: {
+    importContacts?: string;
+    exportContacts?: string;
+    exportAccounts?: string;
+    export?: string;
+    exporting?: string;
+    import?: string;
+    importing?: string;
+    uploadFile?: string;
+    uploadDescription?: string;
+    selectFile?: string;
+    changeFile?: string;
+    mapColumns?: string;
+    mapColumnsDescription?: string;
+    csvColumn?: string;
+    contactField?: string;
+    skip?: string;
+    preview?: string;
+    previewDescription?: string;
+    confirm?: string;
+    confirmDescription?: string;
+    rowsToImport?: string;
+    importStarted?: string;
+    importComplete?: string;
+    importFailed?: string;
+    errors?: string;
+    row?: string;
+    fieldTargets?: {
+      firstName?: string;
+      lastName?: string;
+      displayName?: string;
+      email?: string;
+      phone?: string;
+      company?: string;
+      jobTitle?: string;
+      department?: string;
+      notes?: string;
+      tags?: string;
+    };
+    steps?: {
+      upload?: string;
+      map?: string;
+      preview?: string;
+      import?: string;
+    };
+  };
+  crmCustomFields?: {
+    title?: string;
+    description?: string;
+    newField?: string;
+    editField?: string;
+    deleteField?: string;
+    deleteConfirm?: string;
+    noFields?: string;
+    noFieldsDescription?: string;
+    entity?: string;
+    fieldName?: string;
+    fieldLabel?: string;
+    fieldType?: string;
+    required?: string;
+    options?: string;
+    optionsHelp?: string;
+    entities?: {
+      account?: string;
+      contact?: string;
+      deal?: string;
+    };
+    types?: {
+      text?: string;
+      number?: string;
+      date?: string;
+      select?: string;
     };
   };
 }
