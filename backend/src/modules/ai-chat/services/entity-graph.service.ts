@@ -20,6 +20,7 @@ export interface GraphTraversalResult {
   hop: number;
   score: number;
   edgeType?: string;
+  externalId?: string | null;
 }
 
 export interface TraverseOptions {
@@ -86,6 +87,7 @@ export class EntityGraphService {
               n."nodeType",
               n.label,
               n.metadata,
+              n."externalId",
               0 AS hop,
               ARRAY[n.id] AS path,
               1.0::float AS score,
@@ -101,6 +103,7 @@ export class EntityGraphService {
               n2."nodeType",
               n2.label,
               n2.metadata,
+              n2."externalId",
               w.hop + 1 AS hop,
               w.path || n2.id,
               w.score * e.weight * power(0.7, w.hop + 1) AS score,
@@ -116,7 +119,7 @@ export class EntityGraphService {
               AND NOT n2.id = ANY(w.path)
           )
           SELECT DISTINCT ON ("nodeId")
-            "nodeId", "nodeType", label, metadata, hop,
+            "nodeId", "nodeType", label, metadata, "externalId", hop,
             MAX(score) OVER (PARTITION BY "nodeId") AS score,
             "edgeType"
           FROM walk

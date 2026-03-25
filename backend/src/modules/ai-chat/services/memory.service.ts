@@ -182,6 +182,42 @@ export class MemoryService {
   }
 
   /**
+   * Batch retrieve memories anchored to multiple entities.
+   * Single DB round-trip using OR conditions. Avoids N+1.
+   */
+  async getMemoriesByEntities(
+    tenantId: string,
+    userId: string,
+    contactIds: string[],
+    emailIds: string[],
+    limit: number = 10,
+  ): Promise<MemoryResult[]> {
+    if (contactIds.length === 0 && emailIds.length === 0) return [];
+
+    const orConditions: Prisma.AIMemoryWhereInput[] = [];
+    if (contactIds.length > 0) {
+      orConditions.push({ contactId: { in: contactIds } });
+    }
+    if (emailIds.length > 0) {
+      orConditions.push({ emailId: { in: emailIds } });
+    }
+
+    const memories = await this.prisma.aIMemory.findMany({
+      where: { tenantId, userId, OR: orConditions },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      select: { id: true, content: true, category: true, createdAt: true },
+    });
+
+    return memories.map((m) => ({
+      id: m.id,
+      content: m.content,
+      category: m.category,
+      createdAt: m.createdAt,
+    }));
+  }
+
+  /**
    * Format retrieved memories into a system prompt block.
    *
    * Returns a markdown section that gets appended to the base system prompt.
