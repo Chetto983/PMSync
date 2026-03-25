@@ -132,12 +132,12 @@ export class TelegramWebhookService {
         }),
       );
 
-      const userName = message.from?.first_name ?? 'utente';
+      const userName = message.from?.first_name ?? 'user';
       await this.telegramBot.sendMessage(
         chatId,
-        `Collegamento riuscito, ${userName}! ` +
-        'Riceverai i promemoria nei tuoi slot configurati.\n\n' +
-        'Puoi gestire le impostazioni da PMSync > Impostazioni > Telegram.',
+        `Successfully linked, ${userName}! ` +
+        'You will receive reminders in your configured time slots.\n\n' +
+        'Manage settings at PMSync > Settings > Telegram.',
       );
 
       this.logger.log(`Telegram linked: chatId=${chatId} userId=${payload.userId}`);
@@ -148,10 +148,10 @@ export class TelegramWebhookService {
     if (text === '/start') {
       await this.telegramBot.sendMessage(
         chatId,
-        'Benvenuto in *PMSync Follow-Up AI*!\n\n' +
-        'Per collegare il tuo account, vai su:\n' +
-        'PMSync > Impostazioni > Telegram\n' +
-        'e scansiona il QR code.',
+        'Welcome to *PMSync Follow-Up AI*!\n\n' +
+        'To link your account, go to:\n' +
+        'PMSync > Settings > Telegram\n' +
+        'and scan the QR code.',
         { parse_mode: 'Markdown' },
       );
       return;
@@ -223,7 +223,7 @@ export class TelegramWebhookService {
       this.logger.error(`Chat relay error for chatId=${chatId}: ${msg}`);
       await this.telegramBot.sendMessage(
         chatId,
-        'Si è verificato un errore. Riprova tra qualche istante.',
+        'An error occurred. Please try again shortly.',
       );
     }
   }
@@ -304,7 +304,7 @@ export class TelegramWebhookService {
     if (!state) {
       await this.telegramBot.answerCallbackQuery(
         callbackQueryId,
-        'Approvazione scaduta o già gestita.',
+        'Approval expired or already handled.',
       );
       return;
     }
@@ -313,7 +313,7 @@ export class TelegramWebhookService {
     await this.cache.del(groupId, { namespace: CacheNamespace.TELEGRAM_APPROVAL });
 
     const decision = approved ? 'approved' : 'rejected';
-    const label = approved ? 'Approvato' : 'Rifiutato';
+    const label = approved ? 'Approved' : 'Rejected';
     await this.telegramBot.answerCallbackQuery(callbackQueryId, label);
 
     // Edit all approval card messages to show resolution and remove buttons
@@ -338,7 +338,7 @@ export class TelegramWebhookService {
 
     if (!approved) {
       // Rejected — no AI re-submit needed, just confirm
-      await this.telegramBot.sendMessage(chatId, '\u{274C} Azione rifiutata.');
+      await this.telegramBot.sendMessage(chatId, '\u{274C} Action rejected.');
       return;
     }
 
@@ -391,7 +391,7 @@ export class TelegramWebhookService {
       this.logger.error(`HITL resume error for groupId=${groupId}: ${msg}`);
       await this.telegramBot.sendMessage(
         chatId,
-        'Errore durante l\'esecuzione. Riprova.',
+        'Execution error. Please try again.',
       );
     }
   }
@@ -408,7 +408,7 @@ export class TelegramWebhookService {
     if (!settings) {
       await this.telegramBot.sendMessage(
         chatId,
-        'Account non collegato. Vai su PMSync > Impostazioni > Telegram per collegare il tuo account.',
+        'Account not linked. Go to PMSync > Settings > Telegram to connect your account.',
       );
       return null;
     }
@@ -480,7 +480,7 @@ export class TelegramWebhookService {
     if (!settings) {
       await this.telegramBot.sendMessage(
         chatId,
-        'Account non collegato. Vai su PMSync > Impostazioni > Telegram per collegare il tuo account.',
+        'Account not linked. Go to PMSync > Settings > Telegram to connect your account.',
       );
       return;
     }
@@ -562,7 +562,7 @@ export class TelegramWebhookService {
         );
 
         if (!settings) {
-          await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Account non collegato');
+          await this.telegramBot.answerCallbackQuery(callbackQueryId, 'Account not linked');
           return;
         }
 

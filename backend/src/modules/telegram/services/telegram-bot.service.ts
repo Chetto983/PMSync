@@ -285,13 +285,13 @@ export class TelegramBotService implements OnModuleInit {
     const text =
       `${toolEmoji} *Tool: ${toolName}*\n` +
       previewLines.map((l) => `  ${l}`).join('\n') +
-      `\n\nRichiede la tua approvazione.`;
+      `\n\nRequires your approval.`;
 
     const replyMarkup = {
       inline_keyboard: [
         [
-          { text: '\u{2705} Approva', callback_data: `approve:${groupId}` },
-          { text: '\u{274C} Rifiuta', callback_data: `reject:${groupId}` },
+          { text: '\u{2705} Approve', callback_data: `approve:${groupId}` },
+          { text: '\u{274C} Reject', callback_data: `reject:${groupId}` },
         ],
       ],
     };

@@ -742,22 +742,22 @@ export class AiChatService {
     let text = result.text;
     if (!text?.trim() && pendingApprovals.length > 0) {
       const toolLabels: Record<string, string> = {
-        send_email: 'inviare un\'email',
-        reply_email: 'rispondere a un\'email',
-        forward_email: 'inoltrare un\'email',
-        draft_email: 'creare una bozza',
-        delete_email: 'eliminare un\'email',
-        delete_contact: 'eliminare un contatto',
-        delete_event: 'eliminare un evento',
-        create_event: 'creare un evento',
-        update_event: 'aggiornare un evento',
-        create_contact: 'creare un contatto',
-        update_contact: 'aggiornare un contatto',
+        send_email: 'send an email',
+        reply_email: 'reply to an email',
+        forward_email: 'forward an email',
+        draft_email: 'create a draft',
+        delete_email: 'delete an email',
+        delete_contact: 'delete a contact',
+        delete_event: 'delete an event',
+        create_event: 'create an event',
+        update_event: 'update an event',
+        create_contact: 'create a contact',
+        update_contact: 'update a contact',
       };
       const actions = pendingApprovals.map(
         (a) => toolLabels[a.toolName] ?? a.toolName,
       );
-      text = `Vorrei ${actions.join(' e ')}. Controlla i dettagli qui sotto:`;
+      text = `I'd like to ${actions.join(' and ')}. Please review the details below:`;
     }
 
     return {

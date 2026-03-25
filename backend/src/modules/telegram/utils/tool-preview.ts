@@ -18,13 +18,13 @@ type ToolFormatter = (input: Record<string, unknown>) => string[];
 
 const emailFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
-  if (input.to) lines.push(`*A:* ${esc(input.to)}`);
+  if (input.to) lines.push(`*To:* ${esc(input.to)}`);
   if (input.cc) lines.push(`*CC:* ${esc(input.cc)}`);
-  if (input.subject) lines.push(`*Oggetto:* ${esc(input.subject)}`);
+  if (input.subject) lines.push(`*Subject:* ${esc(input.subject)}`);
   if (input.body) {
     const body = String(input.body);
     const truncated = body.length > 150 ? body.slice(0, 150) + '...' : body;
-    lines.push(`*Corpo:* ${esc(truncated)}`);
+    lines.push(`*Body:* ${esc(truncated)}`);
   }
   if (input.emailId) lines.push(`*Email ID:* ${esc(String(input.emailId).slice(0, 20))}...`);
   return lines;
@@ -33,25 +33,25 @@ const emailFormatter: ToolFormatter = (input) => {
 const deleteEmailFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
   if (input.emailId) lines.push(`*Email ID:* ${esc(input.emailId)}`);
-  if (input.subject) lines.push(`*Oggetto:* ${esc(input.subject)}`);
-  lines.push('_Questa azione è irreversibile._');
+  if (input.subject) lines.push(`*Subject:* ${esc(input.subject)}`);
+  lines.push('_This action is irreversible._');
   return lines;
 };
 
 const contactFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
-  if (input.name) lines.push(`*Nome:* ${esc(input.name)}`);
+  if (input.name) lines.push(`*Name:* ${esc(input.name)}`);
   if (input.email) lines.push(`*Email:* ${esc(input.email)}`);
-  if (input.contactId) lines.push(`*Contatto ID:* ${esc(String(input.contactId).slice(0, 20))}...`);
+  if (input.contactId) lines.push(`*Contact ID:* ${esc(String(input.contactId).slice(0, 20))}...`);
   return lines;
 };
 
 const eventFormatter: ToolFormatter = (input) => {
   const lines: string[] = [];
-  if (input.title) lines.push(`*Titolo:* ${esc(input.title)}`);
-  if (input.start) lines.push(`*Inizio:* ${esc(input.start)}`);
-  if (input.end) lines.push(`*Fine:* ${esc(input.end)}`);
-  if (input.eventId) lines.push(`*Evento ID:* ${esc(String(input.eventId).slice(0, 20))}...`);
+  if (input.title) lines.push(`*Title:* ${esc(input.title)}`);
+  if (input.start) lines.push(`*Start:* ${esc(input.start)}`);
+  if (input.end) lines.push(`*End:* ${esc(input.end)}`);
+  if (input.eventId) lines.push(`*Event ID:* ${esc(String(input.eventId).slice(0, 20))}...`);
   return lines;
 };
 
